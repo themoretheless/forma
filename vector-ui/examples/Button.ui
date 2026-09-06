@@ -1,0 +1,21 @@
+component VectorButton {
+    Frame {
+        width: 400;
+        height: 200;
+        padding: 65 70;
+        background: #181e2a;
+
+        Button {
+            key: 'searchButton';
+            text: 'Найти документы';
+            width: 260;
+            height: 70;
+            radius: 16;
+            background: #8ca5ff;
+            color: #14213b;
+            fontSize: 20;
+            disabled: false;
+            clicked -> actions.search();
+        }
+    }
+}

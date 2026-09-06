@@ -1,0 +1,53 @@
+// Reusable visual template. props come from the Button instance.
+component Button {
+    width: 100;
+    height: 40;
+    text: 'Кнопка';
+    fontSize: 16;
+    color: #ffffff;
+    radius: 8;
+    disabled: false;
+    background: #8ca5ff;
+    hoverBackground: #a8baff;
+    pressedBackground: #6a83da;
+    disabledBackground: #596273;
+    borderWidth: 1;
+    borderColor: #bed0ff;
+    focusBorderColor: #ffffff;
+    transitionDuration: 140ms;
+
+    Rectangle {
+        radius: props.radius;
+
+        background: Brush {
+            color: props.background;
+            hover: props.hoverBackground;
+            pressed: props.pressedBackground;
+            disabled: props.disabledBackground;
+            transition: props.transitionDuration;
+        };
+
+        Border {
+            width: props.borderWidth;
+            background: Brush {
+                color: props.borderColor;
+                focus: props.focusBorderColor;
+                transition: props.transitionDuration;
+            };
+        }
+
+        ContentPresenter {
+            key: 'content';
+
+            Text {
+                text: props.text;
+                color: props.color;
+                fontSize: props.fontSize;
+            }
+        }
+
+        PointerArea {
+            clicked -> events.clicked();
+        }
+    }
+}

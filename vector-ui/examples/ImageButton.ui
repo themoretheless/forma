@@ -1,0 +1,22 @@
+component ImageButtonDemo {
+    Frame {
+        radius: 12;
+        clip: true;
+        width: 400;
+        height: 200;
+        padding: 65 70;
+        background: #181e2a;
+
+        ImageButton {
+            key: 'imageSearchButton';
+            text: 'Найти документы';
+            width: 260;
+            height: 70;
+            radius: 16;
+            fontSize: 20;
+            compact: false;
+            showIcon: true;
+            clicked -> actions.search();
+        }
+    }
+}

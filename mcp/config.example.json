@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "forma-studio": {
+      "command": "node",
+      "args": ["/absolute/path/to/forma/mcp/server.js"]
+    }
+  }
+}

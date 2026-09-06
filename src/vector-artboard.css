@@ -1,0 +1,6 @@
+/* One CSS geometry owns both the Studio artboard fill and border. The canvas
+   contains transparent vector children, so visible overflow stays visible. */
+#preview.vector-artboard {
+  box-sizing: content-box;
+  background-clip: padding-box;
+}

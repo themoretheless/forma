@@ -1,0 +1,27 @@
+.explorer{display:flex;flex-direction:column;min-height:0}
+.explorer>.section-title{flex-shrink:0}
+.explorer>#tree{flex:1;min-height:0;overflow:auto;padding-bottom:16px}
+.explorer>.explorer-note{position:static;flex-shrink:0;padding:10px 16px;font-size:10px}
+.explorer.has-control-tree>.explorer-note small{display:none}
+.control-tree-panel{display:flex;flex-direction:column;flex:0 0 40%;min-height:180px;max-height:55%;border-top:1px solid #303746;background:#12161d;overflow:hidden}
+.control-tree-panel[hidden]{display:none}
+.control-tree-heading{display:flex;align-items:center;gap:4px;padding:8px 10px;flex-shrink:0}
+.control-tree-heading>span{margin-right:auto;font-size:10px;letter-spacing:1.4px;color:#8590a3}
+.control-tree-heading button{font-size:16px;padding:1px 4px}
+.control-tree-scopes{display:flex;gap:4px;padding:0 8px 7px}
+.control-tree-scopes button{font-size:11px;flex:1;padding:4px}
+.control-tree-file{font-size:10px;color:#7788a6;padding:0 10px 7px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0}
+.control-tree-search{width:calc(100% - 16px);margin:0 8px 6px;min-height:26px;background:#0e1117;border:1px solid #303848;border-radius:4px;padding:4px 7px;font-size:11px;color:#d8e3f6;flex-shrink:0}
+.control-tree-items{overflow:auto;flex:1;min-height:0;padding:2px 0 10px}
+.control-tree-row{display:flex;align-items:center;gap:5px;min-height:29px;white-space:nowrap;font-size:11px;padding-right:9px;cursor:pointer;color:#b9c8df;user-select:none;outline:none}
+.control-tree-row:hover{background:#202839}
+.control-tree-row[aria-selected=true]{background:#29364e;box-shadow:inset 2px 0 #9bb4ff;color:#e6efff}
+.control-tree-row:focus-visible{outline:1px solid #9bb4ff;outline-offset:-1px}
+.control-tree-row[aria-disabled=true]{opacity:.55;cursor:default}
+.control-tree-arrow{width:13px;text-align:center;color:#92a5c3;flex-shrink:0}
+.control-tree-label{overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:85%}
+.control-tree-detail{color:#7488aa;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+.control-tree-status,.control-tree-empty{font-size:10px;color:#c3a272;padding:5px 10px;margin:0}
+.control-tree-template{font-size:10px;text-align:left;border-top:1px solid #303746;border-radius:0;flex-shrink:0;color:#9cb5eb}
+.control-tree-template[hidden]{display:none}
+@media(max-width:750px){.control-tree-panel{min-height:170px}.control-tree-detail{display:none}.control-tree-scopes button{font-size:10px}.preview-tools{flex-wrap:wrap}}

@@ -1,0 +1,16 @@
+.code-wrap { position: relative; isolation: isolate; }
+.code-wrap:has(.source-editor) { padding-top: 0; }
+.source-editor { flex: 1; min-width: 0; height: 100%; }
+.spacing-overlay { position: fixed; pointer-events: none; z-index: 10; overflow: hidden; }
+#code[hidden], #lines[hidden] { display: none; }
+#source-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: rgb(120 155 255 / 13%);
+  border-left: 3px solid #9ab3ff;
+  box-shadow: inset 0 1px rgb(150 179 255 / 22%), inset 0 -1px rgb(150 179 255 / 22%);
+  pointer-events: none;
+  z-index: -1;
+}
+#source-highlight[hidden] { display: none; }

@@ -1,0 +1,292 @@
+import './style.css';
+import './selection.css';
+import './vector-artboard.css';
+import './control-tree.css';
+import {createControlTree} from './control-tree.js';
+import {mountEditor} from './editor.js';
+import {createSpacingOverlay} from './spacing-overlay.js';
+import {gridProperties,gridStyles} from './grid.js';
+import {sizeProperties,sizeValue} from './sizing.js';
+import {nativeSnapshot} from './native-snapshot.js';
+import {loadVectorRuntime,createVectorPreview} from './vector-preview.js';
+import {compileComponents} from './components.js';
+import {setDesignData,designReferences} from './design-data.js';
+let codeEditor;
+let spacingOverlay;
+let vectorPreview;
+let controlTree,selectedPath=null;
+const controlTreeDocuments=new Map();
+let renderer=localStorage.getItem('forma-renderer')==='vector'?'vector':'html';
+import {parse,resolve,validateDesign} from './language.js';
+
+const initial={
+ 'ui/SearchWindow.ui':`#[design('./SearchWindow.design.ui')]
+component SearchWindow {
+    Frame {
+        padding: 32;
+        gap: 16;
+
+        Text {
+            text: 'Библиотека знаний';
+            font.size: 26;
+            color: #e8edf7;
+        }
+
+        Text {
+            text: 'Найдите ответ в ваших документах';
+            color: #98a4ba;
+        }
+
+        TextInput {
+            key: 'query';
+            value <-> state.query;
+            placeholder: 'Что найти?';
+            padding: 12;
+        }
+
+        Button {
+            key: 'searchButton';
+            style: primary;
+            text: 'Найти документы';
+            disabled: state.loading;
+            clicked -> actions.search();
+        }
+
+        Text {
+            key: 'status';
+            text: state.status;
+            color: '#98a4ba';
+        }
+    }
+}`,
+ 'ui/SearchWindow.design.ui':`design SearchWindow {
+    TextInput { key: 'query'; value: ''; }
+    Button { key: 'searchButton'; disabled: false; }
+    Text { key: 'status'; text: '24 документа в библиотеке'; }
+}`, 
+ 'src/actions.rs':`// Контракт будущего Rust-backend.
+// Этот файл редактируется, но не выполняется в web-preview.
+
+pub struct SearchState {
+    pub query: String,
+    pub loading: bool,
+    pub status: String,
+}
+
+pub fn search(state: &mut SearchState) {
+    state.loading = true;
+    // Подключите прикладной сервис поиска.
+}
+`,
+ 'README.md':'# Knowledge workspace\n\n.ui — разметка.\n.design.ui — сценарии предпросмотра.\n\nОтладчик останавливается перед событием UI.\nПродолжить — применяет демонстрационный обработчик.\nRust-код требует будущей интеграции DAP.\n'
+};
+let files;try{files=JSON.parse(localStorage.getItem('forma-project'))||initial;}catch{files=initial;}
+// Rename only parsed component identifiers, leaving strings/comments untouched.
+for(const [path,source]of Object.entries(files))if(path.endsWith('.ui')){
+  try{const offsets=[];const walk=nodes=>{for(const n of nodes){if(n.type==='Column')offsets.push(n.start);walk(n.children);}};walk(parse(source).nodes);
+    let updated=source;for(const start of offsets.sort((a,b)=>b-a))updated=updated.slice(0,start)+'Frame'+updated.slice(start+6);files[path]=updated;
+  }catch{/* Keep incomplete source intact. Column remains a supported alias. */}
+}
+files['Cargo.toml']??=`[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
+files['src/main.rs']??=`mod actions;\n\nfn main() {\n    let mut state = actions::SearchState {\n        query: String::from("Архитектура"),\n        loading: false,\n        status: String::from("Готов"),\n    };\n    println!("Rust-приложение запущено");\n    println!("Запрос: {}", state.query);\n    actions::search(&mut state);\n    println!("После actions::search: loading={}, status={}", state.loading, state.status);\n}\n`;
+let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')), scenario=0,state={},compiled=null,selected=null,mode='design',pending=null,breakOn=false,logs=[],tab='problems',error='',saveTimer,compileTimer;
+try{const view=JSON.parse(localStorage.getItem('forma-view'));if(view?.entry in files)entry=view.entry;if(view?.active in files)active=view.active;}catch{}
+function persistView(){try{localStorage.setItem('forma-view',JSON.stringify({active,entry}));}catch{}}
+const $=id=>document.getElementById(id);
+document.querySelector('#app').innerHTML=`
+<header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">knowledge-workspace <span> / локальный проект</span></div><button id="import">Открыть</button><button id="export">Экспорт</button><button id="run" class="accent">▶ Взаимодействие</button></header>
+<div class="workspace"><aside class="explorer"><div class="section-title">ПРОЕКТ <button id="new" title="Создать файл">+</button></div><div id="tree"></div><div class="explorer-note"><span class="dot"></span> Локальное сохранение<br><small>Проект хранится в этом браузере.<br>Экспортируйте для резервной копии.</small></div></aside>
+<main><div class="tabs"><span class="file-icon">◇</span><span id="filename"></span><span id="saved">Сохранено</span><button id="entry" title="Показать этот UI в предпросмотре">Показать UI</button></div><div class="editor-preview"><section class="code-pane"><div class="pane-toolbar"><span>РАЗМЕТКА / КОД</span><span id="language">Forma UI</span></div><div class="code-wrap"><div id="lines"></div><textarea id="code" spellcheck="false" aria-label="Редактор исходного кода"></textarea></div></section><section class="preview-pane"><div class="pane-toolbar"><span>LIVE PREVIEW <i class="dot"></i></span><select id="scenario" aria-label="Дизайн-сценарий"></select></div><div class="preview-tools"><button id="desktop" class="chosen">Desktop</button><button id="mobile">Mobile</button><button id="theme">◐ Тема</button><span id="preview-name"></span></div><div id="canvas"><div id="preview"></div></div><div class="preview-caption" id="caption">Выберите элемент, чтобы найти его в разметке</div></section></div>
+<section class="bottom"><div class="bottom-tabs"><button data-tab="problems" class="chosen">Диагностика <span id="problem-count">0</span></button><button data-tab="events">События <span id="event-count">0</span></button><button data-tab="state">Состояние</button><div class="debug-controls"><label><input type="checkbox" id="break"> Break on event</label><button id="continue" disabled>▶ Продолжить</button><button id="reset">↺ Сброс</button></div></div><div id="output"></div></section></main>
+<aside class="inspector"><div class="section-title">ИНСПЕКТОР</div><div id="inspector"><div class="empty-icon">⌖</div><p>Выберите компонент</p><small>Свойства и привязки появятся здесь</small></div><div class="debug-info"><span>UI DEBUGGER</span><p id="debug-status">Готов</p><small>События и состояние дизайн-runtime.<br>Rust / DAP не подключён.</small></div></aside></div>
+<footer><span class="dot"></span><span id="status">Готов</span><span class="footer-right">Forma UI · UTF-8 <span id="position">Ln 1, Col 1</span></span></footer><input type="file" id="upload" accept=".json" hidden>`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function persist(){try{localStorage.setItem('forma-project',JSON.stringify(files));$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
+function tree(){const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
+function open(path){active=path;persistView();codeEditor?.setLanguage(path);$('filename').textContent=path.split('/').at(-1);$('code').value=files[path];$('language').textContent=path.endsWith('.rs')?'Rust · редактирование':path.endsWith('.ui')?'Forma UI':'Текст';$('entry').disabled=!path.endsWith('.ui')||path.endsWith('.design.ui');lines();tree();refreshControlTree();}
+function lines(){$('lines').textContent=Array.from({length:$('code').value.split('\n').length},(_,i)=>i+1).join('\n');const before=$('code').value.slice(0,$('code').selectionStart).split('\n');$('position').textContent=`Ln ${before.length}, Col ${before.at(-1).length+1}`;highlightSource();}
+function highlightSource(){
+  spacingOverlay?.update();
+  if(codeEditor){codeEditor.highlight(selected&&active===selectedPath?selected:null);return;}
+  const code=$('code');let layer=$('source-highlight');
+  if(!layer){layer=document.createElement('div');layer.id='source-highlight';layer.setAttribute('aria-hidden','true');code.parentElement.append(layer);}
+  layer.hidden=!selected||active!==selectedPath;
+  if(layer.hidden)return;
+  const first=code.value.slice(0,selected.start).split('\n').length-1;
+  const last=code.value.slice(0,selected.end).split('\n').length-1;
+  const lineHeight=parseFloat(getComputedStyle(code).lineHeight);
+  const start=first*lineHeight-code.scrollTop;
+  const end=(last+1)*lineHeight-code.scrollTop;
+  const top=Math.max(0,start),bottom=Math.min(code.clientHeight,end);
+  layer.hidden=bottom<=top;
+  layer.style.top=(code.offsetTop+top)+'px';
+  layer.style.height=Math.max(0,bottom-top)+'px';
+  layer.dataset.lines=`${first+1}-${last+1}`;
+}
+function log(text){logs.push({time:new Date().toLocaleTimeString(),text});if(logs.length>200)logs.shift();output();}
+function output(){$('problem-count').textContent=error?1:0;$('event-count').textContent=logs.length;$('output').innerHTML=tab==='state'?`<pre>${esc(JSON.stringify(state,null,2))}</pre>`:tab==='events'?logs.map(l=>`<div class="log"><time>${l.time}</time>${esc(l.text)}</div>`).join('')||'<p class="muted">События появятся при взаимодействии с предпросмотром.</p>':error?`<p class="error">● ${esc(error)}</p>`:'<p class="ok">✓ Разметка проверена. Ошибок нет.</p>';}
+function compile(reset=false){persistView();try{if(!entry||!files[entry])throw Error('Откройте .ui компонент и нажмите «Показать UI»');const next=parse(files[entry]);let scenarios=[];for(const ref of next.designs){const base=entry.includes('/')?entry.slice(0,entry.lastIndexOf('/')+1):'';const path=base+ref.replace(/^\.\//,'');if(!(path in files))throw Error(`Дизайн-файл не найден: ${path}`);const design=parse(files[path]);scenarios.push(...design.scenarios);if(Object.keys(design.overrides).length){validateDesign(next,design);for(const key of Object.keys(design.overrides)){if(Object.hasOwn(next.overrides,key))throw Error(`Повторный дизайн-key ${key}`);Object.defineProperty(next.overrides,key,{value:design.overrides[key],enumerable:true});}}}compiled=next;compiled.scenarios=scenarios;scenario=Math.min(scenario,Math.max(0,scenarios.length-1));if(reset)state=structuredClone(scenarios[scenario]?.state??{});$('scenario').innerHTML=scenarios.map((s,i)=>`<option value="${i}">${esc(s.name)}</option>`).join('')||'<option>Без сценария</option>';$('scenario').value=scenario;$('preview-name').textContent=next.name;error='';render();$('status').textContent='Live preview обновлён';}catch(e){error=e.message;$('status').textContent='Ошибка · сохранён последний предпросмотр';}refreshControlTree();output();}
+function render(designMode=mode==='design'){
+if(!compiled)return;
+if(renderer==='vector'){
+  if(!vectorPreview)throw Error('Загрузка векторного Rust/WASM…');
+  if(!files['components/Button.ui'])throw Error('Добавьте components/Button.ui с примитивами кнопки');
+  if(compiled.designs.length)throw Error('Векторный срез пока не поддерживает design-файлы и ViewModel');
+  const linked=compileComponents(files,entry,state);
+  const ok=vectorPreview.render({container:$('preview'),...linked,designMode,nodes:compiled.nodes,selectedStart:selectedPath===entry?selected?.start:null});
+  if(!ok)throw Error(error||'Ошибка векторного компонента');
+  $('preview').style.width=vectorPreview.snapshot().width+'px';$('preview').style.minHeight='0';$('preview').style.overflow='visible';
+  $('caption').textContent=designMode?'Rust/WASM · компонент из примитивов · щёлкните для выбора':'Rust/WASM · hover / pressed + transitions · события в журнале';
+  $('canvas').classList.toggle('interacting',!designMode);return;
+}
+const preview=$('preview');preview.classList.remove('vector-artboard');preview.style.backgroundColor='';preview.style.borderRadius='';preview.style.minHeight='';const cssMap={'padding':'padding','margin':'margin','gap':'gap','overflow':'overflow','background':'background','color':'color','width':'width','height':'height','radius':'borderRadius','font.size':'fontSize','opacity':'opacity'};
+for(const kind of ['padding','margin'])for(const side of ['top','right','bottom','left'])cssMap[`${kind}.${side}`]=kind+side[0].toUpperCase()+side.slice(1);
+function make(source,parent=null){const override=designMode&&Object.hasOwn(compiled.overrides,source.props.key)?compiled.overrides[source.props.key]:null;const n={...source,props:{...source.props,...override}};const types={Frame:'div',Column:'div',Row:'div',Text:'div',TextInput:'input',Button:'button',Panel:'div'};if(!types[n.type])throw Error(`Компонент ${n.type} пока не поддерживается`);const el=document.createElement(types[n.type]);el.dataset.start=n.start;el.className='ui-node '+n.type.toLowerCase();if(n.type==='Frame'||n.type==='Column'||n.type==='Row'){el.style.display='flex';el.style.flexDirection=n.type==='Row'?'row':'column';}for(const [k,v]of Object.entries(n.props)){const x=resolve(v,state);if(k==='key'){el.dataset.key=x;continue;}if(k==='clip'){if(n.type!=='Frame'||typeof x!=='boolean')throw Error('Frame.clip ожидает true или false');if('overflow' in n.props)throw Error('Используйте clip или overflow, не оба');el.style.overflow=x?'clip':'visible';continue;}if(gridProperties.has(k))continue;else if(sizeProperties.has(k))el.style[k]=sizeValue(x);else if(k==='text')el.textContent=x??'';else if(k==='value')el.value=x??'';else if(k==='placeholder')el.placeholder=x;else if(k==='disabled')el.disabled=!!x;else if(k==='style')el.classList.add(String(x));else if(cssMap[k])el.style[cssMap[k]]=typeof x==='number'&&k!=='opacity'?x+'px':Array.isArray(v)?v.map(a=>typeof a==='number'?a+'px':resolve(a,state)).join(' '):x;else throw Error(`Свойство ${k} пока не поддерживается`);}
+for(const [key,path]of Object.entries(n.bindings)){if(key!=='value'||!path.startsWith('state.'))throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);el.value=override&&Object.hasOwn(override,key)?resolve(override[key],state):state[path.slice(6)]??'';el.oninput=()=>{state[path.slice(6)]=el.value;log(`${path} = ${JSON.stringify(el.value)}`);};}
+el.addEventListener('click',e=>{e.stopPropagation();if(mode==='design'){select(source);return;}if(n.events.clicked)dispatch(n.events.clicked,n);});Object.assign(el.style,gridStyles(n,state,parent));for(const child of n.children)el.append(make(child,n));return el;}
+const fragment=document.createDocumentFragment();for(const n of compiled.nodes)fragment.append(make(n));preview.replaceChildren(fragment);$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));$('inspector').innerHTML=`<h3>${esc(n.type)}</h3><div class="inspector-label">СВОЙСТВА</div>${Object.entries(n.props).map(([k,v])=>`<label class="property"><span>${esc(k)}</span><input data-prop="${esc(k)}" value="${esc(typeof v==='object'?JSON.stringify(v):v)}" ${typeof v==='object'?'disabled':''}></label>`).join('')}<div class="inspector-label">ПРИВЯЗКИ И СОБЫТИЯ</div>${Object.entries({...n.bindings,...n.events}).map(([k,v])=>`<div class="binding">${esc(k)}<code>${esc(v)}</code></div>`).join('')||'<small>Нет привязок</small>'}`;document.querySelectorAll('[data-prop]').forEach(input=>input.onchange=()=>{const key=input.dataset.prop;const old=n.props[key];const raw=typeof old==='number'?Number(input.value):typeof old==='boolean'?input.value==='true':input.value;if(typeof raw==='number'&&!Number.isFinite(raw))return;const escaped=key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const segment=files[entry].slice(n.start,n.end);const value=typeof raw==='string'?"'"+raw.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'":String(raw);files[entry]=files[entry].slice(0,n.start)+segment.replace(new RegExp('('+escaped+'\\s*:\\s*)[^;]*;'),(_,prefix)=>prefix+value+';')+files[entry].slice(n.end);open(entry);persist();compile();});lines();controlTree?.select(n.start,entry);}
+function refreshControlTree(){
+  if(!controlTree)return;
+  const path=controlTree.scope==='designer'?entry:active;
+  let doc=null,message='',stale=false;
+  if(!path?.endsWith('.ui'))message='Откройте файл .ui';
+  else try{doc=parse(files[path]);controlTreeDocuments.set(path,doc);if(controlTree.scope==='designer'&&error)message=error;}
+  catch(e){doc=controlTreeDocuments.get(path)??null;message=e.message;stale=!!doc;}
+  controlTree.update({document:doc,path,error:message,stale,selectedStart:selected?.start,selectedPath,files});
+}
+function selectTreeControl(item){
+  if(item.path===entry){
+    if(mode!=='design')$('run').click();
+    select(item.node);return;
+  }
+  // Template source nodes are not runtime instances: reveal their source, but
+  // do not pretend their source offsets are bounds in the entry's preview.
+  selected=item.node;selectedPath=item.path;vectorPreview?.select(null);
+  document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));
+  if(active!==item.path)open(item.path);
+  $('code').setSelectionRange(item.node.start,item.node.start);
+  $('inspector').innerHTML=`<h3>${esc(item.node.type)}</h3><p>Узел шаблона</p><small>${esc(item.path)}<br>Изменяйте свойства в разметке. Геометрия конкретного экземпляра здесь не выбирается.</small>`;
+  lines();controlTree.select(item.node.start,item.path);
+}
+function dispatch(action,n){if(pending){log('Событие пропущено: debugger приостановлен');return;}log(`Событие ${n.type}.clicked → ${action}`);if(breakOn){pending={action,n};$('continue').disabled=false;$('debug-status').textContent='Пауза перед '+action;tab='state';syncTabs();output();return;}execute(action);}
+function execute(action){if(action==='actions.search'){state.status=`Дизайн-обработчик: запрос «${state.query||'пусто'}»`;log('Выполнен дизайн-обработчик search (без Rust/backend)');}else log(`Обработчик ${action} не подключён`);render();output();}
+function syncTabs(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));}
+$('code').oninput=()=>{files[active]=$('code').value;lines();$('saved').textContent='Изменено';clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);clearTimeout(compileTimer);compileTimer=setTimeout(()=>compile(active.endsWith('.design.ui')),250);};$('code').onscroll=()=>{$('lines').scrollTop=$('code').scrollTop;};$('code').onclick=lines;$('code').onkeyup=lines;
+$('code').onkeydown=e=>{if(e.key==='Tab'){e.preventDefault();const el=e.target;el.setRangeText('    ',el.selectionStart,el.selectionEnd,'end');el.dispatchEvent(new Event('input'));}if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();persist();}};
+$('scenario').onchange=e=>{scenario=Number(e.target.value);compile(true);};$('entry').onclick=()=>{if(renderer==='vector'&&active==='components/Button.ui'){compile();return;}entry=active;scenario=0;compile(true);};
+$('run').onclick=()=>{mode=mode==='design'?'interact':'design';$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
+$('desktop').onclick=()=>{$('preview').style.width='520px';$('desktop').classList.add('chosen');$('mobile').classList.remove('chosen');};$('mobile').onclick=()=>{$('preview').style.width='320px';$('mobile').classList.add('chosen');$('desktop').classList.remove('chosen');};$('theme').onclick=()=>$('preview').classList.toggle('light');
+$('break').onchange=e=>breakOn=e.target.checked;$('continue').onclick=()=>{if(pending){const p=pending;pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';execute(p.action);}};$('reset').onclick=()=>{pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';compile(true);log('Состояние сценария восстановлено');};
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();output();});
+$('new').onclick=()=>{const path=prompt('Путь нового файла','ui/NewWindow.ui');if(!path)return;if(path in files){alert('Файл уже существует');return;}files[path]=path.endsWith('.ui')?'component NewWindow {\n    Frame {\n        Text {\n            text: \'Новое окно\';\n        }\n    }\n}\n':'';open(path);persist();};
+$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(files,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=JSON.parse(await f.text());if(!data||Array.isArray(data)||typeof data!=='object'||!Object.keys(data).length||Object.values(data).some(v=>typeof v!=='string'))throw Error('Ожидается JSON проекта: пути файлов и текст');if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
+$('code').addEventListener('scroll',highlightSource);
+$('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
+controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});}});
+codeEditor=mountEditor($('code'));
+spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
+open(active);compile(true);
+const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
+rendererPicker.onchange=()=>{renderer=rendererPicker.value;localStorage.setItem('forma-renderer',renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
+function initVector(){
+ loadVectorRuntime().then(runtime=>{
+  if(vectorPreview)return;
+  vectorPreview=createVectorPreview({runtime,onSelect:select,onError:message=>{error=String(message);output();},onAction:(action,n)=>log(`Вектор: ${n.type}.clicked → ${action} (обработчик приложения пока не подключён)`)});
+  if(renderer==='vector')compile();
+ }).catch(e=>{if(renderer==='vector'){error='Векторный WASM не собран: '+e.message;output();}});
+}
+initVector();
+
+// The MCP transport invokes the same runtime and UI operations as the editor.
+function ideCommand(command,args={}){
+  const snapshot=()=>({active,entry,scenario:compiled?.scenarios[scenario]?.name,mode,error,selected:selected?.start??null,debug:{breakOn,paused:!!pending,action:pending?.action??null},renderer,capabilities:{vectorRenderer:!!vectorPreview,rustExecution:!!import.meta.hot,rustDap:false}});
+  const requireFile=path=>{if(!Object.hasOwn(files,path))throw Error('File not found: '+path);};
+  const findNode=start=>{let found;const walk=nodes=>{for(const n of nodes??[]){if(n.start===start)found=n;walk(n.children);}};walk(compiled?.nodes);if(!found)throw Error('Component not found; refresh component_tree');return found;};
+  const applyFiles=()=>{selected=null;open(active);persist();compile(true);};
+  switch(command){
+    case 'ide_status':return snapshot();
+    case 'designer_tree':return controlTree.snapshot();
+    case 'designer_tree_view':controlTree.setView(args);return controlTree.snapshot();
+    case 'designer_tree_select':controlTree.selectId(args.id);return controlTree.snapshot();
+    case 'designer_tree_fold':controlTree.fold(args.id,args.collapsed);return controlTree.snapshot();
+    case 'app_run':if(renderer==='vector'){if(error||!vectorPreview)throw Error(error||'Векторный renderer не готов');import.meta.hot.send('forma:vector-run',compileComponents(files,entry,state));return {status:'requested',renderer};}if(error||!compiled)throw Error('Исправьте разметку');render(false);try{import.meta.hot.send('forma:native-run',{files,snapshot:nativeSnapshot($('preview'),compiled)});}finally{render();}return {status:'requested'};
+    case 'app_stop':import.meta.hot.send('forma:native-stop',{});import.meta.hot.send('forma:vector-stop',{});return {status:'requested'};
+    case 'rust_run':if(!import.meta.hot)throw Error('Requires local dev server');import.meta.hot.send('forma:rust-run',{files});return {status:'requested',note:'Read events_read for compilation output and exit code'};
+    case 'rust_stop':import.meta.hot?.send('forma:rust-stop',{});return {status:'stop requested'};
+    case 'project_read':return {...files};
+    case 'file_read':requireFile(args.path);return {path:args.path,content:files[args.path]};
+    case 'file_open':requireFile(args.path);open(args.path);break;
+    case 'editor_fold':codeEditor.fold(args);break;
+    case 'file_write':{
+      if(!args.path||args.path.split('/').some(p=>!p||p==='..'||p==='__proto__'||p==='constructor'||p==='prototype'))throw Error('Invalid project path');
+      if(Object.hasOwn(files,args.path)&&args.expectedContent!==files[args.path])throw Error('File changed or expectedContent missing. Read it first.');
+      files[args.path]=args.content;applyFiles();break;
+    }
+    case 'project_replace':{
+      if(JSON.stringify(Object.entries(files).sort())!==JSON.stringify(Object.entries(args.expectedFiles).sort()))throw Error('Project changed. Read it first.');
+      if(!Object.keys(args.files).length)throw Error('Project cannot be empty');
+      files=Object.fromEntries(Object.entries(args.files));active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;applyFiles();break;
+    }
+    case 'preview_renderer':rendererPicker.value=args.renderer;rendererPicker.onchange();break;
+    case 'vector_status':return vectorPreview?.snapshot()??{ready:false};
+    case 'preview_open':requireFile(args.path);entry=args.path;scenario=0;compile(true);break;
+    case 'preview_scenario':{const index=compiled?.scenarios.findIndex(s=>s.name===args.name);if(index===undefined||index<0)throw Error('Scenario not found');scenario=index;$('scenario').value=index;$('scenario').onchange({target:$('scenario')});break;}
+    case 'preview_mode':if(mode!==args.mode)$('run').click();break;
+    case 'preview_viewport':$(args.device).click();$('preview').classList.toggle('light',args.theme==='light');break;
+    case 'component_tree':return {entry,nodes:compiled?.nodes??[],error};
+    case 'component_spacing':return spacingOverlay.read();
+    case 'component_select':if(error)throw Error('Fix diagnostics before selecting compiled source');select(findNode(args.start));break;
+    case 'component_property':{
+      if(error||files[entry]!==args.expectedContent)throw Error('Stale or invalid source. Read entry file first.');
+      const n=findNode(args.start);if(!Object.hasOwn(n.props,args.property)||typeof n.props[args.property]==='object')throw Error('Only existing literal properties are supported');
+      if(typeof n.props[args.property]!==typeof args.value)throw Error('Property type mismatch');
+      select(n);const input=Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===args.property);input.value=String(args.value);input.onchange();break;
+    }
+    case 'state_read':return structuredClone(state);
+    case 'state_set':for(const [key,v]of Object.entries(args.values)){if(!Object.hasOwn(state,key)||typeof state[key]!==typeof v)throw Error('Unknown field or incompatible type: '+key);}Object.assign(state,args.values);render();output();break;
+    case 'event_dispatch':if(renderer==='vector'){if(error)throw Error(error);if(mode!=='interact')throw Error('Включите взаимодействие');const n=findNode(args.start);if(!n.events.clicked)throw Error('Выберите кнопку с clicked');vectorPreview.activate();break;}if(error)throw Error('Fix diagnostics first');{const n=findNode(args.start);if(!n.events.clicked)throw Error('No clicked handler');if(resolve(n.props.disabled,state))throw Error('Component is disabled');dispatch(n.events.clicked,n);break;}
+    case 'debug_break':$('break').checked=args.enabled;$('break').onchange({target:$('break')});break;
+    case 'debug_continue':if(!pending)throw Error('Debugger is not paused');$('continue').click();break;
+    case 'debug_reset':$('reset').click();break;
+    case 'events_read':return [...logs];
+    case 'events_clear':logs=[];output();break;
+    case 'diagnostics_read':return {error,entry};
+    default:throw Error('Unknown IDE command: '+command);
+  }
+  return snapshot();
+}
+if(import.meta.hot){
+  let designRequest;
+  const refreshDesign=document.createElement('button');refreshDesign.textContent='↻ Данные дизайна';$('run').before(refreshDesign);
+  refreshDesign.title='Выполнить локальный src/design.rs (без песочницы), получить текстовые константы и результаты методов';
+  refreshDesign.onclick=()=>{
+    if(!compiled)return;
+    const refs=designReferences(compiled);
+    if(!refs.length){log('Нет ссылок design в дизайне');return;}
+    if(!confirm('Выполнить src/design.rs для получения дизайн-данных? Rust-код работает с правами вашего пользователя.'))return;
+    designRequest={id:crypto.randomUUID(),source:JSON.stringify(files)};
+    refreshDesign.disabled=true;
+    import.meta.hot.send('forma:design-data',{id:designRequest.id,files,refs});
+  };
+  import.meta.hot.on('forma:design-data-result',data=>{
+    if(data.id!==designRequest?.id)return;
+    refreshDesign.disabled=false;
+    if(designRequest.source!==JSON.stringify(files)){log('Проект изменился: обновите дизайн-данные ещё раз');return;}
+    if(data.error){error=data.error;output();return;}
+    setDesignData(data.values);compile();log('Дизайн-данные обновлены из Rust');
+  });
+  const runApp=document.createElement('button');runApp.textContent='▶ Приложение';runApp.className='accent';$('run').before(runApp);
+  runApp.onclick=()=>{tab='events';syncTabs();ideCommand('app_run');output();};
+  const runRust=document.createElement('button');runRust.textContent='▶ Rust';runRust.title='Собрать и запустить Cargo-проект';$('run').before(runRust);
+  const stopRust=document.createElement('button');stopRust.textContent='■';stopRust.title='Остановить Rust';stopRust.disabled=true;runRust.after(stopRust);
+  runRust.onclick=()=>{persist();tab='events';syncTabs();log('Запуск Rust через Cargo (offline)…');runRust.disabled=true;stopRust.disabled=false;import.meta.hot.send('forma:rust-run',{files});};
+  stopRust.onclick=()=>import.meta.hot.send('forma:rust-stop',{});
+  const rustOutput=data=>{log('[Rust] '+data.text);if(data.kind==='finished'||data.kind==='error'){runRust.disabled=false;stopRust.disabled=true;}};
+  import.meta.hot.on('forma:rust-output',rustOutput);
+  const hello=()=>import.meta.hot.send('forma:hello',{});
+  const handle=({id,command,args})=>{try{import.meta.hot.send('forma:result',{id,result:ideCommand(command,args)});}catch(e){import.meta.hot.send('forma:result',{id,error:e.message});}};
+  import.meta.hot.on('forma:command',handle);
+  import.meta.hot.on('vite:ws:connect',hello);hello();
+  import.meta.hot.dispose(()=>{import.meta.hot.off('forma:command',handle);import.meta.hot.off('vite:ws:connect',hello);});
+}

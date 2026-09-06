@@ -1,0 +1,51 @@
+@top Document { (Component | Attribute | Design | Node)* }
+@skip { space | LineComment | BlockComment }
+
+Component { component ComponentName (":" ComponentName)? Block }
+Design { design ComponentName "{" DesignOverride* "}" }
+DesignOverride { TypeName Block }
+Attribute { "#[" AttributeName Arguments? "]" }
+Block { "{" (Node | Property | Attribute | Override)* "}" }
+Override { override (PropertyName | String) (":" Value+ ";" | from String (Block ";"? | ";")) }
+Node { TypeName Block }
+Property { PropertyName (":" Value+ | Binding Path | EventArrow Call) ";" }
+Value { String | Number | Color | Boolean | Star | Dash | Array | Object | Match | Call | Path | Negation | TypedValue }
+TypedValue { TypeName Block }
+Negation { "!" Path }
+Array { "[" (Value ("," Value)*)? "]" }
+Object { "{" (PropertyName ":" Value+ ";")* "}" }
+Call { Path Arguments }
+Arguments { "(" (Value ("," Value)*)? ")" }
+Match { match (Path | Tuple) "{" Branch* "}" }
+Tuple { "(" Path ("," Path)+ ")" }
+Branch { Pattern MatchArrow Value+ ";" }
+Pattern { Wildcard | Boolean | String | Number | Comparison Number | "(" Pattern ("," Pattern)+ ")" }
+Path { Identifier }
+ComponentName { TypeName }
+PropertyName { Identifier }
+AttributeName { Identifier | design }
+component { @specialize<Identifier, "component"> }
+design { @specialize<Identifier, "design"> }
+match { @specialize<Identifier, "match"> }
+override { @specialize<Identifier, "override"> }
+from { @specialize<Identifier, "from"> }
+Boolean { @specialize<Identifier, "true"> | @specialize<Identifier, "false"> }
+Wildcard { @specialize<Identifier, "_"> }
+
+@tokens {
+  space { $[ \t\n\r]+ }
+  LineComment { "//" ![\n]* }
+  BlockComment { "/*" (![*] | "*" ![/])* "*/" }
+  String { "'" (!['\\] | "\\" _)* "'" | "\"" (!["\\] | "\\" _)* "\"" }
+  Number { "-"? $[0-9]+ ("." $[0-9]+)? ("px" | "ms" | "deg" | "%" | "fr" | "*")? }
+  Color { "#" $[0-9a-fA-F]+ }
+  TypeName { $[A-Z] $[a-zA-Z0-9_]* }
+  Identifier { $[a-z_] $[a-zA-Z0-9_.\-]* }
+  Binding { "<->" }
+  EventArrow { "->" }
+  MatchArrow { "=>" }
+  Comparison { "<=" | ">=" | "<" | ">" }
+  Star { "*" }
+  Dash { "-" }
+  @precedence { Number, Dash }
+}

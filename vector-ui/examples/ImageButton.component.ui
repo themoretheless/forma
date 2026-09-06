@@ -1,0 +1,37 @@
+component ImageButton : Button {
+    icon: 'assets/search.svg';
+    compact: false;
+    showIcon: true;
+
+    override content: match (props.showIcon, props.compact) {
+        (false, _) => base.content;
+
+        (true, true) => Image {
+            source: props.icon;
+            color: props.color;
+            width: 20;
+            height: 20;
+        };
+
+        (true, false) => Frame {
+            columns: [20, *];
+            gap: 8;
+            padding: 0 16;
+
+            Image {
+                cell: 1 1;
+                source: props.icon;
+                color: props.color;
+                width: 20;
+                height: 20;
+            }
+
+            Text {
+                cell: 1 2;
+                text: props.text;
+                color: props.color;
+                fontSize: props.fontSize;
+            }
+        };
+    };
+}

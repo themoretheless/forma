@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.forma/
+native-app/target/
+vector-ui/target/
+public/vector-pkg/
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
+*.key

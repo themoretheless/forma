@@ -1,0 +1,10 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><title>Forma — vector button</title>
+<style>body{background:#181e2a;color:#aebbd4;font:16px system-ui;margin:32px}canvas{width:360px;height:220px;touch-action:none}canvas:focus-visible{outline:2px solid #8ca5ff}</style>
+<p>Собственная векторная кнопка · Rust → WASM</p><canvas tabindex="0" role="button" aria-label="Запустить" width="360" height="220"></canvas><p id="status">Загрузка WASM…</p>
+<script type="module">
+import init,{Button} from '/vector-pkg/forma_vector.js';
+await init();const button=new Button(),canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),status=document.querySelector('#status');
+function draw(){const scale=window.devicePixelRatio||1;canvas.width=Math.round(360*scale);canvas.height=Math.round(220*scale);ctx.putImageData(new ImageData(new Uint8ClampedArray(button.pixels(canvas.width,canvas.height,scale)),canvas.width,canvas.height),0,0);status.textContent=`Нажатий: ${button.clicks()}`;}
+for(const [name,kind]of [['pointermove',0],['pointerdown',1],['pointerup',2],['pointercancel',3],['pointerleave',0]])canvas.addEventListener(name,e=>{const r=canvas.getBoundingClientRect();if(kind===1){canvas.setPointerCapture(e.pointerId);canvas.focus();}button.pointer(e.clientX-r.left,e.clientY-r.top,kind);draw();});
+canvas.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat){e.preventDefault();button.activate();draw();}});window.addEventListener('resize',draw);draw();
+</script></html>
