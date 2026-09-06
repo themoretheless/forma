@@ -11,6 +11,10 @@ pub mod gpu;
 pub const EXAMPLE: &str = include_str!("../examples/Button.ui");
 pub const BUTTON_COMPONENT: &str = include_str!("../examples/Button.component.ui");
 
+/// Logical single-line metrics from the same font as the vector text renderer.
+#[wasm_bindgen]
+pub fn text_metrics(value:&str,font_size:f32)->Vec<f32>{text::measure_line(value,font_size).to_vec()}
+
 fn inside(x: f32, y: f32, b: &markup::ButtonSpec) -> bool {
     let radius = b.radius.min(b.width / 2.).min(b.height / 2.);
     let dx = (x - (b.x + b.width / 2.)).abs() - (b.width / 2. - radius);
@@ -39,6 +43,7 @@ pub struct Button {
     border: Animation,
     hover: bool,
     down: bool,
+    keyboard: Option<u8>,
     focused: bool,
     clicks: u32,
     scroll_x:f32,
@@ -71,8 +76,8 @@ impl Button {
         scene.content_height=(scene.button.y+scene.button.height+scene.padding[2]).min(f32::MAX).max(scene.height);
         scene.button.radius=template.radius;
         let fill=Animation::new(template.fill.as_ref().map_or([0;4],|b|if scene.button.disabled{b.disabled.unwrap_or(b.color)}else{b.color}));
-        let border=Animation::new(template.border.as_ref().map_or([0;4],|b|b.brush.color));
-        Ok(Self {scene,template,fill,border,hover:false,down:false,focused:false,clicks:0,scroll_x:0.,scroll_y:0.,raster_cache:std::cell::RefCell::new(None),visual_revision:0,raster_builds:std::cell::Cell::new(0),raster_paints:std::cell::Cell::new(0),display_cache:std::cell::RefCell::new(None)})
+        let border=Animation::new(template.border.as_ref().map_or([0;4],|b|if scene.button.disabled{b.brush.disabled.unwrap_or(b.brush.color)}else{b.brush.color}));
+        Ok(Self {scene,template,fill,border,hover:false,down:false,keyboard:None,focused:false,clicks:0,scroll_x:0.,scroll_y:0.,raster_cache:std::cell::RefCell::new(None),visual_revision:0,raster_builds:std::cell::Cell::new(0),raster_paints:std::cell::Cell::new(0),display_cache:std::cell::RefCell::new(None)})
     }
     pub fn load_source(&mut self, source: &str) -> Result<(), String> {
         // Commit only a valid scene; editor keeps the last good preview on error.
@@ -86,7 +91,7 @@ impl Button {
         let before=(self.fill.color(),self.border.color());
         let target=|brush:&template::Brush|{
             if self.scene.button.disabled{brush.disabled.unwrap_or(brush.color)}
-            else if self.down&&self.hover{brush.pressed.unwrap_or(brush.color)}
+            else if (self.down&&self.hover)||self.keyboard.is_some(){brush.pressed.unwrap_or(brush.color)}
             else if self.hover{brush.hover.or(if self.focused{brush.focus}else{None}).unwrap_or(brush.color)}
             else if self.focused{brush.focus.unwrap_or(brush.color)}else{brush.color}
         };
@@ -133,7 +138,16 @@ impl Button {
     pub fn disabled(&self) -> bool { self.scene.button.disabled }
     pub fn bounds(&self) -> Vec<f32> { let b=&self.scene.button; vec![b.x-self.scroll_x,b.y-self.scroll_y,b.width,b.height] }
     pub fn hit(&self, x: f32, y: f32) -> bool {let v=self.viewport();(!self.scene.clip||round_inside(x,y,[0.,0.,self.width(),self.height()],self.scene.radius))&&(!self.scene.scroll||(x>=v[0]&&y>=v[1]&&x<v[0]+v[2]&&y<v[1]+v[3]))&&inside(x+self.scroll_x,y+self.scroll_y,&self.scene.button) }
-    pub fn focus(&mut self, focused: bool) { self.focused=focused; if !focused { self.down=false; } self.update_colors(); }
+    pub fn focus(&mut self, focused: bool) { self.focused=focused; if !focused { self.down=false; self.keyboard=None; } self.update_colors(); }
+    /// Shared web/native keyboard gesture: 1 = Space, 2 = Enter.
+    /// Repeats and unmatched releases cannot activate; blur cancels the gesture.
+    pub fn key_event(&mut self, key:u8, pressed:bool, repeat:bool) {
+        if !matches!(key,1|2)||repeat{return;}
+        if !self.focused||self.disabled()||!self.template.clickable{self.keyboard=None;return;}
+        if pressed {if self.keyboard.is_none(){self.keyboard=Some(key);self.down=false;}}
+        else if self.keyboard==Some(key){self.keyboard=None;self.activate();}
+        self.update_colors();
+    }
     pub fn visual_revision(&self)->u32{self.visual_revision}
     pub fn raster_stats(&self)->Vec<u32>{vec![self.raster_builds.get(),self.raster_paints.get()]}
     pub fn is_animating(&self)->bool{self.fill.active()||self.border.active()}

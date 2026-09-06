@@ -193,13 +193,13 @@ export function createVectorPreview({runtime, onSelect, onAction, onError} = {})
     event.preventDefault();
     if (event.repeat || pressedKey !== null) return;
     pressedKey = event.key;
-    change(() => button.pointer(...center(), 1));
+    change(() => button.key_event(event.key===' '?1:2,true,false));
   });
   listen(canvas, 'keyup', event => {
     if (!button || current.designMode || event.key !== pressedKey) return;
     event.preventDefault();
     pressedKey = null;
-    change(() => { button.pointer(...center(), 2); button.pointer(-1, -1, 3); });
+    change(() => button.key_event(event.key===' '?1:2,false,false));
   });
   // Assistive technology can activate a role=button through a synthetic click.
   listen(canvas, 'click', event => { if (event.detail === 0) activate(); });
@@ -208,6 +208,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError} = {})
   listen(window, 'blur', cancel);
 
   return {
+    measureText:(value,fontSize)=>runtime.text_metrics(value,fontSize),
     render({container, source, template = '', designMode = true, nodes = [], selectedStart: nextSelection = null}) {
       let candidate = null;
       try {

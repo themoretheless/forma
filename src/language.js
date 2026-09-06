@@ -23,19 +23,19 @@ export function parse(source, {fragment=false}={}) {
     if(peek()==='Brush'&&tokens[i+1]?.v==='{'){
       const brush=node();
       if(brush.children.length||Object.keys(brush.bindings).length||Object.keys(brush.events).length)throw Error('Brush содержит только свойства');
-      return {type:'Brush',props:brush.props};
+      return brush;
     }
     if(/^[A-Z]/.test(peek()??'')&&tokens[i+1]?.v==='{')return node();
     if (peek()==='{') { take('{'); const out={}; while(peek()!=='}') {const k=take();take(':');out[k]=value();take(';');}take('}');return out; }
     if (peek()==='[') {take('[');const out=[];while(peek()!==']'){out.push(value());if(peek()!==']')take(',');}take(']');return out;}
-    const v=take(); if (v[0]==="'" || v[0]==='"') return v.slice(1,-1).replace(/\\(['"\\])/g,'$1').replace(/\\n/g,'\n');
+    const v=take(); if (v[0]==="'" || v[0]==='"') return v.slice(1,-1).replace(/\\(['"\\n])/g,(_,c)=>c==='n'?'\n':c);
     if(v==='true'||v==='false')return v==='true'; if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
     if(v==='!')return {expr:'!'+take()};
     if(peek()==='('){take('(');let args=[];while(peek()!==')')args.push(take());take(')');return v+'('+args.join(' ')+')';}
     return {expr:v};
   }
   function node(implicitType) {
-    const start=tokens[i]?.pos; const type=implicitType??take(); const n={type,start,props:{},bindings:{},events:{},children:[],slots:{}};
+    const start=tokens[i]?.pos; const type=implicitType??take(); const n={type,start,props:{},propertyRanges:{},bindings:{},events:{},children:[],slots:{}};
     if(peek()===':'){take(':');n.base=take();}take('{');
     while(peek()!=='}') {
       if(peek()==='override'){
@@ -50,7 +50,7 @@ export function parse(source, {fragment=false}={}) {
       }
       if(tokens[i+1]?.v==='{'){n.children.push(node());continue;}
       const key=take(), op=take();
-      if(op===':'){if(key in n.props)throw new Error(`Повторное свойство ${key}`);const v=value();const values=[v];while(peek()!==';')values.push(value());n.props[key]=values.length===1?v:values;}
+      if(op===':'){if(key in n.props)throw new Error(`Повторное свойство ${key}`);const from=tokens[i]?.pos;const v=value();const values=[v];while(peek()!==';')values.push(value());n.props[key]=values.length===1?v:values;const last=tokens[i-1];n.propertyRanges[key]={from,to:last.pos+last.v.length};}
       else if(op==='<->')n.bindings[key]=take();
       else if(op==='->'){const action=take();take('(');take(')');n.events[key]=action;}
       else throw new Error(`Неизвестный оператор ${op}`);

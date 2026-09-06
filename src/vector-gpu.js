@@ -1,4 +1,5 @@
 import shader from '../vector-ui/src/vector.wgsl?raw';
+import {createStoragePool} from './gpu-buffers.js';
 
 // WebGPU is only a transport/backend. Rust builds all geometry and tile lists;
 // the identical WGSL is used by native wgpu. No canvas bitmap is uploaded.
@@ -10,7 +11,7 @@ export async function createGpuPainter(canvas,onFailure){
   const context=canvas.getContext('webgpu');
   if(!context){device.destroy();throw Error('WebGPU canvas недоступен');}
   const format=navigator.gpu.getPreferredCanvasFormat();
-  let disposed=false,buffers=[],bindGroup,modelKey=null,scaleKey=null,sizeKey='',scrollKey='';
+  let disposed=false,bindGroup,modelKey=null,scaleKey=null,sizeKey='',scrollKey='';
   let uploads=0,frames=0;
   const fail=error=>{if(!disposed)onFailure(error instanceof Error?error:Error(String(error)));};
   device.lost.then(info=>fail(Error(`GPU device lost: ${info.message}`)));
@@ -22,10 +23,11 @@ export async function createGpuPainter(canvas,onFailure){
     context.configure({device,format,alphaMode:'premultiplied'});
   }catch(error){disposed=true;device.destroy();throw error;}
   const uniform=device.createBuffer({size:48,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+  const pool=createStoragePool(device,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST);
   return {
     draw(model,width,height,scale){
       if(disposed)throw Error('GPU painter disposed');
-      const size=`${width}:${height}`,scroll=Array.from(model.scroll_offset()).join(':');
+      const size=`${Math.ceil(width/32)}:${Math.ceil(height/32)}`,scroll=Array.from(model.scroll_offset()).join(':');
       if(width>device.limits.maxTextureDimension2D||height>device.limits.maxTextureDimension2D)throw Error('GPU canvas exceeds texture limit');
       const changed=modelKey!==model||scaleKey!==scale||scrollKey!==scroll;
       if(changed||sizeKey!==size){
@@ -33,12 +35,10 @@ export async function createGpuPainter(canvas,onFailure){
         const arrays=changed?[model.gpu_commands(scale,false),model.gpu_edges(scale,false),tiles]:[tiles];
         if(changed&&!arrays[1].length)arrays[1]=new Float32Array(4);
         if(arrays.some(a=>!a.byteLength||a.byteLength>device.limits.maxStorageBufferBindingSize))throw Error('Vector scene exceeds GPU storage budget');
-        const next=changed?[]:buffers.slice(0,2);
-        try{
-          for(const data of arrays){const buffer=device.createBuffer({size:data.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});next.push(buffer);device.queue.writeBuffer(buffer,0,data);}
-          const nextGroup=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},...next.map((buffer,i)=>({binding:i+1,resource:{buffer}}))]});
-          (changed?buffers:buffers.slice(2)).forEach(b=>b.destroy());buffers=next;bindGroup=nextGroup;
-        }catch(error){(changed?next:next.slice(2)).forEach(b=>b.destroy());throw error;}
+        // Invalidate immediately: a later upload can fail after an old buffer
+        // was destroyed. A retry must never keep its stale bind group.
+        for(let i=0;i<arrays.length;i++)if(pool.update(changed?i:2,arrays[i]))bindGroup=null;
+        if(!bindGroup)bindGroup=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},...pool.buffers.map((buffer,i)=>({binding:i+1,resource:{buffer}}))]});
         modelKey=model;scaleKey=scale;sizeKey=size;scrollKey=scroll;if(changed)uploads++;
       }
       if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
@@ -47,7 +47,7 @@ export async function createGpuPainter(canvas,onFailure){
       const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});
       pass.setPipeline(pipeline);pass.setBindGroup(0,bindGroup);pass.draw(3);pass.end();device.queue.submit([encoder.finish()]);frames++;
     },
-    snapshot(){return {backend:'webgpu-vector',uploads,frames};},
-    destroy(){if(disposed)return;disposed=true;buffers.forEach(b=>b.destroy());uniform.destroy();context.unconfigure();device.destroy();},
+    snapshot(){return {backend:'webgpu-vector',uploads,frames,...pool.snapshot()};},
+    destroy(){if(disposed)return;disposed=true;pool.destroy();uniform.destroy();context.unconfigure();device.destroy();},
   };
 }

@@ -90,15 +90,8 @@ impl ApplicationHandler for App {
                 button.scroll(dx, dy);
             }
             WindowEvent::KeyboardInput { event, .. } => {
-                if event.state == ElementState::Pressed
-                    && !event.repeat
-                    && matches!(
-                        event.logical_key,
-                        Key::Named(NamedKey::Enter | NamedKey::Space)
-                    )
-                {
-                    button.activate();
-                }
+                let key=match event.logical_key {Key::Named(NamedKey::Space)=>1,Key::Named(NamedKey::Enter)=>2,_=>0};
+                button.key_event(key,event.state==ElementState::Pressed,event.repeat);
             }
             WindowEvent::Focused(focused) => {
                 button.focus(focused);

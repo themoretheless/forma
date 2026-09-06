@@ -57,7 +57,7 @@ export function mountEditor(textarea){
     view.dispatch({selection:{anchor:start,head:end},effects});
   };
   view.dom.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'s',metaKey:e.metaKey,ctrlKey:e.ctrlKey}));}});
-  return {setLanguage(path){view.dispatch({effects:languageConfig.reconfigure(path.endsWith('.ui')?formaHighlight:[])});},fold({line,collapsed=true}){
+  return {edit(change){view.dispatch({changes:change,userEvent:'input.inspector'});},setLanguage(path){view.dispatch({effects:languageConfig.reconfigure(path.endsWith('.ui')?formaHighlight:[])});},fold({line,collapsed=true}){
     if(line===undefined){(collapsed?foldAll:unfoldAll)(view);return;}
     if(line<1||line>view.state.doc.lines)throw Error('Line out of range');
     const location=view.state.doc.line(line),range=view.state.field(ranges).find(r=>r.from>location.from&&r.from<=location.to);

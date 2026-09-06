@@ -131,6 +131,13 @@ fn glyph(face: &Face<'_>, character: char) -> GlyphId {
     face.glyph_index(character).unwrap_or(GlyphId(0))
 }
 
+pub fn measure_line(value:&str,font_size:f32)->[f32;2] {
+    if !font_size.is_finite()||font_size<=0.{return [0.;2];}
+    let face=Face::parse(FONT,0).expect("embedded font");
+    let height=(face.ascender() as f32-face.descender() as f32+face.line_gap() as f32)*font_size/face.units_per_em() as f32;
+    [measure_text(value,font_size),height]
+}
+
 fn advance(face: &Face<'_>, glyph: GlyphId) -> f32 {
     face.glyph_hor_advance(glyph).unwrap_or(0) as f32
 }

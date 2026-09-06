@@ -1,5 +1,13 @@
 # Forma Studio
 
+## Бенчмарки
+
+`npm run bench -- .forma/perf/my-run` измеряет offscreen throughput, CPU,
+Rust-аллокации, RSS, GPU timestamps и объём GPU-ресурсов. Затем
+`npm run bench:window -- .forma/perf/my-run` открывает временные окна и измеряет
+native present cadence. Методику, ограничения и план оптимизации см. в
+[vector-ui/BENCHMARKS.md](vector-ui/BENCHMARKS.md).
+
 ## Векторные компоненты
 
 В Forma Studio добавлен режим «Вектор · Rust/WASM». `components/Button.ui` описывает Rectangle, Brush, Border, Text и PointerArea; `ui/VectorButton.ui` задаёт экземпляр. Изменения обоих файлов обновляют canvas прямо в дизайнере. Кнопка «▶ Приложение» в этом режиме передаёт исходную разметку и шаблон native-рендереру, без HTML/WebView. Переходы цветов задаются `transition: 140ms;` в Brush, события передаются через `clicked -> events.clicked();`. Строгий прототип пока поддерживает только один Frame/Button, без design-данных и ViewModel; прикладной обработчик события ещё не подключён. Подробности и сборка WASM — `vector-ui/README.md`.

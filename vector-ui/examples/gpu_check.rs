@@ -39,14 +39,14 @@ async fn run() {
         if model.scrollable() {
             model.scroll(10., 4.);
         }
-        for (w, h, s) in [
+        for (case_id, (w, h, s)) in [
             (400u32, 200u32, 1f32),
             (800, 400, 2.),
             (1200, 600, 2.),
             (300, 150, 2.),
             (800, 400, 2.),
             (500, 250, 1.25),
-        ] {
+        ].into_iter().enumerate() {
             let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
@@ -112,6 +112,21 @@ async fn run() {
                 .unwrap();
             recv.recv().unwrap().unwrap();
             let mapped = readback.slice(..).get_mapped_range();
+            // Optional exact before/after GPU regression, independent of CPU AA.
+            // Records are test artifacts, never consumed by the application.
+            if let Ok(dir) = std::env::var("FORMA_GPU_GOLDEN_DIR") {
+                let path=std::path::Path::new(&dir).join(format!("{name}-{case_id}-{w}x{h}.rgba"));
+                let mut packed=Vec::with_capacity((w*h*4)as usize);
+                for y in 0..h as usize {packed.extend_from_slice(&mapped[y*stride as usize..y*stride as usize+w as usize*4]);}
+                if std::env::var("FORMA_GPU_GOLDEN_MODE").as_deref()==Ok("record") {
+                    std::fs::create_dir_all(&dir).unwrap();
+                    assert!(!path.exists(), "Refusing to overwrite golden {path:?}");
+                    std::fs::write(path,&packed).unwrap();
+                } else {
+                    let reference=std::fs::read(&path).expect("Recorded GPU golden required");
+                    assert!(packed==reference, "GPU pixels changed against {path:?}");
+                }
+            }
             if name == "smooth-corner" && s == 1. {
                 let mut shades = std::collections::BTreeSet::new();
                 for y in 0..24usize {

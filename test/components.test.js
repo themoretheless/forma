@@ -1,6 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {compileComponents,evaluate} from '../src/components.js';
+import {compileComponents as compileLinked,evaluate} from '../src/components.js';
+// Compiler structure tests supply explicit deterministic metrics; integration
+// tests below use the actual Rust font. Production has no guessed-width fallback.
+const compileComponents=(files,entry,state)=>compileLinked(files,entry,state,{measureText:()=>[80,20]});
 import {parse} from '../src/language.js';
 import {svgShapes} from '../src/svg-shapes.js';
 import {parser} from '../src/forma-parser.js';

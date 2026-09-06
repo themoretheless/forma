@@ -498,6 +498,7 @@ name = "forma-vector"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
+ "libc",
  "objc",
  "pollster",
  "softbuffer",
