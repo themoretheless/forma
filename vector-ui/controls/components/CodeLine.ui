@@ -1,0 +1,10 @@
+// Logical source line; syntax tokens can replace the content slot independently.
+component CodeLine : TableRow {
+    first: '1'; second: ''; third: ''; text: '';
+    number: '1'; height: 24; fontSize: 12;
+    override content: Frame {
+        columns: [30, *]; padding: 0 8; gap: 8;
+        Label { cell: 1 1; text: props.number; fontSize: props.fontSize; color: state.theme.textMuted; }
+        BodyText { cell: 1 2; text: props.text; fontSize: props.fontSize; color: props.textColor; }
+    };
+}

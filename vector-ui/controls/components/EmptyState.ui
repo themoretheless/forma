@@ -1,0 +1,5 @@
+component EmptyState : Alert {
+    text: 'Здесь пока пусто'; description: 'Добавьте первый документ';
+    background: state.theme.surface; borderColor: state.theme.border;
+    icon: 'assets/info.svg';
+}

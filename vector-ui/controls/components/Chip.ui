@@ -1,0 +1,33 @@
+// Selectable chip snapshot; distinct from passive Badge.
+component Chip : Button {
+    width: 84;
+    height: 28;
+    radius: 14;
+    fontSize: 12;
+    text: 'Метка';
+    selected: false;
+    background: match props.selected {
+        true => state.theme.primary;
+        _ => #00000000;
+    };
+    hoverBackground: match props.selected {
+        true => state.theme.primaryHover;
+        _ => state.theme.surfaceHover;
+    };
+    pressedBackground: match props.selected {
+        true => state.theme.primaryPressed;
+        _ => state.theme.surfacePressed;
+    };
+    borderColor: match props.selected {
+        true => state.theme.primary;
+        _ => state.theme.border;
+    };
+    color: match props.selected {
+        true => state.theme.primaryText;
+        _ => state.theme.textMuted;
+    };
+    focusBorderColor: match props.selected {
+        true => state.theme.primaryText;
+        _ => state.theme.focus;
+    };
+}

@@ -1,0 +1,18 @@
+// A single segment; the parent chooses which snapshot is selected.
+component SegmentButton : Button {
+    width: 110;
+    height: 30;
+    radius: 7;
+    fontSize: 13;
+    text: 'Сегмент';
+    selected: false;
+    background: match props.selected {
+        true => state.theme.surfaceRaised;
+        _ => #00000000;
+    };
+    borderColor: #00000000;
+    color: match props.selected {
+        true => state.theme.text;
+        _ => state.theme.textMuted;
+    };
+}

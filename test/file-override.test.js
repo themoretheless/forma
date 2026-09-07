@@ -37,8 +37,8 @@ test('file override supports chained inheritance and editor grammar',()=>{
  for(const source of Object.values(f))parser.parse(source).iterate({enter(n){assert.notEqual(n.type.isError,true,source);}});
 });
 test('file override output loads and paints in the Rust WASM runtime',async()=>{
- const runtime=await import('../public/vector-pkg/forma_vector.js');
- await runtime.default({module_or_path:readFileSync(new URL('../public/vector-pkg/forma_vector_bg.wasm',import.meta.url))});
+ const runtime=await import('../public/vector-pkg/forma.js');
+ await runtime.default({module_or_path:readFileSync(new URL('../public/vector-pkg/forma_bg.wasm',import.meta.url))});
  const out=compileComponents(files,'ui/Demo.ui');const button=new runtime.Button();
  try{button.load_component(out.source,out.template);assert.equal(button.pixels(400,200,1).length,320000);}finally{button.free();}
 });

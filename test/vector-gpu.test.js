@@ -12,12 +12,12 @@ const {createGpuPainter} = await import(`data:text/javascript;base64,${Buffer.fr
 function model(commandFloats = 20) {
   const commands = new Float32Array(commandFloats), edges = new Float32Array(4), tiles = new Uint32Array(8);
   return {commands, edges, tiles, scroll_offset: () => [0, 0], gpu_commands: () => commands,
-    gpu_edges: () => edges, gpu_tiles: () => tiles, gpu_params: () => new Float32Array(12)};
+    gpu_edges: () => edges, gpu_tiles: () => tiles, gpu_paints: () => new Float32Array(8), gpu_params: () => new Float32Array(12)};
 }
 
 async function fixture(t) {
   const created = [], groups = [], usedGroups = [];
-  const state = {failWriteData: null, failBind: false, bindAttempts: 0, submissions: 0};
+  const state = {failWriteData: null, failBind: false, bindAttempts: 0, submissions: 0, writes: []};
   const device = {
     limits: {maxStorageBufferBindingSize: 4096, maxTextureDimension2D: 4096},
     lost: new Promise(() => {}), addEventListener() {}, destroy() {},
@@ -37,6 +37,7 @@ async function fixture(t) {
       writeBuffer(buffer, offset, data) {
         assert.equal(buffer.destroyed, false, 'upload to a destroyed buffer');
         if (data === state.failWriteData) {state.failWriteData = null; throw Error('injected upload failure');}
+        buffer.data=Array.from(data);state.writes.push({buffer,data});
       },
       submit() {state.submissions++;},
     },
@@ -106,4 +107,51 @@ test('same painter retries bind-group creation after replacing a buffer', async 
   assert.equal(usedGroups.at(-1), groups[1]);
   assert.equal(state.submissions, 2);
   assert.equal(painter.snapshot().frames, 2);
+});
+
+test('editing geometry in the same runtime uploads fresh text; unchanged paint keeps geometry',async t=>{
+ const {painter}=await fixture(t);const scene=model();let revision=0;scene.geometry_revision=()=>revision;
+ painter.draw(scene,64,64,1);painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,1);
+ revision++;painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,2);
+ painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,2);
+});
+
+test('unchanged revisions reuse GPU payloads while paint and viewport changes invalidate only their data',async t=>{
+  const {painter,state}=await fixture(t),scene=model();
+  const calls={};let visual=0,geometry=0;
+  scene.visual_revision=()=>visual;scene.geometry_revision=()=>geometry;
+  for(const key of ['gpu_commands','gpu_edges','gpu_tiles','gpu_paints','gpu_params']){
+    const original=scene[key];calls[key]=0;scene[key]=(...args)=>{calls[key]++;return original(...args);};
+  }
+  painter.draw(scene,60,60,1);
+  const firstWrites=state.writes.length,firstBytes=painter.snapshot().uploadedBytes;
+  painter.draw(scene,60,60,1);
+  assert.equal(state.writes.length,firstWrites,'same scene requires no storage or uniform uploads');
+  assert.equal(painter.snapshot().uploadedBytes,firstBytes);
+  assert.deepEqual(calls,{gpu_commands:1,gpu_edges:1,gpu_tiles:1,gpu_paints:1,gpu_params:1});
+  visual++;
+  painter.draw(scene,60,60,1);
+  assert.equal(state.writes.length,firstWrites+2,'animation uploads only paint and uniform data');
+  painter.draw(scene,64,64,1);
+  assert.deepEqual(calls,{gpu_commands:1,gpu_edges:1,gpu_tiles:1,gpu_paints:2,gpu_params:3},'same tile grid updates only viewport params');
+  painter.draw(scene,65,64,1);
+  assert.deepEqual(calls,{gpu_commands:1,gpu_edges:1,gpu_tiles:2,gpu_paints:2,gpu_params:4});
+  geometry++;
+  painter.draw(scene,65,64,1);
+  assert.deepEqual(calls,{gpu_commands:2,gpu_edges:2,gpu_tiles:3,gpu_paints:3,gpu_params:5},'geometry changes invalidate all dependent payloads even without a paint revision');
+  assert.equal(painter.snapshot().frames,6);
+});
+
+test('retrying the previous model after a partial upload restores overwritten retained buffers',async t=>{
+  const {painter,state,groups}=await fixture(t),original=model(),replacement=model();
+  original.commands.fill(1);replacement.commands.fill(2);
+  original.visual_revision=replacement.visual_revision=()=>0;
+  painter.draw(original,64,64,1);
+  const commandsBuffer=groups[0].buffers[1];
+  state.failWriteData=replacement.edges;
+  assert.throws(()=>painter.draw(replacement,64,64,1),/injected upload failure/);
+  assert.equal(commandsBuffer.data[0],2,'the failed scene already overwrote retained command storage');
+  painter.draw(original,64,64,1);
+  assert.equal(commandsBuffer.data[0],1,'returning to the previous model must reload its geometry');
+  assert.equal(groups.length,1,'capacity and bind-group identity remain reusable');
 });

@@ -1,0 +1,32 @@
+// Select trigger snapshot; the popup list and selection controller are external.
+component SelectTrigger : Button {
+    width: 240;
+    height: 38;
+    radius: 8;
+    fontSize: 14;
+    value: 'Выберите вариант';
+    text: props.value;
+    expanded: false;
+
+    override content: Frame {
+        columns: [*, 16];
+        padding: 0 12;
+        gap: 10;
+        StartLabel {
+            cell: 1 1;
+            text: props.value;
+            color: props.textColor;
+            fontSize: props.fontSize;
+        }
+        Icon {
+            cell: 1 2;
+            width: 16;
+            height: 16;
+            color: props.textColor;
+            source: match props.expanded {
+                true => 'assets/chevron-up.svg';
+                _ => 'assets/chevron-down.svg';
+            };
+        }
+    };
+}

@@ -1,0 +1,25 @@
+// Passive status label. A badge does not toggle or accept focus.
+component Badge : Surface {
+    width: 84;
+    height: 22;
+    radius: 11;
+    fontSize: 11;
+    borderWidth: 0;
+    horizontalPadding: 10;
+    text: 'Статус';
+    tone: 'neutral';
+    background: match props.tone {
+        'accent' => state.theme.accentWash;
+        'success' => state.theme.successWash;
+        'warning' => state.theme.warningWash;
+        'danger' => state.theme.dangerWash;
+        _ => state.theme.surfaceHover;
+    };
+    color: match props.tone {
+        'accent' => state.theme.accentInk;
+        'success' => state.theme.success;
+        'warning' => state.theme.warning;
+        'danger' => state.theme.dangerInk;
+        _ => state.theme.textMuted;
+    };
+}

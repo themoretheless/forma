@@ -1,0 +1,7 @@
+// Single line visual part with left alignment; wrapping is a text-engine concern.
+component BodyText {
+    text: ''; color: state.theme.textMuted; fontSize: 13;
+    Frame { columns: [auto, *]; padding: 0;
+        Label { cell: 1 1; text: props.text; color: props.color; fontSize: props.fontSize; }
+    }
+}

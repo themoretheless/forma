@@ -1,3 +1,37 @@
+# Forma — библиотека интерфейса
+
+Rust crate называется `forma` и подключается в приложение как библиотека:
+`use forma::Runtime;`. Каталог исходников остаётся `vector-ui`.
+`Runtime::from_sources(scene, template)` принимает разметку и шаблон компонента.
+Пример подключения и схема версий — [README проекта](../README.md#библиотека-forma)
+и [релизы](../RELEASING.md). Нативный demo-бинарник называется `forma`.
+
+## Runtime с несколькими контролами
+
+Studio/WASM и native используют общий `Runtime`: один Frame с несколькими
+кнопками, независимые hover/pressed/focus/click и переход фокуса Tab/Shift+Tab.
+Расположение — вертикально с `padding` и `gap`; один Scroll может охватывать
+всю группу. События пока только в журнале. Свойства и bindings отложены
+до отдельного обсуждения. Подробности и ограничения — [этап 2б](ARCHITECTURE_STEPS.md).
+
+Пример: `examples/TwoButtons.ui`. С запущенным `npm run dev` откройте
+[стенд двух кнопок](http://127.0.0.1:5173/vector-ui/examples/runtime.html).
+Native: `cargo run --offline --release --manifest-path vector-ui/Cargo.toml --features native -- vector-ui/examples/TwoButtons.ui vector-ui/examples/Button.component.ui`
+(из корня репозитория).
+
+В заголовке native-окна показаны backend, FPS и средний интервал между
+успешными `present` за последнюю секунду. Это частота передачи кадров оконной
+системе, а не время вычисления GPU или подтверждённые обновления монитора.
+Через секунду без кадров отображается `idle`; скрытая поверхность — `occluded`.
+В обычном режиме окно перерисовывается при изменениях и во время анимаций.
+**F8** включает/выключает непрерывную перерисовку для замера FPS.
+Для диагностики при запуске: `FORMA_FPS_TEST=1` включает этот режим сразу,
+`FORMA_FPS_LOG=1` дублирует изменения показаний в stdout.
+
+Ниже сохранено описание исходного одноконтрольного среза; сведения о его
+ограничении одной кнопкой и только CPU устарели. Текущий backend — WebGPU/native
+wgpu с CPU fallback.
+
 # Векторный вертикальный срез
 
 ## Работа через Forma Studio
@@ -40,10 +74,11 @@ Web (из корня репозитория):
 
 ```sh
 cargo build --manifest-path vector-ui/Cargo.toml --target wasm32-unknown-unknown --lib --release
-wasm-bindgen vector-ui/target/wasm32-unknown-unknown/release/forma_vector.wasm --target web --out-dir public/vector-pkg
+wasm-bindgen vector-ui/target/wasm32-unknown-unknown/release/forma.wasm --target web --out-dir public/vector-pkg
 npm run dev
 ```
 
+Результат — `public/vector-pkg/forma.js` и `public/vector-pkg/forma_bg.wasm`.
 Открыть `/vector.html`. wasm-bindgen CLI должен быть версии 0.2.125, как зависимость ядра.
 
 Текст Button рисуется из контуров встроенного Ubuntu-Light.ttf собственным scanline-растеризатором; ttf-parser только читает шрифт. Лицензия шрифта — assets/UFL.txt. Поддержаны Latin/Cyrillic без сложного shaping/kerning. Нет TextInput/IME, полноценного accessibility и дерева фокуса. Native проверен сборкой на macOS; другие ОС не проверены. Снимки запуска в .forma/vector-* сохраняются для диагностики.

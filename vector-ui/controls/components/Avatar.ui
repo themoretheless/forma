@@ -1,0 +1,11 @@
+// Passive initials avatar; menu and profile navigation belong to an owner.
+component Avatar : Surface {
+    width: 36;
+    height: 36;
+    radius: 18;
+    borderWidth: 0;
+    text: 'TM';
+    fontSize: 12;
+    background: state.theme.primary;
+    color: state.theme.primaryText;
+}

@@ -1,0 +1,35 @@
+// Single underline tab snapshot. Selection and associated panels belong to the host.
+component TabButton : Button {
+    width: 120;
+    height: 32;
+    radius: 0;
+    text: 'Обзор';
+    selected: false;
+    background: match props.selected {
+        true => state.theme.canvas;
+        _ => #00000000;
+    };
+    borderColor: #00000000;
+    color: match props.selected {
+        true => state.theme.text;
+        _ => state.theme.textMuted;
+    };
+    indicatorColor: match props.selected {
+        true => state.theme.primary;
+        _ => #00000000;
+    };
+
+    override content: Frame {
+        rows: [*, 2];
+        Label {
+            cell: 1 1;
+            text: props.text;
+            color: props.textColor;
+            fontSize: props.fontSize;
+        }
+        Rectangle {
+            cell: 2 1;
+            background: props.indicatorColor;
+        }
+    };
+}

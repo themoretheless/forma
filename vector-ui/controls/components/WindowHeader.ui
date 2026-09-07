@@ -1,0 +1,5 @@
+component WindowHeader : Surface {
+    width: 304; height: 36; radius: 0;
+    background: state.theme.surfaceRaised; fontSize: 12;
+    text: 'Forma Studio';
+}

@@ -1,0 +1,7 @@
+// Passive check glyph, shared by choice indicators and selected menu items.
+component CheckMark : Icon {
+    source: 'assets/check.svg';
+    width: 12;
+    height: 12;
+    color: state.theme.primary;
+}

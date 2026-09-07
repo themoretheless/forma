@@ -1,0 +1,4 @@
+component NumberValue : Surface {
+    width: 60; height: 32; radius: 0; borderWidth: 0;
+    background: state.theme.surfaceRaised; text: '8';
+}

@@ -1,0 +1,10 @@
+// Passive horizontal rule. Set width/height for the desired orientation.
+component Separator : Surface {
+    width: 240;
+    height: 1;
+    radius: 0;
+    borderWidth: 0;
+    background: state.theme.border;
+
+    override content: Frame {};
+}

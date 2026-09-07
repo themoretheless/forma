@@ -1,0 +1,12 @@
+// TextInput editing and rendering are provided by the shared Rust runtime.
+component MultilineValue {
+    value: ''; placeholder: 'Введите текст'; color: state.theme.text;
+    placeholderColor: state.theme.textMuted; fontSize: 14;
+    Frame { padding: 10 12;
+        TextInput {
+            value: props.value; placeholder: props.placeholder;
+            color: props.color; placeholderColor: props.placeholderColor;
+            fontSize: props.fontSize; multiline: true;
+        }
+    }
+}

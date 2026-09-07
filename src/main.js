@@ -1,3 +1,10 @@
+import {designPreset,collectionScenario} from './design-presets.js';
+let designPresetName='original',nativeSource=null,nativeBuffer='';
+import {createLayoutInspector} from './layout-inspector.js';
+let layoutInspector,lastVisuals=[];
+import {createCanvasTools} from './canvas-tools.js';
+import './canvas-tools.css';
+let canvasTools;
 import './style.css';
 import './selection.css';
 import './vector-artboard.css';
@@ -10,7 +17,8 @@ import {gridProperties,gridStyles} from './grid.js';
 import {sizeProperties,sizeValue} from './sizing.js';
 import {nativeSnapshot} from './native-snapshot.js';
 import {loadVectorRuntime,createVectorPreview} from './vector-preview.js';
-import {compileComponents} from './components.js';
+import {createComponentCompiler} from './components.js';
+const compileComponents=createComponentCompiler();
 import {setDesignData,designReferences} from './design-data.js';
 let codeEditor;
 let spacingOverlay;
@@ -90,12 +98,12 @@ for(const [path,source]of Object.entries(files))if(path.endsWith('.ui')){
 }
 files['Cargo.toml']??=`[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
 files['src/main.rs']??=`mod actions;\n\nfn main() {\n    let mut state = actions::SearchState {\n        query: String::from("Архитектура"),\n        loading: false,\n        status: String::from("Готов"),\n    };\n    println!("Rust-приложение запущено");\n    println!("Запрос: {}", state.query);\n    actions::search(&mut state);\n    println!("После actions::search: loading={}, status={}", state.loading, state.status);\n}\n`;
-let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')), scenario=0,state={},compiled=null,selected=null,mode='design',pending=null,breakOn=false,logs=[],tab='problems',error='',saveTimer,compileTimer;
+let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')), scenario=0,state={},compiled=null,selected=null,mode=sessionStorage.getItem('forma-canvas-mode')==='interact'?'interact':'design',pending=null,breakOn=false,logs=[],tab='problems',error='',saveTimer,compileTimer;
 try{const view=JSON.parse(localStorage.getItem('forma-view'));if(view?.entry in files)entry=view.entry;if(view?.active in files)active=view.active;}catch{}
 function persistView(){try{localStorage.setItem('forma-view',JSON.stringify({active,entry}));}catch{}}
 const $=id=>document.getElementById(id);
 document.querySelector('#app').innerHTML=`
-<header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">knowledge-workspace <span> / локальный проект</span></div><button id="import">Открыть</button><button id="export">Экспорт</button><button id="run" class="accent">▶ Взаимодействие</button></header>
+<header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">knowledge-workspace <span> / локальный проект</span></div><a class="controls-link" href="/vector-ui/examples/controls.html">Контролы · Reveal</a><button id="import">Открыть</button><button id="export">Экспорт</button><button id="run" class="accent">${mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента'}</button></header>
 <div class="workspace"><aside class="explorer"><div class="section-title">ПРОЕКТ <button id="new" title="Создать файл">+</button></div><div id="tree"></div><div class="explorer-note"><span class="dot"></span> Локальное сохранение<br><small>Проект хранится в этом браузере.<br>Экспортируйте для резервной копии.</small></div></aside>
 <main><div class="tabs"><span class="file-icon">◇</span><span id="filename"></span><span id="saved">Сохранено</span><button id="entry" title="Показать этот UI в предпросмотре">Показать UI</button></div><div class="editor-preview"><section class="code-pane"><div class="pane-toolbar"><span>РАЗМЕТКА / КОД</span><span id="language">Forma UI</span></div><div class="code-wrap"><div id="lines"></div><textarea id="code" spellcheck="false" aria-label="Редактор исходного кода"></textarea></div></section><section class="preview-pane"><div class="pane-toolbar"><span>LIVE PREVIEW <i class="dot"></i></span><select id="scenario" aria-label="Дизайн-сценарий"></select></div><div class="preview-tools"><button id="desktop" class="chosen">Desktop</button><button id="mobile">Mobile</button><button id="theme">◐ Тема</button><span id="preview-name"></span></div><div id="canvas"><div id="preview"></div></div><div class="preview-caption" id="caption">Выберите элемент, чтобы найти его в разметке</div></section></div>
 <section class="bottom"><div class="bottom-tabs"><button data-tab="problems" class="chosen">Диагностика <span id="problem-count">0</span></button><button data-tab="events">События <span id="event-count">0</span></button><button data-tab="state">Состояние</button><div class="debug-controls"><label><input type="checkbox" id="break"> Break on event</label><button id="continue" disabled>▶ Продолжить</button><button id="reset">↺ Сброс</button></div></div><div id="output"></div></section></main>
@@ -105,9 +113,13 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 function persist(){try{localStorage.setItem('forma-project',JSON.stringify(files));$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
 function tree(){const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
 function open(path){active=path;persistView();codeEditor?.setLanguage(path);$('filename').textContent=path.split('/').at(-1);$('code').value=files[path];$('language').textContent=path.endsWith('.rs')?'Rust · редактирование':path.endsWith('.ui')?'Forma UI':'Текст';$('entry').disabled=!path.endsWith('.ui')||path.endsWith('.design.ui');lines();tree();refreshControlTree();}
-function lines(){$('lines').textContent=Array.from({length:$('code').value.split('\n').length},(_,i)=>i+1).join('\n');const before=$('code').value.slice(0,$('code').selectionStart).split('\n');$('position').textContent=`Ln ${before.length}, Col ${before.at(-1).length+1}`;highlightSource();}
+function lines(){
+  if(codeEditor){const {line,column}=codeEditor.position();$('position').textContent=`Ln ${line}, Col ${column}`;}
+  else {const text=$('code').value;$('lines').textContent=Array.from({length:text.split('\n').length},(_,i)=>i+1).join('\n');const before=text.slice(0,$('code').selectionStart).split('\n');$('position').textContent=`Ln ${before.length}, Col ${before.at(-1).length+1}`;}
+  highlightSource();
+}
 function highlightSource(){
-  spacingOverlay?.update();
+  spacingOverlay?.update();canvasTools?.update();
   if(codeEditor){codeEditor.highlight(selected&&active===selectedPath?selected:null);return;}
   const code=$('code');let layer=$('source-highlight');
   if(!layer){layer=document.createElement('div');layer.id='source-highlight';layer.setAttribute('aria-hidden','true');code.parentElement.append(layer);}
@@ -133,12 +145,14 @@ if(renderer==='vector'){
   if(!vectorPreview)throw Error('Загрузка векторного Rust/WASM…');
   if(!files['components/Button.ui'])throw Error('Добавьте components/Button.ui с примитивами кнопки');
   if(compiled.designs.length)throw Error('Векторный срез пока не поддерживает design-файлы и ViewModel');
-  const linked=compileComponents(files,entry,state,{measureText:vectorPreview.measureText});
-  const ok=vectorPreview.render({container:$('preview'),...linked,designMode,nodes:compiled.nodes,selectedStart:selectedPath===entry?selected?.start:null});
+  const linked=compileComponents(files,entry,state,{measureText:vectorPreview.measureText,instanceProps:designMode?n=>designPreset(designPresetName,n):undefined,transformScene:designMode?scene=>collectionScenario(designPresetName,scene,files):undefined});
+  lastVisuals=linked.visualNodes??[];
+  const ok=vectorPreview.render({container:$('preview'),...linked,designMode,nodes:designMode&&designPresetName!=='original'?linked.previewNodes:compiled.nodes,selectedStart:selectedPath===entry?selected?.start:null});
   if(!ok)throw Error(error||'Ошибка векторного компонента');
   $('preview').style.width=vectorPreview.snapshot().width+'px';$('preview').style.minHeight='0';$('preview').style.overflow='visible';
   $('caption').textContent=designMode?'Rust/WASM · компонент из примитивов · щёлкните для выбора':'Rust/WASM · hover / pressed + transitions · события в журнале';
-  $('canvas').classList.toggle('interacting',!designMode);return;
+  if(designMode&&designPresetName!=='original')$('caption').textContent='Дизайнерский сценарий · исходник не изменён · редактирование частей отключено';
+  $('canvas').classList.toggle('interacting',!designMode);canvasTools?.update();layoutInspector?.update();return;
 }
 const preview=$('preview');preview.classList.remove('vector-artboard');preview.style.backgroundColor='';preview.style.borderRadius='';preview.style.minHeight='';const cssMap={'padding':'padding','margin':'margin','gap':'gap','overflow':'overflow','background':'background','color':'color','width':'width','height':'height','radius':'borderRadius','font.size':'fontSize','opacity':'opacity'};
 for(const kind of ['padding','margin'])for(const side of ['top','right','bottom','left'])cssMap[`${kind}.${side}`]=kind+side[0].toUpperCase()+side.slice(1);
@@ -146,7 +160,7 @@ function make(source,parent=null){const override=designMode&&Object.hasOwn(compi
 for(const [key,path]of Object.entries(n.bindings)){if(key!=='value'||!path.startsWith('state.'))throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);el.value=override&&Object.hasOwn(override,key)?resolve(override[key],state):state[path.slice(6)]??'';el.oninput=()=>{state[path.slice(6)]=el.value;log(`${path} = ${JSON.stringify(el.value)}`);};}
 el.addEventListener('click',e=>{e.stopPropagation();if(mode==='design'){select(source);return;}if(n.events.clicked)dispatch(n.events.clicked,n);});Object.assign(el.style,gridStyles(n,state,parent));for(const child of n.children)el.append(make(child,n));return el;}
 const fragment=document.createDocumentFragment();for(const n of compiled.nodes)fragment.append(make(n));preview.replaceChildren(fragment);$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
-function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));$('inspector').innerHTML=`<h3>${esc(n.type)}</h3><div class="inspector-label">СВОЙСТВА</div>${Object.entries(n.props).map(([k,v])=>`<label class="property"><span>${esc(k)}</span><input data-prop="${esc(k)}" value="${esc(typeof v==='object'?JSON.stringify(v):v)}" ${typeof v==='object'?'disabled':''}></label>`).join('')}<div class="inspector-label">ПРИВЯЗКИ И СОБЫТИЯ</div>${Object.entries({...n.bindings,...n.events}).map(([k,v])=>`<div class="binding">${esc(k)}<code>${esc(v)}</code></div>`).join('')||'<small>Нет привязок</small>'}`;document.querySelectorAll('[data-prop]').forEach(input=>input.onchange=()=>{const key=input.dataset.prop;const old=n.props[key];const raw=typeof old==='number'?Number(input.value):typeof old==='boolean'?input.value==='true':input.value;if(typeof raw==='number'&&!Number.isFinite(raw))return;try{if(active!==entry)open(entry);codeEditor.edit(propertyEdit(files[entry],n.start,key,raw));}catch(e){error=e.message;output();}});lines();controlTree?.select(n.start,entry);}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));$('inspector').innerHTML=`<h3>${esc(n.type)}</h3><div class="inspector-label">СВОЙСТВА</div>${Object.entries(n.props).map(([k,v])=>`<label class="property"><span>${esc(k)}</span><input data-prop="${esc(k)}" value="${esc(typeof v==='object'?JSON.stringify(v):v)}" ${typeof v==='object'?'disabled':''}></label>`).join('')}<div class="inspector-label">ПРИВЯЗКИ И СОБЫТИЯ</div>${Object.entries({...n.bindings,...n.events}).map(([k,v])=>`<div class="binding">${esc(k)}<code>${esc(v)}</code></div>`).join('')||'<small>Нет привязок</small>'}`;document.querySelectorAll('[data-prop]').forEach(input=>input.onchange=()=>{const key=input.dataset.prop;const old=n.props[key];const raw=typeof old==='number'?Number(input.value):typeof old==='boolean'?input.value==='true':input.value;if(typeof raw==='number'&&!Number.isFinite(raw))return;try{if(active!==entry)open(entry);codeEditor.edit(propertyEdit(files[entry],n.start,key,raw));}catch(e){error=e.message;output();}});lines();controlTree?.select(n.start,entry);}
 function refreshControlTree(){
   if(!controlTree)return;
   const path=controlTree.scope==='designer'?entry:active;
@@ -170,13 +184,30 @@ function selectTreeControl(item){
   $('inspector').innerHTML=`<h3>${esc(item.node.type)}</h3><p>Узел шаблона</p><small>${esc(item.path)}<br>Изменяйте свойства в разметке. Геометрия конкретного экземпляра здесь не выбирается.</small>`;
   lines();controlTree.select(item.node.start,item.path);
 }
+function showNativeInspection(data){
+ let panel=$('native-inspection');if(!panel){panel=document.createElement('details');panel.id='native-inspection';panel.className='layout-inspector';document.querySelector('.inspector').append(panel);}
+ for(const other of document.querySelectorAll('.inspector>.layout-inspector'))if(other!==panel)other.open=false;
+ panel.open=true;panel.replaceChildren();const title=document.createElement('summary');title.textContent='Нативное окно · живое дерево · F9: выбор';panel.append(title);
+ const current=nativeSource&&files[nativeSource.entry]===nativeSource.source;
+ const roots=nativeSource?.nodes?.[0]?.children??[],controls=roots[0]?.type==='Scroll'?roots[0].children:roots;
+ const status=document.createElement('p');status.textContent=current?'Данные из работающего Rust runtime. F9 и щелчок в окне выбирают элемент.':'Исходник изменился или окно запущено раньше этой сессии: переход к коду отключён.';panel.append(status);
+ for(const node of data.nodes??[]){
+  const row=document.createElement('button'),control=data.controls?.find(c=>c.index===node.control),source=controls[node.control];
+  row.style.display='block';row.style.marginLeft=(node.parent===null?0:node.control===null?12:24)+'px';
+  row.textContent=source?source.type+' '+(source.props.key??''):node.kind;
+  if(control)row.textContent+=' · '+control.bounds.map(v=>Math.round(v)).join(', ')+(control.disabled?' · disabled':'');
+  row.setAttribute('aria-pressed',String(node.control===data.selected));
+  row.disabled=!current||!source;row.onclick=()=>selectTreeControl({path:nativeSource.entry,node:source});panel.append(row);
+ }
+ const source=controls[data.selected];if(current&&source)selectTreeControl({path:nativeSource.entry,node:source});
+}
 function dispatch(action,n){if(pending){log('Событие пропущено: debugger приостановлен');return;}log(`Событие ${n.type}.clicked → ${action}`);if(breakOn){pending={action,n};$('continue').disabled=false;$('debug-status').textContent='Пауза перед '+action;tab='state';syncTabs();output();return;}execute(action);}
 function execute(action){if(action==='actions.search'){state.status=`Дизайн-обработчик: запрос «${state.query||'пусто'}»`;log('Выполнен дизайн-обработчик search (без Rust/backend)');}else log(`Обработчик ${action} не подключён`);render();output();}
 function syncTabs(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));}
 $('code').oninput=()=>{files[active]=$('code').value;lines();$('saved').textContent='Изменено';clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);clearTimeout(compileTimer);compileTimer=setTimeout(()=>compile(active.endsWith('.design.ui')),250);};$('code').onscroll=()=>{$('lines').scrollTop=$('code').scrollTop;};$('code').onclick=lines;$('code').onkeyup=lines;
 $('code').onkeydown=e=>{if(e.key==='Tab'){e.preventDefault();const el=e.target;el.setRangeText('    ',el.selectionStart,el.selectionEnd,'end');el.dispatchEvent(new Event('input'));}if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();persist();}};
 $('scenario').onchange=e=>{scenario=Number(e.target.value);compile(true);};$('entry').onclick=()=>{if(renderer==='vector'&&active==='components/Button.ui'){compile();return;}entry=active;scenario=0;compile(true);};
-$('run').onclick=()=>{mode=mode==='design'?'interact':'design';$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
+$('run').onclick=()=>{mode=mode==='design'?'interact':'design';sessionStorage.setItem('forma-canvas-mode',mode);$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
 $('desktop').onclick=()=>{$('preview').style.width='520px';$('desktop').classList.add('chosen');$('mobile').classList.remove('chosen');};$('mobile').onclick=()=>{$('preview').style.width='320px';$('mobile').classList.add('chosen');$('desktop').classList.remove('chosen');};$('theme').onclick=()=>$('preview').classList.toggle('light');
 $('break').onchange=e=>breakOn=e.target.checked;$('continue').onclick=()=>{if(pending){const p=pending;pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';execute(p.action);}};$('reset').onclick=()=>{pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';compile(true);log('Состояние сценария восстановлено');};
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();output();});
@@ -186,6 +217,21 @@ $('code').addEventListener('scroll',highlightSource);
 $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});}});
 codeEditor=mountEditor($('code'));
+canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
+getScene:()=>renderer==='vector'?vectorPreview?.snapshot():null,
+getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=children[0]?.type==='Scroll'?children[0].children:children;return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
+getMode:()=>mode,setMode:next=>{if(mode!==next)$('run').click();},onChange:()=>{spacingOverlay?.update();layoutInspector?.update();}});
+const presetPicker=document.createElement('select');presetPicker.className='design-preset';presetPicker.setAttribute('aria-label','Проверка дизайна');
+for(const [value,label] of [['original','Исходный вид'],['long','Длинный текст'],['empty','Пустой текст'],['disabled','Недоступные контролы'],['list-empty','Список: пусто'],['list-12','Список: 12 строк'],['list-100','Список: 100 строк'],['loading','Список: загрузка'],['error','Список: ошибка']])presetPicker.add(new Option(label,value));
+document.querySelector('.canvas-tools').append(presetPicker);
+presetPicker.title='Только предпросмотр: исходники и нативное приложение не меняются';
+presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;}output();};
+layoutInspector=createLayoutInspector({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
+getVisuals:()=>designPresetName==='original'?lastVisuals:[],getRuntime:()=>vectorPreview?.snapshot(),getMode:()=>mode,
+getControl:()=>{const c=compiled?.nodes?.[0]?.children??[];return (c[0]?.type==='Scroll'?c[0].children:c).findIndex(n=>n.start===selected?.start);},
+readTracks:source=>{const raw=files[source.file].slice(source.from,source.to);const value=parse('component Tracks { Frame { columns: '+raw+'; } }').nodes[0].props.columns;return Array.isArray(value)?value:[value];},
+openSource:source=>{open(source.file);$('code').setSelectionRange(source.from,source.to);$('code').focus();},
+edit:(source,insert)=>{const previous=files[source.file];if(previous===undefined)throw Error('Файл не найден');const next=previous.slice(0,source.from)+insert+previous.slice(source.to);parse(next);if(active!==source.file)open(source.file);codeEditor.edit({from:source.from,to:source.to,insert});compile();}});
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
@@ -193,7 +239,7 @@ rendererPicker.onchange=()=>{renderer=rendererPicker.value;localStorage.setItem(
 function initVector(){
  loadVectorRuntime().then(runtime=>{
   if(vectorPreview)return;
-  vectorPreview=createVectorPreview({runtime,onSelect:select,onError:message=>{error=String(message);output();},onAction:(action,n)=>log(`Вектор: ${n.type}.clicked → ${action} (обработчик приложения пока не подключён)`)});
+  vectorPreview=createVectorPreview({runtime,onSelect:n=>{if(designPresetName==='original')select(n);},onError:message=>{error=String(message);output();},onAction:(action,n)=>log(`Вектор: ${n.type}.clicked → ${action} (обработчик приложения пока не подключён)`)});
   if(renderer==='vector')compile();
  }).catch(e=>{if(renderer==='vector'){error='Векторный WASM не собран: '+e.message;output();}});
 }
@@ -211,7 +257,7 @@ function ideCommand(command,args={}){
     case 'designer_tree_view':controlTree.setView(args);return controlTree.snapshot();
     case 'designer_tree_select':controlTree.selectId(args.id);return controlTree.snapshot();
     case 'designer_tree_fold':controlTree.fold(args.id,args.collapsed);return controlTree.snapshot();
-    case 'app_run':if(renderer==='vector'){if(error||!vectorPreview)throw Error(error||'Векторный renderer не готов');import.meta.hot.send('forma:vector-run',compileComponents(files,entry,state,{measureText:vectorPreview.measureText}));return {status:'requested',renderer};}if(error||!compiled)throw Error('Исправьте разметку');render(false);try{import.meta.hot.send('forma:native-run',{files,snapshot:nativeSnapshot($('preview'),compiled)});}finally{render();}return {status:'requested'};
+    case 'app_run':if(renderer==='vector'){nativeSource={entry,source:files[entry],nodes:structuredClone(compiled?.nodes??[])};if(error||!vectorPreview)throw Error(error||'Векторный renderer не готов');import.meta.hot.send('forma:vector-run',compileComponents(files,entry,state,{measureText:vectorPreview.measureText}));return {status:'requested',renderer};}if(error||!compiled)throw Error('Исправьте разметку');render(false);try{import.meta.hot.send('forma:native-run',{files,snapshot:nativeSnapshot($('preview'),compiled)});}finally{render();}return {status:'requested'};
     case 'app_stop':import.meta.hot.send('forma:native-stop',{});import.meta.hot.send('forma:vector-stop',{});return {status:'requested'};
     case 'rust_run':if(!import.meta.hot)throw Error('Requires local dev server');import.meta.hot.send('forma:rust-run',{files});return {status:'requested',note:'Read events_read for compilation output and exit code'};
     case 'rust_stop':import.meta.hot?.send('forma:rust-stop',{});return {status:'stop requested'};
@@ -277,13 +323,13 @@ if(import.meta.hot){
     if(data.error){error=data.error;output();return;}
     setDesignData(data.values);compile();log('Дизайн-данные обновлены из Rust');
   });
-  const runApp=document.createElement('button');runApp.textContent='▶ Приложение';runApp.className='accent';$('run').before(runApp);
+  const runApp=document.createElement('button');runApp.textContent='▶ Приложение';runApp.title='Запустить окно; F9 в окне включает выбор элемента и живое дерево в Studio';runApp.className='accent';$('run').before(runApp);
   runApp.onclick=()=>{tab='events';syncTabs();ideCommand('app_run');output();};
   const runRust=document.createElement('button');runRust.textContent='▶ Rust';runRust.title='Собрать и запустить Cargo-проект';$('run').before(runRust);
   const stopRust=document.createElement('button');stopRust.textContent='■';stopRust.title='Остановить Rust';stopRust.disabled=true;runRust.after(stopRust);
   runRust.onclick=()=>{persist();tab='events';syncTabs();log('Запуск Rust через Cargo (offline)…');runRust.disabled=true;stopRust.disabled=false;import.meta.hot.send('forma:rust-run',{files});};
   stopRust.onclick=()=>import.meta.hot.send('forma:rust-stop',{});
-  const rustOutput=data=>{log('[Rust] '+data.text);if(data.kind==='finished'||data.kind==='error'){runRust.disabled=false;stopRust.disabled=true;}};
+  const rustOutput=data=>{nativeBuffer+=data.text;let lineEnd;while((lineEnd=nativeBuffer.indexOf('\n'))>=0){const line=nativeBuffer.slice(0,lineEnd);nativeBuffer=nativeBuffer.slice(lineEnd+1);if(line.startsWith('FORMA_INSPECT ')){try{showNativeInspection(JSON.parse(line.slice(14)));}catch(e){log('Ошибка данных инспекции: '+e.message);}}}if(nativeBuffer.length>200000)nativeBuffer='';if(!data.text.startsWith('FORMA_INSPECT '))log('[Rust] '+data.text);if(data.kind==='finished'||data.kind==='error'){runRust.disabled=false;stopRust.disabled=true;}};
   import.meta.hot.on('forma:rust-output',rustOutput);
   const hello=()=>import.meta.hot.send('forma:hello',{});
   const handle=({id,command,args})=>{try{import.meta.hot.send('forma:result',{id,result:ideCommand(command,args)});}catch(e){import.meta.hot.send('forma:result',{id,error:e.message});}};

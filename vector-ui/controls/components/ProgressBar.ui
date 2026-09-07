@@ -1,0 +1,22 @@
+// Passive determinate progress; value is a percentage, e.g. 60%.
+// This component does not provide slider interaction or an indeterminate timer.
+component ProgressBar : Surface {
+    width: 240;
+    height: 6;
+    radius: 3;
+    borderWidth: 0;
+    value: 60%;
+    background: state.theme.track;
+    fill: state.theme.primary;
+
+    override content: Frame {
+        columns: [props.value, *];
+        clip: true;
+        radius: props.radius;
+        Rectangle {
+            cell: 1 1;
+            radius: props.radius;
+            background: props.fill;
+        }
+    };
+}

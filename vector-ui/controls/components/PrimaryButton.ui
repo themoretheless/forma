@@ -1,0 +1,8 @@
+component PrimaryButton : Button {
+    background: state.theme.primary;
+    hoverBackground: state.theme.primaryHover;
+    pressedBackground: state.theme.primaryPressed;
+    color: state.theme.primaryText;
+    borderColor: state.theme.primary;
+    focusBorderColor: state.theme.primaryText;
+}

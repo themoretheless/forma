@@ -1,0 +1,11 @@
+// Passive tooltip body. Position, delay and visibility are provided by the host.
+component Tooltip : Surface {
+    width: 200;
+    height: 36;
+    radius: 8;
+    fontSize: 12;
+    borderWidth: 0;
+    text: 'Подсказка';
+    background: state.theme.text;
+    color: state.theme.surface;
+}

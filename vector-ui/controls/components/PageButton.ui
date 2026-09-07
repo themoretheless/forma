@@ -1,0 +1,8 @@
+// One pagination button; paging logic belongs to the owner.
+component PageButton : Chip {
+    width: 32;
+    height: 32;
+    radius: 8;
+    fontSize: 13;
+    text: '1';
+}

@@ -1,0 +1,14 @@
+// text names the action even when only its icon is painted.
+component IconButton : Button {
+    width: 32;
+    height: 32;
+    text: 'Поиск';
+    icon: 'assets/search.svg';
+
+    override content: Icon {
+        source: props.icon;
+        color: props.textColor;
+        width: props.iconSize;
+        height: props.iconSize;
+    };
+}

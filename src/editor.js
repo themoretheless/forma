@@ -23,15 +23,15 @@ const selectionField=StateField.define({
 export function mountEditor(textarea){
   const host=document.createElement('div');host.className='source-editor';textarea.before(host);
   textarea.hidden=true;document.getElementById('lines').hidden=true;
-  let programmatic=false,currentHighlight='';
+  let programmatic=false,currentHighlight='',cachedText=textarea.value,inputQueued=false,selectionQueued=false;
   const languageConfig=new Compartment();
   const ranges=StateField.define({create:state=>blockRanges(state.doc.toString()),update:(value,tr)=>tr.docChanged?blockRanges(tr.newDoc.toString()):value});
   const view=new EditorView({parent:host,state:EditorState.create({doc:textarea.value,extensions:[basicSetup,languageConfig.of(formaHighlight),ranges,selectionField,
     foldService.of((state,from,to)=>state.field(ranges).find(r=>r.from>from&&r.from<=to)),
     EditorView.contentAttributes.of({'aria-label':'Редактор исходного кода'}),
     EditorView.updateListener.of(update=>{
-      if(update.docChanged&&!programmatic){currentHighlight='';queueMicrotask(()=>textarea.dispatchEvent(new Event('input')));}
-      if(update.selectionSet)queueMicrotask(()=>textarea.dispatchEvent(new Event('keyup')));
+      if(update.docChanged){cachedText=null;if(!programmatic){currentHighlight='';if(!inputQueued){inputQueued=true;queueMicrotask(()=>{inputQueued=false;textarea.dispatchEvent(new Event('input'));});}}}
+      if(update.selectionSet&&!update.docChanged&&!selectionQueued){selectionQueued=true;queueMicrotask(()=>{selectionQueued=false;if(!inputQueued)textarea.dispatchEvent(new Event('keyup'));});}
     }),
     EditorView.theme({
       '&':{height:'100%',backgroundColor:'#13161c',color:'#c9d6f2',fontSize:'12px'},
@@ -47,7 +47,7 @@ export function mountEditor(textarea){
     },{dark:true})
   ]})});
   Object.defineProperties(textarea,{
-    value:{get:()=>view.state.doc.toString(),set:text=>{programmatic=true;currentHighlight='';view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});programmatic=false;}},
+    value:{get:()=>cachedText??=view.state.doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});}finally{programmatic=false;}}},
     selectionStart:{get:()=>view.state.selection.main.from},
     selectionEnd:{get:()=>view.state.selection.main.to}
   });
@@ -57,7 +57,7 @@ export function mountEditor(textarea){
     view.dispatch({selection:{anchor:start,head:end},effects});
   };
   view.dom.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'s',metaKey:e.metaKey,ctrlKey:e.ctrlKey}));}});
-  return {edit(change){view.dispatch({changes:change,userEvent:'input.inspector'});},setLanguage(path){view.dispatch({effects:languageConfig.reconfigure(path.endsWith('.ui')?formaHighlight:[])});},fold({line,collapsed=true}){
+  return {position(){const from=view.state.selection.main.from,line=view.state.doc.lineAt(from);return {line:line.number,column:from-line.from+1};},edit(change){view.dispatch({changes:change,userEvent:'input.inspector'});},setLanguage(path){view.dispatch({effects:languageConfig.reconfigure(path.endsWith('.ui')?formaHighlight:[])});},fold({line,collapsed=true}){
     if(line===undefined){(collapsed?foldAll:unfoldAll)(view);return;}
     if(line<1||line>view.state.doc.lines)throw Error('Line out of range');
     const location=view.state.doc.line(line),range=view.state.field(ranges).find(r=>r.from>location.from&&r.from<=location.to);

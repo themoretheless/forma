@@ -1,0 +1,45 @@
+// Passive tree-row composition; indent is an explicit logical-pixel offset.
+component TreeContent {
+    text: 'Элемент';
+    color: state.theme.text;
+    fontSize: 13;
+    branch: false;
+    expanded: false;
+    indent: 0;
+    icon: 'assets/file.svg';
+
+    Frame {
+        columns: [props.indent, 12, 16, *];
+        padding: 0 6;
+        gap: 4;
+        ContentPresenter {
+            key: 'disclosure';
+            content: match props.branch {
+                true => Icon {
+                    cell: 1 2;
+                    width: 12;
+                    height: 12;
+                    color: props.color;
+                    source: match props.expanded {
+                        true => 'assets/chevron-down.svg';
+                        _ => 'assets/chevron-right.svg';
+                    };
+                };
+                _ => Frame { cell: 1 2; };
+            };
+        }
+        Icon {
+            cell: 1 3;
+            source: props.icon;
+            color: props.color;
+            width: 16;
+            height: 16;
+        }
+        StartLabel {
+            cell: 1 4;
+            text: props.text;
+            color: props.color;
+            fontSize: props.fontSize;
+        }
+    }
+}

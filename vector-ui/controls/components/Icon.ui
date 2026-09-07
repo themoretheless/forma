@@ -1,0 +1,14 @@
+// Passive vector artwork. The owning control supplies its accessible text.
+component Icon {
+    source: 'assets/search.svg';
+    color: state.theme.text;
+    width: 16;
+    height: 16;
+
+    Image {
+        source: props.source;
+        color: props.color;
+        width: props.width;
+        height: props.height;
+    }
+}

@@ -82,17 +82,17 @@ pub(crate) struct CachedList {
     list: Arc<DisplayList>,
 }
 impl DisplayList {
-    fn command(&mut self, kind: f32, bounds: [f32; 4], color: [u8; 4], radius: f32, stroke: f32) {
+    pub(crate) fn command(&mut self, kind: f32, bounds: [f32; 4], color: [u8; 4], radius: f32, stroke: f32) {
         self.commands.extend([kind, 0., 0., 0.]);
         self.commands.extend(bounds);
         self.commands.extend(color.map(|v| v as f32 / 255.));
         self.commands
             .extend([radius, stroke, 0., 0., 0., 0., 0., 0.]);
     }
-    fn push(&mut self, bounds: [f32; 4], radius: f32) {
+    pub(crate) fn push(&mut self, bounds: [f32; 4], radius: f32) {
         self.command(2., bounds, [0; 4], radius, 0.);
     }
-    fn pop(&mut self) {
+    pub(crate) fn pop(&mut self) {
         self.command(3., [0.; 4], [0; 4], 0., 0.);
     }
     fn path(&mut self, edges: Vec<[f32; 4]>, color: [u8; 4], nonzero: bool) {
@@ -156,7 +156,7 @@ impl DisplayList {
                 0.,
             );
         }
-        let v = model.viewport();
+        let v = model.viewport_rect();
         if model.scene.scroll {
             out.command(2., [v[0], v[1], v[2], v[3]], [0; 4], 0., 1.);
         }
@@ -171,6 +171,8 @@ impl DisplayList {
             r,
             model.template.border.as_ref().map_or(0., |b| b.width),
         );
+        let offset=out.commands.len()-STRIDE;
+        out.commands[offset+15]=1.; // Independent fill/border paint slots.
         if let Some(t) = &model.template.text {
             out.text(
                 t,
@@ -207,6 +209,11 @@ impl DisplayList {
                 ),
                 Content::ClipEnd => out.pop(),
             }
+        }
+        if let Some(reveal) = &model.template.reveal {
+            out.command(6., model.reveal_bounds(), [0; 4], reveal.target_radius.unwrap_or(r), reveal.width);
+            let offset = out.commands.len() - STRIDE;
+            out.commands[offset + 14] = 2.; // Reveal data + color, after fill/border.
         }
         if model.scene.scroll {
             if b.height > v[3] && v[3] > 0. {
@@ -406,14 +413,50 @@ impl Button {
     }
     // viewport/scale/opaque output; animated fill and border. Geometry is static.
     pub fn gpu_params(&self, width: u32, height: u32, scale: f32, opaque: bool) -> Vec<f32> {
-        let mut p = vec![
-            width as f32,
-            height as f32,
-            scale,
-            if opaque { 1. } else { 0. },
-        ];
-        p.extend(self.fill.color().map(|v| v as f32 / 255.));
-        p.extend(self.border.color().map(|v| v as f32 / 255.));
-        p
+        let mut params = Vec::with_capacity(12);
+        self.gpu_params_into(width, height, scale, opaque, &mut params);
+        params
+    }
+}
+
+/// The renderer consumes only immutable geometry and paint slots, never controls
+/// or interaction state. Both the legacy leaf and the scene runtime implement it.
+pub trait RenderScene {
+    fn vector_snapshot(&self, scale:f32, background:bool)->Arc<DisplayList>;
+    fn gpu_params(&self, width:u32, height:u32, scale:f32, opaque:bool)->Vec<f32>;
+    fn gpu_paints(&self)->Vec<f32>;
+    /// Replace renderer-owned storage while retaining its allocation. Defaults
+    /// preserve compatibility with external implementations of RenderScene.
+    fn gpu_params_into(&self, width:u32, height:u32, scale:f32, opaque:bool, out:&mut Vec<f32>) {
+        out.clear();
+        out.extend(self.gpu_params(width, height, scale, opaque));
+    }
+    fn gpu_paints_into(&self, out:&mut Vec<f32>) {
+        out.clear();
+        out.extend(self.gpu_paints());
+    }
+}
+impl RenderScene for Button {
+    fn vector_snapshot(&self,s:f32,b:bool)->Arc<DisplayList>{Button::vector_snapshot(self,s,b)}
+    fn gpu_params(&self,w:u32,h:u32,s:f32,o:bool)->Vec<f32>{Button::gpu_params(self,w,h,s,o)}
+    fn gpu_paints(&self)->Vec<f32>{Button::gpu_paints(self)}
+    fn gpu_params_into(&self, width:u32, height:u32, scale:f32, opaque:bool, out:&mut Vec<f32>) {
+        out.clear();
+        out.extend([width as f32, height as f32, scale, if opaque { 1. } else { 0. }]);
+        out.extend(self.fill.color().map(|v| v as f32 / 255.));
+        out.extend(self.border.color().map(|v| v as f32 / 255.));
+    }
+    fn gpu_paints_into(&self, out:&mut Vec<f32>) {
+        out.clear();
+        out.extend(self.fill.color().into_iter().chain(self.border.color()).map(|v| v as f32 / 255.));
+        if self.template.reveal.is_some() { out.extend(self.reveal_paint().gpu()); }
+    }
+}
+#[wasm_bindgen]
+impl Button {
+    pub fn gpu_paints(&self)->Vec<f32>{
+        let mut paints = Vec::with_capacity(if self.template.reveal.is_some() { 16 } else { 8 });
+        self.gpu_paints_into(&mut paints);
+        paints
     }
 }

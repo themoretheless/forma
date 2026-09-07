@@ -17,6 +17,8 @@ pub struct Scene {
     pub content_width: f32,
     pub content_height: f32,
     pub button: ButtonSpec,
+    pub buttons: Vec<ButtonSpec>,
+    pub gap: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -316,7 +318,7 @@ impl<'a> Parser<'a> {
             } else {
                 if !matches!(
                     name.as_str(),
-                    "key"
+                    "key" | "x" | "y"
                         | "width"
                         | "height"
                         | "radius"
@@ -342,6 +344,8 @@ impl<'a> Parser<'a> {
                             return Err(self.error("Explicit 'key' must not be empty"));
                         }
                     }
+                    "x" => button.x = self.number("x", true)?,
+                    "y" => button.y = self.number("y", true)?,
                     "width" => button.width = self.number("width", false)?,
                     "height" => button.height = self.number("height", false)?,
                     "radius" => button.radius = self.number("radius", true)?,
@@ -387,26 +391,30 @@ impl<'a> Parser<'a> {
         let mut overflow = String::from("visible");
         let mut clip=false;let mut radius=0.;
         let mut scroll=false;
-        let mut button = None;
+        let mut buttons = Vec::new();
+        let mut gap = 0.;
         let mut seen = HashSet::new();
         while self.current.kind != Kind::Close {
             let property = self.ident()?;
             if property == "Button" || property == "Scroll" {
-                if button.is_some() {
-                    return Err(self.error("The vector demo supports exactly one Button"));
-                }
-                if property=="Scroll"{
+                if property=="Scroll" {
+                    if scroll || !buttons.is_empty() { return Err(self.error("Scroll must be the only Frame child")); }
                     scroll=true;
                     self.expect(Kind::Open,"'{' after Scroll")?;
-                    self.expect(Kind::Ident("Button".into()),"one Button inside Scroll")?;
-                    button=Some(self.button()?);
+                    while self.current.kind != Kind::Close {
+                        self.expect(Kind::Ident("Button".into()),"Button inside Scroll")?;
+                        buttons.push(self.button()?);
+                    }
                     self.expect(Kind::Close,"'}' after Scroll")?;
-                }else{button = Some(self.button()?);}
+                } else {
+                    if scroll { return Err(self.error("Scroll must be the only Frame child")); }
+                    buttons.push(self.button()?);
+                }
                 continue;
             }
             if !matches!(
                 property.as_str(),
-                "width" | "height" | "padding" | "background" | "overflow" | "clip" | "radius"
+                "gap" | "width" | "height" | "padding" | "background" | "overflow" | "clip" | "radius"
             ) {
                 return Err(
                     self.error(&format!("Unsupported Frame property or child '{property}'"))
@@ -417,6 +425,7 @@ impl<'a> Parser<'a> {
             }
             self.expect(Kind::Colon, "':' after Frame property")?;
             match property.as_str() {
+                "gap" => gap = self.number("gap", true)?,
                 "width" => width = self.number("width", false)?,
                 "height" => height = self.number("height", false)?,
                 "padding" => padding = self.padding()?,
@@ -435,14 +444,23 @@ impl<'a> Parser<'a> {
                 self.error("Unexpected content after component; only one component is supported")
             );
         }
-        let mut button =
-            button.ok_or_else(|| self.error("Frame must contain exactly one Button"))?;
+        if buttons.is_empty() { return Err(self.error("Frame must contain at least one Button")); }
+        if buttons.len()>256 { return Err(self.error("At most 256 controls per scene")); }
         if seen.contains("clip")&&seen.contains("overflow"){return Err(self.error("Use clip or legacy overflow, not both"));}
         if overflow=="hidden"{clip=true;}
-        button.x = padding[3];
-        button.y = padding[0];
-        let used_width = button.x + button.width + padding[1];
-        let used_height = button.y + button.height + padding[2];
+        let mut keys=HashSet::new();
+        let mut y=padding[0];
+        let mut used_width=width;
+        let mut used_height=height;
+        for button in &mut buttons {
+            if !button.key.is_empty() && !keys.insert(button.key.clone()) { return Err(self.error("Duplicate control key")); }
+            if !button.specified.contains("x") {button.x=padding[3];}
+            if !button.specified.contains("y") {button.y=y;}
+            y=button.y+button.height+gap;
+            used_width=used_width.max(button.x+button.width+padding[1]);
+            used_height=used_height.max(button.y+button.height+padding[2]);
+        }
+        let button=buttons[0].clone();
         Ok(Scene {
             name,
             width,
@@ -455,7 +473,7 @@ impl<'a> Parser<'a> {
             padding,
             content_width:used_width.min(f32::MAX).max(width),
             content_height:used_height.min(f32::MAX).max(height),
-            button,
+            button, buttons, gap,
         })
     }
 }
@@ -618,7 +636,6 @@ mod tests {
             "text:'a'; text:'b';",
             "key:'';",
             "row: 1;",
-            "x: 10;",
             "font.weight: 700;",
             "text: state.label;",
             "text <-> state.label;",
@@ -634,7 +651,6 @@ mod tests {
             "rows:[*]; Button{}",
             "Frame{}",
             "Text{}",
-            "Button{} Button{}",
         ] {
             assert!(
                 parse(&format!("component X {{ Frame {{ {contents} }} }}")).is_err(),

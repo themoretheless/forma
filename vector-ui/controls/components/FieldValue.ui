@@ -1,0 +1,18 @@
+// TextInput editing and rendering are provided by the shared Rust runtime.
+component FieldValue {
+    value: '';
+    placeholder: 'Введите текст';
+    color: state.theme.text;
+    placeholderColor: state.theme.textMuted;
+    fontSize: 15;
+
+    Frame {
+        TextInput {
+            value: props.value;
+            placeholder: props.placeholder;
+            color: props.color;
+            placeholderColor: props.placeholderColor;
+            fontSize: props.fontSize;
+        }
+    }
+}

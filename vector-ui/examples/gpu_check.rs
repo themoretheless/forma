@@ -9,7 +9,7 @@ fn main() {
 }
 #[cfg(feature = "gpu")]
 async fn run() {
-    use forma_vector::{gpu::Renderer, Button};
+    use forma::{gpu::Renderer, Runtime as Button};
     let instance = wgpu::Instance::default();
     let adapter = instance
         .request_adapter(&Default::default())
@@ -23,11 +23,11 @@ async fn run() {
     let source = args
         .get(1)
         .map(|p| std::fs::read_to_string(p).unwrap())
-        .unwrap_or(forma_vector::EXAMPLE.into());
+        .unwrap_or(forma::EXAMPLE.into());
     let template = args
         .get(2)
         .map(|p| std::fs::read_to_string(p).unwrap())
-        .unwrap_or(forma_vector::BUTTON_COMPONENT.into());
+        .unwrap_or(forma::BUTTON_COMPONENT.into());
     let nested="component Demo { Frame { width:64; height:48; radius:12; clip:true; padding:2; background:#12345680; Scroll { Button { width:100; height:60; } } } }";
     let nested_template="component Button { Rectangle { radius:12; background:#ff000080; Border { width:2; background:#aabbcc80; } ContentClip { x:5; y:2; width:45; height:40; radius:5; } ContentShape { points:'0 0 70 0 70 50 0 50'; color:#abcdef80; } ContentText { x:1; y:2; width:55; height:30; text:'ОБ'; color:#ffffffa0; fontSize:16; } ContentClipEnd {} } }";
     for (name, source, template) in [

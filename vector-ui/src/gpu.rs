@@ -1,7 +1,6 @@
 //! Native WebGPU/wgpu backend. Uploads vector commands/edges, never RGBA images.
 use crate::{
-    display_list::{DisplayList, TileScratch, TILE},
-    Button,
+    display_list::{DisplayList, RenderScene, TileScratch, TILE},
 };
 use std::sync::Arc;
 pub const SHADER: &str = include_str!("vector.wgsl");
@@ -17,6 +16,7 @@ pub struct GpuResourceStats {
     pub command_bytes: u64,
     pub edge_bytes: u64,
     pub tile_bytes: u64,
+    pub paint_bytes: u64,
     pub timing_buffer_bytes: u64,
     pub bind_group_count: usize,
     pub render_pipeline_count: usize,
@@ -36,6 +36,8 @@ pub struct GpuResourceStats {
     pub cpu_shared_geometry_bytes: usize,
     /// Retained CPU tile-binning scratch capacities, not GPU memory.
     pub cpu_tile_scratch_bytes: usize,
+    /// Retained current/last-uploaded uniform and paint storage, not GPU memory.
+    pub cpu_paint_scratch_bytes: usize,
 }
 
 /// Optional backend suballocator accounting. Not total adapter memory or residency.
@@ -93,6 +95,10 @@ pub struct Renderer {
     tile_key: Option<(u32, u32, f32)>,
     tile_scratch: TileScratch,
     buffers: Vec<wgpu::Buffer>,
+    params: Vec<f32>,
+    uploaded_params: Vec<f32>,
+    paints: Vec<f32>,
+    uploaded_paints: Vec<f32>,
     pub uploads: u64,
     pub frames: u64,
     format: wgpu::TextureFormat,
@@ -218,7 +224,11 @@ impl Renderer {
             geometry: None,
             tile_key: None,
             tile_scratch: TileScratch::default(),
-            buffers: Vec::with_capacity(3),
+            buffers: Vec::with_capacity(4),
+            params: Vec::with_capacity(12),
+            uploaded_params: Vec::with_capacity(12),
+            paints: Vec::new(),
+            uploaded_paints: Vec::new(),
             uploads: 0,
             frames: 0,
             format,
@@ -249,11 +259,13 @@ impl Renderer {
                 + command_bytes
                 + edge_bytes
                 + tile_bytes
+                + bytes(3)
                 + timing_buffer_bytes,
             uniform_bytes,
             command_bytes,
             edge_bytes,
             tile_bytes,
+            paint_bytes: bytes(3),
             timing_buffer_bytes,
             bind_group_count: usize::from(self.bindings.is_some()),
             render_pipeline_count: 1,
@@ -269,6 +281,10 @@ impl Renderer {
                 (list.commands.capacity() + list.edges.capacity()) * std::mem::size_of::<f32>()
             }),
             cpu_tile_scratch_bytes: self.tile_scratch.capacity_bytes(),
+            cpu_paint_scratch_bytes: (self.params.capacity()
+                + self.uploaded_params.capacity()
+                + self.paints.capacity()
+                + self.uploaded_paints.capacity()) * std::mem::size_of::<f32>(),
         }
     }
 
@@ -335,7 +351,7 @@ impl Renderer {
     }
     pub fn draw(
         &mut self,
-        model: &Button,
+        model: &impl RenderScene,
         target: &wgpu::TextureView,
         width: u32,
         height: u32,
@@ -363,17 +379,21 @@ impl Renderer {
         // The binner depends on the number of tiles, not exact viewport pixels.
         // Sub-tile resize changes only uniforms, retaining the same valid tile data.
         let tile_key = (width.div_ceil(TILE), height.div_ceil(TILE), scale);
-        if changed || self.tile_key != Some(tile_key) {
-            let tiles = list.tiles_into(width, height, scale, &mut self.tile_scratch);
+        let tiles_changed=changed || self.tile_key != Some(tile_key);
+        model.gpu_paints_into(&mut self.paints);
+        let paints_changed = self.buffers.len() < 4 || self.paints != self.uploaded_paints;
+        {
+            let tiles = if tiles_changed {list.tiles_into(width, height, scale, &mut self.tile_scratch)}else{&[]};
             let edges = if list.edges.is_empty() {
                 &[0f32; 4][..]
             } else {
                 &list.edges
             };
-            let data: [&[u8]; 3] = [
+            let data: [&[u8]; 4] = [
                 bytemuck::cast_slice(&list.commands),
                 bytemuck::cast_slice(edges),
                 bytemuck::cast_slice(tiles),
+                bytemuck::cast_slice(&self.paints),
             ];
             let limits = self.device.limits();
             let storage_limit =
@@ -383,14 +403,14 @@ impl Renderer {
             }
             let mut rebind = self.bindings.is_none();
             for (index, payload) in data.iter().enumerate() {
-                if !changed && index != 2 {
+                if (index<2&&!changed)||(index==2&&!tiles_changed)||(index==3&&!paints_changed) {
                     continue;
                 }
                 let current = self.buffers.get(index).map_or(0, wgpu::Buffer::size);
                 let capacity = storage_capacity(payload.len() as u64, current, storage_limit)?;
                 if capacity != current {
                     let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some(["Forma commands", "Forma edges", "Forma tiles"][index]),
+                        label: Some(["Forma commands", "Forma edges", "Forma tiles", "Forma paints"][index]),
                         size: capacity,
                         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
@@ -410,7 +430,7 @@ impl Renderer {
             if changed {
                 self.uploads += 1;
             }
-            self.tile_uploads += 1;
+            if tiles_changed { self.tile_uploads += 1; }
             if rebind {
                 self.bindings = Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Forma vectors"),
@@ -432,6 +452,7 @@ impl Renderer {
                             binding: 3,
                             resource: self.buffers[2].as_entire_binding(),
                         },
+                        wgpu::BindGroupEntry {binding:4,resource:self.buffers[3].as_entire_binding()},
                     ],
                 }));
                 self.bind_group_creations += 1;
@@ -441,13 +462,18 @@ impl Renderer {
             }
             self.tile_key = Some(tile_key);
         }
-        let mut params = model.gpu_params(width, height, scale, opaque);
-        if opaque && self.format.is_srgb() {
-            params[3] = 2.;
+        if paints_changed {
+            self.uploaded_paints.clone_from(&self.paints);
         }
-        self.queue
-            .write_buffer(&self.uniform, 0, bytemuck::cast_slice(&params));
-        self.uploaded_bytes += std::mem::size_of_val(params.as_slice()) as u64;
+        model.gpu_params_into(width, height, scale, opaque, &mut self.params);
+        if opaque && self.format.is_srgb() {
+            self.params[3] = 2.;
+        }
+        if self.params != self.uploaded_params {
+            self.queue.write_buffer(&self.uniform, 0, bytemuck::cast_slice(&self.params));
+            self.uploaded_bytes += std::mem::size_of_val(self.params.as_slice()) as u64;
+            self.uploaded_params.clone_from(&self.params);
+        }
         let mut encoder = self.device.create_command_encoder(&Default::default());
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -488,6 +514,7 @@ impl Renderer {
 
 #[cfg(test)]
 mod tests {
+    use crate::Button;
     use super::*;
 
     #[test]
@@ -547,6 +574,7 @@ mod tests {
                 initial.buffer_count as u64
             );
             assert_eq!(initial.bind_group_count, 0);
+            let mut uploaded_once = None;
             for _ in 0..2 {
                 renderer
                     .draw(&model, &target, 96, 64, 1., true, true)
@@ -559,12 +587,17 @@ mod tests {
                     assert!(ns.is_finite() && ns >= 0., "invalid GPU duration: {ns}");
                 }
                 assert_eq!(renderer.read_gpu_duration_ns().unwrap(), None);
+                let uploaded = renderer.resource_stats().uploaded_bytes_total;
+                if let Some(first) = uploaded_once {
+                    assert_eq!(uploaded, first, "an unchanged frame must not upload any payload");
+                }
+                uploaded_once = Some(uploaded);
             }
             let stats = renderer.resource_stats();
-            assert_eq!(stats.buffer_count, initial.buffer_count + 3);
+            assert_eq!(stats.buffer_count, initial.buffer_count + 4);
             assert_eq!(
                 stats.buffer_allocations_total,
-                initial.buffer_allocations_total + 3
+                initial.buffer_allocations_total + 4
             );
             assert_eq!(stats.geometry_uploads_total, 1);
             assert_eq!(stats.tile_uploads_total, 1);
@@ -575,10 +608,11 @@ mod tests {
                     + stats.command_bytes
                     + stats.edge_bytes
                     + stats.tile_bytes
+                    + stats.paint_bytes
                     + stats.timing_buffer_bytes
             );
             assert_eq!(stats.buffer_allocation_bytes_total, stats.buffer_bytes);
-            assert!(stats.uploaded_bytes_total >= 2 * stats.uniform_bytes);
+            assert!(stats.uploaded_bytes_total >= stats.uniform_bytes);
             assert_eq!(stats.cpu_geometry_cache_bytes, 0);
             assert!(stats.cpu_shared_geometry_bytes > 0);
             assert!(stats.cpu_tile_scratch_bytes > 0);

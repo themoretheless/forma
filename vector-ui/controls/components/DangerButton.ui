@@ -1,0 +1,8 @@
+component DangerButton : Button {
+    background: state.theme.danger;
+    hoverBackground: state.theme.dangerHover;
+    pressedBackground: state.theme.dangerPressed;
+    color: state.theme.dangerText;
+    borderColor: state.theme.danger;
+    focusBorderColor: state.theme.dangerText;
+}

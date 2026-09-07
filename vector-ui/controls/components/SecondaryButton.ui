@@ -1,0 +1,7 @@
+component SecondaryButton : Button {
+    background: state.theme.surfaceRaised;
+    hoverBackground: state.theme.surfaceHover;
+    pressedBackground: state.theme.surfacePressed;
+    color: state.theme.text;
+    borderColor: state.theme.borderStrong;
+}

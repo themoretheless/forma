@@ -10,9 +10,12 @@ pub struct Template {
     pub radius: f32,
     pub fill: Option<Brush>,
     pub border: Option<Border>,
+    pub reveal: Option<crate::reveal::Reveal>,
     pub text: Option<Text>,
     pub clickable: bool,
     pub content: Vec<Content>,
+    pub inputs: Vec<crate::text_input::Input>,
+    pub range: Option<RangeInput>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -451,6 +454,88 @@ impl<'a> Parser<'a> {
             brush: brush.ok_or_else(|| self.error("Border requires background: Brush { ... };"))?,
         })
     }
+    fn reveal(&mut self) -> Result<crate::reveal::Reveal, String> {
+        self.open()?;
+        let mut reveal = crate::reveal::Reveal::default();
+        let mut seen = HashSet::new();
+        while self.current.kind != Kind::Close {
+            let name = self.ident()?;
+            self.unique(&mut seen, &name)?;
+            self.colon()?;
+            match name.as_str() {
+                "targetX" => reveal.target_x = Some(self.scalar("targetX", false)?),
+                "targetY" => reveal.target_y = Some(self.scalar("targetY", false)?),
+                "targetWidth" => reveal.target_width = Some(self.scalar("targetWidth", true)?),
+                "targetHeight" => reveal.target_height = Some(self.scalar("targetHeight", true)?),
+                "targetRadius" => reveal.target_radius = Some(self.scalar("targetRadius", false)?),
+                "width" => reveal.width = self.scalar("width", false)?,
+                "color" => reveal.color = self.color("color")?,
+                "radius" => reveal.radius = self.scalar("radius", true)?,
+                "activeRadius" => reveal.active_radius = self.scalar("activeRadius", true)?,
+                "transition" => reveal.duration_ms = self.duration()?,
+                "stop" | "activeStop" => {
+                    let value = match self.current.kind {
+                        Kind::Number(value, Unit::Logical) if value > 0. && value <= 1. => value,
+                        _ => return Err(self.error("Reveal stop requires a unitless fraction above 0 and at most 1")),
+                    };
+                    self.advance()?;
+                    if name == "stop" { reveal.stop = value; } else { reveal.active_stop = value; }
+                }
+                _ => return Err(self.error(&format!("Unsupported Reveal field '{name}'"))),
+            }
+            self.semi()?;
+        }
+        self.close()?;
+        Ok(reveal)
+    }
+    fn range_input(&mut self)->Result<RangeInput,String> {
+        self.open()?;
+        let mut value=0.;let mut minimum=None;let mut maximum=None;let mut seen=HashSet::new();
+        while self.current.kind!=Kind::Close {
+            let name=self.ident()?;self.unique(&mut seen,&name)?;
+            if name=="value" {self.colon()?;value=self.scalar("value",false)?;self.semi()?;}
+            else if name=="Minimum" || name=="Maximum" {
+                self.open()?;let mut content=Vec::new();let mut depth=0;
+                while self.current.kind!=Kind::Close {
+                    let kind=self.ident()?;
+                    if !matches!(kind.as_str(),"ContentShape"|"ContentText"|"ContentClip"|"ContentClipEnd"){return Err(self.error("Expected range visual content"));}
+                    if kind=="ContentClip"{depth+=1;}
+                    if kind=="ContentClipEnd"{depth-=1;if depth<0{return Err(self.error("Unmatched range clip"));}}
+                    if content.len()>=4096 || depth>16{return Err(self.error("Range content limit"));}
+                    content.push(self.content(&kind)?);
+                }
+                self.close()?;if depth!=0{return Err(self.error("Unclosed range clip"));}
+                if name=="Minimum"{minimum=Some(content);}else{maximum=Some(content);}
+            }else{return Err(self.error("Unknown RangeInput property"));}
+        }
+        self.close()?;
+        let range=RangeInput{value:value.clamp(0.,1.),minimum:minimum.ok_or("Missing Minimum")?,maximum:maximum.ok_or("Missing Maximum")?};
+        if !range.compatible(){return Err(self.error("Range endpoints must have matching geometry"));}
+        Ok(range)
+    }
+    fn input(&mut self) -> Result<crate::text_input::Input, String> {
+        self.open()?;
+        let mut input = crate::text_input::Input::default();
+        let mut seen = HashSet::new();
+        while self.current.kind != Kind::Close {
+            let name=self.ident()?; self.unique(&mut seen,&name)?; self.colon()?;
+            match name.as_str() {
+                "x"=>input.bounds[0]=self.scalar("x",false)?,
+                "y"=>input.bounds[1]=self.scalar("y",false)?,
+                "width"=>input.bounds[2]=self.scalar("width",false)?,
+                "height"=>input.bounds[3]=self.scalar("height",false)?,
+                "value"=>input.value=self.text_value()?,
+                "placeholder"=>input.placeholder=self.text_value()?,
+                "color"=>input.color=self.color("color")?,
+                "placeholderColor"=>input.placeholder_color=self.color("placeholderColor")?,
+                "fontSize"=>input.font_size=self.scalar("fontSize",true)?,
+                "multiline"=>{let value=self.ident()?; input.multiline=match value.as_str(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
+                _=>return Err(self.error("Unknown ContentInput property")),
+            }
+            self.semi()?;
+        }
+        self.close()?; Ok(input)
+    }
     fn text(&mut self) -> Result<Text, String> {
         self.open()?;
         let mut text = Text {
@@ -510,13 +595,16 @@ impl<'a> Parser<'a> {
             radius: 0.,
             fill: None,
             border: None,
+            reveal: None,
             text: None,
             clickable: false,
-            content: Vec::new(),
+            content: Vec::new(), inputs: Vec::new(), range:None,
         };
         let mut seen = HashSet::new();let mut clip_depth=0;
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
+            if name=="RangeInput" {if template.range.is_some(){return Err(self.error("Duplicate RangeInput"));}template.range=Some(self.range_input()?);continue;}
+            if name=="ContentInput" { template.inputs.push(self.input()?); if template.inputs.len()>1 {return Err(self.error("One TextInput per control is supported"));} continue; }
             if name=="ContentText"||name=="ContentShape"||name=="ContentClip"||name=="ContentClipEnd" {
                 if name=="ContentClip"{clip_depth+=1;if clip_depth>16{return Err(self.error("Clip nesting limit is 16"));}}
                 if name=="ContentClipEnd"{if clip_depth==0{return Err(self.error("Unmatched clip end"));}clip_depth-=1;}
@@ -532,6 +620,7 @@ impl<'a> Parser<'a> {
                 }
                 "background" => { self.colon()?; template.fill = Some(self.brush_value()?); self.semi()?; },
                 "Border" => template.border = Some(self.border()?),
+                "Reveal" => template.reveal = Some(self.reveal()?),
                 "Text" => template.text = Some(self.text()?),
                 "PointerArea" => template.clickable = self.pointer_area()?,
                 _ => {
@@ -662,6 +751,21 @@ mod tests {
         assert!(body("background: Brush { color:#fff; }").is_err());
         assert!(body("Border { Brush { color:#fff; } }").is_err());
     }
+    #[test]
+    fn reveal_is_an_optional_independent_primitive_with_validated_fields() {
+        let t = body("Reveal {}").unwrap();
+        assert_eq!(t.reveal, Some(crate::reveal::Reveal::default()));
+        assert!(!t.clickable);
+        let t = body("Reveal { width:2; color:#abcdef80; radius:100px; stop:0.5; activeRadius:1200; activeStop:1; transition:0ms; }").unwrap();
+        let r = t.reveal.unwrap();
+        assert_eq!(r.width, 2.);
+        assert_eq!(r.color, [171, 205, 239, 128]);
+        assert_eq!((r.radius, r.stop, r.active_radius, r.active_stop, r.duration_ms), (100., 0.5, 1200., 1., 0.));
+        for bad in ["stop:0;", "stop:1.1;", "activeStop:60px;", "radius:0;", "width:-1;", "transition:280;", "unknown:1;", "color:#ff0000; color:#ffffff;"] {
+            assert!(body(&format!("Reveal {{ {bad} }}")).is_err(), "{bad}");
+        }
+        assert!(body("Reveal {} Reveal {}").is_err());
+    }
 
     #[test]
     fn evaluates_the_complete_primitive_template() {
@@ -703,10 +807,11 @@ mod tests {
             body("").unwrap(),
             Template {
                 props: props(),
-                content: Vec::new(),
+                content: Vec::new(), inputs: Vec::new(), range:None,
                 radius: 0.,
                 fill: None,
                 border: None,
+                reveal: None,
                 text: None,
                 clickable: false
             }
@@ -861,5 +966,25 @@ mod tests {
         }
         assert!(body("Text { text:'unclosed; }").is_err());
         assert!(body("Text { text:'x' }").is_err());
+    }
+}
+
+#[derive(Debug,Clone,PartialEq)]
+pub struct RangeInput {pub value:f32,pub minimum:Vec<Content>,pub maximum:Vec<Content>}
+impl RangeInput {
+    fn compatible(&self)->bool {
+        self.minimum.len()==self.maximum.len() && self.minimum.iter().zip(&self.maximum).all(|(a,b)|match(a,b){
+            (Content::Shape{points:a,..},Content::Shape{points:b,..})=>a.len()==b.len(),
+            (Content::Clip{..},Content::Clip{..})|(Content::ClipEnd,Content::ClipEnd)|(Content::Text{..},Content::Text{..})=>true,_=>false,
+        })
+    }
+    pub fn content(&self)->Vec<Content> {
+        let mix=|a:f32,b:f32|a+(b-a)*self.value;
+        self.minimum.iter().zip(&self.maximum).map(|(a,b)|match(a,b){
+            (Content::Shape{points:a,color},Content::Shape{points:b,..})=>Content::Shape{points:a.iter().zip(b).map(|(a,b)|[mix(a[0],b[0]),mix(a[1],b[1])]).collect(),color:*color},
+            (Content::Clip{bounds:a,radius},Content::Clip{bounds:b,..})=>Content::Clip{bounds:std::array::from_fn(|i|mix(a[i],b[i])),radius:*radius},
+            (Content::Text{bounds:a,text},Content::Text{bounds:b,..})=>Content::Text{bounds:std::array::from_fn(|i|mix(a[i],b[i])),text:text.clone()},
+            _=>a.clone(),
+        }).collect()
     }
 }

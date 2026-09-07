@@ -1,0 +1,50 @@
+// checked/indeterminate are explicit snapshot values; the host owns updates.
+component Checkbox : Button {
+    width: 240;
+    height: 32;
+    text: 'Параметр';
+    checked: false;
+    indeterminate: false;
+    round: false;
+    background: #00000000;
+    hoverBackground: #00000000;
+    pressedBackground: #00000000;
+    disabledBackground: #00000000;
+    borderWidth: 0;
+    focusBorderColor: #00000000;
+    borderColor: #00000000;
+    disabledBorderColor: #00000000;
+    markColor: match props.disabled {
+        true => state.theme.textDisabled;
+        _ => state.theme.primary;
+    };
+    indicatorBorder: match props.disabled {
+        true => state.theme.border;
+        _ => state.theme.borderStrong;
+    };
+
+    override reveal: Reveal {
+        width: 1;
+        color: props.revealColor;
+        targetX: 10;
+        targetWidth: 18;
+        targetHeight: 18;
+        targetRadius: match props.round { true => 9; _ => 5; };
+        radius: 120;
+        stop: 0.6;
+        activeRadius: 1200;
+        activeStop: 0.99;
+        transition: state.motion.reveal;
+    };
+
+    override content: ChoiceContent {
+        checked: props.checked;
+        indeterminate: props.indeterminate;
+        round: props.round;
+        text: props.text;
+        color: props.textColor;
+        markColor: props.markColor;
+        indicatorBorder: props.indicatorBorder;
+        fontSize: props.fontSize;
+    };
+}

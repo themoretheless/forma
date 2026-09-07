@@ -1,0 +1,6 @@
+component Toast : Alert {
+    width: 304; height: 76; radius: 12;
+    background: state.theme.surfaceRaised; borderColor: state.theme.border;
+    text: 'Сохранено'; description: 'Изменения доступны локально';
+    icon: 'assets/check-circle.svg';
+}

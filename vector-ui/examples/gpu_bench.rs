@@ -9,19 +9,19 @@ fn main() {
         let instance = wgpu::Instance::default();
         let adapter = instance.request_adapter(&Default::default()).await.unwrap();
         let mut renderer =
-            forma_vector::gpu::Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)
+            forma::gpu::Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)
                 .await
                 .unwrap();
         let args: Vec<_> = std::env::args().collect();
         let source = args
             .get(1)
             .map(|p| std::fs::read_to_string(p).unwrap())
-            .unwrap_or(forma_vector::EXAMPLE.into());
+            .unwrap_or(forma::EXAMPLE.into());
         let template = args
             .get(2)
             .map(|p| std::fs::read_to_string(p).unwrap())
-            .unwrap_or(forma_vector::BUTTON_COMPONENT.into());
-        let mut model = forma_vector::Button::from_sources(&source, &template).unwrap();
+            .unwrap_or(forma::BUTTON_COMPONENT.into());
+        let mut model = forma::Button::from_sources(&source, &template).unwrap();
         for (w, h) in [(800, 400), (3840, 2160)] {
             let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
                 label: None,

@@ -1,0 +1,7 @@
+component Paragraph : Surface {
+    width: 304; height: 24; borderWidth: 0; background: #00000000;
+    horizontalPadding: 12;
+    override content: Frame { padding: 0 props.horizontalPadding;
+        BodyText { text: props.text; color: props.textColor; fontSize: props.fontSize; }
+    };
+}

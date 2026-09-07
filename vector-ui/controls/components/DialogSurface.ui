@@ -1,0 +1,5 @@
+// Actions are sibling Button instances managed by the Dialog composition.
+component DialogSurface : Surface {
+    width: 420; height: 230; radius: 14;
+    background: state.theme.surfaceRaised;
+}

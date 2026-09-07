@@ -1,0 +1,64 @@
+// Passive field skin: optional leading icon, value/placeholder and suffix.
+component FieldContent {
+    value: '';
+    placeholder: 'Введите текст';
+    color: state.theme.text;
+    placeholderColor: state.theme.textMuted;
+    fontSize: 15;
+    showIcon: false;
+    icon: 'assets/search.svg';
+    iconSize: 16;
+    suffix: '';
+
+    Frame {
+        padding: 0 12;
+        ContentPresenter {
+            key: 'body';
+            content: match props.showIcon {
+                true => Frame {
+                    columns: [props.iconSize, *, -];
+                    gap: 8;
+                    Icon {
+                        cell: 1 1;
+                        source: props.icon;
+                        color: props.placeholderColor;
+                        width: props.iconSize;
+                        height: props.iconSize;
+                    }
+                    FieldValue {
+                        cell: 1 2;
+                        value: props.value;
+                        placeholder: props.placeholder;
+                        color: props.color;
+                        placeholderColor: props.placeholderColor;
+                        fontSize: props.fontSize;
+                    }
+                    Label {
+                        cell: 1 3;
+                        text: props.suffix;
+                        color: props.placeholderColor;
+                        fontSize: 11;
+                    }
+                };
+                _ => Frame {
+                    columns: [*, -];
+                    gap: 8;
+                    FieldValue {
+                        cell: 1 1;
+                        value: props.value;
+                        placeholder: props.placeholder;
+                        color: props.color;
+                        placeholderColor: props.placeholderColor;
+                        fontSize: props.fontSize;
+                    }
+                    Label {
+                        cell: 1 2;
+                        text: props.suffix;
+                        color: props.placeholderColor;
+                        fontSize: 11;
+                    }
+                };
+            };
+        }
+    }
+}

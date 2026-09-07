@@ -5,6 +5,8 @@ import {fileURLToPath} from 'node:url';
 
 const projectRoot = fileURLToPath(new URL('./', import.meta.url));
 const maxSourceLength = 100_000;
+// Linked templates expand every control and its visual parts.
+const maxTemplateLength = 2_000_000;
 
 export function createVectorRunner(send, dependencies = {}) {
   const {
@@ -52,8 +54,11 @@ export function createVectorRunner(send, dependencies = {}) {
         send({kind: 'error', text: `Нужна непустая разметка .ui размером не больше ${maxSourceLength} символов`});
         return;
       }
-      if (template !== undefined && (typeof template !== 'string' || !template.trim() || template.length > maxSourceLength)) {
-        send({kind: 'error', text: 'Некорректный компонент Button.ui'}); return;
+      if (template !== undefined && (typeof template !== 'string' || !template.trim())) {
+        send({kind: 'error', text: 'Нужен непустой шаблон компонентов Forma'}); return;
+      }
+      if (template !== undefined && template.length > maxTemplateLength) {
+        send({kind: 'error', text: `Шаблон компонентов превышает лимит ${maxTemplateLength} символов (${template.length})`}); return;
       }
 
       const job = {child: null, stopped: false, finished: false, killTimer: null};

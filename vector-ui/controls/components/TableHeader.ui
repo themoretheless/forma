@@ -1,0 +1,5 @@
+component TableHeader : TableRow {
+    height: 32; first: 'REPO'; second: 'STACK'; third: 'SIZE';
+    background: state.theme.canvas; hoverBackground: props.background;
+    fontSize: 11; color: state.theme.textMuted;
+}

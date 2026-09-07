@@ -1,0 +1,8 @@
+// Search skin with a shortcut hint. The hint does not install a shortcut.
+component SearchField : TextField {
+    radius: 19;
+    placeholder: 'Поиск по проекту';
+    showIcon: true;
+    icon: 'assets/search.svg';
+    suffix: 'Ctrl K';
+}

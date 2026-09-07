@@ -1,0 +1,46 @@
+// Passive icon and two text lines. No automatic wrapping or dismissal action.
+component MessageContent {
+    icon: 'assets/info.svg';
+    iconSize: 20;
+    iconColor: state.theme.accentInk;
+    text: 'Уведомление';
+    color: state.theme.text;
+    fontSize: 14;
+    description: '';
+    descriptionColor: state.theme.textMuted;
+    descriptionFontSize: 12;
+
+    Frame {
+        columns: [props.iconSize, *];
+        rows: [22, *];
+        gap: 2 10;
+        padding: 12;
+        Icon {
+            cell: 1 1;
+            source: props.icon;
+            color: props.iconColor;
+            width: props.iconSize;
+            height: props.iconSize;
+        }
+        Frame {
+            cell: 1 2;
+            columns: [-, *];
+            Label {
+                cell: 1 1;
+                text: props.text;
+                color: props.color;
+                fontSize: props.fontSize;
+            }
+        }
+        Frame {
+            cell: 2 2;
+            columns: [-, *];
+            Label {
+                cell: 1 1;
+                text: props.description;
+                color: props.descriptionColor;
+                fontSize: props.descriptionFontSize;
+            }
+        }
+    }
+}

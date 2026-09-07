@@ -1,0 +1,13 @@
+component LeadingIconButton : Button {
+    icon: 'assets/search.svg';
+    text: 'Найти';
+
+    override content: IconLabel {
+        icon: props.icon;
+        iconSize: props.iconSize;
+        horizontalPadding: props.horizontalPadding;
+        text: props.text;
+        color: props.textColor;
+        fontSize: props.fontSize;
+    };
+}

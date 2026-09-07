@@ -132,3 +132,24 @@ test('Windows uses the direct child signal instead of a Unix process group', asy
   assert.deepEqual(calls.signals, [[100, 'SIGTERM']]);
   children[0].emit('close', null, 'SIGTERM');
 });
+
+ test('linked multi-control templates can exceed the source limit and are passed intact', async () => {
+  const {runner,calls,children}=harness();
+  const template='component Template {}\n'.repeat(9000);
+  assert.ok(template.length>100_000);
+  await runner.run({source:'component Catalog {}',template});
+  assert.equal(calls.writes[1][1],template);
+  assert.equal(calls.spawns.length,1);
+  assert.equal(calls.spawns[0][1].at(-1),calls.writes[1][0]);
+  children[0].emit('close',0,null);
+});
+
+test('invalid and oversized templates produce specific errors without spawning', async () => {
+  const {runner,calls,events}=harness();
+  for(const template of [42,'','  ','x'.repeat(2_000_001)])
+    await runner.run({source:'component Catalog {}',template});
+  assert.equal(calls.writes.length,0);
+  assert.equal(calls.spawns.length,0);
+  assert.equal(events.length,4);
+  assert.match(events.at(-1).text,/2000000.*2000001/);
+});

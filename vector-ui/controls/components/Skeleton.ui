@@ -1,0 +1,5 @@
+// A placeholder surface; shimmer is driven by the containing loading state.
+component Skeleton : Surface {
+    width: 200; height: 12; radius: 6; borderWidth: 0;
+    background: state.theme.surfaceHover;
+}

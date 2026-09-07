@@ -1,4 +1,4 @@
-use forma_vector::{Button, EXAMPLE};
+use forma::{Button, EXAMPLE};
 
 fn flatten(p: &[u8]) -> u32 {
     let a = p[3] as u32;
@@ -25,7 +25,7 @@ fn compare(source: &str, template: &str, sizes: &[(u32, u32, f32)]) {
 fn resize_preserves_every_pixel_and_reuses_scene() {
     compare(
         EXAMPLE,
-        forma_vector::BUTTON_COMPONENT,
+        forma::BUTTON_COMPONENT,
         &[
             (470, 290, 1.),
             (180, 90, 1.),

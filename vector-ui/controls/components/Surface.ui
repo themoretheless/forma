@@ -1,0 +1,71 @@
+// Passive surface: shared paint and content, without pointer or keyboard actions.
+component Surface {
+    width: 160;
+    height: 32;
+    radius: 8;
+    text: '';
+    fontSize: 14;
+    color: state.theme.text;
+    disabled: false;
+    textColor: match props.disabled {
+        true => state.theme.textDisabled;
+        _ => props.color;
+    };
+    background: state.theme.surface;
+    hoverBackground: props.background;
+    pressedBackground: props.background;
+    disabledBackground: props.background;
+    borderWidth: 1;
+    borderColor: state.theme.border;
+    disabledBorderColor: props.borderColor;
+    focusBorderColor: props.borderColor;
+    transitionDuration: state.motion.control;
+    horizontalPadding: 12;
+    iconSize: 16;
+    revealWidth: props.borderWidth;
+    revealColor: state.theme.reveal;
+
+    Rectangle {
+        radius: props.radius;
+        background: Brush {
+            color: props.background;
+            hover: props.hoverBackground;
+            pressed: props.pressedBackground;
+            disabled: props.disabledBackground;
+            transition: props.transitionDuration;
+        };
+        Border {
+            width: props.borderWidth;
+            background: Brush {
+                color: props.borderColor;
+                focus: props.focusBorderColor;
+                disabled: props.disabledBorderColor;
+                transition: props.transitionDuration;
+            };
+        }
+        ContentPresenter {
+            key: 'reveal';
+            Reveal {
+                width: props.revealWidth;
+                color: props.revealColor;
+                radius: 120;
+                stop: 0.6;
+                activeRadius: 1200;
+                activeStop: 0.99;
+                transition: state.motion.reveal;
+            }
+        }
+        ContentPresenter {
+            key: 'content';
+            Label {
+                text: props.text;
+                color: props.textColor;
+                fontSize: props.fontSize;
+            }
+        }
+        ContentPresenter {
+            key: 'interaction';
+            Frame {}
+        }
+    }
+}

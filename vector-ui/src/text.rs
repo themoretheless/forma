@@ -6,9 +6,15 @@
 //! shaping engine (ligatures, bidirectional text and combining marks need shaping).
 
 use ttf_parser::{Face, GlyphId, OutlineBuilder};
+use std::sync::OnceLock;
 
 const FONT: &[u8] = include_bytes!("../assets/Ubuntu-Light.ttf");
 const CURVE_TOLERANCE: f32 = 0.15;
+
+fn font() -> &'static Face<'static> {
+    static FACE: OnceLock<Face<'static>> = OnceLock::new();
+    FACE.get_or_init(|| Face::parse(FONT, 0).expect("embedded font"))
+}
 
 #[derive(Clone, Copy, Debug)]
 struct Point {
@@ -133,7 +139,7 @@ fn glyph(face: &Face<'_>, character: char) -> GlyphId {
 
 pub fn measure_line(value:&str,font_size:f32)->[f32;2] {
     if !font_size.is_finite()||font_size<=0.{return [0.;2];}
-    let face=Face::parse(FONT,0).expect("embedded font");
+    let face=font();
     let height=(face.ascender() as f32-face.descender() as f32+face.line_gap() as f32)*font_size/face.units_per_em() as f32;
     [measure_text(value,font_size),height]
 }
@@ -147,21 +153,34 @@ pub fn measure_text(text: &str, font_size: f32) -> f32 {
     if !font_size.is_finite() || font_size <= 0. {
         return 0.;
     }
-    let Ok(face) = Face::parse(FONT, 0) else {
-        return 0.;
-    };
+    let face = font();
     let units = text
         .chars()
-        .map(|c| advance(&face, glyph(&face, c)))
+        .map(|c| advance(face, glyph(face, c)))
         .sum::<f32>();
     units * font_size / face.units_per_em() as f32
+}
+
+/// Find a caret boundary in one pass. Summing font units before converting to
+/// pixels matches measure_text(prefix) without measuring every prefix again.
+pub(crate) fn hit_character(text: &str, font_size: f32, x: f32) -> usize {
+    let face = font();
+    let mut units = 0.;
+    let mut previous = 0.;
+    for (offset, ch) in text.char_indices() {
+        units += advance(face, glyph(face, ch));
+        let next = units * font_size / face.units_per_em() as f32;
+        if x < (previous + next) * 0.5 { return offset; }
+        previous = next;
+    }
+    text.len()
 }
 
 /// Vector contours only: the GPU determines winding and pixel coverage.
 /// One path per glyph keeps work bounded to that glyph's rectangle.
 pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32)->Vec<Vec<[f32;4]>> {
     if rect[2]<=0.||rect[3]<=0.||font_size<=0. {return Vec::new();}
-    let Ok(face)=Face::parse(FONT,0)else{return Vec::new();};
+    let face=font();
     let units_to_pixels=font_size*scale/face.units_per_em()as f32;
     let origin=Point{x:(rect[0]+rect[2]*0.5-measure_text(text,font_size)*0.5)*scale,
         y:(rect[1]+rect[3]*0.5)*scale+(face.ascender()as f32+face.descender()as f32)*units_to_pixels*0.5};
@@ -217,9 +236,7 @@ pub fn draw_text(
     if !clip.iter().all(|n| n.is_finite()) || clip[0] >= clip[2] || clip[1] >= clip[3] {
         return;
     }
-    let Ok(face) = Face::parse(FONT, 0) else {
-        return;
-    };
+    let face = font();
     let units_to_pixels = font_size * scale / face.units_per_em() as f32;
     let glyphs: Vec<_> = text.chars().map(|c| glyph(&face, c)).collect();
     let text_width = glyphs.iter().map(|&g| advance(&face, g)).sum::<f32>() * units_to_pixels;
@@ -347,6 +364,34 @@ fn blend(pixel: &mut [u8], color: [u8; 4], samples: u8) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn linear_caret_hit_matches_prefix_measurements_at_unicode_boundaries() {
+        for value in ["", "Forma", "Привет🙂 О", "A\u{301}Б"] {
+            for size in [9., 15.5, 32.] {
+                let reference = |x| {
+                    let mut previous = 0.;
+                    for (offset, ch) in value.char_indices() {
+                        let next = measure_text(&value[..offset + ch.len_utf8()], size);
+                        if x < (previous + next) * 0.5 { return offset; }
+                        previous = next;
+                    }
+                    value.len()
+                };
+                for i in -10..1000 {
+                    let x = i as f32 * 0.125;
+                    assert_eq!(hit_character(value, size, x), reference(x));
+                }
+                for (offset, ch) in value.char_indices() {
+                    let midpoint = (measure_text(&value[..offset], size)
+                        + measure_text(&value[..offset + ch.len_utf8()], size)) * 0.5;
+                    for x in [midpoint - 0.0001, midpoint, midpoint + 0.0001] {
+                        assert_eq!(hit_character(value, size, x), reference(x));
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn draws_cyrillic_font_outlines_with_antialiasing() {

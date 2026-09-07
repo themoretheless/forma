@@ -8,13 +8,13 @@ import {evaluateDesignData} from './design-data-runner.js';
 import {createVectorRunner} from './vector-runner.js';
 import {readFile} from 'node:fs/promises';
 
-export default defineConfig({server:{host:'127.0.0.1',port:5173,strictPort:true},plugins:[{
+export default defineConfig({build:{rollupOptions:{input:{studio:'index.html',controls:'vector-ui/examples/controls.html'}}},server:{host:'127.0.0.1',port:5173,strictPort:true},plugins:[{
   name:'forma-mcp-bridge',
   configureServer(server){
     // Generated wasm-bindgen modules must be served unchanged, not transformed by Vite.
     server.middlewares.use('/__forma_vector',async(req,res,next)=>{
       const name=req.url?.split('?')[0];
-      if(!['/forma_vector.js','/forma_vector_bg.wasm'].includes(name))return next();
+      if(!['/forma.js','/forma_bg.wasm'].includes(name))return next();
       try{const bytes=await readFile(new URL('./public/vector-pkg'+name,import.meta.url));res.setHeader('Content-Type',name.endsWith('.wasm')?'application/wasm':'text/javascript');res.setHeader('Cache-Control','no-store');res.end(bytes);}catch{res.statusCode=503;res.end('Build vector-ui WASM first');}
     });
     const token=randomUUID();const pending=new Map();let client=null;

@@ -1,0 +1,14 @@
+// Pointer/value behaviour is supplied by RangeValue; this is its reusable skin.
+component Slider : Button {
+    width: 304; height: 32; radius: 8; borderWidth: 0;
+    revealWidth: 1;
+    background: #00000000; hoverBackground: #00000000; pressedBackground: #00000000;
+    disabledBackground: #00000000; value: 50%;
+    override content: Frame {
+        SliderTrack { value: props.value; color: props.textColor; }
+        Frame { columns: [props.value, 0, *]; padding: 0 8;
+            Rectangle { cell: 1 2; width: 16; height: 16; radius: 8; background: props.textColor; }
+        }
+    };
+    color: state.theme.primary;
+}

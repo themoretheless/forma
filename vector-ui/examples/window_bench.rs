@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(feature = "native")]
 mod native {
     use super::{bench_support::*, ALLOCATOR};
-    use forma_vector::{gpu::Renderer, Button};
+    use forma::{gpu::Renderer, Runtime as Button};
     use std::{
         sync::Arc,
         time::{Duration, Instant},

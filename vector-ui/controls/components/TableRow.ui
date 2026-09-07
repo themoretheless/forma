@@ -1,0 +1,9 @@
+component TableRow : Surface {
+    width: 304; height: 38; radius: 0; borderWidth: 0;
+    first: 'forma'; second: 'Rust'; third: '128 KB';
+    background: state.theme.surface; hoverBackground: state.theme.surfaceHover;
+    override content: TableCells {
+        first: props.first; second: props.second; third: props.third;
+        color: props.textColor; fontSize: props.fontSize;
+    };
+}

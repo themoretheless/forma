@@ -1,6 +1,13 @@
 use wasm_bindgen::prelude::*;
 pub mod markup;
+pub mod frame_stats;
+pub mod runtime;
+pub use runtime::Runtime;
 pub mod template;
+pub mod reveal;
+pub mod text_input;
+pub mod control_state;
+pub mod control_models_wasm;
 mod text;
 mod shape;
 mod raster_cache;
@@ -41,6 +48,8 @@ pub struct Button {
     template: template::Template,
     fill: Animation,
     border: Animation,
+    reveal: reveal::State,
+    reduced_motion: bool,
     hover: bool,
     down: bool,
     keyboard: Option<u8>,
@@ -65,11 +74,27 @@ impl Animation {
 }
 
 impl Button {
+    pub(crate) fn viewport_rect(&self) -> [f32; 4] {
+        let p = self.scene.padding;
+        if self.scene.scroll {
+            [p[3], p[0], (self.width() - p[1] - p[3]).max(0.), (self.height() - p[0] - p[2]).max(0.)]
+        } else {
+            [0., 0., self.width(), self.height()]
+        }
+    }
+    pub(crate) fn bounds_rect(&self) -> [f32; 4] {
+        let b = &self.scene.button;
+        [b.x - self.scroll_x, b.y - self.scroll_y, b.width, b.height]
+    }
     pub fn from_source(source: &str) -> Result<Self, String> {
         Self::from_sources(source,BUTTON_COMPONENT)
     }
     pub fn from_sources(source:&str, component:&str)->Result<Self,String>{
-        let mut scene=markup::parse(source)?;
+        let scene=markup::parse(source)?;
+        if scene.buttons.len()!=1 {return Err("Use Runtime for multiple controls".into());}
+        Self::from_scene(scene,component)
+    }
+    fn from_scene(mut scene:markup::Scene,component:&str)->Result<Self,String>{
         let template=template::parse(component,&scene.button)?;
         scene.button=template.props.clone();
         scene.content_width=(scene.button.x+scene.button.width+scene.padding[1]).min(f32::MAX).max(scene.width);
@@ -77,7 +102,7 @@ impl Button {
         scene.button.radius=template.radius;
         let fill=Animation::new(template.fill.as_ref().map_or([0;4],|b|if scene.button.disabled{b.disabled.unwrap_or(b.color)}else{b.color}));
         let border=Animation::new(template.border.as_ref().map_or([0;4],|b|if scene.button.disabled{b.brush.disabled.unwrap_or(b.brush.color)}else{b.brush.color}));
-        Ok(Self {scene,template,fill,border,hover:false,down:false,keyboard:None,focused:false,clicks:0,scroll_x:0.,scroll_y:0.,raster_cache:std::cell::RefCell::new(None),visual_revision:0,raster_builds:std::cell::Cell::new(0),raster_paints:std::cell::Cell::new(0),display_cache:std::cell::RefCell::new(None)})
+        Ok(Self {scene,template,fill,border,reveal:reveal::State::default(),reduced_motion:false,hover:false,down:false,keyboard:None,focused:false,clicks:0,scroll_x:0.,scroll_y:0.,raster_cache:std::cell::RefCell::new(None),visual_revision:0,raster_builds:std::cell::Cell::new(0),raster_paints:std::cell::Cell::new(0),display_cache:std::cell::RefCell::new(None)})
     }
     pub fn load_source(&mut self, source: &str) -> Result<(), String> {
         // Commit only a valid scene; editor keeps the last good preview on error.
@@ -95,9 +120,29 @@ impl Button {
             else if self.hover{brush.hover.or(if self.focused{brush.focus}else{None}).unwrap_or(brush.color)}
             else if self.focused{brush.focus.unwrap_or(brush.color)}else{brush.color}
         };
-        if let Some(b)=&self.template.fill {self.fill.target(target(b),b.duration_ms);}
-        if let Some(b)=&self.template.border {self.border.target(target(&b.brush),b.brush.duration_ms);}
+        if let Some(b)=&self.template.fill {self.fill.target(target(b),if self.reduced_motion {0.} else {b.duration_ms});}
+        if let Some(b)=&self.template.border {self.border.target(target(&b.brush),if self.reduced_motion {0.} else {b.brush.duration_ms});}
         if before!=(self.fill.color(),self.border.color()){self.visual_revision=self.visual_revision.wrapping_add(1);}
+    }
+    fn reveal_bounds(&self) -> [f32; 4] {
+        let b = &self.scene.button;
+        let bounds = [b.x - self.scroll_x, b.y - self.scroll_y, b.width, b.height];
+        self.template.reveal.as_ref().map_or(bounds, |spec| spec.bounds(bounds))
+    }
+    fn reveal_paint(&self) -> reveal::Paint {
+        self.template.reveal.as_ref().map_or_else(reveal::Paint::default,
+            |spec| self.reveal.paint(spec, self.reveal_bounds(), self.disabled(), self.focused))
+    }
+    fn pointer_interaction(&mut self, x: f32, y: f32, kind: u8) {
+        self.hover=self.hit(x,y);
+        if self.disabled()||!self.template.clickable { self.down=false; return; }
+        match kind {
+            1 => self.down=self.hover,
+            2 => { if self.down&&self.hover { self.activate(); } self.down=false; }
+            3 => { self.down=false;self.hover=false; }
+            _ => {}
+        }
+        self.update_colors();
     }
 }
 
@@ -120,25 +165,35 @@ impl Button {
     pub fn render_width(&self)->f32{if !self.scene.clip&&!self.scene.scroll{self.scene.content_width}else{self.scene.width}}
     pub fn render_height(&self)->f32{if !self.scene.clip&&!self.scene.scroll{self.scene.content_height}else{self.scene.height}}
     pub fn scrollable(&self)->bool{self.scene.scroll}
-    pub fn viewport(&self)->Vec<f32>{let p=self.scene.padding;if self.scene.scroll{vec![p[3],p[0],(self.width()-p[1]-p[3]).max(0.),(self.height()-p[0]-p[2]).max(0.)]}else{vec![0.,0.,self.width(),self.height()]}}
+    pub fn viewport(&self)->Vec<f32>{self.viewport_rect().to_vec()}
     pub fn scroll_offset(&self)->Vec<f32>{vec![self.scroll_x,self.scroll_y]}
-    pub fn scroll(&mut self,dx:f32,dy:f32){if self.scene.scroll&&dx.is_finite()&&dy.is_finite(){let before=(self.scroll_x,self.scroll_y);let v=self.viewport();self.scroll_x=(self.scroll_x+dx).clamp(0.,(self.scene.button.width-v[2]).max(0.));self.scroll_y=(self.scroll_y+dy).clamp(0.,(self.scene.button.height-v[3]).max(0.));if before!=(self.scroll_x,self.scroll_y){self.visual_revision=self.visual_revision.wrapping_add(1);}self.down=false;self.hover=false;self.update_colors();}}
+    pub fn scroll(&mut self,dx:f32,dy:f32){if self.scene.scroll&&dx.is_finite()&&dy.is_finite(){let before=(self.scroll_x,self.scroll_y);let v=self.viewport_rect();self.scroll_x=(self.scroll_x+dx).clamp(0.,(self.scene.button.width-v[2]).max(0.));self.scroll_y=(self.scroll_y+dy).clamp(0.,(self.scene.button.height-v[3]).max(0.));if before!=(self.scroll_x,self.scroll_y){self.visual_revision=self.visual_revision.wrapping_add(1);}self.down=false;self.hover=false;self.update_colors();}}
     pub fn label(&self) -> String { let mut labels:Vec<String>=self.template.text.iter().map(|t|t.text.clone()).collect();for c in &self.template.content{if let template::Content::Text{text,..}=c{labels.push(text.text.clone());}}if labels.is_empty(){self.scene.button.text.clone()}else{labels.join(" ")} }
     pub fn is_focused(&self)->bool{self.focused}
     pub fn preserve_interaction(&mut self, previous:&Button){
         if self.scene.button.key!=previous.scene.button.key{return;}
         self.clicks=previous.clicks;
-        self.focused=previous.focused&&!self.disabled();
+        self.focused=previous.focused&&!self.disabled()&&self.template.clickable;
         self.hover=previous.hover;
+        self.reduced_motion = previous.reduced_motion;
+        self.reveal = previous.reveal.clone();
+        if let Some(spec) = &self.template.reveal {
+            if self.disabled() { self.reveal.pointer(None, self.reveal_bounds(), spec); }
+            else { self.reveal.rebase(self.reveal_bounds(), spec); }
+        } else { self.reveal = reveal::State::default(); self.reveal.reduced_motion(self.reduced_motion); }
         // A replaced subtree must not inherit an unfinished click gesture.
-        self.down=false;self.update_colors();
+        self.down=false;self.keyboard=None;self.update_colors();
     }
     pub fn key(&self) -> String { self.scene.button.key.clone() }
     pub fn action(&self) -> String { if self.template.clickable{self.scene.button.action.clone().unwrap_or_default()}else{String::new()} }
     pub fn disabled(&self) -> bool { self.scene.button.disabled }
-    pub fn bounds(&self) -> Vec<f32> { let b=&self.scene.button; vec![b.x-self.scroll_x,b.y-self.scroll_y,b.width,b.height] }
-    pub fn hit(&self, x: f32, y: f32) -> bool {let v=self.viewport();(!self.scene.clip||round_inside(x,y,[0.,0.,self.width(),self.height()],self.scene.radius))&&(!self.scene.scroll||(x>=v[0]&&y>=v[1]&&x<v[0]+v[2]&&y<v[1]+v[3]))&&inside(x+self.scroll_x,y+self.scroll_y,&self.scene.button) }
-    pub fn focus(&mut self, focused: bool) { self.focused=focused; if !focused { self.down=false; self.keyboard=None; } self.update_colors(); }
+    pub fn bounds(&self) -> Vec<f32> { self.bounds_rect().to_vec() }
+    pub fn hit(&self, x: f32, y: f32) -> bool {let v=self.viewport_rect();(!self.scene.clip||round_inside(x,y,[0.,0.,self.width(),self.height()],self.scene.radius))&&(!self.scene.scroll||(x>=v[0]&&y>=v[1]&&x<v[0]+v[2]&&y<v[1]+v[3]))&&inside(x+self.scroll_x,y+self.scroll_y,&self.scene.button) }
+    pub fn focus(&mut self, focused: bool) {
+        let before = self.reveal_paint();
+        self.focused=focused; if !focused { self.down=false; self.keyboard=None; } self.update_colors();
+        if before != self.reveal_paint() { self.visual_revision=self.visual_revision.wrapping_add(1); }
+    }
     /// Shared web/native keyboard gesture: 1 = Space, 2 = Enter.
     /// Repeats and unmatched releases cannot activate; blur cancels the gesture.
     pub fn key_event(&mut self, key:u8, pressed:bool, repeat:bool) {
@@ -150,18 +205,36 @@ impl Button {
     }
     pub fn visual_revision(&self)->u32{self.visual_revision}
     pub fn raster_stats(&self)->Vec<u32>{vec![self.raster_builds.get(),self.raster_paints.get()]}
-    pub fn is_animating(&self)->bool{self.fill.active()||self.border.active()}
-    pub fn tick(&mut self,delta_ms:f32)->bool{let before=(self.fill.color(),self.border.color());let dt=if delta_ms.is_finite(){delta_ms.clamp(0.,1000.)}else{0.};let a=self.fill.tick(dt);let b=self.border.tick(dt);if before!=(self.fill.color(),self.border.color()){self.visual_revision=self.visual_revision.wrapping_add(1);}a||b}
-    pub fn pointer(&mut self, x: f32, y: f32, kind: u8) {
-        self.hover=self.hit(x,y);
-        if self.disabled()||!self.template.clickable { self.down=false; return; }
-        match kind {
-            1 => self.down=self.hover,
-            2 => { if self.down&&self.hover { self.activate(); } self.down=false; }
-            3 => { self.down=false;self.hover=false; }
-            _ => {}
+    pub fn is_animating(&self)->bool{self.fill.active()||self.border.active()||self.reveal.active()}
+    pub fn tick(&mut self,delta_ms:f32)->bool{
+        let before=(self.fill.color(),self.border.color(),self.reveal_paint());
+        let dt=if delta_ms.is_finite(){delta_ms.clamp(0.,1000.)}else{0.};
+        self.fill.tick(dt); self.border.tick(dt); self.reveal.tick(dt);
+        if before!=(self.fill.color(),self.border.color(),self.reveal_paint()){self.visual_revision=self.visual_revision.wrapping_add(1);}
+        self.is_animating()
+    }
+    /// Proximity only: does not change hover, focus, pointer capture or actions.
+    pub fn reveal_pointer(&mut self, x: f32, y: f32, present: bool) {
+        let before = self.reveal_paint();
+        if let Some(spec) = &self.template.reveal {
+            let point = (present && !self.disabled() && spec.width > 0. && spec.color[3] > 0).then_some([x, y]);
+            self.reveal.pointer(point, self.reveal_bounds(), spec);
         }
-        self.update_colors();
+        if before != self.reveal_paint() { self.visual_revision=self.visual_revision.wrapping_add(1); }
+    }
+    pub fn set_reduced_motion(&mut self, reduced: bool) {
+        let before = (self.fill.color(), self.border.color(), self.reveal_paint());
+        self.reduced_motion = reduced;
+        self.reveal.reduced_motion(reduced);
+        if reduced {
+            self.fill.current = self.fill.target;
+            self.border.current = self.border.target;
+        }
+        if before != (self.fill.color(), self.border.color(), self.reveal_paint()) { self.visual_revision=self.visual_revision.wrapping_add(1); }
+    }
+    pub fn pointer(&mut self, x: f32, y: f32, kind: u8) {
+        self.reveal_pointer(x, y, kind != 3);
+        self.pointer_interaction(x, y, kind);
     }
     pub fn activate(&mut self) { if !self.disabled()&&self.template.clickable { self.clicks=self.clicks.saturating_add(1); } }
     pub fn clicks(&self) -> u32 { self.clicks }
@@ -213,6 +286,7 @@ impl Button {
             let i=((y*width+x)*4) as usize;
             if coverage_alpha>0.{for k in 0..3 {out[i+k]=(rgb[k]/coverage_alpha).clamp(0.,255.).round()as u8;}}
             out[i+3]=(coverage_alpha*255.).round()as u8;
+
         }}
         let r=b.radius.min(b.width/2.).min(b.height/2.);
         if let Some(t)=&self.template.text{text::draw_text(&mut out,width,height,scale,&t.text,t.font_size,[b.x+r*0.3,b.y+r*0.3,b.width-r*0.6,b.height-r*0.6],t.color);}
@@ -229,6 +303,13 @@ impl Button {
         // Clip the complete composed child, including glyphs and border, to the Frame.
         for y in 0..height {for x in 0..width {
             let px=(x as f32+0.5)/scale;let py=(y as f32+0.5)/scale;let i=((y*width+x)*4)as usize;
+            if let Some(spec) = &self.template.reveal {
+                let p = [(x as f32 + 0.5) / scale, (y as f32 + 0.5) / scale];
+                let band = reveal::band_coverage(p, self.reveal_bounds(), spec.target_radius.unwrap_or(b.radius), spec.width, scale);
+                let mut color = self.reveal_paint().color_at(p);
+                color[3] = (color[3] as f32 * band).round() as u8;
+                raster_cache::over(&mut out[i..i + 4], &color);
+            }
             let [vx,vy,vw,vh]=[viewport[0],viewport[1],viewport[2],viewport[3]];
             if self.scene.scroll&&(px<vx||py<vy||px>=vx+vw||py>=vy+vh) {out[i..i+4].copy_from_slice(&base);}
             if self.scene.scroll&&vw>0.&&vh>0. {

@@ -4,3 +4,16 @@
   box-sizing: content-box;
   background-clip: padding-box;
 }
+
+/* Keep the logical frame and its fixed-size vector surface together. Narrow
+   panes scroll instead of shrinking only the background and selection layer. */
+#preview.vector-artboard {
+  max-width: none;
+  min-width: max-content;
+}
+#canvas:has(> #preview.vector-artboard) {
+  justify-content: flex-start;
+}
+#canvas > #preview.vector-artboard {
+  margin-inline: auto;
+}

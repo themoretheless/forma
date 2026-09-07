@@ -1,0 +1,3 @@
+component FormattingButton : SegmentButton {
+    width: 32; height: 30; text: 'B';
+}

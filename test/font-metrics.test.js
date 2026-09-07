@@ -1,10 +1,10 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import * as runtime from '../public/vector-pkg/forma_vector.js';
+import * as runtime from '../public/vector-pkg/forma.js';
 import {compileComponents} from '../src/components.js';
 import {parse} from '../src/language.js';
-await runtime.default({module_or_path:readFileSync(new URL('../public/vector-pkg/forma_vector_bg.wasm',import.meta.url))});
+await runtime.default({module_or_path:readFileSync(new URL('../public/vector-pkg/forma_bg.wasm',import.meta.url))});
 
 test('content tracks use the rendering font rather than character count',()=>{
  const files={'ui/Demo.ui':'component Demo { Frame { Button {} } }','components/Button.ui':"component Button { width:200; height:50; Rectangle { Frame { columns:[-,*]; Text { cell:1 1; text:'WWW'; fontSize:20; } Text { cell:1 2; text:'next'; } } } }"};

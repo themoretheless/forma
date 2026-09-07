@@ -1,0 +1,29 @@
+// checked is a snapshot. text names the switch without painting a caption.
+component Switch : Button {
+    width: 44;
+    height: 26;
+    radius: 13;
+    text: 'Переключатель';
+    checked: false;
+    background: match props.checked {
+        true => state.theme.primary;
+        _ => state.theme.borderStrong;
+    };
+    hoverBackground: props.background;
+    pressedBackground: props.background;
+    disabledBackground: state.theme.border;
+    borderColor: props.background;
+    focusBorderColor: match props.checked {
+        true => state.theme.primaryText;
+        _ => state.theme.focus;
+    };
+    thumbColor: match props.disabled {
+        true => state.theme.surface;
+        _ => #ffffff;
+    };
+
+    override content: SwitchThumb {
+        checked: props.checked;
+        color: props.thumbColor;
+    };
+}

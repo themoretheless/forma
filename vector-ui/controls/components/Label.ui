@@ -1,0 +1,12 @@
+// Passive visual leaf. No independent input handling.
+component Label {
+    text: '';
+    color: state.theme.text;
+    fontSize: 14;
+
+    Text {
+        text: props.text;
+        color: props.color;
+        fontSize: props.fontSize;
+    }
+}

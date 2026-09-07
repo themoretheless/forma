@@ -1,0 +1,9 @@
+component GhostButton : Button {
+    background: #00000000;
+    hoverBackground: state.theme.surfaceHover;
+    pressedBackground: state.theme.surfacePressed;
+    disabledBackground: #00000000;
+    color: state.theme.textMuted;
+    borderColor: #00000000;
+    disabledBorderColor: #00000000;
+}

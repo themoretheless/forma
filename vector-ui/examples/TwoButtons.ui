@@ -1,0 +1,28 @@
+component TwoButtons {
+    Frame {
+        width: 380;
+        height: 240;
+        padding: 30;
+        gap: 20;
+        background: #181e2a;
+        radius: 16;
+        clip: true;
+        Button {
+            key: 'first';
+            width: 320;
+            height: 70;
+            text: 'Первая кнопка';
+            clicked -> actions.first();
+        }
+        Button {
+            key: 'second';
+            width: 320;
+            height: 70;
+            text: 'Вторая кнопка';
+            background: #aad9bd;
+            hoverBackground: #c7eed7;
+            pressedBackground: #78b493;
+            clicked -> actions.second();
+        }
+    }
+}

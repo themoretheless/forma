@@ -6,6 +6,8 @@ struct Params { viewport:vec4f, fill:vec4f, border:vec4f }
 @group(0) @binding(2) var<storage,read> edges:array<vec4f>;
 @group(0) @binding(3) var<storage,read> tiles:array<u32>;
 
+@group(0) @binding(4) var<storage,read> paints:array<vec4f>;
+
 @vertex fn vs(@builtin(vertex_index) index:u32)->@builtin(position) vec4f {
     let p=array<vec2f,3>(vec2f(-1.,-1.),vec2f(3.,-1.),vec2f(-1.,3.));
     return vec4f(p[index],0.,1.);
@@ -51,14 +53,21 @@ fn coverage(pixel:vec2f,c:Command)->vec4f {
         let p=(pixel+0.5)/params.viewport.z;
         let d=distance(p,c.bounds,c.extra.x);
         let outer=edge_coverage(d);
+        if c.info.x==6.{
+            let data=paints[u32(c.extra.z)];
+            let color=paints[u32(c.extra.z)+1u];
+            let band=max(outer-edge_coverage(d+c.extra.y),0.);
+            let radial=clamp(1.-length(p-data.xy)/max(data.z,0.0001),0.,1.);
+            return premul(color)*band*select(radial,1.,data.w==1.);
+        }
         if c.info.x==4.{
-            var result=premul(params.fill)*outer;
+            var result=premul(paints[u32(c.extra.z)])*outer;
             if c.extra.y>0.&&outer>0.{
                 let inner=edge_coverage(d+c.extra.y);
                 let band=max(outer-inner,0.);
                 // Composite the border over the fill within the same shape;
                 // do not multiply outer-edge coverage twice.
-                let border=premul(params.border);
+                let border=premul(paints[u32(c.extra.w)]);
                 result=border*band+result*(1.-border.a*band/outer);
             }
             return result;

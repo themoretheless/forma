@@ -1,0 +1,5 @@
+// Separate vector part, usable by LoadingButton or progress compositions.
+component Spinner {
+    size: 16; color: state.theme.text;
+    Icon { source: 'assets/spinner.svg'; color: props.color; width: props.size; height: props.size; }
+}

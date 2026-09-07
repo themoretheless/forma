@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Forma · независимые контролы</title>
+<style>
+body{background:#10141c;color:#dbe3f3;font:15px system-ui;margin:40px}h1{font-size:22px;font-weight:550}button{font:inherit;padding:8px 14px;margin:0 8px 20px 0}#preview{width:380px}pre{line-height:1.7;white-space:pre-wrap}a{color:#a8baff}
+</style>
+<p><a href="./controls.html">Новый каталог контролов по референсу · Reveal →</a></p>
+<h1>Две кнопки · общий Rust runtime</h1>
+<p>Мышь — выбор кнопки. Tab / Shift+Tab — переход фокуса. Space / Enter — нажатие.</p>
+<button id="mode">Включить дизайн</button><button id="reset">Сбросить</button>
+<div id="preview"></div>
+<pre id="status">Загрузка…</pre>
+<pre id="events" aria-live="polite"></pre>
+<script type="module">
+import {loadVectorRuntime,createVectorPreview} from '/src/vector-preview.js';
+import {compileComponents} from '/src/components.js';
+import {parse} from '/src/language.js';
+const files={'ui/TwoButtons.ui':await (await fetch('./TwoButtons.ui')).text(),'components/Button.ui':await (await fetch('./Button.component.ui')).text()};
+const runtime=await loadVectorRuntime();let designMode=false,selectedStart=null,preview;
+const log=document.querySelector('#events'),status=document.querySelector('#status'),container=document.querySelector('#preview');
+const source=files['ui/TwoButtons.ui'],nodes=parse(source).nodes;
+function refresh(){const s=preview?.snapshot();if(s)status.textContent=`${s.renderer}\n`+s.controls.map(c=>`${c.key}: кликов ${c.clicks}, фокус ${c.focused?'да':'нет'}, hover ${c.hovered?'да':'нет'}`).join('\n');}
+function render(){const linked=compileComponents(files,'ui/TwoButtons.ui',{}, {measureText:preview.measureText});preview.render({container,...linked,nodes,designMode,selectedStart});refresh();}
+function create(){return createVectorPreview({runtime,onSelect:n=>{selectedStart=n.start;log.textContent=`Выбран: ${n.props.key??n.type}`;},onAction:(action,node)=>{log.textContent+=`${node.props.key} → ${action}\n`;refresh();},onError:e=>{status.textContent=String(e);}});}
+preview=create();render();
+setInterval(refresh,500);
+document.querySelector('#mode').onclick=e=>{designMode=!designMode;e.target.textContent=designMode?'Включить взаимодействие':'Включить дизайн';render();};
+document.querySelector('#reset').onclick=()=>{preview.destroy();preview=create();selectedStart=null;log.textContent='';render();};
+for(const name of ['pointermove','pointerup','pointerdown','keydown','keyup','focusin','focusout'])container.addEventListener(name,()=>queueMicrotask(refresh));
+</script>
+</html>

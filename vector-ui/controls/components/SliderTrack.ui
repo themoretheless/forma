@@ -1,0 +1,10 @@
+component SliderTrack {
+    value: 50%; color: state.theme.primary; trackColor: state.theme.track;
+    Frame {
+        padding: 0 8;
+        Rectangle { height: 6; radius: 3; background: props.trackColor; }
+        Frame { columns: [props.value, *];
+            Rectangle { cell: 1 1; height: 6; radius: 3; background: props.color; }
+        }
+    }
+}

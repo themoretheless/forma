@@ -1,0 +1,16 @@
+// Passive text aligned to the start using the renderer's natural text metrics.
+component StartLabel {
+    text: '';
+    color: state.theme.text;
+    fontSize: 14;
+
+    Frame {
+        columns: [-, *];
+        Label {
+            cell: 1 1;
+            text: props.text;
+            color: props.color;
+            fontSize: props.fontSize;
+        }
+    }
+}

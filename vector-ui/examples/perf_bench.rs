@@ -34,7 +34,7 @@ fn main() {
 
 #[cfg(feature = "gpu")]
 async fn run() {
-    use forma_vector::{gpu::Renderer, Button};
+    use forma::{gpu::Renderer, Runtime as Button};
     let args: Vec<_> = std::env::args().collect();
     assert!(
         args.len() == 8,
@@ -227,7 +227,7 @@ async fn run() {
     });
     let uploads = renderer.as_ref().map_or(0, |r| r.uploads) - uploads_before;
     let resource_delta = match (resource_before, resource) {
-        (Some(before), Some(after)) => format!("{{\"buffer_allocations\":{},\"buffer_allocation_bytes\":{},\"uploaded_bytes\":{},\"tile_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{}}}",after.buffer_allocations_total-before.buffer_allocations_total,after.buffer_allocation_bytes_total-before.buffer_allocation_bytes_total,after.uploaded_bytes_total-before.uploaded_bytes_total,after.tile_uploads_total-before.tile_uploads_total,after.cpu_geometry_cache_bytes,after.cpu_shared_geometry_bytes),
+        (Some(before), Some(after)) => format!("{{\"buffer_allocations\":{},\"buffer_allocation_bytes\":{},\"uploaded_bytes\":{},\"tile_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{},\"cpu_paint_scratch_bytes\":{}}}",after.buffer_allocations_total-before.buffer_allocations_total,after.buffer_allocation_bytes_total-before.buffer_allocation_bytes_total,after.uploaded_bytes_total-before.uploaded_bytes_total,after.tile_uploads_total-before.tile_uploads_total,after.cpu_geometry_cache_bytes,after.cpu_shared_geometry_bytes,after.cpu_paint_scratch_bytes),
         _ => "null".into(),
     };
     let diagnostics=format!("{{\"timestamp_supported\":{timestamp_supported},\"valid_gpu_samples\":{},\"rss_lifetime_peak_bytes\":{},\"rust_deallocations\":{},\"gpu_phase\":{resource_delta}}}",gpu_ms.len(),process_after.peak_resident_bytes,a.deallocations);
@@ -236,7 +236,7 @@ async fn run() {
 
 #[cfg(feature = "gpu")]
 fn make_target(
-    r: &forma_vector::gpu::Renderer,
+    r: &forma::gpu::Renderer,
     w: u32,
     h: u32,
 ) -> (wgpu::Texture, wgpu::TextureView) {

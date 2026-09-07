@@ -1,0 +1,10 @@
+// Passive keyboard-shortcut label; this component does not register a hotkey.
+component Keycap : Surface {
+    width: 40;
+    height: 24;
+    radius: 5;
+    fontSize: 11;
+    text: 'Ctrl';
+    background: state.theme.surfaceRaised;
+    borderColor: state.theme.borderStrong;
+}

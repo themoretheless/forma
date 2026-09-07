@@ -1,0 +1,41 @@
+// One side-navigation row with an explicit selected snapshot.
+component NavigationItem : Button {
+    width: 220;
+    height: 40;
+    radius: 10;
+    fontSize: 13;
+    text: 'Раздел';
+    selected: false;
+    background: match props.selected {
+        true => state.theme.surfaceHover;
+        _ => #00000000;
+    };
+    borderColor: #00000000;
+    color: match props.selected {
+        true => state.theme.text;
+        _ => state.theme.textMuted;
+    };
+    indicatorColor: match props.selected {
+        true => state.theme.primary;
+        _ => #00000000;
+    };
+
+    override content: Frame {
+        columns: [2, *];
+        Rectangle {
+            cell: 1 1;
+            height: 16;
+            radius: 1;
+            background: props.indicatorColor;
+        }
+        Frame {
+            cell: 1 2;
+            padding: 0 12;
+            StartLabel {
+                text: props.text;
+                color: props.textColor;
+                fontSize: props.fontSize;
+            }
+        }
+    };
+}

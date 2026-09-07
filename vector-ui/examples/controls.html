@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Forma · Контролы</title>
+</head>
+<body>
+  <header class="masthead">
+    <a class="brand" href="/" aria-label="Forma Studio"><span class="brand-icon">f</span> forma <span class="edition">/ библиотека</span></a>
+    <div class="header-actions"><a href="#notes">Решения и ограничения ↗</a><button id="download">Скачать пример для Studio ↓</button></div>
+  </header>
+  <main>
+    <section class="intro">
+      <div><div class="eyebrow">КОМПОНЕНТЫ · 01</div><h1>Общий язык интерфейса.</h1><p>Тёплая палитра, ясные состояния и небольшие переиспользуемые части.<br>Контролы ниже рисует сама Forma.</p></div>
+      <div class="runtime-note"><span class="live-dot"></span><strong id="backend">Загрузка Rust/WASM</strong><span>Один renderer для всех образцов</span></div>
+    </section>
+    <div class="workspace">
+      <aside>
+        <span class="eyebrow">КАТАЛОГ</span><nav id="section-nav" aria-label="Разделы компонентов"></nav>
+        <div class="side-note"><span class="mono" id="component-count">…</span> отдельных компонентов<br><span class="mono" id="icon-count">…</span> векторных иконок</div>
+        <a class="studio-link" href="/">← Вернуться в Studio</a>
+      </aside>
+      <div class="catalog-main">
+        <div class="toolbar">
+          <div class="theme-picker" role="group" aria-label="Тема образцов"><button id="light" aria-pressed="true">Светлая</button><button id="dark" aria-pressed="false">Тёмная</button></div>
+          <label>Размер <select id="size"><option value="compact">Компактный · 28</option><option value="regular" selected>Обычный · 32</option><option value="comfortable">Свободный · 40</option><option value="touch">Сенсорный · 44</option></select></label>
+          <label class="motion"><input id="motion" type="checkbox"> Без анимаций</label>
+        </div>
+        <div id="catalog" class="catalog-grid"></div>
+        <div class="event-strip" role="status"><span class="event-dot"></span><span id="event">Нажмите кнопку — здесь появится её событие.</span><code id="event-count">0 событий</code></div>
+        <section id="notes" class="notes">
+          <div class="eyebrow">АДАПТАЦИЯ РЕФЕРЕНСА</div><h2>Что изменено и чего пока нет</h2>
+          <div class="note-grid">
+            <article><span class="note-index">01 / ЦВЕТ</span><h3>Контраст важнее точного HEX</h3><p>Белый на исходном оранжевом — 3,40:1. Основная кнопка теперь даёт 4,94:1; оттенок акцента сохранён для декоративных элементов. Опасное действие тоже получило более тёмную заливку.</p></article>
+            <article><span class="note-index">02 / ДВИЖЕНИЕ</span><h3>Отклик без задержки</h3><p>Reveal следует за курсором по рамке ещё до наведения; внутри плавно расширяется за 280 мс. Фон и обычная граница меняются за 180 мс. Режим «Без анимаций» учитывает и системную настройку.</p></article>
+            <article><span class="note-index">03 / КОМПОЗИЦИЯ</span><h3>Части вместо большого шаблона</h3><p>Surface отвечает за поверхность, Icon и Label — за содержимое. Button добавляет взаимодействие. Badge, Avatar, Alert и ProgressBar остаются пассивными.</p></article>
+            <article><span class="note-index">04 / СЛЕДУЮЩИЙ СЛОЙ</span><h3>Честный статус каждой части</h3><p>Выбор, Slider, Stepper, вкладки и дерево используют Rust-модели. В полях работают набор, выделение, clipboard и многострочный ввод. Панель RTF пока не форматирует документ. Всплывающие примеры ограничены своей областью каталога.</p></article>
+          </div>
+          <p class="footnote">Внутри контролов пока встроенный Ubuntu Light: выбор IBM Plex, начертания, перенос текста и полноценная accessibility-модель ещё не добавлены. Контроллер каталога связывает модели с разметкой; экспорт — снимок для Studio. Прикладные bindings остаются отдельным этапом. Полный список перенесённого и оставшегося приведён в REFERENCE_COVERAGE.md.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+  <footer><span>forma · библиотека интерфейса</span><span>.ui → Rust → пиксели</span></footer>
+  <script type="module" src="../controls/gallery.js"></script>
+</body>
+</html>

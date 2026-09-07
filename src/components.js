@@ -6,7 +6,12 @@ import {attachSources,createElementTree} from './element-tree.js';
 
 const own=(o,k)=>Object.hasOwn(o,k);
 const clone=v=>structuredClone(v);
-const standard=new Set('key width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration'.split(' '));
+const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration'.split(' '));
+const layoutProps=new Set('key cell row column width height'.split(' '));
+const visualTypes=new Set(['Frame','Text','TextInput','Image','Rectangle']);
+const primitiveTypes=new Set([...visualTypes,'ContentPresenter','Brush','Border','Reveal','PointerArea','ContentText','ContentShape','ContentClip','ContentClipEnd']);
+const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
+const templateEncoder=new TextEncoder();
 const fallback={width:260,height:70,text:'',fontSize:20,color:{expr:'#14213b'},radius:16,disabled:false,background:{expr:'#8ca5ff'},hoverBackground:{expr:'#a8baff'},pressedBackground:{expr:'#6a83da'},disabledBackground:{expr:'#596273'},borderWidth:1,borderColor:{expr:'#bed0ff'},focusBorderColor:{expr:'#ffffff'},transitionDuration:{expr:'140ms'}};
 function visit(nodes,fn){for(const n of nodes){fn(n);visit(n.children??[],fn);}}
 function substitute(v,key,base){
@@ -21,13 +26,13 @@ function matches(pattern,value){
   if(pattern&&typeof pattern==='object')throw Error('Паттерн: литерал, кортеж или _');
   return pattern===value;
 }
-export function evaluate(v,props,state,stack=[]){
-  if(Array.isArray(v))return v.map(x=>evaluate(x,props,state,stack));
+export function evaluate(v,props,state,stack=[],expandElements=true){
+  if(Array.isArray(v))return v.map(x=>evaluate(x,props,state,stack,expandElements));
   if(v&&typeof v==='object'&&own(v,'match')){
-    const subject=evaluate(v.match,props,state,stack);
+    const subject=evaluate(v.match,props,state,stack,expandElements);
     const branch=v.branches.find(b=>matches(b.pattern,subject));
     if(!branch)throw Error('match: нет подходящей ветки; добавьте _ => …');
-    return evaluate(branch.value,props,state,stack);
+    return evaluate(branch.value,props,state,stack,expandElements);
   }
   if(v?.expr){
     const neg=v.expr.startsWith('!'),path=neg?v.expr.slice(1):v.expr;
@@ -36,14 +41,14 @@ export function evaluate(v,props,state,stack=[]){
       const key=path.slice(6)==='font.size'?'fontSize':path.slice(6);
       if(!own(props,key))throw Error(`Неизвестное свойство ${path}`);
       if(stack.includes(key))throw Error(`Циклическая ссылка props: ${[...stack,key].join(' → ')}`);
-      result=evaluate(props[key],props,state,[...stack,key]);
+      result=evaluate(props[key],props,state,[...stack,key],expandElements);
     }else if(path.startsWith('state.')){
       result=state;for(const key of path.slice(6).split('.')){if(result==null||!own(Object(result),key))throw Error(`Нет значения ${path}`);result=result[key];}
     }else if(path.startsWith('base.'))throw Error(`${path} допустим только внутри override`);
     else result=v;
     if(neg){if(typeof result!=='boolean')throw Error('! ожидает boolean');return !result;}return result;
   }
-  if(v?.type){return {...v,props:Object.fromEntries(Object.entries(v.props).map(([k,x])=>[k,evaluate(x,props,state,stack)])),children:(v.children??[]).map(x=>evaluate(x,props,state,stack))};}
+  if(v?.type&&expandElements){return {...v,props:Object.fromEntries(Object.entries(v.props).map(([k,x])=>[k,evaluate(x,props,state,stack,expandElements)])),children:(v.children??[]).map(x=>evaluate(x,props,state,stack,expandElements))};}
   return v;
 }
 function literal(v){
@@ -65,8 +70,10 @@ function gap(p){const a=Array.isArray(p.gap)?p.gap:[p.gap??0,p.gap??0];if(a.leng
 function natural(n,axis,metrics){
   const key=axis===0?'width':'height',p=n.props;
   if(p[key]!==undefined)return num(p[key],key);
-  if(n.type==='Text'){const fs=num(p.fontSize??p['font.size']??16,'fontSize');if(!metrics?.measureText)throw Error('Размер текста по контенту требует метрик Rust runtime');const size=metrics.measureText(String(p.text??''),fs)[axis];if(!Number.isFinite(size)||size<0)throw Error('Некорректные метрики текста');return size;}
+  if(n.type==='Text'){const fs=num(p.fontSize??p['font.size']??16,'fontSize');if(!metrics?.measureText)throw Error('Размер текста по контенту требует метрик Rust runtime');const lines=String(p.text??'').split('\n');const size=lines.length===1?metrics.measureText(lines[0],fs)[axis]:axis===1?lines.length*fs*1.5:Math.max(...lines.map(line=>metrics.measureText(line,fs)[0]));if(!Number.isFinite(size)||size<0)throw Error('Некорректные метрики текста');return size;}
+  if(n.type==='TextInput')return axis===0?80:Number(p.fontSize??15)*1.5;
   if(n.type==='Image')return 20;
+  if(n.type==='Rectangle')return Math.max(0,...n.children.map(c=>natural(c,axis,metrics)));
   if(n.type==='Frame'){
     const ts=tracks(p[axis===0?'columns':'rows']),g=gap(p)[axis===0?1:0],pad=insets(p.padding);
     return ts.reduce((s,t,i)=>s+(typeof t==='number'?num(t,key):Math.max(0,...n.children.filter(c=>cell(c,axis===0?'columns':'rows',ts.length)===i||ts.length===1).map(c=>natural(c,axis,metrics)))),0)+g*(ts.length-1)+pad[axis===0?1:0]+pad[axis===0?3:2];
@@ -78,20 +85,47 @@ function sizes(n,axis,available,metrics){
   const remaining=Math.max(0,available-g*(ts.length-1)-result.reduce((s,v)=>s+(typeof v==='number'?v:0),0));return result.map(v=>typeof v==='number'?v:remaining*v.w/weight);
 }
 function flatten(n,box,files,output,metrics){
-  const p=n.props;const allowed=new Set(['key','cell','row','column','width','height',...(n.type==='Frame'?['columns','rows','gap','padding','clip','radius']:n.type==='Text'?['text','color','fontSize','font.size']:n.type==='Image'?['source','color']:[])]);
+  const p=n.props,allowed=contentProps.get(n.type)??layoutProps;
   for(const k of Object.keys(p))if(!allowed.has(k))throw Error(`${n.type}.${k} пока не поддерживается в контенте`);
   if(Object.keys(n.events??{}).length||Object.keys(n.bindings??{}).length)throw Error('Контент кнопки пока не содержит отдельных интерактивных элементов');
   let [x,y,w,h]=box;if(p.width!==undefined){const v=num(p.width,'width');x+=(w-v)/2;w=v;}if(p.height!==undefined){const v=num(p.height,'height');y+=(h-v)/2;h=v;}
+  const visual=metrics.visuals?{id:metrics.visuals.length,parent:metrics.parentVisual??null,type:n.type,source:n.source,propertySources:n.propertySources,props:p,bounds:[x,y,w,h]}:null;
+  if(visual)metrics.visuals.push(visual);
+  const childMetrics=visual?{...metrics,parentVisual:visual.id}:metrics;
+  if(n.type==='Rectangle'){
+    const radius=num(p.radius??0,'radius');
+    if(p.background!==undefined&&!(typeof color(p.background)==='string'&&/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(color(p.background))))throw Error('Rectangle.background в контенте принимает только hex; Brush и его состояния пока не поддерживаются');
+    // A native clip rounds an ordinary polygon without a new Rust primitive.
+    // Children share this bounded surface; use a Frame child for grid layout.
+    output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: ${radius}; }`);
+    if(p.background!==undefined&&(metrics.preserveEmptyGeometry||(w>0&&h>0)))output.push(`ContentShape { points: '${x} ${y} ${x+w} ${y} ${x+w} ${y+h} ${x} ${y+h}'; color: ${color(p.background)}; }`);
+    for(const child of n.children)flatten(child,[x,y,w,h],files,output,childMetrics);
+    output.push('ContentClipEnd {}');return;
+  }
   if(n.type==='Frame'){
     if(p.clip!==undefined&&typeof p.clip!=='boolean')throw Error('Frame.clip ожидает boolean');
     const radius=num(p.radius??0,'radius');
     if(p.clip)output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: ${radius}; }`);
     const pad=insets(p.padding);x+=pad[3];y+=pad[0];w=Math.max(0,w-pad[1]-pad[3]);h=Math.max(0,h-pad[0]-pad[2]);
     const cols=sizes(n,0,w,metrics),rows=sizes(n,1,h,metrics),g=gap(p);
-    for(const c of n.children){const ci=cell(c,'columns',cols.length),ri=cell(c,'rows',rows.length);flatten(c,[ci===null?x:x+cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1],ri===null?y:y+rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0],ci===null?w:cols[ci],ri===null?h:rows[ri]],files,output,metrics);}if(p.clip)output.push('ContentClipEnd {}');return;
+    if(visual)visual.grid={bounds:[x,y,w,h],columns:cols,rows,gap:g};
+    for(const c of n.children){const ci=cell(c,'columns',cols.length),ri=cell(c,'rows',rows.length);flatten(c,[ci===null?x:x+cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1],ri===null?y:y+rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0],ci===null?w:cols[ci],ri===null?h:rows[ri]],files,output,childMetrics);}if(p.clip)output.push('ContentClipEnd {}');return;
   }
   if(n.children?.length)throw Error(`${n.type} не принимает дочерние элементы`);
-  if(n.type==='Text'){output.push(`ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(p.text??'')}; color: ${literal(p.color??{expr:'#ffffff'})}; fontSize: ${num(p.fontSize??p['font.size']??16,'fontSize')}; }`);return;}
+  if(n.type==='TextInput'){
+    output.push(`ContentInput { x: ${x}; y: ${y}; width: ${w}; height: ${h}; value: ${literal(String(p.value??''))}; placeholder: ${literal(String(p.placeholder??''))}; color: ${literal(p.color??{expr:'#ffffff'})}; placeholderColor: ${literal(p.placeholderColor??{expr:'#999999'})}; fontSize: ${num(p.fontSize??15,'fontSize')}; multiline: ${Boolean(p.multiline)}; }`);return;
+  }
+  if(n.type==='Text'){
+    const text=String(p.text??''),fontSize=num(p.fontSize??p['font.size']??16,'fontSize'),lines=text.split('\n');
+    if(lines.length===1)output.push(`ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(text)}; color: ${literal(p.color??{expr:'#ffffff'})}; fontSize: ${fontSize}; }`);
+    else {
+      if(!metrics?.measureText)throw Error('Многострочный текст требует метрик Rust runtime');
+      output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: 0; }`);
+      lines.forEach((line,i)=>output.push(`ContentText { x: ${x}; y: ${y+i*fontSize*1.5}; width: ${metrics.measureText(line,fontSize)[0]}; height: ${fontSize*1.5}; text: ${literal(line)}; color: ${literal(p.color??{expr:'#ffffff'})}; fontSize: ${fontSize}; }`));
+      output.push('ContentClipEnd {}');
+    }
+    return;
+  }
   if(n.type==='Image'){
     if(typeof p.source!=='string'||!own(files,p.source))throw Error(`SVG-файл не найден в проекте: ${p.source}`);
     for(const s of svgShapes(files[p.source],[x,y,w,h],color(p.color??'#ffffff')))output.push(`ContentShape { points: ${literal(s.points.map(v=>v.join(' ')).join(' '))}; color: ${s.color}; }`);return;
@@ -99,21 +133,46 @@ function flatten(n,box,files,output,metrics){
   throw Error(`Неподдерживаемый контент ${n.type}`);
 }
 
-export function compileComponents(files,entry,state={},metrics={}){
-  const document=attachSources(parse(files[entry]),entry);const scene=clone(document.nodes);
+const readDocument=(source,path,fragment=false)=>attachSources(parse(source,{fragment}),path);
+
+// A Studio session retains recent parsed source revisions, never linked trees,
+// state, metrics callbacks or compiled output. One-shot callers need no cache.
+export function createComponentCompiler(){
+  const documents=new Map();let units=0;
+  function read(source,path,fragment=false){
+    const key=(fragment?'fragment:':'document:')+path,previous=documents.get(key);
+    if(previous){documents.delete(key);units-=previous.source.length;}
+    const document=previous?.source===source?previous.document:readDocument(source,path,fragment);
+    if(source.length<=1_000_000){
+      documents.set(key,{source,document});units+=source.length;
+      while(documents.size>128||units>1_000_000){const oldest=documents.keys().next().value;units-=documents.get(oldest).source.length;documents.delete(oldest);}
+    }
+    return document;
+  }
+  return (files,entry,state={},metrics={})=>compile(files,entry,state,metrics,read);
+}
+
+export function compileComponents(files,entry,state={},metrics={}){return compile(files,entry,state,metrics,readDocument);}
+function compile(files,entry,state,metrics,read){
+  const document=read(files[entry],entry);const scene=clone(document.nodes);metrics.transformScene?.(scene);
+  visit(scene,n=>{const patch=metrics.instanceProps?.(n);if(patch)n.props={...n.props,...patch};});
   const instanceTree=createElementTree(scene);
   visit(scene,n=>{if(Object.keys(n.bindings??{}).length)throw Error('Векторный runtime пока не поддерживает двусторонние привязки');if(Object.keys(n.slots??{}).length)throw Error('override объявляется в наследнике component');});
-  let instance=scene[0]?.children?.[0];if(instance?.type==='Scroll')instance=instance.children[0];if(!instance)throw Error('Ожидается Frame с экземпляром кнопки');
+  if(scene.length!==1||scene[0].type!=='Frame')throw Error('Ожидается один корневой Frame');
+  const children=scene[0].children;
+  const instances=children.length===1&&children[0].type==='Scroll'?children[0].children:children;
+  if(!instances.length||instances.length>256||instances.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Frame принимает 1…256 контролов либо один Scroll с контролами');
   const cache=new Map(),loading=[];
   function link(name){
-    if(cache.has(name))return clone(cache.get(name));
+    if(cache.has(name))return cache.get(name);
     if(loading.includes(name))throw Error(`Цикл наследования: ${[...loading,name].join(' → ')}`);
+    if(loading.length>=32)throw Error('Глубина наследования компонентов превышает 32');
     const path=`components/${name}.ui`;if(!files[path])throw Error(`Компонент не найден: ${path}`);
-    const c=attachSources(parse(files[path]),path);if(c.name!==name)throw Error(`${path}: ожидался component ${name}`);if(c.designs.length)throw Error('Дизайн-атрибут компонента пока не поддерживается векторным runtime');loading.push(name);
-    const linked=c.base?link(c.base):{nodes:[],defaults:{}};
+    const c=read(files[path],path);if(c.name!==name)throw Error(`${path}: ожидался component ${name}`);if(c.designs.length)throw Error('Дизайн-атрибут компонента пока не поддерживается векторным runtime');loading.push(name);
+    const linked=c.base?clone(link(c.base)):{nodes:[],defaults:{}};
     if(c.base&&c.nodes.length)throw Error('Наследник меняет визуальное дерево через override');
-    if(!c.base)linked.nodes=c.nodes;
-    linked.defaults={...linked.defaults,...c.defaults};
+    if(!c.base)linked.nodes=clone(c.nodes);
+    linked.defaults={...linked.defaults,...clone(c.defaults)};
     const presenters=new Map();visit(linked.nodes,n=>{if(n.type==='ContentPresenter'){const key=n.props.key;if(typeof key!=='string'||!key)throw Error('ContentPresenter требует key');if(presenters.has(key))throw Error(`Повторная точка расширения ${key}`);presenters.set(key,n);}});
     for(const [key,value] of Object.entries(c.slots)){
       if(value?.fileOverride){
@@ -127,7 +186,7 @@ export function compileComponents(files,entry,state={},metrics={}){
           if(part==='..'){if(!parts.length)throw Error('override from: выход за пределы проекта');parts.pop();}else parts.push(part);
         }
         const file=parts.join('/');if(!own(files,file))throw Error(`Файл override не найден: ${file}`);
-        const patch=attachSources(parse(files[file],{fragment:true}),file).nodes[0];
+        const patch=read(files[file],file,true).nodes[0];
         if(patch.type!==target.type)throw Error(`override ${key}: ожидался ${target.type}, получен ${patch.type} в ${file}`);
         for(const p of [patch,value.patch].filter(Boolean)){
           if(p.base||p.children.length||Object.keys(p.slots).length||Object.keys(p.events).length||Object.keys(p.bindings).length)throw Error('Файл override и локальный блок переопределяют только свойства');
@@ -142,34 +201,116 @@ export function compileComponents(files,entry,state={},metrics={}){
       const base=target.props.content??(target.children.length===1?target.children[0]:{type:'Frame',props:{},children:target.children});
       target.props.content=substitute(value,key,base);target.children=[];
     }
-    loading.pop();cache.set(name,clone(linked));return linked;
+    loading.pop();cache.set(name,linked);return linked;
   }
-  const linked=link(instance.type);
-  let hasContent=false;visit(linked.nodes,n=>{if(n.type==='ContentPresenter'&&n.props.key==='content')hasContent=true;});
-  if(instance.children.length&&!hasContent)throw Error('Для дочернего контента нужен ContentPresenter с key: content');
-  for(const k of Object.keys(instance.props))if(!standard.has(k)&&!own(linked.defaults,k))throw Error(`Неизвестное свойство ${instance.type}.${k}`);
-  if(instance.props['font.size']!==undefined&&instance.props.fontSize!==undefined)throw Error('fontSize и font.size — одно свойство');
-  const props={...fallback,...linked.defaults,...instance.props};if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
-  const resolved=Object.fromEntries(Object.entries(props).map(([k,v])=>[k,evaluate(v,props,state,[k])]));
-  let roots=linked.nodes;
-  function expand(n){
+  let expandedCount=0;
+  function rejectInteraction(n){
+    if(n.type==='PointerArea'||Object.keys(n.events??{}).length||Object.keys(n.bindings??{}).length)throw Error(`Вложенный визуальный компонент не содержит интерактивных элементов: ${n.type}`);
+  }
+  function instantiate(instance,top,parents=[]){
+    if(parents.includes(instance.type))throw Error(`Цикл композиции: ${[...parents,instance.type].join(' → ')}`);
+    if(parents.length>=32)throw Error('Глубина композиции компонентов превышает 32');
+    if(!top)rejectInteraction(instance);
+    const linked=link(instance.type);
+    let hasContent=false;visit(linked.nodes,n=>{if(n.type==='ContentPresenter'&&n.props.key==='content')hasContent=true;});
+    if(instance.children.length&&!hasContent)throw Error('Для дочернего контента нужен ContentPresenter с key: content');
+    for(const k of Object.keys(instance.props))if(!(top?standard:layoutProps).has(k)&&!own(linked.defaults,k)&&!(k==='font.size'&&own(linked.defaults,'fontSize')))throw Error(`Неизвестное свойство ${instance.type}.${k}`);
+    if(instance.props['font.size']!==undefined&&instance.props.fontSize!==undefined)throw Error('fontSize и font.size — одно свойство');
+    // A visual instance never inherits its caller's props or button fallbacks.
+    // Arguments and supplied children have already been resolved in the caller.
+    const props={...(top?fallback:{}),...linked.defaults,...instance.props};
+    if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
+    const scope={props,instance,top,parents:[...parents,instance.type]};
+    const resolved=Object.fromEntries(Object.entries(props).map(([k,v])=>[k,expandValue(v,scope,0,[k])]));
+    const roots=linked.nodes.map(n=>expand(n,scope,0));
+    if(roots.length!==1||(top?roots[0].type!=='Rectangle':!visualTypes.has(roots[0].type)))throw Error(top?'Базовая кнопка требует один Rectangle':'Визуальный компонент требует один Frame, Text, Image или Rectangle');
+    if(!top){
+      visit(roots,n=>{rejectInteraction(n);if(!visualTypes.has(n.type))throw Error(`Неподдерживаемый визуальный примитив ${n.type}`);});
+      // Keep defining-file origins, and use the caller's origin for layout edits.
+      const root=roots[0];
+      if(own(instance.props,'cell')&&(own(instance.props,'row')||own(instance.props,'column')))throw Error('cell: ожидаются row column без отдельных row/column');
+      if(['cell','row','column'].some(key=>own(instance.props,key))){root.propertySources={...root.propertySources};for(const key of ['cell','row','column']){delete root.props[key];delete root.propertySources[key];}}
+      for(const key of layoutProps)if(own(instance.props,key)){
+        root.props[key]=resolved[key];
+        if(instance.propertySources?.[key])root.propertySources={...root.propertySources,[key]:clone(instance.propertySources[key])};
+      }
+    }
+    return {roots,resolved};
+  }
+  function expandValue(value,scope,depth,stack=[]){
+    const result=evaluate(value,scope.props,state,stack,false);
+    return result?.type?expand(result,scope,depth+1):result;
+  }
+  function expand(n,scope,depth){
+    if(depth>64||++expandedCount>16384)throw Error('Превышен предел глубины или размера визуальной композиции');
+    if(n.expandedVisual)return clone(n);
+    if(Object.keys(n.slots??{}).length)throw Error('override объявляется в наследнике component');
+    if(!scope.top)rejectInteraction(n);
     if(n.type==='ContentPresenter'){
       if(Object.keys(n.props).some(k=>!['key','content'].includes(k)))throw Error('ContentPresenter принимает key и content');
       let content=n.props.content??(n.children.length===1?n.children[0]:{type:'Frame',props:{},children:n.children});
-      if(instance.children.length){if(n.props.key!=='content')return expandContent(content);if(own(instance.props,'content'))throw Error('Задайте content или дочерние элементы');content={type:'Frame',props:{},children:instance.children};}
-      return expandContent(content);
+      if(scope.instance.children.length&&n.props.key==='content'){
+        if(own(scope.instance.props,'content'))throw Error('Задайте content или дочерние элементы');
+        content={type:'Frame',props:{},children:scope.instance.children};
+      }
+      const result=expandValue(content,scope,depth);
+      if(!result?.type)throw Error('override должен вернуть элемент или base.content');
+      return result;
     }
-    return {...n,props:Object.fromEntries(Object.entries(n.props).map(([k,v])=>[k,evaluate(v,props,state)])),children:(n.children??[]).map(expand)};
+    const node={...n,props:Object.fromEntries(Object.entries(n.props).map(([k,v])=>[k,expandValue(v,scope,depth)])),children:(n.children??[]).map(child=>expand(child,scope,depth+1))};
+    if(!primitiveTypes.has(n.type))return instantiate(node,false,scope.parents).roots[0];
+    return {...node,expandedVisual:true};
   }
-  function expandContent(v){const result=evaluate(v,props,state);if(!result?.type)throw Error('override должен вернуть элемент или base.content');return expand(result);}
-  roots=roots.map(expand);if(roots.length!==1||roots[0].type!=='Rectangle')throw Error('Базовая кнопка требует один Rectangle');
+  const visualNodes=[];
+  const root=scene[0],rootProps=root.props;
+  const rootWidth=num(rootProps.width??360,'width'),rootHeight=num(rootProps.height??220,'height');
+  const rootVisual={id:-1,parent:null,control:-1,type:'Frame',source:root.source,propertySources:root.propertySources,props:clone(rootProps),bounds:[0,0,rootWidth,rootHeight]};
+  if(rootProps.columns!==undefined||rootProps.rows!==undefined){
+    const pad=insets(rootProps.padding),g=gap(rootProps);
+    const resolvedChildren=instances.map(n=>{const control=clone(n);for(const key of ['cell','row','column'])delete control.props[key];const {resolved}=instantiate(control,true);return {...n,props:{...n.props,width:resolved.width,height:resolved.height}};});
+    const layout={...root,children:resolvedChildren};
+    const cols=sizes(layout,0,Math.max(0,rootWidth-pad[1]-pad[3]),metrics),rows=sizes(layout,1,Math.max(0,rootHeight-pad[0]-pad[2]),metrics);
+    rootVisual.grid={bounds:[pad[3],pad[0],rootWidth-pad[1]-pad[3],rootHeight-pad[0]-pad[2]],columns:cols,rows,gap:g};
+    instances.forEach((n,i)=>{
+      const ci=cell(n,'columns',cols.length),ri=cell(n,'rows',rows.length);
+      const left=pad[3]+(ci===null?0:cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1]);
+      const top=pad[0]+(ri===null?0:rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0]);
+      const w=ci===null?rootVisual.grid.bounds[2]:cols[ci],h=ri===null?rootVisual.grid.bounds[3]:rows[ri];
+      n.props.x=left;n.props.y=top;
+      if(n.props.width===undefined)n.props.width=w;
+      if(n.props.height===undefined)n.props.height=h;
+      for(const key of ['cell','row','column'])delete n.props[key];
+    });
+    delete rootProps.columns;delete rootProps.rows;rootProps.gap=0;
+  }
+  visualNodes.push(rootVisual);
+  const previewNodes=clone(scene);
+  function compileInstance(instance,index){
+  const {roots,resolved}=instantiate(instance,true);
+  let rangeMetadata='';
+  if(instance.type==='Slider'){
+    const endpoint=value=>{
+      const result=instantiate({...instance,props:{...instance.props,value:{expr:value+'%'}}},true);
+      const content=[];
+      for(const child of result.roots[0].children)if(visualTypes.has(child.type))flatten(child,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,content,{...metrics,preserveEmptyGeometry:true});
+      return content.join(' ');
+    };
+    rangeMetadata=`RangeInput { value: ${parseFloat(resolved.value?.expr??resolved.value??50)/100}; Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
+  }
   // Keep the resolved visual tree before lowering destroys keys and hierarchy.
-  const templateTree=createElementTree(roots);
+  const treeRoots=clone(roots);
   // Keys are linker identities, not properties of the lowered Rust primitives.
   visit(roots,n=>{delete n.props.key;});
-  const root=roots[0],out=[];let body='';
-  for(const n of root.children){if(['Frame','Image','Text'].includes(n.type)){flatten(n,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,out,metrics);}else body+=serialize(n);}
+  const root=roots[0],out=[],visuals=[];let body='';
+  for(const n of root.children){if(visualTypes.has(n.type)){flatten(n,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,out,{...metrics,visuals});}else body+=serialize(n);}
   instance.type='Button';instance.props=Object.fromEntries(Object.entries(resolved).filter(([k])=>standard.has(k)&&k!=='font.size'));instance.children=[];
-  const template=`component Button { Rectangle { ${Object.entries(root.props).map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} } }`;
-  return {source:`component ${document.name} { ${scene.map(serialize).join(' ')} }`,template,instanceTree,templateTree};
+  const template=`component Button { Rectangle { ${Object.entries(root.props).map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
+  visualNodes.push(...visuals.map(v=>({...v,control:index})));
+  return {template,treeRoots};
+  }
+  const controls=instances.map(compileInstance);
+  const templateTree=createElementTree(controls.flatMap(c=>c.treeRoots));
+  // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
+  const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateEncoder.encode(c.template).length}\n${c.template}`).join('');
+  return {source:`component ${document.name} { ${scene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes};
 }

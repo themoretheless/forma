@@ -3,7 +3,7 @@
 //! of that host buffer. Both paths use identical sizes, DPI and source.
 use std::{hint::black_box, time::Instant};
 
-fn legacy(b: &forma_vector::Button, dst: &mut [u32], w: u32, h: u32, s: f32) {
+fn legacy(b: &forma::Button, dst: &mut [u32], w: u32, h: u32, s: f32) {
     let pixels = b.pixels(w, h, s);
     assert_eq!(pixels.len(), dst.len() * 4);
     for (dst, p) in dst.iter_mut().zip(pixels.chunks_exact(4)) {
@@ -18,14 +18,14 @@ fn main() {
     let source = args
         .get(1)
         .map(|p| std::fs::read_to_string(p).unwrap())
-        .unwrap_or(forma_vector::EXAMPLE.into());
+        .unwrap_or(forma::EXAMPLE.into());
     let template = args
         .get(2)
         .map(|p| std::fs::read_to_string(p).unwrap())
-        .unwrap_or(forma_vector::BUTTON_COMPONENT.into());
+        .unwrap_or(forma::BUTTON_COMPONENT.into());
     for (w, h) in [(1600, 1000), (3200, 2000), (3840, 2160)] {
         for retained in [false, true] {
-            let b = forma_vector::Button::from_sources(&source, &template).unwrap();
+            let b = forma::Button::from_sources(&source, &template).unwrap();
             let mut buffer = vec![0u32; (w * h) as usize];
             let mut times = Vec::new();
             for i in 0..20 {

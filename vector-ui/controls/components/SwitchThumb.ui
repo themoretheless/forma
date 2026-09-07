@@ -1,0 +1,17 @@
+// Passive knob placement: checked chooses the right half of the track.
+component SwitchThumb {
+    checked: false;
+    color: #ffffff;
+
+    Frame {
+        columns: [*, *];
+        padding: 2;
+        Rectangle {
+            column: match props.checked { true => 2; _ => 1; };
+            width: 20;
+            height: 20;
+            radius: 10;
+            background: props.color;
+        }
+    }
+}

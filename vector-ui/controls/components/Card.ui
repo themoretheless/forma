@@ -1,0 +1,9 @@
+// Passive card surface. Supply its content slot with reusable visual components.
+component Card : Surface {
+    width: 320;
+    height: 180;
+    radius: 14;
+    text: '';
+    background: state.theme.surface;
+    borderColor: state.theme.border;
+}

@@ -1,0 +1,6 @@
+component LoadingButton : PrimaryIconButton {
+    text: 'Загрузка'; icon: 'assets/spinner.svg'; disabled: true;
+    disabledBackground: state.theme.primary;
+    disabledBorderColor: state.theme.primary;
+    textColor: state.theme.primaryText;
+}

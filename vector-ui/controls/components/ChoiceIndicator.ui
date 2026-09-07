@@ -1,0 +1,39 @@
+// Passive snapshot of a checkbox/radio mark. No independent input target.
+component ChoiceIndicator {
+    checked: false;
+    indeterminate: false;
+    round: false;
+    borderColor: state.theme.borderStrong;
+    background: state.theme.surface;
+    color: state.theme.primary;
+
+    Frame {
+        width: 18;
+        height: 18;
+        Rectangle {
+            radius: match props.round { true => 9; _ => 5; };
+            background: props.borderColor;
+            Rectangle {
+                width: 16;
+                height: 16;
+                radius: match props.round { true => 8; _ => 4; };
+                background: props.background;
+                ContentPresenter {
+                    key: 'mark';
+                    content: match (props.indeterminate, props.checked, props.round) {
+                        (true, _, false) => Rectangle {
+                            width: 10; height: 2; radius: 1;
+                            background: props.color;
+                        };
+                        (_, true, true) => Rectangle {
+                            width: 8; height: 8; radius: 4;
+                            background: props.color;
+                        };
+                        (_, true, false) => CheckMark { color: props.color; };
+                        _ => Frame {};
+                    };
+                }
+            }
+        }
+    }
+}

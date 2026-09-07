@@ -1,0 +1,6 @@
+// One radio snapshot. Mutual exclusion belongs to the owning radio group.
+component RadioButton : Checkbox {
+    round: true;
+    indeterminate: false;
+    text: 'Вариант';
+}

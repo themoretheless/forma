@@ -1,0 +1,35 @@
+// A tree row snapshot. Expansion, selection and child visibility belong to its owner.
+component TreeItem : Button {
+    width: 240;
+    height: 28;
+    radius: 5;
+    fontSize: 13;
+    text: 'src';
+    branch: true;
+    expanded: false;
+    selected: false;
+    indent: 0;
+    icon: match props.branch {
+        true => 'assets/folder.svg';
+        _ => 'assets/file.svg';
+    };
+    background: match props.selected {
+        true => state.theme.surfaceHover;
+        _ => #00000000;
+    };
+    borderColor: #00000000;
+    color: match (props.branch, props.selected) {
+        (false, false) => state.theme.textMuted;
+        _ => state.theme.text;
+    };
+
+    override content: TreeContent {
+        text: props.text;
+        color: props.textColor;
+        fontSize: props.fontSize;
+        branch: props.branch;
+        expanded: props.expanded;
+        indent: props.indent;
+        icon: props.icon;
+    };
+}

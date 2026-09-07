@@ -1,0 +1,5 @@
+component StatusBar : TableRow {
+    height: 26; fontSize: 10;
+    background: state.theme.canvas; hoverBackground: props.background;
+    first: 'main'; second: 'Rust'; third: 'UTF-8';
+}

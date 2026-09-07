@@ -1,0 +1,9 @@
+// Controlled multiline skin. Host editing/IME adapters are separate.
+component TextArea : TextField {
+    width: 304; height: 96; fontSize: 14;
+    override content: MultilineValue {
+        value: props.value; placeholder: props.placeholder;
+        color: props.textColor; placeholderColor: props.placeholderColor;
+        fontSize: props.fontSize;
+    };
+}

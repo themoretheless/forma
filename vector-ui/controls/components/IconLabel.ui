@@ -1,0 +1,34 @@
+// Passive composition shared by leading-icon button variants.
+component IconLabel {
+    icon: 'assets/search.svg';
+    iconSize: 16;
+    horizontalPadding: 12;
+    text: '';
+    color: state.theme.text;
+    fontSize: 14;
+
+    Frame {
+        columns: [*, auto, *];
+        gap: 0;
+        padding: 0 props.horizontalPadding;
+        Frame {
+            cell: 1 2;
+            columns: [props.iconSize, auto];
+            gap: 8;
+            padding: 0;
+            Icon {
+                cell: 1 1;
+                source: props.icon;
+                color: props.color;
+                width: props.iconSize;
+                height: props.iconSize;
+            }
+            Label {
+                cell: 1 2;
+                text: props.text;
+                color: props.color;
+                fontSize: props.fontSize;
+            }
+        }
+    }
+}

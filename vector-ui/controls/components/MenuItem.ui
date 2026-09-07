@@ -1,0 +1,42 @@
+// One menu row snapshot; its owner closes the popup and updates selected.
+component MenuItem : Button {
+    width: 220;
+    height: 34;
+    radius: 6;
+    fontSize: 13;
+    text: 'Пункт меню';
+    selected: false;
+    background: match props.selected {
+        true => state.theme.surfaceHover;
+        _ => #00000000;
+    };
+    borderColor: #00000000;
+    markColor: match props.disabled {
+        true => state.theme.textDisabled;
+        _ => state.theme.primary;
+    };
+
+    override content: Frame {
+        columns: [*, 14];
+        padding: 0 10;
+        gap: 10;
+        StartLabel {
+            cell: 1 1;
+            text: props.text;
+            color: props.textColor;
+            fontSize: props.fontSize;
+        }
+        ContentPresenter {
+            key: 'selectionMark';
+            content: match props.selected {
+                true => CheckMark {
+                    cell: 1 2;
+                    width: 12;
+                    height: 12;
+                    color: props.markColor;
+                };
+                _ => Frame { cell: 1 2; };
+            };
+        }
+    };
+}

@@ -1,0 +1,42 @@
+// Passive inline message. Dialog focus, live announcements and actions are separate.
+component Alert : Surface {
+    width: 360;
+    height: 76;
+    radius: 12;
+    text: 'Токены обновлены';
+    description: 'Светлая и тёмная тема готовы.';
+    descriptionColor: state.theme.textMuted;
+    descriptionFontSize: 12;
+    iconSize: 20;
+    tone: 'accent';
+    background: match props.tone {
+        'success' => state.theme.successWash;
+        'warning' => state.theme.warningWash;
+        'danger' => state.theme.dangerWash;
+        _ => state.theme.accentWash;
+    };
+    borderColor: match props.tone {
+        'success' => state.theme.success;
+        'warning' => state.theme.warning;
+        'danger' => state.theme.dangerInk;
+        _ => state.theme.accentInk;
+    };
+    icon: match props.tone {
+        'success' => 'assets/check-circle.svg';
+        'warning' => 'assets/warning.svg';
+        'danger' => 'assets/error.svg';
+        _ => 'assets/info.svg';
+    };
+
+    override content: MessageContent {
+        icon: props.icon;
+        iconSize: props.iconSize;
+        iconColor: props.borderColor;
+        text: props.text;
+        color: props.textColor;
+        fontSize: props.fontSize;
+        description: props.description;
+        descriptionColor: props.descriptionColor;
+        descriptionFontSize: props.descriptionFontSize;
+    };
+}

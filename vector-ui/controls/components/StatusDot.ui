@@ -1,0 +1,4 @@
+component StatusDot : Surface {
+    width: 8; height: 8; radius: 4; borderWidth: 0;
+    background: state.theme.success;
+}

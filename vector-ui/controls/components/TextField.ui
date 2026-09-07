@@ -1,0 +1,41 @@
+// TextInput editing and rendering are provided by the shared Rust runtime.
+component TextField : Button {
+    width: 240;
+    height: 38;
+    radius: 8;
+    fontSize: 15;
+    value: '';
+    placeholder: 'Введите текст';
+    text: match props.value { '' => props.placeholder; _ => props.value; };
+    error: false;
+    showIcon: false;
+    icon: 'assets/search.svg';
+    suffix: '';
+    background: state.theme.surfaceRaised;
+    hoverBackground: state.theme.surfaceRaised;
+    pressedBackground: state.theme.surfaceRaised;
+    borderColor: match props.error {
+        true => state.theme.dangerInk;
+        _ => state.theme.border;
+    };
+    focusBorderColor: match props.error {
+        true => state.theme.dangerInk;
+        _ => state.theme.focus;
+    };
+    placeholderColor: match props.disabled {
+        true => state.theme.textDisabled;
+        _ => state.theme.textMuted;
+    };
+
+    override content: FieldContent {
+        value: props.value;
+        placeholder: props.placeholder;
+        color: props.textColor;
+        placeholderColor: props.placeholderColor;
+        fontSize: props.fontSize;
+        showIcon: props.showIcon;
+        icon: props.icon;
+        iconSize: props.iconSize;
+        suffix: props.suffix;
+    };
+}

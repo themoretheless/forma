@@ -1,4 +1,4 @@
-use forma_vector::Button;
+use forma::Button;
 
 #[test]
 fn disabled_border_uses_its_state_before_the_first_event() {

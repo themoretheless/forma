@@ -1,0 +1,33 @@
+// Passive indicator + label composition for Checkbox and RadioButton.
+component ChoiceContent {
+    checked: false;
+    indeterminate: false;
+    round: false;
+    text: '';
+    color: state.theme.text;
+    markColor: state.theme.primary;
+    indicatorBackground: state.theme.surface;
+    indicatorBorder: state.theme.borderStrong;
+    fontSize: 14;
+
+    Frame {
+        columns: [18, *];
+        padding: 0 10;
+        gap: 10;
+        ChoiceIndicator {
+            cell: 1 1;
+            checked: props.checked;
+            indeterminate: props.indeterminate;
+            round: props.round;
+            color: props.markColor;
+            background: props.indicatorBackground;
+            borderColor: props.indicatorBorder;
+        }
+        StartLabel {
+            cell: 1 2;
+            text: props.text;
+            color: props.color;
+            fontSize: props.fontSize;
+        }
+    }
+}

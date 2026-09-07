@@ -1,4 +1,4 @@
-use forma_vector::{
+use forma::{
     display_list::{DisplayList, TileScratch, STRIDE, TILE},
     Button,
 };
@@ -45,17 +45,17 @@ fn shared_snapshot_invalidates_for_geometry_inputs_and_source_replacement() {
     assert!(!Arc::ptr_eq(&foreground, &scrolled));
     assert_ne!(foreground.commands, scrolled.commands);
 
-    button.load_source(forma_vector::EXAMPLE).unwrap();
+    button.load_source(forma::EXAMPLE).unwrap();
     let source = button.vector_snapshot(2., false);
     assert!(!Arc::ptr_eq(&scrolled, &source));
     // Successful loading is a replacement even if the text is byte-identical.
-    button.load_source(forma_vector::EXAMPLE).unwrap();
+    button.load_source(forma::EXAMPLE).unwrap();
     let reloaded = button.vector_snapshot(2., false);
     assert!(!Arc::ptr_eq(&source, &reloaded));
     assert!(button.load_source("not valid markup").is_err());
     assert!(Arc::ptr_eq(&reloaded, &button.vector_snapshot(2., false)));
     button
-        .load_component(forma_vector::EXAMPLE, forma_vector::BUTTON_COMPONENT)
+        .load_component(forma::EXAMPLE, forma::BUTTON_COMPONENT)
         .unwrap();
     let component = button.vector_snapshot(2., false);
     assert!(!Arc::ptr_eq(&reloaded, &component));
@@ -80,7 +80,7 @@ fn held_snapshot_prevents_aba_after_owner_drop_or_reuse() {
     assert_send::<Button>();
     assert_send::<Arc<DisplayList>>();
     #[cfg(feature = "gpu")]
-    assert_send::<forma_vector::gpu::Renderer>();
+    assert_send::<forma::gpu::Renderer>();
 }
 
 #[test]
@@ -140,7 +140,7 @@ fn scroll_and_reload_rebuild_vectors() {
     let before = b.gpu_commands(1., true);
     b.scroll(10., 10.);
     assert_ne!(before, b.gpu_commands(1., true));
-    b.load_source(forma_vector::EXAMPLE).unwrap();
+    b.load_source(forma::EXAMPLE).unwrap();
     assert_ne!(before, b.gpu_commands(1., true));
     assert!(b.gpu_tiles(0, 1, 1., true).is_empty());
     assert!(b.gpu_tiles(u32::MAX, 1, 1., true).is_empty());
