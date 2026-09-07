@@ -1,3 +1,4 @@
+import {displayProperty} from './property-origins.js';
 export function resizeTracks(values,sizes,index,delta){
   const next=values.map(v=>v?.expr??v);
   if(index<0||index>=sizes.length-1)throw Error('Нет соседней колонки');
@@ -17,7 +18,7 @@ export function parseTracks(text){
  if(values.some(v=>!v))throw Error('Пустой трек');
  return values.map(v=>/^\d+(?:\.\d+)?$/.test(v)?Number(v):v);
 }
-export function createLayoutInspector({viewport,artboard,toolbar,getVisuals,getRuntime,getControl,getMode,edit,openSource,readTracks}){
+export function createLayoutInspector({viewport,artboard,toolbar,getVisuals,getRuntime,getControl,getMode,edit,openSource,readTracks,readSource=()=>undefined}){
  let chosen=null,drag=null;
  const panel=document.createElement('details');panel.className='layout-inspector';panel.innerHTML='<summary>Внутренние части и Grid</summary><nav class="layout-breadcrumbs" aria-label="Путь к части"></nav><div class="layout-parts"></div><div class="layout-grid"></div>';
  const toggle=document.createElement('button');toggle.className='layout-toggle';toggle.textContent='Части и Grid';toggle.setAttribute('aria-expanded','false');
@@ -76,6 +77,22 @@ export function createLayoutInspector({viewport,artboard,toolbar,getVisuals,getR
    input.onchange=()=>{try{edit(source,trackSource(parseTracks(input.value)));input.setCustomValidity('');}catch(error){input.setCustomValidity(error.message);input.reportValidity();}};label.append(input);grid.append(label);
   }
   if(chosen?.grid){const note=document.createElement('small');note.textContent='Размеры из раскладки. Перетаскивание фиксирует только два соседних трека; остальные сохраняются.';grid.append(note);}
+  if(chosen){
+   const heading=document.createElement('h4');heading.textContent='Итоговые свойства';grid.append(heading);
+   const table=document.createElement('table');table.className='property-origins';table.setAttribute('aria-label','Итоговые свойства и происхождение');
+   for(const [name,value]of Object.entries(chosen.props??{})){
+    const row=document.createElement('tr'),key=document.createElement('th'),cell=document.createElement('td'),result=document.createElement('code');key.scope='row';key.textContent=name;result.textContent=displayProperty(value);cell.append(result);
+    const origins=chosen.propertyOrigins?.[name]??(chosen.propertySources?.[name]?[{source:chosen.propertySources[name]}]:[]);
+    if(!origins.length){const note=document.createElement('small');note.textContent='Раскладка или значение по умолчанию';cell.append(note);}
+    for(const origin of origins){
+     const source=origin.source,body=source&&readSource(source.file),link=document.createElement(typeof body==='string'?'button':'small');
+     const line=typeof body==='string'?body.slice(0,source.from).split('\n').length:null;
+     link.textContent=(origin.label??source?.label??'Объявление')+(line?` · ${source.file.split('/').at(-1)}:${line}`:'');
+     if(line){link.title=source.file;link.onclick=()=>openSource(source);}cell.append(link);
+    }
+    row.append(key,cell);table.append(row);
+   }grid.append(table);
+  }
   draw();
  }
  viewport.addEventListener('dblclick',event=>{

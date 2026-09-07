@@ -7,7 +7,7 @@ const base=`component Button {
  width: 160; height: 40; text: 'Save'; color: #ffffff;
  Rectangle {
   ContentPresenter { key: 'content';
-   Row { gap: 4; Text { key: 'caption'; text: props.text; color: props.color; fontSize: 14; } }
+   Row { gap: 4; Text { key: 'caption'; width: 100; text: props.text; color: props.color; fontSize: 14; } }
   }
   PointerArea { clicked -> events.clicked(); }
  }
@@ -71,7 +71,7 @@ test('invalid patches fail without silently ignoring declarations',()=>{
  assert.throws(()=>linkComponentDefinitions({'components/A.ui':`component A { override x {} Rectangle {} }`}),/базового компонента/);
  const duplicate=files('override caption {}');
  duplicate['components/Button.ui']=base.replace('fontSize: 14; }','fontSize: 14; } Text { key: \'caption\'; }');
- assert.throws(()=>linkComponentDefinitions(duplicate),/найдено 2/);
+ assert.throws(()=>linkComponentDefinitions(duplicate),/найдено 2|Повторный key/);
 });
 
 test('editor grammar accepts bare and quoted keys, with an optional semicolon',()=>{

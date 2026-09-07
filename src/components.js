@@ -1,6 +1,8 @@
 // Component linking is shared by Studio preview and native launch. It emits the
 // same concrete primitive template; there is no DOM rendering of button content.
 import {parse} from './language.js';
+import {propertyOrigins} from './property-origins.js';
+import {similarName,sourceError} from './diagnostics.js';
 import {svgShapes} from './svg-shapes.js';
 import {attachSources,createElementTree} from './element-tree.js';
 import {createCacheBudget} from './cache-budget.js';
@@ -85,7 +87,7 @@ function flatten(n,box,files,output,metrics){
   for(const k of Object.keys(p))if(!allowed.has(k))throw Error(`${n.type}.${k} пока не поддерживается в контенте`);
   if(Object.keys(n.events??{}).length||Object.keys(n.bindings??{}).length)throw Error('Контент кнопки пока не содержит отдельных интерактивных элементов');
   let [x,y,w,h]=box;const nw=constrained(p.width===undefined?w:length(p.width,w,intrinsicLength(p.width)?natural({...n,props:{...p,width:undefined}},0,metrics):0,'width'),p,0,w),nh=constrained(p.height===undefined?h:length(p.height,h,intrinsicLength(p.height)?natural({...n,props:{...p,height:undefined}},1,metrics):0,'height'),p,1,h);x+=(w-nw)/2;y+=(h-nh)/2;w=nw;h=nh;
-  const visual=metrics.visuals?{id:metrics.visuals.length,parent:metrics.parentVisual??null,type:n.type,source:n.source,propertySources:n.propertySources,props:p,bounds:[x,y,w,h]}:null;
+  const visual=metrics.visuals?{id:metrics.visuals.length,parent:metrics.parentVisual??null,type:n.type,source:n.source,propertySources:n.propertySources,propertyOrigins:n.propertyOrigins,props:p,bounds:[x,y,w,h]}:null;
   if(visual)metrics.visuals.push(visual);
   const childMetrics=visual?{...metrics,parentVisual:visual.id}:metrics;
   if(n.type==='Rectangle'){
@@ -218,6 +220,7 @@ function compile(files,entry,state,metrics,read,links){
     if(c.base&&c.nodes.length)throw Error('Наследник меняет визуальное дерево через override');
     if(!c.base)linked.nodes=clone(c.nodes);
     linked.defaults={...linked.defaults,...clone(c.defaults)};
+    linked.defaultSources={...linked.defaultSources,...Object.fromEntries(Object.entries(c.defaultRanges??{}).map(([key,range])=>[key,{file:path,...range,label:c.name}]))};
     linked.propDefinitions={...linked.propDefinitions,...clone(c.propDefinitions??{})};
     linked.eventDefinitions={...linked.eventDefinitions,...clone(c.eventDefinitions??{})};
     linked.enums={...linked.enums,...clone(c.enums??{})};
@@ -226,29 +229,34 @@ function compile(files,entry,state,metrics,read,links){
     for(const args of Object.values(linked.eventDefinitions))for(const arg of args)validateTypeName(arg.type,linked.enums);
     if(c.forward?.length)throw Error('forward применяется к дочернему элементу, не к объявлению component');
     const presenters=new Map();visit(linked.nodes,n=>{if(n.type==='ContentPresenter'){const key=n.props.key;if(typeof key!=='string'||!key)throw Error('ContentPresenter требует key');if(presenters.has(key))throw Error(`Повторная точка расширения ${key}`);presenters.set(key,n);}});
-    const patchProperties=(target,patch)=>{
+    const patchProperties=(target,patch,key)=>{
       if(patch.base||patch.children.length||patch.matches?.length||patch.forward?.length||Object.keys(patch.slots).length||Object.keys(patch.events).length||Object.keys(patch.bindings).length)throw Error('Блок override переопределяет только свойства');
       if(own(patch.props,'key'))throw Error('override не меняет key целевого элемента');
+      const allowed=contentProps.get(target.type);
+      if(allowed&&target.type!=='Rectangle')for(const name of Object.keys(patch.props))if(!allowed.has(name)){
+        const suggestion=similarName(name,allowed);
+        throw sourceError(`override ${key}: узел ${target.type} не поддерживает свойство ${name}.${suggestion?` Возможно, вы имели в виду ${suggestion}.`:''}`,patch.propertySources?.[name]??patch.source,target.source);
+      }
       Object.assign(target.props,clone(patch.props));
-      target.propertySources={...target.propertySources,...clone(patch.propertySources??{})};
+      target.propertySources={...target.propertySources,...Object.fromEntries(Object.entries(patch.propertySources??{}).map(([name,origin])=>[name,{...origin,label:`${c.name} · override ${key}`}]))};
     };
     for(const [key,value] of Object.entries(c.slots)){
       if(value?.propertyOverride){
         if(!c.base)throw Error('override требует базового компонента');
-        const targets=[];
-        const find=value=>{if(!value||typeof value!=='object')return;if(value.type&&value.props?.key===key)targets.push(value);for(const child of Object.values(value))find(child);};
+        const targets=[],keys=[];
+        const find=value=>{if(!value||typeof value!=='object')return;if(value.type&&typeof value.props?.key==='string'){keys.push(value.props.key);if(value.props.key===key)targets.push(value);}for(const child of Object.values(value))find(child);};
         find(linked.nodes);
-        if(targets.length!==1)throw Error(`override ${key}: ожидался один элемент, найдено ${targets.length}`);
+        if(targets.length!==1){const suggestion=similarName(key,keys);throw sourceError(`override ${key}: ожидался один элемент, найдено ${targets.length}.${!targets.length&&suggestion?` Возможно, вы имели в виду ${suggestion}.`:''}`,value.patch.source);}
         const target=targets[0];
         if(target.type==='ContentPresenter'){
           const content=target.props.content??(target.children.length===1?target.children[0]:{type:'Frame',props:{},children:target.children});
           const patchContent=content=>{
-            if(content?.type&&content.props){patchProperties(content,value.patch);return;}
+            if(content?.type&&content.props){patchProperties(content,value.patch,key);return;}
             if(content?.match!==undefined){for(const branch of content.branches)patchContent(branch.value);return;}
             throw Error(`override ${key}: для изменения свойств содержимое должно быть элементом`);
           };
           patchContent(content);target.props.content=content;target.children=[];
-        }else patchProperties(target,value.patch);
+        }else patchProperties(target,value.patch,key);
         continue;
       }
       if(value?.fileOverride){
@@ -266,7 +274,7 @@ function compile(files,entry,state,metrics,read,links){
         const patch=read(files[file],file,true).nodes[0];
         if(patch.type!==target.type)throw Error(`override ${key}: ожидался ${target.type}, получен ${patch.type} в ${file}`);
         for(const p of [patch,value.patch].filter(Boolean)){
-          patchProperties(target,p);
+          patchProperties(target,p,key);
         }
         continue;
       }
@@ -298,7 +306,8 @@ function compile(files,entry,state,metrics,read,links){
   Object.assign(documentProps,selectedProperties(document.matches,documentProps,state,environment),metricsContext.properties);
   validateContract(document.propDefinitions,Object.fromEntries(Object.entries(documentProps).map(([key,value])=>[key,evaluate(value,documentProps,state,[key],false,environment)])),enums,document.name);
   if(document.forward?.length)throw Error('forward применяется к дочернему элементу, не к объявлению component');
-  scene=expandStructure(scene,documentProps,state,environment,{recursive:node=>containerTypes.has(node.type)||node.type==='Scroll'});
+  const documentSources={...Object.fromEntries(Object.entries(document.defaultRanges??{}).map(([key,range])=>[key,{file:entry,...range,label:document.name}])),...selectedPropertySources(document.matches,documentProps,state,environment)};
+  scene=expandStructure(scene,documentProps,state,environment,{trackOrigins:true,propertySources:documentSources,recursive:node=>containerTypes.has(node.type)||node.type==='Scroll'});
   const instanceTree=createElementTree(scene);
   visit(scene,n=>{if(Object.keys(n.slots??{}).length)throw Error('override объявляется в наследнике component');});
   if(scene.length!==1||!containerTypes.has(scene[0].type))throw Error('Ожидается один корневой Frame, Row, Column, Grid или Stack');
@@ -325,7 +334,8 @@ function compile(files,entry,state,metrics,read,links){
     Object.assign(props,selectedProperties(linked.matches,props,state,env),instance.props);
     for(const [key,definition]of Object.entries(linked.propDefinitions??{}))if(definition.required&&!own(linked.defaults,key)&&!own(instance.props,key))throw Error(`${instance.type}: обязательное свойство ${key} не задано`);
     if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
-    const scope={props,instance,top,environment:env,parents:[...parents,instance.type]};
+    const sources={...linked.defaultSources,...selectedPropertySources(linked.matches,props,state,env),...instance.propertySources};
+    const scope={props,sources,traces:instance.propertyOrigins??{},instance,top,environment:env,parents:[...parents,instance.type]};
     const resolved=Object.fromEntries(Object.entries(props).map(([k,v])=>[k,expandValue(v,scope,0,[k])]));
     validateContract(linked.propDefinitions,resolved,env.enums,instance.type);
     const roots=expandChildren(linked.nodes,scope,0);
@@ -341,7 +351,8 @@ function compile(files,entry,state,metrics,read,links){
         if(instance.propertySources?.[key])root.propertySources={...root.propertySources,[key]:clone(instance.propertySources[key])};
       }
     }
-    return {roots,resolved};
+    const origins=Object.fromEntries(Object.entries(props).map(([key,value])=>[key,instance.propertyOrigins?.[key]??propertyOrigins(value,sources[key],props,sources,{},new Set([key]))]));
+    return {roots,resolved,origins};
   }
   function expandValue(value,scope,depth,stack=[]){
     const result=evaluate(value,scope.props,state,stack,false,scope.environment);
@@ -367,7 +378,10 @@ function compile(files,entry,state,metrics,read,links){
       if(!result?.type)throw Error('override должен вернуть элемент или base.content');
       return result;
     }
-    const node={...n,props:Object.fromEntries(Object.entries(evaluateProperties(n,scope.props,state,scope.environment)).map(([k,v])=>[k,v?.type?expand(v,scope,depth+1):v])),propertySources:{...selectedPropertySources(n.matches,scope.props,state,scope.environment),...n.propertySources},children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
+    const sources={...selectedPropertySources(n.matches,scope.props,state,scope.environment),...n.propertySources};
+    const raw={...Object.fromEntries((n.forward??[]).map(key=>[key,{expr:`props.${key}`}])) ,...selectedProperties(n.matches,scope.props,state,scope.environment),...n.props};
+    const origins=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,propertyOrigins(value,sources[key],scope.props,scope.sources,scope.traces)]));
+    const node={...n,props:Object.fromEntries(Object.entries(evaluateProperties(n,scope.props,state,scope.environment)).map(([k,v])=>[k,v?.type?expand(v,scope,depth+1):v])),propertySources:sources,propertyOrigins:origins,children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
     if(!primitiveTypes.has(n.type))return instantiate(node,false,scope.parents).roots[0];
     return {...node,expandedVisual:true};
   }
@@ -441,7 +455,7 @@ function compile(files,entry,state,metrics,read,links){
       signature.forEach((arg,i)=>{validateTypeName(arg.type,enums);if(!matchesType(args[i],arg.type,enums))throw Error(`events.${name}.${arg.name}: ожидался ${arg.type}`);});
     }
   }
-  const {roots,resolved}=instantiate(instance,true);
+  const {roots,resolved,origins}=instantiate(instance,true);
   let rangeMetadata='';
   if(instance.type==='Slider'){
     const endpoint=value=>{
@@ -456,7 +470,7 @@ function compile(files,entry,state,metrics,read,links){
   for(const n of root.children){if(visualTypes.has(n.type)){flatten(n,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,out,{...metrics,visuals});}else body+=serializeNode(n,true);}
   const sourceNode={...instance,type:'Button',bindings:{},events:instance.events.clicked?{clicked:instance.events.clicked}:{},props:Object.fromEntries(Object.entries(resolved).filter(([k])=>standard.has(k)&&k!=='font.size')),children:[]};
   const template=`component Button { Rectangle { ${Object.entries(root.props).filter(([k])=>k!=='key').map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
-  visualNodes.push(...visuals.map(v=>({...v,control:index})));
+  visualNodes.push({id:-2,parent:null,control:index,type:instance.type,source:instance.source,props:resolved,propertyOrigins:origins,bounds:[0,0,num(resolved.width,'width'),num(resolved.height,'height')]},...visuals.map(v=>({...v,parent:v.parent??-2,control:index})));
   return {template,treeRoots:roots,sourceNode};
   }
   const controls=instances.map(compileInstance);

@@ -1,6 +1,7 @@
 // Semantics shared by the component compiler and the HTML preview. Expressions
 // are interpreted, never executed as JavaScript.
 import {evaluateExpression,matchesPattern} from './expressions.js';
+import {propertyOrigins} from './property-origins.js';
 
 const own = (object, key) => Object.hasOwn(object, key);
 const scalarTypes = new Set(['String', 'Bool', 'Boolean', 'Number', 'Int', 'Float', 'Color', 'Length', 'Duration', 'Asset']);
@@ -178,6 +179,11 @@ export function expandStructure(nodes, props, state, environment = {}, options =
       const values = options.evaluateProps === false ? node.props : evaluateProperties(node, props, state, env);
       const eventArgs = Object.fromEntries(Object.entries(node.eventArgs ?? {}).map(([event, args]) => [event, args.map(value => evaluate(value, props, state, [], false, env))]));
       const result = {...node, props: {...values}, eventArgs, eventArgExpressions: node.eventArgs ?? {}, environment: env};
+      if(options.trackOrigins){
+        const sources={...selectedPropertySources(node.matches,props,state,env),...node.propertySources};
+        const raw={...Object.fromEntries((node.forward??[]).map(key=>[key,{expr:`props.${key}`}])) ,...selectedProperties(node.matches,props,state,env),...node.props,...Object.fromEntries(Object.entries(node.bindings??{}).map(([key,path])=>[key,{expr:path}]))};
+        result.propertyOrigins=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,propertyOrigins(value,sources[key]?{...sources[key],label:`${node.type} · экземпляр`}:node.source,props,options.propertySources)]));
+      }
       if(node.type==='Slider'&&typeof values.value==='number'){
         const path=node.props.value?.expr;
         result.normalizedRange=!!node.bindings?.value||typeof path==='string'&&(path.startsWith('state.')||Object.hasOwn(env.locals??{},path.split('.')[0]));

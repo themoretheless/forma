@@ -13,6 +13,20 @@ const files={
 };
 function hints(body,extra={}){const source=`component Form { contextType:'crate::CustomerVm'; events:['saved']; Frame { ${body}`;return completeCode({source:source.replace('|',''),pos:source.indexOf('|'),path:'ui/Form.ui',files:{...files,...extra},explicit:true});}
 const labels=result=>result?.options.map(o=>o.label)??[];
+const overrideFiles={'components/Button.ui':`component Button {fontSize:14;Rectangle {ContentPresenter {key:'content';Row {Text {key:'header-caption';text:'Save';fontSize:props.fontSize;}}}}}`};
+function overrideHints(body,extra={}){
+ const source=`component LargeButton : Button { ${body}`;
+ return completeCode({source:source.replace('|',''),pos:source.indexOf('|'),path:'components/LargeButton.ui',files:{...overrideFiles,...extra},explicit:true});
+}
+test('override hints resolve keys and the actual content root in incomplete code',()=>{
+ assert.deepEqual(labels(overrideHints('override |')),['content','header-caption']);
+ const content=overrideHints('override con|').options.find(o=>o.label==='content');assert.match(content.detail,/Row/);
+ assert.match(overrideHints("override 'header-|'").options.find(o=>o.label==='header-caption').apply,/^'header-caption'/);
+ const row=labels(overrideHints('override content { ga|'));assert.ok(row.includes('gap'));assert.ok(!row.includes('fontSize'));assert.ok(!row.includes('Text'));
+ const text=labels(overrideHints("override 'header-caption' { fon|"));assert.ok(text.includes('fontSize'));assert.ok(!text.includes('key'));assert.ok(!text.includes('clicked'));
+ assert.ok(!labels(overrideHints("override 'header-caption' { fontSize:18; col|")).includes('fontSize'));
+ assert.equal(overrideHints('override content { // ga|'),null);
+});
 test('incomplete UI offers inherited properties, bindings and components',()=>{
  const result=hints('TextField { pla|');assert.ok(labels(result).includes('placeholder'));assert.ok(labels(result).includes('disabled'));assert.ok(labels(result).includes('value <->'));
  assert.equal(result.from,'component Form { contextType:\'crate::CustomerVm\'; events:[\'saved\']; Frame { TextField { '.length);

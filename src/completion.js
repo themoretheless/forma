@@ -1,10 +1,28 @@
 import {parser} from './forma-parser.js';
 import {parse} from './language.js';
+import {linkComponentDefinitions} from './components.js';
 
 const words=text=>text.split(' ');
 const common=words('key width height text fontSize color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration x y cell row column');
 const properties={Frame:words('key width height padding gap columns rows clip radius background overflow'),Scroll:words('key width height padding gap x y'),Rectangle:words('key width height radius background cell row column'),Text:words('key text color fontSize width height cell row column'),TextInput:words('key value placeholder placeholderColor color fontSize multiline width height'),Image:words('key source color width height cell row column'),ContentPresenter:words('key content'),Brush:words('color hover pressed disabled focus transition'),Border:words('width background'),Reveal:words('width color radius stop activeRadius activeStop transition targetX targetY targetWidth targetHeight targetRadius'),PointerArea:['clicked']};
 const option=(label,type='property',detail='',apply)=>({label,type,detail,...(apply?{apply}:{})});
+for(const type of ['Row','Column','Grid','Stack'])properties[type]=words('key width height minWidth maxWidth minHeight maxHeight padding gap clip radius cell row column row.span column.span'+(type==='Grid'?' columns rows':''));
+function overrideTargets(files,base){
+ const needed=new Set();let name=base;
+ while(name&&!needed.has(name)){needed.add(name);try{name=parse(files[`components/${name}.ui`]).base;}catch{return new Map();}}
+ const subset=Object.fromEntries(Object.entries(files).filter(([path])=>!/^components\/\w+\.ui$/.test(path)||needed.has(path.slice(11,-3))));
+ let definition;try{definition=linkComponentDefinitions(subset).definitions[base];}catch{return new Map();}
+ const targets=new Map();
+ const roots=value=>value?.type?[value]:value?.branches?value.branches.flatMap(b=>roots(b.value)):[];
+ const visit=value=>{if(!value||typeof value!=='object')return;
+  if(value.type&&typeof value.props?.key==='string'){
+   const key=value.props.key,nodes=value.type==='ContentPresenter'?roots(value.props.content??(value.children.length===1?value.children[0]:{type:'Frame',props:{},children:value.children})): [value];
+   const sets=nodes.map(node=>new Set((properties[node.type]??[...common,...Object.keys(node.props)]).filter(p=>p!=='key'&&p!=='clicked')));
+   targets.set(key,targets.has(key)?null:{types:[...new Set(nodes.map(n=>n.type))],properties:sets.length?[...sets[0]].filter(p=>sets.every(s=>s.has(p))):[],content:value.type==='ContentPresenter'});
+  }
+  for(const child of Object.values(value))visit(child);
+ };visit(definition?.nodes);return new Map([...targets].filter(([,value])=>value));
+}
 const modulePath=path=>'crate'+(path.replace(/^src\//,'').replace(/(?:\/mod)?\.rs$/,'').replace(/^(?:lib|main)$/,'').split('/').filter(Boolean).map(p=>'::'+p).join(''));
 const basename=type=>type?.replace(/\s/g,'').split('::').at(-1);
 function children(node,name){const out=[];for(let n=node?.firstChild;n;n=n.nextSibling)if(!name||n.name===name)out.push(n);return out;}
@@ -40,7 +58,8 @@ export function indexProject(files){
   }
  }
  function defaults(name,seen=new Set()){if(seen.has(name))return {};seen.add(name);const doc=components.get(name);return doc?{...defaults(doc.base,seen),...doc.defaults}:{};}
- return {components,models,qualifiedModels,types:[...new Set(types)],forms,defaults};
+ const targetCache=new Map();
+ return {components,models,qualifiedModels,types:[...new Set(types)],forms,defaults,overrideTargets(base){if(!targetCache.has(base))targetCache.set(base,overrideTargets(files,base));return targetCache.get(base);}};
 }
 function modelAt(index,type,path){let model=index.qualifiedModels.get(type)??index.models.get(basename(type));for(const key of path){const field=model?.fields.find(f=>f.name===key&&f.kind==='Context');model=index.qualifiedModels.get(field?.type)??index.qualifiedModels.get(model?.qualified.replace(/::\w+$/,'::'+field?.type))??index.models.get(basename(field?.type));}return model;}
 function outsideCode(source,pos){
@@ -56,7 +75,7 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
  for(let node=leaf;node;node=node.parent)ancestors.push(node);
  const blocks=ancestors.filter(n=>n.name==='Block').reverse();
  const block=blocks.at(-1),owner=block?.parent;
- const nodeType=text(source,owner?.getChild('TypeName'));
+ let nodeType=text(source,owner?.getChild('TypeName'));
  const component=ancestors.find(n=>n.name==='Component');
  const componentName=text(source,component?.getChild('ComponentName'));
  let modelType;for(const b of blocks){const p=ownProps(source,b);if(p.contextType)modelType=quoted(p.contextType);}
@@ -66,6 +85,17 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
  const contextType=statement.match(/^\s*contextType\s*:\s*['"]([^'"]*)$/);
  const lexical=outsideCode(source,pos);
  if(lexical==='comment')return null;
+ const base=text(source,children(component,'ComponentName')[1]);
+ const header=before.match(/\boverride\s+(['"]?)([\w-]*)$/);
+ if(header&&!currentProperty){
+  const targets=index.overrideTargets(base),quote=header[1],suffix=source.slice(pos+(quote&&source[pos]===quote?1:0));
+  return {from:pos-header[2].length-quote.length,to:pos+(quote&&source[pos]===quote?1:0),options:[...targets].map(([key,target])=>{
+   const name=quote||!/^[A-Za-z_]\w*$/.test(key)?`${quote||"'"}${key}${quote||"'"}`:key;
+   return option(key,'property',`${target.content?'Содержимое → ':''}${target.types.join(' | ')}`,name+(/^\s*[{:]|^\s+from\b/.test(suffix)?'':' {\n    \n}'));
+  }),validFor:/^[\w'"-]*$/};
+ }
+ const patchTarget=owner?.name==='Override'?index.overrideTargets(base).get(text(source,owner.getChild('PropertyName'))||quoted(text(source,owner.getChild('String')))):null;
+ if(patchTarget)nodeType=patchTarget.types[0];
  if(contextType){const prefix=contextType[1];return {from:pos-prefix.length,options:index.types.filter(name=>index.qualifiedModels.get(name)).map(name=>option(name,'type','Rust ViewModel')),validFor:/^[\w:]*$/};}
  if(lexical==='string')return null;
  const token=before.match(/[\w.]*$/)?.[0]??'',from=pos-token.length;
@@ -99,6 +129,7 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
   if(property==='background')options.push(option('Brush','class','Кисть с состояниями','Brush { color: #ffffff; }'));
  }else{
   const declared=ownProps(source,block),root=owner?.name==='Component';
+  if(owner?.name==='Override')return {from,options:(patchTarget?.properties??[]).filter(name=>!Object.hasOwn(declared,name)||name===token).map(name=>option(name,'property',patchTarget.types.join(' | '),/^\s*:/.test(source.slice(pos))?name:name+': ')),validFor:/^[\w.]*$/};
   const names=root?['contextType','events']:properties[nodeType]??[...common,...Object.keys(index.defaults(nodeType))];
   options=[...new Set([...names,...(!root&&!['Brush','Border','Reveal'].includes(nodeType)?['contextType','context']:[])])].filter(name=>!Object.hasOwn(declared,name)||name===token).map(name=>option(name,'property',name==='contextType'?'Тип ViewModel':name==='context'?'Контекст элемента':nodeType||'Форма',/^\s*(?::|<->|->)/.test(source.slice(pos))?name:name==='clicked'?'clicked -> events.':name+': '));
   if(!root&&!properties[nodeType])options.push(option('clicked','event','Активация','clicked -> events.'),option('changed','event','Изменение значения','changed -> events.'));

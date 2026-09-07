@@ -137,6 +137,18 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
    const rowsRun=spawnSync(join(directory,'rows'),[],{encoding:'utf8',timeout:30000});assert.equal(rowsRun.status,0,rowsRun.stderr);
    const fixtures=[
      {
+       name:'property_override',
+       source:`component Patched {contextType:'crate::Vm';Column {LargeButton {} BaseButton {}}}`,
+       model:`use forma::binding::Property;use std::rc::Rc;pub struct Vm{name:Property<String>}`,
+       body:`let vm=Rc::new(Vm{name:Property::new("Ada".into())});let mut form=Patched::new(vm.clone()).unwrap();
+         assert_eq!(form.runtime().unwrap().control_label(0),"Hello Ada");assert_eq!(form.runtime().unwrap().control_label(1),"Base");
+         vm.name.set("Grace".into());form.sync().unwrap();assert_eq!(form.runtime().unwrap().control_label(0),"Hello Grace");assert_eq!(form.runtime().unwrap().control_label(1),"Base");`,
+       definitions:{
+         'components/BaseButton.ui':`component BaseButton {width:200;height:40;Rectangle {ContentPresenter {key:'content';Text {key:'caption';text:'Base';fontSize:14;}}}}`,
+         'components/LargeButton.ui':`component LargeButton : BaseButton {override content {fontSize:18;} override caption {text:'Hello \${state.name}';}}`,
+       },
+     },
+     {
        name:'builtin',
        source:`component Builtin {contextType:'crate::Vm';Column {width:360;height:180;gap:8;Text {key:'label';text:'Name: \${state.name}';width:320;height:40;} TextInput {key:'input';value <-> state.name;width:320;height:40;}}}`,
        model:`use forma::binding::Property;use std::rc::Rc;pub struct Vm{name:Property<String>}`,
