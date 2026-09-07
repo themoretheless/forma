@@ -21,12 +21,13 @@ export function gridStyles(node,state,parent=null){
     if(!Number.isInteger(row)||row<1||!Number.isInteger(column)||column<1)throw Error('cell: строка и колонка должны быть целыми числами от 1');
     p.row=row;p.column=column;
   }
-  if('columns'in p||'rows'in p){
-    if(node.type!=='Frame')throw Error('columns и rows доступны только для Frame');
+  if(node.type==='Grid'||'columns'in p||'rows'in p){
+    if(!['Frame','Grid'].includes(node.type))throw Error('columns и rows доступны только для Frame или Grid');
     result.display='grid';result.alignContent='start';
     result.gridTemplateColumns='columns'in p?trackList(p.columns,state):'minmax(0, 1fr)';
     if('rows'in p)result.gridTemplateRows=trackList(p.rows,state);
   }
+  if(parent?.type==='Stack'){result.gridColumnStart='1';result.gridRowStart='1';}
   for(const axis of ['column','row']){
     for(const key of [axis,axis+'.span'])if(key in p){const v=resolve(p[key],state);if(!Number.isInteger(v)||v<1)throw Error(`${key}: ожидается целое число от 1`);}
     const prefix=axis==='column'?'gridColumn':'gridRow';

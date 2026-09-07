@@ -28,7 +28,7 @@ test('version command updates only its component and all associated lockfiles',a
  const {root}=await import('../scripts/versions.mjs');
  const folder=mkdtempSync(join(tmpdir(),'forma-versions-'));
  try{
-  for(const path of ['scripts/versions.mjs','package.json','package-lock.json','vector-ui/Cargo.toml','vector-ui/Cargo.lock','native-app/Cargo.toml','native-app/Cargo.lock']){
+  for(const path of ['scripts/versions.mjs','package.json','package-lock.json','vector-ui/Cargo.toml','vector-ui/Cargo.lock','vector-ui/examples/binding-app/Cargo.lock','native-app/Cargo.toml','native-app/Cargo.lock']){
    const dest=join(folder,path);mkdirSync(dirname(dest),{recursive:true});copyFileSync(join(root,path),dest);
   }
   // The CLI uses ESM; its copied root package.json already sets type=module.

@@ -1,0 +1,16 @@
+// A checked public contract, one grouped choice, and explicit forwarding.
+component TaskButton : Button {
+    required prop title: String;
+    enum Tone { Neutral, Accent }
+    prop tone: Tone = Tone.Neutral;
+    fontSize: 16;
+    text: '${props.title}${props.suffix}';
+
+    match props.tone {
+        Tone.Accent => { color: #b9d4ff; suffix: ' →'; }
+        _ => { color: #ffffff; suffix: ''; }
+    }
+    override content: Text {
+        forward props { text, color, fontSize };
+    };
+}

@@ -36,6 +36,7 @@ export default defineConfig({build:{rollupOptions:{input:{studio:'index.html',co
     server.ws.on('forma:native-run',(data,sender)=>{if(sender===client)native.run(data);});
     server.ws.on('forma:native-stop',(_,sender)=>{if(sender===client)native.stop();});
     server.httpServer.once('close',()=>native.stop());
+    server.ws.on('forma:form-run',(data,sender)=>{if(sender===client)runner.run(data.files,{generated:true,state:data.state});});
     server.ws.on('forma:rust-run',(data,sender)=>{if(sender===client)runner.run(data.files);});
     server.ws.on('forma:rust-stop',(_,sender)=>{if(sender===client)runner.stop();});
     server.httpServer.once('close',()=>runner.stop());

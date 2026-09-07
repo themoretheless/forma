@@ -1,0 +1,18 @@
+component TextField {
+    width: 320;
+    height: 44;
+    value: '';
+    disabled: false;
+    Rectangle {
+        radius: 8;
+        background: Brush { color: #232c3a; disabled: #303846; };
+        TextInput {
+            width: 300;
+            height: 44;
+            value: props.value;
+            color: #ffffff;
+            fontSize: 16;
+        }
+        PointerArea { clicked -> events.clicked(); }
+    }
+}

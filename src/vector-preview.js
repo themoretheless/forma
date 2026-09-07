@@ -15,7 +15,7 @@ export function loadVectorRuntime() {
   return runtimePromise;
 }
 
-export function createVectorPreview({runtime, onSelect, onAction, onError, onControlPointer, onControlKey} = {}) {
+export function createVectorPreview({runtime, onSelect, onAction, onError, onControlPointer, onControlKey, onBindingChange} = {}) {
   if (!runtime?.Runtime) throw new Error('Сначала загрузите векторный WASM runtime');
   const host = document.createElement('div');
   host.className = 'forma-vector-host';
@@ -67,7 +67,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   }).catch(gpuFallback);
   const report = error => onError?.(error instanceof Error ? error : new Error(String(error)));
   const listen = (target, name, callback, options={}) => target.addEventListener(name, callback, {...options, signal: listeners.signal});
-  const controlNodes=()=>{const children=current?.nodes?.[0]?.children??[];return children[0]?.type==='Scroll'?children[0].children:children;};
+  const controlNodes=()=>{if(current?.previewControls)return current.previewControls;const children=current?.nodes?.[0]?.children??[];return children[0]?.type==='Scroll'?children[0].children:children;};
   const buttonNode=(index=0)=>controlNodes()[index];
   const frameNode = () => current?.nodes?.[0];
   const enabledControl = index => index >= 0 && button.control_interactive(index) && !button.control_disabled(index);
@@ -156,7 +156,23 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       syncTextInput();
       if(forcePaint||button.visual_revision()!==revision)paint();
       schedule();
-      if (!current.designMode && button.clicks() !== count && button.action()) onAction?.(button.action(), buttonNode(button.event_index()));
+      if (!current.designMode) {
+        const activated=button.clicks()!==count, eventNode=activated?buttonNode(button.event_index()):null, action=activated?button.action():null;
+        const changes=[];
+        if(onBindingChange&&(activated||button.visual_revision()!==revision))controlNodes().forEach((node,index)=>{
+          for(const [property,path]of Object.entries(node.bindings??{})){
+            let value;
+            if(property==='value'&&button.control_editable?.(index))value=button.text_value(index);
+            else if(property==='value'&&node.type==='Slider'&&button.range_value){const range=button.range_value(index);if(Number.isFinite(range))value=range;}
+            else if((property==='checked'||property==='selected')&&eventNode===node&&typeof node.props[property]==='boolean')value=property==='selected'?true:!node.props[property];
+            if(value!==undefined&&value!==node.props[property])changes.push({node,property,path,value});
+          }
+        });
+        // Consumers may recompile synchronously; capture event identity before
+        // callbacks can replace/free the old WASM model.
+        if(changes.length)onBindingChange(changes);
+        if(action)onAction?.(action,eventNode);
+      }
     } catch (error) { report(error); }
   }
 
@@ -372,7 +388,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
 
   return {
     measureText:(value,fontSize)=>runtime.text_metrics(value,fontSize),
-    render({container, source, template = '', designMode = true, nodes = [], selectedStart: nextSelection = null, reducedMotion = false}) {
+    render({container, source, template = '', designMode = true, nodes = [], previewControls, selectedStart: nextSelection = null, reducedMotion = false}) {
       let candidate = null;
       try {
         if (destroyed) throw new Error('Векторный предпросмотр уже закрыт');
@@ -412,7 +428,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
           button.focus(false);
           button.tick(1000);
         }
-        current = {source, template, designMode, nodes, reducedMotion};
+        current = {source, template, designMode, nodes, previewControls, reducedMotion};
         container.classList.add('vector-artboard');
         container.style.backgroundColor=button.background_color();
         container.style.borderRadius=(button.frame_radius()+1)+'px';

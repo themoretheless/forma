@@ -1,0 +1,17 @@
+component Button {
+    width: 320;
+    height: 44;
+    text: '';
+    disabled: false;
+    Rectangle {
+        radius: 8;
+        background: Brush {
+            color: #425b8a;
+            hover: #536fa3;
+            pressed: #34486f;
+            disabled: #303846;
+        };
+        ContentPresenter { key: 'content'; Text { text: props.text; color: #ffffff; fontSize: 16; } }
+        PointerArea { clicked -> events.clicked(); }
+    }
+}

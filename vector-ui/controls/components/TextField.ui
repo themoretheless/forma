@@ -28,14 +28,7 @@ component TextField : Button {
     };
 
     override content: FieldContent {
-        value: props.value;
-        placeholder: props.placeholder;
+        forward props { value, placeholder, placeholderColor, fontSize, showIcon, icon, iconSize, suffix };
         color: props.textColor;
-        placeholderColor: props.placeholderColor;
-        fontSize: props.fontSize;
-        showIcon: props.showIcon;
-        icon: props.icon;
-        iconSize: props.iconSize;
-        suffix: props.suffix;
     };
 }

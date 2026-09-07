@@ -9,34 +9,32 @@ component Alert : Surface {
     descriptionFontSize: 12;
     iconSize: 20;
     tone: 'accent';
-    background: match props.tone {
-        'success' => state.theme.successWash;
-        'warning' => state.theme.warningWash;
-        'danger' => state.theme.dangerWash;
-        _ => state.theme.accentWash;
-    };
-    borderColor: match props.tone {
-        'success' => state.theme.success;
-        'warning' => state.theme.warning;
-        'danger' => state.theme.dangerInk;
-        _ => state.theme.accentInk;
-    };
-    icon: match props.tone {
-        'success' => 'assets/check-circle.svg';
-        'warning' => 'assets/warning.svg';
-        'danger' => 'assets/error.svg';
-        _ => 'assets/info.svg';
-    };
+    match props.tone {
+        'success' => {
+            background: state.theme.successWash;
+            borderColor: state.theme.success;
+            icon: 'assets/check-circle.svg';
+        }
+        'warning' => {
+            background: state.theme.warningWash;
+            borderColor: state.theme.warning;
+            icon: 'assets/warning.svg';
+        }
+        'danger' => {
+            background: state.theme.dangerWash;
+            borderColor: state.theme.dangerInk;
+            icon: 'assets/error.svg';
+        }
+        _ => {
+            background: state.theme.accentWash;
+            borderColor: state.theme.accentInk;
+            icon: 'assets/info.svg';
+        }
+    }
 
     override content: MessageContent {
-        icon: props.icon;
-        iconSize: props.iconSize;
+        forward props { icon, iconSize, text, fontSize, description, descriptionColor, descriptionFontSize };
         iconColor: props.borderColor;
-        text: props.text;
         color: props.textColor;
-        fontSize: props.fontSize;
-        description: props.description;
-        descriptionColor: props.descriptionColor;
-        descriptionFontSize: props.descriptionFontSize;
     };
 }

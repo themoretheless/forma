@@ -521,3 +521,31 @@ test('browser adapter commits composition once and routes clipboard into the Rus
  const key=input.emit('keydown',{key:'Backspace',shiftKey:false,ctrlKey:false,metaKey:false});assert.equal(key.defaultPrevented,true);assert.equal(keys.at(-1)[0],'Backspace');
  assert.equal(input.emit('keydown',{key:' ',shiftKey:false,ctrlKey:false,metaKey:false}).defaultPrevented,false,'space must reach beforeinput instead of activating the Button');
 });
+
+test('binding callbacks target expanded controls and publish normalized values before recompile', t=>{
+ const changes=[];
+ const f=fixture(t,[button],false,{onBindingChange:items=>changes.push(...items)});
+ const node={start:90,type:'TextField',props:{key:'row/a',value:'old'},bindings:{value:'item.name'},environment:{locals:{item:{id:'a',name:'old'}}}};
+ f.render([button],false,{nodes:[{type:'Frame',children:[{type:'Column',children:[node]}]}],previewControls:[node]});
+ const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.control_editable=()=>true;model.text_value=()=>model.value??'old';
+ model.text_insert=value=>{model.value=value;model.revision++;};
+ input.emit('beforeinput',{inputType:'insertText',data:'new'});
+ assert.equal(changes.length,1);assert.equal(changes[0].node,node);assert.equal(changes[0].value,'new');assert.equal(changes[0].path,'item.name');
+ const slider={...node,type:'Slider',props:{key:'range',value:0.25},bindings:{value:'state.amount'}};
+ f.render([button],false,{previewControls:[slider]});
+ model.control_editable=()=>false;model.range_value=()=>0.75;
+ input.emit('beforeinput',{inputType:'insertText',data:'unused'});
+ assert.equal(changes.at(-1).value,0.75,'model range stays normalized to 0…1');
+});
+
+test('selected binding remains true on repeated activation while checked toggles',t=>{
+ const changes=[];
+ const f=fixture(t,[button],false,{onBindingChange:items=>changes.push(...items)});
+ const node={start:90,type:'Checkbox',props:{key:'a',checked:false},bindings:{checked:'state.checked'}};
+ f.render([button],false,{previewControls:[node]});
+ f.canvas.emit('click',{detail:0});assert.equal(changes.at(-1).value,true);
+ const selected={...node,props:{key:'a',selected:true},bindings:{selected:'state.selected'}};
+ f.render([button],false,{previewControls:[selected]});
+ f.canvas.emit('click',{detail:0});assert.equal(changes.length,1,'selecting an already selected item must not clear it');
+});

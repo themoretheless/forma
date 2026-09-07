@@ -1,0 +1,33 @@
+component TaskList {
+    contextType: 'crate::TaskVm';
+    event edited(id: String, title: String);
+    event removed(id: String);
+    event toggleInfo();
+
+    Frame {
+        width: 560;
+        height: 460;
+        padding: 20;
+        gap: 12;
+        background: #181e2a;
+
+        Row {
+            gap: 12;
+            Button { key: 'heading'; width: 340; text: 'Tasks: ${len(state.tasks)}'; disabled: true; }
+            TaskButton { key: 'toggle'; width: 160; title: 'Details'; tone: Tone.Accent; clicked -> events.toggleInfo(); }
+        }
+        if state.show_info {
+            Button { key: 'info'; text: state.status; disabled: true; }
+        }
+        for task in state.tasks key task.id {
+            Grid {
+                columns: [340, 160];
+                gap: 12;
+                TextField { key: 'editor'; width: 340; value <-> task.title; changed -> events.edited(task.id, task.title); }
+                TaskButton { key: 'remove'; width: 160; title: 'Remove'; clicked -> events.removed(task.id); }
+            }
+        } empty {
+            Button { key: 'empty'; text: 'No tasks'; disabled: true; }
+        }
+    }
+}

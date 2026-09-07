@@ -1,0 +1,13 @@
+[package]
+name = "forma-binding-example"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[features]
+native = ["dep:winit", "dep:softbuffer"]
+
+[dependencies]
+forma = { path = "../.." }
+winit = { version = "0.30", optional = true }
+softbuffer = { version = "0.4", optional = true }

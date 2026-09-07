@@ -14,51 +14,26 @@ component FieldContent {
         padding: 0 12;
         ContentPresenter {
             key: 'body';
-            content: match props.showIcon {
-                true => Frame {
-                    columns: [props.iconSize, *, -];
-                    gap: 8;
+            Row {
+                gap: 8;
+                if props.showIcon {
                     Icon {
-                        cell: 1 1;
                         source: props.icon;
                         color: props.placeholderColor;
                         width: props.iconSize;
                         height: props.iconSize;
                     }
-                    FieldValue {
-                        cell: 1 2;
-                        value: props.value;
-                        placeholder: props.placeholder;
-                        color: props.color;
-                        placeholderColor: props.placeholderColor;
-                        fontSize: props.fontSize;
-                    }
-                    Label {
-                        cell: 1 3;
-                        text: props.suffix;
-                        color: props.placeholderColor;
-                        fontSize: 11;
-                    }
-                };
-                _ => Frame {
-                    columns: [*, -];
-                    gap: 8;
-                    FieldValue {
-                        cell: 1 1;
-                        value: props.value;
-                        placeholder: props.placeholder;
-                        color: props.color;
-                        placeholderColor: props.placeholderColor;
-                        fontSize: props.fontSize;
-                    }
-                    Label {
-                        cell: 1 2;
-                        text: props.suffix;
-                        color: props.placeholderColor;
-                        fontSize: 11;
-                    }
-                };
-            };
+                }
+                FieldValue {
+                    width: *;
+                    forward props { value, placeholder, color, placeholderColor, fontSize };
+                }
+                Label {
+                    text: props.suffix;
+                    color: props.placeholderColor;
+                    fontSize: 11;
+                }
+            }
         }
     }
 }

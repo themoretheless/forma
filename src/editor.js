@@ -1,7 +1,9 @@
+import {autocompletion,acceptCompletion,snippet} from '@codemirror/autocomplete';
+import {createCompletionSource} from './completion.js';
 import {undo,redo,isolateHistory} from '@codemirror/commands';
 import {basicSetup} from 'codemirror';
 import {EditorState,StateEffect,StateField,Compartment} from '@codemirror/state';
-import {EditorView,Decoration} from '@codemirror/view';
+import {EditorView,Decoration,keymap} from '@codemirror/view';
 import {foldService,foldedRanges,unfoldEffect,foldEffect,foldAll,unfoldAll} from '@codemirror/language';
 import {blockRanges} from './folding.js';
 import {formaHighlight} from './forma-highlight.js';
@@ -21,13 +23,15 @@ const selectionField=StateField.define({
   },
   provide:field=>EditorView.decorations.from(field)
 });
-export function mountEditor(textarea){
+export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={}){
   const host=document.createElement('div');host.className='source-editor';textarea.before(host);
   textarea.hidden=true;document.getElementById('lines').hidden=true;
   let programmatic=false,currentHighlight='',cachedText=textarea.value,inputQueued=false,selectionQueued=false;
   const languageConfig=new Compartment();
   const ranges=StateField.define({create:state=>blockRanges(state.doc.toString()),update:(value,tr)=>tr.docChanged?blockRanges(tr.newDoc.toString()):value});
-  const extensions=[basicSetup,languageConfig.of(formaHighlight),ranges,selectionField,
+  const completion=createCompletionSource(getProject);
+  const complete=context=>{const result=completion(context);if(!result)return null;return {...result,options:result.options.map(item=>typeof item.apply==='string'&&item.apply.includes('{\n')?{...item,apply:snippet(item.apply.replace('    \n','    ${}\n'))}:item)};};
+  const extensions=[basicSetup,autocompletion({override:[complete],activateOnTyping:true,activateOnCompletion:item=>item.type==='namespace'||typeof item.apply==='string'&&item.apply.endsWith('.')}),keymap.of([{key:'Tab',run:acceptCompletion}]),languageConfig.of(formaHighlight),ranges,selectionField,
     foldService.of((state,from,to)=>state.field(ranges).find(r=>r.from>from&&r.from<=to)),
     EditorView.contentAttributes.of({'aria-label':'Редактор исходного кода'}),
     EditorView.updateListener.of(update=>{
@@ -44,6 +48,9 @@ export function mountEditor(textarea){
       '.cm-foldPlaceholder':{backgroundColor:'#293753',color:'#c7d7ff',border:'1px solid #50678b',borderRadius:'4px',padding:'0 5px'},
       '.cm-designer-selected':{backgroundColor:'#789bff21',boxShadow:'inset 3px 0 #9ab3ff'},
       '&.cm-focused':{outline:'none'},
+      '.cm-tooltip-autocomplete':{backgroundColor:'#1d2533',border:'1px solid #465775'},
+      '.cm-tooltip-autocomplete ul li[aria-selected]':{backgroundColor:'#354969',color:'#ffffff'},
+      '.cm-completionDetail':{color:'#9badc9',fontSize:'11px'},
       '.cm-selectionBackground':{backgroundColor:'#354969 !important'}
     },{dark:true})
   ];

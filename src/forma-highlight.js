@@ -4,7 +4,7 @@ import {parser} from './forma-parser.js';
 import {colorSwatches} from './color-swatches.js';
 import {rainbowBrackets} from './brackets.js';
 const language=LRLanguage.define({parser:parser.configure({props:[styleTags({
-  'component preview match override from':tags.keyword,
+  'component design match override from prop required event enum forward props if else for in key empty':tags.keyword,
   'TypeName ComponentName':tags.typeName,
   'PropertyName/Identifier':tags.propertyName,
   'AttributeName/Identifier':tags.meta,
@@ -14,7 +14,10 @@ const language=LRLanguage.define({parser:parser.configure({props:[styleTags({
   'Number Star Dash':tags.number,
   Color:tags.color,
   Boolean:tags.bool,
-  'Binding EventArrow MatchArrow Comparison':tags.operator,
+  Null:tags.null,
+  'Binding EventArrow MatchArrow Comparison Equality':tags.operator,
+  'BinaryExpression/Star BinaryExpression/Dash UnaryExpression/Dash':tags.operator,
+  '"+" "/" "%" "!" "&&" "||" "??" "?." "?" "="':tags.operator,
   'LineComment BlockComment':tags.comment,
   Wildcard:tags.keyword,
   '( )':tags.paren,

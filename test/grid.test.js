@@ -2,6 +2,12 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
 import {gridStyles} from '../src/grid.js';
+
+test('Grid auto-places children while Stack overlays them',()=>{
+ assert.deepEqual(gridStyles({type:'Grid',props:{}},{}),{display:'grid',alignContent:'start',gridTemplateColumns:'minmax(0, 1fr)'});
+ assert.deepEqual(gridStyles({type:'Text',props:{}},{},{type:'Grid',props:{columns:[100,100]}}),{});
+ assert.deepEqual(gridStyles({type:'Text',props:{}},{},{type:'Stack',props:{}}),{gridColumnStart:'1',gridRowStart:'1'});
+});
 test('Frame accepts mixed absolute and relative tracks',()=>{
  const n=parse('component Demo { Frame { columns: [200, 25%, *, 2*]; rows: [48px, auto, 1*]; } }').nodes[0];
  assert.deepEqual(gridStyles(n,{}),{display:'grid',alignContent:'start',gridTemplateColumns:'200px 25% 1fr 2fr',gridTemplateRows:'48px auto 1fr'});

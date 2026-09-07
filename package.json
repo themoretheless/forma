@@ -10,6 +10,9 @@
     "bench": "node scripts/perf-bench.mjs",
     "bench:window": "node scripts/window-bench.mjs",
     "example:controls": "node scripts/controls-example.mjs",
+    "generate:form": "node scripts/generate-form.mjs",
+    "example:bindings": "cargo run --locked --manifest-path vector-ui/examples/binding-app/Cargo.toml",
+    "example:bindings:native": "cargo run --locked --manifest-path vector-ui/examples/binding-app/Cargo.toml --features native",
     "build:wasm": "node scripts/build-wasm.mjs",
     "version:check": "node scripts/versions.mjs check",
     "version:set": "node scripts/versions.mjs set",
@@ -19,6 +22,7 @@
     "vite": "^7.1.0"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/language": "^6.12.4",
     "@codemirror/state": "^6.7.4",
     "@codemirror/view": "^6.43.11",

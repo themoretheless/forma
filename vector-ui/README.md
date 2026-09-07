@@ -6,13 +6,24 @@ Rust crate называется `forma` и подключается в прил�
 Пример подключения и схема версий — [README проекта](../README.md#библиотека-forma)
 и [релизы](../RELEASING.md). Нативный demo-бинарник называется `forma`.
 
+Генерируемые Rust-формы, наследуемый контекст, наблюдаемые поля и типизированные
+события — [BINDINGS.md](BINDINGS.md). `npm run example:bindings:native` запускает
+отдельный пример с редактированием и сменой ViewModel.
+
+Контракты `prop`/`event`, enum, групповой `match`, `forward`, выражения,
+условия, списки с ключами и раскладка `Row`/`Column`/`Grid`/`Stack` описаны
+в [спецификации языка](../LANGUAGE.md). Запускаемый пример всех этих возможностей —
+[language-app](examples/language-app/README.md).
+
 ## Runtime с несколькими контролами
 
 Studio/WASM и native используют общий `Runtime`: один Frame с несколькими
 кнопками, независимые hover/pressed/focus/click и переход фокуса Tab/Shift+Tab.
-Расположение — вертикально с `padding` и `gap`; один Scroll может охватывать
-всю группу. События пока только в журнале. Свойства и bindings отложены
-до отдельного обсуждения. Подробности и ограничения — [этап 2б](ARCHITECTURE_STEPS.md).
+Низкоуровневая сцена использует Frame; компилятор размещает вложенные
+`Row`/`Column`/`Grid`/`Stack` и передаёт runtime координаты контролов.
+Один Scroll может охватывать всю группу. В хосте снимков события выводятся в журнал. Формы с `contextType` запускаются
+из Studio через генерацию с живой Rust ViewModel; см. [привязки](BINDINGS.md).
+История этапов — [этап 2б](ARCHITECTURE_STEPS.md).
 
 Пример: `examples/TwoButtons.ui`. С запущенным `npm run dev` откройте
 [стенд двух кнопок](http://127.0.0.1:5173/vector-ui/examples/runtime.html).

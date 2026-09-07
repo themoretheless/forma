@@ -7,6 +7,8 @@ pub mod template;
 pub mod reveal;
 pub mod text_input;
 pub mod control_state;
+pub mod binding;
+pub mod form_document;
 pub mod control_models_wasm;
 mod text;
 mod shape;

@@ -3,6 +3,7 @@
 export function attachSources(value,file){
  if(!value||typeof value!=='object')return value;
  for(const child of Object.values(value))attachSources(child,file);
+ if(value.propertyRanges)value.propertySources=Object.fromEntries(Object.entries(value.propertyRanges).map(([key,range])=>[key,{file,...range}]));
  if(value.type&&Number.isInteger(value.start)&&Number.isInteger(value.end)){
   value.source={file,from:value.start,to:value.end};
   value.propertySources=Object.fromEntries(Object.entries(value.propertyRanges??{}).map(([key,range])=>[key,{file,...range}]));
