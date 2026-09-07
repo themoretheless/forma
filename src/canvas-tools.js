@@ -22,15 +22,16 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
     onChange?.();draw();
   }
   function fit(){const s=scene();zoom(fitScale({width:viewport.clientWidth,height:viewport.clientHeight},s.width,s.height));viewport.scrollLeft=0;viewport.scrollTop=0;}
-  function selectedBounds(){
-    const s=scene(),selected=getSelection();
+  function selectedBounds(s=scene()){
+    const selected=getSelection();
     const c=s.controls?.find(c=>c.index===selected?.index);
     return c?.bounds??(selected?.root?[0,0,s.width,s.height]:null);
   }
   function draw(){
-    const b=selectedBounds();overlay.replaceChildren();overlay.hidden=!guides||getMode()!=='design'||!b;
+    if(!guides||getMode()!=='design'){overlay.hidden=true;return;}
+    const s=scene(),b=selectedBounds(s);overlay.replaceChildren();overlay.hidden=!b;
     if(overlay.hidden)return;
-    const s=scene(),v=viewport.getBoundingClientRect(),r=artboard.getBoundingClientRect();
+    const v=viewport.getBoundingClientRect(),r=artboard.getBoundingClientRect();
     const [x,y,w,h]=b,left=r.left-v.left+viewport.scrollLeft+x*scale,top=r.top-v.top+viewport.scrollTop+y*scale;
     const box=document.createElement('div');box.className='canvas-measure-box';
     Object.assign(box.style,{left:left+'px',top:top+'px',width:w*scale+'px',height:h*scale+'px'});

@@ -57,6 +57,7 @@ export function createLayoutInspector({viewport,artboard,toolbar,getVisuals,getR
  }
  function choose(v){chosen=v;render();}
  function render(){
+  if(!panel.open){overlay.replaceChildren();return;}
   parts.replaceChildren();grid.replaceChildren();breadcrumbs.replaceChildren();overlay.replaceChildren();
   const list=candidates();
   if(!list.includes(chosen))chosen=list.find(v=>v.source?.file===chosen?.source?.file&&v.source?.from===chosen?.source?.from)||list.find(v=>v.grid&&v.propertySources?.columns)||list[0];

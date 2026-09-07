@@ -508,6 +508,7 @@ impl Renderer {
         }
         self.queue.submit(Some(encoder.finish()));
         self.frames += 1;
+        model.release_cpu_cache();
         Ok(())
     }
 }
@@ -551,6 +552,8 @@ mod tests {
                 .await
                 .unwrap();
             let mut model = Button::from_sources(crate::EXAMPLE, crate::BUTTON_COMPONENT).unwrap();
+            model.pixels(96, 64, 1.);
+            assert!(model.raster_cache.borrow().is_some());
             let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("Forma profiling smoke test target"),
                 size: wgpu::Extent3d {
@@ -579,6 +582,7 @@ mod tests {
                 renderer
                     .draw(&model, &target, 96, 64, 1., true, true)
                     .unwrap();
+                assert!(model.raster_cache.borrow().is_none(), "GPU submission must release CPU rasters");
                 let duration = renderer.read_gpu_duration_ns().unwrap();
                 if !renderer.gpu_timestamps_enabled() {
                     assert_eq!(duration, None);

@@ -444,7 +444,6 @@ impl<'a> Parser<'a> {
                 self.error("Unexpected content after component; only one component is supported")
             );
         }
-        if buttons.is_empty() { return Err(self.error("Frame must contain at least one Button")); }
         if buttons.len()>256 { return Err(self.error("At most 256 controls per scene")); }
         if seen.contains("clip")&&seen.contains("overflow"){return Err(self.error("Use clip or legacy overflow, not both"));}
         if overflow=="hidden"{clip=true;}
@@ -460,7 +459,7 @@ impl<'a> Parser<'a> {
             used_width=used_width.max(button.x+button.width+padding[1]);
             used_height=used_height.max(button.y+button.height+padding[2]);
         }
-        let button=buttons[0].clone();
+        let button=buttons.first().cloned().unwrap_or_default();
         Ok(Scene {
             name,
             width,
@@ -689,7 +688,6 @@ mod tests {
         for source in [
             "",
             "component X {}",
-            "component X { Frame {} }",
             "component X { Frame { Button {} }",
             "component X { Frame { Button {} } } Button {}",
             "component X { Frame { Button {} } Frame {} }",

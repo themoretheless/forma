@@ -95,21 +95,28 @@ impl DisplayList {
     pub(crate) fn pop(&mut self) {
         self.command(3., [0.; 4], [0; 4], 0., 0.);
     }
-    fn path(&mut self, edges: Vec<[f32; 4]>, color: [u8; 4], nonzero: bool) {
-        if edges.is_empty() || color[3] == 0 {
+    fn path(&mut self, edges: impl IntoIterator<Item = [f32; 4]>, color: [u8; 4], nonzero: bool) {
+        if color[3] == 0 {
             return;
         }
+        let edges = edges.into_iter();
+        let first_edge = self.edges.len();
+        self.edges.reserve(edges.size_hint().0.saturating_mul(4));
         let mut bb = [
             f32::INFINITY,
             f32::INFINITY,
             f32::NEG_INFINITY,
             f32::NEG_INFINITY,
         ];
-        for e in &edges {
+        for e in edges {
             bb[0] = bb[0].min(e[0]).min(e[2]);
             bb[1] = bb[1].min(e[1]).min(e[3]);
             bb[2] = bb[2].max(e[0]).max(e[2]);
             bb[3] = bb[3].max(e[1]).max(e[3]);
+            self.edges.extend(e);
+        }
+        if self.edges.len() == first_edge {
+            return;
         }
         let start = self.commands.len();
         self.command(
@@ -120,18 +127,17 @@ impl DisplayList {
             0.,
         );
         self.commands[start + 1] = if nonzero { 1. } else { 0. };
-        self.commands[start + 2] = (self.edges.len() / 4) as f32;
-        self.commands[start + 3] = edges.len() as f32;
-        self.edges.extend(edges.into_iter().flatten());
+        self.commands[start + 2] = (first_edge / 4) as f32;
+        self.commands[start + 3] = ((self.edges.len() - first_edge) / 4) as f32;
     }
-    fn text(&mut self, t: &crate::template::Text, bounds: [f32; 4], scale: f32) {
+    fn text(&mut self, t: &crate::template::Text, bounds: [f32; 4], scale: f32, scratch: &mut text::VectorScratch) {
         if t.color[3] == 0 {
             return;
         }
         self.push(bounds, 0.);
-        for glyph in text::vector_glyphs(&t.text, t.font_size, bounds, scale) {
+        text::vector_glyphs(&t.text, t.font_size, bounds, scale, scratch, |glyph| {
             self.path(glyph, t.color, true);
-        }
+        });
         self.pop();
     }
     pub fn build(model: &Button, scale: f32, background: bool) -> Self {
@@ -139,6 +145,7 @@ impl DisplayList {
             commands: Vec::new(),
             edges: Vec::new(),
         };
+        let mut text_scratch = text::VectorScratch::default();
         let frame = [0., 0., model.width(), model.height()];
         if model.scene.clip {
             out.push(frame, model.scene.radius);
@@ -183,6 +190,7 @@ impl DisplayList {
                     b.height - r * 0.6,
                 ],
                 scale,
+                &mut text_scratch,
             );
         }
         for c in &model.template.content {
@@ -191,6 +199,7 @@ impl DisplayList {
                     text,
                     [x + bounds[0], y + bounds[1], bounds[2], bounds[3]],
                     scale,
+                    &mut text_scratch,
                 ),
                 Content::Shape { points, color } => out.path(
                     (0..points.len())
@@ -198,8 +207,7 @@ impl DisplayList {
                             let a = points[i];
                             let b = points[(i + 1) % points.len()];
                             [x + a[0], y + a[1], x + b[0], y + b[1]]
-                        })
-                        .collect(),
+                        }),
                     *color,
                     false,
                 ),
@@ -422,6 +430,9 @@ impl Button {
 /// The renderer consumes only immutable geometry and paint slots, never controls
 /// or interaction state. Both the legacy leaf and the scene runtime implement it.
 pub trait RenderScene {
+    /// Called after successful GPU submission. External scene types may retain
+    /// their existing behavior; Forma drops only reconstructible CPU rasters.
+    fn release_cpu_cache(&self) {}
     fn vector_snapshot(&self, scale:f32, background:bool)->Arc<DisplayList>;
     fn gpu_params(&self, width:u32, height:u32, scale:f32, opaque:bool)->Vec<f32>;
     fn gpu_paints(&self)->Vec<f32>;
@@ -437,6 +448,7 @@ pub trait RenderScene {
     }
 }
 impl RenderScene for Button {
+    fn release_cpu_cache(&self) { Button::release_cpu_cache(self); }
     fn vector_snapshot(&self,s:f32,b:bool)->Arc<DisplayList>{Button::vector_snapshot(self,s,b)}
     fn gpu_params(&self,w:u32,h:u32,s:f32,o:bool)->Vec<f32>{Button::gpu_params(self,w,h,s,o)}
     fn gpu_paints(&self)->Vec<f32>{Button::gpu_paints(self)}
@@ -454,6 +466,7 @@ impl RenderScene for Button {
 }
 #[wasm_bindgen]
 impl Button {
+    pub fn release_cpu_cache(&self) { self.raster_cache.borrow_mut().take(); }
     pub fn gpu_paints(&self)->Vec<f32>{
         let mut paints = Vec::with_capacity(if self.template.reveal.is_some() { 16 } else { 8 });
         self.gpu_paints_into(&mut paints);

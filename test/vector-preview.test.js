@@ -139,6 +139,36 @@ const passive = {interactive: false, disabled: false, bounds: [10, 10, 30, 30]};
 const button = {...passive, interactive: true};
 const pointer = (clientX, clientY) => ({clientX, clientY, pointerId: 1, button: 0, isPrimary: true});
 
+test('canvas geometry snapshots reuse bounds without requesting diagnostic strings',t=>{
+  const {preview,models,render}=fixture(t,[button,passive],true),model=models[0];
+  const bounds=model.control_bounds.bind(model);let reads=0;
+  model.control_bounds=i=>{reads++;return bounds(i);};
+  model.control_label=()=>assert.fail('canvas layout must not marshal labels');
+  model.control_action=()=>assert.fail('canvas layout must not marshal actions');
+  const first=preview.layoutSnapshot();assert.equal(reads,2);
+  for(let i=0;i<100;i++)assert.equal(preview.layoutSnapshot(),first);
+  assert.equal(reads,2);
+  assert.throws(()=>{first.controls[0].bounds[1]=999;},TypeError);
+  model.controls[0].bounds=[10,5,30,30];model.revision++;
+  const scrolled=preview.layoutSnapshot();assert.notEqual(scrolled,first);assert.equal(scrolled.controls[0].bounds[1],5);
+  assert.equal(first.controls[0].bounds[1],10);
+  model.control_label=Model.prototype.control_label;model.control_action=Model.prototype.control_action;
+  render([{...button,bounds:[1,2,3,4]}],true);
+  assert.deepEqual(preview.layoutSnapshot().controls[0].bounds,[1,2,3,4]);
+  preview.destroy();assert.equal(preview.layoutSnapshot(),null);
+});
+
+test('paint revisions do not invalidate layout snapshots on versioned runtimes',t=>{
+  const {preview,models}=fixture(t,[button],true),model=models[0];let layout=0,reads=0;
+  const bounds=model.control_bounds.bind(model);
+  model.layout_revision=()=>layout;model.control_bounds=i=>{reads++;return bounds(i);};
+  const first=preview.layoutSnapshot();
+  for(let i=0;i<100;i++){model.revision++;assert.equal(preview.layoutSnapshot(),first);}
+  assert.equal(reads,1,'animation must reuse the immutable bounds');
+  model.controls[0].bounds=[10,5,30,30];layout++;
+  assert.notEqual(preview.layoutSnapshot(),first);assert.equal(reads,2);
+});
+
 test('selection and same-DPR resizes reuse the canvas while revision, DPI and model changes repaint',t=>{
   const {preview,canvas,models,render,window}=fixture(t,[button],true),model=models[0];
   assert.equal(model.rasterCalls,1);assert.equal(canvas.paints,1);

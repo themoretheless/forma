@@ -20,6 +20,21 @@ test('snapshot IDs are distinct from keys and UTF-16 source offsets',()=>{
  assert.throws(()=>tree.nodes[0].children.push(99),TypeError);
 });
 
+test('snapshot detaches shared nested values without freezing the source objects',()=>{
+ const brush={type:'Brush',props:{color:{expr:'#123456'}},children:[]};
+ const source={file:'Demo.ui',from:0,to:10};
+ const roots=[{type:'Rectangle',source,props:{background:brush},children:[{type:'Rectangle',source,props:{background:brush},children:[]}]}];
+ const tree=createElementTree(roots);
+ brush.props.color.expr='#ffffff';source.file='Changed.ui';
+ for(const node of tree.nodes){
+  assert.equal(node.props.background.props.color.expr,'#123456');
+  assert.equal(node.source.file,'Demo.ui');
+  assert.throws(()=>{node.props.background.props.color.expr='#000000';},TypeError);
+ }
+ assert.equal(Object.isFrozen(brush),false);
+ assert.equal(Object.isFrozen(source),false);
+});
+
 const files={
  'Demo.ui':"component Demo { Frame { Fancy { key:'search'; text:'Найти'; } } }",
  'components/Button.ui':"component Button { Rectangle { Border { key:'outline'; width:1; background:#111111; } Text { text:props.text; } PointerArea { clicked -> events.clicked(); } } }",

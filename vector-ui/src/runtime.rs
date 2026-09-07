@@ -26,6 +26,23 @@ struct GeometryCache {
     list: Arc<DisplayList>,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+struct RasterKey {
+    width: u32,
+    height: u32,
+    scale: f32,
+    scroll: [f32; 2],
+}
+struct RasterCache {
+    key: RasterKey,
+    // Low five bits contain 0..16 frame coverage; high bits contain the
+    // scroll viewport/scrollbar classification, shared by all controls.
+    frame: Vec<u8>,
+    pixels: Vec<u8>,
+    native_pixels: Vec<u32>,
+    paint: Option<(u32, bool)>,
+}
+
 #[wasm_bindgen]
 pub struct Runtime {
     scene: markup::Scene,
@@ -39,7 +56,9 @@ pub struct Runtime {
     scroll: [f32; 2],
     revision: u32,
     geometry_revision: u32,
+    layout_revision: u32,
     geometry: RefCell<Option<GeometryCache>>,
+    raster_cache: RefCell<Option<RasterCache>>,
 }
 
 fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> {
@@ -152,7 +171,9 @@ impl Runtime {
             scroll: [0.; 2],
             revision: 0,
             geometry_revision: 0,
+            layout_revision: 0,
             geometry: RefCell::new(None),
+            raster_cache: RefCell::new(None),
         };
         runtime.refresh_editors();
         Ok(runtime)
@@ -329,62 +350,66 @@ impl Runtime {
             self.scene.content_height - self.scene.padding[0] - self.scene.padding[2],
         ]
     }
-    fn raster(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
-        if self.controls.len() == 1 {
-            return if background {
-                self.controls[0].pixels(w, h, s)
-            } else {
-                self.controls[0].content_pixels(w, h, s)
-            };
-        }
-        if w == 0
-            || h == 0
-            || w > 4096
-            || h > 4096
-            || w as u64 * h as u64 > 8_388_608
-            || !s.is_finite()
-            || s <= 0.
+    fn raster_cached(&self, w: u32, h: u32, s: f32, background: bool)
+        -> Option<std::cell::RefMut<'_, RasterCache>>
+    {
+        if w == 0 || h == 0 || w > 4096 || h > 4096
+            || w as u64 * h as u64 > 8_388_608 || !s.is_finite() || s <= 0.
         {
-            return vec![];
+            return None;
         }
-        let mut out = vec![0; w as usize * h as usize * 4];
-        for c in &self.controls {
-            let pixels = c.content_pixels(w, h, s);
-            for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
-                crate::raster_cache::over(dst, src);
-            }
-        }
-        let v = self.viewport_rect();
-        let [cw, ch] = self.content_size();
-        for y in 0..h {
-            for x in 0..w {
-                let p = &mut out[((y * w + x) * 4) as usize..][..4];
-                let px = (x as f32 + 0.5) / s;
-                let py = (y as f32 + 0.5) / s;
-                if self.scene.scroll {
-                    if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
-                        p.fill(0);
-                    } else {
-                        let vertical = ch > v[3]
-                            && px >= (v[0] + v[2] - 5.).max(v[0])
-                            && py >= v[1] + self.scroll[1] / ch * v[3]
-                            && py < v[1] + (self.scroll[1] + v[3]) / ch * v[3];
-                        let horizontal = cw > v[2]
-                            && py >= (v[1] + v[3] - 5.).max(v[1])
-                            && px >= v[0] + self.scroll[0] / cw * v[2]
-                            && px < v[0] + (self.scroll[0] + v[2]) / cw * v[2];
-                        if vertical || horizontal {
-                            p.copy_from_slice(&[110, 130, 170, 255]);
+        let key = RasterKey { width: w, height: h, scale: s, scroll: self.scroll };
+        let len = (w * h) as usize;
+        let mut stored = self.raster_cache.borrow_mut();
+        let cache = stored.get_or_insert_with(|| RasterCache {
+            key, frame: Vec::new(), pixels: Vec::new(), native_pixels: Vec::new(), paint: None,
+        });
+        if cache.key != key || cache.frame.len() != len {
+            cache.key = key;
+            cache.frame.resize(len, 0);
+            cache.pixels.resize(len * 4, 0);
+            cache.paint = None;
+            let v = self.viewport_rect();
+            let [cw, ch] = self.content_size();
+            for y in 0..h {
+                for x in 0..w {
+                    let px = (x as f32 + 0.5) / s;
+                    let py = (y as f32 + 0.5) / s;
+                    let mut viewport = 1;
+                    if self.scene.scroll {
+                        if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
+                            viewport = 0;
+                        } else {
+                            let vertical = ch > v[3]
+                                && px >= (v[0] + v[2] - 5.).max(v[0])
+                                && py >= v[1] + self.scroll[1] / ch * v[3]
+                                && py < v[1] + (self.scroll[1] + v[3]) / ch * v[3];
+                            let horizontal = cw > v[2]
+                                && py >= (v[1] + v[3] - 5.).max(v[1])
+                                && px >= v[0] + self.scroll[0] / cw * v[2]
+                                && px < v[0] + (self.scroll[0] + v[2]) / cw * v[2];
+                            if vertical || horizontal { viewport = 2; }
                         }
                     }
+                    let coverage = round_coverage(x, y, s,
+                        [0., 0., self.width(), self.height()], self.scene.radius);
+                    cache.frame[(y * w + x) as usize] = (coverage * 16.) as u8 | viewport << 5;
                 }
-                let coverage = round_coverage(
-                    x,
-                    y,
-                    s,
-                    [0., 0., self.width(), self.height()],
-                    self.scene.radius,
-                );
+            }
+        }
+        let paint = (self.revision, background);
+        if cache.paint != Some(paint) {
+            cache.pixels.fill(0);
+            for control in &self.controls {
+                control.composite_content(&mut cache.pixels, w, h, s);
+            }
+            for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
+                match frame >> 5 {
+                    0 => p.fill(0),
+                    2 => p.copy_from_slice(&[110, 130, 170, 255]),
+                    _ => {}
+                }
+                let coverage = (frame & 31) as f32 / 16.;
                 if background {
                     let mut bg = self.scene.background;
                     if !self.scene.clip {
@@ -395,13 +420,23 @@ impl Runtime {
                 }
                 if self.scene.clip {
                     p[3] = (p[3] as f32 * coverage).round() as u8;
-                    if p[3] == 0 {
-                        p.fill(0);
-                    }
+                    if p[3] == 0 { p.fill(0); }
                 }
             }
+            cache.paint = Some(paint);
+            cache.native_pixels.clear();
         }
-        out
+        Some(std::cell::RefMut::map(stored, |cache| cache.as_mut().unwrap()))
+    }
+    fn raster(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
+        if self.controls.len() == 1 {
+            return if background {
+                self.controls[0].pixels(w, h, s)
+            } else {
+                self.controls[0].content_pixels(w, h, s)
+            };
+        }
+        self.raster_cached(w, h, s, background).map_or_else(Vec::new, |cache| cache.pixels.clone())
     }
     pub fn paint_native(
         &self,
@@ -413,18 +448,24 @@ impl Runtime {
         if self.controls.len() == 1 {
             return self.controls[0].paint_native(out, w, h, s);
         }
-        let p = self.pixels(w, h, s);
-        if p.is_empty() || p.len() != out.len() * 4 {
-            return Err("Visible scene exceeds CPU raster budget");
+        if (w as usize).checked_mul(h as usize) != Some(out.len()) {
+            return Err("Invalid native buffer size");
         }
-        for (dst, src) in out.iter_mut().zip(p.chunks_exact(4)) {
-            let a = src[3] as u32;
-            let rgb = [17u32, 19, 25];
-            let c = |k: usize| (src[k] as u32 * a + rgb[k] * (255 - a) + 127) / 255;
-            *dst = c(0) << 16 | c(1) << 8 | c(2);
+        let mut cache = self.raster_cached(w, h, s, true)
+            .ok_or("Visible scene exceeds CPU raster budget")?;
+        if cache.native_pixels.is_empty() {
+            let RasterCache { native_pixels, pixels, .. } = &mut *cache;
+            native_pixels.extend(pixels.chunks_exact(4).map(|src| {
+                let a = src[3] as u32;
+                let rgb = [17u32, 19, 25];
+                let c = |k: usize| (src[k] as u32 * a + rgb[k] * (255 - a) + 127) / 255;
+                c(0) << 16 | c(1) << 8 | c(2)
+            }));
         }
+        out.copy_from_slice(&cache.native_pixels);
         Ok(())
     }
+
 }
 #[wasm_bindgen]
 impl Runtime {
@@ -433,7 +474,12 @@ impl Runtime {
         Self::from_source(crate::EXAMPLE).expect("valid built-in scene")
     }
     pub fn load_component(&mut self, source: &str, component: &str) -> Result<(), JsValue> {
-        let next = Self::from_sources(source, component).map_err(|e| JsValue::from_str(&e))?;
+        let mut next = Self::from_sources(source, component).map_err(|e| JsValue::from_str(&e))?;
+        // JS can keep the same WASM object across load(). Its cache identity is
+        // unchanged, so replacing source must not reset version keys to zero.
+        next.revision = self.revision.wrapping_add(1);
+        next.geometry_revision = self.geometry_revision.wrapping_add(1);
+        next.layout_revision = self.layout_revision.wrapping_add(1);
         *self = next;
         Ok(())
     }
@@ -441,6 +487,9 @@ impl Runtime {
         self.load_component(source, crate::BUTTON_COMPONENT)
     }
     pub fn geometry_revision(&self)->u32 {self.geometry_revision}
+    /// Control bounds change on scroll or source replacement. Paint and
+    /// text-content changes do not invalidate these bounds.
+    pub fn layout_revision(&self)->u32 {self.layout_revision}
     pub fn range_value(&self,i:usize)->f32 {self.controls.get(i).and_then(|c|c.template.range.as_ref()).map_or(f32::NAN,|r|r.value)}
     pub fn range_key(&mut self,key:&str)->bool {
         let Some(i)=self.focused else{return false};
@@ -526,7 +575,7 @@ impl Runtime {
         if self.clipped() { "hidden" } else { "visible" }.into()
     }
     pub fn background_color(&self) -> String {
-        self.controls[0].background_color()
+         { let c=self.scene.background; format!("#{:02x}{:02x}{:02x}{:02x}",c[0],c[1],c[2],c[3]) }
     }
     pub fn render_width(&self) -> f32 {
         if self.scene.clip || self.scene.scroll {
@@ -564,6 +613,7 @@ impl Runtime {
         ];
         if old != self.scroll {
             self.revision = self.revision.wrapping_add(1);
+            self.layout_revision = self.layout_revision.wrapping_add(1);
         }
         for c in &mut self.controls {
             c.scroll_x = self.scroll[0];
@@ -711,19 +761,19 @@ impl Runtime {
             .fold(0, u32::saturating_add)
     }
     pub fn key(&self) -> String {
-        self.controls[self.active()].key()
+        self.controls.get(self.active()).map(Button::key).unwrap_or_default()
     }
     pub fn label(&self) -> String {
-        self.controls[self.active()].label()
+        self.controls.get(self.active()).map(Button::label).unwrap_or_default()
     }
     pub fn action(&self) -> String {
-        self.controls[self.active()].action()
+        self.controls.get(self.active()).map(Button::action).unwrap_or_default()
     }
     pub fn disabled(&self) -> bool {
         self.controls.iter().all(Button::disabled)
     }
     pub fn bounds(&self) -> Vec<f32> {
-        self.controls[self.focused.unwrap_or(0)].bounds()
+        self.controls.get(self.focused.unwrap_or(0)).map(Button::bounds).unwrap_or_else(||vec![0.,0.,self.width(),self.height()])
     }
     pub fn is_focused(&self) -> bool {
         self.focused.is_some()
@@ -814,6 +864,15 @@ impl Runtime {
         }
         stats
     }
+    /// Discard reconstructible CPU pixels after the GPU takes over. For multiple
+    /// controls, leaf rasters are created only with the root raster, so its
+    /// presence also gates this traversal on subsequent GPU frames.
+    pub fn release_cpu_cache(&self) {
+        let had_root = self.raster_cache.borrow_mut().take().is_some();
+        if had_root || self.controls.len() == 1 {
+            for control in &self.controls { control.release_cpu_cache(); }
+        }
+    }
     pub fn gpu_commands(&self, s: f32, b: bool) -> Vec<f32> {
         self.vector_snapshot(s, b).commands.clone()
     }
@@ -838,6 +897,7 @@ impl Runtime {
     }
 }
 impl RenderScene for Runtime {
+    fn release_cpu_cache(&self) { Runtime::release_cpu_cache(self); }
     fn vector_snapshot(&self, s: f32, b: bool) -> Arc<DisplayList> {
         Runtime::vector_snapshot(self, s, b)
     }
@@ -1188,5 +1248,224 @@ mod tests {
         assert_eq!(old.pixels(400, 200, 1.), new.pixels(400, 200, 1.));
         assert_eq!(old.gpu_commands(1., true), new.gpu_commands(1., true));
         assert_eq!(old.gpu_paints(), new.gpu_paints());
+    }
+}
+
+#[cfg(test)]
+mod raster_tests {
+    use super::*;
+    #[test]
+    fn cpu_cache_release_preserves_geometry_and_rebuilds_identical_fallback_pixels() {
+        for count in [0, 1, 2] {
+            let source = format!("component Demo {{ Frame {{ width:128; height:96; Scroll {{ {} }} }} }}",
+                "Button { width:150; height:60; }".repeat(count));
+            let runtime = Runtime::from_sources(&source, TEMPLATE).unwrap();
+            let rgba = runtime.pixels(160, 120, 1.25);
+            let mut native = vec![0; 160 * 120];
+            runtime.paint_native(&mut native, 160, 120, 1.25).unwrap();
+            assert!(runtime.controls.iter().all(|c| c.raster_cache.borrow().is_some()));
+            let geometry = runtime.vector_snapshot(1.25, true);
+            let revision = runtime.visual_revision();
+            for _ in 0..2 {
+                runtime.release_cpu_cache();
+                assert!(runtime.raster_cache.borrow().is_none());
+                assert!(runtime.controls.iter().all(|c| c.raster_cache.borrow().is_none()));
+            }
+            assert!(Arc::ptr_eq(&geometry, &runtime.vector_snapshot(1.25, true)));
+            assert_eq!(runtime.visual_revision(), revision);
+            let mut fallback = vec![0; native.len()];
+            runtime.paint_native(&mut fallback, 160, 120, 1.25).unwrap();
+            assert_eq!(fallback, native);
+            assert_eq!(runtime.pixels(160, 120, 1.25), rgba);
+        }
+    }
+
+    #[test]
+    fn layout_versions_track_scroll_and_same_object_load_but_not_paint() {
+        let source = "component Demo { Frame { width:128; height:96; Scroll { Button { width:150; height:160; } } } }";
+        let mut runtime = Runtime::from_sources(source, TEMPLATE).unwrap();
+        let layout = runtime.layout_revision();
+        runtime.pointer(30., 25., 0);
+        runtime.tick(16.);
+        assert_eq!(runtime.layout_revision(), layout);
+        runtime.scroll(0., 0.125);
+        assert_ne!(runtime.layout_revision(), layout);
+        let layout = runtime.layout_revision();
+        runtime.scroll(0., 0.);
+        assert_eq!(runtime.layout_revision(), layout);
+        let visual = runtime.visual_revision();
+        let geometry = runtime.geometry_revision();
+        runtime.load_component(source, TEMPLATE).unwrap();
+        assert_ne!(runtime.layout_revision(), layout);
+        assert_ne!(runtime.visual_revision(), visual);
+        assert_ne!(runtime.geometry_revision(), geometry);
+        assert_eq!(runtime.scroll_offset(), vec![0., 0.]);
+    }
+    // Previous full-canvas algorithm is an independent oracle for packed leaf
+    // compositing, root frame coverage, scrollbars, and background rounding.
+    impl Runtime {
+    fn full_canvas_reference(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
+        if self.controls.len() == 1 {
+            return if background {
+                self.controls[0].pixels(w, h, s)
+            } else {
+                self.controls[0].content_pixels(w, h, s)
+            };
+        }
+        if w == 0
+            || h == 0
+            || w > 4096
+            || h > 4096
+            || w as u64 * h as u64 > 8_388_608
+            || !s.is_finite()
+            || s <= 0.
+        {
+            return vec![];
+        }
+        let mut out = vec![0; w as usize * h as usize * 4];
+        for c in &self.controls {
+            let pixels = c.content_pixels(w, h, s);
+            for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
+                crate::raster_cache::over(dst, src);
+            }
+        }
+        let v = self.viewport_rect();
+        let [cw, ch] = self.content_size();
+        for y in 0..h {
+            for x in 0..w {
+                let p = &mut out[((y * w + x) * 4) as usize..][..4];
+                let px = (x as f32 + 0.5) / s;
+                let py = (y as f32 + 0.5) / s;
+                if self.scene.scroll {
+                    if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
+                        p.fill(0);
+                    } else {
+                        let vertical = ch > v[3]
+                            && px >= (v[0] + v[2] - 5.).max(v[0])
+                            && py >= v[1] + self.scroll[1] / ch * v[3]
+                            && py < v[1] + (self.scroll[1] + v[3]) / ch * v[3];
+                        let horizontal = cw > v[2]
+                            && py >= (v[1] + v[3] - 5.).max(v[1])
+                            && px >= v[0] + self.scroll[0] / cw * v[2]
+                            && px < v[0] + (self.scroll[0] + v[2]) / cw * v[2];
+                        if vertical || horizontal {
+                            p.copy_from_slice(&[110, 130, 170, 255]);
+                        }
+                    }
+                }
+                let coverage = round_coverage(
+                    x,
+                    y,
+                    s,
+                    [0., 0., self.width(), self.height()],
+                    self.scene.radius,
+                );
+                if background {
+                    let mut bg = self.scene.background;
+                    if !self.scene.clip {
+                        bg[3] = (bg[3] as f32 * coverage).round() as u8;
+                    }
+                    crate::raster_cache::over(&mut bg, p);
+                    p.copy_from_slice(&bg);
+                }
+                if self.scene.clip {
+                    p[3] = (p[3] as f32 * coverage).round() as u8;
+                    if p[3] == 0 {
+                        p.fill(0);
+                    }
+                }
+            }
+        }
+        out
+    }
+    }
+
+    const TEMPLATE: &str = "component Button { Rectangle { radius:6.3; background:Brush { color:#273f6077; hover:#a4e173bb; transition:100ms; }; Border { width:1.4; background:#e7cf8199; } Reveal { width:2.3; color:#dd8822aa; } Text { text:'Я'; fontSize:16; color:#ffffffa0; } ContentText { x:-5.8; y:-10.2; width:52.1; height:13.7; text:'Overflow Я'; fontSize:12.5; color:#f8aaffb0; } ContentShape { points:'-7 -3 64.2 4.1 72.5 21.8 -4.3 29.2'; color:#fc345a61; } ContentClip { x:3.7; y:8.3; width:48.6; height:25.2; radius:4.2; } ContentShape { points:'-20 -30 70 -30 70 50 -20 50'; color:#3467af80; } ContentClip { x:7.2; y:12.1; width:23.4; height:19.7; radius:3.1; } ContentShape { points:'-20 -30 70 -30 70 50 -20 50'; color:#ddeeff90; } ContentClipEnd {} ContentClipEnd {} PointerArea { clicked -> events.clicked(); } } }";
+
+    fn assert_reference(runtime: &Runtime, width: u32, height: u32, scale: f32) {
+        for background in [false, true] {
+            let expected = runtime.full_canvas_reference(width, height, scale, background);
+            let actual = runtime.raster(width, height, scale, background);
+            if expected != actual {
+                let first = expected.chunks_exact(4).zip(actual.chunks_exact(4)).position(|(a,b)| a != b).unwrap();
+                panic!("pixel ({}, {}) differs at DPI {scale}, background {background}: {:?} != {:?}",
+                    first % width as usize, first / width as usize, &expected[first*4..first*4+4], &actual[first*4..first*4+4]);
+            }
+            assert_eq!(runtime.raster(width, height, scale, background), actual);
+            if background {
+                let mut native = vec![0; (width * height) as usize];
+                runtime.paint_native(&mut native, width, height, scale).unwrap();
+                for (&actual, expected) in native.iter().zip(expected.chunks_exact(4)) {
+                    let a = expected[3] as u32;
+                    let c = |k: usize, bg: u32| (expected[k] as u32 * a + bg * (255 - a) + 127) / 255;
+                    assert_eq!(actual, c(0, 17) << 16 | c(1, 19) << 8 | c(2, 25));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn packed_multicontrol_matches_full_canvas_for_overflow_clips_scroll_and_dpi() {
+        for mode in ["overflow:visible;", "clip:true;", "scroll"] {
+            let (props, open, close) = if mode == "scroll" { ("clip:true;", "Scroll {", "}") } else { (mode, "", "") };
+            let source = format!("component Demo {{ Frame {{ width:83.7; height:62.4; padding:5.3; radius:8.1; background:#10203080; {props} {open} Button {{ x:3.7; y:4.2; width:32.2; height:19.7; }} Button {{ x:23.6; y:39.7; width:76.3; height:39.2; }} {close} }} }}");
+            let mut runtime = Runtime::from_sources(&source, TEMPLATE).unwrap();
+            for scale in [1., 1.25, 2.] {
+                assert_reference(&runtime, 176, 152, scale);
+                runtime.pointer(12.2, 9.4, 0);
+                runtime.tick(23.);
+                assert_reference(&runtime, 176, 152, scale);
+                runtime.pointer(45.7, 43.2, 0);
+                runtime.tick(39.);
+                runtime.scroll(12.3, 15.7);
+                assert_reference(&runtime, 176, 152, scale);
+                // Crop/expand the physical host independently of logical layout.
+                assert_reference(&runtime, 57, 44, scale);
+            }
+        }
+    }
+
+    #[test]
+    fn composite_cache_refreshes_after_text_editing_and_validates_native_size() {
+        let source = "component Demo { Frame { width:180; height:90; padding:0; Button { width:80; height:30; } Button { width:80; height:30; } } }";
+        let template = "component Button { Rectangle { ContentInput { width:80; height:30; value:'seed'; } PointerArea { clicked -> events.clicked(); } } }";
+        let mut runtime = Runtime::from_sources(source, template).unwrap();
+        let before = runtime.pixels(180, 90, 1.);
+        runtime.focus_control(0);
+        runtime.text_insert("Я");
+        let after = runtime.pixels(180, 90, 1.);
+        assert_ne!(before, after);
+        assert_reference(&runtime, 180, 90, 1.);
+        assert!(runtime.paint_native(&mut [0; 3], 180, 90, 1.).is_err());
+        assert!(runtime.paint_native(&mut [], 0, 0, 1.).is_err());
+        assert!(runtime.pixels(u32::MAX, 4, 1.).is_empty());
+    }
+
+    #[test]
+    fn empty_frame_raster_and_native_have_no_child_access() {
+        for content in ["", "Scroll {}"] {
+            let source = format!("component Demo {{ Frame {{ width:24; height:18; padding:2; radius:3.3; background:#27486980; {content} }} }}");
+            let runtime = Runtime::from_sources(&source, TEMPLATE).unwrap();
+            assert_eq!(runtime.control_count(), 0);
+            assert_reference(&runtime, 40, 30, 1.25);
+            assert_reference(&runtime, 12, 10, 2.);
+        }
+    }
+
+    #[test]
+    fn warmed_composite_refreshes_when_reconciliation_only_changes_reveal() {
+        let source = "component Demo { Frame { width:180; height:100; padding:10; gap:10; Button { key:'a'; width:100; height:30; } Button { key:'b'; width:100; height:30; } } }";
+        let template = "component Button { Rectangle { radius:6; background:#112233; Reveal { width:2; color:#ffaabb; } PointerArea { clicked -> events.clicked(); } } }";
+        let mut previous = Runtime::from_sources(source, template).unwrap();
+        previous.reveal_pointer(9., 40., true);
+        let expected = previous.pixels(180, 100, 1.);
+        let mut current = Runtime::from_sources(source, template).unwrap();
+        let before = current.pixels(180, 100, 1.);
+        assert_ne!(before, expected);
+        let revision = current.visual_revision();
+        current.preserve_interaction(&previous);
+        assert!(current.visual_revision() > revision);
+        assert_eq!(current.pixels(180, 100, 1.), expected);
+        assert_reference(&current, 180, 100, 1.);
     }
 }

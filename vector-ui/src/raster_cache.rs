@@ -8,6 +8,7 @@ struct GeometryKey {
     height: u32,
     scale: f32,
     scroll: [f32; 2],
+    sparse: bool,
 }
 #[derive(Clone, Copy, PartialEq)]
 struct PaintKey {
@@ -31,6 +32,9 @@ pub(crate) struct Cache {
     content_spans: Vec<std::ops::Range<usize>>,
     paint: Option<PaintKey>,
     pixels: Vec<u8>,
+    // Packed pixels retain their original canvas indices, so fractional DPI
+    // and overflowing content use exactly the same coverage samples.
+    spans: Vec<std::ops::Range<usize>>,
     native_pixels: Vec<u32>,
 }
 
@@ -65,11 +69,12 @@ impl Cache {
             key,
             coverage: vec![0; len],
             reveal_pixels: Vec::new(),
-            frame: vec![0; len],
+            frame: if key.sparse { Vec::new() } else { vec![0; len] },
             content: vec![0; len * 4],
             content_spans: Vec::new(),
             paint: None,
-            pixels: vec![0; len * 4],
+            pixels: Vec::new(),
+            spans: Vec::new(),
             native_pixels: Vec::new(),
         };
         let b = &model.scene.button;
@@ -111,7 +116,7 @@ impl Cache {
         }
         let v = model.viewport_rect();
         let [vx, vy, vw, vh] = [v[0], v[1], v[2], v[3]];
-        for y in 0..height {
+        for y in 0..if key.sparse { 0 } else { height } {
             for x in 0..width {
                 let i = (y * width + x) as usize;
                 cache.frame[i] = (round_coverage(
@@ -245,6 +250,40 @@ impl Cache {
         }
         cache.content.truncate(compacted);
         cache.content.shrink_to_fit();
+        if key.sparse {
+            // Each row is the union of the button's possible animated paint
+            // (including reveal) and actual static content. Content may extend
+            // outside the button, including on rows above/below its rectangle.
+            let mut content_spans = cache.content_spans.iter().peekable();
+            let mut packed = 0;
+            for y in 0..height {
+                let row = (y * width) as usize;
+                let mut start = width as usize;
+                let mut end = 0;
+                if y >= y0 && y < y1 && x0 < x1 {
+                    start = x0 as usize;
+                    end = x1 as usize;
+                }
+                if let Some(span) = content_spans.peek() {
+                    if span.start / width as usize == y as usize {
+                        start = start.min(span.start - row);
+                        end = end.max(span.end - row);
+                        content_spans.next();
+                    }
+                }
+                if start < end {
+                    let span = row + start..row + end;
+                    cache.coverage.copy_within(span.clone(), packed);
+                    packed += span.len();
+                    cache.spans.push(span);
+                }
+            }
+            cache.coverage.truncate(packed);
+            cache.coverage.shrink_to_fit();
+        } else {
+            cache.spans.push(0..len);
+        }
+        cache.pixels.resize(cache.coverage.len() * 4, 0);
         cache
     }
 
@@ -274,47 +313,74 @@ impl Cache {
         let mut content_spans = self.content_spans.iter();
         let mut content_span = content_spans.next();
         let mut content_pixels = self.content.chunks_exact(4);
-        for (i, dst) in self.pixels.chunks_exact_mut(4).enumerate() {
-            dst.copy_from_slice(&palette[self.coverage[i] as usize]);
-            if let Some(span) = content_span {
-                if i >= span.start {
-                    over(dst, content_pixels.next().unwrap());
-                    if i + 1 == span.end {
-                        content_span = content_spans.next();
+        if self.key.sparse {
+            let indices = self.spans.iter().flat_map(|span| span.clone());
+            for ((i, dst), packed) in indices.zip(self.pixels.chunks_exact_mut(4)).zip(0..) {
+                dst.copy_from_slice(&palette[self.coverage[packed] as usize]);
+                if let Some(span) = content_span {
+                    if i >= span.start {
+                        over(dst, content_pixels.next().unwrap());
+                        if i + 1 == span.end {
+                            content_span = content_spans.next();
+                        }
+                    }
+                }
+                if let Some(&&(index, band)) = reveal_pixels.peek() {
+                    if index == i {
+                        let x = (i % self.key.width as usize) as f32;
+                        let y = (i / self.key.width as usize) as f32;
+                        let mut color = key.reveal.color_at([(x + 0.5) / self.key.scale, (y + 0.5) / self.key.scale]);
+                        color[3] = (color[3] as f32 * band).round() as u8;
+                        over(dst, &color);
+                        reveal_pixels.next();
                     }
                 }
             }
-            if let Some(&&(index, band)) = reveal_pixels.peek() {
-                if index == i {
-                    let x = (i % self.key.width as usize) as f32;
-                    let y = (i / self.key.width as usize) as f32;
-                    let mut color = key.reveal.color_at([(x + 0.5) / self.key.scale, (y + 0.5) / self.key.scale]);
-                    color[3] = (color[3] as f32 * band).round() as u8;
-                    over(dst, &color);
-                    reveal_pixels.next();
+        } else {
+            // Keep the full-canvas loop dense. Span iteration and the sparse
+            // branch must not add work to every pixel of a single control.
+            for (i, dst) in self.pixels.chunks_exact_mut(4).enumerate() {
+                dst.copy_from_slice(&palette[self.coverage[i] as usize]);
+                if let Some(span) = content_span {
+                    if i >= span.start {
+                        over(dst, content_pixels.next().unwrap());
+                        if i + 1 == span.end {
+                            content_span = content_spans.next();
+                        }
+                    }
                 }
-            }
+                if let Some(&&(index, band)) = reveal_pixels.peek() {
+                    if index == i {
+                        let x = (i % self.key.width as usize) as f32;
+                        let y = (i / self.key.width as usize) as f32;
+                        let mut color = key.reveal.color_at([(x + 0.5) / self.key.scale, (y + 0.5) / self.key.scale]);
+                        color[3] = (color[3] as f32 * band).round() as u8;
+                        over(dst, &color);
+                        reveal_pixels.next();
+                    }
+                }
 
-            let frame = self.frame[i];
-            match frame >> 5 {
-                0 => dst.fill(0),
-                2 => dst.copy_from_slice(&[110, 130, 170, 255]),
-                _ => {}
-            }
-            let frame_coverage = frame & 31;
-            let coverage = frame_coverage as f32 / 16.;
-            if key.background && dst[3] != 255 {
-                let mut bg = model.scene.background;
-                if !model.scene.clip {
-                    bg[3] = (bg[3] as f32 * coverage).round() as u8;
+                let frame = self.frame[i];
+                match frame >> 5 {
+                    0 => dst.fill(0),
+                    2 => dst.copy_from_slice(&[110, 130, 170, 255]),
+                    _ => {}
                 }
-                over(&mut bg, dst);
-                dst.copy_from_slice(&bg);
-            }
-            if model.scene.clip && frame_coverage != 16 {
-                dst[3] = (dst[3] as f32 * coverage).round() as u8;
-                if dst[3] == 0 {
-                    dst.fill(0);
+                let frame_coverage = frame & 31;
+                let coverage = frame_coverage as f32 / 16.;
+                if key.background && dst[3] != 255 {
+                    let mut bg = model.scene.background;
+                    if !model.scene.clip {
+                        bg[3] = (bg[3] as f32 * coverage).round() as u8;
+                    }
+                    over(&mut bg, dst);
+                    dst.copy_from_slice(&bg);
+                }
+                if model.scene.clip && frame_coverage != 16 {
+                    dst[3] = (dst[3] as f32 * coverage).round() as u8;
+                    if dst[3] == 0 {
+                        dst.fill(0);
+                    }
                 }
             }
         }
@@ -330,6 +396,7 @@ impl Button {
         height: u32,
         scale: f32,
         background: bool,
+        sparse: bool,
     ) -> Option<std::cell::RefMut<'_, Cache>> {
         if !valid_raster_size(width, height) || !scale.is_finite() || scale <= 0. {
             return None;
@@ -339,6 +406,7 @@ impl Button {
             height,
             scale,
             scroll: [self.scroll_x, self.scroll_y],
+            sparse,
         };
         let paint = PaintKey {
             fill: self.fill.color(),
@@ -370,8 +438,24 @@ impl Button {
         scale: f32,
         background: bool,
     ) -> Vec<u8> {
-        self.cached(width, height, scale, background)
+        self.cached(width, height, scale, background, false)
             .map_or_else(Vec::new, |cache| cache.pixels.clone())
+    }
+
+    /// Composite a leaf without allocating/copying a transparent full canvas.
+    /// Root frame clipping and scrollbars are applied once by Runtime.
+    pub(crate) fn composite_content(&self, dst: &mut [u8], width: u32, height: u32, scale: f32) {
+        debug_assert!(!self.scene.clip && !self.scene.scroll);
+        let Some(cache) = self.cached(width, height, scale, false, true) else { return };
+        let mut pixels = cache.pixels.as_slice();
+        for span in &cache.spans {
+            let bytes = span.len() * 4;
+            for (dst, src) in dst[span.start * 4..span.end * 4]
+                .chunks_exact_mut(4).zip(pixels[..bytes].chunks_exact(4)) {
+                over(dst, src);
+            }
+            pixels = &pixels[bytes..];
+        }
     }
 
     /// Paint into the host-owned XRGB buffer without a full-window RGBA copy.
@@ -401,7 +485,7 @@ impl Button {
             rh = rh.min(height);
         }
         let mut cache = self
-            .cached(rw, rh, scale, true)
+            .cached(rw, rh, scale, true, false)
             .ok_or("Visible scene exceeds CPU raster budget")?;
         if cache.native_pixels.is_empty() {
             let Cache { native_pixels, pixels, .. } = &mut *cache;
@@ -481,6 +565,35 @@ fn clip_pixels(bounds: [f32; 4], scale: f32, width: u32, height: u32) -> [u32; 4
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn packed_leaf_retains_only_local_rows_and_empty_offscreen_leaf_is_valid() {
+        let source = "component Demo { Frame { width:1000; height:600; padding:0; Button { x:700.3; y:400.7; width:40; height:24; } } }";
+        let component = "component Button { Rectangle { radius:4; background:#abcdef80; Reveal { color:#ffaa44; } ContentText { x:-6; y:-14; width:60; height:12; text:'Я'; fontSize:11; color:#ffffff; } ContentShape { points:'-8 3 6 3 6 8 -8 8'; color:#334455; } } }";
+        let model = Button::from_sources(source, component).unwrap();
+        let expected = model.content_pixels(1000, 600, 1.25);
+        let mut actual = vec![0; expected.len()];
+        model.composite_content(&mut actual, 1000, 600, 1.25);
+        assert_eq!(actual, expected);
+        {
+            let stored = model.raster_cache.borrow();
+            let cache = stored.as_ref().unwrap();
+            assert!(cache.key.sparse && cache.frame.is_empty());
+            assert_eq!(cache.pixels.len(), cache.coverage.len() * 4);
+            assert_eq!(cache.coverage.len(), cache.spans.iter().map(|span| span.len()).sum());
+            assert!(cache.coverage.capacity() < 3000, "packed geometry must not retain a full canvas");
+            assert!(cache.pixels.capacity() < 12_000, "packed RGBA must not retain a full canvas");
+            assert!(cache.content.capacity() < 2000);
+            assert!(cache.spans.windows(2).all(|pair| pair[0].end <= pair[1].start));
+            assert!(cache.spans.iter().all(|span| span.start < span.end && span.start / 1000 == (span.end - 1) / 1000));
+        }
+        let mut outside = vec![0; 20 * 20 * 4];
+        model.composite_content(&mut outside, 20, 20, 1.25);
+        assert!(outside.iter().all(|&b| b == 0));
+        let stored = model.raster_cache.borrow();
+        let cache = stored.as_ref().unwrap();
+        assert!(cache.spans.is_empty() && cache.pixels.is_empty() && cache.coverage.is_empty());
+    }
 
     #[test]
     fn sparse_content_retains_only_occupied_rows_without_changing_pixels() {

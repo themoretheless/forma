@@ -25,10 +25,10 @@ export function buildControlTree(document,path){
 
 export function treeRows(roots,collapsed=new Set(),query=''){
   const needle=query.trim().toLocaleLowerCase();
-  function filtered(n){const children=n.children.map(filtered).filter(Boolean);if(!needle||`${n.label} ${n.detail??''}`.toLocaleLowerCase().includes(needle))return n;return children.length?{...n,children}:null;}
+  function filtered(n){if(`${n.label} ${n.detail??''}`.toLocaleLowerCase().includes(needle))return n;const children=n.children.map(filtered).filter(Boolean);return children.length?{...n,children}:null;}
   const out=[];
   function walk(items,level,parent){items.forEach((item,index)=>{const expanded=item.children.length>0&&(!collapsed.has(item.id)||!!needle);out.push({...item,level,parent,index:index+1,siblings:items.length,expanded});if(expanded)walk(item.children,level+1,item.id);});}
-  walk(roots.map(filtered).filter(Boolean),1,null);return out;
+  walk(needle?roots.map(filtered).filter(Boolean):roots,1,null);return out;
 }
 
 export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpenTemplate,storage=localStorage}){
@@ -39,12 +39,14 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   const list=panel.querySelector('.control-tree-items'),search=panel.querySelector('input'),status=panel.querySelector('.control-tree-status'),template=panel.querySelector('.control-tree-template');
   let visible=true,scope='designer',roots=[],rows=[],selectedId=null,focusId=null,query='',disabled=false,templatePath=null;
   const collapsed=new Set();
+  const elements=new Map(),parents=new Map(),sources=new Map();
+  let currentDocument,currentPath;
   try{const saved=JSON.parse(storage.getItem('forma-control-tree'));visible=saved?.visible!==false;if(saved?.scope==='file')scope='file';}catch{}
   function save(){try{storage.setItem('forma-control-tree',JSON.stringify({visible,scope}));}catch{}}
   function updateView(){panel.hidden=!visible;explorer.classList.toggle('has-control-tree',visible);toggle.classList.toggle('chosen',visible);toggle.setAttribute('aria-expanded',String(visible));for(const b of panel.querySelectorAll('[data-scope]')){b.classList.toggle('chosen',b.dataset.scope===scope);b.setAttribute('aria-pressed',String(b.dataset.scope===scope));}save();}
-  function rowElement(id){return [...list.children].find(el=>el.dataset.controlId===id);}
+  function rowElement(id){return elements.get(id);}
   function draw(restoreFocus=false){
-    rows=treeRows(roots,collapsed,query);list.replaceChildren();
+    rows=treeRows(roots,collapsed,query);list.replaceChildren();elements.clear();
     if(!rows.some(n=>n.id===focusId))focusId=rows.some(n=>n.id===selectedId)?selectedId:rows[0]?.id;
     for(const n of rows){
       const row=document.createElement('div');row.className='control-tree-row';row.dataset.controlId=n.id;row.setAttribute('role','treeitem');row.tabIndex=n.id===focusId?0:-1;
@@ -53,12 +55,12 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
       const arrow=document.createElement('span');arrow.className='control-tree-arrow';arrow.dataset.disclosure='';arrow.setAttribute('aria-hidden','true');arrow.textContent=n.children.length?(n.expanded?'⌄':'›'):'·';
       const label=document.createElement('span');label.className='control-tree-label';label.textContent=n.label;
       const detail=document.createElement('span');detail.className='control-tree-detail';detail.textContent=n.detail??'';
-      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');row.append(arrow,label,detail);list.append(row);
+      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');row.append(arrow,label,detail);list.append(row);elements.set(n.id,row);
     }
     if(!rows.length){const empty=document.createElement('p');empty.className='control-tree-empty';empty.textContent=query?'Контролы не найдены':'Нет контролов';list.append(empty);}
     if(restoreFocus)rowElement(focusId)?.focus({preventScroll:true});
   }
-  function focus(id){focusId=id;for(const el of list.children)el.tabIndex=el.dataset.controlId===id?0:-1;rowElement(id)?.focus({preventScroll:true});rowElement(id)?.scrollIntoView({block:'nearest'});}
+  function focus(id){const previous=rowElement(focusId);if(previous)previous.tabIndex=-1;focusId=id;const next=rowElement(id);if(next){next.tabIndex=0;next.focus({preventScroll:true});next.scrollIntoView({block:'nearest'});}}
   function fold(id,collapse){const item=rows.find(n=>n.id===id);if(!item?.children.length)return;if(collapse)collapsed.add(id);else collapsed.delete(id);draw(true);}
   function choose(item){if(disabled)return;focus(item.id);if(item.node)onSelect(item);else fold(item.id,item.expanded);}
   list.addEventListener('click',e=>{const row=e.target.closest('[data-control-id]');const item=rows.find(n=>n.id===row?.dataset.controlId);if(!item||disabled)return;if(e.target.closest('[data-disclosure]')&&item.children.length){focusId=item.id;fold(item.id,item.expanded);}else choose(item);});
@@ -81,21 +83,31 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   panel.querySelector('[data-action=collapse]').onclick=()=>{function walk(items){for(const n of items){if(n.children.length)collapsed.add(n.id);walk(n.children);}}walk(roots);draw();};
   template.onclick=()=>{if(templatePath)onOpenTemplate(templatePath);};
   function setView(next){if(next.visible!==undefined)visible=next.visible;if(next.scope!==undefined)scope=next.scope;updateView();onScopeChange();}
-  function syncSelection(start,path){
+  function syncSelection(start,path,redraw=false){
+    const previousSelected=selectedId,previousFocus=focusId;
     selectedId=null;templatePath=null;
-    function walk(items,parents=[]){for(const n of items){if(n.node?.start===start&&n.path===path){selectedId=n.id;for(const id of parents)collapsed.delete(id);if(n.templatePath)templatePath=n.templatePath;}walk(n.children,[...parents,n.id]);}}
-    walk(roots);template.hidden=!templatePath;const focused=list.contains(document.activeElement);if(!focused)focusId=selectedId??focusId;draw(focused);
+    const item=sources.get(path)?.get(start);
+    if(item){selectedId=item.id;templatePath=item.templatePath??null;for(let id=parents.get(item.id);id!=null;id=parents.get(id))if(collapsed.delete(id))redraw=true;}
+    template.hidden=!templatePath;const focused=list.contains(document.activeElement);if(!focused)focusId=selectedId??focusId;
+    if(redraw)draw(focused);
+    else {
+      if(!elements.has(focusId))focusId=elements.has(selectedId)?selectedId:rows[0]?.id;
+      if(previousSelected!==selectedId){rowElement(previousSelected)?.setAttribute('aria-selected','false');rowElement(selectedId)?.setAttribute('aria-selected','true');}
+      if(previousFocus!==focusId){const old=rowElement(previousFocus),next=rowElement(focusId);if(old)old.tabIndex=-1;if(next)next.tabIndex=0;}
+    }
     if(selectedId)rowElement(selectedId)?.scrollIntoView({block:'nearest'});
   }
   updateView();
   return {
     get scope(){return scope;},setView,
     update({document:doc,path,error='',stale=false,selectedStart=null,selectedPath=null,files={}}){
-      roots=doc?buildControlTree(doc,path):[];disabled=!!error;
-      function annotate(items){for(const n of items){const target=n.node&&`components/${n.node.type}.ui`;if(target&&files[target])n.templatePath=target;annotate(n.children);}}annotate(roots);
+      const changed=doc!==currentDocument||path!==currentPath,redraw=changed||disabled!==!!error;
+      if(changed){roots=doc?buildControlTree(doc,path):[];currentDocument=doc;currentPath=path;parents.clear();sources.clear();}
+      disabled=!!error;
+      function annotate(items,parent=null){for(const n of items){if(changed){parents.set(n.id,parent);if(n.node){if(!sources.has(n.path))sources.set(n.path,new Map());sources.get(n.path).set(n.node.start,n);}}const target=n.node&&`components/${n.node.type}.ui`;n.templatePath=target&&files[target]?target:null;annotate(n.children,n.id);}}annotate(roots);
       panel.querySelector('.control-tree-file').textContent=path??'Нет UI';panel.querySelector('.control-tree-file').title=path??'';
       status.textContent=error?(stale?'Последнее корректное дерево · исправьте разметку':error):'';status.hidden=!error;
-      syncSelection(selectedStart,selectedPath);
+      syncSelection(selectedStart,selectedPath,redraw);
     },
     select:syncSelection,
     snapshot(){return {visible,scope,disabled,selectedId,rows:rows.map(n=>({id:n.id,path:n.path,label:n.label,detail:n.detail,level:n.level,expanded:n.expanded,start:n.node?.start??null,end:n.node?.end??null,selected:n.id===selectedId}))};},

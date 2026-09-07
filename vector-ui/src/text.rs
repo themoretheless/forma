@@ -176,22 +176,55 @@ pub(crate) fn hit_character(text: &str, font_size: f32, x: f32) -> usize {
     text.len()
 }
 
+/// Borrow one glyph's physical contours and convert each edge to logical pixels
+/// on demand. The callback consumes these before the scratch buffer is reused.
+pub(crate) struct GlyphEdges<'a> {
+    edges: std::slice::Iter<'a, (Point, Point)>,
+    scale: f32,
+}
+
+impl Iterator for GlyphEdges<'_> {
+    type Item = [f32; 4];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.edges.next().map(|&(a, b)| {
+            [a.x / self.scale, a.y / self.scale, b.x / self.scale, b.y / self.scale]
+        })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.edges.size_hint()
+    }
+}
+
+impl ExactSizeIterator for GlyphEdges<'_> {}
+
+/// Temporary storage for one display-list build. Capacity follows the largest
+/// glyph, not the combined text length, and is released with the build scratch.
+#[derive(Default)]
+pub(crate) struct VectorScratch {
+    edges: Vec<(Point, Point)>,
+}
+
 /// Vector contours only: the GPU determines winding and pixel coverage.
-/// One path per glyph keeps work bounded to that glyph's rectangle.
-pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32)->Vec<Vec<[f32;4]>> {
-    if rect[2]<=0.||rect[3]<=0.||font_size<=0. {return Vec::new();}
+/// One path per glyph keeps work bounded to that glyph's rectangle. Streaming
+/// avoids retaining and allocating a separate temporary path for every glyph.
+pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32,scratch:&mut VectorScratch,mut emit:impl FnMut(GlyphEdges<'_>)) {
+    if rect[2]<=0.||rect[3]<=0.||font_size<=0. {return;}
     let face=font();
     let units_to_pixels=font_size*scale/face.units_per_em()as f32;
     let origin=Point{x:(rect[0]+rect[2]*0.5-measure_text(text,font_size)*0.5)*scale,
         y:(rect[1]+rect[3]*0.5)*scale+(face.ascender()as f32+face.descender()as f32)*units_to_pixels*0.5};
-    let mut contours=Contours{edges:Vec::new(),current:origin,start:origin,origin,units_to_pixels};
-    let mut paths=Vec::new();
+    let mut contours=Contours{edges:std::mem::take(&mut scratch.edges),current:origin,start:origin,origin,units_to_pixels};
     for ch in text.chars(){
         let id=glyph(&face,ch);face.outline_glyph(id,&mut contours);
-        if !contours.edges.is_empty(){paths.push(contours.edges.drain(..).map(|(a,b)|[a.x/scale,a.y/scale,b.x/scale,b.y/scale]).collect());}
+        if !contours.edges.is_empty(){
+            emit(GlyphEdges { edges: contours.edges.iter(), scale });
+            contours.edges.clear();
+        }
         contours.origin.x+=advance(&face,id)*units_to_pixels;
     }
-    paths
+    scratch.edges = contours.edges;
 }
 
 /// Draw a centered, single-line label into a straight-alpha RGBA pixel buffer.
@@ -364,6 +397,59 @@ fn blend(pixel: &mut [u8], color: [u8; 4], samples: u8) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Pre-streaming reference: retain each flattened path before the consumer
+    // sees any of them. Keep the original physical-origin arithmetic, including
+    // its f32 rounding; translating a cached origin-free path is not equivalent.
+    fn collected_vector_glyphs(text: &str, font_size: f32, rect: [f32; 4], scale: f32) -> Vec<Vec<[f32; 4]>> {
+        if rect[2] <= 0. || rect[3] <= 0. || font_size <= 0. { return Vec::new(); }
+        let face = font();
+        let units_to_pixels = font_size * scale / face.units_per_em() as f32;
+        let origin = Point {
+            x: (rect[0] + rect[2] * 0.5 - measure_text(text, font_size) * 0.5) * scale,
+            y: (rect[1] + rect[3] * 0.5) * scale
+                + (face.ascender() as f32 + face.descender() as f32) * units_to_pixels * 0.5,
+        };
+        let mut contours = Contours { edges: Vec::new(), current: origin, start: origin, origin, units_to_pixels };
+        let mut paths = Vec::new();
+        for ch in text.chars() {
+            let id = glyph(face, ch);
+            face.outline_glyph(id, &mut contours);
+            if !contours.edges.is_empty() {
+                paths.push(contours.edges.drain(..).map(|(a, b)| [a.x / scale, a.y / scale, b.x / scale, b.y / scale]).collect());
+            }
+            contours.origin.x += advance(face, id) * units_to_pixels;
+        }
+        paths
+    }
+
+    #[test]
+    fn streamed_glyphs_preserve_exact_geometry_and_coverage() {
+        let mut scratch = VectorScratch::default();
+        for text in ["", "  ", "Forma ffi", "Привет ОяЖ", "A\u{301}Б🙂"] {
+            for font_size in [7., 15.5, 31.25] {
+                for scale in [0.75, 1., 1.25, 2., 3.] {
+                    for rect in [[0., 0., 120., 50.], [-21.375, 3.125, 160.5, 45.25], [0.125, -7.75, 100., 40.]] {
+                        let expected = collected_vector_glyphs(text, font_size, rect, scale);
+                        let mut actual = Vec::new();
+                        vector_glyphs(text, font_size, rect, scale, &mut scratch, |glyph| actual.push(glyph.collect::<Vec<_>>()));
+                        let bits = |paths: &[Vec<[f32; 4]>]| paths.iter().map(|path| path.iter().map(|edge| edge.map(f32::to_bits)).collect::<Vec<_>>()).collect::<Vec<_>>();
+                        assert_eq!(bits(&actual), bits(&expected), "{text:?}, {font_size}, {scale}, {rect:?}");
+
+                        let raster = |paths: &[Vec<[f32; 4]>]| {
+                            let mut pixels = vec![0; 400 * 180 * 4];
+                            for path in paths {
+                                let edges: Vec<_> = path.iter().map(|&[x, y, x2, y2]| (Point { x: x * scale, y: y * scale }, Point { x: x2 * scale, y: y2 * scale })).collect();
+                                rasterize(&mut pixels, 400, &edges, [0., 0., 400., 180.], [80, 160, 240, 173]);
+                            }
+                            pixels
+                        };
+                        assert_eq!(raster(&actual), raster(&expected));
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn linear_caret_hit_matches_prefix_measurements_at_unicode_boundaries() {

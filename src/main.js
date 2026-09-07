@@ -3,8 +3,9 @@ let designPresetName='original',nativeSource=null,nativeBuffer='';
 import {createLayoutInspector} from './layout-inspector.js';
 let layoutInspector,lastVisuals=[];
 import {createCanvasTools} from './canvas-tools.js';
+import {createElementTools} from './element-tools.js';
 import './canvas-tools.css';
-let canvasTools;
+let canvasTools,elementTools;
 import './style.css';
 import './selection.css';
 import './vector-artboard.css';
@@ -18,13 +19,16 @@ import {sizeProperties,sizeValue} from './sizing.js';
 import {nativeSnapshot} from './native-snapshot.js';
 import {loadVectorRuntime,createVectorPreview} from './vector-preview.js';
 import {createComponentCompiler} from './components.js';
-const compileComponents=createComponentCompiler();
+import {createCacheBudget} from './cache-budget.js';
+const studioCache=createCacheBudget();
+const compileComponents=createComponentCompiler({cache:studioCache});
 import {setDesignData,designReferences} from './design-data.js';
 let codeEditor;
 let spacingOverlay;
 let vectorPreview;
 let controlTree,selectedPath=null;
-const controlTreeDocuments=new Map();
+// The active tree is live UI state, independent of eviction of inactive files.
+let activeTreeDocument=null;
 let renderer=localStorage.getItem('forma-renderer')==='vector'?'vector':'html';
 import {parse,resolve,validateDesign} from './language.js';
 
@@ -119,7 +123,7 @@ function lines(){
   highlightSource();
 }
 function highlightSource(){
-  spacingOverlay?.update();canvasTools?.update();
+  spacingOverlay?.update();canvasTools?.update();elementTools?.update();
   if(codeEditor){codeEditor.highlight(selected&&active===selectedPath?selected:null);return;}
   const code=$('code');let layer=$('source-highlight');
   if(!layer){layer=document.createElement('div');layer.id='source-highlight';layer.setAttribute('aria-hidden','true');code.parentElement.append(layer);}
@@ -149,10 +153,10 @@ if(renderer==='vector'){
   lastVisuals=linked.visualNodes??[];
   const ok=vectorPreview.render({container:$('preview'),...linked,designMode,nodes:designMode&&designPresetName!=='original'?linked.previewNodes:compiled.nodes,selectedStart:selectedPath===entry?selected?.start:null});
   if(!ok)throw Error(error||'Ошибка векторного компонента');
-  $('preview').style.width=vectorPreview.snapshot().width+'px';$('preview').style.minHeight='0';$('preview').style.overflow='visible';
+  $('preview').style.width=vectorPreview.layoutSnapshot().width+'px';$('preview').style.minHeight='0';$('preview').style.overflow='visible';
   $('caption').textContent=designMode?'Rust/WASM · компонент из примитивов · щёлкните для выбора':'Rust/WASM · hover / pressed + transitions · события в журнале';
   if(designMode&&designPresetName!=='original')$('caption').textContent='Дизайнерский сценарий · исходник не изменён · редактирование частей отключено';
-  $('canvas').classList.toggle('interacting',!designMode);canvasTools?.update();layoutInspector?.update();return;
+  $('canvas').classList.toggle('interacting',!designMode);canvasTools?.update();layoutInspector?.update();elementTools?.update();return;
 }
 const preview=$('preview');preview.classList.remove('vector-artboard');preview.style.backgroundColor='';preview.style.borderRadius='';preview.style.minHeight='';const cssMap={'padding':'padding','margin':'margin','gap':'gap','overflow':'overflow','background':'background','color':'color','width':'width','height':'height','radius':'borderRadius','font.size':'fontSize','opacity':'opacity'};
 for(const kind of ['padding','margin'])for(const side of ['top','right','bottom','left'])cssMap[`${kind}.${side}`]=kind+side[0].toUpperCase()+side.slice(1);
@@ -160,14 +164,14 @@ function make(source,parent=null){const override=designMode&&Object.hasOwn(compi
 for(const [key,path]of Object.entries(n.bindings)){if(key!=='value'||!path.startsWith('state.'))throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);el.value=override&&Object.hasOwn(override,key)?resolve(override[key],state):state[path.slice(6)]??'';el.oninput=()=>{state[path.slice(6)]=el.value;log(`${path} = ${JSON.stringify(el.value)}`);};}
 el.addEventListener('click',e=>{e.stopPropagation();if(mode==='design'){select(source);return;}if(n.events.clicked)dispatch(n.events.clicked,n);});Object.assign(el.style,gridStyles(n,state,parent));for(const child of n.children)el.append(make(child,n));return el;}
 const fragment=document.createDocumentFragment();for(const n of compiled.nodes)fragment.append(make(n));preview.replaceChildren(fragment);$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
-function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));$('inspector').innerHTML=`<h3>${esc(n.type)}</h3><div class="inspector-label">СВОЙСТВА</div>${Object.entries(n.props).map(([k,v])=>`<label class="property"><span>${esc(k)}</span><input data-prop="${esc(k)}" value="${esc(typeof v==='object'?JSON.stringify(v):v)}" ${typeof v==='object'?'disabled':''}></label>`).join('')}<div class="inspector-label">ПРИВЯЗКИ И СОБЫТИЯ</div>${Object.entries({...n.bindings,...n.events}).map(([k,v])=>`<div class="binding">${esc(k)}<code>${esc(v)}</code></div>`).join('')||'<small>Нет привязок</small>'}`;document.querySelectorAll('[data-prop]').forEach(input=>input.onchange=()=>{const key=input.dataset.prop;const old=n.props[key];const raw=typeof old==='number'?Number(input.value):typeof old==='boolean'?input.value==='true':input.value;if(typeof raw==='number'&&!Number.isFinite(raw))return;try{if(active!==entry)open(entry);codeEditor.edit(propertyEdit(files[entry],n.start,key,raw));}catch(e){error=e.message;output();}});lines();controlTree?.select(n.start,entry);}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));$('inspector').innerHTML=`<h3>${esc(n.type)}</h3><div class="inspector-label">СВОЙСТВА</div>${Object.entries(n.props).map(([k,v])=>`<label class="property"><span>${esc(k)}</span><input data-prop="${esc(k)}" value="${esc(typeof v==='object'?JSON.stringify(v):v)}" ${typeof v==='object'?'disabled':''}></label>`).join('')}<div class="inspector-label">ПРИВЯЗКИ И СОБЫТИЯ</div>${Object.entries({...n.bindings,...n.events}).map(([k,v])=>`<div class="binding">${esc(k)}<code>${esc(v)}</code></div>`).join('')||'<small>Нет привязок</small>'}`;document.querySelectorAll('[data-prop]').forEach(input=>input.onchange=()=>{const key=input.dataset.prop;const old=n.props[key];const raw=typeof old==='number'?Number(input.value):typeof old==='boolean'?input.value==='true':input.value;if(typeof raw==='number'&&!Number.isFinite(raw))return;try{if(active!==entry)open(entry);codeEditor.edit(propertyEdit(files[entry],n.start,key,raw));}catch(e){error=e.message;output();}});lines();controlTree?.select(n.start,entry);}
 function refreshControlTree(){
   if(!controlTree)return;
   const path=controlTree.scope==='designer'?entry:active;
   let doc=null,message='',stale=false;
   if(!path?.endsWith('.ui'))message='Откройте файл .ui';
-  else try{doc=parse(files[path]);controlTreeDocuments.set(path,doc);if(controlTree.scope==='designer'&&error)message=error;}
-  catch(e){doc=controlTreeDocuments.get(path)??null;message=e.message;stale=!!doc;}
+  else try{const source=files[path],previous=studioCache.get('tree:'+path)??(activeTreeDocument?.path===path?activeTreeDocument:null);doc=previous?.source===source?previous.document:parse(source);if(previous?.document!==doc)studioCache.set('tree:'+path,{source,document:doc});activeTreeDocument={path,source,document:doc};if(controlTree.scope==='designer'&&error)message=error;}
+  catch(e){doc=(activeTreeDocument?.path===path?activeTreeDocument.document:studioCache.get('tree:'+path)?.document)??null;message=e.message;stale=!!doc;}
   controlTree.update({document:doc,path,error:message,stale,selectedStart:selected?.start,selectedPath,files});
 }
 function selectTreeControl(item){
@@ -218,7 +222,7 @@ $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlT
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});}});
 codeEditor=mountEditor($('code'));
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
-getScene:()=>renderer==='vector'?vectorPreview?.snapshot():null,
+getScene:()=>renderer==='vector'?vectorPreview?.layoutSnapshot():null,
 getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=children[0]?.type==='Scroll'?children[0].children:children;return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
 getMode:()=>mode,setMode:next=>{if(mode!==next)$('run').click();},onChange:()=>{spacingOverlay?.update();layoutInspector?.update();}});
 const presetPicker=document.createElement('select');presetPicker.className='design-preset';presetPicker.setAttribute('aria-label','Проверка дизайна');
@@ -227,11 +231,24 @@ document.querySelector('.canvas-tools').append(presetPicker);
 presetPicker.title='Только предпросмотр: исходники и нативное приложение не меняются';
 presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;}output();};
 layoutInspector=createLayoutInspector({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-getVisuals:()=>designPresetName==='original'?lastVisuals:[],getRuntime:()=>vectorPreview?.snapshot(),getMode:()=>mode,
+getVisuals:()=>designPresetName==='original'?lastVisuals:[],getRuntime:()=>vectorPreview?.layoutSnapshot(),getMode:()=>mode,
 getControl:()=>{const c=compiled?.nodes?.[0]?.children??[];return (c[0]?.type==='Scroll'?c[0].children:c).findIndex(n=>n.start===selected?.start);},
 readTracks:source=>{const raw=files[source.file].slice(source.from,source.to);const value=parse('component Tracks { Frame { columns: '+raw+'; } }').nodes[0].props.columns;return Array.isArray(value)?value:[value];},
 openSource:source=>{open(source.file);$('code').setSelectionRange(source.from,source.to);$('code').focus();},
 edit:(source,insert)=>{const previous=files[source.file];if(previous===undefined)throw Error('Файл не найден');const next=previous.slice(0,source.from)+insert+previous.slice(source.to);parse(next);if(active!==source.file)open(source.file);codeEditor.edit({from:source.from,to:source.to,insert});compile();}});
+elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
+context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,start:selectedPath===entry?selected?.start:null,nodes:children[0]?.type==='Scroll'?children[0].children:children,scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid};},
+select,report:message=>{$('caption').textContent=message;},
+history:action=>{const start=selected?.start;if(active!==entry)open(entry);if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);elementTools.update();});},
+commit:(change,context)=>{
+ if(entry!==context.path||files[entry]!==context.source)throw Error('Исходник изменился — повторите операцию');
+ const next=context.source.slice(0,change.from)+change.insert+context.source.slice(change.to);
+ if(next===context.source)return;
+ parse(next);compileComponents({...files,[entry]:next},entry,state,{measureText:vectorPreview.measureText});
+ if(active!==entry)open(entry);codeEditor.edit({from:change.from,to:change.to,insert:change.insert});
+ // The editor publishes its input event first; reselect against the new AST afterwards.
+ queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===change.start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);elementTools.update();});
+}});
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;

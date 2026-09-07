@@ -3,6 +3,7 @@
 import {parse} from './language.js';
 import {svgShapes} from './svg-shapes.js';
 import {attachSources,createElementTree} from './element-tree.js';
+import {createCacheBudget} from './cache-budget.js';
 
 const own=(o,k)=>Object.hasOwn(o,k);
 const clone=v=>structuredClone(v);
@@ -60,7 +61,8 @@ function literal(v){
   if(typeof v==='number'||typeof v==='boolean')return String(v);
   throw Error('Значение не удалось вычислить');
 }
-function serialize(n){if(Object.keys(n.bindings??{}).length||Object.keys(n.slots??{}).length)throw Error(`Необработанная привязка или override в ${n.type}`);return `${n.type} { ${Object.entries(n.props).map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${Object.entries(n.events??{}).map(([k,v])=>`${k} -> ${v}();`).join(' ')} ${(n.children??[]).map(serialize).join(' ')} }`;}
+function serialize(n){return serializeNode(n,false);}
+function serializeNode(n,omitKeys){if(Object.keys(n.bindings??{}).length||Object.keys(n.slots??{}).length)throw Error(`Необработанная привязка или override в ${n.type}`);return `${n.type} { ${Object.entries(n.props).filter(([k])=>!omitKeys||k!=='key').map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${Object.entries(n.events??{}).map(([k,v])=>`${k} -> ${v}();`).join(' ')} ${(n.children??[]).map(child=>serializeNode(child,omitKeys)).join(' ')} }`;}
 const num=(v,label)=>{if(typeof v==='object'&&v?.expr?.endsWith('px'))v=Number(v.expr.slice(0,-2));if(typeof v!=='number'||!Number.isFinite(v)||v<0||v>4096)throw Error(`${label}: ожидается размер 0…4096`);return v;};
 const color=v=>v?.expr??v;
 function insets(v=0){const a=Array.isArray(v)?v:[v];if(a.length<1||a.length>4)throw Error('padding: от 1 до 4 размеров');const x=a.map(v=>num(v,'padding'));return x.length===1?[x[0],x[0],x[0],x[0]]:x.length===2?[x[0],x[1],x[0],x[1]]:x.length===3?[x[0],x[1],x[2],x[1]]:x;}
@@ -85,7 +87,8 @@ function sizes(n,axis,available,metrics){
   const remaining=Math.max(0,available-g*(ts.length-1)-result.reduce((s,v)=>s+(typeof v==='number'?v:0),0));return result.map(v=>typeof v==='number'?v:remaining*v.w/weight);
 }
 function flatten(n,box,files,output,metrics){
-  const p=n.props,allowed=contentProps.get(n.type)??layoutProps;
+  // Keys belong to the inspector snapshot. Lowering must not mutate that tree.
+  const p=own(n.props,'key')?Object.fromEntries(Object.entries(n.props).filter(([k])=>k!=='key')):n.props,allowed=contentProps.get(n.type)??layoutProps;
   for(const k of Object.keys(p))if(!allowed.has(k))throw Error(`${n.type}.${k} пока не поддерживается в контенте`);
   if(Object.keys(n.events??{}).length||Object.keys(n.bindings??{}).length)throw Error('Контент кнопки пока не содержит отдельных интерактивных элементов');
   let [x,y,w,h]=box;if(p.width!==undefined){const v=num(p.width,'width');x+=(w-v)/2;w=v;}if(p.height!==undefined){const v=num(p.height,'height');y+=(h-v)/2;h=v;}
@@ -128,48 +131,89 @@ function flatten(n,box,files,output,metrics){
   }
   if(n.type==='Image'){
     if(typeof p.source!=='string'||!own(files,p.source))throw Error(`SVG-файл не найден в проекте: ${p.source}`);
-    for(const s of svgShapes(files[p.source],[x,y,w,h],color(p.color??'#ffffff')))output.push(`ContentShape { points: ${literal(s.points.map(v=>v.join(' ')).join(' '))}; color: ${s.color}; }`);return;
+    const content=metrics.imageContent(files[p.source],[x,y,w,h],color(p.color??'#ffffff'));
+    if(content)output.push(content);return;
   }
   throw Error(`Неподдерживаемый контент ${n.type}`);
 }
 
 const readDocument=(source,path,fragment=false)=>attachSources(parse(source,{fragment}),path);
 
-// A Studio session retains recent parsed source revisions, never linked trees,
-// state, metrics callbacks or compiled output. One-shot callers need no cache.
-export function createComponentCompiler(){
-  const documents=new Map();let units=0;
+// A session retains parsed documents and definition-only linked templates under
+// one budget. State, callbacks, expansion and compiled output stay per-compile.
+export function createComponentCompiler({cache:storage=createCacheBudget()}={}){
+  let linkedHits=0,linkedMisses=0;
   function read(source,path,fragment=false){
-    const key=(fragment?'fragment:':'document:')+path,previous=documents.get(key);
-    if(previous){documents.delete(key);units-=previous.source.length;}
+    const key=(fragment?'compiler:fragment:':'compiler:document:')+path,previous=storage.get(key);
     const document=previous?.source===source?previous.document:readDocument(source,path,fragment);
-    if(source.length<=1_000_000){
-      documents.set(key,{source,document});units+=source.length;
-      while(documents.size>128||units>1_000_000){const oldest=documents.keys().next().value;units-=documents.get(oldest).source.length;documents.delete(oldest);}
-    }
+    if(previous?.document!==document)storage.set(key,{source,document});
     return document;
   }
-  return (files,entry,state={},metrics={})=>compile(files,entry,state,metrics,read);
+  const links={
+    get(name,files){
+      const saved=storage.get('compiler:linked:'+name);
+      let valid=!!saved;
+      if(saved)for(const [path,source]of saved.dependencies)if(!own(files,path)||files[path]!==source){valid=false;break;}
+      if(valid){
+        linkedHits++;return {...saved,linked:clone(saved.linked)};
+      }
+      if(saved)storage.delete('compiler:linked:'+name);
+      linkedMisses++;return null;
+    },
+    set(name,linked,dependencies,depth){storage.set('compiler:linked:'+name,{linked:clone(linked),dependencies,depth});},
+  };
+  const run=(files,entry,state={},metrics={})=>compile(files,entry,state,metrics,read,links);
+  run.cacheStats=()=>({...storage.snapshot(),linkedHits,linkedMisses});
+  return run;
 }
 
 export function compileComponents(files,entry,state={},metrics={}){return compile(files,entry,state,metrics,readDocument);}
-function compile(files,entry,state,metrics,read){
-  const document=read(files[entry],entry);const scene=clone(document.nodes);metrics.transformScene?.(scene);
-  visit(scene,n=>{const patch=metrics.instanceProps?.(n);if(patch)n.props={...n.props,...patch};});
+function compile(files,entry,state,metrics,read,links){
+  // Measurement and lowered SVG geometry are deterministic within one compile.
+  // Keep these caches local so edits, state, fonts and metrics callbacks are
+  // re-read on the next compilation, without retaining large output strings.
+  const textSizes=new Map(),images=new Map(),measureText=metrics.measureText,metricsContext=metrics;
+  let imageUnits=0;
+  metrics={...metrics,
+    measureText:measureText?function(text,size){
+      let byText=textSizes.get(size);if(!byText){byText=new Map();textSizes.set(size,byText);}
+      if(!byText.has(text)){const measured=measureText.call(metricsContext,text,size);byText.set(text,[measured[0],measured[1]]);}
+      return byText.get(text);
+    }:undefined,
+    imageContent(source,box,currentColor){
+      let byBox=images.get(source);const key=JSON.stringify([...box,currentColor]);
+      if(byBox?.has(key))return byBox.get(key);
+      const content=svgShapes(source,box,currentColor).map(s=>`ContentShape { points: ${literal(s.points.map(v=>v.join(' ')).join(' '))}; color: ${s.color}; }`).join(' ');
+      if(imageUnits+content.length<=1_000_000){if(!byBox){byBox=new Map();images.set(source,byBox);}byBox.set(key,content);imageUnits+=content.length;}
+      return content;
+    },
+  };
+  const document=read(files[entry],entry);const scene=clone(document.nodes);metricsContext.transformScene?.(scene);
+  visit(scene,n=>{const patch=metricsContext.instanceProps?.(n);if(patch)n.props={...n.props,...patch};});
   const instanceTree=createElementTree(scene);
   visit(scene,n=>{if(Object.keys(n.bindings??{}).length)throw Error('Векторный runtime пока не поддерживает двусторонние привязки');if(Object.keys(n.slots??{}).length)throw Error('override объявляется в наследнике component');});
   if(scene.length!==1||scene[0].type!=='Frame')throw Error('Ожидается один корневой Frame');
   const children=scene[0].children;
   const instances=children.length===1&&children[0].type==='Scroll'?children[0].children:children;
-  if(!instances.length||instances.length>256||instances.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Frame принимает 1…256 контролов либо один Scroll с контролами');
-  const cache=new Map(),loading=[];
+  if(instances.length>256||instances.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Frame принимает 0…256 контролов либо один Scroll с контролами');
+  const cache=new Map(),loading=[],dependencies=new Map(),depths=new Map();
   function link(name){
-    if(cache.has(name))return cache.get(name);
+    if(cache.has(name)){
+      if(loading.length+depths.get(name)>32)throw Error('Глубина наследования компонентов превышает 32');
+      return cache.get(name);
+    }
     if(loading.includes(name))throw Error(`Цикл наследования: ${[...loading,name].join(' → ')}`);
     if(loading.length>=32)throw Error('Глубина наследования компонентов превышает 32');
+    const saved=links?.get(name,files);
+    if(saved){
+      if(loading.length+saved.depth>32)throw Error('Глубина наследования компонентов превышает 32');
+      cache.set(name,saved.linked);dependencies.set(name,saved.dependencies);depths.set(name,saved.depth);return saved.linked;
+    }
     const path=`components/${name}.ui`;if(!files[path])throw Error(`Компонент не найден: ${path}`);
+    const inputs=links?new Map([[path,files[path]]]):null;
     const c=read(files[path],path);if(c.name!==name)throw Error(`${path}: ожидался component ${name}`);if(c.designs.length)throw Error('Дизайн-атрибут компонента пока не поддерживается векторным runtime');loading.push(name);
     const linked=c.base?clone(link(c.base)):{nodes:[],defaults:{}};
+    if(links&&c.base)for(const [file,source]of dependencies.get(c.base))inputs.set(file,source);
     if(c.base&&c.nodes.length)throw Error('Наследник меняет визуальное дерево через override');
     if(!c.base)linked.nodes=clone(c.nodes);
     linked.defaults={...linked.defaults,...clone(c.defaults)};
@@ -186,6 +230,7 @@ function compile(files,entry,state,metrics,read){
           if(part==='..'){if(!parts.length)throw Error('override from: выход за пределы проекта');parts.pop();}else parts.push(part);
         }
         const file=parts.join('/');if(!own(files,file))throw Error(`Файл override не найден: ${file}`);
+        inputs?.set(file,files[file]);
         const patch=read(files[file],file,true).nodes[0];
         if(patch.type!==target.type)throw Error(`override ${key}: ожидался ${target.type}, получен ${patch.type} в ${file}`);
         for(const p of [patch,value.patch].filter(Boolean)){
@@ -201,7 +246,9 @@ function compile(files,entry,state,metrics,read){
       const base=target.props.content??(target.children.length===1?target.children[0]:{type:'Frame',props:{},children:target.children});
       target.props.content=substitute(value,key,base);target.children=[];
     }
-    loading.pop();cache.set(name,linked);return linked;
+    const depth=1+(c.base?depths.get(c.base):0);
+    loading.pop();cache.set(name,linked);if(links)dependencies.set(name,inputs);depths.set(name,depth);
+    links?.set(name,linked,inputs,depth);return linked;
   }
   let expandedCount=0;
   function rejectInteraction(n){
@@ -284,7 +331,7 @@ function compile(files,entry,state,metrics,read){
     delete rootProps.columns;delete rootProps.rows;rootProps.gap=0;
   }
   visualNodes.push(rootVisual);
-  const previewNodes=clone(scene);
+  const previewNodes=scene;
   function compileInstance(instance,index){
   const {roots,resolved}=instantiate(instance,true);
   let rangeMetadata='';
@@ -297,20 +344,18 @@ function compile(files,entry,state,metrics,read){
     };
     rangeMetadata=`RangeInput { value: ${parseFloat(resolved.value?.expr??resolved.value??50)/100}; Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
   }
-  // Keep the resolved visual tree before lowering destroys keys and hierarchy.
-  const treeRoots=clone(roots);
-  // Keys are linker identities, not properties of the lowered Rust primitives.
-  visit(roots,n=>{delete n.props.key;});
   const root=roots[0],out=[],visuals=[];let body='';
-  for(const n of root.children){if(visualTypes.has(n.type)){flatten(n,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,out,{...metrics,visuals});}else body+=serialize(n);}
-  instance.type='Button';instance.props=Object.fromEntries(Object.entries(resolved).filter(([k])=>standard.has(k)&&k!=='font.size'));instance.children=[];
-  const template=`component Button { Rectangle { ${Object.entries(root.props).map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
+  for(const n of root.children){if(visualTypes.has(n.type)){flatten(n,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,out,{...metrics,visuals});}else body+=serializeNode(n,true);}
+  const sourceNode={...instance,type:'Button',props:Object.fromEntries(Object.entries(resolved).filter(([k])=>standard.has(k)&&k!=='font.size')),children:[]};
+  const template=`component Button { Rectangle { ${Object.entries(root.props).filter(([k])=>k!=='key').map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
   visualNodes.push(...visuals.map(v=>({...v,control:index})));
-  return {template,treeRoots};
+  return {template,treeRoots:roots,sourceNode};
   }
   const controls=instances.map(compileInstance);
   const templateTree=createElementTree(controls.flatMap(c=>c.treeRoots));
+  const sourceControls=controls.map(c=>c.sourceNode);
+  const sourceScene=[{...root,children:children===instances?sourceControls:[{...children[0],children:sourceControls}]}];
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
   const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateEncoder.encode(c.template).length}\n${c.template}`).join('');
-  return {source:`component ${document.name} { ${scene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes};
+  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes};
 }

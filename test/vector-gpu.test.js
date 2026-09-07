@@ -155,3 +155,39 @@ test('retrying the previous model after a partial upload restores overwritten re
   assert.equal(commandsBuffer.data[0],1,'returning to the previous model must reload its geometry');
   assert.equal(groups.length,1,'capacity and bind-group identity remain reusable');
 });
+
+test('layout versions avoid scroll arrays and preserve geometry on paint-only changes',async t=>{
+  const {painter}=await fixture(t),scene=model();let layout=0,visual=0;
+  scene.layout_revision=()=>layout;scene.geometry_revision=()=>0;scene.visual_revision=()=>visual;
+  scene.scroll_offset=()=>assert.fail('versioned runtimes must not allocate scroll arrays');
+  painter.draw(scene,64,64,1);
+  visual++;painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,1);
+  layout++;painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,2);
+  painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,2);
+});
+
+test('legacy scene scroll keys remain exact without layout versions',async t=>{
+  const {painter}=await fixture(t),scene=model();let y=0;
+  scene.scroll_offset=()=>[0,y];scene.geometry_revision=()=>0;
+  painter.draw(scene,64,64,1);y=0.125;painter.draw(scene,64,64,1);
+  assert.equal(painter.snapshot().uploads,2);
+});
+
+test('legacy leaf reload invalidates geometry through its visual version',async t=>{
+  const {painter}=await fixture(t),scene=model();let visual=0;
+  scene.visual_revision=()=>visual;
+  painter.draw(scene,64,64,1);painter.draw(scene,64,64,1);
+  assert.equal(painter.snapshot().uploads,1);
+  scene.commands.fill(2);visual++;
+  painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,2);
+});
+
+test('CPU caches are released only after successful GPU submission',async t=>{
+  const {painter,state}=await fixture(t),scene=model();let released=0;
+  scene.release_cpu_cache=()=>{assert.ok(state.submissions>released);released++;};
+  state.failWriteData=scene.edges;
+  assert.throws(()=>painter.draw(scene,64,64,1),/injected upload failure/);
+  assert.equal(released,0);
+  painter.draw(scene,64,64,1);assert.equal(released,1);
+  painter.draw(scene,64,64,1);assert.equal(released,2);
+});

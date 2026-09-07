@@ -25,14 +25,16 @@ export function createElementTree(roots){
  function add(element,parent){
   const id=nodes.length;
   const node={id,parent,type:element.type,key:element.props?.key??null,
-   source:structuredClone(element.source??null),
-   propertySources:structuredClone(element.propertySources??{}),
-   props:structuredClone(element.props??{}),events:structuredClone(element.events??{}),
-   bindings:structuredClone(element.bindings??{}),children:[]};
+   source:element.source??null,
+   propertySources:element.propertySources??{},
+   props:element.props??{},events:element.events??{},
+   bindings:element.bindings??{},children:[]};
   nodes.push(node);
   node.children=(element.children??[]).map(child=>add(child,id));
   return id;
  }
  const rootIds=roots.map(root=>add(root,null));
- return freeze({roots:rootIds,nodes});
+ // Project first, then detach once. Cloning each field separately repeats the
+ // structured-clone setup five times per node and copies shared origins again.
+ return freeze(structuredClone({roots:rootIds,nodes}));
 }

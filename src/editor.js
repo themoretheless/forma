@@ -1,3 +1,4 @@
+import {undo,redo,isolateHistory} from '@codemirror/commands';
 import {basicSetup} from 'codemirror';
 import {EditorState,StateEffect,StateField,Compartment} from '@codemirror/state';
 import {EditorView,Decoration} from '@codemirror/view';
@@ -26,7 +27,7 @@ export function mountEditor(textarea){
   let programmatic=false,currentHighlight='',cachedText=textarea.value,inputQueued=false,selectionQueued=false;
   const languageConfig=new Compartment();
   const ranges=StateField.define({create:state=>blockRanges(state.doc.toString()),update:(value,tr)=>tr.docChanged?blockRanges(tr.newDoc.toString()):value});
-  const view=new EditorView({parent:host,state:EditorState.create({doc:textarea.value,extensions:[basicSetup,languageConfig.of(formaHighlight),ranges,selectionField,
+  const extensions=[basicSetup,languageConfig.of(formaHighlight),ranges,selectionField,
     foldService.of((state,from,to)=>state.field(ranges).find(r=>r.from>from&&r.from<=to)),
     EditorView.contentAttributes.of({'aria-label':'Редактор исходного кода'}),
     EditorView.updateListener.of(update=>{
@@ -45,9 +46,11 @@ export function mountEditor(textarea){
       '&.cm-focused':{outline:'none'},
       '.cm-selectionBackground':{backgroundColor:'#354969 !important'}
     },{dark:true})
-  ]})});
+  ];
+  const view=new EditorView({parent:host,state:EditorState.create({doc:textarea.value,extensions})});
+  const documents=new Map();let documentPath=null,pendingPath=null;
   Object.defineProperties(textarea,{
-    value:{get:()=>cachedText??=view.state.doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});}finally{programmatic=false;}}},
+    value:{get:()=>cachedText??=view.state.doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{if(pendingPath!==documentPath){if(documentPath)documents.set(documentPath,view.state);const saved=documents.get(pendingPath);view.setState(saved?.doc.toString()===text?saved:EditorState.create({doc:text,extensions}));documentPath=pendingPath;view.dispatch({effects:languageConfig.reconfigure(documentPath?.endsWith('.ui')?formaHighlight:[])});cachedText=text;}else if(view.state.doc.toString()!==text){view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});}}finally{programmatic=false;}}},
     selectionStart:{get:()=>view.state.selection.main.from},
     selectionEnd:{get:()=>view.state.selection.main.to}
   });
@@ -57,7 +60,7 @@ export function mountEditor(textarea){
     view.dispatch({selection:{anchor:start,head:end},effects});
   };
   view.dom.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'s',metaKey:e.metaKey,ctrlKey:e.ctrlKey}));}});
-  return {position(){const from=view.state.selection.main.from,line=view.state.doc.lineAt(from);return {line:line.number,column:from-line.from+1};},edit(change){view.dispatch({changes:change,userEvent:'input.inspector'});},setLanguage(path){view.dispatch({effects:languageConfig.reconfigure(path.endsWith('.ui')?formaHighlight:[])});},fold({line,collapsed=true}){
+  return {position(){const from=view.state.selection.main.from,line=view.state.doc.lineAt(from);return {line:line.number,column:from-line.from+1};},undo(){return undo(view);},redo(){return redo(view);},edit(change){view.dispatch({changes:change,userEvent:'input.inspector',annotations:isolateHistory.of('full')});},setLanguage(path){pendingPath=path;},fold({line,collapsed=true}){
     if(line===undefined){(collapsed?foldAll:unfoldAll)(view);return;}
     if(line<1||line>view.state.doc.lines)throw Error('Line out of range');
     const location=view.state.doc.line(line),range=view.state.field(ranges).find(r=>r.from>location.from&&r.from<=location.to);

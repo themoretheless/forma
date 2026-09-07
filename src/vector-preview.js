@@ -47,6 +47,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   if (!context) throw new Error('Canvas 2D недоступен');
   const listeners = new AbortController();
   let button = null, current = null, selectedStart = null, destroyed = false;
+  let layoutModel=null,layoutRevision=null,layout=null;
   let pointerId = null, pressedKey = null, frame = null, lastFrameTime = 0;
   let cursorPosition = null;
   let reverseTabEntry = false;
@@ -467,6 +468,18 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       return true;
     },
     activate,
+    // Canvas tools need geometry, not strings, text values and interaction state
+    // for every control. Reuse an immutable snapshot until the model changes.
+    layoutSnapshot() {
+      if(!button||!current)return null;
+      const revision=button.layout_revision?.()??button.visual_revision();
+      if(layoutModel===button&&layoutRevision===revision)return layout;
+      layout=Object.freeze({width:button.width(),height:button.height(),clip:button.clipped(),
+        scrollable:button.scrollable(),scrollOffset:Object.freeze(Array.from(button.scroll_offset())),
+        controls:Object.freeze(Array.from({length:button.control_count()},(_,index)=>Object.freeze({index,bounds:Object.freeze(Array.from(button.control_bounds(index)))})))});
+      layoutModel=button;layoutRevision=revision;
+      return layout;
+    },
     snapshot() {
       return button && current ? {...current, nodes: undefined, renderer: gpu?'rust-wasm-webgpu':'rust-wasm-cpu',gpuStats:gpu?.snapshot()??null,gpuFallbackReason:gpuFailure||null, rasterStats: Array.from(button.raster_stats()), selectedStart, focusedIndex:button.focused_index(),controls:Array.from({length:button.control_count()},(_,i)=>({index:i,key:button.control_key(i),label:button.control_label(i),bounds:Array.from(button.control_bounds(i)),disabled:button.control_disabled(i),interactive:button.control_interactive(i),editable:button.control_editable?.(i)??false,value:button.control_editable?.(i)?button.text_value(i):undefined,hovered:button.control_hovered(i),focused:button.control_focused(i),clicks:button.control_clicks(i),action:button.control_action(i)})), width: button.width(), height: button.height(), clip:button.clipped(),radius:button.frame_radius(),overflow:button.overflow(),scrollable:button.scrollable(),renderWidth:button.render_width(),renderHeight:button.render_height(),scrollOffset:Array.from(button.scroll_offset()), bounds: Array.from(button.bounds()), label: button.label(), key: button.key(), action: button.action(), disabled: button.disabled(), clicks: button.clicks()} : null;
     },
@@ -486,6 +499,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       button = null;
       current = null;
       paintedModel=null;paintedGpu=null;
+      layoutModel=null;layout=null;layoutRevision=null;
     },
   };
 }

@@ -172,6 +172,7 @@ impl Button {
     pub fn is_focused(&self)->bool{self.focused}
     pub fn preserve_interaction(&mut self, previous:&Button){
         if self.scene.button.key!=previous.scene.button.key{return;}
+        let before_reveal = self.reveal_paint();
         self.clicks=previous.clicks;
         self.focused=previous.focused&&!self.disabled()&&self.template.clickable;
         self.hover=previous.hover;
@@ -183,6 +184,7 @@ impl Button {
         } else { self.reveal = reveal::State::default(); self.reveal.reduced_motion(self.reduced_motion); }
         // A replaced subtree must not inherit an unfinished click gesture.
         self.down=false;self.keyboard=None;self.update_colors();
+        if before_reveal != self.reveal_paint() { self.visual_revision=self.visual_revision.wrapping_add(1); }
     }
     pub fn key(&self) -> String { self.scene.button.key.clone() }
     pub fn action(&self) -> String { if self.template.clickable{self.scene.button.action.clone().unwrap_or_default()}else{String::new()} }

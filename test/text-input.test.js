@@ -139,3 +139,7 @@ test('collection fixtures cover empty, populated, loading and error without sour
  }
  assert.equal(project['ui/Collection.ui'],source);
 });
+test('deleting the last control compiles to a real empty Runtime scene',()=>{
+ const compiled=compileComponents({'ui/Empty.ui':'component Empty { Frame { width: 200; height: 100; } }'},'ui/Empty.ui');
+ const model=new Runtime();try{model.load_component(compiled.source,compiled.template);assert.equal(model.control_count(),0);assert.equal(model.content_pixels(200,100,1).length,200*100*4);assert.equal(model.label(),'');assert.equal(compiled.visualNodes.filter(v=>v.control>=0).length,0);}finally{model.free();}
+});
