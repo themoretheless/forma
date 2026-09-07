@@ -224,7 +224,7 @@ codeEditor=mountEditor($('code'));
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
 getScene:()=>renderer==='vector'?vectorPreview?.layoutSnapshot():null,
 getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=children[0]?.type==='Scroll'?children[0].children:children;return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
-getMode:()=>mode,setMode:next=>{if(mode!==next)$('run').click();},onChange:()=>{spacingOverlay?.update();layoutInspector?.update();}});
+getMode:()=>mode,setMode:next=>{if(mode!==next)$('run').click();},onChange:()=>{spacingOverlay?.update();layoutInspector?.update();elementTools?.update();}});
 const presetPicker=document.createElement('select');presetPicker.className='design-preset';presetPicker.setAttribute('aria-label','Проверка дизайна');
 for(const [value,label] of [['original','Исходный вид'],['long','Длинный текст'],['empty','Пустой текст'],['disabled','Недоступные контролы'],['list-empty','Список: пусто'],['list-12','Список: 12 строк'],['list-100','Список: 100 строк'],['loading','Список: загрузка'],['error','Список: ошибка']])presetPicker.add(new Option(label,value));
 document.querySelector('.canvas-tools').append(presetPicker);
@@ -237,9 +237,17 @@ readTracks:source=>{const raw=files[source.file].slice(source.from,source.to);co
 openSource:source=>{open(source.file);$('code').setSelectionRange(source.from,source.to);$('code').focus();},
 edit:(source,insert)=>{const previous=files[source.file];if(previous===undefined)throw Error('Файл не найден');const next=previous.slice(0,source.from)+insert+previous.slice(source.to);parse(next);if(active!==source.file)open(source.file);codeEditor.edit({from:source.from,to:source.to,insert});compile();}});
 elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,start:selectedPath===entry?selected?.start:null,nodes:children[0]?.type==='Scroll'?children[0].children:children,scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid};},
+context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,nodes:children[0]?.type==='Scroll'?children[0].children:children,scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid};},
 select,report:message=>{$('caption').textContent=message;},
-history:action=>{const start=selected?.start;if(active!==entry)open(entry);if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);elementTools.update();});},
+history:action=>{
+ const starts=elementTools.selection(),children=compiled?.nodes[0]?.children??[],before=children[0]?.type==='Scroll'?children[0].children:children;
+ const identities=before.flatMap((n,index)=>starts.includes(n.start)?[{key:n.props.key,index,type:n.type}]:[]);
+ if(active!==entry)open(entry);
+ if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();const children=compiled?.nodes[0]?.children??[],after=children[0]?.type==='Scroll'?children[0].children:children;
+  const restored=identities.map(id=>typeof id.key==='string'?after.find(n=>n.props.key===id.key):before.length===after.length&&after[id.index]?.type===id.type?after[id.index]:null).filter(Boolean);
+  if(restored.length)select(restored[0]);elementTools.setSelection(restored.map(n=>n.start));elementTools.update();
+ });
+},
 commit:(change,context)=>{
  if(entry!==context.path||files[entry]!==context.source)throw Error('Исходник изменился — повторите операцию');
  const next=context.source.slice(0,change.from)+change.insert+context.source.slice(change.to);
@@ -247,7 +255,7 @@ commit:(change,context)=>{
  parse(next);compileComponents({...files,[entry]:next},entry,state,{measureText:vectorPreview.measureText});
  if(active!==entry)open(entry);codeEditor.edit({from:change.from,to:change.to,insert:change.insert});
  // The editor publishes its input event first; reselect against the new AST afterwards.
- queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===change.start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);elementTools.update();});
+ queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===change.start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);if(change.starts)elementTools.setSelection(change.starts);elementTools.update();});
 }});
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);

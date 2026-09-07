@@ -26,9 +26,9 @@ export function moveElement(source,start,dx,dy,cell,origin=[0,0]){
 }
 export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
 export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
-export function insertElement(source,start,text){
+export function insertElement(source,start,text,multiple=false){
  const parsed=parse('component Clipboard { Frame { '+text+' } }').nodes[0].children;
- if(parsed.length!==1||['Frame','Scroll'].includes(parsed[0].type))throw Error('Вставьте один контрол Forma');
+ if(!parsed.length||(!multiple&&parsed.length!==1)||parsed.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Вставьте один контрол Forma');
  const {node,parent}=locateElement(source,start);const container=['Frame','Scroll'].includes(node.type)?node:parent;
  if(!container)throw Error('Выберите контейнер');
  const keys=new Set();const walk=nodes=>{for(const n of nodes){if(typeof n.props.key==='string')keys.add(n.props.key);walk(n.children);}};walk(parse(source).nodes);
@@ -38,7 +38,7 @@ export function insertElement(source,start,text){
  for(const n of all.reverse()){if(typeof n.props.key!=='string')continue;let key=n.props.key;let i=2;while(keys.has(key))key=n.props.key+'_'+i++;keys.add(key);wrapped=patch(wrapped,n,{key});}
  text=wrapped.slice(wrapper.length,-4);
  const at=container===node?container.end-1:node.end;
- const insert='\n'+text+'\n';const next=source.slice(0,at)+insert+source.slice(at);parse(next);return {from:at,to:at,insert,start:at+1};
+ const insert='\n'+text+'\n';const next=source.slice(0,at)+insert+source.slice(at);parse(next);const inserted=parse(wrapper+text+' } }').nodes[0].children;return {from:at,to:at,insert,start:at+1,starts:inserted.map(n=>at+1+n.start-wrapper.length)};
 }
 export function gridCell(grid,x,y){
  const track=(sizes,value,gap)=>{let edge=0;for(let i=0;i<sizes.length;i++){edge+=sizes[i]+gap;if(value<edge)return i+1;}return sizes.length;};
@@ -56,3 +56,16 @@ export function reorderElement(source,start,direction){
  const next=source.slice(0,first.start)+insert+source.slice(last.end);parse(next);
  return {from:first.start,to:last.end,insert,start:direction<0?first.start:first.start+b.length+gap.length};
 }
+// Merge independent source edits into one editor transaction, preserving selection offsets.
+export function editElements(source,starts,operation){
+ const ordered=[...new Set(starts)].sort((a,b)=>a-b);
+ const changes=ordered.map(start=>operation(start)).filter(Boolean).sort((a,b)=>a.from-b.from);
+ if(!changes.length)return null;
+ for(let i=1;i<changes.length;i++)if(changes[i].from<changes[i-1].to)throw Error('Выбирайте элементы одного уровня');
+ let next=source;for(const c of [...changes].reverse())next=next.slice(0,c.from)+c.insert+next.slice(c.to);
+ const from=changes[0].from,to=changes.at(-1).to,shift=changes.reduce((sum,c)=>sum+c.insert.length-(c.to-c.from),0);
+ const selected=changes.filter(c=>c.insert.length).map(c=>c.start+changes.filter(p=>p.to<=c.from).reduce((sum,p)=>sum+p.insert.length-(p.to-p.from),0));
+ parse(next);return {from,to,insert:next.slice(from,to+shift),starts:selected,start:selected[0]??changes[0].start};
+}
+export function copyElements(source,starts){return [...new Set(starts)].sort((a,b)=>a-b).map(start=>copyElement(source,start)).join('\n');}
+export function insertElements(source,start,text){return insertElement(source,start,text,true);}

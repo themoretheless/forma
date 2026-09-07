@@ -4,15 +4,15 @@ import {createElementTools} from '../src/element-tools.js';
 import {parse} from '../src/language.js';
 class Element extends EventTarget{
  constructor(){super();this.children=[];this.dataset={};this.style={};this.classList={contains:()=>false};this.scrollLeft=this.scrollTop=0;this.capture=new Set();}
- append(n){this.children.push(n);n.parent=this;} after(n){this.next=n;} setAttribute(){} contains(n){return n===this||this.children.some(c=>c.contains(n));}closest(){return null;} focus(){}getBoundingClientRect(){return {left:0,top:0,width:800,height:400};}setPointerCapture(id){this.capture.add(id);}releasePointerCapture(id){this.capture.delete(id);}hasPointerCapture(id){return this.capture.has(id);}
+ append(n){this.children.push(n);n.parent=this;} replaceChildren(){this.children=[];} after(n){this.next=n;} setAttribute(){} contains(n){return n===this||this.children.some(c=>c.contains(n));}closest(){return null;} focus(){}getBoundingClientRect(){return {left:0,top:0,width:800,height:400};}setPointerCapture(id){this.capture.add(id);}releasePointerCapture(id){this.capture.delete(id);}hasPointerCapture(id){return this.capture.has(id);}
  emit(type,data={}){const e=new Event(type,{cancelable:true});for(const [k,v] of Object.entries(data))Object.defineProperty(e,k,{value:v});this.dispatchEvent(e);return e;}
 }
-function setup(){
+function setup(initial){
  globalThis.document={createElement:()=>new Element()};globalThis.window=new Element();
- const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';let selected=null,enabled=true;const commits=[],errors=[];
- const context=()=>enabled?{source,start:selected,path:'test.ui',nodes:parse(source).nodes[0].children,scene:{width:400,controls:[{index:0,bounds:[10,20,100,40]}]}}:null;
- createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;},history:()=>{},report:e=>errors.push(e)});
- return {viewport,artboard,toolbar,commits,errors,source:()=>source,disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
+ const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';if(initial)source=initial;let selected=null,enabled=true;const commits=[],errors=[];
+ const context=()=>enabled?{source,start:selected,path:'test.ui',nodes:parse(source).nodes[0].children,scene:{width:400,height:200,controls:parse(source).nodes[0].children.map((n,index)=>({index,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))}}:null;
+ const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e)});
+ return {tools,viewport,artboard,toolbar,commits,errors,source:()=>source,disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
 }
 test('drag uses logical coordinates at 200%, commits once on release, Escape cancels',()=>{
  const t=setup();t.down();t.viewport.emit('pointermove',{pointerId:1,clientX:80,clientY:80});assert.equal(t.commits.length,0);
@@ -36,4 +36,17 @@ test('Alt+Down reorders selected sibling and Alt+Up restores it',()=>{
  window.emit('keydown',{target:t.viewport,key:'ArrowUp',altKey:true});
  assert.deepEqual(parse(t.source()).nodes[0].children.map(n=>n.props.key),['button_2','button']);
  window.emit('keydown',{target:t.viewport,key:'ArrowDown',altKey:true});assert.equal(t.source(),before);assert.deepEqual(t.errors,[]);
+});
+
+const groupSource="component Test { Frame { width:400; Button { key:'a'; x:10; y:20; width:60; } Button { key:'b'; x:150; y:80; width:60; } } }";
+test('Shift click selects a group, drag moves it once and deletion removes the whole group',()=>{
+ const t=setup(groupSource);t.down();t.viewport.emit('pointerup',{pointerId:1});
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:2,clientX:320,clientY:180,shiftKey:true});assert.equal(t.tools.selection().length,2);
+ t.down();t.viewport.emit('pointermove',{pointerId:1,clientX:60,clientY:80,altKey:true});t.viewport.emit('pointerup',{pointerId:1});
+ assert.equal(t.commits.length,1);assert.deepEqual(parse(t.source()).nodes[0].children.map(n=>[n.props.x,n.props.y]),[[20,30],[160,90]]);assert.equal(t.tools.selection().length,2);
+ window.emit('keydown',{target:t.viewport,key:'Delete'});assert.equal(parse(t.source()).nodes[0].children.length,0);assert.deepEqual(t.errors,[]);
+});
+test('marquee selects intersecting controls and Escape cancels without changing selection',()=>{
+ const t=setup(groupSource);t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:1,clientX:0,clientY:0});t.viewport.emit('pointermove',{pointerId:1,clientX:450,clientY:250});t.viewport.emit('pointerup',{pointerId:1});assert.equal(t.tools.selection().length,2);assert.equal(t.commits.length,0);
+ t.down();t.viewport.emit('pointermove',{pointerId:1,clientX:60,clientY:80});window.emit('keydown',{target:t.viewport,key:'Escape'});assert.equal(t.tools.selection().length,2);assert.equal(t.commits.length,0);
 });
