@@ -1,6 +1,6 @@
 //! Native WebGPU/wgpu backend. Uploads vector commands/edges, never RGBA images.
 use crate::{
-    display_list::{DisplayList, RenderScene, TileScratch, TILE},
+    display_list::{DisplayList, RenderScene, TileScratch, PARAMS_LEN, TILE},
 };
 use std::sync::Arc;
 pub const SHADER: &str = include_str!("vector.wgsl");
@@ -92,7 +92,7 @@ pub struct Renderer {
     uniform: wgpu::Buffer,
     bindings: Option<wgpu::BindGroup>,
     geometry: Option<Arc<DisplayList>>,
-    tile_key: Option<(u32, u32, f32)>,
+    tile_key: Option<(u32, u32, f32, [f32; 2])>,
     tile_scratch: TileScratch,
     buffers: Vec<wgpu::Buffer>,
     params: Vec<f32>,
@@ -184,8 +184,8 @@ impl Renderer {
             return Err(error.to_string());
         }
         let uniform = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Forma colors and viewport"),
-            size: 48,
+            label: Some("Forma colors, viewport and scroll"),
+            size: (PARAMS_LEN * std::mem::size_of::<f32>()) as u64,
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -225,8 +225,8 @@ impl Renderer {
             tile_key: None,
             tile_scratch: TileScratch::default(),
             buffers: Vec::with_capacity(4),
-            params: Vec::with_capacity(12),
-            uploaded_params: Vec::with_capacity(12),
+            params: Vec::with_capacity(PARAMS_LEN),
+            uploaded_params: Vec::with_capacity(PARAMS_LEN),
             paints: Vec::new(),
             uploaded_paints: Vec::new(),
             uploads: 0,
@@ -376,14 +376,16 @@ impl Renderer {
             .geometry
             .as_ref()
             .is_none_or(|cached| !Arc::ptr_eq(cached, &list));
-        // The binner depends on the number of tiles, not exact viewport pixels.
-        // Sub-tile resize changes only uniforms, retaining the same valid tile data.
-        let tile_key = (width.div_ceil(TILE), height.div_ceil(TILE), scale);
+        // The binner depends on the number of tiles and the scroll offset, not
+        // exact viewport pixels. Sub-tile resize changes only uniforms; scrolling
+        // re-bins the retained geometry without any command/edge upload.
+        let scroll = model.gpu_scroll();
+        let tile_key = (width.div_ceil(TILE), height.div_ceil(TILE), scale, scroll);
         let tiles_changed=changed || self.tile_key != Some(tile_key);
         model.gpu_paints_into(&mut self.paints);
         let paints_changed = self.buffers.len() < 4 || self.paints != self.uploaded_paints;
         {
-            let tiles = if tiles_changed {list.tiles_into(width, height, scale, &mut self.tile_scratch)}else{&[]};
+            let tiles = if tiles_changed {list.tiles_into(width, height, scale, scroll, &mut self.tile_scratch)}else{&[]};
             let edges = if list.edges.is_empty() {
                 &[0f32; 4][..]
             } else {
@@ -571,7 +573,7 @@ mod tests {
             let target = texture.create_view(&Default::default());
             assert_eq!(renderer.read_gpu_duration_ns().unwrap(), None);
             let initial = renderer.resource_stats();
-            assert_eq!(initial.buffer_bytes, 48 + initial.timing_buffer_bytes);
+            assert_eq!(initial.buffer_bytes, (PARAMS_LEN * 4) as u64 + initial.timing_buffer_bytes);
             assert_eq!(
                 initial.buffer_allocations_total,
                 initial.buffer_count as u64
@@ -770,16 +772,23 @@ mod tests {
                 .draw(&scrolling, &target, 96, 64, 1., true, true)
                 .unwrap();
             let before_scroll = renderer.uploads;
+            let tiles_before_scroll = renderer.resource_stats().tile_uploads_total;
+            let params_before_scroll = renderer.resource_stats().uploaded_bytes_total;
             scrolling.scroll(5., 5.);
             renderer
                 .draw(&scrolling, &target, 96, 64, 1., true, true)
                 .unwrap();
-            assert_eq!(renderer.uploads, before_scroll + 1);
+            // Scrolling re-bins tiles and updates the uniform; geometry stays resident.
+            assert_eq!(renderer.uploads, before_scroll);
+            assert_eq!(renderer.resource_stats().tile_uploads_total, tiles_before_scroll + 1);
+            assert!(renderer.resource_stats().uploaded_bytes_total > params_before_scroll);
             scrolling.scroll(0., 0.);
+            let bytes = renderer.resource_stats().uploaded_bytes_total;
             renderer
                 .draw(&scrolling, &target, 96, 64, 1., true, true)
                 .unwrap();
-            assert_eq!(renderer.uploads, before_scroll + 1);
+            assert_eq!(renderer.uploads, before_scroll);
+            assert_eq!(renderer.resource_stats().uploaded_bytes_total, bytes);
             renderer
                 .device
                 .poll(wgpu::PollType::wait_indefinitely())

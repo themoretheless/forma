@@ -34,10 +34,10 @@
 | Документы Control Tree | Путь и точное содержимое | Тот же общий LRU; активное дерево — живое UI-состояние |
 | Метрики текста | Текст и размер при одном callback | Одна компиляция |
 | Lowered SVG | Точное содержимое SVG, bounds, цвет | Одна компиляция, до 1 000 000 UTF-16 единиц результата |
-| Native geometry | Удерживаемый immutable Arc identity, DPI, background; scroll внутри ключа модели | Один текущий snapshot |
-| WebGPU geometry | Model identity, geometry/layout versions, scale | Один текущий набор GPU-буферов |
-| GPU tiles | Ключ геометрии и размеры сетки тайлов | Один текущий набор |
-| Paint | Visual version; native также сравнивает подготовленные параметры | Текущий кадр |
+| Native geometry | Удерживаемый immutable Arc identity, DPI, background; scroll не входит | Один текущий snapshot |
+| WebGPU geometry | Model identity, geometry version, scale; layout version только для тайлов и uniform | Один текущий набор GPU-буферов |
+| GPU tiles | Ключ геометрии, размеры сетки тайлов и scroll offset | Один текущий набор |
+| Paint | Visual version; native также сравнивает подготовленные параметры (включая scroll) | Текущий кадр |
 | Canvas tools bounds | Model identity и layout version | Один immutable snapshot |
 | CPU raster | Размеры, DPI, scroll, paint revision / параметры | Текущий размер; освобождается при переходе на GPU |
 
@@ -74,9 +74,12 @@ instanceProps выполняются заново. Полный output cache и 
 перестроение раскладки не добавлялись: для них потребуется больше зависимостей,
 чем один хеш entry-файла.
 
-Для glyph cache сначала нужно отделить локальную геометрию от transform с
-оговорённой точностью. Перенос готовых контуров сейчас способен изменить
-порядок f32-округления и fractional AA. Ради такого кэша качество не менялось.
+С 8 сентября 2026 DisplayList хранит геометрию в координатах содержимого,
+а scroll передаётся как uniform и режим в пятом vec4 команды
+([третий проход](PERFORMANCE_PASS3_2026_09_08.md)). Это отделило transform
+scroll от контуров без изменения CPU-пикселей. Кэш готовых контуров glyph
+между разными текстами по-прежнему не добавлен: он менял бы порядок
+f32-округления внутри одного текста.
 
 Неактивные source-деревья Control Tree больше не накапливаются без лимита.
 Остаётся отдельная задача native renderer: CPU/GPU capacity ограничена размерами

@@ -17,9 +17,9 @@ fn font() -> &'static Face<'static> {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Point {
-    x: f32,
-    y: f32,
+pub(crate) struct Point {
+    pub(crate) x: f32,
+    pub(crate) y: f32,
 }
 
 impl Point {
@@ -295,7 +295,42 @@ pub fn draw_text(
     rasterize(pixels, width, &contours.edges, clip, color);
 }
 
-fn rasterize(
+/// Exact signed area one edge (physical pixels) contributes to the pixel whose
+/// left edge is `px` over the row strip [`y0`, `y1`): the integral of
+/// clamp(x_edge(y) - px, 0, 1) signed by direction. Same formula as `edge_area`
+/// in `vector.wgsl` (there the strip is one whole pixel), so CPU and GPU
+/// coverage agree up to rounding.
+fn edge_area(a: Point, b: Point, px: f32, y0: f32, y1: f32) -> f32 {
+    if a.y == b.y {
+        return 0.;
+    }
+    let ya = a.y.min(b.y).max(y0);
+    let yb = a.y.max(b.y).min(y1);
+    if ya >= yb {
+        return 0.;
+    }
+    let slope = (b.x - a.x) / (b.y - a.y);
+    let fa = a.x + (ya - a.y) * slope - px;
+    let fb = a.x + (yb - a.y) * slope - px;
+    let d = fb - fa;
+    let mut area = fa.clamp(0., 1.);
+    if d != 0. {
+        let t0 = (-fa / d).clamp(0., 1.);
+        let t1 = ((1. - fa) / d).clamp(0., 1.);
+        let lo = t0.min(t1);
+        let hi = t0.max(t1);
+        let flo = (fa + d * lo).clamp(0., 1.);
+        let fhi = (fa + d * hi).clamp(0., 1.);
+        area = if d > 0. { 1. - hi } else { lo } + (flo + fhi) * 0.5 * (hi - lo);
+    }
+    (if b.y > a.y { area } else { -area }) * (yb - ya)
+}
+
+/// Fill a closed contour set (physical-pixel edges) into straight-alpha RGBA with
+/// exact area coverage under the nonzero rule, clipped to `clip` (physical
+/// pixels, fractional edges scale the boundary column/row). Shared by text and
+/// composed shapes on native and WASM.
+pub(crate) fn rasterize(
     pixels: &mut [u8],
     width: u32,
     edges: &[(Point, Point)],
@@ -329,60 +364,64 @@ fn rasterize(
     if left >= right || top >= bottom {
         return;
     }
-    // Scratch space is one clipped text row, not another full canvas. Scanline
-    // intersections are computed twice per row, never once per pixel per edge.
-    let mut coverage = vec![0_u8; right - left];
-    let mut intersections = Vec::<(f32, i32)>::with_capacity(edges.len());
+    let columns = right - left;
+    // Per row: exact per-pixel areas where an edge crosses the column, plus a
+    // difference array for the full-height contribution of every column to the
+    // left of the edge. Scratch is one clipped row, never a full canvas.
+    let mut area = vec![0f32; columns];
+    let mut full = vec![0f32; columns + 1];
     for y in top..bottom {
-        coverage.fill(0);
-        for dy in [0.25, 0.75] {
-            let sample_y = y as f32 + dy;
-            if sample_y < clip[1] || sample_y >= clip[3] {
+        let row_top = (y as f32).max(clip[1]);
+        let row_bottom = (y as f32 + 1.).min(clip[3]);
+        if row_top >= row_bottom {
+            continue;
+        }
+        area.fill(0.);
+        full.fill(0.);
+        let mut touched = false;
+        for &(a, b) in edges {
+            let ya = a.y.min(b.y).max(row_top);
+            let yb = a.y.max(b.y).min(row_bottom);
+            if ya >= yb {
                 continue;
             }
-            intersections.clear();
-            for &(a, b) in edges {
-                // Half-open edge range means shared contour vertices count once.
-                if sample_y >= a.y.min(b.y) && sample_y < a.y.max(b.y) {
-                    let x = a.x + (sample_y - a.y) / (b.y - a.y) * (b.x - a.x);
-                    intersections.push((x, if b.y > a.y { 1 } else { -1 }));
-                }
+            touched = true;
+            let slope = (b.x - a.x) / (b.y - a.y);
+            let xa = a.x + (ya - a.y) * slope;
+            let xb = a.x + (yb - a.y) * slope;
+            let (xmin, xmax) = (xa.min(xb), xa.max(xb));
+            let signed = if b.y > a.y { yb - ya } else { ya - yb };
+            // Columns entirely left of the edge receive the whole row height.
+            let first = ((xmin - 1.).floor().max(left as f32) as usize).min(right);
+            if first > left {
+                full[0] += signed;
+                full[first - left] -= signed;
             }
-            intersections.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
-            let mut winding = 0;
-            let mut previous: f32 = 0.;
-            for &(x, direction) in &intersections {
-                if winding != 0 {
-                    let start = previous.max(clip[0]);
-                    let end = x.min(clip[2]);
-                    if start < end {
-                        for dx in [0.25, 0.75] {
-                            let first = ((start - dx).ceil().max(left as f32) as usize).min(right);
-                            let last = ((end - dx).ceil().max(left as f32) as usize).min(right);
-                            if first < last {
-                                for value in &mut coverage[first - left..last - left] {
-                                    *value += 1;
-                                }
-                            }
-                        }
-                    }
-                }
-                winding += direction;
-                previous = x;
+            let last = ((xmax.floor() + 1.).min(right as f32).max(left as f32)) as usize;
+            for px in first..last {
+                area[px - left] += edge_area(a, b, px as f32, row_top, row_bottom);
             }
         }
-        for (offset, &samples) in coverage.iter().enumerate() {
-            if samples == 0 {
+        if !touched {
+            continue;
+        }
+        let mut running = 0.;
+        for offset in 0..columns {
+            running += full[offset];
+            let px = (left + offset) as f32;
+            let horizontal = ((px + 1.).min(clip[2]) - px.max(clip[0])).clamp(0., 1.);
+            let coverage = (running + area[offset]).abs().min(1.) * horizontal;
+            if coverage <= 0. {
                 continue;
             }
             let pixel = (y * width as usize + left + offset) * 4;
-            blend(&mut pixels[pixel..pixel + 4], color, samples);
+            blend(&mut pixels[pixel..pixel + 4], color, coverage);
         }
     }
 }
 
-fn blend(pixel: &mut [u8], color: [u8; 4], samples: u8) {
-    let source_alpha = color[3] as f32 / 255. * samples as f32 / 4.;
+fn blend(pixel: &mut [u8], color: [u8; 4], coverage: f32) {
+    let source_alpha = color[3] as f32 / 255. * coverage;
     let retained_alpha = pixel[3] as f32 / 255. * (1. - source_alpha);
     let alpha = source_alpha + retained_alpha;
     for channel in 0..3 {
@@ -633,5 +672,73 @@ mod tests {
         contours.close();
         assert!(contours.edges.len() > 8);
         assert!(contours.edges.iter().any(|(a, b)| a.y.min(b.y) <= -14.));
+    }
+
+    // Scanline reference with exact x spans and 64 sub-rows: independent of the
+    // closed-form edge_area, so it validates the CPU rasterizer the same way
+    // tests/runtime_gpu.rs validates the shader.
+    fn scanline_reference(width: usize, height: usize, edges: &[(Point, Point)]) -> Vec<f32> {
+        const ROWS: usize = 64;
+        let mut coverage = vec![0f32; width * height];
+        let mut hits = Vec::new();
+        for row in 0..height * ROWS {
+            let y = (row as f32 + 0.5) / ROWS as f32;
+            hits.clear();
+            for &(a, b) in edges {
+                if (a.y <= y && b.y > y) || (b.y <= y && a.y > y) {
+                    hits.push((a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y), if b.y > a.y { 1i32 } else { -1 }));
+                }
+            }
+            hits.sort_by(|a, b| a.0.total_cmp(&b.0));
+            let (mut winding, mut previous) = (0, 0f32);
+            for &(x, direction) in &hits {
+                if winding != 0 {
+                    let (x0, x1) = (previous.max(0.), x.min(width as f32));
+                    let mut px = x0.floor().max(0.) as usize;
+                    while (px as f32) < x1 && px < width {
+                        coverage[(row / ROWS) * width + px] += (x1.min(px as f32 + 1.) - x0.max(px as f32)).max(0.) / ROWS as f32;
+                        px += 1;
+                    }
+                }
+                winding += direction;
+                previous = x;
+            }
+        }
+        coverage
+    }
+
+    #[test]
+    fn exact_area_rasterizer_matches_scanline_reference() {
+        let (width, height) = (160usize, 48usize);
+        for (text, size, scale) in [("Forma Жg", 17.5, 1.), ("ilj ОБ 0.5", 11., 1.25), ("Привет", 24., 2.)] {
+            let face = font();
+            let units_to_pixels = size * scale / face.units_per_em() as f32;
+            let origin = Point { x: 3.3, y: 30.7 };
+            let mut contours = Contours { edges: Vec::new(), current: origin, start: origin, origin, units_to_pixels };
+            for ch in text.chars() {
+                let id = glyph(face, ch);
+                face.outline_glyph(id, &mut contours);
+                contours.origin.x += advance(face, id) * units_to_pixels;
+            }
+            let mut pixels = vec![0u8; width * height * 4];
+            rasterize(&mut pixels, width as u32, &contours.edges, [0., 0., width as f32, height as f32], [255, 255, 255, 255]);
+            let expected = scanline_reference(width, height, &contours.edges);
+            let (mut max, mut covered) = (0u8, 0usize);
+            for (i, cov) in expected.iter().enumerate() {
+                let reference = (cov.min(1.) * 255.).round() as u8;
+                if reference > 0 { covered += 1; }
+                max = max.max(reference.abs_diff(pixels[i * 4 + 3]));
+            }
+            assert!(covered > 100, "{text}: fixture must rasterize text");
+            assert!(max <= 2, "{text}: max coverage error {max}/255 against the scanline reference");
+        }
+        // Polygons through the shape path: a concave even-odd-compatible shape.
+        let mut pixels = vec![0u8; 64 * 64 * 4];
+        crate::shape::draw(&mut pixels, 64, 64, 1.25, &[[4., 4.], [40., 6.], [20., 20.], [44., 44.], [6., 40.]], [1.5, 2.25], [255, 255, 255, 255]);
+        let points: Vec<Point> = [[4., 4.], [40., 6.], [20., 20.], [44., 44.], [6., 40.]].iter().map(|p| Point { x: (p[0] + 1.5) * 1.25, y: (p[1] + 2.25) * 1.25 }).collect();
+        let edges: Vec<_> = (0..points.len()).map(|i| (points[i], points[(i + 1) % points.len()])).collect();
+        let expected = scanline_reference(64, 64, &edges);
+        let max = expected.iter().enumerate().map(|(i, cov)| ((cov.min(1.) * 255.).round() as u8).abs_diff(pixels[i * 4 + 3])).max().unwrap();
+        assert!(max <= 2, "shape: max coverage error {max}/255");
     }
 }

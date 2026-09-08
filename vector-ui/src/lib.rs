@@ -131,6 +131,12 @@ impl Button {
         let bounds = [b.x - self.scroll_x, b.y - self.scroll_y, b.width, b.height];
         self.template.reveal.as_ref().map_or(bounds, |spec| spec.bounds(bounds))
     }
+    /// Reveal bounds in unscrolled content coordinates for the vector list.
+    pub(crate) fn content_reveal_bounds(&self) -> [f32; 4] {
+        let b = &self.scene.button;
+        let bounds = [b.x, b.y, b.width, b.height];
+        self.template.reveal.as_ref().map_or(bounds, |spec| spec.bounds(bounds))
+    }
     fn reveal_paint(&self) -> reveal::Paint {
         self.template.reveal.as_ref().map_or_else(reveal::Paint::default,
             |spec| self.reveal.paint(spec, self.reveal_bounds(), self.disabled(), self.focused))

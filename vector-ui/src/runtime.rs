@@ -22,7 +22,6 @@ pub struct Node {
 struct GeometryCache {
     scale: f32,
     background: bool,
-    scroll: [f32; 2],
     list: Arc<DisplayList>,
 }
 
@@ -333,7 +332,7 @@ impl Runtime {
         }
         let mut cache = self.geometry.borrow_mut();
         if let Some(c) = cache.as_ref() {
-            if c.scale == scale && c.background == background && c.scroll == self.scroll {
+            if c.scale == scale && c.background == background {
                 return Arc::clone(&c.list);
             }
         }
@@ -362,6 +361,9 @@ impl Runtime {
         if self.scene.scroll {
             list.command(2., [v[0], v[1], v[2], v[3]], [0; 4], 0., 1.);
         }
+        // Children are built in content coordinates; the scroll offset is a
+        // renderer uniform, so this list survives scrolling unchanged.
+        let content_start = list.commands.len();
         let mut reveal_slot = self.controls.len() * 2;
         for (index, c) in self.controls.iter().enumerate() {
             let child = c.vector_snapshot(scale, false);
@@ -385,35 +387,8 @@ impl Runtime {
             if c.template.reveal.is_some() { reveal_slot += 2; }
         }
         if self.scene.scroll {
-            let [cw, ch] = self.content_size();
-            if ch > v[3] && v[3] > 0. {
-                list.command(
-                    5.,
-                    [
-                        (v[0] + v[2] - 5.).max(v[0]),
-                        v[1] + self.scroll[1] / ch * v[3],
-                        5f32.min(v[2]),
-                        v[3] * v[3] / ch,
-                    ],
-                    [110, 130, 170, 255],
-                    0.,
-                    0.,
-                );
-            }
-            if cw > v[2] && v[2] > 0. {
-                list.command(
-                    5.,
-                    [
-                        v[0] + self.scroll[0] / cw * v[2],
-                        (v[1] + v[3] - 5.).max(v[1]),
-                        v[2] * v[2] / cw,
-                        5f32.min(v[3]),
-                    ],
-                    [110, 130, 170, 255],
-                    0.,
-                    0.,
-                );
-            }
+            list.mark_scrolled(content_start);
+            list.scrollbars(v, self.content_size());
             list.pop();
         }
         if self.scene.clip {
@@ -423,7 +398,6 @@ impl Runtime {
         *cache = Some(GeometryCache {
             scale,
             background,
-            scroll: self.scroll,
             list: Arc::clone(&list),
         });
         list
@@ -967,7 +941,7 @@ impl Runtime {
         if w == 0 || h == 0 || w > 8192 || h > 8192 || !s.is_finite() || s <= 0. {
             return vec![];
         }
-        self.vector_snapshot(s, b).tiles(w, h, s)
+        self.vector_snapshot(s, b).tiles(w, h, s, self.scroll)
     }
     pub fn gpu_paints(&self) -> Vec<f32> {
         let mut paints = Vec::new();
@@ -982,6 +956,7 @@ impl Runtime {
 }
 impl RenderScene for Runtime {
     fn release_cpu_cache(&self) { Runtime::release_cpu_cache(self); }
+    fn gpu_scroll(&self) -> [f32; 2] { self.scroll }
     fn vector_snapshot(&self, s: f32, b: bool) -> Arc<DisplayList> {
         Runtime::vector_snapshot(self, s, b)
     }
@@ -1004,7 +979,7 @@ impl RenderScene for Runtime {
     }
     fn gpu_params_into(&self, w: u32, h: u32, s: f32, o: bool, out: &mut Vec<f32>) {
         out.clear();
-        out.extend_from_slice(&[w as f32, h as f32, s, if o { 1. } else { 0. }, 0., 0., 0., 0., 0., 0., 0., 0.]);
+        out.extend_from_slice(&[w as f32, h as f32, s, if o { 1. } else { 0. }, 0., 0., 0., 0., 0., 0., 0., 0., self.scroll[0], self.scroll[1], 0., 0.]);
     }
 }
 
@@ -1288,11 +1263,16 @@ mod tests {
         assert_eq!(r.nodes()[1].children, vec![2, 3]);
         assert_eq!(r.hit_index(30., 65.), -1);
         let before = r.vector_snapshot(1., true);
+        let tiles = r.gpu_tiles(120, 70, 1., true);
         r.scroll(0., 1000.);
         assert_eq!(r.scroll_offset(), vec![0., 30.]);
         assert_eq!(r.hit_index(30., 40.), 1);
         assert_eq!(r.hit_index(5., 40.), -1);
-        assert!(!Arc::ptr_eq(&before, &r.vector_snapshot(1., true)));
+        // Scroll is a uniform: shared geometry survives, tiles/params move.
+        assert!(Arc::ptr_eq(&before, &r.vector_snapshot(1., true)));
+        assert_ne!(tiles, r.gpu_tiles(120, 70, 1., true));
+        assert_eq!(&r.gpu_params(120, 70, 1., true)[12..14], &[0., 30.]);
+        assert!(before.commands.chunks_exact(STRIDE).filter(|c| c[0] == 4.).all(|c| c[crate::display_list::SCROLL_MODE] == crate::display_list::SCROLL_CONTENT));
         assert_eq!(r.pixels(120, 70, 1.)[3], 0);
     }
     #[test]

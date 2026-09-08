@@ -154,7 +154,8 @@ FPS этапа 3 **не подтверждён**, как и отсутствие
   MCP подтвердил `rust-wasm-webgpu`, `gpuFallbackReason=null`, ошибок разметки нет.
 - Native window FPS остаётся недоступным в этой сессии; offscreen не подменяет его.
 
-CPU raster-cache cleanup, локальная геометрия scroll/glyph cache и небольшие
+Локальная геометрия scroll выполнена позже: [третий проход](PERFORMANCE_PASS3_2026_09_08.md).
+CPU raster-cache cleanup, glyph cache и небольшие
 покадровые аллокации — следующие отдельные этапы; здесь они не объявляются готовыми.
 Качество AA и синхронизация native resize не изменялись.
 

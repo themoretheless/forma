@@ -5,8 +5,37 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 pub const TILE: u32 = 32;
-// Five vec4 records: kind/rule/edge range, bounds, color, radius/stroke, reserved.
+// Five vec4 records: kind/rule/edge range, bounds, color, radius/stroke, scroll.
 pub const STRIDE: usize = 20;
+/// `commands[SCROLL_MODE]` says how the runtime scroll offset (a uniform, not
+/// geometry) applies to a command. Geometry stays in unscrolled content
+/// coordinates, so scrolling never rebuilds or re-uploads commands/edges.
+pub const SCROLL_MODE: usize = 16;
+/// `commands[SCROLL_FACTOR]` scales the scroll offset for scrollbar thumbs.
+pub const SCROLL_FACTOR: usize = 17;
+pub const SCROLL_FIXED: f32 = 0.;
+/// Content inside the scroll viewport: drawn at `bounds - scroll`.
+pub const SCROLL_CONTENT: f32 = 1.;
+/// Vertical thumb: drawn at `bounds.y + scroll.y * factor`.
+pub const SCROLL_THUMB_Y: f32 = 2.;
+/// Horizontal thumb: drawn at `bounds.x + scroll.x * factor`.
+pub const SCROLL_THUMB_X: f32 = 3.;
+
+/// Logical bounds of one command after applying the scroll uniform, matching
+/// the shader. Used only by the CPU tile binner, never by CPU rasterization.
+pub fn scrolled_bounds(command: &[f32], scroll: [f32; 2]) -> [f32; 4] {
+    let mut b = [command[4], command[5], command[6], command[7]];
+    let mode = command[SCROLL_MODE];
+    if mode == SCROLL_CONTENT {
+        b[0] -= scroll[0];
+        b[1] -= scroll[1];
+    } else if mode == SCROLL_THUMB_Y {
+        b[1] += scroll[1] * command[SCROLL_FACTOR];
+    } else if mode == SCROLL_THUMB_X {
+        b[0] += scroll[0] * command[SCROLL_FACTOR];
+    }
+    b
+}
 pub struct DisplayList {
     pub commands: Vec<f32>,
     pub edges: Vec<f32>,
@@ -77,7 +106,6 @@ fn union_tiles(a: [u32; 4], b: [u32; 4]) -> [u32; 4] {
 
 pub(crate) struct CachedList {
     scale: f32,
-    scroll: [f32; 2],
     background: bool,
     list: Arc<DisplayList>,
 }
@@ -94,6 +122,42 @@ impl DisplayList {
     }
     pub(crate) fn pop(&mut self) {
         self.command(3., [0.; 4], [0; 4], 0., 0.);
+    }
+    /// Mark every command from `start` (a float index into `commands`) as
+    /// scrolled content. Pops carry no bounds, so marking them is harmless.
+    pub(crate) fn mark_scrolled(&mut self, start: usize) {
+        for command in self.commands[start..].chunks_exact_mut(STRIDE) {
+            command[SCROLL_MODE] = SCROLL_CONTENT;
+        }
+    }
+    /// Scrollbar thumbs for a viewport `v` and content size. Their base
+    /// position is at scroll 0; the renderer offsets them by `scroll * factor`.
+    pub(crate) fn scrollbars(&mut self, v: [f32; 4], content: [f32; 2]) {
+        let [cw, ch] = content;
+        if ch > v[3] && v[3] > 0. {
+            self.command(
+                5.,
+                [(v[0] + v[2] - 5.).max(v[0]), v[1], 5f32.min(v[2]), v[3] * v[3] / ch],
+                [110, 130, 170, 255],
+                0.,
+                0.,
+            );
+            let offset = self.commands.len() - STRIDE;
+            self.commands[offset + SCROLL_MODE] = SCROLL_THUMB_Y;
+            self.commands[offset + SCROLL_FACTOR] = v[3] / ch;
+        }
+        if cw > v[2] && v[2] > 0. {
+            self.command(
+                5.,
+                [v[0], (v[1] + v[3] - 5.).max(v[1]), v[2] * v[2] / cw, 5f32.min(v[3])],
+                [110, 130, 170, 255],
+                0.,
+                0.,
+            );
+            let offset = self.commands.len() - STRIDE;
+            self.commands[offset + SCROLL_MODE] = SCROLL_THUMB_X;
+            self.commands[offset + SCROLL_FACTOR] = v[2] / cw;
+        }
     }
     fn path(&mut self, edges: impl IntoIterator<Item = [f32; 4]>, color: [u8; 4], nonzero: bool) {
         if color[3] == 0 {
@@ -167,9 +231,11 @@ impl DisplayList {
         if model.scene.scroll {
             out.command(2., [v[0], v[1], v[2], v[3]], [0; 4], 0., 1.);
         }
+        // Content coordinates: scrolling is applied by the renderer uniform.
+        let content_start = out.commands.len();
         let b = &model.scene.button;
-        let x = b.x - model.scroll_x;
-        let y = b.y - model.scroll_y;
+        let x = b.x;
+        let y = b.y;
         let r = b.radius.min(b.width / 2.).min(b.height / 2.);
         out.command(
             4.,
@@ -219,39 +285,13 @@ impl DisplayList {
             }
         }
         if let Some(reveal) = &model.template.reveal {
-            out.command(6., model.reveal_bounds(), [0; 4], reveal.target_radius.unwrap_or(r), reveal.width);
+            out.command(6., model.content_reveal_bounds(), [0; 4], reveal.target_radius.unwrap_or(r), reveal.width);
             let offset = out.commands.len() - STRIDE;
             out.commands[offset + 14] = 2.; // Reveal data + color, after fill/border.
         }
         if model.scene.scroll {
-            if b.height > v[3] && v[3] > 0. {
-                out.command(
-                    5.,
-                    [
-                        (v[0] + v[2] - 5.).max(v[0]),
-                        v[1] + model.scroll_y / b.height * v[3],
-                        5f32.min(v[2]),
-                        v[3] * v[3] / b.height,
-                    ],
-                    [110, 130, 170, 255],
-                    0.,
-                    0.,
-                );
-            }
-            if b.width > v[2] && v[2] > 0. {
-                out.command(
-                    5.,
-                    [
-                        v[0] + model.scroll_x / b.width * v[2],
-                        (v[1] + v[3] - 5.).max(v[1]),
-                        v[2] * v[2] / b.width,
-                        5f32.min(v[3]),
-                    ],
-                    [110, 130, 170, 255],
-                    0.,
-                    0.,
-                );
-            }
+            out.mark_scrolled(content_start);
+            out.scrollbars(v, [b.width, b.height]);
             out.pop();
         }
         if model.scene.clip {
@@ -260,9 +300,9 @@ impl DisplayList {
         out
     }
     /// Stable painter order within each tile, including balanced clip groups.
-    pub fn tiles(&self, width: u32, height: u32, scale: f32) -> Vec<u32> {
+    pub fn tiles(&self, width: u32, height: u32, scale: f32, scroll: [f32; 2]) -> Vec<u32> {
         let mut scratch = TileScratch::default();
-        self.tiles_into(width, height, scale, &mut scratch);
+        self.tiles_into(width, height, scale, scroll, &mut scratch);
         scratch.data
     }
 
@@ -271,12 +311,14 @@ impl DisplayList {
     /// descendants. Fully invisible/empty groups disappear together; descendants
     /// are restricted by every ancestor's physical support bounds. AA margins are
     /// applied BEFORE intersections so even overlapping fringe coverage survives.
-    /// At fixed geometry/DPI, only ceil(width/TILE), ceil(height/TILE) matter.
+    /// At fixed geometry/DPI/scroll, only ceil(width/TILE), ceil(height/TILE) matter.
+    /// `scroll` is the same uniform the shader receives; geometry is unchanged.
     pub fn tiles_into<'a>(
         &self,
         width: u32,
         height: u32,
         scale: f32,
+        scroll: [f32; 2],
         scratch: &'a mut TileScratch,
     ) -> &'a [u32] {
         let cols = width.div_ceil(TILE);
@@ -305,11 +347,12 @@ impl DisplayList {
                 continue;
             }
             let parent = scratch.clips.last().map_or(viewport, |group| group.bounds);
+            let b = scrolled_bounds(c, scroll);
             let support = [
-                c[4] * scale - 1.,
-                c[5] * scale - 1.,
-                (c[4] + c[6]) * scale + 1.,
-                (c[5] + c[7]) * scale + 1.,
+                b[0] * scale - 1.,
+                b[1] * scale - 1.,
+                (b[0] + b[2]) * scale + 1.,
+                (b[1] + b[3]) * scale + 1.,
             ];
             let bounds = intersect(support, parent);
             if c[0] == 2. {
@@ -365,14 +408,12 @@ impl DisplayList {
 impl Button {
     fn ensure_vector_list(&self, scale: f32, background: bool) {
         let mut cache = self.display_cache.borrow_mut();
-        let scroll = [self.scroll_x, self.scroll_y];
         if cache
             .as_ref()
-            .is_none_or(|c| c.scale != scale || c.scroll != scroll || c.background != background)
+            .is_none_or(|c| c.scale != scale || c.background != background)
         {
             *cache = Some(CachedList {
                 scale,
-                scroll,
                 background,
                 list: Arc::new(DisplayList::build(self, scale, background)),
             });
@@ -390,7 +431,7 @@ impl Button {
     /// Immutable shared geometry identity. Cloning a cached handle does not allocate
     /// or copy commands/edges. Holding the previous handle prevents address reuse,
     /// allowing renderers to detect replacement with `Arc::ptr_eq` without an ABA bug.
-    /// Color animations keep the same snapshot; DPI, background, scroll and loading
+    /// Color animations and scroll keep the same snapshot; DPI, background and loading
     /// another source/component replace it. Future geometry setters must invalidate
     /// the display cache instead of mutating a published snapshot.
     pub fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList> {
@@ -417,11 +458,11 @@ impl Button {
             return vec![];
         }
         self.vector_list(scale, background)
-            .tiles(width, height, scale)
+            .tiles(width, height, scale, [self.scroll_x, self.scroll_y])
     }
-    // viewport/scale/opaque output; animated fill and border. Geometry is static.
+    // viewport/scale/opaque output, scroll; animated fill and border. Geometry is static.
     pub fn gpu_params(&self, width: u32, height: u32, scale: f32, opaque: bool) -> Vec<f32> {
-        let mut params = Vec::with_capacity(12);
+        let mut params = Vec::with_capacity(PARAMS_LEN);
         self.gpu_params_into(width, height, scale, opaque, &mut params);
         params
     }
@@ -433,6 +474,9 @@ pub trait RenderScene {
     /// Called after successful GPU submission. External scene types may retain
     /// their existing behavior; Forma drops only reconstructible CPU rasters.
     fn release_cpu_cache(&self) {}
+    /// Logical scroll offset applied by the renderer to `SCROLL_CONTENT`
+    /// commands and scrollbar thumbs. Unscrollable scenes return zero.
+    fn gpu_scroll(&self) -> [f32; 2] { [0.; 2] }
     fn vector_snapshot(&self, scale:f32, background:bool)->Arc<DisplayList>;
     fn gpu_params(&self, width:u32, height:u32, scale:f32, opaque:bool)->Vec<f32>;
     fn gpu_paints(&self)->Vec<f32>;
@@ -447,8 +491,11 @@ pub trait RenderScene {
         out.extend(self.gpu_paints());
     }
 }
+/// Uniform layout: viewport(w, h, scale, opaque), fill, border, scroll(x, y, 0, 0).
+pub const PARAMS_LEN: usize = 16;
 impl RenderScene for Button {
     fn release_cpu_cache(&self) { Button::release_cpu_cache(self); }
+    fn gpu_scroll(&self) -> [f32; 2] { [self.scroll_x, self.scroll_y] }
     fn vector_snapshot(&self,s:f32,b:bool)->Arc<DisplayList>{Button::vector_snapshot(self,s,b)}
     fn gpu_params(&self,w:u32,h:u32,s:f32,o:bool)->Vec<f32>{Button::gpu_params(self,w,h,s,o)}
     fn gpu_paints(&self)->Vec<f32>{Button::gpu_paints(self)}
@@ -457,6 +504,7 @@ impl RenderScene for Button {
         out.extend([width as f32, height as f32, scale, if opaque { 1. } else { 0. }]);
         out.extend(self.fill.color().map(|v| v as f32 / 255.));
         out.extend(self.border.color().map(|v| v as f32 / 255.));
+        out.extend([self.scroll_x, self.scroll_y, 0., 0.]);
     }
     fn gpu_paints_into(&self, out:&mut Vec<f32>) {
         out.clear();
