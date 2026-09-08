@@ -1,0 +1,16 @@
+component StudioInspector {
+    Column {
+        width: 880; height: 360; padding: 24; gap: 10; background: state.theme.canvas;
+        Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '04  /  ПОЛЯ ИНСПЕКТОРА'; }
+        Row { gap: 12; height: 38;
+            TextField { value: '18'; placeholder: 'Размер шрифта'; }
+            SearchField { placeholder: 'Поиск свойства'; width: 240; }
+            TextField { value: 'ошибка'; error: true; }
+        }
+        Row { gap: 12; height: 38;
+            TableRow { width: 264; first: 'fontSize'; second: '18'; third: 'LargeButton'; }
+            TableRow { width: 264; first: 'radius'; second: '5'; third: 'Button'; }
+            TableRow { width: 264; first: 'width'; second: '160'; third: 'Экземпляр'; }
+        }
+    }
+}

@@ -42,13 +42,16 @@ test('unfiltered collapsed branches are not traversed',()=>{
 class Element extends EventTarget {
  constructor(){super();this.children=[];this.dataset={};this.style={};this.attrs=new Map();this.parts=new Map();this.classList={toggle(){}};}
  set innerHTML(value){this.markup=value;}
- querySelector(selector){if(!this.parts.has(selector))this.parts.set(selector,new Element());return this.parts.get(selector);}
+ querySelector(selector){if(selector==='.control-tree-empty')return this.children.find(c=>c.className==='control-tree-empty')??null;if(!this.parts.has(selector))this.parts.set(selector,new Element());return this.parts.get(selector);}
  querySelectorAll(){return [];}
  setAttribute(key,value){this.attrs.set(key,value);}
  getAttribute(key){return this.attrs.get(key);}
+ removeAttribute(key){this.attrs.delete(key);}
+ remove(){if(this.parent)this.parent.children=this.parent.children.filter(c=>c!==this);this.parent=null;}
+ insertBefore(child,next){child.remove();const index=next?this.children.indexOf(next):this.children.length;this.children.splice(index,0,child);child.parent=this;}
  before(){}
  prepend(){}
- append(...children){this.children.push(...children);}
+ append(...children){for(const child of children){child.remove();child.parent=this;this.children.push(child);}}
  replaceChildren(...children){this.children=children;}
  contains(element){return this===element||this.children.some(child=>child.contains(element));}
  focus(){globalThis.document.activeElement=this;}
@@ -66,10 +69,13 @@ test('selecting visible nodes retains rows, while folding and diagnostics update
  tree.select(rows[2].start,path);assert.deepEqual(list.children,initial);assert.equal(initial[2].getAttribute('aria-selected'),'true');
  tree.select(rows[4].start,path);assert.deepEqual(list.children,initial);assert.equal(initial[2].getAttribute('aria-selected'),'false');assert.equal(initial[4].getAttribute('aria-selected'),'true');
  update({selectedStart:rows[4].start,selectedPath:path});assert.deepEqual(list.children,initial);
- tree.fold(rows[3].id,true);assert.equal(list.children.length,4);
+ tree.fold(rows[3].id,true);assert.equal(list.children.length,4);assert.deepEqual(list.children,initial.slice(0,4));
  tree.select(rows[4].start,path);assert.equal(list.children.length,5);assert.equal(tree.snapshot().rows[3].expanded,true);
  update({error:'Broken',stale:true,selectedStart:rows[4].start,selectedPath:path});
  assert.ok(list.children.every(el=>el.getAttribute('aria-disabled')==='true'));
+ assert.deepEqual(list.children.slice(0,4),initial.slice(0,4),'unchanged rows retain native surfaces across folding and diagnostics');
+ tree.update({document:parse(source),path,error:'Broken',selectedStart:rows[4].start,selectedPath:path});
+ assert.deepEqual(list.children.slice(0,4),initial.slice(0,4),'reparsed source retains existing rows');
  assert.throws(()=>tree.selectId(rows[4].id),/Исправьте/);
  update({selectedStart:rows[4].start,selectedPath:path});assert.ok(list.children.every(el=>el.getAttribute('aria-disabled')==='false'));
  const search=created[0].querySelector('input');search.value='title';search.oninput();

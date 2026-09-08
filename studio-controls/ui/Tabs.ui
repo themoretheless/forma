@@ -1,0 +1,12 @@
+component StudioTabs {
+    Column {
+        width: 880; height: 360; padding: 24; gap: 10; background: state.theme.canvas;
+        Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '02  /  ВКЛАДКИ РЕДАКТОРА'; }
+        Row { gap: 2; height: 36;
+            TabButton { width: 170; text: 'SearchWindow.ui'; selected: true; clicked -> actions.selectTab(); }
+            TabButton { width: 170; text: 'Button.ui •'; }
+            TabButton { width: 170; text: 'tokens.ui'; }
+            TabButton { width: 170; text: 'README.md'; disabled: true; }
+        }
+    }
+}

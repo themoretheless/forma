@@ -1,3 +1,4 @@
+import {propertyOrigins} from '../src/property-origins.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {compileComponents} from '../src/components.js';
@@ -26,4 +27,14 @@ test('override diagnostics suggest nearby keys and explain incorrect properties 
  assert.throws(()=>compileComponents({...files,'components/LargeButton.ui':`component LargeButton : Button {override caption {fontSze:18;}}`},'ui/Demo.ui',{title:'A'}),error=>{
   assert.match(error.message,/Text.*fontSze.*fontSize/);assert.equal(error.diagnostic.related.file,'components/Button.ui');return true;
  });
+});
+
+test('origin traversal restores caller cycle guards and retains diamond dependencies',()=>{
+ const source={file:'x.ui',from:1,to:2},seen=new Set(['root']);
+ const props={a:{expr:'props.b'},b:{expr:'props.a'}};
+ const result=propertyOrigins({expr:'props.a'},source,props,{a:source,b:source},{},seen);
+ assert.deepEqual(seen,new Set(['root']));assert.equal(result.length,1);
+ const value={parts:[{expr:'props.a'},{expr:'props.b'}]};
+ assert.deepEqual(propertyOrigins(value,null,{a:{expr:'props.c'},b:{expr:'props.c'},c:{expr:'state.value'}},{},{},seen),[{label:'state.value'}]);
+ assert.deepEqual(seen,new Set(['root']));
 });

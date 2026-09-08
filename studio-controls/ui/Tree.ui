@@ -1,0 +1,18 @@
+component StudioTree {
+    Column {
+        width: 880; height: 360; padding: 24; gap: 10; background: state.theme.canvas;
+        Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '03  /  ДЕРЕВО ПРОЕКТА'; }
+        Row { gap: 18; height: 90;
+            Column { width: 270; gap: 2;
+                TreeItem { text: 'components'; branch: true; expanded: true; }
+                TreeItem { text: 'Button.ui'; branch: false; indent: 18; selected: true; }
+                TreeItem { text: 'TextField.ui'; branch: false; indent: 18; }
+            }
+            Column { width: 270; gap: 2;
+                TreeItem { text: 'ui'; branch: true; expanded: false; }
+                TreeItem { text: 'assets'; branch: true; expanded: true; }
+                TreeItem { text: 'search.svg'; branch: false; indent: 18; disabled: true; }
+            }
+        }
+    }
+}

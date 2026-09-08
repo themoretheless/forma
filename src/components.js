@@ -199,6 +199,7 @@ function compile(files,entry,state,metrics,read,links){
   };
   const document=read(files[entry],entry);let scene=clone(document.nodes);metricsContext.transformScene?.(scene);
   visit(scene,n=>{const patch=metricsContext.instanceProps?.(n);if(patch)n.props={...n.props,...patch};});
+  const contracts=new WeakMap();
   const cache=new Map(),loading=[],dependencies=new Map(),depths=new Map();
   function link(name){
     if(cache.has(name)){
@@ -322,9 +323,13 @@ function compile(files,entry,state,metrics,read,links){
     if(parents.length>=32)throw Error('Глубина композиции компонентов превышает 32');
     if(!top)rejectInteraction(instance);
     const linked=link(instance.type);
-    let hasContent=false;visit(linked.nodes,n=>{if(n.type==='ContentPresenter'&&n.props.key==='content')hasContent=true;});
+    let contract=contracts.get(linked);if(!contract){
+     let hasContent=false;visit(linked.nodes,n=>{if(n.type==='ContentPresenter'&&n.props.key==='content')hasContent=true;});
+     const groupedNames=new Set((linked.matches??[]).flatMap(group=>group.branches.flatMap(branch=>Object.keys(branch.props))));
+     contract={hasContent,groupedNames};contracts.set(linked,contract);
+    }
+    const {hasContent,groupedNames}=contract;
     if(instance.children.length&&!hasContent)throw Error('Для дочернего контента нужен ContentPresenter с key: content');
-    const groupedNames=new Set((linked.matches??[]).flatMap(group=>group.branches.flatMap(branch=>Object.keys(branch.props))));
     for(const k of Object.keys(instance.props))if(!(top?standard:layoutProps).has(k)&&!layoutProps.has(k)&&!own(linked.defaults,k)&&!own(linked.propDefinitions??{},k)&&!groupedNames.has(k)&&!(k==='font.size'&&own(linked.defaults,'fontSize')))throw Error(`Неизвестное свойство ${instance.type}.${k}`);
     if(instance.props['font.size']!==undefined&&instance.props.fontSize!==undefined)throw Error('fontSize и font.size — одно свойство');
     // A visual instance never inherits its caller's props or button fallbacks.

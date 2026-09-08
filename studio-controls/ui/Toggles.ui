@@ -1,0 +1,11 @@
+component StudioToggles {
+    Column {
+        width: 880; height: 360; padding: 24; gap: 10; background: state.theme.canvas;
+        Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '05  /  ПАРАМЕТРЫ ПРЕДПРОСМОТРА'; }
+        Row { gap: 12; height: 32;
+            Checkbox { text: 'Показать размеры'; checked: true; }
+            Checkbox { text: 'Привязки к сетке'; }
+            Checkbox { text: 'Только чтение'; checked: true; disabled: true; }
+        }
+    }
+}

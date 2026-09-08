@@ -46,16 +46,23 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   function updateView(){panel.hidden=!visible;explorer.classList.toggle('has-control-tree',visible);toggle.classList.toggle('chosen',visible);toggle.setAttribute('aria-expanded',String(visible));for(const b of panel.querySelectorAll('[data-scope]')){b.classList.toggle('chosen',b.dataset.scope===scope);b.setAttribute('aria-pressed',String(b.dataset.scope===scope));}save();}
   function rowElement(id){return elements.get(id);}
   function draw(restoreFocus=false){
-    rows=treeRows(roots,collapsed,query);list.replaceChildren();elements.clear();
+    rows=treeRows(roots,collapsed,query);
+    const keep=new Set(rows.map(n=>n.id));
+    for(const [id,row] of elements)if(!keep.has(id)){row.remove();elements.delete(id);}
+    list.querySelector('.control-tree-empty')?.remove();
     if(!rows.some(n=>n.id===focusId))focusId=rows.some(n=>n.id===selectedId)?selectedId:rows[0]?.id;
-    for(const n of rows){
-      const row=document.createElement('div');row.className='control-tree-row';row.dataset.controlId=n.id;row.setAttribute('role','treeitem');row.tabIndex=n.id===focusId?0:-1;
+    for(const [index,n] of rows.entries()){
+      let row=elements.get(n.id);
+      if(!row){row=document.createElement('div');row.className='control-tree-row';
+        for(const name of ['arrow','label','detail']){const span=document.createElement('span');span.className='control-tree-'+name;row.append(span);}
+        elements.set(n.id,row);
+      }row.dataset.controlId=n.id;row.setAttribute('role','treeitem');row.tabIndex=n.id===focusId?0:-1;
       row.setAttribute('aria-level',String(n.level));row.setAttribute('aria-posinset',String(n.index));row.setAttribute('aria-setsize',String(n.siblings));row.setAttribute('aria-selected',String(n.id===selectedId));row.setAttribute('aria-disabled',String(disabled));
-      if(n.children.length)row.setAttribute('aria-expanded',String(n.expanded));row.style.paddingLeft=(8+(n.level-1)*14)+'px';
-      const arrow=document.createElement('span');arrow.className='control-tree-arrow';arrow.dataset.disclosure='';arrow.setAttribute('aria-hidden','true');arrow.textContent=n.children.length?(n.expanded?'⌄':'›'):'·';
-      const label=document.createElement('span');label.className='control-tree-label';label.textContent=n.label;
-      const detail=document.createElement('span');detail.className='control-tree-detail';detail.textContent=n.detail??'';
-      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');row.append(arrow,label,detail);list.append(row);elements.set(n.id,row);
+      if(n.children.length)row.setAttribute('aria-expanded',String(n.expanded));else row.removeAttribute('aria-expanded');row.style.paddingLeft=(8+(n.level-1)*14)+'px';
+      const [arrow,label,detail]=row.children;arrow.dataset.disclosure='';arrow.setAttribute('aria-hidden','true');arrow.textContent=n.children.length?(n.expanded?'⌄':'›'):'·';
+      if(label.textContent!==n.label)label.textContent=n.label;
+      if(detail.textContent!==(n.detail??''))detail.textContent=n.detail??'';
+      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');const next=list.children[index];if(next!==row)list.insertBefore(row,next??null);
     }
     if(!rows.length){const empty=document.createElement('p');empty.className='control-tree-empty';empty.textContent=query?'Контролы не найдены':'Нет контролов';list.append(empty);}
     if(restoreFocus)rowElement(focusId)?.focus({preventScroll:true});
