@@ -131,7 +131,7 @@ test('unchanged revisions reuse GPU payloads while paint and viewport changes in
   assert.deepEqual(calls,{gpu_commands:1,gpu_edges:1,gpu_tiles:1,gpu_paints:1,gpu_params:1});
   visual++;
   painter.draw(scene,60,60,1);
-  assert.equal(state.writes.length,firstWrites+2,'animation uploads only paint and uniform data');
+  assert.equal(state.writes.length,firstWrites+1,'unchanged paint bytes are skipped even when visual revision changes');
   painter.draw(scene,64,64,1);
   assert.deepEqual(calls,{gpu_commands:1,gpu_edges:1,gpu_tiles:1,gpu_paints:2,gpu_params:3},'same tile grid updates only viewport params');
   painter.draw(scene,65,64,1);

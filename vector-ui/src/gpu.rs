@@ -49,6 +49,15 @@ pub struct BackendAllocatorStats {
     pub block_count: usize,
 }
 
+// One contiguous write bounds the changed words. No temporary diff/range list,
+// and byte offsets remain COPY_BUFFER_ALIGNMENT-aligned (f32 is four bytes).
+fn changed_paint_range(previous: &[f32], next: &[f32]) -> Option<std::ops::Range<usize>> {
+    if previous.len() != next.len() { return Some(0..next.len()); }
+    let first = previous.iter().zip(next).position(|(a,b)| a.to_bits() != b.to_bits())?;
+    let last = previous.iter().zip(next).rposition(|(a,b)| a.to_bits() != b.to_bits()).unwrap();
+    Some(first..last+1)
+}
+
 struct GpuTiming {
     queries: wgpu::QuerySet,
     resolve: wgpu::Buffer,
@@ -381,7 +390,8 @@ impl Renderer {
         let tile_key = (width.div_ceil(TILE), height.div_ceil(TILE), scale);
         let tiles_changed=changed || self.tile_key != Some(tile_key);
         model.gpu_paints_into(&mut self.paints);
-        let paints_changed = self.buffers.len() < 4 || self.paints != self.uploaded_paints;
+        let paint_range = changed_paint_range(&self.uploaded_paints, &self.paints);
+        let paints_changed = self.buffers.len() < 4 || paint_range.is_some();
         {
             let tiles = if tiles_changed {list.tiles_into(width, height, scale, &mut self.tile_scratch)}else{&[]};
             let edges = if list.edges.is_empty() {
@@ -424,8 +434,12 @@ impl Renderer {
                     }
                     rebind = true;
                 }
-                self.queue.write_buffer(&self.buffers[index], 0, payload);
-                self.uploaded_bytes += payload.len() as u64;
+                let (offset, bytes) = if index == 3 && capacity == current {
+                    let range = paint_range.as_ref().expect("changed paints have a write range");
+                    (range.start * 4, &payload[range.start * 4..range.end * 4])
+                } else { (0, *payload) };
+                self.queue.write_buffer(&self.buffers[index], offset as u64, bytes);
+                self.uploaded_bytes += bytes.len() as u64;
             }
             if changed {
                 self.uploads += 1;
@@ -789,5 +803,29 @@ mod tests {
                 renderer.backend_allocator_stats()
             );
         });
+    }
+}
+
+#[cfg(test)]
+mod paint_range_tests {
+    use super::changed_paint_range;
+    #[test]
+    fn partial_updates_reconstruct_exact_bits_and_handle_resizes() {
+        for length in [0, 1, 8, 256] {
+            let old = vec![0f32; length];
+            assert_eq!(changed_paint_range(&old, &old), None);
+            for index in 0..length {
+                let mut next = old.clone(); next[index] = 1.;
+                let range = changed_paint_range(&old, &next).unwrap();
+                assert_eq!(range, index..index+1);
+                let mut gpu = old.clone();gpu[range.clone()].copy_from_slice(&next[range]);
+                assert_eq!(gpu, next);
+            }
+        }
+        assert_eq!(changed_paint_range(&[0.;8], &[1.;4]), Some(0..4));
+        assert_eq!(changed_paint_range(&[0.;4], &[0.;8]), Some(0..8));
+        assert_eq!(changed_paint_range(&[0.;4], &[1.,0.,0.,2.]), Some(0..4));
+        assert_eq!(changed_paint_range(&[0.], &[-0.]), Some(0..1));
+        assert_eq!(changed_paint_range(&[f32::NAN], &[f32::NAN]), None);
     }
 }

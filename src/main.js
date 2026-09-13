@@ -1,3 +1,4 @@
+import {readStorage,writeStorage,validateProject,restoreProject} from './browser-storage.js';
 import {studioControlsProject} from './studio-controls-builtin.js';
 import {mountStudioShell} from './studio-shell.js';
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
@@ -37,7 +38,7 @@ let vectorPreview;
 let controlTree,selectedPath=null;
 // The active tree is live UI state, independent of eviction of inactive files.
 let activeTreeDocument=null;
-let renderer=isStudioControls||localStorage.getItem(storageKey('forma-renderer'))==='vector'?'vector':'html';
+let renderer=isStudioControls||readStorage('localStorage',storageKey('forma-renderer'))==='vector'?'vector':'html';
 import {parse,resolve,validateDesign} from './language.js';
 
 const initial={
@@ -102,12 +103,12 @@ pub fn search(state: &mut SearchState) {
  'README.md':'# Knowledge workspace\n\n.ui — разметка.\n.design.ui — сценарии предпросмотра.\n\nОтладчик останавливается перед событием UI.\nПродолжить — применяет демонстрационный обработчик.\nRust-код требует будущей интеграции DAP.\n'
 };
 const initialProject=isStudioControls?studioControlsProject:initial;
-let files;try{files=JSON.parse(localStorage.getItem(storageKey('forma-project')))||initialProject;}catch{files=initialProject;}
+let files=restoreProject(readStorage('localStorage',storageKey('forma-project')),initialProject);
 files['Cargo.toml']??=`[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
 files['src/main.rs']??=`mod actions;\n\nfn main() {\n    let mut state = actions::SearchState {\n        query: String::from("Архитектура"),\n        loading: false,\n        status: String::from("Готов"),\n    };\n    println!("Rust-приложение запущено");\n    println!("Запрос: {}", state.query);\n    actions::search(&mut state);\n    println!("После actions::search: loading={}, status={}", state.loading, state.status);\n}\n`;
-let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')), scenario=0,state={},compiled=null,selected=null,mode=sessionStorage.getItem(storageKey('forma-canvas-mode'))==='interact'?'interact':'design',pending=null,breakOn=false,logs=[],tab='problems',error='',saveTimer,compileTimer;
-try{const view=JSON.parse(localStorage.getItem(storageKey('forma-view')));if(view?.entry in files)entry=view.entry;if(view?.active in files)active=view.active;}catch{}
-function persistView(){try{localStorage.setItem(storageKey('forma-view'),JSON.stringify({active,entry}));}catch{}}
+let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')), scenario=0,state={},compiled=null,selected=null,mode=readStorage('sessionStorage',storageKey('forma-canvas-mode'))==='interact'?'interact':'design',pending=null,breakOn=false,logs=[],tab='problems',error='',saveTimer,compileTimer;
+try{const view=JSON.parse(readStorage('localStorage',storageKey('forma-view')));if(view?.entry in files)entry=view.entry;if(view?.active in files)active=view.active;}catch{}
+function persistView(){try{writeStorage('localStorage',storageKey('forma-view'),JSON.stringify({active,entry}));}catch{}}
 const $=id=>document.getElementById(id);
 document.querySelector('#app').innerHTML=`
 <header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">${isStudioControls?'Studio Controls':'knowledge-workspace'} <span> / локальный проект</span></div><a class="controls-link" href="${isStudioControls?'/':'/?project=studio-controls'}">${isStudioControls?'Мой проект':'Контролы Studio'}</a><a class="controls-link" href="/vector-ui/examples/controls.html">Контролы · Reveal</a><button id="import">Открыть</button><button id="export">Экспорт</button><button id="run" class="accent">${mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента'}</button></header>
@@ -117,7 +118,7 @@ document.querySelector('#app').innerHTML=`
 <aside class="inspector"><div class="section-title">ИНСПЕКТОР</div><div id="inspector"><div class="empty-icon">⌖</div><p>Выберите компонент</p><small>Свойства и привязки появятся здесь</small></div><div class="debug-info"><span>UI DEBUGGER</span><p id="debug-status">Готов</p><small>События и состояние дизайн-runtime.<br>Rust / DAP не подключён.</small></div></aside></div>
 <footer><span class="dot"></span><span id="status">Готов</span><span class="footer-right">Forma UI · UTF-8 <span id="position">Ln 1, Col 1</span></span></footer><input type="file" id="upload" accept=".json" hidden>`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function persist(){try{localStorage.setItem(storageKey('forma-project'),JSON.stringify(files));$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
+function persist(){try{if(!writeStorage('localStorage',storageKey('forma-project'),JSON.stringify(files)))throw Error('Storage unavailable');$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
 function tree(){const buttons=[...$('tree').querySelectorAll('[data-path]')],paths=Object.keys(files),existing=new Set(buttons.map(b=>b.dataset.path));
  if(buttons.length===paths.length&&paths.every(path=>existing.has(path))){for(const b of buttons)b.classList.toggle('active',b.dataset.path===active);return;}
  const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
@@ -225,12 +226,12 @@ function syncTabs(){document.querySelectorAll('[data-tab]').forEach(b=>b.classLi
 $('code').oninput=()=>{files[active]=$('code').value;lines();$('saved').textContent='Изменено';clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);clearTimeout(compileTimer);compileTimer=setTimeout(()=>compile(active.endsWith('.design.ui')),250);};$('code').onscroll=()=>{$('lines').scrollTop=$('code').scrollTop;};$('code').onclick=lines;$('code').onkeyup=lines;
 $('code').onkeydown=e=>{if(e.key==='Tab'){e.preventDefault();const el=e.target;el.setRangeText('    ',el.selectionStart,el.selectionEnd,'end');el.dispatchEvent(new Event('input'));}if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();persist();}};
 $('scenario').onchange=e=>{scenario=Number(e.target.value);compile(true);};$('entry').onclick=()=>{if(renderer==='vector'&&active==='components/Button.ui'){compile();return;}entry=active;scenario=0;compile(true);};
-$('run').onclick=()=>{mode=mode==='design'?'interact':'design';sessionStorage.setItem(storageKey('forma-canvas-mode'),mode);$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
+$('run').onclick=()=>{mode=mode==='design'?'interact':'design';writeStorage('sessionStorage',storageKey('forma-canvas-mode'),mode);$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
 $('desktop').onclick=()=>{$('preview').style.width='520px';$('desktop').classList.add('chosen');$('mobile').classList.remove('chosen');};$('mobile').onclick=()=>{$('preview').style.width='320px';$('mobile').classList.add('chosen');$('desktop').classList.remove('chosen');};$('theme').onclick=()=>$('preview').classList.toggle('light');
 $('break').onchange=e=>breakOn=e.target.checked;$('continue').onclick=()=>{if(pending){const p=pending;pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';execute(p.action);}};$('reset').onclick=()=>{pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';compile(true);log('Состояние сценария восстановлено');};
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();output();});
-$('new').onclick=()=>{const path=prompt('Путь нового файла','ui/NewWindow.ui');if(!path)return;if(path in files){alert('Файл уже существует');return;}files[path]=path.endsWith('.ui')?'component NewWindow {\n    Frame {\n        Text {\n            text: \'Новое окно\';\n        }\n    }\n}\n':'';open(path);persist();};
-$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(files,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=JSON.parse(await f.text());if(!data||Array.isArray(data)||typeof data!=='object'||!Object.keys(data).length||Object.values(data).some(v=>typeof v!=='string'))throw Error('Ожидается JSON проекта: пути файлов и текст');if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
+$('new').onclick=()=>{const path=prompt('Путь нового файла','ui/NewWindow.ui');if(!path)return;try{validateProject({[path]:''});}catch(error){alert(error.message);return;}if(path in files){alert('Файл уже существует');return;}files[path]=path.endsWith('.ui')?'component NewWindow {\n    Frame {\n        Text {\n            text: \'Новое окно\';\n        }\n    }\n}\n':'';open(path);persist();};
+$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(files,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=validateProject(JSON.parse(await f.text()));if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
 $('code').addEventListener('scroll',highlightSource);
 $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});}});
@@ -278,7 +279,7 @@ let studioShell,shellDisposed=false;
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
 import.meta.hot?.dispose(()=>{shellDisposed=true;studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();});
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
-rendererPicker.onchange=()=>{renderer=rendererPicker.value;localStorage.setItem(storageKey('forma-renderer'),renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
+rendererPicker.onchange=()=>{renderer=rendererPicker.value;writeStorage('localStorage',storageKey('forma-renderer'),renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
 function initVector(){
  loadVectorRuntime().then(runtime=>{
   if(vectorPreview)return;
@@ -309,13 +310,13 @@ function ideCommand(command,args={}){
     case 'file_open':requireFile(args.path);open(args.path);break;
     case 'editor_fold':codeEditor.fold(args);break;
     case 'file_write':{
-      if(!args.path||args.path.split('/').some(p=>!p||p==='..'||p==='__proto__'||p==='constructor'||p==='prototype'))throw Error('Invalid project path');
+      if(typeof args.path!=='string'||!args.path)throw Error('Invalid project path');validateProject({[args.path]:args.content});
       if(Object.hasOwn(files,args.path)&&args.expectedContent!==files[args.path])throw Error('File changed or expectedContent missing. Read it first.');
       files[args.path]=args.content;applyFiles();break;
     }
     case 'project_replace':{
       if(JSON.stringify(Object.entries(files).sort())!==JSON.stringify(Object.entries(args.expectedFiles).sort()))throw Error('Project changed. Read it first.');
-      if(!Object.keys(args.files).length)throw Error('Project cannot be empty');
+      validateProject(args.files);
       files=Object.fromEntries(Object.entries(args.files));active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;applyFiles();break;
     }
     case 'preview_renderer':rendererPicker.value=args.renderer;rendererPicker.onchange();break;

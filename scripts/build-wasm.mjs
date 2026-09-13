@@ -1,8 +1,9 @@
+import {runtimeSourceDigest,artifactDigests} from './runtime-digest.mjs';
 import {spawnSync} from 'node:child_process';
 import {cpSync,rmSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {root,versions} from './versions.mjs';
-const current=versions();
+const current=versions(),sourceDigest=runtimeSourceDigest(root);
 function run(command,args,quiet=false){
   const result=spawnSync(command,args,{cwd:root,encoding:'utf8',stdio:quiet?'pipe':'inherit'});
   if(result.error||result.status!==0)throw Error(`${command} failed: ${result.error?.message??result.stderr??result.status}`);
@@ -19,4 +20,5 @@ rmSync(controls,{recursive:true,force:true});
 cpSync(resolve(root,'vector-ui/controls'),controls,{recursive:true});
 const commit=run('git',['rev-parse','HEAD'],true);
 const dirty=!!run('git',['status','--porcelain','--untracked-files=normal'],true);
-writeFileSync(resolve(root,'public/vector-pkg/build-info.json'),JSON.stringify({...current,commit,dirty},null,2)+'\n');
+if(runtimeSourceDigest(root)!==sourceDigest)throw Error('Runtime inputs changed during build; rebuild');
+writeFileSync(resolve(root,'public/vector-pkg/build-info.json'),JSON.stringify({...current,commit,dirty,sourceDigest,artifacts:artifactDigests(resolve(root,'public/vector-pkg'))},null,2)+'\n');

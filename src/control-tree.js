@@ -1,3 +1,4 @@
+import {readStorage,writeStorage} from './browser-storage.js';
 const shorten=v=>String(v).replace(/\s+/g,' ').slice(0,70);
 function valueLabel(v){if(Array.isArray(v))return '('+v.map(valueLabel).join(', ')+')';return v?.expr??shorten(v);}
 
@@ -31,7 +32,7 @@ export function treeRows(roots,collapsed=new Set(),query=''){
   walk(needle?roots.map(filtered).filter(Boolean):roots,1,null);return out;
 }
 
-export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpenTemplate,storage=localStorage}){
+export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpenTemplate,storage={getItem:key=>readStorage('localStorage',key),setItem:(key,value)=>writeStorage('localStorage',key,value)}}){
   const panel=document.createElement('section');panel.className='control-tree-panel';panel.setAttribute('aria-label','Дерево контролов');
   panel.innerHTML=`<div class="control-tree-heading"><span>КОНТРОЛЫ</span><button data-action="expand" title="Развернуть дерево" aria-label="Развернуть дерево">⊞</button><button data-action="collapse" title="Свернуть дерево" aria-label="Свернуть дерево">⊟</button></div><div class="control-tree-scopes"><button data-scope="designer">Дизайнер</button><button data-scope="file">Файл</button></div><div class="control-tree-file"></div><input class="control-tree-search" type="search" placeholder="Найти контрол…" aria-label="Поиск в дереве контролов"><div class="control-tree-status" role="status"></div><div class="control-tree-items" role="tree" aria-label="Иерархия контролов"></div><button class="control-tree-template" hidden>Открыть шаблон компонента ↗</button>`;
   explorer.querySelector('.explorer-note').before(panel);

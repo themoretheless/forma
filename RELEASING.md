@@ -145,3 +145,10 @@ npm run package:release
 `dirty: true` в metadata — это сборки разработки. Workflow на GitHub не
 публикует такую сборку. Linux/Windows и сам удалённый workflow подтверждаются
 первым запуском GitHub Actions; локальная проверка macOS их не заменяет.
+
+### Проверка содержимого сборки
+
+`build-info.json` дополнительно содержит `sourceDigest` (SHA-256 входов Runtime,
+контролов и сборочных скриптов) и `artifacts` (хэши JS, WASM и обоих `.d.ts`).
+`package:release` отвергает несовпадение, даже если SHA коммита не менялся.
+После изменения runtime-входов повторите `build:wasm`, тесты и `build`.

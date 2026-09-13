@@ -32,6 +32,7 @@ export async function createGpuPainter(canvas,onFailure){
       // New runtimes expose a scalar layout version. Older adapters retain the
       // exact scroll comparison, without trusting a hash or visual revision.
       const scroll=layout===undefined?model.scroll_offset():null;
+      if(!Number.isInteger(width)||!Number.isInteger(height)||width<=0||height<=0||!Number.isFinite(scale)||scale<=0)throw Error('Invalid GPU viewport/DPI');
       if(width>device.limits.maxTextureDimension2D||height>device.limits.maxTextureDimension2D)throw Error('GPU canvas exceeds texture limit');
       const geometry=model.geometry_revision?.(),visual=model.visual_revision?.();
       // A legacy leaf only exposes a visual version, which can also mean load().
@@ -54,7 +55,7 @@ export async function createGpuPainter(canvas,onFailure){
         if(commands&&pool.update(0,commands))bindGroup=null;
         if(edges&&pool.update(1,edges))bindGroup=null;
         if(tiles&&pool.update(2,tiles))bindGroup=null;
-        if(paints&&pool.update(3,paints))bindGroup=null;
+        if(paints&&pool.update(3,paints,true,changed))bindGroup=null;
         if(!bindGroup)bindGroup=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},...pool.buffers.map((buffer,i)=>({binding:i+1,resource:{buffer}}))]});
         if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
         if(paramsChanged)device.queue.writeBuffer(uniform,0,model.gpu_params(width,height,scale,false));
