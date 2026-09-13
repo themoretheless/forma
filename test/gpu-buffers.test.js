@@ -45,3 +45,16 @@ test('failed partial writes invalidate the CPU snapshot before retry',()=>{
  data[3]=1;assert.throws(()=>pool.update(0,data,true),/write failed/);
  device.queue.writeBuffer=write;pool.update(0,data,true);assert.deepEqual(writes.at(-1).slice(1),[64,0]);
 });
+
+test('allocation respects maxBufferSize as well as storage binding size',()=>{
+ const {pool,device,created,writes}=fixture(1024);
+ device.limits.maxBufferSize=768;
+ pool.update(0,new Uint32Array(170));
+ assert.equal(pool.buffers[0].size,768);
+ const before=pool.snapshot();
+ assert.throws(()=>pool.update(0,new Uint32Array(193)),/budget/);
+ assert.deepEqual(pool.snapshot(),before);
+ assert.equal(created.length,1);assert.equal(writes.length,1);
+ pool.destroy();assert.ok(created[0].destroyed);
+ assert.equal(pool.snapshot().bufferBytes,0);
+});

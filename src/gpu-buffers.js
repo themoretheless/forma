@@ -5,7 +5,7 @@ export function createStoragePool(device,usage){
   return {
     buffers,
     update(index,data,diff=false,force=false){
-      const bytes=data.byteLength,limit=device.limits.maxStorageBufferBindingSize;
+      const bytes=data.byteLength,limit=Math.min(device.limits.maxStorageBufferBindingSize,device.limits.maxBufferSize??Infinity);
       if(!bytes||bytes%4||bytes>limit)throw Error('Vector scene exceeds GPU storage budget');
       const old=buffers[index];let next=old;
       if(!old||old.size<bytes){

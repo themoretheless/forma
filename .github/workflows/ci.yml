@@ -50,6 +50,8 @@ jobs:
           restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-
       - name: Forma tests (hardware tests remain explicit)
         run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests
+      - name: Design runner execution, cleanup and result limits
+        run: node --test test/design-data-runner.test.js
       - name: Native Forma window compiles
         run: cargo check --locked --manifest-path vector-ui/Cargo.toml --features native --bin forma
       - name: Generated forms and native binding example

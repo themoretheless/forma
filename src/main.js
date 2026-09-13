@@ -1,4 +1,4 @@
-import {readStorage,writeStorage,validateProject,restoreProject} from './browser-storage.js';
+import {readStorage,writeStorage,validateProject,restoreProject,writeProject} from './browser-storage.js';
 import {studioControlsProject} from './studio-controls-builtin.js';
 import {mountStudioShell} from './studio-shell.js';
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
@@ -118,7 +118,22 @@ document.querySelector('#app').innerHTML=`
 <aside class="inspector"><div class="section-title">ИНСПЕКТОР</div><div id="inspector"><div class="empty-icon">⌖</div><p>Выберите компонент</p><small>Свойства и привязки появятся здесь</small></div><div class="debug-info"><span>UI DEBUGGER</span><p id="debug-status">Готов</p><small>События и состояние дизайн-runtime.<br>Rust / DAP не подключён.</small></div></aside></div>
 <footer><span class="dot"></span><span id="status">Готов</span><span class="footer-right">Forma UI · UTF-8 <span id="position">Ln 1, Col 1</span></span></footer><input type="file" id="upload" accept=".json" hidden>`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function persist(){try{if(!writeStorage('localStorage',storageKey('forma-project'),JSON.stringify(files)))throw Error('Storage unavailable');$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
+// Recovery data is downloadable without parsing or executing its contents.
+{
+ const key=storageKey('forma-project');
+ const current=readStorage('localStorage',key);
+ let damaged=null;
+ if(current!==null)try{validateProject(JSON.parse(current));}catch{damaged=current;}
+ const recovery=damaged??readStorage('localStorage',key+':recovery');
+ if(recovery!==null){
+  const button=document.createElement('button');button.textContent='Скачать данные восстановления';
+  button.title='Исходная запись проекта, которую не удалось прочитать';
+  button.onclick=()=>{const url=URL.createObjectURL(new Blob([recovery],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  $('export').after(button);
+ }
+ if(damaged!==null)$('saved').textContent='Сохранённый проект повреждён: открыта исходная версия';
+}
+function persist(){try{if(!writeProject(storageKey('forma-project'),files))throw Error('Storage unavailable');$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
 function tree(){const buttons=[...$('tree').querySelectorAll('[data-path]')],paths=Object.keys(files),existing=new Set(buttons.map(b=>b.dataset.path));
  if(buttons.length===paths.length&&paths.every(path=>existing.has(path))){for(const b of buttons)b.classList.toggle('active',b.dataset.path===active);return;}
  const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
