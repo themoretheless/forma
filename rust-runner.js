@@ -10,6 +10,7 @@ export function createRustRunner(send){
       if(busy){send({kind:'error',text:'Rust уже запущен'});return;}
       busy=true;
       try{
+        if(!files||typeof files!=='object'||Array.isArray(files))throw Error('Ожидаются файлы проекта');
         let sourceMap={};
         if(options.generated){const prepared=prepareFormProject(files,options.state);files=prepared.files;sourceMap=prepared.sourceMap;send({kind:'stdout',text:`Сгенерировано форм: ${prepared.count}\n`});}
         if(typeof files['Cargo.toml']!=='string'||typeof files['src/main.rs']!=='string')throw Error('Нужны Cargo.toml и src/main.rs');

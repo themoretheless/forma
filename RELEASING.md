@@ -152,3 +152,13 @@ npm run package:release
 контролов и сборочных скриптов) и `artifacts` (хэши JS, WASM и обоих `.d.ts`).
 `package:release` отвергает несовпадение, даже если SHA коммита не менялся.
 После изменения runtime-входов повторите `build:wasm`, тесты и `build`.
+
+`npm run build:wasm` supports `CARGO_TARGET_DIR` (relative paths resolve from
+this repository). Both Cargo and wasm-bindgen use that directory; without the
+environment variable the script uses `vector-ui/target`. To verify a build
+without previous Cargo artifacts, set it to a new empty directory. This still
+uses the installed toolchain and Cargo dependency cache.
+
+Packaging also compares the complete `controls` directory in both runtime and
+Studio output against `vector-ui/controls`. Missing, modified or extra files
+fail packaging; rebuild WASM and Studio rather than editing generated copies.

@@ -203,3 +203,115 @@ Integration test с настоящим rustc проверяет результа
 CI runtime matrix теперь запускает их на Linux/macOS/Windows; удалённый CI
 ещё не выполнен, локальный результат относится к macOS. Изменения этого этапа
 проверены diff --check; весь production-аудит остаётся незавершённым.
+
+## Отказ инициализации WebGPU uniform buffer
+
+Создание uniform buffer перенесено внутрь try инициализации painter. При его
+отказе canvas unconfigure и device.destroy теперь выполняются до возврата
+ошибки. Это закрывает путь, где context уже был настроен, но вызывающий код
+ещё не получил painter для destroy. Новый regression test инжектирует отказ
+createBuffer и проверяет оба освобождения. 16 GPU JS tests и build прошли.
+Аппаратный OOM этим mock-тестом не симулируется.
+
+## Повторная проверка GPU lifecycle и Metal
+
+18 GPU JS-тестов прошли: 1000 неизменённых draw сохраняют объём буферов,
+число аллокаций и переданных байт; destroy освобождает buffers и повторно
+ничего не делает. device.destroy теперь выполняется через finally даже при
+ошибке context.unconfigure. Это учёт ресурсов mock API, не heap/RSS профиль.
+Production build прошёл. Повторный реальный Metal запуск всех ignored tests:
+2 library + 1 integration passed (ресурсы profiling renderer, CPU/GPU Reveal
+при разных DPI и независимость пикселей анимируемых контролов).
+
+## Чистая установка frontend из lockfile
+
+Node 22.23.2 / npm 10.9.8, отдельный /private/tmp/forma-clean-install.pghKBF.
+`npm ci --offline --no-audit --no-fund` установил 124 пакета в пустой node_modules.
+В каталог скопированы текущие tracked исходники и существующий WASM artifact;
+`npm run build` и `npm test`: 262 passed, 0 failed, 38.9 s.
+SHA-256 всех 114 файлов dist полностью совпадают с рабочей сборкой.
+Это подтверждает чистую установку JS-зависимостей и воспроизводимость frontend
+на этой машине с тем же WASM. WASM не пересобирался в этом опыте, npm cache
+был существующим, удалённый registry и сборка на других ОС не проверялись.
+
+## Пересборка WASM в отдельном Cargo target
+
+Исправлен build:wasm: Cargo и wasm-bindgen теперь используют один targetDir;
+раньше CARGO_TARGET_DIR мог направить Cargo в новый каталог, но wasm-bindgen
+читал старый vector-ui/target. Проверен запуск с
+CARGO_TARGET_DIR=/private/tmp/forma-clean-wasm-target и CARGO_NET_OFFLINE=true.
+Зависимости и runtime скомпилированы за 13.69 s. Все четыре generated JS/WASM/d.ts
+артефакта побайтно совпадают с предыдущими; SHA-256 WASM:
+47166527b7af5316821d3b1c71b9faf2742ffbd63ea9ebc2a10ddc20e4fedb01.
+Это пересборка без прежних target artifacts, но с установленным toolchain и
+существующим Cargo registry cache. Не является проверкой чистого Git release
+или нового окружения другой ОС.
+На пересобранном WASM: 262 JS tests passed (34.24 s), production build и
+package:release прошли. Пакеты локальные, dirty=true; опубликованным выпуском
+не считаются.
+
+## Проверка библиотеки контролов при упаковке
+
+package:release теперь сравнивает digest всей vector-ui/controls с копиями
+public/vector-pkg/controls и dist/vector-pkg/controls. Ранее сверялись только
+четыре JS/WASM/d.ts файла, что пропускало устаревшие или лишние контролы.
+Проверка отказа: отдельный новый probe-файл последовательно добавлен в каждую
+копию; обе попытки упаковки отклонены именно с диагностикой controls. Probe
+удалён в finally; последующая обычная упаковка прошла. Исходники не менялись.
+Эта проверка не доказывает актуальность всего frontend bundle относительно src.
+
+## Чистота checkout на момент упаковки
+
+CI packaging теперь проверяет свежий git status, а не только поле dirty
+в build-info. Проверка отказа: обе generated metadata временно выставлены
+в dirty=false, при текущих tracked правках CI упаковка всё равно отклонена
+с диагностикой чистоты checkout. Оригинальные metadata восстановлены в finally.
+Обычная локальная упаковка с dirty=true прошла до этой диагностической пробы.
+Это закрывает CI-случай изменений после сборки; fingerprint всего frontend
+bundle при локальной упаковке по-прежнему остаётся открытым.
+
+## Неверные payload локальных runners
+
+WebSocket handlers design/form/rust теперь безопасно читают поля null/undefined.
+Native runner разбирает request внутри try, Rust runner проверяет контейнер
+files до подготовки проекта. Неверный запрос возвращает error и освобождает
+busy, следующий запрос не остаётся заблокированным. Новый тест проверяет
+null, undefined, массив, пустой объект и число для обоих runners; совместно
+с vector runner 10 tests passed, production build прошёл. Это проверка
+ошибочных входов, не доказательство полной изоляции локального исполнения.
+
+## Срок жизни снимка design request
+
+Проверен путь src/main.js: design-data отправляется только обработчиком кнопки
+после confirm; импорт сам этот путь не вызывает. После совпавшего ответа
+designRequest теперь очищается до обработки error/устаревшего результата.
+Ранее JSON-копия всего проекта оставалась захваченной обработчиком до нового
+запроса/закрытия страницы. Локальная request-ссылка живёт только до возврата
+обработчика; дубликаты и посторонние ответы игнорируются. Build и diff --check
+прошли. Отсутствие ответа/разрыв WebSocket ещё требуют отдельной обработки.
+
+## Завершение ожидания design response
+
+Добавлены 45-секундный timeout, отмена ожидания при vite:ws:disconnect и
+очистка таймера/снимка при dispose. Кнопка снова доступна; поздний ответ
+не применяется и автоматического повторного исполнения нет. Сообщение явно
+указывает неизвестный исход. Тест выполняет реальный блок обработчика из
+main.js в VM с fake transport/clock: timeout, disconnect, late reply и
+следующий успешный запрос; прошёл. Production build прошёл. Это проверка
+логики обработчика, реальный сетевой разрыв браузера ещё не воспроизведён.
+
+## Очистка design HMR subscriptions
+
+Обработчик forma:design-data-result теперь именован и явно снимается вместе
+с vite:ws:disconnect при dispose. Тест дополнен завершением модуля во время
+ожидания: после dispose не остаётся ни handler, ни timer, кнопка разблокирована.
+Тест и production build прошли. Проверяется реальный блок main.js в VM;
+фактические retained heap объекты браузера этим тестом не измеряются.
+
+## Интегрированная проверка runners/build/lifecycle
+
+Полный JS suite: 264 passed, 0 failed, 33.17 s. Дополнительно удаляется
+forma:rust-output listener и очищается nativeBuffer при dispose; production
+build после этой правки прошёл. Последние изменения объединяют обработку
+ошибочных runner inputs, design request timeout/dispose, GPU cleanup и
+проверки сборки/упаковки. Весь readiness checklist ещё не закрыт.

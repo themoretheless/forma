@@ -15,7 +15,7 @@ function model(commandFloats = 20) {
     gpu_edges: () => edges, gpu_tiles: () => tiles, gpu_paints: () => new Float32Array(8), gpu_params: () => new Float32Array(12)};
 }
 
-async function fixture(t) {
+async function fixture(t, beforeCreate=()=>{}) {
   const created = [], groups = [], usedGroups = [];
   const state = {failWriteData: null, failBind: false, bindAttempts: 0, submissions: 0, writes: []};
   const device = {
@@ -69,6 +69,7 @@ async function fixture(t) {
     }
     assert.ok(created.every(buffer => buffer.destroyed), 'buffer leaked after painter destruction');
   });
+  beforeCreate(device,context);
   painter = await createGpuPainter(canvas, error => assert.fail(`unexpected GPU failure callback: ${error}`));
   return {painter, created, groups, usedGroups, state};
 }
@@ -190,4 +191,44 @@ test('CPU caches are released only after successful GPU submission',async t=>{
   assert.equal(released,0);
   painter.draw(scene,64,64,1);assert.equal(released,1);
   painter.draw(scene,64,64,1);assert.equal(released,2);
+});
+
+test('failed uniform allocation releases configured canvas and GPU device',async t=>{
+ let destroyed=0,unconfigured=0;
+ await assert.rejects(fixture(t,(device,context)=>{
+  device.createBuffer=()=>{throw Error('uniform allocation failed');};
+  device.destroy=()=>destroyed++;
+  context.unconfigure=()=>unconfigured++;
+ }),/uniform allocation failed/);
+ assert.equal(destroyed,1);assert.equal(unconfigured,1);
+});
+
+test('repeated frames retain bounded buffers and destruction is idempotent',async t=>{
+ let destroyed=0,unconfigured=0;
+ const {painter,created}=await fixture(t,(device,context)=>{
+  device.destroy=()=>destroyed++;context.unconfigure=()=>unconfigured++;
+ });
+ const scene=model();scene.geometry_revision=()=>1;scene.visual_revision=()=>1;
+ painter.draw(scene,64,64,1);const before=painter.snapshot();
+ for(let i=0;i<1000;i++)painter.draw(scene,64,64,1);
+ const after=painter.snapshot();
+ assert.equal(after.bufferAllocations,before.bufferAllocations);
+ assert.equal(after.bufferBytes,before.bufferBytes);
+ assert.equal(after.uploadedBytes,before.uploadedBytes);
+ painter.destroy();painter.destroy();
+ assert.equal(destroyed,1);assert.equal(unconfigured,1);
+ assert.ok(created.every(buffer=>buffer.destroyed));
+ assert.equal(painter.snapshot().bufferBytes,0);
+ assert.throws(()=>painter.draw(scene,64,64,1),/disposed/);
+});
+
+test('device is destroyed even if canvas unconfigure fails',async t=>{
+ let destroyed=0;
+ const {painter}=await fixture(t,(device,context)=>{
+  device.destroy=()=>destroyed++;
+  context.unconfigure=()=>{throw Error('unconfigure failed');};
+ });
+ assert.throws(()=>painter.destroy(),/unconfigure failed/);
+ assert.equal(destroyed,1);
+ painter.destroy();assert.equal(destroyed,1);
 });

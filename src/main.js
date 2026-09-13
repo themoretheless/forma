@@ -363,25 +363,32 @@ function ideCommand(command,args={}){
   return snapshot();
 }
 if(import.meta.hot){
-  let designRequest;
+  let designRequest,designTimer;
+  const finishDesignRequest=()=>{const request=designRequest;designRequest=undefined;clearTimeout(designTimer);designTimer=undefined;refreshDesign.disabled=false;return request;};
+  const cancelDesignRequest=()=>{if(finishDesignRequest())log('Соединение потеряно: результат дизайн-данных неизвестен. Обновите их после подключения.');};
   const refreshDesign=document.createElement('button');refreshDesign.textContent='↻ Данные дизайна';$('run').before(refreshDesign);
   refreshDesign.title='Выполнить локальный src/design.rs (без песочницы), получить текстовые константы и результаты методов';
   refreshDesign.onclick=()=>{
-    if(!compiled)return;
+    if(!compiled||designRequest)return;
     const refs=designReferences(compiled);
     if(!refs.length){log('Нет ссылок design в дизайне');return;}
     if(!confirm('Выполнить src/design.rs для получения дизайн-данных? Rust-код работает с правами вашего пользователя.'))return;
     designRequest={id:crypto.randomUUID(),source:JSON.stringify(files)};
     refreshDesign.disabled=true;
-    import.meta.hot.send('forma:design-data',{id:designRequest.id,files,refs});
+    designTimer=setTimeout(()=>{if(finishDesignRequest())log('Ответ дизайн-данных не получен. Исполнение могло завершиться; автоматического повтора нет.');},45000);
+    try{import.meta.hot.send('forma:design-data',{id:designRequest.id,files,refs});}
+    catch(e){finishDesignRequest();log('Не удалось отправить запрос дизайн-данных: '+e.message);}
   };
-  import.meta.hot.on('forma:design-data-result',data=>{
-    if(data.id!==designRequest?.id)return;
-    refreshDesign.disabled=false;
-    if(designRequest.source!==JSON.stringify(files)){log('Проект изменился: обновите дизайн-данные ещё раз');return;}
+  import.meta.hot.on('vite:ws:disconnect',cancelDesignRequest);
+  import.meta.hot.dispose(()=>{finishDesignRequest();import.meta.hot.off('vite:ws:disconnect',cancelDesignRequest);import.meta.hot.off('forma:design-data-result',receiveDesignData);});
+  const receiveDesignData=data=>{
+    if(!designRequest||data?.id!==designRequest.id)return;
+    const request=finishDesignRequest();
+    if(request.source!==JSON.stringify(files)){log('Проект изменился: обновите дизайн-данные ещё раз');return;}
     if(data.error){error=data.error;output();return;}
     setDesignData(data.values);compile();log('Дизайн-данные обновлены из Rust');
-  });
+  };
+  import.meta.hot.on('forma:design-data-result',receiveDesignData);
   const runApp=document.createElement('button');runApp.textContent='▶ Приложение';runApp.title='Запустить окно; F9 в окне включает выбор элемента и живое дерево в Studio';runApp.className='accent';$('run').before(runApp);
   runApp.onclick=()=>{tab='events';syncTabs();ideCommand('app_run');output();};
   const runRust=document.createElement('button');runRust.textContent='▶ Rust';runRust.title='Собрать и запустить Cargo-проект';$('run').before(runRust);
@@ -394,5 +401,5 @@ if(import.meta.hot){
   const handle=({id,command,args})=>{try{import.meta.hot.send('forma:result',{id,result:ideCommand(command,args)});}catch(e){import.meta.hot.send('forma:result',{id,error:e.message});}};
   import.meta.hot.on('forma:command',handle);
   import.meta.hot.on('vite:ws:connect',hello);hello();
-  import.meta.hot.dispose(()=>{import.meta.hot.off('forma:command',handle);import.meta.hot.off('vite:ws:connect',hello);});
+  import.meta.hot.dispose(()=>{import.meta.hot.off('forma:command',handle);import.meta.hot.off('vite:ws:connect',hello);import.meta.hot.off('forma:rust-output',rustOutput);nativeBuffer='';});
 }

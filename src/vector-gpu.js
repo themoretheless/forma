@@ -16,13 +16,13 @@ export async function createGpuPainter(canvas,onFailure){
   const fail=error=>{if(!disposed)onFailure(error instanceof Error?error:Error(String(error)));};
   device.lost.then(info=>fail(Error(`GPU device lost: ${info.message}`)));
   device.addEventListener('uncapturederror',event=>fail(event.error));
-  let pipeline;
+  let pipeline,uniform;
   try{
     const module=device.createShaderModule({code:shader,label:'Forma vector'});
     pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
     context.configure({device,format,alphaMode:'premultiplied'});
-  }catch(error){disposed=true;device.destroy();throw error;}
-  const uniform=device.createBuffer({size:48,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+    uniform=device.createBuffer({size:48,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+  }catch(error){disposed=true;try{context.unconfigure();}finally{device.destroy();}throw error;}
   const pool=createStoragePool(device,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST);
   const validate=data=>{if(data&&(!data.byteLength||data.byteLength%4||data.byteLength>device.limits.maxStorageBufferBindingSize))throw Error('Vector scene exceeds GPU storage budget');};
   return {
@@ -73,6 +73,6 @@ export async function createGpuPainter(canvas,onFailure){
       }
     },
     snapshot(){return {backend:'webgpu-vector',uploads,frames,...pool.snapshot()};},
-    destroy(){if(disposed)return;disposed=true;modelKey=null;bindGroup=null;pool.destroy();uniform.destroy();context.unconfigure();device.destroy();},
+    destroy(){if(disposed)return;disposed=true;modelKey=null;bindGroup=null;try{pool.destroy();uniform.destroy();context.unconfigure();}finally{device.destroy();}},
   };
 }
