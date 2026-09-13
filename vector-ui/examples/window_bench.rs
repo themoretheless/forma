@@ -522,7 +522,7 @@ mod native {
         let finish = app.finished.as_ref().ok_or("No measurement result")?;
         if app.frames == 0 {
             return Err(format!(
-                "No frames presented; GUI may be unavailable/occluded. {}",
+                "No frames presented; GUI may be unavailable/occluded. On Metal, visible/focused window flags do not imply AppKit occlusion visibility; wgpu may reject acquisition before nextDrawable. {}",
                 app.diagnostics()
             )
             .into());

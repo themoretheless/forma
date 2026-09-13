@@ -315,3 +315,136 @@ forma:rust-output listener и очищается nativeBuffer при dispose; pr
 build после этой правки прошёл. Последние изменения объединяют обработку
 ошибочных runner inputs, design request timeout/dispose, GPU cleanup и
 проверки сборки/упаковки. Весь readiness checklist ещё не закрыт.
+
+## Упаковка чистого коммита b9136bd
+
+На чистом b9136bdc66c5aa05fa453c550fd59a525b85b1ac выполнены build:wasm,
+build и CI=true package:release. Оба архива имеют dirty=false и этот commit
+внутри build-info; SHA-256 архивов совпадают с sidecar-файлами. Runtime архив
+содержит 111 entries, Studio — 122. Проверка всех tar members: только обычные
+файлы/каталоги, нет абсолютных путей, .., ссылок и повторяющихся имён.
+Архивы остаются локальными; этот результат не подтверждает browser soak,
+remote CI или готовность всех остальных пунктов продукта.
+
+## Попытка native window soak
+
+window_bench 800×400, 30 s на Metal завершился ошибкой No frames presented:
+1766 occluded acquisitions, 0 success, 0 timeout/outdated. Перед выходом
+visible=true, focused=false, physical=800×400, scale=2; occlusion event не пришёл.
+Результат не является замером renderer throughput/памяти. 60 s вариант ранее
+отклонён валидатором (поддерживается до 30 s). Для оконного soak требуется
+проверка фокуса/видимости через UI во время запуска; hardware offscreen тесты
+этим результатом не опровергаются. Пункт длительной памяти остаётся открытым.
+
+## Уточнение причины оконного Occluded
+
+Повторный процесс завершился: 1852 occluded, 0 success. На этот раз перед
+выходом visible=true И focused=true, physical 800×400, scale=2. Следовательно,
+отсутствие фокуса не объясняет проблему целиком. Код уже вызывает set_visible
+и focus_window. CUA getApp по пути executable не распознал его как приложение.
+Следующее направление — доступность presentation surface/Metal layer и
+контекст оконной сессии, а не слепой повтор активации. Валидных оконных
+performance/память-измерений по-прежнему нет; цель не считается заблокированной,
+поскольку остаётся доступен анализ renderer и другие production проверки.
+
+## Локализация отказа Metal acquire
+
+Cargo.lock фиксирует wgpu-hal 29.0.4. В установленном исходнике
+src/metal/surface.rs:128–151 acquire_surface_texture обходит layer delegates,
+читает NSWindow.occlusionState и возвращает Occluded при отсутствии visible
+bit ДО nextDrawable. Следовательно, предыдущие 0 success не измеряют shader
+или drawable throughput; winit visible/focused не эквивалентны этому bit.
+Диагностика window_bench уточнена, native cargo check прошёл. Для валидного
+оконного замера нужен AppKit-visible window в доступной оконной сессии;
+обход проверки wgpu не выполнен, поскольку он может вернуть секундные stalls
+nextDrawable и не доказывает корректную presentation-среду.
+
+## Offscreen Metal Rust allocation accounting
+
+gpu_scene_bench использует существующий CountingAllocator и поддерживает
+FORMA_BENCH_NO_TIMESTAMPS=1 для отделения накладных расходов profiling.
+Apple M5 / Metal, 200 кадров, 100/256 контролов:
+- profiling: 14804/14800 allocations, 0 reallocations, live delta +128/0 bytes;
+- без timestamps: 8000 allocations в обеих сценах, 0 reallocations,
+  live delta 0/0 bytes, allocation traffic 1618600/1625800 bytes.
+Во всех сценах 12 paint bytes/frame, 0 новых GPU buffers/geometry uploads.
+Счётчик включает Rust wgpu/backend и harness, исключает Objective-C/Metal и
+не является RSS/VRAM. Нулевой live delta за короткий прогон не доказывает
+отсутствие длительных утечек. Осталось около 40 Rust allocations/frame без
+profiling; требуется атрибуция, а не предположение, что все они в Forma.
+
+## Атрибуция Rust allocations по фазам Metal кадра
+
+В gpu_scene_bench добавлены snapshot-счётчики до/после pointer, draw и
+wait/readback. Без timestamps на 100 и 256 контролах за 200 кадров:
+pointer=0, draw-submit=8000, wait/readback=0 allocations; live delta=0,
+reallocations=0. Значит наблюдаемые 40 allocations/frame находятся внутри
+draw/submit, а не hit testing или ожидания. Счётчик process-wide: возможны
+фоновые Rust allocations, это фазовая атрибуция, не stack profile. Следует
+разделить подготовку RenderScene и вызовы wgpu; ускорение пока не заявляется.
+
+## Аллокации прогретого RenderScene
+
+В gpu_scene_bench отдельная фаза: 200 pointer изменений, vector_snapshot,
+gpu_paints_into и gpu_params_into в заранее выделенные Vec с black_box.
+На 100/256 контролах: allocations=0, reallocations=0, requested_bytes=0.
+Следующая фаза draw/submit сохраняет 8000 allocations за 200 кадров; live delta=0.
+Это исключает перечисленные вызовы подготовки прогретой сцены в данном
+сценарии, но не является stack attribution всех 40 allocations/frame.
+Границы дальнейшего поиска — внутренние операции renderer и wgpu encoding.
+Измерение относится к локальному hover без изменений геометрии, не ко всем
+видам редактирования и компиляции.
+
+## Static-frame baseline
+
+FORMA_BENCH_STATIC=1 отключает изменения pointer в измеряемой GPU-фазе.
+На 100/256 контролах, 200 кадров без timestamps: 6400 allocations (32/frame),
+0 reallocations, 0 uploaded bytes, live delta=0. Animated вариант — 40/frame;
+разница 8/frame связана с paint-update путём в этом опыте. Stack attribution
+ещё не выполнена. Проверен native main: ControlFlow::Wait при idle, title
+updates не вызывают redraw; бенчмарк намеренно рисует непрерывно. Поэтому
+32/frame не следует трактовать как постоянные расходы простаивающего окна.
+
+## 5000 animated Metal frames per scene
+
+Бенчмарк поддерживает FORMA_BENCH_FRAMES (20..100000, default 200), резервируя
+sample arrays заранее. FORMA_BENCH_FRAMES=5000, без timestamps: обе сцены
+100/256 контролов завершились. Live Rust bytes 914631→914631 и
+1794657→1794657; 200000 allocations каждая, reallocations=0; traffic
+40465000/40645000 bytes. Все allocations в draw-submit, preparation/pointer
+без allocations. 12 paint bytes/frame, 0 новых GPU buffers/geometry uploads.
+Это 10000 offscreen кадров с синхронным GPU wait, не оконный soak и не
+измерение Metal/ObjC/RSS. Рост удерживаемой Rust-памяти не наблюдался;
+40 временных allocations/frame всё ещё требуют stack attribution.
+
+## RSS offscreen Metal
+
+Добавлен существующий ProcessSnapshot до/после измеряемой серии, вне timing
+и allocation snapshots. 5000 кадров на сцену без timestamps:
+100 контролов RSS 20168704→20267008 (+98304 bytes);
+256 контролов RSS 21692416→21741568 (+49152 bytes).
+Rust live delta=0 в обеих сценах; GPU-buffer allocations и geometry uploads=0.
+Небольшой RSS прирост наблюдается, но по двум endpoint snapshots нельзя
+установить прогрев или утечку: требуется тренд повторных одинаковых фаз.
+RSS включает весь процесс и не суммируется с owned GPU bytes на unified memory.
+Прогон завершился успешно; это offscreen workload, не оконная/браузерная сессия.
+
+## Промежуточные RSS samples
+
+Добавлены заранее зарезервированные samples start + каждые 1000 кадров.
+5000 кадров на сцену, Metal без timestamps:
+100 controls: [19972096,20070400,20070400,20086784,20037632,20054016];
+256 controls: [21446656,21479424,21463040,21479424,21479424,21495808].
+После начального увеличения наблюдаются колебания, а не монотонное увеличение
+на каждой точке. Время наблюдения и набор операций ограничены: это не
+доказательство отсутствия утечек на любых проектах или многочасовом soak.
+Промежуточный ProcessSnapshot находится после timing sample; на платформах,
+где capture сам аллоцирует, его расходы могут попадать в общий allocation delta.
+
+## Переносимость benchmark metrics
+
+RSS capture теперь необязателен: неподдерживаемая платформа/ошибка счётчика
+печатается как None и не прерывает GPU-бенчмарк. Добавлена документация env
+параметров в example. Cargo check с gpu и четыре bench_support tests прошли
+на macOS. Windows исполнение не проверено; его отсутствие ProcessSnapshot
+больше не вызывает unwrap panic в gpu_scene_bench.
