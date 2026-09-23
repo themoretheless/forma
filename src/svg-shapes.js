@@ -37,9 +37,12 @@ export function parseSvgShapes(source,currentColor='#ffffff'){
 
 // The mapping keeps the original single-pass arithmetic: stroke offsets are
 // computed in viewBox units and only then scaled and translated.
+// Placed geometry crosses the wire as text, so it is quantized to 1/1000 px.
+// Full double precision triples the template size and is far below one device pixel.
+const QUANTUM=1e3;
 export function placeSvgShapes({view,shapes},box){
   const [vx,vy,vw,vh]=view,[x,y,w,h]=box,s=Math.min(w/vw,h/vh),ox=x+(w-vw*s)/2,oy=y+(h-vh*s)/2;
-  return shapes.map(({color,points})=>({color,points:points.map(([a,b])=>[ox+(a-vx)*s,oy+(b-vy)*s])}));
+  return shapes.map(({color,points})=>({color,points:points.map(([a,b])=>[Math.round((ox+(a-vx)*s)*QUANTUM)/QUANTUM,Math.round((oy+(b-vy)*s)*QUANTUM)/QUANTUM])}));
 }
 
 export function svgShapes(source,box,currentColor='#ffffff'){

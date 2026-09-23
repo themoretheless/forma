@@ -198,7 +198,7 @@ function compile(files,entry,state,metrics,read,links){
       let parsed;
       if(cached?.color===currentColor)parsed=cached.parsed;
       else{parsed=parseSvgShapes(source,currentColor);if(iconGeometryUnits<=iconGeometryBudget){parsedIcons.set(source,{color:currentColor,parsed});iconGeometryUnits+=parsed.shapes.reduce((total,shape)=>total+shape.points.length*16,64);}}
-      const content=placeSvgShapes(parsed,box).map(s=>`ContentShape { points: ${literal(s.points.map(v=>v.join(' ')).join(' '))}; color: ${s.color}; }`).join(' ');
+      const content=placeSvgShapes(parsed,box).map(s=>`ContentShape { points: '${s.points.flat().join(' ')}'; color: ${s.color}; }`).join(' ');
       if(imageUnits+content.length<=1_000_000){if(!byBox){byBox=new Map();images.set(source,byBox);}byBox.set(key,content);imageUnits+=content.length;}
       return content;
     },
