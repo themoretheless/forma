@@ -38,3 +38,17 @@ test('origin traversal restores caller cycle guards and retains diamond dependen
  assert.deepEqual(propertyOrigins(value,null,{a:{expr:'props.c'},b:{expr:'props.c'},c:{expr:'state.value'}},{},{},seen),[{label:'state.value'}]);
  assert.deepEqual(seen,new Set(['root']));
 });
+
+test('a reference-free value contributes only its own source and repeated instances share that snapshot',()=>{
+ const source={file:'x.ui',from:1,to:2};
+ const color={expr:'#112233'};
+ const origins=propertyOrigins(color,source,{},{},{},undefined);
+ assert.deepEqual(origins,[{source,label:'Объявление'}]);
+ assert.equal(Object.isFrozen(origins),true);
+ assert.equal(propertyOrigins(color,source,{},{},{}),origins,'the same value and source reuse one snapshot');
+ assert.notEqual(propertyOrigins(color,{...source},{},{},{}),origins,'a different source record stays a separate origin');
+ assert.deepEqual(propertyOrigins(7,source,{},{},{}),[{source,label:'Объявление'}]);
+ assert.deepEqual(propertyOrigins(7,undefined,{},{},{}),[]);
+ const labeled={file:'x.ui',from:3,to:4,label:'LargeButton · override caption'};
+ assert.match(propertyOrigins({width:2},labeled,{},{},{})[0].label,/override caption/);
+});

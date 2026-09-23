@@ -42,3 +42,12 @@ test('equality compares pure data structurally with strict scalar types across r
 test('optional indexed access skips its index expression when the receiver is absent',()=>{
   assert.equal(evaluate("state.items?.[state.missing] ?? 'None'",{}),'None');
 });
+test('reference collection walks nested values, keeps first-seen order and stays read-only for shared values',()=>{
+  const value={background:{expr:'props.theme'},shadow:[{expr:'state.depth'},{expr:'props.theme'},{expr:'!state.dark'}],radius:4};
+  assert.deepEqual(expressionReferences(value),['props.theme','state.depth','state.dark']);
+  assert.equal(expressionReferences(value),expressionReferences(value),'a repeated value object reuses one frozen result');
+  assert.equal(Object.isFrozen(expressionReferences(value)),true);
+  assert.deepEqual(expressionReferences(42),[]);
+  assert.deepEqual(expressionReferences('text'),[]);
+  assert.deepEqual(expressionReferences({expr:'state.count + 1'}),[]);
+});
