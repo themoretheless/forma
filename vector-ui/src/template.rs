@@ -261,13 +261,13 @@ impl<'a> Parser<'a> {
         Ok(())
     }
     fn ident(&mut self) -> Result<String, String> {
-        if let Kind::Ident(value) = &self.current.kind {
-            let value = value.clone();
+        // The token owns the identifier: move it out instead of duplicating it.
+        if let Kind::Ident(value) = &mut self.current.kind {
+            let value = std::mem::take(value);
             self.advance()?;
-            Ok(value)
-        } else {
-            Err(self.error("Expected a primitive or property name"))
+            return Ok(value);
         }
+        Err(self.error("Expected a primitive or property name"))
     }
     fn colon(&mut self) -> Result<(), String> {
         self.expect(Kind::Colon, "':'")
@@ -363,6 +363,12 @@ impl<'a> Parser<'a> {
         Ok(color)
     }
     fn text_value(&mut self) -> Result<String, String> {
+        // Quoted strings already live in the token, so the fast path moves them.
+        if let Kind::String(value) = &mut self.current.kind {
+            let value = std::mem::take(value);
+            self.advance()?;
+            return Ok(value);
+        }
         let value = match &self.current.kind {
             Kind::String(value) => value.clone(),
             Kind::Ident(reference) => match reference.as_str() {
@@ -650,10 +656,20 @@ impl<'a> Parser<'a> {
                 ("ContentText","fontSize")=>text.font_size=self.scalar(&name,true)?,
                 (_,"color")=>text.color=self.color("color")?,
                 ("ContentShape","points")=>{
-                    let raw=self.text_value()?;let values:Result<Vec<f32>,_>=raw.split_whitespace().map(str::parse::<f32>).collect();
-                    let values=values.map_err(|_|self.error("Invalid polygon points"))?;
-                    if values.len()<6||values.len()>8192||values.len()%2!=0||values.iter().any(|v|!v.is_finite()||v.abs()>100_000.){return Err(self.error("Invalid polygon points"));}
-                    points=Some(values.chunks_exact(2).map(|v|[v[0],v[1]]).collect());
+                    // One pass straight into pairs: no intermediate scalar vector.
+                    let raw=self.text_value()?;
+                    let mut words=raw.split_whitespace();
+                    let count=words.clone().count();
+                    if count<6||count>8192||count%2!=0{return Err(self.error("Invalid polygon points"));}
+                    let mut pairs:Vec<[f32;2]>=Vec::with_capacity(count/2);
+                    while let Some(word)=words.next(){
+                        let next=words.next().ok_or_else(||self.error("Invalid polygon points"))?;
+                        let a=word.parse::<f32>().map_err(|_|self.error("Invalid polygon points"))?;
+                        let b=next.parse::<f32>().map_err(|_|self.error("Invalid polygon points"))?;
+                        if !a.is_finite()||!b.is_finite()||a.abs()>100_000.||b.abs()>100_000.{return Err(self.error("Invalid polygon points"));}
+                        pairs.push([a,b]);
+                    }
+                    points=Some(pairs);
                 },
                 _=>return Err(self.error(&format!("Unsupported {kind} property {name}"))),
             }self.semi()?;
