@@ -3,7 +3,7 @@
 import {parse} from './language.js';
 import {propertyOrigins} from './property-origins.js';
 import {similarName,sourceError} from './diagnostics.js';
-import {svgShapes} from './svg-shapes.js';
+import {parseSvgShapes,placeSvgShapes} from './svg-shapes.js';
 import {attachSources,createElementTree} from './element-tree.js';
 import {createCacheBudget} from './cache-budget.js';
 import {evaluate,evaluateProperties,selectedProperties,selectedPropertySources,validateContract,validateTypeName,matchesType,expandStructure} from './component-semantics.js';
@@ -181,8 +181,10 @@ function compile(files,entry,state,metrics,read,links){
   // Measurement and lowered SVG geometry are deterministic within one compile.
   // Keep these caches local so edits, state, fonts and metrics callbacks are
   // re-read on the next compilation, without retaining large output strings.
-  const textSizes=new Map(),images=new Map(),measureText=metrics.measureText,metricsContext=metrics;
-  let imageUnits=0;
+  const textSizes=new Map(),images=new Map(),parsedIcons=new Map(),measureText=metrics.measureText,metricsContext=metrics;
+  // Parsed icon geometry is compile-local and bounded like the output strings below.
+  const iconGeometryBudget=1_000_000;
+  let imageUnits=0,iconGeometryUnits=0;
   metrics={...metrics,
     measureText:measureText?function(text,size){
       let byText=textSizes.get(size);if(!byText){byText=new Map();textSizes.set(size,byText);}
@@ -192,7 +194,11 @@ function compile(files,entry,state,metrics,read,links){
     imageContent(source,box,currentColor){
       let byBox=images.get(source);const key=JSON.stringify([...box,currentColor]);
       if(byBox?.has(key))return byBox.get(key);
-      const content=svgShapes(source,box,currentColor).map(s=>`ContentShape { points: ${literal(s.points.map(v=>v.join(' ')).join(' '))}; color: ${s.color}; }`).join(' ');
+      const cached=parsedIcons.get(source);
+      let parsed;
+      if(cached?.color===currentColor)parsed=cached.parsed;
+      else{parsed=parseSvgShapes(source,currentColor);if(iconGeometryUnits<=iconGeometryBudget){parsedIcons.set(source,{color:currentColor,parsed});iconGeometryUnits+=parsed.shapes.reduce((total,shape)=>total+shape.points.length*16,64);}}
+      const content=placeSvgShapes(parsed,box).map(s=>`ContentShape { points: ${literal(s.points.map(v=>v.join(' ')).join(' '))}; color: ${s.color}; }`).join(' ');
       if(imageUnits+content.length<=1_000_000){if(!byBox){byBox=new Map();images.set(source,byBox);}byBox.set(key,content);imageUnits+=content.length;}
       return content;
     },
@@ -341,7 +347,7 @@ function compile(files,entry,state,metrics,read,links){
     if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
     const sources={...linked.defaultSources,...selectedPropertySources(linked.matches,props,state,env),...instance.propertySources};
     const scope={props,sources,traces:instance.propertyOrigins??{},instance,top,environment:env,parents:[...parents,instance.type]};
-    const resolved=Object.fromEntries(Object.entries(props).map(([k,v])=>[k,expandValue(v,scope,0,[k])]));
+    const resolved={};for(const key of Object.keys(props))resolved[key]=expandValue(props[key],scope,0,[key]);
     validateContract(linked.propDefinitions,resolved,env.enums,instance.type);
     const roots=expandChildren(linked.nodes,scope,0);
     if(roots.length!==1||(top?roots[0].type!=='Rectangle':!visualTypes.has(roots[0].type)))throw Error(top?'Базовая кнопка требует один Rectangle':'Визуальный компонент требует один Frame, Text, Image или Rectangle');
@@ -356,7 +362,7 @@ function compile(files,entry,state,metrics,read,links){
         if(instance.propertySources?.[key])root.propertySources={...root.propertySources,[key]:clone(instance.propertySources[key])};
       }
     }
-    const origins=Object.fromEntries(Object.entries(props).map(([key,value])=>[key,instance.propertyOrigins?.[key]??propertyOrigins(value,sources[key],props,sources,{},new Set([key]))]));
+    const origins={};for(const key of Object.keys(props)){const value=props[key];origins[key]=instance.propertyOrigins?.[key]??propertyOrigins(value,sources[key],props,sources,{},new Set([key]));}
     return {roots,resolved,origins};
   }
   function expandValue(value,scope,depth,stack=[]){
@@ -386,7 +392,9 @@ function compile(files,entry,state,metrics,read,links){
     const sources={...selectedPropertySources(n.matches,scope.props,state,scope.environment),...n.propertySources};
     const raw={...Object.fromEntries((n.forward??[]).map(key=>[key,{expr:`props.${key}`}])) ,...selectedProperties(n.matches,scope.props,state,scope.environment),...n.props};
     const origins=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,propertyOrigins(value,sources[key],scope.props,scope.sources,scope.traces)]));
-    const node={...n,props:Object.fromEntries(Object.entries(evaluateProperties(n,scope.props,state,scope.environment)).map(([k,v])=>[k,v?.type?expand(v,scope,depth+1):v])),propertySources:sources,propertyOrigins:origins,children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
+    const evaluated=evaluateProperties(n,scope.props,state,scope.environment);
+    const expandedProps={};for(const key of Object.keys(evaluated)){const value=evaluated[key];expandedProps[key]=value?.type?expand(value,scope,depth+1):value;}
+    const node={...n,props:expandedProps,propertySources:sources,propertyOrigins:origins,children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
     if(!primitiveTypes.has(n.type))return instantiate(node,false,scope.parents).roots[0];
     return {...node,expandedVisual:true};
   }

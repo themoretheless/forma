@@ -1,13 +1,15 @@
 // Deliberately bounded SVG subset. Never executes SVG, fetches URLs or embeds HTML.
 // Unsupported SVG features are diagnostics, not silently missing artwork.
-export function svgShapes(source,box,currentColor='#ffffff'){
+// Parsing is box-independent: a repeated icon tessellates once and is then placed
+// per control, so callers must not re-parse the same source for every surface.
+export function parseSvgShapes(source,currentColor='#ffffff'){
   if(typeof source!=='string'||source.length>100_000)throw Error('SVG должен быть текстом до 100 КБ');
   source=source.replace(/<!--[^]*?-->/g,'').replace(/<\?xml[^]*?\?>/g,'');
   const tags=[...source.matchAll(/<([^>]+)>/g)];if(source.replace(/<[^>]+>/g,'').trim())throw Error('SVG: текстовые элементы пока не поддерживаются');
   const out=[];let view=null,root=false,closed=false;
   function number(v,fallback=0){const n=v===undefined?fallback:Number(v);if(!Number.isFinite(n)||Math.abs(n)>100_000)throw Error('SVG: неверная координата');return n;}
   function ink(v){if(v==='none')return null;if(v==='currentColor')v=currentColor;if(!/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(v))throw Error('SVG: поддерживаются hex и currentColor');return v;}
-  function emit(points,c){if(!c)return;const [vx,vy,vw,vh]=view,[x,y,w,h]=box;const s=Math.min(w/vw,h/vh),ox=x+(w-vw*s)/2,oy=y+(h-vh*s)/2;out.push({color:c,points:points.map(([a,b])=>[ox+(a-vx)*s,oy+(b-vy)*s])});}
+  function emit(points,c){if(!c)return;out.push({color:c,points});}
   function segment(a,b,width,c){const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy);if(!l)return;const x=-dy/l*width/2,y=dx/l*width/2;emit([[a[0]+x,a[1]+y],[b[0]+x,b[1]+y],[b[0]-x,b[1]-y],[a[0]-x,a[1]-y]],c);}
   for(const tag of tags){
     const raw=tag[1].trim();if(raw==='/svg'){closed=true;continue;}
@@ -29,5 +31,17 @@ export function svgShapes(source,box,currentColor='#ffffff'){
     if(name!=='line')emit(points,fill);
     if(stroke&&sw)for(let i=0;i<points.length-(close?0:1);i++)segment(points[i],points[(i+1)%points.length],sw,stroke);
   }
-  if(!root||!closed)throw Error('SVG: незакрытый корень');if(out.length>2048)throw Error('SVG: слишком много примитивов');return out;
+  if(!root||!closed)throw Error('SVG: незакрытый корень');if(out.length>2048)throw Error('SVG: слишком много примитивов');
+  return {view,shapes:out};
+}
+
+// The mapping keeps the original single-pass arithmetic: stroke offsets are
+// computed in viewBox units and only then scaled and translated.
+export function placeSvgShapes({view,shapes},box){
+  const [vx,vy,vw,vh]=view,[x,y,w,h]=box,s=Math.min(w/vw,h/vh),ox=x+(w-vw*s)/2,oy=y+(h-vh*s)/2;
+  return shapes.map(({color,points})=>({color,points:points.map(([a,b])=>[ox+(a-vx)*s,oy+(b-vy)*s])}));
+}
+
+export function svgShapes(source,box,currentColor='#ffffff'){
+  return placeSvgShapes(parseSvgShapes(source,currentColor),box);
 }

@@ -109,7 +109,9 @@ export function evaluateProperties(node, props, state, environment = {}) {
     if (own(values, key)) throw Error(`Свойство ${key} одновременно имеет значение и двустороннюю привязку`);
     values[key] = {expr: path};
   }
-  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, evaluate(value, props, state, [], false, environment)]));
+  const result = {};
+  for (const key of Object.keys(values)) result[key] = evaluate(values[key], props, state, [], false, environment);
+  return result;
 }
 
 export function validateContract(definitions = {}, values, enums = {}, label = 'component') {
