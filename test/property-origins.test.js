@@ -53,6 +53,15 @@ test('a reference-free value contributes only its own source and repeated instan
  assert.match(propertyOrigins({width:2},labeled,{},{},{})[0].label,/override caption/);
 });
 
+test('expression origins are shared objects so repeated instances reuse one dedupe key',()=>{
+ const source={file:'x.ui',from:1,to:2};
+ const props={a:{expr:'props.b'},b:'state.value'};
+ const call=()=>propertyOrigins({parts:[{expr:'props.a'},{expr:'state.other'}]},source,props,{a:source,b:source},{});
+ const first=call(),second=call();
+ assert.deepEqual(first,[{source,label:'Объявление'},{label:'state.other'}],'a source reached twice is listed once');
+ assert.ok(first.every((origin,index)=>origin===second[index]),'the same source and reference reuse one origin object');
+});
+
 test('origin dedupe collapses sources that only match structurally, not by identity',()=>{
  const source={file:'x.ui',from:1,to:2};
  const props={a:{expr:'props.a'},b:{expr:'props.b'}};
