@@ -2,6 +2,7 @@
 //! The host supplies the bounds; every painted primitive comes from this file.
 
 use crate::markup::ButtonSpec;
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -56,12 +57,23 @@ enum Unit {
     Ms,
 }
 
+/// `str::as_str` is unstable, so borrowed token text gets a local accessor.
+trait TokenText {
+    fn text(&self) -> &str;
+}
+
+impl TokenText for Cow<'_, str> {
+    fn text(&self) -> &str {
+        self
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
-enum Kind {
-    Ident(String),
-    String(String),
+enum Kind<'a> {
+    Ident(Cow<'a, str>),
+    String(Cow<'a, str>),
     Number(f32, Unit),
-    Hex(String),
+    Hex(Cow<'a, str>),
     Open,
     Close,
     Colon,
@@ -73,8 +85,8 @@ enum Kind {
 }
 
 #[derive(Debug, Clone)]
-struct Token {
-    kind: Kind,
+struct Token<'a> {
+    kind: Kind<'a>,
     offset: usize,
 }
 
@@ -83,7 +95,7 @@ struct Lexer<'a> {
     offset: usize,
 }
 
-impl Lexer<'_> {
+impl<'a> Lexer<'a> {
     fn rest(&self) -> &str {
         &self.source[self.offset..]
     }
@@ -95,7 +107,7 @@ impl Lexer<'_> {
         self.offset += ch.len_utf8();
         Some(ch)
     }
-    fn next(&mut self) -> Result<Token, String> {
+    fn next(&mut self) -> Result<Token<'a>, String> {
         loop {
             while self.peek().is_some_and(char::is_whitespace) {
                 self.bump();
@@ -142,40 +154,57 @@ impl Lexer<'_> {
                 Kind::Arrow
             }
             '\'' | '"' => {
-                let mut value = String::new();
-                loop {
-                    match self.bump() {
-                        Some(c) if c == ch => break,
-                        Some('\\') => {
-                            let escaped = match self.bump() {
-                                Some('n') => '\n',
-                                Some('r') => '\r',
-                                Some('t') => '\t',
-                                Some('\\') => '\\',
-                                Some('\'') => '\'',
-                                Some('"') => '"',
-                                Some(c) => {
-                                    return Err(format!(
-                                        "Unsupported escape \\{c} (byte {})",
-                                        self.offset
-                                    ))
-                                }
-                                None => return Err(format!("Unclosed string (byte {offset})")),
-                            };
-                            value.push(escaped);
-                        }
-                        Some(c) => value.push(c),
-                        None => return Err(format!("Unclosed string (byte {offset})")),
-                    }
+                // Escape-free literals (icon point lists dominate templates) are
+                // one byte scan plus one copy instead of a char-by-char build.
+                let quote = ch as u8;
+                let bytes = self.source.as_bytes();
+                let start = self.offset;
+                let mut end = start;
+                while end < bytes.len() && bytes[end] != quote && bytes[end] != b'\\' {
+                    end += 1;
                 }
-                Kind::String(value)
+                if end == bytes.len() {
+                    return Err(format!("Unclosed string (byte {offset})"));
+                }
+                if bytes[end] != b'\\' {
+                    self.offset = end + 1;
+                    Kind::String(Cow::Borrowed(&self.source[start..end]))
+                } else {
+                    let mut value = String::new();
+                    loop {
+                        match self.bump() {
+                            Some(c) if c == ch => break,
+                            Some('\\') => {
+                                let escaped = match self.bump() {
+                                    Some('n') => '\n',
+                                    Some('r') => '\r',
+                                    Some('t') => '\t',
+                                    Some('\\') => '\\',
+                                    Some('\'') => '\'',
+                                    Some('"') => '"',
+                                    Some(c) => {
+                                        return Err(format!(
+                                            "Unsupported escape \\{c} (byte {})",
+                                            self.offset
+                                        ))
+                                    }
+                                    None => return Err(format!("Unclosed string (byte {offset})")),
+                                };
+                                value.push(escaped);
+                            }
+                            Some(c) => value.push(c),
+                            None => return Err(format!("Unclosed string (byte {offset})")),
+                        }
+                    }
+                    Kind::String(Cow::Owned(value))
+                }
             }
             '#' => {
                 let start = self.offset;
                 while self.peek().is_some_and(|c| c.is_ascii_alphanumeric()) {
                     self.bump();
                 }
-                Kind::Hex(self.source[start..self.offset].to_owned())
+                Kind::Hex(Cow::Borrowed(&self.source[start..self.offset]))
             }
             c if c.is_ascii_alphabetic() || c == '_' => {
                 while self
@@ -184,7 +213,7 @@ impl Lexer<'_> {
                 {
                     self.bump();
                 }
-                Kind::Ident(self.source[offset..self.offset].to_owned())
+                Kind::Ident(Cow::Borrowed(&self.source[offset..self.offset]))
             }
             c if c.is_ascii_digit() || matches!(c, '.' | '-' | '+') => {
                 while self.peek().is_some_and(|c| c.is_ascii_digit() || c == '.') {
@@ -229,7 +258,7 @@ impl Lexer<'_> {
 
 struct Parser<'a> {
     lexer: Lexer<'a>,
-    current: Token,
+    current: Token<'a>,
     props: ButtonSpec,
 }
 
@@ -243,14 +272,14 @@ impl<'a> Parser<'a> {
             props:props.clone(),
         })
     }
-    fn advance(&mut self) -> Result<Kind, String> {
+    fn advance(&mut self) -> Result<Kind<'a>, String> {
         let next = self.lexer.next()?;
         Ok(std::mem::replace(&mut self.current, next).kind)
     }
     fn error(&self, message: &str) -> String {
         format!("{message} (byte {})", self.current.offset)
     }
-    fn expect(&mut self, kind: Kind, description: &str) -> Result<(), String> {
+    fn expect(&mut self, kind: Kind<'a>, description: &str) -> Result<(), String> {
         if self.current.kind != kind {
             return Err(self.error(&format!(
                 "Expected {description}, found {:?}",
@@ -260,7 +289,7 @@ impl<'a> Parser<'a> {
         self.advance()?;
         Ok(())
     }
-    fn ident(&mut self) -> Result<String, String> {
+    fn ident(&mut self) -> Result<Cow<'a, str>, String> {
         // The token owns the identifier: move it out instead of duplicating it.
         if let Kind::Ident(value) = &mut self.current.kind {
             let value = std::mem::take(value);
@@ -281,8 +310,9 @@ impl<'a> Parser<'a> {
     fn close(&mut self) -> Result<(), String> {
         self.expect(Kind::Close, "'}'")
     }
-    fn unique(&self, seen: &mut HashSet<String>, name: &str) -> Result<(), String> {
-        if !seen.insert(name.to_owned()) {
+    fn unique(&self, seen: &mut HashSet<Cow<'a, str>>, name: &Cow<'a, str>) -> Result<(), String> {
+        // Interned names clone without allocating; only novel spellings copy.
+        if !seen.insert(name.clone()) {
             return Err(self.error(&format!("Duplicate template field or primitive '{name}'")));
         }
         Ok(())
@@ -290,7 +320,7 @@ impl<'a> Parser<'a> {
     fn scalar(&mut self, name: &str, positive: bool) -> Result<f32, String> {
         let value = match &self.current.kind {
             Kind::Number(value, Unit::Logical | Unit::Px) => *value,
-            Kind::Ident(reference) => match reference.as_str() {
+            Kind::Ident(reference) => match reference.text() {
                 "props.radius" => self.props.radius,
                 "props.width" => self.props.width,
                 "props.height" => self.props.height,
@@ -327,7 +357,7 @@ impl<'a> Parser<'a> {
     }
     fn color(&mut self, name: &str) -> Result<[u8; 4], String> {
         let color = match &self.current.kind {
-            Kind::Ident(reference) => match reference.as_str() {
+            Kind::Ident(reference) => match reference.text() {
                 "props.background" => self.props.background,
                 "props.color" => self.props.color,
                 r if r.strip_prefix("props.").is_some_and(|k|self.props.colors.contains_key(k)) => self.props.colors[r.strip_prefix("props.").unwrap()],
@@ -362,7 +392,7 @@ impl<'a> Parser<'a> {
         self.advance()?;
         Ok(color)
     }
-    fn text_value(&mut self) -> Result<String, String> {
+    fn text_value(&mut self) -> Result<Cow<'a, str>, String> {
         // Quoted strings already live in the token, so the fast path moves them.
         if let Kind::String(value) = &mut self.current.kind {
             let value = std::mem::take(value);
@@ -371,9 +401,9 @@ impl<'a> Parser<'a> {
         }
         let value = match &self.current.kind {
             Kind::String(value) => value.clone(),
-            Kind::Ident(reference) => match reference.as_str() {
-                "props.text" => self.props.text.clone(),
-                "props.key" => self.props.key.clone(),
+            Kind::Ident(reference) => match reference.text() {
+                "props.text" => Cow::Owned(self.props.text.clone()),
+                "props.key" => Cow::Owned(self.props.key.clone()),
                 _ => {
                     return Err(self.error(&format!(
                         "Unknown or non-string props reference '{reference}' for text"
@@ -403,13 +433,13 @@ impl<'a> Parser<'a> {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
             if !matches!(
-                name.as_str(),
+                name.text(),
                 "color" | "hover" | "pressed" | "disabled" | "focus" | "transition"
             ) {
                 return Err(self.error(&format!("Unsupported Brush field or primitive '{name}'")));
             }
             self.colon()?;
-            match name.as_str() {
+            match name.text() {
                 "color" => color = Some(self.color("color")?),
                 "hover" => brush.hover = Some(self.color("hover")?),
                 "pressed" => brush.pressed = Some(self.color("pressed")?),
@@ -440,7 +470,7 @@ impl<'a> Parser<'a> {
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
-            match name.as_str() {
+            match name.text() {
                 "width" => {
                     self.colon()?;
                     width = self.scalar("width", false)?;
@@ -468,7 +498,7 @@ impl<'a> Parser<'a> {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
             self.colon()?;
-            match name.as_str() {
+            match name.text() {
                 "targetX" => reveal.target_x = Some(self.scalar("targetX", false)?),
                 "targetY" => reveal.target_y = Some(self.scalar("targetY", false)?),
                 "targetWidth" => reveal.target_width = Some(self.scalar("targetWidth", true)?),
@@ -504,7 +534,7 @@ impl<'a> Parser<'a> {
                 self.open()?;let mut content=Vec::new();let mut depth=0;
                 while self.current.kind!=Kind::Close {
                     let kind=self.ident()?;
-                    if !matches!(kind.as_str(),"ContentShape"|"ContentText"|"ContentClip"|"ContentClipEnd"){return Err(self.error("Expected range visual content"));}
+                    if !matches!(kind.text(),"ContentShape"|"ContentText"|"ContentClip"|"ContentClipEnd"){return Err(self.error("Expected range visual content"));}
                     if kind=="ContentClip"{depth+=1;}
                     if kind=="ContentClipEnd"{depth-=1;if depth<0{return Err(self.error("Unmatched range clip"));}}
                     if content.len()>=4096 || depth>16{return Err(self.error("Range content limit"));}
@@ -525,17 +555,17 @@ impl<'a> Parser<'a> {
         let mut seen = HashSet::new();
         while self.current.kind != Kind::Close {
             let name=self.ident()?; self.unique(&mut seen,&name)?; self.colon()?;
-            match name.as_str() {
+            match name.text() {
                 "x"=>input.bounds[0]=self.scalar("x",false)?,
                 "y"=>input.bounds[1]=self.scalar("y",false)?,
                 "width"=>input.bounds[2]=self.scalar("width",false)?,
                 "height"=>input.bounds[3]=self.scalar("height",false)?,
-                "value"=>input.value=self.text_value()?,
-                "placeholder"=>input.placeholder=self.text_value()?,
+                "value"=>input.value=self.text_value()?.into_owned(),
+                "placeholder"=>input.placeholder=self.text_value()?.into_owned(),
                 "color"=>input.color=self.color("color")?,
                 "placeholderColor"=>input.placeholder_color=self.color("placeholderColor")?,
                 "fontSize"=>input.font_size=self.scalar("fontSize",true)?,
-                "multiline"=>{let value=self.ident()?; input.multiline=match value.as_str(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
+                "multiline"=>{let value=self.ident()?; input.multiline=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
                 _=>return Err(self.error("Unknown ContentInput property")),
             }
             self.semi()?;
@@ -553,12 +583,12 @@ impl<'a> Parser<'a> {
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
-            if !matches!(name.as_str(), "text" | "color" | "font.size" | "fontSize") {
+            if !matches!(name.text(), "text" | "color" | "font.size" | "fontSize") {
                 return Err(self.error(&format!("Unsupported Text field or primitive '{name}'")));
             }
             self.colon()?;
-            match name.as_str() {
-                "text" => text.text = self.text_value()?,
+            match name.text() {
+                "text" => text.text = self.text_value()?.into_owned(),
                 "color" => text.color = self.color("color")?,
                 "font.size" | "fontSize" => text.font_size = self.scalar("fontSize", true)?,
                 _ => unreachable!(),
@@ -618,7 +648,7 @@ impl<'a> Parser<'a> {
                 template.content.push(self.content(&name)?);continue;
             }
             self.unique(&mut seen, &name)?;
-            match name.as_str() {
+            match name.text() {
                 "radius" => {
                     self.colon()?;
                     template.radius = self.scalar("radius", false)?;
@@ -648,27 +678,30 @@ impl<'a> Parser<'a> {
         let mut seen=HashSet::new();
         while self.current.kind!=Kind::Close {
             let name=self.ident()?;self.unique(&mut seen,&name)?;self.colon()?;
-            match (kind,name.as_str()) {
+            match (kind,name.text()) {
                 ("ContentText"|"ContentClip","x"|"y")=>{let v=match self.current.kind {Kind::Number(v,Unit::Logical|Unit::Px) if v.is_finite()&&v.abs()<=100_000.=>v,_=>return Err(self.error("Invalid content coordinate"))};bounds[if name=="x"{0}else{1}]=v;self.advance()?;},
                 ("ContentText"|"ContentClip","width"|"height")=>bounds[if name=="width"{2}else{3}]=self.scalar(&name,false)?,
                 ("ContentClip","radius")=>radius=self.scalar(&name,false)?,
-                ("ContentText","text")=>text.text=self.text_value()?,
+                ("ContentText","text")=>text.text=self.text_value()?.into_owned(),
                 ("ContentText","fontSize")=>text.font_size=self.scalar(&name,true)?,
                 (_,"color")=>text.color=self.color("color")?,
                 ("ContentShape","points")=>{
                     // One pass straight into pairs: no intermediate scalar vector.
                     let raw=self.text_value()?;
+                    // Separation bytes only size the allocation; the cap keeps a
+                    // hostile literal from reserving more than the limit needs.
+                    let separations=raw.as_bytes().iter().filter(|b| matches!(b, b' '|b'\t'|b'\n'|b'\r')).count();
+                    let mut pairs:Vec<[f32;2]>=Vec::with_capacity((separations/2+2).min(4096));
                     let mut words=raw.split_whitespace();
-                    let count=words.clone().count();
-                    if count<6||count>8192||count%2!=0{return Err(self.error("Invalid polygon points"));}
-                    let mut pairs:Vec<[f32;2]>=Vec::with_capacity(count/2);
                     while let Some(word)=words.next(){
                         let next=words.next().ok_or_else(||self.error("Invalid polygon points"))?;
                         let a=word.parse::<f32>().map_err(|_|self.error("Invalid polygon points"))?;
                         let b=next.parse::<f32>().map_err(|_|self.error("Invalid polygon points"))?;
                         if !a.is_finite()||!b.is_finite()||a.abs()>100_000.||b.abs()>100_000.{return Err(self.error("Invalid polygon points"));}
                         pairs.push([a,b]);
+                        if pairs.len()>4096{return Err(self.error("Invalid polygon points"));}
                     }
+                    if pairs.len()<3{return Err(self.error("Invalid polygon points"));}
                     points=Some(pairs);
                 },
                 _=>return Err(self.error(&format!("Unsupported {kind} property {name}"))),
@@ -683,17 +716,17 @@ impl<'a> Parser<'a> {
         self.open()?;
         let mut seen=HashSet::new();
         while self.current.kind!=Kind::Ident("Rectangle".into()) {
-            let name=self.ident()?;let name=if name=="font.size"{"fontSize".to_string()}else{name};
+            let name=self.ident()?;let name=if name.text()=="font.size"{Cow::Borrowed("fontSize")}else{name};
             self.unique(&mut seen,&name)?;self.colon()?;
             // Defaults are literals: no ordering-dependent references or cycles.
             if matches!(&self.current.kind,Kind::Ident(r) if r.starts_with("props.")){return Err(self.error("Component defaults must be literals"));}
-            let apply=!self.props.specified.contains(&name);
-            match name.as_str(){
-                "width"|"height"|"radius"|"fontSize"|"borderWidth"=>{let v=self.scalar(&name,matches!(name.as_str(),"width"|"height"|"fontSize"))?;if apply{match name.as_str(){"width"=>self.props.width=v,"height"=>self.props.height=v,"radius"=>self.props.radius=v,"fontSize"=>self.props.font_size=v,_=>{self.props.numbers.insert(name.clone(),v);}}}},
-                "background"|"color"|"hoverBackground"|"pressedBackground"|"disabledBackground"|"borderColor"|"focusBorderColor"=>{let v=self.color(&name)?;if apply{match name.as_str(){"background"=>self.props.background=v,"color"=>self.props.color=v,_=>{self.props.colors.insert(name.clone(),v);}}}},
-                "text"=>{let v=self.text_value()?;if apply{self.props.text=v;}},
+            let apply=!self.props.specified.contains(name.text());
+            match name.text(){
+                "width"|"height"|"radius"|"fontSize"|"borderWidth"=>{let v=self.scalar(&name,matches!(name.text(),"width"|"height"|"fontSize"))?;if apply{match name.text(){"width"=>self.props.width=v,"height"=>self.props.height=v,"radius"=>self.props.radius=v,"fontSize"=>self.props.font_size=v,_=>{self.props.numbers.insert(name.text().to_owned(),v);}}}},
+                "background"|"color"|"hoverBackground"|"pressedBackground"|"disabledBackground"|"borderColor"|"focusBorderColor"=>{let v=self.color(&name)?;if apply{match name.text(){"background"=>self.props.background=v,"color"=>self.props.color=v,_=>{self.props.colors.insert(name.text().to_owned(),v);}}}},
+                "text"=>{let v=self.text_value()?;if apply{self.props.text=v.into_owned();}},
                 "disabled"=>{let v=match &self.current.kind{Kind::Ident(v)if v=="true"=>true,Kind::Ident(v)if v=="false"=>false,_=>return Err(self.error("disabled requires true or false"))};self.advance()?;if apply{self.props.disabled=v;}},
-                "transitionDuration"=>{let v=self.duration()?;if apply{self.props.numbers.insert(name.clone(),v);}},
+                "transitionDuration"=>{let v=self.duration()?;if apply{self.props.numbers.insert(name.text().to_owned(),v);}},
                 _=>return Err(self.error(&format!("Unsupported component property '{name}'"))),
             }
             self.semi()?;
@@ -759,6 +792,44 @@ mod tests {
             &props(),
         )
     }
+    #[test]
+    fn shape_points_boundaries_and_string_escapes() {
+        let shape = |points: &str| body(&format!("ContentShape {{ points: '{points}'; color: #ffffff; }}"));
+        assert_eq!(
+            shape("0 0 10 0 10 10").unwrap().content[0],
+            Content::Shape { points: vec![[0., 0.], [10., 0.], [10., 10.]], color: [255; 4] }
+        );
+        assert_eq!(
+            shape("-1.5 -2.25 3 4 5.125 6").unwrap().content[0],
+            Content::Shape { points: vec![[-1.5, -2.25], [3., 4.], [5.125, 6.]], color: [255; 4] }
+        );
+        // Tab and newline separators must not change the accepted grammar.
+        assert_eq!(shape("0 0\t10\t0\n10 10").unwrap().content[0], shape("0 0 10 0 10 10").unwrap().content[0]);
+        for bad in [
+            "0 0 10 0",
+            "0 0 10 0 10",
+            "0 0 10 0 10 x",
+            "0 0 10 0 10 100001",
+            "0 0 10 0 10 nan",
+            &(0..8194).map(|i| i.to_string()).collect::<Vec<_>>().join(" "),
+        ] {
+            assert!(shape(bad).is_err(), "{bad}");
+        }
+        let big = shape(&(0..8192).map(|i| i.to_string()).collect::<Vec<_>>().join(" ")).unwrap();
+        let Content::Shape { points, .. } = &big.content[0] else {
+            panic!("expected a shape")
+        };
+        assert_eq!(points.len(), 4096);
+        // Escaped literals keep working; the escape-free path borrows the source.
+        let text = body(r#"ContentText { x: 0; y: 0; width: 10; height: 10; text: 'a\'b\nc'; color: #ffffff; }"#).unwrap();
+        assert_eq!(
+            text.content[0],
+            Content::Text { bounds: [0., 0., 10., 10.], text: Text { text: "a'b\nc".into(), color: [255; 4], font_size: 16. } }
+        );
+        assert!(body(r#"ContentText { x: 0; y: 0; width: 10; height: 10; text: 'unclosed; color: #ffffff; }"#).is_err());
+        assert!(body("ContentShape { points: \"0 0 1 0 1 1\"; color: #ffffff; }").is_ok());
+    }
+
     #[test]
     fn brushes_are_property_values_with_color_shorthand() {
         let t=body("background: #123456; Border { background: #ffffff; }").unwrap();
