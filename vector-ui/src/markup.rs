@@ -21,9 +21,52 @@ pub struct Scene {
     pub gap: f32,
 }
 
+/// Which properties the document actually declared for a control. The parser accepts a
+/// closed vocabulary, so this is a bitset over that list: as a `HashSet<String>` every
+/// control paid one allocation per property name, and every copy of the spec paid them
+/// again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Specified(u32);
+
+const SPECIFIED_NAMES: [&str; 19] = [
+    "key", "x", "y", "width", "height", "radius", "background", "color", "font.size",
+    "fontSize", "hoverBackground", "pressedBackground", "disabledBackground",
+    "borderColor", "focusBorderColor", "borderWidth", "transitionDuration", "text",
+    "disabled",
+];
+
+impl Specified {
+    fn bit(name: &str) -> Option<u32> {
+        SPECIFIED_NAMES
+            .iter()
+            .position(|known| *known == name)
+            .map(|index| 1u32 << index)
+    }
+
+    pub fn contains(&self, name: &str) -> bool {
+        Self::bit(name).is_some_and(|bit| self.0 & bit != 0)
+    }
+
+    /// Names outside the vocabulary are ignored: only the parser fills this in, and it
+    /// rejects unknown properties before recording them.
+    pub fn insert(&mut self, name: &str) {
+        if let Some(bit) = Self::bit(name) {
+            self.0 |= bit;
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.count_ones() as usize
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0 == 0
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ButtonSpec {
-    pub specified: HashSet<String>,
+    pub specified: Specified,
     pub colors: HashMap<String,[u8;4]>,
     pub numbers: HashMap<String,f32>,
     pub key: String,
@@ -43,7 +86,7 @@ pub struct ButtonSpec {
 impl Default for ButtonSpec {
     fn default() -> Self {
         Self {
-            specified:HashSet::new(),
+            specified:Specified::default(),
             colors:HashMap::from([("hoverBackground".into(),[168,186,255,255]),("pressedBackground".into(),[106,131,218,255]),("disabledBackground".into(),[89,98,115,255]),("borderColor".into(),[190,208,255,255]),("focusBorderColor".into(),[255;4])]),
             numbers:HashMap::from([("borderWidth".into(),1.),("transitionDuration".into(),140.)]),
             key: String::new(),
@@ -380,7 +423,9 @@ impl<'a> Parser<'a> {
         }
         self.expect(Kind::Close, "'}' after Button")?;
         // Like CSS rounded corners, a radius may be larger than half the box.
-        button.specified=seen.into_iter().map(|n|if n=="font.size"{"fontSize".to_owned()}else{n.to_owned()}).collect();
+        for name in seen {
+            button.specified.insert(if name == "font.size" { "fontSize" } else { name });
+        }
         button.radius = button.radius.min(button.width.min(button.height) / 2.);
         Ok(button)
     }

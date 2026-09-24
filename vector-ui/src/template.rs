@@ -856,7 +856,6 @@ fn entry_weight(source: &str, template: &Template) -> usize {
         + std::mem::size_of::<Template>()
         + props.text.len()
         + props.key.len()
-        + props.specified.len() * 24
         + (props.colors.len() + props.numbers.len()) * 48
         + content_weight(&template.content)
         + template
