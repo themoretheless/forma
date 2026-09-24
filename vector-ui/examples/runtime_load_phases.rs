@@ -78,6 +78,13 @@ fn main() {
                 black_box(spec.clone().width);
             }
         });
+        // The default spec every leaf carries: its name-keyed maps are built from scratch.
+        measure("spec_default_x_all", count, 6, || {
+            for _ in 0..count {
+                let spec = markup::ButtonSpec::default();
+                black_box(spec.width + spec.height);
+            }
+        });
         // Leaf scene per control: frame metadata plus the spec it owns.
         measure("leaf_scene_build", count, 6, || {
             for _ in 0..count {

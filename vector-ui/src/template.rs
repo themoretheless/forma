@@ -327,7 +327,7 @@ impl<'a> Parser<'a> {
                 "props.width" => self.props.width,
                 "props.height" => self.props.height,
                 "props.font.size" | "props.fontSize" => self.props.font_size,
-                "props.borderWidth" => self.props.numbers["borderWidth"],
+                "props.borderWidth" => self.props.numbers.border_width,
                 _ => {
                     return Err(self.error(&format!(
                         "Unknown or non-numeric props reference '{reference}' for {name}"
@@ -350,20 +350,27 @@ impl<'a> Parser<'a> {
         Ok(value)
     }
     fn duration(&mut self) -> Result<f32, String> {
-        let value=match &self.current.kind {Kind::Number(v,Unit::Ms)=>*v,Kind::Ident(r) if r=="props.transitionDuration"=>self.props.numbers["transitionDuration"],_=>return Err(self.error("'transition' requires ms or props.transitionDuration"))};
+        let value=match &self.current.kind {Kind::Number(v,Unit::Ms)=>*v,Kind::Ident(r) if r=="props.transitionDuration"=>self.props.numbers.transition_duration,_=>return Err(self.error("'transition' requires ms or props.transitionDuration"))};
         if !(0. ..=2000.).contains(&value) {
             return Err(self.error("'transition' must be between 0ms and 2000ms"));
         }
         self.advance()?;
         Ok(value)
     }
+    /// Resolves a `props.<name>` reference to the colour the control declared. Only the
+    /// override properties are stored by name, so the two always-present ones are matched here.
+    fn props_color(&self, reference: &str) -> Option<[u8; 4]> {
+        match reference {
+            "props.background" => Some(self.props.background),
+            "props.color" => Some(self.props.color),
+            _ => self.props.colors.get(reference.strip_prefix("props.")?),
+        }
+    }
     fn color(&mut self, name: &str) -> Result<[u8; 4], String> {
         let color = match &self.current.kind {
-            Kind::Ident(reference) => match reference.text() {
-                "props.background" => self.props.background,
-                "props.color" => self.props.color,
-                r if r.strip_prefix("props.").is_some_and(|k|self.props.colors.contains_key(k)) => self.props.colors[r.strip_prefix("props.").unwrap()],
-                _ => {
+            Kind::Ident(reference) => match self.props_color(reference.text()) {
+                Some(color) => color,
+                None => {
                     return Err(self.error(&format!(
                         "Unknown or non-color props reference '{reference}' for {name}"
                     )))
@@ -724,11 +731,11 @@ impl<'a> Parser<'a> {
             if matches!(&self.current.kind,Kind::Ident(r) if r.starts_with("props.")){return Err(self.error("Component defaults must be literals"));}
             let apply=!self.props.specified.contains(name.text());
             match name.text(){
-                "width"|"height"|"radius"|"fontSize"|"borderWidth"=>{let v=self.scalar(&name,matches!(name.text(),"width"|"height"|"fontSize"))?;if apply{match name.text(){"width"=>self.props.width=v,"height"=>self.props.height=v,"radius"=>self.props.radius=v,"fontSize"=>self.props.font_size=v,_=>{self.props.numbers.insert(name.text().to_owned(),v);}}}},
-                "background"|"color"|"hoverBackground"|"pressedBackground"|"disabledBackground"|"borderColor"|"focusBorderColor"=>{let v=self.color(&name)?;if apply{match name.text(){"background"=>self.props.background=v,"color"=>self.props.color=v,_=>{self.props.colors.insert(name.text().to_owned(),v);}}}},
+                "width"|"height"|"radius"|"fontSize"|"borderWidth"=>{let v=self.scalar(&name,matches!(name.text(),"width"|"height"|"fontSize"))?;if apply{match name.text(){"width"=>self.props.width=v,"height"=>self.props.height=v,"radius"=>self.props.radius=v,"fontSize"=>self.props.font_size=v,_=>{self.props.numbers.set(name.text(),v);}}}},
+                "background"|"color"|"hoverBackground"|"pressedBackground"|"disabledBackground"|"borderColor"|"focusBorderColor"=>{let v=self.color(&name)?;if apply{match name.text(){"background"=>self.props.background=v,"color"=>self.props.color=v,_=>{self.props.colors.set(name.text(),v);}}}},
                 "text"=>{let v=self.text_value()?;if apply{self.props.text=v.into_owned();}},
                 "disabled"=>{let v=match &self.current.kind{Kind::Ident(v)if v=="true"=>true,Kind::Ident(v)if v=="false"=>false,_=>return Err(self.error("disabled requires true or false"))};self.advance()?;if apply{self.props.disabled=v;}},
-                "transitionDuration"=>{let v=self.duration()?;if apply{self.props.numbers.insert(name.text().to_owned(),v);}},
+                "transitionDuration"=>{let v=self.duration()?;if apply{self.props.numbers.transition_duration=v;}},
                 _=>return Err(self.error(&format!("Unsupported component property '{name}'"))),
             }
             self.semi()?;
@@ -856,7 +863,6 @@ fn entry_weight(source: &str, template: &Template) -> usize {
         + std::mem::size_of::<Template>()
         + props.text.len()
         + props.key.len()
-        + (props.colors.len() + props.numbers.len()) * 48
         + content_weight(&template.content)
         + template
             .range

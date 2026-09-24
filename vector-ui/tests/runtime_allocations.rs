@@ -87,8 +87,8 @@ fn scene_construction_allocations_scale_with_control_count() {
     assert_eq!(large.control_count(), 128);
     assert!(large_allocations < small_allocations * 5,
         "4× more controls should remain linear: {small_allocations} → {large_allocations} allocations");
-    assert!(large_allocations <= 128 * 65,
-        "scene construction exceeded 65 allocations per control: {large_allocations} for 128 controls");
+    assert!(large_allocations <= 128 * 14,
+        "scene construction exceeded 14 allocations per control: {large_allocations} for 128 controls");
 }
 
 #[test]
@@ -100,6 +100,6 @@ fn document_markup_parse_pays_only_for_owned_property_values() {
     assert_eq!((small_scene.buttons.len(), large_scene.buttons.len()), (32, 128));
     assert!(large_allocations < small_allocations * 5,
         "4× more controls should remain linear: {small_allocations} → {large_allocations} allocations");
-    assert!(large_allocations <= 128 * 18,
-        "document parse exceeded 18 allocations per control: {large_allocations} for 128 controls");
+    assert!(large_allocations <= 128 * 6,
+        "document parse exceeded 6 allocations per control: {large_allocations} for 128 controls");
 }

@@ -1,7 +1,7 @@
 //! The deliberately small, shared Forma markup frontend for the vector demo.
 //! Unsupported syntax is an error rather than an invisible no-op.
 
-use std::collections::{HashSet,HashMap};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Scene {
@@ -64,11 +64,104 @@ impl Specified {
     }
 }
 
+/// A colour property a control may override, addressed by its document name.
+///
+/// The template language accepts a closed list of these, so each one gets a slot instead of
+/// an entry in a `HashMap<String, _>`: as a map every spec allocated a key string per name
+/// plus its table, and every copy of a spec — one per control on a load — allocated them
+/// again.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ColorProps {
+    pub hover_background: [u8; 4],
+    pub pressed_background: [u8; 4],
+    pub disabled_background: [u8; 4],
+    pub border: [u8; 4],
+    pub focus_border: [u8; 4],
+}
+
+/// The number properties a control may override; see [`ColorProps`] for the shape.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NumberProps {
+    pub border_width: f32,
+    pub transition_duration: f32,
+}
+
+impl Default for ColorProps {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl Default for NumberProps {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl ColorProps {
+    /// The demo's default palette, spelled once here rather than per spec.
+    pub const DEFAULT: Self = Self {
+        hover_background: [168, 186, 255, 255],
+        pressed_background: [106, 131, 218, 255],
+        disabled_background: [89, 98, 115, 255],
+        border: [190, 208, 255, 255],
+        focus_border: [255; 4],
+    };
+
+    /// Looks a property up by the name the markup and the template language use.
+    pub fn get(&self, name: &str) -> Option<[u8; 4]> {
+        Some(match name {
+            "hoverBackground" => self.hover_background,
+            "pressedBackground" => self.pressed_background,
+            "disabledBackground" => self.disabled_background,
+            "borderColor" => self.border,
+            "focusBorderColor" => self.focus_border,
+            _ => return None,
+        })
+    }
+
+    /// Names outside the vocabulary are ignored: only the two parsers fill this in, and each
+    /// rejects an unsupported property before reaching here.
+    pub fn set(&mut self, name: &str, value: [u8; 4]) {
+        match name {
+            "hoverBackground" => self.hover_background = value,
+            "pressedBackground" => self.pressed_background = value,
+            "disabledBackground" => self.disabled_background = value,
+            "borderColor" => self.border = value,
+            "focusBorderColor" => self.focus_border = value,
+            _ => {}
+        }
+    }
+}
+
+impl NumberProps {
+    pub const DEFAULT: Self = Self {
+        border_width: 1.,
+        transition_duration: 140.,
+    };
+
+    pub fn get(&self, name: &str) -> Option<f32> {
+        Some(match name {
+            "borderWidth" => self.border_width,
+            "transitionDuration" => self.transition_duration,
+            _ => return None,
+        })
+    }
+
+    pub fn set(&mut self, name: &str, value: f32) {
+        match name {
+            "borderWidth" => self.border_width = value,
+            "transitionDuration" => self.transition_duration = value,
+            _ => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ButtonSpec {
     pub specified: Specified,
-    pub colors: HashMap<String,[u8;4]>,
-    pub numbers: HashMap<String,f32>,
+    pub colors: ColorProps,
+    pub numbers: NumberProps,
     pub key: String,
     pub x: f32,
     pub y: f32,
@@ -87,8 +180,8 @@ impl Default for ButtonSpec {
     fn default() -> Self {
         Self {
             specified:Specified::default(),
-            colors:HashMap::from([("hoverBackground".into(),[168,186,255,255]),("pressedBackground".into(),[106,131,218,255]),("disabledBackground".into(),[89,98,115,255]),("borderColor".into(),[190,208,255,255]),("focusBorderColor".into(),[255;4])]),
-            numbers:HashMap::from([("borderWidth".into(),1.),("transitionDuration".into(),140.)]),
+            colors:ColorProps::DEFAULT,
+            numbers:NumberProps::DEFAULT,
             key: String::new(),
             x: 0.,
             y: 0.,
@@ -404,9 +497,9 @@ impl<'a> Parser<'a> {
                     "background" => button.background = self.color("background")?,
                     "color" => button.color = self.color("color")?,
                     "font.size" | "fontSize" => {if seen.contains("font.size")&&seen.contains("fontSize"){return Err(self.error("fontSize and font.size cannot both be specified"));}button.font_size = self.number("fontSize", false)?;},
-                    "hoverBackground" | "pressedBackground" | "disabledBackground" | "borderColor" | "focusBorderColor" => {let color=self.color(name)?;button.colors.insert(name.to_owned(),color);},
-                    "borderWidth" => {let n=self.number(name,true)?;button.numbers.insert(name.to_owned(),n);},
-                    "transitionDuration" => {let Kind::Duration(n)=self.current.kind else{return Err(self.error("transitionDuration requires ms"));};if !(0. ..=2000.).contains(&n){return Err(self.error("transitionDuration must be 0..2000ms"));}self.advance()?;button.numbers.insert(name.to_owned(),n);},
+                    "hoverBackground" | "pressedBackground" | "disabledBackground" | "borderColor" | "focusBorderColor" => {let color=self.color(name)?;button.colors.set(name,color);},
+                    "borderWidth" => {let n=self.number(name,true)?;button.numbers.set(name,n);},
+                    "transitionDuration" => {let Kind::Duration(n)=self.current.kind else{return Err(self.error("transitionDuration requires ms"));};if !(0. ..=2000.).contains(&n){return Err(self.error("transitionDuration must be 0..2000ms"));}self.advance()?;button.numbers.set(name,n);},
                     "text" => button.text = self.string("text")?,
                     "disabled" => {
                         button.disabled = match &self.current.kind {
