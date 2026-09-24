@@ -100,8 +100,11 @@ impl Runtime {
             // Each leaf needs frame metadata and its own spec, not a temporary
             // deep clone of every sibling (quadratic in the control count).
             let leaf = markup::Scene {
-                name: scene.name.clone(), width: scene.width, height: scene.height,
-                background: scene.background, overflow: scene.overflow.clone(),
+                // The frame name and its legacy spelling of clipping are never read on a
+                // control: clipping reaches the renderer as `clip`, so the leaf leaves both
+                // strings empty rather than copying the document's.
+                name: String::new(), width: scene.width, height: scene.height,
+                background: scene.background, overflow: String::new(),
                 clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
                 padding: scene.padding, content_width: scene.content_width,
                 content_height: scene.content_height, gap: scene.gap,

@@ -89,8 +89,8 @@ fn main() {
         measure("leaf_scene_build", count, 6, || {
             for _ in 0..count {
                 let leaf = markup::Scene {
-                    name: scene.name.clone(), width: scene.width, height: scene.height,
-                    background: scene.background, overflow: scene.overflow.clone(),
+                    name: String::new(), width: scene.width, height: scene.height,
+                    background: scene.background, overflow: String::new(),
                     clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
                     padding: scene.padding, content_width: scene.content_width,
                     content_height: scene.content_height, gap: scene.gap,

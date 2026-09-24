@@ -28,14 +28,18 @@ pub struct Scene {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Specified(u32);
 
-const SPECIFIED_NAMES: [&str; 19] = [
+/// The properties a `Button` may declare, in bit order.
+const SPECIFIED_NAMES: [&str; 20] = [
     "key", "x", "y", "width", "height", "radius", "background", "color", "font.size",
     "fontSize", "hoverBackground", "pressedBackground", "disabledBackground",
     "borderColor", "focusBorderColor", "borderWidth", "transitionDuration", "text",
-    "disabled",
+    "disabled", "clicked",
 ];
 
 impl Specified {
+    const FONT_SIZE: &'static str = "fontSize";
+    const FONT_SIZE_ALIAS: &'static str = "font.size";
+
     fn bit(name: &str) -> Option<u32> {
         SPECIFIED_NAMES
             .iter()
@@ -47,20 +51,28 @@ impl Specified {
         Self::bit(name).is_some_and(|bit| self.0 & bit != 0)
     }
 
-    /// Names outside the vocabulary are ignored: only the parser fills this in, and it
-    /// rejects unknown properties before recording them.
-    pub fn insert(&mut self, name: &str) {
-        if let Some(bit) = Self::bit(name) {
-            self.0 |= bit;
+    /// Folds the `font.size` spelling into the canonical `fontSize` bit, so a property is
+    /// recorded once however the document wrote it. Run after parsing, once both spellings
+    /// have had their own bit for the duplicate and alias checks.
+    fn canonicalize(&mut self) {
+        let alias = Self::bit(Self::FONT_SIZE_ALIAS).unwrap_or(0);
+        if self.0 & alias != 0 {
+            self.0 &= !alias;
+            self.0 |= Self::bit(Self::FONT_SIZE).unwrap_or(0);
         }
     }
 
-    pub fn len(&self) -> usize {
-        self.0.count_ones() as usize
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0 == 0
+    /// Records a declared property and reports whether it was new. Names outside the
+    /// vocabulary report as new: a caller rejects an unsupported property on its own.
+    pub fn try_insert(&mut self, name: &str) -> bool {
+        match Self::bit(name) {
+            Some(bit) if self.0 & bit != 0 => false,
+            Some(bit) => {
+                self.0 |= bit;
+                true
+            }
+            None => true,
+        }
     }
 }
 
@@ -444,10 +456,11 @@ impl<'a> Parser<'a> {
     fn button(&mut self) -> Result<ButtonSpec, String> {
         self.expect(Kind::Open, "'{' after Button")?;
         let mut button = ButtonSpec::default();
-        let mut seen: HashSet<&'a str> = HashSet::new();
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
-            if !seen.insert(name) {
+            // The declared-property set doubles as the duplicate check: it holds one bit per
+            // name the vocabulary knows, so detecting a repeat costs no allocation.
+            if !button.specified.try_insert(name) {
                 return Err(self.error(&format!("Duplicate Button property '{name}'")));
             }
             if name == "clicked" {
@@ -496,7 +509,7 @@ impl<'a> Parser<'a> {
                     "radius" => button.radius = self.number("radius", true)?,
                     "background" => button.background = self.color("background")?,
                     "color" => button.color = self.color("color")?,
-                    "font.size" | "fontSize" => {if seen.contains("font.size")&&seen.contains("fontSize"){return Err(self.error("fontSize and font.size cannot both be specified"));}button.font_size = self.number("fontSize", false)?;},
+                    "font.size" | "fontSize" => {if button.specified.contains("font.size")&&button.specified.contains("fontSize"){return Err(self.error("fontSize and font.size cannot both be specified"));}button.font_size = self.number("fontSize", false)?;},
                     "hoverBackground" | "pressedBackground" | "disabledBackground" | "borderColor" | "focusBorderColor" => {let color=self.color(name)?;button.colors.set(name,color);},
                     "borderWidth" => {let n=self.number(name,true)?;button.numbers.set(name,n);},
                     "transitionDuration" => {let Kind::Duration(n)=self.current.kind else{return Err(self.error("transitionDuration requires ms"));};if !(0. ..=2000.).contains(&n){return Err(self.error("transitionDuration must be 0..2000ms"));}self.advance()?;button.numbers.set(name,n);},
@@ -515,10 +528,8 @@ impl<'a> Parser<'a> {
             self.expect(Kind::Semi, "';' after Button property")?;
         }
         self.expect(Kind::Close, "'}' after Button")?;
+        button.specified.canonicalize();
         // Like CSS rounded corners, a radius may be larger than half the box.
-        for name in seen {
-            button.specified.insert(if name == "font.size" { "fontSize" } else { name });
-        }
         button.radius = button.radius.min(button.width.min(button.height) / 2.);
         Ok(button)
     }
@@ -670,6 +681,21 @@ mod tests {
         let scene = with_button("").unwrap();
         assert_eq!(scene.button, ButtonSpec::default());
         assert_eq!((scene.width, scene.height), (360., 220.));
+    }
+
+    #[test]
+    fn the_declared_property_set_doubles_as_the_duplicate_check() {
+        let scene = with_button("key: 'go'; font.size: 20; clicked -> actions.run();").unwrap();
+        assert!(scene.button.specified.contains("fontSize"));
+        assert!(scene.button.specified.contains("clicked"));
+        // The alias spelling folds into the name a component template asks about.
+        assert!(!scene.button.specified.contains("font.size"));
+        assert!(with_button("width: 10; width: 20;")
+            .unwrap_err()
+            .contains("Duplicate Button property 'width'"));
+        assert!(with_button("fontSize: 12; font.size: 14;")
+            .unwrap_err()
+            .contains("cannot both be specified"));
     }
 
     #[test]
