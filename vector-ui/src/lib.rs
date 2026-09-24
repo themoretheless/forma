@@ -92,12 +92,16 @@ impl Button {
         Self::from_sources(source,BUTTON_COMPONENT)
     }
     pub fn from_sources(source:&str, component:&str)->Result<Self,String>{
-        let scene=markup::parse(source)?;
+        let mut scene=markup::parse(source)?;
         if scene.buttons.len()!=1 {return Err("Use Runtime for multiple controls".into());}
-        Self::from_scene(scene,component)
+        let props=std::mem::take(&mut scene.button);
+        Self::from_scene(scene,&props,component)
     }
-    fn from_scene(mut scene:markup::Scene,component:&str)->Result<Self,String>{
-        let template=template::parse_cached(component,&scene.button)?;
+    // `props` is the spec exactly as the document declared it. The template resolves it,
+    // and the control owns that resolved copy, so the scene's own spec would be parsed
+    // and thrown away: passing it by reference keeps the loader from a full deep clone.
+    fn from_scene(mut scene:markup::Scene,props:&markup::ButtonSpec,component:&str)->Result<Self,String>{
+        let template=template::parse_cached(component,props)?;
         scene.button=template.props.clone();
         scene.content_width=(scene.button.x+scene.button.width+scene.padding[1]).min(f32::MAX).max(scene.width);
         scene.content_height=(scene.button.y+scene.button.height+scene.padding[2]).min(f32::MAX).max(scene.height);

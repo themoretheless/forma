@@ -87,8 +87,8 @@ fn scene_construction_allocations_scale_with_control_count() {
     assert_eq!(large.control_count(), 128);
     assert!(large_allocations < small_allocations * 5,
         "4× more controls should remain linear: {small_allocations} → {large_allocations} allocations");
-    assert!(large_allocations <= 128 * 90,
-        "scene construction exceeded 90 allocations per control: {large_allocations} for 128 controls");
+    assert!(large_allocations <= 128 * 80,
+        "scene construction exceeded 80 allocations per control: {large_allocations} for 128 controls");
 }
 
 #[test]

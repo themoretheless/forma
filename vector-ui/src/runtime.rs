@@ -105,11 +105,11 @@ impl Runtime {
                 clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
                 padding: scene.padding, content_width: scene.content_width,
                 content_height: scene.content_height, gap: scene.gap,
-                // A leaf describes exactly one control: only `button` is ever read,
-                // so the second deep copy of the spec would be pure cost.
-                button: spec.clone(), buttons: Vec::new(),
+                // `from_scene` replaces the spec with the resolved one, so the leaf
+                // carries the document spec by reference instead of copying it.
+                button: markup::ButtonSpec::default(), buttons: Vec::new(),
             };
-            let mut control = Button::from_scene(leaf, component)?;
+            let mut control = Button::from_scene(leaf, spec, component)?;
             // Defaults in the component can change height: lay out after linking.
             if !spec.specified.contains("y") {
                 control.scene.button.y = y;
