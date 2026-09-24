@@ -5,6 +5,7 @@ use crate::markup::ButtonSpec;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Template {
@@ -759,7 +760,7 @@ pub const MAX_PARSED_BYTES: usize = 16 * 1024 * 1024;
 struct ParsedTemplate {
     source: String,
     props: ButtonSpec,
-    template: Template,
+    template: Arc<Template>,
     weight: usize,
     used: u64,
 }
@@ -866,9 +867,11 @@ fn entry_weight(source: &str, template: &Template) -> usize {
         + template.text.as_ref().map_or(0, |text| text.text.len())
 }
 
-/// `parse` with the process-wide cache in front of it. A hit hands out its own clone, so
-/// a caller that edits the returned Template cannot poison the next compilation.
-pub fn parse_cached(source: &str, props: &ButtonSpec) -> Result<Template, String> {
+/// `parse` with the process-wide cache in front of it. A hit shares one reference-counted
+/// template with every other caller, which is the whole point: handing out a deep clone
+/// cost almost as much as the parse it replaced. A caller that wants to edit takes its own
+/// copy first with `Arc::make_mut`, so the shared entry can never be poisoned.
+pub fn parse_cached(source: &str, props: &ButtonSpec) -> Result<Arc<Template>, String> {
     let hash = key_hash(source);
     TEMPLATE_CACHE.with(|cell| {
         let mut cache = cell.borrow_mut();
@@ -877,20 +880,20 @@ pub fn parse_cached(source: &str, props: &ButtonSpec) -> Result<Template, String
         let reused = cache.buckets.get_mut(&hash).and_then(|bucket| {
             let index = bucket.iter().position(|entry| &entry.source == source && &entry.props == props)?;
             bucket[index].used = tick;
-            Some(bucket[index].template.clone())
+            Some(Arc::clone(&bucket[index].template))
         });
         if let Some(template) = reused {
             cache.hits += 1;
             return Ok(template);
         }
-        let template = parse(source, props)?;
+        let template = Arc::new(parse(source, props)?);
         cache.misses += 1;
         let weight = entry_weight(source, &template);
         if cache.reserve(weight) {
             cache.buckets.entry(hash).or_default().push(ParsedTemplate {
                 source: source.to_owned(),
                 props: props.clone(),
-                template: template.clone(),
+                template: Arc::clone(&template),
                 weight,
                 used: tick,
             });

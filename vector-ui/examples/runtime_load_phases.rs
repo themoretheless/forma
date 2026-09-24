@@ -78,7 +78,7 @@ fn main() {
                 black_box(spec.clone().width);
             }
         });
-        // Leaf scene per control: frame metadata plus two spec clones.
+        // Leaf scene per control: frame metadata plus the spec it owns.
         measure("leaf_scene_build", count, 6, || {
             for _ in 0..count {
                 let leaf = markup::Scene {
@@ -87,21 +87,22 @@ fn main() {
                     clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
                     padding: scene.padding, content_width: scene.content_width,
                     content_height: scene.content_height, gap: scene.gap,
-                    button: spec.clone(), buttons: vec![spec.clone()],
+                    button: spec.clone(), buttons: Vec::new(),
                 };
                 black_box(leaf.width + leaf.button.width);
             }
         });
-        // Cached template hand-out per control (warm cache: every call hits).
+        // Cached template hand-out per control (warm cache: every call shares one Arc).
         measure("parse_cached_x_all", count, 6, || {
             for t in &templates {
                 let value = template::parse_cached(t, spec).unwrap();
                 black_box(value.props.width + value.radius);
             }
         });
+        // What handing out a clone instead of a shared reference used to cost.
         measure("template_clone_x_all", count, 6, || {
             for _ in 0..count {
-                let value = cached.clone();
+                let value = (*cached).clone();
                 black_box(value.props.width + value.radius);
             }
         });

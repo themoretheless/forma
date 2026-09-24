@@ -47,7 +47,7 @@ fn round_coverage(x:u32,y:u32,scale:f32,bounds:[f32;4],radius:f32)->f32 {
 #[wasm_bindgen]
 pub struct Button {
     scene: markup::Scene,
-    template: template::Template,
+    template: std::sync::Arc<template::Template>,
     fill: Animation,
     border: Animation,
     reveal: reveal::State,

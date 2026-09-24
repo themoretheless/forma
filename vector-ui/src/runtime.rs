@@ -230,8 +230,11 @@ impl Runtime {
         let count = usize::from(control.template.text.is_some()) + control.template.content.iter()
             .filter(|c| matches!(c, crate::template::Content::Text { .. })).count();
         if count != 1 || self.editors[index].is_some() { return Err(format!("Control {index}: text binding requires exactly one non-editable text primitive")); }
-        let text = if let Some(text) = &mut control.template.text { text } else {
-            control.template.content.iter_mut().find_map(|c| match c {
+        // The template is shared with the parse cache, so the first write takes a copy.
+        // Only the edited control pays, and only once per keystroke it changes.
+        let template = Arc::make_mut(&mut control.template);
+        let text = if let Some(text) = &mut template.text { text } else {
+            template.content.iter_mut().find_map(|c| match c {
                 crate::template::Content::Text { text, .. } => Some(text), _ => None,
             }).unwrap()
         };
@@ -249,7 +252,7 @@ impl Runtime {
         let control = self.controls.get_mut(index).ok_or_else(|| format!("Unknown control {index}"))?;
         if control.scene.button.disabled == disabled { return Ok(()); }
         control.scene.button.disabled = disabled;
-        control.template.props.disabled = disabled;
+        Arc::make_mut(&mut control.template).props.disabled = disabled;
         if disabled { control.down = false; control.keyboard = None; }
         control.update_colors();
         if disabled && self.captured == Some(index) { self.captured = None; }
@@ -281,7 +284,7 @@ impl Runtime {
             } else {continue};
             let control=&mut self.controls[i];
             if content!=control.template.content {
-                control.template.content=content;
+                Arc::make_mut(&mut control.template).content=content;
                 *control.raster_cache.borrow_mut()=None;
                 *control.display_cache.borrow_mut()=None;
                 *self.geometry.borrow_mut()=None;
@@ -580,7 +583,7 @@ impl Runtime {
     pub fn range_key(&mut self,key:&str)->bool {
         let Some(i)=self.focused else{return false};
         if self.controls[i].disabled(){return false;}
-        let Some(range)=&mut self.controls[i].template.range else{return false};
+        let Some(range)=Arc::make_mut(&mut self.controls[i].template).range.as_mut() else{return false};
         range.value=match key {
             "Home"=>0.,"End"=>1.,
             "ArrowLeft"|"ArrowDown"=>(range.value-0.01).max(0.),
@@ -814,7 +817,7 @@ impl Runtime {
             if let Some(i)=self.captured {
                 let b=self.controls[i].bounds_rect();
                 if let Some(editor)=&mut self.editors[i] {editor.hit(x-b[0],y-b[1],kind==0);}
-                if let Some(range)=&mut self.controls[i].template.range {range.value=((x-b[0]-8.)/(b[2]-16.).max(1.)).clamp(0.,1.);}
+                if let Some(range)=Arc::make_mut(&mut self.controls[i].template).range.as_mut() {range.value=((x-b[0]-8.)/(b[2]-16.).max(1.)).clamp(0.,1.);}
             }
             self.refresh_editors();
         }

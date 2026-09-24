@@ -2,6 +2,7 @@
 //! the parsed Template; any difference in either half of the key must not.
 use forma::markup::ButtonSpec;
 use forma::{template, Runtime};
+use std::sync::Arc;
 
 const SOURCE: &str = "component Button { Rectangle { radius: props.radius; background: Brush { color: props.background; hover: #a8baff; transition: 140ms; }; Border { width: 1; background: Brush { color: #bed0ff; transition: 100ms; }; } Text { text: props.text; color: props.color; font.size: props.font.size; } PointerArea { clicked -> events.clicked(); } } }";
 
@@ -15,7 +16,7 @@ fn a_reused_template_equals_a_fresh_parse() {
     let first = template::parse_cached(SOURCE, &props).unwrap();
     let second = template::parse_cached(SOURCE, &props).unwrap();
     assert_eq!(first, second);
-    assert_eq!(second, template::parse(SOURCE, &props).unwrap());
+    assert_eq!(*second, template::parse(SOURCE, &props).unwrap());
 }
 
 #[test]
@@ -23,7 +24,7 @@ fn a_different_spec_under_the_same_text_is_parsed_again() {
     let _ = template::parse_cached(SOURCE, &spec("Найти")).unwrap();
     let second = template::parse_cached(SOURCE, &spec("Отмена")).unwrap();
     assert_eq!(second.text.as_ref().unwrap().text, "Отмена");
-    assert_eq!(second, template::parse(SOURCE, &spec("Отмена")).unwrap());
+    assert_eq!(*second, template::parse(SOURCE, &spec("Отмена")).unwrap());
 }
 
 #[test]
@@ -34,18 +35,22 @@ fn a_different_text_under_the_same_spec_is_parsed_again() {
     let changed = template::parse_cached(&edited, &props).unwrap();
     assert_eq!(plain.fill.as_ref().unwrap().hover, Some([168, 186, 255, 255]));
     assert_eq!(changed.fill.as_ref().unwrap().hover, Some([255, 0, 170, 255]));
-    assert_eq!(changed, template::parse(&edited, &props).unwrap());
+    assert_eq!(*changed, template::parse(&edited, &props).unwrap());
 }
 
 #[test]
-fn a_hit_is_independent_of_what_the_previous_caller_did() {
+fn a_hit_shares_one_template_and_a_writer_cannot_poison_it() {
     let props = spec("Найти");
     let mut first = template::parse_cached(SOURCE, &props).unwrap();
-    first.content.clear();
-    first.text = None;
-    first.radius = 0.;
+    // The point of the cache: a repeated key hands out the same allocation, not a copy.
+    assert!(Arc::ptr_eq(&first, &template::parse_cached(SOURCE, &props).unwrap()));
+    let damaged = Arc::make_mut(&mut first);
+    damaged.content.clear();
+    damaged.text = None;
+    damaged.radius = 0.;
+    assert_ne!(damaged.radius, template::parse(SOURCE, &props).unwrap().radius);
     let second = template::parse_cached(SOURCE, &props).unwrap();
-    assert_eq!(second, template::parse(SOURCE, &props).unwrap());
+    assert_eq!(*second, template::parse(SOURCE, &props).unwrap());
 }
 
 #[test]
