@@ -11,7 +11,26 @@ import {containerTypes,arrange,naturalContainer,intrinsicLength,length,constrain
 export {evaluate} from './component-semantics.js';
 
 const own=(o,k)=>Object.hasOwn(o,k);
-const clone=v=>structuredClone(v);
+// Compiling clones a cached parse and the linked definitions on every run, and
+// those graphs are plain object/array/scalar data. Copying them recursively with
+// an identity map keeps shared subgraphs shared, the way structuredClone did,
+// without paying the structured-clone setup on the hot path.
+const isPlain=value=>{
+  if(value===null||typeof value!=='object')return false;
+  const prototype=Object.getPrototypeOf(value);
+  return prototype===Object.prototype||prototype===null;
+};
+function copyData(value,seen){
+  if(value===null||typeof value!=='object')return value;
+  const known=seen.get(value);
+  if(known!==undefined)return known;
+  if(Array.isArray(value)){const out=[];seen.set(value,out);for(const item of value)out.push(copyData(item,seen));return out;}
+  if(!isPlain(value))return structuredClone(value);
+  const out={};seen.set(value,out);
+  for(const key of Object.keys(value))out[key]=copyData(value[key],seen);
+  return out;
+}
+const clone=value=>typeof value==='object'&&value!==null?copyData(value,new WeakMap()):value;
 const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration'.split(' '));
 const layoutProps=new Set('key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight'.split(' '));
 const visualTypes=new Set([...containerTypes,'Text','TextInput','Image','Rectangle']);
@@ -38,6 +57,11 @@ const builtinSources={
 };
 const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Row:['gap','padding','clip','radius'],Column:['gap','padding','clip','radius'],Grid:['columns','rows','gap','padding','clip','radius'],Stack:['gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
 const templateEncoder=new TextEncoder();
+// Templates are framed by their UTF-8 byte length. Encoding a ~7 KB icon template
+// only to read that length allocated the bytes again for every instance, and
+// generated templates are ASCII, where the JS length already is the byte length.
+const asciiTemplate=/^[\0-\x7f]*$/;
+const templateByteLength=text=>asciiTemplate.test(text)?text.length:templateEncoder.encode(text).length;
 const fallback={width:260,height:70,text:'',fontSize:20,color:{expr:'#14213b'},radius:16,disabled:false,background:{expr:'#8ca5ff'},hoverBackground:{expr:'#a8baff'},pressedBackground:{expr:'#6a83da'},disabledBackground:{expr:'#596273'},borderWidth:1,borderColor:{expr:'#bed0ff'},focusBorderColor:{expr:'#ffffff'},transitionDuration:{expr:'140ms'}};
 function visit(nodes,fn){for(const n of nodes){fn(n);visit(n.children??[],fn);visit(n.elseChildren??[],fn);visit(n.emptyChildren??[],fn);}}
 function substitute(v,key,base){
@@ -491,6 +515,6 @@ function compile(files,entry,state,metrics,read,links){
   const sourceControls=controls.map(c=>c.sourceNode);
   const sourceScene=[{...root,type:'Frame',children:scroll?[{...scroll,children:sourceControls}]:sourceControls}];
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
-  const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateEncoder.encode(c.template).length}\n${c.template}`).join('');
+  const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateByteLength(c.template)}\n${c.template}`).join('');
   return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:instances};
 }

@@ -24,6 +24,22 @@ const soleOrigin=(value,source)=>source!==null&&typeof source==='object'?singleV
 
 // Keep every contributing source for expressions, rather than attributing a
 // computed value to an arbitrary last dependency.
+// Dedupe keys are the JSON text of an origin. Serializing the contributing source
+// on every call dominated compilation: the same source objects recur for each
+// instance of a definition, so their text is memoized per source object.
+const has=(origin,key)=>Object.hasOwn(origin,key);
+const sourceKeys=new WeakMap();
+function sourceKey(source){
+ if(source===null||typeof source!=='object')return JSON.stringify(source)??'null';
+ const known=sourceKeys.get(source);
+ if(known!==undefined)return known;
+ const result=JSON.stringify(source)??'null';
+ sourceKeys.set(source,result);
+ return result;
+}
+function originKey(origin){
+ return JSON.stringify([has(origin,'source')?sourceKey(origin.source):null,has(origin,'label')?origin.label:null]);
+}
 export function propertyOrigins(value,source,props={},sources={},traces={},seen){
  if(value===null||typeof value!=='object')return source?singleOrigin(source):noOrigins;
  const references=expressionReferences(value);
@@ -39,7 +55,7 @@ export function propertyOrigins(value,source,props={},sources={},traces={},seen)
   }else result.push({label:ref});
  }
  if(result.length<2)return result;
- const unique=new Map();for(const origin of result)unique.set(JSON.stringify(origin),origin);
+ const unique=new Map();for(const origin of result)unique.set(originKey(origin),origin);
  return [...unique.values()];
 }
 

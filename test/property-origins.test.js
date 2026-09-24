@@ -52,3 +52,14 @@ test('a reference-free value contributes only its own source and repeated instan
  const labeled={file:'x.ui',from:3,to:4,label:'LargeButton · override caption'};
  assert.match(propertyOrigins({width:2},labeled,{},{},{})[0].label,/override caption/);
 });
+
+test('origin dedupe collapses sources that only match structurally, not by identity',()=>{
+ const source={file:'x.ui',from:1,to:2};
+ const props={a:{expr:'props.a'},b:{expr:'props.b'}};
+ const value={parts:[{expr:'props.a'},{expr:'props.b'}]};
+ const shared=propertyOrigins(value,source,props,{a:source,b:{...source}}, {},undefined);
+ assert.deepEqual(shared,[{source,label:'Объявление'}],'structurally equal sources are one origin');
+ const distinct=propertyOrigins(value,source,props,{a:source,b:{file:'y.ui',from:9,to:11}}, {},undefined);
+ assert.equal(distinct.length,2);
+ assert.deepEqual(distinct.map(o=>o.source.file),['x.ui','y.ui'],'distinct sources keep their order');
+});

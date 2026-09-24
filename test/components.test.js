@@ -71,7 +71,7 @@ test('placed icon geometry is quantized to 1/1000 px',()=>{
 });
 
 test('multi-control template framing declares exact UTF-8 byte lengths',()=>{
- const out=compileComponents({'components/Button.ui':base,'ui/Scene.ui':`component Scene { Frame { width:900; height:600; Button { text:'Найти \u{1F389}'; } Button { text:'Документы'; } Button { text:'Профиль \u{1F600}'; } } }`},'ui/Scene.ui');
+ const out=compileComponents({'components/Button.ui':base,'ui/Scene.ui':`component Scene { Frame { width:900; height:600; Button { text:'Найти \u{1F389}'; } Button { text:'Документы'; } Button { text:'Профиль \u{1F600}'; } Button { text:'Search'; } } }`},'ui/Scene.ui');
  const encoder=new TextEncoder(),decoder=new TextDecoder();
  const prefix='FORMA-TEMPLATES-1\n';
  assert.ok(out.template.startsWith(prefix));
@@ -88,7 +88,8 @@ test('multi-control template framing declares exact UTF-8 byte lengths',()=>{
   offset=start+declared;
  }
  assert.equal(offset,bytes.length,'part lengths cover the whole payload without gaps');
- assert.equal(parts.length,3);
+ assert.equal(parts.length,4);
  for(const part of parts)assert.match(part,/^component Button \{ Rectangle \{/);
+ assert.ok(parts.some(part=>encoder.encode(part).length===part.length),'an ASCII-only part takes the byte-length fast path');
  assert.ok(parts.some(part=>encoder.encode(part).length>part.length),'framing is exercised by multi-byte text');
 });
