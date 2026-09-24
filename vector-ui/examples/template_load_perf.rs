@@ -82,6 +82,33 @@ fn main() {
         }
         record("parse_total", count, 3 * count, elapsed, 0, 0, 0);
 
+        // Ceiling of a content-keyed parse cache: on a keystroke only one control's
+        // template text changes, so 255 of 256 loads would clone a cached Template.
+        {
+            let cached = template::parse(templates[0], &props).unwrap();
+            let mut elapsed = std::time::Duration::ZERO;
+            for round in 0..7 {
+                let before = ALLOCATOR.snapshot();
+                let started = Instant::now();
+                for _ in 0..count {
+                    black_box(cached.clone());
+                }
+                if round > 0 {
+                    elapsed += started.elapsed();
+                    if round == 1 {
+                        let delta = ALLOCATOR.snapshot().delta_since(before);
+                        record("clone_cached", count, count, started.elapsed(), delta.allocations + delta.reallocations, delta.requested_bytes, delta.live_bytes_change);
+                    }
+                }
+            }
+            record("clone_cached_total", count, 5 * count, elapsed, 0, 0, 0);
+            let started = Instant::now();
+            for _ in 0..count {
+                black_box(template::parse(templates[count - 1], &props).unwrap());
+            }
+            record("parse_repeat", count, count, started.elapsed(), 0, 0, 0);
+        }
+
         // How much of a parse is the numeric payload itself?
         {
             // Every numeric payload in the first template: what a perfect
@@ -124,6 +151,38 @@ fn main() {
             }
             assert_eq!(runtime.control_count(), count);
             drop(runtime);
+        }
+
+        // A cache hit end to end: key hash, full key compare, then Template clone.
+        {
+            template::flush_parse_cache();
+            for t in &templates { drop(template::parse_cached(t, &props).unwrap()); }
+            let mut elapsed = Duration::ZERO;
+            for round in 0..5 {
+                let before = ALLOCATOR.snapshot();
+                let started = Instant::now();
+                for t in &templates {
+                    black_box(template::parse_cached(black_box(t), &props).unwrap());
+                }
+                let delta = ALLOCATOR.snapshot().delta_since(before);
+                if round == 1 {
+                    record("parse_cached", count, count, started.elapsed(), delta.allocations + delta.reallocations, delta.requested_bytes, delta.live_bytes_change);
+                }
+                elapsed += started.elapsed();
+            }
+            record("parse_cached_total", count, 4 * count, elapsed, 0, 0, 0);
+            let stats = template::parse_cache_stats();
+            println!("{{\"case\":\"cache\",\"controls\":{count},\"entries\":{},\"bytes\":{},\"hits\":{},\"misses\":{}}}",
+                stats.entries, stats.bytes, stats.hits, stats.misses);
+        }
+
+        // Cold load of the same document: what the cache costs when nothing hits.
+        {
+            template::flush_parse_cache();
+            let started = Instant::now();
+            let runtime = Runtime::from_sources(black_box(source), black_box(component)).unwrap();
+            record("load_cold", count, 1, started.elapsed(), 0, 0, 0);
+            assert_eq!(runtime.control_count(), count);
         }
 
         // Geometry equivalence guard for the parse changes above.

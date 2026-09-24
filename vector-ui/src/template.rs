@@ -3,7 +3,8 @@
 
 use crate::markup::ButtonSpec;
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Template {
@@ -746,6 +747,182 @@ impl<'a> Parser<'a> {
 
 pub fn parse(source: &str, props: &ButtonSpec) -> Result<Template, String> {
     Parser::new(source, props)?.template()
+}
+
+// A keystroke rewrites the layout text of one control, so every other control of the
+// document is re-derived from identical inputs. Parsing costs about 19x what cloning a
+// finished Template costs (see `examples/template_load_perf.rs`), which is what this
+// cache trades memory for.
+pub const MAX_PARSED_TEMPLATES: usize = 1_024;
+pub const MAX_PARSED_BYTES: usize = 16 * 1024 * 1024;
+
+struct ParsedTemplate {
+    source: String,
+    props: ButtonSpec,
+    template: Template,
+    weight: usize,
+    used: u64,
+}
+
+/// Thread-local and process-wide rather than owned by `Runtime`, because the preview
+/// builds a new `Runtime` for every keystroke. The hash only selects a bucket: reuse
+/// still requires the whole template text and the whole spec to compare equal, so a
+/// short hash is never the sole proof of equality (`CACHE_POLICY.md`).
+struct TemplateCache {
+    buckets: HashMap<u64, Vec<ParsedTemplate>>,
+    entries: usize,
+    live_bytes: usize,
+    tick: u64,
+    hits: u64,
+    misses: u64,
+}
+
+impl TemplateCache {
+    /// Make room for `incoming`, least recently used first. False means the entry does
+    /// not fit the budget even when empty; the caller then uses it without caching.
+    fn reserve(&mut self, incoming: usize) -> bool {
+        while self.entries + 1 > MAX_PARSED_TEMPLATES || self.live_bytes + incoming > MAX_PARSED_BYTES {
+            let mut coldest: Option<(u64, u64, usize)> = None;
+            for (hash, bucket) in &self.buckets {
+                for (index, entry) in bucket.iter().enumerate() {
+                    if coldest.is_none_or(|(used, ..)| entry.used < used) {
+                        coldest = Some((entry.used, *hash, index));
+                    }
+                }
+            }
+            let Some((_, hash, index)) = coldest else {
+                return incoming <= MAX_PARSED_BYTES;
+            };
+            let bucket = self.buckets.get_mut(&hash).expect("bucket of the coldest entry");
+            let removed = bucket.remove(index).weight;
+            if bucket.is_empty() {
+                self.buckets.remove(&hash);
+            }
+            self.entries -= 1;
+            self.live_bytes -= removed;
+        }
+        true
+    }
+}
+
+thread_local! {
+    static TEMPLATE_CACHE: RefCell<TemplateCache> = RefCell::new(TemplateCache {
+        buckets: HashMap::new(),
+        entries: 0,
+        live_bytes: 0,
+        tick: 0,
+        hits: 0,
+        misses: 0,
+    });
+}
+
+fn key_hash(source: &str) -> u64 {
+    // Full-text coverage folded with adds and rotates: cheap enough to pay on every
+    // load, and a collision costs one rejected comparison rather than a wrong template.
+    const MIX: u64 = 0x9E37_79B9_7F4A_7C15;
+    let bytes = source.as_bytes();
+    let mut words = bytes.chunks_exact(16);
+    let (mut a, mut b) = (bytes.len() as u64, MIX);
+    for word in &mut words {
+        a = a.wrapping_add(u64::from_le_bytes(word[..8].try_into().unwrap())) ^ b.rotate_left(11);
+        b = b.wrapping_add(u64::from_le_bytes(word[8..].try_into().unwrap())) ^ a.rotate_left(31);
+    }
+    for byte in words.remainder() {
+        a = a.wrapping_add(*byte as u64);
+    }
+    let mut h = (a ^ b.rotate_left(23)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    h ^= h >> 31;
+    h.wrapping_mul(0x94D0_49BB_1331_11EB)
+}
+
+fn content_weight(items: &Vec<Content>) -> usize {
+    items.capacity() * std::mem::size_of::<Content>()
+        + items
+            .iter()
+            .map(|item| match item {
+                Content::Shape { points, .. } => points.capacity() * 8,
+                Content::Text { text, .. } => text.text.len(),
+                _ => 0,
+            })
+            .sum::<usize>()
+}
+
+/// Declared weight, matching the JS cache convention: predictable and monotonic in the
+/// template size, not an exact heap measurement.
+fn entry_weight(source: &str, template: &Template) -> usize {
+    let props = &template.props;
+    source.len()
+        + std::mem::size_of::<Template>()
+        + props.text.len()
+        + props.key.len()
+        + props.specified.len() * 24
+        + (props.colors.len() + props.numbers.len()) * 48
+        + content_weight(&template.content)
+        + template
+            .range
+            .as_ref()
+            .map_or(0, |range| content_weight(&range.minimum) + content_weight(&range.maximum))
+        + template.inputs.len() * 64
+        + template.text.as_ref().map_or(0, |text| text.text.len())
+}
+
+/// `parse` with the process-wide cache in front of it. A hit hands out its own clone, so
+/// a caller that edits the returned Template cannot poison the next compilation.
+pub fn parse_cached(source: &str, props: &ButtonSpec) -> Result<Template, String> {
+    let hash = key_hash(source);
+    TEMPLATE_CACHE.with(|cell| {
+        let mut cache = cell.borrow_mut();
+        cache.tick = cache.tick.wrapping_add(1);
+        let tick = cache.tick;
+        let reused = cache.buckets.get_mut(&hash).and_then(|bucket| {
+            let index = bucket.iter().position(|entry| &entry.source == source && &entry.props == props)?;
+            bucket[index].used = tick;
+            Some(bucket[index].template.clone())
+        });
+        if let Some(template) = reused {
+            cache.hits += 1;
+            return Ok(template);
+        }
+        let template = parse(source, props)?;
+        cache.misses += 1;
+        let weight = entry_weight(source, &template);
+        if cache.reserve(weight) {
+            cache.buckets.entry(hash).or_default().push(ParsedTemplate {
+                source: source.to_owned(),
+                props: props.clone(),
+                template: template.clone(),
+                weight,
+                used: tick,
+            });
+            cache.entries += 1;
+            cache.live_bytes += weight;
+        }
+        Ok(template)
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ParseCacheStats {
+    pub entries: usize,
+    pub bytes: usize,
+    pub hits: u64,
+    pub misses: u64,
+}
+
+pub fn parse_cache_stats() -> ParseCacheStats {
+    TEMPLATE_CACHE.with(|cache| {
+        let cache = cache.borrow();
+        ParseCacheStats { entries: cache.entries, bytes: cache.live_bytes, hits: cache.hits, misses: cache.misses }
+    })
+}
+
+pub fn flush_parse_cache() {
+    TEMPLATE_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        cache.buckets.clear();
+        cache.entries = 0;
+        cache.live_bytes = 0;
+    });
 }
 
 #[cfg(test)]

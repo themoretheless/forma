@@ -97,7 +97,7 @@ impl Button {
         Self::from_scene(scene,component)
     }
     fn from_scene(mut scene:markup::Scene,component:&str)->Result<Self,String>{
-        let template=template::parse(component,&scene.button)?;
+        let template=template::parse_cached(component,&scene.button)?;
         scene.button=template.props.clone();
         scene.content_width=(scene.button.x+scene.button.width+scene.padding[1]).min(f32::MAX).max(scene.width);
         scene.content_height=(scene.button.y+scene.button.height+scene.padding[2]).min(f32::MAX).max(scene.height);
