@@ -13,6 +13,11 @@ export function attachSources(value,file){
 
 // IDs are local to this immutable compilation snapshot. A user key is metadata,
 // never an array index or a globally unique ID. Reconciliation is a separate job.
+// Most of a compilation's tree values are empty maps — no events, no bindings, no
+// property sources — and every copy of one would be a frozen allocation that no
+// reader can distinguish from its neighbours.
+const emptyObject=Object.freeze({});
+const emptyArray=Object.freeze([]);
 export function createElementTree(roots){
  const nodes=[];
  // Nodes of repeated instances share their definition values, so each distinct
@@ -24,12 +29,15 @@ export function createElementTree(roots){
   const known=copies.get(value);
   if(known!==undefined)return known;
   if(Array.isArray(value)){
+   if(!value.length)return emptyArray;
    const out=[];copies.set(value,out);
    for(let index=0;index<value.length;index++)out[index]=copy(value[index]);
    return Object.freeze(out);
   }
+  const names=Object.keys(value);
+  if(!names.length)return emptyObject;
   const out={};copies.set(value,out);
-  for(const key of Object.keys(value))out[key]=copy(value[key]);
+  for(const name of names)out[name]=copy(value[name]);
   return Object.freeze(out);
  }
  function add(element,parent){
