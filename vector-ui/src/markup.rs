@@ -247,8 +247,32 @@ impl<'a> Lexer<'a> {
         self.offset += ch.len_utf8();
         Some(ch)
     }
-    fn rest(&self) -> &str {
-        &self.source[self.offset..]
+    /// The next byte without decoding it. Every caller of this decides about ASCII only, so
+    /// a byte of `0x80..` is simply "not one of mine"; UTF-8 keeps `*/` and `\n` searchable
+    /// byte by byte because continuation bytes never match an ASCII character.
+    fn peek_byte(&self) -> Option<u8> {
+        self.source.as_bytes().get(self.offset).copied()
+    }
+    fn starts_with(&self, token: &str) -> bool {
+        self.source.as_bytes()[self.offset..].starts_with(token.as_bytes())
+    }
+    fn skip_bytes(&mut self, mut accepted: impl FnMut(u8) -> bool) {
+        while self.peek_byte().is_some_and(&mut accepted) {
+            self.offset += 1;
+        }
+    }
+    /// `char::is_whitespace`, answered by byte for the ASCII run and by decoding only where
+    /// the document actually holds a non-ASCII space.
+    fn skip_whitespace(&mut self) {
+        // `is_ascii_whitespace` leaves out the vertical tab, which is whitespace by `char`.
+        while self.peek_byte().is_some_and(|b| b.is_ascii_whitespace() || b == b'\x0b') {
+            self.offset += 1;
+        }
+        while self.peek_byte().is_some_and(|b| b >= 0x80)
+            && self.peek().is_some_and(char::is_whitespace)
+        {
+            self.bump();
+        }
     }
     fn error(&self, message: &str) -> String {
         format!("{message} (byte {})", self.offset)
@@ -256,26 +280,26 @@ impl<'a> Lexer<'a> {
 
     fn next(&mut self) -> Result<Token<'a>, String> {
         loop {
-            while self.peek().is_some_and(char::is_whitespace) {
-                self.bump();
-            }
-            if self.rest().starts_with("//") {
-                while self.peek().is_some_and(|c| c != '\n') {
-                    self.bump();
+            self.skip_whitespace();
+            if self.starts_with("//") {
+                while self.peek_byte().is_some_and(|b| b != b'\n') {
+                    self.offset += 1;
                 }
-            } else if self.rest().starts_with("/*") {
+            } else if self.starts_with("/*") {
                 let start = self.offset;
                 self.offset += 2;
                 let mut depth = 1;
                 while depth > 0 {
-                    if self.rest().starts_with("/*") {
+                    if self.starts_with("/*") {
                         depth += 1;
                         self.offset += 2;
-                    } else if self.rest().starts_with("*/") {
+                    } else if self.starts_with("*/") {
                         depth -= 1;
                         self.offset += 2;
-                    } else if self.bump().is_none() {
+                    } else if self.peek_byte().is_none() {
                         return Err(format!("Unclosed block comment (byte {start})"));
+                    } else {
+                        self.offset += 1;
                     }
                 }
             } else {
@@ -292,7 +316,7 @@ impl<'a> Lexer<'a> {
         let kind = match ch {
             '{' => Kind::Open, '}' => Kind::Close, ':' => Kind::Colon,
             ';' => Kind::Semi, '(' => Kind::LeftParen, ')' => Kind::RightParen,
-            '-' if self.peek() == Some('>') => { self.bump(); Kind::Arrow }
+            '-' if self.starts_with(">") => { self.offset += 1; Kind::Arrow }
             '\'' | '"' => {
                 let mut value = String::new();
                 loop {
@@ -315,25 +339,25 @@ impl<'a> Lexer<'a> {
             }
             '#' => {
                 let start = self.offset;
-                while self.peek().is_some_and(|c| c.is_ascii_alphanumeric()) { self.bump(); }
+                self.skip_bytes(|b| b.is_ascii_alphanumeric());
                 Kind::Hex(&self.source[start..self.offset])
             }
             c if c.is_ascii_alphabetic() || c == '_' => {
-                while self.peek().is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.') { self.bump(); }
+                self.skip_bytes(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.');
                 Kind::Ident(&self.source[offset..self.offset])
             }
             c if c.is_ascii_digit() || matches!(c, '.' | '-' | '+') => {
-                while self.peek().is_some_and(|c| c.is_ascii_digit() || c == '.') { self.bump(); }
-                if self.peek().is_some_and(|c| c == 'e' || c == 'E') {
-                    self.bump();
-                    if self.peek().is_some_and(|c| c == '+' || c == '-') { self.bump(); }
-                    while self.peek().is_some_and(|c| c.is_ascii_digit()) { self.bump(); }
+                self.skip_bytes(|b| b.is_ascii_digit() || b == b'.');
+                if self.peek_byte().is_some_and(|b| b == b'e' || b == b'E') {
+                    self.offset += 1;
+                    if self.peek_byte().is_some_and(|b| b == b'+' || b == b'-') { self.offset += 1; }
+                    self.skip_bytes(|b| b.is_ascii_digit());
                 }
                 let raw = &self.source[offset..self.offset];
                 let value: f32 = raw.parse().map_err(|_| format!("Invalid number '{raw}' (byte {offset})"))?;
                 if !value.is_finite() { return Err(format!("Number must be finite (byte {offset})")); }
-                if self.rest().starts_with("ms") { self.offset+=2; Kind::Duration(value) }
-                else {if self.rest().starts_with("px") { self.offset += 2; } Kind::Number(value)}
+                if self.starts_with("ms") { self.offset += 2; Kind::Duration(value) }
+                else { if self.starts_with("px") { self.offset += 2; } Kind::Number(value) }
             }
             c => return Err(format!("Unsupported character '{c}' (byte {offset}); this vector demo does not support bindings or expressions")),
         };
