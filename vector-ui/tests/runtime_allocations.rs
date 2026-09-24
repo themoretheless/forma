@@ -1,6 +1,6 @@
 //! Allocation budgets for warmed runtime paths. Counts are thread-local so the
 //! test harness and concurrent tests do not affect these measurements.
-use forma::{display_list::RenderScene, Runtime};
+use forma::{display_list::RenderScene, markup, Runtime};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
@@ -87,4 +87,17 @@ fn scene_construction_allocations_scale_with_control_count() {
     assert_eq!(large.control_count(), 128);
     assert!(large_allocations < small_allocations * 5,
         "4× more controls should remain linear: {small_allocations} → {large_allocations} allocations");
+}
+
+#[test]
+fn document_markup_parse_pays_only_for_owned_property_values() {
+    // Identifiers and colors borrow from the source, so a control costs its own
+    // property names and string values rather than one allocation per token.
+    let (small_scene, small_allocations) = measured(|| markup::parse(&source(32)).unwrap());
+    let (large_scene, large_allocations) = measured(|| markup::parse(&source(128)).unwrap());
+    assert_eq!((small_scene.buttons.len(), large_scene.buttons.len()), (32, 128));
+    assert!(large_allocations < small_allocations * 5,
+        "4× more controls should remain linear: {small_allocations} → {large_allocations} allocations");
+    assert!(large_allocations <= 128 * 25,
+        "document parse exceeded 25 allocations per control: {large_allocations} for 128 controls");
 }

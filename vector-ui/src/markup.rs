@@ -63,12 +63,12 @@ impl Default for ButtonSpec {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Kind {
-    Ident(String),
+enum Kind<'a> {
+    Ident(&'a str),
     String(String),
     Number(f32),
     Duration(f32),
-    Hex(String),
+    Hex(&'a str),
     Open,
     Close,
     Colon,
@@ -80,8 +80,8 @@ enum Kind {
 }
 
 #[derive(Debug, Clone)]
-struct Token {
-    kind: Kind,
+struct Token<'a> {
+    kind: Kind<'a>,
     offset: usize,
 }
 
@@ -90,7 +90,7 @@ struct Lexer<'a> {
     offset: usize,
 }
 
-impl Lexer<'_> {
+impl<'a> Lexer<'a> {
     fn peek(&self) -> Option<char> {
         self.source[self.offset..].chars().next()
     }
@@ -106,7 +106,7 @@ impl Lexer<'_> {
         format!("{message} (byte {})", self.offset)
     }
 
-    fn next(&mut self) -> Result<Token, String> {
+    fn next(&mut self) -> Result<Token<'a>, String> {
         loop {
             while self.peek().is_some_and(char::is_whitespace) {
                 self.bump();
@@ -168,11 +168,11 @@ impl Lexer<'_> {
             '#' => {
                 let start = self.offset;
                 while self.peek().is_some_and(|c| c.is_ascii_alphanumeric()) { self.bump(); }
-                Kind::Hex(self.source[start..self.offset].to_owned())
+                Kind::Hex(&self.source[start..self.offset])
             }
             c if c.is_ascii_alphabetic() || c == '_' => {
                 while self.peek().is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.') { self.bump(); }
-                Kind::Ident(self.source[offset..self.offset].to_owned())
+                Kind::Ident(&self.source[offset..self.offset])
             }
             c if c.is_ascii_digit() || matches!(c, '.' | '-' | '+') => {
                 while self.peek().is_some_and(|c| c.is_ascii_digit() || c == '.') { self.bump(); }
@@ -195,7 +195,7 @@ impl Lexer<'_> {
 
 struct Parser<'a> {
     lexer: Lexer<'a>,
-    current: Token,
+    current: Token<'a>,
 }
 
 impl<'a> Parser<'a> {
@@ -204,14 +204,14 @@ impl<'a> Parser<'a> {
         let current = lexer.next()?;
         Ok(Self { lexer, current })
     }
-    fn advance(&mut self) -> Result<Kind, String> {
+    fn advance(&mut self) -> Result<Kind<'a>, String> {
         let next = self.lexer.next()?;
         Ok(std::mem::replace(&mut self.current, next).kind)
     }
     fn error(&self, message: &str) -> String {
         format!("{message} (byte {})", self.current.offset)
     }
-    fn expect(&mut self, kind: Kind, description: &str) -> Result<(), String> {
+    fn expect(&mut self, kind: Kind<'a>, description: &str) -> Result<(), String> {
         if self.current.kind != kind {
             return Err(self.error(&format!(
                 "Expected {description}, found {:?}",
@@ -221,9 +221,18 @@ impl<'a> Parser<'a> {
         self.advance()?;
         Ok(())
     }
-    fn ident(&mut self) -> Result<String, String> {
-        if let Kind::Ident(value) = &self.current.kind {
-            let value = value.clone();
+    fn expect_ident(&mut self, name: &str, description: &str) -> Result<(), String> {
+        if !matches!(self.current.kind, Kind::Ident(value) if value == name) {
+            return Err(self.error(&format!(
+                "Expected {description}, found {:?}",
+                self.current.kind
+            )));
+        }
+        self.advance()?;
+        Ok(())
+    }
+    fn ident(&mut self) -> Result<&'a str, String> {
+        if let Kind::Ident(value) = self.current.kind {
             self.advance()?;
             Ok(value)
         } else {
@@ -299,10 +308,10 @@ impl<'a> Parser<'a> {
     fn button(&mut self) -> Result<ButtonSpec, String> {
         self.expect(Kind::Open, "'{' after Button")?;
         let mut button = ButtonSpec::default();
-        let mut seen = HashSet::new();
+        let mut seen: HashSet<&'a str> = HashSet::new();
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
-            if !seen.insert(name.clone()) {
+            if !seen.insert(name) {
                 return Err(self.error(&format!("Duplicate Button property '{name}'")));
             }
             if name == "clicked" {
@@ -314,10 +323,10 @@ impl<'a> Parser<'a> {
                 }
                 self.expect(Kind::LeftParen, "'(' after action name")?;
                 self.expect(Kind::RightParen, "')'; action arguments are not supported")?;
-                button.action = Some(action);
+                button.action = Some(action.to_owned());
             } else {
                 if !matches!(
-                    name.as_str(),
+                    name,
                     "key" | "x" | "y"
                         | "width"
                         | "height"
@@ -337,7 +346,7 @@ impl<'a> Parser<'a> {
                     Kind::Colon,
                     "':' after property name; bindings are not supported",
                 )?;
-                match name.as_str() {
+                match name {
                     "key" => {
                         button.key = self.string("key")?;
                         if button.key.is_empty() {
@@ -352,14 +361,14 @@ impl<'a> Parser<'a> {
                     "background" => button.background = self.color("background")?,
                     "color" => button.color = self.color("color")?,
                     "font.size" | "fontSize" => {if seen.contains("font.size")&&seen.contains("fontSize"){return Err(self.error("fontSize and font.size cannot both be specified"));}button.font_size = self.number("fontSize", false)?;},
-                    "hoverBackground" | "pressedBackground" | "disabledBackground" | "borderColor" | "focusBorderColor" => {let color=self.color(&name)?;button.colors.insert(name.clone(),color);},
-                    "borderWidth" => {let n=self.number(&name,true)?;button.numbers.insert(name.clone(),n);},
-                    "transitionDuration" => {let Kind::Duration(n)=self.current.kind else{return Err(self.error("transitionDuration requires ms"));};if !(0. ..=2000.).contains(&n){return Err(self.error("transitionDuration must be 0..2000ms"));}self.advance()?;button.numbers.insert(name.clone(),n);},
+                    "hoverBackground" | "pressedBackground" | "disabledBackground" | "borderColor" | "focusBorderColor" => {let color=self.color(name)?;button.colors.insert(name.to_owned(),color);},
+                    "borderWidth" => {let n=self.number(name,true)?;button.numbers.insert(name.to_owned(),n);},
+                    "transitionDuration" => {let Kind::Duration(n)=self.current.kind else{return Err(self.error("transitionDuration requires ms"));};if !(0. ..=2000.).contains(&n){return Err(self.error("transitionDuration must be 0..2000ms"));}self.advance()?;button.numbers.insert(name.to_owned(),n);},
                     "text" => button.text = self.string("text")?,
                     "disabled" => {
-                        button.disabled = match self.current.kind.clone() {
-                            Kind::Ident(value) if value == "true" => true,
-                            Kind::Ident(value) if value == "false" => false,
+                        button.disabled = match &self.current.kind {
+                            Kind::Ident(value) if *value == "true" => true,
+                            Kind::Ident(value) if *value == "false" => false,
                             _ => return Err(self.error("'disabled' requires true or false")),
                         };
                         self.advance()?;
@@ -371,29 +380,29 @@ impl<'a> Parser<'a> {
         }
         self.expect(Kind::Close, "'}' after Button")?;
         // Like CSS rounded corners, a radius may be larger than half the box.
-        button.specified=seen.into_iter().map(|n|if n=="font.size"{"fontSize".into()}else{n}).collect();
+        button.specified=seen.into_iter().map(|n|if n=="font.size"{"fontSize".to_owned()}else{n.to_owned()}).collect();
         button.radius = button.radius.min(button.width.min(button.height) / 2.);
         Ok(button)
     }
     fn scene(&mut self) -> Result<Scene, String> {
-        self.expect(Kind::Ident("component".into()), "'component'")?;
+        self.expect_ident("component", "'component'")?;
         let name = self.ident()?;
-        if !valid_identifier(&name) {
+        if !valid_identifier(name) {
             return Err(self.error("Invalid component name"));
         }
         self.expect(Kind::Open, "'{' after component name")?;
-        self.expect(Kind::Ident("Frame".into()), "exactly one root Frame")?;
+        self.expect_ident("Frame", "exactly one root Frame")?;
         self.expect(Kind::Open, "'{' after Frame")?;
         let mut width = 360.;
         let mut height = 220.;
         let mut background = [24, 30, 42, 255];
         let mut padding = [0.; 4];
-        let mut overflow = String::from("visible");
+        let mut overflow = "visible";
         let mut clip=false;let mut radius=0.;
         let mut scroll=false;
         let mut buttons = Vec::new();
         let mut gap = 0.;
-        let mut seen = HashSet::new();
+        let mut seen: HashSet<&'a str> = HashSet::new();
         while self.current.kind != Kind::Close {
             let property = self.ident()?;
             if property == "Button" || property == "Scroll" {
@@ -402,7 +411,7 @@ impl<'a> Parser<'a> {
                     scroll=true;
                     self.expect(Kind::Open,"'{' after Scroll")?;
                     while self.current.kind != Kind::Close {
-                        self.expect(Kind::Ident("Button".into()),"Button inside Scroll")?;
+                        self.expect_ident("Button","Button inside Scroll")?;
                         buttons.push(self.button()?);
                     }
                     self.expect(Kind::Close,"'}' after Scroll")?;
@@ -413,26 +422,26 @@ impl<'a> Parser<'a> {
                 continue;
             }
             if !matches!(
-                property.as_str(),
+                property,
                 "gap" | "width" | "height" | "padding" | "background" | "overflow" | "clip" | "radius"
             ) {
                 return Err(
                     self.error(&format!("Unsupported Frame property or child '{property}'"))
                 );
             }
-            if !seen.insert(property.clone()) {
+            if !seen.insert(property) {
                 return Err(self.error(&format!("Duplicate Frame property '{property}'")));
             }
             self.expect(Kind::Colon, "':' after Frame property")?;
-            match property.as_str() {
+            match property {
                 "gap" => gap = self.number("gap", true)?,
                 "width" => width = self.number("width", false)?,
                 "height" => height = self.number("height", false)?,
                 "padding" => padding = self.padding()?,
                 "background" => background = self.color("background")?,
                 "radius" => radius=self.number("radius",true)?,
-                "clip" => {clip=match self.ident()?.as_str(){"true"=>true,"false"=>false,_=>return Err(self.error("clip requires true or false"))};},
-                "overflow" => { overflow=self.ident()?; if !matches!(overflow.as_str(),"visible"|"hidden"){return Err(self.error("overflow: expected visible or hidden; use a Scroll element for scrolling"));} },
+                "clip" => {clip=match self.ident()? {"true"=>true,"false"=>false,_=>return Err(self.error("clip requires true or false"))};},
+                "overflow" => { overflow=self.ident()?; if !matches!(overflow,"visible"|"hidden"){return Err(self.error("overflow: expected visible or hidden; use a Scroll element for scrolling"));} },
                 _ => unreachable!(),
             }
             self.expect(Kind::Semi, "';' after Frame property")?;
@@ -461,11 +470,11 @@ impl<'a> Parser<'a> {
         }
         let button=buttons.first().cloned().unwrap_or_default();
         Ok(Scene {
-            name,
+            name: name.to_owned(),
             width,
             height,
             background,
-            overflow,
+            overflow: overflow.to_owned(),
             clip,
             radius:radius.min(width.min(height)/2.),
             scroll,

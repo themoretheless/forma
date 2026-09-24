@@ -1,0 +1,116 @@
+//! Phase attribution for `Runtime::from_sources` on the real Studio transport:
+//! where the load time and allocations of one compile go, control by control.
+//! Inputs come from `node scripts/transport-fixture.mjs`; one JSON object per case.
+mod bench_support;
+use bench_support::CountingAllocator;
+use forma::{markup, template, Runtime};
+use std::{hint::black_box, time::{Duration, Instant}};
+
+#[global_allocator]
+static ALLOCATOR: CountingAllocator = CountingAllocator::new();
+
+const SEPARATOR: &str = "\n@@@SPLIT@@@\n";
+
+fn measure(label: &str, count: usize, ops: usize, mut f: impl FnMut()) {
+    f();
+    let mut elapsed = Duration::ZERO;
+    let mut allocations = 0u64;
+    let mut bytes = 0u64;
+    for round in 0..ops {
+        let before = ALLOCATOR.snapshot();
+        let started = Instant::now();
+        f();
+        let delta = ALLOCATOR.snapshot().delta_since(before);
+        if round > 0 {
+            elapsed += started.elapsed();
+            allocations += delta.allocations + delta.reallocations;
+            bytes += delta.requested_bytes;
+        }
+    }
+    let n = (ops - 1) as f64;
+    println!("{{\"case\":\"{label}\",\"controls\":{count},\"ns_per_op\":{:.1},\"allocs_per_op\":{:.1},\"bytes_per_op\":{:.1}}}",
+        elapsed.as_secs_f64() * 1e9 / n, allocations as f64 / n, bytes as f64 / n);
+}
+
+fn framed(component: &str) -> Vec<&str> {
+    let mut rest = component.strip_prefix("FORMA-TEMPLATES-1\n").unwrap();
+    let mut out = Vec::new();
+    while !rest.is_empty() {
+        let (length, body) = rest.split_once('\n').unwrap();
+        let length: usize = length.parse().unwrap();
+        out.push(&body[..length]);
+        rest = &body[length..];
+    }
+    out
+}
+
+fn main() {
+    let dir = std::env::var("FORMA_TRANSPORT_DIR")
+        .unwrap_or_else(|_| format!("{}/../.forma/perf/template-load", env!("CARGO_MANIFEST_DIR")));
+    for count in [32usize, 256] {
+        let path = format!("{dir}/forma-transport-{count}.txt");
+        let text = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+            panic!("missing {path}: run `node scripts/transport-fixture.mjs` first ({error})")
+        });
+        let (source, component) = text.split_once(SEPARATOR).unwrap();
+        let templates = framed(component);
+        let scene = markup::parse(source).unwrap();
+        let spec = &scene.buttons[0];
+        for t in &templates {
+            drop(template::parse_cached(t, spec).unwrap());
+        }
+        let cached = template::parse_cached(templates[0], spec).unwrap();
+
+        // Everything a compile pays per control, then its parts.
+        measure("full_from_sources", count, 6, || {
+            drop(Runtime::from_sources(black_box(source), black_box(component)).unwrap());
+        });
+        measure("markup_parse_document", count, 6, || {
+            black_box(markup::parse(source).unwrap().buttons.len());
+        });
+        // The framed transport walk `runtime::templates` performs.
+        measure("framing_scan", count, 6, || {
+            black_box(framed(component).len());
+        });
+        // One of the deep ButtonSpec clones a control makes.
+        measure("spec_clone_x1", count, 6, || {
+            for _ in 0..count {
+                black_box(spec.clone().width);
+            }
+        });
+        // Leaf scene per control: frame metadata plus two spec clones.
+        measure("leaf_scene_build", count, 6, || {
+            for _ in 0..count {
+                let leaf = markup::Scene {
+                    name: scene.name.clone(), width: scene.width, height: scene.height,
+                    background: scene.background, overflow: scene.overflow.clone(),
+                    clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
+                    padding: scene.padding, content_width: scene.content_width,
+                    content_height: scene.content_height, gap: scene.gap,
+                    button: spec.clone(), buttons: vec![spec.clone()],
+                };
+                black_box(leaf.width + leaf.button.width);
+            }
+        });
+        // Cached template hand-out per control (warm cache: every call hits).
+        measure("parse_cached_x_all", count, 6, || {
+            for t in &templates {
+                let value = template::parse_cached(t, spec).unwrap();
+                black_box(value.props.width + value.radius);
+            }
+        });
+        measure("template_clone_x_all", count, 6, || {
+            for _ in 0..count {
+                let value = cached.clone();
+                black_box(value.props.width + value.radius);
+            }
+        });
+        measure("props_clone_x_all", count, 6, || {
+            for _ in 0..count {
+                black_box(cached.props.clone().width);
+            }
+        });
+        println!("{{\"case\":\"input_sizes\",\"controls\":{count},\"document_bytes\":{},\"transport_bytes\":{}}}",
+            source.len(), component.len());
+    }
+}
