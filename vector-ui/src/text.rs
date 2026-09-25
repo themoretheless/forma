@@ -158,7 +158,13 @@ pub fn measure_text(text: &str, font_size: f32) -> f32 {
         .chars()
         .map(|c| advance(face, glyph(face, c)))
         .sum::<f32>();
-    units * font_size / face.units_per_em() as f32
+    pixels_from_units(units, font_size, face.units_per_em())
+}
+
+/// Advance units to logical pixels. One definition, because the vector path sums its own
+/// advances while resolving outlines and has to land on the same float as `measure_text`.
+fn pixels_from_units(units: f32, font_size: f32, units_per_em: u16) -> f32 {
+    units * font_size / units_per_em as f32
 }
 
 /// Find a caret boundary in one pass. Summing font units before converting to
@@ -200,10 +206,25 @@ impl Iterator for GlyphEdges<'_> {
 impl ExactSizeIterator for GlyphEdges<'_> {}
 
 /// Temporary storage for one display-list build. Capacity follows the largest
-/// glyph, not the combined text length, and is released with the build scratch.
+/// glyph and the longest label, not the combined text, and is released with the build scratch.
 #[derive(Default)]
 pub(crate) struct VectorScratch {
     edges: Vec<(Point, Point)>,
+    ids: Vec<GlyphId>,
+}
+
+/// Resolve every character once, keeping the identifiers and summing exactly the advances
+/// `measure_text` sums. Drawing a label needs both, and measuring first then resolving again per
+/// outline pays for the same font table lookup twice per character.
+fn glyph_ids(face: &Face<'_>, text: &str, ids: &mut Vec<GlyphId>) -> f32 {
+    ids.clear();
+    let mut units = 0.;
+    for ch in text.chars() {
+        let id = glyph(face, ch);
+        units += advance(face, id);
+        ids.push(id);
+    }
+    units
 }
 
 /// Vector contours only: the GPU determines winding and pixel coverage.
@@ -213,11 +234,16 @@ pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32,scrat
     if rect[2]<=0.||rect[3]<=0.||font_size<=0. {return;}
     let face=font();
     let units_to_pixels=font_size*scale/face.units_per_em()as f32;
-    let origin=Point{x:(rect[0]+rect[2]*0.5-measure_text(text,font_size)*0.5)*scale,
+    let mut ids=std::mem::take(&mut scratch.ids);
+    let units=glyph_ids(&face,text,&mut ids);
+    // The same guard and the same summation order as `measure_text`: a non-finite size still
+    // measures as zero width, and the outlines below still draw.
+    let width=if font_size.is_finite(){pixels_from_units(units,font_size,face.units_per_em())}else{0.};
+    let origin=Point{x:(rect[0]+rect[2]*0.5-width*0.5)*scale,
         y:(rect[1]+rect[3]*0.5)*scale+(face.ascender()as f32+face.descender()as f32)*units_to_pixels*0.5};
     let mut contours=Contours{edges:std::mem::take(&mut scratch.edges),current:origin,start:origin,origin,units_to_pixels};
-    for ch in text.chars(){
-        let id=glyph(&face,ch);face.outline_glyph(id,&mut contours);
+    for &id in &ids{
+        face.outline_glyph(id,&mut contours);
         if !contours.edges.is_empty(){
             emit(GlyphEdges { edges: contours.edges.iter(), scale });
             contours.edges.clear();
@@ -225,6 +251,7 @@ pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32,scrat
         contours.origin.x+=advance(&face,id)*units_to_pixels;
     }
     scratch.edges = contours.edges;
+    scratch.ids = ids;
 }
 
 /// Draw a centered, single-line label into a straight-alpha RGBA pixel buffer.
