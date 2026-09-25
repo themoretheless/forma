@@ -118,6 +118,21 @@ fn main() {
                 black_box(cached.props.clone().width);
             }
         });
+        // GPU payloads the browser requests after every compile. On a brand new model this is
+        // where the display list is actually built, so it is keystroke cost that
+        // `full_from_sources` never sees; the warm case isolates the pure clone.
+        let model = Runtime::from_sources(source, component).unwrap();
+        measure("gpu_transport_new_model", count, 6, || {
+            let fresh = Runtime::from_sources(black_box(source), black_box(component)).unwrap();
+            black_box(fresh.gpu_commands(1., false).len());
+            black_box(fresh.gpu_edges(1., false).len());
+            black_box(fresh.gpu_tiles(900, 600, 1., false).len());
+        });
+        measure("gpu_transport_warm", count, 6, || {
+            black_box(model.gpu_commands(1., false).len());
+            black_box(model.gpu_edges(1., false).len());
+            black_box(model.gpu_tiles(900, 600, 1., false).len());
+        });
         println!("{{\"case\":\"input_sizes\",\"controls\":{count},\"document_bytes\":{},\"transport_bytes\":{}}}",
             source.len(), component.len());
     }
