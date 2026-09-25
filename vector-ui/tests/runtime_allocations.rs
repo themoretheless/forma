@@ -39,6 +39,15 @@ fn source(count: usize) -> String {
     let controls: String = (0..count).map(|i| format!("Button {{ key:'c{i}'; width:100; height:30; }}")).collect();
     format!("component Demo {{ Frame {{ width:200; height:200; {controls} }} }}")
 }
+fn mixed_size_source(count: usize) -> String {
+    // Alternating control sizes, so a capacity hint taken from the previous sibling is wrong
+    // about as often as it is right.
+    let controls: String = (0..count)
+        .map(|i| format!("Button {{ key:'c{i}'; width:{}; height:{}; }}", if i % 2 == 0 { 40 } else { 160 }, if i % 2 == 0 { 20 } else { 60 }))
+        .collect();
+    format!("component Demo {{ Frame {{ width:200; height:200; {controls} }} }}")
+}
+const LABELED: &str = "component Button { Rectangle { Text { text: props.text; color:#102030; fontSize:12; } PointerArea { clicked -> events.clicked(); } } }";
 const VISUAL: &str = "component Button { Rectangle { background:#102030; PointerArea { clicked -> events.clicked(); } } }";
 const EDITOR: &str = "component Button { Rectangle { ContentInput { width:100; height:30; value:'Привет'; } PointerArea { clicked -> events.clicked(); } } }";
 const RANGE: &str = "component Button { Rectangle { RangeInput { value:0.5; Minimum { ContentShape { points:'0 0 10 0 10 10'; color:#ffffff; } } Maximum { ContentShape { points:'0 0 80 0 80 10'; color:#ffffff; } } } PointerArea { clicked -> events.clicked(); } } }";
@@ -102,4 +111,46 @@ fn document_markup_parse_pays_only_for_owned_property_values() {
         "4× more controls should remain linear: {small_allocations} → {large_allocations} allocations");
     assert!(large_allocations <= 128 * 5,
         "document parse exceeded 5 allocations per control: {large_allocations} for 128 controls");
+}
+
+/// A scene whose labels are long enough that one control's edge list runs to hundreds of points,
+/// so a buffer grown from empty is visible in the counts. `vary` makes consecutive controls
+/// differ, which is the case a sibling capacity hint gets wrong.
+fn labeled_source(count: usize, vary: bool) -> String {
+    let short = "a".repeat(60);
+    let long = format!("{}{}", "б".repeat(12), "в".repeat(60));
+    let controls: String = (0..count)
+        .map(|i| format!("Button {{ key:'c{i}'; text:'{}'; width:100; height:30; }}",
+            if vary && i % 2 == 1 { &long } else { &short }))
+        .collect();
+    format!("component Demo {{ Frame {{ width:200; height:200; {controls} }} }}")
+}
+
+/// One keystroke's worth of GPU payloads from a brand new model: each control builds its own
+/// display list, the scene merges them, and the tiler runs over the merge.
+fn transport(controls: &str, component: &str) -> usize {
+    let runtime = Runtime::from_sources(controls, component).unwrap();
+    runtime.gpu_commands(1., false).len()
+        + runtime.gpu_edges(1., false).len()
+        + runtime.gpu_tiles(200, 200, 1., false).len()
+}
+
+#[test]
+fn transport_sizes_control_buffers_instead_of_growing_them() {
+    // Before the lists were sized from their siblings, every one of them doubled from empty, and
+    // the cost scaled with the length of the control's geometry rather than with its count. The
+    // plain scene already shows it (1 926 → 1 534 attempts); the labeled one, whose edge lists run
+    // to hundreds of points, shows it clearly: 5 634 → 3 064 for the same 128 controls.
+    let (_, plain_large) = measured(|| transport(&source(128), VISUAL));
+    let (_, text_small) = measured(|| transport(&labeled_source(32, false), LABELED));
+    let (_, text_large) = measured(|| transport(&labeled_source(128, false), LABELED));
+    let (_, text_mixed) = measured(|| transport(&labeled_source(128, true), LABELED));
+    assert!(text_large < text_small * 5,
+        "4× more controls should remain linear: {text_small} → {text_large} allocations");
+    assert!(text_large <= 128 * 28,
+        "labeled transport exceeded 28 allocations per control: {text_large} for 128 controls");
+    assert!(text_mixed <= 128 * 28,
+        "mixed-size transport exceeded 28 allocations per control: {text_mixed} for 128 controls");
+    assert!(plain_large <= 128 * 16,
+        "plain transport exceeded 16 allocations per control: {plain_large} for 128 controls");
 }
