@@ -15,6 +15,7 @@ fn measure(label: &str, count: usize, ops: usize, mut f: impl FnMut()) {
     f();
     let mut elapsed = Duration::ZERO;
     let mut allocations = 0u64;
+    let mut reallocations = 0u64;
     let mut bytes = 0u64;
     for round in 0..ops {
         let before = ALLOCATOR.snapshot();
@@ -23,13 +24,19 @@ fn measure(label: &str, count: usize, ops: usize, mut f: impl FnMut()) {
         let delta = ALLOCATOR.snapshot().delta_since(before);
         if round > 0 {
             elapsed += started.elapsed();
-            allocations += delta.allocations + delta.reallocations;
+            allocations += delta.allocations;
+            reallocations += delta.reallocations;
             bytes += delta.requested_bytes;
         }
     }
     let n = (ops - 1) as f64;
-    println!("{{\"case\":\"{label}\",\"controls\":{count},\"ns_per_op\":{:.1},\"allocs_per_op\":{:.1},\"bytes_per_op\":{:.1}}}",
-        elapsed.as_secs_f64() * 1e9 / n, allocations as f64 / n, bytes as f64 / n);
+    // `allocs_per_op` keeps its historical meaning of allocation attempts, so the separate
+    // realloc count is the one that shows a buffer grown by doubling instead of sized at once.
+    println!("{{\"case\":\"{label}\",\"controls\":{count},\"ns_per_op\":{:.1},\"allocs_per_op\":{:.1},\"reallocs_per_op\":{:.1},\"bytes_per_op\":{:.1}}}",
+        elapsed.as_secs_f64() * 1e9 / n,
+        (allocations + reallocations) as f64 / n,
+        reallocations as f64 / n,
+        bytes as f64 / n);
 }
 
 fn framed(component: &str) -> Vec<&str> {

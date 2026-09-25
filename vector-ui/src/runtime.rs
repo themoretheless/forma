@@ -1,6 +1,6 @@
 //! Shared native/WASM scene runtime. Node IDs are local to one loaded snapshot.
 //! Controls own interaction; the renderer sees only geometry and paint slots.
-use crate::display_list::{DisplayList, RenderScene, STRIDE};
+use crate::display_list::{DisplayList, ListHints, RenderScene, STRIDE};
 use crate::{markup, round_coverage, round_inside, Button};
 use std::{cell::RefCell, sync::Arc};
 use wasm_bindgen::prelude::*;
@@ -345,10 +345,22 @@ impl Runtime {
                 return Arc::clone(&c.list);
             }
         }
-        let mut list = DisplayList {
-            commands: Vec::new(),
-            edges: Vec::new(),
-        };
+        // Every control builds its own list before the merge runs. The scene repeats nearly
+        // identical controls, so each one after the first can start at a sibling's final
+        // capacity instead of growing into it by doubling, and the merged buffers are exact.
+        let mut children = Vec::with_capacity(self.controls.len());
+        let mut text_scratch = crate::text::VectorScratch::default();
+        let mut hints = None;
+        for control in &self.controls {
+            let child = control.vector_snapshot_hinted(scale, false, hints, &mut text_scratch);
+            hints = Some(ListHints { commands: child.commands.len(), edges: child.edges.len() });
+            children.push(child);
+        }
+        let mut list = DisplayList::with_hints(Some(ListHints {
+            commands: children.iter().map(|child| child.commands.len()).sum::<usize>()
+                + STRIDE * 8,
+            edges: children.iter().map(|child| child.edges.len()).sum::<usize>(),
+        }));
         let frame = [0., 0., self.width(), self.height()];
         if self.scene.clip {
             list.push(frame, self.scene.radius);
@@ -371,8 +383,7 @@ impl Runtime {
             list.command(2., [v[0], v[1], v[2], v[3]], [0; 4], 0., 1.);
         }
         let mut reveal_slot = self.controls.len() * 2;
-        for (index, c) in self.controls.iter().enumerate() {
-            let child = c.vector_snapshot(scale, false);
+        for (index, child) in children.iter().enumerate() {
             let edge_offset = list.edges.len() / 4;
             for command in child.commands.chunks_exact(STRIDE) {
                 let start = list.commands.len();
@@ -390,7 +401,7 @@ impl Runtime {
                 }
             }
             list.edges.extend(&child.edges);
-            if c.template.reveal.is_some() { reveal_slot += 2; }
+            if self.controls[index].template.reveal.is_some() { reveal_slot += 2; }
         }
         if self.scene.scroll {
             let [cw, ch] = self.content_size();

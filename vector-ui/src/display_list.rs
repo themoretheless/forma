@@ -12,6 +12,31 @@ pub struct DisplayList {
     pub edges: Vec<f32>,
 }
 
+/// Buffer sizes suggested to a list that is about to be built. A scene runtime asks every
+/// control for a list of nearly the same shape, so the previous sibling's exact lengths turn
+/// twenty-odd doubling reallocs per control into one allocation. Hints never reach the bytes:
+/// a wrong guess only makes the vector grow or keep spare capacity.
+#[derive(Clone, Copy)]
+pub(crate) struct ListHints {
+    pub(crate) commands: usize,
+    pub(crate) edges: usize,
+}
+
+impl DisplayList {
+    pub(crate) fn with_hints(hints: Option<ListHints>) -> Self {
+        match hints {
+            Some(hints) => Self {
+                commands: Vec::with_capacity(hints.commands),
+                edges: Vec::with_capacity(hints.edges),
+            },
+            None => Self {
+                commands: Vec::new(),
+                edges: Vec::new(),
+            },
+        }
+    }
+}
+
 /// Reusable CPU storage for tile indexing. One contiguous output allocation and
 /// one command-range allocation replace thousands of independently grown bins.
 /// Kept separate from DisplayList: window resize does not invalidate geometry.
@@ -141,11 +166,20 @@ impl DisplayList {
         self.pop();
     }
     pub fn build(model: &Button, scale: f32, background: bool) -> Self {
-        let mut out = Self {
-            commands: Vec::new(),
-            edges: Vec::new(),
-        };
-        let mut text_scratch = text::VectorScratch::default();
+        let mut scratch = text::VectorScratch::default();
+        Self::build_hinted(model, scale, background, None, &mut scratch)
+    }
+    /// `scratch` carries the per-glyph flattening buffer. A scene that builds hundreds of
+    /// near-identical control lists hands it over once so the buffer grows a single time
+    /// instead of starting empty for every control.
+    fn build_hinted(
+        model: &Button,
+        scale: f32,
+        background: bool,
+        hints: Option<ListHints>,
+        text_scratch: &mut text::VectorScratch,
+    ) -> Self {
+        let mut out = Self::with_hints(hints);
         let frame = [0., 0., model.width(), model.height()];
         if model.scene.clip {
             out.push(frame, model.scene.radius);
@@ -190,7 +224,7 @@ impl DisplayList {
                     b.height - r * 0.6,
                 ],
                 scale,
-                &mut text_scratch,
+                text_scratch,
             );
         }
         for c in &model.template.content {
@@ -199,7 +233,7 @@ impl DisplayList {
                     text,
                     [x + bounds[0], y + bounds[1], bounds[2], bounds[3]],
                     scale,
-                    &mut text_scratch,
+                    text_scratch,
                 ),
                 Content::Shape { points, color } => out.path(
                     (0..points.len())
@@ -286,6 +320,9 @@ impl DisplayList {
         scratch.data.fill(0);
         scratch.ranges.clear();
         scratch.clips.clear();
+        // The tiler emits exactly one range record per command; reserving that depth keeps the
+        // pass from copying the whole list several times over.
+        scratch.ranges.reserve(self.commands.len() / STRIDE);
         // Use complete tiles, not the partial last tile's framebuffer edge:
         // renderer caches can safely key this list by tile-grid dimensions.
         let viewport = [0., 0., (cols * TILE) as f32, (rows * TILE) as f32];
@@ -339,8 +376,16 @@ impl DisplayList {
                 }
             }
         }
-        let mut length = tile_count * 2;
-        for pair in scratch.data.chunks_exact_mut(2) {
+        // The counts are already in the header, so the tail is sized once here rather than
+        // doubling while the fill pass writes into it.
+        let headers = tile_count * 2;
+        let listed: usize = scratch.data[..headers]
+            .chunks_exact(2)
+            .map(|pair| pair[1] as usize)
+            .sum();
+        scratch.data.resize(headers + listed, 0);
+        let mut length = headers;
+        for pair in scratch.data[..headers].chunks_exact_mut(2) {
             let count = pair[1] as usize;
             pair[0] = length as u32;
             // Reuse the final count field as the fill cursor, avoiding another
@@ -348,7 +393,6 @@ impl DisplayList {
             pair[1] = 0;
             length += count;
         }
-        scratch.data.resize(length, 0);
         for (id, &[x0, y0, x1, y1]) in scratch.ranges.iter().enumerate() {
             for y in y0..y1 {
                 for x in x0..x1 {
@@ -363,7 +407,13 @@ impl DisplayList {
     }
 }
 impl Button {
-    fn ensure_vector_list(&self, scale: f32, background: bool) {
+    fn ensure_vector_list(
+        &self,
+        scale: f32,
+        background: bool,
+        hints: Option<ListHints>,
+        text_scratch: &mut text::VectorScratch,
+    ) {
         let mut cache = self.display_cache.borrow_mut();
         let scroll = [self.scroll_x, self.scroll_y];
         if cache
@@ -374,14 +424,17 @@ impl Button {
                 scale,
                 scroll,
                 background,
-                list: Arc::new(DisplayList::build(self, scale, background)),
+                list: Arc::new(DisplayList::build_hinted(
+                    self, scale, background, hints, text_scratch,
+                )),
             });
         }
     }
 
     /// Borrowed view retained for existing Rust callers and WASM serialization.
     pub fn vector_list(&self, scale: f32, background: bool) -> std::cell::Ref<'_, DisplayList> {
-        self.ensure_vector_list(scale, background);
+        let mut scratch = text::VectorScratch::default();
+        self.ensure_vector_list(scale, background, None, &mut scratch);
         std::cell::Ref::map(self.display_cache.borrow(), |c| {
             c.as_ref().unwrap().list.as_ref()
         })
@@ -394,7 +447,21 @@ impl Button {
     /// another source/component replace it. Future geometry setters must invalidate
     /// the display cache instead of mutating a published snapshot.
     pub fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList> {
-        self.ensure_vector_list(scale, background);
+        let mut scratch = text::VectorScratch::default();
+        self.vector_snapshot_hinted(scale, background, None, &mut scratch)
+    }
+
+    /// Same snapshot with a capacity head start and a shared flattening buffer. A scene that
+    /// asks for hundreds of near-identical control lists uses these to allocate each list at
+    /// its final size instead of doubling into it.
+    pub(crate) fn vector_snapshot_hinted(
+        &self,
+        scale: f32,
+        background: bool,
+        hints: Option<ListHints>,
+        text_scratch: &mut text::VectorScratch,
+    ) -> Arc<DisplayList> {
+        self.ensure_vector_list(scale, background, hints, text_scratch);
         Arc::clone(&self.display_cache.borrow().as_ref().unwrap().list)
     }
 }
