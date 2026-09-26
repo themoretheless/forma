@@ -2,10 +2,14 @@ import {createEventScope} from './event-scope.js';
 import {parse} from './language.js';
 import {copyElements,copyElement,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
+import {flowsCoordinates} from './positioning.js';
 import {controlCss} from './handoff.js';
 export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report,copy=text=>navigator.clipboard?.writeText(text)}){
  const events=createEventScope(),listen=events.listen;
  let clipboard='',drag=null,selection=[],primary=null,snapping=true,resize=null;
+ // A palette entry can be pulled out of the menu onto the canvas, and only this module's own drag
+ // carries a control, so a foreign payload — a file, somebody else's text — stays a plain browser drag.
+ const MIME='application/x-forma-control';let payload=null,hint=null;
  const bar=document.createElement('div');bar.className='element-tools';bar.hidden=true;bar.setAttribute('role','menu');bar.setAttribute('aria-label','Редактирование элементов');
  const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y'],['css','Скопировать CSS']];
  for(const [action,label] of labels){const b=document.createElement('button');b.textContent=label;b.dataset.action=action;b.setAttribute('role',action==='snap'?'menuitemcheckbox':'menuitem');b.tabIndex=-1;b.onclick=()=>{run(action);closeMenu(true);};bar.append(b);}
@@ -26,7 +30,12 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   for(const button of addButtons)button.remove();addButtons=[];
   for(const item of items){
    const b=document.createElement('button');b.textContent='＋ '+item.type;b.className='element-add';b.dataset.action='add';b.dataset.type=item.type;
-   b.setAttribute('role','menuitem');b.tabIndex=-1;b.title='В выбранный контейнер или после выбранного контрола';
+   b.setAttribute('role','menuitem');b.tabIndex=-1;
+   b.title='В выбранный контейнер или после выбранного контрола · перетащите на холст, чтобы положить в точку';
+   // The drag carries the entry the button was built from, so the drop never has to look the markup up
+   // in a list the filter or a rebuilt palette may have replaced since the button was drawn.
+   b.draggable=true;
+   b.ondragstart=e=>{payload=item;e.dataTransfer.effectAllowed='copy';e.dataTransfer.setData(MIME,item.markup);};
    b.onclick=()=>{run('add',item.markup);closeMenu(true);};bar.append(b);addButtons.push(b);
   }
   if(catalog.length){count.remove();filter.hidden=false;bar.append(filter);bar.append(count);}
@@ -56,6 +65,29 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   openMenu(e.clientX,e.clientY);
  },true);
  listen(window,'pointerdown',e=>{if(!bar.contains(e.target))closeMenu();},true);
+ // A dragged palette entry is resolved by the same hit rules as a press, so the hint can show where
+ // the control would land before the designer lets go of it.
+ listen(viewport,'dragover',e=>{
+  if(!payload)return;const c=current();if(!c)return;
+  e.preventDefault();e.stopImmediatePropagation();e.dataTransfer.dropEffect='copy';
+  hint=dropHint(c,dropAt(c,...scenePoint(e)).holder);draw();
+ });
+ listen(viewport,'dragleave',e=>{if(payload&&!viewport.contains(e.relatedTarget)){hint=null;draw();}});
+ listen(viewport,'drop',e=>{
+  if(!payload)return;const c=current();if(!c)return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const {markup}=payload;payload=null;hint=null;
+  try{
+   const [x,y]=scenePoint(e),target=dropAt(c,x,y);
+   // A holder that reads its children's coordinates gets the control where it was dropped; one that
+   // places them itself — a Stack, a cell of a Grid — must not be handed a position nothing looks at.
+   const point=dropPoint(c,target.holder,x,y);
+   apply(insertElement(c.source,target.start,flowsCoordinates(target.holder)?withXY(markup,placed(point[0]),placed(point[1])):markup,false,target.side),c);
+   closeMenu(true);
+  }catch(error){report(error.message);}
+  finally{draw();}
+ });
+ listen(window,'dragend',()=>{if(!payload)return;payload=null;if(hint){hint=null;draw();}});
  listen(window,'blur',()=>closeMenu());
  listen(window,'resize',()=>closeMenu());
  listen(bar,'keydown',e=>{
@@ -131,6 +163,44 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   const {node,parent}=locateElement(c.source,c.start);
   return holdsChildren(node)?{start:node.start,side:'inside'}:{start:node.start,side:parent?'after':'inside'};
  }
+ // Where a dropped control lands: the control under the point takes it as the next sibling and the
+ // container under the point as its child, so the designer aims at whatever they would have clicked.
+ // A point that holds neither lands the control in the page's own list — and a scrolling page has to
+ // gain it inside the Scroll rather than beside it.
+ function dropAt(c,x,y){
+  const hit=hitAt(c,x,y)??shellAt(c,x,y,null);
+  if(hit!=null){
+   const {node,parent}=locateElement(c.source,hit);
+   return holdsChildren(node)?{start:node.start,side:'inside',holder:node}:{start:node.start,side:parent?'after':'inside',holder:parent??node};
+  }
+  const children=c.root?.children??[],only=children.length===1?children[0]:null;
+  const holder=only?.type==='Scroll'?only:c.root;
+  return {start:holder.start,side:'inside',holder};
+ }
+ // A coordinate is measured from the corner of the container that flows it. The scene publishes that
+ // corner twice over — as the box it measured for the container itself, and as the frame it gave every
+ // control it laid out inside — so a container that never got a box of its own still resolves to the
+ // corner its neighbours are measured against rather than to a page value nothing reads.
+ function holderCorner(c,holder){
+  const m=measured(c),own=m.panels.get(holder.start)??m.drawn.get(holder.start);
+  if(own)return [own[0],own[1]];
+  for(const child of holder.children??[]){const frame=m.frames.get(child.start);if(frame)return [frame[0],frame[1]];}
+  return [0,0];
+ }
+ // The same space a move reads back through origin(): a page point plus how far the canvas has
+ // scrolled, less the corner the holder measures its children from.
+ function dropPoint(c,holder,x,y){
+  const [cx,cy]=holderCorner(c,holder),scroll=c.scene.scrollOffset??[0,0];
+  return [x+scroll[0]-cx,y+scroll[1]-cy];
+ }
+ // What the designer sees coming is the box the holder owns. A container that never got one takes the
+ // whole page, because the page's own list is where the control lands.
+ function dropHint(c,holder){return measured(c).drawn.get(holder.start)??measured(c).panels.get(holder.start)??[0,0,c.scene.width,c.scene.height];}
+ // The palette entries the menu inserts are one line of markup, so a coordinate joins the properties
+ // the entry already declares.
+ const placed=v=>Math.max(0,Math.round(v*10)/10);
+ const withXY=(markup,x,y)=>markup.slice(0,markup.lastIndexOf('}')).replace(/\s+$/,'')+` x: ${x}; y: ${y}; }`;
+ function scenePoint(e){const r=artboard.getBoundingClientRect(),scale=geometry().scale;return [(e.clientX-r.left)/scale,(e.clientY-r.top)/scale];}
  // A control's own visual node carries what the component resolved — a radius, a hover colour, the
  // size the layout gave a `*` — so that, and not the markup the page happened to write, is what a
  // handoff has to spell out. A container that paints nothing has no box of its own, and a size
@@ -186,6 +256,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  function draw(){overlay.replaceChildren();const c=context();if(!c)return;
   for(const item of items(c))box(item.bounds,'element-selected-box');
   if(!drag&&resize!=null)for(const item of items(c))handles(item.bounds);
+  if(!drag&&hint)box(hint,'element-drop-hint');
   if(!drag)return;
   if(drag.kind==='marquee'){box(drag.marquee,'element-marquee');return;}
   if(drag.kind==='resize'){const g=geometry(),b=drag.preview,label=document.createElement('span');label.className='element-drag-label';

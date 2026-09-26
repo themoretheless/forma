@@ -134,6 +134,75 @@ test('a printable key with the menu open searches the palette instead of running
 });
 const handleLayer=t=>t.viewport.children.find(c=>c!==t.artboard);
 const sides=t=>handleLayer(t).children.filter(c=>c.dataset?.side).map(c=>c.dataset.side);
+const hintsOf=t=>handleLayer(t).children.filter(c=>c.className==='element-drop-hint').map(c=>[c.style.left,c.style.top,c.style.width,c.style.height]);
+const transfer=()=>({setData(){},dropEffect:''});
+// The palette button carries the drag, so the entry the designer grabbed is the entry that lands.
+const dragFromMenu=t=>{const dt=transfer();t.toolbar.next.children.find(b=>b.dataset.type==='Text').ondragstart({dataTransfer:dt});return dt;};
+test('a palette entry dragged onto the page lands at the point it was dropped',()=>{
+ const t=setup(undefined,[textItem]);
+ assert.equal(t.toolbar.next.children.find(b=>b.dataset.type==='Text').draggable,true);
+ const dt=dragFromMenu(t);
+ // The default Button paints 10,20 to 110,60, so 300,150 is the page's own empty corner.
+ t.viewport.emit('dragover',{target:t.artboard,clientX:600,clientY:300,dataTransfer:dt});
+ assert.deepEqual(hintsOf(t),[['0px','0px','800px','400px']],'the list that takes the control is outlined');
+ t.viewport.emit('drop',{target:t.artboard,clientX:600,clientY:300,dataTransfer:dt});
+ const children=parse(t.source()).nodes[0].children;
+ assert.deepEqual(children.map(n=>n.type),['Button','Text']);
+ assert.deepEqual([children[1].props.x,children[1].props.y],[300,150]);
+ assert.equal(children[1].props.text,'Новый','the entry keeps the markup the palette wrote');
+ assert.deepEqual(t.tools.selection(),[children[1].start],'the control the designer just dropped is the one selected');
+ assert.deepEqual(hintsOf(t),[]);assert.deepEqual(t.errors,[]);
+});
+test('a palette entry dropped on a control lands beside it in the same container',()=>{
+ const t=setup(groupSource,[textItem]),dt=dragFromMenu(t);
+ // b paints 150,80 to 210,120, and its container is the page, so the point is read in page units.
+ t.viewport.emit('drop',{target:t.artboard,clientX:360,clientY:200,dataTransfer:dt});
+ const children=parse(t.source()).nodes[0].children;
+ assert.deepEqual(children.map(n=>n.props.key),['a','b',undefined]);
+ assert.deepEqual([children[2].props.x,children[2].props.y],[180,100]);
+ assert.equal(t.commits.length,1);assert.deepEqual(t.errors,[]);
+});
+test('a drop inside a panel that moved off the page writes the coordinate that panel reads',()=>{
+ const t=setup(shellSource,[textItem]),dt=dragFromMenu(t);
+ // The shell covers 100,50 to 300,170 and its button paints 120,60 to 160,80, so this is its padding:
+ // measured through the page the control would land fifty units right of the panel's own corner.
+ t.viewport.emit('drop',{target:t.artboard,clientX:300,clientY:300,dataTransfer:dt});
+ const shell=parse(t.source()).nodes[0].children[0];
+ assert.equal(shell.props.key,'shell');
+ assert.deepEqual(shell.children.map(n=>n.type),['Button','Text']);
+ assert.deepEqual([shell.children[1].props.x,shell.children[1].props.y],[50,100]);
+ assert.deepEqual(t.errors,[]);
+});
+test('a drop inside a Stack leaves the coordinate out, because the Stack places its children',()=>{
+ const t=setup("component Test { Frame { width: 400; Stack { key: 'pile'; x: 50; y: 40; width: 200; height: 120; Button { key: 'a'; x: 20; y: 10; width: 40; height: 20; } } } }",[textItem]),dt=dragFromMenu(t);
+ // 120,110 is on the pile's padding, so the hint names the pile rather than the page behind it.
+ t.viewport.emit('dragover',{target:t.artboard,clientX:240,clientY:220,dataTransfer:dt});
+ assert.deepEqual(hintsOf(t),[['100px','80px','400px','240px']]);
+ t.viewport.emit('drop',{target:t.artboard,clientX:240,clientY:220,dataTransfer:dt});
+ const pile=parse(t.source()).nodes[0].children[0];
+ assert.equal(pile.type,'Stack');
+ assert.deepEqual(pile.children.map(n=>n.props.key),['a',undefined]);
+ assert.equal(pile.children[1].props.x,undefined);assert.equal(pile.children[1].props.y,undefined);
+ assert.deepEqual(t.errors,[]);
+});
+test('a drag abandoned outside the canvas leaves no hint and no edit',()=>{
+ const t=setup(undefined,[textItem]),dt=dragFromMenu(t);
+ t.viewport.emit('dragover',{target:t.artboard,clientX:600,clientY:300,dataTransfer:dt});
+ assert.equal(hintsOf(t).length,1);
+ t.viewport.emit('dragleave',{target:t.artboard,dataTransfer:dt});
+ assert.deepEqual(hintsOf(t),[]);
+ window.emit('dragend',{target:t.artboard,dataTransfer:dt});
+ // With the drag over, the canvas must stop accepting the payload instead of dropping it later.
+ const late=t.viewport.emit('dragover',{target:t.artboard,clientX:600,clientY:300,dataTransfer:dt});
+ assert.equal(late.defaultPrevented,false);assert.equal(t.commits.length,0);
+});
+test('a payload the palette did not write is left to the browser',()=>{
+ const t=setup(undefined,[textItem]);
+ const over=t.viewport.emit('dragover',{target:t.artboard,clientX:600,clientY:300,dataTransfer:{types:['Files'],dropEffect:''}});
+ const down=t.viewport.emit('drop',{target:t.artboard,clientX:600,clientY:300,dataTransfer:{types:['Files'],dropEffect:''}});
+ assert.equal(over.defaultPrevented,false);assert.equal(down.defaultPrevented,false);
+ assert.deepEqual(t.commits,[]);assert.deepEqual(hintsOf(t),[]);
+});
 test('a single selection carries resize handles and a dragged corner changes only the size',()=>{
  const t=setup();t.down();t.viewport.emit('pointerup',{pointerId:1});
  assert.deepEqual(sides(t),['nw','n','ne','e','se','s','sw','w']);
