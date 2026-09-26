@@ -1,6 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import {steps,evaluate,summary,provenance} from '../scripts/full-gate.mjs';
+import {root} from '../scripts/versions.mjs';
 
 const TARGETS=['aarch64-apple-darwin','x86_64-unknown-linux-gnu'];
 const VITE='node_modules/vite/bin/vite.js';
@@ -44,6 +46,21 @@ test('an app whose form Rust nobody compiled is built and run here',()=>{
  assert.deepEqual(evaluate(run,{status:0,output:'  \n'}),{ok:false,detail:'printed nothing'});
  assert.equal(evaluate(run,{status:0,output:'Typed components, keyed edits/reorder/removal, events, Row/Grid and live expressions: OK'}).ok,true);
  assert.deepEqual(evaluate(run,{status:101,output:''}),{ok:false,detail:'exit 101'});
+});
+test('no tracked crate is left out of the gate',()=>{
+ // Three finds in a row had the same shape: a manifest nothing compiled — the bench examples,
+ // then language-app, whose generated Rust no command built or ran. So the assertion reads the
+ // repo instead of the step list, and a fourth crate reddens the suite on the day it appears.
+ let tracked;
+ try{tracked=execFileSync('git',['ls-files'],{cwd:root,encoding:'utf8'});}
+ catch{return;/* a source export without .git has no tracked-file list to read */}
+ const gated=new Set();
+ // Covered means named by some platform's run: the legacy WebView host is a macOS-only step in
+ // ci.yml as well, and the gate inherits that split rather than pretending every host builds it.
+ for(const item of [...matrix().list,...matrix({platform:'darwin'}).list])
+  for(const [index,arg] of item.args.entries())if(arg==='--manifest-path')gated.add(item.args[index+1]);
+ const ungated=tracked.split('\n').filter(file=>/(^|\/)Cargo\.toml$/.test(file)).filter(file=>!gated.has(file));
+ assert.deepEqual(ungated,[],`nothing compiles ${ungated.join(', ')}`);
 });
 test('the gate runs the studio steps CI runs before it publishes',()=>{
  // CI checks the versions, runs the suite, then builds the bundle release.yml uploads; a local
