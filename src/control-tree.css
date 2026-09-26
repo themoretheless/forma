@@ -18,6 +18,10 @@
 .control-tree-row[aria-selected=true]{background:#29364e;box-shadow:inset 2px 0 #9bb4ff;color:#e6efff}
 .control-tree-row:focus-visible{outline:1px solid #9bb4ff;outline-offset:-1px}
 .control-tree-row[aria-disabled=true]{opacity:.55;cursor:default}
+.control-tree-row[draggable=true]:hover{cursor:grab}
+.control-tree-row[data-dragging]{opacity:.4}
+.control-tree-row[data-drop=before]{box-shadow:inset 0 2px 0 #9bb4ff}
+.control-tree-row[data-drop=after]{box-shadow:inset 0 -2px 0 #9bb4ff}
 .control-tree-arrow{width:13px;text-align:center;color:#92a5c3;flex-shrink:0}
 .control-tree-label{overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:85%}
 .control-tree-detail{color:#7488aa;overflow:hidden;text-overflow:ellipsis;font-size:10px}

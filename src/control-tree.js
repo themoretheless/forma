@@ -32,13 +32,18 @@ export function treeRows(roots,collapsed=new Set(),query=''){
   walk(needle?roots.map(filtered).filter(Boolean):roots,1,null);return out;
 }
 
-export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpenTemplate,storage={getItem:key=>readStorage('localStorage',key),setItem:(key,value)=>writeStorage('localStorage',key,value)}}){
+export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpenTemplate,onReorder=()=>{},canReorder=()=>false,storage={getItem:key=>readStorage('localStorage',key),setItem:(key,value)=>writeStorage('localStorage',key,value)}}){
   const panel=document.createElement('section');panel.className='control-tree-panel';panel.setAttribute('aria-label','Дерево контролов');
   panel.innerHTML=`<div class="control-tree-heading"><span>КОНТРОЛЫ</span><button data-action="expand" title="Развернуть дерево" aria-label="Развернуть дерево">⊞</button><button data-action="collapse" title="Свернуть дерево" aria-label="Свернуть дерево">⊟</button></div><div class="control-tree-scopes"><button data-scope="designer">Дизайнер</button><button data-scope="file">Файл</button></div><div class="control-tree-file"></div><input class="control-tree-search" type="search" placeholder="Найти контрол…" aria-label="Поиск в дереве контролов"><div class="control-tree-status" role="status"></div><div class="control-tree-items" role="tree" aria-label="Иерархия контролов"></div><button class="control-tree-template" hidden>Открыть шаблон компонента ↗</button>`;
   explorer.querySelector('.explorer-note').before(panel);
   const toggle=document.createElement('button');toggle.id='toggle-control-tree';toggle.textContent='☷ Дерево';toggle.setAttribute('aria-controls','control-tree-panel');panel.id='control-tree-panel';toolbar.prepend(toggle);
   const list=panel.querySelector('.control-tree-items'),search=panel.querySelector('input'),status=panel.querySelector('.control-tree-status'),template=panel.querySelector('.control-tree-template');
   let visible=true,scope='designer',roots=[],rows=[],selectedId=null,focusId=null,query='',disabled=false,templatePath=null;
+  // draggingId is the row the pointer grabbed, dragRow/dropRow the elements carrying its markers.
+  let draggingId=null,dragRow=null,dropRow=null,movable=new Set(),reorderDrawn=false;
+  // `movable` is what the structure allows; the handlers ask again, because a design scenario can
+  // take the source away between two draws and a stale row must still write nothing.
+  const reorderReady=()=>canReorder()&&!disabled;
   const collapsed=new Set();
   const elements=new Map(),parents=new Map(),sources=new Map();
   let currentDocument,currentPath;
@@ -48,6 +53,17 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   function rowElement(id){return elements.get(id);}
   function draw(restoreFocus=false){
     rows=treeRows(roots,collapsed,query);
+    // Where a drag may start: a source control whose parent is itself a source control with
+    // another visible sibling. Computed once for the list because draw runs on every keystroke.
+    // A filter hides siblings, so it also switches the drag off.
+    movable=new Set();
+    reorderDrawn=reorderReady();
+    if(!disabled&&!query&&reorderDrawn){
+      const byId=new Map(rows.map(n=>[n.id,n])),groups=new Map();
+      for(const n of rows){const parent=n.node&&byId.get(n.parent);if(!parent?.node)continue;
+        let group=groups.get(n.parent);if(!group)groups.set(n.parent,group=[]);group.push(n.id);}
+      for(const group of groups.values())if(group.length>1)for(const id of group)movable.add(id);
+    }
     const keep=new Set(rows.map(n=>n.id));
     for(const [id,row] of elements)if(!keep.has(id)){row.remove();elements.delete(id);}
     list.querySelector('.control-tree-empty')?.remove();
@@ -57,13 +73,13 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
       if(!row){row=document.createElement('div');row.className='control-tree-row';
         for(const name of ['arrow','label','detail']){const span=document.createElement('span');span.className='control-tree-'+name;row.append(span);}
         elements.set(n.id,row);
-      }row.dataset.controlId=n.id;row.setAttribute('role','treeitem');row.tabIndex=n.id===focusId?0:-1;
+      }row.dataset.controlId=n.id;row.setAttribute('role','treeitem');row.tabIndex=n.id===focusId?0:-1;row.draggable=movable.has(n.id);
       row.setAttribute('aria-level',String(n.level));row.setAttribute('aria-posinset',String(n.index));row.setAttribute('aria-setsize',String(n.siblings));row.setAttribute('aria-selected',String(n.id===selectedId));row.setAttribute('aria-disabled',String(disabled));
       if(n.children.length)row.setAttribute('aria-expanded',String(n.expanded));else row.removeAttribute('aria-expanded');row.style.paddingLeft=(8+(n.level-1)*14)+'px';
       const [arrow,label,detail]=row.children;arrow.dataset.disclosure='';arrow.setAttribute('aria-hidden','true');arrow.textContent=n.children.length?(n.expanded?'⌄':'›'):'·';
       if(label.textContent!==n.label)label.textContent=n.label;
       if(detail.textContent!==(n.detail??''))detail.textContent=n.detail??'';
-      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');const next=list.children[index];if(next!==row)list.insertBefore(row,next??null);
+      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');if(row.draggable)row.title+=' · перетащите, чтобы изменить порядок';const next=list.children[index];if(next!==row)list.insertBefore(row,next??null);
     }
     if(!rows.length){const empty=document.createElement('p');empty.className='control-tree-empty';empty.textContent=query?'Контролы не найдены':'Нет контролов';list.append(empty);}
     if(restoreFocus)rowElement(focusId)?.focus({preventScroll:true});
@@ -72,8 +88,44 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   function fold(id,collapse){const item=rows.find(n=>n.id===id);if(!item?.children.length)return;if(collapse)collapsed.add(id);else collapsed.delete(id);draw(true);}
   function choose(item){if(disabled)return;focus(item.id);if(item.node)onSelect(item);else fold(item.id,item.expanded);}
   list.addEventListener('click',e=>{const row=e.target.closest('[data-control-id]');const item=rows.find(n=>n.id===row?.dataset.controlId);if(!item||disabled)return;if(e.target.closest('[data-disclosure]')&&item.children.length){focusId=item.id;fold(item.id,item.expanded);}else choose(item);});
+  function rowOf(e){return e.target?.closest?.('[data-control-id]');}
+  function setDrop(row,side){if(dropRow&&dropRow!==row)delete dropRow.dataset.drop;dropRow=side?row:null;if(row&&side)row.dataset.drop=side;}
+  function endDrag(){if(dragRow)delete dragRow.dataset.dragging;if(dropRow)delete dropRow.dataset.drop;dragRow=dropRow=null;draggingId=null;}
+  // The siblings a drag may pass between, in visible order: empty unless the row can move at all.
+  function groupOf(item){return item&&movable.has(item.id)?rows.filter(n=>n.parent===item.parent&&n.node):[];}
+  function move(sourceId,targetId,side){
+    const a=rows.find(n=>n.id===sourceId),b=rows.find(n=>n.id===targetId);
+    if(!reorderReady()||!a?.node||!b?.node||a===b||a.parent!==b.parent)return;
+    onReorder({path:currentPath,start:a.node.start,targetStart:b.node.start,side});
+  }
+  list.addEventListener('dragstart',e=>{
+    const row=rowOf(e),id=row?.dataset.controlId;
+    if(!id||!movable.has(id)||!reorderReady()){e.preventDefault();return;}
+    draggingId=id;dragRow=row;row.dataset.dragging='true';
+    // Firefox only starts a drag that carries a payload.
+    if(e.dataTransfer){e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}
+  });
+  list.addEventListener('dragover',e=>{
+    const row=rowOf(e),id=row?.dataset.controlId;
+    const source=rows.find(n=>n.id===draggingId),target=rows.find(n=>n.id===id);
+    // A slot opens only next to a sibling of the dragged control; elsewhere the drop stays away.
+    if(!reorderReady()||!source||!target||target===source||target.parent!==source.parent||!movable.has(id)){setDrop(null);return;}
+    e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='move';
+    const rect=row.getBoundingClientRect();
+    setDrop(row,e.clientY<rect.top+rect.height/2?'before':'after');
+  });
+  list.addEventListener('dragleave',e=>{if(!e.relatedTarget||!list.contains(e.relatedTarget))setDrop(null);});
+  list.addEventListener('drop',e=>{
+    const row=rowOf(e),side=row?.dataset.drop,id=row?.dataset.controlId,sourceId=draggingId;
+    if(!side||!id)return;e.preventDefault();endDrag();move(sourceId,id,side);
+  });
+  list.addEventListener('dragend',endDrag);
   list.addEventListener('keydown',e=>{
     const current=rows.find(n=>n.id===e.target.closest('[data-control-id]')?.dataset.controlId);if(!current||disabled)return;
+    if(e.altKey&&!e.metaKey&&!e.ctrlKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
+      const group=groupOf(current),neighbour=group[group.indexOf(current)+(e.key==='ArrowUp'?-1:1)];
+      if(!neighbour)return;e.preventDefault();e.stopImmediatePropagation();move(current.id,neighbour.id,e.key==='ArrowUp'?'before':'after');return;
+    }
     const index=rows.indexOf(current);
     if(!['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End','Enter',' '].includes(e.key))return;e.preventDefault();
     if(e.key==='ArrowDown')focus(rows[Math.min(index+1,rows.length-1)].id);
@@ -109,9 +161,11 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   return {
     get scope(){return scope;},setView,
     update({document:doc,path,error='',stale=false,selectedStart=null,selectedPath=null,files={}}){
-      const changed=doc!==currentDocument||path!==currentPath,redraw=changed||disabled!==!!error;
+      let changed=doc!==currentDocument||path!==currentPath,redraw=changed||disabled!==!!error;
       if(changed){roots=doc?buildControlTree(doc,path):[];currentDocument=doc;currentPath=path;parents.clear();sources.clear();}
       disabled=!!error;
+      // A preset switch takes the drag away without touching the tree, so the row flags follow it.
+      if(reorderReady()!==reorderDrawn)redraw=true;
       function annotate(items,parent=null){for(const n of items){if(changed){parents.set(n.id,parent);if(n.node){if(!sources.has(n.path))sources.set(n.path,new Map());sources.get(n.path).set(n.node.start,n);}}const target=n.node&&`components/${n.node.type}.ui`;n.templatePath=target&&files[target]?target:null;annotate(n.children,n.id);}}annotate(roots);
       panel.querySelector('.control-tree-file').textContent=path??'Нет UI';panel.querySelector('.control-tree-file').title=path??'';
       status.textContent=error?(stale?'Последнее корректное дерево · исправьте разметку':error):'';status.hidden=!error;

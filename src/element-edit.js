@@ -112,6 +112,29 @@ export function reorderElement(source,start,direction){
  const next=source.slice(0,first.start)+insert+source.slice(last.end);parse(next);
  return {from:first.start,to:last.end,insert,start:direction<0?first.start:first.start+b.length+gap.length};
 }
+// A drag across the tree can land several slots away, so this moves a node to an arbitrary
+// position among its own siblings instead of trading places with a neighbour. Every sibling keeps
+// its own text and takes the whitespace of the slot it lands in, which is what an ordering change
+// must do: a control's inner lines are indented for its parent, and all siblings share that level.
+export function moveAmongSiblings(source,start,targetStart,side){
+ if(side!=='before'&&side!=='after')throw Error('Опустите контрол до или после соседа');
+ const {node,parent}=locateElement(source,start);
+ if(!parent)throw Error('Перемещайте дочерний контрол');
+ // One parse for both ends, so a target from another parent simply is not in this list.
+ const siblings=parent.children,from=siblings.indexOf(node),to=siblings.findIndex(n=>n.start===targetStart);
+ if(to<0)throw Error('Переместите контрол среди его соседей');
+ if(from===to)return null;
+ const texts=siblings.map(n=>source.slice(n.start,n.end));
+ const gaps=siblings.slice(1).map((n,i)=>source.slice(siblings[i].end,n.start));
+ const order=siblings.map((_,index)=>index).filter(index=>index!==from);
+ order.splice(order.indexOf(to)+(side==='after'?1:0),0,from);
+ const block=order.map((index,slot)=>texts[index]+(gaps[slot]??'')).join(''),first=siblings[0].start,last=siblings.at(-1).end;
+ if(block===source.slice(first,last))return null;
+ const next=source.slice(0,first)+block+source.slice(last);parse(next);
+ // The moved block starts where its own text begins inside the rewritten sibling run.
+ let offset=0;for(let slot=0;slot<order.indexOf(from);slot++)offset+=texts[order[slot]].length+(gaps[slot]??'').length;
+ return {from:first,to:last,insert:block,start:first+offset};
+}
 // Merge independent source edits into one editor transaction, preserving selection offsets.
 export function editElements(source,starts,operation){
  const ordered=[...new Set(starts)].sort((a,b)=>a-b);

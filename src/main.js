@@ -17,6 +17,7 @@ import './vector-artboard.css';
 import './control-tree.css';
 import './property-inspector.css';
 import {createControlTree} from './control-tree.js';
+import {moveAmongSiblings} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {designReferencesInFiles} from './design-data.js';
@@ -259,22 +260,35 @@ $('new').onclick=()=>{const path=prompt('Путь нового файла','ui/N
 $('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(files,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=validateProject(JSON.parse(await f.text()));if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;resetProjectEditing();files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
 $('code').addEventListener('scroll',highlightSource);
 $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
-controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});}});
+controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});},canReorder:()=>designPresetName==='original',onReorder:reorderTreeControl});
 codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
+// A panel edit of one file: the guard rejects a change computed against text the editor has
+// already moved past, and the reselect walks the AST the new compile yields.
+function commitSource({file,source,from,to,insert,reselect}){
+  if((file===active?$('code').value:files[file])!==source)throw Error('Исходник изменился — повторите операцию');
+  parse(source.slice(0,from)+insert+source.slice(to));
+  if(active!==file)open(file);
+  codeEditor.edit({from,to,insert});
+  // A change that adds or removes a row rebuilds its panel once the editor has published the
+  // input event and the new AST exists.
+  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===reselect)found??=n;walk(n.children??[]);}};walk(compiled?.nodes??[]);if(found)select(found);});
+}
+// The tree is drawn from a snapshot parse, so the move is computed against that same text.
+// Only the entry file compiles into the preview whose AST the reselect walks.
+function reorderTreeControl({path,start,targetStart,side}){
+  const source=activeTreeDocument?.path===path?activeTreeDocument.source:files[path];
+  if(source===undefined){$('caption').textContent='Файл не найден';return;}
+  try{
+    const change=moveAmongSiblings(source,start,targetStart,side);
+    if(change)commitSource({file:path,source,from:change.from,to:change.to,insert:change.insert,reselect:path===entry?change.start:undefined});
+  }catch(e){$('caption').textContent=e.message;}
+}
 propertyInspector=createPropertyInspector({container:$('inspector'),designTokens:()=>designReferencesInFiles(files),
  // The inspector renders from a snapshot of the source, so both hooks below read the file as it
  // really stands: `files` only catches the editor up on the next microtask, and a committed row
  // stays on screen with the snapshot it was rendered from.
  liveSource:path=>path===active?$('code').value:files[path],
- commit:({file,source,from,to,insert,reselect})=>{
-  if((file===active?$('code').value:files[file])!==source)throw Error('Исходник изменился — повторите операцию');
-  parse(source.slice(0,from)+insert+source.slice(to));
-  if(active!==file)open(file);
-  codeEditor.edit({from,to,insert});
-  // Declaring or undeclaring a property adds and removes a row, so the panel is rebuilt once the
-  // editor has published its input event and the new AST exists.
-  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===reselect)found??=n;walk(n.children??[]);}};walk(compiled?.nodes??[]);if(found)select(found);});
- },
+ commit:commitSource,
  onError:message=>{error=message;sourceDiagnostic=null;output();}});
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
 getScene:()=>renderer==='vector'?vectorPreview?.layoutSnapshot():null,
@@ -284,7 +298,7 @@ const presetPicker=document.createElement('select');presetPicker.className='desi
 for(const [value,label] of [['original','Исходный вид'],['long','Длинный текст'],['empty','Пустой текст'],['disabled','Недоступные контролы'],['list-empty','Список: пусто'],['list-12','Список: 12 строк'],['list-100','Список: 100 строк'],['loading','Список: загрузка'],['error','Список: ошибка']])presetPicker.add(new Option(label,value));
 document.querySelector('.canvas-tools').append(presetPicker);
 presetPicker.title='Только предпросмотр: исходники и нативное приложение не меняются';
-presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}renderInspector();output();};
+presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}renderInspector();refreshControlTree();output();};
 layoutInspector=createLayoutInspector({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
 getVisuals:()=>designPresetName==='original'?lastVisuals:[],getRuntime:()=>vectorPreview?.layoutSnapshot(),getMode:()=>mode,
 getControl:()=>lastPreviewControls.findIndex(n=>n.start===selected?.start),

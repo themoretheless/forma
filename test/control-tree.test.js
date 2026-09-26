@@ -54,6 +54,10 @@ class Element extends EventTarget {
  append(...children){for(const child of children){child.remove();child.parent=this;this.children.push(child);}}
  replaceChildren(...children){this.children=children;}
  contains(element){return this===element||this.children.some(child=>child.contains(element));}
+ closest(matcher){const key=matcher==='[data-control-id]'?'controlId':matcher==='[data-disclosure]'?'disclosure':null;return key&&this.dataset[key]!==undefined?this:null;}
+ getBoundingClientRect(){return {top:0,height:20,left:0,width:120};}
+ // A delegated handler reads `e.target`, so a test aims the event at a row and dispatches it on the list.
+ dispatch(name,target,fields){const event=new Event(name,{bubbles:true,cancelable:true});Object.defineProperty(event,'target',{value:target});Object.assign(event,fields);this.dispatchEvent(event);return event;}
  focus(){globalThis.document.activeElement=this;}
  scrollIntoView(){}
 }
@@ -81,4 +85,85 @@ test('selecting visible nodes retains rows, while folding and diagnostics update
  const search=created[0].querySelector('input');search.value='title';search.oninput();
  document.activeElement=null;tree.select(rows[4].start,path);
  assert.equal(list.children.filter(el=>el.tabIndex===0).length,1,'filtered-out selection retains one keyboard focus target');
+});
+
+// One tree with a container of three controls and a nested pair, so a drag has both a group to
+// start from and a deeper group to compare it with.
+const nestSource="component Demo {\n  Frame {\n    Button { key: 'a'; }\n    Column { Text { key: 'deep'; } Text { key: 'other'; } }\n    Row { gap: 4; }\n  }\n}\n";
+function dragTree(t,{editable=true}={}){
+ const state={editable};
+ const original=Object.getOwnPropertyDescriptor(globalThis,'document'),created=[];
+ const document={createElement(){const element=new Element();created.push(element);return element;},activeElement:null};
+ Object.defineProperty(globalThis,'document',{value:document,configurable:true});
+ t.after(()=>{if(original)Object.defineProperty(globalThis,'document',original);else delete globalThis.document;});
+ const calls=[],explorer=new Element(),toolbar=new Element();
+ const tree=createControlTree({explorer,toolbar,storage:{getItem(){return null;},setItem(){}},onScopeChange(){},onSelect(){},onOpenTemplate(){},onReorder:call=>calls.push(call),canReorder:()=>state.editable});
+ const doc=parse(nestSource);tree.update({document:doc,path});
+ // rows: Demo, Frame, Button, Column, Text deep, Text other, Row
+ return {tree,calls,doc,state,list:created[0].querySelector('.control-tree-items'),search:created[0].querySelector('input')};
+}
+test('a row is draggable exactly where a sibling exists to move between',t=>{
+ const {list}=dragTree(t);
+ assert.deepEqual(list.children.map(el=>el.draggable),[false,false,true,true,true,true,true]);
+ assert.match(list.children[4].title,/перетащите/);
+ assert.equal(list.children[1].title.includes('перетащите'),false,'the page container has no sibling slot');
+ assert.deepEqual(dragTree(t,{editable:false}).list.children.map(el=>el.draggable),Array(7).fill(false));
+});
+test('a drop between siblings hands both source offsets over and leaves no markers',t=>{
+ const {list,calls}=dragTree(t),deep=parse(nestSource).nodes[0].children[1].children;
+ const from=list.children[5],to=list.children[4],transfer={setData(){},set effectAllowed(_){},set dropEffect(_){}};
+ list.dispatch('dragstart',from,{dataTransfer:transfer});assert.equal(from.dataset.dragging,'true');
+ let event=list.dispatch('dragover',to,{clientY:4,dataTransfer:transfer});
+ assert.equal(event.defaultPrevented,true);assert.equal(to.dataset.drop,'before');
+ event=list.dispatch('dragover',to,{clientY:16,dataTransfer:transfer});assert.equal(to.dataset.drop,'after');
+ event=list.dispatch('drop',to,{});assert.equal(event.defaultPrevented,true);
+ assert.deepEqual(calls,[{path,start:deep[1].start,targetStart:deep[0].start,side:'after'}]);
+ assert.equal(to.dataset.drop,undefined);assert.equal(from.dataset.dragging,undefined);
+ // The release after a drag that never found a slot moves nothing.
+ list.dispatch('dragstart',from,{});list.dispatch('dragend',from,{});list.dispatch('drop',to,{});
+ assert.equal(calls.length,1);assert.equal(from.dataset.dragging,undefined);
+});
+test('a row outside the dragged control’s group never opens a slot',t=>{
+ const {list,calls}=dragTree(t);
+ const button=list.children[2],row=list.children[6],frame=list.children[1],deep=list.children[4];
+ list.dispatch('dragstart',button,{});
+ for(const target of [deep,frame]){
+  assert.equal(list.dispatch('dragover',target,{clientY:4}).defaultPrevented,false);
+  assert.equal(target.dataset.drop,undefined);
+  list.dispatch('drop',target,{});
+ }
+ assert.deepEqual(calls,[]);
+});
+test('Alt+arrows move the focused row one slot and stop at the ends of the group',t=>{
+ const {list,calls}=dragTree(t),kids=parse(nestSource).nodes[0].children;
+ list.dispatch('keydown',list.children[3],{key:'ArrowUp',altKey:true});
+ assert.deepEqual(calls,[{path,start:kids[1].start,targetStart:kids[0].start,side:'before'}]);
+ list.dispatch('keydown',list.children[2],{key:'ArrowDown',altKey:true});
+ assert.equal(calls.length,2);assert.deepEqual(calls[1],{path,start:kids[0].start,targetStart:kids[1].start,side:'after'});
+ list.dispatch('keydown',list.children[2],{key:'ArrowUp',altKey:true});assert.equal(calls.length,2,'above the first sibling there is nowhere to go');
+ const off=dragTree(t,{editable:false});off.list.dispatch('keydown',off.list.children[3],{key:'ArrowUp',altKey:true});
+ assert.deepEqual(off.calls,[]);
+});
+test('a broken source or an open filter takes the drag away before it starts',t=>{
+ const {tree,list,calls,search}=dragTree(t);
+ tree.update({document:parse(nestSource),path,error:'Broken'});
+ assert.deepEqual(list.children.map(el=>el.draggable),Array(7).fill(false));
+ assert.equal(list.dispatch('dragstart',list.children[2],{}).defaultPrevented,true,'a cancelled drag never leaves the row');
+ tree.update({document:parse(nestSource),path});
+ assert.equal(list.children[2].draggable,true);
+ search.value='deep';search.oninput();
+ assert.deepEqual(list.children.map(el=>el.draggable).filter(Boolean),[],'hidden siblings make the visible order a lie');
+ list.dispatch('dragstart',list.children[3],{});list.dispatch('drop',list.children[2],{});
+ assert.deepEqual(calls,[]);
+});
+test('a switch that only takes the drag away still redraws the row flags',t=>{
+ const {tree,list,state,doc}=dragTree(t);
+ assert.equal(list.children[2].draggable,true);
+ state.editable=false;
+ // The same document and the same diagnostic: only the answer to "may this source be edited" moved.
+ tree.update({document:doc,path});
+ assert.deepEqual(list.children.map(el=>el.draggable),Array(7).fill(false));
+ state.editable=true;
+ tree.update({document:doc,path});
+ assert.equal(list.children[2].draggable,true);
 });

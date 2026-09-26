@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
-import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock} from '../src/element-edit.js';
+import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock,moveAmongSiblings} from '../src/element-edit.js';
 const apply=(s,c)=>s.slice(0,c.from)+c.insert+s.slice(c.to);
 const sample="component Test { Frame { width: 400; Button { key: 'a'; text: 'a'; x: 10; y: 20; clicked -> actions.save(); } Button { key: 'a_2'; } } }";
 const first=s=>parse(s).nodes[0].children[0];
@@ -101,4 +101,34 @@ test('a size the layout owns elsewhere refuses the drag',()=>{
  const row=locateElement(flexed,first(flexed).start);assert.match(resizeBlock(row.node,row.parent),/весом/);
  const bound='component Test { Frame { Button { width: state.w; height: 24; } } }';
  const ref=locateElement(bound,first(bound).start);assert.match(resizeBlock(ref.node,ref.parent),/выражением/);
+});
+
+test('a drop moves a control to any slot of its sibling run and reports where it landed',()=>{
+ const page="component Test {\n  Frame {\n    Button { key: 'a'; }\n    Row { gap: 4; }\n    Text { text: 'x'; }\n  }\n}\n";
+ const kids=s=>parse(s).nodes[0].children,types=s=>kids(s).map(n=>n.type);
+ let change=moveAmongSiblings(page,kids(page)[2].start,kids(page)[0].start,'before'),next=apply(page,change);
+ assert.deepEqual(types(next),['Text','Button','Row']);assert.equal(next.slice(change.start,change.start+4),'Text');assert.equal(change.start,kids(next)[0].start);
+ change=moveAmongSiblings(next,kids(next)[0].start,kids(next)[2].start,'after');next=apply(next,change);
+ assert.deepEqual(types(next),['Button','Row','Text']);
+ assert.equal(next,page,'two slots back the block is byte for byte the source it started from');
+});
+test('a moved control keeps its own text while the whitespace stays in the slot',()=>{
+ const page="component Test {\n  Frame {\n    Button { key: 'a'; }\n\n    Text {\n      text: 'x';\n    }\n  }\n}\n";
+ const kids=parse(page).nodes[0].children,next=apply(page,moveAmongSiblings(page,kids[1].start,kids[0].start,'before'));
+ assert.deepEqual(next.split('\n').slice(2,7),["    Text {","      text: 'x';","    }","","    Button { key: 'a'; }"]);
+ assert.equal(next.split('\n')[1],'  Frame {','the run keeps its own indentation');
+});
+test('a drop outside the sibling run is refused and the slot it stands in changes nothing',()=>{
+ const page="component Test { Frame { Button { key: 'a'; } Column { Text { key: 'deep'; } } Row { } } }";
+ const kids=parse(page).nodes[0].children,deep=kids[1].children[0];
+ assert.equal(moveAmongSiblings(page,kids[2].start,kids[2].start,'before'),null);
+ assert.throws(()=>moveAmongSiblings(page,deep.start,kids[0].start,'before'),/соседей/);
+ assert.throws(()=>moveAmongSiblings(page,kids[0].start,deep.start,'before'),/соседей/);
+ assert.throws(()=>moveAmongSiblings(page,kids[0].start,kids[2].start,'inside'),/до или после/);
+ assert.throws(()=>moveAmongSiblings(page,parse(page).nodes[0].start,kids[0].start,'before'),/дочерний/);
+ // A Scroll inside a container is an ordinary child here, unlike the page scroller on the canvas.
+ const boxed='component Test { Frame { Scroll { } Rectangle { width: 4; } } }';
+ const nested=parse(boxed).nodes[0].children;
+ assert.deepEqual(types(apply(boxed,moveAmongSiblings(boxed,nested[0].start,nested[1].start,'after'))),['Rectangle','Scroll']);
+ function types(s){return parse(s).nodes[0].children.map(n=>n.type);}
 });
