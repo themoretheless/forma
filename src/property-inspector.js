@@ -1,7 +1,8 @@
 import {designReference,hasDesignData,readDesignData} from './design-data.js';
 import {colorValue,isColorProperty,pickerHex} from './color-values.js';
 import {serializeValue} from './expressions.js';
-import {sourceNode,propertyEdit,valueTextEdit,statementTextEdit,statementParts} from './property-edit.js';
+import {sourceNode,propertyEdit,valueTextEdit,statementTextEdit,statementParts,propertyAddEdit,propertyRemoveEdit} from './property-edit.js';
+import {addableProperties,propertyStart} from './property-catalog.js';
 
 function valueText(value){
   if(value===null||value===undefined)return 'пусто';
@@ -39,12 +40,27 @@ export function propertyFields(node,source){
   }
   return fields;
 }
-export function createPropertyInspector({container,commit,designTokens=()=>[],onError=()=>{}}){
+export function createPropertyInspector({container,commit,designTokens=()=>[],onError=()=>{},liveSource=null}){
   const tokens=document.createElement('datalist');tokens.id='forma-design-tokens';
+  // Declaring and undeclaring a property changes the shape of the panel, so its failures are
+  // reported inside the panel rather than through a field that is about to disappear.
+  const notice=document.createElement('small');notice.className='property-notice';notice.setAttribute('role','status');
   let current=null;
+  // A commit rewrites the editor but leaves the row on screen, so the snapshot the panel was
+  // rendered from is one change behind the file. Each edit re-reads the live document and
+  // resolves the node again in it; if that stops working the commit guard says so instead of
+  // splicing offsets that no longer describe the file.
+  function freshen(){
+    if(!current)return;
+    const source=liveSource?.(current.path);
+    if(typeof source!=='string'||source===current.source)return;
+    try{const node=sourceNode(source,current.node.start);if(node)current={...current,node,source};}
+    catch{/* the snapshot stays, and the host refuses the commit */}
+  }
   function heading(text){const label=document.createElement('div');label.className='inspector-label';label.textContent=text;container.append(label);}
   function edit(field,text,input){
     try{
+      freshen();
       let change;
       if(field.commit==='literal'){
         let value=text;
@@ -61,6 +77,16 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
       input.reportValidity();
       onError(error.message);
     }
+  }
+  // Declaring and undeclaring changes the shape of the panel, so the failure is reported here
+  // rather than through a field that is about to disappear. `reselect` asks the host to rebuild
+  // the rows from the AST the editor is about to compile.
+  function declare(build){
+    notice.textContent='';
+    try{
+      freshen();
+      commit({file:current.path,source:current.source,...build(),reselect:current.node.start});
+    }catch(error){notice.textContent=error.message;}
   }
   function row(field){
     const label=document.createElement('label');
@@ -103,7 +129,36 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
     else input.dataset.prop=field.key;
     input.onchange=()=>edit(field,input.value,input);
     label.append(input);
+    const remove=document.createElement('button');
+    remove.type='button';remove.className='property-remove';remove.textContent='−';
+    remove.title=`Убрать ${field.key} из разметки этого элемента`;
+    remove.setAttribute('aria-label',`Убрать свойство ${field.key}`);
+    remove.onclick=()=>declare(()=>propertyRemoveEdit(current.source,current.node.start,field.key));
+    label.append(remove);
     return label;
+  }
+  // Only names the compiler accepts for this type that the node does not declare yet, each
+  // paired with the markup text it starts from.
+  function addForm(declared){
+    const names=addableProperties(current.node.type,declared);
+    const wrap=document.createElement('div');wrap.className='property-add';
+    const pick=document.createElement('select');pick.setAttribute('aria-label','Свойство для добавления');
+    const value=document.createElement('input');value.setAttribute('aria-label','Начальное значение');
+    const button=document.createElement('button');button.type='button';
+    if(!names.length){
+      pick.disabled=true;value.disabled=true;
+      const none=document.createElement('small');none.textContent='Все свойства этого типа уже объявлены';
+      wrap.append(none,pick,value);
+      return wrap;
+    }
+    for(const name of names)pick.append(new Option(name,name));
+    const sync=()=>{value.value=propertyStart[pick.value];button.textContent=`Добавить ${pick.value}`;};
+    pick.onchange=()=>{sync();notice.textContent='';value.focus();};
+    button.onclick=()=>declare(()=>propertyAddEdit(current.source,current.node.start,pick.value,value.value));
+    value.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();button.onclick();}};
+    sync();
+    wrap.append(pick,value,button);
+    return wrap;
   }
   function render(state){
     current=state;
@@ -117,7 +172,11 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
     const values=fields.filter(field=>field.commit!=='statement');
     const links=fields.filter(field=>field.commit==='statement');
     heading('СВОЙСТВА');
+    notice.textContent='';
     for(const field of values)container.append(row(field));
+    // A binding or handler already occupies its name in the block, so it is not a candidate for
+    // declaring twice; only a row with no place to write to is not counted as declared.
+    if(current.editable)container.append(addForm(fields.filter(field=>field.commit!==null).map(field=>field.key)),notice);
     heading('ПРИВЯЗКИ И СОБЫТИЯ');
     if(!links.length){const none=document.createElement('small');none.textContent='Нет привязок';container.append(none);}
     for(const field of links)container.append(row(field));

@@ -2,9 +2,10 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
 import {setDesignData,designReferencesInFiles} from '../src/design-data.js';
-import {propertyFields} from '../src/property-inspector.js';
+import {propertyFields,createPropertyInspector} from '../src/property-inspector.js';
 import {pickerHex} from '../src/color-values.js';
-import {valueTextEdit,statementTextEdit} from '../src/property-edit.js';
+import {valueTextEdit,statementTextEdit,propertyAddEdit,propertyRemoveEdit} from '../src/property-edit.js';
+import {addableProperties,propertyStart} from '../src/property-catalog.js';
 
 const source=`component SearchWindow {
     Frame {
@@ -105,4 +106,189 @@ test('binding paths and handlers are validated before the source changes',()=>{
   assert.throws(()=>statementTextEdit(source,nodeOf('TextInput').start,'value','state'),/путь к полю/);
   assert.throws(()=>statementTextEdit(source,nodeOf('Button').start,'clicked','backend.search()'),/actions/);
   assert.throws(()=>statementTextEdit(source,nodeOf('Text').start,'color','state.accent'),/Оператор/);
+});
+const apply=(src,edit)=>src.slice(0,edit.from)+edit.insert+src.slice(edit.to);
+const toolbar=`component Toolbar {
+    Row {
+        IconButton { icon: 'assets/plus.svg'; clicked -> actions.add(); }
+        Button {}
+    }
+}`;
+const toolbarNode=type=>{let found;const walk=nodes=>{for(const n of nodes){found??=n.type===type?n:null;walk(n.children);}};walk(parse(toolbar).nodes);return found;};
+
+test('adding a property writes it after the last declaration of that node',()=>{
+  const next=apply(source,propertyAddEdit(source,nodeOf('Text').start,'width','240'));
+  // The trailing comment belongs to the statement above, so the new line goes after it.
+  assert.ok(next.includes("text: 'Библиотека знаний'; /* подпись */\n            width: 240;\n        }"));
+  const text=parse(next).nodes[0].children[0];
+  assert.ok('width'in text.props);
+  assert.equal(text.props.color.expr,'#e8edf7');
+  assert.equal(text.props.text,'Библиотека знаний');
+});
+test('a dotted property name is written the way markup spells it',()=>{
+  const next=apply(source,propertyAddEdit(source,nodeOf('Text').start,'line.height','18'));
+  assert.ok(next.includes('\n            line.height: 18;'));
+  assert.ok('line.height'in parse(next).nodes[0].children[0].props);
+});
+test('an empty block gets the statement and its closing brace on their own lines',()=>{
+  const next=apply(toolbar,propertyAddEdit(toolbar,toolbarNode('Button').start,'width','240'));
+  assert.ok(next.includes('        Button {\n            width: 240;\n        }\n    }'));
+});
+test('an inline block keeps its statements and gains the new one without trailing spaces',()=>{
+  const next=apply(toolbar,propertyAddEdit(toolbar,toolbarNode('IconButton').start,'width','240'));
+  assert.ok(next.includes("        IconButton { icon: 'assets/plus.svg'; clicked -> actions.add();\n            width: 240;\n        }"));
+  assert.ok(!/[ \t]+$/m.test(next));
+  assert.equal(parse(next).nodes[0].children[0].props.icon,'assets/plus.svg');
+});
+test('an added property cannot duplicate a name, smuggle markup or come from a stale node',()=>{
+  const at=nodeOf('Text').start;
+  assert.throws(()=>propertyAddEdit(source,at,'text',"'x'"),/уже объявлено/);
+  assert.throws(()=>propertyAddEdit(source,at,'a..b','1'),/Некорректное имя/);
+  assert.throws(()=>propertyAddEdit(source,at,'width','} Button {'),/не разобрано/);
+  assert.throws(()=>propertyAddEdit(source,at,'width','   '),/Пустое значение/);
+  assert.throws(()=>propertyAddEdit(source,at+7,'width','#ffffff'),/выберите элемент заново/);
+});
+test('removing a property or a binding cuts the whole line it owns',()=>{
+  const withoutBackground=apply(source,propertyRemoveEdit(source,nodeOf('Text').start,'background'));
+  assert.ok(!withoutBackground.includes('background:'));
+  assert.ok(withoutBackground.includes("text: 'Библиотека знаний'; /* подпись */"));
+  assert.ok('color'in parse(withoutBackground).nodes[0].children[0].props);
+  const withoutBinding=apply(source,propertyRemoveEdit(source,nodeOf('TextInput').start,'value'));
+  assert.ok(!withoutBinding.includes('<->'));
+  assert.ok(withoutBinding.includes("placeholder: 'Что найти?';"));
+});
+test('a statement that shares its line stays with the source editor',()=>{
+  assert.throws(()=>propertyRemoveEdit(toolbar,toolbarNode('IconButton').start,'icon'),/не на отдельной строке/);
+  assert.throws(()=>propertyRemoveEdit(source,nodeOf('Text').start,'gap'),/не объявлено/);
+  assert.throws(()=>propertyRemoveEdit(source,nodeOf('Text').start+7,'color'),/выберите элемент заново/);
+});
+test('adding then removing leaves every other declaration of the block intact',()=>{
+  const at=toolbarNode('IconButton').start;
+  const added=apply(toolbar,propertyAddEdit(toolbar,at,'width','240'));
+  const back=apply(added,propertyRemoveEdit(added,at,'width'));
+  assert.ok(!back.includes('width:'));
+  assert.equal(parse(back).nodes[0].children[0].props.icon,'assets/plus.svg');
+  assert.equal(parse(back).nodes[0].children[0].events.clicked,'actions.add');
+});
+test('the catalogue offers each name with a start value the compiler accepts',()=>{
+  const declared=Object.keys(nodeOf('Button').props);
+  const names=addableProperties('Button',declared);
+  assert.ok(names.includes('width'));
+  assert.ok(!names.includes('disabled'),'a declared property is not offered');
+  assert.ok(!names.some(name=>name.includes('.')),'dotted aliases stay out of the list');
+  for(const name of names){
+    const next=apply(source,propertyAddEdit(source,nodeOf('Button').start,name,propertyStart[name]));
+    assert.ok(name in parse(next).nodes[0].children[2].props,`${name} did not land`);
+  }
+});
+// A tiny DOM: enough for the panel to build rows, find them back and run their handlers.
+const matches=(el,selector)=>{
+  const parts=/^([a-z]*)((?:\.[\w-]+)*)(?:\[data-(\w+)=(?:"([^"]*)"|([^\]]*))\])?$/.exec(selector);
+  if(!parts)throw Error(`shim: unknown selector ${selector}`);
+  const [,tag,classes,attr,a,b]=parts;
+  if(tag&&el.tagName!==tag)return false;
+  const own=new Set(String(el.className).split(/\s+/).filter(Boolean));
+  for(const name of classes.split('.').filter(Boolean))if(!own.has(name))return false;
+  return attr===undefined||String(el.dataset[attr]??'')===String(a??b??'');
+};
+class El{
+  constructor(tag){this.tagName=tag;this.children=[];this.dataset={};this.attrs=new Map();this.className='';this.style={};this.validity='';}
+  setAttribute(key,value){this.attrs.set(key,String(value));}
+  getAttribute(key){return this.attrs.get(key)??null;}
+  append(...children){for(const child of children){child.parent=this;this.children.push(child);if(this.tagName==='select'&&this.value===undefined&&child.value!==undefined)this.value=child.value;}}
+  replaceChildren(...children){this.children=[];this.append(...children);}
+  *walk(){for(const child of this.children){yield child;yield*child.walk();}}
+  querySelector(selector){for(const el of this.walk())if(matches(el,selector))return el;return null;}
+  querySelectorAll(selector){return [...this.walk()].filter(el=>matches(el,selector));}
+  setCustomValidity(message){this.validity=message;}
+  reportValidity(){}
+  focus(){}
+}
+class Option extends El{constructor(text,value){super('option');this.value=value??text;this.textContent=text;}}
+const panelFile='ui/Panel.ui';
+const panelSource=`component Panel {
+    Frame {
+        gap: 8;
+        padding: 12;
+    }
+}`;
+// The host of Studio keeps the editor document ahead of `files`; a test host does the same.
+function mountPanel({source=panelSource,liveSource=true}={}){
+  const files={[panelFile]:source};
+  const container=new El('div');
+  const document={createElement:tag=>new El(tag)};
+  const saved=Object.getOwnPropertyDescriptor(globalThis,'document');
+  Object.defineProperty(globalThis,'document',{value:document,configurable:true});
+  const savedOption=Object.getOwnPropertyDescriptor(globalThis,'Option');
+  Object.defineProperty(globalThis,'Option',{value:Option,configurable:true});
+  const inspector=createPropertyInspector({container,designTokens:()=>[],liveSource:liveSource?path=>files[path]:null,
+    commit:({file,source:text,from,to,insert})=>{
+      if(files[file]!==text)throw Error('Исходник изменился — повторите операции');
+      const next=text.slice(0,from)+insert+text.slice(to);
+      parse(next);
+      files[file]=next;
+    }});
+  const node=parse(files[panelFile]).nodes[0];
+  inspector.render({node,path:panelFile,source:files[panelFile],editable:true});
+  return {container,files,panel:name=>container.querySelector(`input[data-prop=${name}]`),
+    restore(){
+      if(saved)Object.defineProperty(globalThis,'document',saved);else delete globalThis.document;
+      if(savedOption)Object.defineProperty(globalThis,'Option',savedOption);else delete globalThis.Option;
+    }};
+}
+test('a row writes the file as the editor holds it, so one selection serves several edits',t=>{
+  const {container,files,panel,restore}=mountPanel();
+  t.after(restore);
+  const padding=panel('padding'),gap=panel('gap');
+  padding.value='13';padding.onchange();
+  assert.ok(files[panelFile].includes('padding: 13;'));
+  // gap comes first in the block, so every row below it moved: the offsets of the snapshot the
+  // panel was rendered from no longer describe the file.
+  gap.value='20';gap.onchange();
+  assert.ok(files[panelFile].includes('gap: 20;'),files[panelFile]);
+  padding.value='140';padding.onchange();
+  assert.equal(padding.validity,'');
+  const frame=parse(files[panelFile]).nodes[0];
+  assert.deepEqual({gap:frame.props.gap,padding:frame.props.padding},{gap:20,padding:140});
+  assert.equal(container.querySelector('.property-notice').textContent??'','');
+});
+test('without a live document the host still refuses a splice out of a stale snapshot',t=>{
+  const {files,panel,restore}=mountPanel({liveSource:false});
+  t.after(restore);
+  const padding=panel('padding');
+  padding.value='13';padding.onchange();
+  assert.ok(files[panelFile].includes('padding: 13;'));
+  padding.value='14';padding.onchange();
+  assert.match(padding.validity,/Исходник изменился/);
+  assert.ok(!files[panelFile].includes('padding: 14;'));
+});
+test('declaring twice from one panel puts both statements after the last one',t=>{
+  const {container,files,restore}=mountPanel({source:`component Panel {\n    Frame {\n        gap: 8;\n    }\n}`});
+  t.after(restore);
+  const add=container.querySelector('.property-add'),pick=add.querySelector('select'),value=add.querySelector('input'),button=add.querySelector('button');
+  for(const [name,start]of [['width','240'],['height','40']]){
+    pick.value=name;pick.onchange();
+    assert.equal(value.value,propertyStart[name]);
+    assert.equal(button.textContent,`Добавить ${name}`);
+    value.value=start;button.onclick();
+  }
+  const notice=container.querySelector('.property-notice');
+  assert.equal(notice.textContent??'','');
+  const frame=parse(files[panelFile]).nodes[0];
+  assert.deepEqual({gap:frame.props.gap,width:frame.props.width,height:frame.props.height},{gap:8,width:240,height:40});
+  assert.match(files[panelFile],/gap: 8;\n        width: 240;\n        height: 40;\n    }/);
+  // The rows still on screen describe the file before these statements, so a removal reaches
+  // the fresh source rather than the offsets the panel was rendered with.
+  const gapRow=[...container.querySelectorAll('label.property')].find(row=>row.querySelector('span')?.textContent==='gap');
+  gapRow.querySelector('.property-remove').onclick();
+  assert.ok(!files[panelFile].includes('gap:'));
+  assert.deepEqual(Object.keys(parse(files[panelFile]).nodes[0].props).sort(),['height','width']);
+});
+test('a name a binding already occupies is not offered for declaring',t=>{
+  const {container,restore}=mountPanel({source:`component Search {\n    TextInput {\n        value <-> state.query;\n    }\n}`});
+  t.after(restore);
+  const options=container.querySelector('.property-add').querySelector('select').children.map(option=>option.value);
+  assert.ok(!options.includes('value'),'a bound name is taken, not addable');
+  assert.ok(options.includes('placeholder'));
+  assert.deepEqual([...container.querySelectorAll('label.property')].map(row=>row.querySelector('span')?.textContent),['value']);
 });

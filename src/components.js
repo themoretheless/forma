@@ -31,8 +31,8 @@ function copyData(value,seen){
   return out;
 }
 const clone=value=>typeof value==='object'&&value!==null?copyData(value,new WeakMap()):value;
-const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration'.split(' '));
-const layoutProps=new Set('key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight'.split(' '));
+export const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration'.split(' '));
+export const layoutProps=new Set('key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight'.split(' '));
 const visualTypes=new Set([...containerTypes,'Text','TextInput','Image','Rectangle']);
 const primitiveTypes=new Set([...visualTypes,'ContentPresenter','Brush','Border','Reveal','PointerArea','ContentText','ContentShape','ContentClip','ContentClipEnd']);
 // Scene-level text controls use the same primitive rendering as component
@@ -55,7 +55,7 @@ const builtinSources={
     }
   }`,
 };
-const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Row:['gap','padding','clip','radius'],Column:['gap','padding','clip','radius'],Grid:['columns','rows','gap','padding','clip','radius'],Stack:['gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
+export const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Row:['gap','padding','clip','radius'],Column:['gap','padding','clip','radius'],Grid:['columns','rows','gap','padding','clip','radius'],Stack:['gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
 const templateEncoder=new TextEncoder();
 // Templates are framed by their UTF-8 byte length. Encoding a ~7 KB icon template
 // only to read that length allocated the bytes again for every instance, and

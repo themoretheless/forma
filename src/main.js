@@ -37,7 +37,7 @@ import {setDesignData,designReferences} from './design-data.js';
 let codeEditor,propertyInspector;
 let spacingOverlay;
 let vectorPreview;
-let controlTree,selectedPath=null;
+let controlTree,selectedPath=null,inspectorNote='';
 // The active tree is live UI state, independent of eviction of inactive files.
 let activeTreeDocument=null;
 let renderer=isStudioControls||readStorage('localStorage',storageKey('forma-renderer'))==='vector'?'vector':'html';
@@ -197,7 +197,13 @@ function make(source,parent=null){const override=designMode&&Object.hasOwn(compi
 for(const [key,path]of Object.entries(n.bindings)){if(!['value','checked','selected'].includes(key))throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);const property=key==='value'?'value':'checked';el[property]=n.props[key]??(property==='value'?'':false);el.addEventListener('input',()=>{const value=property==='checked'?el.checked:n.type==='Slider'?Number(el.value):el.value;if(writePreviewBinding(state,n,path,value,{createMissing:true})){log(`${path} = ${JSON.stringify(value)}`);if(n.events.changed)dispatch(n.events.changed,n,'changed');schedulePreviewRefresh();}});}
 el.addEventListener('click',e=>{e.stopPropagation();if(mode==='design'){select(source);return;}if(n.events.clicked)dispatch(n.events.clicked,n);});Object.assign(el.style,gridStyles(n,state,parent));for(const child of n.children)el.append(make(child,n));return el;}
 const focused=document.activeElement;const focusIdentity=preview.contains(focused)?{key:focused.dataset.key,start:focused.dataset.start,selectionStart:focused.selectionStart,selectionEnd:focused.selectionEnd}:null;const fragment=document.createDocumentFragment();const expanded=expandStructure(compiled.nodes,compiled.defaults,state,{enums:compiled.enums,allowMissingState:true});for(const n of expanded)fragment.append(make(n));preview.replaceChildren(fragment);if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySelectorAll('[data-start]')).find(el=>focusIdentity.key?el.dataset.key===focusIdentity.key:el.dataset.start===focusIdentity.start);if(restored){restored.focus({preventScroll:true});if(typeof focusIdentity.selectionStart==='number'&&restored.setSelectionRange)restored.setSelectionRange(focusIdentity.selectionStart,focusIdentity.selectionEnd);}}$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
-function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));propertyInspector?.render({node:n,path:entry,source:files[entry],editable:designPresetName==='original'});lines();controlTree?.select(n.start,entry);}
+// The panel is rebuilt from one place so every change of selection or of the preview preset
+// recomputes `editable`: rows that write markup must not survive a switch to a design scenario.
+function renderInspector(){
+  if(!selected||!selectedPath||!Object.hasOwn(files,selectedPath))return;
+  propertyInspector?.render({node:selected,path:selectedPath,source:files[selectedPath],editable:designPresetName==='original',note:inspectorNote});
+}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
 function refreshControlTree(){
   if(!controlTree)return;
   const path=controlTree.scope==='designer'?entry:active;
@@ -218,7 +224,7 @@ function selectTreeControl(item){
   document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));
   if(active!==item.path)open(item.path);
   $('code').setSelectionRange(item.node.start,item.node.start);
-  propertyInspector?.render({node:item.node,path:item.path,source:files[item.path],editable:designPresetName==='original',note:'Узел шаблона. Геометрию конкретного экземпляра здесь выбрать нельзя.'});
+  inspectorNote='Узел шаблона. Геометрию конкретного экземпляра здесь выбрать нельзя.';renderInspector();
   lines();controlTree.select(item.node.start,item.path);
 }
 function showNativeInspection(data){
@@ -255,14 +261,18 @@ $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlT
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});}});
 codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
 propertyInspector=createPropertyInspector({container:$('inspector'),designTokens:()=>designReferencesInFiles(files),
- // The inspector renders from the source it was given, so a commit that arrives after a
- // keystroke would splice offsets that no longer describe the file. `files` only catches the
- // editor up on the next microtask, so the open file is checked against its live document.
- commit:({file,source,from,to,insert})=>{
+ // The inspector renders from a snapshot of the source, so both hooks below read the file as it
+ // really stands: `files` only catches the editor up on the next microtask, and a committed row
+ // stays on screen with the snapshot it was rendered from.
+ liveSource:path=>path===active?$('code').value:files[path],
+ commit:({file,source,from,to,insert,reselect})=>{
   if((file===active?$('code').value:files[file])!==source)throw Error('Исходник изменился — повторите операцию');
   parse(source.slice(0,from)+insert+source.slice(to));
   if(active!==file)open(file);
   codeEditor.edit({from,to,insert});
+  // Declaring or undeclaring a property adds and removes a row, so the panel is rebuilt once the
+  // editor has published its input event and the new AST exists.
+  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===reselect)found??=n;walk(n.children??[]);}};walk(compiled?.nodes??[]);if(found)select(found);});
  },
  onError:message=>{error=message;sourceDiagnostic=null;output();}});
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
@@ -273,7 +283,7 @@ const presetPicker=document.createElement('select');presetPicker.className='desi
 for(const [value,label] of [['original','Исходный вид'],['long','Длинный текст'],['empty','Пустой текст'],['disabled','Недоступные контролы'],['list-empty','Список: пусто'],['list-12','Список: 12 строк'],['list-100','Список: 100 строк'],['loading','Список: загрузка'],['error','Список: ошибка']])presetPicker.add(new Option(label,value));
 document.querySelector('.canvas-tools').append(presetPicker);
 presetPicker.title='Только предпросмотр: исходники и нативное приложение не меняются';
-presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}output();};
+presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}renderInspector();output();};
 layoutInspector=createLayoutInspector({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
 getVisuals:()=>designPresetName==='original'?lastVisuals:[],getRuntime:()=>vectorPreview?.layoutSnapshot(),getMode:()=>mode,
 getControl:()=>lastPreviewControls.findIndex(n=>n.start===selected?.start),
