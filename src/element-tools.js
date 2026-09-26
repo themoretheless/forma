@@ -50,7 +50,9 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  listen(viewport,'contextmenu',e=>{
   const c=current();if(!c||editable(e))return;e.preventDefault();e.stopPropagation();cancel();
   const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
-  const start=hitAt(c,x,y);if(start!=null&&!selection.includes(start))choose([start],c);
+  // The menu follows the same modifier as the press, so a control-click that reached a panel keeps
+  // its commands for that panel instead of the leaf the pointer happens to sit on.
+  const start=(e.metaKey||e.ctrlKey)?shellAt(c,x,y,null):hitAt(c,x,y);if(start!=null&&!selection.includes(start))choose([start],c);
   openMenu(e.clientX,e.clientY);
  },true);
  listen(window,'pointerdown',e=>{if(!bar.contains(e.target))closeMenu();},true);
@@ -93,6 +95,16 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   const union=boxes.length?selectionBounds(boxes):null;m.unions.set(start,union);return union;
  }
  function hitAt(c,x,y){const drawn=measured(c).drawn,control=[...c.scene.controls].reverse().find(n=>drawn.has(n.start)&&x>=n.bounds[0]&&y>=n.bounds[1]&&x<=n.bounds[0]+n.bounds[2]&&y<=n.bounds[1]+n.bounds[3]);return control?.start??null;}
+ // A panel paints nothing, so it is the layer a designer reaches for when the pointer is already on
+ // something they do not want: with the modifier the press takes the deepest container whose own box
+ // covers the point, and from a selected node it steps out to the container that holds it.
+ function shellAt(c,x,y,from){
+  const m=measured(c),covers=b=>!!b&&x>=b[0]&&y>=b[1]&&x<=b[0]+b[2]&&y<=b[1]+b[3];
+  if(from==null){const under=[...m.panels].filter(([,box])=>covers(box)).sort((a,b)=>a[1][2]*a[1][3]-b[1][2]*b[1][3]);return under.length?under[0][0]:null;}
+  const parentOf=start=>{try{return locateElement(c.source,start).parent;}catch{return null;}};
+  for(let node=parentOf(from);node;node=parentOf(node.start))if(covers(m.panels.get(node.start)))return node.start;
+  return null;
+ }
  // A dragged container carries its children with it, so none of them is a snap target of its own.
  function covered(c,starts){const m=measured(c),set=new Set(starts);for(const start of starts)for(const stack=[...(m.nodes.get(start)?.children??[])];stack.length;){const n=stack.pop();set.add(n.start);stack.push(...(n.children??[]));}return set;}
  // What the page holds is its own markup, so a control the designer can still reach from the tree is
@@ -197,7 +209,11 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
     viewport.setPointerCapture(e.pointerId);draw();}
    return;}
   const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
-  const hit=hitAt(c,x,y);e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
+  const stepped=e.metaKey||e.ctrlKey,from=!stepped||e.shiftKey||selection.length!==1?null:selection[0];
+  const hit=stepped?shellAt(c,x,y,from):hitAt(c,x,y);e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
+  // Above the outermost panel there is nothing to step to, and a press that finds it must leave the
+  // designer holding what they had rather than fall through to a marquee that drops the selection.
+  if(stepped&&hit==null&&from!=null)return;
   if(hit!=null&&e.shiftKey){choose(selection.includes(hit)?selection.filter(s=>s!==hit):[...selection,hit],c);return;}
   if(hit!=null){if(!selection.includes(hit))choose([hit],c);const list=items(c);drag={...c,start:primary,kind:'move',id:e.pointerId,x:e.clientX,y:e.clientY,scale,items:list,slack:room(c,list),dx:0,dy:0,moved:false};}
   else drag={...c,kind:'marquee',id:e.pointerId,x:e.clientX,y:e.clientY,scale,origin:[x,y],marquee:[x,y,0,0],initial:e.shiftKey?[...selection]:[],moved:false};

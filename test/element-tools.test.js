@@ -304,3 +304,44 @@ test('a container that never wrote a coordinate is placed by its own corner, not
  assert.deepEqual([inShell(t).props.x,inShell(t).props.y],[60,40],'the child keeps its place inside the panel');
  assert.deepEqual(t.errors,[]);
 });
+
+// A panel paints nothing, so a plain click on its padding is a click on empty canvas. The modifier is
+// how a designer reaches the layer behind the control under the pointer.
+const ctrlAt=(t,x,y,id=7)=>t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:id,clientX:x,clientY:y,metaKey:true});
+const nestedShells="component Test { Frame { width: 400; Frame { key: 'outer'; width: 360; height: 300; Frame { key: 'shell'; x: 100; y: 50; width: 200; height: 120; Button { key: 'a'; x: 20; y: 10; width: 40; height: 20; } } } } }";
+const nodeOf=(t,key)=>{let found;const walk=nodes=>{for(const n of nodes){if(n.props.key===key)found=n;walk(n.children);}};walk(parse(t.source()).nodes);return found;};
+test('a click on the modifier picks the container under the point instead of the control it holds',()=>{
+ const t=setup(nestedShells);
+ // 110,65 of the page is inside the shell's padding and outside its only button; the canvas runs at 200%.
+ ctrlAt(t,220,130);t.viewport.emit('pointerup',{pointerId:7});
+ assert.deepEqual(t.tools.selection(),[nodeOf(t,'shell').start]);
+ assert.deepEqual(t.errors,[]);
+});
+test('a second click on the modifier steps out to the container that holds the panel',()=>{
+ const t=setup(nestedShells);
+ ctrlAt(t,220,130);t.viewport.emit('pointerup',{pointerId:7});
+ ctrlAt(t,220,130);t.viewport.emit('pointerup',{pointerId:7});
+ assert.deepEqual(t.tools.selection(),[nodeOf(t,'outer').start],'the shell sits inside the outer panel');
+ // Above the outermost panel there is nothing to step to, so the selection stays where it was rather
+ // than falling through to a marquee that would drop it.
+ ctrlAt(t,220,130);t.viewport.emit('pointerup',{pointerId:7});
+ assert.deepEqual(t.tools.selection(),[nodeOf(t,'outer').start]);
+ assert.deepEqual(t.errors,[]);
+});
+test('a plain click on the padding of a panel still selects nothing the page draws',()=>{
+ const t=setup(nestedShells);
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:8,clientX:220,clientY:130});
+ t.viewport.emit('pointerup',{pointerId:8});
+ assert.deepEqual(t.tools.selection(),[],'without the modifier an empty corner is still empty canvas');
+ assert.deepEqual(t.errors,[]);
+});
+test('a panel grabbed with the modifier travels by the pointer in its own space',()=>{
+ const t=setup(nestedShells);
+ ctrlAt(t,220,130);
+ // Alt keeps the snap away from the gesture, so the delta the designer dragged is the delta written.
+ t.viewport.emit('pointermove',{pointerId:7,clientX:260,clientY:150,altKey:true});
+ t.viewport.emit('pointerup',{pointerId:7});
+ assert.equal(t.commits.length,1);
+ assert.deepEqual([nodeOf(t,'shell').props.x,nodeOf(t,'shell').props.y],[120,60]);
+ assert.deepEqual(t.errors,[]);
+});
