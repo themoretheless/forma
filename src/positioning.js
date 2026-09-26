@@ -5,10 +5,12 @@ import {length} from './component-layout.js';
 // child never reads x/y at all, and the page container has no parent to measure against, so the
 // markup can carry a coordinate that has to be ignored instead of rejected.
 const flows=new Set(['Row','Column','Frame','Scroll']);
+export const hasTracks=parent=>'columns'in(parent?.props??{})||'rows'in(parent?.props??{});
+// The containers a child can move itself inside: tracks place their children in cells and a Stack
+// lays them on top of each other, so x/y written on such a child is a value nothing reads.
+export const flowsCoordinates=parent=>!!parent&&flows.has(parent.type)&&!hasTracks(parent);
 export function takesCoordinates(node,parent){
-  if(!parent||!(node.props.x!==undefined||node.props.y!==undefined))return false;
-  if(!flows.has(parent.type))return false;
-  return !('columns'in parent.props||'rows'in parent.props);
+  return !!parent&&(node.props.x!==undefined||node.props.y!==undefined)&&flowsCoordinates(parent);
 }
 // Both rectangles are measured in one coordinate space, so the offset the scene computes from the
 // parent's outer corner comes out of CSS offsets in pixels without touching the layout: an offset

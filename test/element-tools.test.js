@@ -13,10 +13,11 @@ function setup(initial,inserts=[],extra={}){
  const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';if(initial)source=initial;let selected=null,enabled=true;const commits=[],errors=[];
  // The designer's scene is flattened: it draws the leaves with the box the layout gave them and
  // counts them in its own order, so a fake built from the page's children by position would hide
- // exactly the confusion the tools have to survive.
+ // exactly the confusion the tools have to survive. A nested leaf is drawn inside its container's
+ // corner, and that corner is the one its coordinate is measured against.
  const containers=new Set(['Frame','Scroll','Row','Column','Grid','Stack']);
- const page=()=>{const root=parse(source).nodes[0],children=root?.children??[],top=children[0]?.type==='Scroll'?children[0].children:children,all=[],drawn=[];const walk=nodes=>{for(const n of nodes){all.push(n);if(!containers.has(n.type))drawn.push(n);walk(n.children??[]);}};if(root)walk([root]);return {root,top,all,drawn};};
- const context=()=>{if(!enabled)return null;const {root,top,all,drawn}=page();return {source,start:selected,path:'test.ui',root,inserts,top,pick:start=>all.find(n=>n.start===start)??null,state:{},scene:{width:400,height:200,controls:drawn.map((n,index)=>({index,start:n.start,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))},...extra};};
+ const page=()=>{const root=parse(source).nodes[0],children=root?.children??[],top=children[0]?.type==='Scroll'?children[0].children:children,all=[],drawn=[];const walk=(nodes,frame)=>{for(const n of nodes){all.push(n);const corner=[frame[0]+(n.props.x??0),frame[1]+(n.props.y??0)];if(containers.has(n.type)){walk(n.children,corner);continue;}drawn.push({start:n.start,bounds:[corner[0],corner[1],n.props.width??100,n.props.height??40],coordinateBox:frame});walk(n.children,corner);}};if(root)walk([root],[0,0]);return {root,top,all,drawn};};
+ const context=()=>{if(!enabled)return null;const {root,top,all,drawn}=page();return {source,start:selected,path:'test.ui',root,inserts,top,pick:start=>all.find(n=>n.start===start)??null,state:{},scene:{width:400,height:200,controls:drawn.map((control,index)=>({index,...control}))},...extra};};
  const copied=[];
  const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e),copy:v=>copied.push(v)});
  return {tools,copied,extra,viewport,artboard,toolbar,commits,errors,source:()=>source,treeSelect:start=>{selected=start;tools.update();},disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
@@ -230,4 +231,47 @@ test('a container is measured by the union of what the scene drew inside it',()=
  // fixture canvas runs at 200%.
  assert.deepEqual(boxesOf(t),[['80px','40px','160px','160px']],'the outline is the children of the Column, not one of them');
  assert.deepEqual(t.errors,[]);
+});
+
+// A container that sits away from the page corner measures its children's coordinates from itself,
+// so the box the scene drew and the coordinate the markup writes differ by exactly that corner.
+const shellSource="component Test { Frame { width: 400; Frame { key: 'shell'; x: 100; y: 50; width: 200; height: 120; Button { key: 'a'; x: 20; y: 10; width: 40; height: 20; } } } }";
+const inShell=t=>parse(t.source()).nodes[0].children[0].children[0];
+const selectAt=(t,x,y,id=1)=>{t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:id,clientX:x,clientY:y});t.viewport.emit('pointerup',{pointerId:id});};
+test('a drag inside a container that moved away from the page writes the coordinate that container reads',()=>{
+ const t=setup(shellSource);
+ // The button paints at 120,60 of the page and the canvas runs at 200%, so 280,140 is its centre.
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:1,clientX:280,clientY:140});
+ t.viewport.emit('pointermove',{pointerId:1,clientX:320,clientY:160});
+ t.viewport.emit('pointerup',{pointerId:1});
+ assert.equal(t.commits.length,1);
+ // Measuring from the page corner would have written the button's place on the page and left it
+ // 100 further right than the pointer.
+ assert.deepEqual([inShell(t).props.x,inShell(t).props.y],[40,20],'the box lands where the pointer left it');
+ assert.deepEqual(t.errors,[]);
+});
+test('a nudged control stops at the corner its container measures from',()=>{
+ const t=setup(shellSource);selectAt(t,280,140);
+ for(let i=0;i<3;i++)window.emit('keydown',{target:t.viewport,key:'ArrowLeft',shiftKey:true});
+ // Twenty units inside its container, and three steps of ten cross that corner; the page's 120
+ // units of room belong to the container, not to the control.
+ assert.equal(inShell(t).props.x,0);assert.deepEqual(t.errors,[]);
+});
+test('a leading edge of a nested control stops at the corner of its container',()=>{
+ const t=setup(shellSource);selectAt(t,280,140);
+ const w=handleLayer(t).children.find(c=>c.dataset.side==='w');
+ t.viewport.emit('pointerdown',{target:w,button:0,pointerId:6,clientX:0,clientY:0});
+ t.viewport.emit('pointermove',{pointerId:6,clientX:-400,clientY:0});
+ t.viewport.emit('pointerup',{pointerId:6});
+ assert.deepEqual([inShell(t).props.x,inShell(t).props.width],[0,60],'the edge travels the 20 units the container allows');
+ assert.deepEqual(t.errors,[]);
+});
+test('a control a Stack lays over its neighbours refuses to move and says why',()=>{
+ const t=setup("component Test { Frame { width: 400; Stack { key: 'pile'; x: 50; y: 40; width: 200; height: 120; Button { key: 'a'; x: 20; y: 10; width: 40; height: 20; } } } }");
+ const before=t.source();
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:1,clientX:140,clientY:100});
+ t.viewport.emit('pointermove',{pointerId:1,clientX:180,clientY:120});
+ t.viewport.emit('pointerup',{pointerId:1});
+ assert.equal(t.commits.length,0);assert.equal(t.source(),before);
+ assert.deepEqual(t.errors,['В Stack положение задаёт раскладка: перенос недоступен']);
 });

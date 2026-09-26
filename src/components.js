@@ -439,9 +439,12 @@ function compile(files,entry,state,metrics,read,links){
     if(intrinsicLength(resolved[key]))return constrained(natural(roots[0],axis,metrics),node.props,axis,axis===0?rootWidth:rootHeight);
     return constrained(length(resolved[key],axis===0?rootWidth:rootHeight,0),node.props,axis,axis===0?rootWidth:rootHeight);
   }
-  function layoutScene(node,box,output){
+  function layoutScene(node,box,output,frame=[0,0,0,0]){
     if(!containerTypes.has(node.type)){
-      output.push({...node,props:{...node.props,x:box[0],y:box[1],width:box[2],height:box[3]}});return;
+      // A flow container measures a child's own `x`/`y` from its outer corner and percentages
+      // against its outer size, so a tool that writes a coordinate needs that box next to the drawn
+      // one. The page corner is just the case where the two frames coincide.
+      output.push({...node,props:{...node.props,x:box[0],y:box[1],width:box[2],height:box[3]},coordinateBox:frame});return;
     }
     if(node!==root&&node.props.clip)throw Error('Обрезка вложенного контейнера сцены пока не поддерживается; используйте clip корневого Frame');
     let layout;
@@ -452,7 +455,7 @@ function compile(files,entry,state,metrics,read,links){
       layout={grid:{bounds:inside,columns:cols,rows,gap:g},boxes:node.children.map(child=>{const ci=cell(child,'columns',cols.length),ri=cell(child,'rows',rows.length);return [inside[0]+(ci===null?0:cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1]),inside[1]+(ri===null?0:rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0]),ci===null?inside[2]:cols[ci],ri===null?inside[3]:rows[ri]];})};
     }else layout=arrange(node,box,intrinsicScene,{scene:true});
     if(node===root&&layout.grid)rootVisual.grid=layout.grid;
-    node.children.forEach((child,index)=>layoutScene(child,layout.boxes[index],output));
+    node.children.forEach((child,index)=>layoutScene(child,layout.boxes[index],output,box));
   }
   if(modern){
     const output=[];

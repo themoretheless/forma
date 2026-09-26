@@ -79,8 +79,8 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   const nodes=new Map();try{const stack=[...parse(c.source).nodes];while(stack.length){const n=stack.pop();nodes.set(n.start,n);stack.push(...(n.children??[]));}}catch{}
   // A drawing can carry the offset of a node from a component file, and that is not something this page's
   // markup can point at, so only a box the page itself owns is measured, hit or snapped against.
-  const drawn=new Map();for(const control of c.scene.controls)if(nodes.has(control.start)&&!drawn.has(control.start))drawn.set(control.start,control.bounds);
-  return measure={scene:c.scene,source:c.source,drawn,nodes,unions:new Map()};
+  const drawn=new Map(),frames=new Map();for(const control of c.scene.controls)if(nodes.has(control.start)&&!drawn.has(control.start)){drawn.set(control.start,control.bounds);frames.set(control.start,control.coordinateBox??[0,0,0,0]);}
+  return measure={scene:c.scene,source:c.source,drawn,frames,nodes,unions:new Map()};
  }
  function boxOf(c,start){
   const m=measured(c),own=m.drawn.get(start);if(own)return own;
@@ -100,7 +100,13 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  function setSelection(starts){const c=context();primary=c?.start;selection=[...new Set(starts??[])].filter(start=>c&&known(c,start));update();}
  function choose(starts,c){const n=c.pick?.(starts.at(-1))??measured(c).nodes.get(starts.at(-1));if(n)select(n);else if(c.root)select(c.root);primary=context()?.start;selection=[...starts];update();}
  function apply(change,c){if(change)commit(change,c);}
- function origin(c,item){return [item.bounds[0]+(c.scene.scrollOffset?.[0]??0),item.bounds[1]+(c.scene.scrollOffset?.[1]??0)];}
+ // The layout measures a control's own coordinate from the corner of the container that flows it,
+ // which is the page corner only for a control sitting directly on the page.
+ function origin(c,item){const frame=measured(c).frames.get(item.start)??[0,0,0,0],scroll=c.scene.scrollOffset??[0,0];
+  return [item.bounds[0]+scroll[0]-frame[0],item.bounds[1]+scroll[1]-frame[1]];}
+ // A coordinate cannot fall behind the corner it is measured from, so a group travels only as far
+ // as its tightest member allows.
+ function room(c,list){const from=list.map(i=>origin(c,i));return [Math.min(...from.map(o=>o[0])),Math.min(...from.map(o=>o[1]))];}
  // A container takes the new node as its last child and a leaf gets it as the next sibling,
  // which is the row the designer is looking at. With nothing selected the page's own control
  // list is the target so that the first control of an empty page has somewhere to go, and a
@@ -184,13 +190,13 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    // starts from the rendered box the designer sees, not from whatever the pointer is over.
    if(side&&resize!=null){const item=items(c)[0];if(!item)return;
     e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
-    const g=geometry();drag={...c,kind:'resize',id:e.pointerId,start:item.start,unit:unit(side),bounds:item.bounds,x:e.clientX,y:e.clientY,scale:g.scale,edges:{left:0,right:0,top:0,bottom:0},preview:item.bounds,moved:false};
+    const g=geometry();drag={...c,kind:'resize',id:e.pointerId,start:item.start,unit:unit(side),bounds:item.bounds,base:origin(c,item),x:e.clientX,y:e.clientY,scale:g.scale,edges:{left:0,right:0,top:0,bottom:0},preview:item.bounds,moved:false};
     viewport.setPointerCapture(e.pointerId);draw();}
    return;}
   const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
   const hit=hitAt(c,x,y);e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
   if(hit!=null&&e.shiftKey){choose(selection.includes(hit)?selection.filter(s=>s!==hit):[...selection,hit],c);return;}
-  if(hit!=null){if(!selection.includes(hit))choose([hit],c);const list=items(c);drag={...c,start:primary,kind:'move',id:e.pointerId,x:e.clientX,y:e.clientY,scale,items:list,dx:0,dy:0,moved:false};}
+  if(hit!=null){if(!selection.includes(hit))choose([hit],c);const list=items(c);drag={...c,start:primary,kind:'move',id:e.pointerId,x:e.clientX,y:e.clientY,scale,items:list,slack:room(c,list),dx:0,dy:0,moved:false};}
   else drag={...c,kind:'marquee',id:e.pointerId,x:e.clientX,y:e.clientY,scale,origin:[x,y],marquee:[x,y,0,0],initial:e.shiftKey?[...selection]:[],moved:false};
   viewport.setPointerCapture(e.pointerId);
  },true);
@@ -198,16 +204,17 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopImmediatePropagation();
   let dx=(e.clientX-drag.x)/drag.scale,dy=(e.clientY-drag.y)/drag.scale;drag.moved=Math.hypot(dx,dy)*drag.scale>=3;
   if(drag.kind==='marquee'){drag.marquee=[drag.origin[0]+Math.min(0,dx),drag.origin[1]+Math.min(0,dy),Math.abs(dx),Math.abs(dy)];draw();return;}
-  if(drag.kind==='resize'){const b=drag.bounds,u=drag.unit,scroll=drag.scene.scrollOffset??[0,0];
-   // A side cannot cross the opposite one, and a leading edge cannot push the control off the page.
-   const left=u.left?Math.max(Math.min(dx,b[2]),-b[0]-scroll[0]):0,right=u.right?Math.max(dx,-b[2]):0;
-   const top=u.top?Math.max(Math.min(dy,b[3]),-b[1]-scroll[1]):0,bottom=u.bottom?Math.max(dy,-b[3]):0;
+  if(drag.kind==='resize'){const b=drag.bounds,u=drag.unit,base=drag.base;
+   // A side cannot cross the opposite one, and a leading edge cannot push the control past the
+   // corner its own coordinate is measured from.
+   const left=u.left?Math.max(Math.min(dx,b[2]),-base[0]):0,right=u.right?Math.max(dx,-b[2]):0;
+   const top=u.top?Math.max(Math.min(dy,b[3]),-base[1]):0,bottom=u.bottom?Math.max(dy,-b[3]):0;
    drag.edges={left,right,top,bottom};
    drag.preview=[b[0]+left,b[1]+top,Math.max(0,b[2]+right-left),Math.max(0,b[3]+bottom-top)];draw();return;}
   const bounds=selectionBounds(drag.items.map(i=>i.bounds));drag.guides=[];
   if(snapping&&!e.altKey&&!drag.grid){const skip=drag.covered??(drag.covered=covered(drag,drag.items.map(i=>i.start)));const others=drag.scene.controls.filter(c=>!skip.has(c.start)).map(c=>c.bounds);const snapped=snapSelection(bounds,dx,dy,others,[drag.scene.width,drag.scene.height],6/drag.scale);dx=snapped.dx;dy=snapped.dy;drag.guides=snapped.guides;}
   // Clamp the whole group together so its internal spacing is preserved.
-  if(!drag.grid){dx=Math.max(dx,-bounds[0]-(drag.scene.scrollOffset?.[0]??0));dy=Math.max(dy,-bounds[1]-(drag.scene.scrollOffset?.[1]??0));}
+  if(!drag.grid){dx=Math.max(dx,-drag.slack[0]);dy=Math.max(dy,-drag.slack[1]);}
   drag.dx=dx;drag.dy=dy;draw();
  },true);
  listen(viewport,'pointerup',e=>{
@@ -219,8 +226,8 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    const drawn=[...measured(d).drawn.keys()];
    const hit=d.moved?items(d,drawn).filter(i=>intersects(i.bounds,d.marquee)).map(i=>i.start):[];
    choose([...new Set([...d.initial,...hit])],d);return;}
-  if(d.kind==='resize'){if(!d.moved)return;const scroll=d.scene.scrollOffset??[0,0];
-   try{apply(resizeElement(d.source,d.start,d.edges,d.bounds,[d.bounds[0]+scroll[0],d.bounds[1]+scroll[1]]),d);}catch(error){report(error.message);}return;}
+  if(d.kind==='resize'){if(!d.moved)return;
+   try{apply(resizeElement(d.source,d.start,d.edges,d.bounds,d.base),d);}catch(error){report(error.message);}return;}
   if(!d.moved)return;try{
    let cells=[];
    if(d.grid){
@@ -249,8 +256,8 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();run('delete');return;}
   const direction={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
   if(!direction||mod||e.altKey)return;e.preventDefault();
-  try{const c=current(),list=items(c);if(!list.length)return;const step=e.shiftKey?10:1,bounds=selectionBounds(list.map(i=>i.bounds));
-   const dx=Math.max(direction[0]*step,-bounds[0]-(c.scene.scrollOffset?.[0]??0)),dy=Math.max(direction[1]*step,-bounds[1]-(c.scene.scrollOffset?.[1]??0));
+  try{const c=current(),list=items(c);if(!list.length)return;const step=e.shiftKey?10:1,slack=room(c,list);
+   const dx=Math.max(direction[0]*step,-slack[0]),dy=Math.max(direction[1]*step,-slack[1]);
    let columnDelta=direction[0],rowDelta=direction[1];
    const cells=c.grid?list.map(i=>{const n=locateElement(c.source,i.start).node;return {column:n.props.cell?.[1]??n.props.column??1,row:n.props.cell?.[0]??n.props.row??1};}):[];
    if(c.grid){columnDelta=Math.max(1-Math.min(...cells.map(c=>c.column)),Math.min(columnDelta,c.grid.columns.length-Math.max(...cells.map(c=>c.column))));rowDelta=Math.max(1-Math.min(...cells.map(c=>c.row)),Math.min(rowDelta,c.grid.rows.length-Math.max(...cells.map(c=>c.row))));}

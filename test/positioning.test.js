@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
 import {arrange} from '../src/component-layout.js';
 import {compileComponents} from '../src/components.js';
-import {takesCoordinates,coordinateShift} from '../src/positioning.js';
+import {moveElement} from '../src/element-edit.js';
+import {takesCoordinates,coordinateShift,flowsCoordinates,hasTracks} from '../src/positioning.js';
 
 const rect=([left,top,width,height])=>({left,top,width,height});
 const children=source=>parse(source).nodes[0].children;
@@ -48,10 +49,14 @@ const button=`component Button {
 }`;
 // The same page the vector renderer consumes: a padded Column whose outer box is known, so an
 // offset measured from the container edge is distinguishable from one measured from its content.
-const page=body=>compileComponents({
- 'ui/Demo.ui':`component Demo { Frame { width: 320; height: 180; ${body} } }`,
+const file=body=>`component Demo { Frame { width: 320; height: 180; ${body} } }`;
+// A patched page is a whole file, not a body: the offsets a move reports point into the text the
+// designer edits, so the scene is compiled from that text directly.
+const compile=src=>compileComponents({
+ 'ui/Demo.ui':src,
  'components/Button.ui':button,
 },'ui/Demo.ui',{},{measureText:(text,size)=>[text.length*size/2,size]}).previewControls;
+const page=body=>compile(file(body));
 const buttons=moved=>`Column { width: 320; height: 180; padding: 20; gap: 10;
  Button { text: 'a'; width: 100; height: 30; }
  Button { text: 'b'; width: 100; height: 30; ${moved?.b??''} }
@@ -69,4 +74,26 @@ test('the vector scene measures a coordinate from the container edge the preview
   const shift={left:0,top:0,...coordinateShift(control(props),column,{},rect([0,0,320,180]),rect([flow[index].props.x,flow[index].props.y,flow[index].props.width,flow[index].props.height]))};
   assert.deepEqual([flow[index].props.x+shift.left,flow[index].props.y+shift.top],[moved[index].props.x,moved[index].props.y],`the preview offset lands on the box the renderer draws for control ${index}`);
  }
+});
+
+// A canvas drag measures the page through the box the scene drew and writes the coordinate the markup
+// holds. A container away from the page corner sets the two apart, so the drawing has to carry the
+// box the layout measures a child against.
+const shell="Frame { x: 60; y: 40; width: 200; height: 120; padding: 10; Button { key: 'a'; width: 100; height: 30; } }";
+test('a nested control carries the box its own coordinate counts from',()=>{
+ const [drawn]=page(shell);
+ assert.deepEqual([drawn.props.x,drawn.props.y],[110,50],'the container flows and centres the control');
+ assert.deepEqual(drawn.coordinateBox,[60,40,200,120],'the outer corner and span, not the padded content box');
+});
+test('a drag writes the coordinate the container reads back, so the drawn box travels by the pointer',()=>{
+ const [drawn]=page(shell),src=file(shell);
+ const change=moveElement(src,drawn.start,16,8,null,[drawn.props.x-drawn.coordinateBox[0],drawn.props.y-drawn.coordinateBox[1]]);
+ const [after]=compile(src.slice(0,change.from)+change.insert+src.slice(change.to));
+ assert.deepEqual([after.props.x,after.props.y],[drawn.props.x+16,drawn.props.y+8],'measuring from the page corner would have left it 60 further right');
+ assert.deepEqual([after.props.width,after.props.height],[drawn.props.width,drawn.props.height],'the flow keeps sizing the moved control');
+});
+test('the shared predicates name the containers a coordinate can move',()=>{
+ const [stack,grid,framed,row,scroll]=children("component Demo { Column { Stack { Text { key: 's'; } } Grid { Text { key: 'g'; } } Frame { columns: 2; Text { key: 'f'; } } Row { Text { key: 'r'; } } Scroll { Text { key: 'e'; } } } }");
+ assert.deepEqual([stack,grid,framed,row,scroll].map(flowsCoordinates),[false,false,false,true,true],'a Stack overlays and a Grid places, a flow container moves');
+ assert.deepEqual([stack,grid,framed].map(hasTracks),[false,false,true],'tracks are the other way a container places its children');
 });

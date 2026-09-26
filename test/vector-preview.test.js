@@ -168,6 +168,16 @@ test('a layout snapshot names the control of the markup it drew',t=>{
   assert.deepEqual(preview.layoutSnapshot().controls.map(c=>c.start),[10,11,null],'a control with no node of the page stays unnamed');
 });
 
+test('a layout snapshot carries the box a coordinate of the control counts from',t=>{
+  const {preview,render}=fixture(t,[button,passive],true);
+  assert.deepEqual(preview.layoutSnapshot().controls.map(c=>c.coordinateBox),[[0,0,0,0],[0,0,0,0]],'a control on the page measures against the page');
+  render([button,passive,button],true,{previewControls:[{start:10},{start:11,coordinateBox:[60,40,200,120]},{start:12}]});
+  // The scene lays a nested control out inside a container that sits away from the page corner, and
+  // the drawing alone cannot say which corner its own x/y are read against.
+  assert.deepEqual(preview.layoutSnapshot().controls.map(c=>[c.start,c.coordinateBox]),[[10,[0,0,0,0]],[11,[60,40,200,120]],[12,[0,0,0,0]]]);
+  preview.destroy();
+});
+
 test('paint revisions do not invalidate layout snapshots on versioned runtimes',t=>{
   const {preview,models}=fixture(t,[button],true),model=models[0];let layout=0,reads=0;
   const bounds=model.control_bounds.bind(model);

@@ -1,5 +1,6 @@
 import {parse} from './language.js';
 import {containerTypes,intrinsicLength,weight} from './component-layout.js';
+import {flowsCoordinates,hasTracks} from './positioning.js';
 export function locateElement(source,start){
  let found;const walk=(nodes,parent)=>{for(const node of nodes){if(node.start===start)found={node,parent};walk(node.children,node);}};walk(parse(source).nodes,null);
  if(!found)throw Error('Выберите элемент заново');return found;
@@ -16,11 +17,20 @@ function patch(source,node,props){
  for(const c of changes.sort((a,b)=>b.from-a.from))source=source.slice(0,c.from)+c.insert+source.slice(c.to);
  return source;
 }
+// A move writes a coordinate, so it is possible only where the container reads one. A container
+// with tracks places its children in cells instead, and a bare Grid or a Stack gives a written `x`
+// nothing to move: the layout puts those children where its own rules say.
+export function moveBlock(node,parent,cell){
+ if(!parent||node.type==='Scroll')return 'Перемещайте дочерние контролы';
+ if(hasTracks(parent))return cell?null:'Для Grid выберите целевую ячейку';
+ if(!flowsCoordinates(parent))return `В ${parent.type} положение задаёт раскладка: перенос недоступен`;
+ return null;
+}
 export function moveElement(source,start,dx,dy,cell,origin=[0,0]){
- const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Перемещайте дочерние контролы');
+ const {node,parent}=locateElement(source,start);
+ const block=moveBlock(node,parent,cell);if(block)throw Error(block);
  let props;
- if(parent.props.columns!==undefined||parent.props.rows!==undefined){
-  if(!cell)throw Error('Для Grid выберите целевую ячейку');
+ if(hasTracks(parent)){
   props=node.props.cell?{cell:[cell.row,cell.column]}:{row:cell.row,column:cell.column};
  }else{
   for(const axis of ['x','y'])if(node.props[axis]!==undefined&&typeof node.props[axis]!=='number')throw Error('Координата задана выражением: измените её в коде');

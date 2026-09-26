@@ -488,7 +488,8 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     // for every control. Reuse an immutable snapshot until the model changes.
     // Each record carries the markup offset of the control it drew, because the tools edit the
     // source and the scene counts flattened controls: pairing the two by position hands a node
-    // the box of whoever happens to sit at that index.
+    // the box of whoever happens to sit at that index. The container box the drawing measured its own
+    // `x`/`y` against travels with it, so a tool that writes a coordinate writes one the layout reads.
     layoutSnapshot() {
       if(!button||!current)return null;
       const revision=button.layout_revision?.()??button.visual_revision();
@@ -496,7 +497,8 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       const nodes=controlNodes();
       layout=Object.freeze({width:button.width(),height:button.height(),clip:button.clipped(),
         scrollable:button.scrollable(),scrollOffset:Object.freeze(Array.from(button.scroll_offset())),
-        controls:Object.freeze(Array.from({length:button.control_count()},(_,index)=>Object.freeze({index,start:nodes[index]?.start??null,bounds:Object.freeze(Array.from(button.control_bounds(index)))})))});
+        controls:Object.freeze(Array.from({length:button.control_count()},(_,index)=>Object.freeze({index,start:nodes[index]?.start??null,
+          coordinateBox:Object.freeze(Array.from(nodes[index]?.coordinateBox??[0,0,0,0])),bounds:Object.freeze(Array.from(button.control_bounds(index)))})))});
       layoutModel=button;layoutRevision=revision;
       return layout;
     },
