@@ -16,6 +16,22 @@ test('copy/paste renames collisions while preserving strings and events; deletio
  s=apply(s,removeElement(s,ns[1].start));assert.equal(parse(s).nodes[0].children.length,2);
  assert.throws(()=>removeElement(s,parse(s).nodes[0].start),/Корневой/);
 });
+test('a duplicate reports the slot it took and a delete hands the container back',()=>{
+ const page="component Test {\n  Frame {\n    Button { key: 'a'; }\n  }\n}";
+ const root=s=>parse(s).nodes[0];
+ // The bridge's duplicate is the copied text spliced back after the node, so the copy's own
+ // offset is the only handle a caller has on it, and a delete must name what stays selected.
+ const dup=insertElement(page,root(page).children[0].start,copyElement(page,root(page).children[0].start),false,'after');
+ const added=apply(page,dup);
+ assert.deepEqual(parse(added).nodes[0].children.map(n=>n.props.key),['a','a_2']);
+ assert.equal(added.slice(dup.start,dup.start+6),'Button','the reported offset is the copy');
+ assert.equal(dup.start,parse(added).nodes[0].children[1].start);
+ const removed=removeElement(added,parse(added).nodes[0].children[1].start);
+ // Like the designer's Delete key, the splice takes the node's text and leaves the slot's
+ // whitespace behind, so the check is the tree, not the bytes.
+ assert.deepEqual(parse(apply(added,removed)).nodes[0].children.map(n=>n.props.key),['a']);
+ assert.equal(removed.start,root(added).start,'the container keeps the selection');
+});
 test('Grid movement preserves cell notation and does not introduce absolute coordinates',()=>{
  const s='component Test { Frame { columns: [100, *]; rows: [40, *]; Button { cell: [1, 1]; } } }';
  const result=apply(s,moveElement(s,first(s).start,100,0,{row:2,column:2}));assert.deepEqual(first(result).props.cell,[2,2]);assert.equal(first(result).props.x,undefined);

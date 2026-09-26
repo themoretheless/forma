@@ -45,6 +45,8 @@ const definitions=[
  ['component_controls','List the controls the palette can insert, each with the markup it inserts',{},true],
  ['component_insert','Insert one control next to a node from component_tree; side is the slot: inside (a container), after (a sibling) or auto (follow the selection). Returns the node start the preview selected and the file text for the next expectedContent, with changed telling whether the file moved.',{start:z.number().int(),markup:z.string(),side:z.enum(['inside','after','auto']).optional(),expectedContent:z.string()},false],
  ['component_move','Move one control to another slot of the same parent, as the tree drag does. Reports changed:false with the unchanged text when the node already holds that slot.',{start:z.number().int(),target:z.number().int(),side:z.enum(['before','after']),expectedContent:z.string()},false],
+ ['component_delete','Remove one control from its container, as the Delete key does in the designer; the container keeps the selection',{start:z.number().int(),expectedContent:z.string()},false],
+ ['component_duplicate','Copy one control into the slot after it, as the designer duplicates it. A copied key is renamed; the copy keeps its coordinates, so set x/y on it to separate the two.',{start:z.number().int(),expectedContent:z.string()},false],
  ['state_read','Read current preview state',{},true],
  ['state_set','Update existing top-level preview state fields',{values:z.record(z.string(),value)},false],
  ['event_dispatch','Dispatch a declared clicked event on a component; observes debugger pause',{start:z.number().int()},false],

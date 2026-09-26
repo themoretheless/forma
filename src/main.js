@@ -20,7 +20,7 @@ import './states-panel.css';
 import {createControlTree} from './control-tree.js';
 import {createStatesPanel} from './states-panel.js';
 import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePropertyEdit,stateRenameEdit} from './design-states.js';
-import {insertElement,moveAmongSiblings} from './element-edit.js';
+import {copyElement,insertElement,moveAmongSiblings,removeElement} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {designReferencesInFiles} from './design-data.js';
@@ -511,16 +511,24 @@ function ideCommand(command,args={}){
     }
     // The palette's own list, so an agent inserts exactly what a designer can insert.
     case 'component_controls':return insertableControls(files);
-    case 'component_insert':case 'component_move':{
-      // Both splice the entry file the compiled tree came from, against its live text. The splice
-      // reports the offset the new or moved node takes, and that is what the preview is asked to
-      // select: without it the agent would have to re-read `component_tree` to find its own work.
+    case 'component_insert':case 'component_move':case 'component_delete':case 'component_duplicate':{
+      // All four splice the entry file the compiled tree came from, against its live text. The
+      // splice reports the offset the new, moved or duplicated node takes — for a delete, the
+      // parent that keeps the selection — and that is what the preview is asked to select:
+      // without it the agent would have to re-read `component_tree` to find its own work.
       const source=active===entry?$('code').value:files[entry];
       if(error||source!==args.expectedContent)throw Error('Stale or invalid source. Read the entry file first.');
       findNode(args.start);
       const change=command==='component_insert'
         ?insertElement(source,args.start,args.markup,false,args.side??'auto')
-        :moveAmongSiblings(source,args.start,args.target,args.side);
+        :command==='component_move'
+        ?moveAmongSiblings(source,args.start,args.target,args.side)
+        // A duplicate is the node's own text spliced back after itself, so the key uniquifying
+        // the paste path does covers a copied `key:` too. The copy keeps the source's
+        // coordinates: the bridge also runs on the HTML preview, where no scene measured an
+        // offset to take, and `component_property` can move it from there.
+        :command==='component_delete'?removeElement(source,args.start)
+        :insertElement(source,args.start,copyElement(source,args.start),false,'after');
       // A move onto the slot the node already holds is a no-op the primitive reports as null.
       // The caller still gets the file text back, because that is the content its next write
       // has to quote as `expectedContent`.
