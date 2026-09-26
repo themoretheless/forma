@@ -16,8 +16,12 @@ function setup(initial,inserts=[],extra={}){
  // exactly the confusion the tools have to survive. A nested leaf is drawn inside its container's
  // corner, and that corner is the one its coordinate is measured against.
  const containers=new Set(['Frame','Scroll','Row','Column','Grid','Stack']);
- const page=()=>{const root=parse(source).nodes[0],children=root?.children??[],top=children[0]?.type==='Scroll'?children[0].children:children,all=[],drawn=[];const walk=(nodes,frame)=>{for(const n of nodes){all.push(n);const corner=[frame[0]+(n.props.x??0),frame[1]+(n.props.y??0)];if(containers.has(n.type)){walk(n.children,corner);continue;}drawn.push({start:n.start,bounds:[corner[0],corner[1],n.props.width??100,n.props.height??40],coordinateBox:frame});walk(n.children,corner);}};if(root)walk([root],[0,0]);return {root,top,all,drawn};};
- const context=()=>{if(!enabled)return null;const {root,top,all,drawn}=page();return {source,start:selected,path:'test.ui',root,inserts,top,pick:start=>all.find(n=>n.start===start)??null,state:{},scene:{width:400,height:200,controls:drawn.map((control,index)=>({index,...control}))},...extra};};
+ // The layout measures a box for a container as well, but this fake can only hand over one the
+ // markup sized itself: an intrinsic container takes its extent from the real layout, so it keeps
+ // falling back to the union of what it drew.
+ const flow=new Set(['Frame','Row','Column','Grid','Stack']);
+ const page=()=>{const root=parse(source).nodes[0],children=root?.children??[],top=children[0]?.type==='Scroll'?children[0].children:children,all=[],drawn=[],panels=[];const walk=(nodes,frame)=>{for(const n of nodes){all.push(n);const corner=[frame[0]+(n.props.x??0),frame[1]+(n.props.y??0)];if(containers.has(n.type)){if(n!==root&&flow.has(n.type)&&n.props.width!==undefined&&n.props.height!==undefined)panels.push({start:n.start,bounds:[corner[0],corner[1],n.props.width,n.props.height],coordinateBox:frame});walk(n.children,corner);continue;}drawn.push({start:n.start,bounds:[corner[0],corner[1],n.props.width??100,n.props.height??40],coordinateBox:frame});walk(n.children,corner);}};if(root)walk([root],[0,0]);return {root,top,all,drawn,panels};};
+ const context=()=>{if(!enabled)return null;const {root,top,all,drawn,panels}=page();return {source,start:selected,path:'test.ui',root,inserts,top,pick:start=>all.find(n=>n.start===start)??null,state:{},scene:{width:400,height:200,controls:drawn.map((control,index)=>({index,...control})),containers:panels},...extra};};
  const copied=[];
  const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e),copy:v=>copied.push(v)});
  return {tools,copied,extra,viewport,artboard,toolbar,commits,errors,source:()=>source,treeSelect:start=>{selected=start;tools.update();},disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
@@ -274,4 +278,29 @@ test('a control a Stack lays over its neighbours refuses to move and says why',(
  t.viewport.emit('pointerup',{pointerId:1});
  assert.equal(t.commits.length,0);assert.equal(t.source(),before);
  assert.deepEqual(t.errors,['В Stack положение задаёт раскладка: перенос недоступен']);
+});
+
+// A container that sizes itself has an extent of its own even though it paints nothing: the box the
+// layout measured for it, which is what a designer means when they pick the panel up in the tree.
+const shellOf=t=>parse(t.source()).nodes[0].children[0];
+test('a container is measured by the box the layout gave it, not by what it drew inside',()=>{
+ const t=setup(shellSource);
+ t.tools.setSelection([shellOf(t).start]);
+ // The shell covers 100,50 to 300,170 and its button paints 120,60 to 160,80, so the outline of the
+ // union is a 40x20 card floating in the panel instead of the panel.
+ assert.deepEqual(boxesOf(t),[['200px','100px','400px','240px']]);
+ assert.deepEqual(t.errors,[]);
+});
+// A container the flow placed never wrote a coordinate, so the first nudge measures the new one
+// against the corner the canvas has for it — the panel's own, not the one its content covers.
+const flowSource="component Test { Frame { width: 400; Frame { key: 'shell'; width: 200; height: 120; Button { key: 'a'; x: 60; y: 40; width: 40; height: 20; } } } }";
+test('a container that never wrote a coordinate is placed by its own corner, not by its content',()=>{
+ const t=setup(flowSource);
+ t.tools.setSelection([shellOf(t).start]);
+ window.emit('keydown',{target:t.viewport,key:'ArrowRight'});
+ // The button sits sixty units inside the panel: measured through it, one step wrote 61 and left the
+ // panel with its content sixty units right of where the layout had put it.
+ assert.deepEqual([shellOf(t).props.x,shellOf(t).props.y],[1,0]);
+ assert.deepEqual([inShell(t).props.x,inShell(t).props.y],[60,40],'the child keeps its place inside the panel');
+ assert.deepEqual(t.errors,[]);
 });

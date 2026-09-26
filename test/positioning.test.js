@@ -52,11 +52,12 @@ const button=`component Button {
 const file=body=>`component Demo { Frame { width: 320; height: 180; ${body} } }`;
 // A patched page is a whole file, not a body: the offsets a move reports point into the text the
 // designer edits, so the scene is compiled from that text directly.
-const compile=src=>compileComponents({
+const compiled=src=>compileComponents({
  'ui/Demo.ui':src,
  'components/Button.ui':button,
-},'ui/Demo.ui',{},{measureText:(text,size)=>[text.length*size/2,size]}).previewControls;
-const page=body=>compile(file(body));
+},'ui/Demo.ui',{},{measureText:(text,size)=>[text.length*size/2,size]});
+const page=body=>compiled(file(body)).previewControls;
+const boxes=body=>compiled(file(body)).previewContainers;
 const buttons=moved=>`Column { width: 320; height: 180; padding: 20; gap: 10;
  Button { text: 'a'; width: 100; height: 30; }
  Button { text: 'b'; width: 100; height: 30; ${moved?.b??''} }
@@ -85,10 +86,25 @@ test('a nested control carries the box its own coordinate counts from',()=>{
  assert.deepEqual([drawn.props.x,drawn.props.y],[110,50],'the container flows and centres the control');
  assert.deepEqual(drawn.coordinateBox,[60,40,200,120],'the outer corner and span, not the padded content box');
 });
+test('a container carries the box the layout measured for it',()=>{
+ // The scene draws only the leaves, so without a record of its own a panel is whatever its content
+ // happens to cover: the button here spans 110,50 to 210,80 while the shell is 60,40 to 260,160.
+ const [box]=boxes(shell);
+ assert.equal(box.start,parse(file(shell)).nodes[0].children[0].start,'the record names the container in the markup the designer edits');
+ assert.deepEqual(box.bounds,[60,40,200,120],'the panel is the extent its own size gives it');
+ assert.deepEqual(box.coordinateBox,[0,0,320,180],'and its coordinate counts from the corner of the box that holds it');
+});
+test('a container inside a container is measured against the box of the one that holds it',()=>{
+ const nested=`Frame { x: 20; y: 16; width: 260; height: 140; padding: 8; ${shell} }`;
+ const [outer,inner]=boxes(nested);
+ assert.deepEqual(outer.bounds,[20,16,260,140],'a panel away from the page corner keeps its own corner');
+ assert.deepEqual(inner.bounds,[80,56,200,120],'the panel it holds counts from that corner, past its padding');
+ assert.deepEqual([outer.coordinateBox,inner.coordinateBox],[[0,0,320,180],[20,16,260,140]],'each one travels with the box that flows it');
+});
 test('a drag writes the coordinate the container reads back, so the drawn box travels by the pointer',()=>{
  const [drawn]=page(shell),src=file(shell);
  const change=moveElement(src,drawn.start,16,8,null,[drawn.props.x-drawn.coordinateBox[0],drawn.props.y-drawn.coordinateBox[1]]);
- const [after]=compile(src.slice(0,change.from)+change.insert+src.slice(change.to));
+ const [after]=compiled(src.slice(0,change.from)+change.insert+src.slice(change.to)).previewControls;
  assert.deepEqual([after.props.x,after.props.y],[drawn.props.x+16,drawn.props.y+8],'measuring from the page corner would have left it 60 further right');
  assert.deepEqual([after.props.width,after.props.height],[drawn.props.width,drawn.props.height],'the flow keeps sizing the moved control');
 });

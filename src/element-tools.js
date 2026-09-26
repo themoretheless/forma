@@ -71,19 +71,22 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  const alignments=new Set(['left','center','right','top','middle','bottom','distribute-x','distribute-y']);
  // The scene counts the controls it drew and the markup nests them, so pairing the two by position
  // handed a selected container the box of whoever happened to sit at that index. Every measure goes
- // through the source offset the drawing carries instead: a control takes its own box, a container
- // the union of what it drew inside it, and a node the page no longer has gets neither.
+ // through the source offset the drawing carries instead: a control takes its own box, a container the
+ // box the layout measured for it, and only a container the scene never sized falls back to the union
+ // of what it drew. A node the page no longer has gets none of them.
  let measure=null;
  function measured(c){
   if(measure?.scene===c.scene&&measure.source===c.source)return measure;
   const nodes=new Map();try{const stack=[...parse(c.source).nodes];while(stack.length){const n=stack.pop();nodes.set(n.start,n);stack.push(...(n.children??[]));}}catch{}
   // A drawing can carry the offset of a node from a component file, and that is not something this page's
   // markup can point at, so only a box the page itself owns is measured, hit or snapped against.
-  const drawn=new Map(),frames=new Map();for(const control of c.scene.controls)if(nodes.has(control.start)&&!drawn.has(control.start)){drawn.set(control.start,control.bounds);frames.set(control.start,control.coordinateBox??[0,0,0,0]);}
-  return measure={scene:c.scene,source:c.source,drawn,frames,nodes,unions:new Map()};
+  const drawn=new Map(),panels=new Map(),frames=new Map();
+  for(const control of c.scene.controls)if(nodes.has(control.start)&&!drawn.has(control.start)){drawn.set(control.start,control.bounds);frames.set(control.start,control.coordinateBox??[0,0,0,0]);}
+  for(const panel of c.scene.containers??[])if(nodes.has(panel.start)&&!drawn.has(panel.start)&&!panels.has(panel.start)){panels.set(panel.start,panel.bounds);frames.set(panel.start,panel.coordinateBox??[0,0,0,0]);}
+  return measure={scene:c.scene,source:c.source,drawn,panels,frames,nodes,unions:new Map()};
  }
  function boxOf(c,start){
-  const m=measured(c),own=m.drawn.get(start);if(own)return own;
+  const m=measured(c),own=m.drawn.get(start)??m.panels.get(start);if(own)return own;
   if(m.unions.has(start))return m.unions.get(start);
   const boxes=[],stack=[...(m.nodes.get(start)?.children??[])];
   while(stack.length){const n=stack.pop(),b=m.drawn.get(n.start);if(b)boxes.push(b);else stack.push(...(n.children??[]));}
@@ -220,9 +223,9 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  listen(viewport,'pointerup',e=>{
   if(!drag||e.pointerId!==drag.id)return;e.stopImmediatePropagation();const d=drag;cancel();
   if(d.kind==='marquee'){
-   // A marquee picks what the page draws, so it is the drawn controls that are tested against it:
-   // a container's box is the union of its children, and that would let one sweep over a leaf drag
-   // the whole container in whenever the container itself paints nothing.
+   // A marquee picks what the page draws, so it is the drawn controls that are tested against it: a
+   // container has an extent even where it paints nothing, and that would let one sweep over a leaf
+   // drag the whole panel in whenever the designer meant the leaf.
    const drawn=[...measured(d).drawn.keys()];
    const hit=d.moved?items(d,drawn).filter(i=>intersects(i.bounds,d.marquee)).map(i=>i.start):[];
    choose([...new Set([...d.initial,...hit])],d);return;}

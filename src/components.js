@@ -431,6 +431,10 @@ function compile(files,entry,state,metrics,read,links){
   let modern=root.type!=='Frame';
   for(const n of instances)if(containerTypes.has(n.type)||['minWidth','maxWidth','minHeight','maxHeight'].some(key=>own(n.props,key))||['width','height'].some(key=>own(n.props,key)&&intrinsicLength(n.props[key])))modern=true;
   const previewNodes=scene;
+  // A container paints no box of its own, but the layout still measured one for it, and that box is
+  // what a designer means when they pick up a panel. It travels beside the drawn controls so the
+  // canvas can measure, grab and move a container by the extent it actually has.
+  const previewContainers=[];
   function intrinsicScene(node,axis){
     const key=axis===0?'width':'height',value=node.props[key];
     if(value!==undefined&&!intrinsicLength(value)&&!/[\*%]$/.test(value?.expr??''))return constrained(length(value,axis===0?rootWidth:rootHeight,0),node.props,axis,axis===0?rootWidth:rootHeight);
@@ -455,7 +459,10 @@ function compile(files,entry,state,metrics,read,links){
       layout={grid:{bounds:inside,columns:cols,rows,gap:g},boxes:node.children.map(child=>{const ci=cell(child,'columns',cols.length),ri=cell(child,'rows',rows.length);return [inside[0]+(ci===null?0:cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1]),inside[1]+(ri===null?0:rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0]),ci===null?inside[2]:cols[ci],ri===null?inside[3]:rows[ri]];})};
     }else layout=arrange(node,box,intrinsicScene,{scene:true});
     if(node===root&&layout.grid)rootVisual.grid=layout.grid;
-    node.children.forEach((child,index)=>layoutScene(child,layout.boxes[index],output,box));
+    node.children.forEach((child,index)=>{
+      if(containerTypes.has(child.type))previewContainers.push({start:child.start,bounds:layout.boxes[index],coordinateBox:box});
+      layoutScene(child,layout.boxes[index],output,box);
+    });
   }
   if(modern){
     const output=[];
@@ -519,5 +526,5 @@ function compile(files,entry,state,metrics,read,links){
   const sourceScene=[{...root,type:'Frame',children:scroll?[{...scroll,children:sourceControls}]:sourceControls}];
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
   const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateByteLength(c.template)}\n${c.template}`).join('');
-  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:instances};
+  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:instances,previewContainers};
 }

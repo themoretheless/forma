@@ -178,6 +178,18 @@ test('a layout snapshot carries the box a coordinate of the control counts from'
   preview.destroy();
 });
 
+test('a layout snapshot hands over the box of each container the layout measured',t=>{
+  const {preview,render}=fixture(t,[button,passive],true);
+  assert.deepEqual(preview.layoutSnapshot().containers,[],'a page that nests nothing measures no container');
+  render([button,passive,button],true,{previewControls:[{start:10},{start:11},{start:12}],previewContainers:[{start:9,bounds:[60,40,200,120],coordinateBox:[0,0,320,180]}]});
+  // The drawing counts the leaves only, so a designer who picks up a panel needs the extent the
+  // layout gave that panel and the corner its own coordinate is read against.
+  const [box]=preview.layoutSnapshot().containers;
+  assert.deepEqual([box.start,box.bounds,box.coordinateBox],[9,[60,40,200,120],[0,0,320,180]]);
+  assert.throws(()=>{box.bounds[0]=1;},TypeError);
+  preview.destroy();
+});
+
 test('paint revisions do not invalidate layout snapshots on versioned runtimes',t=>{
   const {preview,models}=fixture(t,[button],true),model=models[0];let layout=0,reads=0;
   const bounds=model.control_bounds.bind(model);
