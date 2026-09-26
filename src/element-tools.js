@@ -1,6 +1,6 @@
 import {createEventScope} from './event-scope.js';
 import {parse} from './language.js';
-import {copyElements,copyElement,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock} from './element-edit.js';
+import {copyElements,copyElement,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock,moveIntoContainer} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
 import {flowsCoordinates} from './positioning.js';
 import {controlCss} from './handoff.js';
@@ -196,6 +196,16 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  // What the designer sees coming is the box the holder owns. A container that never got one takes the
  // whole page, because the page's own list is where the control lands.
  function dropHint(c,holder){return measured(c).drawn.get(holder.start)??measured(c).panels.get(holder.start)??[0,0,c.scene.width,c.scene.height];}
+ // Which panel a released drag would hand the control to: the smallest panel under the pointer that
+ // neither already holds the control nor sits inside it. A group is never reparented — one drop
+ // cannot name a slot in a container for several controls at once.
+ function holderFor(drag,dx,dy){
+  if(drag.items.length!==1||drag.start==null)return null;
+  const found=shellAt(drag,drag.sx+dx,drag.sy+dy,null);if(found==null)return null;
+  try{if(locateElement(drag.source,drag.start).parent?.start===found)return null;}catch{return null;}
+  if((drag.covered??(drag.covered=covered(drag,[drag.start]))).has(found))return null;
+  return {start:found,box:measured(drag).panels.get(found)};
+ }
  // The palette entries the menu inserts are one line of markup, so a coordinate joins the properties
  // the entry already declares.
  const placed=v=>Math.max(0,Math.round(v*10)/10);
@@ -264,6 +274,9 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    Object.assign(label.style,{left:g.x+b[0]*g.scale+'px',top:g.y+b[1]*g.scale-22+'px'});overlay.append(label);return;}
   if(!drag.moved)return;
   for(const item of drag.items)box([item.bounds[0]+drag.dx,item.bounds[1]+drag.dy,item.bounds[2],item.bounds[3]],'element-drag-preview');
+  // The same dashed frame a palette drop promises with: it names the container that will take the
+  // control, which is the one thing the designer cannot tell from the moving box itself.
+  if(drag.holder)box(drag.holder.box,'element-drop-hint');
   const g=geometry();for(const guide of drag.guides??[]){const line=document.createElement('div');line.className='element-snap-guide';Object.assign(line.style,guide.axis===0?{left:g.x+guide.position*g.scale+'px',top:g.y+'px',height:c.scene.height*g.scale+'px'}:{left:g.x+'px',top:g.y+guide.position*g.scale+'px',width:c.scene.width*g.scale+'px'});overlay.append(line);}
   const bounds=selectionBounds(drag.items.map(i=>i.bounds));const label=document.createElement('span');label.className='element-drag-label';label.textContent=`Δx ${Math.round(drag.dx)} · Δy ${Math.round(drag.dy)}`;Object.assign(label.style,{left:g.x+(bounds[0]+drag.dx)*g.scale+'px',top:g.y+(bounds[1]+drag.dy)*g.scale-22+'px'});overlay.append(label);
  }
@@ -286,7 +299,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   // designer holding what they had rather than fall through to a marquee that drops the selection.
   if(stepped&&hit==null&&from!=null)return;
   if(hit!=null&&e.shiftKey){choose(selection.includes(hit)?selection.filter(s=>s!==hit):[...selection,hit],c);return;}
-  if(hit!=null){if(!selection.includes(hit))choose([hit],c);const list=items(c);drag={...c,start:primary,kind:'move',id:e.pointerId,x:e.clientX,y:e.clientY,scale,items:list,slack:room(c,list),dx:0,dy:0,moved:false};}
+  if(hit!=null){if(!selection.includes(hit))choose([hit],c);const list=items(c);drag={...c,start:primary,kind:'move',id:e.pointerId,x:e.clientX,y:e.clientY,sx:x,sy:y,scale,items:list,slack:room(c,list),dx:0,dy:0,moved:false};}
   else drag={...c,kind:'marquee',id:e.pointerId,x:e.clientX,y:e.clientY,scale,origin:[x,y],marquee:[x,y,0,0],initial:e.shiftKey?[...selection]:[],moved:false};
   viewport.setPointerCapture(e.pointerId);
  },true);
@@ -301,10 +314,15 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    const top=u.top?Math.max(Math.min(dy,b[3]),-base[1]):0,bottom=u.bottom?Math.max(dy,-b[3]):0;
    drag.edges={left,right,top,bottom};
    drag.preview=[b[0]+left,b[1]+top,Math.max(0,b[2]+right-left),Math.max(0,b[3]+bottom-top)];draw();return;}
+  drag.holder=drag.kind==='move'?holderFor(drag,dx,dy):null;
   const bounds=selectionBounds(drag.items.map(i=>i.bounds));drag.guides=[];
-  if(snapping&&!e.altKey&&!drag.grid){const skip=drag.covered??(drag.covered=covered(drag,drag.items.map(i=>i.start)));const others=drag.scene.controls.filter(c=>!skip.has(c.start)).map(c=>c.bounds);const snapped=snapSelection(bounds,dx,dy,others,[drag.scene.width,drag.scene.height],6/drag.scale);dx=snapped.dx;dy=snapped.dy;drag.guides=snapped.guides;}
-  // Clamp the whole group together so its internal spacing is preserved.
-  if(!drag.grid){dx=Math.max(dx,-drag.slack[0]);dy=Math.max(dy,-drag.slack[1]);}
+  // A panel that is about to take the control places it by the pointer, so neither the neighbours'
+  // edges nor the corner of the container it leaves have anything to say about where it lands.
+  if(!drag.holder){
+   if(snapping&&!e.altKey&&!drag.grid){const skip=drag.covered??(drag.covered=covered(drag,drag.items.map(i=>i.start)));const others=drag.scene.controls.filter(c=>!skip.has(c.start)).map(c=>c.bounds);const snapped=snapSelection(bounds,dx,dy,others,[drag.scene.width,drag.scene.height],6/drag.scale);dx=snapped.dx;dy=snapped.dy;drag.guides=snapped.guides;}
+   // Clamp the whole group together so its internal spacing is preserved.
+   if(!drag.grid){dx=Math.max(dx,-drag.slack[0]);dy=Math.max(dy,-drag.slack[1]);}
+  }
   drag.dx=dx;drag.dy=dy;draw();
  },true);
  listen(viewport,'pointerup',e=>{
@@ -319,6 +337,11 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(d.kind==='resize'){if(!d.moved)return;
    try{apply(resizeElement(d.source,d.start,d.edges,d.bounds,d.base),d);}catch(error){report(error.message);}return;}
   if(!d.moved)return;try{
+   // The panel the pointer let go over takes the control as its own child. A container that reads
+   // coordinates gets the point the drag ended on, measured in its own space; one that places its
+   // children itself gets no coordinate, because it would have nothing to look at.
+   if(d.holder){const target=locateElement(d.source,d.holder.start).node,item=d.items[0];
+    apply(moveIntoContainer(d.source,d.start,d.holder.start,flowsCoordinates(target)?dropPoint(d,target,item.bounds[0]+d.dx,item.bounds[1]+d.dy):null),d);return;}
    let cells=[];
    if(d.grid){
     cells=d.items.map(i=>{const n=locateElement(d.source,i.start).node,cell=gridCell(d.grid,i.bounds[0]+i.bounds[2]/2,i.bounds[1]+i.bounds[3]/2);return {column:n.props.cell?.[1]??n.props.column??cell.column,row:n.props.cell?.[0]??n.props.row??cell.row};});

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
-import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock,moveAmongSiblings,moveBlock} from '../src/element-edit.js';
+import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock,moveAmongSiblings,moveBlock,moveIntoContainer} from '../src/element-edit.js';
 const apply=(s,c)=>s.slice(0,c.from)+c.insert+s.slice(c.to);
 const sample="component Test { Frame { width: 400; Button { key: 'a'; text: 'a'; x: 10; y: 20; clicked -> actions.save(); } Button { key: 'a_2'; } } }";
 const first=s=>parse(s).nodes[0].children[0];
@@ -162,4 +162,48 @@ test('a drop outside the sibling run is refused and the slot it stands in change
  const nested=parse(boxed).nodes[0].children;
  assert.deepEqual(types(apply(boxed,moveAmongSiblings(boxed,nested[0].start,nested[1].start,'after'))),['Rectangle','Scroll']);
  function types(s){return parse(s).nodes[0].children.map(n=>n.type);}
+});
+
+// A control that leaves one container for another travels as its own text: the block it came from
+// loses no leftover line, and the block it joins decides both the indentation and the corner its
+// coordinate counts from.
+const byType=(s,type)=>{let found;const walk=nodes=>{for(const n of nodes){if(!found&&n.type===type)found=n;walk(n.children??[]);}};walk(parse(s).nodes);return found;};
+const panelPage="component Test {\n  Frame {\n    Button { key: 'a'; x: 10; y: 20; width: 40; height: 20; clicked -> actions.save(); }\n    Column { gap: 4; Text { text: 'inside'; } }\n  }\n}\n";
+test('a drop onto another container hands the control over with the point that container reads',()=>{
+ const change=moveIntoContainer(panelPage,byType(panelPage,'Button').start,byType(panelPage,'Column').start,[7,3]);
+ const next=apply(panelPage,change);
+ assert.deepEqual(next.split('\n'),["component Test {","  Frame {","    Column { gap: 4; Text { text: 'inside'; } Button { key: 'a'; x: 7; y: 3; width: 40; height: 20; clicked -> actions.save(); } }","  }","}",""]);
+ const moved=byType(next,'Button');
+ assert.equal(moved.props.key,'a','the control keeps its own key: nothing collided and nothing was renamed');
+ assert.equal(moved.events.clicked,'actions.save');
+ assert.deepEqual([moved.props.x,moved.props.y],[7,3],'the coordinate counts from the container it entered');
+ assert.equal(next.slice(change.start,change.start+6),'Button','the reported offset names the moved control');
+});
+test('a container moves with everything inside it and leaves no empty line behind',()=>{
+ const page="component Test {\n  Frame {\n    Row {\n      Button { key: 'a'; }\n    }\n    Column { gap: 4; }\n  }\n}\n";
+ const next=apply(page,moveIntoContainer(page,byType(page,'Row').start,byType(page,'Column').start,null));
+ assert.deepEqual(parse(next).nodes[0].children.map(n=>n.type),['Column']);
+ assert.deepEqual(byType(next,'Column').children.map(n=>n.type),['Row']);
+ assert.deepEqual(byType(next,'Row').children.map(n=>n.props.key),['a'],'the subtree travels whole');
+ assert.equal(next.includes('\n\n'),false,'the run it left keeps one separator per pair of children');
+});
+test('a panel that places its children itself is handed the control without a point of its own',()=>{
+ const page="component Test { Frame { Button { key: 'a'; x: 5; y: 6; } Stack { width: 100; height: 50; Text { text: 'x'; } } } }";
+ const next=apply(page,moveIntoContainer(page,byType(page,'Button').start,byType(page,'Stack').start,null));
+ assert.deepEqual(parse(next).nodes[0].children.map(n=>n.type),['Stack']);
+ assert.deepEqual([byType(next,'Button').props.x,byType(next,'Button').props.y],[5,6],'the coordinate rides along untouched');
+});
+test('a coordinate the designer bound to an expression stays code after a move',()=>{
+ const page="component Test { Frame { Button { x: state.w; y: 4; } Column { gap: 4; } } }";
+ const next=apply(page,moveIntoContainer(page,byType(page,'Button').start,byType(page,'Column').start,[9,9]));
+ assert.ok(next.includes('x: state.w;'),'a bound coordinate is not a number to overwrite');
+ assert.ok(next.includes('y: 9;'),'the axis nothing binds takes the drop point');
+});
+test('a container cannot host itself or its own panel, and a leaf has no room for a child',()=>{
+ const page="component Test { Frame { Column { Row { Button { key: 'a'; } } } Text { text: 'x'; } } }";
+ const root=parse(page).nodes[0],row=byType(page,'Row'),column=byType(page,'Column'),text=byType(page,'Text');
+ assert.throws(()=>moveIntoContainer(page,column.start,row.start),/потомок/,'a panel cannot be put inside what it holds');
+ assert.throws(()=>moveIntoContainer(page,row.start,row.start),/самого себя/);
+ assert.throws(()=>moveIntoContainer(page,byType(page,'Button').start,text.start),/только контейнер/);
+ assert.throws(()=>moveIntoContainer(page,root.start,column.start),/дочерний/);
 });

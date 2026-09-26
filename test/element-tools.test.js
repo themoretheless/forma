@@ -469,3 +469,49 @@ test('resizing a panel by its leading edge moves the corner the panel itself hol
  assert.deepEqual([nodeOf(t,'in').props.x,nodeOf(t,'in').props.width],[40,40],'the child keeps its own size and place');
  assert.deepEqual(t.errors,[]);
 });
+
+// Reparenting by drag: the panel the pointer lets go over takes the control as its own child, and
+// the dashed frame is the only way to see that intent before the designer commits to it.
+const panelAndLeaf="component Test { Frame { width: 400; Button { key: 'a'; x: 20; y: 20; width: 40; height: 20; } Frame { key: 'box'; x: 200; y: 100; width: 160; height: 100; Text { text: 'x'; } } } }";
+const panelStack="component Test { Frame { width: 400; Button { key: 'a'; x: 20; y: 20; width: 40; height: 20; } Stack { key: 'pile'; x: 200; y: 100; width: 160; height: 100; Text { text: 'x'; } } } }";
+const moveDrag=(t,from,to,id=1)=>{t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:id,clientX:from[0],clientY:from[1]});t.viewport.emit('pointermove',{pointerId:id,clientX:to[0],clientY:to[1]});return()=>t.viewport.emit('pointerup',{pointerId:id});};
+test('a control dragged over another panel is handed to it, at the point that panel reads',()=>{
+ const t=setup(panelAndLeaf);
+ const release=moveDrag(t,[40,60],[480,280]);
+ // The panel covers 200,100 to 360,200 and the pointer sits at 240,140, so this is its padding.
+ assert.deepEqual(hintsOf(t),[['400px','200px','320px','200px']],'the panel that will take the control is outlined');
+ release();
+ const moved=nodeOf(t,'a');
+ assert.deepEqual(nodeOf(t,'box').children.map(n=>n.props.key),[undefined,'a'],'the control joins the panel as its last child');
+ assert.deepEqual([moved.props.x,moved.props.y],[40,30],'the coordinate counts from the panel, not the page');
+ assert.equal(parse(t.source()).nodes[0].children.length,1);
+ assert.deepEqual(t.tools.selection(),[moved.start],'the designer still holds the control that moved');
+ assert.equal(t.commits.length,1);assert.deepEqual(hintsOf(t),[]);assert.deepEqual(t.errors,[]);
+});
+test('a drag that stays inside its own panel promises nothing and only moves the control',()=>{
+ const t=setup(shellSource);
+ const release=moveDrag(t,[240,120],[260,140]);
+ assert.deepEqual(hintsOf(t),[],'the panel that already holds the control is not a destination');
+ release();
+ assert.deepEqual([inShell(t).props.x,inShell(t).props.y],[30,20]);
+ assert.equal(t.commits.length,1);assert.deepEqual(t.errors,[]);
+});
+test('a panel that places its children itself takes the control without writing a point',()=>{
+ const t=setup(panelStack);
+ const release=moveDrag(t,[40,60],[480,280]);
+ assert.deepEqual(hintsOf(t),[['400px','200px','320px','200px']]);
+ release();
+ assert.deepEqual(nodeOf(t,'pile').children.map(n=>n.type),['Text','Button']);
+ assert.deepEqual([nodeOf(t,'a').props.x,nodeOf(t,'a').props.y],[20,20],'the Stack reads no coordinate, so none is invented');
+ assert.equal(t.commits.length,1);assert.deepEqual(t.errors,[]);
+});
+test('a group is never reparented: one drop cannot place several controls at once',()=>{
+ const t=setup(groupPanels);
+ pick(t,'b','c');
+ const release=moveDrag(t,[60,400],[300,160],2);
+ assert.deepEqual(hintsOf(t),[],'the panel under the pointer stays unoutlined for a group');
+ release();
+ assert.deepEqual(parse(t.source()).nodes[0].children.map(n=>n.props.key),['a','b','c']);
+ assert.deepEqual(nodeOf(t,'a').children.map(n=>n.props.key),['in']);
+ assert.equal(t.commits.length,1);assert.deepEqual(t.errors,[]);
+});

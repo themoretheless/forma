@@ -6,6 +6,9 @@ export function locateElement(source,start){
  if(!found)throw Error('Выберите элемент заново');return found;
 }
 const literal=v=>typeof v==='string'?JSON.stringify(v):Array.isArray(v)?'['+v.join(', ')+']':String(v);
+// The smallest document that holds a bare control, so a fragment of markup can be parsed, patched
+// and measured the same way whether it came from the clipboard or from another container.
+const WRAPPER='component Clipboard { Frame { ';
 // The node types that own a child list in markup. Scroll is a container although it is not
 // one of the layout containers, and a container is the only thing that can take a new child.
 export const holdsChildren=node=>containerTypes.has(node.type)||node.type==='Scroll';
@@ -67,7 +70,7 @@ export function resizeElement(source,start,edges,bounds,origin=[0,0]){
 export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
 export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
 export function insertElement(source,start,text,multiple=false,side='auto'){
- const parsed=parse('component Clipboard { Frame { '+text+' } }').nodes[0].children;
+ const parsed=parse(WRAPPER+text+' } }').nodes[0].children;
  if(!parsed.length||(!multiple&&parsed.length!==1)||parsed.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Вставьте один контрол Forma');
  const {node,parent}=locateElement(source,start);
  if(side==='inside'&&!holdsChildren(node))throw Error('Внутрь можно добавить только контейнер');
@@ -79,10 +82,16 @@ export function insertElement(source,start,text,multiple=false,side='auto'){
  if(!container&&side!=='after')throw Error('Выберите контейнер');
  const keys=new Set();const walk=nodes=>{for(const n of nodes){if(typeof n.props.key==='string')keys.add(n.props.key);walk(n.children);}};walk(parse(source).nodes);
  // Rename copied keys without changing labels, bindings or comments.
- const wrapper='component Clipboard { Frame { ';let wrapped=wrapper+text+' } }';
+ let wrapped=WRAPPER+text+' } }';
  const all=[];const collect=ns=>{for(const n of ns){all.push(n);collect(n.children);}};collect(parsed);
  for(const n of all.reverse()){if(typeof n.props.key!=='string')continue;let key=n.props.key;let i=2;while(keys.has(key))key=n.props.key+'_'+i++;keys.add(key);wrapped=patch(wrapped,n,{key});}
- text=wrapped.slice(wrapper.length,-4);
+ return spliceInto(source,node,parent,container,wrapped.slice(WRAPPER.length,-4));
+}
+// Splice a finished node text into the block the caller picked: `container` is the node that gains
+// the child, and a null one means the marker node's own next sibling. The text arrives complete, so
+// this only decides where it goes and how it is indented — which is also all a move between two
+// containers needs once its own text has been cut out of the block it left.
+function spliceInto(source,node,parent,container,text){
  const at=container===node?container.end-1:node.end;
  // A new node takes the indentation of the block it joins instead of landing at column 0.
  // A copy keeps the column its own line had, so its closing brace shows what to strip.
@@ -103,8 +112,8 @@ export function insertElement(source,start,text,multiple=false,side='auto'){
  else{const head=/^\s/.test(source[at-1])?'':' ';insert=head+body.trim()+' ';}
  put=from+insert.match(/^\s*/)[0].length;
  const next=source.slice(0,from)+insert+source.slice(at);parse(next);
- const inserted=parse(wrapper+text+' } }').nodes[0].children;
- return {from,to:at,insert,start:put,starts:inserted.map(n=>put+n.start-wrapper.length)};
+ const inserted=parse(WRAPPER+text+' } }').nodes[0].children;
+ return {from,to:at,insert,start:put,starts:inserted.map(n=>put+n.start-WRAPPER.length)};
 }
 export function gridCell(grid,x,y){
  const track=(sizes,value,gap)=>{let edge=0;for(let i=0;i<sizes.length;i++){edge+=sizes[i]+gap;if(value<edge)return i+1;}return sizes.length;};
@@ -144,6 +153,44 @@ export function moveAmongSiblings(source,start,targetStart,side){
  // The moved block starts where its own text begins inside the rewritten sibling run.
  let offset=0;for(let slot=0;slot<order.indexOf(from);slot++)offset+=texts[order[slot]].length+(gaps[slot]??'').length;
  return {from:first,to:last,insert:block,start:first+offset};
+}
+// The point a container reads its child by, written into the text that is about to join it. A
+// coordinate the designer bound to an expression stays theirs: a drop must not overwrite code with
+// the number the canvas happened to measure.
+function rewriteCoords(text,coords){
+ const boxed=WRAPPER+text+' } }',node=parse(boxed).nodes[0].children[0],props={};
+ for(const [key,axis] of [['x',0],['y',1]]){const value=node.props[key];
+  if(value===undefined||typeof value==='number')props[key]=Math.max(0,Math.round(coords[axis]*10)/10);}
+ return patch(boxed,node,props).slice(WRAPPER.length,-4);
+}
+// A control that leaves one container for another travels as its own text: cut out of the sibling
+// run it stood in, then spliced into the block it joins, where it takes that block's indentation.
+// `coords` is the point the drop aimed at, in the receiving container's own space; a container that
+// places its children itself gets none, because it reads no coordinate.
+export function moveIntoContainer(source,start,targetStart,coords=null){
+ const {node,parent}=locateElement(source,start);
+ if(!parent||node.type==='Scroll')throw Error('Перемещайте дочерний контрол');
+ const target=locateElement(source,targetStart).node;
+ if(!holdsChildren(target))throw Error('Внутрь можно добавить только контейнер');
+ if(start===targetStart)throw Error('Контрол не может принять самого себя');
+ for(const stack=[...node.children??[]];stack.length;){const child=stack.pop();if(child.start===targetStart)throw Error('Нельзя перенести контрол в его собственный потомок');stack.push(...(child.children??[]));}
+ // The cut takes the whitespace that held the node off its block too, so the run it leaves has no
+ // gap where the control used to stand — and it stops at the parent's own brace.
+ const moved=coords?rewriteCoords(source.slice(node.start,node.end),coords):source.slice(node.start,node.end);
+ let cut=node.start;const open=source.indexOf('{',parent.start)+1;
+ while(cut>open&&/\s/.test(source[cut-1]))cut--;
+ const before=source.slice(0,cut)+source.slice(node.end),delta=node.end-cut;
+ const at=targetStart>node.end?targetStart-delta:targetStart;
+ const holder=locateElement(before,at);
+ const change=spliceInto(before,holder.node,holder.parent,holder.node,moved);
+ const next=before.slice(0,change.from)+change.insert+before.slice(change.to);
+ if(next===source)return null;
+ parse(next);
+ // Both edits are reported as one transaction: the smallest span whose replacement turns the source
+ // into the result, which is what keeps the editor's own selection offsets meaningful.
+ let from=0;while(from<next.length&&source[from]===next[from])from++;
+ let trim=0;while(trim<Math.min(source.length,next.length)-from&&source[source.length-1-trim]===next[next.length-1-trim])trim++;
+ return {from,to:source.length-trim,insert:next.slice(from,next.length-trim),start:change.start,starts:[change.start]};
 }
 // Merge independent source edits into one editor transaction, preserving selection offsets.
 export function editElements(source,starts,operation){
