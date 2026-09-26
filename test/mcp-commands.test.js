@@ -8,7 +8,8 @@ import {readFileSync} from 'node:fs';
 // out of both files so neither half can drift on its own.
 const root=new URL('..',import.meta.url);
 const read=path=>readFileSync(new URL(path,root),'utf8');
-const handled=text=>[...text.matchAll(/^\s*case '([a-z_]+)':/gm)].map(match=>match[1]);
+// A chained `case 'a':case 'b':` shares one block, so both names count even mid-line.
+const handled=text=>[...text.matchAll(/case '([a-z_]+)':/g)].map(match=>match[1]);
 const registered=text=>[...text.matchAll(/^ \['([a-z_]+)',/gm)].map(match=>match[1]);
 
 test('the tool table and the IDE bridge name the same commands',()=>{

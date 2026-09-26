@@ -20,7 +20,7 @@ import './states-panel.css';
 import {createControlTree} from './control-tree.js';
 import {createStatesPanel} from './states-panel.js';
 import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePropertyEdit,stateRenameEdit} from './design-states.js';
-import {moveAmongSiblings} from './element-edit.js';
+import {insertElement,moveAmongSiblings} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {designReferencesInFiles} from './design-data.js';
@@ -508,6 +508,25 @@ function ideCommand(command,args={}){
       const n=findNode(args.start);if(!Object.hasOwn(n.props,args.property)||typeof n.props[args.property]==='object')throw Error('Only existing literal properties are supported');
       if(typeof n.props[args.property]!==typeof args.value)throw Error('Property type mismatch');
       select(n);const input=Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===args.property);if(!input)throw Error('Свойство недоступно для правки: включите исходный вид');input.value=String(args.value);input.onchange();break;
+    }
+    // The palette's own list, so an agent inserts exactly what a designer can insert.
+    case 'component_controls':return insertableControls(files);
+    case 'component_insert':case 'component_move':{
+      // Both splice the entry file the compiled tree came from, against its live text. The splice
+      // reports the offset the new or moved node takes, and that is what the preview is asked to
+      // select: without it the agent would have to re-read `component_tree` to find its own work.
+      const source=active===entry?$('code').value:files[entry];
+      if(error||source!==args.expectedContent)throw Error('Stale or invalid source. Read the entry file first.');
+      findNode(args.start);
+      const change=command==='component_insert'
+        ?insertElement(source,args.start,args.markup,false,args.side??'auto')
+        :moveAmongSiblings(source,args.start,args.target,args.side);
+      // A move onto the slot the node already holds is a no-op the primitive reports as null.
+      // The caller still gets the file text back, because that is the content its next write
+      // has to quote as `expectedContent`.
+      if(!change)return {start:args.start,content:source,changed:false};
+      commitSource({file:entry,source,...change,reselect:change.start});
+      return {start:change.start,content:source.slice(0,change.from)+change.insert+source.slice(change.to),changed:true};
     }
     case 'state_read':return structuredClone(state);
     case 'state_set':for(const [key,v]of Object.entries(args.values)){if(!Object.hasOwn(state,key)||typeof state[key]!==typeof v)throw Error('Unknown field or incompatible type: '+key);}Object.assign(state,args.values);render();output();break;
