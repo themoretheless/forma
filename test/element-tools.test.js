@@ -345,3 +345,58 @@ test('a panel grabbed with the modifier travels by the pointer in its own space'
  assert.deepEqual([nodeOf(t,'shell').props.x,nodeOf(t,'shell').props.y],[120,60]);
  assert.deepEqual(t.errors,[]);
 });
+
+// A group and a resize both measure every member, so a container that joins them is measured by the
+// extent the layout gave it or the panel loses the size it was written with.
+const groupPanels="component Test { Frame { width: 400; Frame { key: 'a'; x: 100; y: 20; width: 200; height: 120; Button { key: 'in'; x: 40; y: 10; width: 40; height: 20; } } Button { key: 'b'; x: 30; y: 200; width: 60; height: 20; } Button { key: 'c'; x: 320; y: 200; width: 40; height: 20; } } }";
+const menuRun=(t,action)=>[...t.toolbar.next.children].find(b=>b.dataset.action===action)?.onclick();
+const starts=t=>['a','b','c'].map(key=>nodeOf(t,key).start);
+const pick=(t,...keys)=>{const list=keys.map(key=>nodeOf(t,key).start);t.treeSelect(list[0]);t.tools.setSelection(list);};
+test('aligning a group that holds a panel moves the panel by its own edge',()=>{
+ const t=setup(groupPanels);
+ // The panel covers 100,20 to 300,140 and its only button paints 140,30 to 180,50, so measuring the
+ // panel through its content would have taken the left edge of the group 110 units past the leaf.
+ pick(t,'a','b');
+ menuRun(t,'left');
+ assert.equal(t.commits.length,1);
+ assert.deepEqual([nodeOf(t,'a').props.x,nodeOf(t,'b').props.x],[30,30],'both edges land on the same line');
+ assert.deepEqual([nodeOf(t,'a').props.y,nodeOf(t,'a').props.height],[20,120],'only the axis the command moves');
+ assert.deepEqual(t.errors,[]);
+});
+test('a row that mixes a panel with leaves spaces them by their own extents',()=>{
+ const t=setup(groupPanels);
+ // Sorted by their left edges the row is b at 30, the panel at 100 (its button paints from 140) and
+ // c at 320: 330 units of span, 300 of them boxes, so 15 units of gap belong between each pair.
+ pick(t,'a','b','c');
+ menuRun(t,'distribute-x');
+ assert.equal(t.commits.length,1);
+ const x=key=>nodeOf(t,key).props.x,w=key=>nodeOf(t,key).props.width;
+ assert.deepEqual([x('b'),x('a'),x('c')],[30,105,320],'the extremes hold their places');
+ assert.equal(x('a')-(x('b')+w('b')),15,'the gap is measured to and from the panel, not its content');
+ assert.equal(x('c')-(x('a')+w('a')),15);
+ assert.deepEqual(t.errors,[]);
+});
+test('resizing a panel by its trailing edge writes the size the layout gave it',()=>{
+ const t=setup(groupPanels);
+ t.treeSelect(starts(t)[0]);
+ const e=handleLayer(t).children.find(c=>c.dataset.side==='e');
+ t.viewport.emit('pointerdown',{target:e,button:0,pointerId:9,clientX:0,clientY:0});
+ t.viewport.emit('pointermove',{pointerId:9,clientX:50,clientY:0});
+ t.viewport.emit('pointerup',{pointerId:9});
+ // The edge is dragged 25 units out; a panel measured through its 40-wide button would have been
+ // written 65 wide and collapsed the 200-unit panel the designer was holding.
+ assert.equal(nodeOf(t,'a').props.width,225);
+ assert.equal(nodeOf(t,'a').props.x,100,'the trailing edge leaves the corner alone');
+ assert.deepEqual(t.errors,[]);
+});
+test('resizing a panel by its leading edge moves the corner the panel itself holds',()=>{
+ const t=setup(groupPanels);
+ t.treeSelect(starts(t)[0]);
+ const w=handleLayer(t).children.find(c=>c.dataset.side==='w');
+ t.viewport.emit('pointerdown',{target:w,button:0,pointerId:10,clientX:0,clientY:0});
+ t.viewport.emit('pointermove',{pointerId:10,clientX:-50,clientY:0});
+ t.viewport.emit('pointerup',{pointerId:10});
+ assert.deepEqual([nodeOf(t,'a').props.x,nodeOf(t,'a').props.width],[75,225],'the panel grows into the page, not into its content');
+ assert.deepEqual([nodeOf(t,'in').props.x,nodeOf(t,'in').props.width],[40,40],'the child keeps its own size and place');
+ assert.deepEqual(t.errors,[]);
+});
