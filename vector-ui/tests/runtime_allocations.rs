@@ -39,14 +39,6 @@ fn source(count: usize) -> String {
     let controls: String = (0..count).map(|i| format!("Button {{ key:'c{i}'; width:100; height:30; }}")).collect();
     format!("component Demo {{ Frame {{ width:200; height:200; {controls} }} }}")
 }
-fn mixed_size_source(count: usize) -> String {
-    // Alternating control sizes, so a capacity hint taken from the previous sibling is wrong
-    // about as often as it is right.
-    let controls: String = (0..count)
-        .map(|i| format!("Button {{ key:'c{i}'; width:{}; height:{}; }}", if i % 2 == 0 { 40 } else { 160 }, if i % 2 == 0 { 20 } else { 60 }))
-        .collect();
-    format!("component Demo {{ Frame {{ width:200; height:200; {controls} }} }}")
-}
 const LABELED: &str = "component Button { Rectangle { Text { text: props.text; color:#102030; fontSize:12; } PointerArea { clicked -> events.clicked(); } } }";
 const VISUAL: &str = "component Button { Rectangle { background:#102030; PointerArea { clicked -> events.clicked(); } } }";
 const EDITOR: &str = "component Button { Rectangle { ContentInput { width:100; height:30; value:'Привет'; } PointerArea { clicked -> events.clicked(); } } }";

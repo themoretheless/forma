@@ -21,6 +21,16 @@ test('the gate covers every runner platform CI uses',()=>{
  assert.deepEqual(mac.list.at(-1).env,{FORMA_ACTIONS:'.github/fixtures/actions.rs'});
  assert.equal(list.every(step=>step.id!==step.name),true);
 });
+test('the host compiles what no CI runner compiles',()=>{
+ // Cargo's bench examples are where the runtime measurements live and nothing builds them:
+ // `cargo test --lib --tests` skips examples, and CI's own check names only the bin.
+ assert.ok(step('native-host').args.includes('--all-targets'),'the thirteen bench examples must not be able to rot');
+ assert.equal(step('native-host').args.includes('--bin'),false);
+ // A foreign triple is about the runner, not the benches: it stays exactly as ci.yml runs it.
+ const linux=step('native-x86_64-unknown-linux-gnu');
+ assert.ok(linux.args.includes('--bin')&&linux.args.includes('--target'),'the foreign step stays the command CI runs');
+ assert.equal(linux.args.includes('--all-targets'),false);
+});
 test('the gate runs the studio steps CI runs before it publishes',()=>{
  // CI checks the versions, runs the suite, then builds the bundle release.yml uploads; a local
  // pass that skips the build leaves the shipped bundle unverified.

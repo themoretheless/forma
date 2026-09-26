@@ -21,7 +21,9 @@ export function steps({platform,installedTargets,viteEntry}){
    ...(viteEntry?[{id:'studio-build',name:'Studio production build ships the tested runtime',argv:process.execPath,args:[viteEntry,'build'],checksDist:true}]:[]),
    {id:'runtime-gpu',name:'Forma Rust tests with GPU features',argv:'cargo',args:['test','--locked','--manifest-path','vector-ui/Cargo.toml','--features','gpu','--lib','--tests']},
    {id:'binding-native',name:'Native binding example',argv:'cargo',args:['test','--locked','--manifest-path','vector-ui/examples/binding-app/Cargo.toml','--features','native']},
-   {id:'native-host',name:'Native bin compiles on the host',argv:'cargo',args:['check','--locked','--manifest-path','vector-ui/Cargo.toml','--features','native','--bin','forma']},
+   // CI checks only the bin, so nothing compiled the thirteen bench examples the runtime work
+   // keeps editing. The host is where they cannot rot, and a foreign triple stays at CI's bin.
+   {id:'native-host',name:'Native bin and every bench target compile on the host',argv:'cargo',args:['check','--locked','--manifest-path','vector-ui/Cargo.toml','--features','native','--all-targets']},
    ...CI_TARGETS.filter(target=>installedTargets.includes(target)).map(target=>(
     {id:`native-${target}`,name:`Native bin compiles for ${target}`,argv:'cargo',args:['check','--locked','--manifest-path','vector-ui/Cargo.toml','--features','native','--bin','forma','--target',target]})),
    // The WebView host generates its actions module from a fixture, exactly as ci.yml runs it.
