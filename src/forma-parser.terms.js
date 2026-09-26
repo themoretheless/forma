@@ -56,4 +56,5 @@ export const
   GroupMatch = 54,
   GroupBranch = 55,
   Design = 56,
-  DesignOverride = 57
+  DesignOverride = 57,
+  DesignState = 58

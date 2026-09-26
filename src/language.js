@@ -89,28 +89,62 @@ export function parse(source, {fragment=false}={}) {
       const statementEnd=tokens[i]?.pos+1;take(';');n.statementRanges[key]={from:statementStart,to:statementEnd};
     }n.end=tokens[i]?.pos+1;take('}');return n;
   }
+  // One `Type { key: …; prop: … }` entry of a design document, written into the map the caller
+  // owns: the document body fills the base overrides, a state block fills its own.
+  function designEntry(overrides,overrideTypes){
+    if(!/^[A-Z][\w]*$/.test(peek()??''))throw Error('В design ожидается тип элемента с явным key');
+    const item=node(),key=item.props.key;
+    if(typeof key!=='string'||!key)throw Error('Дизайн-key должен быть непустой строкой');
+    if(Object.hasOwn(overrides,key))throw Error(`Повторный дизайн-key ${key}`);
+    if(item.children.length||item.matches.length||item.forward.length||Object.keys(item.events).length||Object.keys(item.bindings).length)throw Error('Дизайн переопределяет только свойства');
+    delete item.props.key;Object.defineProperty(overrideTypes,key,{value:item.type,enumerable:true});Object.defineProperty(overrides,key,{value:item.props,enumerable:true});
+  }
+  // A state is a named second source file's worth of overrides for the same keys; the offsets are
+  // what the designer's states panel edits in place.
+  function designState(){
+    const start=tokens[i].pos;take('state');
+    const literal=tokens[i],label=value();
+    if(!/^['"]/.test(literal?.v??''))throw Error('Имя состояния ожидает строку в кавычках');
+    if(typeof label!=='string'||!label)throw Error('Имя состояния должно быть непустым');
+    const nameEnd=literal.pos+literal.v.length;take('{');
+    const overrides={},overrideTypes={};while(peek()!=='}')designEntry(overrides,overrideTypes);
+    const end=(tokens[i]?.pos??0)+1;take('}');
+    return {name:label,start,end,nameStart:literal.pos,nameEnd,overrides,overrideTypes};
+  }
   const designs=[];while(peek()==='#'){take('#');take('[');take('design');if(peek()==='('){take('(');designs.push(value());take(')');}take(']');}
-  const nodes=[],scenarios=[],overrides={},overrideTypes={},defaults={};let name='Preview',base=null,slots={},defaultRanges={},propDefinitions={},eventDefinitions={},enums={},matches=[],forward=[];
+  const nodes=[],states=[],overrides={},overrideTypes={},defaults={};let name='Preview',base=null,slots={},defaultRanges={},propDefinitions={},eventDefinitions={},enums={},matches=[],forward=[];
   if(fragment)nodes.push(node());
   else if(peek()==='component'){
     take('component');const c=node(undefined,true);name=c.type;base=c.base??null;slots=c.slots;defaultRanges=c.statementRanges;nodes.push(...c.children);Object.assign(defaults,c.props);({propDefinitions,eventDefinitions,enums,matches,forward}=c);
     if(Object.keys(c.bindings).length||Object.keys(c.events).length)throw Error('На уровне component разрешены только значения свойств и объявления event');
   }else if(peek()==='design'){
     take('design');name=take();take('{');while(peek()!=='}'){
-      if(!/^[A-Z][\w]*$/.test(peek()??''))throw Error('В design ожидается тип элемента с явным key');const item=node(),key=item.props.key;
-      if(typeof key!=='string'||!key)throw Error('Дизайн-key должен быть непустой строкой');if(Object.hasOwn(overrides,key))throw Error(`Повторный дизайн-key ${key}`);
-      if(item.children.length||item.matches.length||item.forward.length||Object.keys(item.events).length||Object.keys(item.bindings).length)throw Error('Дизайн переопределяет только свойства');
-      delete item.props.key;Object.defineProperty(overrideTypes,key,{value:item.type,enumerable:true});Object.defineProperty(overrides,key,{value:item.props,enumerable:true});
+      if(peek()!=='state'){designEntry(overrides,overrideTypes);continue;}
+      const state=designState();
+      if(states.some(other=>other.name===state.name))throw Error(`Повторное состояние ${state.name}`);
+      states.push(state);
     }take('}');
   }else throw Error('Ожидается component или design. Старый preview/state больше не поддерживается; используйте design с переопределениями по key.');
   if(peek())throw Error('Лишний текст после компонента');
   function check(list,keys=new Set()){for(const n of list){if('key'in n.props){const key=n.props.key;if(typeof key!=='string'||!key)throw Error('key должен быть непустой строкой');if(keys.has(key))throw Error(`Повторный key ${key}`);keys.add(key);}check(n.children,n.type==='For'?new Set():keys);check(n.elseChildren??[],keys);check(n.emptyChildren??[],keys);}}check(nodes);
-  return {name,nodes,designs,scenarios,overrides,overrideTypes,defaults,defaultRanges,base,slots,propDefinitions,eventDefinitions,enums,matches,forward};
+  return {name,nodes,designs,states,overrides,overrideTypes,defaults,defaultRanges,base,slots,propDefinitions,eventDefinitions,enums,matches,forward};
 }
 export function validateDesign(component,design){
   if(design.name!==component.name)throw Error(`Дизайн ${design.name} не соответствует ${component.name}`);
   const keys=new Map();function walk(nodes){for(const n of nodes){keys.set(n.props.key,n.type);walk(n.children);walk(n.elseChildren??[]);walk(n.emptyChildren??[]);}}walk(component.nodes);
-  for(const key of Object.keys(design.overrides)){if(!keys.has(key))throw Error(`Неизвестный дизайн-key ${key}`);if(keys.get(key)!==design.overrideTypes[key])throw Error(`Тип дизайн-key ${key}: ожидался ${keys.get(key)}, получен ${design.overrideTypes[key]}`);}
+  function check(overrides,overrideTypes,where){for(const key of Object.keys(overrides)){if(!keys.has(key))throw Error(`Неизвестный дизайн-key ${key}`);if(keys.get(key)!==overrideTypes[key])throw Error(`Тип дизайн-key ${key}: ожидался ${keys.get(key)}, получен ${overrideTypes[key]}${where}`);}}
+  check(design.overrides,design.overrideTypes,'');
+  for(const state of design.states??[])check(state.overrides,state.overrideTypes,` в состоянии ${state.name}`);
+}
+// The patch a preview applies for one state: the base entries with the state's props written over
+// them, property by property, so an author names only what changes.
+export function designStatePatch(design,stateName=null){
+  const merged={};for(const key of Object.keys(design.overrides??{}))merged[key]={...design.overrides[key]};
+  if(stateName==null)return merged;
+  const state=(design.states??[]).find(s=>s.name===stateName);
+  if(!state)throw Error(`Состояние ${stateName} не объявлено`);
+  for(const key of Object.keys(state.overrides)){merged[key]??={};Object.assign(merged[key],state.overrides[key]);}
+  return merged;
 }
 export function resolve(v,state){
   const ref=designReference(v);if(ref)return readDesignData(ref);
