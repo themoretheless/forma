@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse,validateDesign,designStatePatch} from '../src/language.js';
 import {propertyEdit,propertyAddEdit,propertyRemoveEdit,sourceNode} from '../src/property-edit.js';
-import {findState,findEntry,stateCreateEdit,stateRenameEdit,stateDeleteEdit,statePropertyEdit,stateEntryRemoveEdit} from '../src/design-states.js';
+import {findState,findEntry,stateCreateEdit,stateRenameEdit,stateDeleteEdit,statePropertyEdit,stateEntryRemoveEdit,designStatesSummary} from '../src/design-states.js';
 
 // The panel applies one edit at a time, exactly as the inspector does for the markup file.
 const run=(source,edit)=>source.slice(0,edit.from)+edit.insert+source.slice(edit.to);
@@ -144,4 +144,17 @@ test('the lookups answer what the panel has to mark',()=>{
  assert.equal(findEntry(twoStates,'нет','status'),null);
  assert.throws(()=>statePropertyEdit(twoStates,'нет','Text','status','text',"'x'"),/Состояние нет не объявлено/);
  assert.throws(()=>statePropertyEdit(twoStates,'поиск','Button','status','text',"'x'"),/Тип дизайн-key status: ожидался Text, получен Button/);
+});
+
+test('the summary reads the file the way a caller writes it back',()=>{
+ const summary=designStatesSummary(twoStates);
+ // The key addresses the entry and the value text is markup, so both stay exactly as the file has
+ // them: a caller can hand a value straight to statePropertyEdit and get the same file back.
+ assert.deepEqual(summary,{base:[{type:'Text',key:'status',properties:{text:"'Готово'"}}],states:[
+  {name:'поиск',entries:[{type:'Text',key:'status',properties:{text:"'Ищем…'"}}]},
+  {name:'пусто',entries:[{type:'Button',key:'go',properties:{disabled:'true'}}]}]});
+ const [status]=summary.states[0].entries;
+ assert.equal(run(twoStates,statePropertyEdit(twoStates,'поиск',status.type,status.key,'text',status.properties.text)),twoStates);
+ assert.deepEqual(designStatesSummary(base).states,[]);
+ assert.throws(()=>designStatesSummary(component),/не является дизайн-файлом/);
 });

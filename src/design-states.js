@@ -42,6 +42,18 @@ const renamedState=(list,label,name)=>list.map(([other,entries])=>[other===label
 const withState=(list,name)=>[...list,[name,[]]];
 
 export function findState(source,name){return parse(source).states.find(state=>state.name===name)??null;}
+// A reader for surfaces that have no panel: the base block and every state, each entry with its
+// type, its key and the text of its values. Values are quoted straight from the file because a
+// design value keeps its own spelling — `'Текст'`, `#e8edf7`, `design.titleSize` — and re-quoting
+// it here would either break the round trip or push a caller into guessing how to write it back.
+export function designStatesSummary(source){
+  const doc=designDoc(source);
+  const entry=node=>({type:node.type,key:node.props.key,properties:Object.fromEntries(Object.entries(node.propertyRanges)
+    .filter(([name])=>name!=='key')
+    .map(([name,range])=>[name,source.slice(range.from,range.to)]))});
+  return {base:doc.entries.map(entry),states:doc.states.map(state=>({name:state.name,entries:state.nodes.map(entry)}))};
+}
+
 // A state the file never named has no entries, which is what the panel marks as not overridden.
 export function findEntry(source,stateName,key){
   const doc=parse(source);

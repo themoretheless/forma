@@ -19,7 +19,7 @@ import './property-inspector.css';
 import './states-panel.css';
 import {createControlTree} from './control-tree.js';
 import {createStatesPanel} from './states-panel.js';
-import {findEntry,stateCreateEdit,stateDeleteEdit,stateRenameEdit} from './design-states.js';
+import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePropertyEdit,stateRenameEdit} from './design-states.js';
 import {moveAmongSiblings} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
@@ -284,16 +284,26 @@ function refreshStatesPanel(){
   }
   statesPanel.update({path,states,baseCount,editable,error:message,active:scenario<0?null:compiled?.states[scenario]?.name});
 }
-// A panel action splices the design file its rows came from, so the edit is computed against that
-// file's live text and passes the same stale-snapshot guard an inspector edit passes.
-function designStateEdit(build){
+// The live text of the file the states panel authors, read the way the panel's own rows read it:
+// from the editor when that file is open, so a design edit never computes against older text.
+function designStateFile(){
   const path=designFilePath();
   if(!path)throw Error('Дизайн-файл не выбран');
-  const source=path===active?$('code').value:files[path];
-  commitSource({file:path,source,...build(source)});
+  return {path,source:path===active?$('code').value:files[path]};
+}
+// A panel action splices the design file its rows came from, so the edit is computed against that
+// file's live text and passes the same stale-snapshot guard an inspector edit passes. An MCP write
+// additionally names the text it read, because the agent's view and the editor can part ways
+// between its read and its call — the live text cannot, which is what commitSource checks.
+function designStateEdit(build,expectedContent){
+  const {path,source}=designStateFile();
+  if(expectedContent!==undefined&&expectedContent!==source)throw Error('Дизайн-файл изменился: обновите его через design_states_read');
+  const edit=build(source);
+  commitSource({file:path,source,...edit});
   // The editor publishes the spliced text through its input event; compiling afterwards redraws
   // the panel from the file the edit actually produced.
   queueMicrotask(()=>{clearTimeout(compileTimer);compile();});
+  return {file:path,content:source.slice(0,edit.from)+edit.insert+source.slice(edit.to)};
 }
 function selectTreeControl(item){
   if(item.path===entry){
@@ -447,7 +457,7 @@ initVector();
 
 // The MCP transport invokes the same runtime and UI operations as the editor.
 function ideCommand(command,args={}){
-  const snapshot=()=>({active,entry,scenario:compiled?.states[scenario]?.name,mode,error,selected:selected?.start??null,debug:{breakOn,paused:!!pending,action:pending?.action??null},renderer,capabilities:{vectorRenderer:!!vectorPreview,rustExecution:!!import.meta.hot,rustDap:false}});
+  const snapshot=()=>({active,entry,scenario:scenario<0?null:compiled?.states[scenario]?.name??null,mode,error,selected:selected?.start??null,debug:{breakOn,paused:!!pending,action:pending?.action??null},renderer,capabilities:{vectorRenderer:!!vectorPreview,rustExecution:!!import.meta.hot,rustDap:false}});
   const requireFile=path=>{if(!Object.hasOwn(files,path))throw Error('File not found: '+path);};
   const findNode=start=>{let found;const walk=nodes=>{for(const n of nodes??[]){if(n.start===start)found=n;walk(n.children);}};walk(compiled?.nodes);if(!found)throw Error('Component not found; refresh component_tree');return found;};
   const applyFiles=()=>{selected=null;open(active);persist();compile(true);};
@@ -478,7 +488,16 @@ function ideCommand(command,args={}){
     case 'preview_renderer':rendererPicker.value=args.renderer;rendererPicker.onchange();break;
     case 'vector_status':return vectorPreview?.snapshot()??{ready:false};
     case 'preview_open':requireFile(args.path);entry=args.path;scenario=0;compile(true);break;
-    case 'preview_scenario':{const index=compiled?.states.findIndex(s=>s.name===args.name);if(index===undefined||index<0)throw Error('Design state not found');scenario=index;$('scenario').value=index;$('scenario').onchange({target:$('scenario')});break;}
+    case 'preview_scenario':{if(args.name===null){if(!compiled?.states?.length)throw Error('The component has no design states');$('scenario').value=-1;$('scenario').onchange({target:$('scenario')});break;}const index=(compiled?.states??[]).findIndex(s=>s.name===args.name);if(index<0)throw Error('Design state not found');scenario=index;$('scenario').value=index;$('scenario').onchange({target:$('scenario')});break;}
+    // Same target as the states panel: the file that panel authors, never an arbitrary design file
+    // the entry does not use. An agent that wants another one edits it through file_write.
+    case 'design_states_read':return designStatesSummary(designStateFile().source);
+    case 'design_state_create':return designStateEdit(source=>stateCreateEdit(source,args.name),args.expectedContent);
+    case 'design_state_rename':return designStateEdit(source=>stateRenameEdit(source,args.name,args.newName),args.expectedContent);
+    case 'design_state_delete':return designStateEdit(source=>stateDeleteEdit(source,args.name),args.expectedContent);
+    // The state block is named, not indexed, so a rename between the read and this call cannot land
+    // a property in the wrong block; `null` is the base block, which is what the panel's own row is.
+    case 'design_state_property':return designStateEdit(source=>statePropertyEdit(source,args.state??null,args.type,args.key,args.property,args.value),args.expectedContent);
     case 'preview_mode':if(mode!==args.mode)$('run').click();break;
     case 'preview_viewport':$(args.device).click();$('preview').classList.toggle('light',args.theme==='light');break;
     case 'component_tree':return {entry,nodes:compiled?.nodes??[],error};
