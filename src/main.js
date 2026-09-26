@@ -15,9 +15,11 @@ import './style.css';
 import './selection.css';
 import './vector-artboard.css';
 import './control-tree.css';
+import './property-inspector.css';
 import {createControlTree} from './control-tree.js';
 import {mountEditor} from './editor.js';
-import {propertyEdit} from './property-edit.js';
+import {createPropertyInspector} from './property-inspector.js';
+import {designReferencesInFiles} from './design-data.js';
 import {createSpacingOverlay} from './spacing-overlay.js';
 import {gridProperties,gridStyles} from './grid.js';
 import {sizeProperties,sizeValue} from './sizing.js';
@@ -32,7 +34,7 @@ import {createCacheBudget} from './cache-budget.js';
 const studioCache=createCacheBudget();
 const compileComponents=createComponentCompiler({cache:studioCache});
 import {setDesignData,designReferences} from './design-data.js';
-let codeEditor;
+let codeEditor,propertyInspector;
 let spacingOverlay;
 let vectorPreview;
 let controlTree,selectedPath=null;
@@ -195,7 +197,7 @@ function make(source,parent=null){const override=designMode&&Object.hasOwn(compi
 for(const [key,path]of Object.entries(n.bindings)){if(!['value','checked','selected'].includes(key))throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);const property=key==='value'?'value':'checked';el[property]=n.props[key]??(property==='value'?'':false);el.addEventListener('input',()=>{const value=property==='checked'?el.checked:n.type==='Slider'?Number(el.value):el.value;if(writePreviewBinding(state,n,path,value,{createMissing:true})){log(`${path} = ${JSON.stringify(value)}`);if(n.events.changed)dispatch(n.events.changed,n,'changed');schedulePreviewRefresh();}});}
 el.addEventListener('click',e=>{e.stopPropagation();if(mode==='design'){select(source);return;}if(n.events.clicked)dispatch(n.events.clicked,n);});Object.assign(el.style,gridStyles(n,state,parent));for(const child of n.children)el.append(make(child,n));return el;}
 const focused=document.activeElement;const focusIdentity=preview.contains(focused)?{key:focused.dataset.key,start:focused.dataset.start,selectionStart:focused.selectionStart,selectionEnd:focused.selectionEnd}:null;const fragment=document.createDocumentFragment();const expanded=expandStructure(compiled.nodes,compiled.defaults,state,{enums:compiled.enums,allowMissingState:true});for(const n of expanded)fragment.append(make(n));preview.replaceChildren(fragment);if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySelectorAll('[data-start]')).find(el=>focusIdentity.key?el.dataset.key===focusIdentity.key:el.dataset.start===focusIdentity.start);if(restored){restored.focus({preventScroll:true});if(typeof focusIdentity.selectionStart==='number'&&restored.setSelectionRange)restored.setSelectionRange(focusIdentity.selectionStart,focusIdentity.selectionEnd);}}$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
-function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));$('inspector').innerHTML=`<h3>${esc(n.type)}</h3><div class="inspector-label">СВОЙСТВА</div>${Object.entries(n.props).map(([k,v])=>`<label class="property"><span>${esc(k)}</span><input data-prop="${esc(k)}" value="${esc(typeof v==='object'?JSON.stringify(v):v)}" ${typeof v==='object'?'disabled':''}></label>`).join('')}<div class="inspector-label">ПРИВЯЗКИ И СОБЫТИЯ</div>${Object.entries({...n.bindings,...n.events}).map(([k,v])=>`<div class="binding">${esc(k)}<code>${esc(v)}</code></div>`).join('')||'<small>Нет привязок</small>'}`;document.querySelectorAll('[data-prop]').forEach(input=>input.onchange=()=>{const key=input.dataset.prop;const old=n.props[key];const raw=typeof old==='number'?Number(input.value):typeof old==='boolean'?input.value==='true':input.value;if(typeof raw==='number'&&!Number.isFinite(raw))return;try{if(active!==entry)open(entry);codeEditor.edit(propertyEdit(files[entry],n.start,key,raw));}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;output();}});lines();controlTree?.select(n.start,entry);}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));propertyInspector?.render({node:n,path:entry,source:files[entry],editable:designPresetName==='original'});lines();controlTree?.select(n.start,entry);}
 function refreshControlTree(){
   if(!controlTree)return;
   const path=controlTree.scope==='designer'?entry:active;
@@ -216,7 +218,7 @@ function selectTreeControl(item){
   document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));
   if(active!==item.path)open(item.path);
   $('code').setSelectionRange(item.node.start,item.node.start);
-  $('inspector').innerHTML=`<h3>${esc(item.node.type)}</h3><p>Узел шаблона</p><small>${esc(item.path)}<br>Изменяйте свойства в разметке. Геометрия конкретного экземпляра здесь не выбирается.</small>`;
+  propertyInspector?.render({node:item.node,path:item.path,source:files[item.path],editable:designPresetName==='original',note:'Узел шаблона. Геометрию конкретного экземпляра здесь выбрать нельзя.'});
   lines();controlTree.select(item.node.start,item.path);
 }
 function showNativeInspection(data){
@@ -252,6 +254,17 @@ $('code').addEventListener('scroll',highlightSource);
 $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});}});
 codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
+propertyInspector=createPropertyInspector({container:$('inspector'),designTokens:()=>designReferencesInFiles(files),
+ // The inspector renders from the source it was given, so a commit that arrives after a
+ // keystroke would splice offsets that no longer describe the file. `files` only catches the
+ // editor up on the next microtask, so the open file is checked against its live document.
+ commit:({file,source,from,to,insert})=>{
+  if((file===active?$('code').value:files[file])!==source)throw Error('Исходник изменился — повторите операцию');
+  parse(source.slice(0,from)+insert+source.slice(to));
+  if(active!==file)open(file);
+  codeEditor.edit({from,to,insert});
+ },
+ onError:message=>{error=message;sourceDiagnostic=null;output();}});
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
 getScene:()=>renderer==='vector'?vectorPreview?.layoutSnapshot():null,
 getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=children[0]?.type==='Scroll'?children[0].children:children;return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
@@ -348,7 +361,7 @@ function ideCommand(command,args={}){
       if(error||files[entry]!==args.expectedContent)throw Error('Stale or invalid source. Read entry file first.');
       const n=findNode(args.start);if(!Object.hasOwn(n.props,args.property)||typeof n.props[args.property]==='object')throw Error('Only existing literal properties are supported');
       if(typeof n.props[args.property]!==typeof args.value)throw Error('Property type mismatch');
-      select(n);const input=Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===args.property);input.value=String(args.value);input.onchange();break;
+      select(n);const input=Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===args.property);if(!input)throw Error('Свойство недоступно для правки: включите исходный вид');input.value=String(args.value);input.onchange();break;
     }
     case 'state_read':return structuredClone(state);
     case 'state_set':for(const [key,v]of Object.entries(args.values)){if(!Object.hasOwn(state,key)||typeof state[key]!==typeof v)throw Error('Unknown field or incompatible type: '+key);}Object.assign(state,args.values);render();output();break;

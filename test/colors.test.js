@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {colorValue} from '../src/color-swatches.js';
+import {colorValue} from '../src/color-values.js';
 test('swatch colors support literal and quoted formats and alpha conversion',()=>{
  assert.equal(colorValue("'#FF804080'"),'#FF804080');
  assert.equal(colorValue('rgb(255 128 64 / 50%)'),'rgb(255 128 64 / 50%)');
