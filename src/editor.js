@@ -67,7 +67,7 @@ export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={})
     view.dispatch({selection:{anchor:start,head:end},effects});
   };
   view.dom.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'s',metaKey:e.metaKey,ctrlKey:e.ctrlKey}));}});
-  return {position(){const from=view.state.selection.main.from,line=view.state.doc.lineAt(from);return {line:line.number,column:from-line.from+1};},undo(){return undo(view);},redo(){return redo(view);},edit(change){view.dispatch({changes:change,userEvent:'input.inspector',annotations:isolateHistory.of('full')});},setLanguage(path){pendingPath=path;},fold({line,collapsed=true}){
+  return {resetProject(){documents.clear();documentPath=null;pendingPath=null;currentHighlight='';},position(){const from=view.state.selection.main.from,line=view.state.doc.lineAt(from);return {line:line.number,column:from-line.from+1};},undo(){return undo(view);},redo(){return redo(view);},edit(change){view.dispatch({changes:change,userEvent:'input.inspector',annotations:isolateHistory.of('full')});},setLanguage(path){pendingPath=path;},fold({line,collapsed=true}){
     if(line===undefined){(collapsed?foldAll:unfoldAll)(view);return;}
     if(line<1||line>view.state.doc.lines)throw Error('Line out of range');
     const location=view.state.doc.line(line),range=view.state.field(ranges).find(r=>r.from>location.from&&r.from<=location.to);
