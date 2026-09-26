@@ -1,9 +1,9 @@
 import {createEventScope} from './event-scope.js';
-import {copyElements,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren} from './element-edit.js';
+import {copyElements,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
 export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report}){
  const events=createEventScope(),listen=events.listen;
- let clipboard='',drag=null,selection=[],primary=null,snapping=true;
+ let clipboard='',drag=null,selection=[],primary=null,snapping=true,resize=null;
  const bar=document.createElement('div');bar.className='element-tools';bar.hidden=true;bar.setAttribute('role','menu');bar.setAttribute('aria-label','Редактирование элементов');
  const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y']];
  for(const [action,label] of labels){const b=document.createElement('button');b.textContent=label;b.dataset.action=action;b.setAttribute('role',action==='snap'?'menuitemcheckbox':'menuitem');b.tabIndex=-1;b.onclick=()=>{run(action);closeMenu(true);};bar.append(b);}
@@ -111,10 +111,21 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  }catch(e){report(e.message);}finally{update();}}
  function geometry(){const r=artboard.getBoundingClientRect(),p=viewport.getBoundingClientRect();const c=context();return {x:r.left-p.left+viewport.scrollLeft,y:r.top-p.top+viewport.scrollTop,scale:r.width/(artboard.offsetWidth||c?.scene.width||r.width)};}
  function box(bounds,className){const g=geometry(),el=document.createElement('div');el.className=className;Object.assign(el.style,{left:g.x+bounds[0]*g.scale+'px',top:g.y+bounds[1]*g.scale+'px',width:bounds[2]*g.scale+'px',height:bounds[3]*g.scale+'px'});overlay.append(el);}
+ // A corner drags one side per axis, so the unit vector doubles as the set of moving edges.
+ const sides=[['nw',0,0,'nwse-resize'],['n',.5,0,'ns-resize'],['ne',1,0,'nesw-resize'],['e',1,.5,'ew-resize'],['se',1,1,'nwse-resize'],['s',.5,1,'ns-resize'],['sw',0,1,'nesw-resize'],['w',0,.5,'ew-resize']];
+ const unit=name=>({left:name.includes('w')?1:0,right:name.includes('e')?1:0,top:name.includes('n')?1:0,bottom:name.includes('s')?1:0});
+ function handles(bounds){const g=geometry();
+  for(const [name,fx,fy,cursor] of sides){const el=document.createElement('button');el.className='element-resize-handle';el.dataset.side=name;el.title='Потянуть, чтобы изменить размер';el.setAttribute('aria-label',`Изменить размер: ${name}`);el.tabIndex=-1;
+   Object.assign(el.style,{left:g.x+(bounds[0]+bounds[2]*fx)*g.scale+'px',top:g.y+(bounds[1]+bounds[3]*fy)*g.scale+'px',cursor});overlay.append(el);}
+ }
  function draw(){overlay.replaceChildren();const c=context();if(!c)return;
   for(const item of items(c))box(item.bounds,'element-selected-box');
+  if(!drag&&resize!=null)for(const item of items(c))handles(item.bounds);
   if(!drag)return;
   if(drag.kind==='marquee'){box(drag.marquee,'element-marquee');return;}
+  if(drag.kind==='resize'){const g=geometry(),b=drag.preview,label=document.createElement('span');label.className='element-drag-label';
+   label.textContent=`${Math.round(b[2])} × ${Math.round(b[3])}`;box(b,'element-drag-preview');
+   Object.assign(label.style,{left:g.x+b[0]*g.scale+'px',top:g.y+b[1]*g.scale-22+'px'});overlay.append(label);return;}
   if(!drag.moved)return;
   for(const item of drag.items)box([item.bounds[0]+drag.dx,item.bounds[1]+drag.dy,item.bounds[2],item.bounds[3]],'element-drag-preview');
   const g=geometry();for(const guide of drag.guides??[]){const line=document.createElement('div');line.className='element-snap-guide';Object.assign(line.style,guide.axis===0?{left:g.x+guide.position*g.scale+'px',top:g.y+'px',height:c.scene.height*g.scale+'px'}:{left:g.x+'px',top:g.y+guide.position*g.scale+'px',width:c.scene.width*g.scale+'px'});overlay.append(line);}
@@ -123,7 +134,15 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  function cancel(){const d=drag;drag=null;if(d&&viewport.hasPointerCapture(d.id))viewport.releasePointerCapture(d.id);draw();}
  listen(viewport,'pointerdown',e=>{
   const c=current();if(!c||e.button!==0||e.detail>1||e.target.closest('.grid-handle')||viewport.classList.contains('canvas-pan-ready'))return;
-  if(!artboard.contains(e.target)&&e.target!==viewport)return;
+  if(!artboard.contains(e.target)&&e.target!==viewport){
+   const side=e.target?.dataset?.side;
+   // A handle belongs to the selection rather than to the control underneath it, so the drag
+   // starts from the rendered box the designer sees, not from whatever the pointer is over.
+   if(side&&resize!=null){const item=items(c)[0];if(!item)return;
+    e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
+    const g=geometry();drag={...c,kind:'resize',id:e.pointerId,start:item.start,unit:unit(side),bounds:item.bounds,x:e.clientX,y:e.clientY,scale:g.scale,edges:{left:0,right:0,top:0,bottom:0},preview:item.bounds,moved:false};
+    viewport.setPointerCapture(e.pointerId);draw();}
+   return;}
   const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
   const hit=[...c.scene.controls].reverse().find(n=>x>=n.bounds[0]&&y>=n.bounds[1]&&x<=n.bounds[0]+n.bounds[2]&&y<=n.bounds[1]+n.bounds[3]);
   const n=hit?c.nodes[hit.index]:null;e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
@@ -136,6 +155,12 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopImmediatePropagation();
   let dx=(e.clientX-drag.x)/drag.scale,dy=(e.clientY-drag.y)/drag.scale;drag.moved=Math.hypot(dx,dy)*drag.scale>=3;
   if(drag.kind==='marquee'){drag.marquee=[drag.origin[0]+Math.min(0,dx),drag.origin[1]+Math.min(0,dy),Math.abs(dx),Math.abs(dy)];draw();return;}
+  if(drag.kind==='resize'){const b=drag.bounds,u=drag.unit,scroll=drag.scene.scrollOffset??[0,0];
+   // A side cannot cross the opposite one, and a leading edge cannot push the control off the page.
+   const left=u.left?Math.max(Math.min(dx,b[2]),-b[0]-scroll[0]):0,right=u.right?Math.max(dx,-b[2]):0;
+   const top=u.top?Math.max(Math.min(dy,b[3]),-b[1]-scroll[1]):0,bottom=u.bottom?Math.max(dy,-b[3]):0;
+   drag.edges={left,right,top,bottom};
+   drag.preview=[b[0]+left,b[1]+top,Math.max(0,b[2]+right-left),Math.max(0,b[3]+bottom-top)];draw();return;}
   const bounds=selectionBounds(drag.items.map(i=>i.bounds));drag.guides=[];
   if(snapping&&!e.altKey&&!drag.grid){const others=drag.scene.controls.filter(c=>!drag.items.some(i=>drag.nodes[c.index]?.start===i.start)).map(c=>c.bounds);const snapped=snapSelection(bounds,dx,dy,others,[drag.scene.width,drag.scene.height],6/drag.scale);dx=snapped.dx;dy=snapped.dy;drag.guides=snapped.guides;}
   // Clamp the whole group together so its internal spacing is preserved.
@@ -145,6 +170,8 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  listen(viewport,'pointerup',e=>{
   if(!drag||e.pointerId!==drag.id)return;e.stopImmediatePropagation();const d=drag;cancel();
   if(d.kind==='marquee'){const hit=d.moved?items(d,d.nodes.map(n=>n.start)).filter(i=>intersects(i.bounds,d.marquee)).map(i=>i.start):[];choose([...new Set([...d.initial,...hit])],d);return;}
+  if(d.kind==='resize'){if(!d.moved)return;const scroll=d.scene.scrollOffset??[0,0];
+   try{apply(resizeElement(d.source,d.start,d.edges,d.bounds,[d.bounds[0]+scroll[0],d.bounds[1]+scroll[1]]),d);}catch(error){report(error.message);}return;}
   if(!d.moved)return;try{
    let cells=[];
    if(d.grid){
@@ -184,6 +211,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  for(const action of ['copy','cut'])listen(window,action,e=>{if(!scope(e)||!current())return;const value=run('copy');if(!value)return;e.preventDefault();e.clipboardData.setData('text/plain',value);if(action==='cut')run('delete');});
  listen(window,'paste',e=>{if(!scope(e)||!current())return;e.preventDefault();run('paste',e.clipboardData.getData('text/plain'));});
  function update(){const c=current();if(!c)closeMenu();let location;try{if(c?.start!=null)location=locateElement(c.source,c.start);}catch{}
+  resize=selection.length===1&&location&&!resizeBlock(location.node,location.parent)?selection[0]:null;
   drawAdds(c?.inserts);
   count.textContent=selection.length?`Выбрано: ${selection.length}`:'';
   for(const b of bar.children){const action=b.dataset.action;if(!action)continue;b.disabled=!c||(!['undo','redo','snap','add'].includes(action)&&c.start==null);

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
-import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement} from '../src/element-edit.js';
+import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock} from '../src/element-edit.js';
 const apply=(s,c)=>s.slice(0,c.from)+c.insert+s.slice(c.to);
 const sample="component Test { Frame { width: 400; Button { key: 'a'; text: 'a'; x: 10; y: 20; clicked -> actions.save(); } Button { key: 'a_2'; } } }";
 const first=s=>parse(s).nodes[0].children[0];
@@ -71,4 +71,34 @@ test('an inserted control takes the indentation of the block it joins',()=>{
  change=insertElement(next,block(next).scroll.start,"Rectangle {\n        width: 40;\n      }",false,'inside');next=apply(next,change);
  assert.deepEqual(next.split('\n').slice(3,9),["      Button { key: 'a'; }",'      Badge { }','      Rectangle {','        width: 40;','      }','    }']);
  assert.equal(next.slice(change.start,change.start+9),'Rectangle');assert.deepEqual(change.starts,[change.start]);
+});
+test('a dragged edge writes the size the control renders and anchors the opposite edge',()=>{
+ const s="component Test { Frame { width: 400; Button { key: 'a'; x: 40; y: 20; width: 60; height: 24; } } }";
+ const n=first(s),change=resizeElement(s,n.start,{left:0,right:20,top:0,bottom:-4},[n.props.x,n.props.y,n.props.width,n.props.height]);
+ let next=apply(s,change);assert.deepEqual([first(next).props.width,first(next).props.height,first(next).props.x],[80,20,40]);
+ // The grabbed edge follows the pointer, so a leading edge carries the coordinate with it.
+ const m=first(next);next=apply(next,resizeElement(next,m.start,{left:-10,right:0,top:0,bottom:0},[m.props.x,m.props.y,m.props.width,m.props.height]));
+ assert.deepEqual([first(next).props.x,first(next).props.width],[30,90]);assert.equal(first(next).props.height,20);
+});
+test('a drag sizes an implicit box by what the canvas shows and stays inside the declared bounds',()=>{
+ const s="component Test { Frame { width: 400; Button { key: 'a'; x: 10; y: 20; } } }";
+ const grown=apply(s,resizeElement(s,first(s).start,{left:0,right:20,top:0,bottom:10},[10,20,100,40]));
+ assert.deepEqual([first(grown).props.width,first(grown).props.height,first(grown).props.x],[120,50,10]);
+ const tight="component Test { Frame { width: 400; Button { key: 'a'; width: 60; height: 24; minWidth: 40; } } }";
+ assert.equal(first(apply(tight,resizeElement(tight,first(tight).start,{left:0,right:-50,top:0,bottom:0},[0,0,60,24]))).props.width,40);
+ assert.equal(first(apply(s,resizeElement(s,first(s).start,{left:0,right:-140,top:0,bottom:0},[10,20,100,40]))).props.width,1);
+});
+test('a size the layout owns elsewhere refuses the drag',()=>{
+ const page='component Test { Frame { width: 400; Button { width: 60; height: 24; } } }';
+ const root=locateElement(page,parse(page).nodes[0].start);
+ assert.equal(resizeBlock(root.node,root.parent),'Изменяйте размер дочернего контрола');
+ assert.throws(()=>resizeElement(page,root.node.start,{left:0,right:1,top:0,bottom:0},[0,0,400,300]),/дочернего/);
+ const boxed='component Test { Frame { Scroll { Button { width: 60; height: 24; } } } }';
+ const scroll=locateElement(boxed,first(boxed).start);assert.equal(resizeBlock(scroll.node,scroll.parent),'Изменяйте размер дочернего контрола');
+ const grid='component Test { Frame { columns: [100, *]; rows: [40, *]; Button { cell: [1, 1]; width: 60; height: 24; } } }';
+ const cell=locateElement(grid,first(grid).start);assert.match(resizeBlock(cell.node,cell.parent),/треки/);
+ const flexed="component Test { Row { Button { width: '2*'; height: 24; } } }";
+ const row=locateElement(flexed,first(flexed).start);assert.match(resizeBlock(row.node,row.parent),/весом/);
+ const bound='component Test { Frame { Button { width: state.w; height: 24; } } }';
+ const ref=locateElement(bound,first(bound).start);assert.match(resizeBlock(ref.node,ref.parent),/выражением/);
 });

@@ -121,3 +121,44 @@ test('a printable key with the menu open searches the palette instead of running
  // The key itself is left to the browser so that it lands in the search box as the first letter.
  assert.equal(focused,1);assert.equal(event.defaultPrevented,false);assert.equal(t.commits.length,0);
 });
+const handleLayer=t=>t.viewport.children.find(c=>c!==t.artboard);
+const sides=t=>handleLayer(t).children.filter(c=>c.dataset?.side).map(c=>c.dataset.side);
+test('a single selection carries resize handles and a dragged corner changes only the size',()=>{
+ const t=setup();t.down();t.viewport.emit('pointerup',{pointerId:1});
+ assert.deepEqual(sides(t),['nw','n','ne','e','se','s','sw','w']);
+ const se=handleLayer(t).children.find(c=>c.dataset.side==='se');
+ t.viewport.emit('pointerdown',{target:se,button:0,pointerId:3,clientX:0,clientY:0});
+ t.viewport.emit('pointermove',{pointerId:3,clientX:40,clientY:20});
+ assert.equal(t.commits.length,0);assert.deepEqual(sides(t),[],'the handles step back while the drag runs');
+ t.viewport.emit('pointerup',{pointerId:3});
+ const node=parse(t.source()).nodes[0].children[0];
+ // The fixture box is 100×40 and the canvas is at 200%, so 40×20 screen pixels are 20×10 scene units.
+ assert.deepEqual([node.props.width,node.props.height,node.props.x,node.props.y],[120,50,10,20]);
+ assert.equal(t.commits.length,1);assert.deepEqual(t.tools.selection(),[node.start]);assert.deepEqual(t.errors,[]);
+});
+test('a leading edge is clamped to the page and Escape drops the resize without an edit',()=>{
+ const t=setup("component Test { Frame { width: 400; Button { key: 'a'; x: 20; y: 20; width: 60; height: 24; } } }");
+ t.down();t.viewport.emit('pointerup',{pointerId:1});
+ const w=handleLayer(t).children.find(c=>c.dataset.side==='w');
+ t.viewport.emit('pointerdown',{target:w,button:0,pointerId:4,clientX:0,clientY:0});
+ t.viewport.emit('pointermove',{pointerId:4,clientX:-400,clientY:0});
+ t.viewport.emit('pointerup',{pointerId:4});
+ const node=parse(t.source()).nodes[0].children[0];
+ // The edge stops where the control touches the page border, so 20 of the 200 units are available.
+ assert.deepEqual([node.props.x,node.props.width],[0,80]);assert.deepEqual(t.errors,[]);
+ t.down();t.viewport.emit('pointerup',{pointerId:1});
+ const e=handleLayer(t).children.find(c=>c.dataset.side==='e');const before=t.source();
+ t.viewport.emit('pointerdown',{target:e,button:0,pointerId:5,clientX:0,clientY:0});
+ t.viewport.emit('pointermove',{pointerId:5,clientX:60,clientY:0});
+ window.emit('keydown',{target:t.viewport,key:'Escape'});t.viewport.emit('pointerup',{pointerId:5});
+ assert.equal(t.source(),before);assert.deepEqual(sides(t),['nw','n','ne','e','se','s','sw','w']);
+});
+test('a control whose size the layout owns gets no handles',()=>{
+ const t=setup('component Test { Frame { Scroll { Button { key: \'a\'; } } } }');
+ t.down();t.viewport.emit('pointerup',{pointerId:1});assert.deepEqual(t.tools.selection().length,1);
+ assert.deepEqual(sides(t),[]);
+ const grid='component Test { Frame { columns: [100, *]; rows: [40, *]; Button { key: \'a\'; cell: [1, 1]; width: 60; height: 24; } } }';
+ const g=setup(grid);g.viewport.emit('pointerdown',{target:g.artboard,button:0,pointerId:1,clientX:20,clientY:20});
+ g.viewport.emit('pointerup',{pointerId:1});assert.deepEqual(g.tools.selection().length,1);
+ assert.deepEqual(sides(g),[]);
+});

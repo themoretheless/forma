@@ -1,5 +1,5 @@
 import {parse} from './language.js';
-import {containerTypes} from './component-layout.js';
+import {containerTypes,intrinsicLength,weight} from './component-layout.js';
 export function locateElement(source,start){
  let found;const walk=(nodes,parent)=>{for(const node of nodes){if(node.start===start)found={node,parent};walk(node.children,node);}};walk(parse(source).nodes,null);
  if(!found)throw Error('Выберите элемент заново');return found;
@@ -27,6 +27,32 @@ export function moveElement(source,start,dx,dy,cell,origin=[0,0]){
   props={x:Math.max(0,Math.round(((node.props.x??origin[0])+dx)*10)/10),y:Math.max(0,Math.round(((node.props.y??origin[1])+dy)*10)/10)};
  }
  const next=patch(source,node,props);parse(next);return {from:node.start,to:node.end,insert:next.slice(node.start,node.end+next.length-source.length),start:node.start};
+}
+// A size is editable only where the layout takes it from the control itself: an expression or
+// a flex weight is code the designer wrote on purpose, and a Grid child is sized by its tracks.
+export function resizeBlock(node,parent){
+ if(!parent||node.type==='Scroll')return 'Изменяйте размер дочернего контрола';
+ if(parent.props.columns!==undefined||parent.props.rows!==undefined)return 'В Grid размер задают треки: перетащите границу сетки';
+ for(const key of ['width','height']){const value=node.props[key];if(intrinsicLength(value))continue;
+  if(weight(value))return `Размер задан весом: измените ${key} в коде`;
+  if(value?.expr!==undefined)return `Размер задан выражением: измените ${key} в коде`;}
+ return null;
+}
+// `edges` carries how far each side moved in scene units and `bounds` is the rendered box the
+// designer grabbed, so a control that sized itself gets its real size written down instead of a
+// guess. The opposite edge anchors the drag, which is why a leading edge moves the coordinate too.
+export function resizeElement(source,start,edges,bounds,origin=[0,0]){
+ const {node,parent}=locateElement(source,start);
+ const block=resizeBlock(node,parent);if(block)throw Error(block);
+ const number=value=>typeof value==='number'?value:undefined,rounded=value=>Math.round(value*10)/10;
+ const props={};
+ for(const [key,min,max,size,leading,trailing,coordinate,at] of [['width','minWidth','maxWidth',2,'left','right','x',0],['height','minHeight','maxHeight',3,'top','bottom','y',1]]){
+  const delta=edges[trailing]-edges[leading];
+  if(delta)props[key]=Math.min(number(node.props[max])??Infinity,Math.max(1,number(node.props[min])??1,rounded(bounds[size]+delta)));
+  if(edges[leading])props[coordinate]=Math.max(0,rounded((node.props[coordinate]??origin[at])+edges[leading]));
+ }
+ const next=patch(source,node,props);parse(next);
+ return {from:node.start,to:node.end,insert:next.slice(node.start,node.end+next.length-source.length),start:node.start};
 }
 export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
 export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}

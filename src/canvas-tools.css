@@ -22,6 +22,8 @@
 .layout-part-box{position:absolute;outline:2px solid #dbb2ff;outline-offset:-2px}
 .grid-handle{position:absolute;pointer-events:auto;padding:0;border:0;border-radius:0;background:#ac85f099}
 .grid-handle.vertical{width:6px;cursor:col-resize}.grid-handle.horizontal{height:6px;cursor:row-resize}
+.element-resize-handle{position:absolute;width:9px;height:9px;margin:-4px 0 0 -4px;padding:0;border:1px solid #eef2ff;border-radius:2px;background:#4f5a7a;pointer-events:auto;box-sizing:border-box;z-index:31}
+.element-resize-handle:hover{background:#a5b4fc}
 .inspector>.layout-inspector{display:none}
 .inspector>.layout-inspector[open]{display:block;position:absolute;top:45px;left:0;right:0;bottom:0;max-height:none;background:#161920;z-index:2;border:0;padding:12px}
 .inspector:has(>.layout-inspector[open])>#inspector,.inspector:has(>.layout-inspector[open])>.debug-info{visibility:hidden}
