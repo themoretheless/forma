@@ -1,11 +1,12 @@
 import {createEventScope} from './event-scope.js';
 import {copyElements,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
-export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report}){
+import {controlCss} from './handoff.js';
+export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report,copy=text=>navigator.clipboard?.writeText(text)}){
  const events=createEventScope(),listen=events.listen;
  let clipboard='',drag=null,selection=[],primary=null,snapping=true,resize=null;
  const bar=document.createElement('div');bar.className='element-tools';bar.hidden=true;bar.setAttribute('role','menu');bar.setAttribute('aria-label','Редактирование элементов');
- const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y']];
+ const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y'],['css','Скопировать CSS']];
  for(const [action,label] of labels){const b=document.createElement('button');b.textContent=label;b.dataset.action=action;b.setAttribute('role',action==='snap'?'menuitemcheckbox':'menuitem');b.tabIndex=-1;b.onclick=()=>{run(action);closeMenu(true);};bar.append(b);}
  const count=document.createElement('span');count.className='selection-count';bar.append(count);toolbar.after(bar);viewport.tabIndex=0;
  // The palette is the only way to create a control the page does not have yet, so its entries
@@ -83,6 +84,14 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   const {node,parent}=locateElement(c.source,c.start);
   return holdsChildren(node)?{start:node.start,side:'inside'}:{start:node.start,side:parent?'after':'inside'};
  }
+ // A control's own visual node carries what the component resolved — a radius, a hover colour, the
+ // size the layout gave a `*` — so that, and not the markup the page happened to write, is what a
+ // handoff has to spell out. A container that paints nothing has no box of its own, and a size
+ // invented for it would be somebody else's, so the block says only what the control declares.
+ function handoffBlock(c,start){
+  const visual=(c.visuals??[]).find(v=>v.source?.file===c.path&&v.source.from===start);
+  return visual?controlCss(visual,visual.bounds,c.state):controlCss(locateElement(c.source,start).node,null,c.state);
+ }
  function moves(c,entries){return editElements(c.source,entries.map(e=>e.start),start=>{const e=entries.find(e=>e.start===start),item=items(c,[start])[0];const cell=e.cell??(c.grid?gridCell(c.grid,item.bounds[0]+e.dx+item.bounds[2]/2,item.bounds[1]+e.dy+item.bounds[3]/2):null);return moveElement(c.source,start,e.dx,e.dy,cell,origin(c,item));});}
  function run(action,text){try{
   const c=current();if(!c)return;
@@ -104,6 +113,12 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    apply(insertElements(c.source,Math.max(...selection),copied),c);
   }
   if(action==='paste')apply(insertElements(c.source,c.start,text??clipboard),c);
+  if(action==='css'){
+   if(!selection.length)return;
+   const blocks=selection.map(start=>handoffBlock(c,start)).filter(Boolean).join('\n\n');
+   if(!blocks)throw Error('В выбранном контроле нет свойств, которые переходят в CSS');
+   copy(blocks);return blocks;
+  }
   if(alignments.has(action)){
    if(c.grid)throw Error('В Grid положение задаётся ячейками; выравнивание доступно в свободной раскладке');
    const list=items(c),entries=action.startsWith('distribute-')?distributeSelection(list,action.endsWith('x')?0:1):alignSelection(list,action);apply(moves(c,entries),c);
@@ -216,7 +231,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   count.textContent=selection.length?`Выбрано: ${selection.length}`:'';
   for(const b of bar.children){const action=b.dataset.action;if(!action)continue;b.disabled=!c||(!['undo','redo','snap','add'].includes(action)&&c.start==null);
    if(action==='add')b.disabled=!c||!c.root||!(c.inserts??[]).some(item=>item.type===b.dataset.type);
-   if(['copy','cut','delete','duplicate'].includes(action))b.disabled=!c||!selection.length;
+   if(['copy','cut','delete','duplicate','css'].includes(action))b.disabled=!c||!selection.length;
    if(action==='snap'){b.setAttribute('aria-checked',String(snapping));b.title='Края и центры · Alt при переносе отключает привязку';}
    if(alignments.has(action))b.disabled=!c||!!c.grid||selection.length<(action.startsWith('distribute-')?3:2);
    if(action==='up'||action==='down'){const siblings=location?.parent?.children??[],index=siblings.indexOf(location?.node);b.disabled=!c||selection.length!==1||index<0||location?.node.type==='Scroll'||(action==='up'?index===0:index===siblings.length-1);b.title='Порядок среди соседей · Alt+'+(action==='up'?'↑':'↓');}

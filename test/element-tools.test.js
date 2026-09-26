@@ -8,12 +8,13 @@ class Element extends EventTarget{
  append(n){this.children.push(n);n.parent=this;} replaceChildren(){this.children=[];} after(n){this.next=n;} setAttribute(){} contains(n){return n===this||this.children.some(c=>c.contains(n));}closest(){return null;} focus(){}getBoundingClientRect(){return {left:0,top:0,width:800,height:400};}setPointerCapture(id){this.capture.add(id);}releasePointerCapture(id){this.capture.delete(id);}hasPointerCapture(id){return this.capture.has(id);}
  emit(type,data={}){const e=new Event(type,{cancelable:true});for(const [k,v] of Object.entries(data))Object.defineProperty(e,k,{value:v});this.dispatchEvent(e);return e;}
 }
-function setup(initial,inserts=[]){
+function setup(initial,inserts=[],extra={}){
  globalThis.document={createElement:()=>new Element()};globalThis.window=new Element();
  const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';if(initial)source=initial;let selected=null,enabled=true;const commits=[],errors=[];
- const context=()=>enabled?{source,start:selected,path:'test.ui',root:parse(source).nodes[0],inserts,nodes:parse(source).nodes[0].children,scene:{width:400,height:200,controls:parse(source).nodes[0].children.map((n,index)=>({index,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))}}:null;
- const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e)});
- return {tools,viewport,artboard,toolbar,commits,errors,source:()=>source,disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
+ const context=()=>enabled?{source,start:selected,path:'test.ui',root:parse(source).nodes[0],inserts,nodes:parse(source).nodes[0].children,state:{},scene:{width:400,height:200,controls:parse(source).nodes[0].children.map((n,index)=>({index,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))},...extra}:null;
+ const copied=[];
+ const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e),copy:v=>copied.push(v)});
+ return {tools,copied,extra,viewport,artboard,toolbar,commits,errors,source:()=>source,disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
 }
 test('drag uses logical coordinates at 200%, commits once on release, Escape cancels',()=>{
  const t=setup();t.down();t.viewport.emit('pointermove',{pointerId:1,clientX:80,clientY:80});assert.equal(t.commits.length,0);
@@ -161,4 +162,37 @@ test('a control whose size the layout owns gets no handles',()=>{
  const g=setup(grid);g.viewport.emit('pointerdown',{target:g.artboard,button:0,pointerId:1,clientX:20,clientY:20});
  g.viewport.emit('pointerup',{pointerId:1});assert.deepEqual(g.tools.selection().length,1);
  assert.deepEqual(sides(g),[]);
+});
+test('the element menu hands over the CSS of the selected control',()=>{
+ const t=setup();t.down();t.viewport.emit('pointerup',{pointerId:1});
+ const button=t.toolbar.next.children.find(b=>b.dataset.action==='css');
+ assert.equal(button.disabled,false,'the menu offers handoff only for a selection');
+ button.onclick();
+ // Without the scene's own record of the control there is no box to report, and an invented one
+ // would be somebody else's, so the menu says so instead of exporting a size it cannot see.
+ assert.deepEqual(t.copied,[],'nothing is copied when the control has no handoff properties');
+ assert.match(t.errors.at(-1),/нет свойств, которые переходят в CSS/);
+ // The component resolves a radius, a hover colour and the size a `*` grew to; only its visual
+ // node carries them, so a handoff that skipped the node would export a card with no corner.
+ const start=parse(t.source()).nodes[0].children[0].start;
+ t.extra.visuals=[{type:'Surface',source:{file:'test.ui',from:start},bounds:[10,20,380,44],props:{key:'button',radius:6,hoverBackground:{expr:'#a8baff'},transitionDuration:{expr:'80ms'}}}];
+ button.onclick();
+ // The visual node is what carries the drawn box: the markup says nothing about 380x44.
+ assert.equal(t.copied.at(-1),'.button {\n  width: 380px;\n  height: 44px;\n  border-radius: 6px;\n  transition-duration: 80ms;\n}\n.button:hover {\n  background: #a8baff;\n}');
+ t.tools.setSelection([]);assert.equal(button.disabled,true);
+ assert.equal(t.errors.length,1,'a control whose node the scene drew exports without a complaint');
+});
+test('a control the scene never drew lends no box to the handoff',()=>{
+ const t=setup("component Test { Frame { width: 400; Column { x: 10; y: 20; gap: 10; Button { width: 100; height: 40; key: 'card'; } } } }");t.down();t.viewport.emit('pointerup',{pointerId:1});
+ [...t.toolbar.next.children].find(b=>b.dataset.action==='css').onclick();
+ assert.deepEqual(t.copied,['.column {\n  gap: 10px;\n}'],'the spacing belongs to the container, the 100x40 box to the control inside it');
+});
+test('a group hands over one block per control',()=>{
+ const t=setup(groupSource);t.down();t.viewport.emit('pointerup',{pointerId:1});
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:2,clientX:320,clientY:180,shiftKey:true});
+ assert.equal(t.tools.selection().length,2);
+ [...t.toolbar.next.children].find(b=>b.dataset.action==='css').onclick();
+ // A designer copies the pair they selected, not the first one the menu happened to look at.
+ assert.deepEqual(t.copied,['.a {\n  width: 60px;\n}\n\n.b {\n  width: 60px;\n}']);
+ assert.deepEqual(t.errors,[]);
 });
