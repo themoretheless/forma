@@ -19,7 +19,7 @@ import './property-inspector.css';
 import './states-panel.css';
 import {createControlTree} from './control-tree.js';
 import {createStatesPanel} from './states-panel.js';
-import {stateCreateEdit,stateDeleteEdit,stateRenameEdit} from './design-states.js';
+import {findEntry,stateCreateEdit,stateDeleteEdit,stateRenameEdit} from './design-states.js';
 import {moveAmongSiblings} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
@@ -236,7 +236,21 @@ if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySele
 // recomputes `editable`: rows that write markup must not survive a switch to a design scenario.
 function renderInspector(){
   if(!selected||!selectedPath||!Object.hasOwn(files,selectedPath))return;
-  propertyInspector?.render({node:selected,path:selectedPath,source:files[selectedPath],editable:designPresetName==='original',note:inspectorNote});
+  propertyInspector?.render({node:selected,path:selectedPath,source:files[selectedPath],editable:designPresetName==='original',note:inspectorNote,state:designStateFor(selected)});
+}
+// The design layer the preview is showing for this control: the file that carries the state, and the
+// two entries its key is patched by. Without a state on screen, or for a control no design file
+// addresses, there is nothing extra to say about the rows, and the panel stays the markup editor.
+function designStateFor(node){
+  const state=scenario<0?null:compiled?.states?.[scenario];
+  const key=selectedPath===entry&&designPresetName==='original'?node?.props?.key:null;
+  if(!state||typeof key!=='string')return null;
+  const source=files[state.file];
+  if(typeof source!=='string')return null;
+  try{
+    const overridden=findEntry(source,state.name,key),base=findEntry(source,null,key);
+    return overridden||base?{name:state.name,path:state.file,source,entry:overridden,base}:null;
+  }catch{/* a file that stopped compiling keeps the rows it had before */return null;}
 }
 function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
 function refreshControlTree(){

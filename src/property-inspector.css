@@ -14,3 +14,7 @@
 .property-add button{border:1px solid #3b4a63;border-radius:4px;background:#1d2532;color:#c7d6ff;font-size:11px;padding:6px}
 .property-add button:hover{background:#27324a}
 .property-notice{display:block;margin-top:6px;font-size:10px;line-height:1.5;color:#f2959f;overflow-wrap:anywhere}
+/* A row whose value comes from the design file is marked by its own edge and a badge naming the
+   block it writes to, so overriding a state never reads as editing the component. */
+.property.state,.property.base{box-shadow:inset 2px 0 #5f7bb6}
+.property-layer{display:inline-block;margin-left:6px;padding:0 5px;border:1px solid #3b4a63;border-radius:8px;background:#1a2130;color:#9db4dd;font-size:9px;line-height:1.6;vertical-align:1px}

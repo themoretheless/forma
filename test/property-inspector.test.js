@@ -1,7 +1,8 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse} from '../src/language.js';
+import {parse,designStatePatch} from '../src/language.js';
 import {setDesignData,designReferencesInFiles} from '../src/design-data.js';
+import {findEntry} from '../src/design-states.js';
 import {propertyFields,createPropertyInspector} from '../src/property-inspector.js';
 import {pickerHex} from '../src/color-values.js';
 import {valueTextEdit,statementTextEdit,propertyAddEdit,propertyRemoveEdit} from '../src/property-edit.js';
@@ -212,9 +213,40 @@ const panelSource=`component Panel {
         padding: 12;
     }
 }`;
+// A component whose controls the design file addresses by key, and a design file that patches each
+// of its three layers: the base block overrides `gap` and adds a background markup never declares,
+// the state overrides two more frame properties, and one entry overrides a single title property.
+const keyedFile='ui/Keyed.ui';
+const keyedSource=`component Panel {
+    Frame {
+        key: 'frame';
+        width: 320;
+        gap: 8;
+        padding: 12;
+        opacity: 0.9;
+        Text { key: 'title'; text: 'Заголовок'; }
+    }
+}`;
+const designFile='ui/Keyed.design.ui';
+const designSource=`design Panel {
+    Frame {
+        key: 'frame';
+        gap: 6;
+        background: '#111318';
+    }
+
+    state 'узкий' {
+        Frame {
+            key: 'frame';
+            padding: 4;
+            opacity: 0.5;
+        }
+        Text { key: 'title'; text: 'Уже'; }
+    }
+}`;
 // The host of Studio keeps the editor document ahead of `files`; a test host does the same.
-function mountPanel({source=panelSource,liveSource=true}={}){
-  const files={[panelFile]:source};
+function mountPanel({source=panelSource,liveSource=true,node=null,design=null,file=panelFile}={}){
+  const files={[file]:source,...(design?{[designFile]:design.source}:{})};
   const container=new El('div');
   const document={createElement:tag=>new El(tag)};
   const saved=Object.getOwnPropertyDescriptor(globalThis,'document');
@@ -222,20 +254,30 @@ function mountPanel({source=panelSource,liveSource=true}={}){
   const savedOption=Object.getOwnPropertyDescriptor(globalThis,'Option');
   Object.defineProperty(globalThis,'Option',{value:Option,configurable:true});
   const inspector=createPropertyInspector({container,designTokens:()=>[],liveSource:liveSource?path=>files[path]:null,
-    commit:({file,source:text,from,to,insert})=>{
-      if(files[file]!==text)throw Error('Исходник изменился — повторите операции');
+    commit:({file:path,source:text,from,to,insert})=>{
+      if(files[path]!==text)throw Error('Исходник изменился — повторите операции');
       const next=text.slice(0,from)+insert+text.slice(to);
       parse(next);
-      files[file]=next;
+      files[path]=next;
     }});
-  const node=parse(files[panelFile]).nodes[0];
-  inspector.render({node,path:panelFile,source:files[panelFile],editable:true});
-  return {container,files,panel:name=>container.querySelector(`input[data-prop=${name}]`),
+  const targetNode=node??parse(files[file]).nodes[0];
+  // The host resolves the two design entries the panel shows rows for; a state that is not on screen
+  // gives no layer at all, which is how the panel behaves in the original scenario.
+  const state=design?{name:design.name,path:designFile,source:files[designFile],
+    entry:findEntry(files[designFile],design.name,targetNode.props.key),
+    base:findEntry(files[designFile],null,targetNode.props.key)}:null;
+  inspector.render({node:targetNode,path:file,source:files[file],editable:true,state});
+  return {container,files,node:targetNode,state,
+    panel:name=>container.querySelector(`input[data-prop=${name}]`),
+    rowOf:name=>[...container.querySelectorAll('label.property')].find(row=>row.querySelector('span')?.textContent===name),
     restore(){
       if(saved)Object.defineProperty(globalThis,'document',saved);else delete globalThis.document;
       if(savedOption)Object.defineProperty(globalThis,'Option',savedOption);else delete globalThis.Option;
     }};
 }
+const mountKeyed=(which='frame')=>mountPanel({file:keyedFile,source:keyedSource,
+  node:which==='frame'?parse(keyedSource).nodes[0]:parse(keyedSource).nodes[0].children[0],
+  design:{name:'узкий',source:designSource}});
 test('a row writes the file as the editor holds it, so one selection serves several edits',t=>{
   const {container,files,panel,restore}=mountPanel();
   t.after(restore);
@@ -291,4 +333,121 @@ test('a name a binding already occupies is not offered for declaring',t=>{
   assert.ok(!options.includes('value'),'a bound name is taken, not addable');
   assert.ok(options.includes('placeholder'));
   assert.deepEqual([...container.querySelectorAll('label.property')].map(row=>row.querySelector('span')?.textContent),['value']);
+});
+// ── the same panel with a design state on screen ──────────────────────────────────────────────
+const stateEntry=(files,key)=>parse(files[designFile]).states[0].nodes.find(node=>node.props.key===key);
+const baseEntry=files=>parse(files[designFile]).entries.find(node=>node.props.key==='frame');
+const preview=(files,key,layer)=>designStatePatch(parse(files[designFile]),layer)[key];
+
+test('a value is read from the layer that holds it: state, then base, then markup',()=>{
+  const fields=propertyFields(parse(keyedSource).nodes[0],keyedSource,
+    {name:'узкий',path:designFile,source:designSource,entry:findEntry(designSource,'узкий','frame'),base:findEntry(designSource,null,'frame')});
+  // Markup order first, then the names only the design file declares.
+  assert.deepEqual(fields.map(field=>[field.key,field.layer]),
+    [['key','markup'],['width','markup'],['gap','base'],['padding','state'],['opacity','state'],['background','base']]);
+  const by=Object.fromEntries(fields.map(field=>[field.key,field]));
+  assert.equal(by.padding.value,4,'the state value is the one on screen');
+  assert.equal(by.gap.value,6);
+  assert.equal(by.background.kind,'color');
+  assert.equal(by.background.css,'#111318','a design-only property still gets a row of its own');
+  for(const key of ['gap','padding','opacity','background'])assert.equal(by[key].commit,'state');
+  // The design key is the address an override hangs on: editing it in markup would orphan the rows.
+  assert.equal(by.key.commit,'literal');
+  assert.equal(by.width.commit,'literal','a property the design file never mentions stays markup');
+});
+test('a design row writes its own block while the component keeps the rest',t=>{
+  const {files,panel,rowOf,restore}=mountKeyed();
+  t.after(restore);
+  const padding=panel('padding');
+  padding.value='9';padding.onchange();
+  assert.equal(padding.validity,'');
+  assert.equal(stateEntry(files,'frame').props.padding,9);
+  assert.equal(parse(files[keyedFile]).nodes[0].props.padding,12,'the markup keeps its own padding');
+  // A base row writes the base block, which the state below it still falls back to.
+  const gap=panel('gap');
+  gap.value='11';gap.onchange();
+  assert.equal(baseEntry(files).props.gap,11);
+  assert.deepEqual(preview(files,'frame','узкий').gap,11);
+  // And a row no design block holds still writes the component, exactly as before.
+  panel('width').value='400';panel('width').onchange();
+  assert.equal(parse(files[keyedFile]).nodes[0].props.width,400);
+  assert.equal(rowOf('padding').className,'property number state');
+  assert.equal(rowOf('gap').querySelector('.property-layer').textContent,'базовые значения');
+  assert.equal(rowOf('width').querySelector('.property-layer'),null,'a markup row needs no badge');
+});
+test('one selection serves several design edits, so each row is found again in the live file',t=>{
+  const {files,panel,restore}=mountKeyed();
+  t.after(restore);
+  // `padding` comes first in the entry, so writing it moves `opacity` out of the snapshot's offsets.
+  const padding=panel('padding'),opacity=panel('opacity');
+  padding.value='10';padding.onchange();
+  opacity.value='0.25';opacity.onchange();
+  assert.equal(opacity.validity,'');
+  assert.deepEqual({padding:stateEntry(files,'frame').props.padding,opacity:stateEntry(files,'frame').props.opacity},{padding:10,opacity:0.25});
+  const gap=panel('gap');
+  gap.value='7';gap.onchange();
+  assert.equal(gap.validity,'');
+  assert.equal(baseEntry(files).props.gap,7);
+});
+test('a string override is written quoted and a bare colour stays bare',t=>{
+  const {files,panel,rowOf,restore}=mountKeyed('title');
+  t.after(restore);
+  assert.equal(rowOf('text').querySelector('.property-layer').textContent,'состояние «узкий»');
+  const text=panel('text');
+  assert.equal(text.value,'Уже','the row shows the value, not its quotes');
+  text.value='Уже очень';text.onchange();
+  assert.equal(text.validity,'');
+  assert.match(files[designFile],/text: 'Уже очень';/);
+  assert.equal(stateEntry(files,'title').props.text,'Уже очень');
+  assert.equal(parse(files[keyedFile]).nodes[0].children[0].props.text,'Заголовок');
+});
+test('− gives the layer below back, and an entry that patched only this goes with it',t=>{
+  const {container,files,rowOf,restore}=mountKeyed();
+  t.after(restore);
+  // The frame's state entry patches two properties, so − cuts one line and keeps the override.
+  rowOf('padding').querySelector('.property-remove').onclick();
+  assert.equal(container.querySelector('.property-notice').textContent??'','');
+  assert.equal(stateEntry(files,'frame').props.padding,undefined);
+  assert.equal(stateEntry(files,'frame').props.opacity,0.5);
+  assert.equal(preview(files,'frame','узкий').padding,undefined,'the state stopped overriding it');
+  assert.ok(files[keyedFile].includes('padding: 12;'),'the component was not touched');
+  // The base block patches gap and a background, so removing gap leaves the background alone.
+  rowOf('gap').querySelector('.property-remove').onclick();
+  assert.equal(baseEntry(files).props.gap,undefined);
+  assert.equal(baseEntry(files).props.background,'#111318');
+});
+test('− on a single-property entry removes that entry from the state',t=>{
+  const {files,container,rowOf,restore}=mountKeyed('title');
+  t.after(restore);
+  rowOf('text').querySelector('.property-remove').onclick();
+  assert.equal(container.querySelector('.property-notice').textContent??'','');
+  assert.deepEqual(stateEntry(files,'title'),undefined,'no key-only block shadows the layer below');
+  assert.equal(preview(files,'title','узкий'),undefined,'the title is back to its own markup');
+});
+test('with a state on screen the add form declares the override, not the property',t=>{
+  const {container,files,restore}=mountKeyed();
+  t.after(restore);
+  const add=container.querySelector('.property-add'),pick=add.querySelector('select'),value=add.querySelector('input'),button=add.querySelector('button');
+  const options=pick.children.map(option=>option.value);
+  assert.ok(options.includes('width'),'the markup has it but this state does not, so it can be overridden');
+  assert.ok(!options.includes('padding'),'the state already patches it');
+  assert.ok(!options.includes('key'),'the entry is created under the control’s own key, never a new one');
+  pick.value='width';pick.onchange();
+  assert.equal(button.textContent,'Добавить width в состояние «узкий»');
+  value.value='200';button.onclick();
+  assert.equal(stateEntry(files,'frame').props.width,200);
+  assert.equal(parse(files[keyedFile]).nodes[0].props.width,320,'the component keeps its own width');
+});
+test('a state the file no longer holds is refused instead of spliced into',t=>{
+  const {container,files,panel,rowOf,restore}=mountKeyed();
+  t.after(restore);
+  // The designer deleted the state in another tab: only its rows are on screen now.
+  files[designFile]=`${designSource.slice(0,designSource.indexOf('\n\n    state'))}\n}`;
+  const padding=panel('padding');
+  padding.value='9';padding.onchange();
+  assert.match(padding.validity,/не объявлено/);
+  assert.ok(!files[designFile].includes('padding'),'nothing was written into the remaining blocks');
+  rowOf('padding').querySelector('.property-remove').onclick();
+  assert.match(container.querySelector('.property-notice').textContent,/Состояние узкий не объявлено/);
+  assert.equal(baseEntry(files).props.gap,6,'the base block is still intact');
 });
