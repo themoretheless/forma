@@ -16,7 +16,10 @@ import './selection.css';
 import './vector-artboard.css';
 import './control-tree.css';
 import './property-inspector.css';
+import './states-panel.css';
 import {createControlTree} from './control-tree.js';
+import {createStatesPanel} from './states-panel.js';
+import {stateCreateEdit,stateDeleteEdit,stateRenameEdit} from './design-states.js';
 import {moveAmongSiblings} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
@@ -41,6 +44,10 @@ let codeEditor,propertyInspector;
 let spacingOverlay;
 let vectorPreview;
 let controlTree,selectedPath=null,inspectorNote='';
+let statesPanel;
+// The design files the entry resolves, in reference order and relative to the entry's folder: the
+// states panel authors the first of them, while a state row switches by name across all of them.
+let designFiles=[];
 // The active tree is live UI state, independent of eviction of inactive files.
 let activeTreeDocument=null;
 let renderer=isStudioControls||readStorage('localStorage',storageKey('forma-renderer'))==='vector'?'vector':'html';
@@ -153,7 +160,7 @@ function persist(){try{if(!writeProject(storageKey('forma-project'),files))throw
 function tree(){const buttons=[...$('tree').querySelectorAll('[data-path]')],paths=Object.keys(files),existing=new Set(buttons.map(b=>b.dataset.path));
  if(buttons.length===paths.length&&paths.every(path=>existing.has(path))){for(const b of buttons)b.classList.toggle('active',b.dataset.path===active);return;}
  const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
-function open(path){active=path;persistView();codeEditor?.setLanguage(path);$('filename').textContent=path.split('/').at(-1);$('code').value=files[path];$('language').textContent=path.endsWith('.rs')?'Rust · редактирование':path.endsWith('.ui')?'Forma UI':'Текст';$('entry').disabled=!path.endsWith('.ui')||path.endsWith('.design.ui');lines();tree();refreshControlTree();}
+function open(path){active=path;persistView();codeEditor?.setLanguage(path);$('filename').textContent=path.split('/').at(-1);$('code').value=files[path];$('language').textContent=path.endsWith('.rs')?'Rust · редактирование':path.endsWith('.ui')?'Forma UI':'Текст';$('entry').disabled=!path.endsWith('.ui')||path.endsWith('.design.ui');lines();tree();refreshControlTree();refreshStatesPanel();}
 function lines(){
   if(codeEditor){const {line,column}=codeEditor.position();$('position').textContent=`Ln ${line}, Col ${column}`;}
   else {const text=$('code').value;$('lines').textContent=Array.from({length:text.split('\n').length},(_,i)=>i+1).join('\n');const before=text.slice(0,$('code').selectionStart).split('\n');$('position').textContent=`Ln ${before.length}, Col ${before.at(-1).length+1}`;}
@@ -188,7 +195,7 @@ function diagnosticLinks(){
   button.onclick=()=>{open(source.file);$('code').setSelectionRange(source.from,source.to);$('code').focus();};$('output').append(button);
  }
 }
-function compile(reset=false){persistView();try{if(!entry||!files[entry])throw Error('Откройте .ui компонент и нажмите «Показать UI»');const next=parse(files[entry]);const states=[];for(const ref of next.designs){const base=entry.includes('/')?entry.slice(0,entry.lastIndexOf('/')+1):'';const path=base+ref.replace(/^\.\//,'');if(!(path in files))throw Error(`Дизайн-файл не найден: ${path}`);const design=parse(files[path]);if(Object.keys(design.overrides).length||design.states.length){validateDesign(next,design);for(const key of Object.keys(design.overrides)){if(Object.hasOwn(next.overrides,key))throw Error(`Повторный дизайн-key ${key}`);Object.defineProperty(next.overrides,key,{value:design.overrides[key],enumerable:true});}for(const state of design.states){if(states.some(other=>other.name===state.name))throw Error(`Повторное состояние ${state.name}`);states.push({...state,file:path});}}}compiled=next;compiled.states=states;scenario=Math.min(scenario,Math.max(0,states.length-1));if(reset)state=structuredClone(states[scenario]?.state??{});$('scenario').innerHTML=states.map((s,i)=>`<option value="${i}">${esc(s.name)}</option>`).join('')||'<option>Без состояний</option>';$('scenario').value=scenario;$('preview-name').textContent=next.name;error='';render();$('status').textContent='Live preview обновлён';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;$('status').textContent='Ошибка · сохранён последний предпросмотр';}refreshControlTree();output();}
+function compile(reset=false){persistView();try{if(!entry||!files[entry])throw Error('Откройте .ui компонент и нажмите «Показать UI»');const next=parse(files[entry]);const states=[];designFiles=[];for(const ref of next.designs){const base=entry.includes('/')?entry.slice(0,entry.lastIndexOf('/')+1):'';const path=base+ref.replace(/^\.\//,'');if(!(path in files))throw Error(`Дизайн-файл не найден: ${path}`);designFiles.push(path);const design=parse(files[path]);if(Object.keys(design.overrides).length||design.states.length){validateDesign(next,design);for(const key of Object.keys(design.overrides)){if(Object.hasOwn(next.overrides,key))throw Error(`Повторный дизайн-key ${key}`);Object.defineProperty(next.overrides,key,{value:design.overrides[key],enumerable:true});}for(const state of design.states){if(states.some(other=>other.name===state.name))throw Error(`Повторное состояние ${state.name}`);states.push({...state,file:path});}}}compiled=next;compiled.states=states;scenario=Math.min(scenario,Math.max(0,states.length-1));if(reset)state=structuredClone(states[scenario]?.state??{});$('scenario').innerHTML=(states.length?'<option value="-1">Базовые значения</option>':'')+states.map((s,i)=>`<option value="${i}">${esc(s.name)}</option>`).join('')||'<option>Без состояний</option>';$('scenario').value=scenario;$('preview-name').textContent=next.name;error='';render();$('status').textContent='Live preview обновлён';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;$('status').textContent='Ошибка · сохранён последний предпросмотр';}refreshControlTree();refreshStatesPanel();output();}
 function render(designMode=mode==='design'){
 if(!compiled)return;
 if(renderer==='vector'){
@@ -241,6 +248,39 @@ function refreshControlTree(){
   catch(e){doc=(activeTreeDocument?.path===path?activeTreeDocument.document:studioCache.get('tree:'+path)?.document)??null;message=e.message;stale=!!doc;}
   controlTree.update({document:doc,path,error:message,stale,selectedStart:selected?.start,selectedPath,files});
 }
+// The panel authors one design file at a time: the file being edited when it is a design file,
+// otherwise the first file the entry references. Rows switch the preview by state name, so a
+// component with two design files never points a row at the wrong switcher index.
+function designFilePath(){
+  if(active.endsWith('.design.ui'))return active;
+  return designFiles[0]??null;
+}
+function refreshStatesPanel(){
+  if(!statesPanel)return;
+  const path=designFilePath();
+  let states=[],baseCount=0,message='',editable=designPresetName==='original';
+  if(path){
+    const source=path===active?$('code').value:files[path];
+    try{
+      const doc=parse(source);
+      if(!doc.designBody)throw Error('Файл не является дизайн-файлом');
+      states=doc.states.map(state=>({name:state.name,count:state.nodes.length}));
+      baseCount=doc.entries.length;
+    }catch(e){message=e.message;editable=false;}
+  }
+  statesPanel.update({path,states,baseCount,editable,error:message,active:scenario<0?null:compiled?.states[scenario]?.name});
+}
+// A panel action splices the design file its rows came from, so the edit is computed against that
+// file's live text and passes the same stale-snapshot guard an inspector edit passes.
+function designStateEdit(build){
+  const path=designFilePath();
+  if(!path)throw Error('Дизайн-файл не выбран');
+  const source=path===active?$('code').value:files[path];
+  commitSource({file:path,source,...build(source)});
+  // The editor publishes the spliced text through its input event; compiling afterwards redraws
+  // the panel from the file the edit actually produced.
+  queueMicrotask(()=>{clearTimeout(compileTimer);compile();});
+}
 function selectTreeControl(item){
   if(item.path===entry){
     if(mode!=='design')$('run').click();
@@ -287,6 +327,18 @@ $('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(
 $('code').addEventListener('scroll',highlightSource);
 $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});},canReorder:()=>designPresetName==='original',onReorder:reorderTreeControl});
+// Mounting after the tree puts the state list underneath it, and both read the same compiled
+// switcher: a row is the preview's active state, never a second source of truth.
+statesPanel=createStatesPanel({explorer:document.querySelector('.explorer'),
+ onActivate:name=>{
+   if(name===null){scenario=-1;compile(true);return;}
+   const index=(compiled?.states??[]).findIndex(state=>state.name===name);
+   if(index<0)throw Error('Состояние не участвует в текущем предпросмотре');
+   scenario=index;compile(true);
+ },
+ onCreate:name=>designStateEdit(source=>stateCreateEdit(source,name)),
+ onRename:(name,newName)=>designStateEdit(source=>stateRenameEdit(source,name,newName)),
+ onDelete:name=>designStateEdit(source=>stateDeleteEdit(source,name))});
 codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
 // A panel edit of one file: the guard rejects a change computed against text the editor has
 // already moved past, and the reselect walks the AST the new compile yields.
@@ -324,7 +376,7 @@ const presetPicker=document.createElement('select');presetPicker.className='desi
 for(const [value,label] of [['original','Исходный вид'],['long','Длинный текст'],['empty','Пустой текст'],['disabled','Недоступные контролы'],['list-empty','Список: пусто'],['list-12','Список: 12 строк'],['list-100','Список: 100 строк'],['loading','Список: загрузка'],['error','Список: ошибка']])presetPicker.add(new Option(label,value));
 document.querySelector('.canvas-tools').append(presetPicker);
 presetPicker.title='Только предпросмотр: исходники и нативное приложение не меняются';
-presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}renderInspector();refreshControlTree();output();};
+presetPicker.onchange=()=>{designPresetName=presetPicker.value;try{if(mode!=='design')$('run').click();else render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}renderInspector();refreshControlTree();refreshStatesPanel();output();};
 layoutInspector=createLayoutInspector({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
 getVisuals:()=>designPresetName==='original'?lastVisuals:[],getRuntime:()=>vectorPreview?.layoutSnapshot(),getMode:()=>mode,
 getControl:()=>lastPreviewControls.findIndex(n=>n.start===selected?.start),

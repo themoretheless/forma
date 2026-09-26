@@ -4,14 +4,18 @@ import {equalValues} from './expressions.js';
 const bindingPath=/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$/;
 const handlerPath=/^(?:actions|events|state)\.[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/;
 const staleTarget='Свойство изменилось: выберите элемент заново';
+export const stringLiteral=text=>"'"+text.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')+"'";
 
-// Resolve against the current document, never a stale inspector node or a regex.
+// Resolve against the current document, never a stale inspector node or a regex. A design file
+// keeps its entries outside `nodes`, in the base list and in each state, so they are walked too.
 export function sourceNode(source,start){
   let found=null;
   const walk=nodes=>{for(const node of nodes??[]){if(found)continue;
     if(node.start===start){found=node;continue;}
     walk(node.children);walk(node.elseChildren);walk(node.emptyChildren);}};
-  walk(parse(source).nodes);
+  const doc=parse(source);
+  walk(doc.nodes);walk(doc.entries);
+  for(const state of doc.states??[])walk(state.nodes);
   return found;
 }
 function propertyRange(source,nodeStart,property){
@@ -22,14 +26,14 @@ function propertyRange(source,nodeStart,property){
 export function propertyEdit(source,nodeStart,property,value){
   const range=propertyRange(source,nodeStart,property);
   if(!['string','number','boolean'].includes(typeof value)||(typeof value==='number'&&!Number.isFinite(value)))throw Error('Некорректное значение свойства');
-  const insert=typeof value==='string'?"'"+value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')+"'":String(value);
+  const insert=typeof value==='string'?stringLiteral(value):String(value);
   const next=source.slice(0,range.from)+insert+source.slice(range.to);
   parse(next); // Commit only syntactically valid replacements.
   return {...range,insert};
 }
 // Values arrive as markup text, so they are checked in a throwaway component that puts
 // them exactly where a property value belongs.
-function probeValue(text){return parse(`component __Probe {\n    Frame {\n        __value: ${text};\n    }\n}`).nodes[0].props.__value;}
+export function probeValue(text){return parse(`component __Probe {\n    Frame {\n        __value: ${text};\n    }\n}`).nodes[0].props.__value;}
 function keptDeclarations(before,after){
   for(const [key,value]of Object.entries(before))if(key in after&&!equalValues(after[key],value))return false;
   return true;
@@ -90,28 +94,32 @@ export function statementTextEdit(source,nodeStart,property,text){
 // inline block (`Button { text: 'x'; }`, common in this markup) has none to copy, so one level
 // past the node's own line is assumed and the closing brace moves onto a line of its own.
 const trailingComments=/^(?:[ \t]*(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/))+/;
-const lineStartOf=(source,at)=>source.lastIndexOf('\n',at)+1;
-function blockAnchor(source,node){
-  const closing=node.end-1;
-  const last=Object.values(node.statementRanges).reduce((a,b)=>!a||b.to>a.to?b:a,null);
-  const at=last?last.to-1:source.indexOf('{',node.start);
+export const lineStartOf=(source,at)=>source.lastIndexOf('\n',at)+1;
+// `block` is `{start,end,items}`: the braces of a node, of a state, of a design body, with `items`
+// holding the range of everything already inside them.
+export function blockAnchor(source,block){
+  const closing=block.end-1;
+  const last=block.items.reduce((a,b)=>!a||b.to>a.to?b:a,null);
+  const at=last?last.to-1:source.indexOf('{',block.start);
   if(at<0||at>=closing)throw Error(staleTarget);
-  const nodeStart=lineStartOf(source,node.start);
-  const nodeIndent=/^[ \t]*/.exec(source.slice(nodeStart,node.start))[0];
+  const blockStart=lineStartOf(source,block.start);
+  const blockIndent=/^[ \t]*/.exec(source.slice(blockStart,block.start))[0];
   const statementStart=lineStartOf(source,last?.from??at);
   const own=last&&/^[ \t]*$/.test(source.slice(statementStart,last.from));
   const from=at+1+(trailingComments.exec(source.slice(at+1,closing))?.[0].length??0);
   // An inline block keeps its closing brace on the new statement's line, so the spaces before
   // the brace are cut rather than left as trailing whitespace on the statement line.
   const inline=/^[ \t]*\}$/.test(source.slice(from,closing+1));
+  const indent=own?source.slice(statementStart,last.from):`${blockIndent}    `;
   return {
     from,
     to:inline?closing:from,
-    text:`\n${own?source.slice(statementStart,last.from):`${nodeIndent}    `}`,
-    tail:inline?`\n${nodeIndent}`:'',
+    text:`\n${indent}`,
+    tail:inline?`\n${blockIndent}`:'',
+    indent,
   };
 }
-const propertyName=/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/;
+export const propertyName=/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$/;
 export function propertyAddEdit(source,nodeStart,property,text){
   const node=sourceNode(source,nodeStart);
   if(!node)throw Error(staleTarget);
@@ -122,7 +130,7 @@ export function propertyAddEdit(source,nodeStart,property,text){
   let expected;
   try{expected=probeValue(insert);}
   catch(error){throw Error(`Значение не разобрано: ${error.message}`);}
-  const anchor=blockAnchor(source,node);
+  const anchor=blockAnchor(source,{start:node.start,end:node.end,items:Object.values(node.statementRanges)});
   const added=`${anchor.text}${property}: ${insert};${anchor.tail}`;
   const next=source.slice(0,anchor.from)+added+source.slice(anchor.to);
   parse(next);
@@ -130,6 +138,16 @@ export function propertyAddEdit(source,nodeStart,property,text){
   if(!after||!equalValues(after.props[property],expected))throw Error('Свойство разобралось иначе, чем в исходнике');
   if(!keptDeclarations(node.props,after.props))throw Error('Соседние объявления изменились');
   return {from:anchor.from,to:anchor.to,insert:added};
+}
+// The lines a statement occupies: `lineStart..lineEnd` is the text whose edges tell whether the
+// statement owns them, `cutFrom..cutTo` is what removing it takes along, including the line break
+// after it so no blank gap is left — or, on the last line, the break before it.
+export function lineSpan(source,from,to){
+  const lineStart=lineStartOf(source,from);
+  let lineEnd=source.indexOf('\n',to);
+  if(lineEnd<0)lineEnd=source.length;
+  const cutTo=lineEnd<source.length?lineEnd+1:lineStart>0&&source[lineStart-1]==='\n'?lineStart:lineEnd;
+  return {lineStart,lineEnd,cutFrom:cutTo===lineEnd&&lineStart>0&&source[lineStart-1]==='\n'?lineStart-1:lineStart,cutTo};
 }
 // Removal is line-based on purpose: the statement has to own its line, otherwise cutting it
 // out would leave a dangling comment or a second statement glued to the previous one, and the
@@ -139,9 +157,7 @@ export function propertyRemoveEdit(source,nodeStart,property){
   if(!node)throw Error(staleTarget);
   const range=node.propertyRanges[property]??node.statementRanges[property];
   if(!range)throw Error(`Свойство ${property} не объявлено в этом исходнике`);
-  const lineStart=source.lastIndexOf('\n',range.from)+1;
-  let lineEnd=source.indexOf('\n',range.to);
-  if(lineEnd<0)lineEnd=source.length;
+  const {lineStart,lineEnd,cutFrom,cutTo}=lineSpan(source,range.from,range.to);
   const line=source.slice(lineStart,lineEnd);
   const prefix=line.slice(0,range.from-lineStart),suffix=line.slice(range.to-lineStart);
   // A value token stops before its semicolon, so for a property the whole prefix must be the
@@ -151,12 +167,10 @@ export function propertyRemoveEdit(source,nodeStart,property){
     ?declaredName===property&&/^\s*;?\s*(?:(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*)*$/.test(suffix)
     :/^\s*$/.test(prefix)&&/^\s*(?:(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*)*$/.test(suffix);
   if(!ownsLine)throw Error(`${property} не на отдельной строке: правьте исходник`);
-  const cutEnd=lineEnd<source.length?lineEnd+1:lineStart>0&&source[lineStart-1]==='\n'?lineStart:lineEnd;
-  const cutStart=cutEnd===lineEnd?lineStart>0&&source[lineStart-1]==='\n'?lineStart-1:lineStart:lineStart;
-  const next=source.slice(0,cutStart)+source.slice(cutEnd);
+  const next=source.slice(0,cutFrom)+source.slice(cutTo);
   parse(next);
   const after=sourceNode(next,nodeStart);
   if(!after||property in after.props)throw Error('Свойство не удалилось: выберите элемент заново');
   if(!keptDeclarations(node.props,after.props))throw Error('Соседние объявления изменились');
-  return {from:cutStart,to:cutEnd,insert:''};
+  return {from:cutFrom,to:cutTo,insert:''};
 }
