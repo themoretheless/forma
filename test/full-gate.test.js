@@ -31,6 +31,20 @@ test('the host compiles what no CI runner compiles',()=>{
  assert.ok(linux.args.includes('--bin')&&linux.args.includes('--target'),'the foreign step stays the command CI runs');
  assert.equal(linux.args.includes('--all-targets'),false);
 });
+test('an app whose form Rust nobody compiled is built and run here',()=>{
+ // binding-app is the only example CI runs; language-app generates its Rust form through
+ // scripts/generate-form.mjs at build time and asserted behaviour, and no command anywhere
+ // compiled it — the JS suite only checks the generated text.
+ const run=step('language-example');
+ assert.equal(run.argv,'cargo');
+ assert.ok(run.args.includes('run'),'checking is not enough: the assertions only execute under run');
+ assert.ok(run.args.some(arg=>/language-app\/Cargo\.toml$/.test(arg)),'the manifest is the app, not the workspace');
+ assert.equal(run.args.includes('--offline'),false,'a fresh machine may still fetch the pinned lockfile');
+ assert.equal(run.requiresOutput,true);
+ assert.deepEqual(evaluate(run,{status:0,output:'  \n'}),{ok:false,detail:'printed nothing'});
+ assert.equal(evaluate(run,{status:0,output:'Typed components, keyed edits/reorder/removal, events, Row/Grid and live expressions: OK'}).ok,true);
+ assert.deepEqual(evaluate(run,{status:101,output:''}),{ok:false,detail:'exit 101'});
+});
 test('the gate runs the studio steps CI runs before it publishes',()=>{
  // CI checks the versions, runs the suite, then builds the bundle release.yml uploads; a local
  // pass that skips the build leaves the shipped bundle unverified.
