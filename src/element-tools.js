@@ -1,5 +1,5 @@
 import {createEventScope} from './event-scope.js';
-import {copyElements,insertElements,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements} from './element-edit.js';
+import {copyElements,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
 export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report}){
  const events=createEventScope(),listen=events.listen;
@@ -8,6 +8,35 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y']];
  for(const [action,label] of labels){const b=document.createElement('button');b.textContent=label;b.dataset.action=action;b.setAttribute('role',action==='snap'?'menuitemcheckbox':'menuitem');b.tabIndex=-1;b.onclick=()=>{run(action);closeMenu(true);};bar.append(b);}
  const count=document.createElement('span');count.className='selection-count';bar.append(count);toolbar.after(bar);viewport.tabIndex=0;
+ // The palette is the only way to create a control the page does not have yet, so its entries
+ // are the types the page compiler takes as a top-level control: the project's components plus
+ // the built-in fallbacks. A design system has dozens of them, so the group carries a filter
+ // that typing anywhere in the menu jumps into.
+ const filter=document.createElement('input');filter.type='search';filter.className='element-add-filter';
+ filter.placeholder='Добавить контрол…';filter.setAttribute('aria-label','Поиск по палитре контролов');
+ filter.oninput=()=>{query=filter.value;renderAdds();};
+ filter.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();addButtons.find(b=>!b.disabled)?.onclick?.();}};
+ let catalog=[],query='',addSignature='',addButtons=[];
+ const matches=item=>{const needle=query.trim().toLocaleLowerCase();return !needle||item.type.toLocaleLowerCase().includes(needle);};
+ function renderAdds(){
+  const items=catalog.filter(matches),key=query.toLocaleLowerCase()+'\u0000'+items.map(item=>item.type).join(',');
+  if(key===addSignature)return;addSignature=key;
+  for(const button of addButtons)button.remove();addButtons=[];
+  for(const item of items){
+   const b=document.createElement('button');b.textContent='＋ '+item.type;b.className='element-add';b.dataset.action='add';b.dataset.type=item.type;
+   b.setAttribute('role','menuitem');b.tabIndex=-1;b.title='В выбранный контейнер или после выбранного контрола';
+   b.onclick=()=>{run('add',item.markup);closeMenu(true);};bar.append(b);addButtons.push(b);
+  }
+  if(catalog.length){count.remove();filter.hidden=false;bar.append(filter);bar.append(count);}
+  else filter.remove();
+ }
+ // A changed project palette is a new list, so an old query must not hide every entry of it.
+ let catalogKey='';
+ function drawAdds(items){
+  const list=items??[],key=list.map(item=>item.type+item.markup.length).join(',');
+  if(key!==catalogKey){catalogKey=key;catalog=list;query='';filter.value='';}
+  renderAdds();
+ }
  function closeMenu(restore=false){if(bar.hidden)return;bar.hidden=true;if(restore)viewport.focus({preventScroll:true});}
  function openMenu(x,y){
   update();bar.hidden=false;
@@ -27,6 +56,8 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  listen(window,'blur',()=>closeMenu());
  listen(window,'resize',()=>closeMenu());
  listen(bar,'keydown',e=>{
+  // The menu is mostly the palette, so a printable key searches it instead of doing nothing.
+  if(e.key.length===1&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!filter.hidden&&document.activeElement!==filter)filter.focus();
   if(e.key==='Escape'||e.key==='Tab'){e.preventDefault();e.stopImmediatePropagation();closeMenu(true);return;}
   if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;
   e.preventDefault();e.stopImmediatePropagation();
@@ -43,13 +74,27 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  function choose(starts,c){const n=c.nodes.find(n=>n.start===starts.at(-1));if(n)select(n);else if(c.root)select(c.root);primary=context()?.start;selection=[...starts];update();}
  function apply(change,c){if(change)commit(change,c);}
  function origin(c,item){return [item.bounds[0]+(c.scene.scrollOffset?.[0]??0),item.bounds[1]+(c.scene.scrollOffset?.[1]??0)];}
+ // A container takes the new node as its last child and a leaf gets it as the next sibling,
+ // which is the row the designer is looking at. With nothing selected the page's own control
+ // list is the target so that the first control of an empty page has somewhere to go, and a
+ // scrolling page must gain it inside the Scroll rather than beside it.
+ function addTarget(c){
+  if(c.start==null){const children=c.root?.children??[],only=children.length===1?children[0]:null;return {start:(only?.type==='Scroll'?only:c.root).start,side:'inside'};}
+  const {node,parent}=locateElement(c.source,c.start);
+  return holdsChildren(node)?{start:node.start,side:'inside'}:{start:node.start,side:parent?'after':'inside'};
+ }
  function moves(c,entries){return editElements(c.source,entries.map(e=>e.start),start=>{const e=entries.find(e=>e.start===start),item=items(c,[start])[0];const cell=e.cell??(c.grid?gridCell(c.grid,item.bounds[0]+e.dx+item.bounds[2]/2,item.bounds[1]+e.dy+item.bounds[3]/2):null);return moveElement(c.source,start,e.dx,e.dy,cell,origin(c,item));});}
  function run(action,text){try{
   const c=current();if(!c)return;
   if(action==='snap'){snapping=!snapping;return;}
   if(action==='undo'||action==='redo'){history(action);return;}
-  if(c.start==null)throw Error('Сначала выберите контрол или контейнер');
+  if(c.start==null&&action!=='add')throw Error('Сначала выберите контрол или контейнер');
   if(action==='up'||action==='down'){if(selection.length!==1)return;apply(reorderElement(c.source,selection[0],action==='up'?-1:1),c);}
+  if(action==='add'){
+   if(!text)return;
+   const target=addTarget(c);
+   apply(insertElement(c.source,target.start,text,false,target.side),c);
+  }
   if(action==='copy'||action==='cut'){if(!selection.length)return;clipboard=copyElements(c.source,selection);if(action==='copy')return clipboard;}
   if(action==='delete'||action==='cut')apply(editElements(c.source,selection,start=>removeElement(c.source,start)),c);
   if(action==='duplicate'){
@@ -139,8 +184,10 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  for(const action of ['copy','cut'])listen(window,action,e=>{if(!scope(e)||!current())return;const value=run('copy');if(!value)return;e.preventDefault();e.clipboardData.setData('text/plain',value);if(action==='cut')run('delete');});
  listen(window,'paste',e=>{if(!scope(e)||!current())return;e.preventDefault();run('paste',e.clipboardData.getData('text/plain'));});
  function update(){const c=current();if(!c)closeMenu();let location;try{if(c?.start!=null)location=locateElement(c.source,c.start);}catch{}
+  drawAdds(c?.inserts);
   count.textContent=selection.length?`Выбрано: ${selection.length}`:'';
-  for(const b of bar.children){const action=b.dataset.action;if(!action)continue;b.disabled=!c||(!['undo','redo','snap'].includes(action)&&c.start==null);
+  for(const b of bar.children){const action=b.dataset.action;if(!action)continue;b.disabled=!c||(!['undo','redo','snap','add'].includes(action)&&c.start==null);
+   if(action==='add')b.disabled=!c||!c.root||!(c.inserts??[]).some(item=>item.type===b.dataset.type);
    if(['copy','cut','delete','duplicate'].includes(action))b.disabled=!c||!selection.length;
    if(action==='snap'){b.setAttribute('aria-checked',String(snapping));b.title='Края и центры · Alt при переносе отключает привязку';}
    if(alignments.has(action))b.disabled=!c||!!c.grid||selection.length<(action.startsWith('distribute-')?3:2);

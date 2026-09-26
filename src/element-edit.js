@@ -1,9 +1,13 @@
 import {parse} from './language.js';
+import {containerTypes} from './component-layout.js';
 export function locateElement(source,start){
  let found;const walk=(nodes,parent)=>{for(const node of nodes){if(node.start===start)found={node,parent};walk(node.children,node);}};walk(parse(source).nodes,null);
  if(!found)throw Error('Выберите элемент заново');return found;
 }
 const literal=v=>typeof v==='string'?JSON.stringify(v):Array.isArray(v)?'['+v.join(', ')+']':String(v);
+// The node types that own a child list in markup. Scroll is a container although it is not
+// one of the layout containers, and a container is the only thing that can take a new child.
+export const holdsChildren=node=>containerTypes.has(node.type)||node.type==='Scroll';
 function patch(source,node,props){
  const changes=[];let added='';for(const [key,value] of Object.entries(props)){
   const range=node.propertyRanges[key];if(range)changes.push({...range,insert:literal(value)});else added+=` ${key}: ${literal(value)};`;
@@ -26,11 +30,17 @@ export function moveElement(source,start,dx,dy,cell,origin=[0,0]){
 }
 export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
 export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
-export function insertElement(source,start,text,multiple=false){
+export function insertElement(source,start,text,multiple=false,side='auto'){
  const parsed=parse('component Clipboard { Frame { '+text+' } }').nodes[0].children;
  if(!parsed.length||(!multiple&&parsed.length!==1)||parsed.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Вставьте один контрол Forma');
- const {node,parent}=locateElement(source,start);const container=['Frame','Scroll'].includes(node.type)?node:parent;
- if(!container)throw Error('Выберите контейнер');
+ const {node,parent}=locateElement(source,start);
+ if(side==='inside'&&!holdsChildren(node))throw Error('Внутрь можно добавить только контейнер');
+ if(side==='after'&&!parent)throw Error('У корневого контейнера нет соседа');
+ // `auto` stays the paste rule, where only a real parent can take the node: duplicating a Row
+ // must not put the copy inside it. The palette states the intent instead, so adding into a
+ // Row never turns into adding next to the Row.
+ const container=side==='after'?null:side==='inside'?node:['Frame','Scroll'].includes(node.type)?node:parent;
+ if(!container&&side!=='after')throw Error('Выберите контейнер');
  const keys=new Set();const walk=nodes=>{for(const n of nodes){if(typeof n.props.key==='string')keys.add(n.props.key);walk(n.children);}};walk(parse(source).nodes);
  // Rename copied keys without changing labels, bindings or comments.
  const wrapper='component Clipboard { Frame { ';let wrapped=wrapper+text+' } }';
@@ -38,7 +48,27 @@ export function insertElement(source,start,text,multiple=false){
  for(const n of all.reverse()){if(typeof n.props.key!=='string')continue;let key=n.props.key;let i=2;while(keys.has(key))key=n.props.key+'_'+i++;keys.add(key);wrapped=patch(wrapped,n,{key});}
  text=wrapped.slice(wrapper.length,-4);
  const at=container===node?container.end-1:node.end;
- const insert='\n'+text+'\n';const next=source.slice(0,at)+insert+source.slice(at);parse(next);const inserted=parse(wrapper+text+' } }').nodes[0].children;return {from:at,to:at,insert,start:at+1,starts:inserted.map(n=>at+1+n.start-wrapper.length)};
+ // A new node takes the indentation of the block it joins instead of landing at column 0.
+ // A copy keeps the column its own line had, so its closing brace shows what to strip.
+ const column=index=>source.slice(source.lastIndexOf('\n',index-1)+1,index).match(/^ */)[0];
+ const siblings=container===node?node.children:parent?.children??[];
+ const indent=siblings.length?column(siblings.at(-1).start):column((container??node).start)+'    ';
+ const lines=text.split('\n'),base=lines.length>1?lines.at(-1).match(/^ */)[0]:'';
+ const body=lines.map((line,index)=>line.trim()?(index?indent+line.slice(base.length):indent+line):'').join('\n');
+ const pad=container===node?column(at):'';
+ let from=at,insert,put;
+ if(container!==node){insert='\n'+body+(/\S/.test(source[at])?'\n'+indent:'');}
+ else if(pad===source.slice(source.lastIndexOf('\n',at-1)+1,at)){
+  // The closing brace has a line of its own, so the new node takes the line above it.
+  from=at-pad.length;insert=body+'\n'+pad;
+ }
+ else if(lines.length>1){insert='\n'+body+'\n'+column(node.start);}
+ // A container written on one line keeps that shape for a control written on one line.
+ else{const head=/^\s/.test(source[at-1])?'':' ';insert=head+body.trim()+' ';}
+ put=from+insert.match(/^\s*/)[0].length;
+ const next=source.slice(0,from)+insert+source.slice(at);parse(next);
+ const inserted=parse(wrapper+text+' } }').nodes[0].children;
+ return {from,to:at,insert,start:put,starts:inserted.map(n=>put+n.start-wrapper.length)};
 }
 export function gridCell(grid,x,y){
  const track=(sizes,value,gap)=>{let edge=0;for(let i=0;i<sizes.length;i++){edge+=sizes[i]+gap;if(value<edge)return i+1;}return sizes.length;};

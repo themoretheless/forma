@@ -20,6 +20,7 @@ import {createControlTree} from './control-tree.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {designReferencesInFiles} from './design-data.js';
+import {insertableControls} from './control-catalog.js';
 import {createSpacingOverlay} from './spacing-overlay.js';
 import {gridProperties,gridStyles} from './grid.js';
 import {sizeProperties,sizeValue} from './sizing.js';
@@ -291,8 +292,17 @@ readSource:path=>files[path],
 readTracks:source=>{const raw=files[source.file].slice(source.from,source.to);const value=parse('component Tracks { Frame { columns: '+raw+'; } }').nodes[0].props.columns;return Array.isArray(value)?value:[value];},
 openSource:source=>{open(source.file);$('code').setSelectionRange(source.from,source.to);$('code').focus();},
 edit:(source,insert)=>{const previous=files[source.file];if(previous===undefined)throw Error('Файл не найден');const next=previous.slice(0,source.from)+insert+previous.slice(source.to);parse(next);if(active!==source.file)open(source.file);codeEditor.edit({from:source.from,to:source.to,insert});compile();}});
+// The palette lists the components this project resolves, and only a change under
+// `components/` can alter that, so typing in the page never rebuilds it.
+let insertSignature='',insertCatalog=[];
+function projectInserts(){
+ const parts=[];for(const [path,source]of Object.entries(files))if(path.startsWith('components/')&&path.endsWith('.ui'))parts.push(path+':'+source.length);
+ const signature=parts.sort().join('|');
+ if(signature!==insertSignature){insertSignature=signature;insertCatalog=insertableControls(files);}
+ return insertCatalog;
+}
 elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,nodes:children[0]?.type==='Scroll'?children[0].children:children,scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid};},
+context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,nodes:children[0]?.type==='Scroll'?children[0].children:children,scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts()};},
 select,report:message=>{$('caption').textContent=message;},
 history:action=>{
  const starts=elementTools.selection(),children=compiled?.nodes[0]?.children??[],before=children[0]?.type==='Scroll'?children[0].children:children;

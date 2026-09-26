@@ -8,10 +8,10 @@ class Element extends EventTarget{
  append(n){this.children.push(n);n.parent=this;} replaceChildren(){this.children=[];} after(n){this.next=n;} setAttribute(){} contains(n){return n===this||this.children.some(c=>c.contains(n));}closest(){return null;} focus(){}getBoundingClientRect(){return {left:0,top:0,width:800,height:400};}setPointerCapture(id){this.capture.add(id);}releasePointerCapture(id){this.capture.delete(id);}hasPointerCapture(id){return this.capture.has(id);}
  emit(type,data={}){const e=new Event(type,{cancelable:true});for(const [k,v] of Object.entries(data))Object.defineProperty(e,k,{value:v});this.dispatchEvent(e);return e;}
 }
-function setup(initial){
+function setup(initial,inserts=[]){
  globalThis.document={createElement:()=>new Element()};globalThis.window=new Element();
  const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';if(initial)source=initial;let selected=null,enabled=true;const commits=[],errors=[];
- const context=()=>enabled?{source,start:selected,path:'test.ui',nodes:parse(source).nodes[0].children,scene:{width:400,height:200,controls:parse(source).nodes[0].children.map((n,index)=>({index,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))}}:null;
+ const context=()=>enabled?{source,start:selected,path:'test.ui',root:parse(source).nodes[0],inserts,nodes:parse(source).nodes[0].children,scene:{width:400,height:200,controls:parse(source).nodes[0].children.map((n,index)=>({index,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))}}:null;
  const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e)});
  return {tools,viewport,artboard,toolbar,commits,errors,source:()=>source,disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
 }
@@ -64,3 +64,60 @@ test('canvas context menu selects the pointed control, runs commands and closes'
 });
 
 test('destroy releases editing listeners so a detached Studio cannot execute commands',()=>{const t=setup();t.down();t.viewport.emit('pointerup',{pointerId:1});t.tools.destroy();window.emit('keydown',{target:t.viewport,key:'d',metaKey:true});assert.equal(t.commits.length,0);assert.equal(t.viewport.capture.size,0);});
+const textItem={type:'Text',markup:"Text { text: 'Новый'; fontSize: 16; color: #e8edf7; }"};
+test('the palette puts a new control next to the selected one and selects it',()=>{
+ const t=setup(undefined,[textItem]),menu=t.toolbar.next;
+ t.down();t.viewport.emit('pointerup',{pointerId:1});
+ t.viewport.emit('contextmenu',{target:t.artboard,clientX:40,clientY:60});
+ const add=menu.children.find(b=>b.dataset.type==='Text');
+ assert.equal(add.textContent,'＋ Text');assert.equal(add.disabled,false);
+ add.onclick();
+ const children=parse(t.source()).nodes[0].children;
+ assert.deepEqual(children.map(n=>n.type),['Button','Text']);
+ assert.equal(children[1].props.text,'Новый');assert.equal(t.commits.length,1);
+ assert.deepEqual(t.tools.selection(),[children[1].start]);assert.deepEqual(t.errors,[]);
+});
+test('with nothing selected the first control of a scrolling page goes inside the Scroll',()=>{
+ const t=setup('component Test { Frame { Scroll { Button { key: \'a\'; } } } }',[textItem]),menu=t.toolbar.next;
+ t.viewport.emit('contextmenu',{target:t.artboard,clientX:40,clientY:300});
+ assert.equal(t.tools.selection().length,0);
+ menu.children.find(b=>b.dataset.type==='Text').onclick();
+ const scroll=parse(t.source()).nodes[0].children[0];
+ assert.equal(scroll.type,'Scroll');assert.deepEqual(scroll.children.map(n=>n.type),['Button','Text']);
+ assert.deepEqual(t.errors,[]);
+});
+test('the menu lists the project palette and rebuilds when it grows',()=>{
+ const list=[textItem],t=setup(undefined,list),menu=t.toolbar.next;
+ t.viewport.emit('contextmenu',{target:t.artboard,clientX:40,clientY:60});
+ assert.equal(menu.children.filter(b=>b.dataset.action==='add').length,1);
+ list.push({type:'Button',markup:'Button { }'});
+ t.viewport.emit('contextmenu',{target:t.artboard,clientX:40,clientY:60});
+ assert.deepEqual(menu.children.filter(b=>b.dataset.action==='add').map(b=>b.dataset.type),['Text','Button']);
+ // The selection counter is moved, not duplicated, by a rebuild.
+ assert.equal(menu.children.filter(b=>b.className==='selection-count').length,1);
+ assert.equal(setup().toolbar.next.children.some(b=>b.dataset.action==='add'),false);
+});
+test('the palette filter narrows the list and Enter adds the first match',()=>{
+ const list=[textItem,{type:'Button',markup:'Button { }'}];
+ const t=setup(undefined,list),menu=t.toolbar.next;
+ t.viewport.emit('contextmenu',{target:t.artboard,clientX:40,clientY:60});
+ const filter=menu.children.find(b=>b.className==='element-add-filter');
+ filter.value='butt';filter.oninput();
+ assert.deepEqual(menu.children.filter(b=>b.dataset.action==='add').map(b=>b.dataset.type),['Button']);
+ filter.onkeydown({key:'Enter',preventDefault(){}});
+ assert.deepEqual(parse(t.source()).nodes[0].children.map(n=>n.type),['Button','Button']);
+ assert.equal(t.commits.length,1);assert.deepEqual(t.errors,[]);
+ // A project whose palette changed must not stay behind the old query.
+ list.splice(1,1);
+ t.viewport.emit('contextmenu',{target:t.artboard,clientX:40,clientY:60});
+ assert.deepEqual(menu.children.filter(b=>b.dataset.action==='add').map(b=>b.dataset.type),['Text']);
+ assert.equal(filter.value,'');
+});
+test('a printable key with the menu open searches the palette instead of running a command',()=>{
+ const t=setup(undefined,[textItem,{type:'Button',markup:'Button { }'}]),menu=t.toolbar.next;
+ t.viewport.emit('contextmenu',{target:t.artboard,clientX:40,clientY:60});
+ const filter=menu.children.find(b=>b.className==='element-add-filter');let focused=0;filter.focus=()=>{focused++};
+ const event=menu.emit('keydown',{key:'b'});
+ // The key itself is left to the browser so that it lands in the search box as the first letter.
+ assert.equal(focused,1);assert.equal(event.defaultPrevented,false);assert.equal(t.commits.length,0);
+});

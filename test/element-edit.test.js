@@ -45,3 +45,30 @@ test('reorder remains within Scroll and preserves Grid cell properties',()=>{
  const next=parse(apply(s,change)).nodes[0].children[0];assert.deepEqual(next.children.map(n=>n.props.cell),[[1,2],[1,1]]);
  assert.throws(()=>reorderElement(s,scroll.start,1),/дочерний/);
 });
+test('the palette names where the new node goes, and paste keeps its own rule',()=>{
+ const s='component Test { Row { Text { text: \'a\'; } Column { Text { text: \'b\'; } } } }';
+ const row=parse(s).nodes[0],[text,column]=row.children,box='Rectangle { width: 4; height: 4; }';
+ assert.deepEqual(parse(apply(s,insertElement(s,row.start,box,false,'inside'))).nodes[0].children.map(n=>n.type),['Text','Column','Rectangle']);
+ assert.deepEqual(parse(apply(s,insertElement(s,text.start,box,false,'after'))).nodes[0].children.map(n=>n.type),['Text','Rectangle','Column']);
+ assert.deepEqual(parse(apply(s,insertElement(s,column.start,box,false,'inside'))).nodes[0].children[1].children.map(n=>n.type),['Text','Rectangle']);
+ assert.throws(()=>insertElement(s,text.start,box,false,'inside'),/только контейнер/);
+ assert.throws(()=>insertElement(s,row.start,box,false,'after'),/нет соседа/);
+ // Duplicate and paste select a node, not a destination: only Frame and Scroll take a child,
+ // so pasting while a Row is selected still produces a sibling Row.
+ const page='component Test { Frame { Row { Text { text: \'a\'; } } Button { key: \'b\'; } } }';
+ const flow=parse(page).nodes[0].children[0];
+ assert.deepEqual(parse(apply(page,insertElement(page,flow.start,"Row { }"))).nodes[0].children.map(n=>n.type),['Row','Row','Button']);
+});
+test('an inserted control takes the indentation of the block it joins',()=>{
+ const page="component Page {\n  Frame {\n    Scroll {\n      Button { key: 'a'; }\n    }\n    Row { gap: 4; }\n  }\n}\n";
+ const block=source=>{const [frame]=parse(source).nodes;return {scroll:frame.children[0],row:frame.children[1]};};
+ let change=insertElement(page,block(page).scroll.children[0].start,"Badge { }",false,'after'),next=apply(page,change);
+ assert.equal(next.split('\n')[4],'      Badge { }');assert.equal(next.slice(change.start,change.start+9),'Badge { }');
+ change=insertElement(next,block(next).row.start,"Text { text: 'x'; }",false,'inside');next=apply(next,change);
+ assert.ok(next.includes("Row { gap: 4; Text { text: 'x'; } }"),'a one-line container keeps its shape');
+ assert.equal(next.slice(change.start,change.start+4),'Text');
+ // A copy arrives with the column of its own line, so the block shifts as a whole and the brace keeps its line.
+ change=insertElement(next,block(next).scroll.start,"Rectangle {\n        width: 40;\n      }",false,'inside');next=apply(next,change);
+ assert.deepEqual(next.split('\n').slice(3,9),["      Button { key: 'a'; }",'      Badge { }','      Rectangle {','        width: 40;','      }','    }']);
+ assert.equal(next.slice(change.start,change.start+9),'Rectangle');assert.deepEqual(change.starts,[change.start]);
+});
