@@ -10,7 +10,7 @@ class Element extends EventTarget{
 }
 function setup(initial,inserts=[],extra={}){
  globalThis.document={createElement:()=>new Element()};globalThis.window=new Element();
- const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';if(initial)source=initial;let selected=null,enabled=true;const commits=[],errors=[];
+ const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';if(initial)source=initial;let selected=null,enabled=true;const commits=[],errors=[],batches=[];
  // The designer's scene is flattened: it draws the leaves with the box the layout gave them and
  // counts them in its own order, so a fake built from the page's children by position would hide
  // exactly the confusion the tools have to survive. A nested leaf is drawn inside its container's
@@ -23,8 +23,11 @@ function setup(initial,inserts=[],extra={}){
  const page=()=>{const root=parse(source).nodes[0],children=root?.children??[],top=children[0]?.type==='Scroll'?children[0].children:children,all=[],drawn=[],panels=[];const walk=(nodes,frame)=>{for(const n of nodes){all.push(n);const corner=[frame[0]+(n.props.x??0),frame[1]+(n.props.y??0)];if(containers.has(n.type)){if(n!==root&&flow.has(n.type)&&n.props.width!==undefined&&n.props.height!==undefined)panels.push({start:n.start,bounds:[corner[0],corner[1],n.props.width,n.props.height],coordinateBox:frame});walk(n.children,corner);continue;}drawn.push({start:n.start,bounds:[corner[0],corner[1],n.props.width??100,n.props.height??40],coordinateBox:frame});walk(n.children,corner);}};if(root)walk([root],[0,0]);return {root,top,all,drawn,panels};};
  const context=()=>{if(!enabled)return null;const {root,top,all,drawn,panels}=page();return {source,start:selected,path:'test.ui',root,inserts,top,pick:start=>all.find(n=>n.start===start)??null,state:{},scene:{width:400,height:200,controls:drawn.map((control,index)=>({index,...control})),containers:panels},...extra};};
  const copied=[];
- const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e),copy:v=>copied.push(v)});
- return {tools,copied,extra,viewport,artboard,toolbar,commits,errors,source:()=>source,treeSelect:start=>{selected=start;tools.update();},disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
+ const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;tools.update();batches.push(tools.selection());},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e),copy:v=>copied.push(v)});
+ // What the host was told to draw its panels from, in the order it was told: a panel has to describe
+ // the batch the gesture just made, not the one the previous gesture left. The `update()` inside the
+ // handoff is the host's own rebuild path (main.js), which is where a half-finished selection shows.
+ return {tools,copied,extra,viewport,artboard,toolbar,commits,errors,batches,source:()=>source,treeSelect:start=>{selected=start;tools.update();},disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
 }
 test('drag uses logical coordinates at 200%, commits once on release, Escape cancels',()=>{
  const t=setup();t.down();t.viewport.emit('pointermove',{pointerId:1,clientX:80,clientY:80});assert.equal(t.commits.length,0);
@@ -57,6 +60,14 @@ test('Shift click selects a group, drag moves it once and deletion removes the w
  t.down();t.viewport.emit('pointermove',{pointerId:1,clientX:60,clientY:80,altKey:true});t.viewport.emit('pointerup',{pointerId:1});
  assert.equal(t.commits.length,1);assert.deepEqual(parse(t.source()).nodes[0].children.map(n=>[n.props.x,n.props.y]),[[20,30],[160,90]]);assert.equal(t.tools.selection().length,2);
  window.emit('keydown',{target:t.viewport,key:'Delete'});assert.equal(parse(t.source()).nodes[0].children.length,0);assert.deepEqual(t.errors,[]);
+});
+test('the host is told about a choice with the new batch already in place',()=>{
+ const t=setup(groupSource),[a,b]=parse(groupSource).nodes[0].children.map(n=>n.start);
+ t.down();t.viewport.emit('pointerup',{pointerId:1});
+ assert.deepEqual(t.batches.at(-1),[a],'a single click offers one control');
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:2,clientX:320,clientY:180,shiftKey:true});
+ assert.deepEqual(t.batches.at(-1),[a,b],'a panel drawn for the choice sees both controls, not the one the last gesture left');
+ assert.deepEqual(t.errors,[]);
 });
 test('marquee selects intersecting controls and Escape cancels without changing selection',()=>{
  const t=setup(groupSource);t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:1,clientX:0,clientY:0});t.viewport.emit('pointermove',{pointerId:1,clientX:450,clientY:250});t.viewport.emit('pointerup',{pointerId:1});assert.equal(t.tools.selection().length,2);assert.equal(t.commits.length,0);

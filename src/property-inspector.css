@@ -18,3 +18,9 @@
    block it writes to, so overriding a state never reads as editing the component. */
 .property.state,.property.base{box-shadow:inset 2px 0 #5f7bb6}
 .property-layer{display:inline-block;margin-left:6px;padding:0 5px;border:1px solid #3b4a63;border-radius:8px;background:#1a2130;color:#9db4dd;font-size:9px;line-height:1.6;vertical-align:1px}
+/* The batch section sits under the rows of one control but writes to all of the selection, so it is
+   divided off and says whose markup a row changes. */
+.bulk-edit{margin-top:22px;padding-top:14px;border-top:1px dashed #2f3a4c}
+.bulk-edit>.inspector-label{margin:0 0 9px}
+.bulk-note{display:block;margin:0 0 13px;line-height:1.5}
+.bulk-edit input::placeholder{color:#5f6c81;font-style:italic}

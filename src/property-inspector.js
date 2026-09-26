@@ -9,11 +9,25 @@ function valueText(value){
   if(value===null||value===undefined)return 'пусто';
   return typeof value==='object'?serializeValue(value):String(value);
 }
+// A literal row shows its value as text but writes it back as the value the source holds, so the
+// text is checked against the shape the row was read in. Batch rows ask for the same rule.
+export function literalValue(field,text){
+  if(typeof field.value==='number'){
+    const value=Number(text);
+    if(!Number.isFinite(value))throw Error('Некорректное значение свойства');
+    return value;
+  }
+  if(typeof field.value==='boolean'){
+    if(!['true','false'].includes(text.trim()))throw Error('Ожидается true или false');
+    return text.trim()==='true';
+  }
+  return text;
+}
 // What a property holds is decided by the text around its own range: a design token, a colour,
 // a literal, an expression. That shape is what the field validates against and how it quotes a
 // write back; where the write goes is the row's own business. A design entry is a node like a
 // markup control is, so the same reading works in the base block and in a state block.
-function classify(source,origin,key){
+export function classify(source,origin,key){
   const range=origin?.propertyRanges?.[key];
   if(!range)return null;
   const declared=origin.props[key],text=source.slice(range.from,range.to);
@@ -111,11 +125,7 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
     try{
       freshen();
       const at=target(field);
-      let value=text;
-      if(field.shape==='literal'){
-        if(typeof field.value==='number'){value=Number(text);if(!Number.isFinite(value))throw Error('Некорректное значение свойства');}
-        else if(typeof field.value==='boolean'){if(!['true','false'].includes(text.trim()))throw Error('Ожидается true или false');value=text.trim()==='true';}
-      }
+      const value=field.shape==='literal'?literalValue(field,text):text;
       // A design block holds no node of the markup file to cut into: the entry it writes is located
       // by the control's type and design key, and a string the field shows is quoted back as markup.
       const change=field.commit==='state'

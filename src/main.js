@@ -23,6 +23,7 @@ import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePrope
 import {copyElement,insertElement,moveAmongSiblings,moveIntoContainer,removeElement} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
+import {createBulkEditor} from './bulk-edit.js';
 import {designReferencesInFiles} from './design-data.js';
 import {insertableControls} from './control-catalog.js';
 import {createSpacingOverlay} from './spacing-overlay.js';
@@ -43,7 +44,7 @@ import {setDesignData,designReferences} from './design-data.js';
 let codeEditor,propertyInspector;
 let spacingOverlay;
 let vectorPreview;
-let controlTree,selectedPath=null,inspectorNote='';
+let controlTree,bulkEditor,selectedPath=null,inspectorNote='';
 let statesPanel;
 // The design files the entry resolves, in reference order and relative to the entry's folder: the
 // states panel authors the first of them, while a state row switches by name across all of them.
@@ -237,6 +238,9 @@ if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySele
 function renderInspector(){
   if(!selected||!selectedPath||!Object.hasOwn(files,selectedPath))return;
   propertyInspector?.render({node:selected,path:selectedPath,source:files[selectedPath],editable:designPresetName==='original',note:inspectorNote,state:designStateFor(selected)});
+  // The panel above draws the one control the designer last clicked; this section draws what the whole
+  // selection has in common. Only the canvas keeps a batch, so the row offsets come from it alone.
+  bulkEditor?.render({path:selectedPath,source:files[selectedPath],starts:selectedPath===entry?elementTools?.selection()??[]:[],primary:selected.start,editable:designPresetName==='original'});
 }
 // The design layer the preview is showing for this control: the file that carries the state, and the
 // two entries its key is patched by. Without a state on screen, or for a control no design file
@@ -366,14 +370,16 @@ statesPanel=createStatesPanel({explorer:document.querySelector('.explorer'),
 codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
 // A panel edit of one file: the guard rejects a change computed against text the editor has
 // already moved past, and the reselect walks the AST the new compile yields.
-function commitSource({file,source,from,to,insert,reselect}){
+function commitSource({file,source,from,to,insert,reselect,after}){
   if((file===active?$('code').value:files[file])!==source)throw Error('Исходник изменился — повторите операцию');
   parse(source.slice(0,from)+insert+source.slice(to));
   if(active!==file)open(file);
   codeEditor.edit({from,to,insert});
   // A change that adds or removes a row rebuilds its panel once the editor has published the
-  // input event and the new AST exists.
-  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===reselect)found??=n;walk(n.children??[]);}};walk(compiled?.nodes??[]);if(found)select(found);});
+  // input event and the new AST exists. `after` runs at the very end, after the host has republished
+  // the reselected control: the editor's own input event drops the selection, so a caller that keeps
+  // a batch of offsets — the ones this change just moved — has to restore it over that handoff.
+  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===reselect)found??=n;walk(n.children??[]);}};walk(compiled?.nodes??[]);if(found)select(found);after?.();});
 }
 // The tree is drawn from a snapshot parse, so the move is computed against that same text.
 // Only the entry file compiles into the preview whose AST the reselect walks.
@@ -430,6 +436,9 @@ history:action=>{
  if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();const children=compiled?.nodes[0]?.children??[],after=children[0]?.type==='Scroll'?children[0].children:children;
   const restored=identities.map(id=>typeof id.key==='string'?after.find(n=>n.props.key===id.key):before.length===after.length&&after[id.index]?.type===id.type?after[id.index]:null).filter(Boolean);
   if(restored.length)select(restored[0]);elementTools.setSelection(restored.map(n=>n.start));elementTools.update();
+  // The identities are the page's own children, so an undo of an edit inside a group leaves the canvas
+  // holding less than it did; the panel is redrawn from what it holds afterwards, not before.
+  renderInspector();
  });
 },
 commit:(change,context)=>{
@@ -441,6 +450,13 @@ commit:(change,context)=>{
  // The editor publishes its input event first; reselect against the new AST afterwards.
  queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===change.start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);if(change.starts)elementTools.setSelection(change.starts);elementTools.update();});
 }});
+// Below the rows of one control, the panel offers the names the whole canvas selection has in
+// common. Their write spans the batch, so the offsets it reports are what keeps the selection alive:
+// the handoff to the reselected control leaves the panel holding one control, and the batch is put
+// back over it before the rows are drawn again.
+bulkEditor=createBulkEditor({container:$('inspector'),
+ commit:({file,source,primary,...change})=>commitSource({file,source,...change,reselect:primary,after:()=>{elementTools.setSelection(change.starts);renderInspector();}}),
+ onError:message=>{error=message;sourceDiagnostic=null;output();}});
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);
 let studioShell,shellDisposed=false;

@@ -145,7 +145,11 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  function current(){const c=context();if(!c)return null;if(c.start!==primary){primary=c.start;selection=c.start==null?[]:[c.start];}selection=selection.filter(start=>known(c,start));return c;}
  function items(c,starts=selection){return starts.map(start=>{const bounds=boxOf(c,start);return bounds?{start,bounds}:null;}).filter(Boolean);}
  function setSelection(starts){const c=context();primary=c?.start;selection=[...new Set(starts??[])].filter(start=>c&&known(c,start));update();}
- function choose(starts,c){const n=c.pick?.(starts.at(-1))??measured(c).nodes.get(starts.at(-1));if(n)select(n);else if(c.root)select(c.root);primary=context()?.start;selection=[...starts];update();}
+ // The new batch is in place before the host is told what was chosen: the panels it rebuilds are meant
+ // to describe this gesture, not the selection the previous one left behind. `primary` is pointed at the
+ // node the host is about to publish, since telling it runs `current()` inside, and that would otherwise
+ // collapse the batch to the single control the panel shows.
+ function choose(starts,c){const n=c.pick?.(starts.at(-1))??measured(c).nodes.get(starts.at(-1));const next=n??c.root;selection=[...starts];if(next)primary=next.start;if(n)select(n);else if(c.root)select(c.root);primary=context()?.start;update();}
  function apply(change,c){if(change)commit(change,c);}
  // The layout measures a control's own coordinate from the corner of the container that flows it,
  // which is the page corner only for a control sitting directly on the page.
