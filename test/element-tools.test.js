@@ -11,10 +11,15 @@ class Element extends EventTarget{
 function setup(initial,inserts=[],extra={}){
  globalThis.document={createElement:()=>new Element()};globalThis.window=new Element();
  const viewport=new Element(),artboard=new Element(),toolbar=new Element();viewport.append(artboard);let source='component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }';if(initial)source=initial;let selected=null,enabled=true;const commits=[],errors=[];
- const context=()=>enabled?{source,start:selected,path:'test.ui',root:parse(source).nodes[0],inserts,nodes:parse(source).nodes[0].children,state:{},scene:{width:400,height:200,controls:parse(source).nodes[0].children.map((n,index)=>({index,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))},...extra}:null;
+ // The designer's scene is flattened: it draws the leaves with the box the layout gave them and
+ // counts them in its own order, so a fake built from the page's children by position would hide
+ // exactly the confusion the tools have to survive.
+ const containers=new Set(['Frame','Scroll','Row','Column','Grid','Stack']);
+ const page=()=>{const root=parse(source).nodes[0],children=root?.children??[],top=children[0]?.type==='Scroll'?children[0].children:children,all=[],drawn=[];const walk=nodes=>{for(const n of nodes){all.push(n);if(!containers.has(n.type))drawn.push(n);walk(n.children??[]);}};if(root)walk([root]);return {root,top,all,drawn};};
+ const context=()=>{if(!enabled)return null;const {root,top,all,drawn}=page();return {source,start:selected,path:'test.ui',root,inserts,top,pick:start=>all.find(n=>n.start===start)??null,state:{},scene:{width:400,height:200,controls:drawn.map((n,index)=>({index,start:n.start,bounds:[n.props.x??0,n.props.y??0,n.props.width??100,n.props.height??40]}))},...extra};};
  const copied=[];
  const tools=createElementTools({viewport,artboard,toolbar,context,select:n=>{selected=n.start;},commit:c=>{commits.push(c);source=source.slice(0,c.from)+c.insert+source.slice(c.to);selected=c.start;if(c.starts)tools.setSelection(c.starts);},history:()=>{},report:e=>errors.push(e),copy:v=>copied.push(v)});
- return {tools,copied,extra,viewport,artboard,toolbar,commits,errors,source:()=>source,disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
+ return {tools,copied,extra,viewport,artboard,toolbar,commits,errors,source:()=>source,treeSelect:start=>{selected=start;tools.update();},disable:()=>{enabled=false;},down:()=>viewport.emit('pointerdown',{target:artboard,button:0,pointerId:1,clientX:40,clientY:60})};
 }
 test('drag uses logical coordinates at 200%, commits once on release, Escape cancels',()=>{
  const t=setup();t.down();t.viewport.emit('pointermove',{pointerId:1,clientX:80,clientY:80});assert.equal(t.commits.length,0);
@@ -155,9 +160,11 @@ test('a leading edge is clamped to the page and Escape drops the resize without 
  assert.equal(t.source(),before);assert.deepEqual(sides(t),['nw','n','ne','e','se','s','sw','w']);
 });
 test('a control whose size the layout owns gets no handles',()=>{
+ // A Scroll flattens to the control inside it, and that control keeps its own size, so
+ // unlike a Grid child it does take handles.
  const t=setup('component Test { Frame { Scroll { Button { key: \'a\'; } } } }');
  t.down();t.viewport.emit('pointerup',{pointerId:1});assert.deepEqual(t.tools.selection().length,1);
- assert.deepEqual(sides(t),[]);
+ assert.deepEqual(sides(t),['nw','n','ne','e','se','s','sw','w']);
  const grid='component Test { Frame { columns: [100, *]; rows: [40, *]; Button { key: \'a\'; cell: [1, 1]; width: 60; height: 24; } } }';
  const g=setup(grid);g.viewport.emit('pointerdown',{target:g.artboard,button:0,pointerId:1,clientX:20,clientY:20});
  g.viewport.emit('pointerup',{pointerId:1});assert.deepEqual(g.tools.selection().length,1);
@@ -183,7 +190,10 @@ test('the element menu hands over the CSS of the selected control',()=>{
  assert.equal(t.errors.length,1,'a control whose node the scene drew exports without a complaint');
 });
 test('a control the scene never drew lends no box to the handoff',()=>{
- const t=setup("component Test { Frame { width: 400; Column { x: 10; y: 20; gap: 10; Button { width: 100; height: 40; key: 'card'; } } } }");t.down();t.viewport.emit('pointerup',{pointerId:1});
+ const t=setup("component Test { Frame { width: 400; Column { x: 10; y: 20; gap: 10; Button { width: 100; height: 40; key: 'card'; } } } }");
+ // The scene draws the Button and counts the Column nowhere, so the designer takes the container
+ // from the tree, and the handoff reports only what the Column itself declares.
+ t.treeSelect(parse(t.source()).nodes[0].children[0].start);
  [...t.toolbar.next.children].find(b=>b.dataset.action==='css').onclick();
  assert.deepEqual(t.copied,['.column {\n  gap: 10px;\n}'],'the spacing belongs to the container, the 100x40 box to the control inside it');
 });
@@ -194,5 +204,30 @@ test('a group hands over one block per control',()=>{
  [...t.toolbar.next.children].find(b=>b.dataset.action==='css').onclick();
  // A designer copies the pair they selected, not the first one the menu happened to look at.
  assert.deepEqual(t.copied,['.a {\n  width: 60px;\n}\n\n.b {\n  width: 60px;\n}']);
+ assert.deepEqual(t.errors,[]);
+});
+
+const nestedSource="component Test { Frame { width: 400; Column { key: 'box'; Button { key: 'a'; x: 40; y: 20; width: 40; height: 20; } Button { key: 'b'; x: 60; y: 80; width: 60; height: 20; } } } }";
+test('a click on a nested control selects the control under the pointer, not whoever holds its index',()=>{
+ const t=setup(nestedSource);
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:1,clientX:140,clientY:180});
+ t.viewport.emit('pointerup',{pointerId:1});
+ const box=parse(t.source()).nodes[0].children[0],b=box.children[1];
+ assert.equal(b.props.key,'b','the fixture nests the control the pointer is on');
+ // The old pairing looked the drawn control up among the page's top-level children by position, so a
+ // nested control either selected the wrong node or, as here, selected nothing at all.
+ assert.deepEqual(t.tools.selection(),[b.start]);assert.deepEqual(t.errors,[]);
+ window.emit('keydown',{target:t.viewport,key:'a',metaKey:true});
+ assert.deepEqual(t.tools.selection(),[box.start],'select all takes what the page holds at its top');
+ assert.deepEqual(t.errors,[]);
+});
+const boxesOf=t=>handleLayer(t).children.filter(c=>c.className==='element-selected-box').map(c=>[c.style.left,c.style.top,c.style.width,c.style.height]);
+test('a container is measured by the union of what the scene drew inside it',()=>{
+ const t=setup(nestedSource);
+ const box=parse(t.source()).nodes[0].children[0];
+ t.tools.setSelection([box.start]);
+ // The Column paints no box of its own, so the outline is what it laid out: 40,20 to 120,100, and the
+ // fixture canvas runs at 200%.
+ assert.deepEqual(boxesOf(t),[['80px','40px','160px','160px']],'the outline is the children of the Column, not one of them');
  assert.deepEqual(t.errors,[]);
 });

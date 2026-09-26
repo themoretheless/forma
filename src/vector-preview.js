@@ -486,13 +486,17 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     activate,
     // Canvas tools need geometry, not strings, text values and interaction state
     // for every control. Reuse an immutable snapshot until the model changes.
+    // Each record carries the markup offset of the control it drew, because the tools edit the
+    // source and the scene counts flattened controls: pairing the two by position hands a node
+    // the box of whoever happens to sit at that index.
     layoutSnapshot() {
       if(!button||!current)return null;
       const revision=button.layout_revision?.()??button.visual_revision();
       if(layoutModel===button&&layoutRevision===revision)return layout;
+      const nodes=controlNodes();
       layout=Object.freeze({width:button.width(),height:button.height(),clip:button.clipped(),
         scrollable:button.scrollable(),scrollOffset:Object.freeze(Array.from(button.scroll_offset())),
-        controls:Object.freeze(Array.from({length:button.control_count()},(_,index)=>Object.freeze({index,bounds:Object.freeze(Array.from(button.control_bounds(index)))})))});
+        controls:Object.freeze(Array.from({length:button.control_count()},(_,index)=>Object.freeze({index,start:nodes[index]?.start??null,bounds:Object.freeze(Array.from(button.control_bounds(index)))})))});
       layoutModel=button;layoutRevision=revision;
       return layout;
     },

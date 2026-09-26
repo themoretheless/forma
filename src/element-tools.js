@@ -1,5 +1,6 @@
 import {createEventScope} from './event-scope.js';
-import {copyElements,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock} from './element-edit.js';
+import {parse} from './language.js';
+import {copyElements,copyElement,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
 import {controlCss} from './handoff.js';
 export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report,copy=text=>navigator.clipboard?.writeText(text)}){
@@ -49,8 +50,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  listen(viewport,'contextmenu',e=>{
   const c=current();if(!c||editable(e))return;e.preventDefault();e.stopPropagation();cancel();
   const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
-  const hit=[...c.scene.controls].reverse().find(n=>x>=n.bounds[0]&&y>=n.bounds[1]&&x<=n.bounds[0]+n.bounds[2]&&y<=n.bounds[1]+n.bounds[3]);
-  const node=hit&&c.nodes[hit.index];if(node&&!selection.includes(node.start))choose([node.start],c);
+  const start=hitAt(c,x,y);if(start!=null&&!selection.includes(start))choose([start],c);
   openMenu(e.clientX,e.clientY);
  },true);
  listen(window,'pointerdown',e=>{if(!bar.contains(e.target))closeMenu();},true);
@@ -69,10 +69,36 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  const overlay=document.createElement('div');overlay.className='element-selection-overlay';viewport.append(overlay);
  const editable=e=>e.target.closest?.('input,textarea,select,[contenteditable="true"]');
  const alignments=new Set(['left','center','right','top','middle','bottom','distribute-x','distribute-y']);
- function current(){const c=context();if(!c)return null;if(c.start!==primary){primary=c.start;selection=c.nodes.some(n=>n.start===c.start)?[c.start]:[];}selection=selection.filter(start=>c.nodes.some(n=>n.start===start));return c;}
- function items(c,starts=selection){return starts.map(start=>{const index=c.nodes.findIndex(n=>n.start===start),control=c.scene.controls.find(n=>n.index===index);return control?{start,bounds:control.bounds}:null;}).filter(Boolean);}
- function setSelection(starts){const c=context();primary=c?.start;selection=[...new Set(starts??[])].filter(start=>c?.nodes.some(n=>n.start===start));update();}
- function choose(starts,c){const n=c.nodes.find(n=>n.start===starts.at(-1));if(n)select(n);else if(c.root)select(c.root);primary=context()?.start;selection=[...starts];update();}
+ // The scene counts the controls it drew and the markup nests them, so pairing the two by position
+ // handed a selected container the box of whoever happened to sit at that index. Every measure goes
+ // through the source offset the drawing carries instead: a control takes its own box, a container
+ // the union of what it drew inside it, and a node the page no longer has gets neither.
+ let measure=null;
+ function measured(c){
+  if(measure?.scene===c.scene&&measure.source===c.source)return measure;
+  const nodes=new Map();try{const stack=[...parse(c.source).nodes];while(stack.length){const n=stack.pop();nodes.set(n.start,n);stack.push(...(n.children??[]));}}catch{}
+  // A drawing can carry the offset of a node from a component file, and that is not something this page's
+  // markup can point at, so only a box the page itself owns is measured, hit or snapped against.
+  const drawn=new Map();for(const control of c.scene.controls)if(nodes.has(control.start)&&!drawn.has(control.start))drawn.set(control.start,control.bounds);
+  return measure={scene:c.scene,source:c.source,drawn,nodes,unions:new Map()};
+ }
+ function boxOf(c,start){
+  const m=measured(c),own=m.drawn.get(start);if(own)return own;
+  if(m.unions.has(start))return m.unions.get(start);
+  const boxes=[],stack=[...(m.nodes.get(start)?.children??[])];
+  while(stack.length){const n=stack.pop(),b=m.drawn.get(n.start);if(b)boxes.push(b);else stack.push(...(n.children??[]));}
+  const union=boxes.length?selectionBounds(boxes):null;m.unions.set(start,union);return union;
+ }
+ function hitAt(c,x,y){const drawn=measured(c).drawn,control=[...c.scene.controls].reverse().find(n=>drawn.has(n.start)&&x>=n.bounds[0]&&y>=n.bounds[1]&&x<=n.bounds[0]+n.bounds[2]&&y<=n.bounds[1]+n.bounds[3]);return control?.start??null;}
+ // A dragged container carries its children with it, so none of them is a snap target of its own.
+ function covered(c,starts){const m=measured(c),set=new Set(starts);for(const start of starts)for(const stack=[...(m.nodes.get(start)?.children??[])];stack.length;){const n=stack.pop();set.add(n.start);stack.push(...(n.children??[]));}return set;}
+ // What the page holds is its own markup, so a control the designer can still reach from the tree is
+ // never dropped from the selection for want of a box the scene drew for it.
+ function known(c,start){return measured(c).nodes.has(start);}
+ function current(){const c=context();if(!c)return null;if(c.start!==primary){primary=c.start;selection=c.start==null?[]:[c.start];}selection=selection.filter(start=>known(c,start));return c;}
+ function items(c,starts=selection){return starts.map(start=>{const bounds=boxOf(c,start);return bounds?{start,bounds}:null;}).filter(Boolean);}
+ function setSelection(starts){const c=context();primary=c?.start;selection=[...new Set(starts??[])].filter(start=>c&&known(c,start));update();}
+ function choose(starts,c){const n=c.pick?.(starts.at(-1))??measured(c).nodes.get(starts.at(-1));if(n)select(n);else if(c.root)select(c.root);primary=context()?.start;selection=[...starts];update();}
  function apply(change,c){if(change)commit(change,c);}
  function origin(c,item){return [item.bounds[0]+(c.scene.scrollOffset?.[0]??0),item.bounds[1]+(c.scene.scrollOffset?.[1]??0)];}
  // A container takes the new node as its last child and a leaf gets it as the next sibling,
@@ -109,7 +135,10 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(action==='duplicate'){
    if(!selection.length)return;
    let copied=copyElements(c.source,selection);
-   if(!c.grid){const changes=items(c).map(item=>{const n=locateElement(c.source,item.start).node;const moved=moveElement(c.source,item.start,16,16,null,origin(c,item));return {start:n.start,text:moved.insert};});copied=changes.sort((a,b)=>a.start-b.start).map(c=>c.text).join('\n');}
+   if(!c.grid){const changes=selection.map(start=>{const n=locateElement(c.source,start).node,item=items(c,[start])[0];
+    // An offset is measured from the box the scene drew, so a node the page keeps but never paints
+    // gets its duplicate where it stands rather than at a position nobody chose.
+    const moved=item?moveElement(c.source,start,16,16,null,origin(c,item)):{insert:copyElement(c.source,start)};return {start:n.start,text:moved.insert};});copied=changes.sort((a,b)=>a.start-b.start).map(c=>c.text).join('\n');}
    apply(insertElements(c.source,Math.max(...selection),copied),c);
   }
   if(action==='paste')apply(insertElements(c.source,c.start,text??clipboard),c);
@@ -159,10 +188,9 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
     viewport.setPointerCapture(e.pointerId);draw();}
    return;}
   const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
-  const hit=[...c.scene.controls].reverse().find(n=>x>=n.bounds[0]&&y>=n.bounds[1]&&x<=n.bounds[0]+n.bounds[2]&&y<=n.bounds[1]+n.bounds[3]);
-  const n=hit?c.nodes[hit.index]:null;e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
-  if(n&&e.shiftKey){choose(selection.includes(n.start)?selection.filter(s=>s!==n.start):[...selection,n.start],c);return;}
-  if(n){if(!selection.includes(n.start))choose([n.start],c);const list=items(c);drag={...c,start:primary,kind:'move',id:e.pointerId,x:e.clientX,y:e.clientY,scale,items:list,dx:0,dy:0,moved:false};}
+  const hit=hitAt(c,x,y);e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
+  if(hit!=null&&e.shiftKey){choose(selection.includes(hit)?selection.filter(s=>s!==hit):[...selection,hit],c);return;}
+  if(hit!=null){if(!selection.includes(hit))choose([hit],c);const list=items(c);drag={...c,start:primary,kind:'move',id:e.pointerId,x:e.clientX,y:e.clientY,scale,items:list,dx:0,dy:0,moved:false};}
   else drag={...c,kind:'marquee',id:e.pointerId,x:e.clientX,y:e.clientY,scale,origin:[x,y],marquee:[x,y,0,0],initial:e.shiftKey?[...selection]:[],moved:false};
   viewport.setPointerCapture(e.pointerId);
  },true);
@@ -177,14 +205,20 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    drag.edges={left,right,top,bottom};
    drag.preview=[b[0]+left,b[1]+top,Math.max(0,b[2]+right-left),Math.max(0,b[3]+bottom-top)];draw();return;}
   const bounds=selectionBounds(drag.items.map(i=>i.bounds));drag.guides=[];
-  if(snapping&&!e.altKey&&!drag.grid){const others=drag.scene.controls.filter(c=>!drag.items.some(i=>drag.nodes[c.index]?.start===i.start)).map(c=>c.bounds);const snapped=snapSelection(bounds,dx,dy,others,[drag.scene.width,drag.scene.height],6/drag.scale);dx=snapped.dx;dy=snapped.dy;drag.guides=snapped.guides;}
+  if(snapping&&!e.altKey&&!drag.grid){const skip=drag.covered??(drag.covered=covered(drag,drag.items.map(i=>i.start)));const others=drag.scene.controls.filter(c=>!skip.has(c.start)).map(c=>c.bounds);const snapped=snapSelection(bounds,dx,dy,others,[drag.scene.width,drag.scene.height],6/drag.scale);dx=snapped.dx;dy=snapped.dy;drag.guides=snapped.guides;}
   // Clamp the whole group together so its internal spacing is preserved.
   if(!drag.grid){dx=Math.max(dx,-bounds[0]-(drag.scene.scrollOffset?.[0]??0));dy=Math.max(dy,-bounds[1]-(drag.scene.scrollOffset?.[1]??0));}
   drag.dx=dx;drag.dy=dy;draw();
  },true);
  listen(viewport,'pointerup',e=>{
   if(!drag||e.pointerId!==drag.id)return;e.stopImmediatePropagation();const d=drag;cancel();
-  if(d.kind==='marquee'){const hit=d.moved?items(d,d.nodes.map(n=>n.start)).filter(i=>intersects(i.bounds,d.marquee)).map(i=>i.start):[];choose([...new Set([...d.initial,...hit])],d);return;}
+  if(d.kind==='marquee'){
+   // A marquee picks what the page draws, so it is the drawn controls that are tested against it:
+   // a container's box is the union of its children, and that would let one sweep over a leaf drag
+   // the whole container in whenever the container itself paints nothing.
+   const drawn=[...measured(d).drawn.keys()];
+   const hit=d.moved?items(d,drawn).filter(i=>intersects(i.bounds,d.marquee)).map(i=>i.start):[];
+   choose([...new Set([...d.initial,...hit])],d);return;}
   if(d.kind==='resize'){if(!d.moved)return;const scroll=d.scene.scrollOffset??[0,0];
    try{apply(resizeElement(d.source,d.start,d.edges,d.bounds,[d.bounds[0]+scroll[0],d.bounds[1]+scroll[1]]),d);}catch(error){report(error.message);}return;}
   if(!d.moved)return;try{
@@ -206,7 +240,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(!scope(e)||!current())return;
   if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10')){e.preventDefault();const r=viewport.getBoundingClientRect();openMenu(r.left+24,r.top+24);return;}
   const mod=e.metaKey||e.ctrlKey,key=e.key.toLowerCase();
-  if(mod&&key==='a'){e.preventDefault();const c=current();choose(c.nodes.map(n=>n.start),c);return;}
+  if(mod&&key==='a'){e.preventDefault();const c=current();choose(c.top.map(n=>n.start),c);return;}
   if(e.key==='Escape'){e.preventDefault();choose([],current());return;}
   if(e.altKey&&!mod&&(e.key==='ArrowUp'||e.key==='ArrowDown')){e.preventDefault();run(e.key==='ArrowUp'?'up':'down');return;}
   if(mod&&key==='z'){e.preventDefault();run(e.shiftKey?'redo':'undo');return;}

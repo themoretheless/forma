@@ -330,7 +330,7 @@ function projectInserts(){
  return insertCatalog;
 }
 elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,nodes:children[0]?.type==='Scroll'?children[0].children:children,scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
+context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,top:children[0]?.type==='Scroll'?children[0].children:children,pick:start=>{let found;const walk=nodes=>{for(const n of nodes){if(n.start===start)found??=n;walk(n.children??[]);}};if(root)walk([root]);return found??null;},scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
 select,report:message=>{$('caption').textContent=message;},
 copy:async text=>{try{await navigator.clipboard.writeText(text);$('caption').textContent='CSS скопирован в буфер';}catch{$('caption').textContent='Буфер обмена недоступен';}},
 history:action=>{

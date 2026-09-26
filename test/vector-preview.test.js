@@ -158,6 +158,16 @@ test('canvas geometry snapshots reuse bounds without requesting diagnostic strin
   preview.destroy();assert.equal(preview.layoutSnapshot(),null);
 });
 
+test('a layout snapshot names the control of the markup it drew',t=>{
+  const {preview,render}=fixture(t,[button,passive],true);
+  // The designer edits markup offsets while the scene counts the controls it drew, and the two orders
+  // diverge as soon as a page nests: a snapshot that said only "control 0" handed whoever sits at that
+  // index the box of somebody else.
+  assert.deepEqual(preview.layoutSnapshot().controls.map(c=>[c.index,c.start]),[[0,10],[1,11]]);
+  render([button,passive,button],true,{previewControls:[{start:10},{start:11}]});
+  assert.deepEqual(preview.layoutSnapshot().controls.map(c=>c.start),[10,11,null],'a control with no node of the page stays unnamed');
+});
+
 test('paint revisions do not invalidate layout snapshots on versioned runtimes',t=>{
   const {preview,models}=fixture(t,[button],true),model=models[0];let layout=0,reads=0;
   const bounds=model.control_bounds.bind(model);
