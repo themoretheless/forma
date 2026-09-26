@@ -20,7 +20,7 @@ import './states-panel.css';
 import {createControlTree} from './control-tree.js';
 import {createStatesPanel} from './states-panel.js';
 import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePropertyEdit,stateRenameEdit} from './design-states.js';
-import {copyElement,insertElement,moveAmongSiblings,removeElement} from './element-edit.js';
+import {copyElement,insertElement,moveAmongSiblings,moveIntoContainer,removeElement} from './element-edit.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {designReferencesInFiles} from './design-data.js';
@@ -381,7 +381,9 @@ function reorderTreeControl({path,start,targetStart,side}){
   const source=activeTreeDocument?.path===path?activeTreeDocument.source:files[path];
   if(source===undefined){$('caption').textContent='Файл не найден';return;}
   try{
-    const change=moveAmongSiblings(source,start,targetStart,side);
+    // The tree names no point in the receiving container's space, so an inside drop only changes the
+    // structure: placing a control by the pointer stays the canvas gesture's job.
+    const change=side==='inside'?moveIntoContainer(source,start,targetStart):moveAmongSiblings(source,start,targetStart,side);
     if(change)commitSource({file:path,source,from:change.from,to:change.to,insert:change.insert,reselect:path===entry?change.start:undefined});
   }catch(e){$('caption').textContent=e.message;}
 }

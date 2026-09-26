@@ -22,6 +22,8 @@
 .control-tree-row[data-dragging]{opacity:.4}
 .control-tree-row[data-drop=before]{box-shadow:inset 0 2px 0 #9bb4ff}
 .control-tree-row[data-drop=after]{box-shadow:inset 0 -2px 0 #9bb4ff}
+// The middle of a row is the slot inside that container, so the whole row lights up rather than an edge.
+.control-tree-row[data-drop=inside]{background:#22304a;box-shadow:inset 0 0 0 1px #9bb4ff}
 .control-tree-arrow{width:13px;text-align:center;color:#92a5c3;flex-shrink:0}
 .control-tree-label{overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:85%}
 .control-tree-detail{color:#7488aa;overflow:hidden;text-overflow:ellipsis;font-size:10px}

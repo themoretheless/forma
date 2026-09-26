@@ -1,5 +1,9 @@
 import {readStorage,writeStorage} from './browser-storage.js';
+import {holdsChildren} from './element-edit.js';
 const shorten=v=>String(v).replace(/\s+/g,' ').slice(0,70);
+// A control the markup itself places. The tree also shows the nodes that fill a property slot, and
+// those belong to no container: they can be neither cut out of a sibling run nor handed to one.
+const structural=id=>!id.includes('/prop/');
 function valueLabel(v){if(Array.isArray(v))return '('+v.map(valueLabel).join(', ')+')';return v?.expr??shorten(v);}
 
 // This is a source hierarchy, not an invented runtime expansion. A template's
@@ -53,16 +57,15 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   function rowElement(id){return elements.get(id);}
   function draw(restoreFocus=false){
     rows=treeRows(roots,collapsed,query);
-    // Where a drag may start: a source control whose parent is itself a source control with
-    // another visible sibling. Computed once for the list because draw runs on every keystroke.
-    // A filter hides siblings, so it also switches the drag off.
+    // Where a drag may start: a source control whose parent is itself a source control. A neighbour
+    // to move between is no longer required, because the drop can also hand the control to another
+    // container. Computed once for the list because draw runs on every keystroke.
+    // A filter hides siblings, so it still switches the whole drag off.
     movable=new Set();
     reorderDrawn=reorderReady();
     if(!disabled&&!query&&reorderDrawn){
-      const byId=new Map(rows.map(n=>[n.id,n])),groups=new Map();
-      for(const n of rows){const parent=n.node&&byId.get(n.parent);if(!parent?.node)continue;
-        let group=groups.get(n.parent);if(!group)groups.set(n.parent,group=[]);group.push(n.id);}
-      for(const group of groups.values())if(group.length>1)for(const id of group)movable.add(id);
+      const byId=new Map(rows.map(n=>[n.id,n]));
+      for(const n of rows)if(structural(n.id)&&n.node&&byId.get(n.parent)?.node)movable.add(n.id);
     }
     const keep=new Set(rows.map(n=>n.id));
     for(const [id,row] of elements)if(!keep.has(id)){row.remove();elements.delete(id);}
@@ -79,7 +82,7 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
       const [arrow,label,detail]=row.children;arrow.dataset.disclosure='';arrow.setAttribute('aria-hidden','true');arrow.textContent=n.children.length?(n.expanded?'⌄':'›'):'·';
       if(label.textContent!==n.label)label.textContent=n.label;
       if(detail.textContent!==(n.detail??''))detail.textContent=n.detail??'';
-      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');if(row.draggable)row.title+=' · перетащите, чтобы изменить порядок';const next=list.children[index];if(next!==row)list.insertBefore(row,next??null);
+      row.title=[n.label,n.detail,n.path].filter(Boolean).join(' · ');if(row.draggable)row.title+=' · перетащите, чтобы перенести или изменить порядок';const next=list.children[index];if(next!==row)list.insertBefore(row,next??null);
     }
     if(!rows.length){const empty=document.createElement('p');empty.className='control-tree-empty';empty.textContent=query?'Контролы не найдены':'Нет контролов';list.append(empty);}
     if(restoreFocus)rowElement(focusId)?.focus({preventScroll:true});
@@ -93,9 +96,24 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   function endDrag(){if(dragRow)delete dragRow.dataset.dragging;if(dropRow)delete dropRow.dataset.drop;dragRow=dropRow=null;draggingId=null;}
   // The siblings a drag may pass between, in visible order: empty unless the row can move at all.
   function groupOf(item){return item&&movable.has(item.id)?rows.filter(n=>n.parent===item.parent&&n.node):[];}
+  // A container row takes another control unless it already holds it, or is one of its own
+  // descendants — a drop cannot name a slot inside the panel that is being moved.
+  function takes(source,target){
+    return structural(target.id)&&!!target.node&&holdsChildren(target.node)&&target.id!==source.parent&&!target.id.startsWith(`${source.id}/`);
+  }
+  // Which slot a pointer over a row opens: the edges order the control among the siblings it shares
+  // a container with, the middle hands it to the container itself. The tree knows no point in that
+  // container's space, so an inside drop leaves the coordinate alone — placing is the canvas' job.
+  function slotOf(source,target,y,rect){
+    if(!source||!target||target===source||!rect)return null;
+    if(y>rect.top+rect.height/4&&y<rect.top+3*rect.height/4)return takes(source,target)?'inside':null;
+    return target.parent===source.parent&&movable.has(target.id)?(y<rect.top+rect.height/2?'before':'after'):null;
+  }
   function move(sourceId,targetId,side){
     const a=rows.find(n=>n.id===sourceId),b=rows.find(n=>n.id===targetId);
-    if(!reorderReady()||!a?.node||!b?.node||a===b||a.parent!==b.parent)return;
+    if(!reorderReady()||!a?.node||!b?.node||a===b)return;
+    if(side==='inside'){if(!takes(a,b))return;}
+    else if(a.parent!==b.parent||!movable.has(b.id))return;
     onReorder({path:currentPath,start:a.node.start,targetStart:b.node.start,side});
   }
   list.addEventListener('dragstart',e=>{
@@ -108,11 +126,11 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   list.addEventListener('dragover',e=>{
     const row=rowOf(e),id=row?.dataset.controlId;
     const source=rows.find(n=>n.id===draggingId),target=rows.find(n=>n.id===id);
-    // A slot opens only next to a sibling of the dragged control; elsewhere the drop stays away.
-    if(!reorderReady()||!source||!target||target===source||target.parent!==source.parent||!movable.has(id)){setDrop(null);return;}
+    // A slot opens only where the drop would change the markup; anywhere else the drag stays away.
+    const side=slotOf(source,target,e.clientY,row?.getBoundingClientRect());
+    if(!reorderReady()||!side||!movable.has(draggingId)){setDrop(null);return;}
     e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='move';
-    const rect=row.getBoundingClientRect();
-    setDrop(row,e.clientY<rect.top+rect.height/2?'before':'after');
+    setDrop(row,side);
   });
   list.addEventListener('dragleave',e=>{if(!e.relatedTarget||!list.contains(e.relatedTarget))setDrop(null);});
   list.addEventListener('drop',e=>{

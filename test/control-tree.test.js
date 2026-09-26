@@ -90,7 +90,9 @@ test('selecting visible nodes retains rows, while folding and diagnostics update
 // One tree with a container of three controls and a nested pair, so a drag has both a group to
 // start from and a deeper group to compare it with.
 const nestSource="component Demo {\n  Frame {\n    Button { key: 'a'; }\n    Column { Text { key: 'deep'; } Text { key: 'other'; } }\n    Row { gap: 4; }\n  }\n}\n";
-function dragTree(t,{editable=true}={}){
+// A lone control with a container beside it, plus a node that only fills a property slot.
+const slotSource="component Demo {\n  Frame {\n    Badge { key: 'solo'; }\n    Column { Text { key: 'deep'; } }\n    ContentPresenter { content: Row { Text { text: 'slot'; } }; }\n  }\n}\n";
+function dragTree(t,{editable=true,source=nestSource}={}){
  const state={editable};
  const original=Object.getOwnPropertyDescriptor(globalThis,'document'),created=[];
  const document={createElement(){const element=new Element();created.push(element);return element;},activeElement:null};
@@ -98,7 +100,7 @@ function dragTree(t,{editable=true}={}){
  t.after(()=>{if(original)Object.defineProperty(globalThis,'document',original);else delete globalThis.document;});
  const calls=[],explorer=new Element(),toolbar=new Element();
  const tree=createControlTree({explorer,toolbar,storage:{getItem(){return null;},setItem(){}},onScopeChange(){},onSelect(){},onOpenTemplate(){},onReorder:call=>calls.push(call),canReorder:()=>state.editable});
- const doc=parse(nestSource);tree.update({document:doc,path});
+ const doc=parse(source);tree.update({document:doc,path});
  // rows: Demo, Frame, Button, Column, Text deep, Text other, Row
  return {tree,calls,doc,state,list:created[0].querySelector('.control-tree-items'),search:created[0].querySelector('input')};
 }
@@ -166,4 +168,39 @@ test('a switch that only takes the drag away still redraws the row flags',t=>{
  state.editable=true;
  tree.update({document:doc,path});
  assert.equal(list.children[2].draggable,true);
+});
+test('a lone control starts a drag because a container can still take it, a property slot never does',t=>{
+ const {list}=dragTree(t,{source:slotSource});
+ // Demo, Frame, Badge, Column, Text, ContentPresenter, content: Row, Text in the slot.
+ assert.deepEqual(list.children.map(el=>el.draggable),[false,false,true,true,true,true,false,false]);
+ assert.equal(list.dispatch('dragstart',list.children[6],{}).defaultPrevented,true,'a node that fills a property belongs to no sibling run');
+});
+test('the middle of a container row is the slot inside it and its edges stay a reorder',t=>{
+ const {list,calls}=dragTree(t,{source:slotSource}),kids=parse(slotSource).nodes[0].children;
+ const badge=list.children[2],column=list.children[3];
+ list.dispatch('dragstart',badge,{});
+ assert.equal(list.dispatch('dragover',column,{clientY:2}).defaultPrevented,true);assert.equal(column.dataset.drop,'before');
+ assert.equal(list.dispatch('dragover',column,{clientY:10}).defaultPrevented,true,'a neighbour row takes the control in its middle');
+ assert.equal(column.dataset.drop,'inside');
+ list.dispatch('drop',column,{});
+ assert.deepEqual(calls,[{path,start:kids[0].start,targetStart:kids[1].start,side:'inside'}]);
+ assert.equal(column.dataset.drop,undefined);assert.equal(badge.dataset.dragging,undefined);
+});
+test('a panel is not handed to what it holds, to a leaf, or to its own panel',t=>{
+ const {list,calls}=dragTree(t,{source:slotSource});
+ const badge=list.children[2],frame=list.children[1],column=list.children[3],deep=list.children[4];
+ for(const [source,target] of [[badge,frame],[badge,deep],[column,deep]]){
+  list.dispatch('dragstart',source,{});
+  assert.equal(list.dispatch('dragover',target,{clientY:10}).defaultPrevented,false,'the middle names no slot here');
+  assert.equal(target.dataset.drop,undefined);
+  list.dispatch('drop',target,{});list.dispatch('dragend',source,{});
+ }
+ assert.deepEqual(calls,[]);
+});
+test('a row of another parent offers neither edge, so a stray drop cannot reorder what it cannot see',t=>{
+ const {list,calls}=dragTree(t,{source:slotSource});
+ const badge=list.children[2],deep=list.children[4];
+ list.dispatch('dragstart',badge,{});
+ assert.equal(list.dispatch('dragover',deep,{clientY:2}).defaultPrevented,false);
+ assert.equal(deep.dataset.drop,undefined);assert.deepEqual(calls,[]);
 });
