@@ -19,6 +19,12 @@ export function steps({platform,installedTargets,viteEntry}){
    // Every designer commit message ends with "the build is clean"; this is where that stops
    // being a promise. Running vite through its own entry keeps the step platform-neutral.
    ...(viteEntry?[{id:'studio-build',name:'Studio production build ships the tested runtime',argv:process.execPath,args:[viteEntry,'build'],checksDist:true}]:[]),
+   // Every load and compile number in PRODUCTION_READINESS.md was produced by these three, and
+   // nothing ran them: the suite covers the APIs they call, so a bench could die on a refactor and
+   // the discovery would come mid-measurement. They write into .forma, never into a tracked path.
+   {id:'bench-js-compiler',name:'Compiler bench runs and reports a median',argv:process.execPath,args:['scripts/compiler-bench.mjs','.forma/perf/gate/compiler'],requiresOutput:true},
+   {id:'bench-js-session',name:'Session-compiler bench runs across scene sizes',argv:process.execPath,args:['scripts/compiler-session-bench.mjs','.forma/perf/gate/compiler-session'],requiresOutput:true},
+   {id:'bench-js-tools',name:'Designer-tools bench runs on its fixed fixtures',argv:process.execPath,args:['scripts/studio-tools-bench.mjs','.forma/perf/gate/studio-tools'],requiresOutput:true},
    {id:'runtime-gpu',name:'Forma Rust tests with GPU features',argv:'cargo',args:['test','--locked','--manifest-path','vector-ui/Cargo.toml','--features','gpu','--lib','--tests']},
    {id:'binding-native',name:'Native binding example',argv:'cargo',args:['test','--locked','--manifest-path','vector-ui/examples/binding-app/Cargo.toml','--features','native']},
    // CI names only the binding example, so the second generated-form app compiled for nobody:

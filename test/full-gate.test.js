@@ -62,6 +62,26 @@ test('no tracked crate is left out of the gate',()=>{
  const ungated=tracked.split('\n').filter(file=>/(^|\/)Cargo\.toml$/.test(file)).filter(file=>!gated.has(file));
  assert.deepEqual(ungated,[],`nothing compiles ${ungated.join(', ')}`);
 });
+test('the benches that produced the load and compile numbers still run',()=>{
+ // PRODUCTION_READINESS.md quotes their medians, yet no command ran them: the suite covers the
+ // APIs they call, so a bench could have died on a refactor and nobody would know until someone
+ // tried to re-measure. Each writes only into the ignored .forma/perf/gate.
+ const ids=['bench-js-compiler','bench-js-session','bench-js-tools'];
+ const list=matrix().list.map(item=>item.id);
+ assert.deepEqual(ids.filter(id=>!list.includes(id)),[],'every bench must be a step');
+ assert.ok(list.indexOf('bench-js-compiler')<list.indexOf('runtime-gpu'),'JS benches belong with the JS steps');
+ for(const id of ids){
+  const run=step(id);
+  assert.equal(run.argv,process.execPath);
+  assert.equal(run.args[0].startsWith('scripts/'),true);
+  assert.match(run.args[1],/^\.forma\/perf\/gate\//,`${id} must not write into a tracked path`);
+  assert.equal(run.requiresOutput,true);
+  assert.deepEqual(evaluate(run,{status:0,output:' \n'}),{ok:false,detail:'printed nothing'},id);
+  assert.equal(evaluate(run,{status:0,output:'{"medianMs":0.29}'}).ok,true,id);
+ }
+ // A bench that cannot load its subject is a failure, not a skipped measurement.
+ assert.deepEqual(evaluate(step('bench-js-session'),{status:1,output:'ERR_MODULE_NOT_FOUND'}).detail,'exit 1');
+});
 test('the gate runs the studio steps CI runs before it publishes',()=>{
  // CI checks the versions, runs the suite, then builds the bundle release.yml uploads; a local
  // pass that skips the build leaves the shipped bundle unverified.
