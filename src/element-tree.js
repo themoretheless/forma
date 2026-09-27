@@ -11,31 +11,47 @@ export function attachSources(value,file){
  return value;
 }
 
-function freeze(value){
- if(value&&typeof value==='object'&&!Object.isFrozen(value)){
-  for(const child of Object.values(value))freeze(child);
-  Object.freeze(value);
- }
- return value;
-}
-
 // IDs are local to this immutable compilation snapshot. A user key is metadata,
 // never an array index or a globally unique ID. Reconciliation is a separate job.
+// Most of a compilation's tree values are empty maps — no events, no bindings, no
+// property sources — and every copy of one would be a frozen allocation that no
+// reader can distinguish from its neighbours.
+const emptyObject=Object.freeze({});
+const emptyArray=Object.freeze([]);
 export function createElementTree(roots){
  const nodes=[];
+ // Nodes of repeated instances share their definition values, so each distinct
+ // value is copied once and reused. Copying and freezing in one pass keeps the
+ // snapshot detached without the per-node structured-clone setup.
+ const copies=new WeakMap();
+ function copy(value){
+  if(value===null||typeof value!=='object')return value;
+  const known=copies.get(value);
+  if(known!==undefined)return known;
+  if(Array.isArray(value)){
+   if(!value.length)return emptyArray;
+   const out=[];copies.set(value,out);
+   for(let index=0;index<value.length;index++)out[index]=copy(value[index]);
+   return Object.freeze(out);
+  }
+  const names=Object.keys(value);
+  if(!names.length)return emptyObject;
+  const out={};copies.set(value,out);
+  for(const name of names)out[name]=copy(value[name]);
+  return Object.freeze(out);
+ }
  function add(element,parent){
   const id=nodes.length;
   const node={id,parent,type:element.type,key:element.props?.key??null,
-   source:element.source??null,
-   propertySources:element.propertySources??{},
-   props:element.props??{},events:element.events??{},
-   bindings:element.bindings??{},children:[]};
+   source:element.source?copy(element.source):null,
+   propertySources:copy(element.propertySources??{}),
+   props:copy(element.props??{}),events:copy(element.events??{}),
+   bindings:copy(element.bindings??{}),children:[]};
   nodes.push(node);
-  node.children=(element.children??[]).map(child=>add(child,id));
+  node.children=Object.freeze((element.children??[]).map(child=>add(child,id)));
+  Object.freeze(node);
   return id;
  }
  const rootIds=roots.map(root=>add(root,null));
- // Project first, then detach once. Cloning each field separately repeats the
- // structured-clone setup five times per node and copies shared origins again.
- return freeze(structuredClone({roots:rootIds,nodes}));
+ return Object.freeze({roots:Object.freeze(rootIds),nodes:Object.freeze(nodes)});
 }

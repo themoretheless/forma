@@ -58,3 +58,38 @@ test('SVG subset is vector geometry and rejects scripts, external references and
  const shapes=svgShapes(svg,[10,20,24,24]);assert.ok(shapes.length>10);assert.ok(shapes.every(s=>s.points.every(p=>p.every(Number.isFinite))));
  for(const s of ['<svg viewBox="0 0 24 24"><script/></svg>','<svg viewBox="0 0 24 24"><image href="https://x"/></svg>','<svg viewBox="0 0 24 24"><path d="M0 0L1 1"/></svg>','<svg viewBox="0 0 24 24"><circle r="4" transform="scale(2)"/></svg>'])assert.throws(()=>svgShapes(s,[0,0,24,24]));
 });
+
+// Placed coordinates travel as template text, so full double precision costs bytes,
+// not accuracy. A 1/1000 px grid is three orders below a device pixel.
+test('placed icon geometry is quantized to 1/1000 px',()=>{
+ const circle='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffffff"/></svg>';
+ const points=svgShapes(circle,[0,0,25,25]).flatMap(s=>s.points);
+ assert.ok(points.length>60);
+ for(const [a,b] of points){assert.match(String(a),/^-?\d+(\.\d{1,3})?$/);assert.match(String(b),/^-?\d+(\.\d{1,3})?$/);}
+ const first=[22*25/24,12*25/24];
+ assert.ok(Math.abs(points[0][0]-first[0])<=5e-4&&Math.abs(points[0][1]-first[1])<=5e-4);
+});
+
+test('multi-control template framing declares exact UTF-8 byte lengths',()=>{
+ const out=compileComponents({'components/Button.ui':base,'ui/Scene.ui':`component Scene { Frame { width:900; height:600; Button { text:'Найти \u{1F389}'; } Button { text:'Документы'; } Button { text:'Профиль \u{1F600}'; } Button { text:'Search'; } } }`},'ui/Scene.ui');
+ const encoder=new TextEncoder(),decoder=new TextDecoder();
+ const prefix='FORMA-TEMPLATES-1\n';
+ assert.ok(out.template.startsWith(prefix));
+ const bytes=encoder.encode(out.template);
+ const parts=[];
+ let offset=encoder.encode(prefix).length;
+ while(offset<bytes.length){
+  const headerEnd=bytes.indexOf(0x0a,offset);
+  assert.ok(headerEnd>offset,'each part is preceded by a length header');
+  const declared=Number(decoder.decode(bytes.subarray(offset,headerEnd)));
+  const start=headerEnd+1;
+  assert.ok(start+declared<=bytes.length,'declared length stays inside the payload');
+  parts.push(decoder.decode(bytes.subarray(start,start+declared)));
+  offset=start+declared;
+ }
+ assert.equal(offset,bytes.length,'part lengths cover the whole payload without gaps');
+ assert.equal(parts.length,4);
+ for(const part of parts)assert.match(part,/^component Button \{ Rectangle \{/);
+ assert.ok(parts.some(part=>encoder.encode(part).length===part.length),'an ASCII-only part takes the byte-length fast path');
+ assert.ok(parts.some(part=>encoder.encode(part).length>part.length),'framing is exercised by multi-byte text');
+});

@@ -1,3 +1,4 @@
+import {propertyOrigins} from '../src/property-origins.js';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {compileComponents} from '../src/components.js';
@@ -26,4 +27,48 @@ test('override diagnostics suggest nearby keys and explain incorrect properties 
  assert.throws(()=>compileComponents({...files,'components/LargeButton.ui':`component LargeButton : Button {override caption {fontSze:18;}}`},'ui/Demo.ui',{title:'A'}),error=>{
   assert.match(error.message,/Text.*fontSze.*fontSize/);assert.equal(error.diagnostic.related.file,'components/Button.ui');return true;
  });
+});
+
+test('origin traversal restores caller cycle guards and retains diamond dependencies',()=>{
+ const source={file:'x.ui',from:1,to:2},seen=new Set(['root']);
+ const props={a:{expr:'props.b'},b:{expr:'props.a'}};
+ const result=propertyOrigins({expr:'props.a'},source,props,{a:source,b:source},{},seen);
+ assert.deepEqual(seen,new Set(['root']));assert.equal(result.length,1);
+ const value={parts:[{expr:'props.a'},{expr:'props.b'}]};
+ assert.deepEqual(propertyOrigins(value,null,{a:{expr:'props.c'},b:{expr:'props.c'},c:{expr:'state.value'}},{},{},seen),[{label:'state.value'}]);
+ assert.deepEqual(seen,new Set(['root']));
+});
+
+test('a reference-free value contributes only its own source and repeated instances share that snapshot',()=>{
+ const source={file:'x.ui',from:1,to:2};
+ const color={expr:'#112233'};
+ const origins=propertyOrigins(color,source,{},{},{},undefined);
+ assert.deepEqual(origins,[{source,label:'Объявление'}]);
+ assert.equal(Object.isFrozen(origins),true);
+ assert.equal(propertyOrigins(color,source,{},{},{}),origins,'the same value and source reuse one snapshot');
+ assert.notEqual(propertyOrigins(color,{...source},{},{},{}),origins,'a different source record stays a separate origin');
+ assert.deepEqual(propertyOrigins(7,source,{},{},{}),[{source,label:'Объявление'}]);
+ assert.deepEqual(propertyOrigins(7,undefined,{},{},{}),[]);
+ const labeled={file:'x.ui',from:3,to:4,label:'LargeButton · override caption'};
+ assert.match(propertyOrigins({width:2},labeled,{},{},{})[0].label,/override caption/);
+});
+
+test('expression origins are shared objects so repeated instances reuse one dedupe key',()=>{
+ const source={file:'x.ui',from:1,to:2};
+ const props={a:{expr:'props.b'},b:'state.value'};
+ const call=()=>propertyOrigins({parts:[{expr:'props.a'},{expr:'state.other'}]},source,props,{a:source,b:source},{});
+ const first=call(),second=call();
+ assert.deepEqual(first,[{source,label:'Объявление'},{label:'state.other'}],'a source reached twice is listed once');
+ assert.ok(first.every((origin,index)=>origin===second[index]),'the same source and reference reuse one origin object');
+});
+
+test('origin dedupe collapses sources that only match structurally, not by identity',()=>{
+ const source={file:'x.ui',from:1,to:2};
+ const props={a:{expr:'props.a'},b:{expr:'props.b'}};
+ const value={parts:[{expr:'props.a'},{expr:'props.b'}]};
+ const shared=propertyOrigins(value,source,props,{a:source,b:{...source}}, {},undefined);
+ assert.deepEqual(shared,[{source,label:'Объявление'}],'structurally equal sources are one origin');
+ const distinct=propertyOrigins(value,source,props,{a:source,b:{file:'y.ui',from:9,to:11}}, {},undefined);
+ assert.equal(distinct.length,2);
+ assert.deepEqual(distinct.map(o=>o.source.file),['x.ui','y.ui'],'distinct sources keep their order');
 });

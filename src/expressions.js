@@ -167,9 +167,25 @@ export function matchesPattern(pattern,value,evaluate=v=>v){
   if(pattern?.comparison){const expected=evaluate(pattern.value),order=compareValues(value,expected);return order!==null&&(pattern.comparison==='<'?order<0:pattern.comparison==='<='?order<=0:pattern.comparison==='>'?order>0:order>=0);}
   return equalValues(evaluate(pattern),value);
 }
+const referencePath=/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$/;
+const noReferences=Object.freeze([]);
+// Linking expands the same definition value object once per instance, and parsed
+// values are immutable, so a value contributes the same references every time.
+const referenceCache=new WeakMap();
 export function expressionReferences(value){
-  const paths=new Set();function walk(v){if(v==null||typeof v!=='object')return;if(v.expr){const path=v.expr.replace(/^!/, '');if(/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$/.test(path))paths.add(path);}for(const [key,x]of Object.entries(v))if(key!=='expr')walk(x);}
-  walk(value);return [...paths];
+  if(value===null||typeof value!=='object')return noReferences;
+  const cached=referenceCache.get(value);
+  if(cached!==undefined)return cached;
+  const paths=new Set();
+  const walk=v=>{
+    if(v===null||typeof v!=='object')return;
+    if(typeof v.expr==='string'){const raw=v.expr;const path=raw.charCodeAt(0)===33?raw.slice(1):raw;if(referencePath.test(path))paths.add(path);}
+    for(const key of Object.keys(v))if(key!=='expr')walk(v[key]);
+  };
+  walk(value);
+  const result=paths.size?Object.freeze([...paths]):noReferences;
+  referenceCache.set(value,result);
+  return result;
 }
 function quote(value){return `'${value.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'\\r').replace(/\t/g,'\\t').replace(/\$\{/g,'\\${')}'`;}
 export function serializeValue(v){

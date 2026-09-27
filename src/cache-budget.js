@@ -7,9 +7,9 @@ export function estimateCacheBytes(value){
     if(v===null||typeof v!=='object')return 8;
     if(seen.has(v))return 0;seen.add(v);
     if(ArrayBuffer.isView(v))return 64+v.byteLength;
-    if(v instanceof Map)return 64+[...v].reduce((n,[k,x])=>n+32+visit(k)+visit(x),0);
+    if(v instanceof Map){let bytes=64;for(const [k,x]of v)bytes+=32+visit(k)+visit(x);return bytes;}
     let bytes=Array.isArray(v)?32:64;
-    for(const [k,x]of Object.entries(v))bytes+=16+visit(k)+visit(x);
+    for(const k in v)if(Object.hasOwn(v,k))bytes+=16+visit(k)+visit(v[k]);
     return bytes;
   }
   return visit(value);

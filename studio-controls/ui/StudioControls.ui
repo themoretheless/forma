@@ -1,0 +1,63 @@
+component StudioControls {
+    Frame {
+        width: 900; height: 780; background: state.theme.canvas;
+        Scroll {
+          Column {
+            padding: 24; gap: 10;
+            Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: 'FORMA STUDIO  /  КОНТРОЛЫ'; color: state.theme.text; fontSize: 18; }
+            Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '01  /  ПАНЕЛЬ ИНСТРУМЕНТОВ'; }
+            Row { gap: 8; height: 32;
+                PrimaryButton { width: 130; text: 'Запустить'; clicked -> actions.run(); }
+                SecondaryButton { width: 130; text: 'Открыть'; clicked -> actions.open(); }
+                SecondaryButton { width: 130; text: 'Экспорт'; clicked -> actions.export(); }
+                SecondaryButton { width: 130; text: 'Остановить'; disabled: true; }
+                IconButton { icon: 'assets/plus.svg'; clicked -> actions.add(); }
+                IconButton { icon: 'assets/search.svg'; clicked -> actions.search(); }
+                IconButton { icon: 'assets/close.svg'; clicked -> actions.close(); }
+            }
+            Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '02  /  ВКЛАДКИ РЕДАКТОРА'; }
+            Row { gap: 2; height: 36;
+                TabButton { width: 170; text: 'SearchWindow.ui'; selected: true; clicked -> actions.selectTab(); }
+                TabButton { width: 170; text: 'Button.ui •'; }
+                TabButton { width: 170; text: 'tokens.ui'; }
+                TabButton { width: 170; text: 'README.md'; disabled: true; }
+            }
+            Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '03  /  ДЕРЕВО ПРОЕКТА'; }
+            Row { gap: 18; height: 90;
+                Column { width: 270; gap: 2;
+                    TreeItem { text: 'components'; branch: true; expanded: true; }
+                    TreeItem { text: 'Button.ui'; branch: false; indent: 18; selected: true; }
+                    TreeItem { text: 'TextField.ui'; branch: false; indent: 18; }
+                }
+                Column { width: 270; gap: 2;
+                    TreeItem { text: 'ui'; branch: true; expanded: false; }
+                    TreeItem { text: 'assets'; branch: true; expanded: true; }
+                    TreeItem { text: 'search.svg'; branch: false; indent: 18; disabled: true; }
+                }
+            }
+            Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '04  /  ПОЛЯ ИНСПЕКТОРА'; }
+            Row { gap: 12; height: 38;
+                TextField { value: '18'; placeholder: 'Размер шрифта'; }
+                SearchField { placeholder: 'Поиск свойства'; width: 240; }
+                TextField { value: 'ошибка'; error: true; }
+            }
+            Row { gap: 12; height: 38;
+                TableRow { width: 264; first: 'fontSize'; second: '18'; third: 'LargeButton'; }
+                TableRow { width: 264; first: 'radius'; second: '5'; third: 'Button'; }
+                TableRow { width: 264; first: 'width'; second: '160'; third: 'Экземпляр'; }
+            }
+            Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '05  /  ПАРАМЕТРЫ ПРЕДПРОСМОТРА'; }
+            Row { gap: 12; height: 32;
+                Checkbox { text: 'Показать размеры'; checked: true; }
+                Checkbox { text: 'Привязки к сетке'; }
+                Checkbox { text: 'Только чтение'; checked: true; disabled: true; }
+            }
+            Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '06  /  ДИАГНОСТИКА И СТАТУС'; }
+            Alert { width: 820; height: 70; tone: 'success'; text: 'Разметка проверена. Ошибок нет.'; description: 'StudioControls.ui'; }
+            Alert { width: 820; height: 70; tone: 'warning'; text: 'Содержимое выходит за границы Frame'; description: 'Inspector.ui:24'; }
+            Alert { width: 820; height: 70; tone: 'danger'; text: 'Ключ capton не найден. Возможно, caption?'; description: 'LargeButton.ui:8'; }
+            StatusBar { width: 820; first: 'Сохранено'; second: 'Forma UI'; third: 'UTF-8'; }
+          }
+        }
+    }
+}

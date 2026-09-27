@@ -1,11 +1,39 @@
+import {createEventScope} from './event-scope.js';
 import {copyElements,insertElements,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
 export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report}){
+ const events=createEventScope(),listen=events.listen;
  let clipboard='',drag=null,selection=[],primary=null,snapping=true;
- const bar=document.createElement('div');bar.className='element-tools';bar.setAttribute('role','group');bar.setAttribute('aria-label','Редактирование элементов');
+ const bar=document.createElement('div');bar.className='element-tools';bar.hidden=true;bar.setAttribute('role','menu');bar.setAttribute('aria-label','Редактирование элементов');
  const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y']];
- for(const [action,label] of labels){const b=document.createElement('button');b.textContent=label;b.dataset.action=action;b.onclick=()=>run(action);bar.append(b);}
+ for(const [action,label] of labels){const b=document.createElement('button');b.textContent=label;b.dataset.action=action;b.setAttribute('role',action==='snap'?'menuitemcheckbox':'menuitem');b.tabIndex=-1;b.onclick=()=>{run(action);closeMenu(true);};bar.append(b);}
  const count=document.createElement('span');count.className='selection-count';bar.append(count);toolbar.after(bar);viewport.tabIndex=0;
+ function closeMenu(restore=false){if(bar.hidden)return;bar.hidden=true;if(restore)viewport.focus({preventScroll:true});}
+ function openMenu(x,y){
+  update();bar.hidden=false;
+  const bounds=bar.getBoundingClientRect();
+  bar.style.left=Math.max(8,Math.min(x,(window.innerWidth??1024)-bounds.width-8))+'px';
+  bar.style.top=Math.max(8,Math.min(y,(window.innerHeight??768)-bounds.height-8))+'px';
+  [...bar.children].find(b=>b.dataset.action&&!b.disabled)?.focus({preventScroll:true});
+ }
+ listen(viewport,'contextmenu',e=>{
+  const c=current();if(!c||editable(e))return;e.preventDefault();e.stopPropagation();cancel();
+  const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
+  const hit=[...c.scene.controls].reverse().find(n=>x>=n.bounds[0]&&y>=n.bounds[1]&&x<=n.bounds[0]+n.bounds[2]&&y<=n.bounds[1]+n.bounds[3]);
+  const node=hit&&c.nodes[hit.index];if(node&&!selection.includes(node.start))choose([node.start],c);
+  openMenu(e.clientX,e.clientY);
+ },true);
+ listen(window,'pointerdown',e=>{if(!bar.contains(e.target))closeMenu();},true);
+ listen(window,'blur',()=>closeMenu());
+ listen(window,'resize',()=>closeMenu());
+ listen(bar,'keydown',e=>{
+  if(e.key==='Escape'||e.key==='Tab'){e.preventDefault();e.stopImmediatePropagation();closeMenu(true);return;}
+  if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key))return;
+  e.preventDefault();e.stopImmediatePropagation();
+  const buttons=[...bar.children].filter(b=>b.dataset.action&&!b.disabled),index=buttons.indexOf(document.activeElement);
+  const next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;
+  buttons[next]?.focus({preventScroll:true});
+ });
  const overlay=document.createElement('div');overlay.className='element-selection-overlay';viewport.append(overlay);
  const editable=e=>e.target.closest?.('input,textarea,select,[contenteditable="true"]');
  const alignments=new Set(['left','center','right','top','middle','bottom','distribute-x','distribute-y']);
@@ -48,7 +76,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   const bounds=selectionBounds(drag.items.map(i=>i.bounds));const label=document.createElement('span');label.className='element-drag-label';label.textContent=`Δx ${Math.round(drag.dx)} · Δy ${Math.round(drag.dy)}`;Object.assign(label.style,{left:g.x+(bounds[0]+drag.dx)*g.scale+'px',top:g.y+(bounds[1]+drag.dy)*g.scale-22+'px'});overlay.append(label);
  }
  function cancel(){const d=drag;drag=null;if(d&&viewport.hasPointerCapture(d.id))viewport.releasePointerCapture(d.id);draw();}
- viewport.addEventListener('pointerdown',e=>{
+ listen(viewport,'pointerdown',e=>{
   const c=current();if(!c||e.button!==0||e.detail>1||e.target.closest('.grid-handle')||viewport.classList.contains('canvas-pan-ready'))return;
   if(!artboard.contains(e.target)&&e.target!==viewport)return;
   const r=artboard.getBoundingClientRect(),scale=geometry().scale,x=(e.clientX-r.left)/scale,y=(e.clientY-r.top)/scale;
@@ -59,7 +87,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   else drag={...c,kind:'marquee',id:e.pointerId,x:e.clientX,y:e.clientY,scale,origin:[x,y],marquee:[x,y,0,0],initial:e.shiftKey?[...selection]:[],moved:false};
   viewport.setPointerCapture(e.pointerId);
  },true);
- viewport.addEventListener('pointermove',e=>{
+ listen(viewport,'pointermove',e=>{
   if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopImmediatePropagation();
   let dx=(e.clientX-drag.x)/drag.scale,dy=(e.clientY-drag.y)/drag.scale;drag.moved=Math.hypot(dx,dy)*drag.scale>=3;
   if(drag.kind==='marquee'){drag.marquee=[drag.origin[0]+Math.min(0,dx),drag.origin[1]+Math.min(0,dy),Math.abs(dx),Math.abs(dy)];draw();return;}
@@ -69,7 +97,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(!drag.grid){dx=Math.max(dx,-bounds[0]-(drag.scene.scrollOffset?.[0]??0));dy=Math.max(dy,-bounds[1]-(drag.scene.scrollOffset?.[1]??0));}
   drag.dx=dx;drag.dy=dy;draw();
  },true);
- viewport.addEventListener('pointerup',e=>{
+ listen(viewport,'pointerup',e=>{
   if(!drag||e.pointerId!==drag.id)return;e.stopImmediatePropagation();const d=drag;cancel();
   if(d.kind==='marquee'){const hit=d.moved?items(d,d.nodes.map(n=>n.start)).filter(i=>intersects(i.bounds,d.marquee)).map(i=>i.start):[];choose([...new Set([...d.initial,...hit])],d);return;}
   if(!d.moved)return;try{
@@ -84,11 +112,13 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    apply(moves(d,d.items.map((i,index)=>({start:i.start,dx:d.dx,dy:d.dy,cell:cells[index]}))),d);
   }catch(error){report(error.message);}
  },true);
- viewport.addEventListener('pointercancel',cancel);window.addEventListener('blur',cancel);viewport.addEventListener('scroll',draw);
- window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drag){e.preventDefault();e.stopImmediatePropagation();cancel();}});
+ listen(viewport,'pointercancel',cancel);listen(window,'blur',cancel);listen(viewport,'scroll',draw);
+ listen(window,'keydown',e=>{if(e.key==='Escape'&&drag){e.preventDefault();e.stopImmediatePropagation();cancel();}});
  const scope=e=>!editable(e)&&(viewport.contains(e.target)||bar.contains(e.target));
- window.addEventListener('keydown',e=>{
-  if(!scope(e)||!current())return;const mod=e.metaKey||e.ctrlKey,key=e.key.toLowerCase();
+ listen(window,'keydown',e=>{
+  if(!scope(e)||!current())return;
+  if(e.key==='ContextMenu'||(e.shiftKey&&e.key==='F10')){e.preventDefault();const r=viewport.getBoundingClientRect();openMenu(r.left+24,r.top+24);return;}
+  const mod=e.metaKey||e.ctrlKey,key=e.key.toLowerCase();
   if(mod&&key==='a'){e.preventDefault();const c=current();choose(c.nodes.map(n=>n.start),c);return;}
   if(e.key==='Escape'){e.preventDefault();choose([],current());return;}
   if(e.altKey&&!mod&&(e.key==='ArrowUp'||e.key==='ArrowDown')){e.preventDefault();run(e.key==='ArrowUp'?'up':'down');return;}
@@ -106,16 +136,16 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    apply(moves(c,list.map((i,index)=>({start:i.start,dx,dy,cell:c.grid?{column:cells[index].column+columnDelta,row:cells[index].row+rowDelta}:null}))),c);
   }catch(error){report(error.message);}
  });
- for(const action of ['copy','cut'])window.addEventListener(action,e=>{if(!scope(e)||!current())return;const value=run('copy');if(!value)return;e.preventDefault();e.clipboardData.setData('text/plain',value);if(action==='cut')run('delete');});
- window.addEventListener('paste',e=>{if(!scope(e)||!current())return;e.preventDefault();run('paste',e.clipboardData.getData('text/plain'));});
- function update(){const c=current();let location;try{if(c?.start!=null)location=locateElement(c.source,c.start);}catch{}
+ for(const action of ['copy','cut'])listen(window,action,e=>{if(!scope(e)||!current())return;const value=run('copy');if(!value)return;e.preventDefault();e.clipboardData.setData('text/plain',value);if(action==='cut')run('delete');});
+ listen(window,'paste',e=>{if(!scope(e)||!current())return;e.preventDefault();run('paste',e.clipboardData.getData('text/plain'));});
+ function update(){const c=current();if(!c)closeMenu();let location;try{if(c?.start!=null)location=locateElement(c.source,c.start);}catch{}
   count.textContent=selection.length?`Выбрано: ${selection.length}`:'';
   for(const b of bar.children){const action=b.dataset.action;if(!action)continue;b.disabled=!c||(!['undo','redo','snap'].includes(action)&&c.start==null);
    if(['copy','cut','delete','duplicate'].includes(action))b.disabled=!c||!selection.length;
-   if(action==='snap'){b.setAttribute('aria-pressed',String(snapping));b.title='Края и центры · Alt при переносе отключает привязку';}
+   if(action==='snap'){b.setAttribute('aria-checked',String(snapping));b.title='Края и центры · Alt при переносе отключает привязку';}
    if(alignments.has(action))b.disabled=!c||!!c.grid||selection.length<(action.startsWith('distribute-')?3:2);
    if(action==='up'||action==='down'){const siblings=location?.parent?.children??[],index=siblings.indexOf(location?.node);b.disabled=!c||selection.length!==1||index<0||location?.node.type==='Scroll'||(action==='up'?index===0:index===siblings.length-1);b.title='Порядок среди соседей · Alt+'+(action==='up'?'↑':'↓');}
   }draw();
  }
- update();return {update,cancel,setSelection,selection:()=>[...selection]};
+ update();return {update,cancel,setSelection,selection:()=>[...selection],destroy(){events.dispose();cancel();closeMenu();bar.remove();overlay.remove();}};
 }

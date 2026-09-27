@@ -1,0 +1,15 @@
+component StudioToolbar {
+    Column {
+        width: 880; height: 360; padding: 24; gap: 10; background: state.theme.canvas;
+        Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '01  /  ПАНЕЛЬ ИНСТРУМЕНТОВ'; }
+        Row { gap: 8; height: 32;
+            PrimaryButton { width: 130; text: 'Запустить'; clicked -> actions.run(); }
+            SecondaryButton { width: 130; text: 'Открыть'; clicked -> actions.open(); }
+            SecondaryButton { width: 130; text: 'Экспорт'; clicked -> actions.export(); }
+            SecondaryButton { width: 130; text: 'Остановить'; disabled: true; }
+            IconButton { icon: 'assets/plus.svg'; clicked -> actions.add(); }
+            IconButton { icon: 'assets/search.svg'; clicked -> actions.search(); }
+            IconButton { icon: 'assets/close.svg'; clicked -> actions.close(); }
+        }
+    }
+}

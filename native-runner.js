@@ -4,9 +4,10 @@ import {fileURLToPath} from 'node:url';
 export function createNativeRunner(send){
   let child,busy=false;
   const root=fileURLToPath(new URL('./',import.meta.url));
-  return {async run({files,snapshot}){
+  return {async run(request){
     if(busy){send({kind:'error',text:'Окно уже запущено'});return;}busy=true;
     try{
+      const {files,snapshot}=request??{};
       if(!snapshot?.html||typeof files?.['src/actions.rs']!=='string')throw Error('Нужны корректный preview и src/actions.rs');
       await mkdir(root+'.forma',{recursive:true});
       await writeFile(root+'.forma/native-snapshot.json',JSON.stringify(snapshot));

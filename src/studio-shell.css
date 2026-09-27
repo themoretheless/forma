@@ -1,0 +1,78 @@
+/* Layout belongs to the web host; control paint comes from Forma .ui. */
+body.forma-studio-ui{background:var(--guide-canvas);color:var(--guide-text)}
+.forma-studio-ui #app{height:100dvh;display:flex;flex-direction:column}
+.forma-studio-ui header,.forma-studio-ui footer{flex:none}
+.forma-studio-ui header,.forma-studio-ui .explorer,.forma-studio-ui .inspector,.forma-studio-ui .bottom,.forma-studio-ui .tabs{background:var(--guide-surface);border-color:var(--guide-border)}
+.forma-studio-ui .preview-pane,.forma-studio-ui .code-wrap,.forma-studio-ui .cm-editor,.forma-studio-ui .cm-gutters{background:var(--guide-canvas)!important;color:var(--guide-text)!important}
+.forma-studio-ui .cm-content{color:var(--guide-text);caret-color:var(--guide-accentInk)}
+.forma-studio-ui .cm-selectionBackground{background:var(--guide-surfaceHover)!important}
+.forma-studio-ui .cm-activeLine,.forma-studio-ui .cm-activeLineGutter{background:transparent!important}
+.forma-studio-ui .cm-tooltip-autocomplete{background:var(--guide-surfaceRaised);border-color:var(--guide-border)}
+.forma-studio-ui .section-title,.forma-studio-ui .pane-toolbar,.forma-studio-ui .folder,.forma-studio-ui .inspector-label,.forma-studio-ui .control-tree-heading,.forma-studio-ui .control-tree-file{color:var(--guide-textMuted);border-color:var(--guide-border)}
+.forma-studio-ui #canvas{background-color:var(--guide-canvas);background-image:radial-gradient(var(--guide-border) 1px,transparent 1px)}
+.forma-studio-ui .brandmark{background:var(--guide-primary);color:var(--guide-primaryText)}
+.forma-studio-ui .brand small,.forma-studio-ui .project-title span,.forma-studio-ui #saved,.forma-studio-ui .preview-caption,.forma-studio-ui .explorer-note{color:var(--guide-textMuted)}
+.forma-studio-ui .ok{color:var(--guide-success)}.forma-studio-ui .error{color:var(--guide-dangerInk)}
+.forma-studio-ui header{min-height:64px;height:auto;flex-wrap:wrap;padding-block:8px}
+.forma-studio-ui .workspace{height:auto;flex:1;min-height:0}
+.forma-studio-ui .controls-link{white-space:nowrap}
+.forma-host-control{min-height:28px;position:relative;font-size:13px!important}
+.forma-host-control.file,.forma-host-control.control-tree-row{min-height:28px}
+.forma-host-control#filename{display:inline-block;padding:6px 12px;min-width:130px}
+label.forma-host-control{display:inline-flex!important;align-items:center;gap:10px;padding:0 10px;min-height:28px}
+label.forma-host-control>input[type=checkbox]{width:18px;height:18px;margin:0;flex:none}
+/* Recreated DOM controls must already use the guide before the first WASM frame.
+   Do not rely on observer-added classes: tree/file selection replaces nodes. */
+body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row,input,select,#filename,footer):where(:not(#preview *, .cm-editor *, .color-picker *)){
+ background-color:var(--guide-surface);color:var(--guide-text);border-color:var(--guide-border);accent-color:var(--guide-primary);
+}
+body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *)):hover{background-color:var(--guide-surfaceHover)}
+body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *)):active{background-color:var(--guide-surfacePressed)}
+body.forma-studio-ui.forma-studio-ui :where(.chosen,.file.active,.control-tree-row[aria-selected=true],[aria-pressed=true]):where(:not(#preview *, .cm-editor *, .color-picker *)){
+ background:var(--guide-surfaceRaised)!important;color:var(--guide-text)!important;box-shadow:inset 2px 0 var(--guide-primary);
+}
+body.forma-studio-ui.forma-studio-ui :where(button,input,select,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *)):focus-visible{outline:2px solid var(--guide-focus);outline-offset:-1px}
+body.forma-studio-ui.forma-studio-ui button.accent:not(#preview *){background-color:var(--guide-primary);color:var(--guide-primaryText)}
+body.forma-studio-ui.forma-studio-ui :where(.canvas-modes,.layout-inspector[open]){background:var(--guide-surface);border-color:var(--guide-border)}
+body.forma-studio-ui.forma-studio-ui :where(.file .ui,.file-icon,.control-tree-label,.control-tree-detail){color:var(--guide-textMuted)}
+body.forma-studio-ui.forma-studio-ui .bottom-tabs button span{background:var(--guide-surfaceRaised)}
+
+body.forma-studio-ui .forma-native-surface{background:var(--forma-surface,none) center/100% 100% no-repeat!important;border-color:transparent!important;box-shadow:none!important;border-radius:0!important;opacity:1!important}
+body.forma-studio-ui .forma-native-surface:not(.forma-host-input),body.forma-studio-ui .forma-native-surface:not(.forma-host-input) *{color:transparent!important;text-shadow:none!important}
+.forma-native-surface:not(.forma-host-input)::before,.forma-native-surface:not(.forma-host-input)::after{color:transparent!important;background:none!important}
+.forma-native-surface>input[type=checkbox]{opacity:0}
+.forma-native-surface option{color:var(--guide-text)!important;background:var(--guide-surfaceRaised)!important}
+select.forma-native-surface{appearance:none;padding:7px 30px 7px 12px!important}
+.forma-native-surface:focus-visible{outline:2px solid var(--guide-focus);outline-offset:1px}
+.forma-host-input{color:var(--guide-text)!important;caret-color:var(--guide-text);padding:7px 12px!important;min-height:32px}
+.forma-host-input::placeholder{color:var(--guide-textMuted)}
+footer.forma-host-control{height:26px;min-height:26px}
+.forma-studio-ui .tabs{min-height:44px;height:auto;flex-wrap:wrap}
+.forma-studio-ui #output>p.forma-host-control{min-height:64px;padding:12px;margin-block:10px}
+
+.forma-native-surface:not(.forma-host-input) span{background:transparent!important;border-color:transparent!important}
+.forma-studio-ui #control-tree-panel{background:var(--guide-canvas);border-color:var(--guide-border)}
+
+/* Reserve row geometry before observers attach the native renderer. */
+body.forma-studio-ui .control-tree-row{height:28px;min-height:28px;max-height:28px;font-size:13px;overflow:hidden}
+body.forma-studio-ui .file{height:35px;min-height:35px;max-height:35px;font-size:13px}
+
+/* Editing commands live in a canvas context menu, outside the canvas clip. */
+body.forma-studio-ui .element-tools{position:fixed;z-index:1000;display:flex;flex-direction:column;flex-wrap:nowrap;gap:2px;width:256px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;padding:6px;background:var(--guide-surfaceRaised);border:1px solid var(--guide-border);border-radius:8px;box-shadow:0 8px 30px #0006}
+body.forma-studio-ui .element-tools[hidden]{display:none}
+body.forma-studio-ui .element-tools button{width:100%;height:30px;min-height:30px;flex:none;text-align:left}
+body.forma-studio-ui .element-tools .selection-count{align-self:flex-start;margin:4px 10px;color:var(--guide-textMuted)}
+
+body.forma-studio-ui .canvas-tools .studio-canvas-icon{width:32px;height:32px;min-width:32px;min-height:32px;flex:none;padding:0;font-size:0!important}
+body.forma-studio-ui .canvas-modes{gap:2px}
+
+body.forma-studio-ui .studio-canvas-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:3px;padding:6px 8px;flex:none;border-bottom:1px solid var(--guide-border)}
+body.forma-studio-ui .studio-canvas-toolbar :is(.preview-tools,.canvas-tools){display:contents}
+body.forma-studio-ui .studio-canvas-toolbar #preview-name{display:none}
+body.forma-studio-ui .studio-canvas-toolbar .studio-canvas-icon{width:28px;height:28px;min-width:28px;min-height:28px;flex:none;padding:0;font-size:0!important}
+body.forma-studio-ui .studio-canvas-toolbar .canvas-modes{margin:0 3px;gap:1px;border:0;background:transparent}
+body.forma-studio-ui .studio-canvas-toolbar [data-zoom="reset"]{height:28px;min-height:28px;padding:0 5px;width:44px}
+body.forma-studio-ui .studio-canvas-toolbar select{height:28px;min-height:28px;width:138px;max-width:138px;padding-block:2px!important}
+
+/* Direct canvas surfaces avoid PNG/base64 encoding on each animation frame. */
+.forma-control-paint{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}

@@ -27,17 +27,17 @@ export default defineConfig({build:{rollupOptions:{input:{studio:'index.html',co
     let designBusy=false;
     server.ws.on('forma:design-data',async(data,sender)=>{
       if(sender!==client)return;
-      if(designBusy){sender.send('forma:design-data-result',{id:data.id,error:'Вычисление уже выполняется'});return;}
+      if(designBusy){sender.send('forma:design-data-result',{id:data?.id,error:'Вычисление уже выполняется'});return;}
       designBusy=true;
-      try{sender.send('forma:design-data-result',{id:data.id,values:await evaluateDesignData(data.files,data.refs)});}
-      catch(e){sender.send('forma:design-data-result',{id:data.id,error:e.message});}
+      try{sender.send('forma:design-data-result',{id:data?.id,values:await evaluateDesignData(data?.files,data?.refs)});}
+      catch(e){sender.send('forma:design-data-result',{id:data?.id,error:e.message});}
       finally{designBusy=false;}
     });
     server.ws.on('forma:native-run',(data,sender)=>{if(sender===client)native.run(data);});
     server.ws.on('forma:native-stop',(_,sender)=>{if(sender===client)native.stop();});
     server.httpServer.once('close',()=>native.stop());
-    server.ws.on('forma:form-run',(data,sender)=>{if(sender===client)runner.run(data.files,{generated:true,state:data.state});});
-    server.ws.on('forma:rust-run',(data,sender)=>{if(sender===client)runner.run(data.files);});
+    server.ws.on('forma:form-run',(data,sender)=>{if(sender===client)runner.run(data?.files,{generated:true,state:data?.state});});
+    server.ws.on('forma:rust-run',(data,sender)=>{if(sender===client)runner.run(data?.files);});
     server.ws.on('forma:rust-stop',(_,sender)=>{if(sender===client)runner.stop();});
     server.httpServer.once('close',()=>runner.stop());
     const directory=fileURLToPath(new URL('./.forma/',import.meta.url));

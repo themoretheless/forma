@@ -16,14 +16,14 @@ export async function createGpuPainter(canvas,onFailure){
   const fail=error=>{if(!disposed)onFailure(error instanceof Error?error:Error(String(error)));};
   device.lost.then(info=>fail(Error(`GPU device lost: ${info.message}`)));
   device.addEventListener('uncapturederror',event=>fail(event.error));
-  let pipeline;
+  let pipeline,uniform;
   try{
     const module=device.createShaderModule({code:shader,label:'Forma vector'});
     pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
     context.configure({device,format,alphaMode:'premultiplied'});
-  }catch(error){disposed=true;device.destroy();throw error;}
-  // viewport, fill, border, scroll: 16 floats. Older 12-float params leave scroll at zero.
-  const uniform=device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+    // viewport, fill, border, scroll: 16 floats. Older 12-float params leave scroll at zero.
+    uniform=device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+  }catch(error){disposed=true;try{context.unconfigure();}finally{device.destroy();}throw error;}
   const pool=createStoragePool(device,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST);
   const validate=data=>{if(data&&(!data.byteLength||data.byteLength%4||data.byteLength>device.limits.maxStorageBufferBindingSize))throw Error('Vector scene exceeds GPU storage budget');};
   return {
@@ -33,6 +33,7 @@ export async function createGpuPainter(canvas,onFailure){
       // New runtimes expose a scalar layout version. Older adapters retain the
       // exact scroll comparison, without trusting a hash or visual revision.
       const scroll=layout===undefined?model.scroll_offset():null;
+      if(!Number.isInteger(width)||!Number.isInteger(height)||width<=0||height<=0||!Number.isFinite(scale)||scale<=0)throw Error('Invalid GPU viewport/DPI');
       if(width>device.limits.maxTextureDimension2D||height>device.limits.maxTextureDimension2D)throw Error('GPU canvas exceeds texture limit');
       const geometry=model.geometry_revision?.(),visual=model.visual_revision?.();
       // A legacy leaf only exposes a visual version, which can also mean load().
@@ -57,7 +58,7 @@ export async function createGpuPainter(canvas,onFailure){
         if(commands&&pool.update(0,commands))bindGroup=null;
         if(edges&&pool.update(1,edges))bindGroup=null;
         if(tiles&&pool.update(2,tiles))bindGroup=null;
-        if(paints&&pool.update(3,paints))bindGroup=null;
+        if(paints&&pool.update(3,paints,true,changed))bindGroup=null;
         if(!bindGroup)bindGroup=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},...pool.buffers.map((buffer,i)=>({binding:i+1,resource:{buffer}}))]});
         if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
         if(paramsChanged)device.queue.writeBuffer(uniform,0,model.gpu_params(width,height,scale,false));
@@ -75,6 +76,6 @@ export async function createGpuPainter(canvas,onFailure){
       }
     },
     snapshot(){return {backend:'webgpu-vector',uploads,frames,...pool.snapshot()};},
-    destroy(){if(disposed)return;disposed=true;modelKey=null;bindGroup=null;pool.destroy();uniform.destroy();context.unconfigure();device.destroy();},
+    destroy(){if(disposed)return;disposed=true;modelKey=null;bindGroup=null;try{pool.destroy();uniform.destroy();context.unconfigure();}finally{device.destroy();}},
   };
 }

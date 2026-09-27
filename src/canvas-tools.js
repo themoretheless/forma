@@ -1,6 +1,8 @@
+import {createEventScope} from './event-scope.js';
 import {layoutDistances} from './layout-distances.js';
 export const fitScale=(viewport,width,height)=>Math.max(.1,Math.min(2,(viewport.width-48)/Math.max(1,width),(viewport.height-48)/Math.max(1,height)));
 export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelection,getMode,setMode,onChange}) {
+ const events=createEventScope(),listen=events.listen;
   let scale=1,autoFit=false,space=false,drag=null;
   const controls=document.createElement('div');controls.className='canvas-tools';
   controls.innerHTML='<div class="canvas-modes" role="group" aria-label="Режим холста"><button data-mode="design">Дизайн</button><button data-mode="interact">Взаимодействие</button></div><button data-zoom="out" aria-label="Уменьшить масштаб">−</button><button data-zoom="reset" title="Исходный масштаб">100%</button><button data-zoom="in" aria-label="Увеличить масштаб">+</button><button data-fit>Вписать</button><button data-selection>К выделению</button><button data-guides aria-pressed="false">Размеры</button>';
@@ -48,7 +50,7 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
     const outside=x<0||y<0||x+w>s.width||y+h>s.height;
     if(outside){const note=document.createElement('span');note.className='canvas-clip-note';note.textContent=s.scrollable?'За пределами видимой области прокрутки':s.clip?'Часть элемента обрезана Frame':'Элемент выходит за Frame';box.append(note);}
   }
-  controls.addEventListener('click',event=>{
+  listen(controls,'click',event=>{
     const button=event.target.closest('button');if(!button)return;
     if(button.dataset.mode){setMode(button.dataset.mode);update();return;}
     if(button.hasAttribute('data-guides')){guides=!guides;button.setAttribute('aria-pressed',String(guides));draw();return;}
@@ -63,24 +65,24 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
     if(button.dataset.zoom){autoFit=false;zoom(button.dataset.zoom==='reset'?1:scale*(button.dataset.zoom==='in'?1.25:.8));}
   });
   const editing=target=>target?.closest?.('input,textarea,select,[contenteditable="true"]');
-  window.addEventListener('keydown',event=>{if(event.code==='Space'&&!editing(event.target)&&getMode()==='design'){space=true;viewport.classList.add('canvas-pan-ready');event.preventDefault();}});
+  listen(window,'keydown',event=>{if(event.code==='Space'&&!editing(event.target)&&getMode()==='design'){space=true;viewport.classList.add('canvas-pan-ready');event.preventDefault();}});
   function release(){if(drag&&viewport.hasPointerCapture(drag.id))viewport.releasePointerCapture(drag.id);drag=null;space=false;viewport.classList.remove('canvas-pan-ready','canvas-panning');}
-  window.addEventListener('keyup',event=>{if(event.code==='Space')release();});window.addEventListener('blur',release);
-  viewport.addEventListener('pointerdown',event=>{
+  listen(window,'keyup',event=>{if(event.code==='Space')release();});listen(window,'blur',release);
+  listen(viewport,'pointerdown',event=>{
     if(!(space&&event.button===0)&&event.button!==1)return;
     event.preventDefault();event.stopImmediatePropagation();drag={id:event.pointerId,x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};
     viewport.setPointerCapture(event.pointerId);viewport.classList.add('canvas-panning');
   },true);
-  viewport.addEventListener('pointermove',event=>{if(!drag)return;event.preventDefault();event.stopImmediatePropagation();viewport.scrollLeft=drag.left+drag.x-event.clientX;viewport.scrollTop=drag.top+drag.y-event.clientY;},true);
-  viewport.addEventListener('pointerup',event=>{if(drag){event.stopImmediatePropagation();release();}},true);
-  viewport.addEventListener('pointercancel',release);
-  viewport.addEventListener('wheel',event=>{if(!event.ctrlKey&&!event.metaKey)return;event.preventDefault();event.stopImmediatePropagation();autoFit=false;const r=viewport.getBoundingClientRect();zoom(scale*Math.exp(-event.deltaY*.005),[event.clientX-r.left,event.clientY-r.top]);},{passive:false,capture:true});
+  listen(viewport,'pointermove',event=>{if(!drag)return;event.preventDefault();event.stopImmediatePropagation();viewport.scrollLeft=drag.left+drag.x-event.clientX;viewport.scrollTop=drag.top+drag.y-event.clientY;},true);
+  listen(viewport,'pointerup',event=>{if(drag){event.stopImmediatePropagation();release();}},true);
+  listen(viewport,'pointercancel',release);
+  listen(viewport,'wheel',event=>{if(!event.ctrlKey&&!event.metaKey)return;event.preventDefault();event.stopImmediatePropagation();autoFit=false;const r=viewport.getBoundingClientRect();zoom(scale*Math.exp(-event.deltaY*.005),[event.clientX-r.left,event.clientY-r.top]);},{passive:false,capture:true});
   function update(){
     for(const b of controls.querySelectorAll('[data-mode]'))b.setAttribute('aria-pressed',String(b.dataset.mode===getMode()));
     controls.querySelector('[data-selection]').disabled=!selectedBounds();
     viewport.dataset.mode=getMode();if(autoFit)fit();else draw();
   }
-  new ResizeObserver(()=>{if(autoFit)fit();else draw();}).observe(viewport);
-  viewport.addEventListener('scroll',draw);
-  update();return {update};
+  const resize=new ResizeObserver(()=>{if(autoFit)fit();else draw();});resize.observe(viewport);
+  listen(viewport,'scroll',draw);
+  update();return {update,destroy(){events.dispose();resize.disconnect();release();controls.remove();overlay.remove();}};
 }

@@ -24,7 +24,12 @@ fn animations_change_only_their_own_pixels_at_integer_and_fractional_dpi(){
         let template="component Button { Rectangle { radius:8; background:Brush { color:props.background; hover:#0000ff; pressed:#ffffff; transition:0ms; }; Border { width:1; background:#aabbcc; } PointerArea { clicked -> events.clicked(); } } }";
         for scale in [1.,1.25,2.]{
             let mut model=Runtime::from_sources(source,template).unwrap();let before=read(&mut renderer,&model,scale);let uploads=renderer.uploads;
+            let bytes_before=renderer.resource_stats().uploaded_bytes_total;
+            let full_paint_bytes=model.gpu_paints().len() as u64*4;
             model.pointer(30.,25.,0);let hovered=read(&mut renderer,&model,scale);
+            let sent=renderer.resource_stats().uploaded_bytes_total-bytes_before;
+            assert!(sent<full_paint_bytes,"localized hover uploaded {sent} bytes; full paints {full_paint_bytes}");
+            println!("DPI {scale}: localized upload {sent} vs full paint {full_paint_bytes} bytes");
             assert_eq!(renderer.uploads,uploads,"paint-only changes must not upload geometry");
             let w=(128.*scale)as usize;
             let pixel=|data:&[u8],x:usize,y:usize|->Vec<u8>{let i=(((y as f32*scale)as usize)*w+(x as f32*scale)as usize)*4;data[i..i+4].to_vec()};

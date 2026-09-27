@@ -1,0 +1,10 @@
+component StudioDiagnostics {
+    Column {
+        width: 880; height: 360; padding: 24; gap: 10; background: state.theme.canvas;
+        Surface { width: 820; height: 30; borderWidth: 0; revealWidth: 0; background: #00000000; text: '06  /  ДИАГНОСТИКА И СТАТУС'; }
+        Alert { width: 820; height: 70; tone: 'success'; text: 'Разметка проверена. Ошибок нет.'; description: 'StudioControls.ui'; }
+        Alert { width: 820; height: 70; tone: 'warning'; text: 'Содержимое выходит за границы Frame'; description: 'Inspector.ui:24'; }
+        Alert { width: 820; height: 70; tone: 'danger'; text: 'Ключ capton не найден. Возможно, caption?'; description: 'LargeButton.ui:8'; }
+        StatusBar { width: 820; first: 'Сохранено'; second: 'Forma UI'; third: 'UTF-8'; }
+    }
+}

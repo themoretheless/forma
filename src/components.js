@@ -3,7 +3,7 @@
 import {parse} from './language.js';
 import {propertyOrigins} from './property-origins.js';
 import {similarName,sourceError} from './diagnostics.js';
-import {svgShapes} from './svg-shapes.js';
+import {parseSvgShapes,placeSvgShapes} from './svg-shapes.js';
 import {attachSources,createElementTree} from './element-tree.js';
 import {createCacheBudget} from './cache-budget.js';
 import {evaluate,evaluateProperties,selectedProperties,selectedPropertySources,validateContract,validateTypeName,matchesType,expandStructure} from './component-semantics.js';
@@ -11,7 +11,26 @@ import {containerTypes,arrange,naturalContainer,intrinsicLength,length,constrain
 export {evaluate} from './component-semantics.js';
 
 const own=(o,k)=>Object.hasOwn(o,k);
-const clone=v=>structuredClone(v);
+// Compiling clones a cached parse and the linked definitions on every run, and
+// those graphs are plain object/array/scalar data. Copying them recursively with
+// an identity map keeps shared subgraphs shared, the way structuredClone did,
+// without paying the structured-clone setup on the hot path.
+const isPlain=value=>{
+  if(value===null||typeof value!=='object')return false;
+  const prototype=Object.getPrototypeOf(value);
+  return prototype===Object.prototype||prototype===null;
+};
+function copyData(value,seen){
+  if(value===null||typeof value!=='object')return value;
+  const known=seen.get(value);
+  if(known!==undefined)return known;
+  if(Array.isArray(value)){const out=[];seen.set(value,out);for(const item of value)out.push(copyData(item,seen));return out;}
+  if(!isPlain(value))return structuredClone(value);
+  const out={};seen.set(value,out);
+  for(const key of Object.keys(value))out[key]=copyData(value[key],seen);
+  return out;
+}
+const clone=value=>typeof value==='object'&&value!==null?copyData(value,new WeakMap()):value;
 const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration'.split(' '));
 const layoutProps=new Set('key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight'.split(' '));
 const visualTypes=new Set([...containerTypes,'Text','TextInput','Image','Rectangle']);
@@ -38,6 +57,11 @@ const builtinSources={
 };
 const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Row:['gap','padding','clip','radius'],Column:['gap','padding','clip','radius'],Grid:['columns','rows','gap','padding','clip','radius'],Stack:['gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
 const templateEncoder=new TextEncoder();
+// Templates are framed by their UTF-8 byte length. Encoding a ~7 KB icon template
+// only to read that length allocated the bytes again for every instance, and
+// generated templates are ASCII, where the JS length already is the byte length.
+const asciiTemplate=/^[\0-\x7f]*$/;
+const templateByteLength=text=>asciiTemplate.test(text)?text.length:templateEncoder.encode(text).length;
 const fallback={width:260,height:70,text:'',fontSize:20,color:{expr:'#14213b'},radius:16,disabled:false,background:{expr:'#8ca5ff'},hoverBackground:{expr:'#a8baff'},pressedBackground:{expr:'#6a83da'},disabledBackground:{expr:'#596273'},borderWidth:1,borderColor:{expr:'#bed0ff'},focusBorderColor:{expr:'#ffffff'},transitionDuration:{expr:'140ms'}};
 function visit(nodes,fn){for(const n of nodes){fn(n);visit(n.children??[],fn);visit(n.elseChildren??[],fn);visit(n.emptyChildren??[],fn);}}
 function substitute(v,key,base){
@@ -181,8 +205,10 @@ function compile(files,entry,state,metrics,read,links){
   // Measurement and lowered SVG geometry are deterministic within one compile.
   // Keep these caches local so edits, state, fonts and metrics callbacks are
   // re-read on the next compilation, without retaining large output strings.
-  const textSizes=new Map(),images=new Map(),measureText=metrics.measureText,metricsContext=metrics;
-  let imageUnits=0;
+  const textSizes=new Map(),images=new Map(),parsedIcons=new Map(),measureText=metrics.measureText,metricsContext=metrics;
+  // Parsed icon geometry is compile-local and bounded like the output strings below.
+  const iconGeometryBudget=1_000_000;
+  let imageUnits=0,iconGeometryUnits=0;
   metrics={...metrics,
     measureText:measureText?function(text,size){
       let byText=textSizes.get(size);if(!byText){byText=new Map();textSizes.set(size,byText);}
@@ -192,13 +218,18 @@ function compile(files,entry,state,metrics,read,links){
     imageContent(source,box,currentColor){
       let byBox=images.get(source);const key=JSON.stringify([...box,currentColor]);
       if(byBox?.has(key))return byBox.get(key);
-      const content=svgShapes(source,box,currentColor).map(s=>`ContentShape { points: ${literal(s.points.map(v=>v.join(' ')).join(' '))}; color: ${s.color}; }`).join(' ');
+      const cached=parsedIcons.get(source);
+      let parsed;
+      if(cached?.color===currentColor)parsed=cached.parsed;
+      else{parsed=parseSvgShapes(source,currentColor);if(iconGeometryUnits<=iconGeometryBudget){parsedIcons.set(source,{color:currentColor,parsed});iconGeometryUnits+=parsed.shapes.reduce((total,shape)=>total+shape.points.length*16,64);}}
+      const content=placeSvgShapes(parsed,box).map(s=>`ContentShape { points: '${s.points.flat().join(' ')}'; color: ${s.color}; }`).join(' ');
       if(imageUnits+content.length<=1_000_000){if(!byBox){byBox=new Map();images.set(source,byBox);}byBox.set(key,content);imageUnits+=content.length;}
       return content;
     },
   };
   const document=read(files[entry],entry);let scene=clone(document.nodes);metricsContext.transformScene?.(scene);
   visit(scene,n=>{const patch=metricsContext.instanceProps?.(n);if(patch)n.props={...n.props,...patch};});
+  const contracts=new WeakMap();
   const cache=new Map(),loading=[],dependencies=new Map(),depths=new Map();
   function link(name){
     if(cache.has(name)){
@@ -322,9 +353,13 @@ function compile(files,entry,state,metrics,read,links){
     if(parents.length>=32)throw Error('Глубина композиции компонентов превышает 32');
     if(!top)rejectInteraction(instance);
     const linked=link(instance.type);
-    let hasContent=false;visit(linked.nodes,n=>{if(n.type==='ContentPresenter'&&n.props.key==='content')hasContent=true;});
+    let contract=contracts.get(linked);if(!contract){
+     let hasContent=false;visit(linked.nodes,n=>{if(n.type==='ContentPresenter'&&n.props.key==='content')hasContent=true;});
+     const groupedNames=new Set((linked.matches??[]).flatMap(group=>group.branches.flatMap(branch=>Object.keys(branch.props))));
+     contract={hasContent,groupedNames};contracts.set(linked,contract);
+    }
+    const {hasContent,groupedNames}=contract;
     if(instance.children.length&&!hasContent)throw Error('Для дочернего контента нужен ContentPresenter с key: content');
-    const groupedNames=new Set((linked.matches??[]).flatMap(group=>group.branches.flatMap(branch=>Object.keys(branch.props))));
     for(const k of Object.keys(instance.props))if(!(top?standard:layoutProps).has(k)&&!layoutProps.has(k)&&!own(linked.defaults,k)&&!own(linked.propDefinitions??{},k)&&!groupedNames.has(k)&&!(k==='font.size'&&own(linked.defaults,'fontSize')))throw Error(`Неизвестное свойство ${instance.type}.${k}`);
     if(instance.props['font.size']!==undefined&&instance.props.fontSize!==undefined)throw Error('fontSize и font.size — одно свойство');
     // A visual instance never inherits its caller's props or button fallbacks.
@@ -336,7 +371,7 @@ function compile(files,entry,state,metrics,read,links){
     if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
     const sources={...linked.defaultSources,...selectedPropertySources(linked.matches,props,state,env),...instance.propertySources};
     const scope={props,sources,traces:instance.propertyOrigins??{},instance,top,environment:env,parents:[...parents,instance.type]};
-    const resolved=Object.fromEntries(Object.entries(props).map(([k,v])=>[k,expandValue(v,scope,0,[k])]));
+    const resolved={};for(const key of Object.keys(props))resolved[key]=expandValue(props[key],scope,0,[key]);
     validateContract(linked.propDefinitions,resolved,env.enums,instance.type);
     const roots=expandChildren(linked.nodes,scope,0);
     if(roots.length!==1||(top?roots[0].type!=='Rectangle':!visualTypes.has(roots[0].type)))throw Error(top?'Базовая кнопка требует один Rectangle':'Визуальный компонент требует один Frame, Text, Image или Rectangle');
@@ -351,7 +386,7 @@ function compile(files,entry,state,metrics,read,links){
         if(instance.propertySources?.[key])root.propertySources={...root.propertySources,[key]:clone(instance.propertySources[key])};
       }
     }
-    const origins=Object.fromEntries(Object.entries(props).map(([key,value])=>[key,instance.propertyOrigins?.[key]??propertyOrigins(value,sources[key],props,sources,{},new Set([key]))]));
+    const origins={};for(const key of Object.keys(props)){const value=props[key];origins[key]=instance.propertyOrigins?.[key]??propertyOrigins(value,sources[key],props,sources,{},new Set([key]));}
     return {roots,resolved,origins};
   }
   function expandValue(value,scope,depth,stack=[]){
@@ -381,7 +416,9 @@ function compile(files,entry,state,metrics,read,links){
     const sources={...selectedPropertySources(n.matches,scope.props,state,scope.environment),...n.propertySources};
     const raw={...Object.fromEntries((n.forward??[]).map(key=>[key,{expr:`props.${key}`}])) ,...selectedProperties(n.matches,scope.props,state,scope.environment),...n.props};
     const origins=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,propertyOrigins(value,sources[key],scope.props,scope.sources,scope.traces)]));
-    const node={...n,props:Object.fromEntries(Object.entries(evaluateProperties(n,scope.props,state,scope.environment)).map(([k,v])=>[k,v?.type?expand(v,scope,depth+1):v])),propertySources:sources,propertyOrigins:origins,children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
+    const evaluated=evaluateProperties(n,scope.props,state,scope.environment);
+    const expandedProps={};for(const key of Object.keys(evaluated)){const value=evaluated[key];expandedProps[key]=value?.type?expand(value,scope,depth+1):value;}
+    const node={...n,props:expandedProps,propertySources:sources,propertyOrigins:origins,children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
     if(!primitiveTypes.has(n.type))return instantiate(node,false,scope.parents).roots[0];
     return {...node,expandedVisual:true};
   }
@@ -478,6 +515,6 @@ function compile(files,entry,state,metrics,read,links){
   const sourceControls=controls.map(c=>c.sourceNode);
   const sourceScene=[{...root,type:'Frame',children:scroll?[{...scroll,children:sourceControls}]:sourceControls}];
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
-  const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateEncoder.encode(c.template).length}\n${c.template}`).join('');
+  const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateByteLength(c.template)}\n${c.template}`).join('');
   return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:instances};
 }

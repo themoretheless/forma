@@ -1,6 +1,6 @@
 //! Shared native/WASM scene runtime. Node IDs are local to one loaded snapshot.
 //! Controls own interaction; the renderer sees only geometry and paint slots.
-use crate::display_list::{DisplayList, RenderScene, STRIDE};
+use crate::display_list::{DisplayList, ListHints, RenderScene, STRIDE};
 use crate::{markup, round_coverage, round_inside, Button};
 use std::{cell::RefCell, sync::Arc};
 use wasm_bindgen::prelude::*;
@@ -99,14 +99,19 @@ impl Runtime {
             // Each leaf needs frame metadata and its own spec, not a temporary
             // deep clone of every sibling (quadratic in the control count).
             let leaf = markup::Scene {
-                name: scene.name.clone(), width: scene.width, height: scene.height,
-                background: scene.background, overflow: scene.overflow.clone(),
+                // The frame name and its legacy spelling of clipping are never read on a
+                // control: clipping reaches the renderer as `clip`, so the leaf leaves both
+                // strings empty rather than copying the document's.
+                name: String::new(), width: scene.width, height: scene.height,
+                background: scene.background, overflow: String::new(),
                 clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
                 padding: scene.padding, content_width: scene.content_width,
                 content_height: scene.content_height, gap: scene.gap,
-                button: spec.clone(), buttons: vec![spec.clone()],
+                // `from_scene` replaces the spec with the resolved one, so the leaf
+                // carries the document spec by reference instead of copying it.
+                button: markup::ButtonSpec::default(), buttons: Vec::new(),
             };
-            let mut control = Button::from_scene(leaf, component)?;
+            let mut control = Button::from_scene(leaf, spec, component)?;
             // Defaults in the component can change height: lay out after linking.
             if !spec.specified.contains("y") {
                 control.scene.button.y = y;
@@ -227,8 +232,11 @@ impl Runtime {
         let count = usize::from(control.template.text.is_some()) + control.template.content.iter()
             .filter(|c| matches!(c, crate::template::Content::Text { .. })).count();
         if count != 1 || self.editors[index].is_some() { return Err(format!("Control {index}: text binding requires exactly one non-editable text primitive")); }
-        let text = if let Some(text) = &mut control.template.text { text } else {
-            control.template.content.iter_mut().find_map(|c| match c {
+        // The template is shared with the parse cache, so the first write takes a copy.
+        // Only the edited control pays, and only once per keystroke it changes.
+        let template = Arc::make_mut(&mut control.template);
+        let text = if let Some(text) = &mut template.text { text } else {
+            template.content.iter_mut().find_map(|c| match c {
                 crate::template::Content::Text { text, .. } => Some(text), _ => None,
             }).unwrap()
         };
@@ -246,7 +254,7 @@ impl Runtime {
         let control = self.controls.get_mut(index).ok_or_else(|| format!("Unknown control {index}"))?;
         if control.scene.button.disabled == disabled { return Ok(()); }
         control.scene.button.disabled = disabled;
-        control.template.props.disabled = disabled;
+        Arc::make_mut(&mut control.template).props.disabled = disabled;
         if disabled { control.down = false; control.keyboard = None; }
         control.update_colors();
         if disabled && self.captured == Some(index) { self.captured = None; }
@@ -278,7 +286,7 @@ impl Runtime {
             } else {continue};
             let control=&mut self.controls[i];
             if content!=control.template.content {
-                control.template.content=content;
+                Arc::make_mut(&mut control.template).content=content;
                 *control.raster_cache.borrow_mut()=None;
                 *control.display_cache.borrow_mut()=None;
                 *self.geometry.borrow_mut()=None;
@@ -336,10 +344,22 @@ impl Runtime {
                 return Arc::clone(&c.list);
             }
         }
-        let mut list = DisplayList {
-            commands: Vec::new(),
-            edges: Vec::new(),
-        };
+        // Every control builds its own list before the merge runs. The scene repeats nearly
+        // identical controls, so each one after the first can start at a sibling's final
+        // capacity instead of growing into it by doubling, and the merged buffers are exact.
+        let mut children = Vec::with_capacity(self.controls.len());
+        let mut text_scratch = crate::text::VectorScratch::default();
+        let mut hints = None;
+        for control in &self.controls {
+            let child = control.vector_snapshot_hinted(scale, false, hints, &mut text_scratch);
+            hints = Some(ListHints { commands: child.commands.len(), edges: child.edges.len() });
+            children.push(child);
+        }
+        let mut list = DisplayList::with_hints(Some(ListHints {
+            commands: children.iter().map(|child| child.commands.len()).sum::<usize>()
+                + STRIDE * 8,
+            edges: children.iter().map(|child| child.edges.len()).sum::<usize>(),
+        }));
         let frame = [0., 0., self.width(), self.height()];
         if self.scene.clip {
             list.push(frame, self.scene.radius);
@@ -365,8 +385,7 @@ impl Runtime {
         // renderer uniform, so this list survives scrolling unchanged.
         let content_start = list.commands.len();
         let mut reveal_slot = self.controls.len() * 2;
-        for (index, c) in self.controls.iter().enumerate() {
-            let child = c.vector_snapshot(scale, false);
+        for (index, child) in children.iter().enumerate() {
             let edge_offset = list.edges.len() / 4;
             for command in child.commands.chunks_exact(STRIDE) {
                 let start = list.commands.len();
@@ -384,7 +403,7 @@ impl Runtime {
                 }
             }
             list.edges.extend(&child.edges);
-            if c.template.reveal.is_some() { reveal_slot += 2; }
+            if self.controls[index].template.reveal.is_some() { reveal_slot += 2; }
         }
         if self.scene.scroll {
             list.mark_scrolled(content_start);
@@ -552,7 +571,7 @@ impl Runtime {
     pub fn range_key(&mut self,key:&str)->bool {
         let Some(i)=self.focused else{return false};
         if self.controls[i].disabled(){return false;}
-        let Some(range)=&mut self.controls[i].template.range else{return false};
+        let Some(range)=Arc::make_mut(&mut self.controls[i].template).range.as_mut() else{return false};
         range.value=match key {
             "Home"=>0.,"End"=>1.,
             "ArrowLeft"|"ArrowDown"=>(range.value-0.01).max(0.),
@@ -786,7 +805,7 @@ impl Runtime {
             if let Some(i)=self.captured {
                 let b=self.controls[i].bounds_rect();
                 if let Some(editor)=&mut self.editors[i] {editor.hit(x-b[0],y-b[1],kind==0);}
-                if let Some(range)=&mut self.controls[i].template.range {range.value=((x-b[0]-8.)/(b[2]-16.).max(1.)).clamp(0.,1.);}
+                if let Some(range)=Arc::make_mut(&mut self.controls[i].template).range.as_mut() {range.value=((x-b[0]-8.)/(b[2]-16.).max(1.)).clamp(0.,1.);}
             }
             self.refresh_editors();
         }

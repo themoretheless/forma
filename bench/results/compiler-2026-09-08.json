@@ -1,0 +1,609 @@
+{
+  "baseline": "9b846c9b8ec98051338823d866679552d7a27048",
+  "baselineFiles": [
+    "src/components.js",
+    "src/property-origins.js",
+    "src/cache-budget.js"
+  ],
+  "order": [
+    "A1",
+    "B1",
+    "B2",
+    "A2",
+    "A3",
+    "B3"
+  ],
+  "notes": [
+    "Same fixtures and benchmark script; three process medians per variant.",
+    "First pair overlapped validation tasks; remaining pairs ran after validation.",
+    "Wall-time microbenchmarks; no measured process heap or allocation counts."
+  ],
+  "runs": {
+    "A": [
+      {
+        "node": "v22.23.2",
+        "modulePath": "/tmp/forma-compiler-pass2-baseline/src/components.js",
+        "gcExposed": true,
+        "results": [
+          {
+            "count": 1,
+            "mode": "one-shot",
+            "iterations": 300,
+            "samples": [
+              0.4198822233333333,
+              0.3915209733333333,
+              0.38971916666666667,
+              0.38088902666666646,
+              0.3813418066666664
+            ],
+            "medianMs": 0.38971916666666667,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 1,
+            "mode": "session",
+            "iterations": 300,
+            "samples": [
+              0.26459527666666643,
+              0.2633937500000002,
+              0.2657940266666666,
+              0.27058403,
+              0.27428000000000036
+            ],
+            "medianMs": 0.2657940266666666,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 64,
+            "mode": "one-shot",
+            "iterations": 10,
+            "samples": [
+              9.223583400000006,
+              8.911779200000002,
+              9.0999458,
+              9.059325000000012,
+              9.220112500000004
+            ],
+            "medianMs": 9.0999458,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 64,
+            "mode": "session",
+            "iterations": 10,
+            "samples": [
+              8.521166700000004,
+              8.512179199999991,
+              8.928433300000005,
+              8.87101249999996,
+              9.9981041
+            ],
+            "medianMs": 8.87101249999996,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 256,
+            "mode": "one-shot",
+            "iterations": 3,
+            "samples": [
+              44.465597333333335,
+              39.27870833333327,
+              43.79662499999995,
+              36.61336100000002,
+              34.931972333333306
+            ],
+            "medianMs": 39.27870833333327,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          },
+          {
+            "count": 256,
+            "mode": "session",
+            "iterations": 3,
+            "samples": [
+              34.07448600000013,
+              34.69216666666671,
+              75.44233333333341,
+              100.7266803333332,
+              145.9388333333333
+            ],
+            "medianMs": 75.44233333333341,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          }
+        ]
+      },
+      {
+        "node": "v22.23.2",
+        "modulePath": "/tmp/forma-compiler-pass2-baseline/src/components.js",
+        "gcExposed": true,
+        "results": [
+          {
+            "count": 1,
+            "mode": "one-shot",
+            "iterations": 300,
+            "samples": [
+              0.44552916666666664,
+              0.41835889,
+              0.4326236133333333,
+              0.4095138866666667,
+              0.40518041666666665
+            ],
+            "medianMs": 0.41835889,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 1,
+            "mode": "session",
+            "iterations": 300,
+            "samples": [
+              0.28092763999999987,
+              0.27409472333333307,
+              0.28018569333333326,
+              0.28560763666666694,
+              0.28380735999999995
+            ],
+            "medianMs": 0.28092763999999987,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 64,
+            "mode": "one-shot",
+            "iterations": 10,
+            "samples": [
+              9.383200000000011,
+              9.135825,
+              9.699583400000005,
+              9.522495800000002,
+              9.681691699999988
+            ],
+            "medianMs": 9.522495800000002,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 64,
+            "mode": "session",
+            "iterations": 10,
+            "samples": [
+              8.398579199999995,
+              8.02890420000001,
+              8.332795900000018,
+              8.603583300000036,
+              8.726495799999975
+            ],
+            "medianMs": 8.398579199999995,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 256,
+            "mode": "one-shot",
+            "iterations": 3,
+            "samples": [
+              37.31348633333331,
+              36.563360999999986,
+              35.35279166666669,
+              45.6952640000001,
+              38.495013999999934
+            ],
+            "medianMs": 37.31348633333331,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          },
+          {
+            "count": 256,
+            "mode": "session",
+            "iterations": 3,
+            "samples": [
+              43.47981966666672,
+              35.79458333333332,
+              33.652416666666795,
+              33.629513999999894,
+              36.88366666666661
+            ],
+            "medianMs": 35.79458333333332,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          }
+        ]
+      },
+      {
+        "node": "v22.23.2",
+        "modulePath": "/tmp/forma-compiler-pass2-baseline/src/components.js",
+        "gcExposed": true,
+        "results": [
+          {
+            "count": 1,
+            "mode": "one-shot",
+            "iterations": 300,
+            "samples": [
+              0.4671816666666667,
+              0.4227191666666666,
+              0.47264916666666656,
+              0.3960863866666665,
+              0.410382916666667
+            ],
+            "medianMs": 0.4227191666666666,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 1,
+            "mode": "session",
+            "iterations": 300,
+            "samples": [
+              0.281750553333333,
+              0.340492776666667,
+              0.27075486333333326,
+              0.27330250000000017,
+              0.2702037500000006
+            ],
+            "medianMs": 0.27330250000000017,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 64,
+            "mode": "one-shot",
+            "iterations": 10,
+            "samples": [
+              8.839216699999998,
+              8.7159625,
+              10.344529199999988,
+              9.750345799999991,
+              8.920454199999995
+            ],
+            "medianMs": 8.920454199999995,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 64,
+            "mode": "session",
+            "iterations": 10,
+            "samples": [
+              8.523816699999998,
+              8.546600000000012,
+              8.588324999999987,
+              8.46985410000002,
+              12.046970800000008
+            ],
+            "medianMs": 8.546600000000012,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 256,
+            "mode": "one-shot",
+            "iterations": 3,
+            "samples": [
+              36.001930666666645,
+              35.9277223333332,
+              36.77419433333322,
+              33.640666666666675,
+              34.18952800000003
+            ],
+            "medianMs": 35.9277223333332,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          },
+          {
+            "count": 256,
+            "mode": "session",
+            "iterations": 3,
+            "samples": [
+              32.39344466666671,
+              32.135180333333516,
+              32.981596999999965,
+              32.344277666666734,
+              32.69548600000022
+            ],
+            "medianMs": 32.39344466666671,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          }
+        ]
+      }
+    ],
+    "B": [
+      {
+        "node": "v22.23.2",
+        "modulePath": "/Users/themoretheless/Documents/Sources/forma/src/components.js",
+        "gcExposed": true,
+        "results": [
+          {
+            "count": 1,
+            "mode": "one-shot",
+            "iterations": 300,
+            "samples": [
+              0.6671429166666666,
+              0.54316,
+              0.5862604166666667,
+              0.4482800000000001,
+              0.4116461133333337
+            ],
+            "medianMs": 0.54316,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 1,
+            "mode": "session",
+            "iterations": 300,
+            "samples": [
+              0.2675219433333336,
+              0.24870444333333352,
+              0.24605277666666703,
+              0.25665263999999977,
+              0.2695634700000005
+            ],
+            "medianMs": 0.25665263999999977,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 64,
+            "mode": "one-shot",
+            "iterations": 10,
+            "samples": [
+              8.324870899999997,
+              7.887245899999994,
+              8.016474999999991,
+              8.054308300000002,
+              8.227491699999996
+            ],
+            "medianMs": 8.054308300000002,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 64,
+            "mode": "session",
+            "iterations": 10,
+            "samples": [
+              7.4091499999999995,
+              7.143316699999991,
+              7.406712500000003,
+              7.451412500000015,
+              7.426887500000021
+            ],
+            "medianMs": 7.4091499999999995,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 256,
+            "mode": "one-shot",
+            "iterations": 3,
+            "samples": [
+              30.245277666666578,
+              31.61444433333342,
+              32.74822233333331,
+              32.124846999999896,
+              32.11529166666681
+            ],
+            "medianMs": 32.11529166666681,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          },
+          {
+            "count": 256,
+            "mode": "session",
+            "iterations": 3,
+            "samples": [
+              30.532361000000037,
+              30.837819666666746,
+              31.776916666666693,
+              28.85818033333332,
+              29.00904166666669
+            ],
+            "medianMs": 30.532361000000037,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          }
+        ]
+      },
+      {
+        "node": "v22.23.2",
+        "modulePath": "/Users/themoretheless/Documents/Sources/forma/src/components.js",
+        "gcExposed": true,
+        "results": [
+          {
+            "count": 1,
+            "mode": "one-shot",
+            "iterations": 300,
+            "samples": [
+              0.4231876366666667,
+              0.3930079166666667,
+              0.3829755566666667,
+              0.37442625,
+              0.3759634733333333
+            ],
+            "medianMs": 0.3829755566666667,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 1,
+            "mode": "session",
+            "iterations": 300,
+            "samples": [
+              0.2439508333333333,
+              0.2436506966666669,
+              0.24728402666666663,
+              0.2565723600000001,
+              0.24636750000000007
+            ],
+            "medianMs": 0.24636750000000007,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 64,
+            "mode": "one-shot",
+            "iterations": 10,
+            "samples": [
+              7.871008299999994,
+              7.422904100000006,
+              7.7662375000000115,
+              7.750920799999994,
+              7.7313625
+            ],
+            "medianMs": 7.750920799999994,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 64,
+            "mode": "session",
+            "iterations": 10,
+            "samples": [
+              7.1217417000000065,
+              7.076233400000001,
+              7.041929099999993,
+              7.2176790999999865,
+              7.143562499999985
+            ],
+            "medianMs": 7.1217417000000065,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 256,
+            "mode": "one-shot",
+            "iterations": 3,
+            "samples": [
+              29.391930666666667,
+              30.31020833333332,
+              31.51234733333331,
+              37.69687500000009,
+              31.660624999999982
+            ],
+            "medianMs": 31.51234733333331,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          },
+          {
+            "count": 256,
+            "mode": "session",
+            "iterations": 3,
+            "samples": [
+              29.97438866666668,
+              31.55041666666663,
+              31.78858333333331,
+              32.786055666666776,
+              31.371861333333374
+            ],
+            "medianMs": 31.55041666666663,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          }
+        ]
+      },
+      {
+        "node": "v22.23.2",
+        "modulePath": "/Users/themoretheless/Documents/Sources/forma/src/components.js",
+        "gcExposed": true,
+        "results": [
+          {
+            "count": 1,
+            "mode": "one-shot",
+            "iterations": 300,
+            "samples": [
+              0.41089375,
+              0.3816506966666666,
+              0.38358111000000006,
+              0.37427555333333334,
+              0.37089444333333327
+            ],
+            "medianMs": 0.3816506966666666,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 1,
+            "mode": "session",
+            "iterations": 300,
+            "samples": [
+              0.24331444333333327,
+              0.24054736333333343,
+              0.24449138999999984,
+              0.24823847333333332,
+              0.24583541666666672
+            ],
+            "medianMs": 0.24449138999999984,
+            "fixtureSha256": "c276dd2ba145d7ec2db03c7bc65c0865083448f06f86d940d0236ad886ef5461",
+            "generatedSha256": "0c46a94e55b066c3b4e3abf83f0e1f5e6f41bddd5ea693facd59be534ab2af2a"
+          },
+          {
+            "count": 64,
+            "mode": "one-shot",
+            "iterations": 10,
+            "samples": [
+              7.4913625000000135,
+              7.2844499999999925,
+              7.636887499999989,
+              7.633066699999995,
+              7.582666700000004
+            ],
+            "medianMs": 7.582666700000004,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 64,
+            "mode": "session",
+            "iterations": 10,
+            "samples": [
+              7.091345899999988,
+              6.865695800000003,
+              7.000216699999987,
+              6.989091699999994,
+              6.9803125000000135
+            ],
+            "medianMs": 6.989091699999994,
+            "fixtureSha256": "a2acf88fac000010d18561fd405587dffdf65c13a9f10c19e25ee2922f0043ba",
+            "generatedSha256": "317e75e80fbc70eee4f5534a08f7c84927aac4aeca570d85ff30c408692ff535"
+          },
+          {
+            "count": 256,
+            "mode": "one-shot",
+            "iterations": 3,
+            "samples": [
+              29.54381933333328,
+              30.191902666666767,
+              30.515347333333313,
+              30.492180333333334,
+              28.73355566666669
+            ],
+            "medianMs": 30.191902666666767,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          },
+          {
+            "count": 256,
+            "mode": "session",
+            "iterations": 3,
+            "samples": [
+              27.85305566666663,
+              28.107416666666722,
+              28.696485999999975,
+              27.914166666666613,
+              27.715083333333343
+            ],
+            "medianMs": 27.914166666666613,
+            "fixtureSha256": "bc37dcb931a0e239217ce4366049f042c62c6be25b47de8561eb79393aa6e5da",
+            "generatedSha256": "8c0613df5747ca300a774898d2c226e7387c75e366b1ad53272f52bf064fb33c"
+          }
+        ]
+      }
+    ]
+  }
+}
