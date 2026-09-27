@@ -59,6 +59,25 @@ test('SVG subset is vector geometry and rejects scripts, external references and
  for(const s of ['<svg viewBox="0 0 24 24"><script/></svg>','<svg viewBox="0 0 24 24"><image href="https://x"/></svg>','<svg viewBox="0 0 24 24"><path d="M0 0L1 1"/></svg>','<svg viewBox="0 0 24 24"><circle r="4" transform="scale(2)"/></svg>'])assert.throws(()=>svgShapes(s,[0,0,24,24]));
 });
 
+test('Modal layers compile after the base scene with surface-relative children',()=>{
+ const files={'components/Button.ui':base,'ui/Demo.ui':"component Demo { Frame { width: 400; height: 300; Button { key: 'open'; text: 'Open'; clicked -> actions.open(); } Modal { key: 'ask'; width: 200; height: 100; backdrop: #11223344; dismissed -> actions.cancel(); Button { key: 'yes'; x: 10; y: 20; width: 80; text: 'Yes'; clicked -> actions.yes(); } } } }"};
+ const out=compileComponents(files,'ui/Demo.ui');
+ assert.match(out.source,/Modal \{ key: 'ask'; x: 100; y: 100; width: 200; height: 100; backdrop: #11223344; dismiss: true; open: true; dismissed -> actions.cancel\(\); Button \{/);
+ const layer=out.source.slice(out.source.indexOf('Modal {'));
+ assert.match(layer,/key: 'yes'/);assert.match(layer,/x: 10;/);assert.match(layer,/y: 20;/);assert.match(layer,/actions.yes/);
+ assert.doesNotMatch(out.source.slice(0,out.source.indexOf('Modal {')),/key: 'yes'/);
+ assert.deepEqual(out.previewControls.map(n=>n.props.key),['open','yes']);
+ assert.equal(out.previewModals.length,1);assert.equal(out.previewModals[0].props.key,'ask');
+ assert.equal(out.template.split('\n').length>2,true,'two controls share one framed template stream');
+ for(const bad of ["Modal { Scroll {} }","Modal { foo: 1; }","Modal { dismissed -> events.cancel(); }","Modal { clicked -> actions.a(); }","Modal { Button {} } Button {}","Modal { dismiss: 1; }","Modal { backdrop: 'red'; }"]){
+  assert.throws(()=>compileComponents({...files,'ui/Demo.ui':`component Demo { Frame { ${bad} } }`},'ui/Demo.ui'),undefined,bad);
+ }
+ const modern={...files,'ui/Demo.ui':"component Demo { Column { width: 400; height: 300; Button { key: 'open'; text: 'Open'; height: 40; } Modal { key: 'ask'; x: 50; y: 40; width: 200; height: 100; Row { gap: 10; Button { key: 'a'; width: 60; height: 30; } Button { key: 'b'; width: 60; height: 30; } } } } }"};
+ const laid=compileComponents(modern,'ui/Demo.ui');
+ assert.deepEqual(laid.previewControls.map(n=>[n.props.key,n.props.x,n.props.y,n.props.width,n.props.height]),[['open',0,0,400,40],['a',0,0,60,30],['b',70,0,60,30]]);
+ assert.match(laid.source,/Modal \{ key: 'ask'; x: 50; y: 40; width: 200; height: 100;/);
+});
+
 // Placed coordinates travel as template text, so full double precision costs bytes,
 // not accuracy. A 1/1000 px grid is three orders below a device pixel.
 test('placed icon geometry is quantized to 1/1000 px',()=>{

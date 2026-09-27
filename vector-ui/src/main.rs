@@ -250,6 +250,7 @@ impl ApplicationHandler for App {
             return;
         };
         let clicks = self.button.clicks();
+        let dismissals = self.button.dismiss_count();
         let revision = self.button.visual_revision();
         let was_animating = self.button.is_animating();
         let redraw = matches!(event, WindowEvent::RedrawRequested);
@@ -309,7 +310,7 @@ impl ApplicationHandler for App {
                     window.request_redraw();
                 } else if event.state==ElementState::Pressed && self.button.range_key(&match &event.logical_key {Key::Named(key)=>format!("{key:?}"),_=>String::new()}) {
                     // Range navigation belongs to the same runtime as pointer input.
-                } else if self.button.text_editing() && event.logical_key != Key::Named(NamedKey::Tab) {
+                } else if self.button.text_editing() && !matches!(event.logical_key, Key::Named(NamedKey::Tab) | Key::Named(NamedKey::Escape)) {
                     if event.state==ElementState::Pressed && !self.composing {
                         let key=match &event.logical_key {
                             Key::Character(text)=>text.to_string(),
@@ -327,6 +328,7 @@ impl ApplicationHandler for App {
                     let key = match event.logical_key {
                         Key::Named(NamedKey::Space) => 1,
                         Key::Named(NamedKey::Enter) => 2,
+                        Key::Named(NamedKey::Escape) => 3,
                         _ => 0,
                     };
                     if event.logical_key == Key::Named(NamedKey::Tab)
@@ -397,6 +399,14 @@ impl ApplicationHandler for App {
                 self.button.action()
             );
             self.next_title_update = Instant::now();
+        }
+        if self.button.dismiss_count() != dismissals {
+            let layer = self.button.dismissed_index().max(0) as usize;
+            println!(
+                "{}.dismissed → {} (модальный слой закрыт: Escape или щелчок по backdrop)",
+                self.button.modal_key(layer),
+                self.button.modal_action(layer)
+            );
         }
     }
 

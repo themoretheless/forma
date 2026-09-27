@@ -1,6 +1,7 @@
+import {sceneControlNodes} from './components.js';
 export function designPreset(name,node){
  const props=node.props??{},patch={};
- if(name==='disabled')return ['Frame','Scroll'].includes(node.type)?{}:{disabled:true};
+ if(name==='disabled')return ['Frame','Scroll','Modal'].includes(node.type)?{}:{disabled:true};
  if(name==='long'){
   if(typeof props.text==='string')patch.text='Очень длинный заголовок для проверки размещения и обрезки текста';
   if(['TextField','TextArea','SearchField'].includes(node.type))patch.value='Длинный текст для проверки поля ввода и положения каретки';
@@ -16,7 +17,7 @@ export function designPreset(name,node){
 // user's document or a simulation of application bindings.
 export function collectionScenario(name,scene,files){
  if(!['list-empty','list-12','list-100','loading','error'].includes(name))return;
- const root=scene[0],nodes=root.children[0]?.type==='Scroll'?root.children[0].children:root.children;
+ const root=scene[0],nodes=sceneControlNodes(root);
  const sample=nodes.find(n=>n.type==='TableRow');
  if(!sample)throw Error('Для сценария списка нужен хотя бы один TableRow в текущем интерфейсе');
  const width=Math.max(80,Number(root.props.width??360)-48),rowHeight=Number(sample.props.height??38);

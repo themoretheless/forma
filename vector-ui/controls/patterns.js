@@ -36,13 +36,16 @@ export function documentTabs({key, labels, selected=0, x=0,y=0,width=304,dirty=[
     ...(dirty.includes(i)?[item('StatusDot',`${key}Dirty${i}`,x+(i+1)*w-31,y+4,{width:5,height:5})]:[]),
     item('IconButton',`${key}Close${i}`,x+(i+1)*w-26,y+2,{width:24,height:28,radius:5,text:`Закрыть ${text}`,icon:'assets/close.svg',action:`${key}Close${i}`})]);
 }
-export function dialog({key, title, description, confirm='Сохранить', x=0,y=0,width=304}) {
-  return [item('DialogSurface',`${key}Surface`,x,y,{width,height:176}),
-    item('Paragraph',`${key}Title`,x+4,y+12,{text:title,width:width-40,height:28,fontSize:16}),
-    item('IconButton',`${key}Close`,x+width-36,y+10,{width:28,height:28,icon:'assets/close.svg',text:'Закрыть диалог',action:`${key}Close`}),
-    item('Paragraph',`${key}Description`,x+4,y+55,{text:description,width:width-8,height:24,fontSize:12}),
-    item('SecondaryButton',`${key}Cancel`,x+16,y+120,{width:122,height:32,text:'Отмена',action:`${key}Close`}),
-    item('PrimaryButton',`${key}Confirm`,x+width-138,y+120,{width:122,height:32,text:confirm,action:`${key}Confirm`})];
+// A modal layer: the Rust runtime blocks the scene under the backdrop, traps
+// Tab inside the layer and runs `dismissed` on Escape or a backdrop press.
+export function dialog({key, title, description, confirm='Сохранить', x=0,y=0,width=304,height=176,backdrop={expr:'state.theme.backdrop'}}) {
+  return [item('Modal',key,x,y,{width,height,backdrop,dismiss:true,event:'dismissed',action:`${key}Close`,children:[
+    item('DialogSurface',`${key}Surface`,0,0,{width,height}),
+    item('Paragraph',`${key}Title`,4,12,{text:title,width:width-40,height:28,fontSize:16}),
+    item('IconButton',`${key}Close`,width-36,10,{width:28,height:28,icon:'assets/close.svg',text:'Закрыть диалог',action:`${key}Close`}),
+    item('Paragraph',`${key}Description`,4,55,{text:description,width:width-8,height:24,fontSize:12}),
+    item('SecondaryButton',`${key}Cancel`,16,height-56,{width:122,height:32,text:'Отмена',action:`${key}Close`}),
+    item('PrimaryButton',`${key}Confirm`,width-138,height-56,{width:122,height:32,text:confirm,action:`${key}Confirm`})]})];
 }
 export function codeBlock({key,lines,x=0,y=0,width=304}) {
   return lines.map((text,i)=>item('CodeLine',`${key}${i}`,x,y+i*24,{text,number:String(i+1),width}));

@@ -92,7 +92,7 @@ CLI экспортирует исходные демонстрационные �
 | Alert, 415–422 | `Alert`, `MessageContent`, Icon и два Label | Информационные сообщения | Wrap, actions и live announcements требуют отдельных возможностей |
 | Toast, 674–676,1075–1077 | `Toast` | Показ по действию и скрытие через 2600 ms в секции | Общие positioning/queue, пауза/закрытие и accessibility announcements; native-таймер и lifecycle подключаются хостом |
 | Tooltip, 426–428 | `Tooltip` | Toggle по кнопке, Escape; локальная поверхность | Hover/focus delay, anchor placement, overlay clipping и native-dismissal. В референсе только trigger-плейсхолдер |
-| Dialog, 678–687 | `DialogSurface`, Paragraph, кнопки; `patterns.dialog()` | Заменяет содержимое одной секции; Close/Cancel/Confirm, локальный Tab-cycle, Escape и focus restore | Полноэкранная модальность, backdrop, блокирование других секций/окон и native overlay/window routing ещё не реализованы |
+| Dialog, 678–687 | `Modal`-слой Runtime, `DialogSurface`, Paragraph, кнопки; `patterns.dialog()` | Backdrop над секцией, блокировка контролов под ним, Tab по кругу внутри слоя, Escape и щелчок по backdrop → `dismissed`, focus restore; native получает то же через Escape и мышь | Анимации opacity/scale, стек окон приложения и отдельные native-окна для слоёв ещё не реализованы |
 | AppShell, 488–518 | `WindowHeader`, `ToolbarSurface`, `NavigationItem`, `StatusBar`, Card, Splitter | Макет окна из соседних контролов; drag и ArrowLeft/ArrowRight/Home/End меняют ширину sidebar через RangeValue | Native-хост связывает модель диапазона с layout; маршрутизация действий и самостоятельный window manager ещё нужны |
 | IDE, 587–661 | TreeItem, documentTabs, CodeLine/codeBlock, ToolbarSurface, FormattingButton, StatusBar, EmptyState, Splitter | Оболочка с работающим Splitter; код статичен, отдельная панель formatting переключает selected-кнопки | CodeEditor/Terminal/ProblemsPanel, RTF-документ, syntax model, gutter/current-line/caret, native splitter/layout routing, docking, редакторские команды и несколько окон |
 | Rust theme code block, 664–669 | `CodeLine` и `patterns.codeBlock()` | Демонстрационные строки кода | Генерация Rust-констант из общей темы и copy action для такого блока отдельно не реализованы |
@@ -101,8 +101,8 @@ CLI экспортирует исходные демонстрационные �
 но не добавляет syntax highlighting, editing или terminal emulation.
 Галерея связывает `Splitter` с `RangeValue(70, 136, 1, 90)`: ширина sidebar
 меняется от 70 до 136 px с шагом 1 px, исходное значение — 90 px. Native-хост
-должен подключить изменение своего layout. `DialogSurface` в обычной сцене
-не блокирует соседние контролы.
+должен подключить изменение своего layout. `DialogSurface` сама по себе
+не блокирует соседние контролы; блокировку и backdrop даёт слой `Modal`.
 
 ## Модели Rust: что именно уже есть
 
@@ -182,7 +182,7 @@ Reveal; такой же примитив доступен native Runtime.
 | Checkbox/Radio scale 220 ms, Switch knob 300 ms | Есть снимки состояний; transform-анимаций нет |
 | Tab underline 250 ms, close/dirty 150 ms, sidebar indicator | Есть снимки выбранных состояний; соответствующих анимаций нет |
 | Tree entrance 220 ms, Accordion height 350 ms / chevron 300 ms | Есть модели/локальное раскрытие; указанных анимаций нет |
-| Popup opacity 200 ms / translate 280 ms; Toast opacity 300 ms / slide 350 ms; Dialog opacity 300 ms / scale 350 ms | Локальный lifecycle примера есть, в том числе toast timer 2600 ms; указанных анимаций и общего overlay manager нет |
+| Popup opacity 200 ms / translate 280 ms; Toast opacity 300 ms / slide 350 ms; Dialog opacity 300 ms / scale 350 ms | Модальные слои управляются Runtime, toast timer 2600 ms остаётся в примере; указанных анимаций нет |
 | Theme crossfade 500 ms, entrance подъём 14 px/fade, background blobs | Переключение палитры есть; эти эффекты не реализованы |
 | Символ 220 ms, каретка 120 ms / blink 1100 ms, программная подстановка 320 ms, placeholder 180 ms | Ввод немедленный; новые символы проявляются за 220 ms, каретка плавно мигает с циклом 1100 ms. Перемещение каретки, программная подстановка и placeholder пока без переходов |
 | Тёплая selection-заливка 22% light / 38% dark | Выделение рисуется отдельными фигурами внутри clip TextInput; сейчас единая тёплая заливка |
@@ -212,11 +212,12 @@ Reveal; такой же примитив доступен native Runtime.
    strike, headings, ordered/unordered lists, clear formatting, toolbar
    selection state, clipboard formats и история операций. `FormattingButton`
    является только кнопкой; TextEdit не хранит форматированный документ.
-5. **Overlays:** positioning относительно anchor и viewport, отдельный
-   overlay layer, clipping/z-order, outside-click, блокирование фонового ввода,
-   modal semantics, tooltip hover/focus delay и toast queues. Локальные
-   Escape/focus-cycle/restore и toast timer в галерее уже есть; нужны общий
-   менеджер overlays и соответствующие native-адаптеры.
+5. **Overlays:** модальные слои реализованы в общем Runtime: backdrop,
+   блокирование фонового ввода, focus trap, Escape/backdrop dismiss,
+   восстановление фокуса и сохранение состояния слоя при перезагрузке сцены.
+   Остаются positioning относительно anchor и viewport для немодальных popup,
+   outside-click для меню, tooltip hover/focus delay, toast queues и
+   native-адаптеры отдельных окон.
 6. **Accessibility:** отдельные роли, имена, значения и состояния каждого
    контрола, отношения label/helper/error, keyboard/group semantics, live
    announcements и focus notifications. Web-подпись canvas не заменяет дерево

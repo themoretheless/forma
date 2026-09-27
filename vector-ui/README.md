@@ -64,6 +64,38 @@ Frame {
 
 В текущем векторном срезе Scroll занимает внутреннюю область Frame за вычетом padding и содержит одну Button. Колесо/тачпад прокручивает по двум осям; индикаторы рисует Rust. Перетаскивание индикатора и вложенные Scroll ещё не реализованы. `visible` в дизайнере расширяет область рисования, не меняя заданные размеры Frame; за пределами окна ОС рисовать невозможно, поэтому native-срез открывает окно по области рисования.
 
+### Модальные слои
+
+```css
+component Confirm {
+    Frame {
+        width: 360; height: 220;
+        Button { key: 'open'; text: 'Открыть'; clicked -> actions.open(); }
+        Modal {
+            key: 'ask'; x: 40; y: 30; width: 280; height: 160;
+            backdrop: #00000080; dismiss: true; open: true;
+            dismissed -> actions.cancel();
+            Button { key: 'yes'; x: 16; y: 100; width: 120; height: 40; text: 'Да'; clicked -> actions.yes(); }
+        }
+    }
+}
+```
+
+`Modal` объявляется после контролов Frame или Scroll; слоёв может быть несколько,
+ввод получает верхний открытый. Координаты детей относительны поверхности слоя,
+слои не прокручиваются и не расширяют содержимое сцены. Общий Rust Runtime рисует
+backdrop над сценой (CPU и GPU), не даёт контролам под ним hover, hit и фокус,
+зацикливает Tab внутри слоя, закрывает верхний слой по Escape и по нажатию вне
+поверхности (`dismiss: false` отключает оба пути), возвращает фокус контролу,
+который был активен до открытия, и запоминает состояние слоя при перезагрузке
+сцены с тем же `key` и тем же объявленным `open`. `open_modal`, `close_modal` и
+`dismiss_modal` меняют состояние во время работы; `dismiss_count`,
+`dismissed_index` и `modal_action` позволяют хосту выполнить обработчик
+`dismissed`. Web-хост передаёт Escape (код клавиши 3) и нажатия по backdrop,
+native-окно — Escape и щелчки мыши; события выводятся в журнал так же, как `clicked`.
+Anchor-позиционирование немодальных popup, задержки tooltip и очереди toast в
+слой не входят.
+
 Brush — значение свойства: `Rectangle { background: Brush { color: props.background; hover: #a8baff; transition: 140ms; }; }`. У Border используется `background: Brush { color: #bed0ff; };`. Одноцветные сокращения: `background: #8ca5ff;`, `background: #bed0ff;`. Самостоятельные дочерние узлы Brush больше не принимаются.
 
 В дереве виртуального проекта:
