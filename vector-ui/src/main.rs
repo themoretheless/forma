@@ -110,7 +110,22 @@ impl App {
                 }
             }
         }
-        let surface = self.surface.as_mut().unwrap();
+        // The CPU buffer borrows the surface for as long as it lives, and on X11 it
+        // has a destructor, so a surface borrowed from `self` would block every
+        // `self` method in the error paths. Take the surface out for the frame.
+        let mut surface = self.surface.take().unwrap();
+        self.draw_cpu(&mut surface, window, size, width, height);
+        self.surface = Some(surface);
+    }
+
+    fn draw_cpu(
+        &mut self,
+        surface: &mut softbuffer::Surface<Arc<Window>, Arc<Window>>,
+        window: &Arc<Window>,
+        size: winit::dpi::PhysicalSize<u32>,
+        width: NonZeroU32,
+        height: NonZeroU32,
+    ) {
         if self.surface_size != Some((size.width, size.height)) {
             if let Err(error) = surface.resize(width, height) {
                 self.set_render_error(Some(error.to_string()));
@@ -119,13 +134,10 @@ impl App {
             }
             self.surface_size = Some((size.width, size.height));
         }
-        // Name the result before matching: on X11 the buffer type has a destructor,
-        // so the temporary would keep `surface` borrowed while the error arm needs `self`.
-        let buffer = surface.buffer_mut().map_err(|error| error.to_string());
-        let mut buffer = match buffer {
+        let mut buffer = match surface.buffer_mut() {
             Ok(buffer) => buffer,
             Err(error) => {
-                self.set_render_error(Some(error));
+                self.set_render_error(Some(error.to_string()));
                 self.present_result(Presentation::Retry, window);
                 return;
             }
