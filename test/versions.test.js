@@ -20,6 +20,32 @@ test('committed manifest and lockfile versions agree',()=>{
  const v=versions();assert.ok(validVersion(v.runtime));assert.ok(validVersion(v.studio));assert.match(v.wasmBindgen,/^\d+\.\d+\.\d+$/);
 });
 
+test('gpu-allocator and wgpu-hal resolve one windows crate or the Windows build fails',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {resolve}=await import('node:path');
+ const {root}=await import('../scripts/versions.mjs');
+ const blocks=new Map(readFileSync(resolve(root,'vector-ui/Cargo.lock'),'utf8').split('[[package]]').flatMap(block=>{
+  const name=/^name = "([^"]+)"/m.exec(block)?.[1],version=/^version = "([^"]+)"/m.exec(block)?.[1];
+  return name&&version?[[`${name}@${version}`,block]]:[];
+ }));
+ const single=name=>{
+  const found=[...blocks.keys()].filter(key=>key.startsWith(`${name}@`)).map(key=>key.slice(name.length+1));
+  assert.equal(found.length,1,`the lock must hold one ${name}, found ${found.join(', ')||'none'}`);
+  return found[0];
+ };
+ // Cargo spells a dependency with its version only when the lock holds several of them.
+ const windowsUsed=consumer=>{
+  const edges=[...blocks.get(`${consumer}@${single(consumer)}`).matchAll(/^\s*"([^"]+)",?$/gm)].map(match=>match[1]);
+  const edge=edges.find(value=>value==='windows'||value.startsWith('windows '));
+  assert.ok(edge,`${consumer} must depend on windows for the D3D12 backend`);
+  return edge.split(' ')[1]??single('windows');
+ };
+ const used=['gpu-allocator','wgpu-hal'].map(windowsUsed);
+ // Two versions give wgpu-hal a gpu-allocator ID3D12Heap from another windows core, and
+ // windows-2022 then fails to compile wgpu-hal: CreatePlacedResource rejects the argument.
+ assert.equal(new Set(used).size,1,`wgpu-hal and gpu-allocator need one windows crate, got ${used.join(' and ')}`);
+});
+
 test('version command updates only its component and all associated lockfiles',async()=>{
  const {mkdtempSync,mkdirSync,copyFileSync,readFileSync,rmSync}=await import('node:fs');
  const {tmpdir}=await import('node:os');

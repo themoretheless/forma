@@ -62,6 +62,7 @@ body.forma-studio-ui .element-tools{position:fixed;z-index:1000;display:flex;fle
 body.forma-studio-ui .element-tools[hidden]{display:none}
 body.forma-studio-ui .element-tools button{width:100%;height:30px;min-height:30px;flex:none;text-align:left}
 body.forma-studio-ui .element-tools .selection-count{align-self:flex-start;margin:4px 10px;color:var(--guide-textMuted)}
+body.forma-studio-ui .element-tools .element-add-filter{width:100%;box-sizing:border-box}
 
 body.forma-studio-ui .canvas-tools .studio-canvas-icon{width:32px;height:32px;min-width:32px;min-height:32px;flex:none;padding:0;font-size:0!important}
 body.forma-studio-ui .canvas-modes{gap:2px}

@@ -3,8 +3,9 @@
 @precedence { call, typed, member @left, prefix, multiply @left, add @left, compare @left, equal @left, and @left, or @left, nullish @left, conditional @right }
 
 Component { component ComponentName (":" ComponentName)? Block }
-Design { design ComponentName "{" DesignOverride* "}" }
+Design { design ComponentName "{" (DesignOverride | DesignState)* "}" }
 DesignOverride { TypeName Block }
+DesignState { state String Block }
 Attribute { "#[" AttributeName Arguments? "]" }
 Block { "{" (Node | If | For | Property | Attribute | Override | PropDeclaration | EventDeclaration | EnumDeclaration | Forward | GroupMatch)* "}" }
 Override { override (PropertyName | String) (Block ";"? | ":" Value+ ";" | from String (Block ";"? | ";")) }
@@ -68,6 +69,7 @@ else { @specialize<Identifier, "else"> }
 for { @specialize<Identifier, "for"> }
 in { @specialize<Identifier, "in"> }
 key { @extend<Identifier, "key"> }
+state { @extend<Identifier, "state"> }
 empty { @specialize<Identifier, "empty"> }
 Boolean { @specialize<Identifier, "true"> | @specialize<Identifier, "false"> }
 Null { @specialize<Identifier, "null"> }

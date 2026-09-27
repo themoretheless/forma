@@ -12,6 +12,9 @@ test('highlight grammar understands layout, bindings, design data and comments',
    }
  }`),[]);
  assert.deepEqual(errors("design Demo { TextInput { key: 'query'; value: 'Hello'; } }"),[]);
+ // `state` is a design keyword but stays an ordinary path root inside a component.
+ assert.deepEqual(errors("design Demo { state 'loading' { Button { key: 'go'; disabled: true; } } }"),[]);
+ assert.deepEqual(errors("component Demo { Text { text: state.status; } }"),[]);
 });
 test('highlight grammar recognizes proposed match and constraint syntax',()=>{
  assert.deepEqual(errors(`component Demo { Frame {

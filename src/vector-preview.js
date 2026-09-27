@@ -412,7 +412,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
 
   return {
     measureText:(value,fontSize)=>runtime.text_metrics(value,fontSize),
-    render({container, source, template = '', designMode = true, nodes = [], previewControls, previewModals, selectedStart: nextSelection = null, reducedMotion = false}) {
+    render({container, source, template = '', designMode = true, nodes = [], previewControls, previewModals, previewContainers, selectedStart: nextSelection = null, reducedMotion = false}) {
       let candidate = null;
       try {
         if (destroyed) throw new Error('Векторный предпросмотр уже закрыт');
@@ -452,7 +452,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
           button.focus(false);
           button.tick(1000);
         }
-        current = {source, template, designMode, nodes, previewControls, previewModals, reducedMotion};
+        current = {source, template, designMode, nodes, previewControls, previewModals, previewContainers, reducedMotion};
         container.classList.add('vector-artboard');
         container.style.backgroundColor=button.background_color();
         container.style.borderRadius=(button.frame_radius()+1)+'px';
@@ -510,13 +510,23 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     activate,
     // Canvas tools need geometry, not strings, text values and interaction state
     // for every control. Reuse an immutable snapshot until the model changes.
+    // Each record carries the markup offset of the control it drew, because the tools edit the
+    // source and the scene counts flattened controls: pairing the two by position hands a node
+    // the box of whoever happens to sit at that index. The container box the drawing measured its own
+    // `x`/`y` against travels with it, so a tool that writes a coordinate writes one the layout reads.
+    // A container paints nothing of its own, so its extent reaches the canvas only as the box the
+    // layout measured for it — beside the controls it drew.
     layoutSnapshot() {
       if(!button||!current)return null;
       const revision=button.layout_revision?.()??button.visual_revision();
       if(layoutModel===button&&layoutRevision===revision)return layout;
+      const nodes=controlNodes();
       layout=Object.freeze({width:button.width(),height:button.height(),clip:button.clipped(),
         scrollable:button.scrollable(),scrollOffset:Object.freeze(Array.from(button.scroll_offset())),
-        controls:Object.freeze(Array.from({length:button.control_count()},(_,index)=>Object.freeze({index,bounds:Object.freeze(Array.from(button.control_bounds(index)))})))});
+        controls:Object.freeze(Array.from({length:button.control_count()},(_,index)=>Object.freeze({index,start:nodes[index]?.start??null,
+          coordinateBox:Object.freeze(Array.from(nodes[index]?.coordinateBox??[0,0,0,0])),bounds:Object.freeze(Array.from(button.control_bounds(index)))}))),
+        containers:Object.freeze((current.previewContainers??[]).map(panel=>Object.freeze({start:panel.start??null,
+          coordinateBox:Object.freeze(Array.from(panel.coordinateBox??[0,0,0,0])),bounds:Object.freeze(Array.from(panel.bounds??[0,0,0,0]))})))});
       layoutModel=button;layoutRevision=revision;
       return layout;
     },

@@ -9,4 +9,7 @@ test('static constants and methods use cached design values',()=>{
   setDesignData({'design.STATUS':'Ready','design.example_query()':'Hello'});
   assert.equal(resolve(d.overrides.a.text,{}),'Ready');
   assert.equal(resolve(d.overrides.b.value,{}),'Hello');
+  setDesignData({});
+  assert.throws(()=>resolve(d.overrides.a.text,{}),/Нет дизайн-данных/);
+  assert.throws(()=>resolve(d.overrides.b.value,{}),/Нет дизайн-данных/);
 });
