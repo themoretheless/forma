@@ -32,7 +32,7 @@ Home/End и PageUp/PageDown. События также показываются 
 | Визуальные части | Независимые `.ui`, наследование, слоты, SVG, темы, состояния, явные переносы строк |
 | Общий Rust Runtime | Hover/pressed/focus/disabled/click, цветовые переходы и Reveal; CPU/GPU и WASM/native используют общую реализацию |
 | Rust-модели | Check, Toggle, Range, SingleSelection, Tree и TextEdit (одна или несколько строк); доступны в `forma::control_state` и через WASM-обёртки |
-| Галерея | Подключённый выбор, группы, диапазон/stepper, дерево, закрытие вкладок, select/disclosure, локальный dialog, toast timer и изменение ширины sidebar через Splitter |
+| Галерея | Подключённый выбор, группы, диапазон/stepper, дерево, закрытие вкладок, select/disclosure, модальный dialog на слое `Modal`, toast timer и изменение ширины sidebar через Splitter |
 | Экспорт Studio/native | Самостоятельный визуальный снимок и базовый Runtime; обработчики `catalog-session.js` в экспорт не входят |
 
 TextField/SearchField/TextArea содержат TextInput. Общий Rust Runtime хранит
@@ -42,8 +42,11 @@ Undo/Redo и Enter в Textarea. Web-хост передаёт beforeinput, clipb
 composition; native winit — клавиатуру и IME, clipboard подключён на macOS.
 Значение доступно через Runtime.text_value(index); прикладные bindings не нужны
 для самого редактирования. Перезапуск окна начинает с value из разметки.
-Dialog работает внутри своей секции: это локальный пример с Tab-cycle,
-Escape и возвратом focus, а не модальный менеджер всех окон и секций.
+Dialog — модальный слой `Modal` общего Rust Runtime: backdrop над секцией,
+контролы под ним не получают hover, нажатия и фокус, Tab ходит по кругу внутри
+слоя, Escape и щелчок по backdrop вызывают обработчик `dismissed`, а фокус
+возвращается кнопке, открывшей диалог. В экспорте для Studio слой центрируется
+в окне, а не прокручивается вместе с секцией.
 
 ## Studio и native
 
@@ -246,9 +249,10 @@ ripple, fill glow, shadows, spinner rotation, shimmer и transitions overlays �
   FormattingButton в галерее ещё не форматирует текст.
 - **Native-хост:** связать модели с событиями окна, обновлением снимка,
   capture/focus и жизненным циклом окон. Экспорт `.ui` не переносит JS-сессию.
-- **Overlays:** общий слой с anchor/viewport positioning, z-order/clipping,
-  outside-click, блокировкой фонового ввода и modal semantics; tooltip delay,
-  toast queues и native focus/window routing. Локальные примеры уже работают.
+- **Overlays:** модальные слои (backdrop, блокировка фонового ввода, focus
+  trap, Escape/backdrop dismiss, восстановление фокуса) реализованы в общем
+  Runtime. Остаются anchor/viewport positioning немодальных popup, outside-click
+  для меню, tooltip delay, toast queues и native focus/window routing.
 - **Текст и данные:** renderer использует встроенный Ubuntu Light; выбор
   шрифтов/весов, автоматический wrap, ellipsis и сложный shaping ещё нужны.
   Явные переводы строк поддержаны. Table/CodeLine/Shell остаются композициями;

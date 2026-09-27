@@ -13,7 +13,7 @@ function patch(source,node,props){
  return source;
 }
 export function moveElement(source,start,dx,dy,cell,origin=[0,0]){
- const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Перемещайте дочерние контролы');
+ const {node,parent}=locateElement(source,start);if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Перемещайте дочерние контролы');
  let props;
  if(parent.props.columns!==undefined||parent.props.rows!==undefined){
   if(!cell)throw Error('Для Grid выберите целевую ячейку');
@@ -24,12 +24,12 @@ export function moveElement(source,start,dx,dy,cell,origin=[0,0]){
  }
  const next=patch(source,node,props);parse(next);return {from:node.start,to:node.end,insert:next.slice(node.start,node.end+next.length-source.length),start:node.start};
 }
-export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
-export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
+export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
+export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
 export function insertElement(source,start,text,multiple=false){
  const parsed=parse('component Clipboard { Frame { '+text+' } }').nodes[0].children;
- if(!parsed.length||(!multiple&&parsed.length!==1)||parsed.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Вставьте один контрол Forma');
- const {node,parent}=locateElement(source,start);const container=['Frame','Scroll'].includes(node.type)?node:parent;
+ if(!parsed.length||(!multiple&&parsed.length!==1)||parsed.some(n=>['Frame','Scroll','Modal'].includes(n.type)))throw Error('Вставьте один контрол Forma');
+ const {node,parent}=locateElement(source,start);const container=['Frame','Scroll','Modal'].includes(node.type)?node:parent;
  if(!container)throw Error('Выберите контейнер');
  const keys=new Set();const walk=nodes=>{for(const n of nodes){if(typeof n.props.key==='string')keys.add(n.props.key);walk(n.children);}};walk(parse(source).nodes);
  // Rename copied keys without changing labels, bindings or comments.
@@ -47,7 +47,7 @@ export function gridCell(grid,x,y){
 export function reorderElement(source,start,direction){
  if(direction!==-1&&direction!==1)throw Error('Направление: выше или ниже');
  const {node,parent}=locateElement(source,start);
- if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');
+ if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Выберите дочерний контрол');
  const index=parent.children.indexOf(node),other=parent.children[index+direction];
  if(!other)return null;
  const first=direction<0?other:node,last=direction<0?node:other;

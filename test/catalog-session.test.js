@@ -37,11 +37,33 @@ test('popup, dialog and document examples recompose all actual visual variants',
       const section=changes.at(-1)[0],linked=compile(section,session.state()),model=new runtime.Runtime();
       try{model.load_component(linked.source,linked.template);assert.ok(model.gpu_commands(1.25,true).length>0);}finally{model.free();}
     }
+    session.dispatch('actions.showTooltip');assert.equal(session.state().tooltip,false);
     session.dispatch('actions.showDialog');
-    assert.equal(session.key({key:'Tab',shiftKey:true},{props:{key:'demoDialogClose'}}),true);
-    assert.deepEqual(changes.at(-1),['feedback','demoDialogConfirm']);
-    session.key({key:'Escape'},{props:{key:'demoDialogConfirm'}});assert.equal(session.state().dialog,false);
-    assert.deepEqual(changes.at(-1),['feedback','showDialog']);
+    assert.deepEqual(changes.at(-1),['feedback','demoDialogClose']);
+    // Tab-cycle, Escape and the backdrop press belong to the Rust modal layer.
+    assert.equal(session.key({key:'Tab',shiftKey:true},{props:{key:'demoDialogClose'}}),false);
+    assert.equal(session.key({key:'Escape'},{props:{key:'demoDialogConfirm'}}),false);
+    assert.equal(session.state().dialog,true);
+    const linked=compile('feedback',session.state()),model=new runtime.Runtime();
+    try {
+      assert.match(linked.source,/Modal \{ key: 'demoDialog';/);
+      assert.match(linked.source,/dismissed -> actions.demoDialogClose\(\);/);
+      model.load_component(linked.source,linked.template);
+      assert.equal(model.modal_count(),1);assert.equal(model.active_modal(),0);assert.equal(model.modal_key(0),'demoDialog');
+      const index=key=>linked.previewControls.findIndex(n=>n.props.key===key),keyOf=i=>model.control_key(i);
+      assert.equal(model.control_count(),linked.previewControls.length);
+      assert.ok(model.control_blocked(index('showDialog')),'the trigger stays under the backdrop');
+      assert.equal(model.hit_index(...model.control_bounds(index('showDialog')).slice(0,2).map(v=>v+4)),-1);
+      model.focus(true);assert.equal(keyOf(model.focused_index()),'demoDialogClose');
+      assert.equal(model.focus_next(true),true);assert.equal(keyOf(model.focused_index()),'demoDialogConfirm');
+      assert.equal(model.focus_next(false),true);assert.equal(keyOf(model.focused_index()),'demoDialogClose');
+      model.key_event(3,true,false);
+      assert.equal(model.dismiss_count(),1);assert.equal(model.dismissed_index(),0);
+      assert.equal(model.modal_action(0),'actions.demoDialogClose');
+      assert.equal(model.control_blocked(index('showDialog')),false);
+      session.dispatch(model.modal_action(0));
+      assert.equal(session.state().dialog,false);assert.deepEqual(changes.at(-1),['feedback','showDialog']);
+    } finally {model.free();}
   }finally{session.destroy();}
 });
 
@@ -68,8 +90,9 @@ test('catalog export captures the current session and keeps every section reacha
     assert.equal(JSON.stringify(snapshot),before,'export must not mutate the live snapshot');
     const root=parse(project['ui/FormaControls.ui']).nodes[0];
     assert.deepEqual([root.props.width,root.props.height],[720,780]);
-    assert.equal(root.children.length,1);assert.equal(root.children[0].type,'Scroll');
-    const rows=root.children[0].children,byKey=key=>rows.find(node=>node.props.key===key);
+    assert.deepEqual(root.children.map(node=>node.type),['Scroll','Modal'],'the open dialog exports as a window-level layer after the scrolled sections');
+    const rows=root.children[0].children,modal=root.children[1],all=[...rows,...modal.children],byKey=key=>all.find(node=>node.props.key===key);
+    assert.equal(modal.props.key,'demoDialog');assert.deepEqual([modal.props.x,modal.props.y],[208,302]);
     assert.equal(rows.filter(node=>/^heading\d+$/.test(node.props.key)).length,sections.length);
     assert.equal(byKey('check').props.checked,false);
     assert.equal(byKey('protocol2').props.checked,true);assert.equal(byKey('protocol1').props.checked,false);
@@ -78,18 +101,22 @@ test('catalog export captures the current session and keeps every section reacha
     assert.ok(!rows.some(node=>/^docDirty\d+$/.test(node.props.key)),'closing ui.rs removes its dirty indicator instead of moving it to lib.rs');
     assert.ok(byKey('tree2'));assert.equal(byKey('tree3'),undefined);assert.equal(byKey('tree4'),undefined);
     assert.equal(byKey('selectToggle').props.value,'Mobile');assert.equal(byKey('target2').props.selected,true);
-    assert.ok(byKey('demoDialogConfirm'));assert.equal(byKey('showDialog'),undefined);
+    assert.ok(byKey('demoDialogConfirm'));assert.ok(byKey('showDialog'),'the trigger remains under the backdrop');
+    assert.ok(modal.children.some(node=>node.props.key==='demoDialogConfirm'));
     assert.equal(byKey('format3').props.selected,true);
     const linked=compileComponents(project,'ui/FormaControls.ui',{}, {measureText:runtime.text_metrics});
     const model=new runtime.Runtime();
     try {
       model.load_component(linked.source,linked.template);
       assert.equal(model.scrollable(),true);assert.deepEqual(Array.from(model.viewport()),[0,0,720,780]);
-      assert.equal(model.control_count(),rows.length);
+      assert.equal(model.control_count(),all.length);
+      assert.equal(model.active_modal(),0);
       model.scroll(0,1_000_000);
       assert.ok(model.scroll_offset()[1]>0);
       const [,y,,height]=model.control_bounds(model.control_count()-1);
-      assert.ok(y>=0&&y+height<=780,'the final exported control is reachable at the scroll end');
+      assert.ok(y>=0&&y+height<=780,'the layer stays inside the window while sections scroll');
+      const [,lastRow,,rowHeight]=model.control_bounds(rows.length-1);
+      assert.ok(lastRow>=0&&lastRow+rowHeight<=780,'the final scrolled control is reachable at the scroll end');
       assert.ok(model.gpu_commands(1.25,true).length>0);
     }finally{model.free();}
   }finally{session.destroy();}

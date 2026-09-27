@@ -23,7 +23,7 @@ import {gridProperties,gridStyles} from './grid.js';
 import {sizeProperties,sizeValue} from './sizing.js';
 import {nativeSnapshot} from './native-snapshot.js';
 import {loadVectorRuntime,createVectorPreview} from './vector-preview.js';
-import {createComponentCompiler} from './components.js';
+import {createComponentCompiler,sceneControlNodes} from './components.js';
 import {expandStructure,evaluate} from './component-semantics.js';
 import {writePreviewBinding} from './preview-state.js';
 let previewRefreshPending=false,lastPreviewControls=[];
@@ -223,7 +223,7 @@ function showNativeInspection(data){
  for(const other of document.querySelectorAll('.inspector>.layout-inspector'))if(other!==panel)other.open=false;
  panel.open=true;panel.replaceChildren();const title=document.createElement('summary');title.textContent='Нативное окно · живое дерево · F9: выбор';panel.append(title);
  const current=nativeSource&&files[nativeSource.entry]===nativeSource.source;
- const roots=nativeSource?.nodes?.[0]?.children??[],controls=roots[0]?.type==='Scroll'?roots[0].children:roots;
+ const roots=nativeSource?.nodes?.[0]?.children??[],controls=sceneControlNodes(roots);
  const status=document.createElement('p');status.textContent=current?'Данные из работающего Rust runtime. F9 и щелчок в окне выбирают элемент.':'Исходник изменился или окно запущено раньше этой сессии: переход к коду отключён.';panel.append(status);
  for(const node of data.nodes??[]){
   const row=document.createElement('button'),control=data.controls?.find(c=>c.index===node.control),source=controls[node.control];
@@ -253,7 +253,7 @@ controlTree=createControlTree({explorer:document.querySelector('.explorer'),tool
 codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
 getScene:()=>renderer==='vector'?vectorPreview?.layoutSnapshot():null,
-getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=children[0]?.type==='Scroll'?children[0].children:children;return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
+getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=sceneControlNodes(children);return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
 getMode:()=>mode,setMode:next=>{if(mode!==next)$('run').click();},onChange:()=>{spacingOverlay?.update();layoutInspector?.update();elementTools?.update();}});
 const presetPicker=document.createElement('select');presetPicker.className='design-preset';presetPicker.setAttribute('aria-label','Проверка дизайна');
 for(const [value,label] of [['original','Исходный вид'],['long','Длинный текст'],['empty','Пустой текст'],['disabled','Недоступные контролы'],['list-empty','Список: пусто'],['list-12','Список: 12 строк'],['list-100','Список: 100 строк'],['loading','Список: загрузка'],['error','Список: ошибка']])presetPicker.add(new Option(label,value));
@@ -268,13 +268,13 @@ readTracks:source=>{const raw=files[source.file].slice(source.from,source.to);co
 openSource:source=>{open(source.file);$('code').setSelectionRange(source.from,source.to);$('code').focus();},
 edit:(source,insert)=>{const previous=files[source.file];if(previous===undefined)throw Error('Файл не найден');const next=previous.slice(0,source.from)+insert+previous.slice(source.to);parse(next);if(active!==source.file)open(source.file);codeEditor.edit({from:source.from,to:source.to,insert});compile();}});
 elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,nodes:children[0]?.type==='Scroll'?children[0].children:children,scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid};},
+context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,nodes:sceneControlNodes(children),scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid};},
 select,report:message=>{$('caption').textContent=message;},
 history:action=>{
- const starts=elementTools.selection(),children=compiled?.nodes[0]?.children??[],before=children[0]?.type==='Scroll'?children[0].children:children;
+ const starts=elementTools.selection(),children=compiled?.nodes[0]?.children??[],before=sceneControlNodes(children);
  const identities=before.flatMap((n,index)=>starts.includes(n.start)?[{key:n.props.key,index,type:n.type}]:[]);
  if(active!==entry)open(entry);
- if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();const children=compiled?.nodes[0]?.children??[],after=children[0]?.type==='Scroll'?children[0].children:children;
+ if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();const children=compiled?.nodes[0]?.children??[],after=sceneControlNodes(children);
   const restored=identities.map(id=>typeof id.key==='string'?after.find(n=>n.props.key===id.key):before.length===after.length&&after[id.index]?.type===id.type?after[id.index]:null).filter(Boolean);
   if(restored.length)select(restored[0]);elementTools.setSelection(restored.map(n=>n.start));elementTools.update();
  });

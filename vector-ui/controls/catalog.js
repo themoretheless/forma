@@ -68,9 +68,13 @@ function value(v) {
   return String(v);
 }
 function instance(item, offsetX = 0, offsetY = 0) {
-  const { type, action, x = 0, y = 0, ...props } = item;
-  return `${type} { x: ${x + offsetX}; y: ${y + offsetY}; ${Object.entries(props).map(([k, v]) => `${k}: ${value(v)};`).join(' ')} ${action ? `clicked -> actions.${action}();` : ''} }`;
+  const { type, action, event = 'clicked', children = [], x = 0, y = 0, ...props } = item;
+  // Layer children are positioned relative to their Modal surface.
+  return `${type} { x: ${x + offsetX}; y: ${y + offsetY}; ${Object.entries(props).map(([k, v]) => `${k}: ${value(v)};`).join(' ')} ${action ? `${event} -> actions.${action}();` : ''} ${children.map(child => instance(child)).join('\n')} }`;
 }
+// Sections stack inside one Scroll; a modal layer belongs to the whole window,
+// so the export centres it in the frame instead of scrolling it with a section.
+const centred = (item, width, height) => ({ ...item, x: Math.round((width - item.width) / 2), y: Math.round((height - item.height) / 2) });
 export function sectionSource(id, theme = 'light', size = 'regular', state = {}) {
   if (!themes[theme]) throw new Error(`Unknown Forma theme: ${theme}`);
   const section = sections.find(s => s.id === id);
@@ -83,9 +87,10 @@ export function catalogSource(theme = 'light', size = 'regular', state = {}) {
   const nodes = sections.flatMap((section, index) => {
     const x = 24 + index % 2 * 352, y = 24 + Math.floor(index / 2) * 304;
     return [instance({ type: 'Surface', key: `heading${index}`, text: `${section.number} · ${section.title}`, width: 320, height: 28, fontSize: 17, borderWidth: 0, background: { expr: '#00000000' } }, x, y),
-      ...specimens(section.id, size, state).map(item => instance(item, x + 8, y + 42))];
+      ...specimens(section.id, size, state).filter(item => item.type !== 'Modal').map(item => instance(item, x + 8, y + 42))];
   });
-  const source = `component FormaControls { Frame { width: 720; height: 780; padding: 0; gap: 0; background: ${themes[theme].canvas}; clip: true; Scroll { ${nodes.join('\n')} } } }`;
+  const modals = sections.flatMap(section => specimens(section.id, size, state).filter(item => item.type === 'Modal').map(item => instance(centred(item, 720, 780))));
+  const source = `component FormaControls { Frame { width: 720; height: 780; padding: 0; gap: 0; background: ${themes[theme].canvas}; clip: true; Scroll { ${nodes.join('\n')} } ${modals.join('\n')} } }`;
   return materializeTheme({'catalog.ui':source},theme)['catalog.ui'];
 }
 export function catalogProject(libraryFiles, theme = 'light', size = 'regular', options = {}) {

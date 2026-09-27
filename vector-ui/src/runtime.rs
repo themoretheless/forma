@@ -9,6 +9,7 @@ use wasm_bindgen::prelude::*;
 pub enum NodeKind {
     Frame,
     Scroll,
+    Modal,
     Control,
 }
 #[derive(Debug)]
@@ -53,6 +54,14 @@ pub struct Runtime {
     focused: Option<usize>,
     captured: Option<usize>,
     last_event: Option<usize>,
+    // Modal layers: each control belongs to the base scene or to one layer.
+    // Only the topmost open layer receives input; lower layers stay visible
+    // under its backdrop and the base scene keeps its scroll offset.
+    modal_of: Vec<Option<usize>>,
+    modal_open: Vec<bool>,
+    modal_restore: Vec<Option<usize>>,
+    dismissals: u32,
+    last_dismissed: Option<usize>,
     scroll: [f32; 2],
     revision: u32,
     geometry_revision: u32,
@@ -95,8 +104,14 @@ impl Runtime {
         let mut scene = markup::parse(source)?;
         let templates = templates(component, scene.buttons.len())?;
         let mut controls = Vec::with_capacity(scene.buttons.len());
+        let modal_of: Vec<Option<usize>> = (0..scene.buttons.len())
+            .map(|i| scene.modals.iter().position(|m| m.controls.contains(&i)))
+            .collect();
         let mut y = scene.padding[0];
-        for (spec, component) in scene.buttons.iter().zip(templates) {
+        for (index, (spec, component)) in scene.buttons.iter().zip(templates).enumerate() {
+            if let Some(m) = modal_of[index] {
+                if scene.modals[m].controls.start == index { y = scene.modals[m].y; }
+            }
             // Each leaf needs frame metadata and its own spec, not a temporary
             // deep clone of every sibling (quadratic in the control count).
             let leaf = markup::Scene {
@@ -105,7 +120,7 @@ impl Runtime {
                 clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
                 padding: scene.padding, content_width: scene.content_width,
                 content_height: scene.content_height, gap: scene.gap,
-                button: spec.clone(), buttons: vec![spec.clone()],
+                button: spec.clone(), buttons: vec![spec.clone()], modals: Vec::new(),
             };
             let mut control = Button::from_scene(leaf, component)?;
             // Defaults in the component can change height: lay out after linking.
@@ -115,11 +130,12 @@ impl Runtime {
             y = control.scene.button.y + control.scene.button.height + scene.gap;
             controls.push(control);
         }
-        scene.content_width = controls
+        let base = modal_of.iter().filter(|m| m.is_none()).count();
+        scene.content_width = controls[..base]
             .iter()
             .map(|b| b.scene.button.x + b.scene.button.width + scene.padding[1])
             .fold(scene.width, f32::max);
-        scene.content_height = controls
+        scene.content_height = controls[..base]
             .iter()
             .map(|b| b.scene.button.y + b.scene.button.height + scene.padding[2])
             .fold(scene.height, f32::max);
@@ -143,11 +159,24 @@ impl Runtime {
         } else {
             0
         };
+        let mut modal_nodes = Vec::new();
         for (index, b) in controls.iter_mut().enumerate() {
-            if scene.buttons.len() > 1 {
+            if scene.buttons.len() > 1 || !scene.modals.is_empty() {
                 b.scene.clip = false;
                 b.scene.scroll = false;
             }
+            let parent = match modal_of[index] {
+                None => parent,
+                Some(m) => {
+                    if modal_nodes.len() <= m {
+                        let id = nodes.len();
+                        nodes[0].children.push(id);
+                        nodes.push(Node { id, parent: Some(0), children: vec![], kind: NodeKind::Modal, control: None });
+                        modal_nodes.push(id);
+                    }
+                    modal_nodes[m]
+                }
+            };
             let id = nodes.len();
             nodes[parent].children.push(id);
             nodes.push(Node {
@@ -158,10 +187,22 @@ impl Runtime {
                 control: Some(index),
             });
         }
+        // Empty layers still exist as nodes so hosts can open and close them.
+        for _ in modal_nodes.len()..scene.modals.len() {
+            let id = nodes.len();
+            nodes[0].children.push(id);
+            nodes.push(Node { id, parent: Some(0), children: vec![], kind: NodeKind::Modal, control: None });
+            modal_nodes.push(id);
+        }
         let editors=controls.iter().map(|c|c.template.inputs.first().map(|input|crate::text_input::Editor::new(input.clone(),c.template.content.clone())).transpose()).collect::<Result<Vec<_>,_>>()?;
         let mut runtime=Self {
             range_values: vec![None; controls.len()],
             editors,
+            modal_open: scene.modals.iter().map(|m| m.open).collect(),
+            modal_restore: vec![None; scene.modals.len()],
+            modal_of,
+            dismissals: 0,
+            last_dismissed: None,
             scene,
             controls,
             nodes,
@@ -300,8 +341,37 @@ impl Runtime {
             [0., 0., self.width(), self.height()]
         }
     }
+    /// Topmost open layer, if any. It alone receives pointer and keyboard input.
+    fn active_modal_index(&self) -> Option<usize> {
+        (0..self.modal_open.len()).rev().find(|&m| self.modal_open[m])
+    }
+    fn visible(&self, index: usize) -> bool {
+        self.modal_of[index].is_none_or(|m| self.modal_open[m])
+    }
+    /// Reachable controls belong to the active layer; everything else is
+    /// blocked by the backdrop and neither hit, hovered nor focusable.
+    fn reachable(&self, index: usize) -> bool {
+        self.modal_of[index] == self.active_modal_index()
+    }
     fn enabled(&self, index: usize) -> bool {
-        !self.controls[index].disabled() && self.controls[index].template.clickable
+        self.reachable(index) && !self.controls[index].disabled() && self.controls[index].template.clickable
+    }
+    fn invalidate_layers(&mut self) {
+        *self.geometry.borrow_mut() = None;
+        self.geometry_revision = self.geometry_revision.wrapping_add(1);
+        self.layout_revision = self.layout_revision.wrapping_add(1);
+        self.revision = self.revision.wrapping_add(1);
+    }
+    fn cancel_gestures(&mut self) {
+        let before = self.child_revision();
+        self.captured = None;
+        let active = self.active_modal_index();
+        for (i, c) in self.controls.iter_mut().enumerate() {
+            let blocked = self.modal_of[i] != active;
+            c.keyboard = None;
+            if blocked { c.pointer_interaction(-1., -1., 3); c.reveal_pointer(0., 0., false); } else { c.down = false; c.update_colors(); }
+        }
+        self.update_revision(before);
     }
     fn set_focus(&mut self, index: Option<usize>) {
         self.focused = index.filter(|i| self.enabled(*i));
@@ -328,7 +398,7 @@ impl Runtime {
             .fold(0, u32::wrapping_add)
     }
     pub fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList> {
-        if self.controls.len() == 1 {
+        if self.controls.len() == 1 && self.scene.modals.is_empty() {
             return self.controls[0].vector_snapshot(scale, background);
         }
         let mut cache = self.geometry.borrow_mut();
@@ -362,8 +432,16 @@ impl Runtime {
         if self.scene.scroll {
             list.command(2., [v[0], v[1], v[2], v[3]], [0; 4], 0., 1.);
         }
+        // Paint slots are indexed by control, not by emission order: reveal
+        // slots follow all fill/border pairs in control order.
+        let mut reveal_slots = Vec::with_capacity(self.controls.len());
         let mut reveal_slot = self.controls.len() * 2;
-        for (index, c) in self.controls.iter().enumerate() {
+        for c in &self.controls {
+            reveal_slots.push(reveal_slot);
+            if c.template.reveal.is_some() { reveal_slot += 2; }
+        }
+        let emit = |list: &mut DisplayList, index: usize| {
+            let c = &self.controls[index];
             let child = c.vector_snapshot(scale, false);
             let edge_offset = list.edges.len() / 4;
             for command in child.commands.chunks_exact(STRIDE) {
@@ -378,11 +456,13 @@ impl Runtime {
                     cmd[15] = (index * 2 + 1) as f32;
                 }
                 if cmd[0] == 6. {
-                    cmd[14] = reveal_slot as f32;
+                    cmd[14] = reveal_slots[index] as f32;
                 }
             }
             list.edges.extend(&child.edges);
-            if c.template.reveal.is_some() { reveal_slot += 2; }
+        };
+        for index in 0..self.controls.len() {
+            if self.modal_of[index].is_none() { emit(&mut list, index); }
         }
         if self.scene.scroll {
             let [cw, ch] = self.content_size();
@@ -415,6 +495,11 @@ impl Runtime {
                 );
             }
             list.pop();
+        }
+        for (m, modal) in self.scene.modals.iter().enumerate() {
+            if !self.modal_open[m] { continue; }
+            list.command(0., frame, modal.backdrop, if self.scene.clip { 0. } else { self.scene.radius }, 0.);
+            for index in modal.controls.clone() { emit(&mut list, index); }
         }
         if self.scene.clip {
             list.pop();
@@ -484,15 +569,28 @@ impl Runtime {
         let paint = (self.revision, background);
         if cache.paint != Some(paint) {
             cache.pixels.fill(0);
-            for control in &self.controls {
-                control.composite_content(&mut cache.pixels, w, h, s);
+            for (i, control) in self.controls.iter().enumerate() {
+                if self.modal_of[i].is_none() { control.composite_content(&mut cache.pixels, w, h, s); }
+            }
+            if self.scene.scroll {
+                for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
+                    match frame >> 5 {
+                        0 => p.fill(0),
+                        2 => p.copy_from_slice(&[110, 130, 170, 255]),
+                        _ => {}
+                    }
+                }
+            }
+            // Layers sit above the scroll viewport and its bars; the frame's
+            // rounded coverage still trims every layer below.
+            for (m, modal) in self.scene.modals.iter().enumerate() {
+                if !self.modal_open[m] { continue; }
+                if modal.backdrop[3] > 0 {
+                    for p in cache.pixels.chunks_exact_mut(4) { crate::raster_cache::over(p, &modal.backdrop); }
+                }
+                for index in modal.controls.clone() { self.controls[index].composite_content(&mut cache.pixels, w, h, s); }
             }
             for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
-                match frame >> 5 {
-                    0 => p.fill(0),
-                    2 => p.copy_from_slice(&[110, 130, 170, 255]),
-                    _ => {}
-                }
                 let coverage = (frame & 31) as f32 / 16.;
                 if background {
                     let mut bg = self.scene.background;
@@ -513,7 +611,7 @@ impl Runtime {
         Some(std::cell::RefMut::map(stored, |cache| cache.as_mut().unwrap()))
     }
     fn raster(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
-        if self.controls.len() == 1 {
+        if self.controls.len() == 1 && self.scene.modals.is_empty() {
             return if background {
                 self.controls[0].pixels(w, h, s)
             } else {
@@ -529,7 +627,7 @@ impl Runtime {
         h: u32,
         s: f32,
     ) -> Result<(), &'static str> {
-        if self.controls.len() == 1 {
+        if self.controls.len() == 1 && self.scene.modals.is_empty() {
             return self.controls[0].paint_native(out, w, h, s);
         }
         if (w as usize).checked_mul(h as usize) != Some(out.len()) {
@@ -637,6 +735,63 @@ impl Runtime {
     pub fn control_focused(&self, i: usize) -> bool {
         self.focused == Some(i)
     }
+    /// Layer index of a control, -1 for the base scene.
+    pub fn control_modal(&self, i: usize) -> i32 {
+        self.modal_of.get(i).copied().flatten().map_or(-1, |m| m as i32)
+    }
+    /// Hidden by a closed layer or covered by another layer's backdrop.
+    pub fn control_blocked(&self, i: usize) -> bool {
+        i >= self.controls.len() || !self.visible(i) || !self.reachable(i)
+    }
+    pub fn modal_key(&self, m: usize) -> String {
+        self.scene.modals.get(m).map(|s| s.key.clone()).unwrap_or_default()
+    }
+    pub fn modal_is_open(&self, m: usize) -> bool {
+        self.modal_open.get(m).copied().unwrap_or(false)
+    }
+    pub fn modal_dismissible(&self, m: usize) -> bool {
+        self.scene.modals.get(m).is_some_and(|s| s.dismiss)
+    }
+    pub fn modal_action(&self, m: usize) -> String {
+        self.scene.modals.get(m).and_then(|s| s.action.clone()).unwrap_or_default()
+    }
+    pub fn modal_bounds(&self, m: usize) -> Vec<f32> {
+        self.scene.modals.get(m).map(|s| vec![s.x, s.y, s.width, s.height]).unwrap_or_default()
+    }
+    pub fn active_modal(&self) -> i32 {
+        self.active_modal_index().map_or(-1, |m| m as i32)
+    }
+    pub fn modal_count(&self) -> usize { self.scene.modals.len() }
+    pub fn open_modal(&mut self, m: usize) -> bool {
+        if m >= self.modal_open.len() || self.modal_open[m] { return false; }
+        self.modal_open[m] = true;
+        self.modal_restore[m] = self.focused;
+        self.cancel_gestures();
+        let first = self.scene.modals[m].controls.clone().find(|&i| self.enabled(i));
+        self.set_focus(first);
+        self.invalidate_layers();
+        true
+    }
+    pub fn close_modal(&mut self, m: usize) -> bool {
+        if m >= self.modal_open.len() || !self.modal_open[m] { return false; }
+        self.modal_open[m] = false;
+        let restore = self.modal_restore[m].take();
+        self.cancel_gestures();
+        let focused = self.focused.filter(|&i| self.enabled(i));
+        self.set_focus(focused.or(restore));
+        self.invalidate_layers();
+        true
+    }
+    /// Escape or a press on the backdrop: closes the layer and records a
+    /// dismissal so hosts can run the layer's `dismissed` handler.
+    pub fn dismiss_modal(&mut self, m: usize) -> bool {
+        if m >= self.scene.modals.len() || !self.scene.modals[m].dismiss || !self.close_modal(m) { return false; }
+        self.dismissals = self.dismissals.wrapping_add(1);
+        self.last_dismissed = Some(m);
+        true
+    }
+    pub fn dismiss_count(&self) -> u32 { self.dismissals }
+    pub fn dismissed_index(&self) -> i32 { self.last_dismissed.map_or(-1, |m| m as i32) }
     pub fn event_index(&self) -> i32 {
         self.last_event.map_or(-1, |i| i as i32)
     }
@@ -699,7 +854,8 @@ impl Runtime {
             self.revision = self.revision.wrapping_add(1);
             self.layout_revision = self.layout_revision.wrapping_add(1);
         }
-        for c in &mut self.controls {
+        for (i, c) in self.controls.iter_mut().enumerate() {
+            if self.modal_of[i].is_some() { continue; }
             c.scroll_x = self.scroll[0];
             c.scroll_y = self.scroll[1];
         }
@@ -720,13 +876,13 @@ impl Runtime {
             return -1;
         }
         let v = self.viewport_rect();
-        if self.scene.scroll && (x < v[0] || y < v[1] || x >= v[0] + v[2] || y >= v[1] + v[3]) {
-            return -1;
-        }
+        let outside_viewport = self.scene.scroll && (x < v[0] || y < v[1] || x >= v[0] + v[2] || y >= v[1] + v[3]);
         self.controls
             .iter()
-            .rposition(|c| c.hit(x, y))
-            .map_or(-1, |i| i as i32)
+            .enumerate()
+            .rev()
+            .find(|(i, c)| self.reachable(*i) && !(outside_viewport && self.modal_of[*i].is_none()) && c.hit(x, y))
+            .map_or(-1, |(i, _)| i as i32)
     }
     pub fn hit(&self, x: f32, y: f32) -> bool {
         self.hit_index(x, y) >= 0
@@ -755,13 +911,22 @@ impl Runtime {
     }
     /// Move within the scene; false lets the browser transfer focus outside it.
     pub fn focus_next(&mut self, reverse: bool) -> bool {
-        let next = if reverse {
+        let mut next = if reverse {
             (0..self.focused.unwrap_or(self.controls.len()))
                 .rev()
                 .find(|i| self.enabled(*i))
         } else {
             (self.focused.map_or(0, |i| i + 1)..self.controls.len()).find(|i| self.enabled(*i))
         };
+        // An open layer traps focus: Tab wraps inside it instead of leaving
+        // the scene, so the host never moves focus behind the backdrop.
+        if next.is_none() && self.active_modal_index().is_some() {
+            next = if reverse {
+                (0..self.controls.len()).rev().find(|i| self.enabled(*i))
+            } else {
+                (0..self.controls.len()).find(|i| self.enabled(*i))
+            };
+        }
         if next.is_none() {
             return false;
         }
@@ -771,7 +936,13 @@ impl Runtime {
         self.update_revision(before);
         true
     }
+    /// Keys: 1 = Space, 2 = Enter, 3 = Escape. Escape dismisses the active
+    /// layer even while its text field is being edited.
     pub fn key_event(&mut self, key: u8, pressed: bool, repeat: bool) {
+        if key == 3 {
+            if pressed && !repeat { if let Some(m) = self.active_modal_index() { self.dismiss_modal(m); } }
+            return;
+        }
         if self.text_editing(){return;}
         if let Some(i) = self.focused {
             let before = self.child_revision();
@@ -785,7 +956,8 @@ impl Runtime {
     }
     pub fn pointer(&mut self, x: f32, y: f32, kind: u8) {
         let before = self.child_revision();
-        for c in &mut self.controls { c.reveal_pointer(x, y, kind != 3); }
+        let active = self.active_modal_index();
+        for (i, c) in self.controls.iter_mut().enumerate() { c.reveal_pointer(x, y, kind != 3 && self.modal_of[i] == active); }
         let hit = usize::try_from(self.hit_index(x, y)).ok();
         if kind == 1 {
             for c in &mut self.controls {
@@ -793,6 +965,13 @@ impl Runtime {
             }
             self.captured = hit.filter(|i| self.enabled(*i));
             self.set_focus(self.captured);
+            if hit.is_none() && x.is_finite() && y.is_finite() {
+                if let Some(m) = active {
+                    let s = &self.scene.modals[m];
+                    let inside = x >= s.x && y >= s.y && x < s.x + s.width && y < s.y + s.height;
+                    if !inside { self.dismiss_modal(m); }
+                }
+            }
         }
         for (i, c) in self.controls.iter_mut().enumerate() {
             let clicks = c.clicks();
@@ -830,6 +1009,7 @@ impl Runtime {
         }
     }
     pub fn activate_control(&mut self, i: usize) {
+        if i < self.controls.len() && !self.reachable(i) { return; }
         if let Some(c) = self.controls.get_mut(i) {
             let count = c.clicks();
             c.activate();
@@ -871,7 +1051,8 @@ impl Runtime {
     /// Proximity reaches sibling controls even when the pointer is outside all hits.
     pub fn reveal_pointer(&mut self, x: f32, y: f32, present: bool) {
         let before = self.child_revision();
-        for c in &mut self.controls { c.reveal_pointer(x, y, present); }
+        let active = self.active_modal_index();
+        for (i, c) in self.controls.iter_mut().enumerate() { c.reveal_pointer(x, y, present && self.modal_of[i] == active); }
         self.update_revision(before);
     }
     pub fn set_reduced_motion(&mut self, reduced: bool) {
@@ -910,6 +1091,17 @@ impl Runtime {
             }).collect()
         };
         self.scroll(previous.scroll[0] - self.scroll[0], previous.scroll[1] - self.scroll[1]);
+        // A layer keeps its runtime open/closed state and focus-restore target
+        // while its source still declares the same initial state under one key.
+        let mut layers_changed = false;
+        for (m, spec) in self.scene.modals.iter().enumerate() {
+            if spec.key.is_empty() { continue; }
+            let Some(old) = previous.scene.modals.iter().position(|p| p.key == spec.key && p.open == spec.open) else { continue };
+            if self.modal_open[m] != previous.modal_open[old] { self.modal_open[m] = previous.modal_open[old]; layers_changed = true; }
+            self.modal_restore[m] = previous.modal_restore[old].and_then(|target| matches.iter().position(|x| *x == Some(target)));
+        }
+        self.dismissals = previous.dismissals;
+        if layers_changed { self.invalidate_layers(); }
         let before = self.child_revision();
         let mut focused = None;
         for (i, c) in self.controls.iter_mut().enumerate() {
@@ -1319,6 +1511,128 @@ mod tests {
         );
         assert!(Button::from_sources(TWO, VISUAL).is_err());
     }
+    const LAYERED:&str="component Demo { Frame { width:200; height:160; padding:10; gap:10; clip:true; Button { key:'base'; width:80; height:30; clicked -> actions.base(); } Modal { key:'ask'; x:20; y:40; width:160; height:80; backdrop:#00000080; dismissed -> actions.cancel(); Button { key:'yes'; width:60; height:24; clicked -> actions.yes(); } Button { key:'no'; width:60; height:24; clicked -> actions.no(); } } } }";
+    #[test]
+    fn open_layer_blocks_the_base_scene_traps_focus_and_dismisses_on_escape_or_backdrop() {
+        let mut r = Runtime::from_sources(LAYERED, VISUAL).unwrap();
+        assert_eq!((r.control_count(), r.modal_count(), r.active_modal()), (3, 1, 0));
+        assert_eq!(r.nodes().iter().filter(|n| n.kind == NodeKind::Modal).count(), 1);
+        assert_eq!(r.nodes()[2].children, vec![3, 4]);
+        assert_eq!((r.control_modal(0), r.control_modal(1), r.control_modal(2)), (-1, 0, 0));
+        assert!(r.control_blocked(0) && !r.control_blocked(1));
+        assert_eq!(r.control_bounds(2), vec![20., 74., 60., 24.]);
+        assert_eq!(r.hit_index(30., 20.), -1, "base controls are covered by the backdrop");
+        assert_eq!(r.hit_index(30., 50.), 1);
+        r.pointer(30., 20., 0);
+        assert!(!r.control_hovered(0));
+        // A press on the surface beside its controls neither clicks nor dismisses.
+        r.pointer(150., 100., 1); r.pointer(150., 100., 2);
+        assert_eq!((r.active_modal(), r.dismiss_count(), r.clicks()), (0, 0, 0));
+        r.focus(true);
+        assert_eq!(r.focused_index(), 1);
+        assert!(r.focus_next(false)); assert_eq!(r.focused_index(), 2);
+        assert!(r.focus_next(false), "Tab wraps inside the layer instead of leaving the scene");
+        assert_eq!(r.focused_index(), 1);
+        assert!(r.focus_next(true)); assert_eq!(r.focused_index(), 2);
+        r.key_event(2, true, false); r.key_event(2, false, false);
+        assert_eq!((r.control_clicks(2), r.action().as_str()), (1, "actions.no"));
+        r.activate_control(0);
+        assert_eq!(r.control_clicks(0), 0, "hosts cannot activate a covered control");
+        r.key_event(3, true, true);
+        assert_eq!(r.active_modal(), 0, "key repeat never dismisses");
+        r.key_event(3, true, false);
+        assert_eq!((r.active_modal(), r.dismiss_count(), r.dismissed_index()), (-1, 1, 0));
+        assert_eq!(r.modal_action(0), "actions.cancel");
+        assert!(!r.modal_is_open(0) && r.control_blocked(1) && !r.control_blocked(0));
+        assert_eq!(r.focused_index(), -1);
+        assert_eq!(r.hit_index(30., 20.), 0);
+        assert_eq!(r.hit_index(30., 50.), -1, "closed layers are hidden");
+        r.key_event(3, true, false);
+        assert_eq!(r.dismiss_count(), 1);
+        assert!(r.focus_control(0));
+        assert!(r.open_modal(0)); assert!(!r.open_modal(0));
+        assert_eq!(r.focused_index(), 1, "opening moves focus into the layer");
+        assert!(!r.control_hovered(0));
+        r.pointer(5., 5., 1);
+        assert_eq!((r.active_modal(), r.dismiss_count()), (-1, 2));
+        assert_eq!(r.focused_index(), 0, "closing restores the previously focused control");
+        r.pointer(5., 5., 2);
+        assert_eq!(r.clicks(), 1);
+
+        let fixed = LAYERED.replace("backdrop:#00000080;", "backdrop:#00000080; dismiss:false;");
+        let mut r = Runtime::from_sources(&fixed, VISUAL).unwrap();
+        assert!(!r.modal_dismissible(0));
+        r.key_event(3, true, false); r.pointer(5., 5., 1); r.pointer(5., 5., 2);
+        assert_eq!((r.active_modal(), r.dismiss_count()), (0, 0));
+        assert!(r.close_modal(0)); assert!(!r.close_modal(0));
+        assert_eq!((r.active_modal(), r.dismiss_count()), (-1, 0));
+    }
+    #[test]
+    fn layers_paint_a_backdrop_above_the_base_scene_and_vanish_when_closed() {
+        let mut r = Runtime::from_sources(LAYERED, VISUAL).unwrap();
+        let open = r.vector_snapshot(1., true);
+        let count = |list: &DisplayList, kind: f32| list.commands.chunks_exact(STRIDE).filter(|c| c[0] == kind).count();
+        let backdrop = open.commands.chunks_exact(STRIDE).find(|c| c[0] == 0. && c[8] == 0. && c[11] < 1.).expect("backdrop fill");
+        assert_eq!(&backdrop[4..8], &[0., 0., 200., 160.]);
+        assert_eq!(count(&open, 4.), 3);
+        let base_shape = open.commands.chunks_exact(STRIDE).position(|c| c[0] == 4.).unwrap();
+        let backdrop_at = open.commands.chunks_exact(STRIDE).position(|c| c[0] == 0. && c[11] < 1.).unwrap();
+        assert!(backdrop_at > base_shape, "the backdrop covers the base scene");
+        let pixels = r.pixels(200, 160, 1.);
+        let at = |p: &[u8], x: usize, y: usize| p[(y * 200 + x) * 4..][..4].to_vec();
+        let mut expected = [24, 30, 42, 255];
+        crate::raster_cache::over(&mut expected, &[0, 0, 0, 128]);
+        assert_eq!(at(&pixels, 150, 100), expected.to_vec());
+        assert!(r.close_modal(0));
+        let closed = r.vector_snapshot(1., true);
+        assert!(!Arc::ptr_eq(&open, &closed));
+        assert_eq!(count(&closed, 4.), 1);
+        assert_eq!(at(&r.pixels(200, 160, 1.), 150, 100), vec![24, 30, 42, 255]);
+        assert_eq!(at(&r.pixels(200, 160, 1.), 30, 50), vec![24, 30, 42, 255], "hidden layer controls are not painted");
+        assert!(r.open_modal(0));
+        r.focus(false);
+        assert_eq!(r.pixels(200, 160, 1.), pixels);
+    }
+    #[test]
+    fn layer_state_survives_reevaluation_under_the_same_key_and_declared_state() {
+        let mut previous = Runtime::from_sources(LAYERED, VISUAL).unwrap();
+        previous.key_event(3, true, false);
+        assert!(!previous.modal_is_open(0));
+        let mut next = Runtime::from_sources(LAYERED, VISUAL).unwrap();
+        next.preserve_interaction(&previous);
+        assert!(!next.modal_is_open(0), "a dismissed layer stays closed while its source is unchanged");
+        assert_eq!(next.dismiss_count(), 1);
+        let closed_source = LAYERED.replace("backdrop:#00000080;", "backdrop:#00000080; open:false;");
+        let mut declared = Runtime::from_sources(&closed_source, VISUAL).unwrap();
+        assert!(!declared.modal_is_open(0));
+        declared.focus_control(0);
+        assert!(declared.open_modal(0));
+        let mut next = Runtime::from_sources(&closed_source, VISUAL).unwrap();
+        next.preserve_interaction(&declared);
+        assert!(next.modal_is_open(0));
+        assert_eq!(next.focused_index(), 1);
+        assert!(next.close_modal(0));
+        assert_eq!(next.focused_index(), 0, "the focus-restore target follows control keys");
+        let mut reopened = Runtime::from_sources(LAYERED, VISUAL).unwrap();
+        reopened.preserve_interaction(&previous);
+        let mut flipped = Runtime::from_sources(&closed_source, VISUAL).unwrap();
+        flipped.preserve_interaction(&reopened);
+        assert!(!flipped.modal_is_open(0), "a changed declaration wins over runtime state");
+    }
+    #[test]
+    fn scrolling_moves_only_the_base_scene_under_a_layer() {
+        let source = "component Demo { Frame { width:200; height:60; padding:10; clip:true; Scroll { Button { key:'base'; width:80; height:200; clicked -> actions.base(); } } Modal { key:'ask'; x:20; y:40; width:160; height:80; Button { key:'yes'; width:60; height:24; clicked -> actions.yes(); } } } }";
+        let mut r = Runtime::from_sources(source, VISUAL).unwrap();
+        assert!(r.scrollable());
+        assert_eq!(r.render_height(), 60.);
+        r.close_modal(0);
+        r.scroll(0., 1000.);
+        assert!(r.scroll_offset()[1] > 0.);
+        assert_eq!(r.control_bounds(1), vec![20., 40., 60., 24.]);
+        assert!(r.control_bounds(0)[1] < 10.);
+        r.open_modal(0);
+        assert_eq!(r.hit_index(30., 50.), 1, "layer controls ignore the scroll viewport");
+    }
     #[test]
     fn layout_uses_component_defaults_and_single_scene_is_compatible() {
         let r = Runtime::from_sources(
@@ -1407,7 +1721,8 @@ mod raster_tests {
             return vec![];
         }
         let mut out = vec![0; w as usize * h as usize * 4];
-        for c in &self.controls {
+        for (i, c) in self.controls.iter().enumerate() {
+            if self.modal_of[i].is_some() { continue; }
             let pixels = c.content_pixels(w, h, s);
             for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
                 crate::raster_cache::over(dst, src);
@@ -1437,6 +1752,21 @@ mod raster_tests {
                         }
                     }
                 }
+            }
+        }
+        for (m, modal) in self.scene.modals.iter().enumerate() {
+            if !self.modal_open[m] { continue; }
+            for p in out.chunks_exact_mut(4) { crate::raster_cache::over(p, &modal.backdrop); }
+            for i in modal.controls.clone() {
+                let pixels = self.controls[i].content_pixels(w, h, s);
+                for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
+                    crate::raster_cache::over(dst, src);
+                }
+            }
+        }
+        for y in 0..h {
+            for x in 0..w {
+                let p = &mut out[((y * w + x) * 4) as usize..][..4];
                 let coverage = round_coverage(
                     x,
                     y,
@@ -1507,6 +1837,25 @@ mod raster_tests {
                 assert_reference(&runtime, 57, 44, scale);
             }
         }
+    }
+
+    #[test]
+    fn layers_composite_above_the_scroll_viewport_and_match_the_reference() {
+        let source = "component Demo { Frame { width:120; height:90; padding:10; clip:true; radius:6; background:#10203080; Scroll { Button { x:0; y:0; width:80; height:200; } } Modal { key:'m'; backdrop:#ff000080; Button { key:'top'; x:2; y:2; width:40; height:20; } Button { key:'edge'; x:90; y:60; width:60; height:40; } } } }";
+        let mut runtime = Runtime::from_sources(source, TEMPLATE).unwrap();
+        for scale in [1., 1.25] {
+            assert_reference(&runtime, 150, 113, scale);
+            runtime.pointer(12., 12., 0);
+            runtime.tick(23.);
+            runtime.scroll(0., 15.);
+            assert_reference(&runtime, 150, 113, scale);
+        }
+        let open = runtime.content_pixels(120, 90, 1.);
+        assert!(open[(5 * 120 + 5) * 4 + 3] > 0, "layer content paints over the padding outside the viewport");
+        runtime.close_modal(0);
+        assert_reference(&runtime, 150, 113, 1.);
+        assert_eq!(runtime.content_pixels(120, 90, 1.)[(5 * 120 + 5) * 4 + 3], 0);
+        assert_ne!(runtime.content_pixels(120, 90, 1.), open);
     }
 
     #[test]

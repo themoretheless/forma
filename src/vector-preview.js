@@ -1,5 +1,13 @@
 import {createGpuPainter} from './vector-gpu.js';
 let runtimePromise;
+// Same order as components.js sceneControlNodes: base controls (optionally in
+// one Scroll), then every Modal layer's children. Kept local so this module
+// stays loadable on its own by the preview test harness.
+function sceneControlNodes(root){
+  const children=root?.children??[],base=children.filter(n=>n.type!=='Modal'),modals=children.filter(n=>n.type==='Modal');
+  const controls=base[0]?.type==='Scroll'?base[0].children:base;
+  return [...controls,...modals.flatMap(m=>m.children??[])];
+}
 
 export function loadVectorRuntime() {
   if (!runtimePromise) {
@@ -67,10 +75,13 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   }).catch(gpuFallback);
   const report = error => onError?.(error instanceof Error ? error : new Error(String(error)));
   const listen = (target, name, callback, options={}) => target.addEventListener(name, callback, {...options, signal: listeners.signal});
-  const controlNodes=()=>{if(current?.previewControls)return current.previewControls;const children=current?.nodes?.[0]?.children??[];return children[0]?.type==='Scroll'?children[0].children:children;};
+  const controlNodes=()=>current?.previewControls??sceneControlNodes(current?.nodes?.[0]);
+  const modalNode=index=>current?.previewModals?.[index]??{type:'Modal',props:{key:button.modal_key(index)},children:[]};
+  // Older or stubbed runtimes without modal layers behave as a single base scene.
+  const layered=()=>Boolean(button)&&(button.active_modal?.()??-1)>=0;
   const buttonNode=(index=0)=>controlNodes()[index];
   const frameNode = () => current?.nodes?.[0];
-  const enabledControl = index => index >= 0 && button.control_interactive(index) && !button.control_disabled(index);
+  const enabledControl = index => index >= 0 && button.control_interactive(index) && !button.control_disabled(index) && !button.control_blocked?.(index);
   function hasEnabledControl() {
     for (let i = 0; i < button.control_count(); i++) if (enabledControl(i)) return true;
     return false;
@@ -150,6 +161,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     if (!button || destroyed) return;
     try {
       const count = button.clicks();
+      const dismissals = button.dismiss_count?.()??0;
       const revision=button.visual_revision();
       update();
       updateCursor();
@@ -172,6 +184,12 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
         // callbacks can replace/free the old WASM model.
         if(changes.length)onBindingChange(changes);
         if(action)onAction?.(action,eventNode);
+        // Escape or a backdrop press closed a layer inside Rust; run its handler
+        // through the same action path as a click.
+        if((button.dismiss_count?.()??0)!==dismissals){
+          const index=button.dismissed_index(),dismissAction=button.modal_action(index);
+          if(dismissAction)onAction?.(dismissAction,modalNode(index));
+        }
       }
     } catch (error) { report(error); }
   }
@@ -284,7 +302,9 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       return;
     }
     if (pointerId !== null) return;
-    if (!enabledControl(button.hit_index(x, y))) {
+    const index = button.hit_index(x, y);
+    // Under an open layer every press reaches Rust: the backdrop can dismiss.
+    if (!enabledControl(index) && !layered()) {
       event.preventDefault(); // Passive geometry and disabled buttons must not focus the canvas.
       return;
     }
@@ -292,9 +312,8 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     canvas.focus({preventScroll: true});
     pointerId = event.pointerId;
     canvas.setPointerCapture(pointerId);
-    const index = button.hit_index(x, y);
     // Range/splitter models can own a drag without pretending to be a click.
-    if (onControlPointer) {
+    if (onControlPointer && enabledControl(index)) {
       controlDrag = button.control_key(index);
       change(() => button.focus_control?.(index));
       if (controlPointer('start', event, index)) return;
@@ -348,7 +367,12 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       if(composing||event.isComposing)return;
       let handled=false;change(()=>{handled=button.text_key(event.key,event.shiftKey,event.metaKey||event.ctrlKey);});
       if(handled){event.preventDefault();return;}
-      if(event.key!=='Tab')return;
+      if(event.key!=='Tab'&&event.key!=='Escape')return;
+    }
+    if (button && !current.designMode && event.key === 'Escape' && layered()) {
+      event.preventDefault();
+      change(() => button.key_event(3, true, event.repeat));
+      return;
     }
     if (button && !current.designMode && onControlKey?.(event, buttonNode(button.focused_index())) === true) {
       event.preventDefault(); return;
@@ -388,7 +412,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
 
   return {
     measureText:(value,fontSize)=>runtime.text_metrics(value,fontSize),
-    render({container, source, template = '', designMode = true, nodes = [], previewControls, selectedStart: nextSelection = null, reducedMotion = false}) {
+    render({container, source, template = '', designMode = true, nodes = [], previewControls, previewModals, selectedStart: nextSelection = null, reducedMotion = false}) {
       let candidate = null;
       try {
         if (destroyed) throw new Error('Векторный предпросмотр уже закрыт');
@@ -428,7 +452,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
           button.focus(false);
           button.tick(1000);
         }
-        current = {source, template, designMode, nodes, previewControls, reducedMotion};
+        current = {source, template, designMode, nodes, previewControls, previewModals, reducedMotion};
         container.classList.add('vector-artboard');
         container.style.backgroundColor=button.background_color();
         container.style.borderRadius=(button.frame_radius()+1)+'px';
@@ -443,7 +467,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
         let interactive=0,enabled=false;
         for(let i=0;i<count;i++){
           labels.push(button.control_label(i));
-          if(button.control_interactive(i)){interactive++;if(!button.control_disabled(i))enabled=true;}
+          if(button.control_interactive(i)){interactive++;if(!button.control_disabled(i)&&!button.control_blocked?.(i))enabled=true;}
         }
         canvas.tabIndex = enabled ? 0 : -1;
         canvas.setAttribute('role',count===1?(interactive?'button':'img'):'group');
@@ -497,7 +521,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       return layout;
     },
     snapshot() {
-      return button && current ? {...current, nodes: undefined, renderer: gpu?'rust-wasm-webgpu':'rust-wasm-cpu',gpuStats:gpu?.snapshot()??null,gpuFallbackReason:gpuFailure||null, rasterStats: Array.from(button.raster_stats()), selectedStart, focusedIndex:button.focused_index(),controls:Array.from({length:button.control_count()},(_,i)=>({index:i,key:button.control_key(i),label:button.control_label(i),bounds:Array.from(button.control_bounds(i)),disabled:button.control_disabled(i),interactive:button.control_interactive(i),editable:button.control_editable?.(i)??false,value:button.control_editable?.(i)?button.text_value(i):undefined,hovered:button.control_hovered(i),focused:button.control_focused(i),clicks:button.control_clicks(i),action:button.control_action(i)})), width: button.width(), height: button.height(), clip:button.clipped(),radius:button.frame_radius(),overflow:button.overflow(),scrollable:button.scrollable(),renderWidth:button.render_width(),renderHeight:button.render_height(),scrollOffset:Array.from(button.scroll_offset()), bounds: Array.from(button.bounds()), label: button.label(), key: button.key(), action: button.action(), disabled: button.disabled(), clicks: button.clicks()} : null;
+      return button && current ? {...current, nodes: undefined, previewModals: undefined, activeModal: button.active_modal?.()??-1, modals: Array.from({length: button.modal_count?.()??0}, (_, i) => ({index: i, key: button.modal_key(i), open: button.modal_is_open(i), dismissible: button.modal_dismissible(i), action: button.modal_action(i), bounds: Array.from(button.modal_bounds(i))})), renderer: gpu?'rust-wasm-webgpu':'rust-wasm-cpu',gpuStats:gpu?.snapshot()??null,gpuFallbackReason:gpuFailure||null, rasterStats: Array.from(button.raster_stats()), selectedStart, focusedIndex:button.focused_index(),controls:Array.from({length:button.control_count()},(_,i)=>({index:i,key:button.control_key(i),label:button.control_label(i),bounds:Array.from(button.control_bounds(i)),disabled:button.control_disabled(i),interactive:button.control_interactive(i),modal:button.control_modal?.(i)??-1,blocked:button.control_blocked?.(i)??false,editable:button.control_editable?.(i)??false,value:button.control_editable?.(i)?button.text_value(i):undefined,hovered:button.control_hovered(i),focused:button.control_focused(i),clicks:button.control_clicks(i),action:button.control_action(i)})), width: button.width(), height: button.height(), clip:button.clipped(),radius:button.frame_radius(),overflow:button.overflow(),scrollable:button.scrollable(),renderWidth:button.render_width(),renderHeight:button.render_height(),scrollOffset:Array.from(button.scroll_offset()), bounds: Array.from(button.bounds()), label: button.label(), key: button.key(), action: button.action(), disabled: button.disabled(), clicks: button.clicks()} : null;
     },
     destroy() {
       if (destroyed) return;
