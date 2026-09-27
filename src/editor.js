@@ -1,12 +1,17 @@
-import {autocompletion,acceptCompletion,snippet} from '@codemirror/autocomplete';
+import {autocompletion,acceptCompletion,closeBrackets,closeBracketsKeymap,completionKeymap,snippet} from '@codemirror/autocomplete';
 import {createCompletionSource} from './completion.js';
-import {undo,redo,isolateHistory} from '@codemirror/commands';
-import {basicSetup} from 'codemirror';
+import {defaultKeymap,history,historyKeymap,undo,redo,isolateHistory} from '@codemirror/commands';
 import {EditorState,StateEffect,StateField,Compartment} from '@codemirror/state';
-import {EditorView,Decoration,keymap} from '@codemirror/view';
-import {foldService,foldedRanges,unfoldEffect,foldEffect,foldAll,unfoldAll} from '@codemirror/language';
+import {crosshairCursor,Decoration,drawSelection,dropCursor,EditorView,highlightActiveLine,highlightActiveLineGutter,highlightSpecialChars,keymap,lineNumbers,rectangularSelection} from '@codemirror/view';
+import {bracketMatching,foldGutter,foldKeymap,foldService,foldedRanges,unfoldEffect,foldEffect,foldAll,unfoldAll,indentOnInput,syntaxHighlighting,defaultHighlightStyle} from '@codemirror/language';
+import {highlightSelectionMatches,searchKeymap} from '@codemirror/search';
 import {blockRanges} from './folding.js';
 import {formaHighlight} from './forma-highlight.js';
+
+// The same list the `codemirror` package ships as basicSetup, spelled out so the meta package can
+// stay out of the bundle. Its lint keymap is dropped: no linter is installed here, so the two dead
+// bindings were the only thing pulling @codemirror/lint into the first load.
+const editorSetup=[lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),foldGutter(),drawSelection(),dropCursor(),EditorState.allowMultipleSelections.of(true),indentOnInput(),syntaxHighlighting(defaultHighlightStyle,{fallback:true}),bracketMatching(),closeBrackets(),autocompletion(),rectangularSelection(),crosshairCursor(),highlightActiveLine(),highlightSelectionMatches(),keymap.of([...closeBracketsKeymap,...defaultKeymap,...searchKeymap,...historyKeymap,...foldKeymap,...completionKeymap])];
 
 const highlight=StateEffect.define();
 const selectionField=StateField.define({
@@ -31,7 +36,7 @@ export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={})
   const ranges=StateField.define({create:state=>blockRanges(state.doc.toString()),update:(value,tr)=>tr.docChanged?blockRanges(tr.newDoc.toString()):value});
   const completion=createCompletionSource(getProject);
   const complete=context=>{const result=completion(context);if(!result)return null;return {...result,options:result.options.map(item=>typeof item.apply==='string'&&item.apply.includes('{\n')?{...item,apply:snippet(item.apply.replace('    \n','    ${}\n'))}:item)};};
-  const extensions=[basicSetup,autocompletion({override:[complete],activateOnTyping:true,activateOnCompletion:item=>item.type==='namespace'||typeof item.apply==='string'&&item.apply.endsWith('.')}),keymap.of([{key:'Tab',run:acceptCompletion}]),languageConfig.of(formaHighlight),ranges,selectionField,
+  const extensions=[...editorSetup,autocompletion({override:[complete],activateOnTyping:true,activateOnCompletion:item=>item.type==='namespace'||typeof item.apply==='string'&&item.apply.endsWith('.')}),keymap.of([{key:'Tab',run:acceptCompletion}]),languageConfig.of(formaHighlight),ranges,selectionField,
     foldService.of((state,from,to)=>state.field(ranges).find(r=>r.from>from&&r.from<=to)),
     EditorView.contentAttributes.of({'aria-label':'Редактор исходного кода'}),
     EditorView.updateListener.of(update=>{

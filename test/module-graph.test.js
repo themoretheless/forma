@@ -41,6 +41,19 @@ export function orphans(start=entries()){
  const reach=shipped(start);
  return sources().filter(file=>!reach.has(file));
 }
+// The same walk, but collecting the bare specifiers rollup resolves into node_modules: a package
+// nothing configures still ships, and its unit tests all stay green because nothing imports it.
+export function packageName(spec){const parts=spec.split('/');return spec.startsWith('@')?parts.slice(0,2).join('/'):parts[0];}
+export function packageSpecs(source){
+ return [...new Set([...source.matchAll(SPECS)].map(m=>m[1]??m[2]).filter(spec=>spec&&!spec.startsWith('.')).map(packageName))];
+}
+export function packages(start=entries()){
+ const seen=new Set(),out=new Set(),stack=[...start];
+ while(stack.length){const file=stack.pop();if(seen.has(file))continue;seen.add(file);
+  for(const spec of packageSpecs(read(file)))out.add(spec);
+  for(const next of edges(file))if(!seen.has(next))stack.push(next);}
+ return out;
+}
 test('every tracked src module is reachable from something that runs',()=>{
  assert.ok(sources().length>40,'the walk has to see the whole studio, not an empty tree');
  assert.ok(entries().includes('src/main.js'),'index.html boots the studio through src/main.js');
@@ -56,4 +69,19 @@ test('the check reads the graph rather than the file list',()=>{
  // graph that let them in would call every module reachable forever.
  assert.deepEqual([...shipped()].filter(f=>f.startsWith('test/')),[]);
  assert.ok(shipped().size>40,'the shipped graph is the studio, not a handful of files');
+});
+test('the shipped graph asks for no CodeMirror package nothing configures',()=>{
+ const specs=packageSpecs(`import {basicSetup} from 'codemirror';
+import {linter} from '@codemirror/lint';
+import {lineNumbers} from '@codemirror/view/dist/index.js';
+import {EditorState} from "./state";
+const glue=await import('./vector-pkg/forma.js');`);
+ assert.deepEqual(specs.sort(),['@codemirror/lint','@codemirror/view','codemirror'],'bare names only, scoped names whole, subpaths folded');
+ const shipped=packages();
+ // basicSetup hard-imports the lint keymap, so one 'codemirror' line ships a package whose two
+ // bindings can only ever open an empty panel. The sizes are in PRODUCTION_READINESS.md.
+ assert.equal(shipped.has('codemirror'),false,'the meta package drags the whole basicSetup back in');
+ assert.equal(shipped.has('@codemirror/lint'),false,'no linter is installed, so there is nothing for lint to panel or gutter');
+ assert.ok(shipped.has('@codemirror/search'),'search stays: Ctrl-F and Mod-D are features the editor uses');
+ assert.ok(shipped.has('@codemirror/view')&&shipped.size>8,'the walk has to read imports, not a list of names');
 });
