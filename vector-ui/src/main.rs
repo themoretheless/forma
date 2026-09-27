@@ -119,36 +119,36 @@ impl App {
             }
             self.surface_size = Some((size.width, size.height));
         }
-        let mut buffer = match surface.buffer_mut() {
-            Ok(buffer) => buffer,
-            Err(error) => {
-                self.set_render_error(Some(error.to_string()));
-                self.present_result(Presentation::Retry, window);
-                return;
+        // Acquire, paint and present inside one borrow of the surface, touching
+        // only self.button. A &mut self reporting helper called here would hold
+        // that borrow across the buffer's destructor, which borrowck rejects on
+        // every backend whose Buffer implements Drop.
+        let scale = window.scale_factor() as f32;
+        let (paint_error, presented) = match surface.buffer_mut() {
+            Ok(mut buffer) => {
+                let error = self
+                    .button
+                    .paint_native(&mut buffer, size.width, size.height, scale)
+                    .err()
+                    .map(str::to_owned);
+                if error.is_some() {
+                    buffer.fill(0x111319);
+                }
+                // As on GPU, count only successful presentation, not a render attempt.
+                (error, Some(buffer.present().err().map(|e| e.to_string())))
             }
+            Err(error) => (Some(error.to_string()), None),
         };
-        let error = self
-            .button
-            .paint_native(
-                &mut buffer,
-                size.width,
-                size.height,
-                window.scale_factor() as f32,
-            )
-            .err()
-            .map(str::to_owned);
-        if error.is_some() {
-            buffer.fill(0x111319);
-        }
-        // As on GPU, count only successful presentation, not a render attempt.
-        let presented = buffer.present();
-        self.set_render_error(error);
+        // Same reporting order as before: the paint error is published first and
+        // a presentation error then replaces it.
+        self.set_render_error(paint_error);
         match presented {
-            Ok(()) => self.present_result(Presentation::Presented, window),
-            Err(error) => {
-                self.set_render_error(Some(error.to_string()));
+            Some(None) => self.present_result(Presentation::Presented, window),
+            Some(Some(error)) => {
+                self.set_render_error(Some(error));
                 self.present_result(Presentation::Retry, window);
             }
+            None => self.present_result(Presentation::Retry, window),
         }
     }
 
