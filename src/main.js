@@ -21,6 +21,7 @@ import {createControlTree} from './control-tree.js';
 import {createStatesPanel} from './states-panel.js';
 import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePropertyEdit,stateRenameEdit} from './design-states.js';
 import {copyElement,insertElement,moveAmongSiblings,moveIntoContainer,removeElement} from './element-edit.js';
+import {restoreSelection,selectionIdentities} from './selection-restore.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {createBulkEditor} from './bulk-edit.js';
@@ -236,7 +237,9 @@ if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySele
 // The panel is rebuilt from one place so every change of selection or of the preview preset
 // recomputes `editable`: rows that write markup must not survive a switch to a design scenario.
 function renderInspector(){
-  if(!selected||!selectedPath||!Object.hasOwn(files,selectedPath))return;
+  // With nothing selected the panels have to say so rather than keep the rows of the control that is
+  // gone: those rows would write into markup the file no longer holds.
+  if(!selected||!selectedPath||!Object.hasOwn(files,selectedPath)){propertyInspector?.render({node:null,editable:false});bulkEditor?.render({starts:[],editable:false});return;}
   propertyInspector?.render({node:selected,path:selectedPath,source:files[selectedPath],editable:designPresetName==='original',note:inspectorNote,state:designStateFor(selected)});
   // The panel above draws the one control the designer last clicked; this section draws what the whole
   // selection has in common. Only the canvas keeps a batch, so the row offsets come from it alone.
@@ -257,6 +260,9 @@ function designStateFor(node){
   }catch{/* a file that stopped compiling keeps the rows it had before */return null;}
 }
 function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
+// The mirror of `select` for the moment there is nothing to select: every surface that was drawing the
+// control lets it go, so no row survives that could write into markup the file has dropped.
+function clearSelection(){selected=null;selectedPath=null;vectorPreview?.select(null);canvasTools?.update();elementTools?.setSelection([]);layoutInspector?.update();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));inspectorNote='';renderInspector();lines();controlTree?.select(null,null);}
 function refreshControlTree(){
   if(!controlTree)return;
   const path=controlTree.scope==='designer'?entry:active;
@@ -430,15 +436,18 @@ context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='origin
 select,report:message=>{$('caption').textContent=message;},
 copy:async text=>{try{await navigator.clipboard.writeText(text);$('caption').textContent='CSS скопирован в буфер';}catch{$('caption').textContent='Буфер обмена недоступен';}},
 history:action=>{
- const starts=elementTools.selection(),children=compiled?.nodes[0]?.children??[],before=children[0]?.type==='Scroll'?children[0].children:children;
- const identities=before.flatMap((n,index)=>starts.includes(n.start)?[{key:n.props.key,index,type:n.type}]:[]);
+ // Undo and redo replace the whole page, so the batch is described by what each control *is* — its
+ // key, or the slot it occupies however deep inside a group — and looked up again in the tree that
+ // stands afterwards. Nothing is left holding the panels when a control does not come back.
+ const identities=selectionIdentities(compiled?.nodes[0],elementTools.selection());
  if(active!==entry)open(entry);
- if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();const children=compiled?.nodes[0]?.children??[],after=children[0]?.type==='Scroll'?children[0].children:children;
-  const restored=identities.map(id=>typeof id.key==='string'?after.find(n=>n.props.key===id.key):before.length===after.length&&after[id.index]?.type===id.type?after[id.index]:null).filter(Boolean);
-  if(restored.length)select(restored[0]);elementTools.setSelection(restored.map(n=>n.start));elementTools.update();
-  // The identities are the page's own children, so an undo of an edit inside a group leaves the canvas
-  // holding less than it did; the panel is redrawn from what it holds afterwards, not before.
-  renderInspector();
+ if(codeEditor[action]())queueMicrotask(()=>{clearTimeout(compileTimer);compile();
+  const restored=restoreSelection(compiled?.nodes[0],identities);
+  if(restored.nodes.length)select(restored.nodes[0]);
+  else{clearSelection();if(identities.length)$('caption').textContent='Ни один из выбранных контролов не вернулся';}
+  // The panel is redrawn from what the canvas holds *after* the write, since the offsets the batch was
+  // built from are the ones the undo just moved.
+  elementTools.setSelection(restored.starts);renderInspector();
  });
 },
 commit:(change,context)=>{

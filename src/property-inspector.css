@@ -24,3 +24,5 @@
 .bulk-edit>.inspector-label{margin:0 0 9px}
 .bulk-note{display:block;margin:0 0 13px;line-height:1.5}
 .bulk-edit input::placeholder{color:#5f6c81;font-style:italic}
+/* The panel between selections: the rows are gone with the control, so the empty state says so. */
+.inspector-empty{display:block;margin:2px 0 12px;line-height:1.5;color:#8b98ac}

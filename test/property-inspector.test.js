@@ -267,7 +267,7 @@ function mountPanel({source=panelSource,liveSource=true,node=null,design=null,fi
     entry:findEntry(files[designFile],design.name,targetNode.props.key),
     base:findEntry(files[designFile],null,targetNode.props.key)}:null;
   inspector.render({node:targetNode,path:file,source:files[file],editable:true,state});
-  return {container,files,node:targetNode,state,
+  return {container,files,node:targetNode,state,inspector,
     panel:name=>container.querySelector(`input[data-prop=${name}]`),
     rowOf:name=>[...container.querySelectorAll('label.property')].find(row=>row.querySelector('span')?.textContent===name),
     restore(){
@@ -450,4 +450,14 @@ test('a state the file no longer holds is refused instead of spliced into',t=>{
   rowOf('padding').querySelector('.property-remove').onclick();
   assert.match(container.querySelector('.property-notice').textContent,/Состояние узкий не объявлено/);
   assert.equal(baseEntry(files).props.gap,6,'the base block is still intact');
+});
+test('a panel with no control left to describe shows an empty state instead of the old rows',t=>{
+  const {container,inspector,restore}=mountPanel();
+  t.after(restore);
+  assert.equal(container.querySelectorAll('label.property').length>0,true,'the panel starts from the control rows');
+  inspector.render({node:null,editable:false});
+  // A row left over from a control the file dropped would write into markup that is no longer there.
+  assert.equal(container.querySelectorAll('label.property').length,0);
+  assert.equal(container.querySelector('.property-add'),null,'nothing can be added to no control');
+  assert.equal(container.querySelector('.inspector-empty').textContent,'Контрол не выбран');
 });

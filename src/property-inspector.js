@@ -264,6 +264,9 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
   function render(state){
     current=state;
     container.replaceChildren();
+    // A panel with no control to describe says so instead of keeping the rows it last drew: after an
+    // undo took the selected control out of the file, those rows would write into markup that is gone.
+    if(!current.node){const none=document.createElement('small');none.className='inspector-empty';none.textContent='Контрол не выбран';container.append(none);tokens.replaceChildren();return;}
     const title=document.createElement('h3');title.textContent=current.node.type;container.append(title);
     if(current.note){const note=document.createElement('small');note.textContent=current.note;container.append(note);}
     tokens.replaceChildren();
