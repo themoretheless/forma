@@ -9,9 +9,9 @@ const literal=v=>typeof v==='string'?JSON.stringify(v):Array.isArray(v)?'['+v.jo
 // The smallest document that holds a bare control, so a fragment of markup can be parsed, patched
 // and measured the same way whether it came from the clipboard or from another container.
 const WRAPPER='component Clipboard { Frame { ';
-// The node types that own a child list in markup. Scroll is a container although it is not
+// The node types that own a child list in markup. Scroll and Modal are containers although they are not
 // one of the layout containers, and a container is the only thing that can take a new child.
-export const holdsChildren=node=>containerTypes.has(node.type)||node.type==='Scroll';
+export const holdsChildren=node=>containerTypes.has(node.type)||['Scroll','Modal'].includes(node.type);
 function patch(source,node,props){
  const changes=[];let added='';for(const [key,value] of Object.entries(props)){
   const range=node.propertyRanges[key];if(range)changes.push({...range,insert:literal(value)});else added+=` ${key}: ${literal(value)};`;
@@ -24,7 +24,7 @@ function patch(source,node,props){
 // with tracks places its children in cells instead, and a bare Grid or a Stack gives a written `x`
 // nothing to move: the layout puts those children where its own rules say.
 export function moveBlock(node,parent,cell){
- if(!parent||node.type==='Scroll')return 'Перемещайте дочерние контролы';
+ if(!parent||['Scroll','Modal'].includes(node.type))return 'Перемещайте дочерние контролы';
  if(hasTracks(parent))return cell?null:'Для Grid выберите целевую ячейку';
  if(!flowsCoordinates(parent))return `В ${parent.type} положение задаёт раскладка: перенос недоступен`;
  return null;
@@ -44,7 +44,7 @@ export function moveElement(source,start,dx,dy,cell,origin=[0,0]){
 // A size is editable only where the layout takes it from the control itself: an expression or
 // a flex weight is code the designer wrote on purpose, and a Grid child is sized by its tracks.
 export function resizeBlock(node,parent){
- if(!parent||node.type==='Scroll')return 'Изменяйте размер дочернего контрола';
+ if(!parent||['Scroll','Modal'].includes(node.type))return 'Изменяйте размер дочернего контрола';
  if(parent.props.columns!==undefined||parent.props.rows!==undefined)return 'В Grid размер задают треки: перетащите границу сетки';
  for(const key of ['width','height']){const value=node.props[key];if(intrinsicLength(value))continue;
   if(weight(value))return `Размер задан весом: измените ${key} в коде`;
@@ -67,18 +67,18 @@ export function resizeElement(source,start,edges,bounds,origin=[0,0]){
  const next=patch(source,node,props);parse(next);
  return {from:node.start,to:node.end,insert:next.slice(node.start,node.end+next.length-source.length),start:node.start};
 }
-export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
-export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
+export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
+export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
 export function insertElement(source,start,text,multiple=false,side='auto'){
  const parsed=parse(WRAPPER+text+' } }').nodes[0].children;
- if(!parsed.length||(!multiple&&parsed.length!==1)||parsed.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Вставьте один контрол Forma');
+ if(!parsed.length||(!multiple&&parsed.length!==1)||parsed.some(n=>['Frame','Scroll','Modal'].includes(n.type)))throw Error('Вставьте один контрол Forma');
  const {node,parent}=locateElement(source,start);
  if(side==='inside'&&!holdsChildren(node))throw Error('Внутрь можно добавить только контейнер');
  if(side==='after'&&!parent)throw Error('У корневого контейнера нет соседа');
  // `auto` stays the paste rule, where only a real parent can take the node: duplicating a Row
  // must not put the copy inside it. The palette states the intent instead, so adding into a
  // Row never turns into adding next to the Row.
- const container=side==='after'?null:side==='inside'?node:['Frame','Scroll'].includes(node.type)?node:parent;
+ const container=side==='after'?null:side==='inside'?node:['Frame','Scroll','Modal'].includes(node.type)?node:parent;
  if(!container&&side!=='after')throw Error('Выберите контейнер');
  const keys=new Set();const walk=nodes=>{for(const n of nodes){if(typeof n.props.key==='string')keys.add(n.props.key);walk(n.children);}};walk(parse(source).nodes);
  // Rename copied keys without changing labels, bindings or comments.
@@ -122,7 +122,7 @@ export function gridCell(grid,x,y){
 export function reorderElement(source,start,direction){
  if(direction!==-1&&direction!==1)throw Error('Направление: выше или ниже');
  const {node,parent}=locateElement(source,start);
- if(!parent||node.type==='Scroll')throw Error('Выберите дочерний контрол');
+ if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Выберите дочерний контрол');
  const index=parent.children.indexOf(node),other=parent.children[index+direction];
  if(!other)return null;
  const first=direction<0?other:node,last=direction<0?node:other;
@@ -169,7 +169,7 @@ function rewriteCoords(text,coords){
 // places its children itself gets none, because it reads no coordinate.
 export function moveIntoContainer(source,start,targetStart,coords=null){
  const {node,parent}=locateElement(source,start);
- if(!parent||node.type==='Scroll')throw Error('Перемещайте дочерний контрол');
+ if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Перемещайте дочерний контрол');
  const target=locateElement(source,targetStart).node;
  if(!holdsChildren(target))throw Error('Внутрь можно добавить только контейнер');
  if(start===targetStart)throw Error('Контрол не может принять самого себя');
@@ -208,7 +208,7 @@ export function groupElements(source,starts,box=null,coords=null){
  // Each call parses the document again, so it is the parent's place in the text that says whether the
  // selection is one sibling run rather than a look-alike container elsewhere on the page.
  if(picked.some(p=>p.parent?.start!==parent.start))throw Error('Группируйте контролы одного контейнера');
- if(picked.some(p=>p.node.type==='Scroll'))throw Error('Скроллящийся лист не группуют');
+ if(picked.some(p=>['Scroll','Modal'].includes(p.node.type)))throw Error('Скроллящийся лист не группуют');
  if(hasTracks(parent))throw Error('В Grid группировка недоступна: положение задают ячейки');
  if(!flowsCoordinates(parent))throw Error(`В ${parent.type} положение задаёт раскладка: группировка недоступна`);
  for(const {node} of picked){

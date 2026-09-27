@@ -59,12 +59,13 @@ Rust renderer. При `npm run dev` доступен
 [каталог Forma](http://127.0.0.1:5173/vector-ui/examples/controls.html)
 со светлой/тёмной темой, четырьмя размерами базовых кнопок и экспортом для Studio.
 В галерее Rust-модели подключены к выбору, диапазону и дереву; также работают
-закрытие вкладок и локальные Select/Dialog/Toast. Native-приложению доступны
+закрытие вкладок, локальные Select/Toast и модальный Dialog на слое `Modal`
+общего Runtime (backdrop, блокировка фона, Tab по кругу, Escape). Native-приложению доступны
 те же модели, но экспорт `.ui` пока передаёт визуальный снимок без обработчиков
 демонстрационной сессии.
 
 Полный перенос референса ещё не завершён: RTF, сложный shaping/IME reconversion, accessibility,
-общие overlays и native window routing требуют дальнейшей работы.
+немодальные popup-overlays и native window routing требуют дальнейшей работы.
 Композиция и запуск — в [документации контролов](vector-ui/controls/README.md),
 статус по слоям и полный inventory — в
 [карте покрытия](vector-ui/controls/REFERENCE_COVERAGE.md).

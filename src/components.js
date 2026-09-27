@@ -195,6 +195,19 @@ export function createComponentCompiler({cache:storage=createCacheBudget()}={}){
 }
 
 export function compileComponents(files,entry,state={},metrics={}){return compile(files,entry,state,metrics,readDocument);}
+// Controls in runtime order: base scene (optionally inside one Scroll), then
+// the children of every Modal layer. Hosts index Rust controls by this order.
+export function sceneControlNodes(rootOrChildren){
+  const children=Array.isArray(rootOrChildren)?rootOrChildren:(rootOrChildren?.children??[]);
+  const base=children.filter(n=>n.type!=='Modal'),modals=children.filter(n=>n.type==='Modal');
+  const controls=base[0]?.type==='Scroll'?base[0].children:base;
+  return [...controls,...modals.flatMap(m=>m.children??[])];
+}
+export function sceneModalNodes(rootOrChildren){
+  const children=Array.isArray(rootOrChildren)?rootOrChildren:(rootOrChildren?.children??[]);
+  return children.filter(n=>n.type==='Modal');
+}
+const modalProps=new Set(['key','x','y','width','height','backdrop','dismiss','open']);
 // Definition linking is also consumed by Rust code generation. It deliberately
 // runs before evaluating props/state so generated forms retain dependencies.
 export function linkComponentDefinitions(files){
@@ -324,7 +337,7 @@ function compile(files,entry,state,metrics,read,links){
     return {definitions:Object.fromEntries(cache),fallback};
   }
   const enums={...document.enums};
-  visit(scene,node=>{if(!primitiveTypes.has(node.type)&&!['Scroll','If','For'].includes(node.type)){
+  visit(scene,node=>{if(!primitiveTypes.has(node.type)&&!['Scroll','Modal','If','For'].includes(node.type)){
     const definition=link(node.type);
     for(const [name,variants]of Object.entries(definition.enums??{})){
       if(own(enums,name)&&JSON.stringify(enums[name])!==JSON.stringify(variants))throw Error(`Конфликт enum ${name}`);
@@ -338,7 +351,7 @@ function compile(files,entry,state,metrics,read,links){
   validateContract(document.propDefinitions,Object.fromEntries(Object.entries(documentProps).map(([key,value])=>[key,evaluate(value,documentProps,state,[key],false,environment)])),enums,document.name);
   if(document.forward?.length)throw Error('forward применяется к дочернему элементу, не к объявлению component');
   const documentSources={...Object.fromEntries(Object.entries(document.defaultRanges??{}).map(([key,range])=>[key,{file:entry,...range,label:document.name}])),...selectedPropertySources(document.matches,documentProps,state,environment)};
-  scene=expandStructure(scene,documentProps,state,environment,{trackOrigins:true,propertySources:documentSources,recursive:node=>containerTypes.has(node.type)||node.type==='Scroll'});
+  scene=expandStructure(scene,documentProps,state,environment,{trackOrigins:true,propertySources:documentSources,recursive:node=>containerTypes.has(node.type)||node.type==='Scroll'||node.type==='Modal'});
   const instanceTree=createElementTree(scene);
   visit(scene,n=>{if(Object.keys(n.slots??{}).length)throw Error('override объявляется в наследнике component');});
   if(scene.length!==1||!containerTypes.has(scene[0].type))throw Error('Ожидается один корневой Frame, Row, Column, Grid или Stack');
@@ -423,13 +436,34 @@ function compile(files,entry,state,metrics,read,links){
     return {...node,expandedVisual:true};
   }
   const visualNodes=[];
-  const root=scene[0],rootProps=root.props,children=root.children;
+  const root=scene[0],rootProps=root.props;
+  const modalNodes=sceneModalNodes(root),children=root.children.filter(n=>n.type!=='Modal');
+  if(modalNodes.length&&root.children.slice(-modalNodes.length).some(n=>n.type!=='Modal'))throw Error('Modal размещается после контролов сцены');
   const scroll=children.length===1&&children[0].type==='Scroll'?children[0]:null;
   instances=scroll?scroll.children:children;
   const rootWidth=constrained(length(rootProps.width??360,360,360,'width'),rootProps,0,360),rootHeight=constrained(length(rootProps.height??220,220,220,'height'),rootProps,1,220);
+  // A modal layer is a positioned surface over the whole frame. Children are
+  // laid out inside it and emitted with coordinates relative to the surface.
+  const modals=modalNodes.map(node=>{
+    const p=node.props;
+    for(const k of Object.keys(p))if(!modalProps.has(k))throw Error(`Modal.${k} не поддерживается`);
+    for(const [event,action]of Object.entries(node.events??{})){
+      if(event!=='dismissed')throw Error(`Modal: обработчик ${event} не поддерживается; используйте dismissed`);
+      if(!/^actions\.[A-Za-z_]\w*$/.test(action)||node.eventArgs?.[event]?.length)throw Error('Modal.dismissed требует actions.<имя>() без аргументов');
+    }
+    if(Object.keys(node.bindings??{}).length)throw Error('Modal не поддерживает привязки');
+    if(p.key!==undefined&&(typeof p.key!=='string'||!p.key))throw Error('Modal.key ожидает непустую строку');
+    for(const k of ['dismiss','open'])if(p[k]!==undefined&&typeof p[k]!=='boolean')throw Error(`Modal.${k} ожидает boolean`);
+    const backdrop=color(p.backdrop??'#00000080');
+    if(typeof backdrop!=='string'||!/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(backdrop))throw Error('Modal.backdrop принимает hex-цвет');
+    const width=num(p.width??320,'Modal.width'),height=num(p.height??200,'Modal.height');
+    const x=p.x===undefined?Math.max(0,Math.round((rootWidth-width)/2)):num(p.x,'Modal.x'),y=p.y===undefined?Math.max(0,Math.round((rootHeight-height)/2)):num(p.y,'Modal.y');
+    for(const child of node.children)if(['Scroll','Modal'].includes(child.type))throw Error(`Modal не содержит ${child.type}`);
+    return {node,box:[x,y,width,height],backdrop,controls:node.children};
+  });
   const rootVisual={id:-1,parent:null,control:-1,type:root.type,source:root.source,propertySources:root.propertySources,props:clone(rootProps),bounds:[0,0,rootWidth,rootHeight]};
   let modern=root.type!=='Frame';
-  for(const n of instances)if(containerTypes.has(n.type)||['minWidth','maxWidth','minHeight','maxHeight'].some(key=>own(n.props,key))||['width','height'].some(key=>own(n.props,key)&&intrinsicLength(n.props[key])))modern=true;
+  for(const n of [...instances,...modals.flatMap(m=>m.controls)])if(containerTypes.has(n.type)||['minWidth','maxWidth','minHeight','maxHeight'].some(key=>own(n.props,key))||['width','height'].some(key=>own(n.props,key)&&intrinsicLength(n.props[key])))modern=true;
   const previewNodes=scene;
   // A container paints no box of its own, but the layout still measured one for it, and that box is
   // what a designer means when they pick up a panel. It travels beside the drawn controls so the
@@ -466,8 +500,13 @@ function compile(files,entry,state,metrics,read,links){
   }
   if(modern){
     const output=[];
-    layoutScene(scroll?{...scroll,type:'Column'}:root,[0,0,rootWidth,rootHeight],output);
+    layoutScene(scroll?{...scroll,type:'Column'}:{...root,children},[0,0,rootWidth,rootHeight],output);
     instances=output;
+    for(const modal of modals){
+      const laid=[];
+      layoutScene({...modal.node,type:'Column',props:{}},modal.box,laid);
+      modal.controls=laid.map(n=>({...n,props:{...n.props,x:n.props.x-modal.box[0],y:n.props.y-modal.box[1]}}));
+    }
     rootProps.width=rootWidth;rootProps.height=rootHeight;rootProps.padding=0;rootProps.gap=0;
     for(const key of ['columns','rows','minWidth','maxWidth','minHeight','maxHeight'])delete rootProps[key];
   }else if(rootProps.columns!==undefined||rootProps.rows!==undefined){
@@ -486,7 +525,8 @@ function compile(files,entry,state,metrics,read,links){
     });
     delete rootProps.columns;delete rootProps.rows;rootProps.gap=0;
   }
-  if(instances.length>256||instances.some(n=>['Frame','Scroll'].includes(n.type)))throw Error('Frame принимает 0…256 контролов либо один Scroll с контролами');
+  const layered=modals.flatMap(m=>m.controls);
+  if(instances.length+layered.length>256||[...instances,...layered].some(n=>['Frame','Scroll','Modal'].includes(n.type)))throw Error('Frame принимает 0…256 контролов либо один Scroll с контролами');
   visualNodes.push(rootVisual);
   function compileInstance(instance,index){
   for(const [event,action]of Object.entries(instance.events??{})){
@@ -520,11 +560,17 @@ function compile(files,entry,state,metrics,read,links){
   visualNodes.push({id:-2,parent:null,control:index,type:instance.type,source:instance.source,props:resolved,propertyOrigins:origins,bounds:[0,0,num(resolved.width,'width'),num(resolved.height,'height')]},...visuals.map(v=>({...v,parent:v.parent??-2,control:index})));
   return {template,treeRoots:roots,sourceNode};
   }
-  const controls=instances.map(compileInstance);
+  const controls=[...instances,...layered].map(compileInstance);
   const templateTree=createElementTree(controls.flatMap(c=>c.treeRoots));
-  const sourceControls=controls.map(c=>c.sourceNode);
-  const sourceScene=[{...root,type:'Frame',children:scroll?[{...scroll,children:sourceControls}]:sourceControls}];
+  const sourceControls=controls.slice(0,instances.length).map(c=>c.sourceNode);
+  let offset=instances.length;
+  const sourceModals=modals.map(modal=>{
+    const count=modal.controls.length,children=controls.slice(offset,offset+count).map(c=>c.sourceNode);offset+=count;
+    const p=modal.node.props,props={...(p.key!==undefined?{key:p.key}:{}),x:modal.box[0],y:modal.box[1],width:modal.box[2],height:modal.box[3],backdrop:{expr:modal.backdrop},dismiss:p.dismiss??true,open:p.open??true};
+    return {type:'Modal',props,events:{...modal.node.events},children,bindings:{}};
+  });
+  const sourceScene=[{...root,type:'Frame',children:[...(scroll?[{...scroll,children:sourceControls}]:sourceControls),...sourceModals]}];
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
   const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateByteLength(c.template)}\n${c.template}`).join('');
-  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:instances,previewContainers};
+  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:[...instances,...layered],previewModals:modals.map(m=>m.node),previewContainers};
 }

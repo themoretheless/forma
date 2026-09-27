@@ -2,7 +2,7 @@
 // Decorative accent keeps the reference hue; action fills have their own contrast budget.
 export const themes = Object.freeze({
   light: Object.freeze({
-    canvas: '#F4F1EA', surface: '#FBF9F4', surfaceRaised: '#FFFFFF',
+    canvas: '#F4F1EA', surface: '#FBF9F4', surfaceRaised: '#FFFFFF', backdrop: '#2B2A2666',
     surfaceHover: '#EEE9DF', surfacePressed: '#EBE5DC', border: '#DED7CA', borderStrong: '#C8BFB0',
     text: '#2B2A26', textMuted: '#6B665C', textDisabled: '#A39C90', focus: '#A6470C',
     accent: '#DE6A19', accentWash: '#F5E5D5', accentInk: '#93420E', reveal: '#DE6A19F2',
@@ -13,7 +13,7 @@ export const themes = Object.freeze({
     track: '#E3DCCE',
   }),
   dark: Object.freeze({
-    canvas: '#1F1E1B', surface: '#2A2825', surfaceRaised: '#33302C',
+    canvas: '#1F1E1B', surface: '#2A2825', surfaceRaised: '#33302C', backdrop: '#00000099',
     surfaceHover: '#3A3733', surfacePressed: '#403C35', border: '#54504A', borderStrong: '#6E675F',
     text: '#F1E6C4', textMuted: '#B8AA8F', textDisabled: '#7A736A', focus: '#FFAC72',
     accent: '#F2853A', accentWash: '#443122', accentInk: '#FFAC72', reveal: '#FFA45CF2',

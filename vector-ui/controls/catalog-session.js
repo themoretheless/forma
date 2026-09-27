@@ -76,14 +76,11 @@ export function createCatalogSession(runtime, onChange = () => {}) {
       if(event.key==='Home')sidebar.set(70);else if(event.key==='End')sidebar.set(136);else sidebar.step_by(event.key==='ArrowLeft'?-4:4);
       changed('shell',id);return true;
     }
+    // The dialog is a Modal layer: Escape, Tab-cycle and the backdrop press are
+    // handled by the Rust runtime, which reports `dismissed` as an action.
     if(event.key==='Escape') {
-      if(dialog){dialog=false;changed('feedback','showDialog');return true;}
       if(menu){menu=false;changed('overlays','selectToggle');return true;}
       if(tooltip){tooltip=false;changed('feedback','showTooltip');return true;}
-    }
-    if(dialog&&id.startsWith('demoDialog')&&event.key==='Tab') {
-      const order=['demoDialogClose','demoDialogCancel','demoDialogConfirm'];
-      changed('feedback',order[(order.indexOf(id)+(event.shiftKey?-1:1)+order.length)%order.length]);return true;
     }
     if(id==='rangeSlider'&&['ArrowLeft','ArrowRight','ArrowDown','ArrowUp','Home','End','PageUp','PageDown'].includes(event.key)) {
       if(event.key==='Home')range.set(1);else if(event.key==='End')range.set(16);

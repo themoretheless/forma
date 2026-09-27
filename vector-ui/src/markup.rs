@@ -19,6 +19,25 @@ pub struct Scene {
     pub button: ButtonSpec,
     pub buttons: Vec<ButtonSpec>,
     pub gap: f32,
+    /// Modal layers in stacking order. Their controls follow the base controls
+    /// in `buttons`; `ModalSpec::controls` gives each layer's index range.
+    pub modals: Vec<ModalSpec>,
+}
+
+/// One modal layer: a surface rectangle over the whole frame, a translucent
+/// backdrop and the controls that stay interactive while the layer is open.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ModalSpec {
+    pub key: String,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub backdrop: [u8; 4],
+    pub dismiss: bool,
+    pub open: bool,
+    pub action: Option<String>,
+    pub controls: std::ops::Range<usize>,
 }
 
 /// Which properties the document actually declared for a control. The parser accepts a
@@ -576,9 +595,21 @@ impl<'a> Parser<'a> {
         let mut buttons = Vec::new();
         let mut gap = 0.;
         let mut seen: HashSet<&'a str> = HashSet::new();
+        let mut modals: Vec<ModalSpec> = Vec::new();
         while self.current.kind != Kind::Close {
             let property = self.ident()?;
+            if property == "Modal" {
+                let start = buttons.len();
+                let mut modal = self.modal(&mut buttons)?;
+                modal.controls = start..buttons.len();
+                if !modal.key.is_empty() && modals.iter().any(|m| m.key == modal.key) {
+                    return Err(self.error("Duplicate Modal key"));
+                }
+                modals.push(modal);
+                continue;
+            }
             if property == "Button" || property == "Scroll" {
+                if !modals.is_empty() { return Err(self.error("Modal layers must follow the base controls")); }
                 if property=="Scroll" {
                     if scroll || !buttons.is_empty() { return Err(self.error("Scroll must be the only Frame child")); }
                     scroll=true;
@@ -633,13 +664,28 @@ impl<'a> Parser<'a> {
         let mut y=padding[0];
         let mut used_width=width;
         let mut used_height=height;
-        for button in &mut buttons {
+        let base = modals.first().map_or(buttons.len(), |m| m.controls.start);
+        for button in &mut buttons[..base] {
             if !button.key.is_empty() && !keys.insert(button.key.clone()) { return Err(self.error("Duplicate control key")); }
             if !button.specified.contains("x") {button.x=padding[3];}
             if !button.specified.contains("y") {button.y=y;}
             y=button.y+button.height+gap;
             used_width=used_width.max(button.x+button.width+padding[1]);
             used_height=used_height.max(button.y+button.height+padding[2]);
+        }
+        // Modal controls are positioned relative to their surface and never
+        // extend the scrollable content; overlays do not change scene size.
+        for modal in &mut modals {
+            if modal.width <= 0. { modal.width = width; }
+            if modal.height <= 0. { modal.height = height; }
+            if !modal.width.is_finite() || !modal.height.is_finite() { return Err(self.error("Modal size must be finite")); }
+            let mut y = modal.y;
+            for button in &mut buttons[modal.controls.clone()] {
+                if !button.key.is_empty() && !keys.insert(button.key.clone()) { return Err(self.error("Duplicate control key")); }
+                if button.specified.contains("x") { button.x += modal.x; } else { button.x = modal.x; }
+                if button.specified.contains("y") { button.y += modal.y; } else { button.y = y; }
+                y = button.y + button.height + gap;
+            }
         }
         let button=buttons.first().cloned().unwrap_or_default();
         Ok(Scene {
@@ -654,8 +700,68 @@ impl<'a> Parser<'a> {
             padding,
             content_width:used_width.min(f32::MAX).max(width),
             content_height:used_height.min(f32::MAX).max(height),
-            button, buttons, gap,
+            button, buttons, gap, modals,
         })
+    }
+    /// `Modal { key; x; y; width; height; backdrop; dismiss; open; dismissed -> actions.name(); Button {…} }`.
+    /// Child coordinates are relative to the modal surface. A size of zero
+    /// means the whole frame, so outside-click can never dismiss such a layer.
+    fn modal(&mut self, buttons: &mut Vec<ButtonSpec>) -> Result<ModalSpec, String> {
+        self.expect(Kind::Open, "'{' after Modal")?;
+        let mut modal = ModalSpec {
+            key: String::new(), x: 0., y: 0., width: 0., height: 0.,
+            backdrop: [0, 0, 0, 128], dismiss: true, open: true, action: None, controls: 0..0,
+        };
+        let mut seen: HashSet<&'a str> = HashSet::new();
+        while self.current.kind != Kind::Close {
+            let name = self.ident()?;
+            if name == "Button" {
+                buttons.push(self.button()?);
+                if buttons.len() > 256 { return Err(self.error("At most 256 controls per scene")); }
+                continue;
+            }
+            if !seen.insert(name) {
+                return Err(self.error(&format!("Duplicate Modal property '{name}'")));
+            }
+            if name == "dismissed" {
+                self.expect(Kind::Arrow, "'->' after dismissed")?;
+                let action = self.ident()?;
+                if !valid_identifier(action.strip_prefix("actions.").unwrap_or("")) {
+                    return Err(self.error("'dismissed' requires actions.<name>() without arguments"));
+                }
+                self.expect(Kind::LeftParen, "'(' after action name")?;
+                self.expect(Kind::RightParen, "')'; action arguments are not supported")?;
+                self.expect(Kind::Semi, "';' after Modal handler")?;
+                modal.action = Some(action.to_owned());
+                continue;
+            }
+            if !matches!(name, "key" | "x" | "y" | "width" | "height" | "backdrop" | "dismiss" | "open") {
+                return Err(self.error(&format!("Unsupported Modal property or child '{name}'")));
+            }
+            self.expect(Kind::Colon, "':' after Modal property")?;
+            match name {
+                "key" => {
+                    modal.key = self.string("key")?;
+                    if modal.key.is_empty() { return Err(self.error("Explicit 'key' must not be empty")); }
+                }
+                "x" => modal.x = self.number("x", true)?,
+                "y" => modal.y = self.number("y", true)?,
+                "width" => modal.width = self.number("width", false)?,
+                "height" => modal.height = self.number("height", false)?,
+                "backdrop" => modal.backdrop = self.color("backdrop")?,
+                "dismiss" | "open" => {
+                    let value = match self.ident()? {
+                        "true" => true, "false" => false,
+                        _ => return Err(self.error(&format!("'{name}' requires true or false"))),
+                    };
+                    if name == "dismiss" { modal.dismiss = value; } else { modal.open = value; }
+                }
+                _ => unreachable!(),
+            }
+            self.expect(Kind::Semi, "';' after Modal property")?;
+        }
+        self.expect(Kind::Close, "'}' after Modal")?;
+        Ok(modal)
     }
 }
 
@@ -878,6 +984,39 @@ mod tests {
                 .as_deref(),
             Some("actions._run2")
         );
+    }
+
+    #[test]
+    fn modal_layers_follow_base_controls_and_position_children_relative_to_the_surface() {
+        let scene = parse("component X { Frame { width: 300; height: 200; padding: 10; gap: 5; Button { key: 'base'; height: 20; } Modal { key: 'ask'; x: 40; y: 30; width: 200; height: 120; backdrop: #00000080; dismissed -> actions.cancel(); Button { key: 'a'; width: 50; height: 20; } Button { key: 'b'; x: 10; y: 60; width: 50; height: 20; } } Modal { open: false; dismiss: false; Button { key: 'c'; height: 10; } } } }").unwrap();
+        assert_eq!(scene.buttons.len(), 4);
+        assert_eq!(scene.modals.len(), 2);
+        let ask = &scene.modals[0];
+        assert_eq!((ask.key.as_str(), ask.x, ask.y, ask.width, ask.height), ("ask", 40., 30., 200., 120.));
+        assert_eq!(ask.backdrop, [0, 0, 0, 128]);
+        assert!(ask.dismiss && ask.open);
+        assert_eq!(ask.action.as_deref(), Some("actions.cancel"));
+        assert_eq!(ask.controls, 1..3);
+        assert_eq!((scene.buttons[1].x, scene.buttons[1].y), (40., 30.));
+        assert_eq!((scene.buttons[2].x, scene.buttons[2].y), (50., 90.));
+        let second = &scene.modals[1];
+        assert_eq!((second.width, second.height), (300., 200.));
+        assert!(!second.open && !second.dismiss);
+        assert_eq!(second.controls, 3..4);
+        assert_eq!((scene.buttons[3].x, scene.buttons[3].y), (0., 0.));
+        // Overlays never extend scrollable content.
+        assert_eq!((scene.content_width, scene.content_height), (300., 200.));
+        for source in [
+            "component X { Frame { Modal { Button {} } Button {} } }",
+            "component X { Frame { Modal { key: 'a'; } Modal { key: 'a'; } } }",
+            "component X { Frame { Modal { Button { key: 'a'; } } Modal { Button { key: 'a'; } } } }",
+            "component X { Frame { Modal { dismiss: 1; } } }",
+            "component X { Frame { Modal { dismissed -> cancel(); } } }",
+            "component X { Frame { Modal { Scroll {} } } }",
+            "component X { Frame { Modal { key: ''; } } }",
+        ] {
+            assert!(parse(source).is_err(), "accepted {source}");
+        }
     }
 
     #[test]
