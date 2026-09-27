@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
-import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock,moveAmongSiblings,moveBlock,moveIntoContainer} from '../src/element-edit.js';
+import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock,moveAmongSiblings,moveBlock,moveIntoContainer,groupElements} from '../src/element-edit.js';
 const apply=(s,c)=>s.slice(0,c.from)+c.insert+s.slice(c.to);
 const sample="component Test { Frame { width: 400; Button { key: 'a'; text: 'a'; x: 10; y: 20; clicked -> actions.save(); } Button { key: 'a_2'; } } }";
 const first=s=>parse(s).nodes[0].children[0];
@@ -206,4 +206,77 @@ test('a container cannot host itself or its own panel, and a leaf has no room fo
  assert.throws(()=>moveIntoContainer(page,row.start,row.start),/самого себя/);
  assert.throws(()=>moveIntoContainer(page,byType(page,'Button').start,text.start),/только контейнер/);
  assert.throws(()=>moveIntoContainer(page,root.start,column.start),/дочерний/);
+});
+
+// Grouping is the one command that has to keep the pixels where they are: the panel takes the box the
+// members cover together and every member the point the canvas drew it at, both counted from the
+// corner of the container they stand in.
+const byKey=(s,key)=>{let found;const walk=nodes=>{for(const n of nodes){if(!found&&n.props.key===key)found=n;walk(n.children??[]);}};walk(parse(s).nodes);return found;};
+const at=(nodes,points=[])=>new Map(nodes.map((node,index)=>[node.start,points[index]??[0,0]]));
+const freePage="component Test {\n  Frame {\n    width: 400;\n    Button { key: 'a'; x: 10; y: 20; width: 60; height: 24; }\n    Text { text: 'note'; x: 150; y: 90; }\n    Button { key: 'b'; x: 210; y: 20; width: 40; height: 24; }\n  }\n}\n";
+const pick=(s,...keys)=>keys.map(key=>byKey(s,key).start);
+test('grouping siblings puts them in a panel of their own at the box the canvas measured',()=>{
+ const members=[byKey(freePage,'a'),byKey(freePage,'b')];
+ const next=apply(freePage,groupElements(freePage,pick(freePage,'a','b'),[10,20,240,94],at(members,[[10,20],[210,20]])));
+ assert.deepEqual(next.split('\n'),["component Test {","  Frame {","    width: 400;","    Frame {","        x: 10; y: 20;","        width: 240; height: 94;","        Button { key: 'a'; x: 0; y: 0; width: 60; height: 24; }","        Button { key: 'b'; x: 200; y: 0; width: 40; height: 24; }","    }","    Text { text: 'note'; x: 150; y: 90; }","  }","}",""]);
+ const group=parse(next).nodes[0].children[0];
+ assert.deepEqual([group.props.x,group.props.y,group.props.width,group.props.height],[10,20,240,94]);
+ assert.deepEqual(group.children.map(n=>n.props.key),['a','b'],'the members keep the order they stood in');
+});
+test('a member the layout placed gets the point it was drawn at, so the group does not restack them',()=>{
+ const row="component Test {\n  Row {\n    gap: 8;\n    Button { key: 'a'; width: 60; height: 24; }\n    Button { key: 'b'; width: 40; height: 24; }\n  }\n}\n";
+ const next=apply(row,groupElements(row,pick(row,'a','b'),[0,0,108,24],at([byKey(row,'a'),byKey(row,'b')],[[0,0],[68,0]])));
+ const group=byKey(next,'a').parent??parse(next).nodes[0].children[0];
+ assert.equal(group.type,'Frame');
+ assert.deepEqual(group.children.map(n=>[n.props.x,n.props.y]),[[0,0],[68,0]],'the side-by-side pair is written down instead of left to the panel flow');
+ assert.ok(next.includes('gap: 8;'),'the Row keeps its own spacing for the children it still holds');
+});
+test('an outsider between two members stays where it was and the group takes the first slot',()=>{
+ const page="component Test { Frame { Button { key: 'a'; x: 0; y: 0; } Text { key: 'mid'; x: 5; y: 5; } Button { key: 'b'; x: 10; y: 10; } } }";
+ const next=apply(page,groupElements(page,pick(page,'a','b'),[0,0,20,20],at([byKey(page,'a'),byKey(page,'b')],[[0,0],[10,10]])));
+ const root=parse(next).nodes[0];
+ assert.deepEqual(root.children.map(n=>n.type),['Frame','Text']);
+ assert.deepEqual(root.children[0].children.map(n=>n.props.key),['a','b']);
+ assert.deepEqual([byKey(next,'mid').props.x,byKey(next,'mid').props.y],[5,5],'the control nobody selected keeps its own coordinate');
+});
+test('the grouped panel is what the designer now holds',()=>{
+ const change=groupElements(freePage,pick(freePage,'a','b'),[10,20,240,94],at([byKey(freePage,'a'),byKey(freePage,'b')],[[10,20],[210,20]]));
+ assert.deepEqual(change.starts,[change.start],'one control is selected: the panel, not the members');
+ assert.equal(change.start,byKey(freePage,'a').start,'it stands where the first member stood');
+});
+test('a member written across lines rides one level deeper with its own body intact',()=>{
+ const page="component Test {\n  Frame {\n    Button { key: 'a'; x: 0; y: 0; width: 40; height: 20; }\n    Column { key: 'c'; gap: 4;\n      Text { text: 'in'; }\n    }\n  }\n}\n";
+ const next=apply(page,groupElements(page,pick(page,'a','c'),[0,0,100,60],at([byKey(page,'a'),byKey(page,'c')],[[0,0],[0,30]])));
+ assert.deepEqual(next.split('\n').slice(2),["    Frame {","        x: 0; y: 0;","        width: 100; height: 60;","        Button { key: 'a'; x: 0; y: 0; width: 40; height: 20; }","        Column { x: 0; y: 30; key: 'c'; gap: 4;","          Text { text: 'in'; }","        }","    }","  }","}",""]);
+ assert.deepEqual(byKey(next,'c').children.map(n=>n.props.text),['in']);
+});
+test('a scrolling page groups the controls it scrolls',()=>{
+ const sheet="component Test {\n  Scroll {\n    Button { key: 'a'; x: 0; y: 0; width: 40; height: 20; }\n    Button { key: 'b'; x: 60; y: 0; width: 40; height: 20; }\n  }\n}\n";
+ const next=apply(sheet,groupElements(sheet,pick(sheet,'a','b'),[0,0,100,20],at([byKey(sheet,'a'),byKey(sheet,'b')],[[0,0],[60,0]])));
+ assert.deepEqual(parse(next).nodes[0].children.map(n=>n.type),['Frame']);
+ assert.deepEqual(parse(next).nodes[0].children[0].children.map(n=>n.props.key),['a','b']);
+});
+test('grouping refuses a lone control, a selection with no canvas box and controls of two containers',()=>{
+ const members=at([byKey(freePage,'a'),byKey(freePage,'b')]);
+ assert.throws(()=>groupElements(freePage,[byKey(freePage,'a').start],[10,20,240,94],members),/хотя бы два/);
+ assert.throws(()=>groupElements(freePage,pick(freePage,'a','b'),null,members),/с холста/);
+ assert.throws(()=>groupElements(freePage,pick(freePage,'a','b'),[0,0,10,10],null),/с холста/);
+ const page="component Test { Frame { Button { key: 'a'; } Frame { Button { key: 'b'; } } } }";
+ assert.throws(()=>groupElements(page,pick(page,'a','b'),[0,0,10,10],at([byKey(page,'a'),byKey(page,'b')])),/одного контейнера/);
+ const root=parse(page).nodes[0];
+ assert.throws(()=>groupElements(page,[root.start,byKey(page,'a').start],[0,0,10,10],at([root,byKey(page,'a')])),/дочерние контролы/);
+});
+test('a group is not cut out of a layout that places its children itself',()=>{
+ const page="component Test { Frame { Stack { width: 100; height: 50; Button { key: 'a'; } Text { key: 'b'; } } Grid { columns: [100, 100]; rows: [40]; Button { key: 'g'; cell: [1, 1]; } Text { key: 'h'; cell: [1, 2]; } } } }";
+ const stack=[byKey(page,'a'),byKey(page,'b')],grid=[byKey(page,'g'),byKey(page,'h')];
+ assert.throws(()=>groupElements(page,stack.map(n=>n.start),[0,0,10,10],at(stack)),/В Stack положение задаёт раскладка/);
+ assert.throws(()=>groupElements(page,grid.map(n=>n.start),[0,0,10,10],at(grid)),/ячейки/);
+ const sheet="component Test { Frame { Scroll { Button { key: 'in'; } } Button { key: 'b'; } } }";
+ assert.throws(()=>groupElements(sheet,[parse(sheet).nodes[0].children[0].start,byKey(sheet,'b').start],[0,0,10,10],at([byKey(sheet,'b')])),/Скроллящийся лист/);
+});
+test('a coordinate the designer bound to code and a control the canvas never drew both stop the group',()=>{
+ const bound="component Test { Frame { Button { key: 'a'; x: state.left; } Button { key: 'b'; x: 40; } } }";
+ assert.throws(()=>groupElements(bound,pick(bound,'a','b'),[0,0,80,20],at([byKey(bound,'a'),byKey(bound,'b')])),/выражением/);
+ const pair=[byKey(freePage,'a'),byKey(freePage,'b')];
+ assert.throws(()=>groupElements(freePage,pick(freePage,'a','b'),[0,0,80,20],at([pair[0]])),/которые рисует холст/);
 });

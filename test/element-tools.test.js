@@ -526,3 +526,53 @@ test('a group is never reparented: one drop cannot place several controls at onc
  assert.deepEqual(nodeOf(t,'a').children.map(n=>n.props.key),['in']);
  assert.equal(t.commits.length,1);assert.deepEqual(t.errors,[]);
 });
+
+// Grouping tells the primitive the box the canvas sees, so the two measurements it needs — the union of
+// the selection and the point each member was drawn at — come from the scene, not from the markup.
+const pairPage="component Test { Frame { width: 400; Button { key: 'a'; x: 20; y: 20; width: 40; height: 20; } Button { key: 'b'; x: 100; y: 60; width: 40; height: 20; } } }";
+test('the menu groups the selection into a panel at the box the canvas measured',()=>{
+ const t=setup(pairPage);
+ pick(t,'a','b');
+ assert.equal([...t.toolbar.next.children].find(b=>b.dataset.action==='group').disabled,false);
+ menuRun(t,'group');
+ assert.equal(t.commits.length,1);
+ const group=parse(t.source()).nodes[0].children[0];
+ assert.equal(group.type,'Frame');
+ assert.deepEqual([group.props.x,group.props.y,group.props.width,group.props.height],[20,20,120,60]);
+ assert.deepEqual(group.children.map(n=>[n.props.key,n.props.x,n.props.y]),[['a',0,0],['b',80,40]]);
+ assert.deepEqual(t.tools.selection(),[group.start],'the panel the gesture made is what the designer holds');
+ assert.deepEqual(t.errors,[]);
+});
+test('Ctrl+G groups the batch the marquee picked',()=>{
+ const t=setup(pairPage);
+ t.viewport.emit('pointerdown',{target:t.artboard,button:0,pointerId:1,clientX:0,clientY:0});
+ t.viewport.emit('pointermove',{pointerId:1,clientX:400,clientY:300});
+ t.viewport.emit('pointerup',{pointerId:1});
+ assert.equal(t.tools.selection().length,2);
+ window.emit('keydown',{target:t.viewport,key:'g',metaKey:true});
+ assert.equal(t.commits.length,1);
+ assert.deepEqual(parse(t.source()).nodes[0].children.map(n=>n.type),['Frame']);
+ assert.deepEqual(t.errors,[]);
+});
+test('a single selection has nothing to group and a Stack places its own children',()=>{
+ const t=setup(pairPage);
+ t.down();t.viewport.emit('pointerup',{pointerId:1});
+ assert.equal([...t.toolbar.next.children].find(b=>b.dataset.action==='group').disabled,true);
+ const before=t.source();
+ window.emit('keydown',{target:t.viewport,key:'g',metaKey:true});
+ assert.equal(t.source(),before);assert.deepEqual(t.commits,[]);
+ const pile="component Test { Frame { width: 400; Stack { x: 10; y: 10; width: 200; height: 100; Button { key: 'a'; x: 20; y: 20; width: 40; height: 20; } Button { key: 'b'; x: 60; y: 40; width: 40; height: 20; } } } }";
+ const s=setup(pile);
+ pick(s,'a','b');
+ menuRun(s,'group');
+ assert.deepEqual(s.commits,[],'nothing is rewritten where a coordinate reads nothing');
+ assert.match(s.errors.at(-1),/В Stack положение задаёт раскладка/);
+});
+test('a control the canvas never drew cannot be folded into a group',()=>{
+ const t=setup("component Test { Frame { width: 400; Button { key: 'a'; x: 20; y: 20; width: 40; height: 20; } Column { gap: 4; } } }");
+ const [a,lonely]=parse(t.source()).nodes[0].children;
+ t.treeSelect(a.start);t.tools.setSelection([a.start,lonely.start]);
+ menuRun(t,'group');
+ assert.deepEqual(t.commits,[]);
+ assert.match(t.errors.at(-1),/которые рисует холст/);
+});

@@ -192,6 +192,59 @@ export function moveIntoContainer(source,start,targetStart,coords=null){
  let trim=0;while(trim<Math.min(source.length,next.length)-from&&source[source.length-1-trim]===next[next.length-1-trim])trim++;
  return {from,to:source.length-trim,insert:next.slice(from,next.length-trim),start:change.start,starts:[change.start]};
 }
+// A group is a container of its own, so a designer can move, align and resize a set of controls as one
+// thing. Grouping freezes what the canvas shows: the new `Frame` takes the box the members cover
+// together, told in the corner of the container they stand in, and each member keeps the point it was
+// drawn at by carrying it from the group's own corner. Both boxes come from the scene because a member
+// the *layout* placed has no coordinate in the markup to inherit — a group that wrote none would
+// restack its content into the new panel's own flow.
+export function groupElements(source,starts,box=null,coords=null){
+ const ordered=[...new Set(starts)].sort((a,b)=>a-b);
+ if(ordered.length<2)throw Error('Выберите хотя бы два контрола');
+ if(!box||!coords)throw Error('Группировка берёт положение с холста: выберите контролы на нём');
+ const picked=ordered.map(start=>locateElement(source,start));
+ const [{parent}]=picked;
+ if(!parent)throw Error('Группируйте дочерние контролы');
+ // Each call parses the document again, so it is the parent's place in the text that says whether the
+ // selection is one sibling run rather than a look-alike container elsewhere on the page.
+ if(picked.some(p=>p.parent?.start!==parent.start))throw Error('Группируйте контролы одного контейнера');
+ if(picked.some(p=>p.node.type==='Scroll'))throw Error('Скроллящийся лист не группуют');
+ if(hasTracks(parent))throw Error('В Grid группировка недоступна: положение задают ячейки');
+ if(!flowsCoordinates(parent))throw Error(`В ${parent.type} положение задаёт раскладка: группировка недоступна`);
+ for(const {node} of picked){
+  if(!coords.has(node.start))throw Error('Группируйте контролы, которые рисует холст');
+  for(const axis of ['x','y']){const value=node.props[axis];
+   if(value!==undefined&&typeof value!=='number')throw Error('Координата задана выражением: соберите группу в коде');}
+ }
+ const first=picked[0].node;
+ const column=index=>source.slice(source.lastIndexOf('\n',index-1)+1,index).match(/^ */)[0];
+ const pad=column(first.start),inner=pad+'    ';
+ const rounded=value=>Math.max(0,Math.round(value*10)/10);
+ // A member takes the point the canvas drew it at, counted from the group's own corner; an axis the
+ // designer bound to an expression is refused above, so none of their code is overwritten here.
+ const children=picked.map(({node})=>rewriteCoords(source.slice(node.start,node.end),
+   coords.get(node.start).map((value,axis)=>value-box[axis])))
+  // Every member is indented one level deeper than it stood, which is the shape the designer would
+  // have written by hand for the same panel.
+  .map(text=>text.split('\n').map((line,index)=>index&&line?`    ${line}`:line).join('\n'));
+ const head=[`x: ${rounded(box[0])}; y: ${rounded(box[1])};`];
+ // A box the scene could not measure is left out rather than written as a collapsed panel.
+ if(rounded(box[2])>=1&&rounded(box[3])>=1)head.push(`width: ${rounded(box[2])}; height: ${rounded(box[3])};`);
+ const text=['Frame {',...head.map(prop=>inner+prop),inner+children.join('\n'+inner),pad+'}'].join('\n');
+ // The first member's own span becomes the container and the rest leave the block they stood in,
+ // taking the whitespace that held them off it, which is what keeps the siblings' lines intact.
+ const change=editElements(source,ordered,start=>{
+  if(start===first.start)return {from:first.start,to:first.end,insert:text,start:first.start};
+  const {node}=locateElement(source,start);
+  let cut=node.start;const open=source.indexOf('{',parent.start)+1;
+  while(cut>open&&/\s/.test(source[cut-1]))cut--;
+  return {from:cut,to:node.end,insert:'',start:cut};
+ });
+ if(!change)return null;
+ // The new container is what the designer now holds: one selection, so the panels and the undo
+ // identity both describe the group rather than the members it swallowed.
+ return {...change,start:first.start,starts:[first.start]};
+}
 // Merge independent source edits into one editor transaction, preserving selection offsets.
 export function editElements(source,starts,operation){
  const ordered=[...new Set(starts)].sort((a,b)=>a-b);
