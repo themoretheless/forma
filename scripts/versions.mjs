@@ -1,8 +1,12 @@
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,realpathSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {resolve} from 'node:path';
 
 export const root=fileURLToPath(new URL('../',import.meta.url));
+// An entry point reached through a symlink (/var -> /private/var in a macOS temp
+// directory) has two absolute spellings for one file, so the CLI guard compares
+// canonical paths. Otherwise `check` would print nothing and still exit 0.
+const canonical=path=>{try{return realpathSync(path);}catch{return path;}};
 const read=path=>readFileSync(resolve(root,path),'utf8');
 export function validVersion(value){
   if(typeof value!=='string')return false;
@@ -61,7 +65,7 @@ export function setVersion(component,version){
   for(const [path,text] of updates)writeFileSync(resolve(root,path),text);
   return versions();
 }
-if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+if(process.argv[1]&&canonical(resolve(process.argv[1]))===canonical(fileURLToPath(import.meta.url))){
   const [command='check',a,b]=process.argv.slice(2);
   try{
     if(command==='check')console.log(JSON.stringify(a?release(a):versions()));

@@ -29,3 +29,9 @@ libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc = { version = "0.2", optional = true }
+
+# The runtime is compute-bound on every keystroke: it parses the document and frames the
+# template transport in one pass, so whole-program inlining matters more than build time.
+[profile.release]
+codegen-units = 1
+lto = "fat"

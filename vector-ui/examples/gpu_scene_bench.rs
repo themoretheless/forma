@@ -1,6 +1,7 @@
 //! Large-scene localized paint benchmark; synchronized frames, no OS presentation.
 //! FORMA_BENCH_FRAMES=20..100000 (default 200); FORMA_BENCH_NO_TIMESTAMPS=1
-//! disables profiling; FORMA_BENCH_STATIC=1 disables measured paint changes.
+//! disables profiling; FORMA_BENCH_STATIC=1 disables measured paint changes;
+//! FORMA_BENCH_CONTROLS=100,256 sets the scene sizes to run.
 //! Missing process metrics print None, never zero. Rust allocation traffic
 //! includes wgpu and the harness; RSS is not additive with unified GPU memory.
 #[cfg(feature = "gpu")]
@@ -34,8 +35,25 @@ fn main() {
         }
         .unwrap();
         let animate = std::env::var_os("FORMA_BENCH_STATIC").is_none();
+        // Per-frame allocation counts are identical at 100 and 256 controls, so the
+        // scene sizes alone cannot separate Forma's work from the fixed per-frame
+        // cost inside a wgpu draw. A 1-control scene measures that floor directly.
+        let counts: Vec<usize> = std::env::var("FORMA_BENCH_CONTROLS")
+            .unwrap_or_else(|_| "100,256".into())
+            .split(',')
+            .map(|field| {
+                field
+                    .trim()
+                    .parse::<usize>()
+                    .expect("FORMA_BENCH_CONTROLS takes comma-separated integers")
+            })
+            .collect();
+        assert!(
+            counts.iter().all(|count| (1..=4096).contains(count)),
+            "each control count must be 1..4096"
+        );
         println!("timestamp profiling requested={profiled}; animate={animate}");
-        for count in [100, 256] {
+        for count in counts {
             let mut source = String::from(
                 "component Scene { Frame { width:1000; height:2560; padding:0; gap:0;",
             );
