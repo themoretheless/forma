@@ -1,10 +1,25 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse,resolve} from '../src/language.js';
+import {parse,resolve,validateDesign,designStatePatch} from '../src/language.js';
 test('component exposes defaults separately from primitives',()=>{const p=parse("component Button { width: 100; text: 'Кнопка'; fontSize: 16; Rectangle { radius: props.radius; } }");assert.deepEqual(p.defaults,{width:100,text:'Кнопка',fontSize:16});assert.equal(p.nodes.length,1);assert.equal(p.nodes[0].type,'Rectangle');});
 test('design attribute, bindings and actions',()=>{const p=parse("#[design('./demo.design.ui')] component Demo { TextInput { value <-> state.query; } Button { clicked -> actions.search(); disabled: !state.loading; } }");assert.deepEqual(p.designs,['./demo.design.ui']);assert.equal(p.nodes[0].bindings.value,'state.query');assert.equal(p.nodes[1].events.clicked,'actions.search');assert.equal(resolve(p.nodes[1].props.disabled,{loading:true}),false);});
 test('legacy preview is rejected',()=>assert.throws(()=>parse("preview 'Data' { state: { loading: false; }; }"),/больше не поддерживается/));
 test('broken input fails instead of silently dropping source',()=>{assert.throws(()=>parse("component Demo { Text { text: 'Hi'; }"));assert.throws(()=>parse('component Demo {} ???'));assert.throws(()=>parse("component Demo { Text { text: 'a'; text: 'b'; } }"));});
+// A design file carries the always-on base overrides plus named states; the panel the designer
+// shows is one row per state, so the parse must keep them separate and locatable in the source.
+const statesSource=`design Demo {
+    Text { key: 'status'; text: 'Готово'; }
+    state 'loading' {
+        Text { key: 'status'; text: 'Ищем…'; }
+        Button { key: 'go'; disabled: true; }
+    }
+    state 'error' { Text { key: 'status'; text: 'Упало'; } }
+}`;
+test('design groups overrides into named states',()=>{const d=parse(statesSource);assert.deepEqual(d.overrides,{status:{text:'Готово'}});assert.deepEqual(d.states.map(s=>s.name),['loading','error']);assert.deepEqual(d.states[0].overrides,{status:{text:'Ищем…'},go:{disabled:true}});assert.deepEqual(d.states[0].overrideTypes,{status:'Text',go:'Button'});assert.deepEqual(d.states[1].overrides,{status:{text:'Упало'}});});
+test('a state records where it lives in the source',()=>{const [loading]=parse(statesSource).states;assert.equal(statesSource.slice(loading.nameStart,loading.nameEnd),"'loading'");assert.equal(statesSource.slice(loading.start,loading.start+5),'state');assert.equal(statesSource.slice(loading.end-1,loading.end),'}');assert.equal(statesSource.slice(loading.start,loading.end).split('\n')[0],'state \'loading\' {');});
+test('a state patches the base property by property',()=>{const d=parse(statesSource);assert.deepEqual(designStatePatch(d),{status:{text:'Готово'}});assert.deepEqual(designStatePatch(d,'loading'),{status:{text:'Ищем…'},go:{disabled:true}});assert.deepEqual(designStatePatch(d,'error'),{status:{text:'Упало'}});assert.throws(()=>designStatePatch(d,'nope'),/Состояние nope не объявлено/);});
+test('empty and duplicate state names are rejected',()=>{assert.throws(()=>parse("design Demo { state 'a' {} state 'a' {} }"),/Повторное состояние a/);assert.throws(()=>parse('design Demo { state loading {} }'),/Имя состояния ожидает строку в кавычках/);assert.throws(()=>parse("design Demo { state '' {} }"),/Имя состояния должно быть непустым/);assert.throws(()=>parse("design Demo { state 'a' { Text { text: 'x'; } } }"),/Дизайн-key должен быть непустой строкой/);});
+test('validateDesign checks every state against the component',()=>{const c=parse("component Demo { Text { key: 'status'; } }");validateDesign(c,parse("design Demo { state 'a' { Text { key: 'status'; text: 'x'; } } }"));assert.throws(()=>validateDesign(c,parse("design Demo { Text { key: 'status'; } state 'a' { Text { key: 'ghost'; } } }")),/Неизвестный дизайн-key ghost/);assert.throws(()=>validateDesign(c,parse("design Demo { state 'a' { Button { key: 'status'; } } }")),/Тип дизайн-key status: ожидался Text, получен Button/);});
 
 test('typed component contract keeps defaults, enum symbols and source ranges',()=>{
   const source=`component Notice {

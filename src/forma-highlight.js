@@ -4,7 +4,7 @@ import {parser} from './forma-parser.js';
 import {colorSwatches} from './color-swatches.js';
 import {rainbowBrackets} from './brackets.js';
 const language=LRLanguage.define({parser:parser.configure({props:[styleTags({
-  'component design match override from prop required event enum forward props if else for in key empty':tags.keyword,
+  'component design match override from prop required event enum forward props if else for in key empty state':tags.keyword,
   'TypeName ComponentName':tags.typeName,
   'PropertyName/Identifier':tags.propertyName,
   'AttributeName/Identifier':tags.meta,

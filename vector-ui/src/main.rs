@@ -25,6 +25,14 @@ enum Presentation {
     Retry,
 }
 
+/// Outcome of one software frame, reported instead of applied in place: the pixel buffer
+/// borrows the surface, and Linux keeps that borrow alive until the block ends.
+enum CpuFrame {
+    Presented,
+    Painted(String),
+    Failed(String),
+}
+
 struct App {
     inspect_mode: bool,
     inspect_report: String,
@@ -110,45 +118,52 @@ impl App {
                 }
             }
         }
-        let surface = self.surface.as_mut().unwrap();
-        if self.surface_size != Some((size.width, size.height)) {
-            if let Err(error) = surface.resize(width, height) {
-                self.set_render_error(Some(error.to_string()));
-                self.present_result(Presentation::Retry, window);
-                return;
-            }
-            self.surface_size = Some((size.width, size.height));
-        }
-        // Acquire, paint and present inside one borrow of the surface, touching
-        // only self.button. A &mut self reporting helper called here would hold
-        // that borrow across the buffer's destructor, which borrowck rejects on
-        // every backend whose Buffer implements Drop.
-        let scale = window.scale_factor() as f32;
-        let (paint_error, presented) = match surface.buffer_mut() {
-            Ok(mut buffer) => {
-                let error = self
-                    .button
-                    .paint_native(&mut buffer, size.width, size.height, scale)
-                    .err()
-                    .map(str::to_owned);
-                if error.is_some() {
-                    buffer.fill(0x111319);
+        // Linux keeps the `Result` temporary of `buffer_mut` alive through its error arm, so
+        // the frame runs in a block and the app is only touched after that borrow ends.
+        let frame = 'cpu: {
+            let surface = self.surface.as_mut().unwrap();
+            if self.surface_size != Some((size.width, size.height)) {
+                if let Err(error) = surface.resize(width, height) {
+                    break 'cpu CpuFrame::Failed(error.to_string());
                 }
-                // As on GPU, count only successful presentation, not a render attempt.
-                (error, Some(buffer.present().err().map(|e| e.to_string())))
+                self.surface_size = Some((size.width, size.height));
             }
-            Err(error) => (Some(error.to_string()), None),
+            let mut buffer = match surface.buffer_mut() {
+                Ok(buffer) => buffer,
+                Err(error) => break 'cpu CpuFrame::Failed(error.to_string()),
+            };
+            let error = self
+                .button
+                .paint_native(
+                    &mut buffer,
+                    size.width,
+                    size.height,
+                    window.scale_factor() as f32,
+                )
+                .err()
+                .map(str::to_owned);
+            if error.is_some() {
+                buffer.fill(0x111319);
+            }
+            // As on GPU, count only successful presentation, not a render attempt.
+            match buffer.present() {
+                Ok(()) => error.map_or(CpuFrame::Presented, CpuFrame::Painted),
+                Err(error) => break 'cpu CpuFrame::Failed(error.to_string()),
+            }
         };
-        // Same reporting order as before: the paint error is published first and
-        // a presentation error then replaces it.
-        self.set_render_error(paint_error);
-        match presented {
-            Some(None) => self.present_result(Presentation::Presented, window),
-            Some(Some(error)) => {
+        match frame {
+            CpuFrame::Presented => {
+                self.set_render_error(None);
+                self.present_result(Presentation::Presented, window);
+            }
+            CpuFrame::Painted(error) => {
+                self.set_render_error(Some(error));
+                self.present_result(Presentation::Presented, window);
+            }
+            CpuFrame::Failed(error) => {
                 self.set_render_error(Some(error));
                 self.present_result(Presentation::Retry, window);
             }
-            None => self.present_result(Presentation::Retry, window),
         }
     }
 

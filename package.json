@@ -16,7 +16,8 @@
     "build:wasm": "node scripts/build-wasm.mjs",
     "version:check": "node scripts/versions.mjs check",
     "version:set": "node scripts/versions.mjs set",
-    "package:release": "node scripts/package-release.mjs"
+    "package:release": "node scripts/package-release.mjs",
+    "gate": "node scripts/full-gate.mjs"
   },
   "devDependencies": {
     "vite": "^7.1.0"

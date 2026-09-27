@@ -1,0 +1,28 @@
+.property output{display:block;width:100%;margin-top:5px;padding:6px;border:1px dashed #2f3a4c;border-radius:4px;background:#10151d;color:#8b9bb4;font-size:11px;overflow-wrap:anywhere}
+.property.computed output{font-style:normal}
+.property small{display:block;margin-top:4px;font-size:10px;line-height:1.5;color:#6d7b93;overflow-wrap:anywhere}
+.property .token-value{color:#9db4dd}
+.color-chip{display:inline-block;width:12px;height:12px;margin-left:5px;vertical-align:-1px;border:1px solid #91a0b580;border-radius:2px;overflow:hidden;background:conic-gradient(#ddd 25%,#888 0 50%,#ddd 0 75%,#888 0) 0 0/6px 6px}
+.color-chip>span{display:block;width:100%;height:100%}
+.property input[type=color]{width:34px;min-height:26px;padding:2px;margin-top:5px;border:1px solid #30394a;border-radius:4px;background:#10151d}
+.property.binding,.property.handler{border-top:1px solid #232b38;padding-top:9px}
+
+.property-remove{display:block;width:fit-content;margin-left:2px;margin-top:4px;padding:0 8px;border:1px solid #30394a;border-radius:4px;background:#10151d;color:#8b9bb4;font-size:13px;line-height:1.5}
+.property-remove:hover{background:#2b1c22;border-color:#5b3a44}
+.property-add{display:grid;gap:5px;margin-top:14px;padding-top:11px;border-top:1px dashed #2f3a4c}
+.property-add select,.property-add input{width:100%;background:#10151d;border:1px solid #30394a;color:#c9d5ec;padding:6px;border-radius:4px;font-size:11px}
+.property-add button{border:1px solid #3b4a63;border-radius:4px;background:#1d2532;color:#c7d6ff;font-size:11px;padding:6px}
+.property-add button:hover{background:#27324a}
+.property-notice{display:block;margin-top:6px;font-size:10px;line-height:1.5;color:#f2959f;overflow-wrap:anywhere}
+/* A row whose value comes from the design file is marked by its own edge and a badge naming the
+   block it writes to, so overriding a state never reads as editing the component. */
+.property.state,.property.base{box-shadow:inset 2px 0 #5f7bb6}
+.property-layer{display:inline-block;margin-left:6px;padding:0 5px;border:1px solid #3b4a63;border-radius:8px;background:#1a2130;color:#9db4dd;font-size:9px;line-height:1.6;vertical-align:1px}
+/* The batch section sits under the rows of one control but writes to all of the selection, so it is
+   divided off and says whose markup a row changes. */
+.bulk-edit{margin-top:22px;padding-top:14px;border-top:1px dashed #2f3a4c}
+.bulk-edit>.inspector-label{margin:0 0 9px}
+.bulk-note{display:block;margin:0 0 13px;line-height:1.5}
+.bulk-edit input::placeholder{color:#5f6c81;font-style:italic}
+/* The panel between selections: the rows are gone with the control, so the empty state says so. */
+.inspector-empty{display:block;margin:2px 0 12px;line-height:1.5;color:#8b98ac}

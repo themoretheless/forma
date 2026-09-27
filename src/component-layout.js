@@ -39,7 +39,7 @@ export function gaps(value = 0) {
   return items.map(item => length(item, 0, 0, 'gap'));
 }
 
-function weight(value) {
+export function weight(value) {
   const v = raw(value);
   if (typeof v !== 'string' || !/^(?:\d+(?:\.\d+)?)?\*$/.test(v)) return 0;
   const result = v === '*' ? 1 : Number(v.slice(0, -1));
