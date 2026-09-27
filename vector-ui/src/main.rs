@@ -119,10 +119,13 @@ impl App {
             }
             self.surface_size = Some((size.width, size.height));
         }
-        let mut buffer = match surface.buffer_mut() {
+        // Name the result before matching: on X11 the buffer type has a destructor,
+        // so the temporary would keep `surface` borrowed while the error arm needs `self`.
+        let buffer = surface.buffer_mut().map_err(|error| error.to_string());
+        let mut buffer = match buffer {
             Ok(buffer) => buffer,
             Err(error) => {
-                self.set_render_error(Some(error.to_string()));
+                self.set_render_error(Some(error));
                 self.present_result(Presentation::Retry, window);
                 return;
             }
