@@ -21,7 +21,8 @@ export async function createGpuPainter(canvas,onFailure){
     const module=device.createShaderModule({code:shader,label:'Forma vector'});
     pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
     context.configure({device,format,alphaMode:'premultiplied'});
-    uniform=device.createBuffer({size:48,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+    // viewport, fill, border, scroll: 16 floats. Older 12-float params leave scroll at zero.
+    uniform=device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
   }catch(error){disposed=true;try{context.unconfigure();}finally{device.destroy();}throw error;}
   const pool=createStoragePool(device,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST);
   const validate=data=>{if(data&&(!data.byteLength||data.byteLength%4||data.byteLength>device.limits.maxStorageBufferBindingSize))throw Error('Vector scene exceeds GPU storage budget');};
@@ -38,11 +39,13 @@ export async function createGpuPainter(canvas,onFailure){
       // A legacy leaf only exposes a visual version, which can also mean load().
       // Without either version, conservatively reload instead of caching forever.
       const geometryChanged=geometry===undefined?(visual===undefined||visualKey!==visual):geometryKey!==geometry;
-      const changed=modelKey!==model||scaleKey!==scale||layoutKey!==layout||(scroll&&(scrollXKey!==scroll[0]||scrollYKey!==scroll[1]))||geometryChanged;
-      const tilesChanged=changed||tilesXKey!==tilesX||tilesYKey!==tilesY;
+      const changed=modelKey!==model||scaleKey!==scale||geometryChanged;
+      // Scroll is a uniform plus re-binned tiles; commands/edges stay resident.
+      const scrolled=layoutKey!==layout||(scroll&&(scrollXKey!==scroll[0]||scrollYKey!==scroll[1]));
+      const tilesChanged=changed||scrolled||tilesXKey!==tilesX||tilesYKey!==tilesY;
       // Older scene adapters without a revision retain their eager upload path.
       const paintsChanged=changed||visual===undefined||visualKey!==visual;
-      const paramsChanged=paintsChanged||widthKey!==width||heightKey!==height;
+      const paramsChanged=paintsChanged||scrolled||widthKey!==width||heightKey!==height;
       try{
         const tiles=tilesChanged?model.gpu_tiles(width,height,scale,false):null;
         const commands=changed?model.gpu_commands(scale,false):null;

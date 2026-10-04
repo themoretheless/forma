@@ -42,3 +42,77 @@ fn animations_change_only_their_own_pixels_at_integer_and_fractional_dpi(){
         }
     });
 }
+
+// Independent reference for the analytic glyph coverage: a scanline rasterizer
+// over the same edges with exact x spans and 64 sub-rows per pixel (y error at
+// most 1/128 of coverage). It does not share the shader's area formula.
+#[test]
+#[ignore="requires a real GPU"]
+fn analytic_text_coverage_matches_supersampled_reference(){
+    use forma::display_list::STRIDE;
+    pollster::block_on(async{
+        let instance=wgpu::Instance::default();let adapter=instance.request_adapter(&Default::default()).await.unwrap();
+        let mut renderer=Renderer::new(&adapter,wgpu::TextureFormat::Rgba8Unorm).await.unwrap();
+        let source="component Demo { Frame { width:128; height:128; padding:0; background:#203040; Button { width:128; height:128; } } }";
+        let template="component Button { Rectangle { background:#203040; ContentText { x:2; y:4; width:124; height:40; text:'Forma Жg'; fontSize:17.5; color:#ffffff; } ContentText { x:1; y:50; width:126; height:30; text:'ilj ОБ 0.5'; fontSize:11; color:#ffffff; } ContentShape { points:'10 90 100 95 60 120'; color:#ffffff; } } }";
+        let background=[0x20 as f32/255.,0x30 as f32/255.,0x40 as f32/255.];
+        for scale in [1.,1.25,2.]{
+            let model=Runtime::from_sources(source,template).unwrap();
+            let actual=read(&mut renderer,&model,scale);
+            let commands=model.gpu_commands(scale,true);let edges=model.gpu_edges(scale,true);
+            let w=(128.*scale)as usize;let h=(128.*scale)as usize;
+            // Scanline reference: 64 sub-rows per pixel row, exact span lengths in x,
+            // nonzero winding; glyphs composite sequentially like the shader.
+            const ROWS:usize=64;
+            let mut value=vec![background;w*h];
+            let mut intersections=Vec::new();
+            for c in commands.chunks_exact(STRIDE).filter(|c|c[0]==1.){
+                let (start,count)=(c[2] as usize,c[3] as usize);
+                let contour=&edges[start*4..(start+count)*4];
+                let mut coverage=vec![0f32;w*h];
+                for row in 0..h*ROWS{
+                    let y=(row as f32+0.5)/ROWS as f32/scale;
+                    intersections.clear();
+                    for e in contour.chunks_exact(4){
+                        if (e[1]<=y&&e[3]>y)||(e[3]<=y&&e[1]>y){
+                            intersections.push(((e[0]+(y-e[1])*(e[2]-e[0])/(e[3]-e[1]))*scale,if e[3]>e[1]{1i32}else{-1}));
+                        }
+                    }
+                    intersections.sort_by(|a,b|a.0.total_cmp(&b.0));
+                    let mut winding=0;let mut previous=0f32;
+                    for &(x,direction) in &intersections{
+                        if winding!=0{
+                            let (x0,x1)=(previous.max(0.),x.min(w as f32));
+                            let mut px=x0.floor() as usize;
+                            while (px as f32)<x1&&px<w{
+                                let overlap=(x1.min(px as f32+1.)-x0.max(px as f32)).max(0.);
+                                coverage[(row/ROWS)*w+px]+=overlap/ROWS as f32;
+                                px+=1;
+                            }
+                        }
+                        winding+=direction;previous=x;
+                    }
+                }
+                for (pixel,&cov) in coverage.iter().enumerate(){
+                    let cov=cov.min(1.);
+                    for k in 0..3{value[pixel][k]=cov+(1.-cov)*value[pixel][k];}
+                }
+            }
+            let (mut total,mut max,mut bad,mut covered)=(0u64,0u8,0usize,0usize);
+            for (pixel,expected) in value.iter().enumerate(){
+                if *expected!=background{covered+=1;}
+                for k in 0..3{
+                    let d=((expected[k]*255.).round() as u8).abs_diff(actual[pixel*4+k]);
+                    total+=d as u64;max=max.max(d);if d>4{bad+=1;}
+                }
+                assert_eq!(actual[pixel*4+3],255,"opaque scene at pixel {pixel}");
+            }
+            let mean=total as f64/(w*h*3) as f64;
+            println!("scale {scale}: covered={covered} mean={mean:.4}/255 max={max} channels>4={bad}");
+            assert!(covered>200,"fixture must rasterize text");
+            assert!(mean<0.1,"mean error {mean} against the scanline reference");
+            assert!(max<=4,"max error {max} against the scanline reference");
+            assert_eq!(bad,0,"{bad} channels differ by more than 4/255");
+        }
+    });
+}
