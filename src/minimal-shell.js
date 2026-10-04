@@ -46,7 +46,15 @@ export function mountMinimalShell(root,{newFile,clearSelection}={}){
  const corner=document.createElement('div');corner.className='canvas-corner';
  const problems=document.createElement('button');problems.className='problems-badge';problems.title='Проблемы';problems.onclick=()=>toggle('problems');
  const saved=document.createElement('span');saved.className='save-warning';
- corner.append(saved,problems);$('.preview-pane').append(corner);
+ const zoom=document.createElement('div');zoom.className='zoom-pill';zoom.setAttribute('role','group');zoom.setAttribute('aria-label','Масштаб');
+ for(const [proxy,text,target]of [['out','−','[data-zoom="out"]'],['reset','100%','[data-zoom="reset"]'],['in','+','[data-zoom="in"]'],['fit','⤢','[data-fit]']]){
+  const b=document.createElement('button');b.type='button';b.dataset.proxy=proxy;b.textContent=text;
+  b.title=root.querySelector(target)?.getAttribute('aria-label')||root.querySelector(target)?.title||root.querySelector(target)?.textContent||'';
+  b.onclick=()=>root.querySelector(target)?.click();zoom.append(b);
+ }
+ const scale=root.querySelector('[data-zoom="reset"]');
+ if(scale)observe(scale,()=>{zoom.querySelector('[data-proxy="reset"]').textContent=scale.textContent;},{childList:true,characterData:true,subtree:true});
+ corner.append(saved,zoom,problems);$('.preview-pane').append(corner);
  let lastCount=0;
  observe($('#problem-count'),()=>{const count=Number($('#problem-count').textContent)||0;problems.textContent=`⚠ ${count}`;problems.classList.toggle('bad',count>0);if(count>lastCount)toggle('problems',true);lastCount=count;},{childList:true,characterData:true,subtree:true});
  observe($('#saved'),()=>{const text=$('#saved').textContent;saved.textContent=/Не сохранено|повреждён/.test(text)?text:'';},{childList:true,characterData:true,subtree:true});
