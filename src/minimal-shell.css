@@ -63,3 +63,29 @@ body.minimal kbd{font:inherit;font-size:10px;padding:1px 4px;border:1px solid va
 .palette-item kbd:empty{display:none}
 .palette-item kbd{color:var(--m-muted,#798398);border:0}
 .palette-empty{padding:12px;font-size:13px;color:var(--m-muted,#798398)}
+
+/* Inspector: one line per property, name left and value right; the remove action and the
+   design-layer badge stay out of the way until the row is hovered. */
+body.minimal #inspector h3{font-size:14px;margin:6px 0 2px}
+body.minimal #inspector .inspector-label{margin:18px 0 8px}
+body.minimal #inspector .property{display:grid;grid-template-columns:78px minmax(0,1fr) 20px;align-items:center;column-gap:6px;row-gap:3px;margin:0 0 6px;position:relative}
+body.minimal #inspector .property>span:first-child{grid-column:1;grid-row:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.minimal #inspector .property>:is(input:not([type=color]),output){grid-column:2;grid-row:1;margin:0;padding:4px 6px}
+body.minimal #inspector .property>input[type=color]{grid-column:2;grid-row:1;justify-self:end;z-index:1;width:16px;height:16px;min-height:16px;margin-right:5px;padding:0;border:0;border-radius:3px;background:transparent}
+body.minimal #inspector .property>small{grid-column:2/-1;margin:0}
+body.minimal #inspector .property>.color-chip{display:none}
+body.minimal #inspector .property-remove{grid-column:3;grid-row:1;margin:0;padding:0;width:20px;height:20px;border:0;background:transparent;opacity:0;transition:opacity .12s}
+body.minimal #inspector .property:is(:hover,:focus-within) .property-remove{opacity:.8}
+body.minimal #inspector .property-layer{grid-column:1;grid-row:1;justify-self:end;width:6px;height:6px;padding:0;margin:0;border:0;border-radius:50%;background:var(--m-accent);font-size:0}
+body.minimal #inspector .property.state,body.minimal #inspector .property.base{box-shadow:none}
+body.minimal #inspector .property.binding,body.minimal #inspector .property.handler{border-top:0;padding-top:0}
+body.minimal #inspector .property-add{grid-template-columns:1fr 1fr;border-top:0;margin-top:10px;padding-top:0}
+body.minimal #inspector .property-add>button,body.minimal #inspector .property-add>small{grid-column:1/-1}
+
+/* Zoom lives in the canvas corner. */
+body.minimal .zoom-pill{display:flex;align-items:center;gap:1px;padding:2px;border:1px solid var(--m-border);border-radius:999px;background:var(--m-surface)}
+body.minimal .zoom-pill button{font-size:11px;padding:2px 7px;border-radius:999px;color:var(--m-muted);min-height:0}
+body.minimal .zoom-pill button:hover{color:var(--m-text)}
+body.minimal .zoom-pill [data-proxy="reset"]{min-width:44px}
+body.minimal .inspector{bottom:auto;max-height:calc(100% - 16px);padding-bottom:12px}
+body.minimal.has-selection:not(.running) .canvas-corner{right:280px}
