@@ -1,0 +1,65 @@
+/* Minimal layout: the canvas fills the window, every other surface is on demand. */
+body.minimal{--m-surface:var(--guide-surface,#17191f);--m-raised:var(--guide-surfaceRaised,#1d212a);--m-border:var(--guide-border,#2a2d35);--m-text:var(--guide-text,#c3cada);--m-muted:var(--guide-textMuted,#798398);--m-accent:var(--guide-primary,#8ca5ff);--m-danger:var(--guide-dangerInk,#f2959f)}
+body.minimal header{min-height:48px;height:48px;flex-wrap:nowrap;padding:0 14px;gap:10px;border-bottom:0;background:transparent;position:relative}
+body.minimal .brand{width:auto;font-size:17px}
+body.minimal .brand small{display:none}
+body.minimal .project-title{flex:1;display:flex;align-items:center;gap:2px;font-size:13px}
+body.minimal .project-title>span{display:none}
+body.minimal .project-menu-button{padding:2px 6px;color:var(--m-muted)}
+body.minimal .project-menu{position:absolute;top:44px;left:120px;z-index:60;display:flex;flex-direction:column;align-items:stretch;gap:2px;min-width:220px;padding:6px;background:var(--m-raised);border:1px solid var(--m-border);border-radius:8px;box-shadow:0 16px 40px #0008}
+body.minimal .project-menu[hidden]{display:none}
+body.minimal .project-menu>*{text-align:left;width:100%}
+body.minimal #run{width:34px;height:34px;min-height:34px;padding:0;border-radius:50%;font-size:13px}
+
+/* Workspace: canvas only by default. */
+body.minimal .workspace{position:relative}
+body.minimal footer,body.minimal .explorer-note,body.minimal .preview-caption,body.minimal .pane-toolbar,body.minimal .debug-info,body.minimal #scenario,body.minimal #renderer{display:none!important}
+body.minimal .preview-pane>.pane-toolbar{display:none!important}
+body.minimal .studio-canvas-toolbar,body.minimal .preview-tools,body.minimal .canvas-tools{display:none!important}
+body.minimal .preview-pane{position:relative}
+
+/* Code: split on demand. */
+body.minimal .tabs,body.minimal .code-pane{display:none}
+body.minimal.show-code .code-pane{display:flex}
+body.minimal.show-code main>.tabs{display:flex;height:34px}
+
+/* Layers and files: overlay on the left. */
+body.minimal .explorer{position:absolute;left:8px;top:8px;bottom:8px;z-index:40;width:260px;border:1px solid var(--m-border);border-radius:10px;box-shadow:0 16px 40px #0007;overflow:auto;display:none}
+body.minimal.show-layers .explorer{display:block}
+
+/* Inspector: floating, only while something is selected; run panel while running. */
+body.minimal .inspector{position:absolute;right:8px;top:8px;bottom:8px;z-index:30;width:260px;border:1px solid var(--m-border);border-radius:10px;box-shadow:0 16px 40px #0006;display:none;overflow:auto}
+body.minimal.has-selection:not(.running) .inspector{display:block}
+body.minimal .inspector>.section-title{display:none}
+body.minimal #inspector{max-height:none;padding-top:8px}
+
+/* Problems, events and state: bottom drawer. Running shows it as the run panel. */
+body.minimal .bottom{position:absolute;left:8px;right:8px;bottom:8px;z-index:35;height:220px;border:1px solid var(--m-border);border-radius:10px;box-shadow:0 -10px 40px #0006;display:none}
+body.minimal.show-problems .bottom,body.minimal.running .bottom{display:block}
+body.minimal #output{height:178px}
+
+body.minimal .state-tabs{display:flex;justify-content:center;gap:2px;padding:10px 0 0;flex:none}
+body.minimal .state-tabs[hidden]{display:none}
+body.minimal .state-tabs button{font-size:12px;padding:4px 10px;border-radius:999px;color:var(--m-muted)}
+body.minimal .state-tabs button[aria-selected="true"]{color:var(--m-text);background:var(--m-raised)}
+
+body.minimal .canvas-corner{position:absolute;right:12px;bottom:12px;z-index:25;display:flex;gap:8px;align-items:center;font-size:11px}
+body.minimal .problems-badge{font-size:11px;padding:3px 8px;color:var(--m-muted);opacity:.6}
+body.minimal .problems-badge.bad{color:var(--m-danger);opacity:1}
+body.minimal .save-warning{color:var(--m-danger)}
+body.minimal.show-problems .canvas-corner,body.minimal.running .canvas-corner{bottom:240px}
+
+body.minimal .minimal-hints{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);font-size:11px;color:var(--m-muted);white-space:nowrap;pointer-events:none;transition:opacity .4s}
+body.minimal.used-shortcut .minimal-hints,body.minimal.running .minimal-hints,body.minimal.show-problems .minimal-hints{opacity:0}
+body.minimal kbd{font:inherit;font-size:10px;padding:1px 4px;border:1px solid var(--m-border);border-radius:4px;color:var(--m-text)}
+
+.palette{position:fixed;inset:0;z-index:100;background:#0006;display:flex;justify-content:center;align-items:flex-start;padding-top:14vh}
+.palette[hidden]{display:none}
+.palette-box{width:min(560px,92vw);background:var(--m-raised,#1d212a);border:1px solid var(--m-border,#2a2d35);border-radius:12px;box-shadow:0 24px 60px #000a;overflow:hidden}
+.palette input{width:100%;border:0;outline:0;background:transparent;color:var(--m-text,#c3cada);font-size:15px;padding:14px 16px;border-bottom:1px solid var(--m-border,#2a2d35)}
+.palette-list{max-height:50vh;overflow:auto;padding:6px}
+.palette-item{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--m-text,#c3cada)}
+.palette-item[aria-selected="true"]{background:var(--guide-surfaceHover,#272e3d)}
+.palette-item kbd:empty{display:none}
+.palette-item kbd{color:var(--m-muted,#798398);border:0}
+.palette-empty{padding:12px;font-size:13px;color:var(--m-muted,#798398)}
