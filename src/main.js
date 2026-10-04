@@ -1,6 +1,7 @@
 import {readStorage,writeStorage,validateProject,restoreProject,writeProject} from './browser-storage.js';
 import {studioControlsProject} from './studio-controls-builtin.js';
 import {mountStudioShell} from './studio-shell.js';
+import {mountMinimalShell} from './minimal-shell.js';
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
 const storageKey=name=>isStudioControls?name+':studio-controls-guide':name;
 import {designPreset,collectionScenario} from './design-presets.js';
@@ -469,8 +470,9 @@ bulkEditor=createBulkEditor({container:$('inspector'),
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);
 let studioShell,shellDisposed=false;
+const minimalShell=mountMinimalShell(document.querySelector('#app'),{newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
-import.meta.hot?.dispose(()=>{shellDisposed=true;clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();});
+import.meta.hot?.dispose(()=>{shellDisposed=true;minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();});
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
 rendererPicker.onchange=()=>{renderer=rendererPicker.value;writeStorage('localStorage',storageKey('forma-renderer'),renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
 function initVector(){
