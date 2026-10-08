@@ -3,6 +3,8 @@ import {studioControlsProject} from './studio-controls-builtin.js';
 import {sampleProject} from './sample-project.js';
 import {mountStudioShell} from './studio-shell.js';
 import {mountMinimalShell} from './minimal-shell.js';
+import {createStudioEvents,studioEventTypes} from './studio-events.js';
+const studioEvents=createStudioEvents();
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
 const storageKey=name=>isStudioControls?name+':studio-controls-guide':name;
 import {designPreset,collectionScenario} from './design-presets.js';
@@ -86,10 +88,11 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
   button.onclick=()=>{const url=URL.createObjectURL(new Blob([recovery],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
   $('export').after(button);
  }
- if(damaged!==null)$('saved').textContent='Сохранённый проект повреждён: открыта исходная версия';
+ if(damaged!==null)saveStatus('damaged','Сохранённый проект повреждён: открыта исходная версия');
 }
 function resetProjectEditing(){clearTimeout(saveTimer);clearTimeout(compileTimer);saveTimer=compileTimer=undefined;setDesignData({});codeEditor?.resetProject();}
-function persist(){try{if(!writeProject(storageKey('forma-project'),files))throw Error('Storage unavailable');$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
+function saveStatus(status,text){$('saved').textContent=text;studioEvents.emit(studioEventTypes.save,{status,text});}
+function persist(){try{if(!writeProject(storageKey('forma-project'),files))throw Error('Storage unavailable');saveStatus('saved','Сохранено');}catch{saveStatus('unsaved','Не сохранено: экспортируйте проект');}}
 function tree(){const buttons=[...$('tree').querySelectorAll('[data-path]')],paths=Object.keys(files),existing=new Set(buttons.map(b=>b.dataset.path));
  if(buttons.length===paths.length&&paths.every(path=>existing.has(path))){for(const b of buttons)b.classList.toggle('active',b.dataset.path===active);return;}
  const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
@@ -118,7 +121,7 @@ function highlightSource(){
   layer.dataset.lines=`${first+1}-${last+1}`;
 }
 function log(text){logs.push({time:new Date().toLocaleTimeString(),text});if(logs.length>200)logs.shift();output();}
-function output(){$('problem-count').textContent=error?1:0;$('event-count').textContent=logs.length;$('output').innerHTML=tab==='state'?`<pre>${esc(JSON.stringify(state,null,2))}</pre>`:tab==='events'?logs.map(l=>`<div class="log"><time>${l.time}</time>${esc(l.text)}</div>`).join('')||'<p class="muted">События появятся при взаимодействии с предпросмотром.</p>':error?`<p class="error">● ${esc(error)}</p>`:'<p class="ok">✓ Разметка проверена. Ошибок нет.</p>';diagnosticLinks();}
+function output(){$('problem-count').textContent=error?1:0;studioEvents.emit(studioEventTypes.problems,{count:error?1:0});$('event-count').textContent=logs.length;$('output').innerHTML=tab==='state'?`<pre>${esc(JSON.stringify(state,null,2))}</pre>`:tab==='events'?logs.map(l=>`<div class="log"><time>${l.time}</time>${esc(l.text)}</div>`).join('')||'<p class="muted">События появятся при взаимодействии с предпросмотром.</p>':error?`<p class="error">● ${esc(error)}</p>`:'<p class="ok">✓ Разметка проверена. Ошибок нет.</p>';diagnosticLinks();}
 function diagnosticLinks(){
  if(tab!=='problems'||sourceDiagnostic?.message!==error)return;
  for(const [label,source]of [['К ошибке',sourceDiagnostic.source],['К определению узла',sourceDiagnostic.related]]){
@@ -168,6 +171,7 @@ if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySele
 // The panel is rebuilt from one place so every change of selection or of the preview preset
 // recomputes `editable`: rows that write markup must not survive a switch to a design scenario.
 function renderInspector(){
+  studioEvents.emit(studioEventTypes.selection,{selected:!!(selected&&selectedPath&&Object.hasOwn(files,selectedPath))});
   // With nothing selected the panels have to say so rather than keep the rows of the control that is
   // gone: those rows would write into markup the file no longer holds.
   if(!selected||!selectedPath||!Object.hasOwn(files,selectedPath)){propertyInspector?.render({node:null,editable:false});bulkEditor?.render({starts:[],editable:false});return;}
@@ -280,10 +284,10 @@ function showNativeInspection(data){
 function dispatch(action,n,event='clicked'){if(pending){log('Событие пропущено: debugger приостановлен');return;}const args=(n.eventArgExpressions?.[event]??n.eventArgs?.[event]??[]).map(value=>evaluate(value,compiled.defaults,state,[],false,n.environment));log(`Событие ${n.type}.${event} → ${action}(${args.map(value=>JSON.stringify(value)).join(', ')})`);if(breakOn){pending={action,n};$('continue').disabled=false;$('debug-status').textContent='Пауза перед '+action;tab='state';syncTabs();output();return;}execute(action);}
 function execute(action){if(action==='actions.search'){state.status=`Дизайн-обработчик: запрос «${state.query||'пусто'}»`;log('Выполнен дизайн-обработчик search (без Rust/backend)');}else log(`Обработчик ${action} не подключён`);render();output();}
 function syncTabs(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));}
-$('code').oninput=()=>{files[active]=$('code').value;lines();$('saved').textContent='Изменено';clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);clearTimeout(compileTimer);compileTimer=setTimeout(()=>compile(active.endsWith('.design.ui')),250);};$('code').onscroll=()=>{$('lines').scrollTop=$('code').scrollTop;};$('code').onclick=lines;$('code').onkeyup=lines;
+$('code').oninput=()=>{files[active]=$('code').value;lines();saveStatus('changed','Изменено');clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);clearTimeout(compileTimer);compileTimer=setTimeout(()=>compile(active.endsWith('.design.ui')),250);};$('code').onscroll=()=>{$('lines').scrollTop=$('code').scrollTop;};$('code').onclick=lines;$('code').onkeyup=lines;
 $('code').onkeydown=e=>{if(e.key==='Tab'){e.preventDefault();const el=e.target;el.setRangeText('    ',el.selectionStart,el.selectionEnd,'end');el.dispatchEvent(new Event('input'));}if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();persist();}};
 $('scenario').onchange=e=>{scenario=Number(e.target.value);compile(true);};$('entry').onclick=()=>{if(renderer==='vector'&&active==='components/Button.ui'){compile();return;}entry=active;scenario=0;compile(true);};
-$('run').onclick=()=>{mode=mode==='design'?'interact':'design';writeStorage('sessionStorage',storageKey('forma-canvas-mode'),mode);$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
+$('run').onclick=()=>{mode=mode==='design'?'interact':'design';writeStorage('sessionStorage',storageKey('forma-canvas-mode'),mode);studioEvents.emit(studioEventTypes.mode,{mode});$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
 $('desktop').onclick=()=>{$('preview').style.width='520px';$('desktop').classList.add('chosen');$('mobile').classList.remove('chosen');};$('mobile').onclick=()=>{$('preview').style.width='320px';$('mobile').classList.add('chosen');$('desktop').classList.remove('chosen');};$('theme').onclick=()=>$('preview').classList.toggle('light');
 $('break').onchange=e=>breakOn=e.target.checked;$('continue').onclick=()=>{if(pending){const p=pending;pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';execute(p.action);}};$('reset').onclick=()=>{pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';compile(true);log('Состояние предпросмотра восстановлено');};
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();output();});
@@ -400,7 +404,8 @@ bulkEditor=createBulkEditor({container:$('inspector'),
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);
 let studioShell,shellDisposed=false;
-const minimalShell=mountMinimalShell(document.querySelector('#app'),{newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
+studioEvents.emit(studioEventTypes.mode,{mode});
+const minimalShell=mountMinimalShell(document.querySelector('#app'),{events:studioEvents,newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
 import.meta.hot?.dispose(()=>{shellDisposed=true;minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();});
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
