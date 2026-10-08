@@ -1,5 +1,6 @@
 import {readStorage,writeStorage,validateProject,restoreProject,writeProject} from './browser-storage.js';
 import {studioControlsProject} from './studio-controls-builtin.js';
+import {sampleProject} from './sample-project.js';
 import {mountStudioShell} from './studio-shell.js';
 import {mountMinimalShell} from './minimal-shell.js';
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
@@ -56,78 +57,7 @@ let activeTreeDocument=null;
 let renderer=isStudioControls||readStorage('localStorage',storageKey('forma-renderer'))==='vector'?'vector':'html';
 import {parse,resolve,validateDesign,designStatePatch} from './language.js';
 
-const initial={
- 'ui/SearchWindow.ui':`#[design('./SearchWindow.design.ui')]
-component SearchWindow {
-    Frame {
-        padding: 32;
-        gap: 16;
-
-        Text {
-            text: 'Библиотека знаний';
-            font.size: 26;
-            color: #e8edf7;
-        }
-
-        Text {
-            text: 'Найдите ответ в ваших документах';
-            color: #98a4ba;
-        }
-
-        TextInput {
-            key: 'query';
-            value <-> state.query;
-            placeholder: 'Что найти?';
-            padding: 12;
-        }
-
-        Button {
-            key: 'searchButton';
-            style: primary;
-            text: 'Найти документы';
-            disabled: state.loading;
-            clicked -> actions.search();
-        }
-
-        Text {
-            key: 'status';
-            text: state.status;
-            color: '#98a4ba';
-        }
-    }
-}`,
- 'ui/SearchWindow.design.ui':`design SearchWindow {
-    TextInput { key: 'query'; value: ''; }
-    Button { key: 'searchButton'; disabled: false; }
-    Text { key: 'status'; text: '24 документа в библиотеке'; }
-
-    state 'поиск' {
-        TextInput { key: 'query'; value: 'Архитектура'; }
-        Text { key: 'status'; text: 'Ищем…'; }
-    }
-
-    state 'нет результатов' {
-        Button { key: 'searchButton'; disabled: true; }
-        Text { key: 'status'; text: 'Ничего не найдено'; }
-    }
-}`, 
- 'src/actions.rs':`// Контракт будущего Rust-backend.
-// Этот файл редактируется, но не выполняется в web-preview.
-
-pub struct SearchState {
-    pub query: String,
-    pub loading: bool,
-    pub status: String,
-}
-
-pub fn search(state: &mut SearchState) {
-    state.loading = true;
-    // Подключите прикладной сервис поиска.
-}
-`,
- 'README.md':'# Knowledge workspace\n\n.ui — разметка.\n.design.ui — состояния предпросмотра.\n\nОтладчик останавливается перед событием UI.\nПродолжить — применяет демонстрационный обработчик.\nRust-код требует будущей интеграции DAP.\n'
-};
-const initialProject=isStudioControls?studioControlsProject:initial;
+const initialProject=isStudioControls?studioControlsProject:sampleProject;
 let files=restoreProject(readStorage('localStorage',storageKey('forma-project')),initialProject);
 files['Cargo.toml']??=`[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
 files['src/main.rs']??=`mod actions;\n\nfn main() {\n    let mut state = actions::SearchState {\n        query: String::from("Архитектура"),\n        loading: false,\n        status: String::from("Готов"),\n    };\n    println!("Rust-приложение запущено");\n    println!("Запрос: {}", state.query);\n    actions::search(&mut state);\n    println!("После actions::search: loading={}, status={}", state.loading, state.status);\n}\n`;

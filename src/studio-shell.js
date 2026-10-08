@@ -6,6 +6,8 @@ import {materializeTheme,themes} from '../vector-ui/controls/tokens.js';
 import './studio-shell.css';
 import {createShellPainter} from './studio-shell-painter.js';
 import {canvasIcon} from './studio-canvas-icons.js';
+import {createEventScope} from './event-scope.js';
+import {collapseText,glyphPrefix} from './control-label.js';
 
 const raw=import.meta.glob('../vector-ui/controls/{components,assets}/*',{query:'?raw',import:'default',eager:true});
 const library=materializeTheme(Object.fromEntries(Object.entries(raw).map(([path,value])=>[path.slice('../vector-ui/controls/'.length),value])),'dark');
@@ -20,9 +22,9 @@ export async function mountStudioShell(root){
  const wasm=await loadVectorRuntime(),cache=createCacheBudget(),compile=createComponentCompiler({cache});
  const previewTools=root.querySelector('.preview-tools'),canvasTools=root.querySelector('.canvas-tools');
  let compactToolbar=null;if(previewTools&&canvasTools){compactToolbar=document.createElement('div');compactToolbar.className='studio-canvas-toolbar';previewTools.before(compactToolbar);compactToolbar.append(previewTools,canvasTools);}
- const records=new Map();let dirty=new Set(),spare=new Set();const listeners=new AbortController();let frame=0,lastTime=0,stopped=false,proximityPosition=null,proximityDirty=false;
+ const records=new Map();let dirty=new Set(),spare=new Set();const scope=createEventScope();let frame=0,lastTime=0,stopped=false,proximityPosition=null,proximityDirty=false;
  const painter=createShellPainter(document),compileFiles={...library},metrics={measureText:wasm.text_metrics},motion=matchMedia('(prefers-reduced-motion: reduce)');
- const listen=(target,event,callback)=>target.addEventListener(event,callback,{signal:listeners.signal});
+ const listen=scope.listen;
  function eligible(el){return el.matches(selector)&&!el.closest('#preview,.cm-editor,.color-picker,#native-inspection')&&!el.hidden&&!(el.tagName==='INPUT'&&el.closest('.source-editor'));}
  function kind(el){
   if(canvasIcon(el))return 'icon';
@@ -41,8 +43,8 @@ export async function mountStudioShell(root){
  }
  function describe(el){
   const k=kind(el),bounds=el.getBoundingClientRect();
-  let text=el.textContent.replace(/\s+/g,' ').trim();
-  if(k!=='tree')text=text.replace(/^[▶⌖↻↺☷◐◇↑↓✓●]+\s*/u,'');
+  let text=collapseText(el.textContent);
+  if(k!=='tree')text=text.replace(glyphPrefix,'');
   if(k==='tree')text=el.matches('.file')?el.dataset.path.split('/').at(-1):[el.querySelector('.control-tree-label')?.textContent,el.querySelector('.control-tree-detail')?.textContent].filter(Boolean).join(' ');
   if(k==='select')text=el.selectedOptions[0]?.textContent??'';
   if(k==='status')text=[el.querySelector('#status')?.textContent,'Forma UI · UTF-8',el.querySelector('#position')?.textContent].join('\n');
@@ -92,15 +94,15 @@ export async function mountStudioShell(root){
   batch.clear();spare=batch;
   if(dirty.size)frame=requestAnimationFrame(draw);
  }
- const resize=new ResizeObserver(entries=>{for(const {target}of entries)request(target,true);});
- const visible=new IntersectionObserver(entries=>{for(const entry of entries){const rec=records.get(entry.target);if(!rec)continue;rec.visible=entry.isIntersecting;if(rec.visible)request(entry.target,true);else{release(rec);rec.surface.suspend();}}});
+ const resize=scope.resize(entries=>{for(const {target}of entries)request(target,true);});
+ const visible=scope.intersect(entries=>{for(const entry of entries){const rec=records.get(entry.target);if(!rec)continue;rec.visible=entry.isIntersecting;if(rec.visible)request(entry.target,true);else{release(rec);rec.surface.suspend();}}});
  function register(el){if(records.has(el)||!eligible(el))return;const icon=canvasIcon(el);if(icon){el.classList.add('studio-canvas-icon');el.setAttribute('aria-label',icon[2]);el.title=icon[2]+(el.title&&el.title!==icon[2]?' — '+el.title:'');}
  records.set(el,{visible:false,model:null,signature:'',specDirty:true,surface:painter.surface(el)});el.classList.add('forma-host-control');if(kind(el)==='field')el.classList.add('forma-host-input');resize.observe(el);visible.observe(el);}
  function scan(){
   root.querySelectorAll(selector).forEach(register);
   for(const [el,rec]of records)if(!el.isConnected){release(rec);rec.surface.destroy();resize.unobserve(el);visible.unobserve(el);records.delete(el);dirty.delete(el);}
  }
- const mutations=new MutationObserver(entries=>{
+ const mutations=scope.observe(root,entries=>{
   let removed=false;
   for(const entry of entries){
    const target=entry.target.nodeType===1?entry.target:entry.target.parentElement;
@@ -113,8 +115,7 @@ export async function mountStudioShell(root){
    for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el)){request(el,true);break;}
   }
   if(removed)for(const [el,rec]of records)if(!el.isConnected){release(rec);rec.surface.destroy();resize.unobserve(el);visible.unobserve(el);records.delete(el);dirty.delete(el);}
- });
- mutations.observe(root,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','class','value']});
+  },{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','class','value']},{immediate:false});
  function owner(target){for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el))return el;}
  function pointer(event,phase){const el=owner(event.target),rec=records.get(el);if(!rec?.model||kind(el)==='field')return;
   const bounds=el.getBoundingClientRect();rec.model.pointer(event.clientX-bounds.left,event.clientY-bounds.top,phase);if(event.pointerType==='touch')rec.model.reveal_pointer(0,0,false);request(el);
@@ -123,7 +124,7 @@ export async function mountStudioShell(root){
  listen(window,'pointerout',e=>{if(!e.relatedTarget)proximity(null);});
  listen(window,'blur',()=>proximity(null));
  listen(window,'resize',()=>{for(const el of records.keys())request(el,true);proximityDirty=true;if(!frame&&!stopped)frame=requestAnimationFrame(draw);});
- root.addEventListener('scroll',()=>{proximityDirty=true;if(!frame&&!stopped)frame=requestAnimationFrame(draw);},{capture:true,signal:listeners.signal});
+ listen(root,'scroll',()=>{proximityDirty=true;if(!frame&&!stopped)frame=requestAnimationFrame(draw);},{capture:true});
  listen(root,'pointermove',e=>pointer(e,0));listen(root,'pointerdown',e=>pointer(e,1));listen(root,'pointerup',e=>pointer(e,2));
  listen(root,'pointerout',e=>{const el=owner(e.target);if(el&&!el.contains(e.relatedTarget)){const model=records.get(el)?.model;model?.pointer(-1000,-1000,3);if(model)updateReveal(el,model);request(el);}});
  listen(root,'focusin',e=>{const el=owner(e.target);if(el&&kind(el)!=='field')records.get(el)?.model?.focus(true);request(el);});
@@ -132,5 +133,5 @@ export async function mountStudioShell(root){
  for(const event of ['change','input','click'])listen(root,event,e=>{const el=owner(e.target);request(el,true);});
  listen(motion,'change',()=>{for(const [el,rec]of records){rec.model?.set_reduced_motion(motion.matches);request(el);}});
  scan();
- return {destroy(){stopped=true;cancelAnimationFrame(frame);listeners.abort();mutations.disconnect();resize.disconnect();visible.disconnect();for(const [el,rec]of records){release(rec);rec.surface.destroy();el.classList.remove('forma-native-surface','forma-host-control','forma-host-input');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;}records.clear();dirty.clear();spare.clear();cache.clear();painter.destroy();if(compactToolbar)compactToolbar.replaceWith(...compactToolbar.childNodes);document.body.classList.remove('forma-studio-ui');},snapshot(){return [...records].map(([el,rec])=>({type:el.dataset.formaComponent,visible:rec.visible,error:rec.failed??null}));}};
+ return {destroy(){stopped=true;cancelAnimationFrame(frame);scope.dispose();for(const [el,rec]of records){release(rec);rec.surface.destroy();el.classList.remove('forma-native-surface','forma-host-control','forma-host-input');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;}records.clear();dirty.clear();spare.clear();cache.clear();painter.destroy();if(compactToolbar)compactToolbar.replaceWith(...compactToolbar.childNodes);document.body.classList.remove('forma-studio-ui');},snapshot(){return [...records].map(([el,rec])=>({type:el.dataset.formaComponent,visible:rec.visible,error:rec.failed??null}));}};
 }

@@ -1,4 +1,6 @@
 import './minimal-shell.css';
+import {createEventScope} from './event-scope.js';
+import {controlLabel} from './control-label.js';
 
 // Minimal layout: only the canvas, the state tabs and the selection stay on screen.
 // Every other surface keeps its existing DOM and handlers and is revealed on demand,
@@ -7,9 +9,7 @@ export function mountMinimalShell(root,{newFile,clearSelection}={}){
  const $=selector=>root.querySelector(selector);
  const body=document.body,header=$('header'),run=$('#run');
  body.classList.add('minimal');
- const listeners=new AbortController(),observers=[];
- const listen=(target,event,callback,options={})=>target.addEventListener(event,callback,{...options,signal:listeners.signal});
- const observe=(target,callback,options)=>{const o=new MutationObserver(callback);o.observe(target,options);observers.push(o);callback();};
+ const scope=createEventScope(),listen=scope.listen,observe=scope.observe;
  const panels={code:'show-code',layers:'show-layers',problems:'show-problems'};
  const toggle=(name,force)=>{body.classList.toggle(panels[name],force);if(name==='code'&&body.classList.contains('show-code'))(root.querySelector('.cm-content')??$('#code'))?.focus();};
 
@@ -70,7 +70,7 @@ export function mountMinimalShell(root,{newFile,clearSelection}={}){
  body.append(palette);
  const input=palette.querySelector('input'),list=palette.querySelector('.palette-list');
  let items=[],shown=[],index=0;
- const name=el=>(el.getAttribute('aria-label')||el.textContent.trim()||el.title).replace(/\s+/g,' ').replace(/^[▶⌖↻↺☷◐◇↑↓✓●]+\s*/u,'').trim();
+ const name=controlLabel;
  const usable=el=>!el.disabled&&!el.closest('.palette,#preview,.project-menu-button')&&name(el);
  function commands(){
   const out=[
@@ -132,5 +132,5 @@ export function mountMinimalShell(root,{newFile,clearSelection}={}){
   else if(e.key==='/'){e.preventDefault();openPalette('insert');}
  },{capture:true});
 
- return {toggle,openPalette,destroy(){listeners.abort();for(const o of observers)o.disconnect();palette.remove();tabs.remove();corner.remove();hints.remove();menu.remove();menuButton.remove();body.classList.remove('minimal',...Object.values(panels),'has-selection','running','used-shortcut');}};
+ return {toggle,openPalette,destroy(){scope.dispose();palette.remove();tabs.remove();corner.remove();hints.remove();menu.remove();menuButton.remove();body.classList.remove('minimal',...Object.values(panels),'has-selection','running','used-shortcut');}};
 }
