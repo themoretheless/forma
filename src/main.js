@@ -5,6 +5,7 @@ import {mountStudioShell} from './studio-shell.js';
 import {mountMinimalShell} from './minimal-shell.js';
 import {createStudioEvents,studioEventTypes} from './studio-events.js';
 import {createIdeCommands} from './mcp-commands.js';
+import {renderHtmlPreview} from './html-preview.js';
 const studioEvents=createStudioEvents();
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
 const storageKey=name=>isStudioControls?name+':studio-controls-guide':name;
@@ -33,13 +34,10 @@ import {createBulkEditor} from './bulk-edit.js';
 import {designReferencesInFiles} from './design-data.js';
 import {insertableControls} from './control-catalog.js';
 import {createSpacingOverlay} from './spacing-overlay.js';
-import {gridProperties,gridStyles} from './grid.js';
-import {takesCoordinates,coordinateShift} from './positioning.js';
-import {sizeProperties,sizeValue} from './sizing.js';
 import {nativeSnapshot} from './native-snapshot.js';
 import {loadVectorRuntime,createVectorPreview} from './vector-preview.js';
 import {createComponentCompiler,sceneControlNodes} from './components.js';
-import {expandStructure,evaluate} from './component-semantics.js';
+import {evaluate} from './component-semantics.js';
 import {writePreviewBinding} from './preview-state.js';
 let previewRefreshPending=false,lastPreviewControls=[];
 function schedulePreviewRefresh(){if(previewRefreshPending)return;previewRefreshPending=true;queueMicrotask(()=>{previewRefreshPending=false;try{render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}output();});}
@@ -148,27 +146,8 @@ if(renderer==='vector'){
   if(designMode&&designPresetName!=='original')$('caption').textContent='Дизайнерский сценарий · исходник не изменён · редактирование частей отключено';
   $('canvas').classList.toggle('interacting',!designMode);canvasTools?.update();layoutInspector?.update();elementTools?.update();return;
 }
-const preview=$('preview');preview.classList.remove('vector-artboard');preview.style.backgroundColor='';preview.style.borderRadius='';preview.style.minHeight='';const cssMap={'padding':'padding','margin':'margin','gap':'gap','overflow':'overflow','background':'background','color':'color','width':'width','height':'height','radius':'borderRadius','font.size':'fontSize','opacity':'opacity'};
-// Controls whose drawing the scene moves out of its flow slot, in document order so a moved
-// container is measured after its own shift landed.
-const freeNodes=[];
-// One design file holds several states; the switcher index picks which patch lies over the base.
-const activeDesign=designMode?designStatePatch(compiled,compiled.states[scenario]?.name):null;
-for(const kind of ['padding','margin'])for(const side of ['top','right','bottom','left'])cssMap[`${kind}.${side}`]=kind+side[0].toUpperCase()+side.slice(1);
-function make(source,parent=null,parentEl=null){const override=activeDesign&&Object.hasOwn(activeDesign,source.props.key)?activeDesign[source.props.key]:null;const n={...source,props:{...source.props,...override}};const types={Frame:'div',Column:'div',Row:'div',Grid:'div',Stack:'div',Scroll:'div',Text:'div',TextInput:'input',TextField:'input',Checkbox:'input',Slider:'input',Button:'button',Panel:'div'};if(!types[n.type])throw Error(`Компонент ${n.type} пока не поддерживается`);const el=document.createElement(types[n.type]);el.dataset.start=n.start;el.className='ui-node '+n.type.toLowerCase();if(n.type==='Checkbox')el.type='checkbox';if(n.type==='Slider')el.type='range';if(n.type==='Stack'){el.style.display='grid';}if(n.type==='Scroll')el.style.overflow='auto';if(n.type==='Frame'||n.type==='Column'||n.type==='Row'){el.style.display='flex';el.style.flexDirection=n.type==='Row'?'row':'column';}for(const [k,v]of Object.entries(n.props)){const x=resolve(v,state);if(k==='key'){el.dataset.key=x;continue;}if(k==='clip'){if(!['Frame','Row','Column','Grid','Stack'].includes(n.type)||typeof x!=='boolean')throw Error('Frame.clip ожидает true или false');if('overflow' in n.props)throw Error('Используйте clip или overflow, не оба');el.style.overflow=x?'clip':'visible';continue;}if(gridProperties.has(k)||k==='x'||k==='y')continue;else if(sizeProperties.has(k)){if(typeof x==='string'&&/^(?:\d+(?:\.\d+)?)?\*$/.test(x)&&((parent?.type==='Row'&&k==='width')||(['Column','Frame'].includes(parent?.type)&&k==='height'))){el.style.flex=`${x==='*'?1:Number(x.slice(0,-1))} 1 0px`;el.style[k==='width'?'minWidth':'minHeight']='0';}else el.style[k]=sizeValue(x);}else if(k==='text')el.textContent=x??'';else if(k==='value')el.value=x??'';else if(k==='placeholder')el.placeholder=x;else if(k==='disabled')el.disabled=!!x;else if(k==='checked'||k==='selected')el.checked=!!x;else if(k==='style')el.classList.add(String(x));else if(cssMap[k])el.style[cssMap[k]]=typeof x==='number'&&k!=='opacity'?x+'px':Array.isArray(v)?v.map(a=>typeof a==='number'?a+'px':resolve(a,state)).join(' '):x;else throw Error(`Свойство ${k} пока не поддерживается`);}
-for(const [key,path]of Object.entries(n.bindings)){if(!['value','checked','selected'].includes(key))throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);const property=key==='value'?'value':'checked';el[property]=n.props[key]??(property==='value'?'':false);el.addEventListener('input',()=>{const value=property==='checked'?el.checked:n.type==='Slider'?Number(el.value):el.value;if(writePreviewBinding(state,n,path,value,{createMissing:true})){log(`${path} = ${JSON.stringify(value)}`);if(n.events.changed)dispatch(n.events.changed,n,'changed');schedulePreviewRefresh();}});}
-el.addEventListener('click',e=>{e.stopPropagation();if(mode==='design'){select(source);return;}if(n.events.clicked)dispatch(n.events.clicked,n);});Object.assign(el.style,gridStyles(n,state,parent));
-if(takesCoordinates(n,parent))freeNodes.push([n,parent,parentEl,el]);
-for(const child of n.children)el.append(make(child,n,el));
-return el;}
-const focused=document.activeElement;const focusIdentity=preview.contains(focused)?{key:focused.dataset.key,start:focused.dataset.start,selectionStart:focused.selectionStart,selectionEnd:focused.selectionEnd}:null;const fragment=document.createDocumentFragment();const expanded=expandStructure(compiled.nodes,compiled.defaults,state,{enums:compiled.enums,allowMissingState:true});for(const n of expanded)fragment.append(make(n));preview.replaceChildren(fragment);
-// A free control keeps its flow slot, so its offset is the distance between where the flow put
-// it and where the scene puts it — measurable only once the nodes are in the document.
-for(const [node,parent,parentEl,el]of freeNodes){
-  const shift=coordinateShift(node,parent,state,parentEl.getBoundingClientRect(),el.getBoundingClientRect());
-  if(shift){el.style.position='relative';for(const [css,px]of Object.entries(shift))el.style[css]=px+'px';}
-}
-if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySelectorAll('[data-start]')).find(el=>focusIdentity.key?el.dataset.key===focusIdentity.key:el.dataset.start===focusIdentity.start);if(restored){restored.focus({preventScroll:true});if(typeof focusIdentity.selectionStart==='number'&&restored.setSelectionRange)restored.setSelectionRange(focusIdentity.selectionStart,focusIdentity.selectionEnd);}}$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
+renderHtmlPreview({preview:$('preview'),compiled,state,interactive:mode!=='design',design:designMode?designStatePatch(compiled,compiled.states[scenario]?.name):null,onSelect:select,onEvent:dispatch,onLog:log,onChange:schedulePreviewRefresh});
+$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
 // The panel is rebuilt from one place so every change of selection or of the preview preset
 // recomputes `editable`: rows that write markup must not survive a switch to a design scenario.
 function renderInspector(){
