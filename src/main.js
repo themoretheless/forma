@@ -4,6 +4,7 @@ import {sampleProject} from './sample-project.js';
 import {mountStudioShell} from './studio-shell.js';
 import {mountMinimalShell} from './minimal-shell.js';
 import {createStudioEvents,studioEventTypes} from './studio-events.js';
+import {createIdeCommands} from './mcp-commands.js';
 const studioEvents=createStudioEvents();
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
 const storageKey=name=>isStudioControls?name+':studio-controls-guide':name;
@@ -419,100 +420,25 @@ function initVector(){
 }
 initVector();
 
-// The MCP transport invokes the same runtime and UI operations as the editor.
-function ideCommand(command,args={}){
-  const snapshot=()=>({active,entry,scenario:scenario<0?null:compiled?.states[scenario]?.name??null,mode,error,selected:selected?.start??null,debug:{breakOn,paused:!!pending,action:pending?.action??null},renderer,capabilities:{vectorRenderer:!!vectorPreview,rustExecution:!!import.meta.hot,rustDap:false}});
-  const requireFile=path=>{if(!Object.hasOwn(files,path))throw Error('File not found: '+path);};
-  const findNode=start=>{let found;const walk=nodes=>{for(const n of nodes??[]){if(n.start===start)found=n;walk(n.children);}};walk(compiled?.nodes);if(!found)throw Error('Component not found; refresh component_tree');return found;};
-  const applyFiles=()=>{selected=null;open(active);persist();compile(true);};
-  switch(command){
-    case 'ide_status':return snapshot();
-    case 'designer_tree':return controlTree.snapshot();
-    case 'designer_tree_view':controlTree.setView(args);return controlTree.snapshot();
-    case 'designer_tree_select':controlTree.selectId(args.id);return controlTree.snapshot();
-    case 'designer_tree_fold':controlTree.fold(args.id,args.collapsed);return controlTree.snapshot();
-    case 'app_run':if(parse(files[entry]).defaults.contextType){import.meta.hot.send('forma:form-run',{files,state});return {status:'requested',renderer:'generated-rust'};}if(renderer==='vector'){nativeSource={entry,source:files[entry],nodes:structuredClone(compiled?.nodes??[])};if(error||!vectorPreview)throw Error(error||'Векторный renderer не готов');import.meta.hot.send('forma:vector-run',compileComponents(files,entry,state,{measureText:vectorPreview.measureText}));return {status:'requested',renderer};}if(error||!compiled)throw Error('Исправьте разметку');render(false);try{import.meta.hot.send('forma:native-run',{files,snapshot:nativeSnapshot($('preview'),compiled)});}finally{render();}return {status:'requested'};
-    case 'app_stop':import.meta.hot.send('forma:rust-stop',{});import.meta.hot.send('forma:native-stop',{});import.meta.hot.send('forma:vector-stop',{});return {status:'requested'};
-    case 'rust_run':if(!import.meta.hot)throw Error('Requires local dev server');import.meta.hot.send('forma:rust-run',{files});return {status:'requested',note:'Read events_read for compilation output and exit code'};
-    case 'rust_stop':import.meta.hot?.send('forma:rust-stop',{});return {status:'stop requested'};
-    case 'project_read':return {...files};
-    case 'file_read':requireFile(args.path);return {path:args.path,content:files[args.path]};
-    case 'file_open':requireFile(args.path);open(args.path);break;
-    case 'editor_fold':codeEditor.fold(args);break;
-    case 'file_write':{
-      if(typeof args.path!=='string'||!args.path)throw Error('Invalid project path');validateProject({[args.path]:args.content});
-      if(Object.hasOwn(files,args.path)&&args.expectedContent!==files[args.path])throw Error('File changed or expectedContent missing. Read it first.');
-      files[args.path]=args.content;applyFiles();break;
-    }
-    case 'project_replace':{
-      if(JSON.stringify(Object.entries(files).sort())!==JSON.stringify(Object.entries(args.expectedFiles).sort()))throw Error('Project changed. Read it first.');
-      validateProject(args.files);
-      resetProjectEditing();files=Object.fromEntries(Object.entries(args.files));active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;applyFiles();break;
-    }
-    case 'preview_renderer':rendererPicker.value=args.renderer;rendererPicker.onchange();break;
-    case 'vector_status':return vectorPreview?.snapshot()??{ready:false};
-    case 'preview_open':requireFile(args.path);entry=args.path;scenario=0;compile(true);break;
-    case 'preview_scenario':{if(args.name===null){if(!compiled?.states?.length)throw Error('The component has no design states');$('scenario').value=-1;$('scenario').onchange({target:$('scenario')});break;}const index=(compiled?.states??[]).findIndex(s=>s.name===args.name);if(index<0)throw Error('Design state not found');scenario=index;$('scenario').value=index;$('scenario').onchange({target:$('scenario')});break;}
-    // Same target as the states panel: the file that panel authors, never an arbitrary design file
-    // the entry does not use. An agent that wants another one edits it through file_write.
-    case 'design_states_read':return designStatesSummary(designStateFile().source);
-    case 'design_state_create':return designStateEdit(source=>stateCreateEdit(source,args.name),args.expectedContent);
-    case 'design_state_rename':return designStateEdit(source=>stateRenameEdit(source,args.name,args.newName),args.expectedContent);
-    case 'design_state_delete':return designStateEdit(source=>stateDeleteEdit(source,args.name),args.expectedContent);
-    // The state block is named, not indexed, so a rename between the read and this call cannot land
-    // a property in the wrong block; `null` is the base block, which is what the panel's own row is.
-    case 'design_state_property':return designStateEdit(source=>statePropertyEdit(source,args.state??null,args.type,args.key,args.property,args.value),args.expectedContent);
-    case 'preview_mode':if(mode!==args.mode)$('run').click();break;
-    case 'preview_viewport':$(args.device).click();$('preview').classList.toggle('light',args.theme==='light');break;
-    case 'component_tree':return {entry,nodes:compiled?.nodes??[],error};
-    case 'component_spacing':return spacingOverlay.read();
-    case 'component_select':if(error)throw Error('Fix diagnostics before selecting compiled source');select(findNode(args.start));break;
-    case 'component_property':{
-      if(error||files[entry]!==args.expectedContent)throw Error('Stale or invalid source. Read entry file first.');
-      const n=findNode(args.start);if(!Object.hasOwn(n.props,args.property)||typeof n.props[args.property]==='object')throw Error('Only existing literal properties are supported');
-      if(typeof n.props[args.property]!==typeof args.value)throw Error('Property type mismatch');
-      select(n);const input=Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===args.property);if(!input)throw Error('Свойство недоступно для правки: включите исходный вид');input.value=String(args.value);input.onchange();break;
-    }
-    // The palette's own list, so an agent inserts exactly what a designer can insert.
-    case 'component_controls':return insertableControls(files);
-    case 'component_insert':case 'component_move':case 'component_delete':case 'component_duplicate':{
-      // All four splice the entry file the compiled tree came from, against its live text. The
-      // splice reports the offset the new, moved or duplicated node takes — for a delete, the
-      // parent that keeps the selection — and that is what the preview is asked to select:
-      // without it the agent would have to re-read `component_tree` to find its own work.
-      const source=active===entry?$('code').value:files[entry];
-      if(error||source!==args.expectedContent)throw Error('Stale or invalid source. Read the entry file first.');
-      findNode(args.start);
-      const change=command==='component_insert'
-        ?insertElement(source,args.start,args.markup,false,args.side??'auto')
-        :command==='component_move'
-        ?moveAmongSiblings(source,args.start,args.target,args.side)
-        // A duplicate is the node's own text spliced back after itself, so the key uniquifying
-        // the paste path does covers a copied `key:` too. The copy keeps the source's
-        // coordinates: the bridge also runs on the HTML preview, where no scene measured an
-        // offset to take, and `component_property` can move it from there.
-        :command==='component_delete'?removeElement(source,args.start)
-        :insertElement(source,args.start,copyElement(source,args.start),false,'after');
-      // A move onto the slot the node already holds is a no-op the primitive reports as null.
-      // The caller still gets the file text back, because that is the content its next write
-      // has to quote as `expectedContent`.
-      if(!change)return {start:args.start,content:source,changed:false};
-      commitSource({file:entry,source,...change,reselect:change.start});
-      return {start:change.start,content:source.slice(0,change.from)+change.insert+source.slice(change.to),changed:true};
-    }
-    case 'state_read':return structuredClone(state);
-    case 'state_set':for(const [key,v]of Object.entries(args.values)){if(!Object.hasOwn(state,key)||typeof state[key]!==typeof v)throw Error('Unknown field or incompatible type: '+key);}Object.assign(state,args.values);render();output();break;
-    case 'event_dispatch':if(renderer==='vector'){if(error)throw Error(error);if(mode!=='interact')throw Error('Включите взаимодействие');const n=findNode(args.start);if(!n.events.clicked)throw Error('Выберите кнопку с clicked');vectorPreview.activate();break;}if(error)throw Error('Fix diagnostics first');{const n=findNode(args.start);if(!n.events.clicked)throw Error('No clicked handler');if(resolve(n.props.disabled,state))throw Error('Component is disabled');dispatch(n.events.clicked,n);break;}
-    case 'debug_break':$('break').checked=args.enabled;$('break').onchange({target:$('break')});break;
-    case 'debug_continue':if(!pending)throw Error('Debugger is not paused');$('continue').click();break;
-    case 'debug_reset':$('reset').click();break;
-    case 'events_read':return [...logs];
-    case 'events_clear':logs=[];output();break;
-    case 'diagnostics_read':return {error,entry};
-    default:throw Error('Unknown IDE command: '+command);
-  }
-  return snapshot();
-}
+// The MCP transport drives the editor through one facade: live state by getter and setter,
+// the panels a command addresses, and the operations the editor already exposes to its own UI.
+const ideCommand=createIdeCommands({
+  $,hot:import.meta.hot,compileComponents,
+  get files(){return files;},set files(v){files=v;},
+  get active(){return active;},set active(v){active=v;},
+  get entry(){return entry;},set entry(v){entry=v;},
+  get scenario(){return scenario;},set scenario(v){scenario=v;},
+  get selected(){return selected;},set selected(v){selected=v;},
+  get logs(){return logs;},set logs(v){logs=v;},
+  get nativeSource(){return nativeSource;},set nativeSource(v){nativeSource=v;},
+  get compiled(){return compiled;},get state(){return state;},get error(){return error;},get mode(){return mode;},
+  get renderer(){return renderer;},get breakOn(){return breakOn;},get pending(){return pending;},
+  get vectorPreview(){return vectorPreview;},get controlTree(){return controlTree;},get codeEditor(){return codeEditor;},
+  get spacingOverlay(){return spacingOverlay;},get rendererPicker(){return rendererPicker;},
+  open,persist,compile,render,output,select,commitSource,designStateFile,designStateEdit,resetProjectEditing,dispatch,
+  liveSource:path=>path===active?$('code').value:files[path],
+  propertyInput:name=>Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===name),
+});
 if(import.meta.hot){
   let designRequest,designTimer;
   const finishDesignRequest=()=>{const request=designRequest;designRequest=undefined;clearTimeout(designTimer);designTimer=undefined;refreshDesign.disabled=false;return request;};
