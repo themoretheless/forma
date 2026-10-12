@@ -82,7 +82,7 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
     controls.querySelector('[data-selection]').disabled=!selectedBounds();
     viewport.dataset.mode=getMode();if(autoFit)fit();else draw();
   }
-  const resize=new ResizeObserver(()=>{if(autoFit)fit();else draw();});resize.observe(viewport);
+  events.resize(()=>{if(autoFit)fit();else draw();}).observe(viewport);
   listen(viewport,'scroll',draw);
-  update();return {update,destroy(){events.dispose();resize.disconnect();release();controls.remove();overlay.remove();}};
+  update();return {update,destroy(){events.dispose();release();controls.remove();overlay.remove();}};
 }
