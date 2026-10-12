@@ -5,12 +5,14 @@ import {shellControl,shellScene} from './studio-shell-controls.js';
 import {materializeTheme,themes} from '../vector-ui/controls/tokens.js';
 import './studio-shell.css';
 import {createShellPainter} from './studio-shell-painter.js';
-import {canvasIcon} from './studio-canvas-icons.js';
+import {canvasIcon,glyphIcon} from './studio-canvas-icons.js';
 import {createEventScope} from './event-scope.js';
 import {collapseText,glyphPrefix} from './control-label.js';
 
 const raw=import.meta.glob('../vector-ui/controls/{components,assets}/*',{query:'?raw',import:'default',eager:true});
 const library=materializeTheme(Object.fromEntries(Object.entries(raw).map(([path,value])=>[path.slice('../vector-ui/controls/'.length),value])),'dark');
+// Surfaces that draw themselves: the design canvas, the code editor, pickers and native inspection.
+const foreign='#preview,.cm-editor,.color-picker,#native-inspection';
 const selector='button,a.controls-link,.control-tree-row,label:has(>input[type="checkbox"]),input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]),select,#filename,footer,#output>p.error,#output>p.ok';
 
 // The DOM remains the layout, keyboard, accessibility and browser-input host.
@@ -20,12 +22,21 @@ export async function mountStudioShell(root){
  for(const [name,value]of Object.entries(themes.dark))document.documentElement.style.setProperty('--guide-'+name,value);
  document.body.classList.add('forma-studio-ui');
  const wasm=await loadVectorRuntime(),cache=createCacheBudget(),compile=createComponentCompiler({cache});
+ // A control's compiled scene depends only on its description: the inspector rebuilds its rows on
+ // every selection, so the same field, button or tree row comes back with the same signature and
+ // skips the compiler. Its own budget keeps these from evicting the library's parsed documents.
+ const scenes=createCacheBudget({maxBytes:4*1024*1024,maxEntries:512});
+ function compiledScene(spec,signature){
+  let out=scenes.get(signature);
+  if(!out){compileFiles['ui/StudioControl.ui']=shellScene(spec);const compiled=compile(compileFiles,'ui/StudioControl.ui',{},metrics);out={source:compiled.source,template:compiled.template};scenes.set(signature,out);}
+  return out;
+ }
  const previewTools=root.querySelector('.preview-tools'),canvasTools=root.querySelector('.canvas-tools');
  let compactToolbar=null;if(previewTools&&canvasTools){compactToolbar=document.createElement('div');compactToolbar.className='studio-canvas-toolbar';previewTools.before(compactToolbar);compactToolbar.append(previewTools,canvasTools);}
  const records=new Map();let dirty=new Set(),spare=new Set();const scope=createEventScope();let frame=0,lastTime=0,stopped=false,proximityPosition=null,proximityDirty=false;
  const painter=createShellPainter(document),compileFiles={...library},metrics={measureText:wasm.text_metrics},motion=matchMedia('(prefers-reduced-motion: reduce)');
  const listen=scope.listen;
- function eligible(el){return el.matches(selector)&&!el.closest('#preview,.cm-editor,.color-picker,#native-inspection')&&!el.hidden&&!(el.tagName==='INPUT'&&el.closest('.source-editor'));}
+ function eligible(el){return el.matches(selector)&&!el.closest(foreign)&&!el.hidden&&!(el.tagName==='INPUT'&&el.closest('.source-editor'));}
  function kind(el){
   if(canvasIcon(el))return 'icon';
   if(el.matches('.element-tools button'))return 'menu';
@@ -36,7 +47,9 @@ export async function mountStudioShell(root){
   if(el.tagName==='LABEL')return 'check';
   if(el.matches('.file,.control-tree-row'))return 'tree';
   if(el.matches('#filename,[data-tab],.control-tree-scopes button,[aria-pressed],#desktop,#mobile,#toggle-control-tree'))return 'tab';
-  if(el.matches('.accent,#native-run'))return 'primary';
+  const glyph=el.tagName==='BUTTON'?glyphIcon(el.textContent):null,accent=el.matches('.accent,#native-run');
+  if(glyph)return glyph.text?(accent?'primaryLeading':'leading'):(accent?'accentIcon':'icon');
+  if(accent)return 'primary';
   if(el.matches('button')&&/^[+−⊞⊟■☷]$/.test(el.textContent.trim()))return 'icon';
   if(el.matches('.controls-link,.layout-parts button,.layout-breadcrumbs button'))return 'ghost';
   return 'button';
@@ -44,12 +57,14 @@ export async function mountStudioShell(root){
  function describe(el){
   const k=kind(el),bounds=el.getBoundingClientRect();
   let text=collapseText(el.textContent);
-  if(k!=='tree')text=text.replace(glyphPrefix,'');
+  const glyph=glyphIcon(el.textContent);
+  if(k==='leading'||k==='primaryLeading')text=glyph.text;
+  else if(k!=='tree')text=text.replace(glyphPrefix,'');
   if(k==='tree')text=el.matches('.file')?el.dataset.path.split('/').at(-1):[el.querySelector('.control-tree-label')?.textContent,el.querySelector('.control-tree-detail')?.textContent].filter(Boolean).join(' ');
   if(k==='select')text=el.selectedOptions[0]?.textContent??'';
   if(k==='status')text=[el.querySelector('#status')?.textContent,'Forma UI · UTF-8',el.querySelector('#position')?.textContent].join('\n');
   const input=k==='check'?el.querySelector('input'):el;
-  return shellControl({kind:k,text:k==='icon'?'':text,icon:canvasIcon(el)?`assets/${canvasIcon(el)[1]}.svg`:/[⊟−]/.test(el.textContent)?'assets/minus.svg':el.textContent.includes('■')?'assets/close.svg':el.textContent.includes('☷')?'assets/folder.svg':'assets/plus.svg',tone:el.classList.contains('error')?'danger':'success',width:Math.ceil(bounds.width),height:Math.ceil(bounds.height),selected:el.matches('.active,.chosen')||el.getAttribute('aria-selected')==='true'||el.getAttribute('aria-pressed')==='true'||el.getAttribute('aria-checked')==='true'||(el.matches('.layout-toggle,#toggle-control-tree')&&el.getAttribute('aria-expanded')==='true'),disabled:!!input.disabled||el.getAttribute('aria-disabled')==='true',checked:!!input.checked,branch:el.hasAttribute('aria-expanded'),expanded:el.getAttribute('aria-expanded')==='true',indent:Math.max(0,(Number(el.getAttribute('aria-level')??1)-1)*14)});
+  return shellControl({kind:k,text:k==='icon'||k==='accentIcon'?'':text,icon:canvasIcon(el)?`assets/${canvasIcon(el)[1]}.svg`:glyph?`assets/${glyph.icon}.svg`:/[⊟−]/.test(el.textContent)?'assets/minus.svg':el.textContent.includes('■')?'assets/close.svg':el.textContent.includes('☷')?'assets/folder.svg':'assets/plus.svg',tone:el.matches('.error,.bad')?'danger':'success',width:Math.ceil(bounds.width),height:Math.ceil(bounds.height),selected:el.matches('.active,.chosen')||el.getAttribute('aria-selected')==='true'||el.getAttribute('aria-pressed')==='true'||el.getAttribute('aria-checked')==='true'||(el.matches('.layout-toggle,#toggle-control-tree')&&el.getAttribute('aria-expanded')==='true'),disabled:!!input.disabled||el.getAttribute('aria-disabled')==='true',checked:!!input.checked,branch:el.hasAttribute('aria-expanded'),expanded:el.getAttribute('aria-expanded')==='true',indent:Math.max(0,(Number(el.getAttribute('aria-level')??1)-1)*14)});
  }
  function request(el,invalidate=false){if(stopped)return;const rec=records.get(el);if(rec&&invalidate)rec.specDirty=true;if(rec?.visible)dirty.add(el);if(!frame&&dirty.size)frame=requestAnimationFrame(draw);}
  function release(rec){rec.model?.free();rec.model=null;rec.signature='';rec.paintKey=null;}
@@ -75,8 +90,7 @@ export async function mountStudioShell(root){
     if(rec.specDirty||!rec.spec){rec.spec=describe(el);rec.nextSignature=JSON.stringify(rec.spec);rec.specDirty=false;}
     const spec=rec.spec,signature=rec.nextSignature;if(spec.props.width<=1||spec.props.height<=1)continue;
     if(signature!==rec.signature){
-     compileFiles['ui/StudioControl.ui']=shellScene(spec);
-     const out=compile(compileFiles,'ui/StudioControl.ui',{},metrics);
+     const out=compiledScene(spec,signature);
      const next=new wasm.Runtime();try{next.load_component(out.source,out.template);}catch(error){next.free();throw error;}
      if(rec.model)next.preserve_interaction(rec.model);release(rec);rec.model=next;rec.signature=signature;
      next.set_reduced_motion(motion.matches);updateReveal(el,next);
@@ -98,15 +112,17 @@ export async function mountStudioShell(root){
  const visible=scope.intersect(entries=>{for(const entry of entries){const rec=records.get(entry.target);if(!rec)continue;rec.visible=entry.isIntersecting;if(rec.visible)request(entry.target,true);else{release(rec);rec.surface.suspend();}}});
  function register(el){if(records.has(el)||!eligible(el))return;const icon=canvasIcon(el);if(icon){el.classList.add('studio-canvas-icon');el.setAttribute('aria-label',icon[2]);el.title=icon[2]+(el.title&&el.title!==icon[2]?' — '+el.title:'');}
  records.set(el,{visible:false,model:null,signature:'',specDirty:true,surface:painter.surface(el)});el.classList.add('forma-host-control');if(kind(el)==='field')el.classList.add('forma-host-input');resize.observe(el);visible.observe(el);}
+ // A control that left the document gives back its Rust model, surface and observers.
+ function prune(){for(const [el,rec]of records)if(!el.isConnected){release(rec);rec.surface.destroy();resize.unobserve(el);visible.unobserve(el);records.delete(el);dirty.delete(el);}}
  function scan(){
   root.querySelectorAll(selector).forEach(register);
-  for(const [el,rec]of records)if(!el.isConnected){release(rec);rec.surface.destroy();resize.unobserve(el);visible.unobserve(el);records.delete(el);dirty.delete(el);}
+  prune();
  }
  const mutations=scope.observe(root,entries=>{
   let removed=false;
   for(const entry of entries){
    const target=entry.target.nodeType===1?entry.target:entry.target.parentElement;
-   if(target?.closest('#preview,.cm-editor,.color-picker,#native-inspection'))continue;
+   if(target?.closest(foreign))continue;
    if(entry.type==='childList'){
     for(const node of entry.addedNodes){if(node.nodeType!==1||node.matches('.forma-control-paint'))continue;register(node);node.querySelectorAll(selector).forEach(register);}
     if(entry.removedNodes.length)removed=true;
@@ -114,7 +130,7 @@ export async function mountStudioShell(root){
    }
    for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el)){request(el,true);break;}
   }
-  if(removed)for(const [el,rec]of records)if(!el.isConnected){release(rec);rec.surface.destroy();resize.unobserve(el);visible.unobserve(el);records.delete(el);dirty.delete(el);}
+  if(removed)prune();
   },{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','class','value']},{immediate:false});
  function owner(target){for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el))return el;}
  function pointer(event,phase){const el=owner(event.target),rec=records.get(el);if(!rec?.model||kind(el)==='field')return;
