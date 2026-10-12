@@ -307,7 +307,7 @@ function commitSource({file,source,from,to,insert,reselect,after}){
   // input event and the new AST exists. `after` runs at the very end, after the host has republished
   // the reselected control: the editor's own input event drops the selection, so a caller that keeps
   // a batch of offsets — the ones this change just moved — has to restore it over that handoff.
-  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===reselect)found??=n;walk(n.children??[]);}};walk(compiled?.nodes??[]);if(found)select(found);after?.();});
+  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();const found=findNodeByStart(compiled?.nodes,reselect);if(found)select(found);after?.();});
 }
 // The tree is drawn from a snapshot parse, so the move is computed against that same text.
 // Only the entry file compiles into the preview whose AST the reselect walks.
@@ -379,7 +379,7 @@ commit:(change,context)=>{
  parse(next);compileComponents({...files,[entry]:next},entry,state,{measureText:vectorPreview.measureText});
  if(active!==entry)open(entry);codeEditor.edit({from:change.from,to:change.to,insert:change.insert});
  // The editor publishes its input event first; reselect against the new AST afterwards.
- queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===change.start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);if(change.starts)elementTools.setSelection(change.starts);elementTools.update();});
+ queueMicrotask(()=>{clearTimeout(compileTimer);compile();const found=findNodeByStart(compiled?.nodes,change.start);if(found)select(found);if(change.starts)elementTools.setSelection(change.starts);elementTools.update();});
 }});
 // Below the rows of one control, the panel offers the names the whole canvas selection has in
 // common. Their write spans the batch, so the offsets it reports are what keeps the selection alive:
