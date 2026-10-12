@@ -6,11 +6,12 @@ import {mountMinimalShell} from './minimal-shell.js';
 import {createStudioEvents,studioEventTypes} from './studio-events.js';
 import {createIdeCommands} from './mcp-commands.js';
 import {renderHtmlPreview} from './html-preview.js';
+import {mountDevBridge} from './dev-bridge.js';
 const studioEvents=createStudioEvents();
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
 const storageKey=name=>isStudioControls?name+':studio-controls-guide':name;
 import {designPreset,collectionScenario} from './design-presets.js';
-let designPresetName='original',nativeSource=null,nativeBuffer='';
+let designPresetName='original',nativeSource=null;
 import {createLayoutInspector} from './layout-inspector.js';
 let layoutInspector,lastVisuals=[],sourceDiagnostic=null;
 import {createCanvasTools} from './canvas-tools.js';
@@ -418,44 +419,10 @@ const ideCommand=createIdeCommands({
   liveSource:path=>path===active?$('code').value:files[path],
   propertyInput:name=>Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===name),
 });
-if(import.meta.hot){
-  let designRequest,designTimer;
-  const finishDesignRequest=()=>{const request=designRequest;designRequest=undefined;clearTimeout(designTimer);designTimer=undefined;refreshDesign.disabled=false;return request;};
-  const cancelDesignRequest=()=>{if(finishDesignRequest())log('Соединение потеряно: результат дизайн-данных неизвестен. Обновите их после подключения.');};
-  const refreshDesign=document.createElement('button');refreshDesign.textContent='↻ Данные дизайна';$('run').before(refreshDesign);
-  refreshDesign.title='Выполнить локальный src/design.rs (без песочницы), получить текстовые константы и результаты методов';
-  refreshDesign.onclick=()=>{
-    if(!compiled||designRequest)return;
-    const refs=designReferences(compiled);
-    if(!refs.length){log('Нет ссылок design в дизайне');return;}
-    if(!confirm('Выполнить src/design.rs для получения дизайн-данных? Rust-код работает с правами вашего пользователя.'))return;
-    designRequest={id:crypto.randomUUID(),source:JSON.stringify(files)};
-    refreshDesign.disabled=true;
-    designTimer=setTimeout(()=>{if(finishDesignRequest())log('Ответ дизайн-данных не получен. Исполнение могло завершиться; автоматического повтора нет.');},45000);
-    try{import.meta.hot.send('forma:design-data',{id:designRequest.id,files,refs});}
-    catch(e){finishDesignRequest();log('Не удалось отправить запрос дизайн-данных: '+e.message);}
-  };
-  import.meta.hot.on('vite:ws:disconnect',cancelDesignRequest);
-  import.meta.hot.dispose(()=>{finishDesignRequest();import.meta.hot.off('vite:ws:disconnect',cancelDesignRequest);import.meta.hot.off('forma:design-data-result',receiveDesignData);});
-  const receiveDesignData=data=>{
-    if(!designRequest||data?.id!==designRequest.id)return;
-    const request=finishDesignRequest();
-    if(request.source!==JSON.stringify(files)){log('Проект изменился: обновите дизайн-данные ещё раз');return;}
-    if(data.error){error=data.error;output();return;}
-    setDesignData(data.values);compile();log('Дизайн-данные обновлены из Rust');
-  };
-  import.meta.hot.on('forma:design-data-result',receiveDesignData);
-  const runApp=document.createElement('button');runApp.textContent='▶ Приложение';runApp.title='Запустить окно; F9 в окне включает выбор элемента и живое дерево в Studio';runApp.className='accent';$('run').before(runApp);
-  runApp.onclick=()=>{tab='events';syncTabs();ideCommand('app_run');output();};
-  const runRust=document.createElement('button');runRust.textContent='▶ Rust';runRust.title='Собрать и запустить Cargo-проект';$('run').before(runRust);
-  const stopRust=document.createElement('button');stopRust.textContent='■';stopRust.title='Остановить Rust';stopRust.disabled=true;runRust.after(stopRust);
-  runRust.onclick=()=>{persist();tab='events';syncTabs();log('Запуск Rust через Cargo (offline)…');runRust.disabled=true;stopRust.disabled=false;import.meta.hot.send('forma:rust-run',{files});};
-  stopRust.onclick=()=>import.meta.hot.send('forma:rust-stop',{});
-  const rustOutput=data=>{nativeBuffer+=data.text;let lineEnd;while((lineEnd=nativeBuffer.indexOf('\n'))>=0){const line=nativeBuffer.slice(0,lineEnd);nativeBuffer=nativeBuffer.slice(lineEnd+1);if(line.startsWith('FORMA_INSPECT ')){try{showNativeInspection(JSON.parse(line.slice(14)));}catch(e){log('Ошибка данных инспекции: '+e.message);}}}if(nativeBuffer.length>200000)nativeBuffer='';if(!data.text.startsWith('FORMA_INSPECT '))log('[Rust] '+data.text);if(data.kind==='finished'||data.kind==='error'){runRust.disabled=false;stopRust.disabled=true;}};
-  import.meta.hot.on('forma:rust-output',rustOutput);
-  const hello=()=>import.meta.hot.send('forma:hello',{});
-  const handle=({id,command,args})=>{try{import.meta.hot.send('forma:result',{id,result:ideCommand(command,args)});}catch(e){import.meta.hot.send('forma:result',{id,error:e.message});}};
-  import.meta.hot.on('forma:command',handle);
-  import.meta.hot.on('vite:ws:connect',hello);hello();
-  import.meta.hot.dispose(()=>{import.meta.hot.off('forma:command',handle);import.meta.hot.off('vite:ws:connect',hello);import.meta.hot.off('forma:rust-output',rustOutput);nativeBuffer='';});
-}
+if(import.meta.hot)mountDevBridge(import.meta.hot,{
+  anchor:$('run'),log,setDesignData,designReferences,ideCommand,showNativeInspection,
+  get compiled(){return compiled;},get files(){return files;},
+  showEvents(){tab='events';syncTabs();output();},
+  setError(message){error=message;output();},
+  compile:()=>compile(),persist,
+});
