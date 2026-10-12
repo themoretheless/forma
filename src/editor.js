@@ -1,17 +1,8 @@
-import {autocompletion,acceptCompletion,closeBrackets,closeBracketsKeymap,completionKeymap,snippet} from '@codemirror/autocomplete';
-import {createCompletionSource} from './completion.js';
-import {defaultKeymap,history,historyKeymap,undo,redo,isolateHistory} from '@codemirror/commands';
+import {history,undo,redo,isolateHistory} from '@codemirror/commands';
 import {EditorState,StateEffect,StateField,Compartment,Transaction} from '@codemirror/state';
-import {crosshairCursor,Decoration,drawSelection,dropCursor,EditorView,highlightActiveLine,highlightActiveLineGutter,highlightSpecialChars,keymap,lineNumbers,rectangularSelection} from '@codemirror/view';
-import {bracketMatching,foldGutter,foldKeymap,foldService,foldedRanges,unfoldEffect,foldEffect,foldAll,unfoldAll,indentOnInput,syntaxHighlighting,defaultHighlightStyle} from '@codemirror/language';
-import {highlightSelectionMatches,searchKeymap} from '@codemirror/search';
+import {Decoration,EditorView} from '@codemirror/view';
+import {codeFolding,foldService,foldedRanges,unfoldEffect,foldEffect,foldAll,unfoldAll} from '@codemirror/language';
 import {blockRanges} from './folding.js';
-import {formaHighlight} from './forma-highlight.js';
-
-// The same list the `codemirror` package ships as basicSetup, spelled out so the meta package can
-// stay out of the bundle. Its lint keymap is dropped: no linter is installed here, so the two dead
-// bindings were the only thing pulling @codemirror/lint into the first load.
-const editorSetup=[lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),foldGutter(),drawSelection(),dropCursor(),EditorState.allowMultipleSelections.of(true),indentOnInput(),syntaxHighlighting(defaultHighlightStyle,{fallback:true}),bracketMatching(),closeBrackets(),autocompletion(),rectangularSelection(),crosshairCursor(),highlightActiveLine(),highlightSelectionMatches(),keymap.of([...closeBracketsKeymap,...defaultKeymap,...searchKeymap,...historyKeymap,...foldKeymap,...completionKeymap])];
 
 const highlight=StateEffect.define();
 const selectionField=StateField.define({
@@ -40,9 +31,11 @@ export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={})
     if(selectionSet&&!docChanged&&!selectionQueued){selectionQueued=true;queueMicrotask(()=>{selectionQueued=false;if(!inputQueued)textarea.dispatchEvent(new Event('keyup'));});}
   }
   const ranges=StateField.define({create:state=>blockRanges(state.doc.toString()),update:(value,tr)=>tr.docChanged?blockRanges(tr.newDoc.toString()):value});
-  const completion=createCompletionSource(getProject);
-  const complete=context=>{const result=completion(context);if(!result)return null;return {...result,options:result.options.map(item=>typeof item.apply==='string'&&item.apply.includes('{\n')?{...item,apply:snippet(item.apply.replace('    \n','    ${}\n'))}:item)};};
-  const extensions=[...editorSetup,autocompletion({override:[complete],activateOnTyping:true,activateOnCompletion:item=>item.type==='namespace'||typeof item.apply==='string'&&item.apply.endsWith('.')}),keymap.of([{key:'Tab',run:acceptCompletion}]),languageConfig.of(formaHighlight),ranges,selectionField,
+  // Gutters, keymaps, completion, search and the Forma grammar arrive as a separate chunk (see
+  // editor-features.js); both compartments start empty and are filled once it has loaded.
+  const features=new Compartment();let loaded=null;
+  const languageFor=path=>loaded?.languageFor(path)??[];
+  const extensions=[features.of([]),history(),codeFolding(),languageConfig.of([]),ranges,selectionField,
     foldService.of((state,from,to)=>state.field(ranges).find(r=>r.from>from&&r.from<=to)),
     EditorView.contentAttributes.of({'aria-label':'Редактор исходного кода'}),
     EditorView.updateListener.of(update=>changed(update.docChanged,update.selectionSet)),
@@ -84,9 +77,15 @@ export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={})
   shown.observe(host);
   // Showing the pane and focusing it happen in one step, before the observer above has run.
   textarea.focus=()=>ensureView().focus();
+  const load=()=>import('./editor-features.js').then(module=>{
+    loaded={features:module.editorFeatures(getProject),languageFor:module.languageFor};
+    const wasProgrammatic=programmatic;programmatic=true;
+    try{dispatch({effects:[features.reconfigure(loaded.features),languageConfig.reconfigure(languageFor(documentPath))]});}finally{programmatic=wasProgrammatic;}
+  });
+  (globalThis.requestIdleCallback??(callback=>setTimeout(callback,1)))(()=>load().catch(error=>console.error('Code editor features failed to load',error)));
   const documents=new Map();let documentPath=null,pendingPath=null;
   Object.defineProperties(textarea,{
-    value:{get:()=>cachedText??=current().doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{if(pendingPath!==documentPath){if(documentPath)documents.set(documentPath,current());const saved=documents.get(pendingPath);setState(saved?.doc.toString()===text?saved:EditorState.create({doc:text,extensions}));documentPath=pendingPath;dispatch({effects:languageConfig.reconfigure(documentPath?.endsWith('.ui')?formaHighlight:[])});cachedText=text;}else if(current().doc.toString()!==text){dispatch({changes:{from:0,to:current().doc.length,insert:text}});}}finally{programmatic=false;}}},
+    value:{get:()=>cachedText??=current().doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{if(pendingPath!==documentPath){if(documentPath)documents.set(documentPath,current());const saved=documents.get(pendingPath);setState(saved?.doc.toString()===text?saved:EditorState.create({doc:text,extensions}));documentPath=pendingPath;dispatch({effects:[languageConfig.reconfigure(languageFor(documentPath)),features.reconfigure(loaded?.features??[])]});cachedText=text;}else if(current().doc.toString()!==text){dispatch({changes:{from:0,to:current().doc.length,insert:text}});}}finally{programmatic=false;}}},
     selectionStart:{get:()=>current().selection.main.from},
     selectionEnd:{get:()=>current().selection.main.to}
   });
