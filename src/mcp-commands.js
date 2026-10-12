@@ -4,6 +4,7 @@ import {designStatesSummary,stateCreateEdit,stateDeleteEdit,statePropertyEdit,st
 import {copyElement,insertElement,moveAmongSiblings,removeElement} from './element-edit.js';
 import {insertableControls} from './control-catalog.js';
 import {nativeSnapshot} from './native-snapshot.js';
+import {findNodeByStart} from './element-tree.js';
 
 // The MCP transport invokes the same runtime and UI operations as the editor. The editor hands
 // over one `studio` facade: live state through getters and setters (files, active, entry,
@@ -13,7 +14,7 @@ export function createIdeCommands(studio){
   const {$,hot}=studio;
   const snapshot=()=>({active:studio.active,entry:studio.entry,scenario:studio.scenario<0?null:studio.compiled?.states[studio.scenario]?.name??null,mode:studio.mode,error:studio.error,selected:studio.selected?.start??null,debug:{breakOn:studio.breakOn,paused:!!studio.pending,action:studio.pending?.action??null},renderer:studio.renderer,capabilities:{vectorRenderer:!!studio.vectorPreview,rustExecution:!!hot,rustDap:false}});
   const requireFile=path=>{if(!Object.hasOwn(studio.files,path))throw Error('File not found: '+path);};
-  const findNode=start=>{let found;const walk=nodes=>{for(const n of nodes??[]){if(n.start===start)found=n;walk(n.children);}};walk(studio.compiled?.nodes);if(!found)throw Error('Component not found; refresh component_tree');return found;};
+  const findNode=start=>{const found=findNodeByStart(studio.compiled?.nodes,start);if(!found)throw Error('Component not found; refresh component_tree');return found;};
   const applyFiles=()=>{studio.selected=null;studio.open(studio.active);studio.persist();studio.compile(true);};
   return function ideCommand(command,args={}){
     const {files,entry,compiled,state,error,mode,renderer,vectorPreview}=studio;

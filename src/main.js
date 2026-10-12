@@ -29,6 +29,7 @@ import {createStatesPanel} from './states-panel.js';
 import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePropertyEdit,stateRenameEdit} from './design-states.js';
 import {copyElement,insertElement,moveAmongSiblings,moveIntoContainer,removeElement} from './element-edit.js';
 import {restoreSelection,selectionIdentities} from './selection-restore.js';
+import {findNodeByStart} from './element-tree.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {createBulkEditor} from './bulk-edit.js';
@@ -67,6 +68,11 @@ let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.u
 try{const view=JSON.parse(readStorage('localStorage',storageKey('forma-view')));if(view?.entry in files)entry=view.entry;if(view?.active in files)active=view.active;}catch{}
 function persistView(){try{writeStorage('localStorage',storageKey('forma-view'),JSON.stringify({active,entry}));}catch{}}
 const $=id=>document.getElementById(id);
+// The file as it really stands: the editor's text for the open file, which `files` only catches up
+// with on the next microtask, and the stored text for every other one.
+const liveSource=path=>path===active?$('code').value:files[path];
+function reportError(message){error=message;sourceDiagnostic=null;output();}
+function downloadJson(name,text){const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 document.querySelector('#app').innerHTML=`
 <header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">${isStudioControls?'Studio Controls':'knowledge-workspace'} <span> / локальный проект</span></div><a class="controls-link" href="${isStudioControls?'/':'/?project=studio-controls'}">${isStudioControls?'Мой проект':'Контролы Studio'}</a><a class="controls-link" href="/vector-ui/examples/controls.html">Контролы · Reveal</a><button id="import">Открыть</button><button id="export">Экспорт</button><button id="run" class="accent">${mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента'}</button></header>
 <div class="workspace"><aside class="explorer"><div class="section-title">ПРОЕКТ <button id="new" title="Создать файл">+</button></div><div id="tree"></div><div class="explorer-note"><span class="dot"></span> Локальное сохранение<br><small>Проект хранится в этом браузере.<br>Экспортируйте для резервной копии.</small></div></aside>
@@ -85,7 +91,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
  if(recovery!==null){
   const button=document.createElement('button');button.textContent='Скачать данные восстановления';
   button.title='Исходная запись проекта, которую не удалось прочитать';
-  button.onclick=()=>{const url=URL.createObjectURL(new Blob([recovery],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  button.onclick=()=>downloadJson('forma-project-recovery.json',recovery);
   $('export').after(button);
  }
  if(damaged!==null)saveStatus('damaged','Сохранённый проект повреждён: открыта исходная версия');
@@ -175,10 +181,10 @@ function designStateFor(node){
     return overridden||base?{name:state.name,path:state.file,source,entry:overridden,base}:null;
   }catch{/* a file that stopped compiling keeps the rows it had before */return null;}
 }
-function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
 // The mirror of `select` for the moment there is nothing to select: every surface that was drawing the
 // control lets it go, so no row survives that could write into markup the file has dropped.
-function clearSelection(){selected=null;selectedPath=null;vectorPreview?.select(null);canvasTools?.update();elementTools?.setSelection([]);layoutInspector?.update();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));inspectorNote='';renderInspector();lines();controlTree?.select(null,null);}
+function clearSelection(){selected=null;selectedPath=null;vectorPreview?.select(null);elementTools?.setSelection([]);layoutInspector?.update();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));inspectorNote='';renderInspector();lines();controlTree?.select(null,null);}
 function refreshControlTree(){
   if(!controlTree)return;
   const path=controlTree.scope==='designer'?entry:active;
@@ -200,7 +206,7 @@ function refreshStatesPanel(){
   const path=designFilePath();
   let states=[],baseCount=0,message='',editable=designPresetName==='original';
   if(path){
-    const source=path===active?$('code').value:files[path];
+    const source=liveSource(path);
     try{
       const doc=parse(source);
       if(!doc.designBody)throw Error('Файл не является дизайн-файлом');
@@ -215,7 +221,7 @@ function refreshStatesPanel(){
 function designStateFile(){
   const path=designFilePath();
   if(!path)throw Error('Дизайн-файл не выбран');
-  return {path,source:path===active?$('code').value:files[path]};
+  return {path,source:liveSource(path)};
 }
 // A panel action splices the design file its rows came from, so the edit is computed against that
 // file's live text and passes the same stale-snapshot guard an inspector edit passes. An MCP write
@@ -273,7 +279,7 @@ $('desktop').onclick=()=>{$('preview').style.width='520px';$('desktop').classLis
 $('break').onchange=e=>breakOn=e.target.checked;$('continue').onclick=()=>{if(pending){const p=pending;pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';execute(p.action);}};$('reset').onclick=()=>{pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';compile(true);log('Состояние предпросмотра восстановлено');};
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();output();});
 $('new').onclick=()=>{const path=prompt('Путь нового файла','ui/NewWindow.ui');if(!path)return;try{validateProject({[path]:''});}catch(error){alert(error.message);return;}if(path in files){alert('Файл уже существует');return;}files[path]=path.endsWith('.ui')?'component NewWindow {\n    Frame {\n        Text {\n            text: \'Новое окно\';\n        }\n    }\n}\n':'';open(path);persist();};
-$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(files,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=validateProject(JSON.parse(await f.text()));if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;resetProjectEditing();files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
+$('export').onclick=()=>downloadJson('forma-project.json',JSON.stringify(files,null,2));$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=validateProject(JSON.parse(await f.text()));if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;resetProjectEditing();files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
 $('code').addEventListener('scroll',highlightSource);
 $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});},canReorder:()=>designPresetName==='original',onReorder:reorderTreeControl});
@@ -293,7 +299,7 @@ codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
 // A panel edit of one file: the guard rejects a change computed against text the editor has
 // already moved past, and the reselect walks the AST the new compile yields.
 function commitSource({file,source,from,to,insert,reselect,after}){
-  if((file===active?$('code').value:files[file])!==source)throw Error('Исходник изменился — повторите операцию');
+  if(liveSource(file)!==source)throw Error('Исходник изменился — повторите операцию');
   parse(source.slice(0,from)+insert+source.slice(to));
   if(active!==file)open(file);
   codeEditor.edit({from,to,insert});
@@ -319,9 +325,9 @@ propertyInspector=createPropertyInspector({container:$('inspector'),designTokens
  // The inspector renders from a snapshot of the source, so both hooks below read the file as it
  // really stands: `files` only catches the editor up on the next microtask, and a committed row
  // stays on screen with the snapshot it was rendered from.
- liveSource:path=>path===active?$('code').value:files[path],
+ liveSource,
  commit:commitSource,
- onError:message=>{error=message;sourceDiagnostic=null;output();}});
+ onError:reportError});
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
 getScene:()=>renderer==='vector'?vectorPreview?.layoutSnapshot():null,
 getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=sceneControlNodes(children);return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
@@ -348,7 +354,7 @@ function projectInserts(){
  return insertCatalog;
 }
 elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,top:sceneControlNodes(children),pick:start=>{let found;const walk=nodes=>{for(const n of nodes){if(n.start===start)found??=n;walk(n.children??[]);}};if(root)walk([root]);return found??null;},scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
+context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,top:sceneControlNodes(children),pick:start=>findNodeByStart(root?[root]:[],start),scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
 select,report:message=>{$('caption').textContent=message;},
 copy:async text=>{try{await navigator.clipboard.writeText(text);$('caption').textContent='CSS скопирован в буфер';}catch{$('caption').textContent='Буфер обмена недоступен';}},
 history:action=>{
@@ -381,14 +387,14 @@ commit:(change,context)=>{
 // back over it before the rows are drawn again.
 bulkEditor=createBulkEditor({container:$('inspector'),
  commit:({file,source,primary,...change})=>commitSource({file,source,...change,reselect:primary,after:()=>{elementTools.setSelection(change.starts);renderInspector();}}),
- onError:message=>{error=message;sourceDiagnostic=null;output();}});
+ onError:reportError});
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);
 let studioShell,shellDisposed=false;
 studioEvents.emit(studioEventTypes.mode,{mode});
 const minimalShell=mountMinimalShell(document.querySelector('#app'),{events:studioEvents,newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
-import.meta.hot?.dispose(()=>{shellDisposed=true;minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();});
+import.meta.hot?.dispose(()=>{shellDisposed=true;minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();layoutInspector?.destroy();spacingOverlay?.destroy();vectorPreview?.destroy();});
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
 rendererPicker.onchange=()=>{renderer=rendererPicker.value;writeStorage('localStorage',storageKey('forma-renderer'),renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
 function initVector(){
@@ -416,7 +422,7 @@ const ideCommand=createIdeCommands({
   get vectorPreview(){return vectorPreview;},get controlTree(){return controlTree;},get codeEditor(){return codeEditor;},
   get spacingOverlay(){return spacingOverlay;},get rendererPicker(){return rendererPicker;},
   open,persist,compile,render,output,select,commitSource,designStateFile,designStateEdit,resetProjectEditing,dispatch,
-  liveSource:path=>path===active?$('code').value:files[path],
+  liveSource,
   propertyInput:name=>Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===name),
 });
 if(import.meta.hot)mountDevBridge(import.meta.hot,{
