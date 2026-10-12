@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {fitScale} from '../src/canvas-tools.js';
+import {fitScale,controlBounds} from '../src/canvas-tools.js';
 test('fit keeps a logical frame inside narrow and short viewports with room around it',()=>{
  for(const viewport of [{width:450,height:500},{width:1200,height:250}]){
   const scale=fitScale(viewport,720,780);
@@ -18,4 +18,15 @@ test('measurements choose nearest aligned siblings and otherwise the parent',asy
  assert.equal(d.find(x=>x.side==='left').target,'сосед');
  assert.equal(d.find(x=>x.side==='right').value,130);
  assert.equal(d.find(x=>x.side==='bottom').value,30);
+});
+
+test('selection bounds measure the scene only when something is selected',()=>{
+ let measured=0;const scene={width:400,height:300,controls:[{index:2,bounds:[10,20,30,40]}]};
+ const measure=()=>{measured++;return scene;};
+ assert.equal(controlBounds(null,measure),null);
+ assert.equal(measured,0,'no selection, no layout read');
+ assert.deepEqual(controlBounds({index:2},measure),[10,20,30,40]);
+ assert.deepEqual(controlBounds({root:true},measure),[0,0,400,300]);
+ assert.equal(controlBounds({index:9},measure),null);
+ assert.equal(measured,3);
 });

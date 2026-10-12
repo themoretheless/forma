@@ -1,6 +1,13 @@
 import {createEventScope} from './event-scope.js';
 import {layoutDistances} from './layout-distances.js';
 export const fitScale=(viewport,width,height)=>Math.max(.1,Math.min(2,(viewport.width-48)/Math.max(1,width),(viewport.height-48)/Math.max(1,height)));
+// Bounds of the selected control in scene units. The scene is measured only when something is
+// selected: measuring reads layout, and most updates (start-up included) run with no selection.
+export function controlBounds(selected,measure){
+ if(!selected)return null;
+ const s=measure(),c=s.controls?.find(c=>c.index===selected.index);
+ return c?.bounds??(selected.root?[0,0,s.width,s.height]:null);
+}
 export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelection,getMode,setMode,onChange}) {
  const events=createEventScope(),listen=events.listen;
   let scale=1,autoFit=false,space=false,drag=null;
@@ -24,11 +31,7 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
     onChange?.();draw();
   }
   function fit(){const s=scene();zoom(fitScale({width:viewport.clientWidth,height:viewport.clientHeight},s.width,s.height));viewport.scrollLeft=0;viewport.scrollTop=0;}
-  function selectedBounds(s=scene()){
-    const selected=getSelection();
-    const c=s.controls?.find(c=>c.index===selected?.index);
-    return c?.bounds??(selected?.root?[0,0,s.width,s.height]:null);
-  }
+  const selectedBounds=s=>controlBounds(getSelection(),()=>s??scene());
   function draw(){
     if(!guides||getMode()!=='design'){overlay.hidden=true;return;}
     const s=scene(),b=selectedBounds(s);overlay.replaceChildren();overlay.hidden=!b;
