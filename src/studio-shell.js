@@ -13,6 +13,8 @@ const raw=import.meta.glob('../vector-ui/controls/{components,assets}/*',{query:
 const library=materializeTheme(Object.fromEntries(Object.entries(raw).map(([path,value])=>[path.slice('../vector-ui/controls/'.length),value])),'dark');
 // Surfaces that draw themselves: the design canvas, the code editor, pickers and native inspection.
 const foreign='#preview,.cm-editor,.color-picker,#native-inspection';
+// Milliseconds of shell painting per animation frame.
+const frameBudget=8;
 const selector='button,a.controls-link,.control-tree-row,label:has(>input[type="checkbox"]),input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]),select,#filename,footer,#output>p.error,#output>p.ok';
 
 // The DOM remains the layout, keyboard, accessibility and browser-input host.
@@ -78,7 +80,7 @@ export async function mountStudioShell(root){
   proximityDirty=true;if(!frame&&!stopped)frame=requestAnimationFrame(draw);
  }
  function draw(time){
-  frame=0;const dt=Math.min(50,lastTime?time-lastTime:16);lastTime=time;
+  frame=0;const dt=Math.min(50,lastTime?time-lastTime:16);lastTime=time;const started=performance.now();
   if(proximityDirty){proximityDirty=false;for(const [el,rec]of records){
    if(!rec.visible||!rec.model)continue;
    const revision=rec.model.visual_revision();updateReveal(el,rec.model);
@@ -86,6 +88,9 @@ export async function mountStudioShell(root){
   }}
   const batch=dirty;dirty=spare;dirty.clear();
   for(const el of batch){const rec=records.get(el);if(!rec?.visible||!el.isConnected)continue;
+   // A cold start or a rebuilt panel can need dozens of compiles: past the frame budget the rest
+   // waits for the next frame instead of stretching this one into a long task.
+   if(performance.now()-started>frameBudget){dirty.add(el);continue;}
    try{
     if(rec.specDirty||!rec.spec){rec.spec=describe(el);rec.nextSignature=JSON.stringify(rec.spec);rec.specDirty=false;}
     const spec=rec.spec,signature=rec.nextSignature;if(spec.props.width<=1||spec.props.height<=1)continue;
