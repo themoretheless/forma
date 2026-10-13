@@ -164,11 +164,20 @@ export async function mountStudioShell(root){
   root.querySelectorAll(selector).forEach(register);
   prune();
  }
+ // Classes the shell puts on its own hosts. A change to them alone says nothing new about a control,
+ // and answering it would describe every control the shell has just painted once more.
+ const ownClasses=new Set(['forma-host-control','forma-host-input','forma-native-surface','studio-canvas-icon']);
+ const others=classes=>classes.filter(name=>name&&!ownClasses.has(name));
+ function ownClassChange(entry){
+  if(entry.attributeName!=='class')return false;
+  const before=new Set(others(String(entry.oldValue??'').split(/\s+/))),after=others([...entry.target.classList]);
+  return after.length===before.size&&after.every(name=>before.has(name));
+ }
  const mutations=scope.observe(root,entries=>{
   let removed=false,changed=false;
   for(const entry of entries){
    const target=entry.target.nodeType===1?entry.target:entry.target.parentElement;
-   if(target?.closest(foreign))continue;
+   if(target?.closest(foreign)||entry.type==='attributes'&&ownClassChange(entry))continue;
    if(entry.type==='childList'){
     for(const node of entry.addedNodes){if(node.nodeType!==1||node.matches('.forma-control-paint'))continue;register(node);node.querySelectorAll(selector).forEach(register);}
     if(entry.removedNodes.length)removed=true;
@@ -181,7 +190,7 @@ export async function mountStudioShell(root){
   // A change can move controls under a pointer that stays put, and their proximity paint follows
   // the pointer's place relative to each control, so it is worked out again from the new boxes.
   if(changed&&proximityPosition&&!stopped){proximityDirty=true;if(!frame)frame=requestAnimationFrame(draw);}
-  },{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','class','value']},{immediate:false});
+  },{subtree:true,childList:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','class','value']},{immediate:false});
  function owner(target){for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el))return el;}
  function pointer(event,phase){const el=owner(event.target),rec=records.get(el);if(!rec?.model||kind(el)==='field')return;
   const bounds=el.getBoundingClientRect();rec.model.pointer(event.clientX-bounds.left,event.clientY-bounds.top,phase);if(event.pointerType==='touch')rec.model.reveal_pointer(0,0,false);request(el);
