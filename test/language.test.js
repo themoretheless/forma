@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parse,resolve,validateDesign,designStatePatch} from '../src/language.js';
+import {parse,parseShared,resolve,validateDesign,designStatePatch} from '../src/language.js';
 test('component exposes defaults separately from primitives',()=>{const p=parse("component Button { width: 100; text: 'Кнопка'; fontSize: 16; Rectangle { radius: props.radius; } }");assert.deepEqual(p.defaults,{width:100,text:'Кнопка',fontSize:16});assert.equal(p.nodes.length,1);assert.equal(p.nodes[0].type,'Rectangle');});
 test('design attribute, bindings and actions',()=>{const p=parse("#[design('./demo.design.ui')] component Demo { TextInput { value <-> state.query; } Button { clicked -> actions.search(); disabled: !state.loading; } }");assert.deepEqual(p.designs,['./demo.design.ui']);assert.equal(p.nodes[0].bindings.value,'state.query');assert.equal(p.nodes[1].events.clicked,'actions.search');assert.equal(resolve(p.nodes[1].props.disabled,{loading:true}),false);});
 test('legacy preview is rejected',()=>assert.throws(()=>parse("preview 'Data' { state: { loading: false; }; }"),/больше не поддерживается/));
@@ -85,4 +85,14 @@ test('property expressions retain source ranges and both quote styles interpolat
   assert.equal(resolve(node.props.text,{count:2}),'Найдено: 3');
   assert.equal(resolve(node.props.disabled,{busy:false,valid:true}),false);
   assert.equal(resolve(parse(source.replaceAll("'",'"')).nodes[0].props.text,{count:2}),'Найдено: 3');
+});
+
+test('a shared parse is handed out again for the same text and kept for the last few documents',()=>{
+  const sources=[0,1,2,3,4].map(n=>`component C${n} { Frame { width: ${n}; } }`);
+  const first=parseShared(sources[0]);
+  assert.equal(parseShared(sources[0]),first);assert.deepEqual(first,parse(sources[0]));
+  assert.notEqual(parseShared(sources[1]),first);
+  for(const source of sources.slice(1))parseShared(source);
+  assert.notEqual(parseShared(sources[0]),first,'the oldest document is parsed again once four newer ones were');
+  assert.throws(()=>parseShared('component {'),'a source that does not parse is not kept');
 });

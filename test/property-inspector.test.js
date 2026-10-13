@@ -485,6 +485,10 @@ test('selecting another control refills the rows it shares instead of rebuilding
   assert.equal(form.querySelector('input').value,propertyStart[form.querySelector('select').value],'and starts over as a new one would');
   input.value='Три';input.onchange();
   assert.ok(files[panelFile].includes("text: 'Один'")&&files[panelFile].includes("text: 'Три'"),files[panelFile]);
+  const frame=parse(files[panelFile]).nodes[0],options=()=>new Map(container.querySelector('.property-add').querySelector('select').children.map(o=>[o.value,o]));
+  const before=options();inspector.render({node:frame,path:panelFile,source:files[panelFile],editable:true,state:null});
+  const shared=[...options()].filter(([name])=>before.has(name));
+  assert.ok(shared.length&&shared.every(([name,o])=>before.get(name)===o),'a name both types offer keeps its option');
   inspector.render({node:null,editable:false});
   assert.equal(container.children.length,1);assert.equal(container.children[0].className,'inspector-empty');
   inspector.render({node:parse(files[panelFile]).nodes[0],path:panelFile,source:files[panelFile],editable:true,state:null});
