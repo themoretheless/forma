@@ -173,7 +173,14 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
       if(previousSelected!==selectedId){rowElement(previousSelected)?.setAttribute('aria-selected','false');rowElement(selectedId)?.setAttribute('aria-selected','true');}
       if(previousFocus!==focusId){const old=rowElement(previousFocus),next=rowElement(focusId);if(old)old.tabIndex=-1;if(next)next.tabIndex=0;}
     }
-    if(selectedId)rowElement(selectedId)?.scrollIntoView({block:'nearest'});
+    revealSelected();
+  }
+  // Scrolling the selected row into view reads layout, so it waits for the next frame: by then the
+  // rest of the selection has changed the DOM, and the frame lays it out once for all of it.
+  let revealFrame=0;
+  function revealSelected(){
+    const reveal=()=>{revealFrame=0;if(selectedId)rowElement(selectedId)?.scrollIntoView({block:'nearest'});};
+    if(!globalThis.requestAnimationFrame)reveal();else if(!revealFrame)revealFrame=requestAnimationFrame(reveal);
   }
   updateView();
   return {

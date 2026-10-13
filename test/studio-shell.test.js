@@ -29,6 +29,14 @@ test('Studio shell uses guideline controls and renders their states through shar
   assert.notDeepEqual(proximityModel.content_pixels(160,32,1),before,'Reveal reaches a neighbouring control without pointer hover');
   proximityModel.reveal_pointer(0,0,false);proximityModel.tick(500);
   assert.deepEqual(proximityModel.content_pixels(160,32,1),before,'leaving the window removes proximity paint');
+  // A model parked for another host is reset and drops its raster cache; at rest neither changes
+  // what it shows, so the pixels painted before it was parked stay valid for the adopter.
+  const revision=proximityModel.visual_revision();
+  proximityModel.pointer(-1000,-1000,3);proximityModel.focus(false);proximityModel.release_cpu_cache();
+  assert.equal(proximityModel.visual_revision(),revision);assert.equal(proximityModel.is_animating(),false);
+  assert.deepEqual(proximityModel.content_pixels(160,32,1),before);
+  proximityModel.pointer(80,16,0);proximityModel.tick(16);proximityModel.pointer(-1000,-1000,3);
+  assert.ok(proximityModel.visual_revision()!==revision||proximityModel.is_animating(),'a hovered model is not at rest after the reset');
  }finally{proximityModel.free();}
  const literal=shellScene(shellControl({text:"' ${state.secret} \\ ",width:100,height:32}));
  const out=compileComponents({...library,'ui/Shell.ui':literal},'ui/Shell.ui',{}, {measureText:text_metrics});assert.ok(out.template.includes('state.secret'));
