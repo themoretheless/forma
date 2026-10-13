@@ -1,5 +1,16 @@
 import {designReference,readDesignData} from './design-data.js';
 import {tokenize,createValueParser,evaluateExpression} from './expressions.js';
+// The last few documents parsed for lookups, by their text. Selecting a control looks the markup and
+// its design file up several times, and the text alone decides what a parse returns. What comes
+// back is shared, so a caller reads it and never changes it.
+const recent=new Map();
+export function parseShared(source){
+  let doc=recent.get(source);
+  if(doc){recent.delete(source);recent.set(source,doc);return doc;}
+  doc=parse(source);recent.set(source,doc);
+  if(recent.size>4)recent.delete(recent.keys().next().value);
+  return doc;
+}
 export function parse(source, {fragment=false}={}) {
   const tokens=tokenize(source);let i=0;
   const peek=()=>tokens[i]?.v;

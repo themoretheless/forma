@@ -259,6 +259,9 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
     const pick=document.createElement('select');pick.setAttribute('aria-label','Свойство для добавления');
     const value=document.createElement('input');value.setAttribute('aria-label','Начальное значение');
     const button=document.createElement('button');button.type='button';
+    // Options are kept by name: most names are offered for every type, so another type only moves,
+    // adds or drops the few that differ instead of restyling the whole list.
+    const options=new Map(),option=name=>{let o=options.get(name);if(!o){o=new Option(name,name);options.set(name,o);}return o;};
     let names=null;
     const sync=()=>{prop(value,'value',propertyStart[pick.value]);
       text(button,`Добавить ${pick.value}${current.state?` в ${layerLabel('state')}`:''}`);};
@@ -268,7 +271,7 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
       :propertyAddEdit(source,current.node.start,pick.value,value.value));};
     value.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();button.onclick();}};
     return {el:wrap,fill(next){
-      if(names?.join('\n')!==next.join('\n')){names=next;pick.replaceChildren(...names.map(name=>new Option(name,name)));}
+      if(names?.join('\n')!==next.join('\n')){names=next;place(pick,names.map(option));}
       prop(pick,'disabled',!names.length);prop(value,'disabled',!names.length);
       if(!names.length){
         text(none,current.state?'Состояние переопределяет все свойства этого типа':'Все свойства этого типа уже объявлены');
