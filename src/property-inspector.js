@@ -82,6 +82,13 @@ export function propertyFields(node,source,state=null){
   }
   return fields;
 }
+// Puts exactly `nodes` in `parent`, in order. What leaves goes first, so the nodes that stay keep
+// their places and only a node that really changed position is moved.
+function place(parent,nodes){
+  const keep=new Set(nodes);
+  for(const child of [...parent.children])if(!keep.has(child))child.remove();
+  nodes.forEach((node,i)=>{const at=parent.children[i];if(at!==node)parent.insertBefore(node,at??null);});
+}
 export function createPropertyInspector({container,commit,designTokens=()=>[],onError=()=>{},liveSource=null}){
   const tokens=document.createElement('datalist');tokens.id='forma-design-tokens';
   // Declaring and undeclaring a property changes the shape of the panel, so its failures are
@@ -120,7 +127,7 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
     // The design file's default block is the one a splice selects with a null state name.
     return {path,source,state:field.layer==='state'?name:null};
   }
-  function heading(text){const label=document.createElement('div');label.className='inspector-label';label.textContent=text;container.append(label);}
+  const element=(tag,className,text)=>{const el=document.createElement(tag);if(className)el.className=className;el.textContent=text;return el;};
   function edit(field,text,input){
     try{
       freshen();
@@ -172,119 +179,140 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
   }
   // What the layer is called in the panel's own words.
   const layerLabel=layer=>layer==='state'?`состояние «${current.state.name}»`:'базовые значения';
+  // What a row is made of, as opposed to what it shows: rows of the same shape differ only in text,
+  // values and the field their handlers write, so one is refilled for another.
+  const rowShape=field=>[field.kind,field.layer&&field.layer!=='markup'?field.layer:'',
+    field.commit===null||!current.editable?'view':field.kind==='color'?pickerHex(field.value)?'picker':'hint':''].join('|');
   function row(field){
-    const label=document.createElement('label');
-    // The layer rides on the class as well, so a design row is recognisable without its badge.
-    label.className=`property ${field.kind}${field.layer&&field.layer!=='markup'?` ${field.layer}`:''}`;
-    const name=document.createElement('span');name.textContent=field.key;label.append(name);
+    const label=document.createElement('label'),name=document.createElement('span');label.append(name);
+    const rec={label,shape:rowShape(field),field,name};
     // A design file puts its values in blocks the markup never holds, so the panel says which one a
     // row reads from and writes back to; a plain markup row needs no badge.
-    if(field.layer&&field.layer!=='markup'){
-      const badge=document.createElement('span');badge.className='property-layer';
-      badge.textContent=layerLabel(field.layer);
-      badge.title=`Значение переопределено в ${layerLabel(field.layer)} дизайн-файла и правится там же`;
-      label.append(badge);
-    }
+    if(field.layer&&field.layer!=='markup'){rec.badge=label.appendChild(document.createElement('span'));rec.badge.className='property-layer';}
     if(field.commit===null||!current.editable){
-      const out=document.createElement('output');out.textContent=field.text;label.append(out);
-      const hint=document.createElement('small');
-      hint.textContent=field.commit===null?'Значение задаётся раскладкой или объявлением, не в этом исходнике':'Только просмотр: правка недоступна для этого сценария';
-      label.append(hint);
-      return label;
+      rec.out=label.appendChild(document.createElement('output'));rec.hint=label.appendChild(document.createElement('small'));
+      return rec;
     }
-    const input=document.createElement('input');
-    input.value=field.text;
-    input.setAttribute('aria-label',field.key);
+    const input=rec.input=document.createElement('input');
     if(field.kind==='color'){
       const chip=document.createElement('span');chip.className='color-chip';
-      const fill=document.createElement('span');fill.style.backgroundColor=field.css;chip.append(fill);label.append(chip);
-      const hex=pickerHex(field.value);
-      if(hex){
-        const picker=document.createElement('input');
-        picker.type='color';picker.value=hex;picker.setAttribute('aria-label',`Палитра ${field.key}`);
-        picker.onchange=()=>{input.value=picker.value;edit(field,picker.value,input);};
+      rec.fill=chip.appendChild(document.createElement('span'));label.append(chip);
+      if(pickerHex(field.value)){
+        const picker=rec.picker=document.createElement('input');picker.type='color';
+        picker.onchange=()=>{input.value=picker.value;edit(rec.field,picker.value,input);};
         label.append(picker);
-      }else{
-        const hint=document.createElement('small');hint.textContent='Формат цвета сохраняется как написан';label.append(hint);
-      }
+      }else label.append(element('small','','Формат цвета сохраняется как написан'));
     }
-    if(field.kind==='token'){
-      input.setAttribute('list','forma-design-tokens');
-      const value=document.createElement('small');value.className='token-value';
+    if(field.kind==='token'){input.setAttribute('list','forma-design-tokens');rec.value=label.appendChild(document.createElement('small'));rec.value.className='token-value';}
+    input.onchange=()=>edit(rec.field,input.value,input);
+    label.append(input);
+    const remove=rec.remove=element('button','property-remove','−');remove.type='button';
+    remove.onclick=()=>declare(rec.field.commit==='state',source=>removeEdit(rec.field,source));
+    label.append(remove);
+    return rec;
+  }
+  // Writes only what differs: a text or attribute set to the value it has would still reach the
+  // shell's observer and repaint a control that did not change.
+  const text=(el,value)=>{if(el.textContent!==value)el.textContent=value;};
+  const attr=(el,key,value)=>{if(el.getAttribute(key)!==value)el.setAttribute(key,value);};
+  const prop=(el,key,value)=>{if(el[key]!==value)el[key]=value;};
+  function fill(rec,field){
+    rec.field=field;
+    // The layer rides on the class as well, so a design row is recognisable without its badge.
+    prop(rec.label,'className',`property ${field.kind}${field.layer&&field.layer!=='markup'?` ${field.layer}`:''}`);
+    text(rec.name,field.key);
+    if(rec.badge){text(rec.badge,layerLabel(field.layer));prop(rec.badge,'title',`Значение переопределено в ${layerLabel(field.layer)} дизайн-файла и правится там же`);}
+    if(rec.out){
+      text(rec.out,field.text);
+      text(rec.hint,field.commit===null?'Значение задаётся раскладкой или объявлением, не в этом исходнике':'Только просмотр: правка недоступна для этого сценария');
+      return rec.label;
+    }
+    const input=rec.input;
+    prop(input,'value',field.text);input.setCustomValidity('');
+    attr(input,'aria-label',field.key);
+    if(field.kind==='binding'||field.kind==='handler')prop(input.dataset,'link',field.key);
+    else prop(input.dataset,'prop',field.key);
+    if(rec.fill)prop(rec.fill.style,'backgroundColor',field.css);
+    if(rec.picker){prop(rec.picker,'value',pickerHex(field.value));attr(rec.picker,'aria-label',`Палитра ${field.key}`);}
+    if(rec.value){
       if(hasDesignData(field.ref)){
         const resolved=String(readDesignData(field.ref));
-        value.textContent=`= ${resolved.length>80?`${resolved.slice(0,80)}…`:resolved}`;
-        value.title=resolved;
-      }else value.textContent='значения нет: нажмите «↻ Данные дизайна»';
-      label.append(value);
+        text(rec.value,`= ${resolved.length>80?`${resolved.slice(0,80)}…`:resolved}`);prop(rec.value,'title',resolved);
+      }else{text(rec.value,'значения нет: нажмите «↻ Данные дизайна»');prop(rec.value,'title','');}
     }
-    if(field.kind==='binding'||field.kind==='handler')input.dataset.link=field.key;
-    else input.dataset.prop=field.key;
-    input.onchange=()=>edit(field,input.value,input);
-    label.append(input);
-    const remove=document.createElement('button');
-    remove.type='button';remove.className='property-remove';remove.textContent='−';
-    remove.title=`Убрать ${field.key} из ${field.layer==='markup'?'разметки этого элемента':layerLabel(field.layer)}`;
-    remove.setAttribute('aria-label',`Убрать свойство ${field.key}`);
-    remove.onclick=()=>declare(field.commit==='state',source=>removeEdit(field,source));
-    label.append(remove);
-    return label;
+    prop(rec.remove,'title',`Убрать ${field.key} из ${field.layer==='markup'?'разметки этого элемента':layerLabel(field.layer)}`);
+    attr(rec.remove,'aria-label',`Убрать свойство ${field.key}`);
+    return rec.label;
   }
   // Only names the compiler accepts for this type that the block does not declare yet, each paired
   // with the markup text it starts from. With a state on screen the designer is building that state,
   // so a new declaration goes into it; without one the form writes the component's own markup.
-  function addForm(declared){
+  function addableNames(declared){
     const state=current.state;
     // A state entry is created under the selected control's own key, so `key` is never a thing to
     // add here; every other name the state does not patch yet is an override waiting to be made.
-    const names=addableProperties(current.node.type,state?[...Object.keys(state.entry?.props??{}),'key']:declared);
-    const wrap=document.createElement('div');wrap.className='property-add';
+    return addableProperties(current.node.type,state?[...Object.keys(state.entry?.props??{}),'key']:declared);
+  }
+  // One form, refilled for every selection and reset to its first name as a new one would be.
+  const form=(()=>{
+    const wrap=element('div','property-add',''),none=document.createElement('small');
     const pick=document.createElement('select');pick.setAttribute('aria-label','Свойство для добавления');
     const value=document.createElement('input');value.setAttribute('aria-label','Начальное значение');
     const button=document.createElement('button');button.type='button';
-    if(!names.length){
-      pick.disabled=true;value.disabled=true;
-      const none=document.createElement('small');
-      none.textContent=state?'Состояние переопределяет все свойства этого типа':'Все свойства этого типа уже объявлены';
-      wrap.append(none,pick,value);
-      return wrap;
-    }
-    for(const name of names)pick.append(new Option(name,name));
-    const sync=()=>{value.value=propertyStart[pick.value];
-      button.textContent=`Добавить ${pick.value}${state?` в ${layerLabel('state')}`:''}`;};
+    let names=null;
+    const sync=()=>{prop(value,'value',propertyStart[pick.value]);
+      text(button,`Добавить ${pick.value}${current.state?` в ${layerLabel('state')}`:''}`);};
     pick.onchange=()=>{sync();notice.textContent='';value.focus();};
-    button.onclick=()=>declare(!!state,source=>state
+    button.onclick=()=>{const state=current.state;declare(!!state,source=>state
       ?statePropertyEdit(source,state.name,current.node.type,current.node.props.key,pick.value,value.value)
-      :propertyAddEdit(source,current.node.start,pick.value,value.value));
+      :propertyAddEdit(source,current.node.start,pick.value,value.value));};
     value.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();button.onclick();}};
-    sync();
-    wrap.append(pick,value,button);
-    return wrap;
+    return {el:wrap,fill(next){
+      if(names?.join('\n')!==next.join('\n')){names=next;pick.replaceChildren(...names.map(name=>new Option(name,name)));}
+      prop(pick,'disabled',!names.length);prop(value,'disabled',!names.length);
+      if(!names.length){
+        text(none,current.state?'Состояние переопределяет все свойства этого типа':'Все свойства этого типа уже объявлены');
+        prop(value,'value','');place(wrap,[none,pick,value]);
+      }else{prop(pick,'value',names[0]);sync();place(wrap,[pick,value,button]);}
+      return wrap;
+    }};
+  })();
+  // Pieces that every selection shows again are kept rather than rebuilt: an element that stays in
+  // the document keeps its layout, its painted shell surface and its observers.
+  const empty=element('small','inspector-empty','Контрол не выбран'),title=document.createElement('h3'),note=document.createElement('small');
+  const propertiesLabel=element('div','inspector-label','СВОЙСТВА'),linksLabel=element('div','inspector-label','ПРИВЯЗКИ И СОБЫТИЯ'),noLinks=element('small','','Нет привязок');
+  let rows=[],tokenNames=null;
+  // The last render's rows, by shape; a field takes one with its own name first, so a focused or
+  // half-typed field stays with the property it belongs to.
+  function rowsFor(fields){
+    const spare=new Map();for(const rec of rows){const list=spare.get(rec.shape);if(list)list.push(rec);else spare.set(rec.shape,[rec]);}
+    rows=fields.map(field=>{
+      const list=spare.get(rowShape(field)),rec=list?.find(r=>r.field.key===field.key)??list?.[0];
+      if(rec)list.splice(list.indexOf(rec),1);
+      return rec??row(field);
+    });
+    return rows.map((rec,i)=>fill(rec,fields[i]));
   }
   function render(state){
     current=state;
-    container.replaceChildren();
     // A panel with no control to describe says so instead of keeping the rows it last drew: after an
     // undo took the selected control out of the file, those rows would write into markup that is gone.
-    if(!current.node){const none=document.createElement('small');none.className='inspector-empty';none.textContent='Контрол не выбран';container.append(none);tokens.replaceChildren();return;}
-    const title=document.createElement('h3');title.textContent=current.node.type;container.append(title);
-    if(current.note){const note=document.createElement('small');note.textContent=current.note;container.append(note);}
-    tokens.replaceChildren();
-    for(const name of designTokens()){const option=document.createElement('option');option.value=name;tokens.append(option);}
-    container.append(tokens);
+    if(!current.node){place(container,[empty]);tokens.replaceChildren();tokenNames=null;return;}
+    text(title,current.node.type);
+    if(current.note)text(note,current.note);
+    const names=designTokens();
+    if(names.join('\n')!==tokenNames){tokenNames=names.join('\n');tokens.replaceChildren(...names.map(name=>{const option=document.createElement('option');option.value=name;return option;}));}
     const fields=propertyFields(current.node,current.source,current.state);
     const values=fields.filter(field=>field.commit!=='statement');
     const links=fields.filter(field=>field.commit==='statement');
-    heading('СВОЙСТВА');
     notice.textContent='';
-    for(const field of values)container.append(row(field));
-    // A binding or handler already occupies its name in the block, so it is not a candidate for
-    // declaring twice, and neither is a design row: the markup the form writes to has no statement
-    // under that name yet. A row with no place to write to is the only one not counted at all.
-    if(current.editable)container.append(addForm(fields.filter(field=>field.layer==='markup'&&field.commit!==null).map(field=>field.key)),notice);
-    heading('ПРИВЯЗКИ И СОБЫТИЯ');
-    if(!links.length){const none=document.createElement('small');none.textContent='Нет привязок';container.append(none);}
-    for(const field of links)container.append(row(field));
+    const [valueRows,linkRows]=(all=>[all.slice(0,values.length),all.slice(values.length)])(rowsFor([...values,...links]));
+    place(container,[title,...(current.note?[note]:[]),tokens,propertiesLabel,...valueRows,
+      // A binding or handler already occupies its name in the block, so it is not a candidate for
+      // declaring twice, and neither is a design row: the markup the form writes to has no statement
+      // under that name yet. A row with no place to write to is the only one not counted at all.
+      ...(current.editable?[form.fill(addableNames(fields.filter(field=>field.layer==='markup'&&field.commit!==null).map(field=>field.key))),notice]:[]),
+      linksLabel,...(links.length?linkRows:[noLinks])]);
   }
   return {render};
 }

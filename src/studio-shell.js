@@ -138,10 +138,14 @@ export async function mountStudioShell(root){
   batch.clear();spare=batch;
   if(dirty.size)frame=requestAnimationFrame(draw);
  }
- const resize=scope.resize(entries=>{for(const {target}of entries)request(target,true);});
- const visible=scope.intersect(entries=>{for(const entry of entries){const rec=records.get(entry.target);if(!rec)continue;rec.visible=entry.isIntersecting;if(rec.visible)request(entry.target,true);else retire(rec);}});
+ // Both observers report every new control once with what it already is; only a change is news.
+ const resize=scope.resize(entries=>{for(const entry of entries){const size=entry.borderBoxSize?.[0],props=records.get(entry.target)?.spec?.props;
+  if(!size||!props||Math.ceil(size.inlineSize)!==props.width||Math.ceil(size.blockSize)!==props.height)request(entry.target,true);}});
+ const visible=scope.intersect(entries=>{for(const entry of entries){const rec=records.get(entry.target);if(!rec||rec.visible===entry.isIntersecting)continue;rec.visible=entry.isIntersecting;if(rec.visible)request(entry.target,true);else retire(rec);}});
  function register(el){if(records.has(el)||!eligible(el))return;const icon=canvasIcon(el);if(icon){el.classList.add('studio-canvas-icon');el.setAttribute('aria-label',icon[2]);el.title=icon[2]+(el.title&&el.title!==icon[2]?' — '+el.title:'');}
- records.set(el,{visible:false,model:null,signature:'',specDirty:true,surface:painter.surface(el)});el.classList.add('forma-host-control');if(kind(el)==='field')el.classList.add('forma-host-input');resize.observe(el);visible.observe(el);}
+ // A new control is drawn in the next frame, with the rest of the change that added it, rather than
+ // one frame later once the visibility observer has reported; the observer retires it if it is not.
+ records.set(el,{visible:true,model:null,signature:'',specDirty:true,surface:painter.surface(el)});el.classList.add('forma-host-control');if(kind(el)==='field')el.classList.add('forma-host-input');resize.observe(el);visible.observe(el);request(el);}
  // A control that left the document gives back its Rust model, surface and observers.
  function prune(){for(const [el,rec]of records)if(!el.isConnected){retire(rec);rec.surface.destroy();resize.unobserve(el);visible.unobserve(el);records.delete(el);dirty.delete(el);}}
  function scan(){

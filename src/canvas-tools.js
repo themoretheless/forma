@@ -83,8 +83,8 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
   listen(viewport,'pointercancel',release);
   listen(viewport,'wheel',event=>{if(!event.ctrlKey&&!event.metaKey)return;event.preventDefault();event.stopImmediatePropagation();autoFit=false;const r=viewport.getBoundingClientRect();zoom(scale*Math.exp(-event.deltaY*.005),[event.clientX-r.left,event.clientY-r.top]);},{passive:false,capture:true});
   function update(){
-    for(const b of controls.querySelectorAll('[data-mode]'))b.setAttribute('aria-pressed',String(b.dataset.mode===getMode()));
-    controls.querySelector('[data-selection]').disabled=!selectedBounds();
+    for(const b of controls.querySelectorAll('[data-mode]')){const pressed=String(b.dataset.mode===getMode());if(b.getAttribute('aria-pressed')!==pressed)b.setAttribute('aria-pressed',pressed);}
+    const zoomTo=controls.querySelector('[data-selection]'),disabled=!selectedBounds();if(zoomTo.disabled!==disabled)zoomTo.disabled=disabled;
     viewport.dataset.mode=getMode();if(autoFit)fit();else draw();
   }
   events.resize(()=>{if(autoFit)fit();else draw();}).observe(viewport);

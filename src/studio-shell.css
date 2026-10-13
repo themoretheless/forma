@@ -37,7 +37,9 @@ body.forma-studio-ui.forma-studio-ui :where(.canvas-modes,.layout-inspector[open
 body.forma-studio-ui.forma-studio-ui :where(.file .ui,.file-icon,.control-tree-label,.control-tree-detail){color:var(--guide-textMuted)}
 body.forma-studio-ui.forma-studio-ui .bottom-tabs button span{background:var(--guide-surfaceRaised)}
 
-body.forma-studio-ui .forma-native-surface{background:var(--forma-surface,none) center/100% 100% no-repeat!important;border-color:transparent!important;box-shadow:none!important;border-radius:0!important;opacity:1!important}
+/* A painted surface animates its own states, so a host transition would only fade the paint in again
+   each time a control is drawn: the minimal shell's hidden-until-hover `−` buttons did on every selection. */
+body.forma-studio-ui .forma-native-surface{background:var(--forma-surface,none) center/100% 100% no-repeat!important;border-color:transparent!important;box-shadow:none!important;border-radius:0!important;opacity:1!important;transition:none!important}
 body.forma-studio-ui .forma-native-surface:not(.forma-host-input),body.forma-studio-ui .forma-native-surface:not(.forma-host-input) *{color:transparent!important;text-shadow:none!important}
 .forma-native-surface:not(.forma-host-input)::before,.forma-native-surface:not(.forma-host-input)::after{color:transparent!important;background:none!important}
 .forma-native-surface>input[type=checkbox]{opacity:0}
