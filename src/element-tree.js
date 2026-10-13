@@ -55,3 +55,13 @@ export function createElementTree(roots){
  const rootIds=roots.map(root=>add(root,null));
  return Object.freeze({roots:Object.freeze(rootIds),nodes:Object.freeze(nodes)});
 }
+
+// The node a source offset names, depth-first; offsets are unique within one file's tree.
+export function findNodeByStart(nodes,start){
+  for(const node of nodes??[]){
+    if(node.start===start)return node;
+    const found=findNodeByStart(node.children,start);
+    if(found)return found;
+  }
+  return null;
+}

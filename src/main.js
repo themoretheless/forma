@@ -1,11 +1,17 @@
 import {readStorage,writeStorage,validateProject,restoreProject,writeProject} from './browser-storage.js';
 import {studioControlsProject} from './studio-controls-builtin.js';
+import {sampleProject} from './sample-project.js';
 import {mountStudioShell} from './studio-shell.js';
 import {mountMinimalShell} from './minimal-shell.js';
+import {createStudioEvents,studioEventTypes} from './studio-events.js';
+import {createIdeCommands} from './mcp-commands.js';
+import {renderHtmlPreview} from './html-preview.js';
+import {mountDevBridge} from './dev-bridge.js';
+const studioEvents=createStudioEvents();
 const isStudioControls=new URLSearchParams(location.search).get('project')==='studio-controls';
 const storageKey=name=>isStudioControls?name+':studio-controls-guide':name;
 import {designPreset,collectionScenario} from './design-presets.js';
-let designPresetName='original',nativeSource=null,nativeBuffer='';
+let designPresetName='original',nativeSource=null;
 import {createLayoutInspector} from './layout-inspector.js';
 let layoutInspector,lastVisuals=[],sourceDiagnostic=null;
 import {createCanvasTools} from './canvas-tools.js';
@@ -23,19 +29,17 @@ import {createStatesPanel} from './states-panel.js';
 import {designStatesSummary,findEntry,stateCreateEdit,stateDeleteEdit,statePropertyEdit,stateRenameEdit} from './design-states.js';
 import {copyElement,insertElement,moveAmongSiblings,moveIntoContainer,removeElement} from './element-edit.js';
 import {restoreSelection,selectionIdentities} from './selection-restore.js';
+import {findNodeByStart} from './element-tree.js';
 import {mountEditor} from './editor.js';
 import {createPropertyInspector} from './property-inspector.js';
 import {createBulkEditor} from './bulk-edit.js';
 import {designReferencesInFiles} from './design-data.js';
 import {insertableControls} from './control-catalog.js';
 import {createSpacingOverlay} from './spacing-overlay.js';
-import {gridProperties,gridStyles} from './grid.js';
-import {takesCoordinates,coordinateShift} from './positioning.js';
-import {sizeProperties,sizeValue} from './sizing.js';
 import {nativeSnapshot} from './native-snapshot.js';
 import {loadVectorRuntime,createVectorPreview} from './vector-preview.js';
 import {createComponentCompiler,sceneControlNodes} from './components.js';
-import {expandStructure,evaluate} from './component-semantics.js';
+import {evaluate} from './component-semantics.js';
 import {writePreviewBinding} from './preview-state.js';
 let previewRefreshPending=false,lastPreviewControls=[];
 function schedulePreviewRefresh(){if(previewRefreshPending)return;previewRefreshPending=true;queueMicrotask(()=>{previewRefreshPending=false;try{render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}output();});}
@@ -56,78 +60,7 @@ let activeTreeDocument=null;
 let renderer=isStudioControls||readStorage('localStorage',storageKey('forma-renderer'))==='vector'?'vector':'html';
 import {parse,resolve,validateDesign,designStatePatch} from './language.js';
 
-const initial={
- 'ui/SearchWindow.ui':`#[design('./SearchWindow.design.ui')]
-component SearchWindow {
-    Frame {
-        padding: 32;
-        gap: 16;
-
-        Text {
-            text: 'Библиотека знаний';
-            font.size: 26;
-            color: #e8edf7;
-        }
-
-        Text {
-            text: 'Найдите ответ в ваших документах';
-            color: #98a4ba;
-        }
-
-        TextInput {
-            key: 'query';
-            value <-> state.query;
-            placeholder: 'Что найти?';
-            padding: 12;
-        }
-
-        Button {
-            key: 'searchButton';
-            style: primary;
-            text: 'Найти документы';
-            disabled: state.loading;
-            clicked -> actions.search();
-        }
-
-        Text {
-            key: 'status';
-            text: state.status;
-            color: '#98a4ba';
-        }
-    }
-}`,
- 'ui/SearchWindow.design.ui':`design SearchWindow {
-    TextInput { key: 'query'; value: ''; }
-    Button { key: 'searchButton'; disabled: false; }
-    Text { key: 'status'; text: '24 документа в библиотеке'; }
-
-    state 'поиск' {
-        TextInput { key: 'query'; value: 'Архитектура'; }
-        Text { key: 'status'; text: 'Ищем…'; }
-    }
-
-    state 'нет результатов' {
-        Button { key: 'searchButton'; disabled: true; }
-        Text { key: 'status'; text: 'Ничего не найдено'; }
-    }
-}`, 
- 'src/actions.rs':`// Контракт будущего Rust-backend.
-// Этот файл редактируется, но не выполняется в web-preview.
-
-pub struct SearchState {
-    pub query: String,
-    pub loading: bool,
-    pub status: String,
-}
-
-pub fn search(state: &mut SearchState) {
-    state.loading = true;
-    // Подключите прикладной сервис поиска.
-}
-`,
- 'README.md':'# Knowledge workspace\n\n.ui — разметка.\n.design.ui — состояния предпросмотра.\n\nОтладчик останавливается перед событием UI.\nПродолжить — применяет демонстрационный обработчик.\nRust-код требует будущей интеграции DAP.\n'
-};
-const initialProject=isStudioControls?studioControlsProject:initial;
+const initialProject=isStudioControls?studioControlsProject:sampleProject;
 let files=restoreProject(readStorage('localStorage',storageKey('forma-project')),initialProject);
 files['Cargo.toml']??=`[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
 files['src/main.rs']??=`mod actions;\n\nfn main() {\n    let mut state = actions::SearchState {\n        query: String::from("Архитектура"),\n        loading: false,\n        status: String::from("Готов"),\n    };\n    println!("Rust-приложение запущено");\n    println!("Запрос: {}", state.query);\n    actions::search(&mut state);\n    println!("После actions::search: loading={}, status={}", state.loading, state.status);\n}\n`;
@@ -135,6 +68,11 @@ let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.u
 try{const view=JSON.parse(readStorage('localStorage',storageKey('forma-view')));if(view?.entry in files)entry=view.entry;if(view?.active in files)active=view.active;}catch{}
 function persistView(){try{writeStorage('localStorage',storageKey('forma-view'),JSON.stringify({active,entry}));}catch{}}
 const $=id=>document.getElementById(id);
+// The file as it really stands: the editor's text for the open file, which `files` only catches up
+// with on the next microtask, and the stored text for every other one.
+const liveSource=path=>path===active?$('code').value:files[path];
+function reportError(message){error=message;sourceDiagnostic=null;output();}
+function downloadJson(name,text){const url=URL.createObjectURL(new Blob([text],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 document.querySelector('#app').innerHTML=`
 <header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">${isStudioControls?'Studio Controls':'knowledge-workspace'} <span> / локальный проект</span></div><a class="controls-link" href="${isStudioControls?'/':'/?project=studio-controls'}">${isStudioControls?'Мой проект':'Контролы Studio'}</a><a class="controls-link" href="/vector-ui/examples/controls.html">Контролы · Reveal</a><button id="import">Открыть</button><button id="export">Экспорт</button><button id="run" class="accent">${mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента'}</button></header>
 <div class="workspace"><aside class="explorer"><div class="section-title">ПРОЕКТ <button id="new" title="Создать файл">+</button></div><div id="tree"></div><div class="explorer-note"><span class="dot"></span> Локальное сохранение<br><small>Проект хранится в этом браузере.<br>Экспортируйте для резервной копии.</small></div></aside>
@@ -153,13 +91,14 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
  if(recovery!==null){
   const button=document.createElement('button');button.textContent='Скачать данные восстановления';
   button.title='Исходная запись проекта, которую не удалось прочитать';
-  button.onclick=()=>{const url=URL.createObjectURL(new Blob([recovery],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project-recovery.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+  button.onclick=()=>downloadJson('forma-project-recovery.json',recovery);
   $('export').after(button);
  }
- if(damaged!==null)$('saved').textContent='Сохранённый проект повреждён: открыта исходная версия';
+ if(damaged!==null)saveStatus('damaged','Сохранённый проект повреждён: открыта исходная версия');
 }
 function resetProjectEditing(){clearTimeout(saveTimer);clearTimeout(compileTimer);saveTimer=compileTimer=undefined;setDesignData({});codeEditor?.resetProject();}
-function persist(){try{if(!writeProject(storageKey('forma-project'),files))throw Error('Storage unavailable');$('saved').textContent='Сохранено';}catch{$('saved').textContent='Не сохранено: экспортируйте проект';}}
+function saveStatus(status,text){$('saved').textContent=text;studioEvents.emit(studioEventTypes.save,{status,text});}
+function persist(){try{if(!writeProject(storageKey('forma-project'),files))throw Error('Storage unavailable');saveStatus('saved','Сохранено');}catch{saveStatus('unsaved','Не сохранено: экспортируйте проект');}}
 function tree(){const buttons=[...$('tree').querySelectorAll('[data-path]')],paths=Object.keys(files),existing=new Set(buttons.map(b=>b.dataset.path));
  if(buttons.length===paths.length&&paths.every(path=>existing.has(path))){for(const b of buttons)b.classList.toggle('active',b.dataset.path===active);return;}
  const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
@@ -188,7 +127,7 @@ function highlightSource(){
   layer.dataset.lines=`${first+1}-${last+1}`;
 }
 function log(text){logs.push({time:new Date().toLocaleTimeString(),text});if(logs.length>200)logs.shift();output();}
-function output(){$('problem-count').textContent=error?1:0;$('event-count').textContent=logs.length;$('output').innerHTML=tab==='state'?`<pre>${esc(JSON.stringify(state,null,2))}</pre>`:tab==='events'?logs.map(l=>`<div class="log"><time>${l.time}</time>${esc(l.text)}</div>`).join('')||'<p class="muted">События появятся при взаимодействии с предпросмотром.</p>':error?`<p class="error">● ${esc(error)}</p>`:'<p class="ok">✓ Разметка проверена. Ошибок нет.</p>';diagnosticLinks();}
+function output(){$('problem-count').textContent=error?1:0;studioEvents.emit(studioEventTypes.problems,{count:error?1:0});$('event-count').textContent=logs.length;$('output').innerHTML=tab==='state'?`<pre>${esc(JSON.stringify(state,null,2))}</pre>`:tab==='events'?logs.map(l=>`<div class="log"><time>${l.time}</time>${esc(l.text)}</div>`).join('')||'<p class="muted">События появятся при взаимодействии с предпросмотром.</p>':error?`<p class="error">● ${esc(error)}</p>`:'<p class="ok">✓ Разметка проверена. Ошибок нет.</p>';diagnosticLinks();}
 function diagnosticLinks(){
  if(tab!=='problems'||sourceDiagnostic?.message!==error)return;
  for(const [label,source]of [['К ошибке',sourceDiagnostic.source],['К определению узла',sourceDiagnostic.related]]){
@@ -214,30 +153,12 @@ if(renderer==='vector'){
   if(designMode&&designPresetName!=='original')$('caption').textContent='Дизайнерский сценарий · исходник не изменён · редактирование частей отключено';
   $('canvas').classList.toggle('interacting',!designMode);canvasTools?.update();layoutInspector?.update();elementTools?.update();return;
 }
-const preview=$('preview');preview.classList.remove('vector-artboard');preview.style.backgroundColor='';preview.style.borderRadius='';preview.style.minHeight='';const cssMap={'padding':'padding','margin':'margin','gap':'gap','overflow':'overflow','background':'background','color':'color','width':'width','height':'height','radius':'borderRadius','font.size':'fontSize','opacity':'opacity'};
-// Controls whose drawing the scene moves out of its flow slot, in document order so a moved
-// container is measured after its own shift landed.
-const freeNodes=[];
-// One design file holds several states; the switcher index picks which patch lies over the base.
-const activeDesign=designMode?designStatePatch(compiled,compiled.states[scenario]?.name):null;
-for(const kind of ['padding','margin'])for(const side of ['top','right','bottom','left'])cssMap[`${kind}.${side}`]=kind+side[0].toUpperCase()+side.slice(1);
-function make(source,parent=null,parentEl=null){const override=activeDesign&&Object.hasOwn(activeDesign,source.props.key)?activeDesign[source.props.key]:null;const n={...source,props:{...source.props,...override}};const types={Frame:'div',Column:'div',Row:'div',Grid:'div',Stack:'div',Scroll:'div',Text:'div',TextInput:'input',TextField:'input',Checkbox:'input',Slider:'input',Button:'button',Panel:'div'};if(!types[n.type])throw Error(`Компонент ${n.type} пока не поддерживается`);const el=document.createElement(types[n.type]);el.dataset.start=n.start;el.className='ui-node '+n.type.toLowerCase();if(n.type==='Checkbox')el.type='checkbox';if(n.type==='Slider')el.type='range';if(n.type==='Stack'){el.style.display='grid';}if(n.type==='Scroll')el.style.overflow='auto';if(n.type==='Frame'||n.type==='Column'||n.type==='Row'){el.style.display='flex';el.style.flexDirection=n.type==='Row'?'row':'column';}for(const [k,v]of Object.entries(n.props)){const x=resolve(v,state);if(k==='key'){el.dataset.key=x;continue;}if(k==='clip'){if(!['Frame','Row','Column','Grid','Stack'].includes(n.type)||typeof x!=='boolean')throw Error('Frame.clip ожидает true или false');if('overflow' in n.props)throw Error('Используйте clip или overflow, не оба');el.style.overflow=x?'clip':'visible';continue;}if(gridProperties.has(k)||k==='x'||k==='y')continue;else if(sizeProperties.has(k)){if(typeof x==='string'&&/^(?:\d+(?:\.\d+)?)?\*$/.test(x)&&((parent?.type==='Row'&&k==='width')||(['Column','Frame'].includes(parent?.type)&&k==='height'))){el.style.flex=`${x==='*'?1:Number(x.slice(0,-1))} 1 0px`;el.style[k==='width'?'minWidth':'minHeight']='0';}else el.style[k]=sizeValue(x);}else if(k==='text')el.textContent=x??'';else if(k==='value')el.value=x??'';else if(k==='placeholder')el.placeholder=x;else if(k==='disabled')el.disabled=!!x;else if(k==='checked'||k==='selected')el.checked=!!x;else if(k==='style')el.classList.add(String(x));else if(cssMap[k])el.style[cssMap[k]]=typeof x==='number'&&k!=='opacity'?x+'px':Array.isArray(v)?v.map(a=>typeof a==='number'?a+'px':resolve(a,state)).join(' '):x;else throw Error(`Свойство ${k} пока не поддерживается`);}
-for(const [key,path]of Object.entries(n.bindings)){if(!['value','checked','selected'].includes(key))throw Error(`Неподдерживаемая привязка ${key} <-> ${path}`);const property=key==='value'?'value':'checked';el[property]=n.props[key]??(property==='value'?'':false);el.addEventListener('input',()=>{const value=property==='checked'?el.checked:n.type==='Slider'?Number(el.value):el.value;if(writePreviewBinding(state,n,path,value,{createMissing:true})){log(`${path} = ${JSON.stringify(value)}`);if(n.events.changed)dispatch(n.events.changed,n,'changed');schedulePreviewRefresh();}});}
-el.addEventListener('click',e=>{e.stopPropagation();if(mode==='design'){select(source);return;}if(n.events.clicked)dispatch(n.events.clicked,n);});Object.assign(el.style,gridStyles(n,state,parent));
-if(takesCoordinates(n,parent))freeNodes.push([n,parent,parentEl,el]);
-for(const child of n.children)el.append(make(child,n,el));
-return el;}
-const focused=document.activeElement;const focusIdentity=preview.contains(focused)?{key:focused.dataset.key,start:focused.dataset.start,selectionStart:focused.selectionStart,selectionEnd:focused.selectionEnd}:null;const fragment=document.createDocumentFragment();const expanded=expandStructure(compiled.nodes,compiled.defaults,state,{enums:compiled.enums,allowMissingState:true});for(const n of expanded)fragment.append(make(n));preview.replaceChildren(fragment);
-// A free control keeps its flow slot, so its offset is the distance between where the flow put
-// it and where the scene puts it — measurable only once the nodes are in the document.
-for(const [node,parent,parentEl,el]of freeNodes){
-  const shift=coordinateShift(node,parent,state,parentEl.getBoundingClientRect(),el.getBoundingClientRect());
-  if(shift){el.style.position='relative';for(const [css,px]of Object.entries(shift))el.style[css]=px+'px';}
-}
-if(focusIdentity&&mode==='interact'){const restored=Array.from(preview.querySelectorAll('[data-start]')).find(el=>focusIdentity.key?el.dataset.key===focusIdentity.key:el.dataset.start===focusIdentity.start);if(restored){restored.focus({preventScroll:true});if(typeof focusIdentity.selectionStart==='number'&&restored.setSelectionRange)restored.setSelectionRange(focusIdentity.selectionStart,focusIdentity.selectionEnd);}}$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
+renderHtmlPreview({preview:$('preview'),compiled,state,interactive:mode!=='design',design:designMode?designStatePatch(compiled,compiled.states[scenario]?.name):null,onSelect:select,onEvent:dispatch,onLog:log,onChange:schedulePreviewRefresh});
+$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
 // The panel is rebuilt from one place so every change of selection or of the preview preset
 // recomputes `editable`: rows that write markup must not survive a switch to a design scenario.
 function renderInspector(){
+  studioEvents.emit(studioEventTypes.selection,{selected:!!(selected&&selectedPath&&Object.hasOwn(files,selectedPath))});
   // With nothing selected the panels have to say so rather than keep the rows of the control that is
   // gone: those rows would write into markup the file no longer holds.
   if(!selected||!selectedPath||!Object.hasOwn(files,selectedPath)){propertyInspector?.render({node:null,editable:false});bulkEditor?.render({starts:[],editable:false});return;}
@@ -260,10 +181,10 @@ function designStateFor(node){
     return overridden||base?{name:state.name,path:state.file,source,entry:overridden,base}:null;
   }catch{/* a file that stopped compiling keeps the rows it had before */return null;}
 }
-function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);canvasTools?.update();elementTools?.update();layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
 // The mirror of `select` for the moment there is nothing to select: every surface that was drawing the
 // control lets it go, so no row survives that could write into markup the file has dropped.
-function clearSelection(){selected=null;selectedPath=null;vectorPreview?.select(null);canvasTools?.update();elementTools?.setSelection([]);layoutInspector?.update();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));inspectorNote='';renderInspector();lines();controlTree?.select(null,null);}
+function clearSelection(){selected=null;selectedPath=null;vectorPreview?.select(null);elementTools?.setSelection([]);layoutInspector?.update();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));inspectorNote='';renderInspector();lines();controlTree?.select(null,null);}
 function refreshControlTree(){
   if(!controlTree)return;
   const path=controlTree.scope==='designer'?entry:active;
@@ -285,7 +206,7 @@ function refreshStatesPanel(){
   const path=designFilePath();
   let states=[],baseCount=0,message='',editable=designPresetName==='original';
   if(path){
-    const source=path===active?$('code').value:files[path];
+    const source=liveSource(path);
     try{
       const doc=parse(source);
       if(!doc.designBody)throw Error('Файл не является дизайн-файлом');
@@ -300,7 +221,7 @@ function refreshStatesPanel(){
 function designStateFile(){
   const path=designFilePath();
   if(!path)throw Error('Дизайн-файл не выбран');
-  return {path,source:path===active?$('code').value:files[path]};
+  return {path,source:liveSource(path)};
 }
 // A panel action splices the design file its rows came from, so the edit is computed against that
 // file's live text and passes the same stale-snapshot guard an inspector edit passes. An MCP write
@@ -350,15 +271,15 @@ function showNativeInspection(data){
 function dispatch(action,n,event='clicked'){if(pending){log('Событие пропущено: debugger приостановлен');return;}const args=(n.eventArgExpressions?.[event]??n.eventArgs?.[event]??[]).map(value=>evaluate(value,compiled.defaults,state,[],false,n.environment));log(`Событие ${n.type}.${event} → ${action}(${args.map(value=>JSON.stringify(value)).join(', ')})`);if(breakOn){pending={action,n};$('continue').disabled=false;$('debug-status').textContent='Пауза перед '+action;tab='state';syncTabs();output();return;}execute(action);}
 function execute(action){if(action==='actions.search'){state.status=`Дизайн-обработчик: запрос «${state.query||'пусто'}»`;log('Выполнен дизайн-обработчик search (без Rust/backend)');}else log(`Обработчик ${action} не подключён`);render();output();}
 function syncTabs(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));}
-$('code').oninput=()=>{files[active]=$('code').value;lines();$('saved').textContent='Изменено';clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);clearTimeout(compileTimer);compileTimer=setTimeout(()=>compile(active.endsWith('.design.ui')),250);};$('code').onscroll=()=>{$('lines').scrollTop=$('code').scrollTop;};$('code').onclick=lines;$('code').onkeyup=lines;
+$('code').oninput=()=>{files[active]=$('code').value;lines();saveStatus('changed','Изменено');clearTimeout(saveTimer);saveTimer=setTimeout(persist,350);clearTimeout(compileTimer);compileTimer=setTimeout(()=>compile(active.endsWith('.design.ui')),250);};$('code').onscroll=()=>{$('lines').scrollTop=$('code').scrollTop;};$('code').onclick=lines;$('code').onkeyup=lines;
 $('code').onkeydown=e=>{if(e.key==='Tab'){e.preventDefault();const el=e.target;el.setRangeText('    ',el.selectionStart,el.selectionEnd,'end');el.dispatchEvent(new Event('input'));}if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();persist();}};
 $('scenario').onchange=e=>{scenario=Number(e.target.value);compile(true);};$('entry').onclick=()=>{if(renderer==='vector'&&active==='components/Button.ui'){compile();return;}entry=active;scenario=0;compile(true);};
-$('run').onclick=()=>{mode=mode==='design'?'interact':'design';writeStorage('sessionStorage',storageKey('forma-canvas-mode'),mode);$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
+$('run').onclick=()=>{mode=mode==='design'?'interact':'design';writeStorage('sessionStorage',storageKey('forma-canvas-mode'),mode);studioEvents.emit(studioEventTypes.mode,{mode});$('run').textContent=mode==='design'?'▶ Взаимодействие':'⌖ Выбор элемента';$('caption').textContent=mode==='design'?'Выберите элемент, чтобы найти его в разметке':'События выполняются в дизайн-runtime · Rust не подключён';render();};
 $('desktop').onclick=()=>{$('preview').style.width='520px';$('desktop').classList.add('chosen');$('mobile').classList.remove('chosen');};$('mobile').onclick=()=>{$('preview').style.width='320px';$('mobile').classList.add('chosen');$('desktop').classList.remove('chosen');};$('theme').onclick=()=>$('preview').classList.toggle('light');
 $('break').onchange=e=>breakOn=e.target.checked;$('continue').onclick=()=>{if(pending){const p=pending;pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';execute(p.action);}};$('reset').onclick=()=>{pending=null;$('continue').disabled=true;$('debug-status').textContent='Готов';compile(true);log('Состояние предпросмотра восстановлено');};
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();output();});
 $('new').onclick=()=>{const path=prompt('Путь нового файла','ui/NewWindow.ui');if(!path)return;try{validateProject({[path]:''});}catch(error){alert(error.message);return;}if(path in files){alert('Файл уже существует');return;}files[path]=path.endsWith('.ui')?'component NewWindow {\n    Frame {\n        Text {\n            text: \'Новое окно\';\n        }\n    }\n}\n':'';open(path);persist();};
-$('export').onclick=()=>{const url=URL.createObjectURL(new Blob([JSON.stringify(files,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='forma-project.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=validateProject(JSON.parse(await f.text()));if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;resetProjectEditing();files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
+$('export').onclick=()=>downloadJson('forma-project.json',JSON.stringify(files,null,2));$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=validateProject(JSON.parse(await f.text()));if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;resetProjectEditing();files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
 $('code').addEventListener('scroll',highlightSource);
 $('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});},canReorder:()=>designPresetName==='original',onReorder:reorderTreeControl});
@@ -378,7 +299,7 @@ codeEditor=mountEditor($('code'),{getProject:()=>({files,path:active})});
 // A panel edit of one file: the guard rejects a change computed against text the editor has
 // already moved past, and the reselect walks the AST the new compile yields.
 function commitSource({file,source,from,to,insert,reselect,after}){
-  if((file===active?$('code').value:files[file])!==source)throw Error('Исходник изменился — повторите операцию');
+  if(liveSource(file)!==source)throw Error('Исходник изменился — повторите операцию');
   parse(source.slice(0,from)+insert+source.slice(to));
   if(active!==file)open(file);
   codeEditor.edit({from,to,insert});
@@ -386,7 +307,7 @@ function commitSource({file,source,from,to,insert,reselect,after}){
   // input event and the new AST exists. `after` runs at the very end, after the host has republished
   // the reselected control: the editor's own input event drops the selection, so a caller that keeps
   // a batch of offsets — the ones this change just moved — has to restore it over that handoff.
-  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===reselect)found??=n;walk(n.children??[]);}};walk(compiled?.nodes??[]);if(found)select(found);after?.();});
+  if(reselect!==undefined)queueMicrotask(()=>{clearTimeout(compileTimer);compile();const found=findNodeByStart(compiled?.nodes,reselect);if(found)select(found);after?.();});
 }
 // The tree is drawn from a snapshot parse, so the move is computed against that same text.
 // Only the entry file compiles into the preview whose AST the reselect walks.
@@ -404,9 +325,9 @@ propertyInspector=createPropertyInspector({container:$('inspector'),designTokens
  // The inspector renders from a snapshot of the source, so both hooks below read the file as it
  // really stands: `files` only catches the editor up on the next microtask, and a committed row
  // stays on screen with the snapshot it was rendered from.
- liveSource:path=>path===active?$('code').value:files[path],
+ liveSource,
  commit:commitSource,
- onError:message=>{error=message;sourceDiagnostic=null;output();}});
+ onError:reportError});
 canvasTools=createCanvasTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.preview-tools'),
 getScene:()=>renderer==='vector'?vectorPreview?.layoutSnapshot():null,
 getSelection:()=>{if(!selected||selectedPath!==entry)return null;const children=compiled?.nodes?.[0]?.children??[];const nodes=sceneControlNodes(children);return {index:nodes.findIndex(n=>n.start===selected.start),root:selected.start===compiled?.nodes?.[0]?.start};},
@@ -433,7 +354,7 @@ function projectInserts(){
  return insertCatalog;
 }
 elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,top:sceneControlNodes(children),pick:start=>{let found;const walk=nodes=>{for(const n of nodes){if(n.start===start)found??=n;walk(n.children??[]);}};if(root)walk([root]);return found??null;},scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
+context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,top:sceneControlNodes(children),pick:start=>findNodeByStart(root?[root]:[],start),scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
 select,report:message=>{$('caption').textContent=message;},
 copy:async text=>{try{await navigator.clipboard.writeText(text);$('caption').textContent='CSS скопирован в буфер';}catch{$('caption').textContent='Буфер обмена недоступен';}},
 history:action=>{
@@ -458,7 +379,7 @@ commit:(change,context)=>{
  parse(next);compileComponents({...files,[entry]:next},entry,state,{measureText:vectorPreview.measureText});
  if(active!==entry)open(entry);codeEditor.edit({from:change.from,to:change.to,insert:change.insert});
  // The editor publishes its input event first; reselect against the new AST afterwards.
- queueMicrotask(()=>{clearTimeout(compileTimer);compile();let found;const walk=ns=>{for(const n of ns){if(n.start===change.start)found=n;walk(n.children);}};walk(compiled.nodes);if(found)select(found);if(change.starts)elementTools.setSelection(change.starts);elementTools.update();});
+ queueMicrotask(()=>{clearTimeout(compileTimer);compile();const found=findNodeByStart(compiled?.nodes,change.start);if(found)select(found);if(change.starts)elementTools.setSelection(change.starts);elementTools.update();});
 }});
 // Below the rows of one control, the panel offers the names the whole canvas selection has in
 // common. Their write spans the batch, so the offsets it reports are what keeps the selection alive:
@@ -466,13 +387,14 @@ commit:(change,context)=>{
 // back over it before the rows are drawn again.
 bulkEditor=createBulkEditor({container:$('inspector'),
  commit:({file,source,primary,...change})=>commitSource({file,source,...change,reselect:primary,after:()=>{elementTools.setSelection(change.starts);renderInspector();}}),
- onError:message=>{error=message;sourceDiagnostic=null;output();}});
+ onError:reportError});
 spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPath===entry?selected:null);
 open(active);compile(true);
 let studioShell,shellDisposed=false;
-const minimalShell=mountMinimalShell(document.querySelector('#app'),{newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
+studioEvents.emit(studioEventTypes.mode,{mode});
+const minimalShell=mountMinimalShell(document.querySelector('#app'),{events:studioEvents,newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
-import.meta.hot?.dispose(()=>{shellDisposed=true;minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();});
+import.meta.hot?.dispose(()=>{shellDisposed=true;minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();layoutInspector?.destroy();spacingOverlay?.destroy();vectorPreview?.destroy();});
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
 rendererPicker.onchange=()=>{renderer=rendererPicker.value;writeStorage('localStorage',storageKey('forma-renderer'),renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
 function initVector(){
@@ -484,138 +406,29 @@ function initVector(){
 }
 initVector();
 
-// The MCP transport invokes the same runtime and UI operations as the editor.
-function ideCommand(command,args={}){
-  const snapshot=()=>({active,entry,scenario:scenario<0?null:compiled?.states[scenario]?.name??null,mode,error,selected:selected?.start??null,debug:{breakOn,paused:!!pending,action:pending?.action??null},renderer,capabilities:{vectorRenderer:!!vectorPreview,rustExecution:!!import.meta.hot,rustDap:false}});
-  const requireFile=path=>{if(!Object.hasOwn(files,path))throw Error('File not found: '+path);};
-  const findNode=start=>{let found;const walk=nodes=>{for(const n of nodes??[]){if(n.start===start)found=n;walk(n.children);}};walk(compiled?.nodes);if(!found)throw Error('Component not found; refresh component_tree');return found;};
-  const applyFiles=()=>{selected=null;open(active);persist();compile(true);};
-  switch(command){
-    case 'ide_status':return snapshot();
-    case 'designer_tree':return controlTree.snapshot();
-    case 'designer_tree_view':controlTree.setView(args);return controlTree.snapshot();
-    case 'designer_tree_select':controlTree.selectId(args.id);return controlTree.snapshot();
-    case 'designer_tree_fold':controlTree.fold(args.id,args.collapsed);return controlTree.snapshot();
-    case 'app_run':if(parse(files[entry]).defaults.contextType){import.meta.hot.send('forma:form-run',{files,state});return {status:'requested',renderer:'generated-rust'};}if(renderer==='vector'){nativeSource={entry,source:files[entry],nodes:structuredClone(compiled?.nodes??[])};if(error||!vectorPreview)throw Error(error||'Векторный renderer не готов');import.meta.hot.send('forma:vector-run',compileComponents(files,entry,state,{measureText:vectorPreview.measureText}));return {status:'requested',renderer};}if(error||!compiled)throw Error('Исправьте разметку');render(false);try{import.meta.hot.send('forma:native-run',{files,snapshot:nativeSnapshot($('preview'),compiled)});}finally{render();}return {status:'requested'};
-    case 'app_stop':import.meta.hot.send('forma:rust-stop',{});import.meta.hot.send('forma:native-stop',{});import.meta.hot.send('forma:vector-stop',{});return {status:'requested'};
-    case 'rust_run':if(!import.meta.hot)throw Error('Requires local dev server');import.meta.hot.send('forma:rust-run',{files});return {status:'requested',note:'Read events_read for compilation output and exit code'};
-    case 'rust_stop':import.meta.hot?.send('forma:rust-stop',{});return {status:'stop requested'};
-    case 'project_read':return {...files};
-    case 'file_read':requireFile(args.path);return {path:args.path,content:files[args.path]};
-    case 'file_open':requireFile(args.path);open(args.path);break;
-    case 'editor_fold':codeEditor.fold(args);break;
-    case 'file_write':{
-      if(typeof args.path!=='string'||!args.path)throw Error('Invalid project path');validateProject({[args.path]:args.content});
-      if(Object.hasOwn(files,args.path)&&args.expectedContent!==files[args.path])throw Error('File changed or expectedContent missing. Read it first.');
-      files[args.path]=args.content;applyFiles();break;
-    }
-    case 'project_replace':{
-      if(JSON.stringify(Object.entries(files).sort())!==JSON.stringify(Object.entries(args.expectedFiles).sort()))throw Error('Project changed. Read it first.');
-      validateProject(args.files);
-      resetProjectEditing();files=Object.fromEntries(Object.entries(args.files));active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;applyFiles();break;
-    }
-    case 'preview_renderer':rendererPicker.value=args.renderer;rendererPicker.onchange();break;
-    case 'vector_status':return vectorPreview?.snapshot()??{ready:false};
-    case 'preview_open':requireFile(args.path);entry=args.path;scenario=0;compile(true);break;
-    case 'preview_scenario':{if(args.name===null){if(!compiled?.states?.length)throw Error('The component has no design states');$('scenario').value=-1;$('scenario').onchange({target:$('scenario')});break;}const index=(compiled?.states??[]).findIndex(s=>s.name===args.name);if(index<0)throw Error('Design state not found');scenario=index;$('scenario').value=index;$('scenario').onchange({target:$('scenario')});break;}
-    // Same target as the states panel: the file that panel authors, never an arbitrary design file
-    // the entry does not use. An agent that wants another one edits it through file_write.
-    case 'design_states_read':return designStatesSummary(designStateFile().source);
-    case 'design_state_create':return designStateEdit(source=>stateCreateEdit(source,args.name),args.expectedContent);
-    case 'design_state_rename':return designStateEdit(source=>stateRenameEdit(source,args.name,args.newName),args.expectedContent);
-    case 'design_state_delete':return designStateEdit(source=>stateDeleteEdit(source,args.name),args.expectedContent);
-    // The state block is named, not indexed, so a rename between the read and this call cannot land
-    // a property in the wrong block; `null` is the base block, which is what the panel's own row is.
-    case 'design_state_property':return designStateEdit(source=>statePropertyEdit(source,args.state??null,args.type,args.key,args.property,args.value),args.expectedContent);
-    case 'preview_mode':if(mode!==args.mode)$('run').click();break;
-    case 'preview_viewport':$(args.device).click();$('preview').classList.toggle('light',args.theme==='light');break;
-    case 'component_tree':return {entry,nodes:compiled?.nodes??[],error};
-    case 'component_spacing':return spacingOverlay.read();
-    case 'component_select':if(error)throw Error('Fix diagnostics before selecting compiled source');select(findNode(args.start));break;
-    case 'component_property':{
-      if(error||files[entry]!==args.expectedContent)throw Error('Stale or invalid source. Read entry file first.');
-      const n=findNode(args.start);if(!Object.hasOwn(n.props,args.property)||typeof n.props[args.property]==='object')throw Error('Only existing literal properties are supported');
-      if(typeof n.props[args.property]!==typeof args.value)throw Error('Property type mismatch');
-      select(n);const input=Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===args.property);if(!input)throw Error('Свойство недоступно для правки: включите исходный вид');input.value=String(args.value);input.onchange();break;
-    }
-    // The palette's own list, so an agent inserts exactly what a designer can insert.
-    case 'component_controls':return insertableControls(files);
-    case 'component_insert':case 'component_move':case 'component_delete':case 'component_duplicate':{
-      // All four splice the entry file the compiled tree came from, against its live text. The
-      // splice reports the offset the new, moved or duplicated node takes — for a delete, the
-      // parent that keeps the selection — and that is what the preview is asked to select:
-      // without it the agent would have to re-read `component_tree` to find its own work.
-      const source=active===entry?$('code').value:files[entry];
-      if(error||source!==args.expectedContent)throw Error('Stale or invalid source. Read the entry file first.');
-      findNode(args.start);
-      const change=command==='component_insert'
-        ?insertElement(source,args.start,args.markup,false,args.side??'auto')
-        :command==='component_move'
-        ?moveAmongSiblings(source,args.start,args.target,args.side)
-        // A duplicate is the node's own text spliced back after itself, so the key uniquifying
-        // the paste path does covers a copied `key:` too. The copy keeps the source's
-        // coordinates: the bridge also runs on the HTML preview, where no scene measured an
-        // offset to take, and `component_property` can move it from there.
-        :command==='component_delete'?removeElement(source,args.start)
-        :insertElement(source,args.start,copyElement(source,args.start),false,'after');
-      // A move onto the slot the node already holds is a no-op the primitive reports as null.
-      // The caller still gets the file text back, because that is the content its next write
-      // has to quote as `expectedContent`.
-      if(!change)return {start:args.start,content:source,changed:false};
-      commitSource({file:entry,source,...change,reselect:change.start});
-      return {start:change.start,content:source.slice(0,change.from)+change.insert+source.slice(change.to),changed:true};
-    }
-    case 'state_read':return structuredClone(state);
-    case 'state_set':for(const [key,v]of Object.entries(args.values)){if(!Object.hasOwn(state,key)||typeof state[key]!==typeof v)throw Error('Unknown field or incompatible type: '+key);}Object.assign(state,args.values);render();output();break;
-    case 'event_dispatch':if(renderer==='vector'){if(error)throw Error(error);if(mode!=='interact')throw Error('Включите взаимодействие');const n=findNode(args.start);if(!n.events.clicked)throw Error('Выберите кнопку с clicked');vectorPreview.activate();break;}if(error)throw Error('Fix diagnostics first');{const n=findNode(args.start);if(!n.events.clicked)throw Error('No clicked handler');if(resolve(n.props.disabled,state))throw Error('Component is disabled');dispatch(n.events.clicked,n);break;}
-    case 'debug_break':$('break').checked=args.enabled;$('break').onchange({target:$('break')});break;
-    case 'debug_continue':if(!pending)throw Error('Debugger is not paused');$('continue').click();break;
-    case 'debug_reset':$('reset').click();break;
-    case 'events_read':return [...logs];
-    case 'events_clear':logs=[];output();break;
-    case 'diagnostics_read':return {error,entry};
-    default:throw Error('Unknown IDE command: '+command);
-  }
-  return snapshot();
-}
-if(import.meta.hot){
-  let designRequest,designTimer;
-  const finishDesignRequest=()=>{const request=designRequest;designRequest=undefined;clearTimeout(designTimer);designTimer=undefined;refreshDesign.disabled=false;return request;};
-  const cancelDesignRequest=()=>{if(finishDesignRequest())log('Соединение потеряно: результат дизайн-данных неизвестен. Обновите их после подключения.');};
-  const refreshDesign=document.createElement('button');refreshDesign.textContent='↻ Данные дизайна';$('run').before(refreshDesign);
-  refreshDesign.title='Выполнить локальный src/design.rs (без песочницы), получить текстовые константы и результаты методов';
-  refreshDesign.onclick=()=>{
-    if(!compiled||designRequest)return;
-    const refs=designReferences(compiled);
-    if(!refs.length){log('Нет ссылок design в дизайне');return;}
-    if(!confirm('Выполнить src/design.rs для получения дизайн-данных? Rust-код работает с правами вашего пользователя.'))return;
-    designRequest={id:crypto.randomUUID(),source:JSON.stringify(files)};
-    refreshDesign.disabled=true;
-    designTimer=setTimeout(()=>{if(finishDesignRequest())log('Ответ дизайн-данных не получен. Исполнение могло завершиться; автоматического повтора нет.');},45000);
-    try{import.meta.hot.send('forma:design-data',{id:designRequest.id,files,refs});}
-    catch(e){finishDesignRequest();log('Не удалось отправить запрос дизайн-данных: '+e.message);}
-  };
-  import.meta.hot.on('vite:ws:disconnect',cancelDesignRequest);
-  import.meta.hot.dispose(()=>{finishDesignRequest();import.meta.hot.off('vite:ws:disconnect',cancelDesignRequest);import.meta.hot.off('forma:design-data-result',receiveDesignData);});
-  const receiveDesignData=data=>{
-    if(!designRequest||data?.id!==designRequest.id)return;
-    const request=finishDesignRequest();
-    if(request.source!==JSON.stringify(files)){log('Проект изменился: обновите дизайн-данные ещё раз');return;}
-    if(data.error){error=data.error;output();return;}
-    setDesignData(data.values);compile();log('Дизайн-данные обновлены из Rust');
-  };
-  import.meta.hot.on('forma:design-data-result',receiveDesignData);
-  const runApp=document.createElement('button');runApp.textContent='▶ Приложение';runApp.title='Запустить окно; F9 в окне включает выбор элемента и живое дерево в Studio';runApp.className='accent';$('run').before(runApp);
-  runApp.onclick=()=>{tab='events';syncTabs();ideCommand('app_run');output();};
-  const runRust=document.createElement('button');runRust.textContent='▶ Rust';runRust.title='Собрать и запустить Cargo-проект';$('run').before(runRust);
-  const stopRust=document.createElement('button');stopRust.textContent='■';stopRust.title='Остановить Rust';stopRust.disabled=true;runRust.after(stopRust);
-  runRust.onclick=()=>{persist();tab='events';syncTabs();log('Запуск Rust через Cargo (offline)…');runRust.disabled=true;stopRust.disabled=false;import.meta.hot.send('forma:rust-run',{files});};
-  stopRust.onclick=()=>import.meta.hot.send('forma:rust-stop',{});
-  const rustOutput=data=>{nativeBuffer+=data.text;let lineEnd;while((lineEnd=nativeBuffer.indexOf('\n'))>=0){const line=nativeBuffer.slice(0,lineEnd);nativeBuffer=nativeBuffer.slice(lineEnd+1);if(line.startsWith('FORMA_INSPECT ')){try{showNativeInspection(JSON.parse(line.slice(14)));}catch(e){log('Ошибка данных инспекции: '+e.message);}}}if(nativeBuffer.length>200000)nativeBuffer='';if(!data.text.startsWith('FORMA_INSPECT '))log('[Rust] '+data.text);if(data.kind==='finished'||data.kind==='error'){runRust.disabled=false;stopRust.disabled=true;}};
-  import.meta.hot.on('forma:rust-output',rustOutput);
-  const hello=()=>import.meta.hot.send('forma:hello',{});
-  const handle=({id,command,args})=>{try{import.meta.hot.send('forma:result',{id,result:ideCommand(command,args)});}catch(e){import.meta.hot.send('forma:result',{id,error:e.message});}};
-  import.meta.hot.on('forma:command',handle);
-  import.meta.hot.on('vite:ws:connect',hello);hello();
-  import.meta.hot.dispose(()=>{import.meta.hot.off('forma:command',handle);import.meta.hot.off('vite:ws:connect',hello);import.meta.hot.off('forma:rust-output',rustOutput);nativeBuffer='';});
-}
+// The MCP transport drives the editor through one facade: live state by getter and setter,
+// the panels a command addresses, and the operations the editor already exposes to its own UI.
+const ideCommand=createIdeCommands({
+  $,hot:import.meta.hot,compileComponents,
+  get files(){return files;},set files(v){files=v;},
+  get active(){return active;},set active(v){active=v;},
+  get entry(){return entry;},set entry(v){entry=v;},
+  get scenario(){return scenario;},set scenario(v){scenario=v;},
+  get selected(){return selected;},set selected(v){selected=v;},
+  get logs(){return logs;},set logs(v){logs=v;},
+  get nativeSource(){return nativeSource;},set nativeSource(v){nativeSource=v;},
+  get compiled(){return compiled;},get state(){return state;},get error(){return error;},get mode(){return mode;},
+  get renderer(){return renderer;},get breakOn(){return breakOn;},get pending(){return pending;},
+  get vectorPreview(){return vectorPreview;},get controlTree(){return controlTree;},get codeEditor(){return codeEditor;},
+  get spacingOverlay(){return spacingOverlay;},get rendererPicker(){return rendererPicker;},
+  open,persist,compile,render,output,select,commitSource,designStateFile,designStateEdit,resetProjectEditing,dispatch,
+  liveSource,
+  propertyInput:name=>Array.from(document.querySelectorAll('[data-prop]')).find(el=>el.dataset.prop===name),
+});
+if(import.meta.hot)mountDevBridge(import.meta.hot,{
+  anchor:$('run'),log,setDesignData,designReferences,ideCommand,showNativeInspection,
+  get compiled(){return compiled;},get files(){return files;},
+  showEvents(){tab='events';syncTabs();output();},
+  setError(message){error=message;output();},
+  compile:()=>compile(),persist,
+});

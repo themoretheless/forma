@@ -398,13 +398,17 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   resize=selection.length===1&&location&&!resizeBlock(location.node,location.parent)?selection[0]:null;
   drawAdds(c?.inserts);
   count.textContent=selection.length?`Выбрано: ${selection.length}`:'';
-  for(const b of bar.children){const action=b.dataset.action;if(!action)continue;b.disabled=!c||(!['undo','redo','snap','add'].includes(action)&&c.start==null);
-   if(action==='add')b.disabled=!c||!c.root||!(c.inserts??[]).some(item=>item.type===b.dataset.type);
-   if(['copy','cut','delete','duplicate','css'].includes(action))b.disabled=!c||!selection.length;
-   if(action==='group'){b.disabled=!c||selection.length<2;b.title='Объединяет выбранные контролы в контейнер · Ctrl+G';}
-   if(action==='snap'){b.setAttribute('aria-checked',String(snapping));b.title='Края и центры · Alt при переносе отключает привязку';}
-   if(alignments.has(action))b.disabled=!c||!!c.grid||selection.length<(action.startsWith('distribute-')?3:2);
-   if(action==='up'||action==='down'){const siblings=location?.parent?.children??[],index=siblings.indexOf(location?.node);b.disabled=!c||selection.length!==1||index<0||location?.node.type==='Scroll'||(action==='up'?index===0:index===siblings.length-1);b.title='Порядок среди соседей · Alt+'+(action==='up'?'↑':'↓');}
+  // Each button's state is worked out first and written only when it changed: the Studio shell
+  // repaints every control whose state attribute is touched, even to the value it already had.
+  for(const b of bar.children){const action=b.dataset.action;if(!action)continue;let disabled=!c||(!['undo','redo','snap','add'].includes(action)&&c.start==null),title=b.title;
+   if(action==='add')disabled=!c||!c.root||!(c.inserts??[]).some(item=>item.type===b.dataset.type);
+   if(['copy','cut','delete','duplicate','css'].includes(action))disabled=!c||!selection.length;
+   if(action==='group'){disabled=!c||selection.length<2;title='Объединяет выбранные контролы в контейнер · Ctrl+G';}
+   if(action==='snap'){if(b.getAttribute('aria-checked')!==String(snapping))b.setAttribute('aria-checked',String(snapping));title='Края и центры · Alt при переносе отключает привязку';}
+   if(alignments.has(action))disabled=!c||!!c.grid||selection.length<(action.startsWith('distribute-')?3:2);
+   if(action==='up'||action==='down'){const siblings=location?.parent?.children??[],index=siblings.indexOf(location?.node);disabled=!c||selection.length!==1||index<0||location?.node.type==='Scroll'||(action==='up'?index===0:index===siblings.length-1);title='Порядок среди соседей · Alt+'+(action==='up'?'↑':'↓');}
+   if(b.disabled!==disabled)b.disabled=disabled;
+   if(b.title!==title)b.title=title;
   }draw();
  }
  update();return {update,cancel,setSelection,selection:()=>[...selection],destroy(){events.dispose();cancel();closeMenu();bar.remove();overlay.remove();}};

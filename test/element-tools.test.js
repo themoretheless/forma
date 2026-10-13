@@ -5,7 +5,7 @@ import {parse} from '../src/language.js';
 class Element extends EventTarget{
  constructor(){super();this.children=[];this.dataset={};this.style={};this.classList={contains:()=>false};this.scrollLeft=this.scrollTop=0;this.capture=new Set();}
  remove(){if(this.parent)this.parent.children=this.parent.children.filter(c=>c!==this);}
- append(n){this.children.push(n);n.parent=this;} replaceChildren(){this.children=[];} after(n){this.next=n;} setAttribute(){} contains(n){return n===this||this.children.some(c=>c.contains(n));}closest(){return null;} focus(){}getBoundingClientRect(){return {left:0,top:0,width:800,height:400};}setPointerCapture(id){this.capture.add(id);}releasePointerCapture(id){this.capture.delete(id);}hasPointerCapture(id){return this.capture.has(id);}
+ append(n){this.children.push(n);n.parent=this;} replaceChildren(){this.children=[];} after(n){this.next=n;} setAttribute(key,value){(this.attributes??=new Map()).set(key,String(value));} getAttribute(key){return this.attributes?.get(key)??null;} contains(n){return n===this||this.children.some(c=>c.contains(n));}closest(){return null;} focus(){}getBoundingClientRect(){return {left:0,top:0,width:800,height:400};}setPointerCapture(id){this.capture.add(id);}releasePointerCapture(id){this.capture.delete(id);}hasPointerCapture(id){return this.capture.has(id);}
  emit(type,data={}){const e=new Event(type,{cancelable:true});for(const [k,v] of Object.entries(data))Object.defineProperty(e,k,{value:v});this.dispatchEvent(e);return e;}
 }
 function setup(initial,inserts=[],extra={}){
@@ -575,4 +575,13 @@ test('a control the canvas never drew cannot be folded into a group',()=>{
  menuRun(t,'group');
  assert.deepEqual(t.commits,[]);
  assert.match(t.errors.at(-1),/которые рисует холст/);
+});
+test('an update writes a button state only when it changes',()=>{
+ const {tools,toolbar,treeSelect}=setup();
+ const buttons=toolbar.next.children.filter(b=>b.dataset.action);let writes=0;
+ for(const b of buttons){let disabled=b.disabled;Object.defineProperty(b,'disabled',{get:()=>disabled,set:v=>{writes++;disabled=v;}});}
+ tools.update();tools.update();
+ assert.equal(writes,0,'the Studio shell repaints every control whose state attribute is touched');
+ treeSelect(parse('component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }').nodes[0].children[0].start);
+ assert.ok(writes>0&&buttons.some(b=>!b.disabled),'a new selection still enables what it can run');
 });

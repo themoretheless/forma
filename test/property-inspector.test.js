@@ -198,6 +198,10 @@ class El{
   getAttribute(key){return this.attrs.get(key)??null;}
   append(...children){for(const child of children){child.parent=this;this.children.push(child);if(this.tagName==='select'&&this.value===undefined&&child.value!==undefined)this.value=child.value;}}
   replaceChildren(...children){this.children=[];this.append(...children);}
+  appendChild(child){this.append(child);return child;}
+  insertBefore(child,next){child.remove();const at=next?this.children.indexOf(next):-1;child.parent=this;this.children.splice(at<0?this.children.length:at,0,child);return child;}
+  remove(){if(this.parent)this.parent.children=this.parent.children.filter(child=>child!==this);this.parent=null;}
+  get lastElementChild(){return this.children.at(-1)??null;}
   *walk(){for(const child of this.children){yield child;yield*child.walk();}}
   querySelector(selector){for(const el of this.walk())if(matches(el,selector))return el;return null;}
   querySelectorAll(selector){return [...this.walk()].filter(el=>matches(el,selector));}
@@ -460,4 +464,33 @@ test('a panel with no control left to describe shows an empty state instead of t
   assert.equal(container.querySelectorAll('label.property').length,0);
   assert.equal(container.querySelector('.property-add'),null,'nothing can be added to no control');
   assert.equal(container.querySelector('.inspector-empty').textContent,'Контрол не выбран');
+});
+test('selecting another control refills the rows it shares instead of rebuilding them',t=>{
+  const source=`component Panel {
+    Frame {
+        gap: 8;
+        Text { text: 'Один'; }
+        Text { text: 'Два'; }
+    }
+}`;
+  const [first,second]=parse(source).nodes[0].children;
+  const {container,files,inspector,panel,rowOf,restore}=mountPanel({source,node:first});
+  t.after(restore);
+  const row=rowOf('text'),input=panel('text'),form=container.querySelector('.property-add');
+  form.querySelector('input').value='черновик';
+  inspector.render({node:second,path:panelFile,source:files[panelFile],editable:true,state:null});
+  assert.equal(rowOf('text'),row,'the row element stays');
+  assert.equal(panel('text'),input);assert.equal(input.value,'Два');
+  assert.equal(container.querySelector('.property-add'),form,'the add form of the same type stays');
+  assert.equal(form.querySelector('input').value,propertyStart[form.querySelector('select').value],'and starts over as a new one would');
+  input.value='Три';input.onchange();
+  assert.ok(files[panelFile].includes("text: 'Один'")&&files[panelFile].includes("text: 'Три'"),files[panelFile]);
+  const frame=parse(files[panelFile]).nodes[0],options=()=>new Map(container.querySelector('.property-add').querySelector('select').children.map(o=>[o.value,o]));
+  const before=options();inspector.render({node:frame,path:panelFile,source:files[panelFile],editable:true,state:null});
+  const shared=[...options()].filter(([name])=>before.has(name));
+  assert.ok(shared.length&&shared.every(([name,o])=>before.get(name)===o),'a name both types offer keeps its option');
+  inspector.render({node:null,editable:false});
+  assert.equal(container.children.length,1);assert.equal(container.children[0].className,'inspector-empty');
+  inspector.render({node:parse(files[panelFile]).nodes[0],path:panelFile,source:files[panelFile],editable:true,state:null});
+  assert.equal(panel('gap').value,'8');assert.equal(rowOf('text'),undefined,'a row the control does not have is left out');
 });

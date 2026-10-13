@@ -46,6 +46,9 @@ body.minimal .state-tabs button[aria-selected="true"]{color:var(--m-text);backgr
 body.minimal .canvas-corner{position:absolute;right:12px;bottom:12px;z-index:25;display:flex;gap:8px;align-items:center;font-size:11px}
 body.minimal .problems-badge{font-size:11px;padding:3px 8px;color:var(--m-muted);opacity:.6}
 body.minimal .problems-badge.bad{color:var(--m-danger);opacity:1}
+/* The Rust shell paints the badge as icon + count at its own font size (16px icon, 8px gap, 12px
+   sides); the HTML glyph text is narrower, so the button reserves that room when the shell is on. */
+body.minimal.forma-studio-ui .problems-badge{padding:3px 14px 3px 30px}
 body.minimal .save-warning{color:var(--m-danger)}
 body.minimal.show-problems .canvas-corner,body.minimal.running .canvas-corner{bottom:240px}
 

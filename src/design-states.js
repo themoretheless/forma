@@ -1,4 +1,4 @@
-import {parse} from './language.js';
+import {parse,parseShared} from './language.js';
 import {equalValues} from './expressions.js';
 import {blockAnchor,lineSpan,lineStartOf,propertyName,probeValue,propertyAddEdit,stringLiteral,valueTextEdit} from './property-edit.js';
 
@@ -56,7 +56,7 @@ export function designStatesSummary(source){
 
 // A state the file never named has no entries, which is what the panel marks as not overridden.
 export function findEntry(source,stateName,key){
-  const doc=parse(source);
+  const doc=parseShared(source);
   const nodes=stateName===null?doc.entries:doc.states.filter(state=>state.name===stateName).flatMap(state=>state.nodes);
   return nodes.find(node=>node.props.key===key)??null;
 }

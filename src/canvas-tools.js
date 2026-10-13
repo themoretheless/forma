@@ -1,6 +1,13 @@
 import {createEventScope} from './event-scope.js';
 import {layoutDistances} from './layout-distances.js';
 export const fitScale=(viewport,width,height)=>Math.max(.1,Math.min(2,(viewport.width-48)/Math.max(1,width),(viewport.height-48)/Math.max(1,height)));
+// Bounds of the selected control in scene units. The scene is measured only when something is
+// selected: measuring reads layout, and most updates (start-up included) run with no selection.
+export function controlBounds(selected,measure){
+ if(!selected)return null;
+ const s=measure(),c=s.controls?.find(c=>c.index===selected.index);
+ return c?.bounds??(selected.root?[0,0,s.width,s.height]:null);
+}
 export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelection,getMode,setMode,onChange}) {
  const events=createEventScope(),listen=events.listen;
   let scale=1,autoFit=false,space=false,drag=null;
@@ -13,7 +20,9 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
   viewport.title='Пробел + перетаскивание — перемещение в режиме дизайна; Ctrl/⌘ + колесо — масштаб';
   const overlay=document.createElement('div');overlay.className='canvas-measurements';overlay.hidden=true;viewport.append(overlay);
   let guides=false;
-  const scene=()=>getScene()??{width:artboard.offsetWidth,height:artboard.offsetHeight};
+  // The HTML preview's size is read only when asked for: whether a selection has bounds at all,
+  // which every selection asks, does not depend on it.
+  const scene=()=>getScene()??{get width(){return artboard.offsetWidth;},get height(){return artboard.offsetHeight;}};
   function zoom(next,anchor) {
     const old=scale;scale=Math.max(.1,Math.min(4,next));
     const point=anchor??[viewport.clientWidth/2,viewport.clientHeight/2];
@@ -24,14 +33,10 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
     onChange?.();draw();
   }
   function fit(){const s=scene();zoom(fitScale({width:viewport.clientWidth,height:viewport.clientHeight},s.width,s.height));viewport.scrollLeft=0;viewport.scrollTop=0;}
-  function selectedBounds(s=scene()){
-    const selected=getSelection();
-    const c=s.controls?.find(c=>c.index===selected?.index);
-    return c?.bounds??(selected?.root?[0,0,s.width,s.height]:null);
-  }
+  const selectedBounds=s=>controlBounds(getSelection(),()=>s??scene());
   function draw(){
     if(!guides||getMode()!=='design'){overlay.hidden=true;return;}
-    const s=scene(),b=selectedBounds(s);overlay.replaceChildren();overlay.hidden=!b;
+    const s=scene(),b=selectedBounds(s),width=s.width,height=s.height;overlay.replaceChildren();overlay.hidden=!b;
     if(overlay.hidden)return;
     const v=viewport.getBoundingClientRect(),r=artboard.getBoundingClientRect();
     const [x,y,w,h]=b,left=r.left-v.left+viewport.scrollLeft+x*scale,top=r.top-v.top+viewport.scrollTop+y*scale;
@@ -41,13 +46,13 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
     box.append(label);overlay.append(box);
     const index=getSelection()?.index;
     const others=(s.controls??[]).filter(c=>c.index!==index).map(c=>c.bounds);
-    for(const distance of layoutDistances(b,others,[s.width,s.height])){
+    for(const distance of layoutDistances(b,others,[width,height])){
       const [a,b]=distance.from,[c,d]=distance.to;
       const line=document.createElement('div');line.className='canvas-distance';
       Object.assign(line.style,{left:r.left-v.left+viewport.scrollLeft+a*scale+'px',top:r.top-v.top+viewport.scrollTop+b*scale+'px',width:Math.max(1,(c-a)*scale)+'px',height:Math.max(1,(d-b)*scale)+'px'});
       const text=document.createElement('span');text.textContent=Math.round(distance.value*10)/10+' · '+distance.target;line.append(text);overlay.append(line);
     }
-    const outside=x<0||y<0||x+w>s.width||y+h>s.height;
+    const outside=x<0||y<0||x+w>width||y+h>height;
     if(outside){const note=document.createElement('span');note.className='canvas-clip-note';note.textContent=s.scrollable?'За пределами видимой области прокрутки':s.clip?'Часть элемента обрезана Frame':'Элемент выходит за Frame';box.append(note);}
   }
   listen(controls,'click',event=>{
@@ -78,11 +83,11 @@ export function createCanvasTools({viewport,artboard,toolbar,getScene,getSelecti
   listen(viewport,'pointercancel',release);
   listen(viewport,'wheel',event=>{if(!event.ctrlKey&&!event.metaKey)return;event.preventDefault();event.stopImmediatePropagation();autoFit=false;const r=viewport.getBoundingClientRect();zoom(scale*Math.exp(-event.deltaY*.005),[event.clientX-r.left,event.clientY-r.top]);},{passive:false,capture:true});
   function update(){
-    for(const b of controls.querySelectorAll('[data-mode]'))b.setAttribute('aria-pressed',String(b.dataset.mode===getMode()));
-    controls.querySelector('[data-selection]').disabled=!selectedBounds();
+    for(const b of controls.querySelectorAll('[data-mode]')){const pressed=String(b.dataset.mode===getMode());if(b.getAttribute('aria-pressed')!==pressed)b.setAttribute('aria-pressed',pressed);}
+    const zoomTo=controls.querySelector('[data-selection]'),disabled=!selectedBounds();if(zoomTo.disabled!==disabled)zoomTo.disabled=disabled;
     viewport.dataset.mode=getMode();if(autoFit)fit();else draw();
   }
-  const resize=new ResizeObserver(()=>{if(autoFit)fit();else draw();});resize.observe(viewport);
+  events.resize(()=>{if(autoFit)fit();else draw();}).observe(viewport);
   listen(viewport,'scroll',draw);
-  update();return {update,destroy(){events.dispose();resize.disconnect();release();controls.remove();overlay.remove();}};
+  update();return {update,destroy(){events.dispose();release();controls.remove();overlay.remove();}};
 }
