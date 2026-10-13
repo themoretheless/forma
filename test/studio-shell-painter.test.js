@@ -52,3 +52,11 @@ test('a painted surface moves to another host of the same kind without repaintin
  assert.equal(a.take(),null,'a bare surface has nothing to hand over');
  painter.destroy();assert.equal(painter.snapshot().liveBytes,0);
 });
+test('a host that swaps paints keeps its surface styling in between',t=>{
+ const f=fixture(t),painter=createShellPainter(f.document),pixels=new Uint8Array(100*32*4);
+ const el=f.element('BUTTON'),surface=painter.surface(el);surface.paint(pixels,100,32);
+ const first=surface.take(true);assert.equal(el.children.length,0);assert.equal(el.classList.contains('forma-native-surface'),true);
+ surface.paint(pixels,100,32);const second=surface.take(true);assert.notEqual(second.canvas,first.canvas,'the next paint draws on a canvas of its own');
+ assert.equal(surface.adopt(first),true);assert.equal(el.children[0],first.canvas);
+ painter.discard(second);surface.destroy();painter.destroy();assert.equal(painter.snapshot().liveBytes,0);
+});

@@ -32,11 +32,12 @@ export function createShellPainter(document){
      if(!embedded){url=`url("${target.toDataURL()}")`;el.style.setProperty('--forma-surface',url);stats.pngEncodes++;target=null;}
      if(!el.classList.contains('forma-native-surface'))el.classList.add('forma-native-surface');stats.paints++;
     },
-    // The painted result, handed over whole to another host of the same kind: this one is left bare.
-    take(){
+    // The painted result, handed over whole to another host of the same kind: this one is left bare,
+    // unless it is about to adopt another paint and keeps its surface styling for it.
+    take(keepHost=false){
      const paint=embedded?target?.width&&{canvas:target,context}:url&&{url};
      if(embedded)target?.remove();
-     target=null;context=null;url=null;clear();
+     target=null;context=null;url=null;if(!keepHost)clear();
      return paint||null;
     },
     adopt(paint){

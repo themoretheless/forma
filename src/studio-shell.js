@@ -42,7 +42,8 @@ export async function mountStudioShell(root){
  // Inspector, tree and toolbar rows come back as new elements on every selection, mostly with the
  // descriptions they had. A control that leaves the page or the viewport parks its model and its
  // painted surface, at rest, and the next control with the same description takes both instead of
- // loading a model and rasterizing it again.
+ // loading a model and rasterizing it again. A control that stays keeps only its own last state
+ // (`previous`), so one whose text changes on every keystroke cannot crowd out the pool.
  const parked=createKeyedPool({maxEntries:256,maxBytes:16*1024*1024,discard:({model,paint})=>{model.free();painter.discard(paint);}});
  function eligible(el){return el.matches(selector)&&!el.closest(foreign)&&!el.hidden&&!(el.tagName==='INPUT'&&el.closest('.source-editor'));}
  function kind(el){
@@ -76,21 +77,26 @@ export async function mountStudioShell(root){
  }
  function request(el,invalidate=false){if(stopped)return;const rec=records.get(el);if(rec&&invalidate)rec.specDirty=true;if(rec?.visible)dirty.add(el);if(!frame&&dirty.size)frame=requestAnimationFrame(draw);}
  function release(rec){rec.model?.free();rec.model=null;rec.signature='';rec.paintKey=null;}
- function retire(rec){
+ const forget=item=>{if(item){item.model.free();painter.discard(item.paint);}};
+ const park=item=>{if(item)parked.put(item.signature,item,painter.bytes(item.paint));};
+ // A control's model and painted surface, reset to rest and lifted off it, or null when they are
+ // not worth keeping: never painted in this description, or still animating.
+ function stash(rec,keepHost){
   const model=rec.model;
-  if(model&&rec.paintedSignature===rec.signature){
-   model.pointer(-1000,-1000,3);model.focus(false);
-   const paint=!model.is_animating()&&rec.surface.take();
-   if(paint){model.release_cpu_cache();parked.put(rec.signature,{model,paint,paintKey:rec.paintKey},painter.bytes(paint));rec.model=null;release(rec);return;}
-  }
-  release(rec);rec.surface.suspend();
+  if(!model||rec.paintedSignature!==rec.signature)return null;
+  model.pointer(-1000,-1000,3);model.focus(false);
+  const paint=!model.is_animating()&&rec.surface.take(keepHost);
+  if(!paint)return null;
+  model.release_cpu_cache();
+  const item={signature:rec.signature,model,paint,paintKey:rec.paintKey};rec.model=null;release(rec);return item;
  }
- function adopt(el,rec,spec,signature){
-  const item=parked.take(signature);if(!item)return false;
-  if(!rec.surface.adopt(item.paint)){item.model.free();painter.discard(item.paint);return false;}
-  rec.model=item.model;rec.paintKey=item.paintKey;rec.paintedSignature=signature;el.dataset.formaComponent=spec.type;return true;
+ // A control that leaves the page or the viewport parks what it showed, and what it showed before
+ // that, for the next control with the same description.
+ function retire(rec){
+  const item=stash(rec,false);if(item)park(item);else{release(rec);rec.surface.suspend();}
+  park(rec.previous);rec.previous=null;
  }
- function fail(el,rec,error){release(rec);rec.surface.suspend();el.classList.remove('forma-native-surface');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;rec.failed=String(error);}
+ function fail(el,rec,error){release(rec);forget(rec.previous);rec.previous=null;rec.surface.suspend();el.classList.remove('forma-native-surface');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;rec.failed=String(error);}
  function updateReveal(model,bounds){
   const point=proximityPosition;
   model.reveal_pointer(point?point.x-bounds.left:0,point?point.y-bounds.top:0,!!point);
@@ -118,12 +124,18 @@ export async function mountStudioShell(root){
     if(rec.specDirty||!rec.spec){rec.spec=describe(el,rec.bounds);rec.nextSignature=JSON.stringify(rec.spec);rec.specDirty=false;}
     const spec=rec.spec,signature=rec.nextSignature;if(spec.props.width<=1||spec.props.height<=1)continue;
     if(signature!==rec.signature){
-     if(rec.model||!adopt(el,rec,spec,signature)){
-      const out=compiledScene(spec,signature);
-      const next=new wasm.Runtime();try{next.load_component(out.source,out.template);}catch(error){next.free();throw error;}
-      if(rec.model)next.preserve_interaction(rec.model);release(rec);rec.model=next;
-     }
-     rec.signature=signature;rec.model.set_reduced_motion(motion.matches);updateReveal(rec.model,rec.bounds);
+     // The model and paint for this description come from the state the control showed last, such
+     // as a label alternating between two texts, or from a control like it that was parked; only
+     // without either is a model loaded. The model it leaves carries its interaction over and is
+     // kept as its last state in turn.
+     const item=rec.previous?.signature===signature?rec.previous:parked.take(signature);
+     if(item&&item===rec.previous)rec.previous=null;
+     let next=item?.model;
+     if(!next){const out=compiledScene(spec,signature);next=new wasm.Runtime();try{next.load_component(out.source,out.template);}catch(error){next.free();throw error;}}
+     if(rec.model){next.preserve_interaction(rec.model);const last=stash(rec,true);if(last){forget(rec.previous);rec.previous=last;}else release(rec);}
+     if(item&&rec.surface.adopt(item.paint)){rec.paintKey=item.paintKey;rec.paintedSignature=signature;el.dataset.formaComponent=spec.type;}
+     else if(item)painter.discard(item.paint);
+     rec.model=next;rec.signature=signature;next.set_reduced_motion(motion.matches);updateReveal(next,rec.bounds);
     }
     const model=rec.model;model.tick(dt);
     const scale=Math.min(2,devicePixelRatio||1),width=Math.ceil(spec.props.width*scale),height=Math.ceil(spec.props.height*scale);
@@ -153,7 +165,7 @@ export async function mountStudioShell(root){
   prune();
  }
  const mutations=scope.observe(root,entries=>{
-  let removed=false;
+  let removed=false,changed=false;
   for(const entry of entries){
    const target=entry.target.nodeType===1?entry.target:entry.target.parentElement;
    if(target?.closest(foreign))continue;
@@ -162,9 +174,13 @@ export async function mountStudioShell(root){
     if(entry.removedNodes.length)removed=true;
     if([...entry.addedNodes,...entry.removedNodes].every(n=>n.nodeType===1&&n.matches('.forma-control-paint')))continue;
    }
+   changed=true;
    for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el)){request(el,true);break;}
   }
   if(removed)prune();
+  // A change can move controls under a pointer that stays put, and their proximity paint follows
+  // the pointer's place relative to each control, so it is worked out again from the new boxes.
+  if(changed&&proximityPosition&&!stopped){proximityDirty=true;if(!frame)frame=requestAnimationFrame(draw);}
   },{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','class','value']},{immediate:false});
  function owner(target){for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el))return el;}
  function pointer(event,phase){const el=owner(event.target),rec=records.get(el);if(!rec?.model||kind(el)==='field')return;
@@ -183,5 +199,5 @@ export async function mountStudioShell(root){
  for(const event of ['change','input','click'])listen(root,event,e=>{const el=owner(e.target);request(el,true);});
  listen(motion,'change',()=>{for(const [el,rec]of records){rec.model?.set_reduced_motion(motion.matches);request(el);}});
  scan();
- return {destroy(){stopped=true;cancelAnimationFrame(frame);scope.dispose();for(const [el,rec]of records){release(rec);rec.surface.destroy();el.classList.remove('forma-native-surface','forma-host-control','forma-host-input');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;}records.clear();dirty.clear();spare.clear();parked.clear();cache.clear();painter.destroy();if(compactToolbar)compactToolbar.replaceWith(...compactToolbar.childNodes);document.body.classList.remove('forma-studio-ui');},snapshot(){return [...records].map(([el,rec])=>({type:el.dataset.formaComponent,visible:rec.visible,error:rec.failed??null}));}};
+ return {destroy(){stopped=true;cancelAnimationFrame(frame);scope.dispose();for(const [el,rec]of records){release(rec);forget(rec.previous);rec.surface.destroy();el.classList.remove('forma-native-surface','forma-host-control','forma-host-input');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;}records.clear();dirty.clear();spare.clear();parked.clear();cache.clear();painter.destroy();if(compactToolbar)compactToolbar.replaceWith(...compactToolbar.childNodes);document.body.classList.remove('forma-studio-ui');},snapshot(){return [...records].map(([el,rec])=>({type:el.dataset.formaComponent,visible:rec.visible,error:rec.failed??null}));}};
 }
