@@ -5,6 +5,7 @@ import {mountStudioShell} from './studio-shell.js';
 import {mountMinimalShell} from './minimal-shell.js';
 import {createStudioEvents,studioEventTypes} from './studio-events.js';
 import {createEventScope} from './event-scope.js';
+import {createLatestOnly} from './latest-only.js';
 import {createIdeCommands} from './mcp-commands.js';
 import {renderHtmlPreview} from './html-preview.js';
 import {mountDevBridge} from './dev-bridge.js';
@@ -396,16 +397,16 @@ let studioShell,shellDisposed=false;
 studioEvents.emit(studioEventTypes.mode,{mode});
 const minimalShell=mountMinimalShell(document.querySelector('#app'),{events:studioEvents,newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
-import.meta.hot?.dispose(()=>{shellDisposed=true;vectorLoad++;codeEvents.dispose();controlTree?.destroy();minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();layoutInspector?.destroy();spacingOverlay?.destroy();vectorPreview?.destroy();});
+import.meta.hot?.dispose(()=>{shellDisposed=true;vectorLoads.cancel();codeEvents.dispose();controlTree?.destroy();minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();layoutInspector?.destroy();spacingOverlay?.destroy();vectorPreview?.destroy();});
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
 rendererPicker.onchange=()=>{renderer=rendererPicker.value;writeStorage('localStorage',storageKey('forma-renderer'),renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
 // Each load gets a generation; a load that finishes after dispose or after a newer load builds
 // nothing, so it cannot leave behind a preview (WASM runtime, GPU device, listeners) no one destroys.
-let vectorLoad=0;
+const vectorLoads=createLatestOnly();
 function initVector(){
- const load=++vectorLoad;
+ const current=vectorLoads.begin();
  loadVectorRuntime().then(runtime=>{
-  if(shellDisposed||load!==vectorLoad||vectorPreview)return;
+  if(shellDisposed||!current()||vectorPreview)return;
   vectorPreview=createVectorPreview({runtime,onSelect:n=>{if(designPresetName==='original')select(n);},onError:message=>{error=String(message);output();},onAction:(action,n)=>{if(n)dispatch(action,n);},onBindingChange:changes=>{for(const {node,path,value}of changes)if(writePreviewBinding(state,node,path,value)){log(`${path} = ${JSON.stringify(value)}`);if(node.events.changed)dispatch(node.events.changed,node,'changed');}schedulePreviewRefresh();}});
   if(renderer==='vector')compile();
  }).catch(e=>{if(renderer==='vector'){error='Векторный WASM не собран: '+e.message;output();}});

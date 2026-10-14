@@ -1659,9 +1659,9 @@ npm 10.9.8, cargo/rustc 1.97.1, Apple M5 (10 ядер), Darwin 27.0.0 arm64, loa
 ## Повторный mount/dispose: подписки и кэши Studio
 
 Аудит src/ на накопление ресурсов. Исправлено:
-- initVector: загрузка WASM, завершившаяся после HMR dispose или после более новой
+- initVector (src/latest-only.js, test/latest-only.test.js): загрузка WASM, завершившаяся после HMR dispose или после более новой
   загрузки (двойная смена renderer), больше не создаёт vector preview с Runtime,
-  GPU device и слушателями, которые никто не уничтожит (счётчик поколений).
+  GPU device и слушателями, которые никто не уничтожит (createLatestOnly).
 - Слушатели scroll/input у #code регистрируются через createEventScope и снимаются
   при dispose; раньше каждый HMR-перезапуск main.js добавлял ещё пару.
 - createControlTree получил destroy(): снимает 7 слушателей списка и отменяет
