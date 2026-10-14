@@ -1,6 +1,6 @@
 // Serializable, deliberately small expression language. No host-language eval.
 const own=(o,k)=>Object.hasOwn(o,k);
-export const pureFunctions=new Set(['min','max','clamp','abs','round','floor','ceil','len','String','Number','Bool']);
+const pureFunctions=new Set(['min','max','clamp','abs','round','floor','ceil','len','String','Number','Bool']);
 const precedence={'??':1,'||':2,'&&':3,'==':4,'!=':4,'===':4,'!==':4,'<':5,'<=':5,'>':5,'>=':5,'+':6,'-':6,'*':7,'/':7,'%':7};
 function stringEnd(source,start){
   const quote=source[start];let i=start+1;

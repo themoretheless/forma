@@ -16,7 +16,8 @@ export async function evaluateDesignData(files,refs){
   await exec('rustc',['--edition=2021','main.rs','-o',executable],{cwd:dir,timeout:30000,maxBuffer:1024*1024});
   await exec(path.join(dir,executable),[],{cwd:dir,timeout:5000,maxBuffer:1024*1024});
   return await readDesignValues(dir,refs);
-  }finally{await rm(dir,{recursive:true,force:true});}
+  // Windows can keep the just-exited executable locked briefly (EBUSY/EPERM); rm retries those.
+  }finally{await rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 }
 
 // One bounded scratch buffer; never read arbitrary-size result files in parallel.
