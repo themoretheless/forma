@@ -32,7 +32,7 @@ jobs:
           persist-credentials: false
       - name: Linux window dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev mesa-vulkan-drivers
       - name: Install pinned Rust toolchain
         run: rustup show active-toolchain
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
@@ -50,6 +50,11 @@ jobs:
           restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-
       - name: Forma tests (hardware tests remain explicit)
         run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests
+      # Lavapipe gives Linux a software Vulkan adapter, so the GPU renderer tests that need a real
+      # device (buffer reuse, CPU/GPU agreement across DPI) run on every PR, not only on a Mac by hand.
+      - name: GPU renderer tests on software Vulkan (lavapipe)
+        if: runner.os == 'Linux'
+        run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests -- --ignored
       - name: Design runner execution, cleanup and result limits
         run: node --test test/design-data-runner.test.js
       - name: Native Forma window compiles

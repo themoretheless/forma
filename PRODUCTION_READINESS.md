@@ -1675,3 +1675,24 @@ npm 10.9.8, cargo/rustc 1.97.1, Apple M5 (10 ядер), Darwin 27.0.0 arm64, loa
 JS suite с собранным WASM (build:wasm): 487 passed, 0 failed. Production build прошёл.
 HMR в браузере и heap soak
 не проверялись; пункт checklist остаётся открытым.
+
+## GPU draw/submit на Linux (lavapipe) и GPU-тесты в CI
+
+gpu_scene_bench запущен на Linux через Mesa lavapipe (llvmpipe, Vulkan, CPU-адаптер),
+FORMA_BENCH_NO_TIMESTAMPS=1, 200 кадров, 100/256 контролов:
+- static (FORMA_BENCH_STATIC=1): 38 Rust allocations/кадр, все в draw-submit; paint_bytes=0,
+  то есть ни одного write_buffer. CPU submit p50/p95 0.114/0.321 и 0.116/0.300 мс.
+- hover-анимация: 48 allocations/кадр; один write_buffer 12 байт стоит ~10 allocations.
+  CPU submit p50/p95 0.122/0.448 и 0.123/0.738 мс.
+- Подготовка сцены 0 allocations, live delta 0, buffer_allocations=0, geometry_uploads=0.
+Аудит Renderer::draw: в прогретом кадре наш код не аллоцирует; 38 allocations —
+command encoder, render pass и submit внутри wgpu. Проба queue.write_buffer_with вместо
+write_buffer эффекта не дала (48/кадр) и откатана; объединить запись paints и params нельзя —
+это разные буферы. Кэш bind group layout и резерв uploaded_paints касаются только
+rebind/роста, не установившегося кадра — не менялись.
+
+Все 3 GPU-теста с #[ignore] (ресурсы profiling renderer, CPU/GPU Reveal при разных DPI,
+независимость пикселей анимируемых контролов) проходят на lavapipe. CI Linux теперь ставит
+mesa-vulkan-drivers и запускает их на каждом PR (раньше — только вручную на Metal).
+lavapipe ≠ Metal/дискретный GPU: числа времени не переносятся, аллокации wgpu-hal зависят
+от backend.
