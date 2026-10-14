@@ -1669,9 +1669,9 @@ npm 10.9.8, cargo/rustc 1.97.1, Apple M5 (10 ядер), Darwin 27.0.0 arm64, loa
 - studioEvents.on возвращает функцию отписки (помимо signal).
 - property-origins: кэш declarationByRef (ключ — строка ссылки, не weak) ограничен
   4096 записями; раньше рос всю сессию.
-Не изменено: editor.js хранит EditorState (с undo) каждого открытого файла до смены
-проекта. Вытеснение потеряло бы историю отмены, поэтому оставлено как есть.
+- editor.js хранит EditorState не более чем 64 последних покинутых файлов (LRU);
+  текст не теряется — его хранит проект, вытесняется только старая история отмены.
 Тесты: destroy дерева, отписка событий, корректность origins после превышения лимита.
-JS suite: 450 passed, 8 failed — те же 8, что на базовом коммите (нет собранного
-public/vector-pkg в окружении). Production build прошёл. HMR в браузере и heap soak
+JS suite с собранным WASM (build:wasm): 487 passed, 0 failed. Production build прошёл.
+HMR в браузере и heap soak
 не проверялись; пункт checklist остаётся открытым.
