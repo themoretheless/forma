@@ -203,7 +203,7 @@ export function sceneControlNodes(rootOrChildren){
   const controls=base[0]?.type==='Scroll'?base[0].children:base;
   return [...controls,...modals.flatMap(m=>m.children??[])];
 }
-export function sceneModalNodes(rootOrChildren){
+function sceneModalNodes(rootOrChildren){
   const children=Array.isArray(rootOrChildren)?rootOrChildren:(rootOrChildren?.children??[]);
   return children.filter(n=>n.type==='Modal');
 }

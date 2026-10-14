@@ -22,7 +22,7 @@ const selectionField=StateField.define({
 // Inactive files keep their EditorState (and undo history) for quick switching, but only the most
 // recently left ones: a long session over a large project would otherwise keep every file opened.
 // Text is never lost by eviction, since the project owns the file contents; only older undo history is.
-export const maxRememberedDocuments=64;
+const maxRememberedDocuments=64;
 export function rememberDocument(documents,path,state,limit=maxRememberedDocuments){
  documents.delete(path);documents.set(path,state);
  while(documents.size>limit)documents.delete(documents.keys().next().value);
