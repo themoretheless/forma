@@ -14,7 +14,8 @@ export function createStudioEvents(){
   emit(type,detail){last.set(type,detail);target.dispatchEvent(new CustomEvent(type,{detail}));},
   // A late subscriber gets the last published value at once, like a MutationObserver callback that
   // ran immediately, so a shell mounted after the editor still starts in the right state.
-  on(type,listener,options={}){target.addEventListener(type,event=>listener(event.detail),options);if(last.has(type))listener(last.get(type));},
+  // Returns the unsubscribe function; a signal in options works too.
+  on(type,listener,options={}){const handler=event=>listener(event.detail);target.addEventListener(type,handler,options);if(last.has(type))listener(last.get(type));return ()=>target.removeEventListener(type,handler,options);},
   current(type){return last.get(type);},
  };
 }

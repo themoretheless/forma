@@ -8,7 +8,9 @@ const noOrigins=Object.freeze([]);
 // it. Serializing the key on every call dominated compilation: the key is a
 // function of the pair, so a shared pair needs the work only once.
 const declarationBySource=new WeakMap();
-const declarationByRef=new Map();
+// Keyed by reference text, so it is the one cache here that is not weak: it is capped so a long
+// session over many projects cannot grow it without bound. Origins are compared by key, not identity.
+const declarationByRef=new Map(),maxReferenceOrigins=4096;
 const originKeys=new WeakMap();
 const has=(origin,key)=>Object.hasOwn(origin,key);
 const sourceKeys=new WeakMap();
@@ -33,6 +35,7 @@ function referenceOrigin(ref){
  const known=declarationByRef.get(ref);
  if(known!==undefined)return known;
  const result=Object.freeze({label:ref});
+ if(declarationByRef.size>=maxReferenceOrigins)declarationByRef.clear();
  declarationByRef.set(ref,result);
  return result;
 }

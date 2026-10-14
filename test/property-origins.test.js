@@ -72,3 +72,10 @@ test('origin dedupe collapses sources that only match structurally, not by ident
  assert.equal(distinct.length,2);
  assert.deepEqual(distinct.map(o=>o.source.file),['x.ui','y.ui'],'distinct sources keep their order');
 });
+test('reference origins stay correct past the reference cache cap',()=>{
+ for(let i=0;i<5000;i++){
+  const ref=`state.field${i}`,origins=propertyOrigins({expr:ref},null);
+  assert.deepEqual(origins.map(o=>o.label),[ref]);
+ }
+ assert.deepEqual(propertyOrigins({expr:'state.field0'},null).map(o=>o.label),['state.field0']);
+});

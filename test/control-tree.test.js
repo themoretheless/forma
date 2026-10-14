@@ -204,3 +204,17 @@ test('a row of another parent offers neither edge, so a stray drop cannot reorde
  assert.equal(list.dispatch('dragover',deep,{clientY:2}).defaultPrevented,false);
  assert.equal(deep.dataset.drop,undefined);assert.deepEqual(calls,[]);
 });
+
+test('destroy detaches list handlers, so a remounted tree leaves no live clicks behind',t=>{
+ const original=Object.getOwnPropertyDescriptor(globalThis,'document'),created=[];
+ const document={createElement(){const element=new Element();created.push(element);return element;},activeElement:null};
+ Object.defineProperty(globalThis,'document',{value:document,configurable:true});
+ t.after(()=>{if(original)Object.defineProperty(globalThis,'document',original);else delete globalThis.document;});
+ const selected=[];
+ const tree=createControlTree({explorer:new Element(),toolbar:new Element(),storage:{getItem(){return null;},setItem(){}},onScopeChange(){},onSelect:item=>selected.push(item.id),onOpenTemplate(){}});
+ tree.update({document:parse(source),path});
+ const list=created[0].querySelector('.control-tree-items');
+ list.dispatch('click',list.children[2]);assert.equal(selected.length,1);
+ tree.destroy();tree.destroy();
+ list.dispatch('click',list.children[4]);assert.equal(selected.length,1,'no handler survives destroy');
+});

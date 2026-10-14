@@ -19,6 +19,14 @@ const selectionField=StateField.define({
   },
   provide:field=>EditorView.decorations.from(field)
 });
+// Inactive files keep their EditorState (and undo history) for quick switching, but only the most
+// recently left ones: a long session over a large project would otherwise keep every file opened.
+// Text is never lost by eviction, since the project owns the file contents; only older undo history is.
+export const maxRememberedDocuments=64;
+export function rememberDocument(documents,path,state,limit=maxRememberedDocuments){
+ documents.delete(path);documents.set(path,state);
+ while(documents.size>limit)documents.delete(documents.keys().next().value);
+}
 export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={}){
   const host=document.createElement('div');host.className='source-editor';textarea.before(host);
   textarea.hidden=true;document.getElementById('lines').hidden=true;
@@ -85,7 +93,7 @@ export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={})
   (globalThis.requestIdleCallback??(callback=>setTimeout(callback,1)))(()=>load().catch(error=>console.error('Code editor features failed to load',error)));
   const documents=new Map();let documentPath=null,pendingPath=null;
   Object.defineProperties(textarea,{
-    value:{get:()=>cachedText??=current().doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{if(pendingPath!==documentPath){if(documentPath)documents.set(documentPath,current());const saved=documents.get(pendingPath);setState(saved?.doc.toString()===text?saved:EditorState.create({doc:text,extensions}));documentPath=pendingPath;dispatch({effects:[languageConfig.reconfigure(languageFor(documentPath)),features.reconfigure(loaded?.features??[])]});cachedText=text;}else if(current().doc.toString()!==text){dispatch({changes:{from:0,to:current().doc.length,insert:text}});}}finally{programmatic=false;}}},
+    value:{get:()=>cachedText??=current().doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{if(pendingPath!==documentPath){if(documentPath)rememberDocument(documents,documentPath,current());const saved=documents.get(pendingPath);setState(saved?.doc.toString()===text?saved:EditorState.create({doc:text,extensions}));documentPath=pendingPath;dispatch({effects:[languageConfig.reconfigure(languageFor(documentPath)),features.reconfigure(loaded?.features??[])]});cachedText=text;}else if(current().doc.toString()!==text){dispatch({changes:{from:0,to:current().doc.length,insert:text}});}}finally{programmatic=false;}}},
     selectionStart:{get:()=>current().selection.main.from},
     selectionEnd:{get:()=>current().selection.main.to}
   });

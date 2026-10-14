@@ -22,3 +22,13 @@ test('an aborted subscription stops receiving and an unknown type has no current
   assert.equal(count,1);
   assert.equal(events.current(studioEventTypes.save),undefined);
 });
+
+test('on returns an unsubscribe for subscribers without a signal',()=>{
+  const events=createStudioEvents();
+  let count=0;
+  const off=events.on(studioEventTypes.save,()=>{count++;});
+  events.emit(studioEventTypes.save,{status:'saved',text:''});
+  off();
+  events.emit(studioEventTypes.save,{status:'changed',text:''});
+  assert.equal(count,1);
+});
