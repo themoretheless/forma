@@ -4,6 +4,7 @@ import {sampleProject} from './sample-project.js';
 import {mountStudioShell} from './studio-shell.js';
 import {mountMinimalShell} from './minimal-shell.js';
 import {createStudioEvents,studioEventTypes} from './studio-events.js';
+import {createEventScope} from './event-scope.js';
 import {createIdeCommands} from './mcp-commands.js';
 import {renderHtmlPreview} from './html-preview.js';
 import {mountDevBridge} from './dev-bridge.js';
@@ -280,8 +281,9 @@ $('break').onchange=e=>breakOn=e.target.checked;$('continue').onclick=()=>{if(pe
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;syncTabs();output();});
 $('new').onclick=()=>{const path=prompt('Путь нового файла','ui/NewWindow.ui');if(!path)return;try{validateProject({[path]:''});}catch(error){alert(error.message);return;}if(path in files){alert('Файл уже существует');return;}files[path]=path.endsWith('.ui')?'component NewWindow {\n    Frame {\n        Text {\n            text: \'Новое окно\';\n        }\n    }\n}\n':'';open(path);persist();};
 $('export').onclick=()=>downloadJson('forma-project.json',JSON.stringify(files,null,2));$('import').onclick=()=>$('upload').click();$('upload').onchange=async e=>{try{const f=e.target.files[0];if(!f)return;const data=validateProject(JSON.parse(await f.text()));if(!confirm('Заменить текущий проект? При необходимости сначала экспортируйте его.'))return;resetProjectEditing();files=data;active=Object.keys(files)[0];entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui'));scenario=0;open(active);persist();compile(true);}catch(e){alert(e.message);}finally{e.target.value='';}};
-$('code').addEventListener('scroll',highlightSource);
-$('code').addEventListener('input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
+const codeEvents=createEventScope();
+codeEvents.listen($('code'),'scroll',highlightSource);
+codeEvents.listen($('code'),'input',()=>{selected=null;selectedPath=null;controlTree?.select(null,null);refreshControlTree();highlightSource();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));});
 controlTree=createControlTree({explorer:document.querySelector('.explorer'),toolbar:document.querySelector('.preview-tools'),onSelect:selectTreeControl,onScopeChange:refreshControlTree,onOpenTemplate:path=>{open(path);controlTree.setView({scope:'file',visible:true});},canReorder:()=>designPresetName==='original',onReorder:reorderTreeControl});
 // Mounting after the tree puts the state list underneath it, and both read the same compiled
 // switcher: a row is the preview's active state, never a second source of truth.
@@ -394,12 +396,16 @@ let studioShell,shellDisposed=false;
 studioEvents.emit(studioEventTypes.mode,{mode});
 const minimalShell=mountMinimalShell(document.querySelector('#app'),{events:studioEvents,newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);}});
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
-import.meta.hot?.dispose(()=>{shellDisposed=true;minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();layoutInspector?.destroy();spacingOverlay?.destroy();vectorPreview?.destroy();});
+import.meta.hot?.dispose(()=>{shellDisposed=true;vectorLoad++;codeEvents.dispose();controlTree?.destroy();minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();layoutInspector?.destroy();spacingOverlay?.destroy();vectorPreview?.destroy();});
 const rendererPicker=document.createElement('select');rendererPicker.id='renderer';rendererPicker.setAttribute('aria-label','Рендерер предпросмотра');rendererPicker.innerHTML='<option value="html">HTML · прежний</option><option value="vector">Вектор · Rust/WASM</option>';$('scenario').before(rendererPicker);rendererPicker.value=renderer;
 rendererPicker.onchange=()=>{renderer=rendererPicker.value;writeStorage('localStorage',storageKey('forma-renderer'),renderer);selected=null;vectorPreview?.destroy();vectorPreview=undefined;initVector();compile();};
+// Each load gets a generation; a load that finishes after dispose or after a newer load builds
+// nothing, so it cannot leave behind a preview (WASM runtime, GPU device, listeners) no one destroys.
+let vectorLoad=0;
 function initVector(){
+ const load=++vectorLoad;
  loadVectorRuntime().then(runtime=>{
-  if(vectorPreview)return;
+  if(shellDisposed||load!==vectorLoad||vectorPreview)return;
   vectorPreview=createVectorPreview({runtime,onSelect:n=>{if(designPresetName==='original')select(n);},onError:message=>{error=String(message);output();},onAction:(action,n)=>{if(n)dispatch(action,n);},onBindingChange:changes=>{for(const {node,path,value}of changes)if(writePreviewBinding(state,node,path,value)){log(`${path} = ${JSON.stringify(value)}`);if(node.events.changed)dispatch(node.events.changed,node,'changed');}schedulePreviewRefresh();}});
   if(renderer==='vector')compile();
  }).catch(e=>{if(renderer==='vector'){error='Векторный WASM не собран: '+e.message;output();}});
