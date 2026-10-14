@@ -18,7 +18,7 @@ test('design evaluation removes temporary files after success and compiler/runti
   assert.deepEqual((await readdir(parent)).filter(name=>name.startsWith('forma-design-')),[]);
  }finally{
   keys.forEach((key,i)=>{if(old[i]===undefined)delete process.env[key];else process.env[key]=old[i];});
-  await rm(parent,{recursive:true,force:true});
+  await rm(parent,{recursive:true,force:true,maxRetries:10,retryDelay:100});
  }
 });
 
@@ -33,5 +33,5 @@ test('design result reads enforce a total byte budget',async()=>{
   await assert.rejects(readDesignValues(dir,['design.a','design.b']),/1 МиБ/);
   await writeFile(path.join(dir,'value-0'),Buffer.alloc(1024*1024+1));
   await assert.rejects(readDesignValues(dir,['design.a']),/1 МиБ/);
- }finally{await rm(dir,{recursive:true,force:true});}
+ }finally{await rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 });
