@@ -5,10 +5,12 @@ import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {resolve} from 'node:path';
 import {root,versions} from './versions.mjs';
+import {lockedTokenizer} from './tokenizer.mjs';
 const current=versions();
 const info=JSON.parse(readFileSync(resolve(root,'public/vector-pkg/build-info.json'),'utf8'));
 const git=spawnSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'});
 if(git.status!==0||info.commit!==git.stdout.trim()||info.runtime!==current.runtime||info.studio!==current.studio||info.wasmBindgen!==current.wasmBindgen)throw Error('WASM build-info does not match checkout; rebuild and test');
+if(info.tokenizer?.rev!==lockedTokenizer().rev)throw Error('WASM was built against another tokenizer release; rebuild and test');
 if(info.sourceDigest!==runtimeSourceDigest(root))throw Error('Runtime sources changed since WASM build; rebuild and test');
 if(JSON.stringify(info.artifacts)!==JSON.stringify(artifactDigests(resolve(root,'public/vector-pkg'))))throw Error('Runtime artifacts changed since WASM build');
 if(process.env.CI){
