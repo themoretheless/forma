@@ -28,3 +28,35 @@ export function writeProject(key,files,host=globalThis){
   storage.setItem(key,value);return true;
  }catch{return false;}
 }
+const allowedDirectoryFile=name=>/\.(?:ui|rs|md|toml|svg|json|txt)$/i.test(name);
+const ignoredDirectory=new Set(['.git','.forma','node_modules','target','dist']);
+export async function readDirectoryProject(directoryHandle,prefix='',out={},budget={count:0,bytes:0}){
+ for await(const [name,entry]of directoryHandle.entries()){
+  if(name.startsWith('.')||ignoredDirectory.has(name))continue;
+  const path=prefix?`${prefix}/${name}`:name;
+  if(entry.kind==='directory'){await readDirectoryProject(entry,path,out,budget);continue;}
+  if(entry.kind==='file'&&allowedDirectoryFile(name)){
+   if(++budget.count>64)throw Error('Слишком много файлов в папке проекта (максимум 64)');
+   const file=await entry.getFile();
+   budget.bytes+=file.size;
+   if(budget.bytes>1_000_000)throw Error('Размер файлов папки превышает 1 МБ');
+   out[path]=await file.text();
+  }
+ }
+ if(!prefix)return validateProject(out);
+ return out;
+}
+export async function writeDirectoryProject(directoryHandle,files,previous={}){
+ validateProject(files);
+ for(const [path,content]of Object.entries(files)){
+  if(previous[path]===content)continue;
+  const parts=path.split('/'),name=parts.pop();
+  let dir=directoryHandle;
+  for(const part of parts)dir=await dir.getDirectoryHandle(part,{create:true});
+  const handle=await dir.getFileHandle(name,{create:true});
+  const writable=await handle.createWritable();
+  await writable.write(content);
+  await writable.close();
+ }
+ return true;
+}

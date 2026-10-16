@@ -20,9 +20,11 @@ export async function mountStudioShell(root){
  const wasm=await loadVectorRuntime(),cache=createCacheBudget(),compile=createComponentCompiler({cache});
  const previewTools=root.querySelector('.preview-tools'),canvasTools=root.querySelector('.canvas-tools');
  let compactToolbar=null;if(previewTools&&canvasTools){compactToolbar=document.createElement('div');compactToolbar.className='studio-canvas-toolbar';previewTools.before(compactToolbar);compactToolbar.append(previewTools,canvasTools);}
- const records=new Map();let dirty=new Set(),spare=new Set();const listeners=new AbortController();let frame=0,lastTime=0,stopped=false,proximityPosition=null,proximityDirty=false;
+ const records=new Map();let dirty=new Set(),spare=new Set();const pool=[];const listeners=new AbortController();let frame=0,lastTime=0,stopped=false,proximityPosition=null,proximityDirty=false,scratchRuntime=null;
  const painter=createShellPainter(document),compileFiles={...library},metrics={measureText:wasm.text_metrics},motion=matchMedia('(prefers-reduced-motion: reduce)');
  const listen=(target,event,callback)=>target.addEventListener(event,callback,{signal:listeners.signal});
+ function acquire(){return pool.pop()??new wasm.Runtime();}
+ function release(rec){if(rec.model){if(pool.length<16)pool.push(rec.model);else rec.model.free();rec.model=null;}rec.signature='';rec.paintKey=null;}
  function eligible(el){return el.matches(selector)&&!el.closest('#preview,.cm-editor,.color-picker,#native-inspection')&&!el.hidden&&!(el.tagName==='INPUT'&&el.closest('.source-editor'));}
  function kind(el){
   if(canvasIcon(el))return 'icon';
@@ -50,7 +52,6 @@ export async function mountStudioShell(root){
   return shellControl({kind:k,text:k==='icon'?'':text,icon:canvasIcon(el)?`assets/${canvasIcon(el)[1]}.svg`:/[⊟−]/.test(el.textContent)?'assets/minus.svg':el.textContent.includes('■')?'assets/close.svg':el.textContent.includes('☷')?'assets/folder.svg':'assets/plus.svg',tone:el.classList.contains('error')?'danger':'success',width:Math.ceil(bounds.width),height:Math.ceil(bounds.height),selected:el.matches('.active,.chosen')||el.getAttribute('aria-selected')==='true'||el.getAttribute('aria-pressed')==='true'||el.getAttribute('aria-checked')==='true'||(el.matches('.layout-toggle,#toggle-control-tree')&&el.getAttribute('aria-expanded')==='true'),disabled:!!input.disabled||el.getAttribute('aria-disabled')==='true',checked:!!input.checked,branch:el.hasAttribute('aria-expanded'),expanded:el.getAttribute('aria-expanded')==='true',indent:Math.max(0,(Number(el.getAttribute('aria-level')??1)-1)*14)});
  }
  function request(el,invalidate=false){if(stopped)return;const rec=records.get(el);if(rec&&invalidate)rec.specDirty=true;if(rec?.visible)dirty.add(el);if(!frame&&dirty.size)frame=requestAnimationFrame(draw);}
- function release(rec){rec.model?.free();rec.model=null;rec.signature='';rec.paintKey=null;}
  function fail(el,rec,error){release(rec);rec.surface.suspend();el.classList.remove('forma-native-surface');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;rec.failed=String(error);}
  function updateReveal(el,model){
   const bounds=el.getBoundingClientRect(),point=proximityPosition;
@@ -73,17 +74,30 @@ export async function mountStudioShell(root){
     if(rec.specDirty||!rec.spec){rec.spec=describe(el);rec.nextSignature=JSON.stringify(rec.spec);rec.specDirty=false;}
     const spec=rec.spec,signature=rec.nextSignature;if(spec.props.width<=1||spec.props.height<=1)continue;
     if(signature!==rec.signature){
-     compileFiles['ui/StudioControl.ui']=shellScene(spec);
-     const out=compile(compileFiles,'ui/StudioControl.ui',{},metrics);
-     const next=new wasm.Runtime();try{next.load_component(out.source,out.template);}catch(error){next.free();throw error;}
-     if(rec.model)next.preserve_interaction(rec.model);release(rec);rec.model=next;rec.signature=signature;
-     next.set_reduced_motion(motion.matches);updateReveal(el,next);
+     let compiled=cache.get('shell:compiled:'+signature);
+     if(!compiled){
+      compileFiles['ui/StudioControl.ui']=shellScene(spec);
+      compiled=compile(compileFiles,'ui/StudioControl.ui',{},metrics);
+      cache.set('shell:compiled:'+signature,{source:compiled.source,template:compiled.template});
+     }
+     if(rec.model){
+      scratchRuntime??=acquire();
+      scratchRuntime.load_component(compiled.source,compiled.template);
+      scratchRuntime.preserve_interaction(rec.model);
+      const previous=rec.model;rec.model=scratchRuntime;scratchRuntime=previous;
+     }else{
+      const next=acquire();
+      try{next.load_component(compiled.source,compiled.template);}catch(error){next.free();throw error;}
+      rec.model=next;
+     }
+     rec.signature=signature;
+     rec.model.set_reduced_motion(motion.matches);updateReveal(el,rec.model);
     }
     const model=rec.model;model.tick(dt);
     const scale=Math.min(2,devicePixelRatio||1),width=Math.ceil(spec.props.width*scale),height=Math.ceil(spec.props.height*scale);
     const revision=model.visual_revision(),paintKey=`${revision}:${width}:${height}`;
     if(signature!==rec.paintedSignature||paintKey!==rec.paintKey){
-     rec.surface.paint(model.content_pixels(width,height,scale),width,height);el.dataset.formaComponent=spec.type;
+     rec.surface.paint(model.content_pixels(width,height,scale),width,height,model.is_animating()?null:signature);el.dataset.formaComponent=spec.type;
      rec.paintKey=paintKey;rec.paintedSignature=signature;
     }
     if(model.is_animating())dirty.add(el);
@@ -132,5 +146,5 @@ export async function mountStudioShell(root){
  for(const event of ['change','input','click'])listen(root,event,e=>{const el=owner(e.target);request(el,true);});
  listen(motion,'change',()=>{for(const [el,rec]of records){rec.model?.set_reduced_motion(motion.matches);request(el);}});
  scan();
- return {destroy(){stopped=true;cancelAnimationFrame(frame);listeners.abort();mutations.disconnect();resize.disconnect();visible.disconnect();for(const [el,rec]of records){release(rec);rec.surface.destroy();el.classList.remove('forma-native-surface','forma-host-control','forma-host-input');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;}records.clear();dirty.clear();spare.clear();cache.clear();painter.destroy();if(compactToolbar)compactToolbar.replaceWith(...compactToolbar.childNodes);document.body.classList.remove('forma-studio-ui');},snapshot(){return [...records].map(([el,rec])=>({type:el.dataset.formaComponent,visible:rec.visible,error:rec.failed??null}));}};
+ return {destroy(){stopped=true;cancelAnimationFrame(frame);listeners.abort();mutations.disconnect();resize.disconnect();visible.disconnect();for(const [el,rec]of records){rec.model?.free();rec.model=null;rec.surface.destroy();el.classList.remove('forma-native-surface','forma-host-control','forma-host-input');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;}while(pool.length)pool.pop().free();scratchRuntime?.free();scratchRuntime=null;records.clear();dirty.clear();spare.clear();cache.clear();painter.destroy();if(compactToolbar)compactToolbar.replaceWith(...compactToolbar.childNodes);document.body.classList.remove('forma-studio-ui');},snapshot(){return [...records].map(([el,rec])=>({type:el.dataset.formaComponent,visible:rec.visible,error:rec.failed??null}));}};
 }

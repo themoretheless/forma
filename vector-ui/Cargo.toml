@@ -16,6 +16,7 @@ native = ["dep:winit", "dep:softbuffer", "gpu", "dep:objc"]
 gpu = ["dep:wgpu", "dep:pollster", "dep:bytemuck"]
 
 [dependencies]
+themoretheless-tokenizer-forma = { path = "../../tokenizer/crates/tokenizer-forma", version = "0.7.0" }
 wasm-bindgen = "=0.2.125"
 winit = { version = "0.30", optional = true }
 softbuffer = { version = "0.4", optional = true }

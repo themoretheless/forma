@@ -1,5 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {EventEmitter} from 'node:events';
 import {createNativeRunner} from '../native-runner.js';
 import {createRustRunner} from '../rust-runner.js';
 
@@ -13,4 +14,34 @@ test('malformed runner requests report errors and release busy state without spa
   }
   assert.equal(messages.length,5);runner.stop();
  }
+});
+
+test('rust runner cleans up its temporary directory on process close and spawn error',async()=>{
+ const events=[],removed=[],children=[];
+ const runner=createRustRunner(e=>events.push(e),{
+  async mkdtemp(prefix){return `${prefix}${children.length+1}`;},
+  async mkdir(){},
+  async writeFile(){},
+  async rm(target,opts){removed.push([target,opts]);},
+  spawn(){
+   const child=new EventEmitter();
+   child.stdout=new EventEmitter();
+   child.stderr=new EventEmitter();
+   child.kill=()=>{};
+   children.push(child);
+   return child;
+  },
+ });
+ const files={'Cargo.toml':'[package]\nname="a"\nversion="0.1.0"\n','src/main.rs':'fn main(){}'};
+ await runner.run(files);
+ assert.equal(removed.length,0);
+ children[0].emit('close',0,null);
+ assert.equal(removed.length,1);
+ assert.match(removed[0][0],/forma-rust-1$/);
+ assert.deepEqual(removed[0][1],{recursive:true,force:true});
+
+ await runner.run(files);
+ children[1].emit('error',new Error('spawn failed'));
+ assert.equal(removed.length,2);
+ assert.match(removed[1][0],/forma-rust-2$/);
 });

@@ -580,7 +580,7 @@ mod tests {
             let cache = stored.as_ref().unwrap();
             assert!(cache.key.sparse && cache.frame.is_empty());
             assert_eq!(cache.pixels.len(), cache.coverage.len() * 4);
-            assert_eq!(cache.coverage.len(), cache.spans.iter().map(|span| span.len()).sum());
+            assert_eq!(cache.coverage.len(), cache.spans.iter().map(|span| span.len()).sum::<usize>());
             assert!(cache.coverage.capacity() < 3000, "packed geometry must not retain a full canvas");
             assert!(cache.pixels.capacity() < 12_000, "packed RGBA must not retain a full canvas");
             assert!(cache.content.capacity() < 2000);

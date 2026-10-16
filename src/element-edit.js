@@ -5,7 +5,7 @@ export function locateElement(source,start){
  let found;const walk=(nodes,parent)=>{for(const node of nodes){if(node.start===start)found={node,parent};walk(node.children,node);}};walk(parse(source).nodes,null);
  if(!found)throw Error('Выберите элемент заново');return found;
 }
-const literal=v=>typeof v==='string'?JSON.stringify(v):Array.isArray(v)?'['+v.join(', ')+']':String(v);
+const literal=v=>typeof v==='string'?`'${v.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'\\r').replace(/\t/g,'\\t').replace(/\$\{/g,'\\${')}'`:Array.isArray(v)?'['+v.join(', ')+']':String(v);
 // The smallest document that holds a bare control, so a fragment of markup can be parsed, patched
 // and measured the same way whether it came from the clipboard or from another container.
 const WRAPPER='component Clipboard { Frame { ';

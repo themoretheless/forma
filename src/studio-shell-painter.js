@@ -3,6 +3,7 @@
 export function createShellPainter(document){
  let scratch=null,scratchContext=null;
  const stats={paints:0,pngEncodes:0,resizes:0,liveBytes:0};
+ const urlCache=new Map();
  function resize(canvas,width,height){
   if(canvas.width===width&&canvas.height===height)return;
   stats.liveBytes+=(width*height-canvas.width*canvas.height)*4;
@@ -18,18 +19,27 @@ export function createShellPainter(document){
     el.classList.remove('forma-native-surface');el.style.removeProperty('--forma-surface');
    }
    return {
-    paint(pixels,width,height){
+    paint(pixels,width,height,cacheKey){
      if(embedded){
       if(!target){target=canvas();target.className='forma-control-paint';target.setAttribute('aria-hidden','true');context=target.getContext('2d');}
       if(!el.contains(target))el.append(target);
+      if(!context)throw Error('Studio controls require Canvas 2D');
+      resize(target,width,height);
+      context.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer,pixels.byteOffset,pixels.byteLength),width,height),0,0);
      }else{
-      if(!scratch){scratch=canvas();scratchContext=scratch.getContext('2d');}
-      target=scratch;context=scratchContext;
+      const key=cacheKey?`${width}x${height}:${cacheKey}`:null;
+      let url=key?urlCache.get(key):undefined;
+      if(!url){
+       if(!scratch){scratch=canvas();scratchContext=scratch.getContext('2d');}
+       target=scratch;context=scratchContext;
+       if(!context)throw Error('Studio controls require Canvas 2D');
+       resize(target,width,height);
+       context.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer,pixels.byteOffset,pixels.byteLength),width,height),0,0);
+       url=`url("${target.toDataURL()}")`;stats.pngEncodes++;target=null;
+       if(key){if(urlCache.size>=64)urlCache.delete(urlCache.keys().next().value);urlCache.set(key,url);}
+      }
+      el.style.setProperty('--forma-surface',url);
      }
-     if(!context)throw Error('Studio controls require Canvas 2D');
-     resize(target,width,height);
-     context.putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer,pixels.byteOffset,pixels.byteLength),width,height),0,0);
-     if(!embedded){el.style.setProperty('--forma-surface',`url("${target.toDataURL()}")`);stats.pngEncodes++;target=null;}
      if(!el.classList.contains('forma-native-surface'))el.classList.add('forma-native-surface');stats.paints++;
     },
     suspend:clear,
@@ -37,6 +47,6 @@ export function createShellPainter(document){
    };
   },
   snapshot:()=>({...stats}),
-  destroy(){if(scratch)resize(scratch,0,0);scratch=null;scratchContext=null;},
+  destroy(){if(scratch)resize(scratch,0,0);scratch=null;scratchContext=null;urlCache.clear();},
  };
 }

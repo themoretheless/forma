@@ -15,6 +15,7 @@ export function digestInputs(root,inputs){
 export function runtimeSourceDigest(root){return digestInputs(root,[
  'rust-toolchain.toml','vector-ui/Cargo.toml','vector-ui/Cargo.lock',
  'vector-ui/src','vector-ui/assets','vector-ui/controls',
+ '../tokenizer/crates/tokenizer-forma/Cargo.toml','../tokenizer/crates/tokenizer-forma/src',
  'vector-ui/examples/Button.ui','vector-ui/examples/Button.component.ui',
  'scripts/build-wasm.mjs','scripts/runtime-digest.mjs',
 ]);}

@@ -33,5 +33,7 @@ test('void input elements retain CSS paint and share one bounded scratch canvas'
  a.paint(pixels,100,32);b.paint(pixels,100,32);
  assert.equal(input.children.length,0);assert.equal(select.children.length,0);
  assert.equal(painter.snapshot().pngEncodes,2);assert.equal(painter.snapshot().resizes,1);
+ a.paint(pixels,100,32,'field-idle');b.paint(pixels,100,32,'field-idle');
+ assert.equal(painter.snapshot().pngEncodes,3,'matching cacheKey reuses encoded PNG URL');
  a.destroy();b.destroy();painter.destroy();assert.equal(painter.snapshot().liveBytes,0);
 });

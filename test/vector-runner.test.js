@@ -153,3 +153,20 @@ test('invalid and oversized templates produce specific errors without spawning',
   assert.equal(events.length,4);
   assert.match(events.at(-1).text,/2000000.*2000001/);
 });
+
+test('vector runner prunes oldest snapshot directories beyond the retention limit', async () => {
+  const removed = [];
+  const existing = Array.from({length: 18}, (_, i) => `vector-${String(i + 1).padStart(2, '0')}`);
+  const {runner, children} = harness({
+    async readdir() { return [...existing, 'vector-19']; },
+    async rm(target, opts) { removed.push([target, opts]); },
+    async mkdtemp(prefix) { return `${prefix}19`; },
+  });
+  await runner.run({source: 'component Demo {}'});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(removed.length, 3);
+  assert.equal(removed[0][0], '/project with spaces/.forma/vector-01');
+  assert.equal(removed[1][0], '/project with spaces/.forma/vector-02');
+  assert.equal(removed[2][0], '/project with spaces/.forma/vector-03');
+  children[0].emit('close', 0, null);
+});

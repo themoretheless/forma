@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {mkdir, mkdtemp, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readdir, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -7,12 +7,15 @@ const projectRoot = fileURLToPath(new URL('./', import.meta.url));
 const maxSourceLength = 100_000;
 // Linked templates expand every control and its visual parts.
 const maxTemplateLength = 2_000_000;
+const maxSnapshots = 16;
 
 export function createVectorRunner(send, dependencies = {}) {
   const {
     spawn: spawnProcess = spawn,
     mkdir: makeDirectory = mkdir,
     mkdtemp: makeTemporaryDirectory = mkdtemp,
+    readdir: readDirectory = readdir,
+    rm: removeDirectory = rm,
     writeFile: writeSnapshot = writeFile,
     kill: signalProcess = process.kill.bind(process),
     platform = process.platform,
@@ -44,6 +47,16 @@ export function createVectorRunner(send, dependencies = {}) {
     }
   }
 
+  function pruneSnapshots(snapshotsRoot, keepDirectory) {
+    Promise.resolve(readDirectory(snapshotsRoot)).then(entries => {
+      const existing = (entries ?? []).filter(name => name.startsWith('vector-') && path.join(snapshotsRoot, name) !== keepDirectory).sort();
+      while (existing.length >= maxSnapshots) {
+        const stale = existing.shift();
+        Promise.resolve(removeDirectory(path.join(snapshotsRoot, stale), {recursive: true, force: true})).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+
   return {
     async run({source, template} = {}) {
       if (active) {
@@ -72,6 +85,7 @@ export function createVectorRunner(send, dependencies = {}) {
         await writeSnapshot(snapshot, source, 'utf8');
         const component = path.join(directory, 'Button.ui');
         if (template !== undefined) await writeSnapshot(component, template, 'utf8');
+        pruneSnapshots(snapshotsRoot, directory);
         if (job.stopped) {
           finish(job, null, 'SIGTERM');
           return;

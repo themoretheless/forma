@@ -101,7 +101,7 @@ fn main() {
                     clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
                     padding: scene.padding, content_width: scene.content_width,
                     content_height: scene.content_height, gap: scene.gap,
-                    button: markup::ButtonSpec::default(), buttons: Vec::new(),
+                    button: markup::ButtonSpec::default(), buttons: Vec::new(), modals: Vec::new(),
                 };
                 black_box(leaf.width + leaf.button.width);
             }

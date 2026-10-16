@@ -586,7 +586,50 @@ fn clipboard_write(text:&str)->Result<(),std::io::Error> {
     child.stdin.take().unwrap().write_all(text.as_bytes())?;
     if child.wait()?.success(){Ok(())}else{Err(std::io::Error::other("Clipboard write failed"))}
 }
-#[cfg(not(target_os="macos"))]
+#[cfg(target_os="windows")]
+fn clipboard_read()->Result<String,std::io::Error> {
+    let output=std::process::Command::new("powershell")
+        .args(["-NoProfile","-NonInteractive","-Command","Get-Clipboard -Raw"])
+        .output()?;
+    if !output.status.success(){return Err(std::io::Error::other("Clipboard read failed"));}
+    let mut s=String::from_utf8_lossy(&output.stdout).into_owned();
+    if s.ends_with("\r\n"){s.truncate(s.len()-2);}else if s.ends_with('\n'){s.pop();}
+    Ok(s)
+}
+#[cfg(target_os="windows")]
+fn clipboard_write(text:&str)->Result<(),std::io::Error> {
+    use std::io::Write;
+    let mut child=std::process::Command::new("clip").stdin(std::process::Stdio::piped()).spawn()?;
+    child.stdin.take().unwrap().write_all(text.as_bytes())?;
+    if child.wait()?.success(){Ok(())}else{Err(std::io::Error::other("Clipboard write failed"))}
+}
+#[cfg(all(unix,not(target_os="macos")))]
+fn clipboard_read()->Result<String,std::io::Error> {
+    for (cmd,args) in [("wl-paste",&["--no-newline"][..]),("xclip",&["-selection","clipboard","-o"][..]),("xsel",&["--clipboard","--output"][..])] {
+        if let Ok(output)=std::process::Command::new(cmd).args(args).output() {
+            if output.status.success() {
+                return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
+            }
+        }
+    }
+    Err(std::io::Error::other("Native clipboard adapter unavailable"))
+}
+#[cfg(all(unix,not(target_os="macos")))]
+fn clipboard_write(text:&str)->Result<(),std::io::Error> {
+    use std::io::Write;
+    for (cmd,args) in [("wl-copy",&[][..]),("xclip",&["-selection","clipboard"][..]),("xsel",&["--clipboard","--input"][..])] {
+        if let Ok(mut child)=std::process::Command::new(cmd).args(args).stdin(std::process::Stdio::piped()).spawn() {
+            if let Some(mut stdin)=child.stdin.take() {
+                if stdin.write_all(text.as_bytes()).is_ok() {
+                    drop(stdin);
+                    if child.wait().is_ok_and(|s|s.success()) { return Ok(()); }
+                }
+            }
+        }
+    }
+    Err(std::io::Error::other("Native clipboard adapter unavailable"))
+}
+#[cfg(not(any(unix,target_os="windows")))]
 fn clipboard_read()->Result<String,std::io::Error> {Err(std::io::Error::other("Native clipboard adapter unavailable"))}
-#[cfg(not(target_os="macos"))]
+#[cfg(not(any(unix,target_os="windows")))]
 fn clipboard_write(_: &str)->Result<(),std::io::Error> {Err(std::io::Error::other("Native clipboard adapter unavailable"))}

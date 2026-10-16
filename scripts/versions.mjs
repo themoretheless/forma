@@ -26,6 +26,7 @@ export function versions(){
   if(!validVersion(runtime)||!validVersion(studio))throw Error('Invalid component version');
   if(cargoVersion(read('vector-ui/Cargo.lock'),'forma')!==runtime)throw Error('Runtime Cargo.lock version mismatch');
   if(cargoVersion(read('vector-ui/examples/binding-app/Cargo.lock'),'forma')!==runtime)throw Error('Binding example Cargo.lock version mismatch');
+  if(cargoVersion(read('vector-ui/examples/language-app/Cargo.lock'),'forma')!==runtime)throw Error('Language example Cargo.lock version mismatch');
   if(lock.version!==studio||lock.packages[''].version!==studio)throw Error('Studio package-lock.json version mismatch');
   for(const path of ['native-app/Cargo.toml','native-app/Cargo.lock'])if(cargoVersion(read(path),'forma-native')!==studio)throw Error(`Studio host version mismatch: ${path}`);
   const wasmBindgen=read('vector-ui/Cargo.toml').match(/^wasm-bindgen = "=([^"]+)"$/m)?.[1];
@@ -54,7 +55,9 @@ export function setVersion(component,version){
   const directory=component==='runtime'?'vector-ui':'native-app',name=component==='runtime'?'forma':'forma-native';
   for(const file of ['Cargo.toml','Cargo.lock']){const path=`${directory}/${file}`;updates.set(path,replaceCargo(read(path),name,version));}
   if(component==='runtime'){
-    const path='vector-ui/examples/binding-app/Cargo.lock';updates.set(path,replaceCargo(read(path),'forma',version));
+    for(const path of ['vector-ui/examples/binding-app/Cargo.lock','vector-ui/examples/language-app/Cargo.lock']){
+      updates.set(path,replaceCargo(read(path),'forma',version));
+    }
   }
   if(component==='studio'){
     for(const path of ['package.json','package-lock.json']){

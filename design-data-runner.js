@@ -6,10 +6,13 @@ import path from 'node:path';
 const exec=promisify(execFile);
 export async function evaluateDesignData(files,refs){
   if(!Array.isArray(refs)||refs.length>100||refs.some(r=>!/^design\.[A-Za-z_][A-Za-z0-9_]*(\(\))?$/.test(r)))throw Error('Поддерживаются design.NAME и design.method() без аргументов');
-  if(typeof files?.['src/design.rs']!=='string')throw Error('Добавьте src/design.rs с pub const или pub fn');
+  const designSource=files?.['src/design.rs'];
+  if(typeof designSource!=='string')throw Error('Добавьте src/design.rs с pub const или pub fn');
+  if(designSource.length>256*1024)throw Error('src/design.rs превышает лимит 256 КиБ');
+  if(/\b(?:unsafe|extern)\b|(?:std|core)\s*::\s*(?:process|net|fs|env)\b|\binclude(?:_str|_bytes)?\s*!|\benv\s*!/.test(designSource))throw Error('src/design.rs содержит запрещённые конструкции (unsafe, process, net, fs, env, include!)');
   const dir=await mkdtemp(path.join(tmpdir(),'forma-design-'));
   try{
-  await writeFile(path.join(dir,'design.rs'),files['src/design.rs']);
+  await writeFile(path.join(dir,'design.rs'),designSource);
   const source='mod design; fn main() {\n'+refs.map((r,i)=>`std::fs::write("value-${i}", format!("{}", design::${r.slice('design.'.length)})).unwrap();`).join('\n')+'\n}';
   await writeFile(path.join(dir,'main.rs'),source);
   const executable=process.platform==='win32'?'design-data.exe':'design-data';

@@ -1,6 +1,7 @@
 // Component linking is shared by Studio preview and native launch. It emits the
 // same concrete primitive template; there is no DOM rendering of button content.
-import {parse} from './language.js';
+import {parse,validateDesign,designStatePatch} from './language.js';
+import {designReference,readDesignData} from './design-data.js';
 import {propertyOrigins} from './property-origins.js';
 import {similarName,sourceError} from './diagnostics.js';
 import {parseSvgShapes,placeSvgShapes} from './svg-shapes.js';
@@ -39,10 +40,10 @@ const primitiveTypes=new Set([...visualTypes,'ContentPresenter','Brush','Border'
 // content. A project may replace these defaults with components/Text*.ui.
 const builtinSources={
   Text:`component Text {
-    width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff;
+    width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff; wrap: false;
     background: #00000000; borderWidth: 0; radius: 0;
     Rectangle { background: props.background;
-      Text { text: props.text; color: props.color; fontSize: props.fontSize; }
+      Text { text: props.text; color: props.color; fontSize: props.fontSize; wrap: props.wrap; }
     }
   }`,
   TextInput:`component TextInput {
@@ -55,7 +56,7 @@ const builtinSources={
     }
   }`,
 };
-export const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Row:['gap','padding','clip','radius'],Column:['gap','padding','clip','radius'],Grid:['columns','rows','gap','padding','clip','radius'],Stack:['gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
+export const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Row:['gap','padding','clip','radius'],Column:['gap','padding','clip','radius'],Grid:['columns','rows','gap','padding','clip','radius'],Stack:['gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size','wrap'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
 const templateEncoder=new TextEncoder();
 // Templates are framed by their UTF-8 byte length. Encoding a ~7 KB icon template
 // only to read that length allocated the bytes again for every instance, and
@@ -87,11 +88,34 @@ function insets(v=0){const a=Array.isArray(v)?v:[v];if(a.length<1||a.length>4)th
 function tracks(v){return v===undefined?[{expr:'*'}]:Array.isArray(v)?v:[v];}
 function cell(n,axis,count){const c=n.props.cell;if(c&&(!Array.isArray(c)||c.length!==2||own(n.props,'row')||own(n.props,'column')))throw Error('cell: ожидаются row column без отдельных row/column');const v=c?.[axis==='rows'?0:1]??n.props[axis==='rows'?'row':'column'];if(v===undefined)return null;if(!Number.isInteger(v)||v<1||v>count)throw Error(`Ячейка за пределами ${axis}`);return v-1;}
 function gap(p){const a=Array.isArray(p.gap)?p.gap:[p.gap??0,p.gap??0];if(a.length!==2)throw Error('gap: один или два размера');return a.map(v=>num(v,'gap'));}
+function wrapLines(text,fontSize,maxWidth,metrics){
+  const raw=String(text??'').split('\n');
+  if(!Number.isFinite(maxWidth)||maxWidth<=0)return raw;
+  const out=[];
+  for(const paragraph of raw){
+    const words=paragraph.split(' ');
+    let current=words[0]??'';
+    for(let i=1;i<words.length;i++){
+      const word=words[i],candidate=current?`${current} ${word}`:word;
+      if(metrics.measureText(candidate,fontSize)[0]<=maxWidth)current=candidate;
+      else{out.push(current);current=word;}
+    }
+    out.push(current);
+  }
+  return out;
+}
 function natural(n,axis,metrics){
   const key=axis===0?'width':'height',p=n.props;
   if(p[key]!==undefined&&!intrinsicLength(p[key])&&!/[*%]$/.test(p[key]?.expr??''))return constrained(num(p[key],key),p,axis,4096);
   if(containerTypes.has(n.type)&&n.type!=='Frame')return naturalContainer(n,axis,(child,dimension)=>natural(child,dimension,metrics));
-  if(n.type==='Text'){const fs=num(p.fontSize??p['font.size']??16,'fontSize');if(!metrics?.measureText)throw Error('Размер текста по контенту требует метрик Rust runtime');const lines=String(p.text??'').split('\n');const size=lines.length===1?metrics.measureText(lines[0],fs)[axis]:axis===1?lines.length*fs*1.5:Math.max(...lines.map(line=>metrics.measureText(line,fs)[0]));if(!Number.isFinite(size)||size<0)throw Error('Некорректные метрики текста');return size;}
+  if(n.type==='Text'){
+    if(p.wrap!==undefined&&typeof p.wrap!=='boolean')throw Error('Text.wrap ожидает boolean');
+    const fs=num(p.fontSize??p['font.size']??16,'fontSize');if(!metrics?.measureText)throw Error('Размер текста по контенту требует метрик Rust runtime');
+    const wrapW=p.wrap&&axis===1&&typeof p.width==='number'?num(p.width,'width'):null;
+    const lines=wrapW!==null?wrapLines(p.text,fs,wrapW,metrics):String(p.text??'').split('\n');
+    const size=lines.length===1?metrics.measureText(lines[0],fs)[axis]:axis===1?lines.length*fs*1.5:Math.max(...lines.map(line=>metrics.measureText(line,fs)[0]));
+    if(!Number.isFinite(size)||size<0)throw Error('Некорректные метрики текста');return size;
+  }
   if(n.type==='TextInput')return axis===0?80:Number(p.fontSize??15)*1.5;
   if(n.type==='Image')return 20;
   if(n.type==='Rectangle')return Math.max(0,...n.children.filter(c=>visualTypes.has(c.type)).map(c=>natural(c,axis,metrics)));
@@ -110,7 +134,7 @@ function flatten(n,box,files,output,metrics){
   const p=own(n.props,'key')?Object.fromEntries(Object.entries(n.props).filter(([k])=>k!=='key')):n.props,allowed=contentProps.get(n.type)??layoutProps;
   for(const k of Object.keys(p))if(!allowed.has(k))throw Error(`${n.type}.${k} пока не поддерживается в контенте`);
   if(Object.keys(n.events??{}).length||Object.keys(n.bindings??{}).length)throw Error('Контент кнопки пока не содержит отдельных интерактивных элементов');
-  let [x,y,w,h]=box;const nw=constrained(p.width===undefined?w:length(p.width,w,intrinsicLength(p.width)?natural({...n,props:{...p,width:undefined}},0,metrics):0,'width'),p,0,w),nh=constrained(p.height===undefined?h:length(p.height,h,intrinsicLength(p.height)?natural({...n,props:{...p,height:undefined}},1,metrics):0,'height'),p,1,h);x+=(w-nw)/2;y+=(h-nh)/2;w=nw;h=nh;
+  let [x,y,w,h]=box;const nw=constrained(p.width===undefined?w:length(p.width,w,intrinsicLength(p.width)?natural({...n,props:{...p,width:undefined}},0,metrics):0,'width'),p,0,w),nh=constrained(p.height===undefined?h:length(p.height,h,intrinsicLength(p.height)?natural({...n,props:{...p,width:nw,height:undefined}},1,metrics):0,'height'),p,1,h);x+=(w-nw)/2;y+=(h-nh)/2;w=nw;h=nh;
   const visual=metrics.visuals?{id:metrics.visuals.length,parent:metrics.parentVisual??null,type:n.type,source:n.source,propertySources:n.propertySources,propertyOrigins:n.propertyOrigins,props:p,bounds:[x,y,w,h]}:null;
   if(visual)metrics.visuals.push(visual);
   const childMetrics=visual?{...metrics,parentVisual:visual.id}:metrics;
@@ -146,8 +170,11 @@ function flatten(n,box,files,output,metrics){
     output.push(`ContentInput { x: ${x}; y: ${y}; width: ${w}; height: ${h}; value: ${literal(String(p.value??''))}; placeholder: ${literal(String(p.placeholder??''))}; color: ${literal(p.color??{expr:'#ffffff'})}; placeholderColor: ${literal(p.placeholderColor??{expr:'#999999'})}; fontSize: ${num(p.fontSize??15,'fontSize')}; multiline: ${Boolean(p.multiline)}; }`);return;
   }
   if(n.type==='Text'){
-    const text=String(p.text??''),fontSize=num(p.fontSize??p['font.size']??16,'fontSize'),lines=text.split('\n');
-    if(lines.length===1)output.push(`ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(text)}; color: ${literal(p.color??{expr:'#ffffff'})}; fontSize: ${fontSize}; }`);
+    if(p.wrap!==undefined&&typeof p.wrap!=='boolean')throw Error('Text.wrap ожидает boolean');
+    const text=String(p.text??''),fontSize=num(p.fontSize??p['font.size']??16,'fontSize');
+    if(p.wrap&&!metrics?.measureText)throw Error('Перенос текста требует метрик Rust runtime');
+    const lines=p.wrap?wrapLines(text,fontSize,w,metrics):text.split('\n');
+    if(lines.length===1)output.push(`ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(lines[0])}; color: ${literal(p.color??{expr:'#ffffff'})}; fontSize: ${fontSize}; }`);
     else {
       if(!metrics?.measureText)throw Error('Многострочный текст требует метрик Rust runtime');
       output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: 0; }`);
@@ -240,7 +267,44 @@ function compile(files,entry,state,metrics,read,links){
       return content;
     },
   };
-  const document=read(files[entry],entry);let scene=clone(document.nodes);metricsContext.transformScene?.(scene);
+  const document=read(files[entry],entry);let scene=clone(document.nodes);
+  if(document.designs?.length&&metricsContext.designMode!==false){
+    const merged={overrides:{},states:[]};
+    const baseDir=entry.includes('/')?entry.slice(0,entry.lastIndexOf('/')+1):'';
+    for(const ref of document.designs){
+      const designPath=baseDir+String(ref).replace(/^\.\//,'');
+      if(!own(files,designPath))throw Error(`Дизайн-файл не найден: ${designPath}`);
+      const design=read(files[designPath],designPath);
+      if(Object.keys(design.overrides??{}).length||(design.states?.length??0)){
+        validateDesign(document,design);
+        for(const [key,props]of Object.entries(design.overrides??{})){
+          if(own(merged.overrides,key))throw Error(`Повторный дизайн-key ${key}`);
+          merged.overrides[key]=props;
+        }
+        for(const s of design.states??[]){
+          if(merged.states.some(other=>other.name===s.name))throw Error(`Повторное состояние ${s.name}`);
+          merged.states.push({...s,file:designPath});
+        }
+      }
+    }
+    const activeState=metricsContext.designState===undefined?(merged.states[0]?.name??null):metricsContext.designState;
+    const designPatch=designStatePatch(merged,activeState);
+    const resolveDesignValue=value=>{
+      const ref=designReference(value);
+      if(ref)return readDesignData(ref);
+      if(Array.isArray(value))return value.map(resolveDesignValue);
+      if(value&&typeof value==='object'&&!own(value,'expr'))return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,resolveDesignValue(v)]));
+      return value;
+    };
+    visit(scene,n=>{
+      const key=n.props?.key;
+      if(typeof key==='string'&&own(designPatch,key)){
+        const resolvedPatch=Object.fromEntries(Object.entries(designPatch[key]).map(([k,v])=>[k,resolveDesignValue(v)]));
+        n.props={...n.props,...resolvedPatch};
+      }
+    });
+  }
+  metricsContext.transformScene?.(scene);
   visit(scene,n=>{const patch=metricsContext.instanceProps?.(n);if(patch)n.props={...n.props,...patch};});
   const contracts=new WeakMap();
   const cache=new Map(),loading=[],dependencies=new Map(),depths=new Map();
@@ -526,7 +590,7 @@ function compile(files,entry,state,metrics,read,links){
     delete rootProps.columns;delete rootProps.rows;rootProps.gap=0;
   }
   const layered=modals.flatMap(m=>m.controls);
-  if(instances.length+layered.length>256||[...instances,...layered].some(n=>['Frame','Scroll','Modal'].includes(n.type)))throw Error('Frame принимает 0…256 контролов либо один Scroll с контролами');
+  if(instances.length+layered.length>1024||[...instances,...layered].some(n=>['Frame','Scroll','Modal'].includes(n.type)))throw Error('Frame принимает 0…1024 контролов либо один Scroll с контролами');
   visualNodes.push(rootVisual);
   function compileInstance(instance,index){
   for(const [event,action]of Object.entries(instance.events??{})){

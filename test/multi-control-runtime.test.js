@@ -36,3 +36,15 @@ test('the second instance is validated rather than silently ignored',()=>{
  assert.throws(()=>compileComponents({...files,'components/Green.ui':'component Green : Missing {}'},'ui/Demo.ui'),/Компонент не найден/);
  assert.throws(()=>compileComponents({...files,'ui/Demo.ui':files['ui/Demo.ui'].replace("key:'two';","key:'two'; unexpected:42;")},'ui/Demo.ui'),/Неизвестное свойство/);
 });
+test('large scenes beyond 256 controls compile and load into WASM Runtime',{skip:!existsSync(new URL('../public/vector-pkg/forma.js',import.meta.url))},async()=>{
+ const runtime=await import('../public/vector-pkg/forma.js');
+ await runtime.default({module_or_path:readFileSync(new URL('../public/vector-pkg/forma_bg.wasm',import.meta.url))});
+ const items=Array.from({length:300},(_,i)=>`Button { key:'item_${i}'; width:120; height:24; text:'Элемент ${i}'; }`).join(' ');
+ const linked=compileComponents({...files,'ui/Large.ui':`component Large { Frame { width:400; height:600; Scroll { ${items} } } }`},'ui/Large.ui');
+ const r=new runtime.Runtime();
+ try{
+  r.load_component(linked.source,linked.template);
+  assert.equal(r.control_count(),300);
+  assert.equal(r.control_label(299),'Элемент 299');
+ }finally{r.free();}
+});

@@ -17,3 +17,15 @@ test('content tracks use the rendering font rather than character count',()=>{
  assert.ok(Math.abs(children[1].props.x-wide[0])<0.0001);
  const button=new runtime.Button();try{button.load_component(out.source,out.template);assert.ok(button.gpu_commands(1,true).length>0);}finally{button.free();}
 });
+
+test('Text with wrap: true splits long lines by word using font metrics',()=>{
+ const files={
+  'ui/Demo.ui':"component Demo { Frame { Text { width: 120; height: 90; wrap: true; text: 'Первая строка со словами для переноса'; fontSize: 16; } } }",
+  'components/Button.ui':'component Button { Rectangle {} }',
+ };
+ const out=compileComponents(files,'ui/Demo.ui',{},{measureText:runtime.text_metrics});
+ const texts=parse(out.template).nodes[0].children.filter(n=>n.type==='ContentText');
+ assert.ok(texts.length>=2,'wrapped paragraph should produce multiple ContentText lines');
+ assert.equal(texts.map(n=>n.props.text).join(' '),'Первая строка со словами для переноса');
+ assert.ok(texts[1].props.y>texts[0].props.y);
+});

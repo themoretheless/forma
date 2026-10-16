@@ -8,7 +8,7 @@ import {evaluateDesignData} from './design-data-runner.js';
 import {createVectorRunner} from './vector-runner.js';
 import {readFile} from 'node:fs/promises';
 
-export default defineConfig({build:{rollupOptions:{input:{studio:'index.html',controls:'vector-ui/examples/controls.html'}}},server:{host:'127.0.0.1',port:5173,strictPort:true},plugins:[{
+export default defineConfig({build:{target:'esnext',chunkSizeWarningLimit:600,rollupOptions:{input:{studio:'index.html',controls:'vector-ui/examples/controls.html'},output:{manualChunks(id){if(id.includes('@codemirror/')||id.includes('@lezer/'))return 'editor';}}}},server:{host:'127.0.0.1',port:5173,strictPort:true},plugins:[{
   name:'forma-mcp-bridge',
   configureServer(server){
     // Generated wasm-bindgen modules must be served unchanged, not transformed by Vite.

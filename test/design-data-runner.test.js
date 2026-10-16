@@ -35,3 +35,13 @@ test('design result reads enforce a total byte budget',async()=>{
   await assert.rejects(readDesignValues(dir,['design.a']),/1 МиБ/);
  }finally{await rm(dir,{recursive:true,force:true});}
 });
+
+test('design evaluation rejects unsafe blocks, process/fs/net APIs, and include! macros before invoking rustc',async()=>{
+ for(const bad of [
+  'pub fn x() -> i32 { unsafe { 1 } }',
+  'pub fn x() -> String { std::process::Command::new("sh"); String::new() }',
+  'pub const X: &str = include_str!("/etc/passwd");',
+ ]){
+  await assert.rejects(evaluateDesignData({'src/design.rs':bad},['design.x()']),/запрещённые конструкции/);
+ }
+});

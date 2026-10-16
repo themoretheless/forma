@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {dirname,relative,resolve,sep} from 'node:path';
 import {root} from '../scripts/versions.mjs';
 
@@ -9,7 +9,7 @@ import {root} from '../scripts/versions.mjs';
 // import of a designer file leaves its own unit tests green while the browser never loads it, and
 // vite reports a clean build because the module simply is not in the bundle. So the shipped graph
 // is walked from the things that actually execute, and every tracked src module must turn up.
-const tracked=execFileSync('git',['ls-files'],{cwd:root,encoding:'utf8'}).split('\n').filter(Boolean);
+const tracked=execFileSync('git',['ls-files'],{cwd:root,encoding:'utf8'}).split('\n').filter(f=>f&&existsSync(resolve(root,f)));
 const read=f=>readFileSync(resolve(root,f),'utf8');
 const SPECS=/(?:^|[^\w.$])(?:import|export)[\s\S]{0,120}?\bfrom\s*['"]([^'"]+)['"]|(?:^|[^\w.$])import\s*\(\s*['"]([^'"]+)['"]/g;
 // Resolved the way this repo imports: relative paths only, exact file name, no extension rewrite.

@@ -28,7 +28,7 @@ const basename=type=>type?.replace(/\s/g,'').split('::').at(-1);
 function children(node,name){const out=[];for(let n=node?.firstChild;n;n=n.nextSibling)if(!name||n.name===name)out.push(n);return out;}
 function text(source,node){return node?source.slice(node.from,node.to):'';}
 function ownProps(source,block){return Object.fromEntries(children(block,'Property').map(n=>[text(source,n.getChild('PropertyName')),text(source,n).replace(/^[\w.]+\s*:\s*/, '').replace(/;\s*$/,'').trim()]));}
-function quoted(value){return value?.match(/^(['"])(.*?)\1$/s)?.[2];}
+function quoted(value){const m=value?.match(/^(['"])((?:\\.|(?!\1)[\s\S])*)\1$/);return m?m[2].replace(/\\(.)/gs,(_,c)=>c==='n'?'\n':c==='r'?'\r':c==='t'?'\t':c):undefined;}
 function maskRust(source){return source.replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\/|r(#+)?"[\s\S]*?"\1|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])'/g,m=>m.replace(/[^\n]/g,' '));}
 function closing(source,start,open='{',close='}') {let depth=0;for(let i=start;i<source.length;i++){if(source[i]===open)depth++;else if(source[i]===close&&!--depth)return i;}return source.length;}
 

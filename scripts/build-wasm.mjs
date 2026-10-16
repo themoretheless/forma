@@ -9,6 +9,7 @@ function run(command,args,quiet=false){
   if(result.error||result.status!==0)throw Error(`${command} failed: ${result.error?.message??result.stderr??result.status}`);
   return result.stdout?.trim();
 }
+run(process.execPath,['../tokenizer/packages/forma/build-wasm.mjs']);
 const cli=run('wasm-bindgen',['--version'],true);
 if(cli!==`wasm-bindgen ${current.wasmBindgen}`)throw Error(`Install matching CLI: cargo install wasm-bindgen-cli --version ${current.wasmBindgen} --locked`);
 const targetDir=resolve(root,process.env.CARGO_TARGET_DIR||'vector-ui/target');

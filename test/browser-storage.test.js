@@ -38,3 +38,28 @@ test('unchanged valid project does not rewrite storage',async()=>{
  const host={localStorage:{getItem(){reads++;return JSON.stringify(files);},setItem(){throw Error('must not write');}}};
  assert.equal(writeProject('project',files,host),true);assert.equal(reads,1);
 });
+
+test('local directory project reader and writer sync nested .ui/.rs files and skip ignored directories',async()=>{
+ const {readDirectoryProject,writeDirectoryProject}=await import('../src/browser-storage.js');
+ function mockDir(tree){
+  return {
+   async *entries(){for(const [k,v]of Object.entries(tree))yield [k,v];},
+   async getDirectoryHandle(name){return tree[name]??(tree[name]={kind:'directory',...mockDir({})});},
+   async getFileHandle(name){return tree[name]??(tree[name]={kind:'file',content:'',async getFile(){return {size:this.content.length,text:async()=>this.content};},async createWritable(){return {write:async c=>{tree[name].content=c;},close:async()=>{}};}});},
+  };
+ }
+ const root=mockDir({
+  '.git':{kind:'directory',...mockDir({'config':{kind:'file',async getFile(){return {size:4,text:async()=>'nope'};}}})},
+  'target':{kind:'directory',...mockDir({'debug.rs':{kind:'file',async getFile(){return {size:4,text:async()=>'nope'};}}})},
+  'ui':{kind:'directory',...mockDir({
+   'Main.ui':{kind:'file',content:'component Main { Frame {} }',async getFile(){return {size:27,text:async()=>this.content};},async createWritable(){return {write:async c=>{this.content=c;},close:async()=>{}};}},
+  })},
+  'Cargo.toml':{kind:'file',content:'[package]\nname = "demo"\n',async getFile(){return {size:24,text:async()=>this.content};},async createWritable(){return {write:async c=>{this.content=c;},close:async()=>{}};}},
+ });
+ const read=await readDirectoryProject(root);
+ assert.deepEqual(read,{'ui/Main.ui':'component Main { Frame {} }','Cargo.toml':'[package]\nname = "demo"\n'});
+ const updated={'ui/Main.ui':'component Main { Frame { Text { text: "Hi"; } } }','Cargo.toml':'[package]\nname = "demo"\n','src/main.rs':'fn main() {}\n'};
+ await writeDirectoryProject(root,updated,read);
+ const reread=await readDirectoryProject(root);
+ assert.deepEqual(reread,updated);
+});
