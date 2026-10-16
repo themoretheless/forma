@@ -32,8 +32,8 @@ function copyData(value,seen){
   return out;
 }
 const clone=value=>typeof value==='object'&&value!==null?copyData(value,new WeakMap()):value;
-export const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration'.split(' '));
-export const layoutProps=new Set('key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight'.split(' '));
+export const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration transition'.split(' '));
+export const layoutProps=new Set('key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight transition'.split(' '));
 const visualTypes=new Set([...containerTypes,'Text','TextInput','Image','Rectangle']);
 const primitiveTypes=new Set([...visualTypes,'ContentPresenter','Brush','Border','Reveal','PointerArea','ContentText','ContentShape','ContentClip','ContentClipEnd']);
 // Scene-level text controls use the same primitive rendering as component
@@ -81,7 +81,7 @@ function literal(v){
   throw Error('Значение не удалось вычислить');
 }
 function serialize(n){return serializeNode(n,false);}
-function serializeNode(n,omitKeys){if(Object.keys(n.bindings??{}).length||Object.keys(n.slots??{}).length)throw Error(`Необработанная привязка или override в ${n.type}`);return `${n.type} { ${Object.entries(n.props).filter(([k])=>!omitKeys||k!=='key').map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${Object.entries(n.events??{}).map(([k,v])=>`${k} -> ${v}();`).join(' ')} ${(n.children??[]).map(child=>serializeNode(child,omitKeys)).join(' ')} }`;}
+function serializeNode(n,omitKeys){if(Object.keys(n.bindings??{}).length||Object.keys(n.slots??{}).length)throw Error(`Необработанная привязка или override в ${n.type}`);const keepTransition=n.type==='Brush'||n.type==='Reveal';return `${n.type} { ${Object.entries(n.props).filter(([k])=>!(omitKeys&&k==='key')&&(keepTransition||k!=='transition')).map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${Object.entries(n.events??{}).map(([k,v])=>`${k} -> ${v}();`).join(' ')} ${(n.children??[]).map(child=>serializeNode(child,omitKeys)).join(' ')} }`;}
 const num=(v,label)=>{if(typeof v==='object'&&v?.expr?.endsWith('px'))v=Number(v.expr.slice(0,-2));if(typeof v!=='number'||!Number.isFinite(v)||v<0||v>4096)throw Error(`${label}: ожидается размер 0…4096`);return v;};
 const color=v=>v?.expr??v;
 function insets(v=0){const a=Array.isArray(v)?v:[v];if(a.length<1||a.length>4)throw Error('padding: от 1 до 4 размеров');const x=a.map(v=>num(v,'padding'));return x.length===1?[x[0],x[0],x[0],x[0]]:x.length===2?[x[0],x[1],x[0],x[1]]:x.length===3?[x[0],x[1],x[2],x[1]]:x;}
@@ -331,7 +331,9 @@ function compile(files,entry,state,metrics,read,links){
     linked.defaultSources={...linked.defaultSources,...Object.fromEntries(Object.entries(c.defaultRanges??{}).map(([key,range])=>[key,{file:path,...range,label:c.name}]))};
     linked.propDefinitions={...linked.propDefinitions,...clone(c.propDefinitions??{})};
     linked.eventDefinitions={...linked.eventDefinitions,...clone(c.eventDefinitions??{})};
-    linked.enums={...linked.enums,...clone(c.enums??{})};
+    linked.enums={...linked.enums,...clone(c.enums??{}),...clone(c.structs??{})};
+    linked.tokens={...linked.tokens,...clone(c.tokens??{})};
+    linked.slotDefinitions={...linked.slotDefinitions,...clone(c.slotDefinitions??{})};
     linked.matches=[...(linked.matches??[]),...clone(c.matches??[])];
     for(const definition of Object.values(linked.propDefinitions))validateTypeName(definition.type,linked.enums);
     for(const args of Object.values(linked.eventDefinitions))for(const arg of args)validateTypeName(arg.type,linked.enums);
@@ -400,15 +402,19 @@ function compile(files,entry,state,metrics,read,links){
     for(const path of Object.keys(files)){const match=/^components\/([A-Za-z_][\w]*)\.ui$/.exec(path);if(match)link(match[1]);}
     return {definitions:Object.fromEntries(cache),fallback};
   }
-  const enums={...document.enums};
+  const enums={...document.enums,...document.structs};
+  const tokens={...document.tokens};
   visit(scene,node=>{if(!primitiveTypes.has(node.type)&&!['Scroll','Modal','If','For'].includes(node.type)){
     const definition=link(node.type);
     for(const [name,variants]of Object.entries(definition.enums??{})){
       if(own(enums,name)&&JSON.stringify(enums[name])!==JSON.stringify(variants))throw Error(`Конфликт enum ${name}`);
       enums[name]=variants;
     }
+    for(const [name,val]of Object.entries(definition.tokens??{})){
+      if(!own(tokens,name))tokens[name]=val;
+    }
   }});
-  const environment={enums};
+  const environment={enums,tokens};
   const documentProps={...document.defaults,...metricsContext.properties};
   for(const [key,definition]of Object.entries(document.propDefinitions??{}))if(definition.required&&!own(documentProps,key))throw Error(`${document.name}: обязательное свойство ${key} не задано`);
   Object.assign(documentProps,selectedProperties(document.matches,documentProps,state,environment),metricsContext.properties);
@@ -431,18 +437,19 @@ function compile(files,entry,state,metrics,read,links){
     if(!top)rejectInteraction(instance);
     const linked=link(instance.type);
     let contract=contracts.get(linked);if(!contract){
-     let hasContent=false;visit(linked.nodes,n=>{if(n.type==='ContentPresenter'&&n.props.key==='content')hasContent=true;});
+     let hasContent=false;const presenterKeys=new Set(Object.keys(linked.slotDefinitions??{}));
+     visit(linked.nodes,n=>{if(n.type==='ContentPresenter'){if(n.props.key==='content')hasContent=true;if(typeof n.props.key==='string')presenterKeys.add(n.props.key);}});
      const groupedNames=new Set((linked.matches??[]).flatMap(group=>group.branches.flatMap(branch=>Object.keys(branch.props))));
-     contract={hasContent,groupedNames};contracts.set(linked,contract);
+     contract={hasContent,presenterKeys,groupedNames};contracts.set(linked,contract);
     }
-    const {hasContent,groupedNames}=contract;
+    const {hasContent,presenterKeys,groupedNames}=contract;
     if(instance.children.length&&!hasContent)throw Error('Для дочернего контента нужен ContentPresenter с key: content');
-    for(const k of Object.keys(instance.props))if(!(top?standard:layoutProps).has(k)&&!layoutProps.has(k)&&!own(linked.defaults,k)&&!own(linked.propDefinitions??{},k)&&!groupedNames.has(k)&&!(k==='font.size'&&own(linked.defaults,'fontSize')))throw Error(`Неизвестное свойство ${instance.type}.${k}`);
+    for(const k of Object.keys(instance.props))if(!(top?standard:layoutProps).has(k)&&!layoutProps.has(k)&&!own(linked.defaults,k)&&!own(linked.propDefinitions??{},k)&&!presenterKeys.has(k)&&!groupedNames.has(k)&&!(k==='font.size'&&own(linked.defaults,'fontSize')))throw Error(`Неизвестное свойство ${instance.type}.${k}`);
     if(instance.props['font.size']!==undefined&&instance.props.fontSize!==undefined)throw Error('fontSize и font.size — одно свойство');
     // A visual instance never inherits its caller's props or button fallbacks.
     // Arguments and supplied children have already been resolved in the caller.
     const props={...(top?fallback:{}),...linked.defaults,...instance.props};
-    const env={...instance.environment,enums:{...enums,...linked.enums},locals:instance.environment?.locals};
+    const env={...instance.environment,enums:{...enums,...linked.enums},tokens:{...tokens,...linked.tokens},locals:instance.environment?.locals};
     Object.assign(props,selectedProperties(linked.matches,props,state,env),instance.props);
     for(const [key,definition]of Object.entries(linked.propDefinitions??{}))if(definition.required&&!own(linked.defaults,key)&&!own(instance.props,key))throw Error(`${instance.type}: обязательное свойство ${key} не задано`);
     if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
@@ -482,9 +489,12 @@ function compile(files,entry,state,metrics,read,links){
     if(n.type==='ContentPresenter'){
       if(Object.keys(n.props).some(k=>!['key','content'].includes(k)))throw Error('ContentPresenter принимает key и content');
       let content=n.props.content??(n.children.length===1?n.children[0]:{type:'Frame',props:{},children:n.children});
-      if(scope.instance.children.length&&n.props.key==='content'){
+      const slotKey=n.props.key;
+      if(scope.instance.children.length&&slotKey==='content'){
         if(own(scope.instance.props,'content'))throw Error('Задайте content или дочерние элементы');
         content={type:'Frame',props:{},children:scope.instance.children};
+      }else if(typeof slotKey==='string'&&own(scope.instance.props,slotKey)){
+        content=scope.instance.props[slotKey];
       }
       const result=expandValue(content,scope,depth);
       if(!result?.type)throw Error('override должен вернуть элемент или base.content');
@@ -619,8 +629,8 @@ function compile(files,entry,state,metrics,read,links){
   }
   const root=roots[0],out=[],visuals=[];let body='';
   for(const n of root.children){if(visualTypes.has(n.type)){flatten(n,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,out,{...metrics,visuals});}else body+=serializeNode(n,true);}
-  const sourceNode={...instance,type:'Button',bindings:{},events:instance.events.clicked?{clicked:instance.events.clicked}:{},props:Object.fromEntries(Object.entries(resolved).filter(([k])=>standard.has(k)&&k!=='font.size')),children:[]};
-  const template=`component Button { Rectangle { ${Object.entries(root.props).filter(([k])=>k!=='key').map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
+  const sourceNode={...instance,type:'Button',bindings:{},events:instance.events.clicked?{clicked:instance.events.clicked}:{},props:Object.fromEntries(Object.entries(resolved).filter(([k])=>standard.has(k)&&k!=='font.size'&&k!=='transition')),children:[]};
+  const template=`component Button { Rectangle { ${Object.entries(root.props).filter(([k])=>k!=='key'&&k!=='transition').map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
   visualNodes.push({id:-2,parent:null,control:index,type:instance.type,source:instance.source,props:resolved,propertyOrigins:origins,bounds:[0,0,num(resolved.width,'width'),num(resolved.height,'height')]},...visuals.map(v=>({...v,parent:v.parent??-2,control:index})));
   return {template,treeRoots:roots,sourceNode};
   }
@@ -636,5 +646,6 @@ function compile(files,entry,state,metrics,read,links){
   const sourceScene=[{...root,type:'Frame',children:[...(scroll?[{...scroll,children:sourceControls}]:sourceControls),...sourceModals]}];
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
   const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateByteLength(c.template)}\n${c.template}`).join('');
-  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:[...instances,...layered],previewModals:modals.map(m=>m.node),previewContainers};
+  const shortcuts=(document.shortcuts??[]).map(s=>({...s,args:(s.args??[]).map(a=>evaluate(a,documentProps,state,[],false,environment)),argExpressions:s.args??[]}));
+  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:[...instances,...layered],previewModals:modals.map(m=>m.node),previewContainers,shortcuts};
 }
