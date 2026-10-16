@@ -35,7 +35,10 @@ Manifest хранит версию разработки. Тег фиксируе
 Build metadata (`+...`) в номерах релизов не используем; для идентификации
 сборки служит SHA коммита.
 
-Studio всегда собирает и включает WASM из того же checkout. В
+Studio всегда собирает и включает WASM из того же checkout. Язык берётся из
+релиза tokenizer, закреплённого в `vector-ui/Cargo.lock`; его ревизия
+записывается в `build-info.json` (`tokenizer`), и `package:release` отказывается
+упаковывать WASM, собранный против другой ревизии. В
 `dist/vector-pkg/build-info.json` записаны версии Runtime и Studio, версия
 wasm-bindgen, SHA и признак незакоммиченных изменений. CI пакует только чистый
 checkout. Не подкачиваем «последний Runtime» во время сборки или открытия Studio.
@@ -133,8 +136,11 @@ Studio-архив — статическая web-сборка. Запуск ло
 ## Локальная проверка
 
 ```sh
-npm ci
 cargo install wasm-bindgen-cli --version 0.2.125 --locked
+npm run tokenizer -- checkout install
+# npm ci запускает prepare пакета tokenizer (сборку WASM языка) toolchain'ом по умолчанию:
+# в нём должен быть target wasm32-unknown-unknown
+npm ci
 npm run build:wasm
 npm test
 npm run build
