@@ -3,10 +3,10 @@ import {parse} from './language.js';
 import {linkComponentDefinitions} from './components.js';
 
 const words=text=>text.split(' ');
-const common=words('key width height text fontSize color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration x y cell row column');
-const properties={Frame:words('key width height padding gap columns rows clip radius background overflow'),Scroll:words('key width height padding gap x y'),Modal:words('key x y width height backdrop dismiss open dismissed'),Rectangle:words('key width height radius background cell row column'),Text:words('key text color fontSize width height cell row column'),TextInput:words('key value placeholder placeholderColor color fontSize multiline width height'),Image:words('key source color width height cell row column'),ContentPresenter:words('key content'),Brush:words('color hover pressed disabled focus transition'),Border:words('width background'),Reveal:words('width color radius stop activeRadius activeStop transition targetX targetY targetWidth targetHeight targetRadius'),PointerArea:['clicked']};
+const common=words('key width height text fontSize color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration transition x y cell row column');
+const properties={Frame:words('key width height padding gap columns rows clip radius background overflow transition'),Scroll:words('key width height padding gap x y'),Modal:words('key x y width height backdrop dismiss open dismissed'),Rectangle:words('key width height radius background cell row column transition'),Text:words('key text color fontSize width height cell row column transition'),TextInput:words('key value placeholder placeholderColor color fontSize multiline width height transition'),Image:words('key source color width height cell row column'),ContentPresenter:words('key content'),Brush:words('color hover pressed disabled focus transition'),Border:words('width background'),Reveal:words('width color radius stop activeRadius activeStop transition targetX targetY targetWidth targetHeight targetRadius'),PointerArea:['clicked']};
 const option=(label,type='property',detail='',apply)=>({label,type,detail,...(apply?{apply}:{})});
-for(const type of ['Row','Column','Grid','Stack'])properties[type]=words('key width height minWidth maxWidth minHeight maxHeight padding gap clip radius cell row column row.span column.span'+(type==='Grid'?' columns rows':''));
+for(const type of ['Row','Column','Grid','Stack'])properties[type]=words('key width height minWidth maxWidth minHeight maxHeight padding gap clip radius cell row column row.span column.span transition'+(type==='Grid'?' columns rows':''));
 function overrideTargets(files,base){
  const needed=new Set();let name=base;
  while(name&&!needed.has(name)){needed.add(name);try{name=parse(files[`components/${name}.ui`]).base;}catch{return new Map();}}
@@ -47,7 +47,7 @@ export function indexProject(files){
     const from=field.index+field[0].length,until=closing(body,from-1,'<','>'),kind=basename(field[2]);
     fields.push({name:field[1],type:body.slice(from,until).trim(),kind});
    }
-   const name=match[1],qualified=modulePath(path)+'::'+name,model={name,qualified,fields,methods:[]};types.push(qualified);qualifiedModels.set(qualified,qualifiedModels.has(qualified)?null:model);models.set(name,models.has(name)?null:model);
+   const name=match[1],qualified=modulePath(path)+'::'+name,model={name,fields,methods:[],qualified};types.push(qualified);qualifiedModels.set(qualified,qualifiedModels.has(qualified)?null:model);models.set(name,models.has(name)?null:model);
   }
  }
  for(const [path,original] of Object.entries(files).filter(([p])=>p.endsWith('.rs'))){
@@ -100,7 +100,7 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
  if(lexical==='string')return null;
  const token=before.match(/[\w.]*$/)?.[0]??'',from=pos-token.length;
  if(!explicit&&!token&&!/[.:>]\s*$/.test(before))return null;
- const qualified=token.match(/^(state|props|events)\.(.*)$/);
+ const qualified=token.match(/^(state|props|events|tokens)\.(.*)$/);
  if(qualified){
   const [,root,rest]=qualified,parts=rest.split('.');parts.pop();const prefix=root+'.'+(parts.length?parts.join('.')+'.':'');let options=[];
   if(root==='state'){
@@ -112,6 +112,11 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
    const declared=ownProps(source,component?.getChild('Block'));
    const base=children(component,'ComponentName')[1];
    options=Object.keys({...index.defaults(text(source,base)),...index.defaults(componentName),...declared}).filter(k=>!['contextType','events'].includes(k)).map(k=>option('props.'+k,'property','Свойство компонента'));
+  }else if(root==='tokens'){
+   const tokenNames=new Set();
+   for(const decl of children(component?.getChild('Block'),'TokensDeclaration'))for(const p of children(decl,'PropertyName'))tokenNames.add(text(source,p));
+   options=[...tokenNames].map(k=>option('tokens.'+k,'property','Дизайн-токен'));
+   return {from,options,validFor:/^tokens\.[\w.]*$/};
   }else{
    const declaration=ownProps(source,component?.getChild('Block')).events??(path.startsWith('components/')?"['clicked']":'');
    options=[...declaration.matchAll(/['"](\w+)['"]/g)].map(m=>option('events.'+m[1],'function','Событие формы','events.'+m[1]+(source.slice(pos).trimStart().startsWith('(')?'':'()')));
@@ -119,9 +124,9 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
   return {from,options,validFor:new RegExp('^'+prefix.replace(/\./g,'\\.')+'\\w*$')};
  }
  let options=[];
- if(/->\s*\w*$/.test(statement))options=[option('events.','namespace','События формы'),option('state.','namespace','Команды ViewModel')];
+ if(/->\s*\w*$/.test(statement))options=[option('events.','namespace','События формы'),option('state.','namespace','Команды ViewModel'),option('actions.','namespace','Действия превью')];
  else if(property){
-  options=[option('state.','namespace','Текущий контекст'),option('props.','namespace','Параметры компонента')];
+  options=[option('state.','namespace','Текущий контекст'),option('props.','namespace','Параметры компонента'),option('tokens.','namespace','Дизайн-токены')];
   const value=index.defaults(nodeType)[property];
   if(typeof value==='boolean'||['disabled','checked','multiline','clip','indeterminate'].includes(property))options.push(option('true','keyword'),option('false','keyword'),option('!state.','namespace','Отрицание'));
   if(statement.includes('<->'))options=[option('state.','namespace','Наблюдаемое поле')];
@@ -132,8 +137,9 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
   if(owner?.name==='Override')return {from,options:(patchTarget?.properties??[]).filter(name=>!Object.hasOwn(declared,name)||name===token).map(name=>option(name,'property',patchTarget.types.join(' | '),/^\s*:/.test(source.slice(pos))?name:name+': ')),validFor:/^[\w.]*$/};
   const names=root?['contextType','events']:properties[nodeType]??[...common,...Object.keys(index.defaults(nodeType))];
   options=[...new Set([...names,...(!root&&!['Brush','Border','Reveal'].includes(nodeType)?['contextType','context']:[])])].filter(name=>!Object.hasOwn(declared,name)||name===token).map(name=>option(name,'property',name==='contextType'?'Тип ViewModel':name==='context'?'Контекст элемента':nodeType||'Форма',/^\s*(?::|<->|->)/.test(source.slice(pos))?name:name==='clicked'?'clicked -> events.':name+': '));
-  if(!root&&!properties[nodeType])options.push(option('clicked','event','Активация','clicked -> events.'),option('changed','event','Изменение значения','changed -> events.'));
-  if(['TextField','TextArea','Slider'].includes(nodeType))options.push(option('value <->','property','Двусторонняя привязка','value <-> state.'));
+  if(root)options.push(option('let','keyword','Вычисляемое свойство','let '),option('tokens','keyword','Дизайн-токены','tokens {\n    \n}'),option('struct','keyword','Структура данных','struct '),option('slot','keyword','Именованный слот','slot '),option('shortcut','keyword','Горячая клавиша',"shortcut 'CmdOrCtrl+K' -> actions."));
+  if(!root&&!properties[nodeType])options.push(option('clicked','event','Активация','clicked -> events.'),option('changed','event','Изменение значения','changed -> events.'),option('submitted','event','Отправка (Enter)','submitted -> events.'));
+  if(['TextField','TextInput','TextArea','Slider'].includes(nodeType))options.push(option('value <->','property','Двусторонняя привязка','value <-> state.'),option('submitted','event','Отправка (Enter)','submitted -> actions.'));
   if(['Checkbox','Switch','RadioButton'].includes(nodeType))options.push(option('checked <->','property','Двусторонняя привязка','checked <-> state.'));
   if(!['Brush','Border','Reveal','PointerArea'].includes(nodeType))options.push(...[...new Set([...Object.keys(properties),...index.components.keys()])].map(name=>option(name,'class','Элемент Forma',name+' {\n    \n}')));
   if(!block)options=[option('component','keyword','Объявление формы','component Form {\n    \n}')];
