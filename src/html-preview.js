@@ -26,7 +26,10 @@ el.addEventListener('click',e=>{e.stopPropagation();if(!interactive){onSelect(so
 if(takesCoordinates(n,parent))freeNodes.push([n,parent,parentEl,el]);
 for(const child of n.children)el.append(make(child,n,el));
 return el;}
-const focused=document.activeElement;const focusIdentity=preview.contains(focused)?{key:focused.dataset.key,start:focused.dataset.start,selectionStart:focused.selectionStart,selectionEnd:focused.selectionEnd}:null;const fragment=document.createDocumentFragment();const expanded=expandStructure(compiled.nodes,compiled.defaults,state,{enums:{...compiled.enums,...compiled.structs},tokens:compiled.tokens,allowMissingState:true});for(const n of expanded)fragment.append(make(n));preview.replaceChildren(fragment);
+const rootP=compiled.nodes?.[0]?.props??{};const vpW=typeof rootP.width==='number'?rootP.width:360,vpH=typeof rootP.height==='number'?rootP.height:220;const vp={width:vpW,height:vpH,compact:vpW<640};
+const stateDefaults=Object.fromEntries(Object.entries(compiled.stateDefinitions??{}).filter(([,d])=>d.default!==undefined).map(([k,d])=>[k,d.default]));
+const previewEnv={enums:{...compiled.enums,...compiled.structs},tokens:compiled.tokens,i18n:compiled.i18n,styles:compiled.styles,stateDefaults,viewport:vp,allowMissingState:true};
+const focused=document.activeElement;const focusIdentity=preview.contains(focused)?{key:focused.dataset.key,start:focused.dataset.start,selectionStart:focused.selectionStart,selectionEnd:focused.selectionEnd}:null;const fragment=document.createDocumentFragment();const expanded=expandStructure(compiled.nodes,compiled.defaults,state,previewEnv);for(const n of expanded)fragment.append(make(n));preview.replaceChildren(fragment);
 if(preview._formaShortcutHandler){preview.removeEventListener('keydown',preview._formaShortcutHandler);preview._formaShortcutHandler=null;}
 if(interactive&&compiled.shortcuts?.length){
   preview.tabIndex=preview.tabIndex>=0?preview.tabIndex:0;
@@ -50,7 +53,7 @@ if(interactive&&compiled.shortcuts?.length){
     for(const s of compiled.shortcuts){
       if(matchShortcut(e,s.key)){
         e.preventDefault();
-        const syntheticNode={type:'Shortcut',start:s.from??0,props:{},events:{shortcut:s.action},eventArgs:{shortcut:(s.args??[]).map(a=>resolve(a,state))},eventArgExpressions:{shortcut:s.args??[]},environment:{enums:{...compiled.enums,...compiled.structs},tokens:compiled.tokens,allowMissingState:true}};
+        const syntheticNode={type:'Shortcut',start:s.from??0,props:{},events:{shortcut:s.action},eventArgs:{shortcut:(s.args??[]).map(a=>resolve(a,state))},eventArgExpressions:{shortcut:s.args??[]},environment:previewEnv};
         onEvent(s.action,syntheticNode,'shortcut');
         break;
       }

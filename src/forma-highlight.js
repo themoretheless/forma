@@ -4,7 +4,7 @@ import {parser} from './forma-parser.js';
 import {colorSwatches} from './color-swatches.js';
 import {rainbowBrackets} from './brackets.js';
 const language=LRLanguage.define({parser:parser.configure({props:[styleTags({
-  'component design match override from prop let required event enum struct tokens slot shortcut forward props if else for in key empty state':tags.keyword,
+  'component design match override from prop let use where required event enum struct tokens i18n style apply slot shortcut forward props if else for in key empty state':tags.keyword,
   'TypeName ComponentName':tags.typeName,
   'PropertyName/Identifier':tags.propertyName,
   'AttributeName/Identifier':tags.meta,
@@ -17,7 +17,7 @@ const language=LRLanguage.define({parser:parser.configure({props:[styleTags({
   Null:tags.null,
   'Binding EventArrow MatchArrow RangeOp PipeOp Comparison Equality':tags.operator,
   'BinaryExpression/Star BinaryExpression/Dash UnaryExpression/Dash':tags.operator,
-  '"+" "/" "%" "!" "&&" "||" "??" "?." "?" "=" "@"':tags.operator,
+  '"+" "/" "%" "!" "&&" "||" "|" "??" "?." "?" "=" "@"':tags.operator,
   'LineComment BlockComment':tags.comment,
   Wildcard:tags.keyword,
   '( )':tags.paren,

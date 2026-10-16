@@ -64,7 +64,7 @@ const templateEncoder=new TextEncoder();
 const asciiTemplate=/^[\0-\x7f]*$/;
 const templateByteLength=text=>asciiTemplate.test(text)?text.length:templateEncoder.encode(text).length;
 const fallback={width:260,height:70,text:'',fontSize:20,color:{expr:'#14213b'},radius:16,disabled:false,background:{expr:'#8ca5ff'},hoverBackground:{expr:'#a8baff'},pressedBackground:{expr:'#6a83da'},disabledBackground:{expr:'#596273'},borderWidth:1,borderColor:{expr:'#bed0ff'},focusBorderColor:{expr:'#ffffff'},transitionDuration:{expr:'140ms'}};
-function visit(nodes,fn){for(const n of nodes){fn(n);visit(n.children??[],fn);visit(n.elseChildren??[],fn);visit(n.emptyChildren??[],fn);}}
+function visit(nodes,fn){for(const n of nodes){fn(n);visit(n.children??[],fn);visit(n.elseChildren??[],fn);visit(n.emptyChildren??[],fn);if(n.branches)for(const b of n.branches)visit(b.children??[],fn);}}
 function substitute(v,key,base){
   if(v?.expr?.startsWith('base.')){if(v.expr!==`base.${key}`)throw Error(`В override ${key} допустим только base.${key}`);return clone(base);}
   if(Array.isArray(v))return v.map(x=>substitute(x,key,base));
@@ -330,12 +330,39 @@ function compile(files,entry,state,metrics,read,links){
     linked.defaults={...linked.defaults,...clone(c.defaults)};
     linked.defaultSources={...linked.defaultSources,...Object.fromEntries(Object.entries(c.defaultRanges??{}).map(([key,range])=>[key,{file:path,...range,label:c.name}]))};
     linked.propDefinitions={...linked.propDefinitions,...clone(c.propDefinitions??{})};
+    linked.stateDefinitions={...linked.stateDefinitions,...clone(c.stateDefinitions??{})};
     linked.eventDefinitions={...linked.eventDefinitions,...clone(c.eventDefinitions??{})};
-    linked.enums={...linked.enums,...clone(c.enums??{}),...clone(c.structs??{})};
-    linked.tokens={...linked.tokens,...clone(c.tokens??{})};
+    linked.enums={...linked.enums};
+    linked.tokens={...linked.tokens};
+    linked.i18n={...linked.i18n};
+    linked.styles={...linked.styles};
+    if(c.uses?.length){
+      const resolveRel=(basePath,rel)=>{
+        const parts=basePath.includes('/')?basePath.split('/').slice(0,-1):[];
+        for(const p of String(rel).split('/')){if(!p||p==='.')continue;if(p==='..')parts.pop();else parts.push(p);}
+        return parts.join('/');
+      };
+      for(const u of c.uses){
+        const uPath=resolveRel(path,u);
+        if(!own(files,uPath))throw Error(`Импортируемый файл не найден: ${uPath}`);
+        inputs?.set(uPath,files[uPath]);
+        const uDoc=read(files[uPath],uPath);
+        Object.assign(linked.enums,clone(uDoc.enums??{}),clone(uDoc.structs??{}));
+        if(uDoc.structConstraints)linked.enums._structConstraints={...(linked.enums._structConstraints??{}),...clone(uDoc.structConstraints)};
+        Object.assign(linked.tokens,clone(uDoc.tokens??{}));
+        Object.assign(linked.i18n,clone(uDoc.i18n??{}));
+        Object.assign(linked.styles,clone(uDoc.styles??{}));
+      }
+    }
+    Object.assign(linked.enums,clone(c.enums??{}),clone(c.structs??{}));
+    if(c.structConstraints&&Object.keys(c.structConstraints).length)linked.enums._structConstraints={...(linked.enums._structConstraints??{}),...clone(c.structConstraints)};
+    Object.assign(linked.tokens,clone(c.tokens??{}));
+    Object.assign(linked.i18n,clone(c.i18n??{}));
+    Object.assign(linked.styles,clone(c.styles??{}));
     linked.slotDefinitions={...linked.slotDefinitions,...clone(c.slotDefinitions??{})};
     linked.matches=[...(linked.matches??[]),...clone(c.matches??[])];
     for(const definition of Object.values(linked.propDefinitions))validateTypeName(definition.type,linked.enums);
+    for(const definition of Object.values(linked.stateDefinitions))validateTypeName(definition.type,linked.enums);
     for(const args of Object.values(linked.eventDefinitions))for(const arg of args)validateTypeName(arg.type,linked.enums);
     if(c.forward?.length)throw Error('forward применяется к дочернему элементу, не к объявлению component');
     const presenters=new Map();visit(linked.nodes,n=>{if(n.type==='ContentPresenter'){const key=n.props.key;if(typeof key!=='string'||!key)throw Error('ContentPresenter требует key');if(presenters.has(key))throw Error(`Повторная точка расширения ${key}`);presenters.set(key,n);}});
@@ -402,19 +429,55 @@ function compile(files,entry,state,metrics,read,links){
     for(const path of Object.keys(files)){const match=/^components\/([A-Za-z_][\w]*)\.ui$/.exec(path);if(match)link(match[1]);}
     return {definitions:Object.fromEntries(cache),fallback};
   }
-  const enums={...document.enums,...document.structs};
-  const tokens={...document.tokens};
-  visit(scene,node=>{if(!primitiveTypes.has(node.type)&&!['Scroll','Modal','If','For'].includes(node.type)){
+  const enums={};
+  const tokens={};
+  const i18n={};
+  const styles={};
+  if(document.uses?.length){
+    const resolveRel=(basePath,rel)=>{
+      const parts=basePath.includes('/')?basePath.split('/').slice(0,-1):[];
+      for(const p of String(rel).split('/')){if(!p||p==='.')continue;if(p==='..')parts.pop();else parts.push(p);}
+      return parts.join('/');
+    };
+    for(const u of document.uses){
+      const uPath=resolveRel(entry,u);
+      if(!own(files,uPath))throw Error(`Импортируемый файл не найден: ${uPath}`);
+      const uDoc=read(files[uPath],uPath);
+      Object.assign(enums,uDoc.enums??{},uDoc.structs??{});
+      if(uDoc.structConstraints)enums._structConstraints={...(enums._structConstraints??{}),...clone(uDoc.structConstraints)};
+      Object.assign(tokens,uDoc.tokens??{});
+      Object.assign(i18n,uDoc.i18n??{});
+      Object.assign(styles,uDoc.styles??{});
+    }
+  }
+  Object.assign(enums,document.enums,document.structs);
+  if(document.structConstraints&&Object.keys(document.structConstraints).length)enums._structConstraints={...(enums._structConstraints??{}),...clone(document.structConstraints)};
+  Object.assign(tokens,document.tokens);
+  Object.assign(i18n,document.i18n);
+  Object.assign(styles,document.styles);
+  visit(scene,node=>{if(!primitiveTypes.has(node.type)&&!['Scroll','Modal','If','For','Let','Match'].includes(node.type)){
     const definition=link(node.type);
     for(const [name,variants]of Object.entries(definition.enums??{})){
+      if(name==='_structConstraints'){enums._structConstraints={...(enums._structConstraints??{}),...variants};continue;}
       if(own(enums,name)&&JSON.stringify(enums[name])!==JSON.stringify(variants))throw Error(`Конфликт enum ${name}`);
       enums[name]=variants;
     }
     for(const [name,val]of Object.entries(definition.tokens??{})){
       if(!own(tokens,name))tokens[name]=val;
     }
+    for(const [name,val]of Object.entries(definition.i18n??{})){
+      if(!own(i18n,name))i18n[name]=val;
+    }
+    for(const [name,val]of Object.entries(definition.styles??{})){
+      if(!own(styles,name))styles[name]=val;
+    }
   }});
-  const environment={enums,tokens};
+  const rawRootProps=scene[0]?.props??{};
+  const vpW=typeof rawRootProps.width==='number'?rawRootProps.width:Number(metricsContext.viewport?.width??360);
+  const vpH=typeof rawRootProps.height==='number'?rawRootProps.height:Number(metricsContext.viewport?.height??220);
+  const viewport={width:vpW,height:vpH,compact:vpW<640};
+  const stateDefaults=Object.fromEntries(Object.entries(document.stateDefinitions??{}).filter(([,d])=>d.default!==undefined).map(([k,d])=>[k,d.default]));
+  const environment={enums,tokens,i18n,styles,stateDefaults,locale:metricsContext.locale??null,viewport};
   const documentProps={...document.defaults,...metricsContext.properties};
   for(const [key,definition]of Object.entries(document.propDefinitions??{}))if(definition.required&&!own(documentProps,key))throw Error(`${document.name}: обязательное свойство ${key} не задано`);
   Object.assign(documentProps,selectedProperties(document.matches,documentProps,state,environment),metricsContext.properties);
@@ -448,14 +511,17 @@ function compile(files,entry,state,metrics,read,links){
     if(instance.props['font.size']!==undefined&&instance.props.fontSize!==undefined)throw Error('fontSize и font.size — одно свойство');
     // A visual instance never inherits its caller's props or button fallbacks.
     // Arguments and supplied children have already been resolved in the caller.
+    const rawSlotFills={};
+    for(const key of presenterKeys)if(own(instance.props,key)&&instance.props[key]?.slotParams?.length)rawSlotFills[key]=instance.props[key];
     const props={...(top?fallback:{}),...linked.defaults,...instance.props};
-    const env={...instance.environment,enums:{...enums,...linked.enums},tokens:{...tokens,...linked.tokens},locals:instance.environment?.locals};
+    const compStateDefaults=Object.fromEntries(Object.entries(linked.stateDefinitions??{}).filter(([,d])=>d.default!==undefined).map(([k,d])=>[k,d.default]));
+    const env={...instance.environment,viewport,enums:{...enums,...linked.enums},tokens:{...tokens,...linked.tokens},i18n:{...i18n,...linked.i18n},styles:{...styles,...linked.styles},stateDefaults:{...stateDefaults,...compStateDefaults},locals:instance.environment?.locals};
     Object.assign(props,selectedProperties(linked.matches,props,state,env),instance.props);
     for(const [key,definition]of Object.entries(linked.propDefinitions??{}))if(definition.required&&!own(linked.defaults,key)&&!own(instance.props,key))throw Error(`${instance.type}: обязательное свойство ${key} не задано`);
     if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
     const sources={...linked.defaultSources,...selectedPropertySources(linked.matches,props,state,env),...instance.propertySources};
-    const scope={props,sources,traces:instance.propertyOrigins??{},instance,top,environment:env,parents:[...parents,instance.type]};
-    const resolved={};for(const key of Object.keys(props))resolved[key]=expandValue(props[key],scope,0,[key]);
+    const scope={props,sources,traces:instance.propertyOrigins??{},instance,rawSlotFills,top,environment:env,parents:[...parents,instance.type]};
+    const resolved={};for(const key of Object.keys(props)){if(own(rawSlotFills,key)){resolved[key]=rawSlotFills[key];continue;}resolved[key]=expandValue(props[key],scope,0,[key]);}
     validateContract(linked.propDefinitions,resolved,env.enums,instance.type);
     const roots=expandChildren(linked.nodes,scope,0);
     if(roots.length!==1||(top?roots[0].type!=='Rectangle':!visualTypes.has(roots[0].type)))throw Error(top?'Базовая кнопка требует один Rectangle':'Визуальный компонент требует один Frame, Text, Image или Rectangle');
@@ -490,21 +556,37 @@ function compile(files,entry,state,metrics,read,links){
       if(Object.keys(n.props).some(k=>!['key','content'].includes(k)))throw Error('ContentPresenter принимает key и content');
       let content=n.props.content??(n.children.length===1?n.children[0]:{type:'Frame',props:{},children:n.children});
       const slotKey=n.props.key;
+      let slotScope=scope;
       if(scope.instance.children.length&&slotKey==='content'){
         if(own(scope.instance.props,'content'))throw Error('Задайте content или дочерние элементы');
         content={type:'Frame',props:{},children:scope.instance.children};
       }else if(typeof slotKey==='string'&&own(scope.instance.props,slotKey)){
-        content=scope.instance.props[slotKey];
+        content=scope.rawSlotFills?.[slotKey]??scope.instance.props[slotKey];
       }
-      const result=expandValue(content,scope,depth);
+      if(n.slotArgs?.length){
+        const slotLocals={...(scope.environment?.locals??{})};
+        const fillParams=content?.slotParams??[];
+        n.slotArgs.forEach((arg,idx)=>{
+          const val=evaluate(arg.value,scope.props,state,[],false,scope.environment);
+          slotLocals[arg.name]=val;
+          if(fillParams[idx])slotLocals[fillParams[idx]]=val;
+        });
+        slotScope={...scope,environment:{...scope.environment,locals:slotLocals}};
+        if(content?.expandedVisual){content={...content,expandedVisual:false};}
+      }
+      const result=expandValue(content,slotScope,depth);
       if(!result?.type)throw Error('override должен вернуть элемент или base.content');
       return result;
     }
     const sources={...selectedPropertySources(n.matches,scope.props,state,scope.environment),...n.propertySources};
     const raw={...Object.fromEntries((n.forward??[]).map(key=>[key,{expr:`props.${key}`}])) ,...selectedProperties(n.matches,scope.props,state,scope.environment),...n.props};
     const origins=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,propertyOrigins(value,sources[key],scope.props,scope.sources,scope.traces)]));
-    const evaluated=evaluateProperties(n,scope.props,state,scope.environment);
+    const slotFillKeys=new Set();
+    for(const [k,v] of Object.entries(n.props??{}))if(v?.slotParams?.length)slotFillKeys.add(k);
+    const evalNode=slotFillKeys.size?{...n,props:Object.fromEntries(Object.entries(n.props).filter(([k])=>!slotFillKeys.has(k)))}:n;
+    const evaluated=evaluateProperties(evalNode,scope.props,state,scope.environment);
     const expandedProps={};for(const key of Object.keys(evaluated)){const value=evaluated[key];expandedProps[key]=value?.type?expand(value,scope,depth+1):value;}
+    for(const k of slotFillKeys)expandedProps[k]=n.props[k];
     const node={...n,props:expandedProps,propertySources:sources,propertyOrigins:origins,children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
     if(!primitiveTypes.has(n.type))return instantiate(node,false,scope.parents).roots[0];
     return {...node,expandedVisual:true};
