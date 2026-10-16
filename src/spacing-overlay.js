@@ -1,3 +1,4 @@
+import {createEventScope} from './event-scope.js';
 const NS='http://www.w3.org/2000/svg';
 export function createSpacingOverlay(canvas,getSelection){
   const svg=document.createElementNS(NS,'svg');
@@ -48,7 +49,8 @@ export function createSpacingOverlay(canvas,getSelection){
     add('rect',{x,y,width:w,height:h,fill:'none',stroke:'#9ab3ff','stroke-width':1});
   }
   function update(){cancelAnimationFrame(frame);frame=requestAnimationFrame(draw);}
-  const observer=new ResizeObserver(update);observer.observe(canvas);observer.observe(canvas.querySelector('#preview'));
-  canvas.addEventListener('scroll',update);window.addEventListener('resize',update);
-  return {update,read(){const m=measure();return m?{type:m.node.type,start:m.node.start,spacing:m.spacing}:null;}};
+  // The overlay lives on <body>, outside the editor's DOM, so it has to be released explicitly.
+  const scope=createEventScope(),observer=scope.resize(update);observer.observe(canvas);observer.observe(canvas.querySelector('#preview'));
+  scope.listen(canvas,'scroll',update);scope.listen(window,'resize',update);
+  return {update,destroy(){cancelAnimationFrame(frame);scope.dispose();svg.remove();},read(){const m=measure();return m?{type:m.node.type,start:m.node.start,spacing:m.spacing}:null;}};
 }

@@ -5,7 +5,9 @@ import {readFile} from 'node:fs/promises';
 // Run real preview event handlers and DOM updates. Most tests keep GPU
 // initialization pending; backend lifecycle checks inject a recording painter.
 const source = (await readFile(new URL('../src/vector-preview.js', import.meta.url), 'utf8'))
-  .replace("import {createGpuPainter} from './vector-gpu.js';", 'let gpuFactory; export const setGpuFactory = factory => {gpuFactory=factory;}; const createGpuPainter = (...args) => gpuFactory?.(...args) ?? new Promise(() => {});');
+  .replace("import {createGpuPainter} from './vector-gpu.js';", 'let gpuFactory; export const setGpuFactory = factory => {gpuFactory=factory;}; const createGpuPainter = (...args) => gpuFactory?.(...args) ?? new Promise(() => {});')
+  // A data: URL cannot resolve relative imports, so the shared listener scope is imported by its file URL.
+  .replace("from './event-scope.js';", `from '${new URL('../src/event-scope.js', import.meta.url).href}';`);
 const {createVectorPreview,setGpuFactory} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 class Element extends EventTarget {

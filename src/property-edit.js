@@ -1,4 +1,4 @@
-import {parse} from './language.js';
+import {parse,parseShared} from './language.js';
 import {equalValues} from './expressions.js';
 
 const bindingPath=/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$/;
@@ -13,7 +13,7 @@ export function sourceNode(source,start){
   const walk=nodes=>{for(const node of nodes??[]){if(found)continue;
     if(node.start===start){found=node;continue;}
     walk(node.children);walk(node.elseChildren);walk(node.emptyChildren);}};
-  const doc=parse(source);
+  const doc=parseShared(source);
   walk(doc.nodes);walk(doc.entries);
   for(const state of doc.states??[])walk(state.nodes);
   return found;

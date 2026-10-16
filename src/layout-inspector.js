@@ -1,4 +1,5 @@
 import {displayProperty} from './property-origins.js';
+import {createEventScope} from './event-scope.js';
 export function resizeTracks(values,sizes,index,delta){
   const next=values.map(v=>v?.expr??v);
   if(index<0||index>=sizes.length-1)throw Error('Нет соседней колонки');
@@ -20,11 +21,12 @@ export function parseTracks(text){
 }
 export function createLayoutInspector({viewport,artboard,toolbar,getVisuals,getRuntime,getControl,getMode,edit,openSource,readTracks,readSource=()=>undefined}){
  let chosen=null,drag=null;
+ const scope=createEventScope(),listen=scope.listen;
  const panel=document.createElement('details');panel.className='layout-inspector';panel.innerHTML='<summary>Внутренние части и Grid</summary><nav class="layout-breadcrumbs" aria-label="Путь к части"></nav><div class="layout-parts"></div><div class="layout-grid"></div>';
  const toggle=document.createElement('button');toggle.className='layout-toggle';toggle.textContent='Части и Grid';toggle.setAttribute('aria-expanded','false');
  toolbar.append(toggle);(document.querySelector('.inspector')??toolbar.parentElement).append(panel);
  toggle.onclick=()=>{panel.open=!panel.open;toggle.setAttribute('aria-expanded',String(panel.open));};
- panel.addEventListener('toggle',()=>toggle.setAttribute('aria-expanded',String(panel.open)));
+ listen(panel,'toggle',()=>toggle.setAttribute('aria-expanded',String(panel.open)));
  const overlay=document.createElement('div');overlay.className='layout-overlay';viewport.append(overlay);
  const breadcrumbs=panel.querySelector('.layout-breadcrumbs');
  const parts=panel.querySelector('.layout-parts'),grid=panel.querySelector('.layout-grid');
@@ -95,14 +97,14 @@ export function createLayoutInspector({viewport,artboard,toolbar,getVisuals,getR
   }
   draw();
  }
- viewport.addEventListener('dblclick',event=>{
+ listen(viewport,'dblclick',event=>{
   if(getMode()!=='design')return;
   const p=viewport.getBoundingClientRect(),x=event.clientX-p.left+viewport.scrollLeft,y=event.clientY-p.top+viewport.scrollTop;
   const hits=candidates().filter(v=>{const b=geometry(v);return b&&x>=b.x&&y>=b.y&&x<=b.x+b.w&&y<=b.y+b.h;});
   if(hits.length){panel.open=true;choose(hits.at(-1));event.preventDefault();}
  });
- panel.addEventListener('toggle',render);viewport.addEventListener('scroll',()=>{if(!drag)draw();});
- window.addEventListener('keydown',e=>{if(e.key==='Escape'&&drag){drag=null;draw();}});
- new ResizeObserver(draw).observe(viewport);
- return {update(){if(!drag)render();}};
+ listen(panel,'toggle',render);listen(viewport,'scroll',()=>{if(!drag)draw();});
+ listen(window,'keydown',e=>{if(e.key==='Escape'&&drag){drag=null;draw();}});
+ scope.resize(draw).observe(viewport);
+ return {update(){if(!drag)render();},destroy(){drag=null;scope.dispose();overlay.remove();panel.remove();toggle.remove();}};
 }

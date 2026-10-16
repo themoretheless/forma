@@ -1,3 +1,4 @@
+import {createEventScope} from './event-scope.js';
 import {createGpuPainter} from './vector-gpu.js';
 let runtimePromise;
 // Same order as components.js sceneControlNodes: base controls (optionally in
@@ -53,7 +54,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   backendBadge.textContent='CPU';host.append(backendBadge);
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D недоступен');
-  const listeners = new AbortController();
+  const scope = createEventScope();
   let button = null, current = null, selectedStart = null, destroyed = false;
   let layoutModel=null,layoutRevision=null,layout=null;
   let pointerId = null, pressedKey = null, frame = null, lastFrameTime = 0;
@@ -74,7 +75,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     if(button){try{paint();}catch(error){gpuFallback(error);}}
   }).catch(gpuFallback);
   const report = error => onError?.(error instanceof Error ? error : new Error(String(error)));
-  const listen = (target, name, callback, options={}) => target.addEventListener(name, callback, {...options, signal: listeners.signal});
+  const listen = scope.listen;
   const controlNodes=()=>current?.previewControls??sceneControlNodes(current?.nodes?.[0]);
   const modalNode=index=>current?.previewModals?.[index]??{type:'Modal',props:{key:button.modal_key(index)},children:[]};
   // Older or stubbed runtimes without modal layers behave as a single base scene.
@@ -400,7 +401,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   });
   // Assistive technology can activate a role=button through a synthetic click.
   listen(canvas, 'click', event => { if (event.detail === 0) activate(); });
-  canvas.addEventListener('wheel', event => {if(!button||!button.scrollable())return;event.preventDefault();const factor=event.deltaMode===1?16:event.deltaMode===2?button.height():1;change(()=>button.scroll(event.deltaX*factor,event.deltaY*factor));updateSelection();if(proximityPosition)proximity(proximityPosition);},{passive:false,signal:listeners.signal});
+  listen(canvas, 'wheel', event => {if(!button||!button.scrollable())return;event.preventDefault();const factor=event.deltaMode===1?16:event.deltaMode===2?button.height():1;change(()=>button.scroll(event.deltaX*factor,event.deltaY*factor));updateSelection();if(proximityPosition)proximity(proximityPosition);},{passive:false});
   // Tab's default action moves DOM focus after keydown bubbles to the window.
   listen(window, 'keydown', event => {reverseTabEntry = event.key === 'Tab' && event.shiftKey && !event.defaultPrevented;});
   listen(window, 'keyup', () => {reverseTabEntry = false;});
@@ -537,7 +538,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       if (destroyed) return;
       destroyed = true;
       gpu?.destroy();gpu=null;
-      listeners.abort();
+      scope.dispose();
       cancelAnimationFrame(frame);
       frame = null;
       releasePointer();

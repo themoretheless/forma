@@ -1,17 +1,8 @@
-import {autocompletion,acceptCompletion,closeBrackets,closeBracketsKeymap,completionKeymap,snippet} from '@codemirror/autocomplete';
-import {createCompletionSource} from './completion.js';
-import {defaultKeymap,history,historyKeymap,undo,redo,isolateHistory} from '@codemirror/commands';
-import {EditorState,StateEffect,StateField,Compartment} from '@codemirror/state';
-import {crosshairCursor,Decoration,drawSelection,dropCursor,EditorView,highlightActiveLine,highlightActiveLineGutter,highlightSpecialChars,keymap,lineNumbers,rectangularSelection} from '@codemirror/view';
-import {bracketMatching,foldGutter,foldKeymap,foldService,foldedRanges,unfoldEffect,foldEffect,foldAll,unfoldAll,indentOnInput,syntaxHighlighting,defaultHighlightStyle} from '@codemirror/language';
-import {highlightSelectionMatches,searchKeymap} from '@codemirror/search';
+import {history,undo,redo,isolateHistory} from '@codemirror/commands';
+import {EditorState,StateEffect,StateField,Compartment,Transaction} from '@codemirror/state';
+import {Decoration,EditorView} from '@codemirror/view';
+import {codeFolding,foldService,foldedRanges,unfoldEffect,foldEffect,foldAll,unfoldAll} from '@codemirror/language';
 import {blockRanges} from './folding.js';
-import {formaHighlight} from './forma-highlight.js';
-
-// The same list the `codemirror` package ships as basicSetup, spelled out so the meta package can
-// stay out of the bundle. Its lint keymap is dropped: no linter is installed here, so the two dead
-// bindings were the only thing pulling @codemirror/lint into the first load.
-const editorSetup=[lineNumbers(),highlightActiveLineGutter(),highlightSpecialChars(),history(),foldGutter(),drawSelection(),dropCursor(),EditorState.allowMultipleSelections.of(true),indentOnInput(),syntaxHighlighting(defaultHighlightStyle,{fallback:true}),bracketMatching(),closeBrackets(),autocompletion(),rectangularSelection(),crosshairCursor(),highlightActiveLine(),highlightSelectionMatches(),keymap.of([...closeBracketsKeymap,...defaultKeymap,...searchKeymap,...historyKeymap,...foldKeymap,...completionKeymap])];
 
 const highlight=StateEffect.define();
 const selectionField=StateField.define({
@@ -28,21 +19,34 @@ const selectionField=StateField.define({
   },
   provide:field=>EditorView.decorations.from(field)
 });
+// Inactive files keep their EditorState (and undo history) for quick switching, but only the most
+// recently left ones: a long session over a large project would otherwise keep every file opened.
+// Text is never lost by eviction, since the project owns the file contents; only older undo history is.
+const maxRememberedDocuments=64;
+export function rememberDocument(documents,path,state,limit=maxRememberedDocuments){
+ documents.delete(path);documents.set(path,state);
+ while(documents.size>limit)documents.delete(documents.keys().next().value);
+}
 export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={}){
   const host=document.createElement('div');host.className='source-editor';textarea.before(host);
   textarea.hidden=true;document.getElementById('lines').hidden=true;
   let programmatic=false,currentHighlight='',cachedText=textarea.value,inputQueued=false,selectionQueued=false;
   const languageConfig=new Compartment();
+  // The editor's text and selection are announced to the page through the hidden textarea, the way
+  // a native field would: one `input` per batch of document changes, one `keyup` per selection move.
+  function changed(docChanged,selectionSet){
+    if(docChanged){cachedText=null;if(!programmatic){currentHighlight='';if(!inputQueued){inputQueued=true;queueMicrotask(()=>{inputQueued=false;textarea.dispatchEvent(new Event('input'));});}}}
+    if(selectionSet&&!docChanged&&!selectionQueued){selectionQueued=true;queueMicrotask(()=>{selectionQueued=false;if(!inputQueued)textarea.dispatchEvent(new Event('keyup'));});}
+  }
   const ranges=StateField.define({create:state=>blockRanges(state.doc.toString()),update:(value,tr)=>tr.docChanged?blockRanges(tr.newDoc.toString()):value});
-  const completion=createCompletionSource(getProject);
-  const complete=context=>{const result=completion(context);if(!result)return null;return {...result,options:result.options.map(item=>typeof item.apply==='string'&&item.apply.includes('{\n')?{...item,apply:snippet(item.apply.replace('    \n','    ${}\n'))}:item)};};
-  const extensions=[...editorSetup,autocompletion({override:[complete],activateOnTyping:true,activateOnCompletion:item=>item.type==='namespace'||typeof item.apply==='string'&&item.apply.endsWith('.')}),keymap.of([{key:'Tab',run:acceptCompletion}]),languageConfig.of(formaHighlight),ranges,selectionField,
+  // Gutters, keymaps, completion, search and the Forma grammar arrive as a separate chunk (see
+  // editor-features.js); both compartments start empty and are filled once it has loaded.
+  const features=new Compartment();let loaded=null;
+  const languageFor=path=>loaded?.languageFor(path)??[];
+  const extensions=[features.of([]),history(),codeFolding(),languageConfig.of([]),ranges,selectionField,
     foldService.of((state,from,to)=>state.field(ranges).find(r=>r.from>from&&r.from<=to)),
     EditorView.contentAttributes.of({'aria-label':'Редактор исходного кода'}),
-    EditorView.updateListener.of(update=>{
-      if(update.docChanged){cachedText=null;if(!programmatic){currentHighlight='';if(!inputQueued){inputQueued=true;queueMicrotask(()=>{inputQueued=false;textarea.dispatchEvent(new Event('input'));});}}}
-      if(update.selectionSet&&!update.docChanged&&!selectionQueued){selectionQueued=true;queueMicrotask(()=>{selectionQueued=false;if(!inputQueued)textarea.dispatchEvent(new Event('keyup'));});}
-    }),
+    EditorView.updateListener.of(update=>changed(update.docChanged,update.selectionSet)),
     EditorView.theme({
       '&':{height:'100%',backgroundColor:'#13161c',color:'#c9d6f2',fontSize:'12px'},
       '.cm-scroller':{fontFamily:'"IBM Plex Mono", monospace',lineHeight:'23px',overflow:'auto'},
@@ -59,28 +63,54 @@ export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={})
       '.cm-selectionBackground':{backgroundColor:'#354969 !important'}
     },{dark:true})
   ];
-  const view=new EditorView({parent:host,state:EditorState.create({doc:textarea.value,extensions})});
+  // Drawing the editor is the costliest part of start-up (DOM, measuring, a forced layout of the whole
+  // page), and the minimal layout keeps the code pane closed. Until the pane first gets a size, every
+  // operation runs against the EditorState alone and raises the same notifications; the view is built
+  // from that state when it is shown, or when a command needs it.
+  let view=null,state=EditorState.create({doc:textarea.value,extensions});
+  const current=()=>view?view.state:state;
+  function dispatch(spec){
+    if(view){view.dispatch(spec);return;}
+    const tr=spec instanceof Transaction?spec:state.update(spec);state=tr.state;changed(tr.docChanged,!!tr.selection);
+  }
+  const setState=next=>{if(view)view.setState(next);else state=next;};
+  const target=()=>({state:current(),dispatch});
+  function ensureView(){
+    if(view)return view;
+    view=new EditorView({parent:host,state,scrollTo:EditorView.scrollIntoView(state.selection.main.from,{y:'center'})});state=null;
+    view.dom.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'s',metaKey:e.metaKey,ctrlKey:e.ctrlKey}));}});
+    return view;
+  }
+  const shown=new ResizeObserver(entries=>{if(entries.some(entry=>entry.contentRect.width>0&&entry.contentRect.height>0)){shown.disconnect();ensureView();}});
+  shown.observe(host);
+  // Showing the pane and focusing it happen in one step, before the observer above has run.
+  textarea.focus=()=>ensureView().focus();
+  const load=()=>import('./editor-features.js').then(module=>{
+    loaded={features:module.editorFeatures(getProject),languageFor:module.languageFor};
+    const wasProgrammatic=programmatic;programmatic=true;
+    try{dispatch({effects:[features.reconfigure(loaded.features),languageConfig.reconfigure(languageFor(documentPath))]});}finally{programmatic=wasProgrammatic;}
+  });
+  (globalThis.requestIdleCallback??(callback=>setTimeout(callback,1)))(()=>load().catch(error=>console.error('Code editor features failed to load',error)));
   const documents=new Map();let documentPath=null,pendingPath=null;
   Object.defineProperties(textarea,{
-    value:{get:()=>cachedText??=view.state.doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{if(pendingPath!==documentPath){if(documentPath)documents.set(documentPath,view.state);const saved=documents.get(pendingPath);view.setState(saved?.doc.toString()===text?saved:EditorState.create({doc:text,extensions}));documentPath=pendingPath;view.dispatch({effects:languageConfig.reconfigure(documentPath?.endsWith('.ui')?formaHighlight:[])});cachedText=text;}else if(view.state.doc.toString()!==text){view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});}}finally{programmatic=false;}}},
-    selectionStart:{get:()=>view.state.selection.main.from},
-    selectionEnd:{get:()=>view.state.selection.main.to}
+    value:{get:()=>cachedText??=current().doc.toString(),set:text=>{programmatic=true;currentHighlight='';try{if(pendingPath!==documentPath){if(documentPath)rememberDocument(documents,documentPath,current());const saved=documents.get(pendingPath);setState(saved?.doc.toString()===text?saved:EditorState.create({doc:text,extensions}));documentPath=pendingPath;dispatch({effects:[languageConfig.reconfigure(languageFor(documentPath)),features.reconfigure(loaded?.features??[])]});cachedText=text;}else if(current().doc.toString()!==text){dispatch({changes:{from:0,to:current().doc.length,insert:text}});}}finally{programmatic=false;}}},
+    selectionStart:{get:()=>current().selection.main.from},
+    selectionEnd:{get:()=>current().selection.main.to}
   });
   textarea.setSelectionRange=(start,end)=>{
-    const effects=[];foldedRanges(view.state).between(0,view.state.doc.length,(from,to)=>{if(from<=start&&to>=start)effects.push(unfoldEffect.of({from,to}));});
+    const effects=[];foldedRanges(current()).between(0,current().doc.length,(from,to)=>{if(from<=start&&to>=start)effects.push(unfoldEffect.of({from,to}));});
     effects.push(EditorView.scrollIntoView(start,{y:'center'}));
-    view.dispatch({selection:{anchor:start,head:end},effects});
+    dispatch({selection:{anchor:start,head:end},effects});
   };
-  view.dom.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'s',metaKey:e.metaKey,ctrlKey:e.ctrlKey}));}});
-  return {resetProject(){documents.clear();documentPath=null;pendingPath=null;currentHighlight='';},position(){const from=view.state.selection.main.from,line=view.state.doc.lineAt(from);return {line:line.number,column:from-line.from+1};},undo(){return undo(view);},redo(){return redo(view);},edit(change){view.dispatch({changes:change,userEvent:'input.inspector',annotations:isolateHistory.of('full')});},setLanguage(path){pendingPath=path;},fold({line,collapsed=true}){
-    if(line===undefined){(collapsed?foldAll:unfoldAll)(view);return;}
-    if(line<1||line>view.state.doc.lines)throw Error('Line out of range');
-    const location=view.state.doc.line(line),range=view.state.field(ranges).find(r=>r.from>location.from&&r.from<=location.to);
+  return {resetProject(){documents.clear();documentPath=null;pendingPath=null;currentHighlight='';},position(){const from=current().selection.main.from,line=current().doc.lineAt(from);return {line:line.number,column:from-line.from+1};},undo(){return undo(target());},redo(){return redo(target());},edit(change){dispatch({changes:change,userEvent:'input.inspector',annotations:isolateHistory.of('full')});},setLanguage(path){pendingPath=path;},fold({line,collapsed=true}){
+    if(line===undefined){(collapsed?foldAll:unfoldAll)(ensureView());return;}
+    if(line<1||line>current().doc.lines)throw Error('Line out of range');
+    const location=current().doc.line(line),range=current().field(ranges).find(r=>r.from>location.from&&r.from<=location.to);
     if(!range)throw Error('No foldable block on this line');
-    view.dispatch({effects:(collapsed?foldEffect:unfoldEffect).of(range)});
+    dispatch({effects:(collapsed?foldEffect:unfoldEffect).of(range)});
   },highlight(range){const key=range?`${range.start}:${range.end}`:'';if(key===currentHighlight)return;currentHighlight=key;
     const effects=[highlight.of(range)];
-    if(range)foldedRanges(view.state).between(0,view.state.doc.length,(from,to)=>{if(from<range.end&&to>range.start)effects.push(unfoldEffect.of({from,to}));});
-    view.dispatch({effects});
+    if(range)foldedRanges(current()).between(0,current().doc.length,(from,to)=>{if(from<range.end&&to>range.start)effects.push(unfoldEffect.of({from,to}));});
+    dispatch({effects});
   }};
 }

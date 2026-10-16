@@ -1,3 +1,4 @@
+import {createEventScope} from './event-scope.js';
 import {readStorage,writeStorage} from './browser-storage.js';
 import {holdsChildren} from './element-edit.js';
 const shorten=v=>String(v).replace(/\s+/g,' ').slice(0,70);
@@ -90,7 +91,8 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   function focus(id){const previous=rowElement(focusId);if(previous)previous.tabIndex=-1;focusId=id;const next=rowElement(id);if(next){next.tabIndex=0;next.focus({preventScroll:true});next.scrollIntoView({block:'nearest'});}}
   function fold(id,collapse){const item=rows.find(n=>n.id===id);if(!item?.children.length)return;if(collapse)collapsed.add(id);else collapsed.delete(id);draw(true);}
   function choose(item){if(disabled)return;focus(item.id);if(item.node)onSelect(item);else fold(item.id,item.expanded);}
-  list.addEventListener('click',e=>{const row=e.target.closest('[data-control-id]');const item=rows.find(n=>n.id===row?.dataset.controlId);if(!item||disabled)return;if(e.target.closest('[data-disclosure]')&&item.children.length){focusId=item.id;fold(item.id,item.expanded);}else choose(item);});
+  const events=createEventScope();
+  events.listen(list,'click',e=>{const row=e.target.closest('[data-control-id]');const item=rows.find(n=>n.id===row?.dataset.controlId);if(!item||disabled)return;if(e.target.closest('[data-disclosure]')&&item.children.length){focusId=item.id;fold(item.id,item.expanded);}else choose(item);});
   function rowOf(e){return e.target?.closest?.('[data-control-id]');}
   function setDrop(row,side){if(dropRow&&dropRow!==row)delete dropRow.dataset.drop;dropRow=side?row:null;if(row&&side)row.dataset.drop=side;}
   function endDrag(){if(dragRow)delete dragRow.dataset.dragging;if(dropRow)delete dropRow.dataset.drop;dragRow=dropRow=null;draggingId=null;}
@@ -116,14 +118,14 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
     else if(a.parent!==b.parent||!movable.has(b.id))return;
     onReorder({path:currentPath,start:a.node.start,targetStart:b.node.start,side});
   }
-  list.addEventListener('dragstart',e=>{
+  events.listen(list,'dragstart',e=>{
     const row=rowOf(e),id=row?.dataset.controlId;
     if(!id||!movable.has(id)||!reorderReady()){e.preventDefault();return;}
     draggingId=id;dragRow=row;row.dataset.dragging='true';
     // Firefox only starts a drag that carries a payload.
     if(e.dataTransfer){e.dataTransfer.setData('text/plain',id);e.dataTransfer.effectAllowed='move';}
   });
-  list.addEventListener('dragover',e=>{
+  events.listen(list,'dragover',e=>{
     const row=rowOf(e),id=row?.dataset.controlId;
     const source=rows.find(n=>n.id===draggingId),target=rows.find(n=>n.id===id);
     // A slot opens only where the drop would change the markup; anywhere else the drag stays away.
@@ -132,13 +134,13 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
     e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect='move';
     setDrop(row,side);
   });
-  list.addEventListener('dragleave',e=>{if(!e.relatedTarget||!list.contains(e.relatedTarget))setDrop(null);});
-  list.addEventListener('drop',e=>{
+  events.listen(list,'dragleave',e=>{if(!e.relatedTarget||!list.contains(e.relatedTarget))setDrop(null);});
+  events.listen(list,'drop',e=>{
     const row=rowOf(e),side=row?.dataset.drop,id=row?.dataset.controlId,sourceId=draggingId;
     if(!side||!id)return;e.preventDefault();endDrag();move(sourceId,id,side);
   });
-  list.addEventListener('dragend',endDrag);
-  list.addEventListener('keydown',e=>{
+  events.listen(list,'dragend',endDrag);
+  events.listen(list,'keydown',e=>{
     const current=rows.find(n=>n.id===e.target.closest('[data-control-id]')?.dataset.controlId);if(!current||disabled)return;
     if(e.altKey&&!e.metaKey&&!e.ctrlKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')){
       const group=groupOf(current),neighbour=group[group.indexOf(current)+(e.key==='ArrowUp'?-1:1)];
@@ -173,10 +175,19 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
       if(previousSelected!==selectedId){rowElement(previousSelected)?.setAttribute('aria-selected','false');rowElement(selectedId)?.setAttribute('aria-selected','true');}
       if(previousFocus!==focusId){const old=rowElement(previousFocus),next=rowElement(focusId);if(old)old.tabIndex=-1;if(next)next.tabIndex=0;}
     }
-    if(selectedId)rowElement(selectedId)?.scrollIntoView({block:'nearest'});
+    revealSelected();
+  }
+  // Scrolling the selected row into view reads layout, so it waits for the next frame: by then the
+  // rest of the selection has changed the DOM, and the frame lays it out once for all of it.
+  let revealFrame=0;
+  function revealSelected(){
+    const reveal=()=>{revealFrame=0;if(selectedId)rowElement(selectedId)?.scrollIntoView({block:'nearest'});};
+    if(!globalThis.requestAnimationFrame)reveal();else if(!revealFrame)revealFrame=requestAnimationFrame(reveal);
   }
   updateView();
   return {
+    // Releases the list listeners and a pending reveal, so a remounted editor leaves nothing behind.
+    destroy(){events.dispose();if(revealFrame)globalThis.cancelAnimationFrame?.(revealFrame);revealFrame=0;},
     get scope(){return scope;},setView,
     update({document:doc,path,error='',stale=false,selectedStart=null,selectedPath=null,files={}}){
       let changed=doc!==currentDocument||path!==currentPath,redraw=changed||disabled!==!!error;

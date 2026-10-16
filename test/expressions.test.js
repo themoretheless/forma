@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {parseExpression,evaluateExpression,serializeValue,expressionReferences} from '../src/expressions.js';
+import {parseExpression,evaluateExpression,serializeValue,expressionReferences,parseString} from '../src/expressions.js';
 function evaluate(source,state={}){return evaluateExpression(parseExpression(source),(path,{optional})=>{if(path.startsWith('state.')){let out=state;for(const key of path.slice(6).split('.')){if(out==null||!Object.hasOwn(Object(out),key)){if(optional)return null;throw Error(`Missing ${path}`);}out=out[key];}return out;}return {expr:path};});}
 test('pure expression precedence, short circuit, numeric diagnostics and formatting',()=>{
   assert.equal(evaluate('2+3*4'),14);assert.equal(evaluate('(2 + 3) * 4'),20);assert.equal(evaluate('17 % 5'),2);assert.equal(evaluate('17%5'),2);
@@ -50,4 +50,10 @@ test('reference collection walks nested values, keeps first-seen order and stays
   assert.deepEqual(expressionReferences(42),[]);
   assert.deepEqual(expressionReferences('text'),[]);
   assert.deepEqual(expressionReferences({expr:'state.count + 1'}),[]);
+});
+test('string literals decode escapes and split interpolations',()=>{
+  assert.equal(parseString("'x'"),'x');
+  assert.equal(parseString("'q\\'s'"),"q's");
+  assert.deepEqual(parseString("'a${1}b'"),{interpolation:['a',1,'b']});
+  assert.throws(()=>parseString("'a${1'"),/Незавершённая интерполяция|Незавершённая строка/);
 });

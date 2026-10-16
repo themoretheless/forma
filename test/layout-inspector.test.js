@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {resizeTracks,trackSource} from '../src/layout-inspector.js';
+import {resizeTracks,trackSource,parseTracks} from '../src/layout-inspector.js';
 import {designPreset} from '../src/design-presets.js';
 test('moving a Grid boundary fixes only its adjacent tracks and preserves other expressions',()=>{
  const values=[{expr:'*'},120,{expr:'2*'},{expr:'auto'}];
@@ -15,4 +15,9 @@ test('design presets never modify source nodes',()=>{
  assert.equal(designPreset('empty',n).value,'');
  assert.equal(n.props.value,'Hello');
  assert.equal(designPreset('disabled',n).disabled,true);
+});
+test('typed track lists parse numbers and keep other sizes as text',()=>{
+ assert.deepEqual(parseTracks(' [120, *, auto, 2.5] '),[120,'*','auto',2.5]);
+ assert.throws(()=>parseTracks('120, *'),/Ожидается список/);
+ assert.throws(()=>parseTracks('[120, , *]'),/Пустой трек/);
 });
