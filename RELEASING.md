@@ -138,6 +138,8 @@ Studio-архив — статическая web-сборка. Запуск ло
 ```sh
 cargo install wasm-bindgen-cli --version 0.2.125 --locked
 npm run tokenizer -- checkout install
+# npm ci запускает prepare пакета tokenizer (сборку WASM языка) toolchain'ом по умолчанию:
+# в нём должен быть target wasm32-unknown-unknown
 npm ci
 npm run build:wasm
 npm test
