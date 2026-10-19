@@ -1,13 +1,23 @@
 # Язык Forma
 
-Исходники языка перенесены в соседний репозиторий `tokenizer`: полный Rust frontend — `crates/tokenizer-forma`, WASM-адаптеры
-Studio — `packages/forma`.
-Для локальной сборки оба checkout должны лежать рядом. Разметка, выражения,
-семантика компонентов и Lezer-грамматика изменяются в tokenizer.
+Исходники языка живут в репозитории
+[tokenizer](https://github.com/themoretheless/tokenizer): полный Rust frontend —
+`crates/tokenizer-forma`, WASM-адаптеры Studio — `packages/forma`. Разметка,
+выражения, семантика компонентов и Lezer-грамматика изменяются там.
 Парсер, выражения, контракты, design-состояния и раскрытие if/for исполняются
 в Rust; JavaScript соединяет их с редактором и моделями Studio.
-Перегенерация редакторского парсера: `npm run generate` в `tokenizer/packages/forma`.
 
+Forma берёт `themoretheless-tokenizer-forma` из ветки `release`, точный коммит
+закреплён в `vector-ui/Cargo.lock`. JS-пакет `@themoretheless/tokenizer-forma`
+подключается из checkout того же коммита в соседнем каталоге `../tokenizer`:
+`npm run tokenizer -- checkout install build` клонирует его (если каталога нет),
+проверяет совпадение с lock, ставит зависимости пакета и собирает WASM языка.
+Уже существующий checkout не трогается: `npm run tokenizer -- check` падает,
+если `crates/tokenizer-forma` или `packages/forma` в нём отличаются от
+закреплённой ревизии. Переход на новый релиз tokenizer:
+`cargo update --manifest-path vector-ui/Cargo.toml -p themoretheless-tokenizer-forma`
+(и так же для `vector-ui/examples/*/Cargo.toml`).
+Перегенерация редакторского парсера: `npm run generate` в `tokenizer/packages/forma`.
 
 Один и тот же `.ui` разбирается компилятором Studio и генератором Rust-форм.
 Studio вычисляет выражения по данным предпросмотра. Сгенерированная форма

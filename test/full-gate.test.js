@@ -83,9 +83,10 @@ test('the benches that produced the load and compile numbers still run',()=>{
  assert.deepEqual(evaluate(step('bench-js-session'),{status:1,output:'ERR_MODULE_NOT_FOUND'}).detail,'exit 1');
 });
 test('the gate runs the studio steps CI runs before it publishes',()=>{
- // CI checks the versions, runs the suite, then builds the bundle release.yml uploads; a local
- // pass that skips the build leaves the shipped bundle unverified.
- assert.deepEqual(matrix().list.map(item=>item.id).slice(0,3),['version-check','studio-js','studio-build']);
+ // CI checks out the locked tokenizer release, checks the versions, runs the suite, then builds the
+ // bundle release.yml uploads; a local pass that skips the build leaves the shipped bundle unverified.
+ assert.deepEqual(matrix().list.map(item=>item.id).slice(0,4),['tokenizer','version-check','studio-js','studio-build']);
+ assert.deepEqual(step('tokenizer').args,['scripts/tokenizer.mjs','check']);
  assert.deepEqual(step('version-check').args,['scripts/versions.mjs','check']);
  assert.deepEqual(step('studio-build').args,[VITE,'build'],'vite runs through its own entry, so no shell is involved');
  // An uninstalled vite is a skipped step with the command that fixes it, not a failing one.

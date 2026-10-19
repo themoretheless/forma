@@ -14,6 +14,7 @@ const BUNDLED=['build-info.json',...runtimeArtifacts];
 export function steps({platform,installedTargets,viteEntry}){
  return {
   list:[
+   {id:'tokenizer',name:'Sibling tokenizer matches the release locked in Cargo.lock',argv:process.execPath,args:['scripts/tokenizer.mjs','check'],requiresOutput:true},
    {id:'version-check',name:'Version manifests agree with the pinned toolchain',argv:process.execPath,args:['scripts/versions.mjs','check'],requiresOutput:true},
    {id:'studio-js',name:'Studio test suite (node --test)',argv:process.execPath,args:['--test'],requiresSummary:true},
    // Every designer commit message ends with "the build is clean"; this is where that stops
