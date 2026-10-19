@@ -100,7 +100,7 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
  if(lexical==='string')return null;
  const token=before.match(/[\w.]*$/)?.[0]??'',from=pos-token.length;
  if(!explicit&&!token&&!/[.:>]\s*$/.test(before))return null;
- const qualified=token.match(/^(state|props|events|tokens)\.(.*)$/);
+ const qualified=token.match(/^(state|props|events|tokens|i18n|viewport)\.(.*)$/);
  if(qualified){
   const [,root,rest]=qualified,parts=rest.split('.');parts.pop();const prefix=root+'.'+(parts.length?parts.join('.')+'.':'');let options=[];
   if(root==='state'){
@@ -117,6 +117,14 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
    for(const decl of children(component?.getChild('Block'),'TokensDeclaration'))for(const p of children(decl,'PropertyName'))tokenNames.add(text(source,p));
    options=[...tokenNames].map(k=>option('tokens.'+k,'property','Дизайн-токен'));
    return {from,options,validFor:/^tokens\.[\w.]*$/};
+  }else if(root==='i18n'){
+   const i18nNames=new Set();
+   for(const decl of children(component?.getChild('Block'),'I18nDeclaration'))for(const p of children(decl,'PropertyName'))i18nNames.add(text(source,p));
+   options=[...i18nNames].map(k=>option('i18n.'+k,'property','Строка локализации'));
+   return {from,options,validFor:/^i18n\.[\w.]*$/};
+  }else if(root==='viewport'){
+   options=[option('viewport.width','property','Ширина экрана (Number)'),option('viewport.height','property','Высота экрана (Number)'),option('viewport.compact','property','Компактный режим (< 640px)')];
+   return {from,options,validFor:/^viewport\.[\w.]*$/};
   }else{
    const declaration=ownProps(source,component?.getChild('Block')).events??(path.startsWith('components/')?"['clicked']":'');
    options=[...declaration.matchAll(/['"](\w+)['"]/g)].map(m=>option('events.'+m[1],'function','Событие формы','events.'+m[1]+(source.slice(pos).trimStart().startsWith('(')?'':'()')));
@@ -126,7 +134,7 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
  let options=[];
  if(/->\s*\w*$/.test(statement))options=[option('events.','namespace','События формы'),option('state.','namespace','Команды ViewModel'),option('actions.','namespace','Действия превью')];
  else if(property){
-  options=[option('state.','namespace','Текущий контекст'),option('props.','namespace','Параметры компонента'),option('tokens.','namespace','Дизайн-токены')];
+  options=[option('state.','namespace','Текущий контекст'),option('props.','namespace','Параметры компонента'),option('tokens.','namespace','Дизайн-токены'),option('i18n.','namespace','Локализация'),option('viewport.','namespace','Параметры контейнера')];
   const value=index.defaults(nodeType)[property];
   if(typeof value==='boolean'||['disabled','checked','multiline','clip','indeterminate'].includes(property))options.push(option('true','keyword'),option('false','keyword'),option('!state.','namespace','Отрицание'));
   if(statement.includes('<->'))options=[option('state.','namespace','Наблюдаемое поле')];
@@ -137,7 +145,8 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
   if(owner?.name==='Override')return {from,options:(patchTarget?.properties??[]).filter(name=>!Object.hasOwn(declared,name)||name===token).map(name=>option(name,'property',patchTarget.types.join(' | '),/^\s*:/.test(source.slice(pos))?name:name+': ')),validFor:/^[\w.]*$/};
   const names=root?['contextType','events']:properties[nodeType]??[...common,...Object.keys(index.defaults(nodeType))];
   options=[...new Set([...names,...(!root&&!['Brush','Border','Reveal'].includes(nodeType)?['contextType','context']:[])])].filter(name=>!Object.hasOwn(declared,name)||name===token).map(name=>option(name,'property',name==='contextType'?'Тип ViewModel':name==='context'?'Контекст элемента':nodeType||'Форма',/^\s*(?::|<->|->)/.test(source.slice(pos))?name:name==='clicked'?'clicked -> events.':name+': '));
-  if(root)options.push(option('let','keyword','Вычисляемое свойство','let '),option('tokens','keyword','Дизайн-токены','tokens {\n    \n}'),option('struct','keyword','Структура данных','struct '),option('slot','keyword','Именованный слот','slot '),option('shortcut','keyword','Горячая клавиша',"shortcut 'CmdOrCtrl+K' -> actions."));
+  if(root)options.push(option('state','keyword','Локальное состояние','state '),option('style','keyword','Именованный пресет стиля','style '),option('i18n','keyword','Словарь локализации','i18n {\n    \n}'),option('let','keyword','Вычисляемое свойство','let '),option('use','keyword','Импорт токенов и типов',"use './theme.ui';"),option('tokens','keyword','Дизайн-токены','tokens {\n    \n}'),option('struct','keyword','Структура данных','struct '),option('slot','keyword','Именованный слот','slot '),option('shortcut','keyword','Горячая клавиша',"shortcut 'CmdOrCtrl+K' -> actions."));
+  if(!root)options.push(option('apply','keyword','Применить стиль','apply '));
   if(!root&&!properties[nodeType])options.push(option('clicked','event','Активация','clicked -> events.'),option('changed','event','Изменение значения','changed -> events.'),option('submitted','event','Отправка (Enter)','submitted -> events.'));
   if(['TextField','TextInput','TextArea','Slider'].includes(nodeType))options.push(option('value <->','property','Двусторонняя привязка','value <-> state.'),option('submitted','event','Отправка (Enter)','submitted -> actions.'));
   if(['Checkbox','Switch','RadioButton'].includes(nodeType))options.push(option('checked <->','property','Двусторонняя привязка','checked <-> state.'));

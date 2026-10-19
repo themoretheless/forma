@@ -78,7 +78,7 @@ export function mountEditor(textarea,{getProject=()=>({files:{},path:null})}={})
   function ensureView(){
     if(view)return view;
     view=new EditorView({parent:host,state,scrollTo:EditorView.scrollIntoView(state.selection.main.from,{y:'center'})});state=null;
-    view.dom.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:'s',metaKey:e.metaKey,ctrlKey:e.ctrlKey}));}});
+    view.dom.addEventListener('keydown',e=>{if(((e.metaKey||e.ctrlKey)&&e.key==='s')||(e.shiftKey&&e.altKey&&e.key.toLowerCase()==='f')){e.preventDefault();textarea.dispatchEvent(new KeyboardEvent('keydown',{key:e.key,metaKey:e.metaKey,ctrlKey:e.ctrlKey,shiftKey:e.shiftKey,altKey:e.altKey}));}});
     return view;
   }
   const shown=new ResizeObserver(entries=>{if(entries.some(entry=>entry.contentRect.width>0&&entry.contentRect.height>0)){shown.disconnect();ensureView();}});
