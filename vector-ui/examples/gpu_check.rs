@@ -163,6 +163,8 @@ async fn run() {
             let mean = total as f64 / (w * h * 4) as f64;
             println!("{name} {w}x{h}: mean_error={mean:.4}/255 max={max} channels>4={bad}");
             assert!(mean < 1., "GPU image diverged from CPU");
+            // CPU and GPU both integrate exact glyph/shape area; remaining
+            // differences are rounded-corner SDF versus CPU samples and rounding.
             assert!(
                 bad < (w * h / 50) as usize,
                 "Too many visibly different channels"

@@ -67,6 +67,11 @@ fn main() {
             runtime.scroll(if i % 2 == 0 { 0.375 } else { -0.375 }, if i % 2 == 0 { 0.625 } else { -0.625 });
             runtime.vector_snapshot(1.25, true)
         }, |list| geometry_hash(list));
+        // Everything a GPU renderer recomputes per scroll step: snapshot plus tile index.
+        measure("runtime_scroll_tiles", labels, iterations, |i| {
+            runtime.scroll(if i % 2 == 0 { 0.375 } else { -0.375 }, if i % 2 == 0 { 0.625 } else { -0.625 });
+            runtime.gpu_tiles(400, 200, 1.25, true)
+        }, |tiles| hash_bytes(tiles.iter().flat_map(|value| value.to_le_bytes())));
 
         // These correctness hashes are deliberately outside the timed loops.
         for scale in [1., 1.25, 2.] {

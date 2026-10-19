@@ -1,5 +1,8 @@
 use forma::{
-    display_list::{DisplayList, TileScratch, STRIDE, TILE},
+    display_list::{
+        scrolled_bounds, DisplayList, TileScratch, SCROLL_CONTENT, SCROLL_FACTOR, SCROLL_FIXED,
+        SCROLL_MODE, SCROLL_THUMB_X, SCROLL_THUMB_Y, STRIDE, TILE,
+    },
     Button,
 };
 use std::sync::Arc;
@@ -40,10 +43,13 @@ fn shared_snapshot_invalidates_for_geometry_inputs_and_source_replacement() {
     assert!(!Arc::ptr_eq(&dpi, &foreground));
     button.scroll(0., 0.);
     assert!(Arc::ptr_eq(&foreground, &button.vector_snapshot(2., false)));
+    // Scrolling is a renderer uniform: geometry identity and bytes survive,
+    // while tiles and params follow the offset.
+    let params = button.gpu_params(40, 30, 2., false);
     button.scroll(5., 5.);
     let scrolled = button.vector_snapshot(2., false);
-    assert!(!Arc::ptr_eq(&foreground, &scrolled));
-    assert_ne!(foreground.commands, scrolled.commands);
+    assert!(Arc::ptr_eq(&foreground, &scrolled));
+    assert_ne!(params, button.gpu_params(40, 30, 2., false));
 
     button.load_source(forma::EXAMPLE).unwrap();
     let source = button.vector_snapshot(2., false);
@@ -135,15 +141,49 @@ fn every_tile_keeps_balanced_clips_and_painter_order() {
     }
 }
 #[test]
-fn scroll_and_reload_rebuild_vectors() {
+fn scroll_keeps_vectors_and_reload_rebuilds_them() {
     let mut b=Button::from_source("component Demo { Frame { width:40; height:30; Scroll { Button { width:80; height:60; text:'О'; } } } }").unwrap();
     let before = b.gpu_commands(1., true);
+    let edges = b.gpu_edges(1., true);
     b.scroll(10., 10.);
-    assert_ne!(before, b.gpu_commands(1., true));
+    assert_eq!(before, b.gpu_commands(1., true));
+    assert_eq!(edges, b.gpu_edges(1., true));
+    assert_eq!(&b.gpu_params(40, 30, 1., true)[12..14], &[10., 10.]);
     b.load_source(forma::EXAMPLE).unwrap();
     assert_ne!(before, b.gpu_commands(1., true));
     assert!(b.gpu_tiles(0, 1, 1., true).is_empty());
     assert!(b.gpu_tiles(u32::MAX, 1, 1., true).is_empty());
+}
+
+#[test]
+fn scroll_modes_mark_content_and_thumbs_and_tiles_follow_the_offset() {
+    let b=Button::from_source("component Demo { Frame { width:40; height:30; Scroll { Button { width:80; height:60; text:'О'; } } } }").unwrap();
+    let commands = b.gpu_commands(1., true);
+    let records: Vec<&[f32]> = commands.chunks_exact(STRIDE).collect();
+    // Frame background and the scroll viewport clip stay fixed.
+    assert_eq!(records[0][0], 0.);
+    assert_eq!(records[0][SCROLL_MODE], SCROLL_FIXED);
+    assert_eq!(records[1][0], 2.);
+    assert_eq!(records[1][SCROLL_MODE], SCROLL_FIXED);
+    let content: Vec<_> = records.iter().filter(|c| c[SCROLL_MODE] == SCROLL_CONTENT).collect();
+    assert!(content.iter().any(|c| c[0] == 4.), "control body scrolls");
+    assert!(content.iter().any(|c| c[0] == 1.), "glyph paths scroll");
+    let thumbs: Vec<_> = records.iter().filter(|c| c[0] == 5.).collect();
+    assert_eq!(thumbs.len(), 2);
+    assert_eq!(thumbs[0][SCROLL_MODE], SCROLL_THUMB_Y);
+    assert!((thumbs[0][SCROLL_FACTOR] - 30. / 60.).abs() < 1e-6);
+    assert_eq!(thumbs[1][SCROLL_MODE], SCROLL_THUMB_X);
+    assert!((thumbs[1][SCROLL_FACTOR] - 40. / 80.).abs() < 1e-6);
+    // The binner applies the same offsets as the shader.
+    let body = content.iter().find(|c| c[0] == 4.).unwrap();
+    assert_eq!(scrolled_bounds(body, [10., 20.]), [body[4] - 10., body[5] - 20., body[6], body[7]]);
+    assert_eq!(scrolled_bounds(thumbs[0], [10., 20.])[1], thumbs[0][5] + 20. * thumbs[0][SCROLL_FACTOR]);
+    assert_eq!(scrolled_bounds(thumbs[1], [10., 20.])[0], thumbs[1][4] + 10. * thumbs[1][SCROLL_FACTOR]);
+    let list = b.vector_list(1., true);
+    assert_ne!(list.tiles(64, 64, 1., [0.; 2]), list.tiles(64, 64, 1., [0., 40.]));
+    // Fixed commands ignore the offset entirely.
+    let fixed = DisplayList { commands: commands[..STRIDE].to_vec(), edges: Vec::new() };
+    assert_eq!(fixed.tiles(64, 64, 1., [0.; 2]), fixed.tiles(64, 64, 1., [30., 40.]));
 }
 #[test]
 fn empty_tiles_do_not_scan_all_glyphs() {
@@ -266,11 +306,11 @@ fn unclipped_flat_binner_is_byte_identical_to_legacy_at_tile_and_dpi_boundaries(
             for scale in [1., 1.25, 2., 3.] {
                 let expected = legacy_tiles(list, width, height, scale);
                 assert_eq!(
-                    list.tiles_into(width, height, scale, &mut scratch),
+                    list.tiles_into(width, height, scale, [0.; 2], &mut scratch),
                     expected,
                     "{width}x{height} scale={scale}"
                 );
-                assert_eq!(list.tiles(width, height, scale), expected);
+                assert_eq!(list.tiles(width, height, scale, [0.; 2]), expected);
             }
         }
     }
@@ -280,13 +320,13 @@ fn unclipped_flat_binner_is_byte_identical_to_legacy_at_tile_and_dpi_boundaries(
 fn tile_scratch_retains_capacity_and_output_pointer_across_repeated_resize() {
     let list = boundary_scene();
     let mut scratch = TileScratch::default();
-    let pointer = list.tiles_into(3840, 2160, 3., &mut scratch).as_ptr();
+    let pointer = list.tiles_into(3840, 2160, 3., [0.; 2], &mut scratch).as_ptr();
     let capacity = scratch.capacity_bytes();
     assert!(capacity > 0);
     for _ in 0..3 {
         for (width, height) in [(800, 400), (33, 33), (0, 0), (3840, 2160)] {
-            let actual = list.tiles_into(width, height, 3., &mut scratch);
-            assert_eq!(actual, list.tiles(width, height, 3.));
+            let actual = list.tiles_into(width, height, 3., [0.; 2], &mut scratch);
+            assert_eq!(actual, list.tiles(width, height, 3., [0.; 2]));
             assert_eq!(actual.as_ptr(), pointer, "output allocation changed");
             assert_eq!(
                 scratch.capacity_bytes(),
@@ -301,8 +341,8 @@ fn tile_scratch_retains_capacity_and_output_pointer_across_repeated_resize() {
 fn tile_index_depends_on_grid_dimensions_not_exact_framebuffer_size() {
     let list = boundary_scene();
     for scale in [1., 1.25, 2.] {
-        assert_eq!(list.tiles(33, 65, scale), list.tiles(64, 96, scale));
-        assert_eq!(list.tiles(3810, 2145, scale), list.tiles(3840, 2176, scale));
+        assert_eq!(list.tiles(33, 65, scale, [0.; 2]), list.tiles(64, 96, scale, [0.; 2]));
+        assert_eq!(list.tiles(3810, 2145, scale, [0.; 2]), list.tiles(3840, 2176, scale, [0.; 2]));
     }
 }
 
@@ -340,7 +380,7 @@ fn empty_disjoint_and_zero_area_clip_groups_have_no_tile_entries() {
         add_command(&mut list, 2., [0., 0., 30., 30.], [0.; 4], 0.);
         add_command(&mut list, 3., [0.; 4], [0.; 4], 0.);
         for scale in [1., 1.25, 2.] {
-            let tiles = list.tiles(128, 128, scale);
+            let tiles = list.tiles(128, 128, scale, [0.; 2]);
             assert_eq!(
                 tiles.len(),
                 4 * 4 * 2,
@@ -430,7 +470,7 @@ fn culled_translucent_nested_groups_match_legacy_pixels_at_fractional_dpi() {
     let (width, height) = (192, 160);
     for scale in [1., 1.25, 2.] {
         let before = legacy_tiles(&list, width, height, scale);
-        let after = list.tiles(width, height, scale);
+        let after = list.tiles(width, height, scale, [0.; 2]);
         assert!(after.len() < before.len());
         for y in 0..height {
             for x in 0..width {
@@ -458,7 +498,7 @@ fn logically_disjoint_clips_keep_overlapping_antialias_fringe() {
     add_command(&mut list, 3., [0.; 4], [0.; 4], 0.);
     add_command(&mut list, 3., [0.; 4], [0.; 4], 0.);
     let before = legacy_tiles(&list, 96, 64, 1.);
-    let after = list.tiles(96, 64, 1.);
+    let after = list.tiles(96, 64, 1., [0.; 2]);
     let expected = sample_rectangles(&list, tile_commands(&before, 96, 35, 10), 35, 10, 1.);
     assert!(
         expected[3] > 0.,

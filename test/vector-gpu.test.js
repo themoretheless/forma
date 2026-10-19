@@ -157,21 +157,33 @@ test('retrying the previous model after a partial upload restores overwritten re
   assert.equal(groups.length,1,'capacity and bind-group identity remain reusable');
 });
 
-test('layout versions avoid scroll arrays and preserve geometry on paint-only changes',async t=>{
+test('layout versions avoid scroll arrays and keep geometry resident on scroll and paint changes',async t=>{
   const {painter}=await fixture(t),scene=model();let layout=0,visual=0;
   scene.layout_revision=()=>layout;scene.geometry_revision=()=>0;scene.visual_revision=()=>visual;
   scene.scroll_offset=()=>assert.fail('versioned runtimes must not allocate scroll arrays');
+  const calls={};
+  for(const key of ['gpu_commands','gpu_edges','gpu_tiles','gpu_params']){
+    const original=scene[key];calls[key]=0;scene[key]=(...args)=>{calls[key]++;return original(...args);};
+  }
   painter.draw(scene,64,64,1);
   visual++;painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,1);
-  layout++;painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,2);
-  painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,2);
+  // Scroll changes the layout version: only tiles and the uniform follow it.
+  layout++;painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,1);
+  assert.deepEqual(calls,{gpu_commands:1,gpu_edges:1,gpu_tiles:2,gpu_params:3});
+  painter.draw(scene,64,64,1);assert.equal(painter.snapshot().uploads,1);
+  assert.deepEqual(calls,{gpu_commands:1,gpu_edges:1,gpu_tiles:2,gpu_params:3});
 });
 
 test('legacy scene scroll keys remain exact without layout versions',async t=>{
   const {painter}=await fixture(t),scene=model();let y=0;
-  scene.scroll_offset=()=>[0,y];scene.geometry_revision=()=>0;
+  scene.scroll_offset=()=>[0,y];scene.geometry_revision=()=>0;scene.visual_revision=()=>0;
+  const calls={};
+  for(const key of ['gpu_commands','gpu_tiles','gpu_params']){
+    const original=scene[key];calls[key]=0;scene[key]=(...args)=>{calls[key]++;return original(...args);};
+  }
   painter.draw(scene,64,64,1);y=0.125;painter.draw(scene,64,64,1);
-  assert.equal(painter.snapshot().uploads,2);
+  assert.equal(painter.snapshot().uploads,1,'scroll never re-uploads commands/edges');
+  assert.deepEqual(calls,{gpu_commands:1,gpu_tiles:2,gpu_params:2});
 });
 
 test('legacy leaf reload invalidates geometry through its visual version',async t=>{
