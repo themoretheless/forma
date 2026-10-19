@@ -297,3 +297,110 @@ test('8. Extended stdlib (math, strings, collections/records, color/contrast), u
   assert.ok(!warnings.some(w => w.name === 'forwardedProp'));
 });
 
+test('9. Interactive local state mutations, shortcuts, and built-in visual components in HTML preview', async () => {
+  const { executePreviewStateAction, matchPreviewShortcut } = await import('../src/preview-state.js');
+  const { renderHtmlPreview } = await import('../src/html-preview.js');
+
+  const model = {
+    count: 10,
+    active: false,
+    items: ['a', 'b'],
+    user: { score: 5, name: 'Ada' },
+  };
+  const defaults = structuredClone(model);
+
+  assert.equal(executePreviewStateAction(model, 'state.toggle', ['active'], defaults).handled, true);
+  assert.equal(model.active, true);
+
+  assert.equal(executePreviewStateAction(model, 'state.increment', ['count', 5], defaults).handled, true);
+  assert.equal(model.count, 15);
+
+  assert.equal(executePreviewStateAction(model, 'state.decrement', ['user.score', 2], defaults).handled, true);
+  assert.equal(model.user.score, 3);
+
+  assert.equal(executePreviewStateAction(model, 'state.push', ['items', 'c'], defaults).handled, true);
+  assert.deepEqual(model.items, ['a', 'b', 'c']);
+
+  assert.equal(executePreviewStateAction(model, 'state.remove', ['items', 1], defaults).handled, true);
+  assert.deepEqual(model.items, ['a', 'c']);
+
+  assert.equal(executePreviewStateAction(model, 'state.set', ['user.name', 'Grace'], defaults).handled, true);
+  assert.equal(model.user.name, 'Grace');
+
+  assert.equal(executePreviewStateAction(model, 'state.reset', [], defaults).handled, true);
+  assert.equal(model.count, 10);
+
+  const shortcutEvent = { key: 's', metaKey: true, ctrlKey: false, altKey: false, shiftKey: false };
+  assert.equal(matchPreviewShortcut(shortcutEvent, 'Mod+S'), true);
+  assert.equal(matchPreviewShortcut(shortcutEvent, 'Ctrl+Shift+S'), false);
+
+  const doc = parse(`
+    component VisualCatalog {
+      state progress: Int = 65;
+      shortcut 'Mod+K' -> state.increment('progress', 5);
+      Column {
+        gap: 8;
+        Badge { text: 'New'; tone: 'accent'; }
+        Tag { text: 'v0.8'; }
+        Chip { text: 'Filter'; selected: true; }
+        Avatar { text: 'AF'; }
+        ProgressBar { value: progress; }
+        Divider { text: 'OR'; }
+        Separator {}
+      }
+    }
+  `);
+
+  class FakeEl {
+    constructor(tag) {
+      this.tagName = tag.toUpperCase();
+      this.className = '';
+      this.dataset = {};
+      this.style = {};
+      this.children = [];
+      this.textContent = '';
+      this.classList = { add() {}, remove() {}, contains() { return false; } };
+    }
+    append(...nodes) {
+      for (const n of nodes) {
+        if (n?.isFragment) this.children.push(...n.children);
+        else if (n) this.children.push(n);
+      }
+    }
+    replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
+    addEventListener() {}
+    removeEventListener() {}
+    contains() { return false; }
+    querySelectorAll() { return []; }
+  }
+  const prevDoc = globalThis.document;
+  globalThis.document = {
+    activeElement: null,
+    createElement: tag => new FakeEl(tag),
+    createDocumentFragment: () => ({ isFragment: true, children: [], append(...n) { this.children.push(...n); } }),
+  };
+  try {
+    const preview = new FakeEl('div');
+    renderHtmlPreview({
+      preview,
+      compiled: doc,
+      state: { progress: 65 },
+      interactive: true,
+      design: null,
+      onSelect() {},
+      onEvent() {},
+      onLog() {},
+      onChange() {},
+    });
+    const col = preview.children[0];
+    assert.equal(col.children.length, 7);
+    assert.equal(col.children[0].textContent, 'New');
+    assert.equal(col.children[1].textContent, 'v0.8');
+    assert.equal(col.children[2].textContent, 'Filter');
+    assert.equal(col.children[3].textContent, 'AF');
+    assert.equal(col.children[4].children[0].style.width, '65%');
+  } finally {
+    globalThis.document = prevDoc;
+  }
+});
+

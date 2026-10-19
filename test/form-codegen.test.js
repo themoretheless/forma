@@ -198,6 +198,31 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
          let b=form.runtime().unwrap().control_bounds(4);form.update(|r|r.pointer(b[0]+100.,b[1]+b[3]/2.,1)).unwrap();form.update(|r|r.pointer(b[0]+220.,b[1]+b[3]/2.,0)).unwrap();form.update(|r|r.pointer(b[0]+220.,b[1]+b[3]/2.,2)).unwrap();assert!(vm.items.get()[0].amount>0.5);`,
        definitions:themed,
      },
+     {
+       name:'language_next',
+       source:`component LanguageNext {
+         contextType:'crate::Vm';
+         tokens { spacing.md: 12; }
+         i18n ru { greeting: 'Привет'; }
+         #[range(0, 100)]
+         prop score: Int = 50;
+         style card { gap: tokens.spacing.md; }
+         let title = (i18n.greeting + ' ' + capitalize(state.user)) |> padEnd(12, '!');
+         let mathCheck = pow(2, 3) + sqrt(16) + lerp(0, 10, 0.5);
+         Column {
+           width: 400;
+           height: 240;
+           apply card;
+           Text { key: 'header'; text: '\${title} (\${mathCheck}) [\${plural(score, "балл", "балла", "баллов")}]'; width: 360; height: 40; }
+         }
+       }`,
+       model:`use forma::binding::Property;use std::rc::Rc;pub struct Vm{user:Property<String>}`,
+       body:`let vm=Rc::new(Vm{user:Property::new("ada".into())});
+         let mut form=LanguageNext::new(vm.clone()).unwrap();
+         assert_eq!(form.runtime().unwrap().control_label(0),"Привет Ada!! (17) [баллов]");
+         assert!(LanguageNext::with_properties(vm.clone(),forma::form_document::props(vec![("score",forma::form_document::Value::Number(150.))])).is_err());`,
+       definitions:{},
+     },
    ];
    for(const fixture of fixtures){
      const code=fixture.model+generateForm({...fixture.definitions,'ui/Fixture.ui':fixture.source},'ui/Fixture.ui').rust+'fn main(){'+fixture.body+'}';

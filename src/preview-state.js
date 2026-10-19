@@ -14,3 +14,73 @@ export function writePreviewBinding(state, node, path, value, {createMissing = f
   target[field] = value;
   return true;
 }
+
+function resolveTarget(state, path) {
+  const parts = String(path ?? '').replace(/^state\./, '').split('.').filter(Boolean);
+  if (!parts.length) return null;
+  const field = parts.pop();
+  let target = state;
+  for (const part of parts) {
+    if (target[part] == null || typeof target[part] !== 'object') target[part] = {};
+    target = target[part];
+  }
+  return { target, field, fullPath: ['state', ...parts, field].join('.') };
+}
+
+export function executePreviewStateAction(state, action, args = [], stateDefaults = {}) {
+  const norm = action.startsWith('actions.') ? 'state.' + action.slice(8) : action;
+  if (!norm.startsWith('state.')) return { handled: false };
+  const cmd = norm.slice(6);
+  if (cmd === 'reset') {
+    for (const k of Object.keys(state)) delete state[k];
+    Object.assign(state, structuredClone(stateDefaults));
+    return { handled: true, log: 'state сброшен к значениям по умолчанию' };
+  }
+  if (['toggle', 'set', 'increment', 'decrement', 'push', 'remove'].includes(cmd) && typeof args[0] === 'string') {
+    const loc = resolveTarget(state, args[0]);
+    if (!loc) return { handled: false };
+    const { target, field, fullPath } = loc;
+    if (cmd === 'toggle') target[field] = !target[field];
+    else if (cmd === 'set') target[field] = args[1];
+    else if (cmd === 'increment') target[field] = (Number(target[field]) || 0) + (args[1] !== undefined ? Number(args[1]) : 1);
+    else if (cmd === 'decrement') target[field] = (Number(target[field]) || 0) - (args[1] !== undefined ? Number(args[1]) : 1);
+    else if (cmd === 'push') {
+      const list = Array.isArray(target[field]) ? [...target[field]] : [];
+      list.push(args[1]);
+      target[field] = list;
+    } else if (cmd === 'remove') {
+      const list = Array.isArray(target[field]) ? [...target[field]] : [];
+      const item = args[1];
+      target[field] = typeof item === 'number' && item >= 0 && item < list.length ? list.filter((_, i) => i !== item) : list.filter(x => x !== item);
+    }
+    return { handled: true, log: `${fullPath} = ${JSON.stringify(target[field])}` };
+  }
+  if (cmd.length > 0) {
+    const loc = resolveTarget(state, cmd);
+    if (!loc) return { handled: false };
+    const { target, field, fullPath } = loc;
+    target[field] = args.length ? args[0] : !target[field];
+    return { handled: true, log: `${fullPath} = ${JSON.stringify(target[field])}` };
+  }
+  return { handled: false };
+}
+
+export function matchPreviewShortcut(event, combo) {
+  const parts = String(combo ?? '').split('+').map(p => p.trim().toLowerCase()).filter(Boolean);
+  if (!parts.length) return false;
+  const keyPart = parts.at(-1);
+  const mods = new Set(parts.slice(0, -1));
+  const wantCmdOrCtrl = mods.has('cmdorctrl') || mods.has('mod');
+  const wantCtrl = mods.has('ctrl') || mods.has('control');
+  const wantMeta = mods.has('cmd') || mods.has('meta');
+  const wantShift = mods.has('shift');
+  const wantAlt = mods.has('alt') || mods.has('option');
+  if (wantCmdOrCtrl && !(event.metaKey || event.ctrlKey)) return false;
+  if (!wantCmdOrCtrl && wantCtrl !== !!event.ctrlKey) return false;
+  if (!wantCmdOrCtrl && wantMeta !== !!event.metaKey) return false;
+  if (wantShift !== !!event.shiftKey) return false;
+  if (wantAlt !== !!event.altKey) return false;
+  return (event.key || '').toLowerCase() === keyPart;
+}
+
+

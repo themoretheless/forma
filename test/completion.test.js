@@ -77,3 +77,31 @@ test('models in Rust modules keep qualified names and local nested contexts',()=
  const result=completeCode({source,pos:source.length,path:'ui/Form.ui',files:{...files,...extra},explicit:true});assert.deepEqual(labels(result),['state.address.street']);
  assert.ok(labels(hints("TextField { contextType:'crate::|",extra)).includes('crate::models::Account'));
 });
+test('completions cover attributes, styles, type annotations, pipe stdlib, local state, tokens, i18n, and let bindings',()=>{
+ const attr=completeCode({source:'#[|',pos:2,path:'ui/Form.ui',files,explicit:true});
+ assert.deepEqual(labels(attr),['range','pattern','use','design']);
+ const styleSrc=`component Card { style primary { color: #fff; } Frame { apply | } }`;
+ const styleRes=completeCode({source:styleSrc.replace('|',''),pos:styleSrc.indexOf('|'),path:'ui/Card.ui',files,explicit:true});
+ assert.ok(labels(styleRes).includes('primary'));
+ const typeSrc=`component Card { struct User { name: String } prop owner: | }`;
+ const typeRes=completeCode({source:typeSrc.replace('|',''),pos:typeSrc.indexOf('|'),path:'ui/Card.ui',files,explicit:true});
+ assert.ok(labels(typeRes).includes('String'));
+ assert.ok(labels(typeRes).includes('Record'));
+ assert.ok(labels(typeRes).includes('User'));
+ const pipeSrc=`component Card { Frame { Text { text: state.name |> tr| } } }`;
+ const pipeRes=completeCode({source:pipeSrc.replace('|',''),pos:pipeSrc.indexOf('|'),path:'ui/Card.ui',files,explicit:true});
+ assert.ok(labels(pipeRes).includes('trim'));
+ assert.ok(labels(pipeRes).includes('truncate'));
+ const localSrc=`component Counter { state count: Int = 0; tokens { accent: #fff; } i18n { title: 'Hi'; } let label = 'Count'; Frame { Text { text: | } } }`;
+ const localRes=completeCode({source:localSrc.replace('|',''),pos:localSrc.indexOf('|'),path:'ui/Counter.ui',files,explicit:true});
+ assert.ok(labels(localRes).includes('label'));
+ assert.ok(labels(localRes).includes('plural'));
+ assert.ok(labels(localRes).includes('formatNumber'));
+ const stateCmdSrc=`component Counter { state count: Int = 0; Frame { Button { clicked -> state.| } } }`;
+ const stateCmdRes=completeCode({source:stateCmdSrc.replace('|',''),pos:stateCmdSrc.indexOf('|'),path:'ui/Counter.ui',files,explicit:true});
+ assert.ok(labels(stateCmdRes).includes('state.count'));
+ assert.ok(labels(stateCmdRes).includes('state.increment'));
+ assert.ok(labels(stateCmdRes).includes('state.toggle'));
+ assert.ok(labels(stateCmdRes).includes('state.reset'));
+});
+

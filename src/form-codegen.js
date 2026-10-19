@@ -21,7 +21,7 @@ export function generateForm(files,entry,{state={},measureText}={}) {
  const rootType=typeName(doc.defaults.contextType,doc.defaultRanges.contextType?.from);
  validName(doc.name,0);
  if(doc.base||doc.designs.length||Object.keys(doc.slots).length)fail('Генерируемая форма не наследуется от компонента и не использует design/override на корне');
- for(const key of Object.keys(doc.defaults))if(!['contextType','events',...Object.keys(doc.propDefinitions??{})].includes(key))fail(`Неизвестное объявление формы ${key}`,doc.defaultRanges[key].from);
+ for(const key of Object.keys(doc.defaults))if(!['contextType','events',...Object.keys(doc.propDefinitions??{}),...Object.keys(doc.lets??{}),...Object.keys(doc.letBindings??{}),...Object.keys(doc.stateDefinitions??{})].includes(key))fail(`Неизвестное объявление формы ${key}`,doc.defaultRanges[key].from);
  const declared=[...(doc.defaults.events??[]),...Object.keys(doc.eventDefinitions??{})];
  if(!Array.isArray(declared)||declared.some(name=>typeof name!=='string'))fail('events ожидает список имён: [\'saveRequested\']',doc.defaultRanges.events?.from);
  const eventTypes=new Map();const usedNames=new Set(['new','with_properties','context','set_context','clear_context','sync','update','runtime','is_dirty','on_dirty']);
@@ -103,7 +103,7 @@ export function generateForm(files,entry,{state={},measureText}={}) {
    const dependencies=new Set();
    function collect(value){for(const ref of expressionReferences(value))if(ref.startsWith('state.'))dependencies.add(ref);}
 
-   collect(Object.fromEntries(Object.entries(node.props).filter(([key])=>!['context','contextType'].includes(key))));collect(node.matches);collect(node.eventArgs);if(nodeIndex===0){collect(Object.fromEntries(Object.entries(doc.defaults).filter(([k])=>!['contextType','events'].includes(k))));collect(doc.matches);}
+   collect(Object.fromEntries(Object.entries(node.props).filter(([key])=>!['context','contextType'].includes(key))));collect(node.matches);collect(node.eventArgs);if(nodeIndex===0){collect(Object.fromEntries(Object.entries(doc.defaults).filter(([k])=>!['contextType','events'].includes(k))));collect(doc.matches);collect(doc.lets??doc.letBindings);collect(doc.styles);}
    function collectDefinition(name,seen=new Set()) { if(seen.has(name))return;seen.add(name);const definition=linked.definitions[name];if(!definition)return;usedDefinitions.add(name);collect(definition);function nested(v){if(v?.type)collectDefinition(v.type,seen);if(v&&typeof v==='object')Object.values(v).forEach(nested);}nested(definition); }
    collectDefinition(node.type);
    if(!layoutTypes.has(node.type)){
@@ -204,6 +204,7 @@ export function generateForm(files,entry,{state={},measureText}={}) {
  };
  const p=props=>`::forma::form_document::props(vec![${Object.entries(props).filter(([k])=>!['context','contextType'].includes(k)).map(([k,value])=>`(${rustString(k)},${v(value)})`).join(',')}])`;
  const metadata=node=>({...node.props,...(node.forward?.length?{__forward:node.forward}:{}),
+   ...(node.styles?.length?{__styles:node.styles}:{}),
    ...((node.matches??[]).length?{__matches:node.matches.map(m=>({match:m.match,branches:m.branches.map(b=>({pattern:b.pattern,value:b.props}))}))}:{}),
    ...(node.eventArgs?{__event_args:node.eventArgs}:{}),
    ...(node.__formIndex!==undefined?{__node:node.__formIndex}:{}),...(node.__formIndex===0?{__scope:definitionDefaults({...doc,defaults:Object.fromEntries(Object.entries(doc.defaults).filter(([k])=>!['contextType','events'].includes(k)))})}:{})});
@@ -216,7 +217,18 @@ export function generateForm(files,entry,{state={},measureText}={}) {
    if(scene&&!layoutTypes.has(node.type)&&!['If','For','Else','Empty'].includes(node.type)&&!node.props?.key)props.key='__generated_'+node.__formIndex;
    return `N {kind:${rustString(node.type)}.into(),props: ${p(props)},children:vec![${children.map(c=>n(c,scene)).join(',')}],action:${node.events?.clicked?`Some(${rustString(scene?'actions.'+node.events.clicked.split('.').at(-1):node.events.clicked)}.into())`:'None'}}`;
  };
- const definitionDefaults=d=>({...d.defaults,...(Object.keys(d.propDefinitions??{}).length?{__contracts:d.propDefinitions}:{}),...(Object.keys(d.enums??{}).length?{__enums:d.enums}:{}),...((d.matches??[]).length?{__matches:d.matches.map(m=>({match:m.match,branches:m.branches.map(b=>({pattern:b.pattern,value:b.props}))}))}:{})});
+ const definitionDefaults=d=>{
+   const mergedEnums={...(d.enums??{}),...(d.structs??{})};
+   const lets=d.lets??d.letBindings;
+   return {...d.defaults,
+     ...(Object.keys(d.propDefinitions??{}).length?{__contracts:d.propDefinitions}:{}),
+     ...(Object.keys(mergedEnums).length?{__enums:mergedEnums}:{}),
+     ...(Object.keys(d.tokens??{}).length?{__tokens:d.tokens}:{}),
+     ...(Object.keys(d.i18n??{}).length?{__i18n:d.i18n}:{}),
+     ...(Object.keys(lets??{}).length?{__lets:lets}:{}),
+     ...(Object.keys(d.styles??{}).length?{__styles:d.styles}:{}),
+     ...((d.matches??[]).length?{__matches:d.matches.map(m=>({match:m.match,branches:m.branches.map(b=>({pattern:b.pattern,value:b.props}))}))}:{})};
+ };
 
  const images=Object.entries(files).filter(([name])=>name.endsWith('.svg')).map(([name,source])=>{
    const view=source.match(/viewBox\s*=\s*['"]([^'"]+)['"]/)?.[1].trim().split(/[\s,]+/).map(Number);

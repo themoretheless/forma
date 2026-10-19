@@ -191,12 +191,34 @@ fn eval_mode(
                 let result = eval(&v, scope, state, stack);
                 stack.pop();
                 result?
+            } else if let Some(key) = path.strip_prefix("tokens.") {
+                match scope.get("__tokens") {
+                    Some(Value::Object(tokens)) => lookup(tokens, key)
+                        .ok_or_else(|| format!("Unknown token {path}"))?,
+                    _ => return Err(format!("Unknown token {path}")),
+                }
+            } else if let Some(key) = path.strip_prefix("i18n.") {
+                match scope.get("__i18n") {
+                    Some(Value::Object(i18n)) => lookup(i18n, key)
+                        .ok_or_else(|| format!("Unknown i18n key {path}"))?,
+                    _ => return Err(format!("Unknown i18n key {path}")),
+                }
             } else if let Some(key) = path.strip_prefix("state.") {
                 lookup(state, key).ok_or_else(|| format!("Missing state.{key}"))?
             } else if path == "null" {
                 Value::Null
-            } else if let Some(value) = enum_value(path, scope).or_else(|| lookup(state, path)) {
-                value
+            } else if let Some(value) = enum_value(path, scope)
+                .or_else(|| lookup(state, path))
+                .or_else(|| match scope.get("__lets") {
+                    Some(Value::Object(lets)) => lookup(lets, path),
+                    _ => None,
+                })
+            {
+                if matches!(value, Value::Expression(_) | Value::Expr(_) | Value::Interpolation(_) | Value::Match(..)) {
+                    eval(&value, scope, state, stack)?
+                } else {
+                    value
+                }
             } else if path.split_once('.').is_some_and(|(head,_)| matches!(scope.get("__enums"),Some(Value::Object(enums)) if enums.contains_key(head))) {
                 return Err(format!("Unknown enum variant {path}"));
             } else if path
@@ -238,6 +260,21 @@ fn eval_mode(
                                 "??" => right,
                                 "==" | "===" => Value::Bool(left == right),
                                 "!=" | "!==" => Value::Bool(left != right),
+                                ".." | "..=" => {
+                                    let st = expression_number(&left)? as i64;
+                                    let en = expression_number(&right)? as i64;
+                                    let inclusive = operator == "..=";
+                                    let count = if inclusive { en - st + 1 } else { en - st };
+                                    if count <= 0 {
+                                        Value::List(vec![])
+                                    } else if count > 4096 {
+                                        return Err("Range exceeds 4096 items".into());
+                                    } else if inclusive {
+                                        Value::List((st..=en).map(|i| number(i as f64)).collect())
+                                    } else {
+                                        Value::List((st..en).map(|i| number(i as f64)).collect())
+                                    }
+                                }
                                 "+" if matches!(left, Value::Text(_))
                                     && matches!(right, Value::Text(_)) =>
                                 {
@@ -320,11 +357,26 @@ fn eval_mode(
                     }
                 }
                 Expression::Call(name, arguments) => {
-                    let arguments = arguments
-                        .iter()
-                        .map(|value| evaluate(value, false))
-                        .collect::<Result<Vec<_>, _>>()?;
-                    call(name, &arguments)?
+                    if name == "coalesce" {
+                        if arguments.is_empty() {
+                            return Err("coalesce expects at least one argument".into());
+                        }
+                        let mut found = Value::Null;
+                        for arg in arguments {
+                            let val = evaluate(arg, true)?;
+                            if val != Value::Null {
+                                found = val;
+                                break;
+                            }
+                        }
+                        found
+                    } else {
+                        let arguments = arguments
+                            .iter()
+                            .map(|value| evaluate(value, false))
+                            .collect::<Result<Vec<_>, _>>()?;
+                        call(name, &arguments)?
+                    }
                 }
             }
         }
@@ -388,6 +440,44 @@ fn optional_result(result: Result<Value, String>) -> Result<Value, String> {
         result => result,
     }
 }
+fn parse_hex_color(value: &Value) -> Result<(u8, u8, u8, u8), String> {
+    let raw = value.text()?;
+    let s = raw
+        .trim()
+        .strip_prefix('#')
+        .ok_or("Color function expects a hex color (#rgb, #rrggbb, or #rrggbbaa)")?;
+    let hex = |slice: &str| {
+        u8::from_str_radix(slice, 16).map_err(|_| String::from("Invalid hex color"))
+    };
+    match s.len() {
+        3 => {
+            let r = hex(&s[0..1])?;
+            let g = hex(&s[1..2])?;
+            let b = hex(&s[2..3])?;
+            Ok((r * 17, g * 17, b * 17, 255))
+        }
+        6 => Ok((hex(&s[0..2])?, hex(&s[2..4])?, hex(&s[4..6])?, 255)),
+        8 => Ok((
+            hex(&s[0..2])?,
+            hex(&s[2..4])?,
+            hex(&s[4..6])?,
+            hex(&s[6..8])?,
+        )),
+        _ => Err("Color function expects #rgb, #rrggbb, or #rrggbbaa".into()),
+    }
+}
+fn format_hex_color(r: u8, g: u8, b: u8, a: u8, as_expr: bool) -> Value {
+    let s = if a == 255 {
+        format!("#{r:02x}{g:02x}{b:02x}")
+    } else {
+        format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
+    };
+    if as_expr {
+        Value::Expr(s)
+    } else {
+        Value::Text(s)
+    }
+}
 fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
     let unary = |f: fn(f64) -> f64| -> Result<Value, String> {
         if arguments.len() != 1 {
@@ -404,6 +494,64 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
         "floor" => unary(f64::floor),
         "ceil" => unary(f64::ceil),
         "round" => unary(|v| (v + 0.5).floor()),
+        "sqrt" if arguments.len() == 1 => {
+            let n = expression_number(&arguments[0])?;
+            if n < 0. {
+                return Err("sqrt expects a non-negative number".into());
+            }
+            Ok(number(n.sqrt()))
+        }
+        "sign" if arguments.len() == 1 => {
+            let n = expression_number(&arguments[0])?;
+            Ok(number(if n == 0. { 0. } else { n.signum() }))
+        }
+        "pow" if arguments.len() == 2 => {
+            let res = expression_number(&arguments[0])?.powf(expression_number(&arguments[1])?);
+            if !res.is_finite() {
+                return Err("pow produced a non-finite number".into());
+            }
+            Ok(number(res))
+        }
+        "lerp" if arguments.len() == 3 => {
+            let a = expression_number(&arguments[0])?;
+            let b = expression_number(&arguments[1])?;
+            let t = expression_number(&arguments[2])?;
+            Ok(number(a + (b - a) * t))
+        }
+        "remap" if arguments.len() == 5 => {
+            let v = expression_number(&arguments[0])?;
+            let i0 = expression_number(&arguments[1])?;
+            let i1 = expression_number(&arguments[2])?;
+            let o0 = expression_number(&arguments[3])?;
+            let o1 = expression_number(&arguments[4])?;
+            if (i1 - i0).abs() < f64::EPSILON {
+                return Err("remap input range cannot be zero".into());
+            }
+            Ok(number(o0 + ((v - i0) / (i1 - i0)) * (o1 - o0)))
+        }
+        "avg" if arguments.len() == 1 => {
+            let Value::List(items) = &arguments[0] else {
+                return Err("avg expects a list of numbers".into());
+            };
+            if items.is_empty() {
+                return Ok(number(0.));
+            }
+            let mut total = 0.;
+            for item in items {
+                total += expression_number(item)?;
+            }
+            Ok(number(total / items.len() as f64))
+        }
+        "sum" if arguments.len() == 1 => {
+            let Value::List(items) = &arguments[0] else {
+                return Err("sum expects a list of numbers".into());
+            };
+            let mut total = 0.;
+            for item in items {
+                total += expression_number(item)?;
+            }
+            Ok(number(total))
+        }
         "min" | "max" if !arguments.is_empty() => {
             let values = arguments
                 .iter()
@@ -419,8 +567,22 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
         "len" if arguments.len() == 1 => Ok(number(match &arguments[0] {
             Value::List(v) => v.len(),
             Value::Text(v) => v.encode_utf16().count(),
-            _ => return Err(format!("{name} expects a list or string")),
+            Value::Object(v) => v.len(),
+            _ => return Err(format!("{name} expects a list, string, or object")),
         } as f64)),
+        "count" if arguments.len() == 1 => {
+            let Value::List(v) = &arguments[0] else {
+                return Err("count expects a list".into());
+            };
+            Ok(number(v.len() as f64))
+        }
+        "isEmpty" if arguments.len() == 1 => Ok(Value::Bool(match &arguments[0] {
+            Value::Null => true,
+            Value::Text(s) => s.trim().is_empty(),
+            Value::List(a) => a.is_empty(),
+            Value::Object(o) => o.is_empty(),
+            _ => false,
+        })),
         "String" if arguments.len() == 1 => Ok(Value::Text(arguments[0].text()?)),
         "Number" if arguments.len() == 1 => {
             let value = match &arguments[0] {
@@ -447,6 +609,634 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
             }
             Ok(number(v.clamp(min, max)))
         }
+        "trim" if arguments.len() == 1 => Ok(Value::Text(arguments[0].text()?.trim().into())),
+        "upper" if arguments.len() == 1 => Ok(Value::Text(arguments[0].text()?.to_uppercase())),
+        "lower" if arguments.len() == 1 => Ok(Value::Text(arguments[0].text()?.to_lowercase())),
+        "capitalize" if arguments.len() == 1 => {
+            let s = arguments[0].text()?;
+            let mut chars = s.chars();
+            let out = match chars.next() {
+                Some(first) => {
+                    first.to_uppercase().collect::<String>() + &chars.as_str().to_lowercase()
+                }
+                None => String::new(),
+            };
+            Ok(Value::Text(out))
+        }
+        "padStart" | "padEnd" if arguments.len() == 2 || arguments.len() == 3 => {
+            let s = arguments[0].text()?;
+            let target = (expression_number(&arguments[1])?.max(0.) as usize).min(4096);
+            let pad = if arguments.len() == 3 {
+                arguments[2].text()?
+            } else {
+                " ".into()
+            };
+            let cur = s.chars().count();
+            if cur >= target || pad.is_empty() {
+                return Ok(Value::Text(s));
+            }
+            let needed = target - cur;
+            let pad_chars: Vec<char> = pad.chars().collect();
+            let fill: String = (0..needed)
+                .map(|i| pad_chars[i % pad_chars.len()])
+                .collect();
+            Ok(Value::Text(if name == "padStart" {
+                format!("{fill}{s}")
+            } else {
+                format!("{s}{fill}")
+            }))
+        }
+        "truncate" if arguments.len() == 2 || arguments.len() == 3 => {
+            let s = arguments[0].text()?;
+            let max_len = expression_number(&arguments[1])?.max(0.) as usize;
+            let suffix = if arguments.len() == 3 {
+                arguments[2].text()?
+            } else {
+                "…".into()
+            };
+            let chars: Vec<char> = s.chars().collect();
+            if chars.len() <= max_len {
+                Ok(Value::Text(s))
+            } else {
+                let sfx_len = suffix.chars().count();
+                let keep = max_len.saturating_sub(sfx_len);
+                let prefix: String = chars[..keep].iter().collect();
+                Ok(Value::Text(format!("{prefix}{suffix}")))
+            }
+        }
+        "repeat" if arguments.len() == 2 => {
+            let s = arguments[0].text()?;
+            let n = expression_number(&arguments[1])?.max(0.) as usize;
+            if s.len().saturating_mul(n) > 65536 {
+                return Err("repeat exceeds maximum string length".into());
+            }
+            Ok(Value::Text(s.repeat(n)))
+        }
+        "contains" | "includes" if arguments.len() == 2 => match &arguments[0] {
+            Value::Text(s) => Ok(Value::Bool(s.contains(&arguments[1].text()?))),
+            Value::List(a) => Ok(Value::Bool(a.iter().any(|x| x == &arguments[1]))),
+            _ => Err(format!("{name} expects a string or list")),
+        },
+        "indexOf" if arguments.len() == 2 => match &arguments[0] {
+            Value::Text(s) => {
+                let sub = arguments[1].text()?;
+                let idx = s
+                    .find(&sub)
+                    .map(|byte_idx| s[..byte_idx].chars().count() as i64)
+                    .unwrap_or(-1);
+                Ok(number(idx as f64))
+            }
+            Value::List(a) => {
+                let idx = a
+                    .iter()
+                    .position(|x| x == &arguments[1])
+                    .map(|i| i as i64)
+                    .unwrap_or(-1);
+                Ok(number(idx as f64))
+            }
+            _ => Err("indexOf expects a string or list".into()),
+        },
+        "startsWith" if arguments.len() == 2 => Ok(Value::Bool(
+            arguments[0].text()?.starts_with(&arguments[1].text()?),
+        )),
+        "endsWith" if arguments.len() == 2 => Ok(Value::Bool(
+            arguments[0].text()?.ends_with(&arguments[1].text()?),
+        )),
+        "replace" if arguments.len() == 3 => Ok(Value::Text(
+            arguments[0]
+                .text()?
+                .replace(&arguments[1].text()?, &arguments[2].text()?),
+        )),
+        "slice" if arguments.len() == 2 || arguments.len() == 3 => {
+            let start = expression_number(&arguments[1])? as isize;
+            let end = if arguments.len() == 3 {
+                Some(expression_number(&arguments[2])? as isize)
+            } else {
+                None
+            };
+            let norm = |idx: isize, len: usize| -> usize {
+                if idx < 0 {
+                    len.saturating_sub(idx.unsigned_abs())
+                } else {
+                    (idx as usize).min(len)
+                }
+            };
+            match &arguments[0] {
+                Value::Text(s) => {
+                    let chars: Vec<char> = s.chars().collect();
+                    let len = chars.len();
+                    let st = norm(start, len);
+                    let en = norm(end.unwrap_or(len as isize), len).max(st);
+                    Ok(Value::Text(chars[st..en].iter().collect()))
+                }
+                Value::List(a) => {
+                    let len = a.len();
+                    let st = norm(start, len);
+                    let en = norm(end.unwrap_or(len as isize), len).max(st);
+                    Ok(Value::List(a[st..en].to_vec()))
+                }
+                _ => Err("slice expects a string or list".into()),
+            }
+        }
+        "split" if arguments.len() == 2 => {
+            let s = arguments[0].text()?;
+            let sep = arguments[1].text()?;
+            Ok(Value::List(
+                s.split(&sep).map(|p| Value::Text(p.into())).collect(),
+            ))
+        }
+        "join" if arguments.len() == 1 || arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("join expects a list".into());
+            };
+            let sep = if arguments.len() == 2 {
+                arguments[1].text()?
+            } else {
+                ", ".into()
+            };
+            let parts = a.iter().map(Value::text).collect::<Result<Vec<_>, _>>()?;
+            Ok(Value::Text(parts.join(&sep)))
+        }
+        "reverse" if arguments.len() == 1 => match &arguments[0] {
+            Value::List(a) => {
+                let mut v = a.clone();
+                v.reverse();
+                Ok(Value::List(v))
+            }
+            Value::Text(s) => Ok(Value::Text(s.chars().rev().collect())),
+            _ => Err("reverse expects a list or string".into()),
+        },
+        "take" if arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("take expects a list".into());
+            };
+            let n = expression_number(&arguments[1])?.max(0.) as usize;
+            Ok(Value::List(a.iter().take(n).cloned().collect()))
+        }
+        "skip" if arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("skip expects a list".into());
+            };
+            let n = expression_number(&arguments[1])?.max(0.) as usize;
+            Ok(Value::List(a.iter().skip(n).cloned().collect()))
+        }
+        "range" if arguments.len() == 2 => {
+            let st = expression_number(&arguments[0])? as i64;
+            let en = expression_number(&arguments[1])? as i64;
+            if en < st {
+                return Ok(Value::List(vec![]));
+            }
+            if en - st > 4096 {
+                return Err("range exceeds 4096 items".into());
+            }
+            Ok(Value::List((st..en).map(|i| number(i as f64)).collect()))
+        }
+        "formatNumber" if arguments.len() == 1 || arguments.len() == 2 => {
+            let n = expression_number(&arguments[0])?;
+            if arguments.len() == 2 {
+                let dec = (expression_number(&arguments[1])?.max(0.) as usize).min(12);
+                Ok(Value::Text(format!("{n:.dec$}")))
+            } else {
+                Ok(Value::Text(if n == 0. { "0".into() } else { n.to_string() }))
+            }
+        }
+        "unique" if arguments.len() == 1 || arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("unique expects a list".into());
+            };
+            let key = if arguments.len() == 2 {
+                Some(arguments[1].text()?)
+            } else {
+                None
+            };
+            let mut out: Vec<Value> = Vec::new();
+            for item in a {
+                let k = match (&key, item) {
+                    (Some(f), Value::Object(o)) => o.get(f).unwrap_or(&Value::Null),
+                    (Some(_), _) => &Value::Null,
+                    (None, _) => item,
+                };
+                let exists = out.iter().any(|existing| {
+                    let ek = match (&key, existing) {
+                        (Some(f), Value::Object(o)) => o.get(f).unwrap_or(&Value::Null),
+                        (Some(_), _) => &Value::Null,
+                        (None, _) => existing,
+                    };
+                    ek == k
+                });
+                if !exists {
+                    out.push(item.clone());
+                }
+            }
+            Ok(Value::List(out))
+        }
+        "find" if arguments.len() == 3 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("find expects a list".into());
+            };
+            let key = arguments[1].text()?;
+            let target = &arguments[2];
+            let found = a
+                .iter()
+                .find(|item| matches!(item, Value::Object(o) if o.get(&key) == Some(target)))
+                .cloned()
+                .unwrap_or(Value::Null);
+            Ok(found)
+        }
+        "compact" if arguments.len() == 1 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("compact expects a list".into());
+            };
+            Ok(Value::List(
+                a.iter()
+                    .filter(|v| {
+                        **v != Value::Null
+                            && **v != Value::Bool(false)
+                            && **v != Value::Text(String::new())
+                    })
+                    .cloned()
+                    .collect(),
+            ))
+        }
+        "flatten" if arguments.len() == 1 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("flatten expects a list".into());
+            };
+            let mut out = Vec::with_capacity(a.len());
+            for item in a {
+                if let Value::List(sub) = item {
+                    out.extend(sub.iter().cloned());
+                } else {
+                    out.push(item.clone());
+                }
+            }
+            Ok(Value::List(out))
+        }
+        "chunk" if arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("chunk expects a list".into());
+            };
+            let sz = expression_number(&arguments[1])? as usize;
+            if sz == 0 {
+                return Err("chunk size must be positive".into());
+            }
+            Ok(Value::List(
+                a.chunks(sz).map(|c| Value::List(c.to_vec())).collect(),
+            ))
+        }
+        "zip" if arguments.len() == 2 => {
+            let (Value::List(a), Value::List(b)) = (&arguments[0], &arguments[1]) else {
+                return Err("zip expects two lists".into());
+            };
+            Ok(Value::List(
+                a.iter()
+                    .zip(b.iter())
+                    .map(|(x, y)| Value::List(vec![x.clone(), y.clone()]))
+                    .collect(),
+            ))
+        }
+        "first" if arguments.len() == 1 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("first expects a list".into());
+            };
+            Ok(a.first().cloned().unwrap_or(Value::Null))
+        }
+        "last" if arguments.len() == 1 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("last expects a list".into());
+            };
+            Ok(a.last().cloned().unwrap_or(Value::Null))
+        }
+        "groupBy" if arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("groupBy expects a list".into());
+            };
+            let key = arguments[1].text()?;
+            let mut groups: Vec<(Value, Vec<Value>)> = Vec::new();
+            for item in a {
+                let k = match item {
+                    Value::Object(o) => o.get(&key).cloned().unwrap_or(Value::Null),
+                    _ => Value::Null,
+                };
+                if let Some((_, items)) = groups.iter_mut().find(|(gk, _)| gk == &k) {
+                    items.push(item.clone());
+                } else {
+                    groups.push((k, vec![item.clone()]));
+                }
+            }
+            Ok(Value::List(
+                groups
+                    .into_iter()
+                    .map(|(k, items)| {
+                        Value::Object(props(vec![("key", k), ("items", Value::List(items))]))
+                    })
+                    .collect(),
+            ))
+        }
+        "pluck" if arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("pluck expects a list".into());
+            };
+            let key = arguments[1].text()?;
+            Ok(Value::List(
+                a.iter()
+                    .map(|item| match item {
+                        Value::Object(o) => o.get(&key).cloned().unwrap_or(Value::Null),
+                        _ => Value::Null,
+                    })
+                    .collect(),
+            ))
+        }
+        "sortBy" if arguments.len() == 1 || arguments.len() == 2 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("sortBy expects a list".into());
+            };
+            let key = if arguments.len() == 2 {
+                Some(arguments[1].text()?)
+            } else {
+                None
+            };
+            let mut v = a.clone();
+            v.sort_by(|x, y| {
+                let kx = match (&key, x) {
+                    (Some(f), Value::Object(o)) => o.get(f).unwrap_or(&Value::Null),
+                    (Some(_), _) => &Value::Null,
+                    (None, _) => x,
+                };
+                let ky = match (&key, y) {
+                    (Some(f), Value::Object(o)) => o.get(f).unwrap_or(&Value::Null),
+                    (Some(_), _) => &Value::Null,
+                    (None, _) => y,
+                };
+                match (kx, ky) {
+                    (Value::Text(a), Value::Text(b)) => a.cmp(b),
+                    (Value::Number(a), Value::Number(b)) => {
+                        a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)
+                    }
+                    _ => std::cmp::Ordering::Equal,
+                }
+            });
+            Ok(Value::List(v))
+        }
+        "any" if arguments.len() == 1 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("any expects a list".into());
+            };
+            let mut res = false;
+            for item in a {
+                if item.boolean()? {
+                    res = true;
+                    break;
+                }
+            }
+            Ok(Value::Bool(res))
+        }
+        "all" if arguments.len() == 1 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("all expects a list".into());
+            };
+            let mut res = true;
+            for item in a {
+                if !item.boolean()? {
+                    res = false;
+                    break;
+                }
+            }
+            Ok(Value::Bool(res))
+        }
+        "keys" if arguments.len() == 1 => {
+            let Value::Object(o) = &arguments[0] else {
+                return Err("keys expects an object".into());
+            };
+            Ok(Value::List(o.keys().map(|k| Value::Text(k.clone())).collect()))
+        }
+        "values" if arguments.len() == 1 => {
+            let Value::Object(o) = &arguments[0] else {
+                return Err("values expects an object".into());
+            };
+            Ok(Value::List(o.values().cloned().collect()))
+        }
+        "entries" if arguments.len() == 1 => {
+            let Value::Object(o) = &arguments[0] else {
+                return Err("entries expects an object".into());
+            };
+            Ok(Value::List(
+                o.iter()
+                    .map(|(k, v)| Value::List(vec![Value::Text(k.clone()), v.clone()]))
+                    .collect(),
+            ))
+        }
+        "fromEntries" if arguments.len() == 1 => {
+            let Value::List(a) = &arguments[0] else {
+                return Err("fromEntries expects a list of pairs".into());
+            };
+            let mut out = Properties::new();
+            for item in a {
+                match item {
+                    Value::List(pair) if pair.len() == 2 => {
+                        out.insert(pair[0].text()?, pair[1].clone());
+                    }
+                    Value::Object(obj)
+                        if obj.contains_key("key") && obj.contains_key("value") =>
+                    {
+                        out.insert(obj["key"].text()?, obj["value"].clone());
+                    }
+                    _ => return Err("fromEntries expects [key, value] pairs".into()),
+                }
+            }
+            Ok(Value::Object(out))
+        }
+        "merge" if arguments.len() >= 2 => {
+            let mut out = Properties::new();
+            for arg in arguments {
+                let Value::Object(o) = arg else {
+                    return Err("merge expects objects".into());
+                };
+                out.extend(o.clone());
+            }
+            Ok(Value::Object(out))
+        }
+        "pick" | "omit" if arguments.len() == 2 => {
+            let Value::Object(o) = &arguments[0] else {
+                return Err(format!("{name} expects an object"));
+            };
+            let Value::List(ks) = &arguments[1] else {
+                return Err(format!("{name} expects a list of keys"));
+            };
+            let mut key_set = std::collections::BTreeSet::new();
+            for k in ks {
+                key_set.insert(k.text()?);
+            }
+            let mut out = Properties::new();
+            for (k, v) in o {
+                let hit = key_set.contains(k);
+                if (name == "pick" && hit) || (name == "omit" && !hit) {
+                    out.insert(k.clone(), v.clone());
+                }
+            }
+            Ok(Value::Object(out))
+        }
+        "plural" if arguments.len() == 3 || arguments.len() == 4 => {
+            let n = expression_number(&arguments[0])?;
+            if arguments.len() == 3 {
+                let idx = if n.abs() == 1. { 1 } else { 2 };
+                Ok(Value::Text(arguments[idx].text()?))
+            } else {
+                let abs_int = (n.abs().trunc() as i64).abs();
+                let mod10 = abs_int % 10;
+                let mod100 = abs_int % 100;
+                let idx = if n.fract() != 0. {
+                    2
+                } else if mod10 == 1 && mod100 != 11 {
+                    1
+                } else if (2..=4).contains(&mod10) && !(12..=14).contains(&mod100) {
+                    2
+                } else {
+                    3
+                };
+                Ok(Value::Text(arguments[idx].text()?))
+            }
+        }
+        "isValid" if arguments.len() == 2 || arguments.len() == 3 => {
+            if arguments.len() == 3 {
+                let min = expression_number(&arguments[1])?;
+                let max = expression_number(&arguments[2])?;
+                let ok = match &arguments[0] {
+                    Value::Number(n) => *n >= min && *n <= max,
+                    Value::Text(s) => {
+                        let len = s.chars().count() as f64;
+                        len >= min && len <= max
+                    }
+                    Value::List(a) => {
+                        let len = a.len() as f64;
+                        len >= min && len <= max
+                    }
+                    _ => false,
+                };
+                Ok(Value::Bool(ok))
+            } else {
+                let pat = arguments[1].text()?;
+                let s = arguments[0].text()?;
+                Ok(Value::Bool(
+                    themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat),
+                ))
+            }
+        }
+        "alpha" if arguments.len() == 2 => {
+            let (r, g, b, _) = parse_hex_color(&arguments[0])?;
+            let a = (expression_number(&arguments[1])?.clamp(0., 1.) * 255.).round() as u8;
+            Ok(format_hex_color(
+                r,
+                g,
+                b,
+                a,
+                matches!(arguments[0], Value::Expr(_)),
+            ))
+        }
+        "lighten" | "darken" if arguments.len() == 2 => {
+            let (r, g, b, a) = parse_hex_color(&arguments[0])?;
+            let amt = expression_number(&arguments[1])?.clamp(0., 1.);
+            let shift = |c: u8| -> u8 {
+                if name == "lighten" {
+                    (c as f64 + (255. - c as f64) * amt).round() as u8
+                } else {
+                    (c as f64 * (1. - amt)).round() as u8
+                }
+            };
+            Ok(format_hex_color(
+                shift(r),
+                shift(g),
+                shift(b),
+                a,
+                matches!(arguments[0], Value::Expr(_)),
+            ))
+        }
+        "saturate" | "desaturate" if arguments.len() == 2 => {
+            let (r, g, b, a) = parse_hex_color(&arguments[0])?;
+            let amt = expression_number(&arguments[1])?.clamp(0., 1.);
+            let (rf, gf, bf) = (r as f64 / 255., g as f64 / 255., b as f64 / 255.);
+            let max = rf.max(gf).max(bf);
+            let min = rf.min(gf).min(bf);
+            let l = (max + min) * 0.5;
+            if (max - min).abs() < f64::EPSILON {
+                Ok(format_hex_color(
+                    r,
+                    g,
+                    b,
+                    a,
+                    matches!(arguments[0], Value::Expr(_)),
+                ))
+            } else {
+                let d = max - min;
+                let s = if l > 0.5 {
+                    d / (2. - max - min)
+                } else {
+                    d / (max + min)
+                };
+                let new_s = if name == "saturate" {
+                    (s + (1. - s) * amt).clamp(0., 1.)
+                } else {
+                    (s * (1. - amt)).clamp(0., 1.)
+                };
+                let factor = if s > 0. { new_s / s } else { 0. };
+                let adj = |c: f64| ((l + (c - l) * factor).clamp(0., 1.) * 255.).round() as u8;
+                Ok(format_hex_color(
+                    adj(rf),
+                    adj(gf),
+                    adj(bf),
+                    a,
+                    matches!(arguments[0], Value::Expr(_)),
+                ))
+            }
+        }
+        "invert" if arguments.len() == 1 => {
+            let (r, g, b, a) = parse_hex_color(&arguments[0])?;
+            Ok(format_hex_color(
+                255 - r,
+                255 - g,
+                255 - b,
+                a,
+                matches!(arguments[0], Value::Expr(_)),
+            ))
+        }
+        "contrast" if arguments.len() == 2 => {
+            let (r1, g1, b1, _) = parse_hex_color(&arguments[0])?;
+            let (r2, g2, b2, _) = parse_hex_color(&arguments[1])?;
+            let lum = |r: u8, g: u8, b: u8| -> f64 {
+                let ch = |c: u8| -> f64 {
+                    let s = c as f64 / 255.;
+                    if s <= 0.03928 {
+                        s / 12.92
+                    } else {
+                        ((s + 0.055) / 1.055).powf(2.4)
+                    }
+                };
+                0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+            };
+            let l1 = lum(r1, g1, b1);
+            let l2 = lum(r2, g2, b2);
+            let ratio = (l1.max(l2) + 0.05) / (l1.min(l2) + 0.05);
+            Ok(number((ratio * 100.).round() / 100.))
+        }
+        "mix" if arguments.len() == 2 || arguments.len() == 3 => {
+            let (r1, g1, b1, a1) = parse_hex_color(&arguments[0])?;
+            let (r2, g2, b2, a2) = parse_hex_color(&arguments[1])?;
+            let w = if arguments.len() == 3 {
+                expression_number(&arguments[2])?.clamp(0., 1.)
+            } else {
+                0.5
+            };
+            let lerp = |c1: u8, c2: u8| -> u8 {
+                (c1 as f64 * (1. - w) + c2 as f64 * w).round() as u8
+            };
+            Ok(format_hex_color(
+                lerp(r1, r2),
+                lerp(g1, g2),
+                lerp(b1, b2),
+                lerp(a1, a2),
+                matches!(arguments[0], Value::Expr(_)) || matches!(arguments[1], Value::Expr(_)),
+            ))
+        }
         _ => Err(format!("Unknown function or invalid arguments: {name}")),
     }
 }
@@ -459,6 +1249,32 @@ fn pattern_matches(
 ) -> Result<bool, String> {
     if matches!(pattern,Value::Expr(v) if v=="_") {
         return Ok(true);
+    }
+    if let Value::Object(obj) = pattern {
+        if let Some(Value::List(alts)) = obj.get("or") {
+            for alt in alts {
+                if pattern_matches(alt, value, scope, state, stack)? {
+                    return Ok(true);
+                }
+            }
+            return Ok(false);
+        }
+    }
+    if let Value::Expression(expr) = pattern {
+        if let Expression::Binary(op, left, right) = expr.as_ref() {
+            if op == ".." || op == "..=" {
+                let lo = expression_number(&eval(left, scope, state, stack)?)?;
+                let hi = expression_number(&eval(right, scope, state, stack)?)?;
+                let Value::Number(vn) = value else {
+                    return Ok(false);
+                };
+                return Ok(if op == "..=" {
+                    *vn >= lo && *vn <= hi
+                } else {
+                    *vn >= lo && *vn < hi
+                });
+            }
+        }
     }
     if let Value::List(patterns) = pattern {
         let Value::List(values) = value else {
@@ -940,6 +1756,18 @@ fn select_groups(
 }
 fn property_values(n: &Node, scope: &Properties, state: &Properties) -> Result<Properties, String> {
     let mut result = Properties::new();
+    if let Some(Value::List(styles)) = n.props.get("__styles") {
+        let Some(Value::Object(style_defs)) = scope.get("__styles") else {
+            return Err("Unknown applied style".into());
+        };
+        for style_name in styles {
+            let name = style_name.text()?;
+            let Some(Value::Object(style_props)) = style_defs.get(&name) else {
+                return Err(format!("Unknown applied style {name}"));
+            };
+            result.extend(style_props.clone());
+        }
+    }
     if let Some(Value::List(forward)) = n.props.get("__forward") {
         for name in forward {
             let name = name.text()?;
@@ -953,7 +1781,7 @@ fn property_values(n: &Node, scope: &Properties, state: &Properties) -> Result<P
     result.extend(
         n.props
             .iter()
-            .filter(|(key, _)| !["__matches", "__forward", "__scope"].contains(&key.as_str()))
+            .filter(|(key, _)| !["__matches", "__forward", "__scope", "__styles"].contains(&key.as_str()))
             .map(|(key, value)| (key.clone(), value.clone())),
     );
     Ok(result)
@@ -973,6 +1801,209 @@ fn valid_unit(value: &str, units: &[&str]) -> bool {
         })
     })
 }
+fn valid_signed_unit(value: &str, units: &[&str]) -> bool {
+    let value = value
+        .strip_prefix('-')
+        .or_else(|| value.strip_prefix('+'))
+        .unwrap_or(value);
+    valid_unit(value, units)
+}
+fn split_top_level(s: &str, sep: u8) -> Option<Vec<&str>> {
+    let mut depth = 0i32;
+    let mut parts = Vec::new();
+    let mut last = 0usize;
+    let bytes = s.as_bytes();
+    for (i, &b) in bytes.iter().enumerate() {
+        if b == b'<' {
+            depth += 1;
+        } else if b == b'>' {
+            depth -= 1;
+        } else if b == sep && depth == 0 {
+            parts.push(s[last..i].trim());
+            last = i + 1;
+        }
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        parts.push(s[last..].trim());
+        Some(parts)
+    }
+}
+fn validate_contract_type_name(ty: &str, enums: Option<&Value>) -> Result<(), String> {
+    let ty = ty.trim();
+    if let Some(parts) = split_top_level(ty, b'|') {
+        for p in parts {
+            validate_contract_type_name(p, enums)?;
+        }
+        return Ok(());
+    }
+    let name = ty.strip_suffix('?').unwrap_or(ty).trim();
+    if let Some(inner) = name.strip_prefix("List<").and_then(|s| s.strip_suffix('>')) {
+        return validate_contract_type_name(inner, enums);
+    }
+    if let Some(inner) = name.strip_prefix("Map<").and_then(|s| s.strip_suffix('>')) {
+        return validate_contract_type_name(inner, enums);
+    }
+    if let Some(inner) = name
+        .strip_prefix("Record<")
+        .and_then(|s| s.strip_suffix('>'))
+    {
+        let Some(parts) = split_top_level(inner, b',') else {
+            return Err(format!("Unknown property type {ty}"));
+        };
+        if parts.len() != 2 {
+            return Err(format!("Unknown property type {ty}"));
+        }
+        validate_contract_type_name(parts[0], enums)?;
+        return validate_contract_type_name(parts[1], enums);
+    }
+    if [
+        "String", "Bool", "Boolean", "Number", "Int", "Float", "Color", "Length", "Duration",
+        "Angle", "Asset", "List", "Object", "Map", "Any",
+    ]
+    .contains(&name)
+    {
+        return Ok(());
+    }
+    if let Some(Value::Object(enums)) = enums {
+        if enums.contains_key(name) {
+            return Ok(());
+        }
+    }
+    Err(format!("Unknown property type {ty}"))
+}
+fn matches_contract_type(value: &Value, ty: &str, enums: Option<&Value>) -> bool {
+    let ty = ty.trim();
+    if let Some(parts) = split_top_level(ty, b'|') {
+        return parts
+            .into_iter()
+            .any(|p| matches_contract_type(value, p, enums));
+    }
+    if let Some(ty) = ty.strip_suffix('?') {
+        return value == &Value::Null || matches_contract_type(value, ty.trim(), enums);
+    }
+    if let Some(inner) = ty.strip_prefix("List<").and_then(|s| s.strip_suffix('>')) {
+        return matches!(value, Value::List(items) if items.iter().all(|v| matches_contract_type(v, inner, enums)));
+    }
+    if let Some(inner) = ty.strip_prefix("Map<").and_then(|s| s.strip_suffix('>')) {
+        return matches!(value, Value::Object(obj) if obj.values().all(|v| matches_contract_type(v, inner, enums)));
+    }
+    if let Some(inner) = ty
+        .strip_prefix("Record<")
+        .and_then(|s| s.strip_suffix('>'))
+    {
+        let Some(parts) = split_top_level(inner, b',') else {
+            return false;
+        };
+        if parts.len() != 2 {
+            return false;
+        }
+        let val_ty = parts[1];
+        return matches!(value, Value::Object(obj) if obj.values().all(|v| matches_contract_type(v, val_ty, enums)));
+    }
+    match ty {
+        "Any" => true,
+        "String" | "Asset" => matches!(value, Value::Text(_)),
+        "Color" => value.text().ok().is_some_and(|v| {
+            v.starts_with('#')
+                && [4, 7, 9].contains(&v.len())
+                && v[1..].bytes().all(|b| b.is_ascii_hexdigit())
+        }),
+        "Bool" | "Boolean" => matches!(value, Value::Bool(_)),
+        "Number" | "Float" => matches!(value, Value::Number(n) if n.is_finite()),
+        "Int" => {
+            matches!(value, Value::Number(n) if n.is_finite() && n.fract() == 0. && n.abs() <= 9_007_199_254_740_991.)
+        }
+        "Length" => {
+            matches!(value, Value::Number(n) if n.is_finite() && *n >= 0.)
+                || matches!(value, Value::Text(v) | Value::Expr(v) if valid_unit(v, &["px", "%", "rem", "em", "vw", "vh", "ch", "fr"]))
+        }
+        "Duration" => {
+            matches!(value, Value::Text(v) | Value::Expr(v) if valid_unit(v, &["ms", "s"]))
+        }
+        "Angle" => {
+            matches!(value, Value::Number(n) if n.is_finite())
+                || matches!(value, Value::Text(v) | Value::Expr(v) if valid_signed_unit(v, &["deg", "rad", "turn"]))
+        }
+        "List" => matches!(value, Value::List(_)),
+        "Object" | "Map" => matches!(value, Value::Object(_)),
+        _ => {
+            let Some(Value::Object(enums_map)) = enums else {
+                return false;
+            };
+            match enums_map.get(ty) {
+                Some(Value::List(variants)) => variants.iter().any(|v| {
+                    v.text()
+                        .ok()
+                        .map(|variant| Value::Text(format!("{ty}.{variant}")))
+                        == Some(value.clone())
+                }),
+                Some(Value::Object(fields)) => {
+                    let Value::Object(obj) = value else {
+                        return false;
+                    };
+                    fields.iter().all(|(field, fty)| {
+                        let Ok(fty) = fty.text() else {
+                            return false;
+                        };
+                        match obj.get(field) {
+                            Some(v) => matches_contract_type(v, &fty, enums),
+                            None => fty.ends_with('?'),
+                        }
+                    })
+                }
+                _ => false,
+            }
+        }
+    }
+}
+fn check_value_constraints(value: &Value, constraints: &Properties, label: &str) -> Result<(), String> {
+    if value == &Value::Null {
+        return Ok(());
+    }
+    if let Some(Value::List(range)) = constraints.get("range") {
+        if range.len() == 2 {
+            let empty = Properties::new();
+            let min = expression_number(&range[0].evaluate(&empty, &empty)?)?;
+            let max = expression_number(&range[1].evaluate(&empty, &empty)?)?;
+            match value {
+                Value::Number(n) if *n < min || *n > max => {
+                    return Err(format!(
+                        "Property {label} value {n} out of range {min}..={max}"
+                    ));
+                }
+                Value::Text(s) => {
+                    let len = s.chars().count() as f64;
+                    if len < min || len > max {
+                        return Err(format!(
+                            "Property {label} length {len} out of range {min}..={max}"
+                        ));
+                    }
+                }
+                Value::List(a) => {
+                    let len = a.len() as f64;
+                    if len < min || len > max {
+                        return Err(format!(
+                            "Property {label} length {len} out of range {min}..={max}"
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    if let Some(pat) = constraints.get("pattern") {
+        let pat = pat.text()?;
+        let s = value.text()?;
+        if !themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat) {
+            return Err(format!(
+                "Property {label} does not match pattern '{pat}'"
+            ));
+        }
+    }
+    Ok(())
+}
 fn check_contracts(
     kind: &str,
     contracts: Option<&Value>,
@@ -987,57 +2018,26 @@ fn check_contracts(
             return Err("Invalid property contract".into());
         };
         let required = boolean(contract, "required", false)?;
+        let ty = text(contract, "type", "")?;
+        if !ty.is_empty() {
+            validate_contract_type_name(&ty, enums)?;
+        }
         let Some(value) = values.get(name) else {
             if required {
                 return Err(format!("Missing required property {kind}.{name}"));
             }
             continue;
         };
-        let ty = text(contract, "type", "")?;
         if ty.is_empty() {
             continue;
         }
-        let optional = ty.ends_with('?');
-        if optional && value == &Value::Null {
-            continue;
-        }
-        let ty = ty.trim_end_matches('?');
-        let valid = match ty {
-            "String" | "Asset" => matches!(value, Value::Text(_)),
-            "Color" => value.text().ok().is_some_and(|v| {
-                v.starts_with('#')
-                    && [4, 7, 9].contains(&v.len())
-                    && v[1..].bytes().all(|b| b.is_ascii_hexdigit())
-            }),
-            "Bool" | "Boolean" => matches!(value, Value::Bool(_)),
-            "Number" | "Float" => matches!(value,Value::Number(n) if n.is_finite()),
-            "Int" => {
-                matches!(value,Value::Number(n) if n.is_finite() && n.fract() == 0. && n.abs() <= 9_007_199_254_740_991.)
-            }
-            "Length" => {
-                matches!(value,Value::Number(n) if n.is_finite() && *n>=0.)
-                    || matches!(value,Value::Text(v)|Value::Expr(v) if valid_unit(v,&["px","%"]))
-            }
-            "Duration" => matches!(value,Value::Text(v)|Value::Expr(v) if valid_unit(v,&["ms"])),
-            _ => {
-                let Some(Value::Object(enums)) = enums else {
-                    return Err(format!("Unknown property type {ty}"));
-                };
-                let Some(Value::List(variants)) = enums.get(ty) else {
-                    return Err(format!("Unknown property type {ty}"));
-                };
-                variants.iter().any(|v| {
-                    v.text()
-                        .ok()
-                        .map(|variant| Value::Text(format!("{ty}.{variant}")))
-                        == Some(value.clone())
-                })
-            }
-        };
-        if !valid {
+        if !matches_contract_type(value, &ty, enums) {
             return Err(format!(
                 "Property {kind}.{name} expects {ty}, got {value:?}"
             ));
+        }
+        if let Some(Value::Object(constraints)) = contract.get("constraints") {
+            check_value_constraints(value, constraints, &format!("{kind}.{name}"))?;
         }
     }
     Ok(())
@@ -1503,18 +2503,20 @@ impl Document {
             defaults.extend(definition.defaults.clone());
         }
         let mut scope = scope.clone();
-        if let Some(Value::Object(enums)) = defaults.get("__enums") {
-            let mut merged = match scope.remove("__enums") {
-                Some(Value::Object(v)) => v,
-                _ => Properties::new(),
-            };
-            merged.extend(enums.clone());
-            scope.insert("__enums".into(), Value::Object(merged));
+        for meta_key in ["__enums", "__tokens", "__i18n", "__lets", "__styles"] {
+            if let Some(Value::Object(meta_obj)) = defaults.get(meta_key) {
+                let mut merged = match scope.remove(meta_key) {
+                    Some(Value::Object(v)) => v,
+                    _ => Properties::new(),
+                };
+                merged.extend(meta_obj.clone());
+                scope.insert(meta_key.into(), Value::Object(merged));
+            }
         }
         let mut result = Properties::new();
         let values = property_values(node, &scope, state)?;
         for (key, value) in &values {
-            if key == "__matches" || key == "__forward" || key == "__scope" {
+            if key == "__matches" || key == "__forward" || key == "__scope" || key == "__styles" {
                 continue;
             }
             match eval(value, &scope, state, &mut Vec::new()) {

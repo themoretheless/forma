@@ -45,10 +45,39 @@ component Notice : Button {
 задаётся через `prop`.
 
 Типы: `String`, `Bool` (`Boolean`), `Number` (`Float`), `Int`, `Color`,
-`Length`, `Duration`, `Asset`, объявленные enum и необязательные варианты `T?`.
+`Length`, `Angle`, `Duration`, `Asset`, коллекции `List<T>` (`T[]`), словари
+`Record<K, V>` (`Map<T>`), объединения `A | B`, объявленные `enum` и `struct`,
+а также необязательные варианты `T?`.
 Числа должны быть конечными. `Int` проверяется как целое число, `Color` —
-как hex-цвет, `Duration` — как значение в `ms`. `Asset` обозначает строку пути;
+как hex-цвет, `Duration` — как значение в `ms`, `Angle` — как градусы/радианы/обороты
+(`deg`, `rad`, `turn`) или число. `Asset` обозначает строку пути;
 проверка конкретного ресурса происходит при его использовании.
+
+Для составных моделей прямо в компоненте можно объявлять `struct`:
+
+```text
+struct User {
+    name: String;
+    age: Int = 18;
+}
+prop author: User = { name: 'Ada', age: 28 };
+prop tags: List<String> = ['ui', 'forma'];
+prop id: String | Int = 42;
+prop meta: Record<String, Number> = { score: 100 };
+```
+
+Валидация свойств задаётся атрибутами `#[range(min, max)]` и `#[pattern('regex')]`:
+
+```text
+#[range(0, 100)]
+prop progress: Int = 50;
+
+#[pattern('^[a-z0-9_-]+$')]
+prop slug: String = 'forma-ui';
+```
+
+Внутри выражений доступно вычисляемое свойство `isValid` (`Bool`), показывающее,
+проходят ли все ограничения `#[range]` и `#[pattern]` текущие значения свойств.
 
 ```text
 Notice {
@@ -57,8 +86,8 @@ Notice {
 }
 ```
 
-Опечатка в имени параметра или варианта, несовместимый тип и пропущенное
-обязательное свойство дают диагностику. События объявляются отдельно:
+Опечатка в имени параметра или варианта, несовместимый тип, нарушение `#[range]`/`#[pattern]`
+и пропущенное обязательное свойство дают диагностику. События объявляются отдельно:
 
 ```text
 event open(id: String);
@@ -69,7 +98,107 @@ event edited(id: String, value: String);
 Поля Rust ViewModel по-прежнему проверяет Rust-компилятор; их не нужно повторно
 объявлять в `.ui`.
 
-## Группы свойств и передача параметров
+## Локальное состояние (`state`), вычисляемые `let` и горячие клавиши (`shortcut`)
+
+Помимо внешней Rust ViewModel, компонент может объявлять реактивное локальное
+состояние `state`, вычисляемые привязки `let` и клавиатурные сокращения `shortcut`:
+
+```text
+component CounterCard {
+    state count: Int = 0;
+    state expanded: Bool = false;
+
+    let doubled = count * 2;
+    let label = 'Счёт: ${count} (x2 = ${doubled})';
+
+    shortcut 'Mod+K' -> state.toggle('expanded');
+    shortcut 'ArrowUp' -> state.increment('count', 1);
+
+    Column {
+        gap: 8;
+        Text { text: label; }
+        Button {
+            text: '+1';
+            clicked -> state.increment('count', 1);
+        }
+    }
+}
+```
+
+В интерактивном предпросмотре Studio поддерживаются встроенные мутации локального
+состояния (также доступные через `actions.*`):
+- `state.toggle('field')` — инвертирует булево поле;
+- `state.set('field', value)` — устанавливает новое значение (поддерживаются вложенные пути `user.name`);
+- `state.increment('field', delta)` / `state.decrement('field', delta)` — изменяет числовое поле;
+- `state.push('list', item)` / `state.remove('list', index)` — добавляет или удаляет элемент списка;
+- `state.reset('field')` — сбрасывает поле (или всё состояние без аргументов) к начальному значению.
+
+## Стили (`style` / `apply`), дизайн-токены (`tokens`) и локализация (`i18n`)
+
+Повторяющиеся наборы свойств можно группировать в именованные блоки `style`
+и подключать через `apply`. Дизайн-токены объявляются в блоке `tokens`,
+а словари локализации — в блоках `i18n <locale>`:
+
+```text
+component DashboardCard {
+    tokens {
+        spacing.sm: 8;
+        spacing.md: 16;
+        colors.surface: #1e293b;
+        colors.accent: #38bdf8;
+    }
+
+    i18n ru { title: 'Входящие'; }
+    i18n en { title: 'Inbox'; }
+
+    style cardSurface {
+        padding: tokens.spacing.md;
+        background: tokens.colors.surface;
+        cornerRadius: 12;
+    }
+
+    prop unread: Int = 5;
+
+    Frame {
+        apply cardSurface;
+        Text {
+            text: '${i18n.title}: ${unread} ${plural(unread, "сообщение", "сообщения", "сообщений")}';
+        }
+    }
+}
+```
+
+Явные свойства узла имеют приоритет над свойствами из `apply`.
+
+## Именованные слоты (`slot` и `@slot`)
+
+Помимо стандартного `ContentPresenter`, компоненты могут объявлять именованные
+слоты `slot name { ... }` с содержимым по умолчанию, а экземпляры могут
+передавать разметку в конкретный слот через `@name { ... }`:
+
+```text
+component DialogShell {
+    Column {
+        gap: 12;
+        slot header {
+            Text { text: 'Заголовок по умолчанию'; }
+        }
+        ContentPresenter {}
+        slot footer {
+            Row { Button { text: 'Закрыть'; } }
+        }
+    }
+}
+
+DialogShell {
+    @header {
+        Badge { text: 'Важно'; tone: 'accent'; }
+    }
+    Text { text: 'Основное содержимое диалога'; }
+}
+```
+
+## Группы свойств, `match` в разметке и передача параметров
 
 ```text
 match props.tone {
@@ -87,11 +216,22 @@ match props.tone {
 ```
 
 Групповой `match` выбирает первую подходящую ветку и применяет её свойства
-вместе. Ветви содержат свойства, без дочерних элементов и обработчиков.
-Существующий `property: match ...;` продолжает выбирать отдельное значение
-или содержимое слота. Отсутствие подходящей ветки — ошибка.
+вместе. Кроме того, `match` можно использовать прямо на уровне разметки для
+выбора дочерних узлов, а в образцах поддерживаются ИЛИ-шаблоны (`'a' | 'b'`)
+и числовые диапазоны (`0..10`, `1..=5`):
 
-Приоритет в компоненте: значения по умолчанию → выбранная группа →
+```text
+match state.status {
+    'loading' | 'pending' => Spinner {}
+    'error' => {
+        Badge { text: 'Ошибка'; tone: 'danger'; }
+        Button { text: 'Повторить'; }
+    }
+    _ => Text { text: 'Готово'; }
+}
+```
+
+Приоритет в компоненте: значения по умолчанию → `apply` → выбранная группа →
 явные свойства экземпляра. У дочернего элемента явно записанные свойства
 имеют приоритет над группой и `forward`. Несколько выбранных групп не должны
 задавать одно и то же свойство.
@@ -123,7 +263,7 @@ component LargeButton : Button {
 содержимого использует двоеточие: `override content: Text { ... };`.
 Правила и примеры — в [описании наследования](vector-ui/COMPONENTS.md).
 
-## Выражения и строки
+## Выражения, конвейеры (`|>`) и стандартная библиотека (`stdlib`)
 
 ```text
 disabled: state.busy || !state.valid;
@@ -131,22 +271,30 @@ width: clamp(state.width - 24, 120, 480);
 text: 'Найдено: ${state.count}';
 text: "Найдено: ${state.count}";
 placeholder: state.customer?.name ?? 'Имя';
+let tagsText = state.tags |> filter('active') |> map('title') |> join(', ');
 ```
 
 Обе разновидности кавычек имеют одинаковую семантику. `\${state.count}`
 выводит текст `${state.count}` без подстановки. Поддерживаются `\n`, `\r`, `\t`,
 экранирование кавычек и обратной косой черты.
 
-Доступны арифметика `+ - * / %`, сравнения, `!`, `&&`, `||`, `??`, условное
-`condition ? value : alternative`, доступ к полям и индексам, необязательный
-доступ `?.`. Логические операторы требуют Bool и вычисляют только нужную
-ветку. Арифметика принимает конечные числа; деление на ноль — ошибка.
-Единицы размеров не участвуют в неявном числовом преобразовании.
+Доступны:
+- арифметика `+ - * / %`, сравнения, `!`, `&&`, `||`, `??`, тернарный оператор `condition ? value : alternative`;
+- конвейерный оператор `value |> fn(arg2, ...)` (передаёт левый операнд первым аргументом функции) и вызов методов через точку (`text.trim().upper()`);
+- диапазоны `start..end` и `start..=end` (в `for i in 0..5` и в ветках `match`);
+- литералы списков `[1, 2, 3]` и объектов/словарей `{ a: 1, b: 2 }`;
+- единицы измерения длины (`px`, `%`, `rem`, `em`, `vw`, `vh`), времени (`ms`, `s`) и углов (`deg`, `rad`, `turn`).
 
-Чистые функции: `min`, `max`, `clamp`, `abs`, `round`, `floor`, `ceil`, `len`,
-`String`, `Number`, `Bool`. Строковая интерполяция принимает скалярные значения.
-Неизвестная функция или отсутствующее обязательное поле диагностируются.
-Для вычислений с побочными эффектами используются обработчики в Rust.
+Встроенные чистые функции стандартной библиотеки:
+- **Математика**: `min`, `max`, `clamp`, `abs`, `round`, `floor`, `ceil`, `pow`, `sqrt`, `sign`, `lerp`, `remap`, `sum`, `avg`;
+- **Строки и локализация**: `len`, `trim`, `upper` (`toUpperCase`), `lower` (`toLowerCase`), `capitalize`, `contains`, `startsWith`, `endsWith`, `replace`, `slice`, `split`, `padStart`, `padEnd`, `repeat`, `truncate`, `format`, `plural`;
+- **Списки и словари**: `count`, `first`, `last`, `join`, `reverse`, `take`, `skip`, `map`, `filter`, `sort`, `unique`, `flatten`, `chunk`, `indexOf`, `range`, `keys`, `values`, `entries`, `merge`, `pick`, `omit`, `get`;
+- **Предикаты и приведение типов**: `String`, `Number`, `Bool`, `isEmpty`, `isNull`, `coalesce`;
+- **Цвет и доступность (WCAG)**: `rgb`, `rgba`, `hsl`, `hsla`, `alpha`, `lighten`, `darken`, `mix`, `luminance`, `contrast`, `invert`, `complement`.
+
+Строковая интерполяция принимает скалярные значения. Неизвестная функция или
+отсутствующее обязательное поле диагностируются. Для вычислений с побочными
+эффектами используются обработчики в Rust или действия `state.*` в предпросмотре.
 
 ## Условия и списки
 
@@ -258,12 +406,11 @@ cargo run --locked --manifest-path vector-ui/examples/language-app/Cargo.toml
 Обычные `Text` и `TextInput` работают в сцене без файлов компонентов.
 При наличии `components/Text.ui` или `components/TextInput.ui` используется
 определение проекта. Внутри визуального дерева они остаются примитивами.
+Кроме того, в Studio и библиотеке контролов доступны готовые визуальные
+компоненты `Badge`, `Tag`, `Chip`, `Avatar`, `ProgressBar`, `Divider` и `Separator`.
 
 В библиотеке [Alert](vector-ui/controls/components/Alert.ui) использует
 групповой `match`, [TextField](vector-ui/controls/components/TextField.ui) —
 `forward`, [FieldContent](vector-ui/controls/components/FieldContent.ui) —
 `Row` с условной иконкой без дублирования поля ввода.
 
-Сокращения `Button 'Текст' { ... }` и `slot content { ... }` не входят
-в этот синтаксис. Основное свойство записывается по имени, точка расширения —
-через существующий `ContentPresenter`.

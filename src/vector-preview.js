@@ -378,7 +378,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     if (button && !current.designMode && onControlKey?.(event, buttonNode(button.focused_index())) === true) {
       event.preventDefault(); return;
     }
-    if(button && !current.designMode && !onControlKey) {
+    if(button && !current.designMode) {
       let handled=false;change(()=>{handled=button.range_key?.(event.key)??false;});
       if(handled){event.preventDefault();return;}
     }

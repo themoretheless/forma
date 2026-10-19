@@ -42,7 +42,7 @@ import {nativeSnapshot} from './native-snapshot.js';
 import {loadVectorRuntime,createVectorPreview} from './vector-preview.js';
 import {createComponentCompiler,sceneControlNodes} from './components.js';
 import {evaluate} from './component-semantics.js';
-import {writePreviewBinding} from './preview-state.js';
+import {writePreviewBinding,executePreviewStateAction,matchPreviewShortcut} from './preview-state.js';
 let previewRefreshPending=false,lastPreviewControls=[];
 function schedulePreviewRefresh(){if(previewRefreshPending)return;previewRefreshPending=true;queueMicrotask(()=>{previewRefreshPending=false;try{render();error='';}catch(e){error=e.message;sourceDiagnostic=e.diagnostic??null;}output();});}
 import {createCacheBudget} from './cache-budget.js';
@@ -272,7 +272,7 @@ function showNativeInspection(data){
  const source=controls[data.selected];if(current&&source)selectTreeControl({path:nativeSource.entry,node:source});
 }
 function dispatch(action,n,event='clicked'){if(pending){log('Событие пропущено: debugger приостановлен');return;}const args=(n.eventArgExpressions?.[event]??n.eventArgs?.[event]??[]).map(value=>evaluate(value,compiled.defaults,state,[],false,n.environment));log(`Событие ${n.type}.${event} → ${action}(${args.map(value=>JSON.stringify(value)).join(', ')})`);if(breakOn){pending={action,n,args};$('continue').disabled=false;$('debug-status').textContent='Пауза перед '+action;tab='state';syncTabs();output();return;}execute(action,args);}
-function execute(action,args=[]){if(action==='actions.search'){state.status=`Дизайн-обработчик: запрос «${state.query||'пусто'}»`;log('Выполнен дизайн-обработчик search (без Rust/backend)');}else if(action==='state.toggle'&&typeof args[0]==='string'){state[args[0]]=!state[args[0]];log(`state.${args[0]} = ${JSON.stringify(state[args[0]])}`);}else if(action==='state.set'&&typeof args[0]==='string'){state[args[0]]=args[1];log(`state.${args[0]} = ${JSON.stringify(args[1])}`);}else if(action.startsWith('state.')&&action.length>6){const field=action.slice(6);state[field]=args.length?args[0]:!state[field];log(`state.${field} = ${JSON.stringify(state[field])}`);}else log(`Обработчик ${action} не подключён`);render();output();}
+function execute(action,args=[]){if(action==='actions.search'){state.status=`Дизайн-обработчик: запрос «${state.query||'пусто'}»`;log('Выполнен дизайн-обработчик search (без Rust/backend)');}else{const defState=Object.fromEntries(Object.entries(compiled?.stateDefinitions??{}).filter(([,d])=>d.default!==undefined).map(([k,d])=>[k,resolve(d.default,{})]));const res=executePreviewStateAction(state,action,args,defState);if(res.handled)log(res.log);else log(`Обработчик ${action} не подключён`);}render();output();}
 function syncTabs(){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('chosen',b.dataset.tab===tab));}
 function formatActiveFile(){if(!active?.endsWith('.ui'))return;try{const current=$('code').value,formatted=formatSource(current);if(formatted&&formatted!==current){codeEditor.edit({from:0,to:current.length,insert:formatted});$('status').textContent='Код отформатирован';}}catch(e){reportError(e.message);}}
 $('format-code').onclick=formatActiveFile;
@@ -411,7 +411,7 @@ function initVector(){
  const current=vectorLoads.begin();
  loadVectorRuntime().then(runtime=>{
   if(shellDisposed||!current()||vectorPreview)return;
-  vectorPreview=createVectorPreview({runtime,onSelect:n=>{if(designPresetName==='original')select(n);},onError:message=>{error=String(message);output();},onAction:(action,n)=>{if(n)dispatch(action,n);},onBindingChange:changes=>{for(const {node,path,value}of changes)if(writePreviewBinding(state,node,path,value)){log(`${path} = ${JSON.stringify(value)}`);if(node.events.changed)dispatch(node.events.changed,node,'changed');}schedulePreviewRefresh();}});
+  vectorPreview=createVectorPreview({runtime,onSelect:n=>{if(designPresetName==='original')select(n);},onError:message=>{error=String(message);output();},onAction:(action,n)=>{if(n)dispatch(action,n);},onControlKey:e=>{if(!compiled?.shortcuts?.length)return false;for(const s of compiled.shortcuts)if(matchPreviewShortcut(e,s.key)){const stateDefaults=Object.fromEntries(Object.entries(compiled.stateDefinitions??{}).filter(([,d])=>d.default!==undefined).map(([k,d])=>[k,d.default]));const previewEnv={enums:{...compiled.enums,...compiled.structs},tokens:compiled.tokens,i18n:compiled.i18n,styles:compiled.styles,stateDefaults,allowMissingState:true};const syntheticNode={type:'Shortcut',start:s.from??0,props:{},events:{shortcut:s.action},eventArgs:{shortcut:(s.args??[]).map(a=>resolve(a,state))},eventArgExpressions:{shortcut:s.args??[]},environment:previewEnv};dispatch(s.action,syntheticNode,'shortcut');return true;}return false;},onBindingChange:changes=>{for(const {node,path,value}of changes)if(writePreviewBinding(state,node,path,value)){log(`${path} = ${JSON.stringify(value)}`);if(node.events.changed)dispatch(node.events.changed,node,'changed');}schedulePreviewRefresh();}});
   if(renderer==='vector')compile();
  }).catch(e=>{if(renderer==='vector'){error='Векторный WASM не собран: '+e.message;output();}});
 }
