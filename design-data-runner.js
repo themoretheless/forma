@@ -4,20 +4,21 @@ import {mkdtemp,writeFile,open,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 const exec=promisify(execFile);
-export async function evaluateDesignData(files,refs){
+export async function evaluateDesignData(files,refs,{tempRoot=tmpdir()}={}){
   if(!Array.isArray(refs)||refs.length>100||refs.some(r=>!/^design\.[A-Za-z_][A-Za-z0-9_]*(\(\))?$/.test(r)))throw Error('Поддерживаются design.NAME и design.method() без аргументов');
   const designSource=files?.['src/design.rs'];
   if(typeof designSource!=='string')throw Error('Добавьте src/design.rs с pub const или pub fn');
   if(designSource.length>256*1024)throw Error('src/design.rs превышает лимит 256 КиБ');
   if(/\b(?:unsafe|extern)\b|(?:std|core)\s*::\s*(?:process|net|fs|env)\b|\binclude(?:_str|_bytes)?\s*!|\benv\s*!/.test(designSource))throw Error('src/design.rs содержит запрещённые конструкции (unsafe, process, net, fs, env, include!)');
-  const dir=await mkdtemp(path.join(tmpdir(),'forma-design-'));
+  const dir=await mkdtemp(path.join(tempRoot,'forma-design-'));
   try{
   await writeFile(path.join(dir,'design.rs'),designSource);
   const source='mod design; fn main() {\n'+refs.map((r,i)=>`std::fs::write("value-${i}", format!("{}", design::${r.slice('design.'.length)})).unwrap();`).join('\n')+'\n}';
   await writeFile(path.join(dir,'main.rs'),source);
   const executable=process.platform==='win32'?'design-data.exe':'design-data';
-  await exec('rustc',['--edition=2021','main.rs','-o',executable],{cwd:dir,timeout:30000,maxBuffer:1024*1024});
-  await exec(path.join(dir,executable),[],{cwd:dir,timeout:5000,maxBuffer:1024*1024});
+  const childEnv={...process.env,TMPDIR:dir,TMP:dir,TEMP:dir};
+  await exec('rustc',['--edition=2021','main.rs','-o',executable],{cwd:dir,env:childEnv,timeout:30000,maxBuffer:1024*1024});
+  await exec(path.join(dir,executable),[],{cwd:dir,env:childEnv,timeout:15000,maxBuffer:1024*1024});
   return await readDesignValues(dir,refs);
   // Windows can keep the just-exited executable locked briefly (EBUSY/EPERM); rm retries those.
   }finally{await rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:100});}

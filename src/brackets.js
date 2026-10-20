@@ -1,7 +1,8 @@
 import {EditorView,Decoration,ViewPlugin} from '@codemirror/view';
+const DECO_INVALID=Decoration.mark({class:'cm-bracket-invalid'});
+const DECO_DEPTH=Array.from({length:6},(_,i)=>Decoration.mark({class:`cm-depth-${i}`}));
 export function bracketLevels(text){
-  const result=[],stack=[];let quote=null,line=false,block=false;
-  const closing={'}':'{',']':'[',')':'('};
+  const result=[],stackChar=[],stackLevel=[];let quote=null,line=false,block=false;
   for(let i=0;i<text.length;i++){
     const c=text[i],next=text[i+1];
     if(line){if(c==='\n')line=false;continue;}
@@ -10,12 +11,12 @@ export function bracketLevels(text){
     if(c==='/'&&next==='/'){line=true;i++;continue;}
     if(c==='/'&&next==='*'){block=true;i++;continue;}
     if(c==="'"||c==='"'){quote=c;continue;}
-    if('{[('.includes(c)){const mark={from:i,level:stack.length};result.push(mark);stack.push({char:c,mark});}
-    else if(c in closing){if(stack.at(-1)?.char===closing[c])result.push({from:i,level:stack.pop().mark.level});else result.push({from:i,level:-1});}
+    if(c==='{'||c==='['||c==='('){const level=stackChar.length;result.push({from:i,level});stackChar.push(c);stackLevel.push(level);}
+    else if(c==='}'||c===']'||c===')'){const expected=c==='}'?'{':c===']'?'[':'(';if(stackChar.length>0&&stackChar[stackChar.length-1]===expected){stackChar.pop();result.push({from:i,level:stackLevel.pop()});}else result.push({from:i,level:-1});}
   }
   return result;
 }
-function marks(view){return Decoration.set(bracketLevels(view.state.doc.toString()).map(({from,level})=>Decoration.mark({class:level<0?'cm-bracket-invalid':`cm-depth-${level%6}`}).range(from,from+1)));}
+function marks(view){const levels=bracketLevels(view.state.doc.toString());const ranges=new Array(levels.length);for(let i=0;i<levels.length;i++){const {from,level}=levels[i];ranges[i]=(level<0?DECO_INVALID:DECO_DEPTH[level%6]).range(from,from+1);}return Decoration.set(ranges);}
 export const rainbowBrackets=[ViewPlugin.fromClass(class{
   constructor(view){this.decorations=marks(view);}
   update(update){if(update.docChanged)this.decorations=marks(update.view);}

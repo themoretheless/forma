@@ -87,16 +87,56 @@ impl Cache {
         let y0 = (by * scale).floor().clamp(0., height as f32) as u32;
         let x1 = ((bx + b.width) * scale).ceil().clamp(0., width as f32) as u32;
         let y1 = ((by + b.height) * scale).ceil().clamp(0., height as f32) as u32;
+        let half_w = b.width * 0.5;
+        let half_h = b.height * 0.5;
+        let center_x = bx + half_w;
+        let center_y = by + half_h;
+        let corner_w = half_w - r;
+        let corner_h = half_h - r;
+        let reveal_bounds = model.template.reveal.as_ref().map(|_| model.reveal_bounds());
+        let reveal_r = model
+            .template
+            .reveal
+            .as_ref()
+            .map_or(r, |rev| rev.target_radius.unwrap_or(r));
+        let reveal_w = model.template.reveal.as_ref().map_or(0., |rev| rev.width);
+        let default_reveal_bounds = model.template.reveal.as_ref().is_some_and(|rev| {
+            rev.target_x.is_none()
+                && rev.target_y.is_none()
+                && rev.target_width.is_none()
+                && rev.target_height.is_none()
+                && rev.target_radius.is_none()
+        });
+        let safe_inset = r.max(bw).max(if default_reveal_bounds {
+            reveal_w + 0.5 / scale
+        } else {
+            f32::MAX
+        }) + 1.0 / scale;
+        let ix0 = ((bx + safe_inset) * scale).ceil().clamp(x0 as f32, x1 as f32) as u32;
+        let iy0 = ((by + safe_inset) * scale).ceil().clamp(y0 as f32, y1 as f32) as u32;
+        let ix1 = ((bx + b.width - safe_inset) * scale)
+            .floor()
+            .clamp(x0 as f32, x1 as f32) as u32;
+        let iy1 = ((by + b.height - safe_inset) * scale)
+            .floor()
+            .clamp(y0 as f32, y1 as f32) as u32;
         for y in y0..y1 {
+            let row_inside = y >= iy0 && y < iy1 && ix1 > ix0;
             for x in x0..x1 {
+                if row_inside && x >= ix0 && x < ix1 {
+                    cache.coverage[(y * width + x) as usize] = 20;
+                    continue;
+                }
                 let mut fill = 0;
                 let mut border = 0;
                 for (sx, sy) in [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
-                    let dx =
-                        ((x as f32 + sx) / scale - bx - b.width / 2.).abs() - (b.width / 2. - r);
-                    let dy =
-                        ((y as f32 + sy) / scale - by - b.height / 2.).abs() - (b.height / 2. - r);
-                    let distance = dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r;
+                    let dx = ((x as f32 + sx) / scale - center_x).abs() - corner_w;
+                    let dy = ((y as f32 + sy) / scale - center_y).abs() - corner_h;
+                    let distance = if dx <= 0. && dy <= 0. {
+                        dx.max(dy) - r
+                    } else {
+                        dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r
+                    };
                     if distance <= 0. {
                         fill += 1;
                         if bw > 0. && distance >= -bw {
@@ -105,12 +145,17 @@ impl Cache {
                     }
                 }
                 cache.coverage[(y * width + x) as usize] = fill * 5 + border;
-                if let Some(reveal) = &model.template.reveal {
+                if let Some(r_bounds) = reveal_bounds {
                     let band = crate::reveal::band_coverage(
                         [(x as f32 + 0.5) / scale, (y as f32 + 0.5) / scale],
-                        model.reveal_bounds(), reveal.target_radius.unwrap_or(r), reveal.width, scale,
+                        r_bounds,
+                        reveal_r,
+                        reveal_w,
+                        scale,
                     );
-                    if band > 0. { cache.reveal_pixels.push(((y * width + x) as usize, band)); }
+                    if band > 0. {
+                        cache.reveal_pixels.push(((y * width + x) as usize, band));
+                    }
                 }
             }
         }
@@ -239,14 +284,20 @@ impl Cache {
         for y in 0..height as usize {
             let row_start = y * width as usize;
             let row = &cache.content[row_start * 4..(row_start + width as usize) * 4];
-            let mut visible = row.chunks_exact(4).enumerate().filter(|(_, p)| p[3] != 0);
-            let Some((first, _)) = visible.next() else { continue };
-            let last = visible.next_back().map_or(first, |(x, _)| x);
-            let span = row_start + first..row_start + last + 1;
-            let bytes = span.len() * 4;
-            cache.content.copy_within(span.start * 4..span.end * 4, compacted);
-            compacted += bytes;
-            cache.content_spans.push(span);
+            if let Some(first_alpha_byte) = row.iter().skip(3).step_by(4).position(|&a| a != 0) {
+                let first = first_alpha_byte;
+                let last = row
+                    .iter()
+                    .skip(3)
+                    .step_by(4)
+                    .rposition(|&a| a != 0)
+                    .unwrap_or(first);
+                let span = row_start + first..row_start + last + 1;
+                let bytes = span.len() * 4;
+                cache.content.copy_within(span.start * 4..span.end * 4, compacted);
+                compacted += bytes;
+                cache.content_spans.push(span);
+            }
         }
         cache.content.truncate(compacted);
         cache.content.shrink_to_fit();

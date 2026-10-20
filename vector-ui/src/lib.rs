@@ -28,18 +28,25 @@ fn inside(x: f32, y: f32, b: &markup::ButtonSpec) -> bool {
     let radius = b.radius.min(b.width / 2.).min(b.height / 2.);
     let dx = (x - (b.x + b.width / 2.)).abs() - (b.width / 2. - radius);
     let dy = (y - (b.y + b.height / 2.)).abs() - (b.height / 2. - radius);
-    dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) <= radius
+    if dx <= 0. && dy <= 0. {
+        return true;
+    }
+    let mx = dx.max(0.);
+    let my = dy.max(0.);
+    mx * mx + my * my <= radius * radius
 }
 
 fn round_inside(x:f32,y:f32,bounds:[f32;4],radius:f32)->bool {
     let [bx,by,w,h]=bounds;if w<=0.||h<=0.{return false;}let r=radius.min(w/2.).min(h/2.);
     let dx=(x-bx-w/2.).abs()-(w/2.-r);let dy=(y-by-h/2.).abs()-(h/2.-r);
-    dx.max(0.).hypot(dy.max(0.))+dx.max(dy).min(0.)<=r
+    if dx<=0.&&dy<=0.{return true;}
+    let mx=dx.max(0.);let my=dy.max(0.);
+    mx*mx+my*my<=r*r
 }
 fn round_coverage(x:u32,y:u32,scale:f32,bounds:[f32;4],radius:f32)->f32 {
     let [bx,by,w,h]=bounds;if w<=0.||h<=0.{return 0.;}let r=radius.min(w/2.).min(h/2.);
     let dx=((x as f32+0.5)/scale-bx-w/2.).abs()-(w/2.-r);let dy=((y as f32+0.5)/scale-by-h/2.).abs()-(h/2.-r);
-    let d=dx.max(0.).hypot(dy.max(0.))+dx.max(dy).min(0.)-r;
+    let d=if dx<=0.&&dy<=0.{dx.max(dy)-r}else{dx.max(0.).hypot(dy.max(0.))+dx.max(dy).min(0.)-r};
     if d < -0.71/scale{return 1.;}if d > 0.71/scale{return 0.;}
     let mut count=0.;for sy in [0.125,0.375,0.625,0.875]{for sx in [0.125,0.375,0.625,0.875]{if round_inside((x as f32+sx)/scale,(y as f32+sy)/scale,bounds,radius){count+=1.;}}}count/16.
 }

@@ -52,7 +52,16 @@ pub(crate) fn band_coverage(
     let r = radius.min(bounds[2] * 0.5).min(bounds[3] * 0.5);
     let dx = (p[0] - bounds[0] - bounds[2] * 0.5).abs() - (bounds[2] * 0.5 - r);
     let dy = (p[1] - bounds[1] - bounds[3] * 0.5).abs() - (bounds[3] * 0.5 - r);
-    let distance = dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r;
+    let inv_scale_half = 0.5 / scale;
+    let distance = if dx <= 0. && dy <= 0. {
+        let d = dx.max(dy) - r;
+        if d <= -width - inv_scale_half || d >= inv_scale_half {
+            return 0.;
+        }
+        d
+    } else {
+        dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r
+    };
     let outer = (0.5 - distance * scale).clamp(0., 1.);
     let inner = (0.5 - (distance + width) * scale).clamp(0., 1.);
     (outer - inner).max(0.)
@@ -72,8 +81,15 @@ impl Paint {
         let amount = if self.full {
             1.
         } else {
-            (1. - (p[0] - self.pointer[0]).hypot(p[1] - self.pointer[1]) / self.reach.max(0.0001))
-                .clamp(0., 1.)
+            let reach = self.reach.max(0.0001);
+            let dx = p[0] - self.pointer[0];
+            let dy = p[1] - self.pointer[1];
+            let d2 = dx * dx + dy * dy;
+            if d2 >= reach * reach {
+                color[3] = 0;
+                return color;
+            }
+            (1. - d2.sqrt() / reach).clamp(0., 1.)
         };
         color[3] = (color[3] as f32 * amount).round() as u8;
         color
@@ -199,7 +215,9 @@ impl State {
             pointer[1].clamp(bounds[1], bounds[1] + bounds[3]),
         ];
         // Far-away movement must not dirty every control or repaint cached text.
-        if (pointer[0] - nearest[0]).hypot(pointer[1] - nearest[1]) >= reach {
+        let dx = pointer[0] - nearest[0];
+        let dy = pointer[1] - nearest[1];
+        if dx * dx + dy * dy >= reach * reach {
             return Paint::default();
         }
         Paint {

@@ -3002,9 +3002,10 @@ impl Document {
         }
         root.kind = "Frame".into();
         let empty = Properties::new();
-        let mut mapping = Vec::new();
-        let mut source_controls = Vec::new();
-        let mut templates = String::from("FORMA-TEMPLATES-1\n");
+        let mut mapping = Vec::with_capacity(instances.len());
+        let mut source_controls = Vec::with_capacity(instances.len());
+        let mut templates = String::with_capacity(32 + instances.len() * 256);
+        templates.push_str("FORMA-TEMPLATES-1\n");
         for (instance, precomputed_visual) in &instances {
             let state = match instance.props.get("__state") {
                 Some(Value::Object(state)) => state,
@@ -3046,7 +3047,7 @@ impl Document {
                 }
                 None => self.instantiate(instance, true, state, &[])?,
             };
-            let mut content = String::new();
+            let mut content = String::with_capacity(128);
             let mut dim_node = visual.clone();
             dim_node.props = resolved.clone();
             let bounds = [

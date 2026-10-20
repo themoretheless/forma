@@ -462,20 +462,65 @@ impl<'a> Parser<'a> {
                 }
             },
             Kind::Hex(raw) => {
-                if !matches!(raw.len(), 3 | 6 | 8) || !raw.chars().all(|c| c.is_ascii_hexdigit()) {
-                    return Err(self.error("Expected #RGB, #RRGGBB or #RRGGBBAA color"));
-                }
-                let mut color = [0, 0, 0, 255];
-                if raw.len() == 3 {
-                    for (i, c) in raw.chars().enumerate() {
-                        color[i] = c.to_digit(16).unwrap() as u8 * 17;
+                const HEX_LUT: [u8; 256] = {
+                    let mut lut = [0xFF; 256];
+                    let mut i = 0;
+                    while i < 10 {
+                        lut[(b'0' + i) as usize] = i;
+                        i += 1;
                     }
-                } else {
-                    for i in 0..raw.len() / 2 {
-                        color[i] = u8::from_str_radix(&raw[i * 2..i * 2 + 2], 16).unwrap();
+                    let mut i = 0;
+                    while i < 6 {
+                        lut[(b'a' + i) as usize] = 10 + i;
+                        lut[(b'A' + i) as usize] = 10 + i;
+                        i += 1;
                     }
+                    lut
+                };
+                let bytes = raw.as_bytes();
+                match bytes.len() {
+                    3 => {
+                        let r = HEX_LUT[bytes[0] as usize];
+                        let g = HEX_LUT[bytes[1] as usize];
+                        let b = HEX_LUT[bytes[2] as usize];
+                        if (r | g | b) == 0xFF {
+                            return Err(self.error("Expected #RGB, #RRGGBB or #RRGGBBAA color"));
+                        }
+                        [r * 17, g * 17, b * 17, 255]
+                    }
+                    6 => {
+                        let r0 = HEX_LUT[bytes[0] as usize];
+                        let r1 = HEX_LUT[bytes[1] as usize];
+                        let g0 = HEX_LUT[bytes[2] as usize];
+                        let g1 = HEX_LUT[bytes[3] as usize];
+                        let b0 = HEX_LUT[bytes[4] as usize];
+                        let b1 = HEX_LUT[bytes[5] as usize];
+                        if (r0 | r1 | g0 | g1 | b0 | b1) == 0xFF {
+                            return Err(self.error("Expected #RGB, #RRGGBB or #RRGGBBAA color"));
+                        }
+                        [(r0 << 4) | r1, (g0 << 4) | g1, (b0 << 4) | b1, 255]
+                    }
+                    8 => {
+                        let r0 = HEX_LUT[bytes[0] as usize];
+                        let r1 = HEX_LUT[bytes[1] as usize];
+                        let g0 = HEX_LUT[bytes[2] as usize];
+                        let g1 = HEX_LUT[bytes[3] as usize];
+                        let b0 = HEX_LUT[bytes[4] as usize];
+                        let b1 = HEX_LUT[bytes[5] as usize];
+                        let a0 = HEX_LUT[bytes[6] as usize];
+                        let a1 = HEX_LUT[bytes[7] as usize];
+                        if (r0 | r1 | g0 | g1 | b0 | b1 | a0 | a1) == 0xFF {
+                            return Err(self.error("Expected #RGB, #RRGGBB or #RRGGBBAA color"));
+                        }
+                        [
+                            (r0 << 4) | r1,
+                            (g0 << 4) | g1,
+                            (b0 << 4) | b1,
+                            (a0 << 4) | a1,
+                        ]
+                    }
+                    _ => return Err(self.error("Expected #RGB, #RRGGBB or #RRGGBBAA color")),
                 }
-                color
             }
             _ => {
                 return Err(self.error(&format!(

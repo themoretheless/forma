@@ -11,6 +11,20 @@ const reserved=new Set('as break const continue crate else enum extern false fn 
 const snake=name=>name.replace(/([A-Z]+)([A-Z][a-z])/g,'$1_$2').replace(/([a-z0-9])([A-Z])/g,'$1_$2').toLowerCase();
 function rustString(value){let hashes='#';while(value.includes('"'+hashes))hashes+='#';return `r${hashes}"${value}"${hashes}`;}
 
+const svgPairCache=new Map();
+function cachedSvgShapes(name,source){
+  const key=name+'\0'+source;
+  const hit=svgPairCache.get(key);
+  if(hit)return hit;
+  const view=source.match(/viewBox\s*=\s*['"]([^'"]+)['"]/)?.[1].trim().split(/[\s,]+/).map(Number);
+  const width=view?.[2]??Number(source.match(/\bwidth=['"]([^'"]+)/)?.[1]),height=view?.[3]??Number(source.match(/\bheight=['"]([^'"]+)/)?.[1]);
+  const first=svgShapes(source,[0,0,width,height],'#010203'),second=svgShapes(source,[0,0,width,height],'#030201');
+  const entry=`(${rustString(name)}.into(), ::forma::form_document::Image {width:${width.toFixed(12)},height:${height.toFixed(12)},shapes:vec![${first.map((shape,i)=>`(vec![${shape.points.map(([x,y])=>`[${x.toFixed(12)},${y.toFixed(12)}]`).join(',')}],${rustString(shape.color!==second[i].color?'currentColor':shape.color)}.into())`).join(',')}]})`;
+  if(svgPairCache.size>=256)svgPairCache.delete(svgPairCache.keys().next().value);
+  svgPairCache.set(key,entry);
+  return entry;
+}
+
 export function generateForm(files,entry,{state={},measureText}={}) {
  if(/[\r\n]/.test(entry))throw Error('Путь формы не должен содержать перевод строки');
  const source=files[entry];if(typeof source!=='string')throw Error(`Форма не найдена: ${entry}`);
@@ -230,12 +244,16 @@ export function generateForm(files,entry,{state={},measureText}={}) {
      ...((d.matches??[]).length?{__matches:d.matches.map(m=>({match:m.match,branches:m.branches.map(b=>({pattern:b.pattern,value:b.props}))}))}:{})};
  };
 
- const images=Object.entries(files).filter(([name])=>name.endsWith('.svg')).map(([name,source])=>{
-   const view=source.match(/viewBox\s*=\s*['"]([^'"]+)['"]/)?.[1].trim().split(/[\s,]+/).map(Number);
-   const width=view?.[2]??Number(source.match(/\bwidth=['"]([^'"]+)/)?.[1]),height=view?.[3]??Number(source.match(/\bheight=['"]([^'"]+)/)?.[1]);
-   const first=svgShapes(source,[0,0,width,height],'#010203'),second=svgShapes(source,[0,0,width,height],'#030201');
-   return `(${rustString(name)}.into(), ::forma::form_document::Image {width:${width.toFixed(12)},height:${height.toFixed(12)},shapes:vec![${first.map((shape,i)=>`(vec![${shape.points.map(([x,y])=>`[${x.toFixed(12)},${y.toFixed(12)}]`).join(',')}],${rustString(shape.color!==second[i].color?'currentColor':shape.color)}.into())`).join(',')}]})`;
- });
+ const usedImages=new Set();
+ function collectImages(value){
+   if(!value)return;
+   if(typeof value==='string'){if(value.endsWith('.svg')&&Object.hasOwn(files,value))usedImages.add(value);return;}
+   if(Array.isArray(value)){for(let i=0;i<value.length;i++)collectImages(value[i]);return;}
+   if(typeof value==='object')for(const item of Object.values(value))collectImages(item);
+ }
+ collectImages(doc.nodes);collectImages(doc.defaults);collectImages(linked.fallback);
+ for(const name of usedDefinitions)collectImages(linked.definitions[name]);
+ const images=Object.entries(files).filter(([name])=>name.endsWith('.svg')&&usedImages.has(name)).map(([name,source])=>cachedSvgShapes(name,source));
  const program=`{ #[allow(unused_imports)] use ::forma::form_document::{Value as V,Expression as E,Node as N,Definition as D,Document}; Document {name:${rustString(doc.name)}.into(),root:${n(doc.nodes[0],true)},definitions: ::std::collections::BTreeMap::from([${Object.entries(linked.definitions).filter(([name])=>usedDefinitions.has(name)).map(([name,d])=>`(${rustString(name)}.into(),D {defaults: ${p(definitionDefaults(d))},nodes:vec![${d.nodes.map(node=>n(node)).join(',')}]})`).join(',')}]),fallback: ${p(linked.fallback)},images: ::std::collections::BTreeMap::from([${images.join(',')}]),states:vec![] } }`;
  const rust=`// @generated from ${entry.replace(/[\r\n]/g,' ')}. Do not edit.
 ${eventStructs.join('\n')}
