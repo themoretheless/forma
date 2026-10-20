@@ -8,6 +8,7 @@ import {
   matchesType as wasmMatchesType,
   expandStructure as wasmExpandStructure,
 } from '@themoretheless/tokenizer-forma/component-semantics';
+import { propertyOrigins } from './property-origins.js';
 
 const own = (o, k) => o != null && typeof o === 'object' && Object.hasOwn(o, k);
 const emptyObject = Object.freeze({});
@@ -20,6 +21,47 @@ function isTrivialScalar(value) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
   if (typeof value === 'number') return Number.isFinite(value);
   return false;
+}
+
+function tryFastPattern(pattern, actual, props, state, environment) {
+  if (!pattern || typeof pattern !== 'object') {
+    const expected = tryFastEvaluate(pattern, props, state, emptyArray, false, environment);
+    if (expected === undefined) return undefined;
+    return expected === actual;
+  }
+  if (pattern.expr === '_') return true;
+  if (Array.isArray(pattern)) {
+    if (!Array.isArray(actual) || pattern.length !== actual.length) return false;
+    for (let i = 0; i < pattern.length; i++) {
+      const m = tryFastPattern(pattern[i], actual[i], props, state, environment);
+      if (m === undefined) return undefined;
+      if (!m) return false;
+    }
+    return true;
+  }
+  if (own(pattern, 'or') || own(pattern, 'comparison') || own(pattern, 'expression')) {
+    return undefined;
+  }
+  const expected = tryFastEvaluate(pattern, props, state, emptyArray, false, environment);
+  if (expected === undefined) return undefined;
+  if (expected === actual) return true;
+  if (
+    expected &&
+    actual &&
+    typeof expected === 'object' &&
+    typeof actual === 'object' &&
+    typeof expected.expr === 'string' &&
+    typeof actual.expr === 'string'
+  ) {
+    return expected.expr === actual.expr;
+  }
+  if (
+    (expected === null || typeof expected !== 'object') &&
+    (actual === null || typeof actual !== 'object')
+  ) {
+    return expected === actual;
+  }
+  return undefined;
 }
 
 function tryFastEvaluate(value, props, state, stack, expandElements, environment) {
@@ -37,9 +79,36 @@ function tryFastEvaluate(value, props, state, stack, expandElements, environment
   }
   if (own(value, 'type')) {
     if (!expandElements) return value;
+    const evalProps = tryFastEvaluateProperties(value, props, state, environment);
+    if (evalProps === undefined) return undefined;
+    const rawChildren = Array.isArray(value.children) ? value.children : emptyArray;
+    const evalChildren = new Array(rawChildren.length);
+    for (let i = 0; i < rawChildren.length; i++) {
+      const child = tryFastEvaluate(rawChildren[i], props, state, stack, true, environment);
+      if (child === undefined) return undefined;
+      evalChildren[i] = child;
+    }
+    return {
+      ...value,
+      props: evalProps,
+      children: evalChildren,
+    };
+  }
+  if (own(value, 'match')) {
+    const actual = tryFastEvaluate(value.match, props, state, stack, expandElements, environment);
+    if (actual === undefined || !Array.isArray(value.branches)) return undefined;
+    for (let i = 0; i < value.branches.length; i++) {
+      const b = value.branches[i];
+      if (!b || own(b, 'guard')) return undefined;
+      const matched = tryFastPattern(b.pattern, actual, props, state, environment);
+      if (matched === undefined) return undefined;
+      if (matched) {
+        return tryFastEvaluate(b.value, props, state, stack, expandElements, environment);
+      }
+    }
     return undefined;
   }
-  if (own(value, 'match') || own(value, 'expression') || own(value, 'interpolation')) {
+  if (own(value, 'expression') || own(value, 'interpolation')) {
     return undefined;
   }
   if (own(value, 'expr')) {
@@ -83,31 +152,33 @@ export function selectedPropertySources(groups = emptyArray, props, state, envir
   return wasmSelectedPropertySources(groups, props, state, environment);
 }
 
-export function evaluateProperties(node, props, state, environment = emptyObject) {
+function tryFastEvaluateProperties(node, props, state, environment) {
   if (
-    node &&
-    !node.apply?.length &&
-    !node.forward?.length &&
-    !node.matches?.length &&
-    (!node.bindings || Object.keys(node.bindings).length === 0)
+    !node ||
+    node.apply?.length ||
+    node.forward?.length ||
+    node.matches?.length ||
+    (node.bindings && Object.keys(node.bindings).length > 0)
   ) {
-    const rawProps = node.props;
-    if (!rawProps) return {};
-    const keys = Object.keys(rawProps);
-    if (keys.length === 0) return {};
-    const out = {};
-    let allFast = true;
-    for (let i = 0; i < keys.length; i++) {
-      const k = keys[i];
-      const v = tryFastEvaluate(rawProps[k], props, state, emptyArray, false, environment);
-      if (v === undefined) {
-        allFast = false;
-        break;
-      }
-      out[k] = v;
-    }
-    if (allFast) return out;
+    return undefined;
   }
+  const rawProps = node.props;
+  if (!rawProps) return {};
+  const keys = Object.keys(rawProps);
+  if (keys.length === 0) return {};
+  const out = {};
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    const v = tryFastEvaluate(rawProps[k], props, state, emptyArray, false, environment);
+    if (v === undefined) return undefined;
+    out[k] = v;
+  }
+  return out;
+}
+
+export function evaluateProperties(node, props, state, environment = emptyObject) {
+  const fast = tryFastEvaluateProperties(node, props, state, environment);
+  if (fast !== undefined) return fast;
   return wasmEvaluateProperties(node, props, state, environment);
 }
 
@@ -136,50 +207,98 @@ export function matchesType(value, type, enums = emptyObject) {
 
 export function expandStructure(nodes, props, state, environment = emptyObject, options = emptyObject) {
   if (Array.isArray(nodes) && nodes.length === 0) return [];
-  if (
-    Array.isArray(nodes) &&
-    options.recursive === false &&
-    options.evaluateProps === false &&
-    !options.trackOrigins &&
-    nodes.length <= 16384
-  ) {
-    let plain = true;
-    for (let i = 0; i < nodes.length; i++) {
-      const n = nodes[i];
-      if (!n || structuralTypes.has(n.type) || (n.eventArgs && Object.keys(n.eventArgs).length > 0)) {
-        plain = false;
-        break;
-      }
-    }
-    if (plain) {
-      const env =
-        environment && typeof environment === 'object'
-          ? own(environment, 'locals') && environment.locals && typeof environment.locals === 'object'
-            ? environment
-            : { ...environment, locals: {} }
-          : { locals: {} };
-      return nodes.map(node => {
-        const values = node.props ?? {};
-        const isSliderNum = node.type === 'Slider' && typeof values.value === 'number';
-        const out = {
-          ...node,
+  if (Array.isArray(nodes)) {
+    const env =
+      environment && typeof environment === 'object'
+        ? own(environment, 'locals') && environment.locals && typeof environment.locals === 'object'
+          ? environment
+          : { ...environment, locals: {} }
+        : { locals: {} };
+    let count = 0;
+    const evaluateProps = options.evaluateProps !== false;
+    const trackOrigins = Boolean(options.trackOrigins);
+    const propertySources = options.propertySources;
+    const recursiveOpt = options.recursive;
+    function walk(list, depth) {
+      if (depth > 64) return undefined;
+      const out = new Array(list.length);
+      for (let i = 0; i < list.length; i++) {
+        const n = list[i];
+        if (!n || structuralTypes.has(n.type)) return undefined;
+        if (++count > 16384) return undefined;
+        const values = evaluateProps ? tryFastEvaluateProperties(n, props, state, env) : (n.props ?? {});
+        if (values === undefined) return undefined;
+        let args = {};
+        if (n.eventArgs) {
+          const eventKeys = Object.keys(n.eventArgs);
+          if (eventKeys.length > 0) {
+            for (let j = 0; j < eventKeys.length; j++) {
+              const ek = eventKeys[j];
+              const rawArgs = n.eventArgs[ek];
+              if (!Array.isArray(rawArgs)) return undefined;
+              const evalArgs = new Array(rawArgs.length);
+              for (let m = 0; m < rawArgs.length; m++) {
+                const av = tryFastEvaluate(rawArgs[m], props, state, emptyArray, false, env);
+                if (av === undefined) return undefined;
+                evalArgs[m] = av;
+              }
+              args[ek] = evalArgs;
+            }
+          }
+        }
+        let origins;
+        if (trackOrigins) {
+          if (n.matches?.length || n.forward?.length || (n.bindings && Object.keys(n.bindings).length > 0)) {
+            return undefined;
+          }
+          const sources = n.propertySources ?? emptyObject;
+          const raw = n.props ?? emptyObject;
+          origins = {};
+          const rawKeys = Object.keys(raw);
+          for (let j = 0; j < rawKeys.length; j++) {
+            const k = rawKeys[j];
+            const src = sources[k];
+            origins[k] = propertyOrigins(
+              raw[k],
+              src ? { ...src, label: `${n.type} · экземпляр` } : n.source,
+              props,
+              propertySources,
+            );
+          }
+        }
+        const recurse = typeof recursiveOpt === 'function' ? recursiveOpt(n) : recursiveOpt !== false;
+        let children;
+        if (!recurse) {
+          children = n.children;
+        } else {
+          const rawChildren = Array.isArray(n.children) ? n.children : emptyArray;
+          children = rawChildren.length === 0 ? [] : walk(rawChildren, depth + 1);
+          if (children === undefined) return undefined;
+        }
+        const isSliderNum = n.type === 'Slider' && typeof values.value === 'number';
+        const result = {
+          ...n,
           props: values,
-          eventArgs: {},
-          eventArgExpressions: node.eventArgs ?? {},
+          eventArgs: args,
+          eventArgExpressions: n.eventArgs ?? {},
           environment: env,
-          children: node.children,
         };
+        if (origins !== undefined) result.propertyOrigins = origins;
         if (isSliderNum) {
-          const path = node.props?.value?.expr;
-          out.normalizedRange = Boolean(
-            (typeof node.bindings?.value === 'string' && node.bindings.value.length > 0) ||
+          const path = n.props?.value?.expr;
+          result.normalizedRange = Boolean(
+            (typeof n.bindings?.value === 'string' && n.bindings.value.length > 0) ||
               (typeof path === 'string' &&
                 (path.startsWith('state.') || own(env.locals, path.split('.')[0] ?? '')))
           );
         }
-        return out;
-      });
+        result.children = children;
+        out[i] = result;
+      }
+      return out;
     }
+    const fast = walk(nodes, 0);
+    if (fast !== undefined) return fast;
   }
   return wasmExpandStructure(nodes, props, state, environment, options);
 }
