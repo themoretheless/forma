@@ -33,7 +33,15 @@ export function treeRows(roots,collapsed=new Set(),query=''){
   const needle=query.trim().toLocaleLowerCase();
   function filtered(n){if(`${n.label} ${n.detail??''}`.toLocaleLowerCase().includes(needle))return n;const children=n.children.map(filtered).filter(Boolean);return children.length?{...n,children}:null;}
   const out=[];
-  function walk(items,level,parent){items.forEach((item,index)=>{const expanded=item.children.length>0&&(!collapsed.has(item.id)||!!needle);out.push({...item,level,parent,index:index+1,siblings:items.length,expanded});if(expanded)walk(item.children,level+1,item.id);});}
+  function walk(items,level,parent){
+    const siblings=items.length;
+    for(let i=0;i<siblings;i++){
+      const item=items[i],children=item.children,expanded=children.length>0&&(!collapsed.has(item.id)||!!needle);
+      const row=Object.assign({},item);row.level=level;row.parent=parent;row.index=i+1;row.siblings=siblings;row.expanded=expanded;
+      out.push(row);
+      if(expanded)walk(children,level+1,item.id);
+    }
+  }
   walk(needle?roots.map(filtered).filter(Boolean):roots,1,null);return out;
 }
 

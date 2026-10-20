@@ -137,11 +137,6 @@ impl Value {
         }
         Ok(())
     }
-    fn literal(&self) -> Result<String, String> {
-        let mut out = String::new();
-        self.write_literal(&mut out)?;
-        Ok(out)
-    }
 }
 fn lookup(values: &Properties, path: &str) -> Option<Value> {
     if let Some(value) = values.get(path) {
@@ -1412,11 +1407,6 @@ fn serialize_into(node: &Node, out: &mut String) -> Result<(), String> {
     }
     out.push_str(" }");
     Ok(())
-}
-fn serialize(node: &Node) -> Result<String, String> {
-    let mut out = String::new();
-    serialize_into(node, &mut out)?;
-    Ok(out)
 }
 fn num(p: &Properties, key: &str, default: f64) -> Result<f64, String> {
     p.get(key).map_or(Ok(default), Value::number)
