@@ -97,30 +97,50 @@ impl Value {
             Err("Expected boolean".into())
         }
     }
-    fn literal(&self) -> Result<String, String> {
-        Ok(match self {
-            Self::Text(s) => format!(
-                "'{}'",
-                s.replace('\\', "\\\\")
-                    .replace('\'', "\\'")
-                    .replace('\n', "\\n")
-                    .replace('\r', "\\r")
-                    .replace('\t', "\\t")
-            ),
-            Self::Expr(s) => s.clone(),
-            Self::Number(_) => self.number()?.to_string(),
-            Self::Bool(v) => v.to_string(),
-            Self::List(v) => v
-                .iter()
-                .map(Self::literal)
-                .collect::<Result<Vec<_>, _>>()?
-                .join(" "),
-            Self::Node(n) => serialize(n)?,
+    fn write_literal(&self, out: &mut String) -> Result<(), String> {
+        use std::fmt::Write;
+        match self {
+            Self::Text(s) => {
+                out.push('\'');
+                for ch in s.chars() {
+                    match ch {
+                        '\\' => out.push_str("\\\\"),
+                        '\'' => out.push_str("\\'"),
+                        '\n' => out.push_str("\\n"),
+                        '\r' => out.push_str("\\r"),
+                        '\t' => out.push_str("\\t"),
+                        c => out.push(c),
+                    }
+                }
+                out.push('\'');
+            }
+            Self::Expr(s) => out.push_str(s),
+            Self::Number(_) => {
+                let _ = write!(out, "{}", self.number()?);
+            }
+            Self::Bool(v) => {
+                let _ = write!(out, "{v}");
+            }
+            Self::List(v) => {
+                for (i, item) in v.iter().enumerate() {
+                    if i > 0 {
+                        out.push(' ');
+                    }
+                    item.write_literal(out)?;
+                }
+            }
+            Self::Node(n) => serialize_into(n, out)?,
             Self::Match(..) | Self::Expression(_) | Self::Interpolation(_) => {
                 return Err("Unevaluated expression".into())
             }
             Self::Object(_) | Self::Null => return Err("Expected serializable visual value".into()),
-        })
+        }
+        Ok(())
+    }
+    fn literal(&self) -> Result<String, String> {
+        let mut out = String::new();
+        self.write_literal(&mut out)?;
+        Ok(out)
     }
 }
 fn lookup(values: &Properties, path: &str) -> Option<Value> {
@@ -1324,59 +1344,79 @@ fn matches(pattern: &Value, value: &Value) -> bool {
         _ => pattern == value,
     }
 }
-fn property_literal(key: &str, value: &Value) -> Result<String, String> {
+fn is_color_property(key: &str) -> bool {
+    key.as_bytes()
+        .windows(5)
+        .any(|w| w.eq_ignore_ascii_case(b"color"))
+        || [
+            "background",
+            "hoverBackground",
+            "pressedBackground",
+            "disabledBackground",
+            "hover",
+            "pressed",
+            "disabled",
+            "focus",
+        ]
+        .contains(&key)
+}
+fn write_property_literal(key: &str, value: &Value, out: &mut String) -> Result<(), String> {
     if let Value::Text(text) = value {
-        let color = key.to_lowercase().contains("color")
-            || [
-                "background",
-                "hoverBackground",
-                "pressedBackground",
-                "disabledBackground",
-                "hover",
-                "pressed",
-                "disabled",
-                "focus",
-            ]
-            .contains(&key);
-        if color
+        if is_color_property(key)
             && text.starts_with('#')
             && [4, 7, 9].contains(&text.len())
             && text[1..].bytes().all(|b| b.is_ascii_hexdigit())
         {
-            return Ok(text.clone());
+            out.push_str(text);
+            return Ok(());
         }
         if key == "overflow" && ["visible", "hidden"].contains(&text.as_str()) {
-            return Ok(text.clone());
+            out.push_str(text);
+            return Ok(());
         }
     }
-    value.literal()
+    value.write_literal(out)
+}
+fn serialize_into(node: &Node, out: &mut String) -> Result<(), String> {
+    out.push_str(&node.kind);
+    out.push_str(" { ");
+    let mut first = true;
+    for (k, v) in &node.props {
+        if k.as_str() == "key"
+            || k.starts_with("__")
+            || ["minWidth", "maxWidth", "minHeight", "maxHeight"].contains(&k.as_str())
+        {
+            continue;
+        }
+        if !first {
+            out.push(' ');
+        }
+        first = false;
+        out.push_str(k);
+        out.push_str(": ");
+        write_property_literal(k, v, out)?;
+        out.push(';');
+    }
+    out.push(' ');
+    if let Some(a) = &node.action {
+        out.push_str("clicked -> ");
+        out.push_str(a);
+        out.push_str("();");
+    }
+    out.push(' ');
+    for (i, child) in node.children.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        serialize_into(child, out)?;
+    }
+    out.push_str(" }");
+    Ok(())
 }
 fn serialize(node: &Node) -> Result<String, String> {
-    let properties = node
-        .props
-        .iter()
-        .filter(|(k, _)| {
-            k.as_str() != "key"
-                && !k.starts_with("__")
-                && !["minWidth", "maxWidth", "minHeight", "maxHeight"].contains(&k.as_str())
-        })
-        .map(|(k, v)| Ok(format!("{k}: {};", property_literal(k, v)?)))
-        .collect::<Result<Vec<_>, String>>()?
-        .join(" ");
-    let action = node
-        .action
-        .as_ref()
-        .map_or(String::new(), |a| format!("clicked -> {a}();"));
-    let children = node
-        .children
-        .iter()
-        .map(serialize)
-        .collect::<Result<Vec<_>, _>>()?
-        .join(" ");
-    Ok(format!(
-        "{} {{ {properties} {action} {children} }}",
-        node.kind
-    ))
+    let mut out = String::new();
+    serialize_into(node, &mut out)?;
+    Ok(out)
 }
 fn num(p: &Properties, key: &str, default: f64) -> Result<f64, String> {
     p.get(key).map_or(Ok(default), Value::number)
@@ -1391,17 +1431,22 @@ fn number(v: f64) -> Value {
     Value::Number(v)
 }
 fn insets(value: Option<&Value>) -> Result<[f64; 4], String> {
-    let values = match value {
-        None => vec![0.],
-        Some(Value::List(v)) => v.iter().map(Value::number).collect::<Result<_, _>>()?,
-        Some(v) => vec![v.number()?],
-    };
-    match values.as_slice() {
-        [a] => Ok([*a; 4]),
-        [a, b] => Ok([*a, *b, *a, *b]),
-        [a, b, c] => Ok([*a, *b, *c, *b]),
-        [a, b, c, d] => Ok([*a, *b, *c, *d]),
-        _ => Err("Expected 1..4 insets".into()),
+    match value {
+        None => Ok([0.; 4]),
+        Some(Value::List(v)) => match v.as_slice() {
+            [a] => Ok([a.number()?; 4]),
+            [a, b] => {
+                let (a, b) = (a.number()?, b.number()?);
+                Ok([a, b, a, b])
+            }
+            [a, b, c] => {
+                let (a, b, c) = (a.number()?, b.number()?, c.number()?);
+                Ok([a, b, c, b])
+            }
+            [a, b, c, d] => Ok([a.number()?, b.number()?, c.number()?, d.number()?]),
+            _ => Err("Expected 1..4 insets".into()),
+        },
+        Some(v) => Ok([v.number()?; 4]),
     }
 }
 fn gaps(p: &Properties) -> Result<[f64; 2], String> {
@@ -1553,17 +1598,21 @@ fn natural(n: &Node, axis: usize) -> Result<f64, String> {
             return constraint(n, axis, value);
         }
     }
-    let n = normalize_layout(n)?;
+    let owned_normalized;
+    let n = if matches!(n.kind.as_str(), "Row" | "Column" | "Grid" | "Stack") {
+        owned_normalized = normalize_layout(n)?;
+        &owned_normalized
+    } else {
+        n
+    };
     let measured = match n.kind.as_str() {
         "Text" => {
             let fs = num(&n.props, "fontSize", 16.)?;
             let text = text(&n.props, "text", "")?;
-            let lines: Vec<_> = text.split('\n').collect();
-            if axis == 1 && lines.len() > 1 {
-                lines.len() as f64 * fs * 1.5
+            if axis == 1 && text.contains('\n') {
+                text.split('\n').count() as f64 * fs * 1.5
             } else {
-                lines
-                    .iter()
+                text.split('\n')
                     .map(|line| crate::text::measure_line(line, fs as f32)[axis] as f64)
                     .fold(0., f64::max)
             }
@@ -1604,7 +1653,7 @@ fn natural(n: &Node, axis: usize) -> Result<f64, String> {
         }
         _ => return Err(format!("Unknown visual {}", n.kind)),
     };
-    constraint(&n, axis, measured)
+    constraint(n, axis, measured)
 }
 fn dimension(n: &Node, axis: usize, available: f64) -> Result<f64, String> {
     let key = if axis == 0 { "width" } else { "height" };
@@ -2375,7 +2424,13 @@ impl Document {
     }
     fn flatten(&self, n: &Node, bounds: [f64; 4], out: &mut String) -> Result<(), String> {
         let [mut x, mut y, mut w, mut h] = bounds;
-        let n = &normalize_layout(n)?;
+        let owned_normalized;
+        let n = if matches!(n.kind.as_str(), "Row" | "Column" | "Grid" | "Stack") {
+            owned_normalized = normalize_layout(n)?;
+            &owned_normalized
+        } else {
+            n
+        };
         let width = dimension(n, 0, w)?;
         let height = dimension(n, 1, h)?;
         x += (w - width) / 2.;
@@ -2383,9 +2438,10 @@ impl Document {
         w = width;
         h = height;
         let clip = |out: &mut String, radius: f64| {
-            out.push_str(&format!(
-                "ContentClip {{ x:{x}; y:{y}; width:{w}; height:{h}; radius:{radius}; }} "
-            ))
+            let _ = std::fmt::Write::write_fmt(
+                out,
+                format_args!("ContentClip {{ x:{x}; y:{y}; width:{w}; height:{h}; radius:{radius}; }} "),
+            );
         };
         match n.kind.as_str() {
             "Frame" => {
@@ -2424,14 +2480,18 @@ impl Document {
             "Rectangle" => {
                 clip(out, num(&n.props, "radius", 0.)?);
                 if let Some(color) = n.props.get("background") {
-                    out.push_str(&format!(
-                        "ContentShape {{ points:'{x} {y} {} {y} {} {} {x} {}'; color:{}; }} ",
-                        x + w,
-                        x + w,
-                        y + h,
-                        y + h,
-                        color.literal()?
-                    ));
+                    let _ = std::fmt::Write::write_fmt(
+                        out,
+                        format_args!(
+                            "ContentShape {{ points:'{x} {y} {} {y} {} {} {x} {}'; color:",
+                            x + w,
+                            x + w,
+                            y + h,
+                            y + h,
+                        ),
+                    );
+                    color.write_literal(out)?;
+                    out.push_str("; } ");
                 }
                 for c in &n.children {
                     self.flatten(c, [x, y, w, h], out)?;
@@ -2439,17 +2499,34 @@ impl Document {
                 out.push_str("ContentClipEnd {} ");
             }
             "TextInput" => {
-                out.push_str(&format!("ContentInput {{ x:{x}; y:{y}; width:{w}; height:{h}; value:{}; placeholder:{}; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; }} ",Value::Text(text(&n.props,"value","")?).literal()?,Value::Text(text(&n.props,"placeholder","")?).literal()?,text(&n.props,"color","#ffffff")?,text(&n.props,"placeholderColor","#999999")?,num(&n.props,"fontSize",15.)?,boolean(&n.props,"multiline",false)?));
+                let _ = std::fmt::Write::write_fmt(
+                    out,
+                    format_args!("ContentInput {{ x:{x}; y:{y}; width:{w}; height:{h}; value:"),
+                );
+                Value::Text(text(&n.props, "value", "")?).write_literal(out)?;
+                out.push_str("; placeholder:");
+                Value::Text(text(&n.props, "placeholder", "")?).write_literal(out)?;
+                let _ = std::fmt::Write::write_fmt(
+                    out,
+                    format_args!(
+                        "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; }} ",
+                        text(&n.props, "color", "#ffffff")?,
+                        text(&n.props, "placeholderColor", "#999999")?,
+                        num(&n.props, "fontSize", 15.)?,
+                        boolean(&n.props, "multiline", false)?,
+                    ),
+                );
             }
             "Text" => {
                 let value = text(&n.props, "text", "")?;
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
-                let lines: Vec<_> = value.split('\n').collect();
-                if lines.len() > 1 {
+                let color = text(&n.props, "color", "#ffffff")?;
+                let multiline = value.contains('\n');
+                if multiline {
                     clip(out, 0.);
                 }
-                for (i, line) in lines.iter().enumerate() {
-                    let (width, height) = if lines.len() > 1 {
+                for (i, line) in value.split('\n').enumerate() {
+                    let (width, height) = if multiline {
                         (
                             crate::text::measure_line(line, fs as f32)[0] as f64,
                             fs * 1.5,
@@ -2457,9 +2534,20 @@ impl Document {
                     } else {
                         (w, h)
                     };
-                    out.push_str(&format!("ContentText {{ x:{x}; y:{}; width:{width}; height:{height}; text:{}; color:{}; fontSize:{fs}; }} ",y+i as f64*fs*1.5,Value::Text((*line).into()).literal()?,text(&n.props,"color","#ffffff")?));
+                    let _ = std::fmt::Write::write_fmt(
+                        out,
+                        format_args!(
+                            "ContentText {{ x:{x}; y:{}; width:{width}; height:{height}; text:",
+                            y + i as f64 * fs * 1.5
+                        ),
+                    );
+                    Value::Text(line.into()).write_literal(out)?;
+                    let _ = std::fmt::Write::write_fmt(
+                        out,
+                        format_args!("; color:{color}; fontSize:{fs}; }} "),
+                    );
                 }
-                if lines.len() > 1 {
+                if multiline {
                     out.push_str("ContentClipEnd {} ");
                 }
             }
@@ -2993,7 +3081,8 @@ impl Document {
                 {
                     self.flatten(child, bounds, &mut content)?;
                 } else {
-                    content.push_str(&serialize(child)?);
+                    serialize_into(child, &mut content)?;
+                    content.push(' ');
                 }
             }
             if instance.kind == "Slider" {
@@ -3005,14 +3094,15 @@ impl Document {
                     .parse::<f64>()
                     .map_err(|_| "Invalid slider value")?
                     / 100.;
-                content.push_str(&format!("RangeInput {{ value:{v}; "));
+                let _ = std::fmt::Write::write_fmt(&mut content, format_args!("RangeInput {{ value:{v}; "));
                 for (name, value) in [("Minimum", 0.), ("Maximum", 100.)] {
                     let mut endpoint = instance.clone();
                     endpoint
                         .props
                         .insert("value".into(), Value::Expr(format!("{value}%")));
                     let (visual, _) = self.instantiate(&endpoint, true, state, &[])?;
-                    content.push_str(&format!("{name} {{ "));
+                    content.push_str(name);
+                    content.push_str(" { ");
                     for c in &visual.children {
                         if [
                             "Frame",
@@ -3036,10 +3126,13 @@ impl Document {
             }
             let mut rectangle = visual.clone();
             rectangle.children.clear();
-            let prefix = serialize(&rectangle)?;
-            let body = prefix.strip_suffix('}').unwrap();
-            let template = format!("component Button {{ {body} {content} }} }}");
-            templates.push_str(&format!("{}\n{template}", template.len()));
+            let mut template = String::with_capacity(64 + content.len());
+            template.push_str("component Button { ");
+            serialize_into(&rectangle, &mut template)?;
+            template.pop();
+            template.push_str(&content);
+            template.push_str(" } }");
+            let _ = std::fmt::Write::write_fmt(&mut templates, format_args!("{}\n{template}", template.len()));
             let standard = [
                 "key",
                 "x",
@@ -3075,42 +3168,54 @@ impl Document {
             });
         }
         // Scene keys must survive serialization for interaction reconciliation.
-        fn scene(n: &Node) -> Result<String, String> {
-            let p = n
-                .props
-                .iter()
-                .filter(|(k, _)| {
-                    !k.starts_with("__")
-                        && !["minWidth", "maxWidth", "minHeight", "maxHeight"].contains(&k.as_str())
-                        && !(k.as_str() == "key" && ["Frame", "Scroll"].contains(&n.kind.as_str()))
-                })
-                .map(|(k, v)| Ok(format!("{k}:{};", property_literal(k, v)?)))
-                .collect::<Result<Vec<_>, String>>()?
-                .join(" ");
-            let action = n
-                .action
-                .as_ref()
-                .map_or(String::new(), |a| format!("clicked -> {a}();"));
-            Ok(format!(
-                "{} {{ {p} {action} {} }}",
-                n.kind,
-                n.children
-                    .iter()
-                    .map(scene)
-                    .collect::<Result<Vec<_>, _>>()?
-                    .join(" ")
-            ))
+        fn write_scene(n: &Node, out: &mut String) -> Result<(), String> {
+            out.push_str(&n.kind);
+            out.push_str(" { ");
+            let mut first = true;
+            for (k, v) in &n.props {
+                if k.starts_with("__")
+                    || ["minWidth", "maxWidth", "minHeight", "maxHeight"].contains(&k.as_str())
+                    || (k.as_str() == "key" && ["Frame", "Scroll"].contains(&n.kind.as_str()))
+                {
+                    continue;
+                }
+                if !first {
+                    out.push(' ');
+                }
+                first = false;
+                out.push_str(k);
+                out.push(':');
+                write_property_literal(k, v, out)?;
+                out.push(';');
+            }
+            out.push(' ');
+            if let Some(a) = &n.action {
+                out.push_str("clicked -> ");
+                out.push_str(a);
+                out.push_str("();");
+            }
+            out.push(' ');
+            for (i, child) in n.children.iter().enumerate() {
+                if i > 0 {
+                    out.push(' ');
+                }
+                write_scene(child, out)?;
+            }
+            out.push_str(" }");
+            Ok(())
         }
         if scroll {
             root.children[0].children = source_controls;
         } else {
             root.children = source_controls;
         }
-        Ok((
-            format!("component {} {{ {} }}", self.name, scene(&root)?),
-            templates,
-            mapping,
-        ))
+        let mut scene_source = String::with_capacity(256 + root.children.len() * 128);
+        scene_source.push_str("component ");
+        scene_source.push_str(&self.name);
+        scene_source.push_str(" { ");
+        write_scene(&root, &mut scene_source)?;
+        scene_source.push_str(" }");
+        Ok((scene_source, templates, mapping))
     }
 }
 
