@@ -625,11 +625,14 @@ function compile(files,entry,state,metrics,read,links){
   // what a designer means when they pick up a panel. It travels beside the drawn controls so the
   // canvas can measure, grab and move a container by the extent it actually has.
   const previewContainers=[];
+  const intrinsicCache=new WeakMap();
   function intrinsicScene(node,axis){
     const key=axis===0?'width':'height',value=node.props[key];
     if(value!==undefined&&!intrinsicLength(value)&&!/[\*%]$/.test(value?.expr??''))return constrained(length(value,axis===0?rootWidth:rootHeight,0),node.props,axis,axis===0?rootWidth:rootHeight);
     if(containerTypes.has(node.type))return naturalContainer({...node,layoutKind:node.type==='Frame'&&node.props.columns===undefined&&node.props.rows===undefined?'Column':node.type},axis,intrinsicScene);
-    const {roots,resolved}=instantiate(node,true);
+    let inst=intrinsicCache.get(node);
+    if(!inst){inst=instantiate(node,true);intrinsicCache.set(node,inst);}
+    const {roots,resolved}=inst;
     if(intrinsicLength(resolved[key]))return constrained(natural(roots[0],axis,metrics),node.props,axis,axis===0?rootWidth:rootHeight);
     return constrained(length(resolved[key],axis===0?rootWidth:rootHeight,0),node.props,axis,axis===0?rootWidth:rootHeight);
   }

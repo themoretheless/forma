@@ -809,7 +809,7 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
             } else {
                 None
             };
-            let mut out: Vec<Value> = Vec::new();
+            let mut out: Vec<Value> = Vec::with_capacity(a.len());
             for item in a {
                 let k = match (&key, item) {
                     (Some(f), Value::Object(o)) => o.get(f).unwrap_or(&Value::Null),
@@ -2738,7 +2738,9 @@ impl Document {
             };
             self.instantiate(node, true, state, &[])
                 .map(|(mut root, p)| {
+                    let orig = root.props.clone();
                     root.props.extend(p);
+                    root.props.insert("__rect_props".into(), Value::Object(orig));
                     root
                 })
         }
@@ -2748,7 +2750,7 @@ impl Document {
         node: &Node,
         precomputed_visual: Option<&Node>,
         bounds: [f64; 4],
-        instances: &mut Vec<Node>,
+        instances: &mut Vec<(Node, Option<Node>)>,
         root_legacy: bool,
     ) -> Result<(), String> {
         if !is_layout(&node.kind) {
@@ -2774,7 +2776,7 @@ impl Document {
             for key in ["cell", "row", "column"] {
                 node.props.remove(key);
             }
-            instances.push(node);
+            instances.push((node, Some(visual.clone())));
             return Ok(());
         }
         if !root_legacy && boolean(&node.props, "clip", false)? {
@@ -2883,7 +2885,7 @@ impl Document {
             || layout.props.contains_key("rows")
             || !["Frame", "Scroll"].contains(&layout.kind.as_str())
             || layout.children.iter().any(|n| is_layout(&n.kind));
-        let mut instances = Vec::new();
+        let mut instances: Vec<(Node, Option<Node>)> = Vec::new();
         if advanced {
             let width = num(&root.props, "width", 360.)?;
             let height = num(&root.props, "height", 220.)?;
@@ -2904,14 +2906,28 @@ impl Document {
                 }
             }
         } else {
-            instances = layout.children.clone();
+            let precomputed = if scroll {
+                measuring.children.first()
+            } else {
+                Some(&measuring)
+            };
+            if let Some(vis) = precomputed.filter(|v| v.children.len() == layout.children.len()) {
+                instances = layout
+                    .children
+                    .iter()
+                    .cloned()
+                    .zip(vis.children.iter().cloned().map(Some))
+                    .collect();
+            } else {
+                instances = layout.children.iter().cloned().map(|n| (n, None)).collect();
+            }
         }
         root.kind = "Frame".into();
         let empty = Properties::new();
         let mut mapping = Vec::new();
         let mut source_controls = Vec::new();
         let mut templates = String::from("FORMA-TEMPLATES-1\n");
-        for instance in &instances {
+        for (instance, precomputed_visual) in &instances {
             let state = match instance.props.get("__state") {
                 Some(Value::Object(state)) => state,
                 _ => &empty,
@@ -2934,27 +2950,32 @@ impl Document {
                 state: state.clone(),
                 event_args,
             });
-            let (visual, resolved) = self.instantiate(instance, true, state, &[])?;
+            let (visual, resolved) = match precomputed_visual {
+                Some(vis) => {
+                    let mut resolved = vis.props.clone();
+                    let rect_props = match resolved.remove("__rect_props") {
+                        Some(Value::Object(p)) => p,
+                        _ => resolved.clone(),
+                    };
+                    for key in ["x", "y", "width", "height", "key"] {
+                        if let Some(val) = instance.props.get(key) {
+                            resolved.insert(key.into(), val.clone());
+                        }
+                    }
+                    let mut visual = vis.clone();
+                    visual.props = rect_props;
+                    (visual, resolved)
+                }
+                None => self.instantiate(instance, true, state, &[])?,
+            };
             let mut content = String::new();
+            let mut dim_node = visual.clone();
+            dim_node.props = resolved.clone();
             let bounds = [
                 0.,
                 0.,
-                dimension(
-                    &Node {
-                        props: resolved.clone(),
-                        ..visual.clone()
-                    },
-                    0,
-                    260.,
-                )?,
-                dimension(
-                    &Node {
-                        props: resolved.clone(),
-                        ..visual.clone()
-                    },
-                    1,
-                    70.,
-                )?,
+                dimension(&dim_node, 0, 260.)?,
+                dimension(&dim_node, 1, 70.)?,
             ];
             for child in &visual.children {
                 if [
