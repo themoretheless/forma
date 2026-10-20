@@ -254,6 +254,20 @@ pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32,scrat
     scratch.ids = ids;
 }
 
+use std::cell::RefCell;
+
+#[derive(Default)]
+struct CpuRasterScratch {
+    ids: Vec<GlyphId>,
+    edges: Vec<(Point, Point)>,
+    area: Vec<f32>,
+    full: Vec<f32>,
+}
+
+thread_local! {
+    static CPU_SCRATCH: RefCell<CpuRasterScratch> = RefCell::new(CpuRasterScratch::default());
+}
+
 /// Draw a centered, single-line label into a straight-alpha RGBA pixel buffer.
 /// `rect = [x, y, width, height]` and font size are logical pixels; `scale` is
 /// device pixels per logical pixel. Coverage is clipped to both rect and canvas.
@@ -298,28 +312,42 @@ pub fn draw_text(
     }
     let face = font();
     let units_to_pixels = font_size * scale / face.units_per_em() as f32;
-    let glyphs: Vec<_> = text.chars().map(|c| glyph(&face, c)).collect();
-    let text_width = glyphs.iter().map(|&g| advance(&face, g)).sum::<f32>() * units_to_pixels;
+    let (mut ids, mut edges) = CPU_SCRATCH.with(|cell| {
+        let mut s = cell.borrow_mut();
+        (std::mem::take(&mut s.ids), std::mem::take(&mut s.edges))
+    });
+    let text_width = glyph_ids(&face, text, &mut ids) * units_to_pixels;
     let origin = Point {
         x: (rect[0] + rect[2] * 0.5) * scale - text_width * 0.5,
         y: (rect[1] + rect[3] * 0.5) * scale
             + (face.ascender() as f32 + face.descender() as f32) * units_to_pixels * 0.5,
     };
     if !units_to_pixels.is_finite() || !origin.x.is_finite() || !origin.y.is_finite() {
+        CPU_SCRATCH.with(|cell| {
+            let mut s = cell.borrow_mut();
+            s.ids = ids;
+            s.edges = edges;
+        });
         return;
     }
+    edges.clear();
     let mut contours = Contours {
-        edges: Vec::new(),
+        edges,
         current: origin,
         start: origin,
         origin,
         units_to_pixels,
     };
-    for glyph in glyphs {
+    for &glyph in &ids {
         face.outline_glyph(glyph, &mut contours);
         contours.origin.x += advance(&face, glyph) * units_to_pixels;
     }
     rasterize(pixels, width, &contours.edges, clip, color);
+    CPU_SCRATCH.with(|cell| {
+        let mut s = cell.borrow_mut();
+        s.ids = ids;
+        s.edges = contours.edges;
+    });
 }
 
 /// Exact signed area one edge (physical pixels) contributes to the pixel whose
@@ -395,16 +423,24 @@ pub(crate) fn rasterize(
     // Per row: exact per-pixel areas where an edge crosses the column, plus a
     // difference array for the full-height contribution of every column to the
     // left of the edge. Scratch is one clipped row, never a full canvas.
-    let mut area = vec![0f32; columns];
-    let mut full = vec![0f32; columns + 1];
+    let (mut area, mut full) = CPU_SCRATCH.with(|cell| {
+        let mut s = cell.borrow_mut();
+        (std::mem::take(&mut s.area), std::mem::take(&mut s.full))
+    });
+    if area.len() < columns {
+        area.resize(columns, 0.);
+    }
+    if full.len() < columns + 1 {
+        full.resize(columns + 1, 0.);
+    }
     for y in top..bottom {
         let row_top = (y as f32).max(clip[1]);
         let row_bottom = (y as f32 + 1.).min(clip[3]);
         if row_top >= row_bottom {
             continue;
         }
-        area.fill(0.);
-        full.fill(0.);
+        area[..columns].fill(0.);
+        full[..columns + 1].fill(0.);
         let mut touched = false;
         for &(a, b) in edges {
             let ya = a.y.min(b.y).max(row_top);
@@ -445,6 +481,11 @@ pub(crate) fn rasterize(
             blend(&mut pixels[pixel..pixel + 4], color, coverage);
         }
     }
+    CPU_SCRATCH.with(|cell| {
+        let mut s = cell.borrow_mut();
+        s.area = area;
+        s.full = full;
+    });
 }
 
 fn blend(pixel: &mut [u8], color: [u8; 4], coverage: f32) {

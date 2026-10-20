@@ -2,6 +2,7 @@
 // Unsupported SVG features are diagnostics, not silently missing artwork.
 // Parsing is box-independent: a repeated icon tessellates once and is then placed
 // per control, so callers must not re-parse the same source for every surface.
+const UNIT_CIRCLE=Array.from({length:64},(_,i)=>[Math.cos(i*Math.PI/32),Math.sin(i*Math.PI/32)]);
 export function parseSvgShapes(source,currentColor='#ffffff'){
   if(typeof source!=='string'||source.length>100_000)throw Error('SVG должен быть текстом до 100 КБ');
   source=source.replace(/<!--[^]*?-->/g,'').replace(/<\?xml[^]*?\?>/g,'');
@@ -25,7 +26,7 @@ export function parseSvgShapes(source,currentColor='#ffffff'){
     const fill=ink(attrs.fill??'#000000'),stroke=ink(attrs.stroke??'none'),sw=number(attrs['stroke-width'],1);if(sw<0)throw Error('SVG: отрицательная толщина');
     let points=[],close=true;
     if(name==='rect'){const x=number(attrs.x),y=number(attrs.y),w=number(attrs.width),h=number(attrs.height);if(w<0||h<0)throw Error('SVG: отрицательный размер');points=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]];}
-    else if(name==='circle'||name==='ellipse'){const x=number(attrs.cx),y=number(attrs.cy),rx=number(attrs.rx??attrs.r),ry=number(attrs.ry??attrs.r);if(rx<0||ry<0)throw Error('SVG: отрицательный радиус');points=Array.from({length:64},(_,i)=>[x+rx*Math.cos(i*Math.PI/32),y+ry*Math.sin(i*Math.PI/32)]);}
+    else if(name==='circle'||name==='ellipse'){const x=number(attrs.cx),y=number(attrs.cy),rx=number(attrs.rx??attrs.r),ry=number(attrs.ry??attrs.r);if(rx<0||ry<0)throw Error('SVG: отрицательный радиус');points=UNIT_CIRCLE.map(([cx,sy])=>[x+rx*cx,y+ry*sy]);}
     else if(name==='line'){points=[[number(attrs.x1),number(attrs.y1)],[number(attrs.x2),number(attrs.y2)]];close=false;}
     else {const coords=attrs.points?.trim().split(/[\s,]+/).map(v=>number(v))??[];if(coords.length<4||coords.length%2||coords.length>2048)throw Error('SVG: неверный points');points=Array.from({length:coords.length/2},(_,i)=>coords.slice(i*2,i*2+2));close=name==='polygon';}
     if(name!=='line')emit(points,fill);

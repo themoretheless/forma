@@ -256,13 +256,13 @@ function compile(files,entry,state,metrics,read,links){
       return byText.get(text);
     }:undefined,
     imageContent(source,box,currentColor){
-      let byBox=images.get(source);const key=JSON.stringify([...box,currentColor]);
+      let byBox=images.get(source);const key=`${box[0]},${box[1]},${box[2]},${box[3]},${currentColor}`;
       if(byBox?.has(key))return byBox.get(key);
       const cached=parsedIcons.get(source);
       let parsed;
       if(cached?.color===currentColor)parsed=cached.parsed;
       else{parsed=parseSvgShapes(source,currentColor);if(iconGeometryUnits<=iconGeometryBudget){parsedIcons.set(source,{color:currentColor,parsed});iconGeometryUnits+=parsed.shapes.reduce((total,shape)=>total+shape.points.length*16,64);}}
-      const content=placeSvgShapes(parsed,box).map(s=>`ContentShape { points: '${s.points.flat().join(' ')}'; color: ${s.color}; }`).join(' ');
+      const content=placeSvgShapes(parsed,box).map(s=>{let pts='';for(let i=0;i<s.points.length;i++)pts+=(i?' ':'')+s.points[i][0]+' '+s.points[i][1];return `ContentShape { points: '${pts}'; color: ${s.color}; }`;}).join(' ');
       if(imageUnits+content.length<=1_000_000){if(!byBox){byBox=new Map();images.set(source,byBox);}byBox.set(key,content);imageUnits+=content.length;}
       return content;
     },

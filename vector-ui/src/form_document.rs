@@ -2478,14 +2478,17 @@ impl Document {
                     } else {
                         color.clone()
                     };
-                    let points = points
-                        .iter()
-                        .map(|p| format!("{} {}", dx + p[0] * scale, dy + p[1] * scale))
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    out.push_str(&format!(
-                        "ContentShape {{ points:'{points}'; color:{color}; }} "
-                    ));
+                    out.push_str("ContentShape { points:'");
+                    for (i, p) in points.iter().enumerate() {
+                        if i > 0 {
+                            out.push(' ');
+                        }
+                        let _ = std::fmt::Write::write_fmt(
+                            out,
+                            format_args!("{} {}", dx + p[0] * scale, dy + p[1] * scale),
+                        );
+                    }
+                    let _ = std::fmt::Write::write_fmt(out, format_args!("'; color:{color}; }} "));
                 }
             }
             _ => return Err(format!("Unknown visual {}", n.kind)),
@@ -2743,15 +2746,23 @@ impl Document {
     fn position_scene(
         &self,
         node: &Node,
+        precomputed_visual: Option<&Node>,
         bounds: [f64; 4],
         instances: &mut Vec<Node>,
         root_legacy: bool,
     ) -> Result<(), String> {
         if !is_layout(&node.kind) {
             let mut node = node.clone();
-            let visual = self.scene_visual(&node)?;
-            let width = dimension(&visual, 0, bounds[2])?;
-            let height = dimension(&visual, 1, bounds[3])?;
+            let owned_visual;
+            let visual = match precomputed_visual {
+                Some(v) => v,
+                None => {
+                    owned_visual = self.scene_visual(&node)?;
+                    &owned_visual
+                }
+            };
+            let width = dimension(visual, 0, bounds[2])?;
+            let height = dimension(visual, 1, bounds[3])?;
             for (key, value) in [
                 ("x", bounds[0] + (bounds[2] - width) / 2.),
                 ("y", bounds[1] + (bounds[3] - height) / 2.),
@@ -2778,7 +2789,14 @@ impl Document {
             node.kind = "Column".into();
         }
         let node = normalize_layout(&node)?;
-        let visual = self.scene_visual(&node)?;
+        let owned_visual;
+        let visual = match precomputed_visual {
+            Some(v) if v.children.len() == node.children.len() => v,
+            _ => {
+                owned_visual = self.scene_visual(&node)?;
+                &owned_visual
+            }
+        };
         let [mut x, mut y, mut width, mut height] = bounds;
         // A container consumes its allocated cell; its explicit dimensions are resolved by its parent.
         let pad = insets(node.props.get("padding"))?;
@@ -2786,8 +2804,8 @@ impl Document {
         y += pad[0];
         width = (width - pad[1] - pad[3]).max(0.);
         height = (height - pad[0] - pad[2]).max(0.);
-        let cols = sizes(&visual, 0, width)?;
-        let rows = sizes(&visual, 1, height)?;
+        let cols = sizes(visual, 0, width)?;
+        let rows = sizes(visual, 1, height)?;
         let gap = gaps(&node.props)?;
         for (child, child_visual) in node.children.iter().zip(&visual.children) {
             let ci = cell(child, 0, cols.len())?;
@@ -2801,9 +2819,9 @@ impl Document {
                 let h = dimension(child_visual, 1, ch)?;
                 cx += (cw - w) / 2.;
                 cy += (ch - h) / 2.;
-                self.position_scene(child, [cx, cy, w, h], instances, false)?;
+                self.position_scene(child, Some(child_visual), [cx, cy, w, h], instances, false)?;
             } else {
-                self.position_scene(child, [cx, cy, cw, ch], instances, false)?;
+                self.position_scene(child, Some(child_visual), [cx, cy, cw, ch], instances, false)?;
             }
         }
         Ok(())
@@ -2869,7 +2887,12 @@ impl Document {
         if advanced {
             let width = num(&root.props, "width", 360.)?;
             let height = num(&root.props, "height", 220.)?;
-            self.position_scene(layout, [0., 0., width, height], &mut instances, true)?;
+            let precomputed = if scroll {
+                measuring.children.first()
+            } else {
+                Some(&measuring)
+            };
+            self.position_scene(layout, precomputed, [0., 0., width, height], &mut instances, true)?;
             for key in ["columns", "rows", "padding", "gap"] {
                 root.props.remove(key);
             }

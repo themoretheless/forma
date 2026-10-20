@@ -70,7 +70,7 @@ export function gridPlacement(node) {
     return {row, column, rs, cs};
   });
   const occupy = (row, column, rs, cs) => {
-    for (let y = row; y < row + rs; y++) for (let x = column; x < column + cs; x++) occupied.add(`${y}:${x}`);
+    for (let y = row; y < row + rs; y++) for (let x = column; x < column + cs; x++) occupied.add((y << 16) | x);
   };
   // Explicit cells are reserved independently of source order. Automatically
   // placed siblings must not cover a later explicitly positioned child.
@@ -78,7 +78,7 @@ export function gridPlacement(node) {
   for (const request of requested) {
     let {row, column, rs, cs} = request;
     const available = (r, col) => {
-      for (let y = r; y < r + rs; y++) for (let x = col; x < col + cs; x++) if (occupied.has(`${y}:${x}`)) return false;
+      for (let y = r; y < r + rs; y++) for (let x = col; x < col + cs; x++) if (occupied.has((y << 16) | x)) return false;
       return true;
     };
     if (row === undefined || column === undefined) {

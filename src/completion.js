@@ -34,12 +34,15 @@ function closing(source,start,open='{',close='}') {let depth=0;for(let i=start;i
 
 // A conservative source index, not a Rust compiler. Ambiguous type names are
 // excluded instead of guessing a model. No project code is executed for hints.
-export function indexProject(files){
- const components=new Map(),models=new Map(),qualifiedModels=new Map(),types=[],forms=new Map();
- for(const [path,source]of Object.entries(files)){
-  if(path.endsWith('.ui')){try{const doc=parse(source);if(path.startsWith('components/'))components.set(doc.name,doc);if(doc.defaults.contextType)forms.set(doc.name,doc);}catch{} }
-  if(!path.endsWith('.rs'))continue;
-  const clean=maskRust(source);
+const fileEntryCache=new Map();
+function parseFileEntry(path,source){
+ const cached=fileEntryCache.get(path);
+ if(cached&&cached.source===source)return cached.entry;
+ let entry=null;
+ if(path.endsWith('.ui')){
+  try{entry={kind:'ui',doc:parse(source)};}catch{entry={kind:'ui',doc:null};}
+ }else if(path.endsWith('.rs')){
+  const clean=maskRust(source),structs=[],impls=[];
   for(const match of clean.matchAll(/\bstruct\s+(\w+)\s*\{/g)){
    const start=match.index+match[0].length,end=closing(clean,start-1),fields=[];
    const body=clean.slice(start,end);
@@ -47,14 +50,42 @@ export function indexProject(files){
     const from=field.index+field[0].length,until=closing(body,from-1,'<','>'),kind=basename(field[2]);
     fields.push({name:field[1],type:body.slice(from,until).trim(),kind});
    }
-   const name=match[1],qualified=modulePath(path)+'::'+name,model={name,fields,methods:[],qualified};types.push(qualified);qualifiedModels.set(qualified,qualifiedModels.has(qualified)?null:model);models.set(name,models.has(name)?null:model);
+   structs.push({name:match[1],fields,qualified:modulePath(path)+'::'+match[1]});
+  }
+  for(const match of clean.matchAll(/\bimpl\s+(?:[\w]+::)*(\w+)\s*\{/g)){
+   const start=match.index+match[0].length,body=clean.slice(start,closing(clean,start-1)),methods=[];
+   for(const method of body.matchAll(/\b(?:pub(?:\([^)]*\))?\s+)?fn\s+(\w+)\s*\(\s*&\s*self\s*,?\s*\)/g))methods.push(method[1]);
+   impls.push({qualified:modulePath(path)+'::'+match[1],methods});
+  }
+  entry={kind:'rs',structs,impls};
+ }
+ if(fileEntryCache.size>512)fileEntryCache.clear();
+ fileEntryCache.set(path,{source,entry});
+ return entry;
+}
+
+export function indexProject(files){
+ const components=new Map(),models=new Map(),qualifiedModels=new Map(),types=[],forms=new Map(),rsEntries=[];
+ for(const [path,source]of Object.entries(files)){
+  const entry=parseFileEntry(path,source);
+  if(entry?.kind==='ui'&&entry.doc){
+   const doc=entry.doc;
+   if(path.startsWith('components/'))components.set(doc.name,doc);
+   if(doc.defaults.contextType)forms.set(doc.name,doc);
+  }else if(entry?.kind==='rs'){
+   rsEntries.push(entry);
+   for(const s of entry.structs){
+    const model={name:s.name,fields:s.fields,methods:[],qualified:s.qualified};
+    types.push(s.qualified);
+    qualifiedModels.set(s.qualified,qualifiedModels.has(s.qualified)?null:model);
+    models.set(s.name,models.has(s.name)?null:model);
+   }
   }
  }
- for(const [path,original] of Object.entries(files).filter(([p])=>p.endsWith('.rs'))){
-  const source=maskRust(original);
-  for(const match of source.matchAll(/\bimpl\s+(?:[\w]+::)*(\w+)\s*\{/g)){
-   const model=qualifiedModels.get(modulePath(path)+'::'+match[1]);if(!model)continue;const start=match.index+match[0].length,body=source.slice(start,closing(source,start-1));
-   for(const method of body.matchAll(/\b(?:pub(?:\([^)]*\))?\s+)?fn\s+(\w+)\s*\(\s*&\s*self\s*,?\s*\)/g))model.methods.push(method[1]);
+ for(const entry of rsEntries){
+  for(const impl of entry.impls){
+   const model=qualifiedModels.get(impl.qualified);
+   if(model)model.methods.push(...impl.methods);
   }
  }
  function defaults(name,seen=new Set()){if(seen.has(name))return {};seen.add(name);const doc=components.get(name);return doc?{...defaults(doc.base,seen),...doc.defaults}:{};}
