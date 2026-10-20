@@ -4,7 +4,7 @@
 use crate::markup::ButtonSpec;
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -109,28 +109,52 @@ impl<'a> Lexer<'a> {
         self.offset += ch.len_utf8();
         Some(ch)
     }
+    fn peek_byte(&self) -> Option<u8> {
+        self.source.as_bytes().get(self.offset).copied()
+    }
+    fn starts_with(&self, token: &str) -> bool {
+        self.source.as_bytes()[self.offset..].starts_with(token.as_bytes())
+    }
+    fn skip_bytes(&mut self, mut accepted: impl FnMut(u8) -> bool) {
+        while self.peek_byte().is_some_and(&mut accepted) {
+            self.offset += 1;
+        }
+    }
+    fn skip_whitespace(&mut self) {
+        while self
+            .peek_byte()
+            .is_some_and(|b| b.is_ascii_whitespace() || b == b'\x0b')
+        {
+            self.offset += 1;
+        }
+        while self.peek_byte().is_some_and(|b| b >= 0x80)
+            && self.peek().is_some_and(char::is_whitespace)
+        {
+            self.bump();
+        }
+    }
     fn next(&mut self) -> Result<Token<'a>, String> {
         loop {
-            while self.peek().is_some_and(char::is_whitespace) {
-                self.bump();
-            }
-            if self.rest().starts_with("//") {
-                while self.peek().is_some_and(|c| c != '\n') {
-                    self.bump();
+            self.skip_whitespace();
+            if self.starts_with("//") {
+                while self.peek_byte().is_some_and(|b| b != b'\n') {
+                    self.offset += 1;
                 }
-            } else if self.rest().starts_with("/*") {
+            } else if self.starts_with("/*") {
                 let start = self.offset;
                 self.offset += 2;
                 let mut depth = 1;
                 while depth > 0 {
-                    if self.rest().starts_with("/*") {
+                    if self.starts_with("/*") {
                         depth += 1;
                         self.offset += 2;
-                    } else if self.rest().starts_with("*/") {
+                    } else if self.starts_with("*/") {
                         depth -= 1;
                         self.offset += 2;
-                    } else if self.bump().is_none() {
+                    } else if self.peek_byte().is_none() {
                         return Err(format!("Unclosed block comment (byte {start})"));
+                    } else {
+                        self.offset += 1;
                     }
                 }
             } else {
@@ -151,8 +175,8 @@ impl<'a> Lexer<'a> {
             ';' => Kind::Semi,
             '(' => Kind::LeftParen,
             ')' => Kind::RightParen,
-            '-' if self.peek() == Some('>') => {
-                self.bump();
+            '-' if self.starts_with(">") => {
+                self.offset += 1;
                 Kind::Arrow
             }
             '\'' | '"' => {
@@ -203,32 +227,21 @@ impl<'a> Lexer<'a> {
             }
             '#' => {
                 let start = self.offset;
-                while self.peek().is_some_and(|c| c.is_ascii_alphanumeric()) {
-                    self.bump();
-                }
+                self.skip_bytes(|b| b.is_ascii_alphanumeric());
                 Kind::Hex(Cow::Borrowed(&self.source[start..self.offset]))
             }
             c if c.is_ascii_alphabetic() || c == '_' => {
-                while self
-                    .peek()
-                    .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-                {
-                    self.bump();
-                }
+                self.skip_bytes(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'.');
                 Kind::Ident(Cow::Borrowed(&self.source[offset..self.offset]))
             }
             c if c.is_ascii_digit() || matches!(c, '.' | '-' | '+') => {
-                while self.peek().is_some_and(|c| c.is_ascii_digit() || c == '.') {
-                    self.bump();
-                }
-                if self.peek().is_some_and(|c| c == 'e' || c == 'E') {
-                    self.bump();
-                    if self.peek().is_some_and(|c| c == '+' || c == '-') {
-                        self.bump();
+                self.skip_bytes(|b| b.is_ascii_digit() || b == b'.');
+                if self.peek_byte().is_some_and(|b| b == b'e' || b == b'E') {
+                    self.offset += 1;
+                    if self.peek_byte().is_some_and(|b| b == b'+' || b == b'-') {
+                        self.offset += 1;
                     }
-                    while self.peek().is_some_and(|c| c.is_ascii_digit()) {
-                        self.bump();
-                    }
+                    self.skip_bytes(|b| b.is_ascii_digit());
                 }
                 let raw = &self.source[offset..self.offset];
                 let value: f32 = raw
@@ -237,10 +250,10 @@ impl<'a> Lexer<'a> {
                 if !value.is_finite() {
                     return Err(format!("Number must be finite (byte {offset})"));
                 }
-                let unit = if self.rest().starts_with("px") {
+                let unit = if self.starts_with("px") {
                     self.offset += 2;
                     Unit::Px
-                } else if self.rest().starts_with("ms") {
+                } else if self.starts_with("ms") {
                     self.offset += 2;
                     Unit::Ms
                 } else {
@@ -255,6 +268,79 @@ impl<'a> Lexer<'a> {
             }
         };
         Ok(Token { kind, offset })
+    }
+}
+
+/// Bitset of fields seen in the current template block. Every block accepts a small,
+/// closed vocabulary of property and primitive names, so tracking duplicates in a `u64`
+/// avoids allocating and dropping a `HashSet` for every shape, clip, brush, and label.
+#[derive(Clone, Copy, Default)]
+struct SeenFields(u64);
+
+impl SeenFields {
+    #[inline]
+    fn bit(name: &str) -> Option<u64> {
+        let index = match name {
+            "color" => 0,
+            "hover" => 1,
+            "pressed" => 2,
+            "disabled" => 3,
+            "focus" => 4,
+            "transition" => 5,
+            "width" => 6,
+            "height" => 7,
+            "x" => 8,
+            "y" => 9,
+            "radius" => 10,
+            "background" => 11,
+            "text" => 12,
+            "font.size" | "fontSize" => 14,
+            "points" => 15,
+            "Border" => 16,
+            "Reveal" => 17,
+            "Text" => 18,
+            "PointerArea" => 19,
+            "targetX" => 20,
+            "targetY" => 21,
+            "targetWidth" => 22,
+            "targetHeight" => 23,
+            "targetRadius" => 24,
+            "activeRadius" => 25,
+            "stop" => 26,
+            "activeStop" => 27,
+            "value" => 28,
+            "Minimum" => 29,
+            "Maximum" => 30,
+            "placeholder" => 31,
+            "placeholderColor" => 32,
+            "multiline" => 33,
+            "borderWidth" => 34,
+            "hoverBackground" => 35,
+            "pressedBackground" => 36,
+            "disabledBackground" => 37,
+            "borderColor" => 38,
+            "focusBorderColor" => 39,
+            "transitionDuration" => 40,
+            _ => return None,
+        };
+        Some(1u64 << index)
+    }
+
+    #[inline]
+    fn insert(&mut self, name: &str) -> bool {
+        match Self::bit(name) {
+            Some(bit) if self.0 & bit != 0 => false,
+            Some(bit) => {
+                self.0 |= bit;
+                true
+            }
+            None => true,
+        }
+    }
+
+    #[inline]
+    fn contains(&self, name: &str) -> bool {
+        Self::bit(name).is_some_and(|bit| self.0 & bit != 0)
     }
 }
 
@@ -312,9 +398,8 @@ impl<'a> Parser<'a> {
     fn close(&mut self) -> Result<(), String> {
         self.expect(Kind::Close, "'}'")
     }
-    fn unique(&self, seen: &mut HashSet<Cow<'a, str>>, name: &Cow<'a, str>) -> Result<(), String> {
-        // Interned names clone without allocating; only novel spellings copy.
-        if !seen.insert(name.clone()) {
+    fn unique(&self, seen: &mut SeenFields, name: &str) -> Result<(), String> {
+        if !seen.insert(name) {
             return Err(self.error(&format!("Duplicate template field or primitive '{name}'")));
         }
         Ok(())
@@ -437,7 +522,7 @@ impl<'a> Parser<'a> {
             focus: None,
             duration_ms: 0.,
         };
-        let mut seen = HashSet::new();
+        let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
@@ -475,7 +560,7 @@ impl<'a> Parser<'a> {
         self.open()?;
         let mut width = 1.;
         let mut brush = None;
-        let mut seen = HashSet::new();
+        let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
@@ -502,7 +587,7 @@ impl<'a> Parser<'a> {
     fn reveal(&mut self) -> Result<crate::reveal::Reveal, String> {
         self.open()?;
         let mut reveal = crate::reveal::Reveal::default();
-        let mut seen = HashSet::new();
+        let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
@@ -535,7 +620,7 @@ impl<'a> Parser<'a> {
     }
     fn range_input(&mut self)->Result<RangeInput,String> {
         self.open()?;
-        let mut value=0.;let mut minimum=None;let mut maximum=None;let mut seen=HashSet::new();
+        let mut value=0.;let mut minimum=None;let mut maximum=None;let mut seen=SeenFields::default();
         while self.current.kind!=Kind::Close {
             let name=self.ident()?;self.unique(&mut seen,&name)?;
             if name=="value" {self.colon()?;value=self.scalar("value",false)?;self.semi()?;}
@@ -561,7 +646,7 @@ impl<'a> Parser<'a> {
     fn input(&mut self) -> Result<crate::text_input::Input, String> {
         self.open()?;
         let mut input = crate::text_input::Input::default();
-        let mut seen = HashSet::new();
+        let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
             let name=self.ident()?; self.unique(&mut seen,&name)?; self.colon()?;
             match name.text() {
@@ -588,7 +673,7 @@ impl<'a> Parser<'a> {
             color: [0, 0, 0, 255],
             font_size: 16.,
         };
-        let mut seen = HashSet::new();
+        let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
@@ -645,7 +730,7 @@ impl<'a> Parser<'a> {
             clickable: false,
             content: Vec::new(), inputs: Vec::new(), range:None,
         };
-        let mut seen = HashSet::new();let mut clip_depth=0;
+        let mut seen = SeenFields::default();let mut clip_depth=0;
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             if name=="RangeInput" {if template.range.is_some(){return Err(self.error("Duplicate RangeInput"));}template.range=Some(self.range_input()?);continue;}
@@ -684,7 +769,7 @@ impl<'a> Parser<'a> {
         if kind=="ContentClipEnd"{self.close()?;return Ok(Content::ClipEnd);}
         let mut bounds=[0.;4];let mut text=Text{text:String::new(),color:[255;4],font_size:16.};let mut points=None;
         let mut radius=0.;
-        let mut seen=HashSet::new();
+        let mut seen=SeenFields::default();
         while self.current.kind!=Kind::Close {
             let name=self.ident()?;self.unique(&mut seen,&name)?;self.colon()?;
             match (kind,name.text()) {
@@ -723,7 +808,7 @@ impl<'a> Parser<'a> {
         self.expect(Kind::Ident("component".into()), "'component'")?;
         self.expect(Kind::Ident("Button".into()), "Button component name")?;
         self.open()?;
-        let mut seen=HashSet::new();
+        let mut seen=SeenFields::default();
         while self.current.kind!=Kind::Ident("Rectangle".into()) {
             let name=self.ident()?;let name=if name.text()=="font.size"{Cow::Borrowed("fontSize")}else{name};
             self.unique(&mut seen,&name)?;self.colon()?;

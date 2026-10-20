@@ -73,7 +73,7 @@ fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> 
     let Some(mut rest) = source.strip_prefix("FORMA-TEMPLATES-1\n") else {
         return Ok(vec![source; count]);
     };
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(count);
     while !rest.is_empty() {
         let (length, body) = rest
             .split_once('\n')
@@ -143,19 +143,27 @@ impl Runtime {
             .iter()
             .map(|b| b.scene.button.y + b.scene.button.height + scene.padding[2])
             .fold(scene.height, f32::max);
-        let mut nodes = vec![Node {
+        let mut nodes = Vec::with_capacity(
+            1 + usize::from(scene.scroll) + scene.modals.len() + controls.len(),
+        );
+        let root_children = if scene.scroll {
+            1 + scene.modals.len()
+        } else {
+            base + scene.modals.len()
+        };
+        nodes.push(Node {
             id: 0,
             parent: None,
-            children: vec![],
+            children: Vec::with_capacity(root_children),
             kind: NodeKind::Frame,
             control: None,
-        }];
+        });
         let parent = if scene.scroll {
             nodes[0].children.push(1);
             nodes.push(Node {
                 id: 1,
                 parent: Some(0),
-                children: vec![],
+                children: Vec::with_capacity(base),
                 kind: NodeKind::Scroll,
                 control: None,
             });
@@ -163,7 +171,7 @@ impl Runtime {
         } else {
             0
         };
-        let mut modal_nodes = Vec::new();
+        let mut modal_nodes = Vec::with_capacity(scene.modals.len());
         for (index, b) in controls.iter_mut().enumerate() {
             if scene.buttons.len() > 1 || !scene.modals.is_empty() {
                 b.scene.clip = false;
@@ -175,7 +183,13 @@ impl Runtime {
                     if modal_nodes.len() <= m {
                         let id = nodes.len();
                         nodes[0].children.push(id);
-                        nodes.push(Node { id, parent: Some(0), children: vec![], kind: NodeKind::Modal, control: None });
+                        nodes.push(Node {
+                            id,
+                            parent: Some(0),
+                            children: Vec::with_capacity(scene.modals[m].controls.len()),
+                            kind: NodeKind::Modal,
+                            control: None,
+                        });
                         modal_nodes.push(id);
                     }
                     modal_nodes[m]
@@ -418,7 +432,7 @@ impl Runtime {
         // identical controls, so each one after the first can start at a sibling's final
         // capacity instead of growing into it by doubling, and the merged buffers are exact.
         let mut children = Vec::with_capacity(self.controls.len());
-        let mut text_scratch = crate::text::VectorScratch::default();
+        let mut text_scratch = crate::text::VectorScratch::prewarm();
         let mut hints = None;
         for control in &self.controls {
             let child = control.vector_snapshot_hinted(scale, false, hints, &mut text_scratch);

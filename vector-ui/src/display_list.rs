@@ -64,6 +64,42 @@ impl DisplayList {
             },
         }
     }
+
+    /// Estimate the command and edge buffers from the control's template so the first
+    /// control in a scene does not double its vectors from zero.
+    fn estimate_hints(model: &Button, background: bool) -> ListHints {
+        let mut commands = 1
+            + usize::from(model.scene.clip) * 2
+            + usize::from(background)
+            + usize::from(model.scene.scroll) * 4
+            + usize::from(model.template.reveal.is_some());
+        let mut edges = 0usize;
+        if let Some(t) = &model.template.text {
+            let glyphs = t.text.chars().count();
+            commands += 2 + glyphs;
+            edges += glyphs * 24;
+        }
+        for c in &model.template.content {
+            match c {
+                Content::Text { text, .. } => {
+                    let glyphs = text.text.chars().count();
+                    commands += 2 + glyphs;
+                    edges += glyphs * 24;
+                }
+                Content::Shape { points, .. } => {
+                    commands += 1;
+                    edges += points.len();
+                }
+                Content::Clip { .. } | Content::ClipEnd => {
+                    commands += 1;
+                }
+            }
+        }
+        ListHints {
+            commands: commands * STRIDE,
+            edges: edges * 4,
+        }
+    }
 }
 
 /// Reusable CPU storage for tile indexing. One contiguous output allocation and
@@ -230,7 +266,7 @@ impl DisplayList {
         self.pop();
     }
     pub fn build(model: &Button, scale: f32, background: bool) -> Self {
-        let mut scratch = text::VectorScratch::default();
+        let mut scratch = text::VectorScratch::prewarm();
         Self::build_hinted(model, scale, background, None, &mut scratch)
     }
     /// `scratch` carries the per-glyph flattening buffer. A scene that builds hundreds of
@@ -243,7 +279,9 @@ impl DisplayList {
         hints: Option<ListHints>,
         text_scratch: &mut text::VectorScratch,
     ) -> Self {
-        let mut out = Self::with_hints(hints);
+        let mut out = Self::with_hints(Some(
+            hints.unwrap_or_else(|| Self::estimate_hints(model, background)),
+        ));
         let frame = [0., 0., model.width(), model.height()];
         if model.scene.clip {
             out.push(frame, model.scene.radius);
@@ -365,6 +403,7 @@ impl DisplayList {
         // The tiler emits exactly one range record per command; reserving that depth keeps the
         // pass from copying the whole list several times over.
         scratch.ranges.reserve(self.commands.len() / STRIDE);
+        scratch.clips.reserve(16);
         // Use complete tiles, not the partial last tile's framebuffer edge:
         // renderer caches can safely key this list by tile-grid dimensions.
         let viewport = [0., 0., (cols * TILE) as f32, (rows * TILE) as f32];
@@ -474,7 +513,7 @@ impl Button {
 
     /// Borrowed view retained for existing Rust callers and WASM serialization.
     pub fn vector_list(&self, scale: f32, background: bool) -> std::cell::Ref<'_, DisplayList> {
-        let mut scratch = text::VectorScratch::default();
+        let mut scratch = text::VectorScratch::prewarm();
         self.ensure_vector_list(scale, background, None, &mut scratch);
         std::cell::Ref::map(self.display_cache.borrow(), |c| {
             c.as_ref().unwrap().list.as_ref()
@@ -488,7 +527,7 @@ impl Button {
     /// another source/component replace it. Future geometry setters must invalidate
     /// the display cache instead of mutating a published snapshot.
     pub fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList> {
-        let mut scratch = text::VectorScratch::default();
+        let mut scratch = text::VectorScratch::prewarm();
         self.vector_snapshot_hinted(scale, background, None, &mut scratch)
     }
 

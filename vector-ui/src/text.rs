@@ -213,6 +213,15 @@ pub(crate) struct VectorScratch {
     ids: Vec<GlyphId>,
 }
 
+impl VectorScratch {
+    pub(crate) fn prewarm() -> Self {
+        Self {
+            edges: Vec::with_capacity(64),
+            ids: Vec::with_capacity(32),
+        }
+    }
+}
+
 /// Resolve every character once, keeping the identifiers and summing exactly the advances
 /// `measure_text` sums. Drawing a label needs both, and measuring first then resolving again per
 /// outline pays for the same font table lookup twice per character.
