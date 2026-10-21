@@ -146,9 +146,26 @@ fn main() {
             let memory_after = ALLOCATOR.snapshot();
             let process_after = bench_support::ProcessSnapshot::capture().ok();
             let allocation_delta = memory_after.delta_since(memory_before);
-            println!("controls={count} RSS_before={:?} RSS_after={:?} process_lifetime_peak_RSS={:?} (whole process; not additive with unified GPU memory)",process_before.map(|p|p.resident_bytes),process_after.map(|p|p.resident_bytes),process_after.map(|p|p.peak_resident_bytes));
-            println!("controls={count} RSS samples start/every1000frames={rss_samples:?}");
             let after = renderer.resource_stats();
+            let arch_note = if after.memory_architecture.is_unified() {
+                format!(
+                    "UMA: whole process RSS is NOT additive with GPU memory; uma_shared_pool_bytes={}",
+                    after.uma_shared_pool_bytes
+                )
+            } else {
+                format!(
+                    "DUMA: host RSS and device VRAM are separate pools; duma_device_local_bytes={} duma_host_ram_bytes={}",
+                    after.duma_device_local_bytes, after.duma_host_ram_bytes
+                )
+            };
+            println!(
+                "controls={count} memory_architecture={} RSS_before={:?} RSS_after={:?} process_lifetime_peak_RSS={:?} ({arch_note})",
+                after.memory_architecture.as_str(),
+                process_before.map(|p| p.resident_bytes),
+                process_after.map(|p| p.resident_bytes),
+                process_after.map(|p| p.peak_resident_bytes)
+            );
+            println!("controls={count} RSS samples start/every1000frames={rss_samples:?}");
             assert_eq!(before.geometry_uploads_total, after.geometry_uploads_total);
             assert_eq!(
                 before.buffer_allocations_total,

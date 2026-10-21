@@ -1,5 +1,16 @@
 // Storage buffers retain capacity across scene changes and resize. Payload length
 // lives in commands/tile headers, so unused capacity is never interpreted.
+export function classifyMemoryArchitecture(info){
+  if(!info||typeof info!=='object')return 'UMA';
+  const type=String(info.type??info.deviceType??'').toLowerCase();
+  const arch=String(info.architecture??'').toLowerCase();
+  const vendor=String(info.vendor??'').toLowerCase();
+  const desc=String(info.description??info.device??'').toLowerCase();
+  if(type.includes('discrete')||desc.includes('rtx')||desc.includes('gtx')||desc.includes('radeon rx')||desc.includes('arc a'))return 'DUMA';
+  if(type.includes('integrated')||type.includes('cpu')||vendor==='apple'||arch.includes('apple')||arch.includes('metal')||arch.includes('gen-')||arch.includes('xe'))return 'UMA';
+  return info.isFallbackAdapter?'UMA':(vendor&&vendor!=='apple'&&(vendor.includes('nvidia')||vendor.includes('amd'))&&!desc.includes('apu')?'DUMA':'UMA');
+}
+
 export function createStoragePool(device,usage){
   const buffers=[],previous=[];let allocations=0,uploadedBytes=0;
   return {

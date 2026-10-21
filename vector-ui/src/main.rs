@@ -510,8 +510,9 @@ impl GpuWindow {
         #[cfg(target_os = "macos")]
         metal_resize::configure(&window)?;
         println!(
-            "Renderer: GPU vector / {:?} / {}",
+            "Renderer: GPU vector / {:?} ({}) / {}",
             adapter.get_info().backend,
+            renderer.memory_architecture.as_str(),
             adapter.get_info().name
         );
         Ok(Self {

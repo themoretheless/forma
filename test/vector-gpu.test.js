@@ -244,3 +244,25 @@ test('device is destroyed even if canvas unconfigure fails',async t=>{
  assert.equal(destroyed,1);
  painter.destroy();assert.equal(destroyed,1);
 });
+
+test('painter snapshot reports UMA and DUMA pool split based on adapter info',async t=>{
+ const {painter}=await fixture(t);
+ painter.draw(model(),64,64,1);
+ const uma=painter.snapshot();
+ assert.equal(uma.memoryArchitecture,'UMA');
+ assert.ok(uma.umaSharedPoolBytes>0);
+ assert.equal(uma.dumaDeviceLocalBytes,0);
+
+ const {painter:dumaPainter}=await fixture(t,()=>{
+  const orig=globalThis.navigator.gpu.requestAdapter;
+  globalThis.navigator.gpu.requestAdapter=async()=>({
+   info:{type:'discrete-gpu',vendor:'nvidia',description:'RTX 4080'},
+   requestDevice:(await orig()).requestDevice,
+  });
+ });
+ dumaPainter.draw(model(),64,64,1);
+ const duma=dumaPainter.snapshot();
+ assert.equal(duma.memoryArchitecture,'DUMA');
+ assert.equal(duma.umaSharedPoolBytes,0);
+ assert.ok(duma.dumaDeviceLocalBytes>0);
+});

@@ -58,6 +58,7 @@ async fn run() {
     let mut target = None;
     let mut gpu_adapter = None;
     let mut adapter_name = String::from("CPU retained XRGB");
+    let mut memory_architecture = String::from("UMA");
     if backend == "gpu" {
         let instance = wgpu::Instance::default();
         let adapter = instance
@@ -68,6 +69,7 @@ async fn run() {
         let r = Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)
             .await
             .unwrap();
+        memory_architecture = r.memory_architecture.as_str().into();
         target = Some(make_target(&r, w, h));
         renderer = Some(r);
         gpu_adapter = Some(adapter);
@@ -221,17 +223,20 @@ async fn run() {
     let resource = renderer.as_ref().map(|r| r.resource_stats());
     let buffers = resource.as_ref().map_or(0, |r| r.buffer_bytes);
     let buffer_count = resource.as_ref().map_or(0, |r| r.buffer_count);
+    let uma_shared_pool_bytes = resource.as_ref().map_or(0, |r| r.uma_shared_pool_bytes);
+    let duma_device_local_bytes = resource.as_ref().map_or(0, |r| r.duma_device_local_bytes);
+    let duma_host_ram_bytes = resource.as_ref().map_or(0, |r| r.duma_host_ram_bytes);
     let target_bytes = target.as_ref().map_or(0, |t| {
         let s = t.0.size();
         s.width as u64 * s.height as u64 * 4
     });
     let uploads = renderer.as_ref().map_or(0, |r| r.uploads) - uploads_before;
     let resource_delta = match (resource_before, resource) {
-        (Some(before), Some(after)) => format!("{{\"buffer_allocations\":{},\"buffer_allocation_bytes\":{},\"uploaded_bytes\":{},\"tile_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{},\"cpu_paint_scratch_bytes\":{}}}",after.buffer_allocations_total-before.buffer_allocations_total,after.buffer_allocation_bytes_total-before.buffer_allocation_bytes_total,after.uploaded_bytes_total-before.uploaded_bytes_total,after.tile_uploads_total-before.tile_uploads_total,after.cpu_geometry_cache_bytes,after.cpu_shared_geometry_bytes,after.cpu_paint_scratch_bytes),
+        (Some(before), Some(after)) => format!("{{\"memory_architecture\":{:?},\"buffer_allocations\":{},\"buffer_allocation_bytes\":{},\"uploaded_bytes\":{},\"tile_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{},\"cpu_paint_scratch_bytes\":{},\"uma_shared_pool_bytes\":{},\"duma_device_local_bytes\":{},\"duma_host_ram_bytes\":{}}}",after.memory_architecture.as_str(),after.buffer_allocations_total-before.buffer_allocations_total,after.buffer_allocation_bytes_total-before.buffer_allocation_bytes_total,after.uploaded_bytes_total-before.uploaded_bytes_total,after.tile_uploads_total-before.tile_uploads_total,after.cpu_geometry_cache_bytes,after.cpu_shared_geometry_bytes,after.cpu_paint_scratch_bytes,after.uma_shared_pool_bytes,after.duma_device_local_bytes,after.duma_host_ram_bytes),
         _ => "null".into(),
     };
     let diagnostics=format!("{{\"timestamp_supported\":{timestamp_supported},\"valid_gpu_samples\":{},\"rss_lifetime_peak_bytes\":{},\"rust_deallocations\":{},\"gpu_phase\":{resource_delta}}}",gpu_ms.len(),process_after.peak_resident_bytes,a.deallocations);
-    println!("{{\"backend\":{backend:?},\"adapter\":{adapter_name:?},\"mode\":{mode:?},\"width\":{w},\"height\":{h},\"scale\":2,\"frames\":{actual_frames},\"init_and_warmup_ms\":{init_ms},\"wall_seconds\":{wall_seconds},\"render_throughput_fps\":{},\"completed_ms\":{{\"mean\":{mean},\"p50\":{p50},\"p95\":{p95},\"p99\":{p99}}},\"cpu_submit_ms\":{{\"mean\":{submit_mean},\"p95\":{submit_p95}}},\"cpu_seconds\":{cpu_seconds},\"cpu_percent_one_core\":{},\"rss_initial_bytes\":{},\"rss_before_bytes\":{},\"rss_after_bytes\":{},\"rust_allocations\":{},\"rust_reallocations\":{},\"rust_requested_bytes\":{},\"rust_live_before_bytes\":{},\"rust_live_after_bytes\":{},\"rust_peak_live_bytes\":{},\"owned_gpu_buffer_bytes\":{buffers},\"owned_gpu_buffer_count\":{buffer_count},\"target_payload_bytes\":{target_bytes},\"geometry_uploads\":{uploads},\"gpu_pass\":{gpu},\"diagnostics\":{diagnostics}}}",actual_frames as f64/wall_seconds,cpu_seconds/wall_seconds*100.,process_initial.resident_bytes,process_before.resident_bytes,process_after.resident_bytes,a.allocations,a.reallocations,a.requested_bytes,allocation_before.live_bytes,allocation_after.live_bytes,allocation_after.peak_live_bytes);
+    println!("{{\"backend\":{backend:?},\"adapter\":{adapter_name:?},\"memory_architecture\":{memory_architecture:?},\"mode\":{mode:?},\"width\":{w},\"height\":{h},\"scale\":2,\"frames\":{actual_frames},\"init_and_warmup_ms\":{init_ms},\"wall_seconds\":{wall_seconds},\"render_throughput_fps\":{},\"completed_ms\":{{\"mean\":{mean},\"p50\":{p50},\"p95\":{p95},\"p99\":{p99}}},\"cpu_submit_ms\":{{\"mean\":{submit_mean},\"p95\":{submit_p95}}},\"cpu_seconds\":{cpu_seconds},\"cpu_percent_one_core\":{},\"rss_initial_bytes\":{},\"rss_before_bytes\":{},\"rss_after_bytes\":{},\"rust_allocations\":{},\"rust_reallocations\":{},\"rust_requested_bytes\":{},\"rust_live_before_bytes\":{},\"rust_live_after_bytes\":{},\"rust_peak_live_bytes\":{},\"owned_gpu_buffer_bytes\":{buffers},\"owned_gpu_buffer_count\":{buffer_count},\"uma_shared_pool_bytes\":{uma_shared_pool_bytes},\"duma_device_local_bytes\":{duma_device_local_bytes},\"duma_host_ram_bytes\":{duma_host_ram_bytes},\"target_payload_bytes\":{target_bytes},\"geometry_uploads\":{uploads},\"gpu_pass\":{gpu},\"diagnostics\":{diagnostics}}}",actual_frames as f64/wall_seconds,cpu_seconds/wall_seconds*100.,process_initial.resident_bytes,process_before.resident_bytes,process_after.resident_bytes,a.allocations,a.reallocations,a.requested_bytes,allocation_before.live_bytes,allocation_after.live_bytes,allocation_after.peak_live_bytes);
 }
 
 #[cfg(feature = "gpu")]

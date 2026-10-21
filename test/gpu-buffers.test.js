@@ -1,11 +1,20 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {createStoragePool} from '../src/gpu-buffers.js';
+import {createStoragePool,classifyMemoryArchitecture} from '../src/gpu-buffers.js';
 function fixture(limit=1024){
  const created=[],writes=[];
  const device={limits:{maxStorageBufferBindingSize:limit},queue:{writeBuffer(buffer,offset,data){writes.push([buffer,data.byteLength,offset]);}},createBuffer({size}){const b={size,destroyed:false,destroy(){this.destroyed=true;}};created.push(b);return b;}};
  return {pool:createStoragePool(device,128),created,writes,device};
 }
+test('classifyMemoryArchitecture separates UMA and DUMA adapters',()=>{
+ assert.equal(classifyMemoryArchitecture(null),'UMA');
+ assert.equal(classifyMemoryArchitecture({vendor:'apple',architecture:'metal-3'}),'UMA');
+ assert.equal(classifyMemoryArchitecture({type:'integrated-gpu',vendor:'intel'}),'UMA');
+ assert.equal(classifyMemoryArchitecture({type:'discrete-gpu',vendor:'nvidia'}),'DUMA');
+ assert.equal(classifyMemoryArchitecture({vendor:'nvidia',description:'NVIDIA GeForce RTX 4090'}),'DUMA');
+ assert.equal(classifyMemoryArchitecture({vendor:'amd',description:'AMD Radeon RX 7900 XTX'}),'DUMA');
+ assert.equal(classifyMemoryArchitecture({vendor:'amd',description:'AMD Ryzen APU',type:'integrated'}),'UMA');
+});
 test('GPU buffers retain capacity and identity across shrink/grow within capacity',()=>{
  const {pool,created,writes}=fixture();
  assert.equal(pool.update(0,new Uint32Array(60)),true);

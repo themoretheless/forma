@@ -1,5 +1,5 @@
 import shader from '../vector-ui/src/vector.wgsl?raw';
-import {createStoragePool} from './gpu-buffers.js';
+import {createStoragePool,classifyMemoryArchitecture} from './gpu-buffers.js';
 
 // WebGPU is only a transport/backend. Rust builds all geometry and tile lists;
 // the identical WGSL is used by native wgpu. No canvas bitmap is uploaded.
@@ -7,6 +7,11 @@ export async function createGpuPainter(canvas,onFailure){
   if(!navigator.gpu)throw Error('WebGPU недоступен в этом браузере');
   const adapter=await navigator.gpu.requestAdapter();
   if(!adapter)throw Error('Не найден WebGPU adapter');
+  let adapterInfo=adapter.info??null;
+  if(!adapterInfo&&typeof adapter.requestAdapterInfo==='function'){
+    try{adapterInfo=await adapter.requestAdapterInfo();}catch{adapterInfo=null;}
+  }
+  const memoryArchitecture=classifyMemoryArchitecture(adapterInfo);
   const device=await adapter.requestDevice();
   const context=canvas.getContext('webgpu');
   if(!context){device.destroy();throw Error('WebGPU canvas недоступен');}
@@ -75,7 +80,19 @@ export async function createGpuPainter(canvas,onFailure){
         throw error;
       }
     },
-    snapshot(){return {backend:'webgpu-vector',uploads,frames,...pool.snapshot()};},
+    memoryArchitecture,
+    snapshot(){
+      const s=pool.snapshot();
+      return {
+        backend:'webgpu-vector',
+        memoryArchitecture,
+        uploads,
+        frames,
+        ...s,
+        umaSharedPoolBytes:memoryArchitecture==='UMA'?s.bufferBytes:0,
+        dumaDeviceLocalBytes:memoryArchitecture==='DUMA'?s.bufferBytes:0,
+      };
+    },
     destroy(){if(disposed)return;disposed=true;modelKey=null;bindGroup=null;try{pool.destroy();uniform.destroy();context.unconfigure();}finally{device.destroy();}},
   };
 }

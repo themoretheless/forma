@@ -5,11 +5,57 @@ use crate::{
 use std::sync::Arc;
 pub const SHADER: &str = include_str!("vector.wgsl");
 
+/// Adapter memory topology classification:
+/// - [`MemoryArchitecture::Uma`] (Unified Memory Architecture): CPU and GPU share
+///   one physical memory pool (e.g., Apple Silicon / Metal on macOS/iOS, integrated GPUs).
+///   Process RSS and GPU buffer/target allocations reside in the same system RAM and are
+///   **not** additive.
+/// - [`MemoryArchitecture::Duma`] (Discrete / Non-Unified Memory Architecture): GPU owns
+///   dedicated device memory (VRAM) separate from host RAM, or runs as a distinct device
+///   pool (e.g., discrete PCIe GPUs). Host RSS (`cpu_*` bytes) and device allocations
+///   (`buffer_bytes` + render targets) live in separate pools and transfers cross a bus.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MemoryArchitecture {
+    Uma,
+    #[default]
+    Duma,
+}
+
+impl MemoryArchitecture {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Uma => "UMA",
+            Self::Duma => "DUMA",
+        }
+    }
+
+    pub const fn is_unified(self) -> bool {
+        matches!(self, Self::Uma)
+    }
+
+    /// Classify a `wgpu::AdapterInfo` into `UMA` or `DUMA`.
+    pub fn from_adapter_info(info: &wgpu::AdapterInfo) -> Self {
+        match info.device_type {
+            wgpu::DeviceType::IntegratedGpu => Self::Uma,
+            wgpu::DeviceType::DiscreteGpu => Self::Duma,
+            wgpu::DeviceType::VirtualGpu | wgpu::DeviceType::Cpu => Self::Uma,
+            wgpu::DeviceType::Other => {
+                if matches!(info.backend, wgpu::Backend::Metal) {
+                    Self::Uma
+                } else {
+                    Self::Duma
+                }
+            }
+        }
+    }
+}
+
 /// Live resources owned by this renderer, not process VRAM usage or GPU residency.
 /// Buffer sizes include wgpu's creation alignment. Driver heaps, in-flight staging,
 /// pipeline memory, and the caller-owned render target/swapchain are not included.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct GpuResourceStats {
+    pub memory_architecture: MemoryArchitecture,
     pub buffer_count: usize,
     pub buffer_bytes: u64,
     pub uniform_bytes: u64,
@@ -38,6 +84,14 @@ pub struct GpuResourceStats {
     pub cpu_tile_scratch_bytes: usize,
     /// Retained current/last-uploaded uniform and paint storage, not GPU memory.
     pub cpu_paint_scratch_bytes: usize,
+    /// Unified memory pool bytes when `memory_architecture == Uma` (`buffer_bytes` +
+    /// CPU-side renderer scratch/shared geometry in the same physical RAM), or `0` on `Duma`.
+    pub uma_shared_pool_bytes: u64,
+    /// Dedicated device-local GPU buffer bytes when `memory_architecture == Duma`, or `0` on `Uma`.
+    pub duma_device_local_bytes: u64,
+    /// Host-side RAM retained by the renderer + shared geometry when `memory_architecture == Duma`,
+    /// or `0` on `Uma` (where it is accounted in `uma_shared_pool_bytes`).
+    pub duma_host_ram_bytes: u64,
 }
 
 /// Optional backend suballocator accounting. Not total adapter memory or residency.
@@ -97,6 +151,7 @@ fn storage_capacity(required: u64, current: u64, limit: u64) -> Result<u64, Stri
 pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
+    pub memory_architecture: MemoryArchitecture,
     pipeline: wgpu::RenderPipeline,
     uniform: wgpu::Buffer,
     bindings: Option<wgpu::BindGroup>,
@@ -138,6 +193,7 @@ impl Renderer {
         format: wgpu::TextureFormat,
         profile: bool,
     ) -> Result<Self, String> {
+        let memory_architecture = MemoryArchitecture::from_adapter_info(&adapter.get_info());
         let timestamps = profile && adapter.features().contains(wgpu::Features::TIMESTAMP_QUERY);
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -227,6 +283,7 @@ impl Renderer {
         Ok(Self {
             device,
             queue,
+            memory_architecture,
             pipeline,
             uniform,
             bindings: None,
@@ -258,23 +315,42 @@ impl Renderer {
         let command_bytes = bytes(0);
         let edge_bytes = bytes(1);
         let tile_bytes = bytes(2);
+        let paint_bytes = bytes(3);
         let timing_buffer_bytes = self
             .timing
             .as_ref()
             .map_or(0, |t| t.resolve.size() + t.readback.size());
+        let buffer_bytes = uniform_bytes
+            + command_bytes
+            + edge_bytes
+            + tile_bytes
+            + paint_bytes
+            + timing_buffer_bytes;
+        let cpu_shared_geometry_bytes = self.geometry.as_ref().map_or(0, |list| {
+            (list.commands.capacity() + list.edges.capacity()) * std::mem::size_of::<f32>()
+        });
+        let cpu_tile_scratch_bytes = self.tile_scratch.capacity_bytes();
+        let cpu_paint_scratch_bytes = (self.params.capacity()
+            + self.uploaded_params.capacity()
+            + self.paints.capacity()
+            + self.uploaded_paints.capacity())
+            * std::mem::size_of::<f32>();
+        let host_bytes =
+            (cpu_shared_geometry_bytes + cpu_tile_scratch_bytes + cpu_paint_scratch_bytes) as u64;
+        let (uma_shared_pool_bytes, duma_device_local_bytes, duma_host_ram_bytes) =
+            match self.memory_architecture {
+                MemoryArchitecture::Uma => (buffer_bytes + host_bytes, 0, 0),
+                MemoryArchitecture::Duma => (0, buffer_bytes, host_bytes),
+            };
         GpuResourceStats {
+            memory_architecture: self.memory_architecture,
             buffer_count: 1 + self.buffers.len() + if self.timing.is_some() { 2 } else { 0 },
-            buffer_bytes: uniform_bytes
-                + command_bytes
-                + edge_bytes
-                + tile_bytes
-                + bytes(3)
-                + timing_buffer_bytes,
+            buffer_bytes,
             uniform_bytes,
             command_bytes,
             edge_bytes,
             tile_bytes,
-            paint_bytes: bytes(3),
+            paint_bytes,
             timing_buffer_bytes,
             bind_group_count: usize::from(self.bindings.is_some()),
             render_pipeline_count: 1,
@@ -286,14 +362,12 @@ impl Renderer {
             tile_uploads_total: self.tile_uploads,
             bind_group_creations_total: self.bind_group_creations,
             cpu_geometry_cache_bytes: 0,
-            cpu_shared_geometry_bytes: self.geometry.as_ref().map_or(0, |list| {
-                (list.commands.capacity() + list.edges.capacity()) * std::mem::size_of::<f32>()
-            }),
-            cpu_tile_scratch_bytes: self.tile_scratch.capacity_bytes(),
-            cpu_paint_scratch_bytes: (self.params.capacity()
-                + self.uploaded_params.capacity()
-                + self.paints.capacity()
-                + self.uploaded_paints.capacity()) * std::mem::size_of::<f32>(),
+            cpu_shared_geometry_bytes,
+            cpu_tile_scratch_bytes,
+            cpu_paint_scratch_bytes,
+            uma_shared_pool_bytes,
+            duma_device_local_bytes,
+            duma_host_ram_bytes,
         }
     }
 
@@ -546,6 +620,53 @@ mod tests {
     }
 
     #[test]
+    fn memory_architecture_distinguishes_uma_and_duma_adapters() {
+        let make = |device_type, backend| wgpu::AdapterInfo {
+            name: "test".into(),
+            vendor: 0,
+            device: 0,
+            device_type,
+            device_pci_bus_id: String::new(),
+            driver: String::new(),
+            driver_info: String::new(),
+            backend,
+            subgroup_min_size: 4,
+            subgroup_max_size: 64,
+            transient_saves_memory: false,
+        };
+        let uma_igpu = MemoryArchitecture::from_adapter_info(&make(
+            wgpu::DeviceType::IntegratedGpu,
+            wgpu::Backend::Metal,
+        ));
+        assert_eq!(uma_igpu, MemoryArchitecture::Uma);
+        assert_eq!(uma_igpu.as_str(), "UMA");
+        assert!(uma_igpu.is_unified());
+
+        let duma_dgpu = MemoryArchitecture::from_adapter_info(&make(
+            wgpu::DeviceType::DiscreteGpu,
+            wgpu::Backend::Vulkan,
+        ));
+        assert_eq!(duma_dgpu, MemoryArchitecture::Duma);
+        assert_eq!(duma_dgpu.as_str(), "DUMA");
+        assert!(!duma_dgpu.is_unified());
+
+        assert_eq!(
+            MemoryArchitecture::from_adapter_info(&make(
+                wgpu::DeviceType::Other,
+                wgpu::Backend::Metal,
+            )),
+            MemoryArchitecture::Uma
+        );
+        assert_eq!(
+            MemoryArchitecture::from_adapter_info(&make(
+                wgpu::DeviceType::Other,
+                wgpu::Backend::Dx12,
+            )),
+            MemoryArchitecture::Duma
+        );
+    }
+
+    #[test]
     fn storage_capacity_grows_amortized_without_exceeding_binding_budget() {
         assert_eq!(storage_capacity(80, 0, 1024).unwrap(), 128);
         assert_eq!(storage_capacity(100, 128, 1024).unwrap(), 128);
@@ -637,6 +758,21 @@ mod tests {
             assert!(stats.cpu_shared_geometry_bytes > 0);
             assert!(stats.cpu_tile_scratch_bytes > 0);
             assert_eq!(stats.bind_group_creations_total, 1);
+            let expected_host = (stats.cpu_shared_geometry_bytes
+                + stats.cpu_tile_scratch_bytes
+                + stats.cpu_paint_scratch_bytes) as u64;
+            match stats.memory_architecture {
+                MemoryArchitecture::Uma => {
+                    assert_eq!(stats.uma_shared_pool_bytes, stats.buffer_bytes + expected_host);
+                    assert_eq!(stats.duma_device_local_bytes, 0);
+                    assert_eq!(stats.duma_host_ram_bytes, 0);
+                }
+                MemoryArchitecture::Duma => {
+                    assert_eq!(stats.uma_shared_pool_bytes, 0);
+                    assert_eq!(stats.duma_device_local_bytes, stats.buffer_bytes);
+                    assert_eq!(stats.duma_host_ram_bytes, expected_host);
+                }
+            }
 
             // Same tile grid: viewport pixels change, no tile upload or allocation.
             renderer

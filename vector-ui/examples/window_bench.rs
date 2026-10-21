@@ -550,7 +550,7 @@ mod native {
         };
         println!(concat!(
             "{{\"benchmark\":\"native-window\",\"fps_metric\":\"successful present calls, not confirmed scanouts\",",
-            "\"adapter\":{:?},\"backend\":{:?},\"present_mode\":\"Fifo\",\"requested_width\":{},\"requested_height\":{},\"actual_width\":{},\"actual_height\":{},\"scale\":{},",
+            "\"adapter\":{:?},\"backend\":{:?},\"memory_architecture\":{:?},\"present_mode\":\"Fifo\",\"requested_width\":{},\"requested_height\":{},\"actual_width\":{},\"actual_height\":{},\"scale\":{},",
             "\"warmup_seconds\":1,\"requested_seconds\":{},\"wall_seconds\":{},\"frames\":{},\"present_calls_per_second\":{},\"interval_samples\":{},",
             "\"present_interval_ms\":{{\"p50\":{},\"p95\":{},\"p99\":{}}},\"acquire_draw_present_ms\":{{\"p50\":{},\"p95\":{},\"p99\":{}}},",
             "\"nonpresent_attempts\":{},\"measured_resizes\":{},\"occlusion_event_observed\":{},\"cpu_seconds\":{},\"cpu_percent_one_core\":{},",
@@ -558,15 +558,15 @@ mod native {
             "\"window_visible_before_exit\":{},\"window_focused_before_exit\":{},",
             "\"rss_initial_bytes\":{},\"rss_before_bytes\":{},\"rss_after_bytes\":{},\"process_lifetime_peak_rss_bytes\":{},",
             "\"rust_allocations\":{},\"rust_reallocations\":{},\"rust_deallocations\":{},\"rust_requested_bytes\":{},\"rust_live_before_bytes\":{},\"rust_live_after_bytes\":{},\"rust_peak_live_bytes\":{},",
-            "\"owned_gpu_buffer_bytes\":{},\"owned_gpu_buffer_count\":{},\"one_surface_target_payload_bytes_estimate\":{},\"unknown_swapchain_and_driver_bytes\":null,\"geometry_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{}}}"
-        ), gpu.adapter_name, gpu.backend, width, height, app.actual.width, app.actual.height, app.actual_scale,
+            "\"owned_gpu_buffer_bytes\":{},\"owned_gpu_buffer_count\":{},\"uma_shared_pool_bytes\":{},\"duma_device_local_bytes\":{},\"duma_host_ram_bytes\":{},\"one_surface_target_payload_bytes_estimate\":{},\"unknown_swapchain_and_driver_bytes\":null,\"geometry_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{}}}"
+        ), gpu.adapter_name, gpu.backend, resources.memory_architecture.as_str(), width, height, app.actual.width, app.actual.height, app.actual_scale,
         seconds, finish.wall_seconds, app.frames, app.frames as f64 / finish.wall_seconds, app.intervals_ms.len(), p50, p95, p99, draw_p50, draw_p95, draw_p99,
         app.nonpresent_attempts, app.measured_resizes, app.was_occluded, cpu_seconds, finish.process.cpu_pct_one_core_since(phase.process, finish.wall_seconds),
         gpu.acquired.success, gpu.acquired.suboptimal, gpu.acquired.occluded, gpu.acquired.timeout, gpu.acquired.outdated, gpu.acquired.zero_size,
         window_visible, window_focused,
         app.initial_process.resident_bytes, phase.process.resident_bytes, finish.process.resident_bytes, finish.process.peak_resident_bytes,
         a.allocations, a.reallocations, a.deallocations, a.requested_bytes, phase.allocations.live_bytes, finish.allocations.live_bytes, finish.allocations.peak_live_bytes,
-        resources.buffer_bytes, resources.buffer_count, target_bytes, gpu.renderer.uploads - phase.uploads, resources.cpu_geometry_cache_bytes, resources.cpu_shared_geometry_bytes);
+        resources.buffer_bytes, resources.buffer_count, resources.uma_shared_pool_bytes, resources.duma_device_local_bytes, resources.duma_host_ram_bytes, target_bytes, gpu.renderer.uploads - phase.uploads, resources.cpu_geometry_cache_bytes, resources.cpu_shared_geometry_bytes);
         Ok(())
     }
 }

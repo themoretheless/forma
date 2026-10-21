@@ -47,14 +47,15 @@ for(let repetition=1;repetition<=repeats;repetition++)for(const [scene,backend,m
 }
 if(await binaryHash()!==benchmarkBinarySha256)throw Error('Benchmark executable changed during measurement');
 const median=v=>v.sort((a,b)=>a-b)[Math.floor(v.length/2)];
-const lines=['# Forma renderer benchmark','',`CPU: ${metadata.cpu}; ${metadata.logicalCpus} logical cores; ${(totalmem()/2**30).toFixed(0)} GiB unified/system RAM. ${repeats} independent processes per case, ${frames} frames after 20 warmup frames.`,``,
-'Throughput is offscreen, serialized submit + completion, **not on-screen FPS**. CPU % uses one full logical core = 100%. Allocations count Rust heap calls only. Medians across processes.','',
-'| Scene / backend / mode / target | render frames/s | completed p95 ms | GPU pass mean ms | CPU % | alloc + realloc / frame | requested KiB / frame | RSS MiB | GPU buffers MiB | target MiB |',
-'|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|'];
+const lines=['# Forma renderer benchmark','',`CPU: ${metadata.cpu}; ${metadata.logicalCpus} logical cores; ${(totalmem()/2**30).toFixed(0)} GiB system RAM. ${repeats} independent processes per case, ${frames} frames after 20 warmup frames.`,``,
+'Throughput is offscreen, serialized submit + completion, **not on-screen FPS**. CPU % uses one full logical core = 100%. Allocations count Rust heap calls only. Medians across processes. **UMA** (Unified Memory Architecture) shares one physical pool between process RSS and GPU buffers (not additive); **DUMA** (Discrete / Non-Unified Memory Architecture) separates host RAM from device-local VRAM.','',
+'| Scene / backend / mode / target | arch | render frames/s | completed p95 ms | GPU pass mean ms | CPU % | alloc + realloc / frame | requested KiB / frame | RSS MiB | GPU buffers MiB | UMA pool MiB | DUMA VRAM MiB | target MiB |',
+'|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|'];
 for(const [scene,backend,mode,w,h] of cases){
  const rows=results.filter(r=>r.scene===scene&&r.backend===backend&&r.mode===mode&&r.width===w&&r.height===h);
  const m=fn=>median(rows.map(fn));const n=fn=>m(fn).toFixed(2);
- lines.push(`| ${scene} / ${backend} / ${mode} / ${w}×${h} | ${n(r=>r.render_throughput_fps)} | ${mode==='idle'?'n/a':n(r=>r.completed_ms.p95)} | ${rows.every(r=>r.gpu_pass)?n(r=>r.gpu_pass.mean_ms):'n/a'} | ${n(r=>r.cpu_percent_one_core)} | ${mode==='idle'?'n/a':n(r=>(r.rust_allocations+r.rust_reallocations)/r.frames)} | ${mode==='idle'?'n/a':n(r=>r.rust_requested_bytes/r.frames/1024)} | ${n(r=>r.rss_after_bytes/2**20)} | ${n(r=>r.owned_gpu_buffer_bytes/2**20)} | ${n(r=>r.target_payload_bytes/2**20)} |`);
+ const arch=rows[0]?.memory_architecture??'UMA';
+ lines.push(`| ${scene} / ${backend} / ${mode} / ${w}×${h} | ${arch} | ${n(r=>r.render_throughput_fps)} | ${mode==='idle'?'n/a':n(r=>r.completed_ms.p95)} | ${rows.every(r=>r.gpu_pass)?n(r=>r.gpu_pass.mean_ms):'n/a'} | ${n(r=>r.cpu_percent_one_core)} | ${mode==='idle'?'n/a':n(r=>(r.rust_allocations+r.rust_reallocations)/r.frames)} | ${mode==='idle'?'n/a':n(r=>r.rust_requested_bytes/r.frames/1024)} | ${n(r=>r.rss_after_bytes/2**20)} | ${n(r=>r.owned_gpu_buffer_bytes/2**20)} | ${arch==='UMA'?n(r=>(r.uma_shared_pool_bytes??0)/2**20):'n/a'} | ${arch==='DUMA'?n(r=>(r.duma_device_local_bytes??0)/2**20):'n/a'} | ${n(r=>r.target_payload_bytes/2**20)} |`);
 }
 lines.push('','See metadata.json for provenance and results.json for raw samples, peaks and deltas. GPU resources exclude driver heaps, staging, swapchain and alignment/compression overhead. GPU timestamps cover the render pass, not presentation or texture allocation.');
 await writeFile(resolve(out,'REPORT.md'),lines.join('\n')+'\n');
