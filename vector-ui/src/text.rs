@@ -172,6 +172,7 @@ impl OutlineBuilder for Contours {
     }
 }
 
+#[cfg(test)]
 fn glyph(face: &Face<'_>, character: char) -> GlyphId {
     let code = character as usize;
     let table = font_table();

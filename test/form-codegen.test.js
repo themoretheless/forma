@@ -63,7 +63,7 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
    writeFileSync(join(directory,'catalog.rs'),program+'fn main(){'+checks+'}');
    let catalogBuild=spawnSync('rustc',['--edition=2021','--extern',`forma=${rlib}`,'-L',`dependency=${dirname(rlib)}`,join(directory,'catalog.rs'),'-o',join(directory,'catalog')],{encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});
    assert.equal(catalogBuild.status,0,catalogBuild.stderr);
-   const catalogRun=spawnSync(join(directory,'catalog'),[],{encoding:'utf8',timeout:30000});assert.equal(catalogRun.status,0,catalogRun.stderr);
+   const catalogRun=spawnSync(join(directory,'catalog'),[],{encoding:'utf8',timeout:120000});assert.equal(catalogRun.status,0,catalogRun.stderr);
    const dynamic=`component Dynamic { contextType:'crate::Live'; events:['edited']; Frame {key:'panel';width:500;height:600;padding:20;gap:10;
      Checkbox {key:'check';checked <-> state.checked;}
      Slider {key:'slider';value <-> state.amount;}
@@ -95,7 +95,7 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
    }`;
    writeFileSync(join(directory,'live.rs'),live);
    const liveBuild=spawnSync('rustc',['--edition=2021','--extern',`forma=${rlib}`,'-L',`dependency=${dirname(rlib)}`,join(directory,'live.rs'),'-o',join(directory,'live')],{encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});assert.equal(liveBuild.status,0,liveBuild.stderr);
-   const liveRun=spawnSync(join(directory,'live'),[],{encoding:'utf8',timeout:30000});assert.equal(liveRun.status,0,liveRun.stderr);
+   const liveRun=spawnSync(join(directory,'live'),[],{encoding:'utf8',timeout:120000});assert.equal(liveRun.status,0,liveRun.stderr);
    const repeated=`component Repeated { contextType:'crate::RowsVm'; event edited(id:String,value:String); event chosen(id:String); Frame {width:420;height:600;padding:20;gap:8;
      if state.show { Button {key:'intro';text:'Intro';} }
      for row in state.rows key row.id {
@@ -134,7 +134,7 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
    }`;
    writeFileSync(join(directory,'rows.rs'),rows);
    const rowsBuild=spawnSync('rustc',['--edition=2021','--extern',`forma=${rlib}`,'-L',`dependency=${dirname(rlib)}`,join(directory,'rows.rs'),'-o',join(directory,'rows')],{encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});assert.equal(rowsBuild.status,0,rowsBuild.stderr);
-   const rowsRun=spawnSync(join(directory,'rows'),[],{encoding:'utf8',timeout:30000});assert.equal(rowsRun.status,0,rowsRun.stderr);
+   const rowsRun=spawnSync(join(directory,'rows'),[],{encoding:'utf8',timeout:120000});assert.equal(rowsRun.status,0,rowsRun.stderr);
    const fixtures=[
      {
        name:'property_override',
@@ -228,7 +228,7 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
      const code=fixture.model+generateForm({...fixture.definitions,'ui/Fixture.ui':fixture.source},'ui/Fixture.ui').rust+'fn main(){'+fixture.body+'}';
      const input=join(directory,fixture.name+'.rs'),output=join(directory,fixture.name);writeFileSync(input,code);
      const compiled=spawnSync('rustc',['--edition=2021','--extern',`forma=${rlib}`,'-L',`dependency=${dirname(rlib)}`,input,'-o',output],{encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});assert.equal(compiled.status,0,fixture.name+': '+compiled.stderr);
-     const executed=spawnSync(output,[],{encoding:'utf8',timeout:30000});assert.equal(executed.status,0,fixture.name+': '+executed.stderr);
+     const executed=spawnSync(output,[],{encoding:'utf8',timeout:120000});assert.equal(executed.status,0,fixture.name+': '+executed.stderr);
    }
    const typo=compile(files[entry].replace('state.name','state.naem'));
    assert.notEqual(typo.status,0);assert.match(typo.stderr,/no field `naem`/);

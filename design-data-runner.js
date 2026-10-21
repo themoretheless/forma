@@ -17,8 +17,8 @@ export async function evaluateDesignData(files,refs,{tempRoot=tmpdir()}={}){
   await writeFile(path.join(dir,'main.rs'),source);
   const executable=process.platform==='win32'?'design-data.exe':'design-data';
   const childEnv={...process.env,TMPDIR:dir,TMP:dir,TEMP:dir};
-  await exec('rustc',['--edition=2021','main.rs','-o',executable],{cwd:dir,env:childEnv,timeout:30000,maxBuffer:1024*1024});
-  await exec(path.join(dir,executable),[],{cwd:dir,env:childEnv,timeout:15000,maxBuffer:1024*1024});
+  await exec('rustc',['--edition=2021','main.rs','-o',executable],{cwd:dir,env:childEnv,timeout:60000,maxBuffer:1024*1024});
+  await exec(path.join(dir,executable),[],{cwd:dir,env:childEnv,timeout:60000,maxBuffer:1024*1024});
   return await readDesignValues(dir,refs);
   // Windows can keep the just-exited executable locked briefly (EBUSY/EPERM); rm retries those.
   }finally{await rm(dir,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
