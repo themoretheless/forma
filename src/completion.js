@@ -214,6 +214,7 @@ export function completeCode({source,pos,path,files,index=indexProject({...files
       option('state.decrement','function',"state.decrement('field', 1)"),
       option('state.push','function',"state.push('list', item)"),
       option('state.remove','function',"state.remove('list', index)"),
+      option('state.clear','function',"state.clear('field')"),
       option('state.reset','function','Сбросить локальное состояние','state.reset()')
      ]:[])
     ];

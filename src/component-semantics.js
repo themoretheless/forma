@@ -39,7 +39,31 @@ function tryFastPattern(pattern, actual, props, state, environment) {
     }
     return true;
   }
-  if (own(pattern, 'or') || own(pattern, 'comparison') || own(pattern, 'expression')) {
+  if (own(pattern, 'or')) {
+    if (!Array.isArray(pattern.or)) return undefined;
+    for (let i = 0; i < pattern.or.length; i++) {
+      const m = tryFastPattern(pattern.or[i], actual, props, state, environment);
+      if (m === undefined) return undefined;
+      if (m) return true;
+    }
+    return false;
+  }
+  if (own(pattern, 'comparison')) {
+    const cmp = pattern.comparison;
+    if (!cmp || typeof actual !== 'number' || !Number.isFinite(actual)) return undefined;
+    const rhs = tryFastEvaluate(cmp.value, props, state, emptyArray, false, environment);
+    if (typeof rhs !== 'number' || !Number.isFinite(rhs)) return undefined;
+    switch (cmp.op) {
+      case '<': return actual < rhs;
+      case '<=': return actual <= rhs;
+      case '>': return actual > rhs;
+      case '>=': return actual >= rhs;
+      case '==': return actual === rhs;
+      case '!=': return actual !== rhs;
+      default: return undefined;
+    }
+  }
+  if (own(pattern, 'expression')) {
     return undefined;
   }
   const expected = tryFastEvaluate(pattern, props, state, emptyArray, false, environment);

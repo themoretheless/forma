@@ -121,6 +121,9 @@ fn linear(c:vec3f)->vec3f {
 }
 @fragment fn fs(@builtin(position) position:vec4f)->@location(0) vec4f {
     let pixel=floor(position.xy);
+    let inv_scale=1./params.viewport.z;
+    let p_logical=(pixel+0.5)*inv_scale;
+    let aa=vec2f(inv_scale);
     let cols=u32(ceil(params.viewport.x/32.));
     let tile=(u32(pixel.y)/32u*cols+u32(pixel.x)/32u)*2u;
     let start=tiles[tile];let count=tiles[tile+1u];
@@ -136,8 +139,7 @@ fn linear(c:vec3f)->vec3f {
             visible=1.;for(var j=0u;j<depth;j++){visible*=masks[j];}
         }else if visible>0.{
             let b=scrolled_bounds(c);
-            let p=(pixel+0.5)/params.viewport.z;let aa=1./params.viewport.z;
-            if all(p>=b.xy-vec2f(aa))&&all(p<=b.xy+b.zw+vec2f(aa)){
+            if all(p_logical>=b.xy-aa)&&all(p_logical<=b.xy+b.zw+aa){
                 result=over(coverage(pixel,c,b),result);
             }
         }

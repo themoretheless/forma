@@ -243,14 +243,9 @@ impl Runtime {
     /// Re-evaluation keeps gestures attached to the same uniquely keyed control.
     /// Context replacement is cancelled separately by the binding owner.
     pub(crate) fn preserve_binding_interaction(&mut self, previous:&Runtime) {
-        self.preserve_interaction(previous);
-        let mut previous_keys=std::collections::HashMap::new();
-        for (index,control) in previous.controls.iter().enumerate() {
-            let key=control.key();
-            if !key.is_empty() { previous_keys.entry(key).and_modify(|value| *value=None).or_insert(Some(index)); }
-        }
+        let matches = self.preserve_interaction_matches(previous);
         for (i,c) in self.controls.iter_mut().enumerate() {
-            let Some(old_index)=previous_keys.get(&c.key()).copied().flatten() else {continue};
+            let Some(old_index)=matches[i] else {continue};
             let old=&previous.controls[old_index];
             if !c.disabled() && c.template.clickable {
                 c.down=old.down;c.keyboard=old.keyboard;c.update_colors();
@@ -547,29 +542,48 @@ impl Runtime {
             cache.paint = None;
             let v = self.viewport_rect();
             let [cw, ch] = self.content_size();
-            for y in 0..h {
-                for x in 0..w {
-                    let px = (x as f32 + 0.5) / s;
-                    let py = (y as f32 + 0.5) / s;
-                    let mut viewport = 1;
-                    if self.scene.scroll {
-                        if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
-                            viewport = 0;
-                        } else {
-                            let vertical = ch > v[3]
-                                && px >= (v[0] + v[2] - 5.).max(v[0])
-                                && py >= v[1] + self.scroll[1] / ch * v[3]
-                                && py < v[1] + (self.scroll[1] + v[3]) / ch * v[3];
-                            let horizontal = cw > v[2]
-                                && py >= (v[1] + v[3] - 5.).max(v[1])
-                                && px >= v[0] + self.scroll[0] / cw * v[2]
-                                && px < v[0] + (self.scroll[0] + v[2]) / cw * v[2];
-                            if vertical || horizontal { viewport = 2; }
+            let inv_s = 1. / s;
+            let sw = self.width();
+            let sh = self.height();
+            let r = self.scene.radius.min(sw * 0.5).min(sh * 0.5).max(0.);
+            let flat_frame = r <= 0. && (sw * s) >= w as f32 && (sh * s) >= h as f32;
+            let vert_x0 = (v[0] + v[2] - 5.).max(v[0]);
+            let vert_y0 = v[1] + self.scroll[1] / ch * v[3];
+            let vert_y1 = v[1] + (self.scroll[1] + v[3]) / ch * v[3];
+            let horz_y0 = (v[1] + v[3] - 5.).max(v[1]);
+            let horz_x0 = v[0] + self.scroll[0] / cw * v[2];
+            let horz_x1 = v[0] + (self.scroll[0] + v[2]) / cw * v[2];
+            if flat_frame && !self.scene.scroll {
+                cache.frame.fill(16 | (1 << 5));
+            } else {
+                for y in 0..h {
+                    let py = (y as f32 + 0.5) * inv_s;
+                    let row = (y * w) as usize;
+                    for x in 0..w {
+                        let px = (x as f32 + 0.5) * inv_s;
+                        let mut viewport = 1;
+                        if self.scene.scroll {
+                            if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
+                                viewport = 0;
+                            } else {
+                                let vertical = ch > v[3]
+                                    && px >= vert_x0
+                                    && py >= vert_y0
+                                    && py < vert_y1;
+                                let horizontal = cw > v[2]
+                                    && py >= horz_y0
+                                    && px >= horz_x0
+                                    && px < horz_x1;
+                                if vertical || horizontal { viewport = 2; }
+                            }
                         }
+                        let coverage = if flat_frame {
+                            1.
+                        } else {
+                            round_coverage(x, y, s, [0., 0., sw, sh], self.scene.radius)
+                        };
+                        cache.frame[row + x as usize] = (coverage * 16.) as u8 | viewport << 5;
                     }
-                    let coverage = round_coverage(x, y, s,
-                        [0., 0., self.width(), self.height()], self.scene.radius);
-                    cache.frame[(y * w + x) as usize] = (coverage * 16.) as u8 | viewport << 5;
                 }
             }
         }
@@ -598,18 +612,22 @@ impl Runtime {
                 for index in modal.controls.clone() { self.controls[index].composite_content(&mut cache.pixels, w, h, s); }
             }
             for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
-                let coverage = (frame & 31) as f32 / 16.;
+                let cov_int = frame & 31;
                 if background {
                     let mut bg = self.scene.background;
-                    if !self.scene.clip {
-                        bg[3] = (bg[3] as f32 * coverage).round() as u8;
+                    if !self.scene.clip && cov_int < 16 {
+                        bg[3] = (bg[3] as f32 * (cov_int as f32 / 16.)).round() as u8;
                     }
                     crate::raster_cache::over(&mut bg, p);
                     p.copy_from_slice(&bg);
                 }
-                if self.scene.clip {
-                    p[3] = (p[3] as f32 * coverage).round() as u8;
-                    if p[3] == 0 { p.fill(0); }
+                if self.scene.clip && cov_int < 16 {
+                    if cov_int == 0 {
+                        p.fill(0);
+                    } else {
+                        p[3] = (p[3] as f32 * (cov_int as f32 / 16.)).round() as u8;
+                        if p[3] == 0 { p.fill(0); }
+                    }
                 }
             }
             cache.paint = Some(paint);
@@ -1080,6 +1098,9 @@ impl Runtime {
         self.is_animating()
     }
     pub fn preserve_interaction(&mut self, previous: &Runtime) {
+        self.preserve_interaction_matches(previous);
+    }
+    fn preserve_interaction_matches(&mut self, previous: &Runtime) -> Vec<Option<usize>> {
         use std::collections::HashMap;
         // Reconcile only unambiguous identities; never transfer a gesture by index.
         let mut previous_keys: HashMap<&str, Option<usize>> = HashMap::with_capacity(previous.controls.len());
@@ -1091,7 +1112,12 @@ impl Runtime {
         }
         let matches: Vec<Option<usize>> = {
             let mut current_counts: HashMap<&str, usize> = HashMap::with_capacity(self.controls.len());
-            for c in &self.controls { *current_counts.entry(&c.scene.button.key).or_default() += 1; }
+            for c in &self.controls {
+                let key = c.scene.button.key.as_str();
+                if !key.is_empty() {
+                    *current_counts.entry(key).or_default() += 1;
+                }
+            }
             self.controls.iter().map(|c| {
                 let key=c.scene.button.key.as_str();
                 if current_counts.get(key) == Some(&1) { previous_keys.get(key).copied().flatten() } else { None }
@@ -1130,6 +1156,7 @@ impl Runtime {
         self.last_event = None;
         self.set_focus(focused);
         self.update_revision(before);
+        matches
     }
     pub fn pixels(&self, w: u32, h: u32, s: f32) -> Vec<u8> {
         self.raster(w, h, s, true)

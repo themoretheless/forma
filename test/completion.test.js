@@ -102,6 +102,7 @@ test('completions cover attributes, styles, type annotations, pipe stdlib, local
  assert.ok(labels(stateCmdRes).includes('state.count'));
  assert.ok(labels(stateCmdRes).includes('state.increment'));
  assert.ok(labels(stateCmdRes).includes('state.toggle'));
+ assert.ok(labels(stateCmdRes).includes('state.clear'));
  assert.ok(labels(stateCmdRes).includes('state.reset'));
 });
 

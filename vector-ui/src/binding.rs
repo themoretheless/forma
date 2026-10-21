@@ -22,7 +22,7 @@ type Listener<T> = Rc<dyn Fn(T)>;
 struct PropertyInner<T> {
     value: RefCell<T>,
     next: Cell<u64>,
-    listeners: RefCell<BTreeMap<u64, Listener<T>>>,
+    listeners: RefCell<Vec<(u64, Listener<T>)>>,
 }
 /// An observable field. Clones share a field; creating another Property creates
 /// independent state. Mutate through `set` so every attached form is notified.
@@ -37,7 +37,7 @@ impl<T: Clone + PartialEq + 'static> Property<T> {
         Self(Rc::new(PropertyInner {
             value: RefCell::new(value),
             next: Cell::new(0),
-            listeners: RefCell::new(BTreeMap::new()),
+            listeners: RefCell::new(Vec::new()),
         }))
     }
     pub fn get(&self) -> T {
@@ -48,11 +48,25 @@ impl<T: Clone + PartialEq + 'static> Property<T> {
             return false;
         }
         *self.0.value.borrow_mut() = value;
-        // Snapshot IDs, not callbacks: a listener disconnected during notification
-        // must not receive a stale notification later in the same dispatch.
-        let ids: Vec<_> = self.0.listeners.borrow().keys().copied().collect();
+        // Fast-path for 0 or 1 listener; snapshot IDs when multiple listeners exist
+        // so a listener disconnected during notification cannot receive a stale call.
+        let len = self.0.listeners.borrow().len();
+        if len == 0 {
+            return true;
+        }
+        if len == 1 {
+            let callback = self.0.listeners.borrow()[0].1.clone();
+            callback(self.get());
+            return true;
+        }
+        let ids: Vec<u64> = self.0.listeners.borrow().iter().map(|&(id, _)| id).collect();
         for id in ids {
-            let callback = self.0.listeners.borrow().get(&id).cloned();
+            let callback = self
+                .0
+                .listeners
+                .borrow()
+                .iter()
+                .find_map(|(k, cb)| (*k == id).then(|| cb.clone()));
             if let Some(callback) = callback {
                 callback(self.get());
             }
@@ -62,11 +76,11 @@ impl<T: Clone + PartialEq + 'static> Property<T> {
     pub fn subscribe(&self, callback: impl Fn(T) + 'static) -> Subscription {
         let id = self.0.next.get();
         self.0.next.set(id + 1);
-        self.0.listeners.borrow_mut().insert(id, Rc::new(callback));
+        self.0.listeners.borrow_mut().push((id, Rc::new(callback)));
         let source = Rc::downgrade(&self.0);
         Subscription(Some(Box::new(move || {
             if let Some(source) = source.upgrade() {
-                source.listeners.borrow_mut().remove(&id);
+                source.listeners.borrow_mut().retain(|(k, _)| *k != id);
             }
         })))
     }
@@ -798,6 +812,7 @@ struct DocumentState {
     program: crate::form_document::Document,
     inputs: Vec<(usize, String, Box<dyn Input>)>,
     nodes: BTreeMap<usize, usize>,
+    node_controls: BTreeMap<usize, usize>,
     scene: Vec<crate::form_document::SceneControl>,
     event_types: BTreeMap<(usize, String), Vec<String>>,
     base_disabled: Vec<bool>,
@@ -830,6 +845,7 @@ impl Form {
             program,
             inputs: Vec::new(),
             nodes: BTreeMap::new(),
+            node_controls: BTreeMap::new(),
             scene: Vec::new(),
             event_types: BTreeMap::new(),
             base_disabled: Vec::new(),
@@ -911,11 +927,9 @@ impl Form {
         self.observe(node, path, context, select);
     }
     pub fn bind_node(&mut self, index: usize, node: usize) {
-        self.document
-            .as_mut()
-            .expect("generated document")
-            .nodes
-            .insert(index, node);
+        let doc = self.document.as_mut().expect("generated document");
+        doc.nodes.insert(index, node);
+        doc.node_controls.insert(node, index);
     }
     pub fn add_control<C: 'static>(
         &mut self,
@@ -1017,8 +1031,11 @@ impl Form {
                     }
                     if input.present() {
                         program.states[*node].insert(path.clone(), input.value());
-                    } else if matches!(input.value(), crate::form_document::Value::List(_)) {
-                        program.states[*node].insert(path.clone(), input.value());
+                    } else {
+                        let val = input.value();
+                        if matches!(val, crate::form_document::Value::List(_)) {
+                            program.states[*node].insert(path.clone(), val);
+                        }
                     }
                 }
                 fn node_at<'a>(
@@ -1208,12 +1225,13 @@ impl Form {
                 .iter()
                 .enumerate()
                 .filter_map(|(index, item)| {
-                    self.controls
-                        .iter()
-                        .find(|control| document.nodes.get(&control.index) == Some(&item.node))
-                        .map(|control| {
-                            (control.clone(), index, item.state.clone(), item.key.clone())
-                        })
+                    let control_index = document.node_controls.get(&item.node)?;
+                    let control = self
+                        .controls
+                        .get(*control_index)
+                        .filter(|c| c.index == *control_index)
+                        .or_else(|| self.controls.iter().find(|c| c.index == *control_index))?;
+                    Some((control.clone(), index, item.state.clone(), item.key.clone()))
                 })
                 .collect()
         } else {

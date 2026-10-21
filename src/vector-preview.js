@@ -5,9 +5,15 @@ let runtimePromise;
 // one Scroll), then every Modal layer's children. Kept local so this module
 // stays loadable on its own by the preview test harness.
 function sceneControlNodes(root){
-  const children=root?.children??[],base=children.filter(n=>n.type!=='Modal'),modals=children.filter(n=>n.type==='Modal');
-  const controls=base[0]?.type==='Scroll'?base[0].children:base;
-  return [...controls,...modals.flatMap(m=>m.children??[])];
+  if(!root?.children)return [];
+  const base=[],modals=[];
+  for(let i=0;i<root.children.length;i++){
+    const n=root.children[i];
+    if(n.type==='Modal'){if(n.children?.length)modals.push(...n.children);}
+    else base.push(n);
+  }
+  const controls=base[0]?.type==='Scroll'?(base[0].children??[]):base;
+  return modals.length?[...controls,...modals]:controls;
 }
 
 export function loadVectorRuntime() {
@@ -76,7 +82,11 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   }).catch(gpuFallback);
   const report = error => onError?.(error instanceof Error ? error : new Error(String(error)));
   const listen = scope.listen;
-  const controlNodes=()=>current?.previewControls??sceneControlNodes(current?.nodes?.[0]);
+  const controlNodes=()=>{
+    if(!current)return [];
+    if(current.previewControls)return current.previewControls;
+    return current._cachedNodes??(current._cachedNodes=sceneControlNodes(current.nodes?.[0]));
+  };
   const modalNode=index=>current?.previewModals?.[index]??{type:'Modal',props:{key:button.modal_key(index)},children:[]};
   // Older or stubbed runtimes without modal layers behave as a single base scene.
   const layered=()=>Boolean(button)&&(button.active_modal?.()??-1)>=0;

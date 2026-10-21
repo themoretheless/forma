@@ -89,6 +89,11 @@ export function propertyOrigins(value, source, props = {}, sources = {}, traces 
     } else result.push(referenceOrigin(ref));
   }
   if (result.length < 2) return result;
+  if (result.length === 2) {
+    return result[0] === result[1] || originKey(result[0]) === originKey(result[1])
+      ? [result[0]]
+      : result;
+  }
   const unique = [];
   const keys = new Set();
   for (let i = 0; i < result.length; i++) {

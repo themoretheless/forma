@@ -82,7 +82,9 @@ document.querySelector('#app').innerHTML=`
 <section class="bottom"><div class="bottom-tabs"><button data-tab="problems" class="chosen">Диагностика <span id="problem-count">0</span></button><button data-tab="events">События <span id="event-count">0</span></button><button data-tab="state">Состояние</button><div class="debug-controls"><label><input type="checkbox" id="break"> Break on event</label><button id="continue" disabled>▶ Продолжить</button><button id="reset">↺ Сброс</button></div></div><div id="output"></div></section></main>
 <aside class="inspector"><div class="section-title">ИНСПЕКТОР</div><div id="inspector"><div class="empty-icon">⌖</div><p>Выберите компонент</p><small>Свойства и привязки появятся здесь</small></div><div class="debug-info"><span>UI DEBUGGER</span><p id="debug-status">Готов</p><small>События и состояние дизайн-runtime.<br>Rust / DAP не подключён.</small></div></aside></div>
 <footer><span class="dot"></span><span id="status">Готов</span><span class="footer-right">Forma UI · UTF-8 <span id="position">Ln 1, Col 1</span></span></footer><input type="file" id="upload" accept=".json" hidden>`;
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ESC_MAP={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+const ESC_RE=/[&<>"']/g;
+const esc=s=>String(s??'').replace(ESC_RE,c=>ESC_MAP[c]);
 // Recovery data is downloadable without parsing or executing its contents.
 {
  const key=storageKey('forma-project');
@@ -106,9 +108,10 @@ function tree(){const buttons=[...$('tree').querySelectorAll('[data-path]')],pat
  if(buttons.length===paths.length&&paths.every(path=>existing.has(path))){for(const b of buttons)b.classList.toggle('active',b.dataset.path===active);return;}
  const groups={};for(const path of Object.keys(files)){const folder=path.includes('/')?path.slice(0,path.lastIndexOf('/')):'Проект';(groups[folder]??=[]).push(path);} $('tree').innerHTML=Object.entries(groups).map(([folder,paths])=>`<div class="folder">⌄ &nbsp; ${esc(folder)}</div>${paths.map(p=>`<button class="file ${p===active?'active':''}" data-path="${esc(p)}"><span class="${p.endsWith('.rs')?'rust':'ui'}">${p.endsWith('.rs')?'R':'◇'}</span>${esc(p.split('/').at(-1))}</button>`).join('')}`).join('');document.querySelectorAll('[data-path]').forEach(b=>b.onclick=()=>open(b.dataset.path));}
 function open(path){active=path;persistView();codeEditor?.setLanguage(path);$('filename').textContent=path.split('/').at(-1);$('code').value=files[path];$('language').textContent=path.endsWith('.rs')?'Rust · редактирование':path.endsWith('.ui')?'Forma UI':'Текст';$('entry').disabled=!path.endsWith('.ui')||path.endsWith('.design.ui');$('format-code').disabled=!path.endsWith('.ui');lines();tree();refreshControlTree();refreshStatesPanel();}
+function countLines(text,end=text.length){let n=1;for(let i=0;i<end;i++)if(text.charCodeAt(i)===10)n++;return n;}
 function lines(){
   if(codeEditor){const {line,column}=codeEditor.position();$('position').textContent=`Ln ${line}, Col ${column}`;}
-  else {const text=$('code').value;$('lines').textContent=Array.from({length:text.split('\n').length},(_,i)=>i+1).join('\n');const before=text.slice(0,$('code').selectionStart).split('\n');$('position').textContent=`Ln ${before.length}, Col ${before.at(-1).length+1}`;}
+  else {const text=$('code').value,total=countLines(text);$('lines').textContent=Array.from({length:total},(_,i)=>i+1).join('\n');const sel=$('code').selectionStart,line=countLines(text,sel),lastNl=text.lastIndexOf('\n',sel-1);$('position').textContent=`Ln ${line}, Col ${sel-lastNl}`;}
   highlightSource();
 }
 function highlightSource(){
@@ -118,8 +121,8 @@ function highlightSource(){
   if(!layer){layer=document.createElement('div');layer.id='source-highlight';layer.setAttribute('aria-hidden','true');code.parentElement.append(layer);}
   layer.hidden=!selected||active!==selectedPath;
   if(layer.hidden)return;
-  const first=code.value.slice(0,selected.start).split('\n').length-1;
-  const last=code.value.slice(0,selected.end).split('\n').length-1;
+  const first=countLines(code.value,selected.start)-1;
+  const last=countLines(code.value,selected.end)-1;
   const lineHeight=parseFloat(getComputedStyle(code).lineHeight);
   const start=first*lineHeight-code.scrollTop;
   const end=(last+1)*lineHeight-code.scrollTop;
@@ -184,7 +187,7 @@ function designStateFor(node){
     return overridden||base?{name:state.name,path:state.file,source,entry:overridden,base}:null;
   }catch{/* a file that stopped compiling keeps the rows it had before */return null;}
 }
-function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=files[entry].slice(0,n.start).split('\n').length;$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
+function select(n){selected=n;selectedPath=entry;vectorPreview?.select(n.start);layoutInspector?.update();if(active!==entry)open(entry);$('code').setSelectionRange(n.start,n.start);const line=countLines(files[entry],n.start);$('code').scrollTop=Math.max(0,(line-4)*23);$('lines').scrollTop=$('code').scrollTop;document.querySelectorAll('.ui-node').forEach(el=>el.classList.toggle('selected',Number(el.dataset.start)===n.start));inspectorNote='';renderInspector();lines();controlTree?.select(n.start,entry);}
 // The mirror of `select` for the moment there is nothing to select: every surface that was drawing the
 // control lets it go, so no row survives that could write into markup the file has dropped.
 function clearSelection(){selected=null;selectedPath=null;vectorPreview?.select(null);elementTools?.setSelection([]);layoutInspector?.update();document.querySelectorAll('.ui-node.selected').forEach(el=>el.classList.remove('selected'));inspectorNote='';renderInspector();lines();controlTree?.select(null,null);}
