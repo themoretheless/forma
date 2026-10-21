@@ -17,11 +17,12 @@ export function takesCoordinates(node,parent){
 // element still reserves its flow slot, which is exactly what the scene does with it.
 export function coordinateShift(node,parent,state,parentRect,rect){
   if(!takesCoordinates(node,parent))return null;
-  const edges=[[parentRect.left,rect.left,'left',parentRect.width,'x'],[parentRect.top,rect.top,'top',parentRect.height,'y']];
   const shift={};
-  for(const [origin,side,css,span,key]of edges){
-    if(node.props[key]===undefined)continue;
-    shift[css]=Math.round((origin+length(resolve(node.props[key],state),span,0,key)-side)*100)/100;
+  if(node.props.x!==undefined){
+    shift.left=Math.round((parentRect.left+length(resolve(node.props.x,state),parentRect.width,0,'x')-rect.left)*100)/100;
+  }
+  if(node.props.y!==undefined){
+    shift.top=Math.round((parentRect.top+length(resolve(node.props.y,state),parentRect.height,0,'y')-rect.top)*100)/100;
   }
   return shift;
 }

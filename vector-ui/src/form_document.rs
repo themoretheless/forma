@@ -395,13 +395,23 @@ fn eval_mode(
                 }
             }
         }
-        Value::Interpolation(parts) => Value::Text(
-            parts
-                .iter()
-                .map(|part| eval(part, scope, state, stack)?.text())
-                .collect::<Result<Vec<_>, _>>()?
-                .concat(),
-        ),
+        Value::Interpolation(parts) => {
+            let mut out = String::with_capacity(parts.len() * 16);
+            for part in parts {
+                match eval(part, scope, state, stack)? {
+                    Value::Null => {}
+                    Value::Text(v) | Value::Expr(v) => out.push_str(&v),
+                    Value::Number(v) => {
+                        let _ = std::fmt::Write::write_fmt(&mut out, format_args!("{v}"));
+                    }
+                    Value::Bool(v) => {
+                        out.push_str(if v { "true" } else { "false" });
+                    }
+                    _ => return Err("Expected scalar text".into()),
+                }
+            }
+            Value::Text(out)
+        }
         Value::Object(values) => Value::Object(
             values
                 .iter()
@@ -3200,7 +3210,12 @@ impl Document {
         } else {
             root.children = source_controls;
         }
-        let mut scene_source = String::with_capacity(256 + root.children.len() * 128);
+        let control_count = if scroll {
+            root.children[0].children.len()
+        } else {
+            root.children.len()
+        };
+        let mut scene_source = String::with_capacity(256 + control_count * 128);
         scene_source.push_str("component ");
         scene_source.push_str(&self.name);
         scene_source.push_str(" { ");

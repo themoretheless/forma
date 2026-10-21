@@ -10,15 +10,24 @@ export function sharedFields(source,starts){
   if(starts.length<2)return [];
   const origins=starts.map(start=>sourceNode(source,start));
   if(origins.some(origin=>!origin))return [];
+  const firstKeys=Object.keys(origins[0].props).filter(key=>{
+    if(key==='key')return false;
+    for(let i=1;i<origins.length;i++)if(!Object.hasOwn(origins[i].props,key))return false;
+    return true;
+  });
+  if(!firstKeys.length)return [];
   const fields=[];
-  for(const key of new Set(origins.flatMap(origin=>Object.keys(origin.props)))){
-    // The design key is how the panel, the states and the preview address a control. Writing one value
-    // into all of them at once would collide with itself, so it is never a batch row.
-    if(key==='key')continue;
-    const reads=origins.map(origin=>classify(source,origin,key));
-    if(reads.some(read=>!read||read.shape!=='literal'||read.kind!==reads[0].kind))continue;
-    const [first]=reads;
-    fields.push({key,kind:first.kind,value:first.value,text:reads.every(read=>read.text===first.text)?first.text:null});
+  for(const key of firstKeys){
+    const first=classify(source,origins[0],key);
+    if(!first||first.shape!=='literal')continue;
+    let valid=true,sameText=true;
+    for(let i=1;i<origins.length;i++){
+      const read=classify(source,origins[i],key);
+      if(!read||read.shape!=='literal'||read.kind!==first.kind){valid=false;break;}
+      if(read.text!==first.text)sameText=false;
+    }
+    if(!valid)continue;
+    fields.push({key,kind:first.kind,value:first.value,text:sameText?first.text:null});
   }
   return fields;
 }
