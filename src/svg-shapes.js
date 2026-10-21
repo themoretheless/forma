@@ -3,24 +3,36 @@
 // Parsing is box-independent: a repeated icon tessellates once and is then placed
 // per control, so callers must not re-parse the same source for every surface.
 const UNIT_CIRCLE=Array.from({length:64},(_,i)=>[Math.cos(i*Math.PI/32),Math.sin(i*Math.PI/32)]);
+const HEX_COLOR_RE=/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i;
+const ATTR_RE=/\s+([\w:-]+)\s*=\s*(['"])(.*?)\2/gy;
+const ALLOWED_TAGS=new Set(['svg','rect','circle','ellipse','line','polyline','polygon']);
+const ALLOWED_ATTRS={
+  svg:new Set(['xmlns','viewBox','width','height']),
+  rect:new Set(['fill','stroke','stroke-width','x','y','width','height']),
+  circle:new Set(['fill','stroke','stroke-width','cx','cy','r']),
+  ellipse:new Set(['fill','stroke','stroke-width','cx','cy','rx','ry']),
+  line:new Set(['fill','stroke','stroke-width','x1','y1','x2','y2']),
+  polyline:new Set(['fill','stroke','stroke-width','points']),
+  polygon:new Set(['fill','stroke','stroke-width','points']),
+};
 export function parseSvgShapes(source,currentColor='#ffffff'){
   if(typeof source!=='string'||source.length>100_000)throw Error('SVG должен быть текстом до 100 КБ');
   source=source.replace(/<!--[^]*?-->/g,'').replace(/<\?xml[^]*?\?>/g,'');
   const tags=[...source.matchAll(/<([^>]+)>/g)];if(source.replace(/<[^>]+>/g,'').trim())throw Error('SVG: текстовые элементы пока не поддерживаются');
   const out=[];let view=null,root=false,closed=false;
   function number(v,fallback=0){const n=v===undefined?fallback:Number(v);if(!Number.isFinite(n)||Math.abs(n)>100_000)throw Error('SVG: неверная координата');return n;}
-  function ink(v){if(v==='none')return null;if(v==='currentColor')v=currentColor;if(!/^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(v))throw Error('SVG: поддерживаются hex и currentColor');return v;}
+  function ink(v){if(v==='none')return null;if(v==='currentColor')v=currentColor;if(!HEX_COLOR_RE.test(v))throw Error('SVG: поддерживаются hex и currentColor');return v;}
   function emit(points,c){if(!c)return;out.push({color:c,points});}
   function segment(a,b,width,c){const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy);if(!l)return;const x=-dy/l*width/2,y=dx/l*width/2;emit([[a[0]+x,a[1]+y],[b[0]+x,b[1]+y],[b[0]-x,b[1]-y],[a[0]-x,a[1]-y]],c);}
   for(const tag of tags){
     const raw=tag[1].trim();if(raw==='/svg'){closed=true;continue;}
     if(closed)throw Error('SVG: лишние элементы после корня');
-    const name=raw.match(/^[a-zA-Z]+/)?.[0];if(!['svg','rect','circle','ellipse','line','polyline','polygon'].includes(name))throw Error(`SVG ${name??raw}: пока поддерживаются rect, circle, ellipse, line, polyline, polygon`);
+    const name=raw.match(/^[a-zA-Z]+/)?.[0];if(!ALLOWED_TAGS.has(name))throw Error(`SVG ${name??raw}: пока поддерживаются rect, circle, ellipse, line, polyline, polygon`);
     const attrs={};let tail=raw.slice(name.length).replace(/\/$/,'');
-    const regex=/\s+([\w:-]+)\s*=\s*(['"])(.*?)\2/gy;let pos=0;
-    while(pos<tail.length){if(!tail.slice(pos).trim())break;regex.lastIndex=pos;const m=regex.exec(tail);if(!m)throw Error('SVG: некорректные атрибуты');if(Object.hasOwn(attrs,m[1]))throw Error('SVG: повторный атрибут');attrs[m[1]]=m[3];pos=regex.lastIndex;}
-    const allowed=name==='svg'?['xmlns','viewBox','width','height']:['fill','stroke','stroke-width',...(name==='rect'?['x','y','width','height']:name==='circle'?['cx','cy','r']:name==='ellipse'?['cx','cy','rx','ry']:name==='line'?['x1','y1','x2','y2']:['points'])];
-    for(const k of Object.keys(attrs))if(!allowed.includes(k))throw Error(`SVG: атрибут ${k} пока не поддерживается`);
+    let pos=0;
+    while(pos<tail.length){if(!tail.slice(pos).trim())break;ATTR_RE.lastIndex=pos;const m=ATTR_RE.exec(tail);if(!m)throw Error('SVG: некорректные атрибуты');if(Object.hasOwn(attrs,m[1]))throw Error('SVG: повторный атрибут');attrs[m[1]]=m[3];pos=ATTR_RE.lastIndex;}
+    const allowed=ALLOWED_ATTRS[name];
+    for(const k of Object.keys(attrs))if(!allowed.has(k))throw Error(`SVG: атрибут ${k} пока не поддерживается`);
     if(name==='svg'){if(root)throw Error('SVG: один корень');root=true;view=attrs.viewBox?.trim().split(/[\s,]+/).map(v=>number(v))??[0,0,number(attrs.width),number(attrs.height)];if(view.length!==4||view[2]<=0||view[3]<=0)throw Error('SVG требует положительный viewBox');continue;}
     if(!root||!raw.endsWith('/'))throw Error('SVG: примитивы внутри svg должны быть самозакрывающимися');
     const fill=ink(attrs.fill??'#000000'),stroke=ink(attrs.stroke??'none'),sw=number(attrs['stroke-width'],1);if(sw<0)throw Error('SVG: отрицательная толщина');

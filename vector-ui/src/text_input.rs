@@ -116,22 +116,26 @@ impl Editor {
                     out.push(rect(px+left,py,(right-left).max(if selection.end>start+line.len(){5.}else{0.}),lh,[222,106,25,90]));
                 }
             }
-            let mut cuts=vec![0,line.len()];
-            for (range,_) in &self.fades {
-                if range.start<start+line.len() && range.end>start {
-                    cuts.push(range.start.saturating_sub(start));
-                    cuts.push((range.end-start).min(line.len()));
+            if self.fades.is_empty() {
+                out.push(Content::Text{bounds:[px,py,self.width(line),lh],text:Text{text:line.into(),font_size:self.spec.font_size,color:self.spec.color}});
+            } else {
+                let mut cuts=vec![0,line.len()];
+                for (range,_) in &self.fades {
+                    if range.start<start+line.len() && range.end>start {
+                        cuts.push(range.start.saturating_sub(start));
+                        cuts.push((range.end-start).min(line.len()));
+                    }
                 }
-            }
-            cuts.sort_unstable();cuts.dedup();
-            for run in cuts.windows(2) {
-                let text=&line[run[0]..run[1]];
-                let mut color=self.spec.color;
-                if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
-                    let t=(*age/220.).clamp(0.,1.);
-                    color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
+                cuts.sort_unstable();cuts.dedup();
+                for run in cuts.windows(2) {
+                    let text=&line[run[0]..run[1]];
+                    let mut color=self.spec.color;
+                    if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
+                        let t=(*age/220.).clamp(0.,1.);
+                        color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
+                    }
+                    out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
                 }
-                out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
             }
             start+=line.len()+1;
         }

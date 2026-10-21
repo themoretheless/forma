@@ -3,16 +3,20 @@
 export const containerTypes = new Set(['Frame', 'Row', 'Column', 'Grid', 'Stack']);
 const raw = value => value?.expr ?? value;
 const own = (object, key) => Object.hasOwn(object, key);
-export const intrinsicLength = value => value === undefined || ['auto', 'content', '-'].includes(raw(value));
+const INTRINSIC_TOKENS = new Set(['auto', 'content', '-']);
+const PX_RE = /^\d+(?:\.\d+)?px$/;
+const PCT_RE = /^\d+(?:\.\d+)?%$/;
+const WEIGHT_RE = /^(?:\d+(?:\.\d+)?)?\*$/;
+export const intrinsicLength = value => value === undefined || INTRINSIC_TOKENS.has(raw(value));
 
 export function length(value, available, natural, label = 'размер') {
   const v = raw(value);
   let result;
   if (intrinsicLength(value)) result = natural;
   else if (typeof v === 'number') result = v;
-  else if (typeof v === 'string' && /^\d+(?:\.\d+)?px$/.test(v)) result = Number(v.slice(0, -2));
-  else if (typeof v === 'string' && /^\d+(?:\.\d+)?%$/.test(v)) result = available * Number(v.slice(0, -1)) / 100;
-  else if (typeof v === 'string' && /^(?:\d+(?:\.\d+)?)?\*$/.test(v)) result = available;
+  else if (typeof v === 'string' && PX_RE.test(v)) result = Number(v.slice(0, -2));
+  else if (typeof v === 'string' && PCT_RE.test(v)) result = available * Number(v.slice(0, -1)) / 100;
+  else if (typeof v === 'string' && WEIGHT_RE.test(v)) result = available;
   else throw Error(`${label}: неверный размер ${String(v)}`);
   if (!Number.isFinite(result) || result < 0 || result > 100000) throw Error(`${label}: размер вне диапазона 0…100000`);
   return result;
@@ -41,7 +45,7 @@ export function gaps(value = 0) {
 
 export function weight(value) {
   const v = raw(value);
-  if (typeof v !== 'string' || !/^(?:\d+(?:\.\d+)?)?\*$/.test(v)) return 0;
+  if (typeof v !== 'string' || !WEIGHT_RE.test(v)) return 0;
   const result = v === '*' ? 1 : Number(v.slice(0, -1));
   if (!Number.isFinite(result) || result <= 0) throw Error('Вес * должен быть положительным конечным числом');
   return result;

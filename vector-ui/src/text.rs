@@ -16,6 +16,43 @@ fn font() -> &'static Face<'static> {
     FACE.get_or_init(|| Face::parse(FONT, 0).expect("embedded font"))
 }
 
+struct FontTable {
+    glyphs: [GlyphId; 1104],
+    advances: [f32; 1104],
+    units_per_em: u16,
+    ascender: f32,
+    descender: f32,
+    line_gap: f32,
+}
+
+fn font_table() -> &'static FontTable {
+    static TABLE: OnceLock<FontTable> = OnceLock::new();
+    TABLE.get_or_init(|| {
+        let face = font();
+        let fallback = face
+            .glyph_index('?')
+            .or_else(|| face.glyph_index(' '))
+            .unwrap_or(GlyphId(0));
+        let mut glyphs = [fallback; 1104];
+        let mut advances = [0.; 1104];
+        for code in 0..1104u32 {
+            if let Some(ch) = char::from_u32(code) {
+                let id = face.glyph_index(ch).unwrap_or(fallback);
+                glyphs[code as usize] = id;
+                advances[code as usize] = face.glyph_hor_advance(id).unwrap_or(0) as f32;
+            }
+        }
+        FontTable {
+            glyphs,
+            advances,
+            units_per_em: face.units_per_em(),
+            ascender: face.ascender() as f32,
+            descender: face.descender() as f32,
+            line_gap: face.line_gap() as f32,
+        }
+    })
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Point {
     pub(crate) x: f32,
@@ -30,16 +67,17 @@ impl Point {
         }
     }
 
-    fn distance_to_segment(self, a: Self, b: Self) -> f32 {
+    fn distance_sq_to_segment(self, a: Self, b: Self) -> f32 {
         let dx = b.x - a.x;
         let dy = b.y - a.y;
-        let length = dx.hypot(dy);
-        if length <= f32::EPSILON {
-            (self.x - a.x).hypot(self.y - a.y)
+        let len_sq = dx * dx + dy * dy;
+        let (rx, ry) = if len_sq <= f32::EPSILON * f32::EPSILON {
+            (self.x - a.x, self.y - a.y)
         } else {
-            let t = (((self.x - a.x) * dx + (self.y - a.y) * dy) / (length * length)).clamp(0., 1.);
-            (self.x - (a.x + t * dx)).hypot(self.y - (a.y + t * dy))
-        }
+            let t = (((self.x - a.x) * dx + (self.y - a.y) * dy) / len_sq).clamp(0., 1.);
+            (self.x - (a.x + t * dx), self.y - (a.y + t * dy))
+        };
+        rx * rx + ry * ry
     }
 }
 
@@ -68,7 +106,7 @@ impl Contours {
     }
 
     fn quadratic(&mut self, a: Point, b: Point, c: Point, depth: u8) {
-        if depth >= 12 || b.distance_to_segment(a, c) <= CURVE_TOLERANCE {
+        if depth >= 12 || b.distance_sq_to_segment(a, c) <= CURVE_TOLERANCE * CURVE_TOLERANCE {
             self.edge(a, c);
             return;
         }
@@ -81,7 +119,8 @@ impl Contours {
 
     fn cubic(&mut self, a: Point, b: Point, c: Point, d: Point, depth: u8) {
         if depth >= 12
-            || b.distance_to_segment(a, d).max(c.distance_to_segment(a, d)) <= CURVE_TOLERANCE
+            || b.distance_sq_to_segment(a, d).max(c.distance_sq_to_segment(a, d))
+                <= CURVE_TOLERANCE * CURVE_TOLERANCE
         {
             self.edge(a, d);
             return;
@@ -134,13 +173,19 @@ impl OutlineBuilder for Contours {
 }
 
 fn glyph(face: &Face<'_>, character: char) -> GlyphId {
-    face.glyph_index(character).unwrap_or(GlyphId(0))
+    let code = character as usize;
+    let table = font_table();
+    if code < 1104 {
+        table.glyphs[code]
+    } else {
+        face.glyph_index(character).unwrap_or(table.glyphs[0])
+    }
 }
 
 pub fn measure_line(value:&str,font_size:f32)->[f32;2] {
     if !font_size.is_finite()||font_size<=0.{return [0.;2];}
-    let face=font();
-    let height=(face.ascender() as f32-face.descender() as f32+face.line_gap() as f32)*font_size/face.units_per_em() as f32;
+    let table=font_table();
+    let height=(table.ascender-table.descender+table.line_gap)*font_size/table.units_per_em as f32;
     [measure_text(value,font_size),height]
 }
 
@@ -153,12 +198,18 @@ pub fn measure_text(text: &str, font_size: f32) -> f32 {
     if !font_size.is_finite() || font_size <= 0. {
         return 0.;
     }
-    let face = font();
-    let units = text
-        .chars()
-        .map(|c| advance(face, glyph(face, c)))
-        .sum::<f32>();
-    pixels_from_units(units, font_size, face.units_per_em())
+    let table = font_table();
+    let mut units = 0.;
+    for c in text.chars() {
+        let code = c as usize;
+        units += if code < 1104 {
+            table.advances[code]
+        } else {
+            let face = font();
+            advance(face, face.glyph_index(c).unwrap_or(table.glyphs[0]))
+        };
+    }
+    pixels_from_units(units, font_size, table.units_per_em)
 }
 
 /// Advance units to logical pixels. One definition, because the vector path sums its own
@@ -170,12 +221,18 @@ fn pixels_from_units(units: f32, font_size: f32, units_per_em: u16) -> f32 {
 /// Find a caret boundary in one pass. Summing font units before converting to
 /// pixels matches measure_text(prefix) without measuring every prefix again.
 pub(crate) fn hit_character(text: &str, font_size: f32, x: f32) -> usize {
-    let face = font();
+    let table = font_table();
     let mut units = 0.;
     let mut previous = 0.;
     for (offset, ch) in text.char_indices() {
-        units += advance(face, glyph(face, ch));
-        let next = units * font_size / face.units_per_em() as f32;
+        let code = ch as usize;
+        units += if code < 1104 {
+            table.advances[code]
+        } else {
+            let face = font();
+            advance(face, face.glyph_index(ch).unwrap_or(table.glyphs[0]))
+        };
+        let next = units * font_size / table.units_per_em as f32;
         if x < (previous + next) * 0.5 { return offset; }
         previous = next;
     }
@@ -210,7 +267,7 @@ impl ExactSizeIterator for GlyphEdges<'_> {}
 #[derive(Default)]
 pub(crate) struct VectorScratch {
     edges: Vec<(Point, Point)>,
-    ids: Vec<GlyphId>,
+    ids: Vec<(GlyphId, f32)>,
 }
 
 impl VectorScratch {
@@ -222,16 +279,23 @@ impl VectorScratch {
     }
 }
 
-/// Resolve every character once, keeping the identifiers and summing exactly the advances
-/// `measure_text` sums. Drawing a label needs both, and measuring first then resolving again per
-/// outline pays for the same font table lookup twice per character.
-fn glyph_ids(face: &Face<'_>, text: &str, ids: &mut Vec<GlyphId>) -> f32 {
+/// Resolve every character once, keeping the identifiers and advances while summing exactly the
+/// advances `measure_text` sums. Drawing a label needs both, and measuring first then resolving
+/// again per outline pays for the same font table lookup twice per character.
+fn glyph_ids(face: &Face<'_>, text: &str, ids: &mut Vec<(GlyphId, f32)>) -> f32 {
     ids.clear();
+    let table = font_table();
     let mut units = 0.;
     for ch in text.chars() {
-        let id = glyph(face, ch);
-        units += advance(face, id);
-        ids.push(id);
+        let code = ch as usize;
+        let (id, adv) = if code < 1104 {
+            (table.glyphs[code], table.advances[code])
+        } else {
+            let id = face.glyph_index(ch).unwrap_or(table.glyphs[0]);
+            (id, advance(face, id))
+        };
+        units += adv;
+        ids.push((id, adv));
     }
     units
 }
@@ -251,13 +315,13 @@ pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32,scrat
     let origin=Point{x:(rect[0]+rect[2]*0.5-width*0.5)*scale,
         y:(rect[1]+rect[3]*0.5)*scale+(face.ascender()as f32+face.descender()as f32)*units_to_pixels*0.5};
     let mut contours=Contours{edges:std::mem::take(&mut scratch.edges),current:origin,start:origin,origin,units_to_pixels};
-    for &id in &ids{
+    for &(id, adv) in &ids{
         face.outline_glyph(id,&mut contours);
         if !contours.edges.is_empty(){
             emit(GlyphEdges { edges: contours.edges.iter(), scale });
             contours.edges.clear();
         }
-        contours.origin.x+=advance(&face,id)*units_to_pixels;
+        contours.origin.x+=adv*units_to_pixels;
     }
     scratch.edges = contours.edges;
     scratch.ids = ids;
@@ -267,7 +331,7 @@ use std::cell::RefCell;
 
 #[derive(Default)]
 struct CpuRasterScratch {
-    ids: Vec<GlyphId>,
+    ids: Vec<(GlyphId, f32)>,
     edges: Vec<(Point, Point)>,
     area: Vec<f32>,
     full: Vec<f32>,
@@ -347,9 +411,9 @@ pub fn draw_text(
         origin,
         units_to_pixels,
     };
-    for &glyph in &ids {
+    for &(glyph, adv) in &ids {
         face.outline_glyph(glyph, &mut contours);
-        contours.origin.x += advance(&face, glyph) * units_to_pixels;
+        contours.origin.x += adv * units_to_pixels;
     }
     rasterize(pixels, width, &contours.edges, clip, color);
     CPU_SCRATCH.with(|cell| {
@@ -498,6 +562,16 @@ pub(crate) fn rasterize(
 }
 
 fn blend(pixel: &mut [u8], color: [u8; 4], coverage: f32) {
+    if pixel[3] == 0 {
+        let a = (color[3] as f32 * coverage).round() as u8;
+        if a > 0 {
+            pixel[0] = color[0];
+            pixel[1] = color[1];
+            pixel[2] = color[2];
+            pixel[3] = a;
+        }
+        return;
+    }
     let source_alpha = color[3] as f32 / 255. * coverage;
     let retained_alpha = pixel[3] as f32 / 255. * (1. - source_alpha);
     let alpha = source_alpha + retained_alpha;
