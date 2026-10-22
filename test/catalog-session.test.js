@@ -118,6 +118,47 @@ test('catalog export captures the current session and keeps every section reacha
       const [,lastRow,,rowHeight]=model.control_bounds(rows.length-1);
       assert.ok(lastRow>=0&&lastRow+rowHeight<=780,'the final scrolled control is reachable at the scroll end');
       assert.ok(model.gpu_commands(1.25,true).length>0);
+      const a11y=JSON.parse(model.accessibility_tree_json());
+      assert.equal(a11y.rootId,0);
+      assert.ok(Array.isArray(a11y.nodes)&&a11y.nodes.length>10);
+      assert.ok(a11y.nodes.some(n=>n.role==='Dialog'&&n.key==='demoDialog'));
     }finally{model.free();}
   }finally{session.destroy();}
+});
+
+test('complex widget Rust models and direct Rust .ui compiler work through WASM',()=>{
+  const session=createCatalogSession(runtime);
+  try {
+    assert.deepEqual(session.state().tableWindow,[0,4]);
+    session.dispatch('actions.tableSort0');assert.equal(session.state().tableSort,1);
+    session.dispatch('actions.tableSort0');assert.equal(session.state().tableSort,-1);
+    session.dispatch('actions.virtualNext');assert.equal(session.state().virtualSelected,0);
+    session.dispatch('actions.virtualNext');assert.equal(session.state().virtualSelected,1);
+    session.dispatch('actions.format4');assert.equal(session.state().richHeading,1);
+    assert.match(session.state().richMarkdown,/^# /);
+    assert.equal(session.state().codeLines,3);
+    assert.ok(session.state().codeTokens>=6);
+    session.dispatch('actions.codeIndent');
+    assert.equal(session.state().dateText,'2026-10-22');
+    session.dispatch('actions.dateNext');assert.equal(session.state().dateText,'2026-10-23');
+    session.dispatch('actions.monthNext');assert.equal(session.state().dateText,'2026-11-23');
+    assert.equal(session.state().paletteActive,'cmd_0');
+    session.dispatch('actions.paletteNext');assert.equal(session.state().paletteActive,'cmd_1');
+  } finally {session.destroy();}
+
+  const shaped=runtime.shaped_text_metrics('find -> ffi שלום',14);
+  assert.equal(shaped.length,3);
+  assert.ok(shaped[0]>0&&shaped[1]>0&&shaped[2]>=10);
+
+  const model=new runtime.Runtime();
+  try {
+    const uiFiles=JSON.stringify({
+      'Card.component.ui':'component Card { prop title: String = "Card"; width: 160; height: 44; Rectangle { background: #2563eb; Text { text: props.title; color: #ffffff; } PointerArea { clicked -> events.clicked(); } } }',
+      'App.ui':'component App { Column { width: 200; height: 80; padding: 10; Card { key: "rustCard"; title: "Compiled in Rust"; clicked -> actions.open(); } } }',
+    });
+    model.load_ui_files_json(uiFiles,'App.ui','{}');
+    assert.equal(model.control_count(),1);
+    assert.equal(model.control_key(0),'rustCard');
+    assert.equal(model.control_label(0),'Compiled in Rust');
+  } finally {model.free();}
 });

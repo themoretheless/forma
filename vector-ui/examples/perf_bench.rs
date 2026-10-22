@@ -1,11 +1,15 @@
 //! Isolated-process measurement. No OS window/compositor; throughput is NOT display FPS.
 mod bench_support;
-use bench_support::{CountingAllocator, ProcessSnapshot};
+use bench_support::CountingAllocator;
+#[cfg(feature = "gpu")]
+use bench_support::ProcessSnapshot;
+#[cfg(feature = "gpu")]
 use std::{hint::black_box, time::Instant};
 
 #[global_allocator]
 static ALLOCATOR: CountingAllocator = CountingAllocator::new();
 
+#[cfg(feature = "gpu")]
 fn stats(values: &[f64]) -> (f64, f64, f64, f64) {
     let mut sorted = values.to_vec();
     sorted.sort_by(f64::total_cmp);

@@ -900,6 +900,63 @@ impl Runtime {
 }
 #[wasm_bindgen]
 impl Runtime {
+    /// Exports the AccessKit-compatible semantic accessibility tree as a compact JSON snapshot.
+    pub fn accessibility_tree_json(&self) -> String {
+        let tree = self.accessibility_tree();
+        let nodes_json = tree
+            .nodes
+            .iter()
+            .map(|n| {
+                let parent = n.parent.map_or("null".to_string(), |p| p.to_string());
+                let children = n
+                    .children
+                    .iter()
+                    .map(usize::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let value = n
+                    .value
+                    .as_ref()
+                    .map_or("null".to_string(), |v| format!("{v:?}"));
+                let actions = n
+                    .actions
+                    .iter()
+                    .map(|a| format!("{a:?}"))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!(
+                    "{{\"id\":{},\"parent\":{},\"children\":[{}],\"role\":\"{}\",\"key\":{:?},\"label\":{:?},\"value\":{},\"bounds\":[{},{},{},{}],\"focused\":{},\"disabled\":{},\"modalBlocked\":{},\"actions\":[{}]}}",
+                    n.id,
+                    parent,
+                    children,
+                    n.role.as_str(),
+                    n.key,
+                    n.label,
+                    value,
+                    n.bounds[0],
+                    n.bounds[1],
+                    n.bounds[2],
+                    n.bounds[3],
+                    n.focused,
+                    n.disabled,
+                    n.modal_blocked,
+                    actions
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        let focused = tree
+            .focused_id
+            .map_or("null".to_string(), |id| id.to_string());
+        let modal = tree
+            .active_modal_id
+            .map_or("null".to_string(), |id| id.to_string());
+        format!(
+            "{{\"rootId\":{},\"focusedId\":{},\"activeModalId\":{},\"nodes\":[{}]}}",
+            tree.root_id, focused, modal, nodes_json
+        )
+    }
+
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self::from_source(crate::EXAMPLE).expect("valid built-in scene")
@@ -916,6 +973,18 @@ impl Runtime {
     }
     pub fn load(&mut self, source: &str) -> Result<(), JsValue> {
         self.load_component(source, crate::BUTTON_COMPONENT)
+    }
+    /// Compiles a JSON map of `.ui`/`.svg` project files directly in Rust and loads the rendered scene.
+    pub fn load_ui_files_json(
+        &mut self,
+        files_json: &str,
+        entry_file: &str,
+        state_json: &str,
+    ) -> Result<(), JsValue> {
+        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)
+            .map_err(|e| JsValue::from_str(&e))?;
+        let (scene_src, templates, _) = doc.render_scene().map_err(|e| JsValue::from_str(&e))?;
+        self.load_component(&scene_src, &templates)
     }
     pub fn geometry_revision(&self)->u32 {self.geometry_revision}
     /// Control bounds change on scroll or source replacement. Paint and
@@ -1428,63 +1497,6 @@ impl Runtime {
         let mut params = Vec::new();
         self.gpu_params_into(w, h, s, o, &mut params);
         params
-    }
-
-    /// Exports the AccessKit-compatible semantic accessibility tree as a compact JSON snapshot.
-    pub fn accessibility_tree_json(&self) -> String {
-        let tree = self.accessibility_tree();
-        let nodes_json = tree
-            .nodes
-            .iter()
-            .map(|n| {
-                let parent = n.parent.map_or("null".to_string(), |p| p.to_string());
-                let children = n
-                    .children
-                    .iter()
-                    .map(usize::to_string)
-                    .collect::<Vec<_>>()
-                    .join(",");
-                let value = n
-                    .value
-                    .as_ref()
-                    .map_or("null".to_string(), |v| format!("{v:?}"));
-                let actions = n
-                    .actions
-                    .iter()
-                    .map(|a| format!("{a:?}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!(
-                    "{{\"id\":{},\"parent\":{},\"children\":[{}],\"role\":\"{}\",\"key\":{:?},\"label\":{:?},\"value\":{},\"bounds\":[{},{},{},{}],\"focused\":{},\"disabled\":{},\"modalBlocked\":{},\"actions\":[{}]}}",
-                    n.id,
-                    parent,
-                    children,
-                    n.role.as_str(),
-                    n.key,
-                    n.label,
-                    value,
-                    n.bounds[0],
-                    n.bounds[1],
-                    n.bounds[2],
-                    n.bounds[3],
-                    n.focused,
-                    n.disabled,
-                    n.modal_blocked,
-                    actions
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(",");
-        let focused = tree
-            .focused_id
-            .map_or("null".to_string(), |id| id.to_string());
-        let modal = tree
-            .active_modal_id
-            .map_or("null".to_string(), |id| id.to_string());
-        format!(
-            "{{\"rootId\":{},\"focusedId\":{},\"activeModalId\":{},\"nodes\":[{}]}}",
-            tree.root_id, focused, modal, nodes_json
-        )
     }
 }
 impl RenderScene for Runtime {

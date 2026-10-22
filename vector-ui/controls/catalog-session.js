@@ -15,6 +15,13 @@ export function createCatalogSession(runtime, onChange = () => {}) {
   let splitterAnchor=0;
   const tree=own(new runtime.TreeValue(new Int32Array([-1,0,0,2,2]),new Uint32Array([1,0,1,0,0])));
   tree.toggle(0); tree.toggle(2); tree.select(3);
+  const table=runtime.DataTableValue?own(new runtime.DataTableValue(new Float64Array([140,80,84]),12,28,84)):null;
+  let tableSortDir=0;
+  const virtualList=runtime.VirtualListValue?own(new runtime.VirtualListValue(100,28,112,2)):null;
+  const richText=runtime.RichTextValue?own(new runtime.RichTextValue('**Жирный** и `код`')):null;
+  const codeEditor=runtime.CodeEditorValue?own(new runtime.CodeEditorValue('component Demo {\n  PrimaryButton { text: "OK"; }\n}',2)):null;
+  const dateTime=runtime.DateTimeValue?own(new runtime.DateTimeValue(2026,10,22,14,30)):null;
+  const palette=runtime.CommandPaletteValue?own(new runtime.CommandPaletteValue(['Собрать проект','Запустить тесты','Экспорт темы','Открыть инспектор'])):null;
   let documents=['ui.rs','lib.rs','main.rs'], documentIndex=0;
   let menu=false, disclosure=false, dialog=false, toast=false, tooltip=false, toastTimer=null, destroyed=false;
   const groups={protocol:[radio,'radiochips'],segment:[segment,'segments'],underline:[underline,'segments'],side:[side,'navigation'],page:[page,'navigation'],target:[target,'overlays']};
@@ -23,7 +30,13 @@ export function createCatalogSession(runtime, onChange = () => {}) {
     return {check:check.state()===1,mixed:mixed.state(),switch:sw.value(),chips:chips.map(c=>c.value()),
       radio:radio.selected(),segment:segment.selected(),underline:underline.selected(),side:side.selected(),page:page.selected(),target:target.selected(),range:range.value(),
       menu,disclosure,dialog,toast,tooltip,sidebar:sidebar.value(),documents:[...documents],document:documentIndex,formatting:formatting.map(v=>v.value()),
-      treeSelected:tree.selected(),treeRows:Array.from(tree.visible(),index=>({index,depth:[0,1,1,2,2][index],branch:index===0||index===2,expanded:tree.expanded(index)}))};
+      treeSelected:tree.selected(),treeRows:Array.from(tree.visible(),index=>({index,depth:[0,1,1,2,2][index],branch:index===0||index===2,expanded:tree.expanded(index)})),
+      tableSort:tableSortDir,tableWindow:table?Array.from(table.virtual_window(1)):[0,4],
+      virtualRange:virtualList?Array.from(virtualList.visible_range()):[0,6],virtualSelected:virtualList?virtualList.selected():-1,
+      richMarkdown:richText?richText.to_markdown():'',richHeading:richText?richText.heading_level():0,
+      codeLines:codeEditor?codeEditor.line_count():0,codeTokens:codeEditor?codeEditor.token_count():0,
+      dateIso:dateTime?dateTime.format_iso():'',dateText:dateTime?dateTime.format_date():'',
+      paletteFiltered:palette?Array.from(palette.filtered()):[],paletteActive:palette?palette.active_id():''};
   }
   function dispatch(action) {
     const key=action.replace(/^actions\./,'');
@@ -33,7 +46,21 @@ export function createCatalogSession(runtime, onChange = () => {}) {
     const chip=/^chip(\d)$/.exec(key);
     if(chip&&chips[+chip[1]]){chips[+chip[1]].toggle();changed('radiochips',key);return true;}
     const format=/^format(\d)$/.exec(key);
-    if(format&&formatting[+format[1]]){formatting[+format[1]].toggle();changed('formatting',key);return true;}
+    if(format&&formatting[+format[1]]){
+      const idx=+format[1];formatting[idx].toggle();
+      if(richText){if(idx===0)richText.toggle_bold();else if(idx===1)richText.toggle_italic();else if(idx===2)richText.toggle_code();else if(idx===4)richText.set_heading_level(richText.heading_level()===1?0:1);}
+      changed('formatting',key);return true;
+    }
+    const tSort=/^tableSort(\d)$/.exec(key);
+    if(tSort&&table){tableSortDir=table.toggle_sort(+tSort[1]);changed('data',key);return true;}
+    if(key==='virtualNext'&&virtualList){virtualList.move_by(1);virtualList.set_scroll_y(Math.max(0,virtualList.selected()*28));changed('data',key);return true;}
+    if(key==='virtualPrev'&&virtualList){virtualList.move_by(-1);virtualList.set_scroll_y(Math.max(0,virtualList.selected()*28));changed('data',key);return true;}
+    if(key==='codeIndent'&&codeEditor){codeEditor.indent();changed('shell',key);return true;}
+    if(key==='dateNext'&&dateTime){dateTime.step_days(1);changed('fields',key);return true;}
+    if(key==='datePrev'&&dateTime){dateTime.step_days(-1);changed('fields',key);return true;}
+    if(key==='monthNext'&&dateTime){dateTime.step_months(1);changed('fields',key);return true;}
+    if(key==='paletteNext'&&palette){palette.move_selection(1);changed('shell',key);return true;}
+    if(key==='palettePrev'&&palette){palette.move_selection(-1);changed('shell',key);return true;}
     for(const [prefix,[model,section]] of Object.entries(groups)) {
       if(!new RegExp(`^${prefix}[0-9]+$`).test(key))continue;
       model.select(Number(key.slice(prefix.length)));

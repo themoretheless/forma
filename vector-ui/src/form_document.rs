@@ -2158,6 +2158,7 @@ impl Document {
             return Err("Visual composition depth exceeded".into());
         }
         let mut result = Vec::new();
+        let mut current_state = state.clone();
         for node in nodes {
             match node.kind.as_str() {
                 "If" => {
@@ -2165,7 +2166,7 @@ impl Document {
                         .props
                         .get("condition")
                         .ok_or("If requires a condition")?
-                        .evaluate(props, state)?
+                        .evaluate(props, &current_state)?
                         .boolean()?;
                     let children = if condition {
                         node.children
@@ -2182,7 +2183,7 @@ impl Document {
                     result.extend(self.expand_sequence(
                         &children,
                         props,
-                        state,
+                        &current_state,
                         parents,
                         depth + 1,
                     )?);
@@ -2192,7 +2193,7 @@ impl Document {
                         .props
                         .get("collection")
                         .ok_or("For requires a collection")?
-                        .evaluate(props, state)?
+                        .evaluate(props, &current_state)?
                     else {
                         return Err("For expects a list".into());
                     };
@@ -2203,14 +2204,14 @@ impl Document {
                             result.extend(self.expand_sequence(
                                 &empty.children,
                                 props,
-                                state,
+                                &current_state,
                                 parents,
                                 depth + 1,
                             )?);
                         }
                     }
                     for (index, value) in items.into_iter().enumerate() {
-                        let mut state = state.clone();
+                        let mut state = current_state.clone();
                         state.insert(item.clone(), value);
                         state.insert(format!("__index.{item}"), number(index as f64));
                         let key = key_part(
@@ -2239,7 +2240,57 @@ impl Document {
                     }
                 }
                 "Else" | "Empty" => {}
-                _ => result.push(self.expand(node, props, state, parents, depth + 1)?),
+                "Let" => {
+                    let name = text(&node.props, "name", "")?;
+                    if !name.is_empty() {
+                        if let Some(val_expr) = node.props.get("value") {
+                            let val = val_expr.evaluate(props, &current_state)?;
+                            current_state.insert(name, val);
+                            if !node.children.is_empty() {
+                                result.extend(self.expand_sequence(
+                                    &node.children,
+                                    props,
+                                    &current_state,
+                                    parents,
+                                    depth + 1,
+                                )?);
+                            }
+                        }
+                    }
+                }
+                "Match" => {
+                    let subject = node
+                        .props
+                        .get("subject")
+                        .ok_or("Match requires a subject")?
+                        .evaluate(props, &current_state)?;
+                    for branch in &node.children {
+                        if branch.kind != "Branch" {
+                            continue;
+                        }
+                        let pat = branch
+                            .props
+                            .get("pattern")
+                            .ok_or("Match branch requires a pattern")?;
+                        if pattern_matches(pat, &subject, props, &current_state, &mut Vec::new())? {
+                            let guard_ok = match branch.props.get("guard") {
+                                Some(g) => g.evaluate(props, &current_state)?.boolean()?,
+                                None => true,
+                            };
+                            if guard_ok {
+                                result.extend(self.expand_sequence(
+                                    &branch.children,
+                                    props,
+                                    &current_state,
+                                    parents,
+                                    depth + 1,
+                                )?);
+                                break;
+                            }
+                        }
+                    }
+                }
+                _ => result.push(self.expand(node, props, &current_state, parents, depth + 1)?),
             }
         }
         Ok(result)
@@ -2256,18 +2307,32 @@ impl Document {
             return Err("Visual composition depth exceeded".into());
         }
         if n.kind == "ContentPresenter" {
-            let value = n.props.get("content").cloned().unwrap_or_else(|| {
-                if n.children.len() == 1 {
-                    Value::Node(Box::new(n.children[0].clone()))
-                } else {
-                    Value::Node(Box::new(Node {
-                        kind: "Frame".into(),
-                        props: Properties::new(),
-                        children: n.children.clone(),
-                        action: None,
-                    }))
-                }
-            });
+            let slot_name = n
+                .props
+                .get("key")
+                .or_else(|| n.props.get("slot"))
+                .and_then(|v| match v {
+                    Value::Text(s) | Value::Expr(s) => Some(s.as_str()),
+                    _ => None,
+                })
+                .unwrap_or("content");
+            let value = n
+                .props
+                .get("content")
+                .or_else(|| props.get(slot_name))
+                .cloned()
+                .unwrap_or_else(|| {
+                    if n.children.len() == 1 {
+                        Value::Node(Box::new(n.children[0].clone()))
+                    } else {
+                        Value::Node(Box::new(Node {
+                            kind: "Frame".into(),
+                            props: Properties::new(),
+                            children: n.children.clone(),
+                            action: None,
+                        }))
+                    }
+                });
             return match self.expand_value(&value, props, state, parents, depth)? {
                 Value::Node(n) => Ok(*n),
                 _ => Err("ContentPresenter requires a node".into()),
@@ -2769,6 +2834,65 @@ impl Document {
                 Ok(out)
             }
             "Else" | "Empty" => Ok(Vec::new()),
+            "Let" => {
+                let name = text(&node.props, "name", "")?;
+                let mut out = Vec::new();
+                if !name.is_empty() {
+                    if let Some(val_expr) = node.props.get("value") {
+                        let val = val_expr.evaluate(&scope, &state)?;
+                        let mut next_state = state.clone();
+                        next_state.insert(name, val);
+                        for child in &node.children {
+                            out.extend(self.scene_expand(
+                                child,
+                                &next_state,
+                                prefix,
+                                &scope,
+                                depth + 1,
+                                budget,
+                            )?);
+                        }
+                    }
+                }
+                Ok(out)
+            }
+            "Match" => {
+                let subject = node
+                    .props
+                    .get("subject")
+                    .ok_or("Match requires a subject")?
+                    .evaluate(&scope, &state)?;
+                let mut out = Vec::new();
+                for branch in &node.children {
+                    if branch.kind != "Branch" {
+                        continue;
+                    }
+                    let pat = branch
+                        .props
+                        .get("pattern")
+                        .ok_or("Match branch requires a pattern")?;
+                    if pattern_matches(pat, &subject, &scope, &state, &mut Vec::new())? {
+                        let guard_ok = match branch.props.get("guard") {
+                            Some(g) => g.evaluate(&scope, &state)?.boolean()?,
+                            None => true,
+                        };
+                        if guard_ok {
+                            for child in &branch.children {
+                                out.extend(self.scene_expand(
+                                    child,
+                                    &state,
+                                    prefix,
+                                    &scope,
+                                    depth + 1,
+                                    budget,
+                                )?);
+                            }
+                            break;
+                        }
+                    }
+                }
+                Ok(out)
+            }
             _ => {
                 let mut output = node.clone();
                 output.props = self.scene_properties(node, &scope, &state)?;
@@ -2794,15 +2918,38 @@ impl Document {
                     output.children = node.children.clone();
                 } else {
                     output.children.clear();
+                    let mut child_state = state.clone();
                     for child in &node.children {
-                        output.children.extend(self.scene_expand(
-                            child,
-                            &state,
-                            prefix,
-                            &scope,
-                            depth + 1,
-                            budget,
-                        )?);
+                        if child.kind == "Let" {
+                            let name = text(&child.props, "name", "")?;
+                            if !name.is_empty() {
+                                if let Some(val_expr) = child.props.get("value") {
+                                    let val = val_expr.evaluate(&scope, &child_state)?;
+                                    child_state.insert(name, val);
+                                }
+                            }
+                            if !child.children.is_empty() {
+                                for sub in &child.children {
+                                    output.children.extend(self.scene_expand(
+                                        sub,
+                                        &child_state,
+                                        prefix,
+                                        &scope,
+                                        depth + 1,
+                                        budget,
+                                    )?);
+                                }
+                            }
+                        } else {
+                            output.children.extend(self.scene_expand(
+                                child,
+                                &child_state,
+                                prefix,
+                                &scope,
+                                depth + 1,
+                                budget,
+                            )?);
+                        }
                     }
                 }
                 Ok(vec![output])
@@ -3240,6 +3387,24 @@ impl Document {
     ) -> Result<Self, String> {
         compile_ui_files_to_document(files, entry_file, initial_state)
     }
+
+    /// Compiles a JSON map of `.ui`/`.svg` files (`{"App.ui": "...", ...}`) and a JSON state map (`{}`)
+    /// directly into an executable [`Document`].
+    pub fn from_ui_files_json(
+        files_json: &str,
+        entry_file: &str,
+        state_json: &str,
+    ) -> Result<Self, String> {
+        let files: BTreeMap<String, String> =
+            serde_json::from_str(files_json).map_err(|e| format!("Invalid files JSON: {e}"))?;
+        let state_val: serde_json::Value = if state_json.trim().is_empty() {
+            serde_json::Value::Object(serde_json::Map::new())
+        } else {
+            serde_json::from_str(state_json).map_err(|e| format!("Invalid state JSON: {e}"))?
+        };
+        let initial_state = json_to_doc_props(&state_val)?;
+        Self::from_ui_files(&files, entry_file, &initial_state)
+    }
 }
 
 fn parse_svg_attrs(raw: &str) -> BTreeMap<String, String> {
@@ -3491,7 +3656,8 @@ fn json_to_doc_value(v: &serde_json::Value) -> Result<Value, String> {
                             .unwrap_or("")
                             .to_string(),
                         json_to_doc_value(
-                            ast.get("operand")
+                            ast.get("argument")
+                                .or_else(|| ast.get("operand"))
                                 .or_else(|| ast.get("arg"))
                                 .unwrap_or(&serde_json::Value::Null),
                         )?,
@@ -3509,9 +3675,14 @@ fn json_to_doc_value(v: &serde_json::Value) -> Result<Value, String> {
                         json_to_doc_value(
                             ast.get("condition").unwrap_or(&serde_json::Value::Null),
                         )?,
-                        json_to_doc_value(ast.get("then").unwrap_or(&serde_json::Value::Null))?,
                         json_to_doc_value(
-                            ast.get("else")
+                            ast.get("yes")
+                                .or_else(|| ast.get("then"))
+                                .unwrap_or(&serde_json::Value::Null),
+                        )?,
+                        json_to_doc_value(
+                            ast.get("no")
+                                .or_else(|| ast.get("else"))
                                 .or_else(|| ast.get("otherwise"))
                                 .unwrap_or(&serde_json::Value::Null),
                         )?,
@@ -3529,7 +3700,8 @@ fn json_to_doc_value(v: &serde_json::Value) -> Result<Value, String> {
                             .and_then(|c| c.as_str())
                             .unwrap_or("")
                             .to_string(),
-                        ast.get("args")
+                        ast.get("arguments")
+                            .or_else(|| ast.get("args"))
                             .and_then(|a| a.as_array())
                             .map(|arr| {
                                 arr.iter()
@@ -3608,6 +3780,48 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
             .unwrap_or(&serde_json::Value::Null),
     )?;
     props.remove("slot");
+    if let Some(styles_val) = v
+        .get("apply")
+        .or_else(|| v.get("styles"))
+        .or_else(|| props.get("apply").and_then(|_| v.get("props").and_then(|p| p.get("apply"))))
+    {
+        props.remove("apply");
+        if let Some(arr) = styles_val.as_array() {
+            if !arr.is_empty() {
+                props.insert(
+                    "__styles".into(),
+                    Value::List(
+                        arr.iter()
+                            .map(json_to_doc_value)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    ),
+                );
+            }
+        } else if let Some(s) = styles_val.as_str().or_else(|| styles_val.get("expr").and_then(|e| e.as_str())) {
+            let names: Vec<Value> = s
+                .split(|c: char| c == ',' || c.is_whitespace())
+                .filter(|part| !part.is_empty())
+                .map(|part| Value::Text(part.to_string()))
+                .collect();
+            if !names.is_empty() {
+                props.insert("__styles".into(), Value::List(names));
+            }
+        }
+    }
+    if let Some(fwd_val) = v.get("forward") {
+        if let Some(arr) = fwd_val.as_array() {
+            if !arr.is_empty() {
+                props.insert(
+                    "__forward".into(),
+                    Value::List(
+                        arr.iter()
+                            .map(json_to_doc_value)
+                            .collect::<Result<Vec<_>, _>>()?,
+                    ),
+                );
+            }
+        }
+    }
     if kind == "If" {
         if let Some(cond) = v.get("condition") {
             props.insert("condition".into(), json_to_doc_value(cond)?);
@@ -3621,6 +3835,17 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
         }
         if let Some(key) = v.get("key") {
             props.insert("key".into(), json_to_doc_value(key)?);
+        }
+    } else if kind == "Let" {
+        if let Some(name) = v.get("name") {
+            props.insert("name".into(), json_to_doc_value(name)?);
+        }
+        if let Some(val) = v.get("value") {
+            props.insert("value".into(), json_to_doc_value(val)?);
+        }
+    } else if kind == "Match" {
+        if let Some(subj) = v.get("match").or_else(|| v.get("subject")) {
+            props.insert("subject".into(), json_to_doc_value(subj)?);
         }
     }
     let matches = json_to_doc_matches(v.get("matches"))?;
@@ -3685,6 +3910,32 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
                 });
             }
         }
+    } else if kind == "Match" {
+        if let Some(branches) = v.get("branches").and_then(|b| b.as_array()) {
+            for br in branches {
+                let mut br_props = Properties::new();
+                if let Some(pat) = br.get("pattern") {
+                    br_props.insert("pattern".into(), json_to_doc_value(pat)?);
+                }
+                if let Some(guard) = br.get("guard") {
+                    if !guard.is_null() {
+                        br_props.insert("guard".into(), json_to_doc_value(guard)?);
+                    }
+                }
+                let br_children = br
+                    .get("children")
+                    .and_then(|c| c.as_array())
+                    .map(|arr| arr.iter().map(json_to_doc_node).collect::<Result<Vec<_>, _>>())
+                    .transpose()?
+                    .unwrap_or_default();
+                children.push(Node {
+                    kind: "Branch".into(),
+                    props: br_props,
+                    children: br_children,
+                    action: None,
+                });
+            }
+        }
     }
     Ok(Node {
         kind,
@@ -3698,10 +3949,16 @@ fn resolve_ui_file<'a>(
     files: &'a BTreeMap<String, String>,
     reference: &str,
 ) -> Option<(&'a str, &'a str)> {
+    let trimmed = reference.trim_start_matches("./");
     for candidate in [
         reference.to_string(),
         format!("{reference}.ui"),
         format!("{reference}.component.ui"),
+        trimmed.to_string(),
+        format!("{trimmed}.ui"),
+        format!("{trimmed}.component.ui"),
+        format!("components/{trimmed}.ui"),
+        format!("components/{trimmed}.component.ui"),
     ] {
         if let Some((k, v)) = files.get_key_value(&candidate) {
             return Some((k.as_str(), v.as_str()));
@@ -3823,6 +4080,26 @@ fn compile_single_component_ast(
     Ok(ast)
 }
 
+fn substitute_base_slot(
+    target: &mut serde_json::Value,
+    slot_name: &str,
+    original_node: &serde_json::Value,
+) {
+    if let Some(children) = target.get_mut("children").and_then(|c| c.as_array_mut()) {
+        for child in children.iter_mut() {
+            let is_base_ref = child
+                .get("type")
+                .and_then(|t| t.as_str())
+                .is_some_and(|t| t == format!("base.{slot_name}"));
+            if is_base_ref {
+                *child = original_node.clone();
+            } else {
+                substitute_base_slot(child, slot_name, original_node);
+            }
+        }
+    }
+}
+
 fn apply_slot_overrides(
     nodes: &mut Vec<serde_json::Value>,
     slots: &serde_json::Map<String, serde_json::Value>,
@@ -3837,6 +4114,7 @@ fn apply_slot_overrides(
             .map(String::from);
         if let Some(slot) = slot_name {
             if let Some(override_spec) = slots.get(&slot) {
+                let original = node.clone();
                 if override_spec
                     .get("propertyOverride")
                     .and_then(|b| b.as_bool())
@@ -3878,13 +4156,16 @@ fn apply_slot_overrides(
                         .map_err(|e| e.to_string())?;
                     if let Some(frag_nodes) = frag.get("nodes").and_then(|n| n.as_array()) {
                         if frag_nodes.len() == 1 {
-                            *node = frag_nodes[0].clone();
+                            let mut replacement = frag_nodes[0].clone();
+                            substitute_base_slot(&mut replacement, &slot, &original);
+                            *node = replacement;
                         } else {
                             node["children"] = serde_json::Value::Array(frag_nodes.clone());
                         }
                     }
                 } else if override_spec.get("type").is_some() {
                     let mut replacement = override_spec.clone();
+                    substitute_base_slot(&mut replacement, &slot, &original);
                     if replacement
                         .get("props")
                         .and_then(|p| p.get("slot"))
@@ -3901,6 +4182,7 @@ fn apply_slot_overrides(
                 {
                     if ov_nodes.len() == 1 {
                         let mut replacement = ov_nodes[0].clone();
+                        substitute_base_slot(&mut replacement, &slot, &original);
                         if replacement
                             .get("props")
                             .and_then(|p| p.get("slot"))
@@ -3974,6 +4256,9 @@ fn collect_component_names(node: &Node, out: &mut std::collections::BTreeSet<Str
         "PointerArea",
         "RangeInput",
         "ContentPresenter",
+        "Let",
+        "Match",
+        "Branch",
     ]
     .contains(&node.kind.as_str())
     {
@@ -4551,7 +4836,7 @@ mod tests {
 
     #[test]
     fn rust_ui_compiler_resolves_inheritance_overrides_tokens_svg_and_state() {
-        let mut files = BTreeMap::new();
+        let mut files: BTreeMap<String, String> = BTreeMap::new();
         files.insert(
             "theme.ui".into(),
             "component Theme { tokens { brand: #3b82f6; surface: #1e293b; } enum Tone { Primary, Danger } }".into(),
@@ -4580,6 +4865,33 @@ mod tests {
         assert_eq!(controls[1].key, "danger");
         assert!(templates.contains("ContentText { x:"));
         assert!(templates.contains("ContentShape {"));
+        let runtime = crate::Runtime::from_sources(&scene_src, &templates).unwrap();
+        assert_eq!(runtime.control_count(), 2);
+    }
+
+    #[test]
+    fn rust_ui_compiler_supports_apply_styles_let_match_guards_and_base_slot_wrapping() {
+        let mut files: BTreeMap<String, String> = BTreeMap::new();
+        files.insert(
+            "Card.component.ui".into(),
+            "component Card { style pill { radius: 12; } prop score: Number = 85; prop active: Bool = true; width: 180; height: 64; Rectangle { apply: pill; Column { slot: 'body'; let tier = props.score >= 80 ? 'gold' : 'silver'; match tier { 'gold' if props.active => { Text { text: 'Gold (${props.score})'; } } _ => { Text { text: 'Standard'; } } } } } }".into(),
+        );
+        files.insert(
+            "BadgeCard.component.ui".into(),
+            "component BadgeCard : Card { override body: Column { gap: 4; Text { text: 'Verified'; } }; }".into(),
+        );
+        files.insert(
+            "App.ui".into(),
+            "component App { Column { width: 220; height: 140; gap: 8; Card { key: 'card'; score: 92; active: true; } BadgeCard { key: 'badge'; score: 70; active: true; } } }".into(),
+        );
+        let doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        let (scene_src, templates, controls) = doc.render_scene().unwrap();
+        assert_eq!(controls.len(), 2);
+        assert_eq!(controls[0].key, "card");
+        assert_eq!(controls[1].key, "badge");
+        assert!(templates.contains("radius: 12;"));
+        assert!(templates.contains("Gold (92)"));
+        assert!(templates.contains("Verified"));
         let runtime = crate::Runtime::from_sources(&scene_src, &templates).unwrap();
         assert_eq!(runtime.control_count(), 2);
     }

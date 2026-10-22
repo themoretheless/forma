@@ -24,6 +24,15 @@ pub const BUTTON_COMPONENT: &str = include_str!("../examples/Button.component.ui
 #[wasm_bindgen]
 pub fn text_metrics(value:&str,font_size:f32)->Vec<f32>{text::measure_line(value,font_size).to_vec()}
 
+/// Shaped single-line metrics (`[width, height, glyph_count]`) using ligature/BiDi/fallback shaping.
+#[wasm_bindgen]
+pub fn shaped_text_metrics(value: &str, font_size: f32) -> Vec<f32> {
+    let w = text::measure_shaped_text(value, font_size);
+    let [_, h] = text::measure_line(value, font_size);
+    let glyphs = text::shape_text(value, font_size).len() as f32;
+    vec![w, h, glyphs]
+}
+
 fn inside(x: f32, y: f32, b: &markup::ButtonSpec) -> bool {
     let radius = b.radius.min(b.width / 2.).min(b.height / 2.);
     let dx = (x - (b.x + b.width / 2.)).abs() - (b.width / 2. - radius);
