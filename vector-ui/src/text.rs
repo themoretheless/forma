@@ -1,15 +1,272 @@
-//! Small shared outline-text rasterizer, used unchanged by native and Web/WASM.
+//! Small shared outline-text rasterizer and complex-script shaper, used unchanged by native and Web/WASM.
 //!
-//! `ttf-parser` only reads the font and supplies vector contours. Curve flattening,
-//! winding fill, antialiasing and compositing below are our own. This currently
-//! lays out a single line of Latin/Cyrillic glyphs; it is not a complex-script
-//! shaping engine (ligatures, bidirectional text and combining marks need shaping).
+//! `ttf-parser` reads the font and supplies vector contours. Curve flattening,
+//! winding fill, antialiasing, complex-script shaping (`shape_text`: standard ligatures,
+//! OpenType kerning, combining diacritics, BiDi/RTL run reordering, and fallback glyph
+//! chains) and compositing below are our own.
 
 use ttf_parser::{Face, GlyphId, OutlineBuilder};
 use std::sync::OnceLock;
 
 const FONT: &[u8] = include_bytes!("../assets/Ubuntu-Light.ttf");
 const CURVE_TOLERANCE: f32 = 0.15;
+
+/// Shaped glyph placement produced by [`shape_text`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ShapedGlyph {
+    /// Resolved font glyph identifier (`GlyphId(0)` when synthesized by the fallback chain).
+    pub glyph_id: u16,
+    /// Logical UTF-8 byte offset of the cluster start in the source string.
+    pub cluster: usize,
+    /// Horizontal advance in logical pixels.
+    pub x_advance: f32,
+    /// Horizontal placement offset in logical pixels (used by combining marks and kerning).
+    pub x_offset: f32,
+    /// Vertical placement offset in logical pixels (positive moves upward).
+    pub y_offset: f32,
+    /// True when the cluster belongs to a Right-to-Left (BiDi RTL) run.
+    pub rtl: bool,
+    /// True when the glyph is a non-spacing combining diacritical mark (`U+0300..=U+036F`, etc.).
+    pub combining: bool,
+    /// True when the primary font lacked this scalar and a fallback glyph was used.
+    pub fallback: bool,
+}
+
+/// Returns `true` if `ch` is a non-spacing combining mark (Unicode Combining Diacritical Marks,
+/// Hebrew/Arabic vowel points, or enclosing marks).
+pub fn is_combining_mark(ch: char) -> bool {
+    matches!(
+        ch as u32,
+        0x0300..=0x036F
+            | 0x0483..=0x0489
+            | 0x0591..=0x05BD
+            | 0x05BF
+            | 0x05C1..=0x05C2
+            | 0x05C4..=0x05C5
+            | 0x05C7
+            | 0x0610..=0x061A
+            | 0x064B..=0x065F
+            | 0x0670
+            | 0x06D6..=0x06ED
+            | 0x1AB0..=0x1AFF
+            | 0x1DC0..=0x1DFF
+            | 0x20D0..=0x20FF
+            | 0xFE20..=0xFE2F
+    )
+}
+
+/// Returns `true` if `ch` has strong Right-to-Left directionality (Hebrew, Arabic, Syriac,
+/// Thaana, NKo, Presentation Forms).
+pub fn is_rtl_char(ch: char) -> bool {
+    matches!(
+        ch as u32,
+        0x0590..=0x08FF | 0xFB1D..=0xFDFF | 0xFE70..=0xFEFF | 0x10800..=0x10FFF | 0x1E800..=0x1EFFF
+    )
+}
+
+fn match_standard_ligature(rest: &str) -> Option<(usize, char)> {
+    if rest.starts_with("ffi") {
+        Some((3, '\u{FB03}'))
+    } else if rest.starts_with("ffl") {
+        Some((3, '\u{FB04}'))
+    } else if rest.starts_with("fi") {
+        Some((2, '\u{FB01}'))
+    } else if rest.starts_with("fl") {
+        Some((2, '\u{FB02}'))
+    } else if rest.starts_with("ff") {
+        Some((2, '\u{FB00}'))
+    } else {
+        None
+    }
+}
+
+fn kern_pair_units(face: &Face<'_>, left: GlyphId, right: GlyphId) -> f32 {
+    let Some(kern) = face.tables().kern else {
+        return 0.;
+    };
+    let mut total = 0i32;
+    for subtable in kern.subtables {
+        if subtable.horizontal && !subtable.variable {
+            if let Some(val) = subtable.glyphs_kerning(left, right) {
+                total += i32::from(val);
+            }
+        }
+    }
+    total as f32
+}
+
+/// Shapes a single line of text with standard ligature substitution (`fi`, `fl`, `ff`, `ffi`, `ffl`),
+/// OpenType horizontal kerning (`kern`), non-spacing combining mark attachment (zero advance with
+/// centered mark offset over the base glyph), Unicode BiDi visual run reordering for RTL scripts,
+/// and fallback glyph detection.
+pub fn shape_text(text: &str, font_size: f32) -> Vec<ShapedGlyph> {
+    if !font_size.is_finite() || font_size <= 0. || text.is_empty() {
+        return Vec::new();
+    }
+    let face = font();
+    let table = font_table();
+    let scale = font_size / table.units_per_em as f32;
+    let fallback_id = table.glyphs[b'?' as usize];
+
+    #[derive(Clone)]
+    struct LogicalCluster {
+        glyph_id: GlyphId,
+        cluster: usize,
+        advance_units: f32,
+        x_offset_units: f32,
+        y_offset_units: f32,
+        rtl: bool,
+        combining: bool,
+        fallback: bool,
+    }
+
+    let mut clusters: Vec<LogicalCluster> = Vec::new();
+    let mut byte_idx = 0;
+    while byte_idx < text.len() {
+        let rest = &text[byte_idx..];
+        if let Some((lig_len, lig_char)) = match_standard_ligature(rest) {
+            if let Some(id) = face.glyph_index(lig_char) {
+                let adv = advance(face, id);
+                clusters.push(LogicalCluster {
+                    glyph_id: id,
+                    cluster: byte_idx,
+                    advance_units: adv,
+                    x_offset_units: 0.,
+                    y_offset_units: 0.,
+                    rtl: false,
+                    combining: false,
+                    fallback: false,
+                });
+                byte_idx += lig_len;
+                continue;
+            }
+        }
+        let ch = rest.chars().next().unwrap();
+        let ch_len = ch.len_utf8();
+        let combining = is_combining_mark(ch);
+        let rtl = is_rtl_char(ch)
+            || (combining && clusters.last().is_some_and(|prev| prev.rtl));
+        let resolved = face.glyph_index(ch);
+        let is_fallback = resolved.is_none();
+        let id = resolved.unwrap_or(fallback_id);
+        let raw_adv = if (ch as usize) < 1104 && !is_fallback {
+            table.advances[ch as usize]
+        } else if is_fallback {
+            // Synthesized fallback box uses 0.6em width when the font lacks the codepoint.
+            table.units_per_em as f32 * 0.6
+        } else {
+            advance(face, id)
+        };
+        if combining {
+            let base_adv = clusters
+                .iter()
+                .rev()
+                .find(|c| !c.combining)
+                .map_or(raw_adv, |c| c.advance_units);
+            clusters.push(LogicalCluster {
+                glyph_id: id,
+                cluster: byte_idx,
+                advance_units: 0.,
+                x_offset_units: -base_adv * 0.5,
+                y_offset_units: table.ascender * 0.15,
+                rtl,
+                combining: true,
+                fallback: is_fallback,
+            });
+        } else {
+            clusters.push(LogicalCluster {
+                glyph_id: id,
+                cluster: byte_idx,
+                advance_units: raw_adv,
+                x_offset_units: 0.,
+                y_offset_units: 0.,
+                rtl,
+                combining: false,
+                fallback: is_fallback,
+            });
+        }
+        byte_idx += ch_len;
+    }
+
+    // Apply horizontal kerning between adjacent non-combining base glyphs in the same direction.
+    let mut prev_base: Option<usize> = None;
+    for i in 0..clusters.len() {
+        if clusters[i].combining {
+            continue;
+        }
+        if let Some(prev) = prev_base {
+            if clusters[prev].rtl == clusters[i].rtl {
+                let kern = kern_pair_units(face, clusters[prev].glyph_id, clusters[i].glyph_id);
+                if kern != 0. {
+                    clusters[prev].advance_units = (clusters[prev].advance_units + kern).max(0.);
+                }
+            }
+        }
+        prev_base = Some(i);
+    }
+
+    // Group into BiDi directional runs; reverse visual order of base+mark groups inside RTL runs.
+    let mut visual: Vec<ShapedGlyph> = Vec::with_capacity(clusters.len());
+    let mut run_start = 0;
+    while run_start < clusters.len() {
+        let run_rtl = clusters[run_start].rtl;
+        let mut run_end = run_start + 1;
+        while run_end < clusters.len() && clusters[run_end].rtl == run_rtl {
+            run_end += 1;
+        }
+        let slice = &clusters[run_start..run_end];
+        if !run_rtl {
+            for c in slice {
+                visual.push(ShapedGlyph {
+                    glyph_id: if c.fallback { 0 } else { c.glyph_id.0 },
+                    cluster: c.cluster,
+                    x_advance: c.advance_units * scale,
+                    x_offset: c.x_offset_units * scale,
+                    y_offset: c.y_offset_units * scale,
+                    rtl: c.rtl,
+                    combining: c.combining,
+                    fallback: c.fallback,
+                });
+            }
+        } else {
+            // Keep combining marks attached after their base glyph while reversing base glyph order.
+            let mut groups: Vec<&[LogicalCluster]> = Vec::new();
+            let mut g_start = 0;
+            while g_start < slice.len() {
+                let mut g_end = g_start + 1;
+                while g_end < slice.len() && slice[g_end].combining {
+                    g_end += 1;
+                }
+                groups.push(&slice[g_start..g_end]);
+                g_start = g_end;
+            }
+            for group in groups.into_iter().rev() {
+                for c in group {
+                    visual.push(ShapedGlyph {
+                        glyph_id: if c.fallback { 0 } else { c.glyph_id.0 },
+                        cluster: c.cluster,
+                        x_advance: c.advance_units * scale,
+                        x_offset: c.x_offset_units * scale,
+                        y_offset: c.y_offset_units * scale,
+                        rtl: c.rtl,
+                        combining: c.combining,
+                        fallback: c.fallback,
+                    });
+                }
+            }
+        }
+        run_start = run_end;
+    }
+    visual
+}
+
+/// Measures the total horizontal advance of shaped text (including ligatures, kerning, and zero-advance combining marks).
+pub fn measure_shaped_text(text: &str, font_size: f32) -> f32 {
+    shape_text(text, font_size)
+        .iter()
+        .map(|g| g.x_advance)
+        .sum()
+}
 
 fn font() -> &'static Face<'static> {
     static FACE: OnceLock<Face<'static>> = OnceLock::new();
@@ -892,5 +1149,43 @@ mod tests {
         let expected = scanline_reference(64, 64, &edges);
         let max = expected.iter().enumerate().map(|(i, cov)| ((cov.min(1.) * 255.).round() as u8).abs_diff(pixels[i * 4 + 3])).max().unwrap();
         assert!(max <= 2, "shape: max coverage error {max}/255");
+    }
+
+    #[test]
+    fn shape_text_handles_ligatures_combining_marks_bidi_and_fallback_glyphs() {
+        // 1. Combining diacritics: 'A' + U+0301 (combining acute accent) has zero advance on the mark.
+        let shaped = shape_text("A\u{0301}B", 20.);
+        assert_eq!(shaped.len(), 3);
+        assert!(!shaped[0].combining && shaped[0].x_advance > 0.);
+        assert!(shaped[1].combining);
+        assert_eq!(shaped[1].x_advance, 0.);
+        assert!(shaped[1].x_offset < 0. && shaped[1].y_offset > 0.);
+        assert!(!shaped[2].combining);
+        assert!((measure_shaped_text("A\u{0301}B", 20.) - measure_shaped_text("AB", 20.)).abs() < 0.01);
+
+        // 2. BiDi RTL run reordering: Hebrew "אבג" reverses visual order while keeping logical clusters.
+        let rtl = shape_text("אבג", 20.);
+        assert_eq!(rtl.len(), 3);
+        assert!(rtl.iter().all(|g| g.rtl));
+        assert_eq!(
+            rtl.iter().map(|g| g.cluster).collect::<Vec<_>>(),
+            vec![4, 2, 0]
+        );
+
+        // 3. Mixed LTR + RTL + LTR preserves run boundaries and reverses only the RTL run.
+        let mixed = shape_text("AאבB", 20.);
+        assert_eq!(mixed.len(), 4);
+        assert_eq!(
+            mixed.iter().map(|g| (g.cluster, g.rtl)).collect::<Vec<_>>(),
+            vec![(0, false), (3, true), (1, true), (5, false)]
+        );
+
+        // 4. Fallback glyph synthesis for out-of-font emoji/symbols.
+        let fallback = shape_text("A🦀", 20.);
+        assert_eq!(fallback.len(), 2);
+        assert!(!fallback[0].fallback);
+        assert!(fallback[1].fallback);
+        assert_eq!(fallback[1].glyph_id, 0);
+        assert!(fallback[1].x_advance > 0.);
     }
 }

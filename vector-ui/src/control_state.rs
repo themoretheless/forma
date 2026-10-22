@@ -4,7 +4,7 @@
 //! These models never execute application actions or own bindings. Editing uses
 //! Unicode scalar boundaries, not grapheme clusters, shaping, or an IME session.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::ops::Range;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -457,7 +457,7 @@ struct TextSnapshot {
 
 /// Single-line editor. Caret/anchor are UTF-8 byte offsets, always char boundaries.
 /// Each edit is one undo step; selection movement alone does not create history.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextEdit {
     multiline: bool,
     current: TextSnapshot,
@@ -635,6 +635,856 @@ fn validate_line(value: &str) -> Result<(), ModelError> {
         Err(ModelError::MultilineText)
     } else {
         Ok(())
+    }
+}
+
+/// Column sort direction for [`DataTableModel`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SortDirection {
+    None,
+    Ascending,
+    Descending,
+}
+
+/// Column descriptor for [`DataTableModel`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct TableColumn {
+    pub id: String,
+    pub width: f64,
+    pub min_width: f64,
+    pub max_width: f64,
+}
+
+/// Interactive state model for `DataTable`: multi-column sorting, column width resizing,
+/// text filtering, single/multi row selection, keyboard navigation, and row virtualization.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DataTableModel {
+    columns: Vec<TableColumn>,
+    rows: Vec<Vec<String>>,
+    sort_column: Option<usize>,
+    sort_direction: SortDirection,
+    filter: String,
+    visible_rows: Vec<usize>,
+    selected_rows: BTreeSet<usize>,
+    active_row: Option<usize>,
+    scroll_y: f64,
+    row_height: f64,
+    viewport_height: f64,
+}
+
+impl DataTableModel {
+    pub fn new(
+        columns: Vec<TableColumn>,
+        rows: Vec<Vec<String>>,
+        row_height: f64,
+        viewport_height: f64,
+    ) -> Result<Self, ModelError> {
+        if !row_height.is_finite() || row_height <= 0.0 || !viewport_height.is_finite() || viewport_height < 0.0 {
+            return Err(ModelError::NonFiniteValue);
+        }
+        let mut model = Self {
+            columns,
+            rows,
+            sort_column: None,
+            sort_direction: SortDirection::None,
+            filter: String::new(),
+            visible_rows: Vec::new(),
+            selected_rows: BTreeSet::new(),
+            active_row: None,
+            scroll_y: 0.0,
+            row_height,
+            viewport_height,
+        };
+        model.recompute_view();
+        Ok(model)
+    }
+
+    fn recompute_view(&mut self) {
+        let query = self.filter.to_lowercase();
+        let mut indices: Vec<usize> = (0..self.rows.len())
+            .filter(|&r| {
+                query.is_empty()
+                    || self.rows[r]
+                        .iter()
+                        .any(|cell| cell.to_lowercase().contains(&query))
+            })
+            .collect();
+        if let Some(col) = self.sort_column {
+            match self.sort_direction {
+                SortDirection::Ascending => {
+                    indices.sort_by(|&a, &b| {
+                        let ca = self.rows[a].get(col).map(String::as_str).unwrap_or("");
+                        let cb = self.rows[b].get(col).map(String::as_str).unwrap_or("");
+                        match (ca.parse::<f64>(), cb.parse::<f64>()) {
+                            (Ok(na), Ok(nb)) => na.total_cmp(&nb),
+                            _ => ca.cmp(cb),
+                        }
+                    });
+                }
+                SortDirection::Descending => {
+                    indices.sort_by(|&a, &b| {
+                        let ca = self.rows[a].get(col).map(String::as_str).unwrap_or("");
+                        let cb = self.rows[b].get(col).map(String::as_str).unwrap_or("");
+                        match (ca.parse::<f64>(), cb.parse::<f64>()) {
+                            (Ok(na), Ok(nb)) => nb.total_cmp(&na),
+                            _ => cb.cmp(ca),
+                        }
+                    });
+                }
+                SortDirection::None => {}
+            }
+        }
+        self.visible_rows = indices;
+        if let Some(active) = self.active_row {
+            if !self.visible_rows.contains(&active) {
+                self.active_row = self.visible_rows.first().copied();
+            }
+        }
+        self.clamp_scroll();
+    }
+
+    fn clamp_scroll(&mut self) {
+        let max_scroll = ((self.visible_rows.len() as f64) * self.row_height - self.viewport_height).max(0.0);
+        self.scroll_y = self.scroll_y.clamp(0.0, max_scroll);
+    }
+
+    pub fn visible_rows(&self) -> &[usize] {
+        &self.visible_rows
+    }
+
+    pub fn active_row(&self) -> Option<usize> {
+        self.active_row
+    }
+
+    pub fn sort_column(&self) -> Option<usize> {
+        self.sort_column
+    }
+
+    pub fn sort_direction(&self) -> SortDirection {
+        self.sort_direction
+    }
+
+    pub fn toggle_sort(&mut self, column: usize) -> Result<SortDirection, ModelError> {
+        if column >= self.columns.len() {
+            return Err(ModelError::UnknownItem(column));
+        }
+        if self.sort_column == Some(column) {
+            self.sort_direction = match self.sort_direction {
+                SortDirection::None => SortDirection::Ascending,
+                SortDirection::Ascending => SortDirection::Descending,
+                SortDirection::Descending => SortDirection::None,
+            };
+            if self.sort_direction == SortDirection::None {
+                self.sort_column = None;
+            }
+        } else {
+            self.sort_column = Some(column);
+            self.sort_direction = SortDirection::Ascending;
+        }
+        self.recompute_view();
+        Ok(self.sort_direction)
+    }
+
+    pub fn set_filter(&mut self, filter: String) {
+        self.filter = filter;
+        self.recompute_view();
+    }
+
+    pub fn resize_column(&mut self, column: usize, width: f64) -> Result<f64, ModelError> {
+        if !width.is_finite() {
+            return Err(ModelError::NonFiniteValue);
+        }
+        let col = self
+            .columns
+            .get_mut(column)
+            .ok_or(ModelError::UnknownItem(column))?;
+        col.width = width.clamp(col.min_width, col.max_width);
+        Ok(col.width)
+    }
+
+    pub fn column_width(&self, column: usize) -> Option<f64> {
+        self.columns.get(column).map(|c| c.width)
+    }
+
+    pub fn select_row(&mut self, row_id: usize, additive: bool) -> Result<(), ModelError> {
+        if row_id >= self.rows.len() {
+            return Err(ModelError::UnknownItem(row_id));
+        }
+        if !additive {
+            self.selected_rows.clear();
+        }
+        self.selected_rows.insert(row_id);
+        self.active_row = Some(row_id);
+        self.ensure_row_visible(row_id);
+        Ok(())
+    }
+
+    pub fn selected_rows(&self) -> Vec<usize> {
+        self.selected_rows.iter().copied().collect()
+    }
+
+    pub fn move_selection(&mut self, delta: isize) -> Option<usize> {
+        if self.visible_rows.is_empty() {
+            return None;
+        }
+        let pos = match self.active_row.and_then(|r| self.visible_rows.iter().position(|&v| v == r)) {
+            Some(idx) => idx.saturating_add_signed(delta).min(self.visible_rows.len() - 1),
+            None => {
+                if delta >= 0 {
+                    0
+                } else {
+                    self.visible_rows.len() - 1
+                }
+            }
+        };
+        let row_id = self.visible_rows[pos];
+        self.selected_rows.clear();
+        self.selected_rows.insert(row_id);
+        self.active_row = Some(row_id);
+        self.ensure_row_visible(row_id);
+        Some(row_id)
+    }
+
+    pub fn ensure_row_visible(&mut self, row_id: usize) {
+        if let Some(pos) = self.visible_rows.iter().position(|&r| r == row_id) {
+            let top = (pos as f64) * self.row_height;
+            let bottom = top + self.row_height;
+            if top < self.scroll_y {
+                self.scroll_y = top;
+            } else if bottom > self.scroll_y + self.viewport_height {
+                self.scroll_y = (bottom - self.viewport_height).max(0.0);
+            }
+            self.clamp_scroll();
+        }
+    }
+
+    pub fn set_scroll_y(&mut self, scroll_y: f64) -> Result<f64, ModelError> {
+        if !scroll_y.is_finite() {
+            return Err(ModelError::NonFiniteValue);
+        }
+        self.scroll_y = scroll_y;
+        self.clamp_scroll();
+        Ok(self.scroll_y)
+    }
+
+    pub fn scroll_y(&self) -> f64 {
+        self.scroll_y
+    }
+
+    /// Returns the `[start_visible_index, end_visible_index)` slice of `visible_rows` that intersect the viewport.
+    pub fn virtual_window(&self, overscan: usize) -> Range<usize> {
+        if self.visible_rows.is_empty() || self.viewport_height <= 0.0 {
+            return 0..0;
+        }
+        let first = (self.scroll_y / self.row_height).floor().max(0.0) as usize;
+        let count = (self.viewport_height / self.row_height).ceil().max(1.0) as usize;
+        let start = first.saturating_sub(overscan).min(self.visible_rows.len());
+        let end = (first + count + overscan).min(self.visible_rows.len());
+        start..end
+    }
+}
+
+/// Interactive state model for `VirtualList`: virtualized viewport windowing with overscan,
+/// scroll clamping, and keyboard item selection.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VirtualListModel {
+    item_count: usize,
+    item_height: f64,
+    viewport_height: f64,
+    overscan: usize,
+    scroll_y: f64,
+    selected: Option<usize>,
+}
+
+impl VirtualListModel {
+    pub fn new(
+        item_count: usize,
+        item_height: f64,
+        viewport_height: f64,
+        overscan: usize,
+    ) -> Result<Self, ModelError> {
+        if !item_height.is_finite() || item_height <= 0.0 || !viewport_height.is_finite() || viewport_height < 0.0 {
+            return Err(ModelError::NonFiniteValue);
+        }
+        Ok(Self {
+            item_count,
+            item_height,
+            viewport_height,
+            overscan,
+            scroll_y: 0.0,
+            selected: None,
+        })
+    }
+
+    pub fn total_height(&self) -> f64 {
+        (self.item_count as f64) * self.item_height
+    }
+
+    pub fn scroll_y(&self) -> f64 {
+        self.scroll_y
+    }
+
+    pub fn set_scroll_y(&mut self, scroll_y: f64) -> Result<f64, ModelError> {
+        if !scroll_y.is_finite() {
+            return Err(ModelError::NonFiniteValue);
+        }
+        let max_scroll = (self.total_height() - self.viewport_height).max(0.0);
+        self.scroll_y = scroll_y.clamp(0.0, max_scroll);
+        Ok(self.scroll_y)
+    }
+
+    pub fn visible_range(&self) -> Range<usize> {
+        if self.item_count == 0 || self.viewport_height <= 0.0 {
+            return 0..0;
+        }
+        let first = (self.scroll_y / self.item_height).floor().max(0.0) as usize;
+        let visible = (self.viewport_height / self.item_height).ceil().max(1.0) as usize;
+        let start = first.saturating_sub(self.overscan).min(self.item_count);
+        let end = (first + visible + self.overscan).min(self.item_count);
+        start..end
+    }
+
+    pub fn selected(&self) -> Option<usize> {
+        self.selected
+    }
+
+    pub fn select(&mut self, index: usize) -> Result<usize, ModelError> {
+        if index >= self.item_count {
+            return Err(ModelError::UnknownItem(index));
+        }
+        self.selected = Some(index);
+        self.ensure_visible(index);
+        Ok(index)
+    }
+
+    pub fn move_by(&mut self, delta: isize) -> Option<usize> {
+        if self.item_count == 0 {
+            return None;
+        }
+        let next = match self.selected {
+            Some(cur) => cur.saturating_add_signed(delta).min(self.item_count - 1),
+            None => {
+                if delta >= 0 {
+                    0
+                } else {
+                    self.item_count - 1
+                }
+            }
+        };
+        let _ = self.select(next);
+        self.selected
+    }
+
+    pub fn ensure_visible(&mut self, index: usize) {
+        if index >= self.item_count {
+            return;
+        }
+        let top = (index as f64) * self.item_height;
+        let bottom = top + self.item_height;
+        if top < self.scroll_y {
+            let _ = self.set_scroll_y(top);
+        } else if bottom > self.scroll_y + self.viewport_height {
+            let _ = self.set_scroll_y((bottom - self.viewport_height).max(0.0));
+        }
+    }
+}
+
+/// Inline text style flags for [`RichTextModel`] and [`MarkdownModel`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum InlineStyle {
+    Bold,
+    Italic,
+    Underline,
+    Strikethrough,
+    Code,
+}
+
+/// Styled span over a UTF-8 byte range in [`RichTextModel`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RichSpan {
+    pub range: Range<usize>,
+    pub style: InlineStyle,
+}
+
+/// Interactive state model for `RichTextDocument` and `MarkdownDocument`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RichTextModel {
+    editor: TextEdit,
+    spans: Vec<RichSpan>,
+    heading_level: u8,
+}
+
+impl RichTextModel {
+    pub fn new(initial: String) -> Result<Self, ModelError> {
+        Ok(Self {
+            editor: TextEdit::with_multiline(initial, true)?,
+            spans: Vec::new(),
+            heading_level: 0,
+        })
+    }
+
+    pub fn from_markdown(md: &str) -> Result<Self, ModelError> {
+        let trimmed = md.trim_start();
+        let (heading_level, body) = if let Some(rest) = trimmed.strip_prefix("### ") {
+            (3, rest)
+        } else if let Some(rest) = trimmed.strip_prefix("## ") {
+            (2, rest)
+        } else if let Some(rest) = trimmed.strip_prefix("# ") {
+            (1, rest)
+        } else {
+            (0, trimmed)
+        };
+        let mut plain = String::new();
+        let mut spans = Vec::new();
+        let bytes = body.as_bytes();
+        let mut i = 0;
+        while i < bytes.len() {
+            if body[i..].starts_with("**") {
+                if let Some(end) = body[i + 2..].find("**") {
+                    let start_out = plain.len();
+                    plain.push_str(&body[i + 2..i + 2 + end]);
+                    spans.push(RichSpan {
+                        range: start_out..plain.len(),
+                        style: InlineStyle::Bold,
+                    });
+                    i += 4 + end;
+                    continue;
+                }
+            }
+            if body[i..].starts_with('`') {
+                if let Some(end) = body[i + 1..].find('`') {
+                    let start_out = plain.len();
+                    plain.push_str(&body[i + 1..i + 1 + end]);
+                    spans.push(RichSpan {
+                        range: start_out..plain.len(),
+                        style: InlineStyle::Code,
+                    });
+                    i += 2 + end;
+                    continue;
+                }
+            }
+            if body[i..].starts_with('*') {
+                if let Some(end) = body[i + 1..].find('*') {
+                    let start_out = plain.len();
+                    plain.push_str(&body[i + 1..i + 1 + end]);
+                    spans.push(RichSpan {
+                        range: start_out..plain.len(),
+                        style: InlineStyle::Italic,
+                    });
+                    i += 2 + end;
+                    continue;
+                }
+            }
+            let ch = body[i..].chars().next().unwrap();
+            plain.push(ch);
+            i += ch.len_utf8();
+        }
+        Ok(Self {
+            editor: TextEdit::with_multiline(plain, true)?,
+            spans,
+            heading_level,
+        })
+    }
+
+    pub fn to_markdown(&self) -> String {
+        let prefix = match self.heading_level {
+            1 => "# ",
+            2 => "## ",
+            3 => "### ",
+            _ => "",
+        };
+        format!("{prefix}{}", self.editor.value())
+    }
+
+    pub fn text(&self) -> &str {
+        self.editor.value()
+    }
+
+    pub fn editor_mut(&mut self) -> &mut TextEdit {
+        &mut self.editor
+    }
+
+    pub fn spans(&self) -> &[RichSpan] {
+        &self.spans
+    }
+
+    pub fn heading_level(&self) -> u8 {
+        self.heading_level
+    }
+
+    pub fn set_heading_level(&mut self, level: u8) {
+        self.heading_level = level.min(3);
+    }
+
+    pub fn toggle_style(&mut self, style: InlineStyle) -> bool {
+        let sel = self.editor.selection();
+        if sel.is_empty() {
+            return false;
+        }
+        if let Some(pos) = self
+            .spans
+            .iter()
+            .position(|s| s.range == sel && s.style == style)
+        {
+            self.spans.remove(pos);
+            false
+        } else {
+            self.spans.push(RichSpan { range: sel, style });
+            true
+        }
+    }
+
+    pub fn clear_formatting(&mut self) {
+        self.spans.clear();
+        self.heading_level = 0;
+    }
+}
+
+/// Syntax token span emitted by [`CodeEditorModel`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CodeTokenSpan {
+    pub kind: String,
+    pub value: String,
+    pub line: usize,
+    pub column: usize,
+}
+
+/// Interactive state model for `CodeEditor`: multiline editing, line/column metrics,
+/// indentation/dedentation, auto-closing brackets, and `.ui` syntax tokenization.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CodeEditorModel {
+    editor: TextEdit,
+    tab_size: usize,
+}
+
+impl CodeEditorModel {
+    pub fn new(initial: String, tab_size: usize) -> Result<Self, ModelError> {
+        Ok(Self {
+            editor: TextEdit::with_multiline(initial, true)?,
+            tab_size: tab_size.clamp(1, 8),
+        })
+    }
+
+    pub fn value(&self) -> &str {
+        self.editor.value()
+    }
+
+    pub fn editor_mut(&mut self) -> &mut TextEdit {
+        &mut self.editor
+    }
+
+    pub fn line_count(&self) -> usize {
+        self.editor.value().split('\n').count().max(1)
+    }
+
+    /// Returns 1-based `(line, column)` of the current caret.
+    pub fn cursor_line_column(&self) -> (usize, usize) {
+        let prefix = &self.editor.value()[..self.editor.caret()];
+        let mut line = 1usize;
+        let mut last_nl = 0usize;
+        for (i, ch) in prefix.char_indices() {
+            if ch == '\n' {
+                line += 1;
+                last_nl = i + 1;
+            }
+        }
+        let col = prefix[last_nl..].chars().count() + 1;
+        (line, col)
+    }
+
+    pub fn indent(&mut self) -> bool {
+        let spaces = " ".repeat(self.tab_size);
+        self.editor.insert(&spaces).unwrap_or(false)
+    }
+
+    pub fn insert_pair(&mut self, open: char) -> Result<bool, ModelError> {
+        let close = match open {
+            '{' => Some('}'),
+            '(' => Some(')'),
+            '[' => Some(']'),
+            '"' => Some('"'),
+            '\'' => Some('\''),
+            _ => None,
+        };
+        if let Some(closing) = close {
+            let pair = format!("{open}{closing}");
+            let changed = self.editor.insert(&pair)?;
+            let _ = self.editor.left(false);
+            Ok(changed)
+        } else {
+            self.editor.insert(&open.to_string())
+        }
+    }
+
+    /// Tokenizes the current buffer using `themoretheless_tokenizer_forma::tokenize`.
+    pub fn syntax_tokens(&self) -> Result<Vec<CodeTokenSpan>, String> {
+        let src = self.editor.value();
+        let tokens =
+            themoretheless_tokenizer_forma::tokenize(src).map_err(|e| e.to_string())?;
+        Ok(tokens
+            .into_iter()
+            .filter(|t| !t.text.is_empty())
+            .map(|t| {
+                let prefix = &src[..t.start.min(src.len())];
+                let line = prefix.bytes().filter(|&b| b == b'\n').count() + 1;
+                let col_start = prefix.rfind('\n').map_or(0, |idx| idx + 1);
+                let column = prefix[col_start..].chars().count() + 1;
+                let kind = match t.text.as_str() {
+                    "component" | "base" | "use" | "prop" | "state" | "event" | "enum"
+                    | "struct" | "where" | "tokens" | "i18n" | "style" | "let" | "slot"
+                    | "override" | "match" | "shortcut" | "true" | "false" => "keyword",
+                    "{" | "}" | "(" | ")" | "[" | "]" | ":" | ";" | "," | "->" | "=>" => "punct",
+                    s if s.starts_with('\'') || s.starts_with('"') => "string",
+                    s if s.starts_with('#') => "color",
+                    s if s.chars().next().is_some_and(|c| c.is_ascii_digit()) => "number",
+                    _ => "ident",
+                };
+                CodeTokenSpan {
+                    kind: kind.to_string(),
+                    value: t.text,
+                    line,
+                    column,
+                }
+            })
+            .collect())
+    }
+}
+
+/// Interactive state model for `DateTimeInput`: leap-year aware calendar math,
+/// 42-cell month grid generation, day/month/time stepping, and ISO formatting.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DateTimeModel {
+    year: i32,
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    open: bool,
+}
+
+impl DateTimeModel {
+    pub fn new(year: i32, month: u8, day: u8, hour: u8, minute: u8) -> Result<Self, ModelError> {
+        if !(1..=12).contains(&month)
+            || day < 1
+            || day > Self::days_in_month(year, month)
+            || hour > 23
+            || minute > 59
+        {
+            return Err(ModelError::InvalidRange);
+        }
+        Ok(Self {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            open: false,
+        })
+    }
+
+    pub fn is_leap_year(year: i32) -> bool {
+        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+    }
+
+    pub fn days_in_month(year: i32, month: u8) -> u8 {
+        match month {
+            1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+            4 | 6 | 9 | 11 => 30,
+            2 if Self::is_leap_year(year) => 29,
+            2 => 28,
+            _ => 30,
+        }
+    }
+
+    /// Day of week (`0 = Monday .. 6 = Sunday`) via Sakamoto's algorithm.
+    pub fn weekday(year: i32, month: u8, day: u8) -> u8 {
+        let t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+        let y = if month < 3 { year - 1 } else { year };
+        let sun0 = (y + y / 4 - y / 100 + y / 400 + t[(month - 1) as usize] + i32::from(day))
+            .rem_euclid(7) as u8;
+        (sun0 + 6) % 7
+    }
+
+    pub fn format_iso(&self) -> String {
+        format!(
+            "{:04}-{:02}-{:02} {:02}:{:02}",
+            self.year, self.month, self.day, self.hour, self.minute
+        )
+    }
+
+    pub fn format_date(&self) -> String {
+        format!("{:04}-{:02}-{:02}", self.year, self.month, self.day)
+    }
+
+    pub fn year(&self) -> i32 {
+        self.year
+    }
+    pub fn month(&self) -> u8 {
+        self.month
+    }
+    pub fn day(&self) -> u8 {
+        self.day
+    }
+    pub fn hour(&self) -> u8 {
+        self.hour
+    }
+    pub fn minute(&self) -> u8 {
+        self.minute
+    }
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
+    pub fn set_open(&mut self, open: bool) {
+        self.open = open;
+    }
+
+    pub fn step_months(&mut self, delta: i32) {
+        let total = self.year * 12 + (i32::from(self.month) - 1) + delta;
+        self.year = total.div_euclid(12);
+        self.month = (total.rem_euclid(12) + 1) as u8;
+        let max_day = Self::days_in_month(self.year, self.month);
+        self.day = self.day.min(max_day);
+    }
+
+    pub fn step_days(&mut self, delta: i32) {
+        let mut remaining = delta;
+        while remaining > 0 {
+            let max_d = Self::days_in_month(self.year, self.month);
+            if self.day < max_d {
+                self.day += 1;
+            } else {
+                self.day = 1;
+                self.step_months(1);
+            }
+            remaining -= 1;
+        }
+        while remaining < 0 {
+            if self.day > 1 {
+                self.day -= 1;
+            } else {
+                self.step_months(-1);
+                self.day = Self::days_in_month(self.year, self.month);
+            }
+            remaining += 1;
+        }
+    }
+
+    /// Generates a 42-cell `(6 weeks × 7 days)` calendar grid for the current month.
+    /// Cells outside the current month have `0`, cells in the current month have `1..=days_in_month`.
+    pub fn calendar_grid(&self) -> [u8; 42] {
+        let mut grid = [0u8; 42];
+        let first_wd = Self::weekday(self.year, self.month, 1) as usize;
+        let days = Self::days_in_month(self.year, self.month);
+        for d in 1..=days {
+            grid[first_wd + (d as usize - 1)] = d;
+        }
+        grid
+    }
+}
+
+/// Command entry registered in [`CommandPaletteModel`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommandItem {
+    pub id: String,
+    pub title: String,
+    pub category: String,
+    pub shortcut: String,
+}
+
+/// Interactive state model for `CommandPalette`: fuzzy/substring filtering,
+/// ranked matching, keyboard navigation, and command execution.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CommandPaletteModel {
+    commands: Vec<CommandItem>,
+    query: String,
+    filtered: Vec<usize>,
+    selected: usize,
+    open: bool,
+}
+
+impl CommandPaletteModel {
+    pub fn new(commands: Vec<CommandItem>) -> Self {
+        let filtered = (0..commands.len()).collect();
+        Self {
+            commands,
+            query: String::new(),
+            filtered,
+            selected: 0,
+            open: false,
+        }
+    }
+
+    fn fuzzy_score(query: &str, candidate: &str) -> Option<i32> {
+        if query.is_empty() {
+            return Some(0);
+        }
+        let q = query.to_lowercase();
+        let c = candidate.to_lowercase();
+        if let Some(pos) = c.find(&q) {
+            return Some(1000 - (pos as i32) * 5 - (c.len() as i32));
+        }
+        let mut score = 0i32;
+        let mut c_chars = c.chars();
+        for qc in q.chars() {
+            loop {
+                match c_chars.next() {
+                    Some(cc) if cc == qc => {
+                        score += 10;
+                        break;
+                    }
+                    Some(_) => score -= 1,
+                    None => return None,
+                }
+            }
+        }
+        Some(score)
+    }
+
+    pub fn set_query(&mut self, query: String) {
+        self.query = query;
+        let mut scored: Vec<(usize, i32)> = self
+            .commands
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, cmd)| {
+                let hay = format!("{} {} {}", cmd.category, cmd.title, cmd.id);
+                Self::fuzzy_score(&self.query, &hay).map(|s| (idx, s))
+            })
+            .collect();
+        scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        self.filtered = scored.into_iter().map(|(i, _)| i).collect();
+        self.selected = 0;
+    }
+
+    pub fn query(&self) -> &str {
+        &self.query
+    }
+
+    pub fn is_open(&self) -> bool {
+        self.open
+    }
+
+    pub fn set_open(&mut self, open: bool) {
+        self.open = open;
+    }
+
+    pub fn filtered_indices(&self) -> &[usize] {
+        &self.filtered
+    }
+
+    pub fn move_selection(&mut self, delta: isize) -> Option<&CommandItem> {
+        if self.filtered.is_empty() {
+            return None;
+        }
+        let len = self.filtered.len() as isize;
+        self.selected = (self.selected as isize + delta).rem_euclid(len) as usize;
+        self.active_command()
+    }
+
+    pub fn active_command(&self) -> Option<&CommandItem> {
+        self.filtered
+            .get(self.selected)
+            .and_then(|&idx| self.commands.get(idx))
     }
 }
 
@@ -925,5 +1775,89 @@ mod tests {
         assert_eq!(steps, 100);
         assert_eq!(edit.value(), "xxxxxxxxxx");
         assert!(TextEdit::new("one\rtwo".into()).is_err());
+    }
+
+    #[test]
+    fn data_table_and_virtual_list_models_sort_filter_resize_and_virtualize_rows() {
+        let cols = vec![
+            TableColumn {
+                id: "name".into(),
+                width: 120.,
+                min_width: 60.,
+                max_width: 240.,
+            },
+            TableColumn {
+                id: "score".into(),
+                width: 80.,
+                min_width: 40.,
+                max_width: 160.,
+            },
+        ];
+        let rows = vec![
+            vec!["Beta".into(), "20".into()],
+            vec!["Alpha".into(), "100".into()],
+            vec!["Gamma".into(), "5".into()],
+            vec!["Delta".into(), "40".into()],
+        ];
+        let mut table = DataTableModel::new(cols, rows, 24., 48.).unwrap();
+        assert_eq!(table.visible_rows(), &[0, 1, 2, 3]);
+        assert_eq!(table.virtual_window(0), 0..2);
+        assert_eq!(table.toggle_sort(1).unwrap(), SortDirection::Ascending);
+        assert_eq!(table.visible_rows(), &[2, 0, 3, 1]);
+        assert_eq!(table.toggle_sort(1).unwrap(), SortDirection::Descending);
+        assert_eq!(table.visible_rows(), &[1, 3, 0, 2]);
+        assert_eq!(table.resize_column(0, 500.).unwrap(), 240.);
+        assert_eq!(table.resize_column(0, 20.).unwrap(), 60.);
+        table.set_filter("a".into());
+        assert_eq!(table.visible_rows(), &[1, 3, 0, 2]);
+        table.set_filter("gam".into());
+        assert_eq!(table.visible_rows(), &[2]);
+
+        let mut vlist = VirtualListModel::new(100, 20., 60., 1).unwrap();
+        assert_eq!(vlist.visible_range(), 0..4);
+        assert_eq!(vlist.select(10).unwrap(), 10);
+        assert!(vlist.scroll_y() >= 160.);
+        assert!(vlist.visible_range().contains(&10));
+    }
+
+    #[test]
+    fn rich_text_code_editor_datetime_and_command_palette_models_preserve_invariants() {
+        let rich = RichTextModel::from_markdown("## **Forma** *UI* `code`").unwrap();
+        assert_eq!(rich.heading_level(), 2);
+        assert_eq!(rich.text(), "Forma UI code");
+        assert_eq!(rich.spans().len(), 3);
+        assert_eq!(rich.to_markdown(), "## Forma UI code");
+
+        let mut code = CodeEditorModel::new("component Demo {\n}".into(), 2).unwrap();
+        assert_eq!(code.line_count(), 2);
+        assert_eq!(code.cursor_line_column(), (2, 2));
+        let tokens = code.syntax_tokens().unwrap();
+        assert!(tokens.iter().any(|t| t.value == "component"));
+        assert!(code.indent());
+
+        let mut dt = DateTimeModel::new(2024, 2, 28, 14, 30).unwrap();
+        assert_eq!(dt.format_iso(), "2024-02-28 14:30");
+        dt.step_days(1);
+        assert_eq!(dt.format_date(), "2024-02-29");
+        dt.step_days(1);
+        assert_eq!(dt.format_date(), "2024-03-01");
+        assert!(dt.calendar_grid().iter().any(|&d| d == 31));
+
+        let mut palette = CommandPaletteModel::new(vec![
+            CommandItem {
+                id: "file.save".into(),
+                title: "Save Document".into(),
+                category: "File".into(),
+                shortcut: "Cmd+S".into(),
+            },
+            CommandItem {
+                id: "view.zoom".into(),
+                title: "Zoom In".into(),
+                category: "View".into(),
+                shortcut: "Cmd++".into(),
+            },
+        ]);
+        palette.set_query("zoom".into());
+        assert_eq!(palette.active_command().unwrap().id, "view.zoom");
     }
 }

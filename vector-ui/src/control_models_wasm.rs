@@ -2,8 +2,10 @@
 //! Caret and anchor getters/setters use UTF-8 byte offsets, not JS UTF-16 indices.
 
 use crate::control_state::{
-    CheckMode, CheckModel, CheckState, ModelError, RangeModel, SingleSelection, TextEdit,
-    ToggleModel, TreeItem, TreeModel,
+    CheckMode, CheckModel, CheckState, CodeEditorModel, CommandItem, CommandPaletteModel,
+    DataTableModel, DateTimeModel, InlineStyle, ModelError, RangeModel, RichTextModel,
+    SingleSelection, SortDirection, TableColumn, TextEdit, ToggleModel, TreeItem, TreeModel,
+    VirtualListModel,
 };
 use wasm_bindgen::prelude::*;
 
@@ -284,6 +286,262 @@ impl TextValue {
     }
     pub fn set_selection(&mut self, anchor: usize, caret: usize) -> Result<bool, JsValue> {
         self.model.set_selection(anchor, caret).map_err(js_error)
+    }
+}
+
+#[wasm_bindgen]
+pub struct DataTableValue {
+    model: DataTableModel,
+}
+#[wasm_bindgen]
+impl DataTableValue {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        column_widths: Vec<f64>,
+        row_count: usize,
+        row_height: f64,
+        viewport_height: f64,
+    ) -> Result<DataTableValue, JsValue> {
+        let columns: Vec<TableColumn> = column_widths
+            .into_iter()
+            .enumerate()
+            .map(|(i, w)| TableColumn {
+                id: format!("col_{i}"),
+                width: w,
+                min_width: 36.0,
+                max_width: 640.0,
+            })
+            .collect();
+        let rows: Vec<Vec<String>> = (0..row_count)
+            .map(|r| (0..columns.len()).map(|c| format!("{r}:{c}")).collect())
+            .collect();
+        let model =
+            DataTableModel::new(columns, rows, row_height, viewport_height).map_err(js_error)?;
+        Ok(Self { model })
+    }
+    pub fn toggle_sort(&mut self, column: usize) -> Result<i32, JsValue> {
+        let dir = self.model.toggle_sort(column).map_err(js_error)?;
+        Ok(match dir {
+            SortDirection::None => 0,
+            SortDirection::Ascending => 1,
+            SortDirection::Descending => -1,
+        })
+    }
+    pub fn set_filter(&mut self, filter: String) {
+        self.model.set_filter(filter);
+    }
+    pub fn resize_column(&mut self, column: usize, width: f64) -> Result<f64, JsValue> {
+        self.model.resize_column(column, width).map_err(js_error)
+    }
+    pub fn select_row(&mut self, row: usize, additive: bool) -> Result<(), JsValue> {
+        self.model.select_row(row, additive).map_err(js_error)
+    }
+    pub fn move_selection(&mut self, delta: i32) -> i32 {
+        self.model
+            .move_selection(delta as isize)
+            .map_or(-1, |r| r as i32)
+    }
+    pub fn set_scroll_y(&mut self, scroll_y: f64) -> Result<f64, JsValue> {
+        self.model.set_scroll_y(scroll_y).map_err(js_error)
+    }
+    pub fn virtual_window(&self, overscan: usize) -> Vec<u32> {
+        let range = self.model.virtual_window(overscan);
+        vec![range.start as u32, range.end as u32]
+    }
+}
+
+#[wasm_bindgen]
+pub struct VirtualListValue {
+    model: VirtualListModel,
+}
+#[wasm_bindgen]
+impl VirtualListValue {
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        item_count: usize,
+        item_height: f64,
+        viewport_height: f64,
+        overscan: usize,
+    ) -> Result<VirtualListValue, JsValue> {
+        Ok(Self {
+            model: VirtualListModel::new(item_count, item_height, viewport_height, overscan)
+                .map_err(js_error)?,
+        })
+    }
+    pub fn total_height(&self) -> f64 {
+        self.model.total_height()
+    }
+    pub fn scroll_y(&self) -> f64 {
+        self.model.scroll_y()
+    }
+    pub fn set_scroll_y(&mut self, scroll_y: f64) -> Result<f64, JsValue> {
+        self.model.set_scroll_y(scroll_y).map_err(js_error)
+    }
+    pub fn visible_range(&self) -> Vec<u32> {
+        let r = self.model.visible_range();
+        vec![r.start as u32, r.end as u32]
+    }
+    pub fn selected(&self) -> i32 {
+        self.model.selected().map_or(-1, |i| i as i32)
+    }
+    pub fn select(&mut self, index: usize) -> Result<i32, JsValue> {
+        self.model
+            .select(index)
+            .map(|i| i as i32)
+            .map_err(js_error)
+    }
+    pub fn move_by(&mut self, delta: i32) -> i32 {
+        self.model
+            .move_by(delta as isize)
+            .map_or(-1, |i| i as i32)
+    }
+}
+
+#[wasm_bindgen]
+pub struct RichTextValue {
+    model: RichTextModel,
+}
+#[wasm_bindgen]
+impl RichTextValue {
+    #[wasm_bindgen(constructor)]
+    pub fn new(markdown: String) -> Result<RichTextValue, JsValue> {
+        Ok(Self {
+            model: RichTextModel::from_markdown(&markdown).map_err(js_error)?,
+        })
+    }
+    pub fn text(&self) -> String {
+        self.model.text().to_owned()
+    }
+    pub fn to_markdown(&self) -> String {
+        self.model.to_markdown()
+    }
+    pub fn heading_level(&self) -> u8 {
+        self.model.heading_level()
+    }
+    pub fn set_heading_level(&mut self, level: u8) {
+        self.model.set_heading_level(level);
+    }
+    pub fn toggle_bold(&mut self) -> bool {
+        self.model.toggle_style(InlineStyle::Bold)
+    }
+    pub fn toggle_italic(&mut self) -> bool {
+        self.model.toggle_style(InlineStyle::Italic)
+    }
+    pub fn toggle_code(&mut self) -> bool {
+        self.model.toggle_style(InlineStyle::Code)
+    }
+    pub fn clear_formatting(&mut self) {
+        self.model.clear_formatting();
+    }
+}
+
+#[wasm_bindgen]
+pub struct CodeEditorValue {
+    model: CodeEditorModel,
+}
+#[wasm_bindgen]
+impl CodeEditorValue {
+    #[wasm_bindgen(constructor)]
+    pub fn new(initial: String, tab_size: usize) -> Result<CodeEditorValue, JsValue> {
+        Ok(Self {
+            model: CodeEditorModel::new(initial, tab_size).map_err(js_error)?,
+        })
+    }
+    pub fn value(&self) -> String {
+        self.model.value().to_owned()
+    }
+    pub fn line_count(&self) -> usize {
+        self.model.line_count()
+    }
+    pub fn cursor_line(&self) -> usize {
+        self.model.cursor_line_column().0
+    }
+    pub fn cursor_column(&self) -> usize {
+        self.model.cursor_line_column().1
+    }
+    pub fn indent(&mut self) -> bool {
+        self.model.indent()
+    }
+    pub fn token_count(&self) -> Result<usize, JsValue> {
+        self.model
+            .syntax_tokens()
+            .map(|t| t.len())
+            .map_err(|e| JsValue::from_str(&e))
+    }
+}
+
+#[wasm_bindgen]
+pub struct DateTimeValue {
+    model: DateTimeModel,
+}
+#[wasm_bindgen]
+impl DateTimeValue {
+    #[wasm_bindgen(constructor)]
+    pub fn new(year: i32, month: u8, day: u8, hour: u8, minute: u8) -> Result<DateTimeValue, JsValue> {
+        Ok(Self {
+            model: DateTimeModel::new(year, month, day, hour, minute).map_err(js_error)?,
+        })
+    }
+    pub fn format_iso(&self) -> String {
+        self.model.format_iso()
+    }
+    pub fn format_date(&self) -> String {
+        self.model.format_date()
+    }
+    pub fn step_days(&mut self, delta: i32) -> String {
+        self.model.step_days(delta);
+        self.model.format_date()
+    }
+    pub fn step_months(&mut self, delta: i32) -> String {
+        self.model.step_months(delta);
+        self.model.format_date()
+    }
+    pub fn calendar_grid(&self) -> Vec<u8> {
+        self.model.calendar_grid().to_vec()
+    }
+}
+
+#[wasm_bindgen]
+pub struct CommandPaletteValue {
+    model: CommandPaletteModel,
+}
+#[wasm_bindgen]
+impl CommandPaletteValue {
+    #[wasm_bindgen(constructor)]
+    pub fn new(titles: Vec<String>) -> Self {
+        let items = titles
+            .into_iter()
+            .enumerate()
+            .map(|(i, title)| CommandItem {
+                id: format!("cmd_{i}"),
+                title,
+                category: "General".into(),
+                shortcut: String::new(),
+            })
+            .collect();
+        Self {
+            model: CommandPaletteModel::new(items),
+        }
+    }
+    pub fn set_query(&mut self, query: String) {
+        self.model.set_query(query);
+    }
+    pub fn filtered(&self) -> Vec<u32> {
+        self.model
+            .filtered_indices()
+            .iter()
+            .map(|&i| i as u32)
+            .collect()
+    }
+    pub fn move_selection(&mut self, delta: i32) -> String {
+        self.model
+            .move_selection(delta as isize)
+            .map_or_else(String::new, |c| c.id.clone())
+    }
+    pub fn active_id(&self) -> String {
+        self.model
+            .active_command()
+            .map_or_else(String::new, |c| c.id.clone())
     }
 }
 

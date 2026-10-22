@@ -117,6 +117,12 @@ CLI экспортирует исходные демонстрационные �
 | SingleSelection; RadioGroup/TabSelection | SelectionValue | Выбор одного ID, очистка, перемещение с/без wrap |
 | TreeModel | TreeValue | Preorder-дерево, раскрытие, visible IDs, выбор, навигация |
 | TextEdit | TextValue (однострочный), Runtime TextInput (включая multiline) | caret/anchor, selection, insert/delete, home/end, undo/redo |
+| DataTableModel | DataTableValue | Сортировка колонок (`Asc`/`Desc`/`None`), фильтрация, ресайз ширины колонок с `min`/`max`, выбор строк, виртуализация окна (`virtual_window`) |
+| VirtualListModel | VirtualListValue | Виртуализация длинных списков с `overscan`, расчёт полной высоты, клампинг скролла и автопрокрутка к выбранному элементу |
+| RichTextModel | RichTextValue | Форматированный документ (`Bold`, `Italic`, `Underline`, `Strikethrough`, `Code`), уровни заголовков `H1..H3`, конвертация Markdown (`from_markdown` / `to_markdown`) |
+| CodeEditorModel | CodeEditorValue | Многострочный буфер кода, подсчёт строк и `(line, column)` курсора, отступы (`indent`), парные скобки (`insert_pair`) и лексическая подсветка `.ui` (`syntax_tokens`) |
+| DateTimeModel | DateTimeValue | Календарная модель с учётом високосных лет, генерация 42-ячеечной сетки месяца (`calendar_grid`), шаги по дням и месяцам, ISO-форматирование |
+| CommandPaletteModel | CommandPaletteValue | Реестр команд, нечёткий (fuzzy/substring) поиск с ранжированием, круговая навигация и выбор активной команды |
 
 TextEdit работает по Unicode scalar boundaries, а смещения caret/anchor —
 **UTF-8 bytes**, не JS UTF-16 и не grapheme clusters. История ограничена 100

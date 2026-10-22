@@ -10,7 +10,7 @@ pub mod control_state;
 pub mod binding;
 pub mod form_document;
 pub mod control_models_wasm;
-mod text;
+pub mod text;
 mod shape;
 mod raster_cache;
 pub mod display_list;

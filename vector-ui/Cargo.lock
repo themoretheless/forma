@@ -501,6 +501,7 @@ dependencies = [
  "libc",
  "objc",
  "pollster",
+ "serde_json",
  "softbuffer",
  "themoretheless-tokenizer-forma",
  "ttf-parser",
