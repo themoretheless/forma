@@ -69,6 +69,11 @@ struct App {
     next_title_update: Instant,
     last_title: String,
     retry_at: Option<Instant>,
+    source_path: Option<String>,
+    template_path: Option<String>,
+    last_source: String,
+    last_template: String,
+    next_hot_check: Instant,
 }
 
 impl App {
@@ -549,6 +554,39 @@ impl ApplicationHandler for App {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let now = Instant::now();
+        if self.source_path.is_some() && now >= self.next_hot_check {
+            self.next_hot_check = now + Duration::from_millis(120);
+            let next_src = self
+                .source_path
+                .as_deref()
+                .and_then(|p| std::fs::read_to_string(p).ok());
+            let next_tpl = self
+                .template_path
+                .as_deref()
+                .and_then(|p| std::fs::read_to_string(p).ok());
+            let src_changed = next_src
+                .as_ref()
+                .is_some_and(|s| !s.trim().is_empty() && s != &self.last_source);
+            let tpl_changed = next_tpl
+                .as_ref()
+                .is_some_and(|t| !t.trim().is_empty() && t != &self.last_template);
+            if src_changed || tpl_changed {
+                let s = next_src.unwrap_or_else(|| self.last_source.clone());
+                let t = next_tpl.unwrap_or_else(|| self.last_template.clone());
+                if let Ok(mut next_rt) = forma::Runtime::from_sources(&s, &t) {
+                    next_rt.preserve_interaction(&self.button);
+                    self.button = next_rt;
+                    self.last_source = s;
+                    self.last_template = t;
+                    self.inspect_report.clear();
+                    self.a11y_report.clear();
+                    if let Some(window) = &self.window {
+                        window.request_redraw();
+                    }
+                    println!("Hot reload: векторная сцена обновлена на лету");
+                }
+            }
+        }
         if self.retry_at.is_some_and(|time| time <= now) {
             self.retry_at = None;
             if let Some(window) = &self.window {
@@ -563,20 +601,28 @@ impl ApplicationHandler for App {
         let meter_deadline = idle_deadline
             .filter(|deadline| *deadline > now)
             .map(|deadline| deadline.min(self.next_title_update));
-        let deadline = self.retry_at.into_iter().chain(meter_deadline).min();
+        let hot_deadline = self.source_path.as_ref().map(|_| self.next_hot_check);
+        let deadline = self
+            .retry_at
+            .into_iter()
+            .chain(meter_deadline)
+            .chain(hot_deadline)
+            .min();
         event_loop.set_control_flow(deadline.map_or(ControlFlow::Wait, ControlFlow::WaitUntil));
     }
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
-    let source = args
-        .get(1)
+    let source_path = args.get(1).cloned();
+    let template_path = args.get(2).cloned();
+    let source = source_path
+        .as_deref()
         .map(std::fs::read_to_string)
         .transpose()?
         .unwrap_or(forma::EXAMPLE.into());
-    let template = args
-        .get(2)
+    let template = template_path
+        .as_deref()
         .map(std::fs::read_to_string)
         .transpose()?
         .unwrap_or(forma::BUTTON_COMPONENT.into());
@@ -606,6 +652,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         next_title_update: Instant::now(),
         last_title: String::new(),
         retry_at: None,
+        source_path,
+        template_path,
+        last_source: source,
+        last_template: template,
+        next_hot_check: Instant::now() + Duration::from_millis(120),
     })?;
     Ok(())
 }

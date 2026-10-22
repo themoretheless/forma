@@ -18,5 +18,12 @@ export function createNativeRunner(send){
       child.on('error',e=>{busy=false;send({kind:'error',text:e.message});});
       child.on('close',code=>{busy=false;child=null;send({kind:'finished',text:'Окно закрыто, код '+code});});
     }catch(e){busy=false;send({kind:'error',text:e.message});}
+  },async update({snapshot}={}){
+    if(!busy||!snapshot?.html)return false;
+    try{
+      await mkdir(root+'.forma',{recursive:true});
+      await writeFile(root+'.forma/native-snapshot.json',JSON.stringify(snapshot));
+      return true;
+    }catch{return false;}
   },stop(){child?.kill('SIGTERM');}};
 }

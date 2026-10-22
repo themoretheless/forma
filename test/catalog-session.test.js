@@ -154,11 +154,18 @@ test('complex widget Rust models and direct Rust .ui compiler work through WASM'
   try {
     const uiFiles=JSON.stringify({
       'Card.component.ui':'component Card { prop title: String = "Card"; width: 160; height: 44; Rectangle { background: #2563eb; Text { text: props.title; color: #ffffff; } PointerArea { clicked -> events.clicked(); } } }',
-      'App.ui':'component App { Column { width: 200; height: 80; padding: 10; Card { key: "rustCard"; title: "Compiled in Rust"; clicked -> actions.open(); } } }',
+      'App.ui':'component App { state name: String = "Compiled in Rust"; Column { width: 220; height: 120; padding: 10; gap: 8; TextInput { key: "nameInput"; width: 180; height: 32; value <-> state.name; } Card { key: "rustCard"; title: state.name; clicked -> actions.open(); } } }',
     });
     model.load_ui_files_json(uiFiles,'App.ui','{}');
-    assert.equal(model.control_count(),1);
-    assert.equal(model.control_key(0),'rustCard');
-    assert.equal(model.control_label(0),'Compiled in Rust');
+    assert.equal(model.control_count(),2);
+    assert.equal(model.control_key(0),'nameInput');
+    assert.equal(model.control_key(1),'rustCard');
+    assert.equal(model.control_label(1),'Compiled in Rust');
+    assert.equal(model.focus_control(0),true);
+    assert.equal(model.text_key('End',false,false),true);
+    assert.equal(model.text_insert('!'),true);
+    assert.equal(model.sync_ui_bindings(),true);
+    assert.equal(JSON.parse(model.ui_state_json()).name,'Compiled in Rust!');
+    assert.equal(model.control_label(1),'Compiled in Rust!');
   } finally {model.free();}
 });

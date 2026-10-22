@@ -26,6 +26,7 @@ export default defineConfig({build:{target:'esnext',chunkSizeWarningLimit:600,ro
     const native=createNativeRunner(data=>client?.send('forma:rust-output',data));
     const vector=createVectorRunner(data=>client?.send('forma:rust-output',data));
     server.ws.on('forma:vector-run',(data,sender)=>{if(sender===client)vector.run(data);});
+    server.ws.on('forma:vector-update',(data,sender)=>{if(sender===client)vector.update(data);});
     server.ws.on('forma:vector-stop',(_,sender)=>{if(sender===client)vector.stop();});
     server.httpServer.once('close',()=>vector.stop());
     let designBusy=false;
@@ -38,6 +39,7 @@ export default defineConfig({build:{target:'esnext',chunkSizeWarningLimit:600,ro
       finally{designBusy=false;}
     });
     server.ws.on('forma:native-run',(data,sender)=>{if(sender===client)native.run(data);});
+    server.ws.on('forma:native-update',(data,sender)=>{if(sender===client)native.update(data);});
     server.ws.on('forma:native-stop',(_,sender)=>{if(sender===client)native.stop();});
     server.httpServer.once('close',()=>native.stop());
     server.ws.on('forma:form-run',(data,sender)=>{if(sender===client)runner.run(data?.files,{generated:true,state:data?.state});});

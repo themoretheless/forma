@@ -2789,6 +2789,10 @@ impl Document {
                     return Err("For expects a list".into());
                 };
                 let item = text(&node.props, "item", "item")?;
+                let collection_expr = node
+                    .props
+                    .get("collection")
+                    .and_then(|v| v.text().ok());
                 let mut out = Vec::new();
                 let mut keys = std::collections::BTreeSet::new();
                 if items.is_empty() {
@@ -2809,6 +2813,9 @@ impl Document {
                     let mut local = state.clone();
                     local.insert(item.clone(), value);
                     local.insert(format!("__index.{item}"), number(index as f64));
+                    if let Some(col_expr) = &collection_expr {
+                        local.insert(format!("__collection.{item}"), Value::Text(col_expr.clone()));
+                    }
                     let key = key_part(
                         &node
                             .props
@@ -3405,6 +3412,192 @@ impl Document {
         let initial_state = json_to_doc_props(&state_val)?;
         Self::from_ui_files(&files, entry_file, &initial_state)
     }
+
+    /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from a live [`crate::Runtime`]
+    /// back into `self.states` (including nested `state.a.b` paths).
+    /// Returns the number of bound properties that changed.
+    pub fn sync_runtime_bindings(
+        &mut self,
+        runtime: &crate::Runtime,
+        activated_index: Option<usize>,
+    ) -> Result<usize, String> {
+        fn annotate(node: &mut Node, index: &mut usize) {
+            node.props
+                .entry("__node".into())
+                .or_insert(number(*index as f64));
+            *index += 1;
+            for child in &mut node.children {
+                annotate(child, index);
+            }
+        }
+        let mut annotated = self.root.clone();
+        annotate(&mut annotated, &mut 0);
+        let (_, _, controls) = self.render_scene()?;
+        if self.states.is_empty() {
+            self.states.push(Properties::new());
+        }
+        let mut changed = 0usize;
+        for (idx, ctrl) in controls.iter().enumerate() {
+            let Some(src_node) = find_annotated_node(&annotated, ctrl.node) else {
+                continue;
+            };
+            let Some(Value::Object(bindings)) = src_node.props.get("__bindings") else {
+                continue;
+            };
+            for (prop_name, path_val) in bindings {
+                let path = path_val.text()?;
+                let new_val = match prop_name.as_str() {
+                    "value" => {
+                        if runtime.control_editable(idx) {
+                            Some(Value::Text(runtime.text_value(idx)))
+                        } else {
+                            let r = runtime.range_value(idx);
+                            if r.is_finite() {
+                                Some(number(r as f64))
+                            } else {
+                                None
+                            }
+                        }
+                    }
+                    "checked" if activated_index == Some(idx) => {
+                        let cur = eval(
+                            &Value::Expr(path.clone()),
+                            &Properties::new(),
+                            &ctrl.state,
+                            &mut Vec::new(),
+                        )
+                        .and_then(|v| v.boolean())
+                        .unwrap_or(false);
+                        Some(Value::Bool(!cur))
+                    }
+                    "selected" if activated_index == Some(idx) => Some(Value::Bool(true)),
+                    _ => None,
+                };
+                let Some(val) = new_val else {
+                    continue;
+                };
+                if let Some(state_path) = path.strip_prefix("state.") {
+                    if write_state_path(&mut self.states[0], state_path, val) {
+                        changed += 1;
+                    }
+                } else if let Some((item_var, item_tail)) = path.split_once('.') {
+                    if let (Some(idx_val), Some(col_val)) = (
+                        ctrl.state.get(&format!("__index.{item_var}")),
+                        ctrl.state.get(&format!("__collection.{item_var}")),
+                    ) {
+                        if let (Ok(item_idx), Ok(col_path)) = (idx_val.number(), col_val.text()) {
+                            if let Some(col_state_path) = col_path.strip_prefix("state.") {
+                                if write_collection_item_path(
+                                    &mut self.states[0],
+                                    col_state_path,
+                                    item_idx as usize,
+                                    item_tail,
+                                    val,
+                                ) {
+                                    changed += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(changed)
+    }
+
+    /// Exports the root state map (`self.states[0]`) as a JSON object string.
+    pub fn state_json(&self) -> Result<String, String> {
+        let empty = Properties::new();
+        let root_state = self.states.first().unwrap_or(&empty);
+        let json_val = doc_props_to_json(root_state)?;
+        serde_json::to_string(&json_val).map_err(|e| e.to_string())
+    }
+}
+
+fn write_collection_item_path(
+    target: &mut Properties,
+    col_path: &str,
+    item_idx: usize,
+    item_tail: &str,
+    value: Value,
+) -> bool {
+    if let Some((head, tail)) = col_path.split_once('.') {
+        match target.get_mut(head) {
+            Some(Value::Object(obj)) => {
+                write_collection_item_path(obj, tail, item_idx, item_tail, value)
+            }
+            _ => false,
+        }
+    } else {
+        match target.get_mut(col_path) {
+            Some(Value::List(items)) => match items.get_mut(item_idx) {
+                Some(Value::Object(item_obj)) => write_state_path(item_obj, item_tail, value),
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+}
+
+fn write_state_path(target: &mut Properties, path: &str, value: Value) -> bool {
+    if let Some((head, tail)) = path.split_once('.') {
+        match target.get_mut(head) {
+            Some(Value::Object(obj)) => write_state_path(obj, tail, value),
+            _ => {
+                let mut nested = Properties::new();
+                write_state_path(&mut nested, tail, value);
+                target.insert(head.into(), Value::Object(nested));
+                true
+            }
+        }
+    } else {
+        if target.get(path) == Some(&value) {
+            return false;
+        }
+        target.insert(path.into(), value);
+        true
+    }
+}
+
+fn find_annotated_node<'a>(node: &'a Node, target_id: usize) -> Option<&'a Node> {
+    if node.props.get("__node").and_then(|v| v.number().ok()) == Some(target_id as f64) {
+        return Some(node);
+    }
+    for child in &node.children {
+        if let Some(found) = find_annotated_node(child, target_id) {
+            return Some(found);
+        }
+    }
+    None
+}
+
+fn doc_value_to_json(v: &Value) -> Result<serde_json::Value, String> {
+    Ok(match v {
+        Value::Null => serde_json::Value::Null,
+        Value::Bool(b) => serde_json::Value::Bool(*b),
+        Value::Number(n) => serde_json::Number::from_f64(*n)
+            .map(serde_json::Value::Number)
+            .unwrap_or(serde_json::Value::Null),
+        Value::Text(s) | Value::Expr(s) => serde_json::Value::String(s.clone()),
+        Value::List(items) => serde_json::Value::Array(
+            items
+                .iter()
+                .map(doc_value_to_json)
+                .collect::<Result<Vec<_>, _>>()?,
+        ),
+        Value::Object(map) => doc_props_to_json(map)?,
+        _ => serde_json::Value::Null,
+    })
+}
+
+fn doc_props_to_json(props: &Properties) -> Result<serde_json::Value, String> {
+    let mut map = serde_json::Map::new();
+    for (k, v) in props {
+        if !k.starts_with("__") {
+            map.insert(k.clone(), doc_value_to_json(v)?);
+        }
+    }
+    Ok(serde_json::Value::Object(map))
 }
 
 fn parse_svg_attrs(raw: &str) -> BTreeMap<String, String> {
@@ -3851,6 +4044,31 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
     let matches = json_to_doc_matches(v.get("matches"))?;
     if !matches.is_empty() {
         props.insert("__matches".into(), Value::List(matches));
+    }
+    if let Some(serde_json::Value::Object(bindings_obj)) = v.get("bindings") {
+        let mut bindings = Properties::new();
+        for (prop_name, path_val) in bindings_obj {
+            if let Some(path) = path_val
+                .as_str()
+                .or_else(|| path_val.get("expr").and_then(|e| e.as_str()))
+            {
+                props.insert(prop_name.clone(), Value::Expr(path.to_string()));
+                bindings.insert(prop_name.clone(), Value::Text(path.to_string()));
+            }
+        }
+        if !bindings.is_empty() {
+            if kind == "Slider" && bindings.contains_key("value") {
+                props.insert("__range_normalized".into(), Value::Bool(true));
+            }
+            props.insert("__bindings".into(), Value::Object(bindings));
+        }
+    }
+    if kind == "Slider" {
+        if let Some(Value::Expr(expr)) = props.get("value") {
+            if !expr.ends_with('%') {
+                props.insert("__range_normalized".into(), Value::Bool(true));
+            }
+        }
     }
     if let Some(serde_json::Value::Object(ev_args)) = v.get("eventArgs") {
         let mut event_args = Properties::new();
@@ -4330,6 +4548,21 @@ fn compile_ui_files_to_document(
                 collect_component_names(n, &mut pending);
             }
             definitions.insert(comp_name, def);
+        }
+    }
+    for (builtin_name, builtin_src) in [
+        (
+            "Text",
+            "component Text { width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff; wrap: false; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; Text { text: props.text; color: props.color; fontSize: props.fontSize; wrap: props.wrap; } } }",
+        ),
+        (
+            "TextInput",
+            "component TextInput { width: 240; height: 38; value: ''; placeholder: ''; multiline: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, placeholder, multiline, fontSize, color, placeholderColor }; } PointerArea { clicked -> events.clicked(); } } }",
+        ),
+    ] {
+        if !definitions.contains_key(builtin_name) {
+            let comp_ast = themoretheless_tokenizer_forma::parse(builtin_src).map_err(|e| e.to_string())?;
+            definitions.insert(builtin_name.into(), ast_to_definition(&comp_ast)?);
         }
     }
 
@@ -4894,5 +5127,42 @@ mod tests {
         assert!(templates.contains("Verified"));
         let runtime = crate::Runtime::from_sources(&scene_src, &templates).unwrap();
         assert_eq!(runtime.control_count(), 2);
+    }
+
+    #[test]
+    fn rust_ui_compiler_evaluates_and_synchronizes_two_way_bindings() {
+        let mut files: BTreeMap<String, String> = BTreeMap::new();
+        files.insert(
+            "Toggle.component.ui".into(),
+            "component Toggle { prop checked: Bool = false; prop label: String = ''; width: 140; height: 32; Rectangle { Row { padding: 4; Text { text: props.checked ? '[x] ${props.label}' : '[ ] ${props.label}'; } } PointerArea { clicked -> events.clicked(); } } }".into(),
+        );
+        files.insert(
+            "App.ui".into(),
+            "component App { state query: String = 'forma'; state agreed: Bool = false; Column { width: 260; height: 140; padding: 10; gap: 8; TextInput { key: 'search'; width: 200; height: 32; value <-> state.query; } Toggle { key: 'agree'; label: 'Terms'; checked <-> state.agreed; } Text { key: 'summary'; text: '${state.query}:${state.agreed}'; } } }".into(),
+        );
+        let mut doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        let (scene_src, templates, controls) = doc.render_scene().unwrap();
+        assert_eq!(controls.len(), 3);
+        let mut runtime = crate::Runtime::from_sources(&scene_src, &templates).unwrap();
+        assert_eq!(runtime.text_value(0), "forma");
+
+        // Edit the TextInput and click the Toggle
+        assert!(runtime.focus_control(0));
+        assert!(runtime.text_key("End", false, false));
+        assert!(runtime.text_insert("-ui"));
+        assert_eq!(runtime.text_value(0), "forma-ui");
+        runtime.activate_control(1);
+
+        // Synchronize bindings back to Document
+        let changed = doc.sync_runtime_bindings(&runtime, Some(1)).unwrap();
+        assert_eq!(changed, 2);
+        let state_json = doc.state_json().unwrap();
+        assert!(state_json.contains("\"query\":\"forma-ui\""));
+        assert!(state_json.contains("\"agreed\":true"));
+
+        // Re-render and verify summary Text reflects updated bound state
+        let (_, next_templates, _) = doc.render_scene().unwrap();
+        assert!(next_templates.contains("forma-ui:true"));
+        assert!(next_templates.contains("[x] Terms"));
     }
 }

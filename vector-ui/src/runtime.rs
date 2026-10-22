@@ -120,6 +120,7 @@ pub struct Runtime {
     layout_revision: u32,
     geometry: RefCell<Option<GeometryCache>>,
     raster_cache: RefCell<Option<RasterCache>>,
+    ui_document: Option<crate::form_document::Document>,
 }
 
 fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> {
@@ -162,7 +163,9 @@ impl Runtime {
     ) -> Result<Self, String> {
         let doc = crate::form_document::Document::from_ui_files(files, entry_file, initial_state)?;
         let (scene_src, templates) = doc.render()?;
-        Self::from_sources(&scene_src, &templates)
+        let mut rt = Self::from_sources(&scene_src, &templates)?;
+        rt.ui_document = Some(doc);
+        Ok(rt)
     }
 
     /// Builds an AccessKit-compatible semantic accessibility tree for native and Web assistive technologies.
@@ -457,6 +460,7 @@ impl Runtime {
             layout_revision: 0,
             geometry: RefCell::new(None),
             raster_cache: RefCell::new(None),
+            ui_document: None,
         };
         runtime.refresh_editors();
         Ok(runtime)
@@ -984,7 +988,55 @@ impl Runtime {
         let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)
             .map_err(|e| JsValue::from_str(&e))?;
         let (scene_src, templates, _) = doc.render_scene().map_err(|e| JsValue::from_str(&e))?;
-        self.load_component(&scene_src, &templates)
+        self.load_component(&scene_src, &templates)?;
+        self.ui_document = Some(doc);
+        Ok(())
+    }
+    /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from the live runtime
+    /// back into the retained Rust `.ui` `Document`, re-rendering the scene while preserving focus
+    /// and active text/slider interaction. Returns `true` if any bound state property changed.
+    pub fn sync_ui_bindings(&mut self) -> Result<bool, JsValue> {
+        let Some(mut doc) = self.ui_document.take() else {
+            return Ok(false);
+        };
+        let activated = self.last_event.take();
+        let changed = match doc.sync_runtime_bindings(self, activated) {
+            Ok(c) => c,
+            Err(e) => {
+                self.ui_document = Some(doc);
+                return Err(JsValue::from_str(&e));
+            }
+        };
+        if changed > 0 {
+            let (scene_src, templates, _) = match doc.render_scene() {
+                Ok(res) => res,
+                Err(e) => {
+                    self.ui_document = Some(doc);
+                    return Err(JsValue::from_str(&e));
+                }
+            };
+            let mut next = match Self::from_sources(&scene_src, &templates) {
+                Ok(rt) => rt,
+                Err(e) => {
+                    self.ui_document = Some(doc);
+                    return Err(JsValue::from_str(&e));
+                }
+            };
+            next.preserve_binding_interaction(self);
+            next.ui_document = Some(doc);
+            *self = next;
+            Ok(true)
+        } else {
+            self.ui_document = Some(doc);
+            Ok(false)
+        }
+    }
+    /// Exports the current state of the retained Rust `.ui` `Document` as a JSON string.
+    pub fn ui_state_json(&self) -> String {
+        self.ui_document
+            .as_ref()
+            .and_then(|doc| doc.state_json().ok())
+            .unwrap_or_else(|| "{}".to_string())
     }
     pub fn geometry_revision(&self)->u32 {self.geometry_revision}
     /// Control bounds change on scroll or source replacement. Paint and

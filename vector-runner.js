@@ -74,16 +74,18 @@ export function createVectorRunner(send, dependencies = {}) {
         send({kind: 'error', text: `Шаблон компонентов превышает лимит ${maxTemplateLength} символов (${template.length})`}); return;
       }
 
-      const job = {child: null, stopped: false, finished: false, killTimer: null};
+      const job = {child: null, stopped: false, finished: false, killTimer: null, snapshot: null, component: null};
       active = job;
       try {
         const snapshotsRoot = path.join(root, '.forma');
         await makeDirectory(snapshotsRoot, {recursive: true});
         const directory = await makeTemporaryDirectory(path.join(snapshotsRoot, 'vector-'));
         const snapshot = path.join(directory, 'snapshot.ui');
-        // Keep snapshots: subsequent edits or launches must not overwrite this window's source.
+        job.snapshot = snapshot;
+        // Keep snapshots: subsequent launches use their own directory, while `update()` hot-reloads this active window.
         await writeSnapshot(snapshot, source, 'utf8');
         const component = path.join(directory, 'Button.ui');
+        job.component = component;
         if (template !== undefined) await writeSnapshot(component, template, 'utf8');
         pruneSnapshots(snapshotsRoot, directory);
         if (job.stopped) {
@@ -114,6 +116,22 @@ export function createVectorRunner(send, dependencies = {}) {
           send({kind: 'error', text: error.message});
           finish(job, null, null);
         }
+      }
+    },
+
+    async update({source, template} = {}) {
+      const job = active;
+      if (!job || job.stopped || job.finished || !job.snapshot) return false;
+      if (typeof source !== 'string' || !source.trim() || source.length > maxSourceLength) return false;
+      if (template !== undefined && (typeof template !== 'string' || !template.trim() || template.length > maxTemplateLength)) return false;
+      try {
+        if (template !== undefined && job.component) {
+          await writeSnapshot(job.component, template, 'utf8');
+        }
+        await writeSnapshot(job.snapshot, source, 'utf8');
+        return true;
+      } catch {
+        return false;
       }
     },
 
