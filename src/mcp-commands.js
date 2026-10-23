@@ -4,6 +4,7 @@ import {designStatesSummary,stateCreateEdit,stateDeleteEdit,statePropertyEdit,st
 import {copyElement,insertElement,moveAmongSiblings,removeElement} from './element-edit.js';
 import {insertableControls} from './control-catalog.js';
 import {nativeSnapshot} from './native-snapshot.js';
+import {buildNativeRustExport} from './native-export.js';
 import {findNodeByStart} from './element-tree.js';
 
 // The MCP transport invokes the same runtime and UI operations as the editor. The editor hands
@@ -29,6 +30,7 @@ export function createIdeCommands(studio){
       case 'rust_run':if(!hot)throw Error('Requires local dev server');hot.send('forma:rust-run',{files});return {status:'requested',note:'Read events_read for compilation output and exit code'};
       case 'rust_stop':hot?.send('forma:rust-stop',{});return {status:'stop requested'};
       case 'project_read':return {...files};
+      case 'project_export_native':return buildNativeRustExport(files,entry,args);
       case 'file_read':requireFile(args.path);return {path:args.path,content:files[args.path]};
       case 'file_open':requireFile(args.path);studio.open(args.path);break;
       case 'editor_fold':studio.codeEditor.fold(args);break;

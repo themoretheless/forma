@@ -18,6 +18,7 @@ const definitions=[
  ['rust_stop','Stop active Cargo run',{},false],
  ['ide_status','Read active file, preview, diagnostics, selection and debugger status',{},true],
  ['project_read','Read the full current virtual project (also serves as export)',{},true],
+ ['project_export_native','Generate standalone native Rust crate scaffold (Cargo.toml, src/main.rs, and .ui files) for the current project',{crateName:z.string().optional(),formaDependencyPath:z.string().optional()},true],
  ['file_read','Read one project file',{path},true],
  ['file_write','Create/update a virtual project file. expectedContent prevents overwriting concurrent edits; omit only to create.',{path,content:z.string(),expectedContent:z.string().optional()},false],
  ['file_open','Open a file in the editor',{path},false],

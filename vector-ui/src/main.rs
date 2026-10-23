@@ -71,6 +71,9 @@ struct App {
     retry_at: Option<Instant>,
     source_path: Option<String>,
     template_path: Option<String>,
+    project_root: Option<std::path::PathBuf>,
+    project_entry: Option<String>,
+    last_project_files: std::collections::BTreeMap<String, String>,
     last_source: String,
     last_template: String,
     next_hot_check: Instant,
@@ -526,6 +529,7 @@ impl ApplicationHandler for App {
         let caret=self.button.text_caret_bounds();
         if caret.len()==4 {window.set_ime_cursor_area(winit::dpi::LogicalPosition::new(caret[0] as f64,caret[1] as f64),LogicalSize::new(caret[2] as f64,caret[3] as f64));}
         if !redraw {
+            let _ = self.button.sync_ui_bindings_native();
             let started = !was_animating && self.button.is_animating();
             if started {
                 self.last = Instant::now();
@@ -554,7 +558,27 @@ impl ApplicationHandler for App {
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let now = Instant::now();
-        if self.source_path.is_some() && now >= self.next_hot_check {
+        if let (Some(root), Some(entry)) = (&self.project_root, &self.project_entry) {
+            if now >= self.next_hot_check {
+                self.next_hot_check = now + Duration::from_millis(150);
+                if let Ok(next_files) = collect_ui_project_files(root) {
+                    if next_files != self.last_project_files {
+                        let prev_state = self.button.ui_state_properties();
+                        if let Ok(mut next_rt) = forma::Runtime::from_ui_files(&next_files, entry, &prev_state) {
+                            next_rt.preserve_interaction(&self.button);
+                            self.button = next_rt;
+                            self.last_project_files = next_files;
+                            self.inspect_report.clear();
+                            self.a11y_report.clear();
+                            if let Some(window) = &self.window {
+                                window.request_redraw();
+                            }
+                            println!("Hot reload: многофайловый .ui проект перекомпилирован в Rust");
+                        }
+                    }
+                }
+            }
+        } else if self.source_path.is_some() && now >= self.next_hot_check {
             self.next_hot_check = now + Duration::from_millis(120);
             let next_src = self
                 .source_path
@@ -601,7 +625,7 @@ impl ApplicationHandler for App {
         let meter_deadline = idle_deadline
             .filter(|deadline| *deadline > now)
             .map(|deadline| deadline.min(self.next_title_update));
-        let hot_deadline = self.source_path.as_ref().map(|_| self.next_hot_check);
+        let hot_deadline = (self.source_path.is_some() || self.project_root.is_some()).then_some(self.next_hot_check);
         let deadline = self
             .retry_at
             .into_iter()
@@ -612,22 +636,142 @@ impl ApplicationHandler for App {
     }
 }
 
+fn collect_ui_project_files(
+    root: &std::path::Path,
+) -> std::io::Result<std::collections::BTreeMap<String, String>> {
+    fn walk(
+        base: &std::path::Path,
+        dir: &std::path::Path,
+        out: &mut std::collections::BTreeMap<String, String>,
+    ) -> std::io::Result<()> {
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with('.') || name_str == "target" || name_str == "node_modules" || name_str == "dist" {
+                continue;
+            }
+            if path.is_dir() {
+                walk(base, &path, out)?;
+            } else if matches!(path.extension().and_then(|e| e.to_str()), Some("ui" | "svg")) {
+                if let Ok(rel) = path.strip_prefix(base) {
+                    let key = rel
+                        .components()
+                        .map(|c| c.as_os_str().to_string_lossy())
+                        .collect::<Vec<_>>()
+                        .join("/");
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        out.insert(key, content);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    let mut files = std::collections::BTreeMap::new();
+    walk(root, root, &mut files)?;
+    Ok(files)
+}
+
+fn resolve_ui_project_root_and_entry(
+    input_path: &std::path::Path,
+) -> Option<(std::path::PathBuf, String)> {
+    if input_path.is_dir() {
+        let root = input_path.canonicalize().ok()?;
+        let files = collect_ui_project_files(&root).ok()?;
+        let entry = files
+            .keys()
+            .find(|k| {
+                k.ends_with(".ui")
+                    && !k.ends_with(".design.ui")
+                    && !k.ends_with(".component.ui")
+                    && !k.starts_with("components/")
+            })
+            .or_else(|| files.keys().find(|k| k.ends_with(".ui") && !k.ends_with(".design.ui")))?
+            .clone();
+        return Some((root, entry));
+    }
+    let canon = input_path.canonicalize().ok()?;
+    let parent = canon.parent()?;
+    let root = if matches!(
+        parent.file_name().and_then(|n| n.to_str()),
+        Some("ui" | "components" | "src" | "pages")
+    ) {
+        parent.parent().unwrap_or(parent).to_path_buf()
+    } else {
+        parent.to_path_buf()
+    };
+    let rel = canon.strip_prefix(&root).ok()?;
+    let entry = rel
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/");
+    Some((root, entry))
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
     let source_path = args.get(1).cloned();
     let template_path = args.get(2).cloned();
-    let source = source_path
-        .as_deref()
-        .map(std::fs::read_to_string)
-        .transpose()?
-        .unwrap_or(forma::EXAMPLE.into());
-    let template = template_path
-        .as_deref()
-        .map(std::fs::read_to_string)
-        .transpose()?
-        .unwrap_or(forma::BUTTON_COMPONENT.into());
-    let button =
-        forma::Runtime::from_sources(&source, &template).map_err(std::io::Error::other)?;
+    let mut project_root = None;
+    let mut project_entry = None;
+    let mut last_project_files = std::collections::BTreeMap::new();
+    let mut source = String::new();
+    let mut template = String::new();
+
+    let button = if let (Some(first_arg), None) = (&source_path, &template_path) {
+        let p = std::path::Path::new(first_arg);
+        if p.is_dir() {
+            let (root, entry) = resolve_ui_project_root_and_entry(p)
+                .ok_or("Не найден входной .ui файл в указанной папке")?;
+            let files = collect_ui_project_files(&root)?;
+            let rt = forma::Runtime::from_ui_files(
+                &files,
+                &entry,
+                &forma::form_document::Properties::new(),
+            )
+            .map_err(std::io::Error::other)?;
+            project_root = Some(root);
+            project_entry = Some(entry);
+            last_project_files = files;
+            rt
+        } else {
+            source = std::fs::read_to_string(p)?;
+            template = forma::BUTTON_COMPONENT.into();
+            match forma::Runtime::from_sources(&source, &template) {
+                Ok(rt) => rt,
+                Err(_) => {
+                    let (root, entry) = resolve_ui_project_root_and_entry(p)
+                        .ok_or("Не удалось определить корень .ui проекта")?;
+                    let files = collect_ui_project_files(&root)?;
+                    let rt = forma::Runtime::from_ui_files(
+                        &files,
+                        &entry,
+                        &forma::form_document::Properties::new(),
+                    )
+                    .map_err(std::io::Error::other)?;
+                    project_root = Some(root);
+                    project_entry = Some(entry);
+                    last_project_files = files;
+                    rt
+                }
+            }
+        }
+    } else {
+        source = source_path
+            .as_deref()
+            .map(std::fs::read_to_string)
+            .transpose()?
+            .unwrap_or(forma::EXAMPLE.into());
+        template = template_path
+            .as_deref()
+            .map(std::fs::read_to_string)
+            .transpose()?
+            .unwrap_or(forma::BUTTON_COMPONENT.into());
+        forma::Runtime::from_sources(&source, &template).map_err(std::io::Error::other)?
+    };
     EventLoop::new()?.run_app(&mut App {
         inspect_mode:false,
         inspect_report:String::new(),
@@ -652,8 +796,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         next_title_update: Instant::now(),
         last_title: String::new(),
         retry_at: None,
-        source_path,
+        source_path: if project_root.is_some() { None } else { source_path },
         template_path,
+        project_root,
+        project_entry,
+        last_project_files,
         last_source: source,
         last_template: template,
         next_hot_check: Instant::now() + Duration::from_millis(120),

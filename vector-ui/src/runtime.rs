@@ -168,6 +168,54 @@ impl Runtime {
         Ok(rt)
     }
 
+    /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from the live runtime
+    /// back into the retained Rust `.ui` `Document`, re-rendering the scene while preserving focus
+    /// and active text/slider interaction. Returns `Ok(true)` if any bound state property changed.
+    pub fn sync_ui_bindings_native(&mut self) -> Result<bool, String> {
+        let Some(mut doc) = self.ui_document.take() else {
+            return Ok(false);
+        };
+        let activated = self.last_event.take();
+        let changed = match doc.sync_runtime_bindings(self, activated) {
+            Ok(c) => c,
+            Err(e) => {
+                self.ui_document = Some(doc);
+                return Err(e);
+            }
+        };
+        if changed > 0 {
+            let (scene_src, templates, _) = match doc.render_scene() {
+                Ok(res) => res,
+                Err(e) => {
+                    self.ui_document = Some(doc);
+                    return Err(e);
+                }
+            };
+            let mut next = match Self::from_sources(&scene_src, &templates) {
+                Ok(rt) => rt,
+                Err(e) => {
+                    self.ui_document = Some(doc);
+                    return Err(e);
+                }
+            };
+            next.preserve_binding_interaction(self);
+            next.ui_document = Some(doc);
+            *self = next;
+            Ok(true)
+        } else {
+            self.ui_document = Some(doc);
+            Ok(false)
+        }
+    }
+
+    /// Returns the retained `.ui` `Document` state map (if loaded via `from_ui_files`), or empty map.
+    pub fn ui_state_properties(&self) -> crate::form_document::Properties {
+        self.ui_document
+            .as_ref()
+            .and_then(|d| d.states.first().cloned())
+            .unwrap_or_default()
+    }
+
     /// Builds an AccessKit-compatible semantic accessibility tree for native and Web assistive technologies.
     pub fn accessibility_tree(&self) -> A11yTree {
         let mut a11y_nodes = Vec::with_capacity(self.nodes.len());
@@ -996,40 +1044,7 @@ impl Runtime {
     /// back into the retained Rust `.ui` `Document`, re-rendering the scene while preserving focus
     /// and active text/slider interaction. Returns `true` if any bound state property changed.
     pub fn sync_ui_bindings(&mut self) -> Result<bool, JsValue> {
-        let Some(mut doc) = self.ui_document.take() else {
-            return Ok(false);
-        };
-        let activated = self.last_event.take();
-        let changed = match doc.sync_runtime_bindings(self, activated) {
-            Ok(c) => c,
-            Err(e) => {
-                self.ui_document = Some(doc);
-                return Err(JsValue::from_str(&e));
-            }
-        };
-        if changed > 0 {
-            let (scene_src, templates, _) = match doc.render_scene() {
-                Ok(res) => res,
-                Err(e) => {
-                    self.ui_document = Some(doc);
-                    return Err(JsValue::from_str(&e));
-                }
-            };
-            let mut next = match Self::from_sources(&scene_src, &templates) {
-                Ok(rt) => rt,
-                Err(e) => {
-                    self.ui_document = Some(doc);
-                    return Err(JsValue::from_str(&e));
-                }
-            };
-            next.preserve_binding_interaction(self);
-            next.ui_document = Some(doc);
-            *self = next;
-            Ok(true)
-        } else {
-            self.ui_document = Some(doc);
-            Ok(false)
-        }
+        self.sync_ui_bindings_native().map_err(|e| JsValue::from_str(&e))
     }
     /// Exports the current state of the retained Rust `.ui` `Document` as a JSON string.
     pub fn ui_state_json(&self) -> String {
