@@ -585,3 +585,27 @@ test('an update writes a button state only when it changes',()=>{
  treeSelect(parse('component Test { Frame { width: 400; Button { x: 10; y: 20; key: \'button\'; } } }').nodes[0].children[0].start);
  assert.ok(writes>0&&buttons.some(b=>!b.disabled),'a new selection still enables what it can run');
 });
+test('a selected container carries interactive padding handles that write padding to .ui on drag',()=>{
+ const t=setup("component Test { Frame { width: 400; height: 200; padding: 10; Frame { key: 'box'; x: 20; y: 20; width: 200; height: 120; padding: 12; Button { key: 'a'; width: 40; height: 20; } } } }");
+ const box=nodeOf(t,'box');
+ t.treeSelect(box.start);
+ const padHandles=handleLayer(t).children.filter(c=>c.dataset?.pad).map(c=>c.dataset.pad);
+ assert.deepEqual(padHandles,['top','right','bottom','left']);
+ const topHandle=handleLayer(t).children.find(c=>c.dataset?.pad==='top');
+ // Fixture runs at 200% scale: dragging down by 16 screen pixels adds 8 scene units to top padding (12 -> 20)
+ t.viewport.emit('pointerdown',{target:topHandle,button:0,pointerId:11,clientX:100,clientY:60});
+ t.viewport.emit('pointermove',{pointerId:11,clientX:100,clientY:76});
+ assert.equal(t.commits.length,0);
+ t.viewport.emit('pointerup',{pointerId:11});
+ assert.equal(t.commits.length,1);
+ assert.deepEqual(nodeOf(t,'box').props.padding,[20,12,12,12]);
+
+ // Shift-dragging left handle inward by 16 screen pixels (+8 scene units) sets uniform padding (12 + 8 = 20)
+ const leftHandle=handleLayer(t).children.find(c=>c.dataset?.pad==='left');
+ t.viewport.emit('pointerdown',{target:leftHandle,button:0,pointerId:12,clientX:60,clientY:120});
+ t.viewport.emit('pointermove',{pointerId:12,clientX:76,clientY:120,shiftKey:true});
+ t.viewport.emit('pointerup',{pointerId:12});
+ assert.equal(t.commits.length,2);
+ assert.equal(nodeOf(t,'box').props.padding,20);
+ assert.deepEqual(t.errors,[]);
+});

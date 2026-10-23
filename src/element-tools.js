@@ -1,12 +1,12 @@
 import {createEventScope} from './event-scope.js';
 import {parse} from './language.js';
-import {copyElements,copyElement,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock,moveIntoContainer,groupElements} from './element-edit.js';
+import {copyElements,copyElement,insertElements,insertElement,removeElement,moveElement,locateElement,gridCell,reorderElement,editElements,holdsChildren,resizeElement,resizeBlock,moveIntoContainer,groupElements,paddingBlock,readNodePadding,editPadding} from './element-edit.js';
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
 import {flowsCoordinates} from './positioning.js';
 import {controlCss} from './handoff.js';
 export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report,copy=text=>navigator.clipboard?.writeText(text)}){
  const events=createEventScope(),listen=events.listen;
- let clipboard='',drag=null,selection=[],primary=null,snapping=true,resize=null;
+ let clipboard='',drag=null,selection=[],primary=null,snapping=true,resize=null,padTarget=null;
  // A palette entry can be pulled out of the menu onto the canvas, and only this module's own drag
  // carries a control, so a foreign payload — a file, somebody else's text — stays a plain browser drag.
  const MIME='application/x-forma-control';let payload=null,hint=null;
@@ -117,6 +117,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   const drawn=new Map(),panels=new Map(),frames=new Map();
   for(const control of c.scene.controls)if(nodes.has(control.start)&&!drawn.has(control.start)){drawn.set(control.start,control.bounds);frames.set(control.start,control.coordinateBox??[0,0,0,0]);}
   for(const panel of c.scene.containers??[])if(nodes.has(panel.start)&&!drawn.has(panel.start)&&!panels.has(panel.start)){panels.set(panel.start,panel.bounds);frames.set(panel.start,panel.coordinateBox??[0,0,0,0]);}
+  if(c.root&&nodes.has(c.root.start)&&!panels.has(c.root.start))panels.set(c.root.start,[0,0,c.scene.width,c.scene.height]);
   return measure={scene:c.scene,source:c.source,drawn,panels,frames,nodes,unions:new Map()};
  }
  function boxOf(c,start){
@@ -132,9 +133,9 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  // covers the point, and from a selected node it steps out to the container that holds it.
  function shellAt(c,x,y,from){
   const m=measured(c),covers=b=>!!b&&x>=b[0]&&y>=b[1]&&x<=b[0]+b[2]&&y<=b[1]+b[3];
-  if(from==null){const under=[...m.panels].filter(([,box])=>covers(box)).sort((a,b)=>a[1][2]*a[1][3]-b[1][2]*b[1][3]);return under.length?under[0][0]:null;}
+  if(from==null){const under=[...m.panels].filter(([start,box])=>start!==c.root?.start&&covers(box)).sort((a,b)=>a[1][2]*a[1][3]-b[1][2]*b[1][3]);return under.length?under[0][0]:null;}
   const parentOf=start=>{try{return locateElement(c.source,start).parent;}catch{return null;}};
-  for(let node=parentOf(from);node;node=parentOf(node.start))if(covers(m.panels.get(node.start)))return node.start;
+  for(let node=parentOf(from);node&&node.start!==c.root?.start;node=parentOf(node.start))if(covers(m.panels.get(node.start)))return node.start;
   return null;
  }
  // A dragged container carries its children with it, so none of them is a snap target of its own.
@@ -277,12 +278,36 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   for(const [name,fx,fy,cursor] of sides){const el=document.createElement('button');el.className='element-resize-handle';el.dataset.side=name;el.title='Потянуть, чтобы изменить размер';el.setAttribute('aria-label',`Изменить размер: ${name}`);el.tabIndex=-1;
    Object.assign(el.style,{left:g.x+(bounds[0]+bounds[2]*fx)*g.scale+'px',top:g.y+(bounds[1]+bounds[3]*fy)*g.scale+'px',cursor});overlay.append(el);}
  }
+ const padSides=[['top','ns-resize'],['right','ew-resize'],['bottom','ns-resize'],['left','ew-resize']];
+ function paddingHandles(bounds,pad){const g=geometry(),[t,r,b,l]=pad;
+  const coords={
+   top:[bounds[0]+bounds[2]*.5,bounds[1]+Math.min(bounds[3]*.5,Math.max(4,t))],
+   right:[bounds[0]+bounds[2]-Math.min(bounds[2]*.5,Math.max(4,r)),bounds[1]+bounds[3]*.5],
+   bottom:[bounds[0]+bounds[2]*.5,bounds[1]+bounds[3]-Math.min(bounds[3]*.5,Math.max(4,b))],
+   left:[bounds[0]+Math.min(bounds[2]*.5,Math.max(4,l)),bounds[1]+bounds[3]*.5],
+  };
+  for(const [side,cursor] of padSides){
+   const [px,py]=coords[side],el=document.createElement('button');
+   el.className='element-padding-handle';el.dataset.pad=side;
+   el.title='Потянуть внутрь, чтобы изменить padding (Shift — равномерно со всех сторон)';
+   el.setAttribute('aria-label',`Изменить отступ padding: ${side}`);el.tabIndex=-1;
+   Object.assign(el.style,{left:g.x+px*g.scale+'px',top:g.y+py*g.scale+'px',cursor});
+   overlay.append(el);
+  }
+ }
  function draw(){overlay.replaceChildren();const c=context();if(!c)return;
   for(const item of items(c))box(item.bounds,'element-selected-box');
   if(!drag&&resize!=null)for(const item of items(c))handles(item.bounds);
+  if(!drag&&padTarget!=null){const item=items(c)[0],node=measured(c).nodes.get(padTarget);if(item&&node)paddingHandles(item.bounds,readNodePadding(node));}
   if(!drag&&hint)box(hint,'element-drop-hint');
   if(!drag)return;
   if(drag.kind==='marquee'){box(drag.marquee,'element-marquee');return;}
+  if(drag.kind==='padding'){const g=geometry(),b=drag.bounds,[pt,pr,pb,pl]=drag.previewPad;
+   const inner=[b[0]+pl,b[1]+pt,Math.max(0,b[2]-pl-pr),Math.max(0,b[3]-pt-pb)];
+   box(inner,'element-padding-preview');
+   const label=document.createElement('span');label.className='element-drag-label';
+   label.textContent=drag.uniform?`padding ${Math.round(pt*10)/10}`:`padding.${drag.padSide} ${Math.round(drag.previewValue*10)/10}`;
+   Object.assign(label.style,{left:g.x+b[0]*g.scale+'px',top:g.y+b[1]*g.scale-22+'px'});overlay.append(label);return;}
   if(drag.kind==='resize'){const g=geometry(),b=drag.preview,label=document.createElement('span');label.className='element-drag-label';
    label.textContent=`${Math.round(b[2])} × ${Math.round(b[3])}`;box(b,'element-drag-preview');
    Object.assign(label.style,{left:g.x+b[0]*g.scale+'px',top:g.y+b[1]*g.scale-22+'px'});overlay.append(label);return;}
@@ -298,9 +323,15 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  listen(viewport,'pointerdown',e=>{
   const c=current();if(!c||e.button!==0||e.detail>1||e.target.closest('.grid-handle')||viewport.classList.contains('canvas-pan-ready'))return;
   if(!artboard.contains(e.target)&&e.target!==viewport){
-   const side=e.target?.dataset?.side;
+   const side=e.target?.dataset?.side,padSide=e.target?.dataset?.pad;
    // A handle belongs to the selection rather than to the control underneath it, so the drag
    // starts from the rendered box the designer sees, not from whatever the pointer is over.
+   if(padSide&&padTarget!=null){const item=items(c)[0],node=measured(c).nodes.get(padTarget);if(!item||!node)return;
+    e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
+    const g=geometry(),basePad=readNodePadding(node);
+    const idx={top:0,right:1,bottom:2,left:3}[padSide];
+    drag={...c,kind:'padding',id:e.pointerId,start:item.start,padSide,padIndex:idx,basePad,bounds:item.bounds,x:e.clientX,y:e.clientY,scale:g.scale,delta:0,uniform:false,previewValue:basePad[idx],previewPad:[...basePad],moved:false};
+    viewport.setPointerCapture(e.pointerId);draw();return;}
    if(side&&resize!=null){const item=items(c)[0];if(!item)return;
     e.preventDefault();e.stopImmediatePropagation();viewport.focus({preventScroll:true});
     const g=geometry();drag={...c,kind:'resize',id:e.pointerId,start:item.start,unit:unit(side),bounds:item.bounds,base:origin(c,item),x:e.clientX,y:e.clientY,scale:g.scale,edges:{left:0,right:0,top:0,bottom:0},preview:item.bounds,moved:false};
@@ -321,6 +352,15 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
   if(!drag||e.pointerId!==drag.id)return;e.preventDefault();e.stopImmediatePropagation();
   let dx=(e.clientX-drag.x)/drag.scale,dy=(e.clientY-drag.y)/drag.scale;drag.moved=Math.hypot(dx,dy)*drag.scale>=3;
   if(drag.kind==='marquee'){drag.marquee=[drag.origin[0]+Math.min(0,dx),drag.origin[1]+Math.min(0,dy),Math.abs(dx),Math.abs(dy)];draw();return;}
+  if(drag.kind==='padding'){
+   const inward=drag.padSide==='top'?dy:drag.padSide==='bottom'?-dy:drag.padSide==='left'?dx:-dx;
+   const maxPad=drag.padSide==='top'||drag.padSide==='bottom'?drag.bounds[3]*.5:drag.bounds[2]*.5;
+   const nextVal=Math.max(0,Math.min(maxPad,drag.basePad[drag.padIndex]+inward));
+   drag.delta=nextVal-drag.basePad[drag.padIndex];
+   drag.uniform=Boolean(e.shiftKey);
+   drag.previewValue=nextVal;
+   drag.previewPad=drag.uniform?[nextVal,nextVal,nextVal,nextVal]:drag.basePad.map((v,i)=>i===drag.padIndex?nextVal:v);
+   draw();return;}
   if(drag.kind==='resize'){const b=drag.bounds,u=drag.unit,base=drag.base;
    // A side cannot cross the opposite one, and a leading edge cannot push the control past the
    // corner its own coordinate is measured from.
@@ -348,6 +388,8 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    const drawn=[...measured(d).drawn.keys()];
    const hit=d.moved?items(d,drawn).filter(i=>intersects(i.bounds,d.marquee)).map(i=>i.start):[];
    choose([...new Set([...d.initial,...hit])],d);return;}
+  if(d.kind==='padding'){if(!d.moved)return;
+   try{apply(editPadding(d.source,d.start,d.padSide,d.delta,d.uniform),d);}catch(error){report(error.message);}return;}
   if(d.kind==='resize'){if(!d.moved)return;
    try{apply(resizeElement(d.source,d.start,d.edges,d.bounds,d.base),d);}catch(error){report(error.message);}return;}
   if(!d.moved)return;try{
@@ -396,6 +438,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
  listen(window,'paste',e=>{if(!scope(e)||!current())return;e.preventDefault();run('paste',e.clipboardData.getData('text/plain'));});
  function update(){const c=current();if(!c)closeMenu();let location;try{if(c?.start!=null)location=locateElement(c.source,c.start);}catch{}
   resize=selection.length===1&&location&&!resizeBlock(location.node,location.parent)?selection[0]:null;
+  padTarget=selection.length===1&&location&&(holdsChildren(location.node)||location.node.props.padding!==undefined||['top','right','bottom','left'].some(s=>location.node.props[`padding.${s}`]!==undefined))&&!paddingBlock(location.node)?selection[0]:null;
   drawAdds(c?.inserts);
   count.textContent=selection.length?`Выбрано: ${selection.length}`:'';
   // Each button's state is worked out first and written only when it changed: the Studio shell

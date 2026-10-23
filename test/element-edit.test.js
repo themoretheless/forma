@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {parse} from '../src/language.js';
-import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock,moveAmongSiblings,moveBlock,moveIntoContainer,groupElements} from '../src/element-edit.js';
+import {moveElement,copyElement,insertElement,removeElement,gridCell,reorderElement,locateElement,resizeElement,resizeBlock,moveAmongSiblings,moveBlock,moveIntoContainer,groupElements,paddingBlock,readNodePadding,editPadding} from '../src/element-edit.js';
 const apply=(s,c)=>s.slice(0,c.from)+c.insert+s.slice(c.to);
 const sample="component Test { Frame { width: 400; Button { key: 'a'; text: 'a'; x: 10; y: 20; clicked -> actions.save(); } Button { key: 'a_2'; } } }";
 const first=s=>parse(s).nodes[0].children[0];
@@ -279,4 +279,26 @@ test('a coordinate the designer bound to code and a control the canvas never dre
  assert.throws(()=>groupElements(bound,pick(bound,'a','b'),[0,0,80,20],at([byKey(bound,'a'),byKey(bound,'b')])),/выражением/);
  const pair=[byKey(freePage,'a'),byKey(freePage,'b')];
  assert.throws(()=>groupElements(freePage,pick(freePage,'a','b'),[0,0,80,20],at([pair[0]])),/которые рисует холст/);
+});
+test('editPadding updates single side, symmetric pairs or uniform padding and refuses expressions',()=>{
+ const page="component Test { Frame { width: 400; padding: 12; Row { key: 'r'; padding.top: 8; } Button { key: 'b'; padding: state.pad; } } }";
+ const root=parse(page).nodes[0];
+ assert.deepEqual(readNodePadding(root),[12,12,12,12]);
+ // Dragging top inward by +8 changes [12,12,12,12] -> [20,12,12,12]
+ let next=apply(page,editPadding(page,root.start,'top',8,false));
+ assert.deepEqual(parse(next).nodes[0].props.padding,[20,12,12,12]);
+ // Dragging bottom by +8 makes top===bottom (20) and right===left (12) -> [20, 12]
+ next=apply(next,editPadding(next,parse(next).nodes[0].start,'bottom',8,false));
+ assert.deepEqual(parse(next).nodes[0].props.padding,[20,12]);
+ // Uniform Shift-drag sets scalar padding
+ next=apply(next,editPadding(next,parse(next).nodes[0].start,'left',4,true));
+ assert.equal(parse(next).nodes[0].props.padding,16);
+ // Side-specific property `padding.top` is updated in place when `padding` is not declared
+ const r=byKey(next,'r');
+ next=apply(next,editPadding(next,r.start,'top',6,false));
+ assert.equal(byKey(next,'r').props['padding.top'],14);
+ // Bound expression is refused
+ const b=byKey(next,'b');
+ assert.match(paddingBlock(b),/выражением/);
+ assert.throws(()=>editPadding(next,b.start,'top',4,false),/выражением/);
 });

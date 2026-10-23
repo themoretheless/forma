@@ -67,6 +67,54 @@ export function resizeElement(source,start,edges,bounds,origin=[0,0]){
  const next=patch(source,node,props);parse(next);
  return {from:node.start,to:node.end,insert:next.slice(node.start,node.end+next.length-source.length),start:node.start};
 }
+const PAD_SIDES={top:0,right:1,bottom:2,left:3};
+// Padding handles appear on layout containers and controls whose padding is not bound to code.
+export function paddingBlock(node){
+ if(!node)return 'Выберите элемент';
+ const val=node.props.padding;
+ if(val?.expr!==undefined)return 'Отступ padding задан выражением: измените его в коде';
+ if(Array.isArray(val)&&val.some(v=>typeof v!=='number'))return 'Отступ padding содержит выражение: измените его в коде';
+ if(val!==undefined&&typeof val!=='number'&&!Array.isArray(val))return 'Отступ padding задан выражением: измените его в коде';
+ for(const side of Object.keys(PAD_SIDES)){
+  const s=node.props[`padding.${side}`];
+  if(s!==undefined&&typeof s!=='number')return `Отступ padding.${side} задан выражением: измените его в коде`;
+ }
+ return null;
+}
+export function readNodePadding(node){
+ const base=node?.props?.padding;
+ const tuple=Array.isArray(base)?(base.length===1?[base[0],base[0],base[0],base[0]]:base.length===2?[base[0],base[1],base[0],base[1]]:base.length===3?[base[0],base[1],base[2],base[1]]:[base[0],base[1],base[2],base[3]]):typeof base==='number'?[base,base,base,base]:[0,0,0,0];
+ return ['top','right','bottom','left'].map((side,i)=>{
+  const specific=node?.props?.[`padding.${side}`];
+  return typeof specific==='number'?specific:(typeof tuple[i]==='number'?tuple[i]:0);
+ });
+}
+export function editPadding(source,start,side,delta,uniform=false){
+ const {node}=locateElement(source,start);
+ const block=paddingBlock(node);if(block)throw Error(block);
+ const idx=PAD_SIDES[side];
+ if(idx===undefined)throw Error('Неизвестная сторона padding');
+ const current=readNodePadding(node);
+ const rounded=v=>Math.max(0,Math.round(v*10)/10);
+ const nextPad=[...current];
+ if(uniform){
+  const v=rounded(current[idx]+delta);
+  nextPad[0]=nextPad[1]=nextPad[2]=nextPad[3]=v;
+ }else{
+  nextPad[idx]=rounded(current[idx]+delta);
+ }
+ const hasSideProps=['top','right','bottom','left'].some(s=>node.propertyRanges?.[`padding.${s}`]);
+ let props;
+ if(!uniform&&hasSideProps&&!node.propertyRanges?.padding){
+  props={[`padding.${side}`]:nextPad[idx]};
+ }else{
+  const [t,r,b,l]=nextPad;
+  const val=(t===r&&r===b&&b===l)?t:(t===b&&r===l)?[t,r]:[t,r,b,l];
+  props={padding:val};
+ }
+ const next=patch(source,node,props);parse(next);
+ return {from:node.start,to:node.end,insert:next.slice(node.start,node.end+next.length-source.length),start:node.start};
+}
 export function removeElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Корневой контейнер нельзя удалить');return {from:node.start,to:node.end,insert:'',start:parent.start};}
 export function copyElement(source,start){const {node,parent}=locateElement(source,start);if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Выберите дочерний контрол');return source.slice(node.start,node.end);}
 export function insertElement(source,start,text,multiple=false,side='auto'){

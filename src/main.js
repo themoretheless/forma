@@ -172,7 +172,7 @@ if(renderer==='vector'){
   $('canvas').classList.toggle('interacting',!designMode);canvasTools?.update();layoutInspector?.update();elementTools?.update();return;
 }
 renderHtmlPreview({preview:$('preview'),compiled,state,interactive:mode!=='design',design:designMode?designStatePatch(compiled,compiled.states[scenario]?.name):null,onSelect:select,onEvent:dispatch,onLog:log,onChange:schedulePreviewRefresh});
-$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();}
+$('canvas').classList.toggle('interacting',mode!=='design');spacingOverlay?.update();canvasTools?.update();elementTools?.update();}
 // The panel is rebuilt from one place so every change of selection or of the preview preset
 // recomputes `editable`: rows that write markup must not survive a switch to a design scenario.
 function renderInspector(){
@@ -375,8 +375,28 @@ function projectInserts(){
  if(signature!==insertSignature){insertSignature=signature;insertCatalog=insertableControls(files);}
  return insertCatalog;
 }
+function domLayoutSnapshot(){
+ const preview=$('preview');if(!preview)return null;
+ const rootEl=preview.firstElementChild;
+ const r=preview.getBoundingClientRect();
+ const scale=r.width/(preview.offsetWidth||r.width||1);
+ const width=preview.offsetWidth||(r.width/scale)||360,height=preview.offsetHeight||(r.height/scale)||220;
+ const controls=[],containers=[];
+ const containerSet=new Set(['frame','row','column','grid','stack','scroll','modal']);
+ for(const el of preview.querySelectorAll('[data-start]')){
+  if(el===rootEl)continue;
+  const start=Number(el.dataset.start);
+  const er=el.getBoundingClientRect(),pr=(el.parentElement??preview).getBoundingClientRect();
+  const bounds=[(er.left-r.left)/scale,(er.top-r.top)/scale,er.width/scale,er.height/scale];
+  const coordinateBox=[(pr.left-r.left)/scale,(pr.top-r.top)/scale,pr.width/scale,pr.height/scale];
+  const isContainer=[...el.classList].some(c=>containerSet.has(c));
+  if(isContainer)containers.push({start,bounds,coordinateBox});
+  else controls.push({index:controls.length,start,bounds,coordinateBox});
+ }
+ return {width,height,clip:false,scrollable:false,scrollOffset:[0,0],controls,containers};
+}
 elementTools=createElementTools({viewport:$('canvas'),artboard:$('preview'),toolbar:document.querySelector('.canvas-tools'),
-context:()=>{if(renderer!=='vector'||mode!=='design'||designPresetName!=='original'||error||!vectorPreview)return null;const root=compiled?.nodes[0],children=root?.children??[];return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,top:sceneControlNodes(children),pick:start=>findNodeByStart(root?[root]:[],start),scene:vectorPreview.layoutSnapshot(),grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
+context:()=>{if(mode!=='design'||designPresetName!=='original'||error||(renderer==='vector'&&!vectorPreview))return null;const root=compiled?.nodes[0],children=root?.children??[],scene=renderer==='vector'?vectorPreview.layoutSnapshot():domLayoutSnapshot();if(!scene)return null;return {source:files[entry],path:entry,root,start:selectedPath===entry?selected?.start:null,top:sceneControlNodes(children),pick:start=>findNodeByStart(root?[root]:[],start),scene,grid:lastVisuals.find(v=>v.control===-1)?.grid,inserts:projectInserts(),visuals:lastVisuals,state};},
 select,report:message=>{$('caption').textContent=message;},
 copy:async text=>{try{await navigator.clipboard.writeText(text);$('caption').textContent='CSS скопирован в буфер';}catch{$('caption').textContent='Буфер обмена недоступен';}},
 history:action=>{
@@ -398,7 +418,7 @@ commit:(change,context)=>{
  if(entry!==context.path||files[entry]!==context.source)throw Error('Исходник изменился — повторите операцию');
  const next=context.source.slice(0,change.from)+change.insert+context.source.slice(change.to);
  if(next===context.source)return;
- parse(next);compileComponents({...files,[entry]:next},entry,state,{measureText:vectorPreview.measureText,designMode:mode==='design',designState:scenario<0?null:compiled?.states[scenario]?.name??null});
+ parse(next);if(renderer==='vector'&&vectorPreview)compileComponents({...files,[entry]:next},entry,state,{measureText:vectorPreview.measureText,designMode:mode==='design',designState:scenario<0?null:compiled?.states[scenario]?.name??null});
  if(active!==entry)open(entry);codeEditor.edit({from:change.from,to:change.to,insert:change.insert});
  // The editor publishes its input event first; reselect against the new AST afterwards.
  queueMicrotask(()=>{clearTimeout(compileTimer);compile();const found=findNodeByStart(compiled?.nodes,change.start);if(found)select(found);if(change.starts)elementTools.setSelection(change.starts);elementTools.update();});
