@@ -301,6 +301,7 @@ function compile(files,entry,state,metrics,read,links){
       if(typeof key==='string'&&own(designPatch,key)){
         const resolvedPatch=Object.fromEntries(Object.entries(designPatch[key]).map(([k,v])=>[k,resolveDesignValue(v)]));
         n.props={...n.props,...resolvedPatch};
+        if(n.bindings)for(const k of Object.keys(resolvedPatch))delete n.bindings[k];
       }
     });
   }

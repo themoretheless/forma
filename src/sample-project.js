@@ -53,7 +53,107 @@ component SearchWindow {
         Button { key: 'searchButton'; disabled: true; }
         Text { key: 'status'; text: 'Ничего не найдено'; }
     }
-}`, 
+}`,
+ 'components/Button.ui':`component Button {
+    width: 456;
+    height: 44;
+    text: 'Кнопка';
+    style: 'default';
+    fontSize: 15;
+    color: #14213b;
+    radius: 8;
+    disabled: false;
+    background: #8fa8ff;
+    hoverBackground: #a8baff;
+    pressedBackground: #6a83da;
+    disabledBackground: #596273;
+    borderWidth: 1;
+    borderColor: #bed0ff;
+    focusBorderColor: #ffffff;
+    transitionDuration: 140ms;
+
+    Rectangle {
+        radius: props.radius;
+
+        background: Brush {
+            color: props.background;
+            hover: props.hoverBackground;
+            pressed: props.pressedBackground;
+            disabled: props.disabledBackground;
+            transition: props.transitionDuration;
+        };
+
+        Border {
+            width: props.borderWidth;
+            background: Brush {
+                color: props.borderColor;
+                focus: props.focusBorderColor;
+                transition: props.transitionDuration;
+            };
+        }
+
+        Text {
+            text: props.text;
+            color: props.color;
+            fontSize: props.fontSize;
+        }
+
+        PointerArea {
+            clicked -> events.clicked();
+        }
+    }
+}`,
+ 'components/TextInput.ui':`component TextInput {
+    width: 456;
+    height: 42;
+    value: '';
+    placeholder: '';
+    padding: 12;
+    multiline: false;
+    text: props.value;
+    fontSize: 15;
+    color: #e8edf7;
+    placeholderColor: #76839b;
+    background: #141a25;
+    hoverBackground: #18202e;
+    pressedBackground: #141a25;
+    borderWidth: 1;
+    borderColor: #30394a;
+    focusBorderColor: #8fa8ff;
+    radius: 8;
+    transitionDuration: 140ms;
+
+    Rectangle {
+        radius: props.radius;
+
+        background: Brush {
+            color: props.background;
+            hover: props.hoverBackground;
+            pressed: props.pressedBackground;
+            transition: props.transitionDuration;
+        };
+
+        Border {
+            width: props.borderWidth;
+            background: Brush {
+                color: props.borderColor;
+                focus: props.focusBorderColor;
+                transition: props.transitionDuration;
+            };
+        }
+
+        Frame {
+            padding: props.padding;
+            TextInput {
+                forward props { value, placeholder, multiline, fontSize, color, placeholderColor };
+            }
+        }
+
+        PointerArea {
+            clicked -> events.clicked();
+        }
+    }
+}`,
  'src/actions.rs':`// Контракт будущего Rust-backend.
 // Этот файл редактируется, но не выполняется в web-preview.
 

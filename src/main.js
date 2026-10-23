@@ -65,6 +65,7 @@ import {parse,resolve,validateDesign,designStatePatch,formatSource,lintDocument}
 
 const initialProject=isStudioControls?studioControlsProject:sampleProject;
 let files=restoreProject(readStorage('localStorage',storageKey('forma-project')),initialProject);
+if(!isStudioControls){files['components/Button.ui']??=sampleProject['components/Button.ui'];files['components/TextInput.ui']??=sampleProject['components/TextInput.ui'];}
 files['Cargo.toml']??=`[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
 files['src/main.rs']??=`mod actions;\n\nfn main() {\n    let mut state = actions::SearchState {\n        query: String::from("Архитектура"),\n        loading: false,\n        status: String::from("Готов"),\n    };\n    println!("Rust-приложение запущено");\n    println!("Запрос: {}", state.query);\n    actions::search(&mut state);\n    println!("После actions::search: loading={}, status={}", state.loading, state.status);\n}\n`;
 let active=Object.keys(files)[0],entry=Object.keys(files).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')), scenario=0,state={},compiled=null,selected=null,mode=readStorage('sessionStorage',storageKey('forma-canvas-mode'))==='interact'?'interact':'design',pending=null,breakOn=false,logs=[],lintWarnings=[],tab='problems',error='',saveTimer,compileTimer;
