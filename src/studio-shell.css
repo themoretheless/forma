@@ -23,15 +23,15 @@ label.forma-host-control{display:inline-flex!important;align-items:center;gap:10
 label.forma-host-control>input[type=checkbox]{width:18px;height:18px;margin:0;flex:none}
 /* Recreated DOM controls must already use the guide before the first WASM frame.
    Do not rely on observer-added classes: tree/file selection replaces nodes. */
-body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row,input,select,#filename,footer):where(:not(#preview *, .cm-editor *, .color-picker *)){
+body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row,input,select,#filename,footer):where(:not(#preview *, .cm-editor *, .color-picker *, .element-selection-overlay *, .layout-overlay *)){
  background-color:var(--guide-surface);color:var(--guide-text);border-color:var(--guide-border);accent-color:var(--guide-primary);
 }
-body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *)):hover{background-color:var(--guide-surfaceHover)}
-body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *)):active{background-color:var(--guide-surfacePressed)}
-body.forma-studio-ui.forma-studio-ui :where(.chosen,.file.active,.control-tree-row[aria-selected=true],[aria-pressed=true]):where(:not(#preview *, .cm-editor *, .color-picker *)){
+body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *, .element-selection-overlay *, .layout-overlay *)):hover{background-color:var(--guide-surfaceHover)}
+body.forma-studio-ui.forma-studio-ui :where(button,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *, .element-selection-overlay *, .layout-overlay *)):active{background-color:var(--guide-surfacePressed)}
+body.forma-studio-ui.forma-studio-ui :where(.chosen,.file.active,.control-tree-row[aria-selected=true],[aria-pressed=true]):where(:not(#preview *, .cm-editor *, .color-picker *, .element-selection-overlay *, .layout-overlay *)){
  background:var(--guide-surfaceRaised)!important;color:var(--guide-text)!important;box-shadow:inset 2px 0 var(--guide-primary);
 }
-body.forma-studio-ui.forma-studio-ui :where(button,input,select,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *)):focus-visible{outline:2px solid var(--guide-focus);outline-offset:-1px}
+body.forma-studio-ui.forma-studio-ui :where(button,input,select,a.controls-link,.control-tree-row):where(:not(#preview *, .cm-editor *, .color-picker *, .element-selection-overlay *, .layout-overlay *)):focus-visible{outline:2px solid var(--guide-focus);outline-offset:-1px}
 body.forma-studio-ui.forma-studio-ui button.accent:not(#preview *){background-color:var(--guide-primary);color:var(--guide-primaryText)}
 body.forma-studio-ui.forma-studio-ui :where(.canvas-modes,.layout-inspector[open]){background:var(--guide-surface);border-color:var(--guide-border)}
 body.forma-studio-ui.forma-studio-ui :where(.file .ui,.file-icon,.control-tree-label,.control-tree-detail){color:var(--guide-textMuted)}

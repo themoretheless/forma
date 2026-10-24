@@ -13,7 +13,7 @@ import {createKeyedPool} from './keyed-pool.js';
 const raw=import.meta.glob('../vector-ui/controls/{components,assets}/*',{query:'?raw',import:'default',eager:true});
 const library=materializeTheme(Object.fromEntries(Object.entries(raw).map(([path,value])=>[path.slice('../vector-ui/controls/'.length),value])),'dark');
 // Surfaces that draw themselves: the design canvas, the code editor, pickers and native inspection.
-const foreign='#preview,.cm-editor,.color-picker,#native-inspection';
+const foreign='#preview,.cm-editor,.color-picker,#native-inspection,.element-selection-overlay,.layout-overlay';
 // Milliseconds of shell painting per animation frame.
 const frameBudget=8;
 const selector='button,a.controls-link,.control-tree-row,label:has(>input[type="checkbox"]),input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]),select,#filename,footer,#output>p.error,#output>p.ok';
