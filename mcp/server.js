@@ -12,7 +12,7 @@ async function request(command,args){
   const result=await response.json();if(!response.ok||result.error)throw Error(result.error||'Bridge failed');return result.result;
 }
 const definitions=[
- ['app_run','Launch current UI: vector renderer uses .ui source and components/Button.ui; HTML renderer uses WebView/SearchState contract',{},false],
+ ['app_run','Launch current UI: typed forms open a native window with the live Rust ViewModel; Runtime projects use vector or legacy WebView preview',{backend:z.enum(['egui','svet','ask']).optional()},false],
  ['app_stop','Close the running native application',{},false],
  ['rust_run','Compile and execute current virtual Cargo project locally, offline. Runs user Rust code; inspect events_read for completion.',{},false],
  ['rust_stop','Stop active Cargo run',{},false],

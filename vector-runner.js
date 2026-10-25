@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {mkdir, mkdtemp, readdir, rm, writeFile} from 'node:fs/promises';
+import {mkdir, mkdtemp, readdir, rename, rm, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -15,6 +15,7 @@ export function createVectorRunner(send, dependencies = {}) {
     mkdir: makeDirectory = mkdir,
     mkdtemp: makeTemporaryDirectory = mkdtemp,
     readdir: readDirectory = readdir,
+    rename: renameFile = dependencies.writeFile ? null : rename,
     rm: removeDirectory = rm,
     writeFile: writeSnapshot = writeFile,
     kill: signalProcess = process.kill.bind(process),
@@ -58,7 +59,7 @@ export function createVectorRunner(send, dependencies = {}) {
   }
 
   return {
-    async run({source, template} = {}) {
+    async run({source, template, backend} = {}) {
       if (active) {
         send({kind: 'error', text: 'Векторное окно уже запускается или запущено. Сначала остановите его.'});
         return;
@@ -94,9 +95,10 @@ export function createVectorRunner(send, dependencies = {}) {
         }
 
         send({kind: 'started', text: 'Сборка векторного окна из разметки Forma Studio…'});
+        const backendArgs = backend === 'egui' || backend === 'svet' ? ['--backend', backend] : [];
         const child = spawnProcess('cargo', [
           'run', '--release', '--offline', '--manifest-path', path.join(root, 'vector-ui/Cargo.toml'),
-          '--features', 'native', '--', snapshot, ...(template === undefined ? [] : [component]),
+          '--features', 'native', '--', ...backendArgs, snapshot, ...(template === undefined ? [] : [component]),
         ], {cwd: root, detached: grouped, stdio: ['ignore', 'pipe', 'pipe']});
         job.child = child;
         for (const channel of ['stdout', 'stderr']) {
@@ -126,9 +128,21 @@ export function createVectorRunner(send, dependencies = {}) {
       if (template !== undefined && (typeof template !== 'string' || !template.trim() || template.length > maxTemplateLength)) return false;
       try {
         if (template !== undefined && job.component) {
-          await writeSnapshot(job.component, template, 'utf8');
+          if (renameFile) {
+            const tmpComp = `${job.component}.tmp`;
+            await writeSnapshot(tmpComp, template, 'utf8');
+            await renameFile(tmpComp, job.component);
+          } else {
+            await writeSnapshot(job.component, template, 'utf8');
+          }
         }
-        await writeSnapshot(job.snapshot, source, 'utf8');
+        if (renameFile) {
+          const tmpSnap = `${job.snapshot}.tmp`;
+          await writeSnapshot(tmpSnap, source, 'utf8');
+          await renameFile(tmpSnap, job.snapshot);
+        } else {
+          await writeSnapshot(job.snapshot, source, 'utf8');
+        }
         return true;
       } catch {
         return false;

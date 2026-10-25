@@ -4,6 +4,9 @@ dist/
 native-app/target/
 vector-ui/target/
 vector-ui/examples/*/target/
+packages/svet/crates/svet-wasm/target/
+packages/svet/dist/
+packages/svet/node_modules/
 public/vector-pkg/
 .DS_Store
 .env

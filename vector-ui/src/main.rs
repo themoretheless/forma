@@ -1,4 +1,7 @@
-use forma::frame_stats::{FrameRate, FrameStats};
+use forma::{
+    frame_stats::{FrameRate, FrameStats},
+    native_window::{apply_egui_frame_bar, build_chooser_runtime, UiBackend},
+};
 use std::{
     collections::HashMap,
     num::NonZeroU32,
@@ -46,6 +49,8 @@ struct AuxiliaryWindow {
 }
 
 struct App {
+    ui_backend: Option<UiBackend>,
+    chooser: Option<forma::Runtime>,
     inspect_mode: bool,
     inspect_report: String,
     a11y_report: String,
@@ -71,6 +76,8 @@ struct App {
     retry_at: Option<Instant>,
     source_path: Option<String>,
     template_path: Option<String>,
+    source_meta: Option<(std::time::SystemTime, u64)>,
+    template_meta: Option<(std::time::SystemTime, u64)>,
     project_root: Option<std::path::PathBuf>,
     project_entry: Option<String>,
     last_project_files: std::collections::BTreeMap<String, String>,
@@ -112,6 +119,34 @@ impl App {
         }
     }
 
+    fn select_backend(&mut self, backend: UiBackend) {
+        self.ui_backend = Some(backend);
+        self.chooser = None;
+        self.frame_stats = FrameStats::default();
+        self.next_title_update = Instant::now();
+        println!(
+            "Активен бэкенд: {} ({}) · F7 — переключить на лету",
+            backend.as_str(),
+            backend.label()
+        );
+        if let Some(window) = &self.window {
+            let _ = window.request_inner_size(LogicalSize::new(
+                self.button.render_width().max(1.0),
+                self.button.render_height().max(1.0),
+            ));
+            if backend == UiBackend::Egui && self.surface.is_none() {
+                if let Ok(context) = softbuffer::Context::new(window.clone()) {
+                    if let Ok(surf) = softbuffer::Surface::new(&context, window.clone()) {
+                        self.surface = Some(surf);
+                        self.surface_size = None;
+                    }
+                }
+            }
+            window.request_redraw();
+        }
+        self.update_title(Instant::now());
+    }
+
     /// Shared by normal redraw and the synchronous AppKit live-resize path.
     fn draw(&mut self, window: &Arc<Window>) {
         let size = window.inner_size();
@@ -121,24 +156,32 @@ impl App {
             self.present_result(Presentation::ZeroSize, window);
             return;
         };
-        if let Some(gpu) = &mut self.gpu {
-            match gpu.draw(&self.button, window) {
-                Ok(result) => {
-                    self.set_render_error(None);
-                    self.present_result(result, window);
-                    return;
-                }
-                Err(error) => {
-                    eprintln!("GPU остановлен, CPU fallback: {error}");
-                    self.gpu = None;
-                    self.frame_stats = FrameStats::default(); // Do not mix backend cadences.
-                    self.next_title_update = Instant::now();
-                    let context = softbuffer::Context::new(window.clone()).unwrap();
-                    self.surface =
-                        Some(softbuffer::Surface::new(&context, window.clone()).unwrap());
-                    self.surface_size = None;
+        let active_runtime = self.chooser.as_ref().unwrap_or(&self.button);
+        let use_gpu = self.chooser.is_none() && self.ui_backend != Some(UiBackend::Egui);
+        if use_gpu {
+            if let Some(gpu) = &mut self.gpu {
+                match gpu.draw(active_runtime, window) {
+                    Ok(result) => {
+                        self.set_render_error(None);
+                        self.present_result(result, window);
+                        return;
+                    }
+                    Err(error) => {
+                        eprintln!("GPU остановлен, CPU fallback: {error}");
+                        self.gpu = None;
+                        self.frame_stats = FrameStats::default(); // Do not mix backend cadences.
+                        self.next_title_update = Instant::now();
+                        let context = softbuffer::Context::new(window.clone()).unwrap();
+                        self.surface =
+                            Some(softbuffer::Surface::new(&context, window.clone()).unwrap());
+                        self.surface_size = None;
+                    }
                 }
             }
+        } else if self.surface.is_none() {
+            let context = softbuffer::Context::new(window.clone()).unwrap();
+            self.surface = Some(softbuffer::Surface::new(&context, window.clone()).unwrap());
+            self.surface_size = None;
         }
         // Linux keeps the `Result` temporary of `buffer_mut` alive through its error arm, so
         // the frame runs in a block and the app is only touched after that borrow ends.
@@ -154,8 +197,7 @@ impl App {
                 Ok(buffer) => buffer,
                 Err(error) => break 'cpu CpuFrame::Failed(error.to_string()),
             };
-            let error = self
-                .button
+            let error = active_runtime
                 .paint_native(
                     &mut buffer,
                     size.width,
@@ -166,6 +208,8 @@ impl App {
                 .map(str::to_owned);
             if error.is_some() {
                 buffer.fill(0x111319);
+            } else if self.chooser.is_none() && self.ui_backend == Some(UiBackend::Egui) {
+                apply_egui_frame_bar(&mut buffer, size.width, size.height);
             }
             // As on GPU, count only successful presentation, not a render attempt.
             match buffer.present() {
@@ -193,7 +237,21 @@ impl App {
         let Some(window) = &self.window else {
             return;
         };
-        let backend = if self.gpu.is_some() { "GPU" } else { "CPU" };
+        if self.chooser.is_some() {
+            let title = "Forma · Выберите бэкенд: [1] egui / [2] svet".to_string();
+            if title != self.last_title {
+                window.set_title(&title);
+                self.last_title = title;
+            }
+            self.next_title_update = now + TITLE_INTERVAL;
+            return;
+        }
+        let ui_tag = self.ui_backend.map_or("svet", UiBackend::as_str);
+        let backend = if self.gpu.is_some() && self.ui_backend != Some(UiBackend::Egui) {
+            "GPU"
+        } else {
+            "CPU"
+        };
         let rate = if let Some(error) = &self.render_error {
             format!("ошибка: {error}")
         } else if self.surface_state == Presentation::Occluded {
@@ -213,9 +271,9 @@ impl App {
         let mode = if self.continuous_redraw {
             "FPS-тест"
         } else {
-            "F8: тест"
+            "F7: бэкенд · F8: тест"
         };
-        let mut title = format!("Forma · {backend} · {rate} · {mode}");
+        let mut title = format!("Forma [{ui_tag}] · {backend} · {rate} · {mode}");
         if self.button.clicks() > 0 {
             title.push_str(&format!(" · кликов: {}", self.button.clicks()));
         }
@@ -235,7 +293,7 @@ impl App {
             println!("F10: вторичное окно попапа/инспектора закрыто");
             return;
         }
-        let popup_source = "component Popup { Frame { width:260; height:110; padding:12; gap:8; Button { key:'popup-action'; width:236; height:38; text:'Нативный попап (F10)'; clicked -> popup.confirm(); } } }";
+        let popup_source = "component Popup { Frame { width:260; height:110; padding:12; gap:8; Button { key:'popup-action'; width:236; height:38; text:'Нативный попап (F10)'; clicked -> actions.confirm_popup(); } } }";
         let Ok(popup_runtime) = forma::Runtime::from_sources(popup_source, forma::BUTTON_COMPONENT) else {
             return;
         };
@@ -344,14 +402,15 @@ impl ApplicationHandler for App {
             return;
         }
         event_loop.set_control_flow(ControlFlow::Wait);
+        let init_rt = self.chooser.as_ref().unwrap_or(&self.button);
         let window = Arc::new(
             event_loop
                 .create_window(
                     Window::default_attributes()
-                        .with_title("Forma · ожидание кадра · F8: FPS-тест")
+                        .with_title("Forma · ожидание кадра · F7: бэкенд · F8: FPS-тест")
                         .with_inner_size(LogicalSize::new(
-                            self.button.render_width(),
-                            self.button.render_height(),
+                            init_rt.render_width(),
+                            init_rt.render_height(),
                         )),
                 )
                 .unwrap(),
@@ -362,14 +421,27 @@ impl ApplicationHandler for App {
                 Err(error) => eprintln!("GPU недоступен, CPU fallback: {error}"),
             }
         }
-        if self.gpu.is_none() {
+        if self.gpu.is_none() || self.chooser.is_some() || self.ui_backend == Some(UiBackend::Egui) {
             let context = softbuffer::Context::new(window.clone()).unwrap();
             self.surface = Some(softbuffer::Surface::new(&context, window.clone()).unwrap());
-            println!("Renderer: CPU fallback");
+            if self.gpu.is_none() {
+                println!("Renderer: CPU fallback");
+            }
         }
         window.focus_window();
         window.request_redraw();
         self.window = Some(window);
+        if let Some(b) = self.ui_backend {
+            println!(
+                "Запуск Forma на бэкенде: {} ({}) · F7 — переключить на лету",
+                b.as_str(),
+                b.label()
+            );
+        } else {
+            println!(
+                "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F7 — переключить на лету)"
+            );
+        }
         println!(
             "F8: непрерывный FPS-тест; обычный режим перерисовывает окно только при изменениях"
         );
@@ -383,6 +455,135 @@ impl ApplicationHandler for App {
         let Some(window) = self.window.as_ref().cloned() else {
             return;
         };
+        if self.chooser.is_some() {
+            match event {
+                WindowEvent::CloseRequested => event_loop.exit(),
+                WindowEvent::CursorMoved { position, .. } => {
+                    let p = position.to_logical::<f32>(window.scale_factor());
+                    self.pointer = (p.x, p.y);
+                    if let Some(chooser) = &mut self.chooser {
+                        chooser.pointer(p.x, p.y, 0);
+                    }
+                    window.request_redraw();
+                }
+                WindowEvent::CursorLeft { .. } => {
+                    if let Some(chooser) = &mut self.chooser {
+                        chooser.pointer(-1., -1., 3);
+                    }
+                    window.request_redraw();
+                }
+                WindowEvent::MouseInput {
+                    state,
+                    button: MouseButton::Left,
+                    ..
+                } => {
+                    let mut picked = None;
+                    if let Some(chooser) = &mut self.chooser {
+                        let before = chooser.clicks();
+                        chooser.pointer(
+                            self.pointer.0,
+                            self.pointer.1,
+                            if state == ElementState::Pressed { 1 } else { 2 },
+                        );
+                        if chooser.clicks() != before {
+                            picked = Some(if chooser.key() == "choose_egui" {
+                                UiBackend::Egui
+                            } else {
+                                UiBackend::Svet
+                            });
+                        }
+                    }
+                    if let Some(backend) = picked {
+                        self.select_backend(backend);
+                    } else {
+                        window.request_redraw();
+                    }
+                }
+                WindowEvent::ModifiersChanged(modifiers) => {
+                    self.shift = modifiers.state().shift_key();
+                    self.command = if cfg!(target_os = "macos") {
+                        modifiers.state().super_key()
+                    } else {
+                        modifiers.state().control_key()
+                    };
+                }
+                WindowEvent::KeyboardInput { event, .. } => {
+                    let pressed = event.state == ElementState::Pressed;
+                    if pressed && !event.repeat {
+                        match &event.logical_key {
+                            Key::Character(c)
+                                if c.as_str() == "1" || c.eq_ignore_ascii_case("e") =>
+                            {
+                                self.select_backend(UiBackend::Egui);
+                                return;
+                            }
+                            Key::Character(c)
+                                if c.as_str() == "2" || c.eq_ignore_ascii_case("s") =>
+                            {
+                                self.select_backend(UiBackend::Svet);
+                                return;
+                            }
+                            Key::Named(NamedKey::F7) => {
+                                self.select_backend(UiBackend::Svet);
+                                return;
+                            }
+                            _ => {}
+                        }
+                    }
+                    let mut picked = None;
+                    if let Some(chooser) = &mut self.chooser {
+                        if event.logical_key == Key::Named(NamedKey::Tab)
+                            && pressed
+                            && !event.repeat
+                        {
+                            if !chooser.focus_next(self.shift) {
+                                chooser.focus(false);
+                                chooser.focus_next(self.shift);
+                            }
+                        }
+                        let key = match event.logical_key {
+                            Key::Named(NamedKey::Space) => 1,
+                            Key::Named(NamedKey::Enter) => 2,
+                            Key::Named(NamedKey::Escape) => 3,
+                            _ => 0,
+                        };
+                        let before = chooser.clicks();
+                        chooser.key_event(key, pressed, event.repeat);
+                        if chooser.clicks() != before {
+                            picked = Some(if chooser.key() == "choose_egui" {
+                                UiBackend::Egui
+                            } else {
+                                UiBackend::Svet
+                            });
+                        }
+                    }
+                    if let Some(backend) = picked {
+                        self.select_backend(backend);
+                    } else {
+                        window.request_redraw();
+                    }
+                }
+                WindowEvent::Focused(focused) => {
+                    if let Some(chooser) = &mut self.chooser {
+                        chooser.focus(focused);
+                    }
+                    window.request_redraw();
+                }
+                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                    window.request_redraw();
+                }
+                WindowEvent::RedrawRequested => {
+                    let now = Instant::now();
+                    if let Some(chooser) = &mut self.chooser {
+                        chooser.tick((now - self.last).as_secs_f32() * 1000.);
+                    }
+                    self.last = now;
+                    self.draw(&window);
+                }
+                _ => {}
+            }
+            return;
+        }
         let clicks = self.button.clicks();
         let dismissals = self.button.dismiss_count();
         let revision = self.button.visual_revision();
@@ -428,7 +629,13 @@ impl ApplicationHandler for App {
             WindowEvent::Ime(winit::event::Ime::Commit(text))=>{self.composing=false;self.button.text_insert(&text);},
             WindowEvent::Ime(winit::event::Ime::Disabled)=>{self.composing=false;self.button.text_preedit("");},
             WindowEvent::KeyboardInput { event, .. } => {
-                if event.logical_key == Key::Named(NamedKey::F10)
+                if event.logical_key == Key::Named(NamedKey::F7)
+                    && event.state == ElementState::Pressed
+                    && !event.repeat
+                {
+                    let next = self.ui_backend.map_or(UiBackend::Egui, UiBackend::toggle);
+                    self.select_backend(next);
+                } else if event.logical_key == Key::Named(NamedKey::F10)
                     && event.state == ElementState::Pressed
                     && !event.repeat
                 {
@@ -580,34 +787,62 @@ impl ApplicationHandler for App {
             }
         } else if self.source_path.is_some() && now >= self.next_hot_check {
             self.next_hot_check = now + Duration::from_millis(120);
-            let next_src = self
+            let cur_src_meta = self
                 .source_path
                 .as_deref()
-                .and_then(|p| std::fs::read_to_string(p).ok());
-            let next_tpl = self
+                .and_then(|p| std::fs::metadata(p).ok())
+                .and_then(|m| Some((m.modified().ok()?, m.len())));
+            let cur_tpl_meta = self
                 .template_path
                 .as_deref()
-                .and_then(|p| std::fs::read_to_string(p).ok());
-            let src_changed = next_src
-                .as_ref()
-                .is_some_and(|s| !s.trim().is_empty() && s != &self.last_source);
-            let tpl_changed = next_tpl
-                .as_ref()
-                .is_some_and(|t| !t.trim().is_empty() && t != &self.last_template);
-            if src_changed || tpl_changed {
-                let s = next_src.unwrap_or_else(|| self.last_source.clone());
-                let t = next_tpl.unwrap_or_else(|| self.last_template.clone());
-                if let Ok(mut next_rt) = forma::Runtime::from_sources(&s, &t) {
-                    next_rt.preserve_interaction(&self.button);
-                    self.button = next_rt;
-                    self.last_source = s;
-                    self.last_template = t;
-                    self.inspect_report.clear();
-                    self.a11y_report.clear();
-                    if let Some(window) = &self.window {
-                        window.request_redraw();
+                .and_then(|p| std::fs::metadata(p).ok())
+                .and_then(|m| Some((m.modified().ok()?, m.len())));
+            let src_meta_changed = cur_src_meta.is_none() || cur_src_meta != self.source_meta;
+            let tpl_meta_changed =
+                self.template_path.is_some() && (cur_tpl_meta.is_none() || cur_tpl_meta != self.template_meta);
+
+            if src_meta_changed || tpl_meta_changed {
+                let next_src = if src_meta_changed {
+                    self.source_path
+                        .as_deref()
+                        .and_then(|p| std::fs::read_to_string(p).ok())
+                } else {
+                    None
+                };
+                let next_tpl = if tpl_meta_changed {
+                    self.template_path
+                        .as_deref()
+                        .and_then(|p| std::fs::read_to_string(p).ok())
+                } else {
+                    None
+                };
+                if next_src.is_some() {
+                    self.source_meta = cur_src_meta;
+                }
+                if next_tpl.is_some() {
+                    self.template_meta = cur_tpl_meta;
+                }
+                let src_changed = next_src
+                    .as_ref()
+                    .is_some_and(|s| !s.trim().is_empty() && s != &self.last_source);
+                let tpl_changed = next_tpl
+                    .as_ref()
+                    .is_some_and(|t| !t.trim().is_empty() && t != &self.last_template);
+                if src_changed || tpl_changed {
+                    let s = next_src.unwrap_or_else(|| self.last_source.clone());
+                    let t = next_tpl.unwrap_or_else(|| self.last_template.clone());
+                    if let Ok(mut next_rt) = forma::Runtime::from_sources(&s, &t) {
+                        next_rt.preserve_interaction(&self.button);
+                        self.button = next_rt;
+                        self.last_source = s;
+                        self.last_template = t;
+                        self.inspect_report.clear();
+                        self.a11y_report.clear();
+                        if let Some(window) = &self.window {
+                            window.request_redraw();
+                        }
+                        println!("Hot reload: векторная сцена обновлена на лету");
                     }
-                    println!("Hot reload: векторная сцена обновлена на лету");
                 }
             }
         }
@@ -711,10 +946,32 @@ fn resolve_ui_project_root_and_entry(
     Some((root, entry))
 }
 
+fn parse_cli_args() -> (Option<String>, Option<String>, Option<UiBackend>) {
+    let mut positional = Vec::new();
+    let mut backend = UiBackend::resolve_from_env_and_args();
+    let mut iter = std::env::args().skip(1);
+    while let Some(arg) = iter.next() {
+        match arg.as_str() {
+            "--egui" | "--backend=egui" => backend = Some(UiBackend::Egui),
+            "--svet" | "--backend=svet" => backend = Some(UiBackend::Svet),
+            "--ask" | "--choose-backend" | "--backend=ask" => backend = None,
+            "--backend" | "-b" => {
+                if let Some(next) = iter.next() {
+                    if matches!(next.trim().to_ascii_lowercase().as_str(), "ask" | "choose") {
+                        backend = None;
+                    } else if let Some(b) = UiBackend::from_arg(&next) {
+                        backend = Some(b);
+                    }
+                }
+            }
+            _ => positional.push(arg),
+        }
+    }
+    (positional.first().cloned(), positional.get(1).cloned(), backend)
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<_> = std::env::args().collect();
-    let source_path = args.get(1).cloned();
-    let template_path = args.get(2).cloned();
+    let (source_path, template_path, ui_backend) = parse_cli_args();
     let mut project_root = None;
     let mut project_entry = None;
     let mut last_project_files = std::collections::BTreeMap::new();
@@ -764,7 +1021,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .as_deref()
             .map(std::fs::read_to_string)
             .transpose()?
-            .unwrap_or(forma::EXAMPLE.into());
+            .unwrap_or(forma::TWO_BUTTONS_EXAMPLE.into());
         template = template_path
             .as_deref()
             .map(std::fs::read_to_string)
@@ -772,7 +1029,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(forma::BUTTON_COMPONENT.into());
         forma::Runtime::from_sources(&source, &template).map_err(std::io::Error::other)?
     };
+    let chooser = if ui_backend.is_none() {
+        Some(build_chooser_runtime().map_err(std::io::Error::other)?)
+    } else {
+        None
+    };
+    let init_src_meta = source_path
+        .as_deref()
+        .and_then(|p| std::fs::metadata(p).ok())
+        .and_then(|m| Some((m.modified().ok()?, m.len())));
+    let init_tpl_meta = template_path
+        .as_deref()
+        .and_then(|p| std::fs::metadata(p).ok())
+        .and_then(|m| Some((m.modified().ok()?, m.len())));
     EventLoop::new()?.run_app(&mut App {
+        ui_backend,
+        chooser,
         inspect_mode:false,
         inspect_report:String::new(),
         a11y_report: String::new(),
@@ -798,6 +1070,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         retry_at: None,
         source_path: if project_root.is_some() { None } else { source_path },
         template_path,
+        source_meta: init_src_meta,
+        template_meta: init_tpl_meta,
         project_root,
         project_entry,
         last_project_files,

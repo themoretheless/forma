@@ -7,15 +7,17 @@
 Парсер, выражения, контракты, design-состояния и раскрытие if/for исполняются
 в Rust; JavaScript соединяет их с редактором и моделями Studio.
 
-Forma берёт `themoretheless-tokenizer-forma` из ветки `release`, точный коммит
-закреплён в `vector-ui/Cargo.lock`. JS-пакет `@themoretheless/tokenizer-forma`
+Forma берёт `themoretheless-tokenizer-forma` из точной ревизии `rev` в
+`vector-ui/Cargo.toml`; `vector-ui/Cargo.lock` закрепляет её и для основного crate.
+Это важно для экспортированных приложений: lockfile path-зависимости они не наследуют.
+JS-пакет `@themoretheless/tokenizer-forma`
 подключается из checkout того же коммита в соседнем каталоге `../tokenizer`:
 `npm run tokenizer -- checkout install build` клонирует его (если каталога нет),
 проверяет совпадение с lock, ставит зависимости пакета и собирает WASM языка.
 Уже существующий checkout не трогается: `npm run tokenizer -- check` падает,
 если `crates/tokenizer-forma` или `packages/forma` в нём отличаются от
-закреплённой ревизии. Переход на новый релиз tokenizer:
-`cargo update --manifest-path vector-ui/Cargo.toml -p themoretheless-tokenizer-forma`
+закреплённой ревизии. Для перехода на новый релиз tokenizer обновите `rev` в
+`vector-ui/Cargo.toml`, затем выполните `cargo update --manifest-path vector-ui/Cargo.toml -p themoretheless-tokenizer-forma`
 (и так же для `vector-ui/examples/*/Cargo.toml`).
 Перегенерация редакторского парсера: `npm run generate` в `tokenizer/packages/forma`.
 

@@ -36,7 +36,7 @@ Build metadata (`+...`) в номерах релизов не используе
 сборки служит SHA коммита.
 
 Studio всегда собирает и включает WASM из того же checkout. Язык берётся из
-релиза tokenizer, закреплённого в `vector-ui/Cargo.lock`; его ревизия
+ревизии tokenizer, закреплённой через `rev` в `vector-ui/Cargo.toml` и в lockfiles; её SHA
 записывается в `build-info.json` (`tokenizer`), и `package:release` отказывается
 упаковывать WASM, собранный против другой ревизии. В
 `dist/vector-pkg/build-info.json` записаны версии Runtime и Studio, версия

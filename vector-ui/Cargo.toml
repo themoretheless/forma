@@ -16,7 +16,7 @@ native = ["dep:winit", "dep:softbuffer", "gpu", "dep:objc"]
 gpu = ["dep:wgpu", "dep:pollster", "dep:bytemuck"]
 
 [dependencies]
-themoretheless-tokenizer-forma = { git = "https://github.com/themoretheless/tokenizer", branch = "release", version = "0.8.0" }
+themoretheless-tokenizer-forma = { git = "https://github.com/themoretheless/tokenizer", rev = "0236a83afdb9c0db16cc2bd9cee5403cd0095edd", version = "0.8.0" }
 serde_json = "1"
 wasm-bindgen = "=0.2.125"
 winit = { version = "0.30", optional = true }

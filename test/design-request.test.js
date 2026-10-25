@@ -42,6 +42,11 @@ test('the transport answers commands and Rust output feeds the inspector line by
  const {handlers,buttons,sent,logs,counts,studio}=harness();
  assert.equal(studio.mounted.length,4,'design data, app, Rust run and stop sit before the run button');
  assert.equal(sent[0].type,'forma:hello');
+ const [,runApp]=buttons;
+ assert.equal(runApp.id,'app-run');assert.equal(runApp.className,'accent');
+ assert.match(runApp.title,/⌘↵/);assert.doesNotMatch(runApp.title,/F9/);
+ runApp.onclick();assert.ok(counts.commands.includes('app_run'));
+ assert.equal(buttons[2].textContent,'Cargo · диагностика');
  handlers.get('forma:command')({id:'a',command:'ide_status',args:{}});
  handlers.get('forma:command')({id:'b',command:'boom'});
  assert.deepEqual(sent.filter(m=>m.type==='forma:result').map(m=>[m.id,m.error??m.result.command]),[['a','ide_status'],['b','bad']]);

@@ -1,0 +1,55 @@
+component CustomerCard {
+  tokens {
+    spacing.md: 16;
+    colors.surface: #0f172a;
+  }
+
+  i18n ru {
+    greeting: 'Карточка клиента (Forma .ui)';
+    save: 'Сохранить в Svet';
+  }
+  i18n en {
+    greeting: 'Customer Card (Forma .ui)';
+    save: 'Save to Svet';
+  }
+
+  style cardBox {
+    padding: tokens.spacing.md;
+    background: tokens.colors.surface;
+    cornerRadius: 10;
+  }
+
+  #[range(0, 100)]
+  prop discount: Int = 15;
+
+  state customerName: String = 'Анна Смирнова';
+  state orders: Int = 3;
+
+  let bonusPoints = orders * 150;
+
+  Column {
+    apply cardBox;
+    gap: 10;
+    Text {
+      key: 'titleLabel';
+      text: '${i18n.greeting}: ${customerName} (Бонусы: ${bonusPoints})';
+    }
+    TextField {
+      key: 'customerInput';
+      value <-> state.customerName;
+    }
+    Row {
+      gap: 8;
+      Button {
+        key: 'addOrderBtn';
+        text: '+1 Заказ';
+        clicked -> state.increment('orders', 1);
+      }
+      Button {
+        key: 'saveCustomerBtn';
+        text: i18n.save;
+        clicked -> events.customerSaved(state.customerName, bonusPoints);
+      }
+    }
+  }
+}

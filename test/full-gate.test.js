@@ -98,6 +98,7 @@ test('a command that reports nothing is not a pass',()=>{
  const suite=step('studio-js');
  assert.deepEqual(evaluate(suite,{status:0,output:''}),{ok:false,detail:'no test summary in output'});
  assert.equal(evaluate(suite,{status:0,output:'# tests 280\n# pass 280\n# fail 0'}).ok,true);
+ assert.equal(evaluate(suite,{status:0,output:'ℹ tests 550\nℹ pass 550\nℹ fail 0\nℹ skipped 0'}).ok,true,'Node 24 uses an information symbol instead of TAP comments');
  assert.equal(evaluate(suite,{status:0,output:'# tests 280\n# pass 279\n# fail 1'}).ok,false);
  assert.equal(evaluate(suite,{status:1,output:'# tests 280\n# pass 280\n# fail 0'}).ok,false);
  assert.equal(summary('# suites 0'),null);

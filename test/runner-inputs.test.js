@@ -45,3 +45,26 @@ test('rust runner cleans up its temporary directory on process close and spawn e
  assert.equal(removed.length,2);
  assert.match(removed[1][0],/forma-rust-2$/);
 });
+
+test('rust runner enables native only for a native generated-form launch',async()=>{
+ const invocations=[],children=[];
+ const runner=createRustRunner(()=>{},{
+  async mkdtemp(prefix){return `${prefix}${children.length+1}`;},
+  async mkdir(){},async writeFile(){},async rm(){},
+  spawn(command,args){
+   invocations.push([command,args]);
+   const child=new EventEmitter();child.stdout=new EventEmitter();child.stderr=new EventEmitter();child.kill=()=>{};children.push(child);return child;
+  },
+ });
+ const files={
+  'Cargo.toml':'[package]\nname="a"\nversion="0.1.0"\n[features]\nnative=["forma/native"]\n[dependencies]\nforma={path="../vector-ui"}\n',
+  'src/main.rs':'fn main(){}',
+  'ui/Form.ui':"component Form { contextType:'crate::Vm'; Frame {} }",
+ };
+ await runner.run(files,{generated:true,native:true});
+ assert.deepEqual(invocations[0][1].slice(0,5),['run','--offline','--features','native','--manifest-path']);
+ children[0].emit('close',0,null);
+ await runner.run(files,{generated:true});
+ assert.ok(!invocations[1][1].includes('--features'));
+ children[1].emit('close',0,null);
+});

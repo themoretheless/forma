@@ -1,0 +1,15 @@
+[package]
+name = "svet-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Svet Engine WASM Core: Zero-GC Push-Pull Reactive DAG & O(n log n) Keyed Reconciler"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

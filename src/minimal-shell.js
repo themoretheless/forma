@@ -19,18 +19,20 @@ export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
  const menuButton=document.createElement('button');menuButton.className='project-menu-button';menuButton.setAttribute('aria-haspopup','menu');menuButton.textContent='▾';
  const menu=document.createElement('div');menu.className='project-menu';menu.setAttribute('role','menu');menu.hidden=true;
  $('.project-title').append(menuButton);header.append(menu);
- const collectMenu=()=>{for(const el of [...header.children])if(el!==menu&&el!==run&&!el.matches('.brand,.project-title'))menu.append(el);};
+ const appButton=()=>$('#app-run');
+ const backendPicker=()=>$('#app-backend');
+ const collectMenu=()=>{for(const el of [...header.children])if(el!==menu&&el!==run&&el!==appButton()&&el!==backendPicker()&&!el.matches('.brand,.project-title'))menu.append(el);};
  observe(header,collectMenu,{childList:true});
  const closeMenu=()=>{menu.hidden=true;};
  listen(menuButton,'click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;});
  listen(menu,'click',e=>{if(e.target.closest('button,a'))closeMenu();});
  listen(document,'click',e=>{if(!menu.contains(e.target)&&e.target!==menuButton)closeMenu();});
 
- // The editor relabels the run button with its own words; the shell keeps the glyph it draws.
+ // Preview interaction is secondary; the visible app button owns the main launch shortcut.
  let running=false;
- const label=()=>{run.textContent=running?'■':'▶';run.title=running?'Вернуться в дизайн (Esc)':'Запустить (⌘↵)';body.classList.toggle('running',running);};
+ const label=()=>{const text=running?'Дизайн':'Взаимодействие';if(run.textContent!==text)run.textContent=text;run.title=running?'Вернуться в дизайн (Esc)':'Проверить взаимодействие во встроенном preview';body.classList.toggle('running',running);};
  on(studioEventTypes.mode,({mode})=>{running=mode==='interact';label();});
- observe(run,()=>{if(!/^[▶■]$/.test(run.textContent))label();},{childList:true,characterData:true,subtree:true},{immediate:false});
+ observe(run,()=>{if(!['Взаимодействие','Дизайн'].includes(run.textContent))label();},{childList:true,characterData:true,subtree:true},{immediate:false});
 
  // State tabs mirror the scenario select.
  const scenario=$('#scenario'),tabs=document.createElement('div');tabs.className='state-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Состояния');
@@ -76,15 +78,17 @@ export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
  const name=controlLabel;
  const usable=el=>!el.disabled&&!el.closest('.palette,#preview,.project-menu-button')&&name(el);
  function commands(){
+  const app=appButton();
   const out=[
    {label:'Показать / скрыть код',key:'⌘\\',run:()=>toggle('code')},
    {label:'Показать / скрыть слои и файлы',key:'L',run:()=>toggle('layers')},
    {label:'Показать / скрыть проблемы и журнал',run:()=>toggle('problems')},
-   {label:run.title,key:'⌘↵',run:()=>run.click()},
+   ...(app?[{label:'Запустить приложение',key:'⌘↵',run:()=>app.click()}]:[]),
+   {label:run.title,key:app?undefined:'⌘↵',run:()=>run.click()},
   ];
   if(newFile)out.push({label:'Новый файл',run:newFile});
   for(const el of root.querySelectorAll('.project-menu :is(button,a),.studio-canvas-toolbar button,.preview-tools button,.canvas-tools button,.bottom-tabs button,.tabs button'))if(usable(el)&&el!==run)out.push({label:name(el),run:()=>el.click()});
-  for(const select of root.querySelectorAll('.studio-canvas-toolbar select,.canvas-tools select,.pane-toolbar select'))if(select!==scenario&&!select.disabled)for(const option of select.options)out.push({label:`${select.getAttribute('aria-label')||'Выбор'}: ${option.textContent}`,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change'));}});
+  for(const select of root.querySelectorAll('#app-backend,.studio-canvas-toolbar select,.canvas-tools select,.pane-toolbar select'))if(select!==scenario&&!select.disabled)for(const option of select.options)out.push({label:`${select.getAttribute('aria-label')||'Выбор'}: ${option.textContent}`,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change'));}});
   const seen=new Set();return out.filter(c=>!seen.has(c.label)&&seen.add(c.label));
  }
  const files=()=>[...root.querySelectorAll('#tree [data-path]')].map(el=>({label:el.dataset.path,run:()=>{el.click();toggle('code',true);}}));
@@ -120,7 +124,7 @@ export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
   if(mod&&key==='k'){e.preventDefault();openPalette('commands');return;}
   if(mod&&key==='p'){e.preventDefault();openPalette('files');return;}
   if(mod&&e.key==='\\'){e.preventDefault();body.classList.add('used-shortcut');toggle('code');return;}
-  if(mod&&e.key==='Enter'){e.preventDefault();run.click();return;}
+  if(mod&&e.key==='Enter'){e.preventDefault();(appButton()??run).click();return;}
   if(!palette.hidden||typing(e.target)||mod||e.altKey)return;
   if(e.key==='Escape'){
    if(!menu.hidden)closeMenu();

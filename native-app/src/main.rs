@@ -27,9 +27,15 @@ fn main() -> Result<(),Box<dyn std::error::Error>> {
     let watch_path=filename.clone();
     std::thread::spawn(move || {
         let mut last_raw=std::fs::read_to_string(&watch_path).unwrap_or_default();
+        let mut last_mtime=std::fs::metadata(&watch_path).and_then(|m|m.modified()).ok();
         loop {
             std::thread::sleep(std::time::Duration::from_millis(120));
+            let cur_mtime=std::fs::metadata(&watch_path).and_then(|m|m.modified()).ok();
+            if cur_mtime.is_some() && cur_mtime==last_mtime {
+                continue;
+            }
             if let Ok(next_raw)=std::fs::read_to_string(&watch_path) {
+                last_mtime=cur_mtime;
                 if next_raw!=last_raw && !next_raw.trim().is_empty() {
                     if let Ok(parsed)=serde_json::from_str::<serde_json::Value>(&next_raw) {
                         if let Some(body_html)=parsed["bodyHtml"].as_str() {

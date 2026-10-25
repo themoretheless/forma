@@ -25,7 +25,7 @@ function cachedSvgShapes(name,source){
   return entry;
 }
 
-export function generateForm(files,entry,{state={},measureText}={}) {
+export function generateForm(files,entry,{state={},measureText,nativeApp=false}={}) {
  if(/[\r\n]/.test(entry))throw Error('Путь формы не должен содержать перевод строки');
  const source=files[entry];if(typeof source!=='string')throw Error(`Форма не найдена: ${entry}`);
  let doc;try{doc=parse(source);}catch(error){throw Error(`${entry}: ${error.message}`);}
@@ -34,7 +34,8 @@ export function generateForm(files,entry,{state={},measureText}={}) {
  const typeName=(type,offset)=>{if(typeof type!=='string'||!rustPath.test(type))fail('contextType ожидает Rust-тип в строке, например \'crate::CustomerVm\'',offset);return type;};
  const rootType=typeName(doc.defaults.contextType,doc.defaultRanges.contextType?.from);
  validName(doc.name,0);
- if(doc.base||doc.designs.length||Object.keys(doc.slots).length)fail('Генерируемая форма не наследуется от компонента и не использует design/override на корне');
+ // Design overrides belong to Studio; the native form uses the live ViewModel.
+ if(doc.base||Object.keys(doc.slots).length)fail('Генерируемая форма не наследуется от компонента и не использует override на корне');
  for(const key of Object.keys(doc.defaults))if(!['contextType','events',...Object.keys(doc.propDefinitions??{}),...Object.keys(doc.lets??{}),...Object.keys(doc.letBindings??{}),...Object.keys(doc.stateDefinitions??{})].includes(key))fail(`Неизвестное объявление формы ${key}`,doc.defaultRanges[key].from);
  const declared=[...(doc.defaults.events??[]),...Object.keys(doc.eventDefinitions??{})];
  if(!Array.isArray(declared)||declared.some(name=>typeof name!=='string'))fail('events ожидает список имён: [\'saveRequested\']',doc.defaultRanges.events?.from);
@@ -285,7 +286,18 @@ impl ${doc.name} {
     pub fn update<R>(&mut self, input: impl FnOnce(&mut ::forma::Runtime) -> R) -> Result<R, String> { self.inner.update(input) }
     ${methods.join('\n    ')}
 }
-`;
+${nativeApp ? `#[cfg(feature = "native")]
+impl ::forma::native_window::NativeApp for ${doc.name} {
+    fn update(&mut self, input: &mut dyn FnMut(&mut ::forma::Runtime)) -> Result<(), String> {
+        ${doc.name}::update(self, |runtime| input(runtime))
+    }
+    fn on_dirty(&self, callback: Box<dyn Fn()>) -> Result<(), String> {
+        ${doc.name}::on_dirty(self, callback);
+        Ok(())
+    }
+}
+` : ''}`;
+
  const sourceMap={};let location=null;
  rust.split('\n').forEach((line,index)=>{const match=line.match(/\/\/ @forma-source (.*):(\d+)$/);if(match)location={file:match[1],line:Number(match[2])};else if(location&&line.trim()){sourceMap[index+1]=location;location=null;}});
  return {rust,sourceMap,formName:doc.name};

@@ -36,11 +36,11 @@ export function mountDevBridge(hot,studio,env=globalThis){
  };
 
  // Native runs: the app window and a plain Cargo project; the window reports inspection lines.
- const runApp=button('▶ Приложение','Запустить окно; F9 в окне включает выбор элемента и живое дерево в Studio');runApp.className='accent';
+ const runApp=button('▶ Приложение','Запустить текущее приложение (⌘↵)');runApp.id='app-run';runApp.className='accent';
  runApp.onclick=()=>{studio.showEvents();studio.ideCommand('app_run');};
- const runRust=button('▶ Rust','Собрать и запустить Cargo-проект');
- const stopRust=button('■','Остановить Rust');stopRust.disabled=true;
- runRust.onclick=()=>{studio.persist();studio.showEvents();studio.log('Запуск Rust через Cargo (offline)…');runRust.disabled=true;stopRust.disabled=false;hot.send('forma:rust-run',{files:studio.files});};
+ const runRust=button('Cargo · диагностика','Собрать и запустить Cargo-проект без native-окна');
+ const stopRust=button('■','Остановить Cargo-диагностику');stopRust.disabled=true;
+ runRust.onclick=()=>{studio.persist();studio.showEvents();studio.log('Запуск Cargo-диагностики (offline)…');runRust.disabled=true;stopRust.disabled=false;hot.send('forma:rust-run',{files:studio.files});};
  stopRust.onclick=()=>hot.send('forma:rust-stop',{});
  let buffer='';
  const rustOutput=data=>{

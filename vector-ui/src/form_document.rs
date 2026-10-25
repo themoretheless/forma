@@ -1142,9 +1142,9 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
             } else {
                 let pat = arguments[1].text()?;
                 let s = arguments[0].text()?;
-                Ok(Value::Bool(
-                    themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat),
-                ))
+                let matched = themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat)
+                    .map_err(|e| e.to_string())?;
+                Ok(Value::Bool(matched))
             }
         }
         "alpha" if arguments.len() == 2 => {
@@ -2045,7 +2045,9 @@ fn check_value_constraints(value: &Value, constraints: &Properties, label: &str)
     if let Some(pat) = constraints.get("pattern") {
         let pat = pat.text()?;
         let s = value.text()?;
-        if !themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat) {
+        let matched = themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat)
+            .map_err(|e| e.to_string())?;
+        if !matched {
             return Err(format!(
                 "Property {label} does not match pattern '{pat}'"
             ));

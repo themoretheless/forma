@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "svet",
+    "baseUrl": ".",
+    "paths": {
+      "svet": ["./src/engine/index.ts"],
+      "svet/jsx-runtime": ["./src/engine/jsx-runtime.ts"]
+    }
+  },
+  "include": ["src", "tests"]
+}

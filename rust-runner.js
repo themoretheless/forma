@@ -27,7 +27,7 @@ export function createRustRunner(send,dependencies={}){
       try{
         if(!files||typeof files!=='object'||Array.isArray(files))throw Error('Ожидаются файлы проекта');
         let sourceMap={};
-        if(options.generated){const prepared=prepareFormProject(files,options.state);files=prepared.files;sourceMap=prepared.sourceMap;send({kind:'stdout',text:`Сгенерировано форм: ${prepared.count}\n`});}
+        if(options.generated){const prepared=prepareFormProject(files,options.state,{nativeApp:options.native});files=prepared.files;sourceMap=prepared.sourceMap;send({kind:'stdout',text:`Сгенерировано форм: ${prepared.count}\n`});}
         if(typeof files['Cargo.toml']!=='string'||typeof files['src/main.rs']!=='string')throw Error('Нужны Cargo.toml и src/main.rs');
         const entries=Object.entries(files).filter(([file])=>/^(Cargo\.(toml|lock)|src\/.+\.rs)$/.test(file));
         if(entries.length>maxFileCount)throw Error(`Слишком много Rust-файлов (лимит ${maxFileCount})`);
@@ -42,7 +42,10 @@ export function createRustRunner(send,dependencies={}){
           const destination=path.join(directory,file);await makeDirectory(path.dirname(destination),{recursive:true});await writeSourceFile(destination,source);
         }
         send({kind:'started',text:'cargo run — '+directory});
-        process=spawnProcess('cargo',['run','--offline','--manifest-path',path.join(directory,'Cargo.toml')],{cwd:directory,stdio:['ignore','pipe','pipe']});
+        const backendArg=options.backend==='egui'||options.backend==='svet'?['--','--backend',options.backend]:[];
+        const args=['run','--offline',...(options.native?['--features','native']:[]),'--manifest-path',path.join(directory,'Cargo.toml'),...backendArg];
+        const env=options.backend?{...globalThis.process?.env,FORMA_BACKEND:options.backend}:undefined;
+        process=spawnProcess('cargo',args,{cwd:directory,stdio:['ignore','pipe','pipe'],...(env?{env}:{})});
         process.stdout.on('data',chunk=>send({kind:'stdout',text:chunk.toString()}));
         let errorBuffer='';
         process.stderr.on('data',chunk=>{errorBuffer+=chunk.toString();const lines=errorBuffer.split('\n');errorBuffer=lines.pop();if(lines.length)send({kind:'stderr',text:mapFormDiagnostic(lines.join('\n')+'\n',sourceMap)});});

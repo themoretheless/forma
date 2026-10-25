@@ -26,3 +26,9 @@ test('every design state an agent can reach has a tool of its own',()=>{
   assert.deepEqual(tools.filter(name=>name.startsWith('design_state')),
     ['design_states_read','design_state_create','design_state_rename','design_state_delete','design_state_property']);
 });
+
+test('typed app_run starts the Rust ViewModel without designer preview state',()=>{
+  const bridge=read('src/mcp-commands.js');
+  assert.match(bridge,/case 'app_run':if\(parse\(files\[entry\]\)\.defaults\.contextType\)\{hot\.send\('forma:form-run',\{files\}\)/);
+  assert.doesNotMatch(bridge,/hot\.send\('forma:form-run',\{files,state\}\)/);
+});

@@ -16,8 +16,11 @@ mod raster_cache;
 pub mod display_list;
 #[cfg(feature="gpu")]
 pub mod gpu;
+#[cfg(feature="native")]
+pub mod native_window;
 
 pub const EXAMPLE: &str = include_str!("../examples/Button.ui");
+pub const TWO_BUTTONS_EXAMPLE: &str = include_str!("../examples/TwoButtons.ui");
 pub const BUTTON_COMPONENT: &str = include_str!("../examples/Button.component.ui");
 
 /// Logical single-line metrics from the same font as the vector text renderer.

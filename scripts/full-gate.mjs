@@ -16,7 +16,7 @@ export function steps({platform,installedTargets,viteEntry}){
   list:[
    {id:'tokenizer',name:'Sibling tokenizer matches the release locked in Cargo.lock',argv:process.execPath,args:['scripts/tokenizer.mjs','check'],requiresOutput:true},
    {id:'version-check',name:'Version manifests agree with the pinned toolchain',argv:process.execPath,args:['scripts/versions.mjs','check'],requiresOutput:true},
-   {id:'studio-js',name:'Studio test suite (node --test)',argv:process.execPath,args:['--test'],requiresSummary:true},
+   {id:'studio-js',name:'Studio test suite (node --test)',argv:process.execPath,args:['--test','test/*.test.js'],requiresSummary:true},
    // Every designer commit message ends with "the build is clean"; this is where that stops
    // being a promise. Running vite through its own entry keeps the step platform-neutral.
    ...(viteEntry?[{id:'studio-build',name:'Studio production build ships the tested runtime',argv:process.execPath,args:[viteEntry,'build'],checksDist:true}]:[]),
@@ -27,6 +27,7 @@ export function steps({platform,installedTargets,viteEntry}){
    {id:'bench-js-session',name:'Session-compiler bench runs across scene sizes',argv:process.execPath,args:['scripts/compiler-session-bench.mjs','.forma/perf/gate/compiler-session'],requiresOutput:true},
    {id:'bench-js-tools',name:'Designer-tools bench runs on its fixed fixtures',argv:process.execPath,args:['scripts/studio-tools-bench.mjs','.forma/perf/gate/studio-tools'],requiresOutput:true},
    {id:'runtime-gpu',name:'Forma Rust tests with GPU features',argv:'cargo',args:['test','--locked','--manifest-path','vector-ui/Cargo.toml','--features','gpu','--lib','--tests']},
+   {id:'svet-wasm',name:'Svet WASM reactive DAG and UMA/DUMA arena Rust tests',argv:'cargo',args:['test','--locked','--manifest-path','packages/svet/crates/svet-wasm/Cargo.toml','--lib','--tests']},
    {id:'binding-native',name:'Native binding example',argv:'cargo',args:['test','--locked','--manifest-path','vector-ui/examples/binding-app/Cargo.toml','--features','native']},
    // CI names only the binding example, so the second generated-form app compiled for nobody:
    // its build.rs reruns the JS generator whenever src/ changes, and then nothing built or ran
@@ -47,7 +48,7 @@ export function steps({platform,installedTargets,viteEntry}){
  };
 }
 export function summary(text){
- const number=key=>Number(new RegExp(`^\\s*#\\s*${key}\\s+(\\d+)$`,'m').exec(text)?.[1]??NaN);
+ const number=key=>Number(new RegExp(`^\\s*(?:#|ℹ)\\s*${key}\\s+(\\d+)$`,'m').exec(text)?.[1]??NaN);
  const tests=number('tests'),pass=number('pass'),fail=number('fail');
  if(!Number.isInteger(tests)||!Number.isInteger(pass)||!Number.isInteger(fail))return null;
  return {tests,pass,fail,skipped:number('skipped')};

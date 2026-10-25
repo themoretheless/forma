@@ -4,13 +4,13 @@ import {parse} from './src/language.js';
 
 // Stage generated source next to the user's Rust modules. The virtual project
 // remains unchanged; each run recompiles all forms against the current model.
-export function prepareFormProject(files,state={}) {
+export function prepareFormProject(files,state={}, {nativeApp=false}={}) {
  if(typeof files['Cargo.toml']!=='string'||typeof files['src/main.rs']!=='string')throw Error('Для живой формы нужны Cargo.toml и src/main.rs с ViewModel и запуском формы');
  const output={...files},sourceMap={};let generated='',count=0;
  for(const [entry,source]of Object.entries(files)){
   if(!entry.startsWith('ui/')||!entry.endsWith('.ui'))continue;
   const doc=parse(source);if(!doc.defaults.contextType)continue;
-  const result=generateForm(files,entry,{state});const offset=generated.split('\n').length-1;
+  const result=generateForm(files,entry,{state,nativeApp});const offset=generated.split('\n').length-1;
   for(const [line,location]of Object.entries(result.sourceMap))sourceMap[Number(line)+offset]=location;
   generated+=result.rust+'\n';count++;
  }

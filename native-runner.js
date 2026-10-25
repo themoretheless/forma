@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,rename,writeFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 export function createNativeRunner(send){
   let child,busy=false;
@@ -22,7 +22,9 @@ export function createNativeRunner(send){
     if(!busy||!snapshot?.html)return false;
     try{
       await mkdir(root+'.forma',{recursive:true});
-      await writeFile(root+'.forma/native-snapshot.json',JSON.stringify(snapshot));
+      const tmpPath=root+'.forma/native-snapshot.json.tmp';
+      await writeFile(tmpPath,JSON.stringify(snapshot));
+      await rename(tmpPath,root+'.forma/native-snapshot.json');
       return true;
     }catch{return false;}
   },stop(){child?.kill('SIGTERM');}};

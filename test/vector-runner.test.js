@@ -170,3 +170,40 @@ test('vector runner prunes oldest snapshot directories beyond the retention limi
   assert.equal(removed[2][0], '/project with spaces/.forma/vector-03');
   children[0].emit('close', 0, null);
 });
+
+test('vector runner update hot-reloads active window snapshot and rejects invalid updates', async () => {
+  const {runner, calls, children} = harness();
+  assert.equal(await runner.update({source: 'component Idle {}'}), false);
+  await runner.run({source: 'component Initial {}', template: 'component Btn { Frame {} }'});
+  assert.equal(calls.writes.length, 2);
+
+  assert.equal(await runner.update({source: ''}), false);
+  assert.equal(await runner.update({source: 'x'.repeat(100_001)}), false);
+  assert.equal(await runner.update({source: 'component Next {}', template: ''}), false);
+
+  const ok = await runner.update({source: 'component HotReloaded {}', template: 'component Btn2 { Frame {} }'});
+  assert.equal(ok, true);
+  assert.equal(calls.writes.length, 4);
+  assert.deepEqual(calls.writes[2], ['/project with spaces/.forma/vector-1/Button.ui', 'component Btn2 { Frame {} }', 'utf8']);
+  assert.deepEqual(calls.writes[3], ['/project with spaces/.forma/vector-1/snapshot.ui', 'component HotReloaded {}', 'utf8']);
+
+  runner.stop();
+  assert.equal(await runner.update({source: 'component AfterStop {}'}), false);
+  children[0].emit('close', null, 'SIGTERM');
+});
+
+test('vector runner forwards explicit egui or svet backend flag to native Cargo', async () => {
+  const {runner, calls, children} = harness();
+  await runner.run({source: 'component TwoButtons {}', backend: 'egui'});
+  assert.deepEqual(calls.spawns[0][1], [
+    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
+    '--features', 'native', '--', '--backend', 'egui', '/project with spaces/.forma/vector-1/snapshot.ui',
+  ]);
+  children[0].emit('close', 0, null);
+  await runner.run({source: 'component TwoButtons {}', backend: 'svet'});
+  assert.deepEqual(calls.spawns[1][1], [
+    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
+    '--features', 'native', '--', '--backend', 'svet', '/project with spaces/.forma/vector-2/snapshot.ui',
+  ]);
+  children[1].emit('close', 0, null);
+});

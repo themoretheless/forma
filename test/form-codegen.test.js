@@ -30,6 +30,9 @@ test('generator rejects unsupported or misspelled declarations with source locat
 test('generator accepts a Row as the form root',()=>{
  const result=generateForm({...files,'ui/Horizontal.ui':`component Horizontal {contextType:'crate::CustomerVm';Row {width:500;height:100;gap:8;Button {text:'First';} Button {text:'Second';}}}`},'ui/Horizontal.ui');
  assert.match(result.rust,/root:N \{kind:r#"Row"#/);
+ assert.doesNotMatch(result.rust,/native_window::NativeApp/,'ordinary form generation must not require forma/native');
+ const native=generateForm({...files,'ui/Horizontal.ui':`component Horizontal {contextType:'crate::CustomerVm';Row {width:500;height:100;gap:8;Button {text:'First';} Button {text:'Second';}}}`},'ui/Horizontal.ui',{nativeApp:true});
+ assert.match(native.rust,/native_window::NativeApp for Horizontal/);
  const spanning=generateForm({...files,'ui/Spanning.ui':`component Spanning {contextType:'crate::CustomerVm';Grid {width:400;height:200;columns:[200,200];Button {column.span:2;row.span:2;text:'Wide';}}}`},'ui/Spanning.ui');
  assert.match(spanning.rust,/r#"column.span"#/);assert.match(spanning.rust,/r#"row.span"#/);
 });
@@ -248,7 +251,8 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
 
 test('project staging generates all forms and maps Rust field errors to UI locations',()=>{
  const input={...files,'Cargo.toml':'[package]\nname="demo"\nversion="0.1.0"\n[dependencies]\nforma = { path = "../.." }','src/main.rs':'include!("forma_generated.rs"); fn main() {}'};
- const result=prepareFormProject(input);assert.equal(result.count,1);assert.ok(result.files['src/forma_generated.rs']);assert.ok(!input['src/forma_generated.rs']);
+ const result=prepareFormProject(input,{}, {nativeApp:true});assert.equal(result.count,1);assert.ok(result.files['src/forma_generated.rs']);assert.ok(!input['src/forma_generated.rs']);
+ assert.match(result.files['src/forma_generated.rs'],/NativeApp for CustomerForm/);
  const [line,location]=Object.entries(result.sourceMap)[0];assert.ok(location.file.endsWith('.ui'));
  assert.match(mapFormDiagnostic(`--> /tmp/project/src/forma_generated.rs:${line}:10`,result.sourceMap),/ui\/CustomerForm.ui:/);
 });

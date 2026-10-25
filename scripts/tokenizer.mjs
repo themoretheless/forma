@@ -3,19 +3,19 @@ import {existsSync,readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {root} from './versions.mjs';
 
-// Rust takes tokenizer-forma from the tokenizer `release` branch, and vector-ui/Cargo.lock pins the
-// exact commit. npm cannot install a package from a subdirectory of a git repository, so the JS
-// adapters and the language WASM come from a checkout of that same commit next to forma
-// (package.json: file:../tokenizer/packages/forma). Everything here keeps the two in step.
-export const tokenizerDir=resolve(root,'../tokenizer');
+// Rust takes tokenizer-forma from an exact revision: a path dependency's lockfile is not inherited
+// by exported applications. vector-ui/Cargo.lock records the same pin. npm cannot install a package
+// from a subdirectory of a git repository, so the JS adapters and language WASM come from a checkout
+// of that commit next to forma (package.json: file:../tokenizer/packages/forma).
+export const tokenizerDir=resolve(root,process.env.FORMA_TOKENIZER_DIR??'../tokenizer');
 const PACKAGE=resolve(tokenizerDir,'packages/forma');
 const SOURCES=['crates/tokenizer-forma','packages/forma'];
 
 export function lockedTokenizer(lock=readFileSync(resolve(root,'vector-ui/Cargo.lock'),'utf8')){
   const block=lock.split('[[package]]').find(entry=>/^name = "themoretheless-tokenizer-forma"$/m.test(entry));
-  const source=block?.match(/^source = "git\+([^?"]+)\?branch=release#([0-9a-f]{40})"$/m);
+  const source=block?.match(/^source = "git\+([^?"]+)\?rev=([0-9a-f]{40})#([0-9a-f]{40})"$/m);
   const version=block?.match(/^version = "([^"]+)"$/m)?.[1];
-  if(!source||!version)throw Error('vector-ui/Cargo.lock must pin themoretheless-tokenizer-forma to the tokenizer release branch');
+  if(!source||source[2]!==source[3]||!version)throw Error('vector-ui/Cargo.lock must pin themoretheless-tokenizer-forma to an exact tokenizer revision');
   return {url:source[1],rev:source[2],version};
 }
 
@@ -31,10 +31,10 @@ const git=args=>run('git',args,{cwd:tokenizerDir});
 export function checkTokenizer(locked=lockedTokenizer()){
   if(!existsSync(resolve(tokenizerDir,'.git')))throw Error(`No tokenizer checkout at ${tokenizerDir}; run node scripts/tokenizer.mjs checkout`);
   if(spawnSync('git',['cat-file','-e',`${locked.rev}^{commit}`],{cwd:tokenizerDir}).status!==0)
-    throw Error(`../tokenizer does not have the locked release ${locked.rev.slice(0,8)}; run git -C ../tokenizer fetch origin release`);
+    throw Error(`${tokenizerDir} does not have the locked revision ${locked.rev.slice(0,8)}; fetch it in that checkout`);
   const changed=git(['status','--porcelain','--untracked-files=normal','--',...SOURCES]);
   const differs=spawnSync('git',['diff','--quiet',locked.rev,'--',...SOURCES],{cwd:tokenizerDir}).status!==0;
-  if(changed||differs)throw Error(`../tokenizer ${SOURCES.join(' and ')} differ from the locked release ${locked.rev.slice(0,8)}; check it out, or move the lock with cargo update -p themoretheless-tokenizer-forma`);
+  if(changed||differs)throw Error(`${tokenizerDir}: ${SOURCES.join(' and ')} differ from the locked revision ${locked.rev.slice(0,8)}; check it out, or update rev in vector-ui/Cargo.toml and refresh the lockfiles`);
   const version=JSON.parse(readFileSync(resolve(PACKAGE,'package.json'),'utf8')).version;
   if(version!==locked.version)throw Error(`packages/forma is ${version}, Cargo.lock pins ${locked.version}`);
   return locked;
@@ -69,6 +69,6 @@ if(invoked){
   try{
     for(const name of names)commands[name]();
     const locked=lockedTokenizer();
-    console.log(`tokenizer ${locked.version} @ ${locked.rev.slice(0,12)} (release): ${names.join(', ')} ok`);
+    console.log(`tokenizer ${locked.version} @ ${locked.rev.slice(0,12)} (pinned): ${names.join(', ')} ok`);
   }catch(error){console.error(error.message);process.exit(1);}
 }

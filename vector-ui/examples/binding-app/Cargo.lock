@@ -1386,7 +1386,7 @@ dependencies = [
 [[package]]
 name = "themoretheless-tokenizer-forma"
 version = "0.8.0"
-source = "git+https://github.com/themoretheless/tokenizer?branch=release#d1c9ff7e7e69c903e02715645069e642872f14df"
+source = "git+https://github.com/themoretheless/tokenizer?rev=0236a83afdb9c0db16cc2bd9cee5403cd0095edd#0236a83afdb9c0db16cc2bd9cee5403cd0095edd"
 dependencies = [
  "serde_json",
 ]

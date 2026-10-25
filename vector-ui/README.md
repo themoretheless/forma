@@ -103,7 +103,7 @@ Brush — значение свойства: `Rectangle { background: Brush { co
 - `ui/VectorButton.ui` — экземпляр Button внутри Frame: размеры, padding, text и clicked.
 - `components/Button.ui` — шаблон компонента: Rectangle, Brush, Border, Text, PointerArea.
 
-Откройте экземпляр → «Показать UI» → «Вектор · Rust/WASM». Затем откройте компонент: его изменения сразу перерисовывают экземпляр. «▶ Взаимодействие» включает hover/pressed и события. «▶ Приложение» запускает те же два .ui-снимка через native Rust, без WebView. Код примера в репозитории: `examples/Button.ui` и `examples/Button.component.ui`.
+Откройте экземпляр → «Показать UI» → «Вектор · Rust/WASM». Затем откройте компонент: его изменения сразу перерисовывают экземпляр. «Взаимодействие» включает hover/pressed и события во встроенном preview. «▶ Приложение» запускает те же два .ui-снимка через native Rust, без WebView. Код примера в репозитории: `examples/Button.ui` и `examples/Button.component.ui`.
 
 `props.*` берёт значения экземпляра. Brush задаёт color и необязательные hover/pressed/disabled/focus, `transition: 140ms;` — плавную интерполяцию цвета при смене состояния. Border рисует внутреннюю границу собственной Brush. PointerArea `clicked -> events.clicked();` передаёт событие экземпляру; без этой строки событие не возникает. Нет выполнения произвольного кода из шаблона.
 

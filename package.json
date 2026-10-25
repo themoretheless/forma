@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --test",
+    "test": "node --test 'test/*.test.js'",
     "bench": "node scripts/perf-bench.mjs",
     "bench:window": "node scripts/window-bench.mjs",
     "example:controls": "node scripts/controls-example.mjs",
@@ -14,6 +14,8 @@
     "example:bindings": "cargo run --locked --manifest-path vector-ui/examples/binding-app/Cargo.toml",
     "example:bindings:native": "cargo run --locked --manifest-path vector-ui/examples/binding-app/Cargo.toml --features native",
     "build:wasm": "node scripts/build-wasm.mjs",
+    "build:svet": "npm --prefix packages/svet run build",
+    "test:svet": "npm --prefix packages/svet test",
     "tokenizer": "node scripts/tokenizer.mjs",
     "version:check": "node scripts/versions.mjs check",
     "version:set": "node scripts/versions.mjs set",
