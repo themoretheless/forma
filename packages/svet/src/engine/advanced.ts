@@ -15,7 +15,7 @@
  *    `OwnerScope` disposal when switching routes.
  */
 
-import { type ChildNodeValue, h, insertChild } from './dom';
+import { type ChildNodeValue, h, insertChild } from './dom.ts';
 import {
   batch,
   createRoot,
@@ -27,7 +27,7 @@ import {
   signal,
   Signal,
   untrack,
-} from './reactivity';
+} from './reactivity.ts';
 
 // ============================================================================
 // 1. Hierarchical Context System (`createContext` / `useContext`)
@@ -372,26 +372,79 @@ export interface RouteDefinition {
   component: (params: Record<string, string>) => Node;
 }
 
+export type NavigationGuard = (
+  to: { path: string; params: Record<string, string>; query: Record<string, string>; hash: string },
+  from: { path: string; params: Record<string, string>; query: Record<string, string>; hash: string }
+) => boolean | string | void;
+
 export interface RouterInstance {
   readonly path: ReadonlySignal<string>;
   readonly params: ReadonlySignal<Record<string, string>>;
-  navigate(to: string): void;
+  readonly query: ReadonlySignal<Record<string, string>>;
+  readonly hash: ReadonlySignal<string>;
+  navigate(to: string): boolean;
+  beforeEach(guard: NavigationGuard): () => void;
   match(pathname: string): {
     route: RouteDefinition | null;
     params: Record<string, string>;
+    pathname: string;
+    query: Record<string, string>;
+    hash: string;
   };
   dispose(): void;
 }
 
 const RouterContext = createContext<RouterInstance | null>(null);
 
+function parseUrlParts(rawUrl: string): {
+  pathname: string;
+  query: Record<string, string>;
+  hash: string;
+} {
+  let working = rawUrl || '/';
+  let hash = '';
+  const hashIdx = working.indexOf('#');
+  if (hashIdx !== -1) {
+    hash = working.slice(hashIdx + 1);
+    working = working.slice(0, hashIdx);
+  }
+  const query: Record<string, string> = {};
+  const qIdx = working.indexOf('?');
+  let pathname = working;
+  if (qIdx !== -1) {
+    pathname = working.slice(0, qIdx) || '/';
+    const searchStr = working.slice(qIdx + 1);
+    if (searchStr) {
+      for (const pair of searchStr.split('&')) {
+        if (!pair) continue;
+        const eqIdx = pair.indexOf('=');
+        const rawK = eqIdx === -1 ? pair : pair.slice(0, eqIdx);
+        const rawV = eqIdx === -1 ? '' : pair.slice(eqIdx + 1);
+        try {
+          const k = decodeURIComponent(rawK.replace(/\+/g, ' '));
+          const v = decodeURIComponent(rawV.replace(/\+/g, ' '));
+          if (k && k !== '__proto__' && k !== 'constructor' && k !== 'prototype') {
+            query[k] = v;
+          }
+        } catch {
+          if (rawK && rawK !== '__proto__' && rawK !== 'constructor' && rawK !== 'prototype') {
+            query[rawK] = rawV;
+          }
+        }
+      }
+    }
+  }
+  return { pathname: pathname || '/', query, hash };
+}
+
 function matchRoutePattern(
   pattern: string,
   pathname: string
 ): Record<string, string> | null {
   if (pattern === '*') return {};
+  const cleanPath = pathname.split('#')[0].split('?')[0];
   const patternParts = pattern.split('/').filter(Boolean);
-  const pathParts = pathname.split('?')[0].split('/').filter(Boolean);
+  const pathParts = cleanPath.split('/').filter(Boolean);
 
   if (patternParts.length !== pathParts.length) {
     return null;
@@ -417,42 +470,90 @@ function matchRoutePattern(
 export function createRouter(options: {
   routes: RouteDefinition[];
   initialPath?: string;
+  beforeEach?: NavigationGuard;
 }): RouterInstance {
-  const initial =
+  const initialFull =
     options.initialPath ??
-    (typeof window !== 'undefined' ? window.location.pathname : '/');
-  const currentPath = signal(initial);
-  const currentParams = signal<Record<string, string>>({});
+    (typeof window !== 'undefined'
+      ? `${window.location.pathname}${window.location.search ?? ''}${window.location.hash ?? ''}`
+      : '/');
 
-  const match = (pathname: string) => {
+  const match = (rawUrl: string) => {
+    const { pathname, query, hash } = parseUrlParts(rawUrl);
     for (const route of options.routes) {
       const matchedParams = matchRoutePattern(route.path, pathname);
       if (matchedParams !== null) {
-        return { route, params: matchedParams };
+        return { route, params: matchedParams, pathname, query, hash };
       }
     }
-    return { route: null, params: {} };
+    return { route: null, params: {}, pathname, query, hash };
   };
 
-  const syncPathInternal = (to: string, pushHistory: boolean) => {
+  const initialMatch = match(initialFull);
+  const currentPath = signal(initialMatch.pathname);
+  const currentParams = signal<Record<string, string>>(initialMatch.params);
+  const currentQuery = signal<Record<string, string>>(initialMatch.query);
+  const currentHash = signal<string>(initialMatch.hash);
+
+  const guards = new Set<NavigationGuard>();
+  if (options.beforeEach) {
+    guards.add(options.beforeEach);
+  }
+
+  const beforeEach = (guard: NavigationGuard): (() => void) => {
+    guards.add(guard);
+    return () => {
+      guards.delete(guard);
+    };
+  };
+
+  const syncPathInternal = (to: string, pushHistory: boolean, redirectDepth = 0): boolean => {
+    if (redirectDepth > 10) return false;
+    const nextMatch = match(to);
+    const fromState = {
+      path: currentPath.peek(),
+      params: currentParams.peek(),
+      query: currentQuery.peek(),
+      hash: currentHash.peek(),
+    };
+    const toState = {
+      path: nextMatch.pathname,
+      params: nextMatch.params,
+      query: nextMatch.query,
+      hash: nextMatch.hash,
+    };
+
+    for (const guard of guards) {
+      const res = guard(toState, fromState);
+      if (res === false) {
+        return false;
+      }
+      if (typeof res === 'string' && res !== to) {
+        return syncPathInternal(res, pushHistory, redirectDepth + 1);
+      }
+    }
+
     if (pushHistory && typeof window !== 'undefined' && window.history?.pushState) {
       window.history.pushState({}, '', to);
     }
-    const m = match(to);
     batch(() => {
-      currentPath.set(to);
-      currentParams.set(m.params);
+      currentPath.set(nextMatch.pathname);
+      currentParams.set(nextMatch.params);
+      currentQuery.set(nextMatch.query);
+      currentHash.set(nextMatch.hash);
     });
+    return true;
   };
 
-  const navigate = (to: string) => {
-    syncPathInternal(to, true);
+  const navigate = (to: string): boolean => {
+    return syncPathInternal(to, true);
   };
 
   // Listen to browser Back/Forward (`popstate`) automatically!
   const onPopState = () => {
     if (typeof window !== 'undefined') {
-      syncPathInternal(window.location.pathname, false);
+      const fullLoc = `${window.location.pathname}${window.location.search ?? ''}${window.location.hash ?? ''}`;
+      syncPathInternal(fullLoc, false);
     }
   };
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
@@ -463,18 +564,21 @@ export function createRouter(options: {
     if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
       window.removeEventListener('popstate', onPopState);
     }
+    guards.clear();
     currentPath.dispose();
     currentParams.dispose();
+    currentQuery.dispose();
+    currentHash.dispose();
   };
   onCleanup(dispose);
-
-  // Initialize initial params
-  currentParams.set(match(initial).params);
 
   return {
     path: currentPath,
     params: currentParams,
+    query: currentQuery,
+    hash: currentHash,
     navigate,
+    beforeEach,
     match,
     dispose,
   };

@@ -5,11 +5,13 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   batch,
   Canvas3D,
+  compileFormaAst,
   compileFormaComponent,
   compileFormaToJsModule,
   computed,
   configureGpuSubsystem,
   createContext,
+  createContractForm,
   createCubeMesh3D,
   createDeepStore,
   createForm,
@@ -31,6 +33,7 @@ import {
   effect,
   ErrorBoundary,
   executeGpuVectorFma,
+  flushSpringFrame,
   For,
   getDomMutationCount,
   getGpuTelemetry,
@@ -38,6 +41,8 @@ import {
   h,
   Link,
   mount,
+  parseFormaSource,
+  pickNearestVertex3D,
   Portal,
   registerFormaComponent,
   renderToString,
@@ -1660,5 +1665,168 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     window.dispatchEvent(new MouseEvent('mouseup'));
     expect(tr3d.rotation()[1]).toBeCloseTo(50 * 0.012, 4);
     void pickedVertex;
+  });
+
+  it('33. Resolves All 7 Production Weaknesses: Pre-Parsed AST AOT, Ambiguous SVG <a>/<title> Upgrade, Shared Batched Spring Ticker, Cross-Field & Async Form Validation, PersistedSignal Teardown, WASM Z-Aware 3D Vertex Picking & Router Query/Hash/Guards', async () => {
+    // 1. True Pre-Parsed AST AOT (`parseFormaSource` + `compileFormaAst`)
+    const rawUi = `
+      component AotCard {
+        state score: Int = 42;
+        let doubled = score * 2;
+        Column {
+          Text { key: 'lbl'; text: 'Score: \${doubled}'; }
+        }
+      }
+    `;
+    const precompiledAst = parseFormaSource(rawUi);
+    expect(precompiledAst.componentName).toBe('AotCard');
+    expect(precompiledAst.initialStateValues.score).toBe(42);
+    const aotModule = compileFormaToJsModule(rawUi);
+    expect(aotModule).toContain('export const uiAst =');
+    expect(aotModule).toContain('compileFormaAst(uiAst, options)');
+
+    const aotInst = compileFormaAst(precompiledAst);
+    const aotBox = document.createElement('div');
+    const aotMounted = aotInst.mount(aotBox);
+    expect(aotInst.getElementByKey('lbl')?.textContent).toBe('Score: 84');
+    aotInst.actions.increment('score', 8);
+    expect(aotInst.getElementByKey('lbl')?.textContent).toBe('Score: 100');
+    aotMounted.unmount();
+
+    // 2. Ambiguous SVG `<a xlinkHref="...">` and `<title>` inside `<svg>` inherit SVG namespace
+    const svgWithLink = h(
+      'svg',
+      { viewBox: '0 0 100 100' },
+      h('title', null, 'Vector Diagram'),
+      h('a', { xlinkHref: 'https://example.com/node' }, h('circle', { cx: 20, cy: 20, r: 10 }))
+    ) as SVGElement;
+    expect(svgWithLink.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect(svgWithLink.querySelector('title')?.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    const svgAnchor = svgWithLink.querySelector('a')!;
+    expect(svgAnchor.namespaceURI).toBe('http://www.w3.org/2000/svg');
+    expect(svgAnchor.getAttributeNS('http://www.w3.org/1999/xlink', 'href')).toBe(
+      'https://example.com/node'
+    );
+
+    // 3. Shared Batched Spring Ticker: two springs read by one effect trigger the effect only ONCE per frame!
+    const springX = createSpring(0, { stiffness: 180, damping: 22 });
+    const springY = createSpring(0, { stiffness: 180, damping: 22 });
+    let combinedEffectRuns = 0;
+    const effHandle = effect(() => {
+      void (springX() + springY());
+      combinedEffectRuns++;
+    });
+    expect(combinedEffectRuns).toBe(1);
+    batch(() => {
+      springX.set(100, { steps: 0, animate: true });
+      springY.set(200, { steps: 0, animate: true });
+    });
+    // Advance 1 shared frame -> both springs update inside a single atomic `batch()`!
+    flushSpringFrame(1);
+    expect(combinedEffectRuns).toBe(2); // Only +1 run for BOTH springs!
+    effHandle.dispose();
+    springX.dispose();
+    springY.dispose();
+
+    // 4. `createContractForm` with batched `setValue`, cross-field `validate(val, allValues)`, and `validateAsync`
+    let formEffectRuns = 0;
+    const contractForm = createContractForm({
+      initialValues: { password: 'secret', confirm: 'mismatch', username: 'admin' },
+      rules: {
+        password: { required: true, minLength: 6 },
+        confirm: {
+          required: true,
+          validate: (val, all) => (val !== all.password ? 'Пароли не совпадают' : null),
+        },
+        username: {
+          required: true,
+          validateAsync: async (val) => {
+            await new Promise((r) => setTimeout(r, 10));
+            return val === 'taken' ? 'Имя уже занято' : null;
+          },
+        },
+      },
+    });
+    const formWatch = effect(() => {
+      void contractForm.values.confirm();
+      void contractForm.touched.confirm();
+      void contractForm.errors.confirm();
+      formEffectRuns++;
+    });
+    const runsBeforeSet = formEffectRuns;
+    contractForm.setValue('confirm', 'secret');
+    // Atomic `batch()` ensures touched + value + error update causes at most 1 effect run!
+    expect(formEffectRuns - runsBeforeSet).toBe(1);
+    expect(contractForm.errors.confirm()).toBeNull();
+    expect(contractForm.isDirty()).toBe(true);
+
+    contractForm.setValue('username', 'taken');
+    const validAfterAsync = await contractForm.validateAll();
+    expect(validAfterAsync).toBe(false);
+    expect(contractForm.errors.username()).toBe('Имя уже занято');
+
+    contractForm.setValue('username', 'available_user');
+    expect(await contractForm.validateAll()).toBe(true);
+    formWatch.dispose();
+
+    // 5. `createPersistedSignal` properly removes `storage` listener and closes channel on `dispose()`
+    const memMap = new Map<string, string>();
+    const pSig = createPersistedSignal('svet_clean_key', 'init', {
+      storage: {
+        getItem: (k) => memMap.get(k) ?? null,
+        setItem: (k, v) => memMap.set(k, v),
+      },
+    });
+    pSig.dispose();
+    window.dispatchEvent(
+      new StorageEvent('storage', { key: 'svet_clean_key', newValue: '"mutated_after_dispose"' })
+    );
+    expect(pSig.peek()).toBe('init'); // Listener was cleanly removed!
+
+    // 6. WASM Z-Aware 3D Vertex Picking (`pickNearestVertex3D` prioritizes foreground `ndcZ`)
+    // In WebGPU right-handed view space (camera at origin looking down -Z), vertex 0 is at Z = -5 (back)
+    // and vertex 1 is at Z = -2 (front, closer to camera -> smaller `ndcZ`)
+    const zTr = createTransform3D({ position: [0, 0, 0] });
+    const zCam = createPerspectiveCamera3D({ fovYRad: Math.PI / 3, aspect: 1, near: 0.1, far: 100 });
+    const zMesh = createMesh3D({
+      positions: [
+        0, 0, -5, // index 0: farther from camera (larger ndcZ)
+        0, 0, -2, // index 1: closer to camera (smaller ndcZ)
+      ],
+      transform: zTr,
+      camera: zCam,
+    });
+    // Both project to the center of the 360x200 viewport (180, 100)
+    const picked = pickNearestVertex3D(zMesh, 180, 100, {
+      viewportWidth: 360,
+      viewportHeight: 200,
+      maxRadiusPx: 25,
+    });
+    expect(picked).not.toBeNull();
+    expect(picked?.vertexIndex).toBe(1); // Foreground vertex wins!
+
+    // 7. Router `query`, `hash`, clean `:param` extraction, and `beforeEach` navigation guard
+    const advRouter = createRouter({
+      initialPath: '/users/42?tab=settings&page=3#security',
+      routes: [
+        { path: '/users/:id', component: () => h('div', null, 'User') },
+        { path: '/login', component: () => h('div', null, 'Login') },
+        { path: '/denied', component: () => h('div', null, 'Denied') },
+      ],
+    });
+    expect(advRouter.path()).toBe('/users/42');
+    expect(advRouter.params()).toEqual({ id: '42' });
+    expect(advRouter.query()).toEqual({ tab: 'settings', page: '3' });
+    expect(advRouter.hash()).toBe('security');
+
+    const removeGuard = advRouter.beforeEach((to) => {
+      if (to.path === '/denied') return '/login?redirected=1#auth';
+    });
+    advRouter.navigate('/denied');
+    expect(advRouter.path()).toBe('/login');
+    expect(advRouter.query()).toEqual({ redirected: '1' });
+    expect(advRouter.hash()).toBe('auth');
+    removeGuard();
+    advRouter.dispose();
   });
 });

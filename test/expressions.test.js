@@ -6,8 +6,8 @@ test('pure expression precedence, short circuit, numeric diagnostics and formatt
   assert.equal(evaluate('2+3*4'),14);assert.equal(evaluate('(2 + 3) * 4'),20);assert.equal(evaluate('17 % 5'),2);assert.equal(evaluate('17%5'),2);
   assert.equal(evaluate('false && state.missing'),false);assert.equal(evaluate('true || state.missing'),true);assert.equal(evaluate('true ? 12 : state.missing'),12);
   assert.equal(evaluate('state.optional ?? 42'),42);assert.equal(evaluate('state.zero ?? 42',{zero:0}),0);
-  assert.equal(evaluate("'Count: ' + String(len(state.items))",{items:[1,2,3]}),'Count: 3');assert.equal(evaluate('clamp(20, 0, 10)'),10);assert.equal(evaluate('Number(\'2.5\') + 1'),3.5);
-  assert.equal(evaluate("1 + '2'"),'12');
+  assert.equal(evaluate("'Count: ${len(state.items)}'",{items:[1,2,3]}),'Count: 3');assert.equal(evaluate('clamp(20, 0, 10)'),10);assert.equal(evaluate('Number(\'2.5\') + 1'),3.5);
+  assert.throws(()=>evaluate("1 + '2'"),/число/);
   assert.throws(()=>evaluate('1 / 0'),/конечное/);assert.throws(()=>evaluate("1 - '2'"),/число/);assert.throws(()=>evaluate('1 && true'),/Bool/);assert.throws(()=>evaluate('min()'),/аргументов/);
   assert.throws(()=>parseExpression('fetch(1)'),/чистая функция/);
 });

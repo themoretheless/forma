@@ -23,7 +23,7 @@ import {
   STATE_CLEAN,
   SvetWasmExports,
   withWasmCore,
-} from './wasm-bridge';
+} from './wasm-bridge.ts';
 
 export interface ReadonlySignal<T> {
   (): T;

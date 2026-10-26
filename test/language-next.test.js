@@ -260,11 +260,11 @@ test('8. Extended stdlib (math, strings, collections/records, color/contrast), u
 
       let m1 = pow(2, 4) + sqrt(81) + sign(-5);
       let m2 = lerp(0, 100, 0.25) + remap(5, 0, 10, 0, 100) + avg([10, 20, 30]);
-      let s1 = capitalize('forma') + '-' + '7'.padStart(3, '0') + '-' + truncate('Hello World', 8, '...');
-      let c1 = join(flatten([[1, 2], [3]]), '') + '|' + count(chunk([1, 2, 3, 4], 2)) + '|' + indexOf(['a', 'b', 'c'], 'b');
+      let s1 = '\${capitalize('forma')}-\${'7'.padStart(3, '0')}-\${truncate('Hello World', 8, '...')}';
+      let c1 = '\${join(flatten([[1, 2], [3]]), '')}|\${count(chunk([1, 2, 3, 4], 2))}|\${indexOf(['a', 'b', 'c'], 'b')}';
       let r1 = join(keys(merge({ a: 1, b: 2 }, { c: 3 }) |> pick(['a', 'c'])), '');
-      let p1 = coalesce(null, 'fallback') + ':' + isEmpty([]) + ':' + (!isEmpty(meta));
-      let wcag = round(contrast(#000000, #ffffff)) + ':' + invert(#00ff88);
+      let p1 = '\${coalesce(null, 'fallback')}:\${isEmpty([])}:\${!isEmpty(meta)}';
+      let wcag = '\${round(contrast(#000000, #ffffff))}:\${invert(#00ff88)}';
 
       Frame {
         width: 20rem;

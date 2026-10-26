@@ -27,7 +27,7 @@ export {
   type OwnerScope,
   type SignalStore,
   type DeepSignalStore,
-} from './reactivity';
+} from './reactivity.ts';
 
 export {
   h,
@@ -42,7 +42,7 @@ export {
   type Component,
   type ChildNodeValue,
   type ReactiveValue,
-} from './dom';
+} from './dom.ts';
 
 export {
   createContext,
@@ -58,8 +58,9 @@ export {
   type SvetContext,
   type Resource,
   type RouteDefinition,
+  type NavigationGuard,
   type RouterInstance,
-} from './advanced';
+} from './advanced.ts';
 
 export {
   serializeState,
@@ -69,16 +70,16 @@ export {
   createServerAction,
   type ResumableSnapshot,
   type ServerAction,
-} from './resumable';
+} from './resumable.ts';
 
 export {
   computeLisWasm,
   getWasmCore,
   createWasmCoreInstance,
   withWasmCore,
-} from './wasm-bridge';
+} from './wasm-bridge.ts';
 
-export { transformSvetJsx, svetVitePlugin } from './compiler';
+export { transformSvetJsx, svetVitePlugin } from './compiler.ts';
 
 export {
   configureGpuSubsystem,
@@ -93,6 +94,7 @@ export {
   createPerspectiveCamera3D,
   createMesh3D,
   createCubeMesh3D,
+  pickNearestVertex3D,
   Canvas3D,
   GpuSparkline,
   type MemoryArchitecture,
@@ -106,7 +108,7 @@ export {
   type ReactiveTransform3D,
   type PerspectiveCamera3D,
   type Mesh3D,
-} from './gpu';
+} from './gpu.ts';
 
 export {
   createFormaProperty,
@@ -116,16 +118,21 @@ export {
   evaluateFormaExpression,
   doesFormaPatternMatch,
   compileFormaComponent,
+  compileFormaAst,
+  parseFormaSource,
   registerFormaComponent,
   validateFormaSource,
   compileFormaToJsModule,
   createSpring,
+  flushSpringFrame,
   createPersistedSignal,
   createForm,
+  createContractForm,
   FormaHost,
   type FormaProperty,
   type FormaContextHolder,
   type FormaPropConstraint,
+  type FormaDocumentAst,
   type FormaStateMutator,
   type FormaRuntimeInstance,
   type FormaSlotMap,
@@ -135,7 +142,7 @@ export {
   type SpringSignal,
   type FormFieldRule,
   type ReactiveForm,
-} from './forma';
+} from './forma.ts';
 
 export {
   createTimeTravelDebugger,
@@ -144,4 +151,4 @@ export {
   type TimeTravelDebugger,
   type VirtualListProps,
   type VirtualListHandle,
-} from './devtools';
+} from './devtools.ts';

@@ -9,7 +9,7 @@
  *   and O(n log n) Longest Increasing Subsequence (LIS) reconciliation.
  */
 
-import { decodeWasmBinary } from './wasm-binary';
+import { decodeWasmBinary } from './wasm-binary.ts';
 
 export const KIND_SIGNAL = 0;
 export const KIND_COMPUTED = 1;
@@ -96,6 +96,15 @@ export interface SvetWasmExports {
     dstOffset: number,
     vertexCount: number
   ): void;
+  svet_gpu_pick_nearest_vertex_3d(
+    clipVertsOffset: number,
+    vertexCount: number,
+    viewportW: number,
+    viewportH: number,
+    clickX: number,
+    clickY: number,
+    maxRadiusPx: number
+  ): number;
 }
 
 let compiledModule: WebAssembly.Module | null = null;

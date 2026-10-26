@@ -25,13 +25,13 @@
  *    - Implements Forma's complete `stdlib`: math (`clamp`, `lerp`, `remap`, `sum`, `avg`), strings & i18n (`plural`, `upper`, `lower`, `capitalize`, `truncate`, `padStart`), collections (`filter`, `map`, `join`, `take`, `skip`, `unique`), and WCAG color functions (`lighten`, `darken`, `alpha`, `luminance`, `contrast`).
  */
 
-import { For, h, insertChild, Show } from './dom';
+import { For, h, insertChild, Show } from './dom.ts';
 import {
   Canvas3D,
   createCubeMesh3D,
   createPerspectiveCamera3D,
   createTransform3D,
-} from './gpu';
+} from './gpu.ts';
 import {
   batch,
   computed,
@@ -42,7 +42,7 @@ import {
   signal,
   Signal,
   untrack,
-} from './reactivity';
+} from './reactivity.ts';
 
 // ============================================================================
 // 1. Forma `Property<T>` & `Context<T>` (Rust ViewModel Binding Compatibility)
@@ -816,7 +816,19 @@ export interface FormaPropConstraint {
   required: boolean;
   defaultValue: any;
   range?: [number, number];
-  pattern?: RegExp;
+  patternSource?: string;
+}
+
+export interface FormaDocumentAst {
+  componentName: string;
+  tokens: Record<string, any>;
+  i18nDictionaries: Record<string, Record<string, string>>;
+  styles: Record<string, Record<string, string>>;
+  propConstraints: FormaPropConstraint[];
+  initialStateValues: Record<string, any>;
+  letExpressions: Array<{ name: string; expr: string }>;
+  shortcuts: Array<{ combo: string; action: string }>;
+  rootAstNodes: FormaAstNode[];
 }
 
 export interface FormaStateMutator {
@@ -867,8 +879,8 @@ export interface FormaRuntimeInstance {
   exportHmrSnapshot(): FormaHmrSnapshot;
   /** Restores signal values atomically from an HMR snapshot without losing user state */
   restoreHmrSnapshot(snapshot: FormaHmrSnapshot): void;
-  /** Hot-reloads the `.ui` source code in-place, preserving all signal values, ViewModel bindings, and event listeners */
-  hotReload(nextUiSource: string): void;
+  /** Hot-reloads the `.ui` source code or pre-parsed `FormaDocumentAst` in-place, preserving all signal values, ViewModel bindings, and event listeners */
+  hotReload(nextUiSourceOrAst: string | FormaDocumentAst): void;
   /** Renders the Forma component into a live DOM DocumentFragment for embedding inside Svet JSX (`<FormaHost instance={...} />`) */
   render(): DocumentFragment;
   mount(container: HTMLElement): { unmount(): void };
@@ -1387,10 +1399,209 @@ export function registerFormaComponent(name: string, uiSource: string): void {
 }
 
 /**
- * Compiles a Forma `.ui` source file into a live, reactive **Svet + WASM** `FormaRuntimeInstance`.
+ * Pre-parses a Forma `.ui` source string into a serializable `FormaDocumentAst` at build time (AOT)
+ * so the browser can instantiate `compileFormaAst(ast, options)` with 0ms of runtime source parsing!
  */
-export function compileFormaComponent(
-  uiSource: string,
+export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
+  const cMatch = rawUiSource.match(/component\s+([A-Za-z0-9_]+)(?:\s*:\s*[A-Za-z0-9_]+)?\s*\{/);
+  const componentName = cMatch ? cMatch[1] : 'AnonymousFormaComponent';
+  const cBraceIdx = cMatch ? rawUiSource.indexOf('{', cMatch.index!) : -1;
+  const compBody = cBraceIdx !== -1 ? extractBraceBlock(rawUiSource, cBraceIdx).body : rawUiSource;
+
+  const tokens: Record<string, any> = {};
+  const i18nDictionaries: Record<string, Record<string, string>> = {};
+  const styles: Record<string, Record<string, string>> = {};
+  const propConstraints: FormaPropConstraint[] = [];
+  const initialStateValues: Record<string, any> = {};
+  const letExpressions: Array<{ name: string; expr: string }> = [];
+  const shortcuts: Array<{ combo: string; action: string }> = [];
+  const rootAstNodes: FormaAstNode[] = [];
+
+  let i = 0;
+  const src = compBody.trim();
+  const n = src.length;
+  let pendingRange: [number, number] | undefined;
+  let pendingPatternSource: string | undefined;
+
+  while (i < n) {
+    while (i < n && /\s/.test(src[i])) i++;
+    if (i >= n) break;
+
+    if (src.startsWith('//', i)) {
+      const nl = src.indexOf('\n', i + 2);
+      i = nl === -1 ? n : nl + 1;
+      continue;
+    }
+
+    // Attribute annotations: `#[range(min, max)]` or `#[pattern('regex')]`
+    if (src.startsWith('#[', i)) {
+      const nl = src.indexOf('\n', i + 2);
+      const lineEnd = nl === -1 ? n : nl;
+      const lineStr = src.slice(i, lineEnd).trim();
+      if (lineStr.endsWith(']')) {
+        const attrContent = lineStr.slice(2, -1).trim();
+        const rangeMatch = attrContent.match(
+          /^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/
+        );
+        if (rangeMatch) {
+          pendingRange = [Number(rangeMatch[1]), Number(rangeMatch[2])];
+        }
+        const patternMatch = attrContent.match(/^pattern\(\s*['"](.+?)['"]\s*\)$/);
+        if (patternMatch && isSafePatternRegex(patternMatch[1])) {
+          try {
+            new RegExp(patternMatch[1]);
+            pendingPatternSource = patternMatch[1];
+          } catch {
+            pendingPatternSource = undefined;
+          }
+        }
+        i = lineEnd;
+        continue;
+      }
+    }
+
+    // `tokens { ... }`
+    if (src.startsWith('tokens', i) && /^tokens\s*\{/.test(src.slice(i))) {
+      const bIdx = src.indexOf('{', i);
+      const blk = extractBraceBlock(src, bIdx);
+      i = blk.endIdx;
+      for (const rawLine of blk.body.split(';')) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        const cIdx = line.indexOf(':');
+        if (cIdx !== -1) {
+          const k = line.slice(0, cIdx).trim();
+          const vRaw = line.slice(cIdx + 1).trim();
+          const v = /^-?\d+(\.\d+)?$/.test(vRaw)
+            ? Number(vRaw)
+            : vRaw.replace(/^['"]|['"]$/g, '');
+          setNestedObjectKey(tokens, k, v);
+        }
+      }
+      continue;
+    }
+
+    // `i18n <locale> { ... }`
+    const i18nMatch = src.slice(i).match(/^i18n\s+([a-zA-Z_-]+)\s*\{/);
+    if (i18nMatch) {
+      const loc = i18nMatch[1];
+      const bIdx = src.indexOf('{', i);
+      const blk = extractBraceBlock(src, bIdx);
+      i = blk.endIdx;
+      i18nDictionaries[loc] = i18nDictionaries[loc] ?? {};
+      for (const rawLine of blk.body.split(';')) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        const cIdx = line.indexOf(':');
+        if (cIdx !== -1) {
+          const k = line.slice(0, cIdx).trim();
+          const v = line.slice(cIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+          i18nDictionaries[loc][k] = v;
+        }
+      }
+      continue;
+    }
+
+    // `style <name> { ... }`
+    const styleMatch = src.slice(i).match(/^style\s+([a-zA-Z0-9_]+)\s*\{/);
+    if (styleMatch) {
+      const styleName = styleMatch[1];
+      const bIdx = src.indexOf('{', i);
+      const blk = extractBraceBlock(src, bIdx);
+      i = blk.endIdx;
+      styles[styleName] = {};
+      for (const rawLine of blk.body.split(';')) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        const cIdx = line.indexOf(':');
+        if (cIdx !== -1) {
+          styles[styleName][line.slice(0, cIdx).trim()] = line.slice(cIdx + 1).trim();
+        }
+      }
+      continue;
+    }
+
+    // If we hit a visual container (`Column {`, `Row {`, `Frame {`, `Grid {`, `Stack {`, `Text {`, `Button {`, etc.)
+    if (/^[A-Z][a-zA-Z0-9_]*\s*\{/.test(src.slice(i))) {
+      rootAstNodes.push(...parseFormaUiBody(src.slice(i)));
+      break;
+    }
+
+    // Top-level statement ending with `;`
+    const semiIdx = findStatementSemicolon(src, i);
+    const stmt = (semiIdx === -1 ? src.slice(i) : src.slice(i, semiIdx)).trim();
+    i = semiIdx === -1 ? n : semiIdx + 1;
+    if (!stmt) continue;
+
+    // `prop` or `required prop`
+    const propMatch = stmt.match(/^(required\s+)?prop\s+([a-zA-Z0-9_]+)\s*:\s*([^=]+?)(?:\s*=\s*(.+))?$/);
+    if (propMatch) {
+      const required = Boolean(propMatch[1]);
+      const name = propMatch[2].trim();
+      if (FORBIDDEN_MEMBER_KEYS.has(name)) continue;
+      const type = propMatch[3].trim();
+      const defRaw = propMatch[4]?.trim();
+      const defVal = defRaw !== undefined ? parseLiteralValue(defRaw) : null;
+
+      propConstraints.push({
+        name,
+        type,
+        required,
+        defaultValue: defVal,
+        range: pendingRange,
+        patternSource: pendingPatternSource,
+      });
+      pendingRange = undefined;
+      pendingPatternSource = undefined;
+      continue;
+    }
+
+    // `state <name>: <Type> = <default>`
+    const stateMatch = stmt.match(/^state\s+([a-zA-Z0-9_]+)\s*:\s*([^=]+?)\s*=\s*(.+)$/);
+    if (stateMatch) {
+      const name = stateMatch[1].trim();
+      if (FORBIDDEN_MEMBER_KEYS.has(name)) continue;
+      const initVal = parseLiteralValue(stateMatch[3].trim());
+      initialStateValues[name] = structuredCloneIfObject(initVal);
+      continue;
+    }
+
+    // `let <name> = <expr>`
+    const letMatch = stmt.match(/^let\s+([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
+    if (letMatch) {
+      const letName = letMatch[1].trim();
+      if (FORBIDDEN_MEMBER_KEYS.has(letName)) continue;
+      letExpressions.push({ name: letName, expr: letMatch[2].trim() });
+      continue;
+    }
+
+    // `shortcut '<combo>' -> <action>`
+    const shortcutMatch = stmt.match(/^shortcut\s+['"](.+?)['"]\s*->\s*(.+)$/);
+    if (shortcutMatch) {
+      shortcuts.push({ combo: shortcutMatch[1].trim(), action: shortcutMatch[2].trim() });
+      continue;
+    }
+  }
+
+  return {
+    componentName,
+    tokens,
+    i18nDictionaries,
+    styles,
+    propConstraints,
+    initialStateValues,
+    letExpressions,
+    shortcuts,
+    rootAstNodes,
+  };
+}
+
+/**
+ * Instantiates a live, reactive **Svet + WASM** `FormaRuntimeInstance` directly from a pre-parsed
+ * `FormaDocumentAst` (0ms runtime parsing overhead) or a raw `.ui` source string.
+ */
+export function compileFormaAst(
+  astOrSource: FormaDocumentAst | string,
   options?: {
     props?: Record<string, any>;
     locale?: string;
@@ -1399,13 +1610,30 @@ export function compileFormaComponent(
     components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
   }
 ): FormaRuntimeInstance {
-  const compMatch = uiSource.match(/component\s+([A-Za-z0-9_]+)(?:\s*:\s*[A-Za-z0-9_]+)?\s*\{/);
-  const componentName = compMatch ? compMatch[1] : 'AnonymousFormaComponent';
+  return compileFormaComponent(astOrSource, options);
+}
+
+/**
+ * Compiles a Forma `.ui` source file or pre-parsed `FormaDocumentAst` into a live, reactive **Svet + WASM** `FormaRuntimeInstance`.
+ */
+export function compileFormaComponent(
+  uiSourceOrAst: string | FormaDocumentAst,
+  options?: {
+    props?: Record<string, any>;
+    locale?: string;
+    viewModel?: Record<string, FormaProperty<any> | Signal<any>>;
+    slots?: FormaSlotMap;
+    components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
+  }
+): FormaRuntimeInstance {
+  const initialAst =
+    typeof uiSourceOrAst === 'string' ? parseFormaSource(uiSourceOrAst) : uiSourceOrAst;
+  const componentName = initialAst.componentName;
 
   const tokens: Record<string, any> = {};
   const i18nDictionaries: Record<string, Record<string, string>> = {};
   const styles: Record<string, Record<string, string>> = {};
-  const propConstraints: FormaPropConstraint[] = [];
+  const propConstraints: Array<FormaPropConstraint & { compiledPattern?: RegExp }> = [];
   const initialStateValues: Record<string, any> = {};
   const stateSignals: Record<string, Signal<any>> = {};
   const propSignals: Record<string, Signal<any>> = {};
@@ -1427,199 +1655,60 @@ export function compileFormaComponent(
     }
   }
 
-  const parseTopLevelSource = (rawUiSource: string, isHotReload = false) => {
-    const cMatch = rawUiSource.match(/component\s+([A-Za-z0-9_]+)(?:\s*:\s*[A-Za-z0-9_]+)?\s*\{/);
-    const cBraceIdx = cMatch ? rawUiSource.indexOf('{', cMatch.index!) : -1;
-    const compBody = cBraceIdx !== -1 ? extractBraceBlock(rawUiSource, cBraceIdx).body : rawUiSource;
-
+  const applyDocumentAst = (docAst: FormaDocumentAst, isHotReload = false) => {
     for (const k of Object.keys(tokens)) delete tokens[k];
+    Object.assign(tokens, structuredCloneIfObject(docAst.tokens));
+
     for (const k of Object.keys(i18nDictionaries)) delete i18nDictionaries[k];
+    Object.assign(i18nDictionaries, structuredCloneIfObject(docAst.i18nDictionaries));
+
     for (const k of Object.keys(styles)) delete styles[k];
+    Object.assign(styles, structuredCloneIfObject(docAst.styles));
+
     propConstraints.length = 0;
-    letExpressions.length = 0;
-    shortcuts.length = 0;
-    rootAstNodes.length = 0;
-
-    let i = 0;
-    const src = compBody.trim();
-    const n = src.length;
-    let pendingRange: [number, number] | undefined;
-    let pendingPattern: RegExp | undefined;
-
-    while (i < n) {
-      while (i < n && /\s/.test(src[i])) i++;
-      if (i >= n) break;
-
-      if (src.startsWith('//', i)) {
-        const nl = src.indexOf('\n', i + 2);
-        i = nl === -1 ? n : nl + 1;
-        continue;
-      }
-
-      // Attribute annotations: `#[range(min, max)]` or `#[pattern('regex')]`
-      if (src.startsWith('#[', i)) {
-        const nl = src.indexOf('\n', i + 2);
-        const lineEnd = nl === -1 ? n : nl;
-        const lineStr = src.slice(i, lineEnd).trim();
-        if (lineStr.endsWith(']')) {
-          const attrContent = lineStr.slice(2, -1).trim();
-          const rangeMatch = attrContent.match(
-            /^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/
-          );
-          if (rangeMatch) {
-            pendingRange = [Number(rangeMatch[1]), Number(rangeMatch[2])];
-          }
-          const patternMatch = attrContent.match(/^pattern\(\s*['"](.+?)['"]\s*\)$/);
-          if (patternMatch && isSafePatternRegex(patternMatch[1])) {
-            try {
-              pendingPattern = new RegExp(patternMatch[1]);
-            } catch {
-              pendingPattern = undefined;
-            }
-          }
-          i = lineEnd;
-          continue;
+    for (const c of docAst.propConstraints) {
+      const defVal =
+        options?.props && Object.prototype.hasOwnProperty.call(options.props, c.name)
+          ? options.props[c.name]
+          : c.defaultValue;
+      let compiledPattern: RegExp | undefined;
+      if (c.patternSource && isSafePatternRegex(c.patternSource)) {
+        try {
+          compiledPattern = new RegExp(c.patternSource);
+        } catch {
+          compiledPattern = undefined;
         }
       }
-
-      // `tokens { ... }`
-      if (src.startsWith('tokens', i) && /^tokens\s*\{/.test(src.slice(i))) {
-        const bIdx = src.indexOf('{', i);
-        const blk = extractBraceBlock(src, bIdx);
-        i = blk.endIdx;
-        for (const rawLine of blk.body.split(';')) {
-          const line = rawLine.trim();
-          if (!line) continue;
-          const cIdx = line.indexOf(':');
-          if (cIdx !== -1) {
-            const k = line.slice(0, cIdx).trim();
-            const vRaw = line.slice(cIdx + 1).trim();
-            const v = /^-?\d+(\.\d+)?$/.test(vRaw)
-              ? Number(vRaw)
-              : vRaw.replace(/^['"]|['"]$/g, '');
-            setNestedObjectKey(tokens, k, v);
-          }
-        }
-        continue;
-      }
-
-      // `i18n <locale> { ... }`
-      const i18nMatch = src.slice(i).match(/^i18n\s+([a-zA-Z_-]+)\s*\{/);
-      if (i18nMatch) {
-        const loc = i18nMatch[1];
-        const bIdx = src.indexOf('{', i);
-        const blk = extractBraceBlock(src, bIdx);
-        i = blk.endIdx;
-        i18nDictionaries[loc] = i18nDictionaries[loc] ?? {};
-        for (const rawLine of blk.body.split(';')) {
-          const line = rawLine.trim();
-          if (!line) continue;
-          const cIdx = line.indexOf(':');
-          if (cIdx !== -1) {
-            const k = line.slice(0, cIdx).trim();
-            const v = line.slice(cIdx + 1).trim().replace(/^['"]|['"]$/g, '');
-            i18nDictionaries[loc][k] = v;
-          }
-        }
-        continue;
-      }
-
-      // `style <name> { ... }`
-      const styleMatch = src.slice(i).match(/^style\s+([a-zA-Z0-9_]+)\s*\{/);
-      if (styleMatch) {
-        const styleName = styleMatch[1];
-        const bIdx = src.indexOf('{', i);
-        const blk = extractBraceBlock(src, bIdx);
-        i = blk.endIdx;
-        styles[styleName] = {};
-        for (const rawLine of blk.body.split(';')) {
-          const line = rawLine.trim();
-          if (!line) continue;
-          const cIdx = line.indexOf(':');
-          if (cIdx !== -1) {
-            styles[styleName][line.slice(0, cIdx).trim()] = line.slice(cIdx + 1).trim();
-          }
-        }
-        continue;
-      }
-
-      // If we hit a visual container (`Column {`, `Row {`, `Frame {`, `Grid {`, `Stack {`, `Text {`, `Button {`, etc.)
-      if (/^[A-Z][a-zA-Z0-9_]*\s*\{/.test(src.slice(i))) {
-        rootAstNodes.push(...parseFormaUiBody(src.slice(i)));
-        break;
-      }
-
-      // Top-level statement ending with `;`
-      const semiIdx = findStatementSemicolon(src, i);
-      const stmt = (semiIdx === -1 ? src.slice(i) : src.slice(i, semiIdx)).trim();
-      i = semiIdx === -1 ? n : semiIdx + 1;
-      if (!stmt) continue;
-
-      // `prop` or `required prop`
-      const propMatch = stmt.match(/^(required\s+)?prop\s+([a-zA-Z0-9_]+)\s*:\s*([^=]+?)(?:\s*=\s*(.+))?$/);
-      if (propMatch) {
-        const required = Boolean(propMatch[1]);
-        const name = propMatch[2].trim();
-        if (FORBIDDEN_MEMBER_KEYS.has(name)) continue;
-        const type = propMatch[3].trim();
-        const defRaw = propMatch[4]?.trim();
-        const defVal =
-          options?.props && Object.prototype.hasOwnProperty.call(options.props, name)
-            ? options.props[name]
-            : defRaw !== undefined
-            ? parseLiteralValue(defRaw)
-            : null;
-
-        propConstraints.push({
-          name,
-          type,
-          required,
-          defaultValue: defVal,
-          range: pendingRange,
-          pattern: pendingPattern,
-        });
-        pendingRange = undefined;
-        pendingPattern = undefined;
-        if (!propSignals[name]) {
-          propSignals[name] = signal(defVal);
-        }
-        continue;
-      }
-
-      // `state <name>: <Type> = <default>`
-      const stateMatch = stmt.match(/^state\s+([a-zA-Z0-9_]+)\s*:\s*([^=]+?)\s*=\s*(.+)$/);
-      if (stateMatch) {
-        const name = stateMatch[1].trim();
-        if (FORBIDDEN_MEMBER_KEYS.has(name)) continue;
-        const initVal = parseLiteralValue(stateMatch[3].trim());
-        if (!isHotReload || !(name in initialStateValues)) {
-          initialStateValues[name] = structuredCloneIfObject(initVal);
-        }
-        if (!stateSignals[name]) {
-          stateSignals[name] = signal(initVal);
-        }
-        continue;
-      }
-
-      // `let <name> = <expr>`
-      const letMatch = stmt.match(/^let\s+([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
-      if (letMatch) {
-        const letName = letMatch[1].trim();
-        if (FORBIDDEN_MEMBER_KEYS.has(letName)) continue;
-        letExpressions.push({ name: letName, expr: letMatch[2].trim() });
-        continue;
-      }
-
-      // `shortcut '<combo>' -> <action>`
-      const shortcutMatch = stmt.match(/^shortcut\s+['"](.+?)['"]\s*->\s*(.+)$/);
-      if (shortcutMatch) {
-        shortcuts.push({ combo: shortcutMatch[1].trim(), action: shortcutMatch[2].trim() });
-        continue;
+      propConstraints.push({
+        ...c,
+        defaultValue: defVal,
+        compiledPattern,
+      });
+      if (!propSignals[c.name]) {
+        propSignals[c.name] = signal(defVal);
       }
     }
+
+    for (const [name, initVal] of Object.entries(docAst.initialStateValues)) {
+      if (!isHotReload || !(name in initialStateValues)) {
+        initialStateValues[name] = structuredCloneIfObject(initVal);
+      }
+      if (!stateSignals[name]) {
+        stateSignals[name] = signal(structuredCloneIfObject(initVal));
+      }
+    }
+
+    letExpressions.length = 0;
+    letExpressions.push(...docAst.letExpressions);
+
+    shortcuts.length = 0;
+    shortcuts.push(...docAst.shortcuts);
+
+    rootAstNodes.length = 0;
+    rootAstNodes.push(...docAst.rootAstNodes);
   };
 
-  parseTopLevelSource(uiSource, false);
+  applyDocumentAst(initialAst, false);
 
   const locale = signal(options?.locale ?? Object.keys(i18nDictionaries)[0] ?? 'ru');
   const activeI18n = computed(() => {
@@ -1638,8 +1727,8 @@ export function compileFormaComponent(
       if (c.range && typeof val === 'number') {
         if (val < c.range[0] || val > c.range[1]) return false;
       }
-      if (c.pattern && typeof val === 'string') {
-        if (!c.pattern.test(val)) return false;
+      if (c.compiledPattern && typeof val === 'string') {
+        if (!c.compiledPattern.test(val)) return false;
       }
     }
     return true;
@@ -2258,9 +2347,13 @@ export function compileFormaComponent(
         }
       });
     },
-    hotReload(nextUiSource: string) {
+    hotReload(nextUiSourceOrAst: string | FormaDocumentAst) {
       batch(() => {
-        parseTopLevelSource(nextUiSource, true);
+        const nextAst =
+          typeof nextUiSourceOrAst === 'string'
+            ? parseFormaSource(nextUiSourceOrAst)
+            : nextUiSourceOrAst;
+        applyDocumentAst(nextAst, true);
         rebuildComputedLets();
         hmrRevision.update((r) => r + 1);
       });
@@ -2549,25 +2642,39 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
 }
 
 /**
- * Generates an AOT-prevalidated JavaScript/ES Module from a Forma `.ui` source file
- * with embedded static validation metadata and HMR state preservation.
+ * Generates a True Pre-Parsed AST AOT JavaScript/ES Module from a Forma `.ui` source file.
+ * Both `uiAst` (`parseFormaSource`) and `uiValidation` (`validateFormaSource`) are computed
+ * at build time so the browser runs `compileFormaAst(uiAst, options)` with 0ms of source parsing!
  */
 export function compileFormaToJsModule(uiSource: string, importSource = 'svet'): string {
   const report = validateFormaSource(uiSource);
-  return `import { compileFormaComponent, validateFormaSource } from ${JSON.stringify(importSource)};
+  const precompiledAst = parseFormaSource(uiSource);
+  return `import { compileFormaAst } from ${JSON.stringify(importSource)};
 export const uiSource = ${JSON.stringify(uiSource)};
+export const uiAst = ${JSON.stringify(precompiledAst)};
 export const uiValidation = ${JSON.stringify(report)};
-let _activeInstances = new Set();
+const _activeInstances = import.meta.hot ? (import.meta.hot.data.instances ??= new Set()) : new Set();
 export default function createFormaView(options) {
-  const inst = compileFormaComponent(uiSource, options);
+  const inst = compileFormaAst(uiAst, options);
   _activeInstances.add(inst);
+  const origMount = inst.mount.bind(inst);
+  inst.mount = (container) => {
+    _activeInstances.add(inst);
+    const handle = origMount(container);
+    return {
+      unmount() {
+        _activeInstances.delete(inst);
+        handle.unmount();
+      },
+    };
+  };
   return inst;
 }
 if (import.meta.hot) {
   import.meta.hot.accept((newMod) => {
     if (newMod && _activeInstances.size > 0) {
       for (const inst of _activeInstances) {
-        inst.hotReload(newMod.uiSource);
+        inst.hotReload(newMod.uiAst ?? newMod.uiSource);
       }
     }
   });
@@ -2582,15 +2689,61 @@ if (import.meta.hot) {
 export interface SpringSignal extends ReadonlySignal<number> {
   readonly target: ReadonlySignal<number>;
   /** Sets the target value and steps the spring physics toward it */
-  set(nextTarget: number, options?: { hard?: boolean; steps?: number }): void;
+  set(nextTarget: number, options?: { hard?: boolean; steps?: number; animate?: boolean }): void;
+  /** Instantly snaps both target and current value to `nextTarget` with zero velocity */
+  snap(nextTarget: number): void;
   /** Advances the spring simulation by `dtSeconds` (default `1/60`) */
   step(dtSeconds?: number): number;
   dispose(): void;
 }
 
+const activeAnimatedSprings = new Set<(dt: number) => boolean>();
+let sharedSpringRafId: number | null = null;
+
+function scheduleSharedSpringTick(): void {
+  if (sharedSpringRafId !== null) return;
+  if (typeof requestAnimationFrame !== 'function') return;
+  sharedSpringRafId = requestAnimationFrame(() => {
+    sharedSpringRafId = null;
+    if (activeAnimatedSprings.size === 0) return;
+    // Update all active springs in a SINGLE atomic WASM batch per frame!
+    batch(() => {
+      for (const tickSpring of Array.from(activeAnimatedSprings)) {
+        const settled = tickSpring(1 / 60);
+        if (settled) {
+          activeAnimatedSprings.delete(tickSpring);
+        }
+      }
+    });
+    if (activeAnimatedSprings.size > 0) {
+      scheduleSharedSpringTick();
+    }
+  });
+}
+
+/**
+ * Steps all currently animating springs by `steps` frames inside a single atomic `batch()`.
+ * Useful for deterministic testing or manual frame-rate synchronization.
+ */
+export function flushSpringFrame(steps = 1, dt = 1 / 60): void {
+  if (activeAnimatedSprings.size === 0) return;
+  for (let s = 0; s < steps; s++) {
+    batch(() => {
+      for (const tickSpring of Array.from(activeAnimatedSprings)) {
+        const settled = tickSpring(dt);
+        if (settled) {
+          activeAnimatedSprings.delete(tickSpring);
+        }
+      }
+    });
+    if (activeAnimatedSprings.size === 0) break;
+  }
+}
+
 /**
  * Creates a physics-backed harmonic oscillator Spring signal (`createSpring`)
- * with configurable `stiffness` and `damping` integrated into the WASM reactive graph.
+ * with configurable `stiffness` and `damping` integrated into the WASM reactive graph
+ * and driven by a shared, batched frame scheduler.
  */
 export function createSpring(
   initialValue: number,
@@ -2604,7 +2757,7 @@ export function createSpring(
   const targetSig = signal(initialValue);
   let velocity = 0;
 
-  const step = (dt = 1 / 60): number => {
+  const stepAndCheckSettled = (dt = 1 / 60): { value: number; settled: boolean } => {
     const cur = currentSig.peek();
     const tgt = targetSig.peek();
     const displacement = cur - tgt;
@@ -2618,48 +2771,80 @@ export function createSpring(
     if (Math.abs(velocity) < precision && Math.abs(tgt - nextVal) < precision) {
       velocity = 0;
       currentSig.set(tgt);
-      return tgt;
+      return { value: tgt, settled: true };
     }
     currentSig.set(nextVal);
-    return nextVal;
+    return { value: nextVal, settled: false };
   };
+
+  const tickCallback = (dt: number): boolean => stepAndCheckSettled(dt).settled;
+
+  const step = (dt = 1 / 60): number => stepAndCheckSettled(dt).value;
 
   const getter = (() => currentSig()) as unknown as SpringSignal;
   (getter as any).id = currentSig.id;
   getter.peek = () => currentSig.peek();
   Object.defineProperty(getter, 'target', { value: targetSig, enumerable: true });
 
-  getter.set = (nextTarget: number, setOpts?: { hard?: boolean; steps?: number }) => {
-    targetSig.set(nextTarget);
-    if (setOpts?.hard) {
-      velocity = 0;
+  getter.snap = (nextTarget: number) => {
+    activeAnimatedSprings.delete(tickCallback);
+    velocity = 0;
+    batch(() => {
+      targetSig.set(nextTarget);
       currentSig.set(nextTarget);
+    });
+  };
+
+  getter.set = (
+    nextTarget: number,
+    setOpts?: { hard?: boolean; steps?: number; animate?: boolean }
+  ) => {
+    if (setOpts?.hard) {
+      getter.snap(nextTarget);
       return;
     }
+    targetSig.set(nextTarget);
     const simSteps = setOpts?.steps ?? 1;
-    for (let i = 0; i < simSteps; i++) {
-      step(1 / 60);
+    let isSettled = false;
+    batch(() => {
+      for (let i = 0; i < simSteps; i++) {
+        const res = stepAndCheckSettled(1 / 60);
+        if (res.settled) {
+          isSettled = true;
+          break;
+        }
+      }
+    });
+    if (!isSettled && setOpts?.animate !== false) {
+      activeAnimatedSprings.add(tickCallback);
+      scheduleSharedSpringTick();
+    } else if (isSettled) {
+      activeAnimatedSprings.delete(tickCallback);
     }
   };
 
   getter.step = step;
   getter.dispose = () => {
+    activeAnimatedSprings.delete(tickCallback);
     currentSig.dispose();
     targetSig.dispose();
   };
+  onCleanup(() => getter.dispose());
 
   return getter;
 }
 
 /**
  * Creates a reactive Signal persisted automatically to `localStorage` (or custom storage)
- * and synchronized across browser tabs via `storage` / `BroadcastChannel` events!
+ * and synchronized across browser tabs via `storage` and `BroadcastChannel` events!
+ * Properly closes its `BroadcastChannel` and removes its `storage` listener on `dispose()` or scope cleanup.
  */
 export function createPersistedSignal<T>(
   key: string,
   initialValue: T,
   options?: {
     storage?: Pick<Storage, 'getItem' | 'setItem'>;
+    channelName?: string;
   }
 ): Signal<T> {
   const storage =
@@ -2678,8 +2863,28 @@ export function createPersistedSignal<T>(
   }
 
   const sig = signal<T>(startVal);
+  let suppressBroadcast = false;
+  let channel: BroadcastChannel | null = null;
 
-  effect(() => {
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      channel = new BroadcastChannel(options?.channelName ?? `svet_persisted_${key}`);
+      channel.onmessage = (ev: MessageEvent) => {
+        if (ev.data && ev.data.key === key) {
+          suppressBroadcast = true;
+          try {
+            sig.set(ev.data.value as T);
+          } finally {
+            suppressBroadcast = false;
+          }
+        }
+      };
+    } catch {
+      channel = null;
+    }
+  }
+
+  const syncEffect = effect(() => {
     const val = sig();
     if (storage) {
       try {
@@ -2688,107 +2893,312 @@ export function createPersistedSignal<T>(
         // Ignore quota errors
       }
     }
+    if (channel && !suppressBroadcast) {
+      try {
+        channel.postMessage({ key, value: val });
+      } catch {
+        // Ignore non-cloneable or closed channel errors
+      }
+    }
   });
 
+  let onStorageListener: ((e: StorageEvent) => void) | null = null;
   if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-    const onStorage = (e: StorageEvent) => {
+    onStorageListener = (e: StorageEvent) => {
       if (e.key === key && e.newValue !== null) {
+        suppressBroadcast = true;
         try {
           sig.set(JSON.parse(e.newValue) as T);
         } catch {
           // Ignore malformed JSON
+        } finally {
+          suppressBroadcast = false;
         }
       }
     };
-    window.addEventListener('storage', onStorage);
-    onCleanup(() => window.removeEventListener('storage', onStorage));
+    window.addEventListener('storage', onStorageListener);
   }
+
+  let cleanedUp = false;
+  const cleanupPersisted = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    syncEffect.dispose();
+    if (onStorageListener && typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+      window.removeEventListener('storage', onStorageListener);
+      onStorageListener = null;
+    }
+    if (channel) {
+      try {
+        channel.close();
+      } catch {
+        // Ignore
+      }
+      channel = null;
+    }
+  };
+
+  const origDispose = sig.dispose.bind(sig);
+  sig.dispose = () => {
+    cleanupPersisted();
+    origDispose();
+  };
+  onCleanup(cleanupPersisted);
 
   return sig;
 }
 
-export interface FormFieldRule<V = any> {
+export interface FormFieldRule<V = any, AllValues = Record<string, any>> {
   required?: boolean;
+  min?: number;
+  max?: number;
+  minLength?: number;
+  maxLength?: number;
   range?: [number, number];
   pattern?: RegExp;
-  validate?: (value: V) => string | null | undefined;
+  validate?: (value: V, allValues: AllValues) => string | null | undefined;
+  validateAsync?: (
+    value: V,
+    options: { signal: AbortSignal; allValues: AllValues }
+  ) => Promise<string | null | undefined>;
 }
 
 export interface ReactiveForm<T extends Record<string, any>> {
   readonly values: { [K in keyof T]: Signal<T[K]> };
   readonly errors: { [K in keyof T]: ReadonlySignal<string | null> };
   readonly touched: { [K in keyof T]: Signal<boolean> };
+  readonly dirty: { [K in keyof T]: ReadonlySignal<boolean> };
+  readonly isDirty: ReadonlySignal<boolean>;
+  readonly isValidating: ReadonlySignal<boolean>;
   readonly isValid: ReadonlySignal<boolean>;
+  setValue<K extends keyof T>(key: K, value: T[K]): void;
+  setValues(partial: Partial<T>): void;
+  validateAll(): Promise<boolean>;
   reset(): void;
   submit(onSubmit: (cleanValues: T) => void): boolean;
 }
 
 /**
- * Creates a reactive, per-field validated Form (`createForm`) supporting Forma's
- * `required`, `range: [min, max]`, `pattern: RegExp`, and custom validators.
+ * Creates a reactive, per-field and cross-field validated Form (`createForm` / `createContractForm`)
+ * supporting Forma's `required`, `range: [min, max]`, `min`, `max`, `minLength`, `maxLength`,
+ * `pattern: RegExp`, synchronous cross-field `validate(val, allValues)`, and AbortController-backed
+ * `validateAsync(val, { signal, allValues })` with atomic `batch()` updates.
  */
 export function createForm<T extends Record<string, any>>(config: {
   initialValues: T;
-  rules?: { [K in keyof T]?: FormFieldRule<T[K]> };
+  rules?: { [K in keyof T]?: FormFieldRule<T[K], T> };
 }): ReactiveForm<T> {
+  const keys = Object.keys(config.initialValues) as Array<keyof T>;
   const values = {} as { [K in keyof T]: Signal<T[K]> };
   const touched = {} as { [K in keyof T]: Signal<boolean> };
+  const dirty = {} as { [K in keyof T]: ReadonlySignal<boolean> };
+  const syncErrors = {} as { [K in keyof T]: ReadonlySignal<string | null> };
+  const asyncErrors = {} as { [K in keyof T]: Signal<string | null> };
+  const asyncValidating = {} as { [K in keyof T]: Signal<boolean> };
   const errors = {} as { [K in keyof T]: ReadonlySignal<string | null> };
+  const activeControllers = new Map<keyof T, AbortController>();
 
-  for (const key of Object.keys(config.initialValues) as Array<keyof T>) {
+  for (const key of keys) {
     const initVal = structuredCloneIfObject(config.initialValues[key]);
     values[key] = signal<T[keyof T]>(initVal);
     touched[key] = signal<boolean>(false);
+    asyncErrors[key] = signal<string | null>(null);
+    asyncValidating[key] = signal<boolean>(false);
+    dirty[key] = computed<boolean>(() => !Object.is(values[key](), config.initialValues[key]));
+  }
 
+  const getAllValuesReactive = (): T => {
+    const snap = {} as T;
+    for (const k of keys) {
+      snap[k] = values[k]();
+    }
+    return snap;
+  };
+
+  for (const key of keys) {
     const rule = config.rules?.[key];
-    errors[key] = computed<string | null>(() => {
+    syncErrors[key] = computed<string | null>(() => {
       const val = values[key]();
       if (!rule) return null;
       if (rule.required && (val === null || val === undefined || val === '')) {
         return 'Обязательное поле';
       }
-      if (rule.range && typeof val === 'number') {
-        if (val < rule.range[0] || val > rule.range[1]) {
-          return `Значение должно быть от ${rule.range[0]} до ${rule.range[1]}`;
+      if (typeof val === 'number') {
+        const minBound = rule.range ? rule.range[0] : rule.min;
+        const maxBound = rule.range ? rule.range[1] : rule.max;
+        if (minBound !== undefined && maxBound !== undefined && (val < minBound || val > maxBound)) {
+          return `Значение должно быть от ${minBound} до ${maxBound}`;
+        }
+        if (minBound !== undefined && val < minBound) {
+          return `Минимум ${minBound}`;
+        }
+        if (maxBound !== undefined && val > maxBound) {
+          return `Максимум ${maxBound}`;
         }
       }
-      if (rule.pattern && typeof val === 'string') {
-        if (!rule.pattern.test(val)) {
+      if (typeof val === 'string') {
+        if (rule.minLength !== undefined && val.length < rule.minLength) {
+          return `Минимальная длина: ${rule.minLength}`;
+        }
+        if (rule.maxLength !== undefined && val.length > rule.maxLength) {
+          return `Максимальная длина: ${rule.maxLength}`;
+        }
+        if (rule.pattern && !rule.pattern.test(val)) {
           return 'Некорректный формат';
         }
       }
       if (rule.validate) {
-        return rule.validate(val) ?? null;
+        // Cross-field validation: only subscribes to other fields if `rule.validate` has >= 2 parameters!
+        const allVals = rule.validate.length >= 2 ? getAllValuesReactive() : ({} as T);
+        return rule.validate(val, allVals) ?? null;
       }
       return null;
     });
+
+    errors[key] = computed<string | null>(() => syncErrors[key]() ?? asyncErrors[key]());
+
+    if (rule?.validateAsync) {
+      effect(() => {
+        const val = values[key]();
+        const sErr = syncErrors[key]();
+        const prevCtrl = activeControllers.get(key);
+        if (prevCtrl) {
+          prevCtrl.abort();
+          activeControllers.delete(key);
+        }
+        if (sErr !== null) {
+          asyncErrors[key].set(null);
+          asyncValidating[key].set(false);
+          return;
+        }
+        const ctrl = new AbortController();
+        activeControllers.set(key, ctrl);
+        asyncValidating[key].set(true);
+        const allVals = untrack(() => getAllValuesReactive());
+        rule
+          .validateAsync!(val, { signal: ctrl.signal, allValues: allVals })
+          .then((msg) => {
+            if (!ctrl.signal.aborted) {
+              batch(() => {
+                asyncErrors[key].set(msg ?? null);
+                asyncValidating[key].set(false);
+              });
+            }
+          })
+          .catch(() => {
+            if (!ctrl.signal.aborted) {
+              asyncValidating[key].set(false);
+            }
+          });
+      });
+    }
   }
 
+  const isDirty = computed<boolean>(() => {
+    for (const key of keys) {
+      if (dirty[key]()) return true;
+    }
+    return false;
+  });
+
+  const isValidating = computed<boolean>(() => {
+    for (const key of keys) {
+      if (asyncValidating[key]()) return true;
+    }
+    return false;
+  });
+
   const isValid = computed<boolean>(() => {
-    for (const key of Object.keys(errors) as Array<keyof T>) {
-      if (errors[key]() !== null) return false;
+    for (const key of keys) {
+      if (errors[key]() !== null || asyncValidating[key]()) return false;
     }
     return true;
   });
 
-  const reset = () => {
+  const setValue = <K extends keyof T>(key: K, value: T[K]): void => {
     batch(() => {
-      for (const key of Object.keys(config.initialValues) as Array<keyof T>) {
+      touched[key]?.set(true);
+      values[key]?.set(value);
+    });
+  };
+
+  const setValues = (partial: Partial<T>): void => {
+    batch(() => {
+      for (const k of Object.keys(partial) as Array<keyof T>) {
+        if (k in values) {
+          touched[k].set(true);
+          values[k].set(partial[k] as T[keyof T]);
+        }
+      }
+    });
+  };
+
+  const validateAll = async (): Promise<boolean> => {
+    batch(() => {
+      for (const key of keys) {
+        touched[key].set(true);
+      }
+    });
+    const asyncTasks: Promise<void>[] = [];
+    for (const key of keys) {
+      const rule = config.rules?.[key];
+      if (rule?.validateAsync && syncErrors[key]() === null) {
+        const prevCtrl = activeControllers.get(key);
+        if (prevCtrl) prevCtrl.abort();
+        const ctrl = new AbortController();
+        activeControllers.set(key, ctrl);
+        asyncValidating[key].set(true);
+        const val = values[key].peek();
+        const allVals = untrack(() => getAllValuesReactive());
+        asyncTasks.push(
+          rule
+            .validateAsync(val, { signal: ctrl.signal, allValues: allVals })
+            .then((msg) => {
+              if (!ctrl.signal.aborted) {
+                batch(() => {
+                  asyncErrors[key].set(msg ?? null);
+                  asyncValidating[key].set(false);
+                });
+              }
+            })
+            .catch(() => {
+              if (!ctrl.signal.aborted) {
+                asyncValidating[key].set(false);
+              }
+            })
+        );
+      }
+    }
+    if (asyncTasks.length > 0) {
+      await Promise.all(asyncTasks);
+    }
+    return isValid();
+  };
+
+  const reset = () => {
+    for (const ctrl of activeControllers.values()) {
+      ctrl.abort();
+    }
+    activeControllers.clear();
+    batch(() => {
+      for (const key of keys) {
         values[key].set(structuredCloneIfObject(config.initialValues[key]));
         touched[key].set(false);
+        asyncErrors[key].set(null);
+        asyncValidating[key].set(false);
       }
     });
   };
 
   const submit = (onSubmit: (cleanValues: T) => void): boolean => {
     batch(() => {
-      for (const key of Object.keys(touched) as Array<keyof T>) {
+      for (const key of keys) {
         touched[key].set(true);
       }
     });
     if (!isValid()) return false;
     const snapshot = {} as T;
-    for (const key of Object.keys(values) as Array<keyof T>) {
+    for (const key of keys) {
       snapshot[key] = structuredCloneIfObject(values[key].peek());
     }
     onSubmit(snapshot);
@@ -2799,11 +3209,19 @@ export function createForm<T extends Record<string, any>>(config: {
     values,
     errors,
     touched,
+    dirty,
+    isDirty,
+    isValidating,
     isValid,
+    setValue,
+    setValues,
+    validateAll,
     reset,
     submit,
   };
 }
+
+export const createContractForm = createForm;
 
 /**
  * First-class Svet JSX component (`<FormaHost source={...} />` or `<FormaHost instance={...} />`)

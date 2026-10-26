@@ -1,5 +1,5 @@
-import { type ChildNodeValue, type Component, Fragment, h } from './dom';
-import { type Signal } from './reactivity';
+import { type ChildNodeValue, type Component, Fragment, h } from './dom.ts';
+import { type Signal } from './reactivity.ts';
 
 export { Fragment };
 

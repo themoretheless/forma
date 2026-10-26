@@ -287,6 +287,9 @@ let tagsText = state.tags |> filter('active') |> map('title') |> join(', ');
 - литералы списков `[1, 2, 3]` и объектов/словарей `{ a: 1, b: 2 }`;
 - единицы измерения длины (`px`, `%`, `rem`, `em`, `vw`, `vh`), времени (`ms`, `s`) и углов (`deg`, `rad`, `turn`).
 
+Арифметика принимает конечные числа; деление на ноль — ошибка. Для составления
+строк из значений разных типов используется интерполяция, а не числовой `+`.
+
 Встроенные чистые функции стандартной библиотеки:
 - **Математика**: `min`, `max`, `clamp`, `abs`, `round`, `floor`, `ceil`, `pow`, `sqrt`, `sign`, `lerp`, `remap`, `sum`, `avg`;
 - **Строки и локализация**: `len`, `trim`, `upper` (`toUpperCase`), `lower` (`toLowerCase`), `capitalize`, `contains`, `startsWith`, `endsWith`, `replace`, `slice`, `split`, `padStart`, `padEnd`, `repeat`, `truncate`, `format`, `plural`;

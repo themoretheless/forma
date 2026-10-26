@@ -11,8 +11,8 @@
  *      keeping DOM node count under ~25 elements even for 100,000+ reactive items!
  */
 
-import { getDomMutationCount, h, insertChild } from './dom';
-import { getGpuTelemetry, GpuDeviceTelemetry } from './gpu';
+import { getDomMutationCount, h, insertChild } from './dom.ts';
+import { getGpuTelemetry, GpuDeviceTelemetry } from './gpu.ts';
 import {
   batch,
   computed,
@@ -22,7 +22,7 @@ import {
   ReadonlySignal,
   signal,
   Signal,
-} from './reactivity';
+} from './reactivity.ts';
 
 // ============================================================================
 // 1. Deterministic Time-Travel Debugger (`createTimeTravelDebugger`)

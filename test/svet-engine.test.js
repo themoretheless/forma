@@ -57,6 +57,9 @@ test('svet embedded WASM reactive DAG and LIS reconciler instantiate and execute
  const lisIndices=Array.from(new Uint32Array(core.memory.buffer,outPtr,lisLen));
  const lisValues=lisIndices.map(idx=>input[idx]);
  assert.deepEqual(lisValues,[1,3,4,8,9]);
+
+ // Verify WASM 3D Z-aware vertex picking export
+ assert.equal(typeof core.svet_gpu_pick_nearest_vertex_3d,'function');
 });
 
 test('svet-wasm Rust test suite passes via cargo',()=>{

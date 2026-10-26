@@ -11,6 +11,7 @@
  */
 
 import type { Plugin } from 'vite';
+import { compileFormaToJsModule } from './forma.ts';
 
 const SKIP_ATTRIBUTES = new Set([
   'ref',
@@ -239,42 +240,10 @@ export function svetVitePlugin(): Plugin {
     transform(code, id) {
       const cleanId = id.split('?')[0];
       // 1. Direct import of Forma `.ui` files: `import CustomerCardUi from './CustomerCard.ui'`
+      // Pre-parses `uiAst` and `uiValidation` at build time (True AOT — 0ms runtime source parsing!)
       if (cleanId.endsWith('.ui')) {
         return {
-          code: `import { compileFormaComponent, validateFormaSource } from 'svet';
-export let uiSource = ${JSON.stringify(code)};
-export let uiValidation = validateFormaSource(uiSource);
-const _activeInstances = import.meta.hot ? (import.meta.hot.data.instances ??= new Set()) : new Set();
-export default function createFormaView(options) {
-  const inst = compileFormaComponent(uiSource, options);
-  _activeInstances.add(inst);
-  const origMount = inst.mount.bind(inst);
-  inst.mount = (container) => {
-    _activeInstances.add(inst);
-    const handle = origMount(container);
-    return {
-      unmount() {
-        _activeInstances.delete(inst);
-        handle.unmount();
-      },
-    };
-  };
-  return inst;
-}
-if (import.meta.hot) {
-  import.meta.hot.accept((newMod) => {
-    if (newMod) {
-      uiSource = newMod.uiSource;
-      uiValidation = newMod.uiValidation;
-      if (_activeInstances.size > 0) {
-        for (const inst of _activeInstances) {
-          inst.hotReload(newMod.uiSource);
-        }
-      }
-    }
-  });
-}
-`,
+          code: compileFormaToJsModule(code, 'svet'),
           map: null,
         };
       }

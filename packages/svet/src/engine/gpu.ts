@@ -31,8 +31,8 @@ import {
   Signal,
   trackNodeRead,
   triggerNodeWrite,
-} from './reactivity';
-import { getWasmCore, KIND_SIGNAL } from './wasm-bridge';
+} from './reactivity.ts';
+import { getWasmCore, KIND_SIGNAL } from './wasm-bridge.ts';
 
 export type MemoryArchitecture = 'UMA' | 'DUMA';
 
@@ -696,6 +696,60 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
 `;
 
 /**
+ * Z-Aware 3D Vertex Picker powered directly by the WASM UMA/DUMA linear arena (`svet_gpu_pick_nearest_vertex_3d`).
+ * Projects all vertices of `mesh` onto `(viewportWidth, viewportHeight)` inside WASM and selects
+ * the vertex closest to `(clickX, clickY)` within `maxRadiusPx`, prioritizing foreground vertices
+ * (smaller `ndcZ`) when front and back vertices overlap in 2D screen space!
+ */
+export function pickNearestVertex3D(
+  mesh: Mesh3D,
+  clickX: number,
+  clickY: number,
+  options?: {
+    viewportWidth?: number;
+    viewportHeight?: number;
+    maxRadiusPx?: number;
+  }
+): { vertexIndex: number; distancePx: number; ndcZ: number } | null {
+  const core = getWasmCore();
+  const clipVerts = mesh.transformedVertices();
+  const vw = options?.viewportWidth ?? 360;
+  const vh = options?.viewportHeight ?? 200;
+  const maxRadius = options?.maxRadiusPx ?? 28;
+
+  const pickedIdx = core.svet_gpu_pick_nearest_vertex_3d(
+    mesh.transformedVertices.offset,
+    mesh.vertexCount,
+    vw,
+    vh,
+    clickX,
+    clickY,
+    maxRadius
+  );
+  if (pickedIdx < 0 || pickedIdx >= mesh.vertexCount) {
+    return null;
+  }
+
+  const base = pickedIdx * 4;
+  const x = clipVerts[base];
+  const y = clipVerts[base + 1];
+  const z = clipVerts[base + 2];
+  const w = clipVerts[base + 3];
+  const invW = Math.abs(w) > 1e-5 ? 1.0 / w : 1.0;
+  const halfW = vw * 0.5;
+  const halfH = vh * 0.5;
+  const sx = halfW + x * invW * (halfW * 0.65);
+  const sy = halfH - y * invW * (halfH * 0.65);
+  const distancePx = Math.hypot(sx - clickX, sy - clickY);
+
+  return {
+    vertexIndex: pickedIdx,
+    distancePx,
+    ndcZ: z * invW,
+  };
+}
+
+/**
  * Interactive 3D Viewport component (`<Canvas3D />` / `createViewport3D`)
  * that renders a live 3D mesh directly from the WASM UMA/DUMA `transformedVertices` tensor:
  * - **Hardware WebGPU RenderPass + `depth24plus` Z-Buffer** when a WebGPU device & `webgpu` canvas context are available.
@@ -715,8 +769,8 @@ export function Canvas3D(props: {
   preferWebGpu?: boolean;
   /** Optional `ReactiveTransform3D` to attach interactive mouse/pointer drag-to-orbit and wheel-to-zoom controls */
   orbitTransform?: ReactiveTransform3D;
-  /** Optional callback fired when a 3D vertex is clicked (`(vertexIndex, distancePx) => void`) */
-  onVertexPick?: (vertexIndex: number, distancePx: number) => void;
+  /** Optional callback fired when a 3D vertex is clicked (`(vertexIndex, distancePx, ndcZ) => void`) */
+  onVertexPick?: (vertexIndex: number, distancePx: number, ndcZ: number) => void;
 }): HTMLCanvasElement {
   const width = props.width ?? 360;
   const height = props.height ?? 200;
@@ -730,8 +784,6 @@ export function Canvas3D(props: {
   canvas.style.background = props.background ?? '#070b14';
   canvas.style.border = '1px solid #23304d';
   canvas.setAttribute('data-svet-canvas3d', 'true');
-
-  let lastScreenPts: Array<[number, number, number]> = [];
 
   if (props.orbitTransform) {
     const tr = props.orbitTransform;
@@ -785,18 +837,13 @@ export function Canvas3D(props: {
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
-      let bestIdx = -1;
-      let bestDist = Infinity;
-      for (let i = 0; i < lastScreenPts.length; i++) {
-        const [px, py] = lastScreenPts[i];
-        const dist = Math.hypot(px - clickX, py - clickY);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestIdx = i;
-        }
-      }
-      if (bestIdx !== -1 && bestDist <= 28) {
-        props.onVertexPick!(bestIdx, bestDist);
+      const hit = pickNearestVertex3D(props.mesh, clickX, clickY, {
+        viewportWidth: width,
+        viewportHeight: height,
+        maxRadiusPx: 28,
+      });
+      if (hit) {
+        props.onVertexPick!(hit.vertexIndex, hit.distancePx, hit.ndcZ);
       }
     };
     canvas.addEventListener('click', onClickPick);
@@ -959,7 +1006,6 @@ export function Canvas3D(props: {
       const sy = halfH - y * invW * (halfH * 0.65);
       screenPts[i] = [sx, sy, z * invW];
     }
-    lastScreenPts = screenPts;
 
     if (tryRenderWebGpu(clipVerts)) {
       return;

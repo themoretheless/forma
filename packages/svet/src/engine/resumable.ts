@@ -13,7 +13,7 @@
  *   automatic rollback on error.
  */
 
-import { createRoot, effect, runWithIsolatedContext, signal, Signal } from './reactivity';
+import { createRoot, effect, runWithIsolatedContext, signal, Signal } from './reactivity.ts';
 
 const VOID_ELEMENTS = new Set([
   'area',

@@ -14,8 +14,8 @@
  *    and `<select>` values (including `type="checkbox"` and `type="number"`) to a Signal in both directions.
  */
 
-import { createRoot, effect, onCleanup, ReadonlySignal, signal, Signal, untrack } from './reactivity';
-import { computeLisWasm } from './wasm-bridge';
+import { createRoot, effect, onCleanup, ReadonlySignal, signal, Signal, untrack } from './reactivity.ts';
+import { computeLisWasm } from './wasm-bridge.ts';
 
 export type ReactiveValue<T> = T | ReadonlySignal<T> | (() => T);
 
@@ -231,8 +231,10 @@ function isUnsafeUrl(val: string): boolean {
   );
 }
 
+const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink';
+
 function applyStaticAttribute(el: HTMLElement, key: string, val: any): void {
-  const attrName = key === 'className' ? 'class' : key;
+  const attrName = key === 'className' ? 'class' : key === 'xlinkHref' ? 'xlink:href' : key;
   const lowerAttr = attrName.toLowerCase();
 
   // Block raw string/non-function inline event attributes (`onclick="alert(1)"`)
@@ -259,7 +261,10 @@ function applyStaticAttribute(el: HTMLElement, key: string, val: any): void {
   }
 
   if (val === false || val === null || val === undefined) {
-    if (el.hasAttribute(attrName)) {
+    if (attrName === 'xlink:href' && typeof el.removeAttributeNS === 'function') {
+      el.removeAttributeNS(XLINK_NAMESPACE, 'href');
+      domMutationCounter++;
+    } else if (el.hasAttribute(attrName)) {
       el.removeAttribute(attrName);
       domMutationCounter++;
     }
@@ -270,7 +275,14 @@ function applyStaticAttribute(el: HTMLElement, key: string, val: any): void {
     }
   } else {
     const str = String(val);
-    if (URL_ATTRIBUTES.has(lowerAttr) && isUnsafeUrl(str)) {
+    if ((URL_ATTRIBUTES.has(lowerAttr) || lowerAttr === 'xlink:href') && isUnsafeUrl(str)) {
+      return;
+    }
+    if (attrName === 'xlink:href' && typeof el.setAttributeNS === 'function') {
+      if (el.getAttributeNS(XLINK_NAMESPACE, 'href') !== str) {
+        el.setAttributeNS(XLINK_NAMESPACE, 'xlink:href', str);
+        domMutationCounter++;
+      }
       return;
     }
     if (el.getAttribute(attrName) !== str) {
@@ -395,6 +407,7 @@ export function insertChild(parent: Node, child: ChildNodeValue): void {
 }
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const HTML_NAMESPACE = 'http://www.w3.org/1999/xhtml';
 const SVG_TAGS = new Set([
   'svg',
   'path',
@@ -418,7 +431,52 @@ const SVG_TAGS = new Set([
   'symbol',
   'marker',
   'foreignObject',
+  'filter',
+  'feGaussianBlur',
+  'feOffset',
+  'feBlend',
+  'feColorMatrix',
+  'desc',
+  'metadata',
+  'switch',
+  'view',
 ]);
+
+const AMBIGUOUS_SVG_HTML_TAGS = new Set(['a', 'title', 'style', 'script']);
+
+function upgradeAmbiguousSvgChild(parent: HTMLElement, childNode: Node): Node {
+  if (parent.namespaceURI !== SVG_NAMESPACE || parent.tagName.toLowerCase() === 'foreignobject') {
+    return childNode;
+  }
+  if (
+    childNode instanceof Element &&
+    childNode.namespaceURI === HTML_NAMESPACE &&
+    AMBIGUOUS_SVG_HTML_TAGS.has(childNode.tagName.toLowerCase())
+  ) {
+    const svgClone = document.createElementNS(SVG_NAMESPACE, childNode.tagName.toLowerCase());
+    for (let i = 0; i < childNode.attributes.length; i++) {
+      const attr = childNode.attributes[i];
+      if (attr.namespaceURI) {
+        svgClone.setAttributeNS(attr.namespaceURI, attr.name, attr.value);
+      } else {
+        svgClone.setAttribute(attr.name, attr.value);
+      }
+    }
+    // Preserve delegated event handlers (`__svet_evt_*`) attached to `childNode`
+    for (const propKey of Object.keys(childNode)) {
+      if (propKey.startsWith(EVENT_PROP_PREFIX)) {
+        (svgClone as any)[propKey] = (childNode as any)[propKey];
+      }
+    }
+    while (childNode.firstChild) {
+      svgClone.appendChild(
+        upgradeAmbiguousSvgChild(svgClone as unknown as HTMLElement, childNode.firstChild)
+      );
+    }
+    return svgClone;
+  }
+  return childNode;
+}
 
 /**
  * Core hyperscript / JSX factory that builds real DOM & SVG nodes directly (Zero VDOM).
@@ -437,7 +495,13 @@ export function h(
     return untrack(() => type(normalizedProps));
   }
 
-  const el = SVG_TAGS.has(type)
+  const forceSvg =
+    SVG_TAGS.has(type) ||
+    normalizedProps.xmlns === SVG_NAMESPACE ||
+    (AMBIGUOUS_SVG_HTML_TAGS.has(type) &&
+      ('xlink:href' in normalizedProps || 'xlinkHref' in normalizedProps));
+
+  const el = forceSvg
     ? (document.createElementNS(SVG_NAMESPACE, type) as unknown as HTMLElement)
     : document.createElement(type);
   // Ensure `type` attribute is applied BEFORE `model` or `value` so `<input type="checkbox" model={...}>` knows its type
@@ -450,7 +514,18 @@ export function h(
     }
   }
   if (normalizedProps.children !== undefined) {
-    insertChild(el, normalizedProps.children);
+    if (el.namespaceURI === SVG_NAMESPACE && type !== 'foreignObject') {
+      const upgraded = Array.isArray(normalizedProps.children)
+        ? normalizedProps.children.map((c: any) =>
+            c instanceof Node ? upgradeAmbiguousSvgChild(el, c) : c
+          )
+        : normalizedProps.children instanceof Node
+        ? upgradeAmbiguousSvgChild(el, normalizedProps.children)
+        : normalizedProps.children;
+      insertChild(el, upgraded);
+    } else {
+      insertChild(el, normalizedProps.children);
+    }
   }
   return el;
 }

@@ -600,6 +600,73 @@ impl ReactiveGraph {
         self.gpu_mark_dirty(dst_offset, vertex_count.saturating_mul(4));
     }
 
+    /// Z-Aware 3D Vertex Picking inside the WASM UMA/DUMA arena (`gpu_pick_nearest_vertex_3d`).
+    /// Projects `vertex_count` clip-space vec4 vertices (`[x, y, z, w]` at `clip_verts_offset`)
+    /// onto a `(viewport_w, viewport_h)` canvas and finds the closest vertex to `(click_x, click_y)`
+    /// within `max_radius_px`, prioritizing foreground vertices (`ndc_z = z / w`, smaller is closer
+    /// to camera in WebGPU `[0, 1]` depth) when two vertices overlap in 2D screen space!
+    /// Returns the picked vertex index (`0..vertex_count - 1`), or `-1` if none is within radius.
+    pub fn gpu_pick_nearest_vertex_3d(
+        &self,
+        clip_verts_offset: u32,
+        vertex_count: u32,
+        viewport_w: f32,
+        viewport_h: f32,
+        click_x: f32,
+        click_y: f32,
+        max_radius_px: f32,
+    ) -> i32 {
+        let base = clip_verts_offset as usize;
+        let total = match (vertex_count as usize).checked_mul(4) {
+            Some(t) => t,
+            None => return -1,
+        };
+        if base.checked_add(total).map_or(true, |end| end > self.gpu_f32_arena.len()) {
+            return -1;
+        }
+
+        let half_w = viewport_w * 0.5;
+        let half_h = viewport_h * 0.5;
+        let scale_x = half_w * 0.65;
+        let scale_y = half_h * 0.65;
+        let max_dist_sq = max_radius_px * max_radius_px;
+
+        let mut best_idx: i32 = -1;
+        let mut best_score: f32 = f32::INFINITY;
+        let mut best_ndc_z: f32 = f32::INFINITY;
+
+        for i in 0..(vertex_count as usize) {
+            let off = base + i * 4;
+            let x = self.gpu_f32_arena[off];
+            let y = self.gpu_f32_arena[off + 1];
+            let z = self.gpu_f32_arena[off + 2];
+            let w = self.gpu_f32_arena[off + 3];
+
+            let inv_w = if w.abs() > 1e-5 { 1.0 / w } else { 1.0 };
+            let sx = half_w + x * inv_w * scale_x;
+            let sy = half_h - y * inv_w * scale_y;
+            let ndc_z = z * inv_w;
+
+            let dx = sx - click_x;
+            let dy = sy - click_y;
+            let dist_sq = dx * dx + dy * dy;
+
+            if dist_sq <= max_dist_sq {
+                // Depth-aware composite score: when two vertices project near the same 2D pixel
+                // (within ~4px tolerance), the foreground vertex (smaller `ndc_z`) always wins!
+                let depth_bias = ndc_z * 16.0;
+                let score = dist_sq + depth_bias;
+                if score < best_score || ((score - best_score).abs() < 1e-3 && ndc_z < best_ndc_z) {
+                    best_score = score;
+                    best_ndc_z = ndc_z;
+                    best_idx = i as i32;
+                }
+            }
+        }
+
+        best_idx
+    }
+
     #[inline]
     pub fn create_node(&mut self, kind: u8) -> u32 {
         let initial_state = if kind == KIND_SIGNAL {
@@ -1338,6 +1405,29 @@ pub extern "C" fn svet_gpu_transform_positions_vec4(
     with_graph(|g| {
         g.gpu_transform_positions_vec4(mat_offset, verts_offset, dst_offset, vertex_count)
     });
+}
+
+#[no_mangle]
+pub extern "C" fn svet_gpu_pick_nearest_vertex_3d(
+    clip_verts_offset: u32,
+    vertex_count: u32,
+    viewport_w: f32,
+    viewport_h: f32,
+    click_x: f32,
+    click_y: f32,
+    max_radius_px: f32,
+) -> i32 {
+    with_graph(|g| {
+        g.gpu_pick_nearest_vertex_3d(
+            clip_verts_offset,
+            vertex_count,
+            viewport_w,
+            viewport_h,
+            click_x,
+            click_y,
+            max_radius_px,
+        )
+    })
 }
 
 #[cfg(test)]
