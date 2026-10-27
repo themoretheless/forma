@@ -118,11 +118,13 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
  // Inspector: the rows propertyFields resolved for the selection. Typing keeps a draft per row; Enter,
  // Tab or leaving the panel hands it to the property inspector, which validates and commits it.
  let inspectorView=null;
- const drafts=new Map(),errors=new Map();
+ // A committed value reaches the rows only after the host recompiles, so it is shown as `pending` until
+ // the row's text moves off what it was at commit time; a focused field would otherwise keep the old text.
+ const drafts=new Map(),errors=new Map(),pending=new Map();
  const fieldKey=node=>{const key=String(node?.props?.key??'');return key.slice(key.lastIndexOf('/')+1);};
  function inspectorState(){
   const view=inspectorView,linkKinds=['binding','handler'];
-  const row=field=>({key:field.key,text:drafts.get(field.key)??field.text,editable:field.editable,readonly:!field.editable,
+  const row=field=>({key:field.key,text:drafts.get(field.key)??pending.get(field.key)?.text??field.text,editable:field.editable,readonly:!field.editable,
    layered:!!field.layer&&field.layer!=='markup',error:!!(errors.get(field.key)||field.error)});
   const notice=view.notice||[...errors.values()].find(Boolean)||'';
   return {title:view.node,hasNote:!!view.note,note:view.note,canAdd:view.addable.length>0,hasNotice:!!notice,notice,
@@ -132,8 +134,10 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
  function commitField(key){
   if(!drafts.has(key)||!inspector)return;
   const text=drafts.get(key);drafts.delete(key);
+  const before=inspectorView?.fields?.find(field=>field.key===key)?.text;
+  if(before!==text)pending.set(key,{text,before});
   const message=inspector.edit(key,text);
-  if(message){errors.set(key,message);drafts.set(key,text);}else errors.delete(key);
+  if(message){pending.delete(key);errors.set(key,message);drafts.set(key,text);}else errors.delete(key);
   draw();
  }
  const commitAll=()=>{for(const key of [...drafts.keys()])commitField(key);};
@@ -172,11 +176,14 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
   if(inspector){
    const aside=$('.inspector');aside.insertBefore(regions.inspector.element,$('#inspector'));
    listen(regions.inspector.element,'focusout',e=>{if(!regions.inspector.element.contains(e.relatedTarget))commitAll();});
+   // The runtime's text field consumes Enter before the key hook sees it, so the panel catches it first.
+   listen(regions.inspector.element,'keydown',e=>{if(e.key==='Enter'&&!e.isComposing&&drafts.size){e.preventDefault();e.stopPropagation();commitAll();}},{capture:true});
    // A new selection or a commit redraws the rows; a draft only survives for the control it was typed for.
    let shown=null;
    const off=inspector.subscribe(view=>{
     const node=view.node?`${view.path}@${view.start}`:null;
-    if(node!==shown){drafts.clear();errors.clear();shown=node;}
+    if(node!==shown){drafts.clear();errors.clear();pending.clear();shown=node;}
+    for(const [key,{before}]of [...pending])if(view.fields?.find(field=>field.key===key)?.text!==before)pending.delete(key);
     for(const key of [...errors.keys()])if(!view.fields?.some(field=>field.key===key))errors.delete(key);
     inspectorView=view;regions.inspector.element.hidden=!view.node;draw();
    });
