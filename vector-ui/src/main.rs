@@ -1,9 +1,10 @@
 use forma::{
     frame_stats::{FrameRate, FrameStats},
-    native_window::{
-        apply_egui_frame_bar, build_chooser_runtime, chooser_ui_for_viewport,
-        two_buttons_ui_for_viewport, TargetPlatform, UiBackend,
-    },
+    native_window::{apply_egui_frame_bar, build_chooser_runtime, TargetPlatform, UiBackend},
+};
+#[cfg(target_os = "ios")]
+use forma::native_window::{
+    chooser_ui_for_viewport, two_buttons_ui_for_viewport, two_buttons_ui_for_viewport_with_state,
 };
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 use forma::native_window::apply_mobile_chrome;
@@ -532,9 +533,9 @@ impl ApplicationHandler for App {
                 println!("Renderer: CPU fallback");
             }
         }
-        let size = window.inner_size();
         #[cfg(target_os = "ios")]
         {
+            let size = window.inner_size();
             let scale = (window.scale_factor() as f32).max(1.0);
             let logical_w = (size.width as f32 / scale).round();
             let logical_h = (size.height as f32 / scale).round();
@@ -974,11 +975,28 @@ impl ApplicationHandler for App {
             }
         }
         if self.button.clicks() != clicks {
+            let active_key = self.button.key();
             println!(
                 "{}.clicked → {} (событие; обработчик приложения пока не подключён)",
-                self.button.key(),
+                active_key,
                 self.button.action()
             );
+            #[cfg(target_os = "ios")]
+            if self.source_path.is_none() && self.project_root.is_none() {
+                let c1 = self.button.control_clicks(0);
+                let c2 = self.button.control_clicks(1);
+                let src = two_buttons_ui_for_viewport_with_state(
+                    self.button.width(),
+                    self.button.height(),
+                    Some(active_key.as_str()),
+                    Some((c1, c2)),
+                );
+                if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
+                    next.preserve_interaction(&self.button);
+                    self.button = next;
+                }
+            }
+            window.request_redraw();
             self.next_title_update = Instant::now();
         }
         if self.button.dismiss_count() != dismissals {
@@ -1088,10 +1106,21 @@ impl ApplicationHandler for App {
         let meter_deadline = idle_deadline
             .filter(|deadline| *deadline > now)
             .map(|deadline| deadline.min(self.next_title_update));
+        let anim_active = self
+            .chooser
+            .as_ref()
+            .map_or_else(|| self.button.is_animating(), |c| c.is_animating());
+        if anim_active && self.retry_at.is_none() {
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+        }
+        let anim_deadline = anim_active.then_some(now + Duration::from_millis(16));
         let hot_deadline = (self.source_path.is_some() || self.project_root.is_some()).then_some(self.next_hot_check);
         let deadline = self
             .retry_at
             .into_iter()
+            .chain(anim_deadline)
             .chain(meter_deadline)
             .chain(hot_deadline)
             .min();

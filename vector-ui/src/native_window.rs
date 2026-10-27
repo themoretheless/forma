@@ -181,10 +181,40 @@ pub fn chooser_ui_for_viewport(vw: f32, vh: f32) -> String {
 }
 
 pub fn two_buttons_ui_for_viewport(vw: f32, vh: f32) -> String {
+    two_buttons_ui_for_viewport_with_state(vw, vh, None, None)
+}
+
+pub fn two_buttons_ui_for_viewport_with_state(
+    vw: f32,
+    vh: f32,
+    last_clicked_key: Option<&str>,
+    clicks: Option<(u32, u32)>,
+) -> String {
     let w = vw.max(320.0).round() as i32;
     let h = vh.max(360.0).round() as i32;
     let pad_x = 24;
     let btn_w = (w - pad_x * 2).max(200);
+    let (c1, c2) = clicks.unwrap_or((0, 0));
+    let first_text = if c1 > 0 {
+        format!("Первая кнопка · нажата ({c1})")
+    } else {
+        "Первая кнопка".to_string()
+    };
+    let second_text = if c2 > 0 {
+        format!("Вторая кнопка · нажата ({c2})")
+    } else {
+        "Вторая кнопка".to_string()
+    };
+    let (first_bg, first_hover, first_pressed) = if last_clicked_key == Some("first") {
+        ("#4c7df0", "#6c97ff", "#3662cc")
+    } else {
+        ("#8ca5ff", "#a8baff", "#6a83da")
+    };
+    let (second_bg, second_hover, second_pressed) = if last_clicked_key == Some("second") {
+        ("#58c496", "#76dfb1", "#3fa177")
+    } else {
+        ("#aad9bd", "#c7eed7", "#78b493")
+    };
     format!(
         r#"component TwoButtons {{
     Frame {{
@@ -199,17 +229,20 @@ pub fn two_buttons_ui_for_viewport(vw: f32, vh: f32) -> String {
             key: 'first';
             width: {btn_w};
             height: 76;
-            text: 'Первая кнопка';
+            text: '{first_text}';
+            background: {first_bg};
+            hoverBackground: {first_hover};
+            pressedBackground: {first_pressed};
             clicked -> actions.first();
         }}
         Button {{
             key: 'second';
             width: {btn_w};
             height: 76;
-            text: 'Вторая кнопка';
-            background: #aad9bd;
-            hoverBackground: #c7eed7;
-            pressedBackground: #78b493;
+            text: '{second_text}';
+            background: {second_bg};
+            hoverBackground: {second_hover};
+            pressedBackground: {second_pressed};
             clicked -> actions.second();
         }}
     }}

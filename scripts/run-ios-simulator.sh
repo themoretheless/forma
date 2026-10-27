@@ -74,8 +74,18 @@ echo "[3/3] Запуск Simulator.app ($DEVICE) и установка Forma.app
 open -a "$DEVELOPER_DIR/Applications/Simulator.app"
 xcrun simctl boot "$DEVICE" 2>/dev/null || true
 xcrun simctl bootstatus "$DEVICE" -b
-xcrun simctl terminate "$DEVICE" dev.forma.app 2>/dev/null || true
-xcrun simctl uninstall "$DEVICE" dev.forma.app 2>/dev/null || true
-xcrun simctl install "$DEVICE" "$APP_DIR"
-xcrun simctl launch "$DEVICE" dev.forma.app "${BACKEND_ARGS[@]}"
+BOOTED_UDIDS="$(xcrun simctl list devices booted | grep -Eo '[0-9A-F]{8}-([0-9A-F]{4}-){3}[0-9A-F]{12}' || true)"
+if [ -n "$BOOTED_UDIDS" ]; then
+  for UDID in $BOOTED_UDIDS; do
+    xcrun simctl terminate "$UDID" dev.forma.app 2>/dev/null || true
+    xcrun simctl uninstall "$UDID" dev.forma.app 2>/dev/null || true
+    xcrun simctl install "$UDID" "$APP_DIR"
+    xcrun simctl launch "$UDID" dev.forma.app "${BACKEND_ARGS[@]}"
+  done
+else
+  xcrun simctl terminate "$DEVICE" dev.forma.app 2>/dev/null || true
+  xcrun simctl uninstall "$DEVICE" dev.forma.app 2>/dev/null || true
+  xcrun simctl install "$DEVICE" "$APP_DIR"
+  xcrun simctl launch "$DEVICE" dev.forma.app "${BACKEND_ARGS[@]}"
+fi
 echo "Готово! Forma запущена в iOS Simulator ($DEVICE)."
