@@ -140,6 +140,83 @@ pub const BACKEND_CHOOSER_UI: &str = r#"component BackendLauncher {
     }
 }"#;
 
+pub fn chooser_ui_for_viewport(vw: f32, vh: f32) -> String {
+    let w = vw.max(320.0).round() as i32;
+    let h = vh.max(360.0).round() as i32;
+    let pad_x = 24;
+    let btn_w = (w - pad_x * 2).max(200);
+    format!(
+        r#"component BackendLauncher {{
+    Frame {{
+        width: {w};
+        height: {h};
+        padding: 88 {pad_x} 24 {pad_x};
+        gap: 20;
+        background: #141923;
+        radius: 0;
+        clip: true;
+        Button {{
+            key: 'choose_egui';
+            width: {btn_w};
+            height: 76;
+            text: '[1] Запустить на egui (Immediate-Mode)';
+            background: #5b8af5;
+            hoverBackground: #7ba3ff;
+            pressedBackground: #426cd4;
+            clicked -> actions.choose_egui();
+        }}
+        Button {{
+            key: 'choose_svet';
+            width: {btn_w};
+            height: 76;
+            text: '[2] Запустить на svet (Reactive GPU/UMA)';
+            background: #58c496;
+            hoverBackground: #76dfb1;
+            pressedBackground: #3fa177;
+            clicked -> actions.choose_svet();
+        }}
+    }}
+}}"#
+    )
+}
+
+pub fn two_buttons_ui_for_viewport(vw: f32, vh: f32) -> String {
+    let w = vw.max(320.0).round() as i32;
+    let h = vh.max(360.0).round() as i32;
+    let pad_x = 24;
+    let btn_w = (w - pad_x * 2).max(200);
+    format!(
+        r#"component TwoButtons {{
+    Frame {{
+        width: {w};
+        height: {h};
+        padding: 88 {pad_x} 24 {pad_x};
+        gap: 20;
+        background: #181e2a;
+        radius: 0;
+        clip: true;
+        Button {{
+            key: 'first';
+            width: {btn_w};
+            height: 76;
+            text: 'Первая кнопка';
+            clicked -> actions.first();
+        }}
+        Button {{
+            key: 'second';
+            width: {btn_w};
+            height: 76;
+            text: 'Вторая кнопка';
+            background: #aad9bd;
+            hoverBackground: #c7eed7;
+            pressedBackground: #78b493;
+            clicked -> actions.second();
+        }}
+    }}
+}}"#
+    )
+}
+
 pub fn build_chooser_runtime() -> Result<crate::Runtime, String> {
     crate::Runtime::from_sources(BACKEND_CHOOSER_UI, crate::BUTTON_COMPONENT)
 }

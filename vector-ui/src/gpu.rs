@@ -202,6 +202,7 @@ impl Renderer {
                 } else {
                     wgpu::Features::empty()
                 },
+                required_limits: adapter.limits(),
                 ..Default::default()
             })
             .await

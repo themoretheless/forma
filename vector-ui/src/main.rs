@@ -1,9 +1,12 @@
 use forma::{
     frame_stats::{FrameRate, FrameStats},
     native_window::{
-        apply_egui_frame_bar, apply_mobile_chrome, build_chooser_runtime, TargetPlatform, UiBackend,
+        apply_egui_frame_bar, build_chooser_runtime, chooser_ui_for_viewport,
+        two_buttons_ui_for_viewport, TargetPlatform, UiBackend,
     },
 };
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+use forma::native_window::apply_mobile_chrome;
 use std::{
     collections::HashMap,
     num::NonZeroU32,
@@ -133,16 +136,19 @@ impl App {
             platform.label()
         );
         if let Some(window) = &self.window {
-            let (w, h) = platform.viewport_size(
-                self.button.render_width().max(1.0),
-                self.button.render_height().max(1.0),
-            );
-            let _ = window.request_inner_size(LogicalSize::new(w, h));
-            if platform != TargetPlatform::Desktop && self.surface.is_none() {
-                if let Ok(context) = softbuffer::Context::new(window.clone()) {
-                    if let Ok(surf) = softbuffer::Surface::new(&context, window.clone()) {
-                        self.surface = Some(surf);
-                        self.surface_size = None;
+            #[cfg(not(target_os = "ios"))]
+            {
+                let (w, h) = platform.viewport_size(
+                    self.button.render_width().max(1.0),
+                    self.button.render_height().max(1.0),
+                );
+                let _ = window.request_inner_size(LogicalSize::new(w, h));
+                if platform != TargetPlatform::Desktop && self.surface.is_none() {
+                    if let Ok(context) = softbuffer::Context::new(window.clone()) {
+                        if let Ok(surf) = softbuffer::Surface::new(&context, window.clone()) {
+                            self.surface = Some(surf);
+                            self.surface_size = None;
+                        }
                     }
                 }
             }
@@ -162,18 +168,21 @@ impl App {
             backend.label()
         );
         if let Some(window) = &self.window {
-            let (w, h) = self.platform.viewport_size(
-                self.button.render_width().max(1.0),
-                self.button.render_height().max(1.0),
-            );
-            let _ = window.request_inner_size(LogicalSize::new(w, h));
-            if (backend == UiBackend::Egui || self.platform != TargetPlatform::Desktop)
-                && self.surface.is_none()
+            #[cfg(not(target_os = "ios"))]
             {
-                if let Ok(context) = softbuffer::Context::new(window.clone()) {
-                    if let Ok(surf) = softbuffer::Surface::new(&context, window.clone()) {
-                        self.surface = Some(surf);
-                        self.surface_size = None;
+                let (w, h) = self.platform.viewport_size(
+                    self.button.render_width().max(1.0),
+                    self.button.render_height().max(1.0),
+                );
+                let _ = window.request_inner_size(LogicalSize::new(w, h));
+                if (backend == UiBackend::Egui || self.platform != TargetPlatform::Desktop)
+                    && self.surface.is_none()
+                {
+                    if let Ok(context) = softbuffer::Context::new(window.clone()) {
+                        if let Ok(surf) = softbuffer::Surface::new(&context, window.clone()) {
+                            self.surface = Some(surf);
+                            self.surface_size = None;
+                        }
                     }
                 }
             }
@@ -191,7 +200,34 @@ impl App {
             self.present_result(Presentation::ZeroSize, window);
             return;
         };
+        #[cfg(target_os = "ios")]
+        {
+            let scale = (window.scale_factor() as f32).max(1.0);
+            let logical_w = (size.width as f32 / scale).round();
+            let logical_h = (size.height as f32 / scale).round();
+            if let Some(chooser) = &mut self.chooser {
+                if (chooser.width() - logical_w).abs() > 1.0 || (chooser.height() - logical_h).abs() > 1.0 {
+                    let src = chooser_ui_for_viewport(logical_w, logical_h);
+                    if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
+                        next.preserve_interaction(chooser);
+                        *chooser = next;
+                    }
+                }
+            } else if self.source_path.is_none()
+                && self.project_root.is_none()
+                && ((self.button.width() - logical_w).abs() > 1.0 || (self.button.height() - logical_h).abs() > 1.0)
+            {
+                let src = two_buttons_ui_for_viewport(logical_w, logical_h);
+                if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
+                    next.preserve_interaction(&self.button);
+                    self.button = next;
+                }
+            }
+        }
         let active_runtime = self.chooser.as_ref().unwrap_or(&self.button);
+        #[cfg(target_os = "ios")]
+        let use_gpu = true;
+        #[cfg(not(target_os = "ios"))]
         let use_gpu = self.chooser.is_none()
             && self.ui_backend != Some(UiBackend::Egui)
             && self.platform == TargetPlatform::Desktop;
@@ -250,6 +286,7 @@ impl App {
                 if self.chooser.is_none() && self.ui_backend == Some(UiBackend::Egui) {
                     apply_egui_frame_bar(&mut buffer, size.width, size.height);
                 }
+                #[cfg(not(any(target_os = "ios", target_os = "android")))]
                 if self.chooser.is_none() {
                     apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
                 }
@@ -477,6 +514,13 @@ impl ApplicationHandler for App {
                 Err(error) => eprintln!("GPU недоступен, CPU fallback: {error}"),
             }
         }
+        #[cfg(target_os = "ios")]
+        if self.gpu.is_none() {
+            let context = softbuffer::Context::new(window.clone()).unwrap();
+            self.surface = Some(softbuffer::Surface::new(&context, window.clone()).unwrap());
+            println!("Renderer: CPU fallback");
+        }
+        #[cfg(not(target_os = "ios"))]
         if self.gpu.is_none()
             || self.chooser.is_some()
             || self.ui_backend == Some(UiBackend::Egui)
@@ -486,6 +530,31 @@ impl ApplicationHandler for App {
             self.surface = Some(softbuffer::Surface::new(&context, window.clone()).unwrap());
             if self.gpu.is_none() {
                 println!("Renderer: CPU fallback");
+            }
+        }
+        let size = window.inner_size();
+        #[cfg(target_os = "ios")]
+        {
+            let scale = (window.scale_factor() as f32).max(1.0);
+            let logical_w = (size.width as f32 / scale).round();
+            let logical_h = (size.height as f32 / scale).round();
+            if let Some(chooser) = &mut self.chooser {
+                if (chooser.width() - logical_w).abs() > 1.0 || (chooser.height() - logical_h).abs() > 1.0 {
+                    let src = chooser_ui_for_viewport(logical_w, logical_h);
+                    if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
+                        next.preserve_interaction(chooser);
+                        *chooser = next;
+                    }
+                }
+            } else if self.source_path.is_none()
+                && self.project_root.is_none()
+                && ((self.button.width() - logical_w).abs() > 1.0 || (self.button.height() - logical_h).abs() > 1.0)
+            {
+                let src = two_buttons_ui_for_viewport(logical_w, logical_h);
+                if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
+                    next.preserve_interaction(&self.button);
+                    self.button = next;
+                }
             }
         }
         window.focus_window();
