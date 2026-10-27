@@ -1,0 +1,25 @@
+{
+  "mcpServers": {
+    "forma-app": {
+      "command": "cargo",
+      "args": [
+        "run",
+        "--quiet",
+        "--release",
+        "--offline",
+        "--manifest-path",
+        "/Users/themoretheless/Documents/Sources/forma/vector-ui/Cargo.toml",
+        "--features",
+        "native",
+        "--",
+        "--mcp"
+      ]
+    },
+    "forma-studio": {
+      "command": "node",
+      "args": [
+        "/Users/themoretheless/Documents/Sources/forma/mcp/server.js"
+      ]
+    }
+  }
+}
