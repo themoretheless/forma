@@ -1,0 +1,44 @@
+// Canvas corner: unsaved warning, zoom and the problems count.
+component StudioCorner {
+    Row {
+        width: content;
+        height: content;
+        background: #00000000;
+        gap: 2;
+        padding: 8;
+        if state.unsaved {
+            Badge {
+                width: state.unsavedWidth;
+                height: 28;
+                tone: 'danger';
+                text: state.unsavedText;
+            }
+        }
+        if state.zoomable {
+            QuietIconButton { key: 'zoomOut'; text: 'Уменьшить'; icon: 'assets/minus.svg'; clicked -> actions.zoom('out'); }
+            GhostButton { key: 'zoomReset'; width: 52; height: 28; fontSize: 12; text: state.zoom; clicked -> actions.zoom('reset'); }
+            QuietIconButton { key: 'zoomIn'; text: 'Увеличить'; icon: 'assets/plus.svg'; clicked -> actions.zoom('in'); }
+            QuietIconButton { key: 'zoomFit'; text: 'Вписать'; icon: 'assets/fit.svg'; clicked -> actions.zoom('fit'); }
+        }
+        LeadingIconButton {
+            key: 'problems';
+            width: state.problemsWidth;
+            height: 28;
+            fontSize: 12;
+            iconSize: 14;
+            horizontalPadding: 8;
+            background: #00000000;
+            borderColor: #00000000;
+            icon: match state.bad {
+                true => 'assets/warning.svg';
+                _ => 'assets/check-circle.svg';
+            };
+            text: state.problemsText;
+            color: match state.bad {
+                true => state.theme.dangerInk;
+                _ => state.theme.textMuted;
+            };
+            clicked -> actions.problems();
+        }
+    }
+}

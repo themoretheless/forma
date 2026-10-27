@@ -1,0 +1,21 @@
+// Design states of the open component, one segment each.
+component StudioStates {
+    Row {
+        width: content;
+        height: content;
+        gap: 2;
+        padding: 3;
+        radius: 10;
+        background: state.theme.surface;
+        for tab in state.tabs key tab.id {
+            SegmentButton {
+                width: tab.width;
+                height: 28;
+                fontSize: 12;
+                text: tab.label;
+                selected: tab.selected;
+                clicked -> actions.state(tab.id);
+            }
+        }
+    }
+}

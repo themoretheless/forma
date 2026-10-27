@@ -1,0 +1,16 @@
+// Passive start-aligned text for inspector captions, names and read-only values.
+component InspectorText : Surface {
+    width: *;
+    height: 24;
+    fontSize: 12;
+    borderWidth: 0;
+    revealWidth: 0;
+    horizontalPadding: 0;
+    background: #00000000;
+
+    override content: StartLabel {
+        text: props.text;
+        color: props.textColor;
+        fontSize: props.fontSize;
+    };
+}

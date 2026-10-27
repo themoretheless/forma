@@ -270,7 +270,7 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
       ?statePropertyEdit(source,state.name,current.node.type,current.node.props.key,pick.value,value.value)
       :propertyAddEdit(source,current.node.start,pick.value,value.value));};
     value.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();button.onclick();}};
-    return {el:wrap,fill(next){
+    return {el:wrap,names:()=>names??[],add(name){prop(pick,'value',name);sync();button.onclick();},fill(next){
       if(names?.join('\n')!==next.join('\n')){names=next;place(pick,names.map(option));}
       prop(pick,'disabled',!names.length);prop(value,'disabled',!names.length);
       if(!names.length){
@@ -296,7 +296,23 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
     });
     return rows.map((rec,i)=>fill(rec,fields[i]));
   }
+  // Another view of the same panel (the Forma inspector) reads the rows this render resolved and writes
+  // through them, so its edits take exactly the path, validation and layer a typed row takes.
+  const listeners=new Set();
+  function view(){
+    if(!current?.node)return {node:null};
+    return {node:current.node.type,start:current.node.start,path:current.path,note:current.note??'',editable:!!current.editable,notice:notice.textContent,
+      fields:rows.map(({field,input})=>({key:field.key,kind:field.kind,layer:field.layer,op:field.op,text:field.text,
+        editable:!!input,error:input?.validationMessage??''})),
+      addable:current.editable?form.names():[]};
+  }
+  const emit=()=>{const next=view();for(const listener of listeners)listener(next);};
+  const rowFor=key=>rows.find(rec=>rec.field.key===key);
   function render(state){
+    renderRows(state);
+    emit();
+  }
+  function renderRows(state){
     current=state;
     // A panel with no control to describe says so instead of keeping the rows it last drew: after an
     // undo took the selected control out of the file, those rows would write into markup that is gone.
@@ -317,5 +333,16 @@ export function createPropertyInspector({container,commit,designTokens=()=>[],on
       ...(current.editable?[form.fill(addableNames(fields.filter(field=>field.layer==='markup'&&field.commit!==null).map(field=>field.key))),notice]:[]),
       linksLabel,...(links.length?linkRows:[noLinks])]);
   }
-  return {render};
+  return {render,view,
+    subscribe(listener){listeners.add(listener);listener(view());return ()=>listeners.delete(listener);},
+    // Returns the message a rejected value leaves on the row, empty when the commit went through.
+    edit(key,text){
+      const rec=rowFor(key);
+      if(!rec?.input)return 'Свойство нельзя править здесь';
+      rec.input.value=text;edit(rec.field,text,rec.input);
+      const message=rec.input.validationMessage;emit();return message;
+    },
+    remove(key){rowFor(key)?.remove?.onclick();emit();},
+    add(name){if(current?.editable&&form.names().includes(name)){form.add(name);emit();}},
+  };
 }

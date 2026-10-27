@@ -1,0 +1,30 @@
+// Launch is the primary path; the embedded preview toggle stays quiet beside it.
+component StudioRun {
+    Row {
+        width: content;
+        height: content;
+        background: #00000000;
+        gap: 6;
+        padding: 8;
+        if state.showMode {
+            GhostButton {
+                key: 'mode';
+                width: state.modeWidth;
+                height: 32;
+                fontSize: 13;
+                text: state.modeText;
+                clicked -> actions.mode();
+            }
+        }
+        if state.canLaunch {
+            PrimaryButton {
+                key: 'launch';
+                width: state.launchWidth;
+                height: 32;
+                fontSize: 13;
+                text: state.launchText;
+                clicked -> actions.launch();
+            }
+        }
+    }
+}

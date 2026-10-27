@@ -1,0 +1,18 @@
+// The project name is the only header left on screen; it opens the project menu.
+component StudioTitle {
+    Row {
+        width: content;
+        height: content;
+        background: #00000000;
+        padding: 8;
+        GhostButton {
+            key: 'menu';
+            width: state.titleWidth;
+            height: 32;
+            fontSize: 13;
+            color: state.theme.text;
+            text: state.title;
+            clicked -> actions.menu();
+        }
+    }
+}

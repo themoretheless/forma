@@ -1,0 +1,27 @@
+// Palette row: highlighted while Enter would run it; the shortcut sits at the end.
+component PaletteItem : MenuItem {
+    width: 504;
+    hint: '';
+    background: match props.selected {
+        true => state.theme.surfaceHover;
+        _ => #00000000;
+    };
+
+    override content: Frame {
+        columns: [*, 56];
+        padding: 0 10;
+        gap: 10;
+        StartLabel {
+            cell: 1 1;
+            text: props.text;
+            color: props.textColor;
+            fontSize: props.fontSize;
+        }
+        Label {
+            cell: 1 2;
+            text: props.hint;
+            color: state.theme.textMuted;
+            fontSize: 12;
+        }
+    };
+}

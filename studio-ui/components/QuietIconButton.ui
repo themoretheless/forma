@@ -1,0 +1,10 @@
+// Icon action without a resting fill: it shows a surface only on hover and press.
+component QuietIconButton : IconButton {
+    width: 28;
+    height: 28;
+    iconSize: 14;
+    background: #00000000;
+    borderColor: #00000000;
+    disabledBorderColor: #00000000;
+    color: state.theme.textMuted;
+}

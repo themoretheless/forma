@@ -1,0 +1,31 @@
+// One popup for commands (⌘K), files (⌘P), inserts (/) and the project menu.
+component StudioPalette {
+    Column {
+        width: 520;
+        height: content;
+        gap: 2;
+        padding: 8;
+        radius: 12;
+        background: state.theme.surfaceRaised;
+        if state.search {
+            SearchField {
+                key: 'query';
+                width: *;
+                height: 38;
+                placeholder: state.placeholder;
+                suffix: 'Esc';
+                value <-> state.query;
+            }
+        }
+        for item in state.items key item.id {
+            PaletteItem {
+                text: item.label;
+                hint: item.hint;
+                selected: item.active;
+                clicked -> actions.pick(item.id);
+            }
+        } empty {
+            Surface { width: *; height: 34; borderWidth: 0; revealWidth: 0; background: #00000000; color: state.theme.textMuted; text: 'Ничего не найдено'; }
+        }
+    }
+}

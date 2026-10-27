@@ -9,6 +9,7 @@
     "test": "node --test 'test/*.test.js'",
     "bench": "node scripts/perf-bench.mjs",
     "bench:window": "node scripts/window-bench.mjs",
+    "studio:native": "node scripts/studio-native.mjs",
     "example:controls": "node scripts/controls-example.mjs",
     "generate:form": "node scripts/generate-form.mjs",
     "example:bindings": "cargo run --locked --manifest-path vector-ui/examples/binding-app/Cargo.toml",

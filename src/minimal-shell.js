@@ -2,11 +2,14 @@ import './minimal-shell.css';
 import {createEventScope} from './event-scope.js';
 import {controlLabel} from './control-label.js';
 import {studioEventTypes} from './studio-events.js';
+import {loadVectorRuntime} from './vector-preview.js';
+import {createShellRegion,keyText} from './forma-shell.js';
 
 // Minimal layout: only the canvas, the state tabs and the selection stay on screen.
-// Every other surface keeps its existing DOM and handlers and is revealed on demand,
-// so commands, tests and the MCP bridge keep driving the same elements.
-export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
+// The chrome itself is Forma markup (`studio-ui/`) drawn by the Rust/WASM runtime. The old
+// DOM header and toolbars stay hidden in place as command targets, so commands, tests and the
+// MCP bridge keep driving the same elements.
+export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}={}){
  const $=selector=>root.querySelector(selector);
  const body=document.body,header=$('header'),run=$('#run');
  body.classList.add('minimal');
@@ -14,69 +17,33 @@ export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
  const on=(type,callback)=>events.on(type,callback,{signal:scope.signal});
  const panels={code:'show-code',layers:'show-layers',problems:'show-problems'};
  const toggle=(name,force)=>{body.classList.toggle(panels[name],force);if(name==='code'&&body.classList.contains('show-code'))(root.querySelector('.cm-content')??$('#code'))?.focus();};
-
- // Header: project menu on the title, a single run button.
- const menuButton=document.createElement('button');menuButton.className='project-menu-button';menuButton.setAttribute('aria-haspopup','menu');menuButton.textContent='▾';
- const menu=document.createElement('div');menu.className='project-menu';menu.setAttribute('role','menu');menu.hidden=true;
- $('.project-title').append(menuButton);header.append(menu);
  const appButton=()=>$('#app-run');
- const backendPicker=()=>$('#app-backend');
- const collectMenu=()=>{for(const el of [...header.children])if(el!==menu&&el!==run&&el!==appButton()&&el!==backendPicker()&&!el.matches('.brand,.project-title'))menu.append(el);};
- observe(header,collectMenu,{childList:true});
- const closeMenu=()=>{menu.hidden=true;};
- listen(menuButton,'click',e=>{e.stopPropagation();menu.hidden=!menu.hidden;});
- listen(menu,'click',e=>{if(e.target.closest('button,a'))closeMenu();});
- listen(document,'click',e=>{if(!menu.contains(e.target)&&e.target!==menuButton)closeMenu();});
+ const scenario=$('#scenario');
+ let regions=null,destroyed=false;
+ const name=controlLabel;
+ const usable=el=>!el.disabled&&!el.closest('.forma-palette,#preview')&&name(el);
+ // Everything the header held besides the title, the preview toggle and the launch button.
+ const menuItems=()=>[...header.querySelectorAll('button,a')].filter(el=>el!==run&&el!==appButton()&&!el.closest('.brand,.project-title')&&usable(el)).map(el=>({label:name(el),run:()=>el.click()}));
 
  // Preview interaction is secondary; the visible app button owns the main launch shortcut.
  let running=false;
- const label=()=>{const text=running?'Дизайн':'Взаимодействие';if(run.textContent!==text)run.textContent=text;run.title=running?'Вернуться в дизайн (Esc)':'Проверить взаимодействие во встроенном preview';body.classList.toggle('running',running);};
+ const label=()=>{const text=running?'Дизайн':'Взаимодействие';if(run.textContent!==text)run.textContent=text;run.title=running?'Вернуться в дизайн (Esc)':'Проверить взаимодействие во встроенном preview';body.classList.toggle('running',running);draw();};
  on(studioEventTypes.mode,({mode})=>{running=mode==='interact';label();});
  observe(run,()=>{if(!['Взаимодействие','Дизайн'].includes(run.textContent))label();},{childList:true,characterData:true,subtree:true},{immediate:false});
-
- // State tabs mirror the scenario select.
- const scenario=$('#scenario'),tabs=document.createElement('div');tabs.className='state-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Состояния');
- $('#canvas').before(tabs);
- const drawTabs=()=>{
-  const options=[...scenario.options];tabs.hidden=options.length<2;
-  tabs.replaceChildren(...options.map(option=>{const b=document.createElement('button');b.type='button';b.setAttribute('role','tab');b.textContent=option.textContent;b.setAttribute('aria-selected',String(option.selected));b.onclick=()=>{scenario.value=option.value;scenario.dispatchEvent(new Event('change'));drawTabs();};return b;}));
- };
- observe(scenario,drawTabs,{childList:true,subtree:true,attributes:true});
- listen(scenario,'change',drawTabs);
 
  // Inspector only while something is selected; debugger only while running.
  on(studioEventTypes.selection,({selected})=>body.classList.toggle('has-selection',selected));
 
- // Problems badge: quiet when clean, opens the drawer when the count changes to non-zero.
- const corner=document.createElement('div');corner.className='canvas-corner';
- const problems=document.createElement('button');problems.className='problems-badge';problems.title='Проблемы';problems.onclick=()=>toggle('problems');
- const saved=document.createElement('span');saved.className='save-warning';
- const zoom=document.createElement('div');zoom.className='zoom-pill';zoom.setAttribute('role','group');zoom.setAttribute('aria-label','Масштаб');
- for(const [proxy,text,target]of [['out','−','[data-zoom="out"]'],['reset','100%','[data-zoom="reset"]'],['in','+','[data-zoom="in"]'],['fit','⤢','[data-fit]']]){
-  const b=document.createElement('button');b.type='button';b.dataset.proxy=proxy;b.textContent=text;
-  b.title=root.querySelector(target)?.getAttribute('aria-label')||root.querySelector(target)?.title||root.querySelector(target)?.textContent||'';
-  b.onclick=()=>root.querySelector(target)?.click();zoom.append(b);
- }
- const scale=root.querySelector('[data-zoom="reset"]');
- if(scale)observe(scale,()=>{zoom.querySelector('[data-proxy="reset"]').textContent=scale.textContent;},{childList:true,characterData:true,subtree:true});
- corner.append(saved,zoom,problems);$('.preview-pane').append(corner);
- let lastCount=0;
- on(studioEventTypes.problems,({count})=>{problems.textContent=`⚠ ${count}`;problems.classList.toggle('bad',count>0);if(count>lastCount)toggle('problems',true);lastCount=count;});
- on(studioEventTypes.save,({status,text})=>{saved.textContent=status==='unsaved'||status==='damaged'?text:'';});
+ // Problems: quiet when clean, the drawer opens when the count grows.
+ let problemCount=0,saveText='';
+ on(studioEventTypes.problems,({count})=>{if(count>problemCount)toggle('problems',true);problemCount=count;draw();});
+ on(studioEventTypes.save,({status,text})=>{saveText=status==='unsaved'||status==='damaged'?text:'';draw();});
 
- // Hints on the canvas until the first shortcut is used.
- const hints=document.createElement('div');hints.className='minimal-hints';
- hints.innerHTML='<kbd>/</kbd> добавить · <kbd>⌘K</kbd> команды · <kbd>⌘P</kbd> файлы · <kbd>⌘\\</kbd> код · <kbd>L</kbd> слои';
- $('.preview-pane').append(hints);
-
- // Palette shared by ⌘K (commands), ⌘P (files) and / (insert).
- const palette=document.createElement('div');palette.className='palette';palette.hidden=true;
- palette.innerHTML='<div class="palette-box" role="dialog" aria-modal="true"><input aria-label="Поиск" spellcheck="false"><div class="palette-list" role="listbox"></div></div>';
+ // Palette shared by ⌘K (commands), ⌘P (files), / (insert) and the project title (menu).
+ const palette=document.createElement('div');palette.className='forma-palette';palette.hidden=true;
+ palette.setAttribute('role','dialog');palette.setAttribute('aria-modal','true');
  body.append(palette);
- const input=palette.querySelector('input'),list=palette.querySelector('.palette-list');
- let items=[],shown=[],index=0;
- const name=controlLabel;
- const usable=el=>!el.disabled&&!el.closest('.palette,#preview,.project-menu-button')&&name(el);
+ let items=[],shown=[],index=0,query='',placeholder='';
  function commands(){
   const app=appButton();
   const out=[
@@ -87,36 +54,143 @@ export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
    {label:run.title,key:app?undefined:'⌘↵',run:()=>run.click()},
   ];
   if(newFile)out.push({label:'Новый файл',run:newFile});
-  for(const el of root.querySelectorAll('.project-menu :is(button,a),.studio-canvas-toolbar button,.preview-tools button,.canvas-tools button,.bottom-tabs button,.tabs button'))if(usable(el)&&el!==run)out.push({label:name(el),run:()=>el.click()});
-  for(const select of root.querySelectorAll('#app-backend,.studio-canvas-toolbar select,.canvas-tools select,.pane-toolbar select'))if(select!==scenario&&!select.disabled)for(const option of select.options)out.push({label:`${select.getAttribute('aria-label')||'Выбор'}: ${option.textContent}`,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change'));}});
+  out.push(...menuItems());
+  for(const el of root.querySelectorAll('.studio-canvas-toolbar button,.preview-tools button,.canvas-tools button,.bottom-tabs button,.tabs button'))if(usable(el)&&el!==run)out.push({label:name(el),run:()=>el.click()});
+  for(const select of root.querySelectorAll('#app-platform,#app-backend,.studio-canvas-toolbar select,.canvas-tools select,.pane-toolbar select'))if(select!==scenario&&!select.disabled)for(const option of select.options)out.push({label:`${select.getAttribute('aria-label')||'Выбор'}: ${option.textContent}`,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change'));}});
   const seen=new Set();return out.filter(c=>!seen.has(c.label)&&seen.add(c.label));
  }
  const files=()=>[...root.querySelectorAll('#tree [data-path]')].map(el=>({label:el.dataset.path,run:()=>{el.click();toggle('code',true);}}));
  const inserts=()=>[...root.querySelectorAll('.element-tools .element-add')].filter(usable).map(el=>({label:name(el).replace(/^＋\s*/,''),run:()=>el.click()}));
- function draw(){
-  const q=input.value.trim().toLowerCase();
-  shown=items.filter(item=>q.split(/\s+/).every(part=>item.label.toLowerCase().includes(part))).slice(0,60);
+ // The runtime draws a bounded scene, so the list is a window of rows around the highlighted one.
+ const visibleRows=9;
+ function filter(){
+  const q=query.trim().toLowerCase();
+  shown=items.filter(item=>q.split(/\s+/).every(part=>item.label.toLowerCase().includes(part)));
   index=Math.min(index,Math.max(0,shown.length-1));
-  list.replaceChildren(...shown.map((item,i)=>{const row=document.createElement('div');row.className='palette-item';row.setAttribute('role','option');row.setAttribute('aria-selected',String(i===index));row.innerHTML='<span></span><kbd></kbd>';row.firstChild.textContent=item.label;row.lastChild.textContent=item.key??'';row.onmousedown=e=>{e.preventDefault();pick(i);};return row;}));
-  if(!shown.length){const empty=document.createElement('div');empty.className='palette-empty';empty.textContent='Ничего не найдено';list.append(empty);}
-  list.children[index]?.scrollIntoView({block:'nearest'});
+ }
+ function paletteState(){
+  const first=Math.max(0,Math.min(index-Math.floor(visibleRows/2),shown.length-visibleRows));
+  return {search:true,placeholder,query,items:shown.slice(first,first+visibleRows).map((item,i)=>({id:first+i,label:item.label,hint:keyText(item.key),active:first+i===index}))};
  }
  function openPalette(kind){
-  items=kind==='files'?files():kind==='insert'?inserts():commands();
+  items=kind==='files'?files():kind==='insert'?inserts():kind==='menu'?menuItems():commands();
   if(kind==='insert'&&!items.length){items=commands().filter(c=>/добав|встав|insert/i.test(c.label));}
-  input.placeholder=kind==='files'?'Открыть файл…':kind==='insert'?'Добавить элемент…':'Команда…';
-  input.value='';index=0;palette.hidden=false;body.classList.add('used-shortcut');draw();input.focus();
+  placeholder=kind==='files'?'Открыть файл…':kind==='insert'?'Добавить элемент…':kind==='menu'?'Проект…':'Команда…';
+  query='';index=0;palette.hidden=false;body.classList.add('used-shortcut');filter();draw();
+  regions?.palette.focus('query');
  }
- const closePalette=()=>{palette.hidden=true;};
+ const closePalette=()=>{if(palette.hidden)return;palette.hidden=true;};
  function pick(i){const item=shown[i];closePalette();item?.run();}
- listen(input,'input',()=>{index=0;draw();});
- listen(input,'keydown',e=>{
-  if(e.key==='ArrowDown'){e.preventDefault();index=Math.min(shown.length-1,index+1);draw();}
-  else if(e.key==='ArrowUp'){e.preventDefault();index=Math.max(0,index-1);draw();}
-  else if(e.key==='Enter'){e.preventDefault();pick(index);}
-  else if(e.key==='Escape'){e.preventDefault();closePalette();}
- });
- listen(palette,'mousedown',e=>{if(e.target===palette)closePalette();});
+ // The search field edits inside Rust; the host only steers the highlight and closes.
+ listen(palette,'keydown',e=>{
+  if(e.key==='ArrowDown'){index=Math.min(shown.length-1,index+1);}
+  else if(e.key==='ArrowUp'){index=Math.max(0,index-1);}
+  else if(e.key==='Enter'){pick(index);}
+  else if(e.key==='Escape'){closePalette();}
+  else return;
+  e.preventDefault();e.stopPropagation();draw();
+ },{capture:true});
+ listen(palette,'pointerdown',e=>{if(e.target===palette)closePalette();});
+
+ // Regions: Forma markup for every visible piece of chrome.
+ const topbar=document.createElement('div');topbar.className='forma-topbar';
+ const corner=document.createElement('div');corner.className='canvas-corner';
+ const hints=document.createElement('div');hints.className='minimal-hints';
+ const zoomTargets={out:'[data-zoom="out"]',reset:'[data-zoom="reset"]',in:'[data-zoom="in"]',fit:'[data-fit]'};
+ const hintList=[['/','добавить'],['⌘K','команды'],['⌘P','файлы'],['⌘\\','код'],['L','слои']];
+ function draw(){
+  if(!regions||destroyed)return;
+  const fit=(text,size,pad)=>regions.title.measure(text,size)+2*pad;
+  const title=[...$('.project-title').childNodes].find(node=>node.nodeType===3)?.textContent.trim()||'Forma';
+  regions.title.update({title,titleWidth:fit(title,13,12)});
+  const modeText=run.textContent,app=appButton();
+  regions.run.update({showMode:true,modeText,modeWidth:fit(modeText,13,12),canLaunch:!!app,launchText:'Запустить',launchWidth:fit('Запустить',13,14)});
+  const options=[...scenario.options];
+  regions.states.element.hidden=options.length<2;
+  regions.states.update({tabs:options.map((option,i)=>({id:i,label:option.textContent,selected:option.selected,width:fit(option.textContent,12,10)}))});
+  const zoom=$('[data-zoom="reset"]')?.textContent.trim()||'100%',problemsText=String(problemCount);
+  regions.corner.update({zoomable:true,unsaved:!!saveText,unsavedText:saveText,unsavedWidth:fit(saveText,11,10),zoom,problemsText,problemsWidth:fit(problemsText,12,8)+22,bad:problemCount>0});
+  regions.hints.update({hints:hintList.map(([key,text])=>({key:keyText(key),label:text,keyWidth:fit(keyText(key),10,6),labelWidth:fit(text,11,0)}))});
+  if(!palette.hidden)regions.palette.update(paletteState());
+  if(inspectorView?.node)regions.inspector.update(inspectorState());
+ }
+
+ // Inspector: the rows propertyFields resolved for the selection. Typing keeps a draft per row; Enter,
+ // Tab or leaving the panel hands it to the property inspector, which validates and commits it.
+ let inspectorView=null;
+ const drafts=new Map(),errors=new Map();
+ const fieldKey=node=>{const key=String(node?.props?.key??'');return key.slice(key.lastIndexOf('/')+1);};
+ function inspectorState(){
+  const view=inspectorView,linkKinds=['binding','handler'];
+  const row=field=>({key:field.key,text:drafts.get(field.key)??field.text,editable:field.editable,readonly:!field.editable,
+   layered:!!field.layer&&field.layer!=='markup',error:!!(errors.get(field.key)||field.error)});
+  const notice=view.notice||[...errors.values()].find(Boolean)||'';
+  return {title:view.node,hasNote:!!view.note,note:view.note,canAdd:view.addable.length>0,hasNotice:!!notice,notice,
+   rows:view.fields.filter(field=>!linkKinds.includes(field.kind)).map(row),
+   links:view.fields.filter(field=>linkKinds.includes(field.kind)).map(field=>({...row(field),label:`${field.key} ${field.op}`}))};
+ }
+ function commitField(key){
+  if(!drafts.has(key)||!inspector)return;
+  const text=drafts.get(key);drafts.delete(key);
+  const message=inspector.edit(key,text);
+  if(message){errors.set(key,message);drafts.set(key,text);}else errors.delete(key);
+  draw();
+ }
+ const commitAll=()=>{for(const key of [...drafts.keys()])commitField(key);};
+ function addProperty(){
+  commitAll();
+  items=inspectorView.addable.map(name=>({label:name,run:()=>inspector.add(name)}));
+  placeholder='Добавить свойство…';query='';index=0;palette.hidden=false;filter();draw();
+  regions?.palette.focus('query');
+ }
+ loadVectorRuntime().then(runtime=>{
+  if(destroyed)return;
+  const region=(entry,className,options={})=>createShellRegion({runtime,entry,className,...options});
+  regions={
+   title:region('ui/Title.ui','forma-title',{onAction:()=>openPalette('menu')}),
+   states:region('ui/States.ui','state-tabs',{onAction:(action,[i])=>{scenario.selectedIndex=i;scenario.dispatchEvent(new Event('change'));draw();}}),
+   run:region('ui/Run.ui','forma-run',{onAction:action=>(action==='launch'?appButton():run)?.click()}),
+   corner:region('ui/Corner.ui','forma-corner',{onAction:(action,[target])=>action==='zoom'?$(zoomTargets[target])?.click():toggle('problems')}),
+   hints:region('ui/Hints.ui','forma-hints'),
+   inspector:region('ui/Inspector.ui','forma-inspector',{
+    onAction:(action,[key])=>{commitAll();if(action==='remove'){drafts.delete(key);errors.delete(key);inspector.remove(key);}else if(action==='add')addProperty();},
+    onBinding:(path,value,node)=>{const key=fieldKey(node);if(!key)return;drafts.set(key,value);errors.delete(key);draw();},
+    onKey:(event,node)=>{
+     const key=fieldKey(node);
+     if(!drafts.has(key)&&!errors.has(key))return false;
+     if(event.key==='Enter'){commitField(key);return true;}
+     if(event.key==='Escape'){drafts.delete(key);errors.delete(key);draw();return true;}
+     if(event.key==='Tab')commitField(key);
+     return false;
+    }}),
+   palette:region('ui/Palette.ui','forma-palette-box',{onAction:(action,[i])=>pick(i),onBinding:(path,value)=>{if(path==='query'){query=value;index=0;filter();draw();}}}),
+  };
+  topbar.append(regions.title.element,regions.states.element,regions.run.element);
+  corner.append(regions.corner.element);hints.append(regions.hints.element);palette.append(regions.palette.element);
+  $('#canvas').before(topbar);$('.preview-pane').append(corner,hints);
+  body.classList.add('forma-chrome');
+  if(inspector){
+   const aside=$('.inspector');aside.insertBefore(regions.inspector.element,$('#inspector'));
+   listen(regions.inspector.element,'focusout',e=>{if(!regions.inspector.element.contains(e.relatedTarget))commitAll();});
+   // A new selection or a commit redraws the rows; a draft only survives for the control it was typed for.
+   let shown=null;
+   const off=inspector.subscribe(view=>{
+    const node=view.node?`${view.path}@${view.start}`:null;
+    if(node!==shown){drafts.clear();errors.clear();shown=node;}
+    for(const key of [...errors.keys()])if(!view.fields?.some(field=>field.key===key))errors.delete(key);
+    inspectorView=view;regions.inspector.element.hidden=!view.node;draw();
+   });
+   scope.signal.addEventListener('abort',off);
+   body.classList.add('forma-inspector');
+  }
+  draw();
+ }).catch(error=>console.error('Studio UI:',error));
+ // The DOM the regions mirror keeps changing underneath them: options, zoom text, launch button.
+ observe(scenario,draw,{childList:true,subtree:true,attributes:true});
+ listen(scenario,'change',draw);
+ observe(header,draw,{childList:true,subtree:true,characterData:true});
+ const scale=$('[data-zoom="reset"]');
+ if(scale)observe(scale,draw,{childList:true,characterData:true,subtree:true});
 
  const typing=t=>t instanceof Element&&!!t.closest('input,textarea,select,[contenteditable="true"],.cm-editor')&&t.checkVisibility();
  listen(document,'keydown',e=>{
@@ -127,8 +201,7 @@ export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
   if(mod&&e.key==='Enter'){e.preventDefault();(appButton()??run).click();return;}
   if(!palette.hidden||typing(e.target)||mod||e.altKey)return;
   if(e.key==='Escape'){
-   if(!menu.hidden)closeMenu();
-   else if(body.classList.contains('running'))run.click();
+   if(body.classList.contains('running'))run.click();
    else if(body.classList.contains('show-layers'))toggle('layers',false);
    else if(body.classList.contains('show-problems'))toggle('problems',false);
    else if(body.classList.contains('has-selection')&&clearSelection)clearSelection();
@@ -139,5 +212,5 @@ export function mountMinimalShell(root,{events,newFile,clearSelection}={}){
   else if(e.key==='/'){e.preventDefault();openPalette('insert');}
  },{capture:true});
 
- return {toggle,openPalette,destroy(){scope.dispose();palette.remove();tabs.remove();corner.remove();hints.remove();menu.remove();menuButton.remove();body.classList.remove('minimal',...Object.values(panels),'has-selection','running','used-shortcut');}};
+ return {toggle,openPalette,destroy(){destroyed=true;scope.dispose();for(const r of Object.values(regions??{}))r.destroy();palette.remove();topbar.remove();corner.remove();hints.remove();body.classList.remove('minimal','forma-chrome','forma-inspector',...Object.values(panels),'has-selection','running','used-shortcut');}};
 }

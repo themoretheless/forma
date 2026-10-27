@@ -598,7 +598,15 @@ function compile(files,entry,state,metrics,read,links){
   if(modalNodes.length&&root.children.slice(-modalNodes.length).some(n=>n.type!=='Modal'))throw Error('Modal размещается после контролов сцены');
   const scroll=children.length===1&&children[0].type==='Scroll'?children[0]:null;
   instances=scroll?scroll.children:children;
-  const rootWidth=constrained(length(rootProps.width??360,360,360,'width'),rootProps,0,360),rootHeight=constrained(length(rootProps.height??220,220,220,'height'),rootProps,1,220);
+  let rootWidth=constrained(length(rootProps.width??360,360,360,'width'),rootProps,0,360),rootHeight=constrained(length(rootProps.height??220,220,220,'height'),rootProps,1,220);
+  // `width: content` / `height: content` on the root fits the frame to what it holds, so a shell
+  // region or popup is exactly as large as its controls instead of the 360×220 default.
+  const intrinsicCache=new WeakMap();
+  if(containerTypes.has(root.type)){
+    const fit={...root,children,layoutKind:root.type==='Frame'&&rootProps.columns===undefined&&rootProps.rows===undefined?'Column':root.type};
+    if(own(rootProps,'width')&&intrinsicLength(rootProps.width))rootWidth=naturalContainer(fit,0,intrinsicScene);
+    if(own(rootProps,'height')&&intrinsicLength(rootProps.height))rootHeight=naturalContainer(fit,1,intrinsicScene);
+  }
   // A modal layer is a positioned surface over the whole frame. Children are
   // laid out inside it and emitted with coordinates relative to the surface.
   const modals=modalNodes.map(node=>{
@@ -626,7 +634,6 @@ function compile(files,entry,state,metrics,read,links){
   // what a designer means when they pick up a panel. It travels beside the drawn controls so the
   // canvas can measure, grab and move a container by the extent it actually has.
   const previewContainers=[];
-  const intrinsicCache=new WeakMap();
   function intrinsicScene(node,axis){
     const key=axis===0?'width':'height',value=node.props[key];
     if(value!==undefined&&!intrinsicLength(value)&&!/[\*%]$/.test(value?.expr??''))return constrained(length(value,axis===0?rootWidth:rootHeight,0),node.props,axis,axis===0?rootWidth:rootHeight);

@@ -1,0 +1,72 @@
+// Properties of the selected control, as propertyFields reads them. A value commits on Enter or
+// when focus leaves the field; the host writes it through the inspector's own commit path.
+component StudioInspector {
+    Column {
+        width: 258;
+        height: content;
+        gap: 4;
+        padding: 12;
+        background: #00000000;
+        InspectorText { height: 28; fontSize: 14; text: state.title; }
+        if state.hasNote {
+            InspectorText { color: state.theme.textMuted; text: state.note; }
+        }
+        InspectorText { color: state.theme.textMuted; text: 'Свойства'; }
+        for row in state.rows key row.key {
+            Row {
+                width: *;
+                height: content;
+                gap: 6;
+                InspectorText {
+                    width: 78;
+                    text: row.key;
+                    color: match row.layered {
+                        true => state.theme.focus;
+                        _ => state.theme.textMuted;
+                    };
+                }
+                if row.editable {
+                    TextField {
+                        key: row.key;
+                        width: *;
+                        height: 28;
+                        fontSize: 12;
+                        placeholder: '';
+                        error: row.error;
+                        value <-> row.text;
+                    }
+                    QuietIconButton { width: 24; height: 28; text: 'Убрать'; icon: 'assets/minus.svg'; clicked -> actions.remove(row.key); }
+                }
+                if row.readonly {
+                    InspectorText { width: 152; text: row.text; }
+                }
+            }
+        }
+        if state.canAdd {
+            GhostButton { key: 'add'; width: *; height: 28; fontSize: 12; text: 'Добавить свойство'; clicked -> actions.add(); }
+        }
+        if state.hasNotice {
+            InspectorText { color: state.theme.dangerInk; text: state.notice; }
+        }
+        InspectorText { color: state.theme.textMuted; text: 'Привязки и события'; }
+        for link in state.links key link.key {
+            Row {
+                width: *;
+                height: content;
+                gap: 6;
+                InspectorText { width: 78; color: state.theme.textMuted; text: link.label; }
+                TextField {
+                    key: link.key;
+                    width: *;
+                    height: 28;
+                    fontSize: 12;
+                    placeholder: '';
+                    error: link.error;
+                    value <-> link.text;
+                }
+            }
+        } empty {
+            InspectorText { color: state.theme.textMuted; text: 'Нет привязок'; }
+        }
+    }
+}

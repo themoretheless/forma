@@ -1,0 +1,17 @@
+// Shortcut hints on an empty canvas, until the first shortcut is used.
+component StudioHints {
+    Row {
+        width: content;
+        height: content;
+        background: #00000000;
+        gap: 6;
+        padding: 8;
+        for hint in state.hints key hint.key {
+            Row {
+                gap: 4;
+                Keycap { width: hint.keyWidth; height: 20; fontSize: 10; text: hint.key; }
+                Surface { width: hint.labelWidth; height: 20; fontSize: 11; borderWidth: 0; revealWidth: 0; background: #00000000; color: state.theme.textMuted; text: hint.label; }
+            }
+        }
+    }
+}

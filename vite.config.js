@@ -12,7 +12,8 @@ import {readFile} from 'node:fs/promises';
 // JS reaches Vite through imports, but the WASM it fetches by URL is outside the root and got 403.
 const tokenizerPackage=(()=>{try{return realpathSync(fileURLToPath(new URL('./node_modules/@themoretheless/tokenizer-forma',import.meta.url)));}catch{return null;}})();
 
-export default defineConfig({build:{target:'esnext',chunkSizeWarningLimit:600,rollupOptions:{input:{studio:'index.html',controls:'vector-ui/examples/controls.html'},output:{manualChunks(id){if(id.includes('@codemirror/')||id.includes('@lezer/'))return 'editor';}}}},server:{host:'127.0.0.1',port:5173,strictPort:true,fs:{allow:[searchForWorkspaceRoot(fileURLToPath(new URL('.',import.meta.url))),...(tokenizerPackage?[tokenizerPackage]:[])]}},plugins:[{
+// Pre-bundling moves the package's JS into .vite/deps, where its relative WASM URL no longer resolves.
+export default defineConfig({optimizeDeps:{exclude:['@themoretheless/tokenizer-forma']},build:{target:'esnext',chunkSizeWarningLimit:600,rollupOptions:{input:{studio:'index.html',controls:'vector-ui/examples/controls.html'},output:{manualChunks(id){if(id.includes('@codemirror/')||id.includes('@lezer/'))return 'editor';}}}},server:{host:'127.0.0.1',port:5173,strictPort:true,fs:{allow:[searchForWorkspaceRoot(fileURLToPath(new URL('.',import.meta.url))),...(tokenizerPackage?[tokenizerPackage]:[])]}},plugins:[{
   name:'forma-mcp-bridge',
   configureServer(server){
     // Generated wasm-bindgen modules must be served unchanged, not transformed by Vite.
@@ -21,12 +22,13 @@ export default defineConfig({build:{target:'esnext',chunkSizeWarningLimit:600,ro
       if(!['/forma.js','/forma_bg.wasm'].includes(name))return next();
       try{const bytes=await readFile(new URL('./public/vector-pkg'+name,import.meta.url));res.setHeader('Content-Type',name.endsWith('.wasm')?'application/wasm':'text/javascript');res.setHeader('Cache-Control','no-store');res.end(bytes);}catch{res.statusCode=503;res.end('Build vector-ui WASM first');}
     });
-    const token=randomUUID();const pending=new Map();let client=null,selectedBackend='ask';
+    const token=randomUUID();const pending=new Map();let client=null,selectedBackend='ask',selectedPlatform='desktop';
     const runner=createRustRunner(data=>client?.send('forma:rust-output',data));
     const native=createNativeRunner(data=>client?.send('forma:rust-output',data));
     const vector=createVectorRunner(data=>client?.send('forma:rust-output',data));
     server.ws.on('forma:backend',(data,sender)=>{if(sender===client&&['egui','svet','ask'].includes(data?.backend))selectedBackend=data.backend;});
-    server.ws.on('forma:vector-run',(data,sender)=>{if(sender===client)vector.run({...data,backend:data?.backend??(selectedBackend!=='ask'?selectedBackend:undefined)});});
+    server.ws.on('forma:platform',(data,sender)=>{if(sender===client&&['desktop','ios','android'].includes(data?.platform))selectedPlatform=data.platform;});
+    server.ws.on('forma:vector-run',(data,sender)=>{if(sender===client)vector.run({...data,backend:data?.backend??(selectedBackend!=='ask'?selectedBackend:undefined),platform:data?.platform??(selectedPlatform!=='desktop'?selectedPlatform:undefined)});});
     server.ws.on('forma:vector-update',(data,sender)=>{if(sender===client)vector.update(data);});
     server.ws.on('forma:vector-stop',(_,sender)=>{if(sender===client)vector.stop();});
     server.httpServer.once('close',()=>vector.stop());
@@ -43,7 +45,7 @@ export default defineConfig({build:{target:'esnext',chunkSizeWarningLimit:600,ro
     server.ws.on('forma:native-update',(data,sender)=>{if(sender===client)native.update(data);});
     server.ws.on('forma:native-stop',(_,sender)=>{if(sender===client)native.stop();});
     server.httpServer.once('close',()=>native.stop());
-    server.ws.on('forma:form-run',(data,sender)=>{if(sender===client)runner.run(data?.files,{generated:true,native:true,backend:data?.backend??selectedBackend});});
+    server.ws.on('forma:form-run',(data,sender)=>{if(sender===client)runner.run(data?.files,{generated:true,native:true,backend:data?.backend??selectedBackend,platform:data?.platform??selectedPlatform});});
     server.ws.on('forma:rust-run',(data,sender)=>{if(sender===client)runner.run(data?.files);});
     server.ws.on('forma:rust-stop',(_,sender)=>{if(sender===client)runner.stop();});
     server.httpServer.once('close',()=>runner.stop());
