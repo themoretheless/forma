@@ -42,9 +42,12 @@ export function createRustRunner(send,dependencies={}){
           const destination=path.join(directory,file);await makeDirectory(path.dirname(destination),{recursive:true});await writeSourceFile(destination,source);
         }
         send({kind:'started',text:'cargo run — '+directory});
-        const backendArg=options.backend==='egui'||options.backend==='svet'?['--','--backend',options.backend]:[];
-        const args=['run','--offline',...(options.native?['--features','native']:[]),'--manifest-path',path.join(directory,'Cargo.toml'),...backendArg];
-        const env=options.backend?{...globalThis.process?.env,FORMA_BACKEND:options.backend}:undefined;
+        const extraArgs=[
+          ...(options.backend==='egui'||options.backend==='svet'?['--backend',options.backend]:[]),
+          ...(options.platform==='ios'||options.platform==='android'?['--platform',options.platform]:[]),
+        ];
+        const args=['run','--offline',...(options.native?['--features','native']:[]),'--manifest-path',path.join(directory,'Cargo.toml'),...(extraArgs.length?['--',...extraArgs]:[])];
+        const env=(options.backend||options.platform)?{...globalThis.process?.env,...(options.backend?{FORMA_BACKEND:options.backend}:{}),...(options.platform?{FORMA_PLATFORM:options.platform}:{})}:undefined;
         process=spawnProcess('cargo',args,{cwd:directory,stdio:['ignore','pipe','pipe'],...(env?{env}:{})});
         process.stdout.on('data',chunk=>send({kind:'stdout',text:chunk.toString()}));
         let errorBuffer='';

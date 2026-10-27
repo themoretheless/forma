@@ -8,7 +8,7 @@ use std::{
 use winit::{
     application::ApplicationHandler,
     dpi::{LogicalPosition, LogicalSize},
-    event::{ElementState, Ime, MouseButton, MouseScrollDelta, WindowEvent},
+    event::{ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, NamedKey},
     window::{Window, WindowId},
@@ -144,6 +144,104 @@ pub fn build_chooser_runtime() -> Result<crate::Runtime, String> {
     crate::Runtime::from_sources(BACKEND_CHOOSER_UI, crate::BUTTON_COMPONENT)
 }
 
+/// Target platform for Forma native runtime (`desktop`, `ios`, `android`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum TargetPlatform {
+    #[default]
+    Desktop,
+    Ios,
+    Android,
+}
+
+impl TargetPlatform {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Desktop => "desktop",
+            Self::Ios => "ios",
+            Self::Android => "android",
+        }
+    }
+
+    pub fn short_label(self) -> &'static str {
+        match self {
+            Self::Desktop => "Desktop",
+            Self::Ios => "iOS",
+            Self::Android => "Android",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Desktop => "Desktop (macOS / Windows / Linux)",
+            Self::Ios => "iOS (iPhone 16 Pro · 393×852 · Metal)",
+            Self::Android => "Android (Pixel 9 · 412×915 · Vulkan)",
+        }
+    }
+
+    pub fn viewport_size(self, fallback_w: f32, fallback_h: f32) -> (f32, f32) {
+        match self {
+            Self::Desktop => (fallback_w.max(1.0), fallback_h.max(1.0)),
+            Self::Ios => (393.0, 852.0),
+            Self::Android => (412.0, 915.0),
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            Self::Desktop => Self::Ios,
+            Self::Ios => Self::Android,
+            Self::Android => Self::Desktop,
+        }
+    }
+
+    pub fn from_arg(value: &str) -> Option<Self> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "desktop" | "macos" | "windows" | "linux" => Some(Self::Desktop),
+            "ios" | "iphone" | "ipad" => Some(Self::Ios),
+            "android" | "pixel" => Some(Self::Android),
+            _ => None,
+        }
+    }
+
+    /// Resolves target platform from CLI flags (`--platform ios|android|desktop`, `--ios`, `--android`)
+    /// or `FORMA_PLATFORM` environment variable.
+    pub fn resolve_from_env_and_args() -> Self {
+        let mut args = std::env::args().skip(1);
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--ios" | "--platform=ios" => return Self::Ios,
+                "--android" | "--platform=android" => return Self::Android,
+                "--desktop" | "--platform=desktop" => return Self::Desktop,
+                "--platform" | "-p" => {
+                    if let Some(next) = args.next() {
+                        if let Some(parsed) = Self::from_arg(&next) {
+                            return parsed;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Ok(env_val) = std::env::var("FORMA_PLATFORM") {
+            if let Some(parsed) = Self::from_arg(&env_val) {
+                return parsed;
+            }
+        }
+        #[cfg(target_os = "ios")]
+        {
+            return Self::Ios;
+        }
+        #[cfg(target_os = "android")]
+        {
+            return Self::Android;
+        }
+        #[cfg(not(any(target_os = "ios", target_os = "android")))]
+        {
+            Self::Desktop
+        }
+    }
+}
+
 /// Applies an immediate-mode `egui` frame accent bar on top of a software pixel buffer
 /// so `egui` and `svet` modes are visually distinguishable in addition to window title and logs.
 pub fn apply_egui_frame_bar(buffer: &mut [u32], width: u32, height: u32) {
@@ -161,6 +259,91 @@ pub fn apply_egui_frame_bar(buffer: &mut [u32], width: u32, height: u32) {
     }
 }
 
+/// Renders mobile device indicators (iOS Dynamic Island + Home Indicator; Android status bar +
+/// navigation gesture pill) into a pixel buffer when running in `iOS` or `Android` platform mode.
+pub fn apply_mobile_chrome(
+    buffer: &mut [u32],
+    width: u32,
+    height: u32,
+    scale: f32,
+    platform: TargetPlatform,
+) {
+    if platform == TargetPlatform::Desktop || width < 32 || height < 32 {
+        return;
+    }
+    let s = scale.max(1.0);
+    let fill_rect = |buf: &mut [u32], x0: u32, y0: u32, w: u32, h: u32, color: u32, round: bool| {
+        let x1 = (x0 + w).min(width);
+        let y1 = (y0 + h).min(height);
+        let r = if round { (h / 2) as i32 } else { 0 };
+        for y in y0..y1 {
+            let row = (y * width) as usize;
+            let dy = if round {
+                let cy = (y0 as i32) + (h as i32) / 2;
+                (y as i32 - cy).abs()
+            } else {
+                0
+            };
+            for x in x0..x1 {
+                if round && r > 0 {
+                    let left_cx = (x0 as i32) + r;
+                    let right_cx = (x1 as i32) - r;
+                    let dx = if (x as i32) < left_cx {
+                        left_cx - (x as i32)
+                    } else if (x as i32) > right_cx {
+                        (x as i32) - right_cx
+                    } else {
+                        0
+                    };
+                    if dx * dx + dy * dy > r * r {
+                        continue;
+                    }
+                }
+                if let Some(px) = buf.get_mut(row + x as usize) {
+                    *px = color;
+                }
+            }
+        }
+    };
+    match platform {
+        TargetPlatform::Ios => {
+            // iOS Dynamic Island pill at top center + Home Indicator bar at bottom center
+            let island_w = ((122.0 * s) as u32).min(width.saturating_sub(24));
+            let island_h = ((26.0 * s) as u32).clamp(8, height / 6);
+            let island_x = (width.saturating_sub(island_w)) / 2;
+            let island_y = ((10.0 * s) as u32).min(height.saturating_sub(island_h));
+            fill_rect(buffer, island_x, island_y, island_w, island_h, 0x090B10, true);
+            // Subtle camera lens dot inside Dynamic Island
+            let lens_size = ((8.0 * s) as u32).clamp(3, island_h.saturating_sub(4));
+            let lens_x = island_x + island_w.saturating_sub(lens_size + (8.0 * s) as u32);
+            let lens_y = island_y + (island_h.saturating_sub(lens_size)) / 2;
+            fill_rect(buffer, lens_x, lens_y, lens_size, lens_size, 0x1E2942, true);
+
+            // Home Indicator pill at bottom
+            let home_w = ((134.0 * s) as u32).min(width.saturating_sub(32));
+            let home_h = ((5.0 * s) as u32).clamp(3, 12);
+            let home_x = (width.saturating_sub(home_w)) / 2;
+            let home_y = height.saturating_sub(home_h + ((8.0 * s) as u32).max(4));
+            fill_rect(buffer, home_x, home_y, home_w, home_h, 0xE2E8F5, true);
+        }
+        TargetPlatform::Android => {
+            // Android punch-hole camera at top center + status accent + bottom gesture pill
+            let hole_size = ((14.0 * s) as u32).clamp(6, height / 10);
+            let hole_x = (width.saturating_sub(hole_size)) / 2;
+            let hole_y = ((10.0 * s) as u32).min(height.saturating_sub(hole_size));
+            fill_rect(buffer, hole_x, hole_y, hole_size, hole_size, 0x090B10, true);
+
+            // Android gesture navigation bar at bottom
+            let nav_w = ((108.0 * s) as u32).min(width.saturating_sub(32));
+            let nav_h = ((4.0 * s) as u32).clamp(3, 10);
+            let nav_x = (width.saturating_sub(nav_w)) / 2;
+            let nav_y = height.saturating_sub(nav_h + ((8.0 * s) as u32).max(4));
+            fill_rect(buffer, nav_x, nav_y, nav_w, nav_h, 0x76DFB1, true);
+        }
+        TargetPlatform::Desktop => {}
+    }
+}
+
 /// Initial settings for a Forma native window.
 pub struct NativeWindowConfig {
     pub title: String,
@@ -168,6 +351,7 @@ pub struct NativeWindowConfig {
     pub height: f32,
     pub resizable: bool,
     pub backend: Option<UiBackend>,
+    pub platform: TargetPlatform,
 }
 
 impl Default for NativeWindowConfig {
@@ -178,6 +362,7 @@ impl Default for NativeWindowConfig {
             height: 600.,
             resizable: true,
             backend: UiBackend::resolve_from_env_and_args(),
+            platform: TargetPlatform::resolve_from_env_and_args(),
         }
     }
 }
@@ -205,10 +390,12 @@ struct NativeHost<A: NativeApp + 'static> {
     app: A,
     config: NativeWindowConfig,
     backend: Option<UiBackend>,
+    platform: TargetPlatform,
     chooser: Option<crate::Runtime>,
     window: Option<Arc<Window>>,
     surface: Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
     pointer: (f32, f32),
+    touch_last: Option<(f32, f32)>,
     shift: bool,
     command: bool,
     alt: bool,
@@ -219,11 +406,39 @@ struct NativeHost<A: NativeApp + 'static> {
 impl<A: NativeApp + 'static> NativeHost<A> {
     fn sync_window_title(&self) {
         if let Some(window) = &self.window {
+            let plat_suffix = if self.platform != TargetPlatform::Desktop {
+                format!(" · {}", self.platform.short_label())
+            } else {
+                String::new()
+            };
             let title = match self.backend {
-                Some(b) => format!("{} [{}] · F7: сменить бэкенд", self.config.title, b.as_str()),
-                None => format!("{} · Выберите бэкенд: [1] egui / [2] svet", self.config.title),
+                Some(b) => format!(
+                    "{} [{}{}] · F6: платформа · F7: бэкенд",
+                    self.config.title,
+                    b.as_str(),
+                    plat_suffix
+                ),
+                None => format!(
+                    "{}{} · Выберите бэкенд: [1] egui / [2] svet",
+                    self.config.title, plat_suffix
+                ),
             };
             window.set_title(&title);
+        }
+    }
+
+    fn select_platform(&mut self, platform: TargetPlatform) {
+        self.platform = platform;
+        println!(
+            "Активна платформа: {} ({}) · F6 — переключить на лету",
+            platform.as_str(),
+            platform.label()
+        );
+        self.sync_window_title();
+        if let Some(window) = &self.window {
+            let (w, h) = platform.viewport_size(self.config.width, self.config.height);
+            let _ = window.request_inner_size(LogicalSize::new(w, h));
+            window.request_redraw();
         }
     }
 
@@ -233,10 +448,10 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         println!("Активен бэкенд: {} ({})", backend.as_str(), backend.label());
         self.sync_window_title();
         if let Some(window) = &self.window {
-            let _ = window.request_inner_size(LogicalSize::new(
-                self.config.width.max(1.0),
-                self.config.height.max(1.0),
-            ));
+            let (w, h) = self
+                .platform
+                .viewport_size(self.config.width, self.config.height);
+            let _ = window.request_inner_size(LogicalSize::new(w, h));
             window.request_redraw();
         }
     }
@@ -289,6 +504,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             if self.backend == Some(UiBackend::Egui) {
                 apply_egui_frame_bar(&mut buffer, size.width, size.height);
             }
+            apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
         }
         buffer.present().map_err(|e| e.to_string())?;
 
@@ -327,6 +543,11 @@ impl<A: NativeApp + 'static> NativeHost<A> {
 
     fn keyboard_input(&mut self, event: winit::event::KeyEvent) -> Result<(), String> {
         let pressed = event.state == ElementState::Pressed;
+        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F6) {
+            let next = self.platform.next();
+            self.select_platform(next);
+            return Ok(());
+        }
         if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F7) {
             let next = self.backend.map_or(UiBackend::Svet, UiBackend::toggle);
             self.select_backend(next);
@@ -519,6 +740,76 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     self.app.update(&mut |runtime| runtime.scroll(dx, dy))?;
                 }
             }
+            WindowEvent::Touch(Touch {
+                phase, location, ..
+            }) => {
+                let scale = self
+                    .window
+                    .as_ref()
+                    .ok_or_else(|| "Native window is not initialized".to_owned())?
+                    .scale_factor() as f32;
+                let (x, y) = (location.x as f32 / scale, location.y as f32 / scale);
+                self.pointer = (x, y);
+                match phase {
+                    TouchPhase::Started => {
+                        self.touch_last = Some((x, y));
+                        if let Some(chooser) = &mut self.chooser {
+                            chooser.pointer(x, y, 0);
+                            chooser.pointer(x, y, 1);
+                        } else {
+                            self.app.update(&mut |runtime| {
+                                runtime.pointer(x, y, 0);
+                                runtime.pointer(x, y, 1);
+                            })?;
+                        }
+                    }
+                    TouchPhase::Moved => {
+                        let (dx, dy) = self
+                            .touch_last
+                            .map_or((0., 0.), |(lx, ly)| (lx - x, ly - y));
+                        self.touch_last = Some((x, y));
+                        if let Some(chooser) = &mut self.chooser {
+                            chooser.pointer(x, y, 0);
+                            if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                                chooser.scroll(dx, dy);
+                            }
+                        } else {
+                            self.app.update(&mut |runtime| {
+                                runtime.pointer(x, y, 0);
+                                if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                                    runtime.scroll(dx, dy);
+                                }
+                            })?;
+                        }
+                    }
+                    TouchPhase::Ended => {
+                        self.touch_last = None;
+                        if let Some(chooser) = &mut self.chooser {
+                            let before_clicks = chooser.clicks();
+                            chooser.pointer(x, y, 2);
+                            if chooser.clicks() != before_clicks {
+                                let chosen = if chooser.key() == "choose_egui" {
+                                    UiBackend::Egui
+                                } else {
+                                    UiBackend::Svet
+                                };
+                                self.select_backend(chosen);
+                            }
+                        } else {
+                            self.app.update(&mut |runtime| runtime.pointer(x, y, 2))?;
+                        }
+                    }
+                    TouchPhase::Cancelled => {
+                        self.touch_last = None;
+                        if let Some(chooser) = &mut self.chooser {
+                            chooser.pointer(-1., -1., 3);
+                        } else {
+                            self.app
+                                .update(&mut |runtime| runtime.pointer(-1., -1., 3))?;
+                        }
+                    }
+                }
+            }
             WindowEvent::Focused(focused) => {
                 if let Some(chooser) = &mut self.chooser {
                     chooser.focus(focused);
@@ -580,14 +871,17 @@ impl<A: NativeApp + 'static> ApplicationHandler for NativeHost<A> {
         if self.window.is_some() {
             return;
         }
+        let (plat_w, plat_h) = self
+            .platform
+            .viewport_size(self.config.width, self.config.height);
         let init_w = self
             .chooser
             .as_ref()
-            .map_or(self.config.width, |c| c.render_width().max(self.config.width));
+            .map_or(plat_w, |c| c.render_width().max(plat_w));
         let init_h = self
             .chooser
             .as_ref()
-            .map_or(self.config.height, |c| c.render_height().max(self.config.height));
+            .map_or(plat_h, |c| c.render_height().max(plat_h));
         let setup = || -> Result<(Arc<Window>, softbuffer::Surface<Arc<Window>, Arc<Window>>), String> {
             let window = Arc::new(
                 event_loop
@@ -613,10 +907,21 @@ impl<A: NativeApp + 'static> ApplicationHandler for NativeHost<A> {
                 self.window = Some(window);
                 self.surface = Some(surface);
                 self.sync_window_title();
+                if self.platform != TargetPlatform::Desktop {
+                    println!(
+                        "Платформа Forma: {} ({}) · F6 — переключить на лету",
+                        self.platform.as_str(),
+                        self.platform.label()
+                    );
+                }
                 if let Some(b) = self.backend {
-                    println!("Запуск Forma на бэкенде: {} ({}) · F7 — переключить на лету", b.as_str(), b.label());
+                    println!(
+                        "Запуск Forma на бэкенде: {} ({}) · F6: платформа · F7: бэкенд",
+                        b.as_str(),
+                        b.label()
+                    );
                 } else {
-                    println!("Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F7 — переключить на лету)");
+                    println!("Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F6: платформа, F7: бэкенд)");
                 }
             }
             Err(error) => {
@@ -652,6 +957,7 @@ pub fn run<A: NativeApp + 'static>(
     config: NativeWindowConfig,
 ) -> Result<(), String> {
     let backend = config.backend;
+    let platform = config.platform;
     let chooser = if backend.is_none() {
         Some(build_chooser_runtime()?)
     } else {
@@ -664,10 +970,12 @@ pub fn run<A: NativeApp + 'static>(
             app,
             config,
             backend,
+            platform,
             chooser,
             window: None,
             surface: None,
             pointer: (0., 0.),
+            touch_last: None,
             shift: false,
             command: false,
             alt: false,
@@ -715,5 +1023,33 @@ mod tests {
         two.activate_control(1);
         assert_eq!(two.key(), "second");
         assert_eq!(two.action(), "actions.second");
+    }
+
+    #[test]
+    fn target_platform_parses_cycles_and_renders_mobile_chrome() {
+        assert_eq!(TargetPlatform::from_arg("desktop"), Some(TargetPlatform::Desktop));
+        assert_eq!(TargetPlatform::from_arg("ios"), Some(TargetPlatform::Ios));
+        assert_eq!(TargetPlatform::from_arg("iPhone"), Some(TargetPlatform::Ios));
+        assert_eq!(TargetPlatform::from_arg("android"), Some(TargetPlatform::Android));
+        assert_eq!(TargetPlatform::from_arg("Pixel"), Some(TargetPlatform::Android));
+        assert_eq!(TargetPlatform::from_arg("unknown"), None);
+
+        assert_eq!(TargetPlatform::Desktop.next(), TargetPlatform::Ios);
+        assert_eq!(TargetPlatform::Ios.next(), TargetPlatform::Android);
+        assert_eq!(TargetPlatform::Android.next(), TargetPlatform::Desktop);
+
+        assert_eq!(TargetPlatform::Ios.viewport_size(800.0, 600.0), (393.0, 852.0));
+        assert_eq!(TargetPlatform::Android.viewport_size(800.0, 600.0), (412.0, 915.0));
+        assert_eq!(TargetPlatform::Desktop.viewport_size(800.0, 600.0), (800.0, 600.0));
+
+        let mut buf = vec![0x111520u32; 393 * 852];
+        apply_mobile_chrome(&mut buf, 393, 852, 1.0, TargetPlatform::Ios);
+        assert!(buf.contains(&0x090B10), "iOS Dynamic Island should be painted");
+        assert!(buf.contains(&0xE2E8F5), "iOS Home Indicator should be painted");
+
+        let mut android_buf = vec![0x111520u32; 412 * 915];
+        apply_mobile_chrome(&mut android_buf, 412, 915, 1.0, TargetPlatform::Android);
+        assert!(android_buf.contains(&0x090B10), "Android camera cutout should be painted");
+        assert!(android_buf.contains(&0x76DFB1), "Android gesture pill should be painted");
     }
 }

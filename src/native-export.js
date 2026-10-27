@@ -170,6 +170,14 @@ fn main() -> Result<(), String> {
     use forma::native_window::{run, NativeWindowConfig};
 
     let runtime = ui_bundle::create_runtime()?;
+    if std::env::args().any(|a| a == "--mcp" || a == "mcp") || std::env::var("FORMA_MCP").as_deref() == Ok("1") {
+        let entry_src = ui_bundle::project_files().get(ui_bundle::ENTRY_FILE).cloned().unwrap_or_default();
+        return forma::mcp::serve_stdio(forma::mcp::McpApp::from_runtime(
+            runtime,
+            entry_src,
+            forma::BUTTON_COMPONENT,
+        ));
+    }
     let width = runtime.render_width().max(1.0);
     let height = runtime.render_height().max(1.0);
     run(
@@ -186,6 +194,14 @@ fn main() -> Result<(), String> {
 #[cfg(not(feature = "native"))]
 fn main() -> Result<(), String> {
     let mut runtime = ui_bundle::create_runtime()?;
+    if std::env::args().any(|a| a == "--mcp" || a == "mcp") || std::env::var("FORMA_MCP").as_deref() == Ok("1") {
+        let entry_src = ui_bundle::project_files().get(ui_bundle::ENTRY_FILE).cloned().unwrap_or_default();
+        return forma::mcp::serve_stdio(forma::mcp::McpApp::from_runtime(
+            runtime,
+            entry_src,
+            forma::BUTTON_COMPONENT,
+        ));
+    }
     runtime.sync_ui_bindings_native()?;
     let pixels = runtime.pixels(320, 200, 1.0);
     println!(
@@ -211,15 +227,155 @@ mod tests {
 `;
   }
 
+  const bundleId = `dev.forma.${appName.replace(/[^a-z0-9]+/g, '') || 'app'}`;
+
+  out['ios/Info.plist'] = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>ru</string>
+    <key>CFBundleDisplayName</key>
+    <string>${appName}</string>
+    <key>CFBundleExecutable</key>
+    <string>${appName}</string>
+    <key>CFBundleIdentifier</key>
+    <string>${bundleId}</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>${appName}</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSRequiresIPhoneOS</key>
+    <true/>
+    <key>UIRequiredDeviceCapabilities</key>
+    <array>
+        <string>arm64</string>
+        <string>metal</string>
+    </array>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+        <string>UIInterfaceOrientationLandscapeLeft</string>
+        <string>UIInterfaceOrientationLandscapeRight</string>
+    </array>
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
+</dict>
+</plist>
+`;
+
+  out['ios/run-ios.sh'] = `#!/usr/bin/env sh
+set -eu
+# Сборка и запуск Forma-приложения в режиме iOS (Metal / iPhone 16 Pro 393x852) или на iOS Simulator
+BACKEND="\${FORMA_BACKEND:-svet}"
+if [ "\${1:-}" = "--simulator" ]; then
+  TARGET="aarch64-apple-ios-sim"
+  cargo build --release --features native --target "\$TARGET"
+  APP_DIR="target/\$TARGET/release/${appName}.app"
+  mkdir -p "\$APP_DIR"
+  cp "target/\$TARGET/release/${appName}" "\$APP_DIR/${appName}"
+  cp "ios/Info.plist" "\$APP_DIR/Info.plist"
+  xcrun simctl boot "iPhone 16 Pro" 2>/dev/null || true
+  xcrun simctl install booted "\$APP_DIR"
+  xcrun simctl launch booted "${bundleId}"
+else
+  exec cargo run --release --features native -- --platform ios --backend "\$BACKEND" "\$@"
+fi
+`;
+
+  out['android/app/src/main/AndroidManifest.xml'] = `<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="${bundleId}"
+    android:versionCode="1"
+    android:versionName="0.1.0">
+
+    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x401000" android:required="false" />
+
+    <application
+        android:label="${appName}"
+        android:hasCode="false"
+        android:debuggable="true">
+        <activity
+            android:name="android.app.NativeActivity"
+            android:label="${appName}"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="${appName.replace(/-/g, '_')}" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
+`;
+
+  out['android/build.gradle.kts'] = `plugins {
+    id("com.android.application") version "8.5.0"
+}
+
+android {
+    namespace = "${bundleId}"
+    compileSdk = 35
+    ndkVersion = "27.0.12077973"
+
+    defaultConfig {
+        applicationId = "${bundleId}"
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "0.1.0"
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+}
+`;
+
+  out['android/run-android.sh'] = `#!/usr/bin/env sh
+set -eu
+# Сборка и запуск Forma-приложения в режиме Android (Vulkan / Pixel 9 412x915) или через cargo-ndk / adb
+BACKEND="\${FORMA_BACKEND:-svet}"
+if [ "\${1:-}" = "--device" ]; then
+  cargo ndk -t arm64-v8a -o android/app/src/main/jniLibs build --release --features native
+  (cd android && ./gradlew installDebug)
+  adb shell am start -n "${bundleId}/android.app.NativeActivity"
+else
+  exec cargo run --release --features native -- --platform android --backend "\$BACKEND" "\$@"
+fi
+`;
+
+  out['.mcp.json'] = JSON.stringify(
+    {
+      mcpServers: {
+        [appName]: {
+          command: 'cargo',
+          args: ['run', '--quiet', '--offline', '--', '--mcp'],
+        },
+      },
+    },
+    null,
+    2
+  ) + '\n';
+
   const typedReadme = typed
     ? `\n## ViewModel и обработчики\n\nФорма генерируется в \`src/forma_generated.rs\`. Пользовательский \`src/app.rs\` сохраняется и должен экспортировать \`create_form()\`: она создаёт ViewModel и форму, регистрирует обработчики \`on_…\` и возвращает форму. Типизированные \`state.method()\` и \`events.name()\` выполняются через эти bindings во время обработки native-ввода.\n`
     : `\n## Состояние и события\n\nОкно обрабатывает ввод и синхронизирует встроенные двусторонние привязки retained \`.ui\`-документа. Для пользовательской Rust ViewModel и обработчиков \`state.method()\` / \`events.name()\` используйте форму с \`contextType\` и \`src/app.rs\`; произвольный \`actions.*\` автоматически не вызывается.\n`;
 
-  out['README.md'] = `# ${appName} — нативный Rust экспорт Forma
+  out['README.md'] = `# ${appName} — нативный Rust экспорт Forma (Desktop · iOS · Android)
 
 Сгенерировано из проекта Forma Studio (входной компонент: \`${resolvedEntry}\`).
 
-## Запуск настоящего нативного окна
+## Запуск настоящего нативного окна (Desktop / iOS / Android)
 
 \`\`\`sh
 # Интерактивный выбор бэкенда (egui / svet) при старте окна:
@@ -228,9 +384,20 @@ cargo run --features native
 # Явный выбор бэкенда egui или svet:
 cargo run --features native -- --backend egui
 cargo run --features native -- --backend svet
+
+# Запуск на мобильных платформах (iOS и Android):
+cargo run --features native -- --platform ios --backend svet
+cargo run --features native -- --platform android --backend svet
+cargo run --features native -- --platform ios --backend egui
+cargo run --features native -- --platform android --backend egui
 \`\`\`
 
-Окно использует общий Forma Runtime, winit event loop и поддерживает выбор бэкенда \`egui\` или \`svet\` при старте (а также горячее переключение по клавише \`F7\`). Ввод, фокус, прокрутка, IME, анимации и изменения ViewModel запускают перерисовку.
+## Мобильные таргеты iOS и Android
+
+- \`ios/Info.plist\` и \`ios/run-ios.sh\` — конфигурация бандла \`${bundleId}\` (Metal / ProMotion 120Hz) и скрипт запуска в режиме iOS (\`sh ios/run-ios.sh\`) или установки в Xcode iOS Simulator (\`sh ios/run-ios.sh --simulator\`).
+- \`android/app/src/main/AndroidManifest.xml\`, \`android/build.gradle.kts\` и \`android/run-android.sh\` — манифест \`NativeActivity\` (Vulkan 1.1 / GLES 3.0) и скрипт запуска в режиме Android (\`sh android/run-android.sh\`) или сборки через \`cargo-ndk\` и \`adb\` (\`sh android/run-android.sh --device\`).
+
+Окно использует общий Forma Runtime, winit event loop (включая мультитач \`WindowEvent::Touch\`) и поддерживает горячее переключение платформы (\`F6\`: Desktop → iOS → Android) и бэкенда (\`F7\`: \`egui\` ↔ \`svet\`).
 ${typedReadme}
 ## Headless-проверка
 

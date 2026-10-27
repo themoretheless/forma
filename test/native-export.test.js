@@ -100,6 +100,11 @@ test('buildNativeRustExport generates a real window and a headless test for a Ru
   assert.ok(bundle.files['src/main.rs'].includes('runtime.sync_ui_bindings_native()'));
   assert.ok(bundle.files['src/main.rs'].includes('exported_ui_project_compiles_and_renders_natively_in_rust'));
   assert.ok(bundle.files['README.md'].includes('cargo run --features native'));
+  assert.ok(bundle.files['ios/Info.plist'].includes('dev.forma.knowledgeworkspace'));
+  assert.ok(bundle.files['ios/run-ios.sh'].includes('--platform ios'));
+  assert.ok(bundle.files['android/app/src/main/AndroidManifest.xml'].includes('android.app.NativeActivity'));
+  assert.ok(bundle.files['android/build.gradle.kts'].includes('arm64-v8a'));
+  assert.ok(bundle.files['android/run-android.sh'].includes('--platform android'));
   assert.ok(!bundle.files['src/main.rs'].includes('mod actions;'));
 });
 

@@ -206,4 +206,16 @@ test('vector runner forwards explicit egui or svet backend flag to native Cargo'
     '--features', 'native', '--', '--backend', 'svet', '/project with spaces/.forma/vector-2/snapshot.ui',
   ]);
   children[1].emit('close', 0, null);
+  await runner.run({source: 'component TwoButtons {}', backend: 'svet', platform: 'ios'});
+  assert.deepEqual(calls.spawns[2][1], [
+    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
+    '--features', 'native', '--', '--backend', 'svet', '--platform', 'ios', '/project with spaces/.forma/vector-3/snapshot.ui',
+  ]);
+  children[2].emit('close', 0, null);
+  await runner.run({source: 'component TwoButtons {}', backend: 'egui', platform: 'android'});
+  assert.deepEqual(calls.spawns[3][1], [
+    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
+    '--features', 'native', '--', '--backend', 'egui', '--platform', 'android', '/project with spaces/.forma/vector-4/snapshot.ui',
+  ]);
+  children[3].emit('close', 0, null);
 });

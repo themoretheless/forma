@@ -1,6 +1,8 @@
 use forma::{
     frame_stats::{FrameRate, FrameStats},
-    native_window::{apply_egui_frame_bar, build_chooser_runtime, UiBackend},
+    native_window::{
+        apply_egui_frame_bar, apply_mobile_chrome, build_chooser_runtime, TargetPlatform, UiBackend,
+    },
 };
 use std::{
     collections::HashMap,
@@ -13,7 +15,7 @@ mod metal_resize;
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
+    event::{ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, NamedKey},
     window::{Window, WindowId},
@@ -50,6 +52,7 @@ struct AuxiliaryWindow {
 
 struct App {
     ui_backend: Option<UiBackend>,
+    platform: TargetPlatform,
     chooser: Option<forma::Runtime>,
     inspect_mode: bool,
     inspect_report: String,
@@ -67,6 +70,7 @@ struct App {
     surface_state: Presentation,
     button: forma::Runtime,
     pointer: (f32, f32),
+    touch_last: Option<(f32, f32)>,
     last: Instant,
     frame_stats: FrameStats,
     continuous_redraw: bool,
@@ -119,6 +123,34 @@ impl App {
         }
     }
 
+    fn select_platform(&mut self, platform: TargetPlatform) {
+        self.platform = platform;
+        self.frame_stats = FrameStats::default();
+        self.next_title_update = Instant::now();
+        println!(
+            "Активна платформа: {} ({}) · F6 — переключить на лету",
+            platform.as_str(),
+            platform.label()
+        );
+        if let Some(window) = &self.window {
+            let (w, h) = platform.viewport_size(
+                self.button.render_width().max(1.0),
+                self.button.render_height().max(1.0),
+            );
+            let _ = window.request_inner_size(LogicalSize::new(w, h));
+            if platform != TargetPlatform::Desktop && self.surface.is_none() {
+                if let Ok(context) = softbuffer::Context::new(window.clone()) {
+                    if let Ok(surf) = softbuffer::Surface::new(&context, window.clone()) {
+                        self.surface = Some(surf);
+                        self.surface_size = None;
+                    }
+                }
+            }
+            window.request_redraw();
+        }
+        self.update_title(Instant::now());
+    }
+
     fn select_backend(&mut self, backend: UiBackend) {
         self.ui_backend = Some(backend);
         self.chooser = None;
@@ -130,11 +162,14 @@ impl App {
             backend.label()
         );
         if let Some(window) = &self.window {
-            let _ = window.request_inner_size(LogicalSize::new(
+            let (w, h) = self.platform.viewport_size(
                 self.button.render_width().max(1.0),
                 self.button.render_height().max(1.0),
-            ));
-            if backend == UiBackend::Egui && self.surface.is_none() {
+            );
+            let _ = window.request_inner_size(LogicalSize::new(w, h));
+            if (backend == UiBackend::Egui || self.platform != TargetPlatform::Desktop)
+                && self.surface.is_none()
+            {
                 if let Ok(context) = softbuffer::Context::new(window.clone()) {
                     if let Ok(surf) = softbuffer::Surface::new(&context, window.clone()) {
                         self.surface = Some(surf);
@@ -157,7 +192,9 @@ impl App {
             return;
         };
         let active_runtime = self.chooser.as_ref().unwrap_or(&self.button);
-        let use_gpu = self.chooser.is_none() && self.ui_backend != Some(UiBackend::Egui);
+        let use_gpu = self.chooser.is_none()
+            && self.ui_backend != Some(UiBackend::Egui)
+            && self.platform == TargetPlatform::Desktop;
         if use_gpu {
             if let Some(gpu) = &mut self.gpu {
                 match gpu.draw(active_runtime, window) {
@@ -197,19 +234,25 @@ impl App {
                 Ok(buffer) => buffer,
                 Err(error) => break 'cpu CpuFrame::Failed(error.to_string()),
             };
+            let scale = window.scale_factor() as f32;
             let error = active_runtime
                 .paint_native(
                     &mut buffer,
                     size.width,
                     size.height,
-                    window.scale_factor() as f32,
+                    scale,
                 )
                 .err()
                 .map(str::to_owned);
             if error.is_some() {
                 buffer.fill(0x111319);
-            } else if self.chooser.is_none() && self.ui_backend == Some(UiBackend::Egui) {
-                apply_egui_frame_bar(&mut buffer, size.width, size.height);
+            } else {
+                if self.chooser.is_none() && self.ui_backend == Some(UiBackend::Egui) {
+                    apply_egui_frame_bar(&mut buffer, size.width, size.height);
+                }
+                if self.chooser.is_none() {
+                    apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
+                }
             }
             // As on GPU, count only successful presentation, not a render attempt.
             match buffer.present() {
@@ -237,8 +280,15 @@ impl App {
         let Some(window) = &self.window else {
             return;
         };
+        let plat_suffix = if self.platform != TargetPlatform::Desktop {
+            format!(" · {}", self.platform.short_label())
+        } else {
+            String::new()
+        };
         if self.chooser.is_some() {
-            let title = "Forma · Выберите бэкенд: [1] egui / [2] svet".to_string();
+            let title = format!(
+                "Forma{plat_suffix} · Выберите бэкенд: [1] egui / [2] svet · F6: платформа"
+            );
             if title != self.last_title {
                 window.set_title(&title);
                 self.last_title = title;
@@ -247,10 +297,16 @@ impl App {
             return;
         }
         let ui_tag = self.ui_backend.map_or("svet", UiBackend::as_str);
-        let backend = if self.gpu.is_some() && self.ui_backend != Some(UiBackend::Egui) {
-            "GPU"
-        } else {
-            "CPU"
+        let backend = match self.platform {
+            TargetPlatform::Ios => "Metal (iOS)",
+            TargetPlatform::Android => "Vulkan (Android)",
+            TargetPlatform::Desktop => {
+                if self.gpu.is_some() && self.ui_backend != Some(UiBackend::Egui) {
+                    "GPU"
+                } else {
+                    "CPU"
+                }
+            }
         };
         let rate = if let Some(error) = &self.render_error {
             format!("ошибка: {error}")
@@ -271,9 +327,9 @@ impl App {
         let mode = if self.continuous_redraw {
             "FPS-тест"
         } else {
-            "F7: бэкенд · F8: тест"
+            "F6: iOS/Android · F7: бэкенд"
         };
-        let mut title = format!("Forma [{ui_tag}] · {backend} · {rate} · {mode}");
+        let mut title = format!("Forma [{ui_tag}{plat_suffix}] · {backend} · {rate} · {mode}");
         if self.button.clicks() > 0 {
             title.push_str(&format!(" · кликов: {}", self.button.clicks()));
         }
@@ -403,15 +459,15 @@ impl ApplicationHandler for App {
         }
         event_loop.set_control_flow(ControlFlow::Wait);
         let init_rt = self.chooser.as_ref().unwrap_or(&self.button);
+        let (init_w, init_h) = self
+            .platform
+            .viewport_size(init_rt.render_width(), init_rt.render_height());
         let window = Arc::new(
             event_loop
                 .create_window(
                     Window::default_attributes()
-                        .with_title("Forma · ожидание кадра · F7: бэкенд · F8: FPS-тест")
-                        .with_inner_size(LogicalSize::new(
-                            init_rt.render_width(),
-                            init_rt.render_height(),
-                        )),
+                        .with_title("Forma · ожидание кадра · F6: платформа · F7: бэкенд · F8: FPS-тест")
+                        .with_inner_size(LogicalSize::new(init_w, init_h)),
                 )
                 .unwrap(),
         );
@@ -421,7 +477,11 @@ impl ApplicationHandler for App {
                 Err(error) => eprintln!("GPU недоступен, CPU fallback: {error}"),
             }
         }
-        if self.gpu.is_none() || self.chooser.is_some() || self.ui_backend == Some(UiBackend::Egui) {
+        if self.gpu.is_none()
+            || self.chooser.is_some()
+            || self.ui_backend == Some(UiBackend::Egui)
+            || self.platform != TargetPlatform::Desktop
+        {
             let context = softbuffer::Context::new(window.clone()).unwrap();
             self.surface = Some(softbuffer::Surface::new(&context, window.clone()).unwrap());
             if self.gpu.is_none() {
@@ -431,15 +491,22 @@ impl ApplicationHandler for App {
         window.focus_window();
         window.request_redraw();
         self.window = Some(window);
+        if self.platform != TargetPlatform::Desktop {
+            println!(
+                "Платформа Forma: {} ({}) · F6 — переключить на лету",
+                self.platform.as_str(),
+                self.platform.label()
+            );
+        }
         if let Some(b) = self.ui_backend {
             println!(
-                "Запуск Forma на бэкенде: {} ({}) · F7 — переключить на лету",
+                "Запуск Forma на бэкенде: {} ({}) · F6: платформа · F7: бэкенд",
                 b.as_str(),
                 b.label()
             );
         } else {
             println!(
-                "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F7 — переключить на лету)"
+                "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F6: платформа, F7: бэкенд)"
             );
         }
         println!(
@@ -499,6 +566,47 @@ impl ApplicationHandler for App {
                         window.request_redraw();
                     }
                 }
+                WindowEvent::Touch(Touch {
+                    phase, location, ..
+                }) => {
+                    let p = location.to_logical::<f32>(window.scale_factor());
+                    self.pointer = (p.x, p.y);
+                    let mut picked = None;
+                    if let Some(chooser) = &mut self.chooser {
+                        match phase {
+                            TouchPhase::Started => {
+                                self.touch_last = Some((p.x, p.y));
+                                chooser.pointer(p.x, p.y, 0);
+                                chooser.pointer(p.x, p.y, 1);
+                            }
+                            TouchPhase::Moved => {
+                                self.touch_last = Some((p.x, p.y));
+                                chooser.pointer(p.x, p.y, 0);
+                            }
+                            TouchPhase::Ended => {
+                                self.touch_last = None;
+                                let before = chooser.clicks();
+                                chooser.pointer(p.x, p.y, 2);
+                                if chooser.clicks() != before {
+                                    picked = Some(if chooser.key() == "choose_egui" {
+                                        UiBackend::Egui
+                                    } else {
+                                        UiBackend::Svet
+                                    });
+                                }
+                            }
+                            TouchPhase::Cancelled => {
+                                self.touch_last = None;
+                                chooser.pointer(-1., -1., 3);
+                            }
+                        }
+                    }
+                    if let Some(backend) = picked {
+                        self.select_backend(backend);
+                    } else {
+                        window.request_redraw();
+                    }
+                }
                 WindowEvent::ModifiersChanged(modifiers) => {
                     self.shift = modifiers.state().shift_key();
                     self.command = if cfg!(target_os = "macos") {
@@ -521,6 +629,11 @@ impl ApplicationHandler for App {
                                 if c.as_str() == "2" || c.eq_ignore_ascii_case("s") =>
                             {
                                 self.select_backend(UiBackend::Svet);
+                                return;
+                            }
+                            Key::Named(NamedKey::F6) => {
+                                let next = self.platform.next();
+                                self.select_platform(next);
                                 return;
                             }
                             Key::Named(NamedKey::F7) => {
@@ -624,12 +737,58 @@ impl ApplicationHandler for App {
                 };
                 self.button.scroll(dx, dy);
             }
+            WindowEvent::Touch(Touch {
+                phase, location, ..
+            }) => {
+                let p = location.to_logical::<f32>(window.scale_factor());
+                self.pointer = (p.x, p.y);
+                match phase {
+                    TouchPhase::Started => {
+                        self.touch_last = Some((p.x, p.y));
+                        self.button.pointer(p.x, p.y, 0);
+                        if self.inspect_mode {
+                            let index = self.button.hit_index(p.x, p.y);
+                            if index >= 0 {
+                                self.button.focus_control(index as usize);
+                            }
+                        } else {
+                            self.button.pointer(p.x, p.y, 1);
+                        }
+                    }
+                    TouchPhase::Moved => {
+                        let (dx, dy) = self
+                            .touch_last
+                            .map_or((0., 0.), |(lx, ly)| (lx - p.x, ly - p.y));
+                        self.touch_last = Some((p.x, p.y));
+                        self.button.pointer(p.x, p.y, 0);
+                        if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                            self.button.scroll(dx, dy);
+                        }
+                    }
+                    TouchPhase::Ended => {
+                        self.touch_last = None;
+                        if !self.inspect_mode {
+                            self.button.pointer(p.x, p.y, 2);
+                        }
+                    }
+                    TouchPhase::Cancelled => {
+                        self.touch_last = None;
+                        self.button.pointer(-1., -1., 3);
+                    }
+                }
+            }
             WindowEvent::ModifiersChanged(modifiers) => {self.shift = modifiers.state().shift_key();self.command=if cfg!(target_os="macos"){modifiers.state().super_key()}else{modifiers.state().control_key()};},
             WindowEvent::Ime(winit::event::Ime::Preedit(text,_))=>{self.composing=!text.is_empty();self.button.text_preedit(&text);},
             WindowEvent::Ime(winit::event::Ime::Commit(text))=>{self.composing=false;self.button.text_insert(&text);},
             WindowEvent::Ime(winit::event::Ime::Disabled)=>{self.composing=false;self.button.text_preedit("");},
             WindowEvent::KeyboardInput { event, .. } => {
-                if event.logical_key == Key::Named(NamedKey::F7)
+                if event.logical_key == Key::Named(NamedKey::F6)
+                    && event.state == ElementState::Pressed
+                    && !event.repeat
+                {
+                    let next = self.platform.next();
+                    self.select_platform(next);
+                } else if event.logical_key == Key::Named(NamedKey::F7)
                     && event.state == ElementState::Pressed
                     && !event.repeat
                 {
@@ -946,12 +1105,21 @@ fn resolve_ui_project_root_and_entry(
     Some((root, entry))
 }
 
-fn parse_cli_args() -> (Option<String>, Option<String>, Option<UiBackend>) {
+fn parse_cli_args() -> (
+    Option<String>,
+    Option<String>,
+    Option<UiBackend>,
+    TargetPlatform,
+    bool,
+) {
     let mut positional = Vec::new();
     let mut backend = UiBackend::resolve_from_env_and_args();
+    let mut platform = TargetPlatform::resolve_from_env_and_args();
+    let mut mcp_mode = std::env::var("FORMA_MCP").as_deref() == Ok("1");
     let mut iter = std::env::args().skip(1);
     while let Some(arg) = iter.next() {
         match arg.as_str() {
+            "--mcp" | "mcp" => mcp_mode = true,
             "--egui" | "--backend=egui" => backend = Some(UiBackend::Egui),
             "--svet" | "--backend=svet" => backend = Some(UiBackend::Svet),
             "--ask" | "--choose-backend" | "--backend=ask" => backend = None,
@@ -964,14 +1132,30 @@ fn parse_cli_args() -> (Option<String>, Option<String>, Option<UiBackend>) {
                     }
                 }
             }
+            "--ios" | "--platform=ios" => platform = TargetPlatform::Ios,
+            "--android" | "--platform=android" => platform = TargetPlatform::Android,
+            "--desktop" | "--platform=desktop" => platform = TargetPlatform::Desktop,
+            "--platform" | "-p" => {
+                if let Some(next) = iter.next() {
+                    if let Some(p) = TargetPlatform::from_arg(&next) {
+                        platform = p;
+                    }
+                }
+            }
             _ => positional.push(arg),
         }
     }
-    (positional.first().cloned(), positional.get(1).cloned(), backend)
+    (
+        positional.first().cloned(),
+        positional.get(1).cloned(),
+        backend,
+        platform,
+        mcp_mode,
+    )
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let (source_path, template_path, ui_backend) = parse_cli_args();
+    let (source_path, template_path, ui_backend, platform, mcp_mode) = parse_cli_args();
     let mut project_root = None;
     let mut project_entry = None;
     let mut last_project_files = std::collections::BTreeMap::new();
@@ -1034,6 +1218,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         None
     };
+    if mcp_mode {
+        let mut mcp_app = forma::mcp::McpApp::from_runtime(button, source, template);
+        mcp_app.backend = ui_backend.map_or_else(|| "egui".into(), |b| b.as_str().into());
+        mcp_app.platform = platform.as_str().into();
+        return forma::mcp::serve_stdio(mcp_app).map_err(|e| std::io::Error::other(e).into());
+    }
     let init_src_meta = source_path
         .as_deref()
         .and_then(|p| std::fs::metadata(p).ok())
@@ -1044,6 +1234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .and_then(|m| Some((m.modified().ok()?, m.len())));
     EventLoop::new()?.run_app(&mut App {
         ui_backend,
+        platform,
         chooser,
         inspect_mode:false,
         inspect_report:String::new(),
@@ -1061,6 +1252,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         surface_state: Presentation::Presented,
         button,
         pointer: (-1., -1.),
+        touch_last: None,
         last: Instant::now(),
         frame_stats: FrameStats::default(),
         continuous_redraw: std::env::var("FORMA_FPS_TEST").as_deref() == Ok("1"),

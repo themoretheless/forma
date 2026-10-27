@@ -59,7 +59,7 @@ export function createVectorRunner(send, dependencies = {}) {
   }
 
   return {
-    async run({source, template, backend} = {}) {
+    async run({source, template, backend, platform: targetPlatform} = {}) {
       if (active) {
         send({kind: 'error', text: 'Векторное окно уже запускается или запущено. Сначала остановите его.'});
         return;
@@ -96,9 +96,10 @@ export function createVectorRunner(send, dependencies = {}) {
 
         send({kind: 'started', text: 'Сборка векторного окна из разметки Forma Studio…'});
         const backendArgs = backend === 'egui' || backend === 'svet' ? ['--backend', backend] : [];
+        const platformArgs = targetPlatform === 'ios' || targetPlatform === 'android' ? ['--platform', targetPlatform] : [];
         const child = spawnProcess('cargo', [
           'run', '--release', '--offline', '--manifest-path', path.join(root, 'vector-ui/Cargo.toml'),
-          '--features', 'native', '--', ...backendArgs, snapshot, ...(template === undefined ? [] : [component]),
+          '--features', 'native', '--', ...backendArgs, ...platformArgs, snapshot, ...(template === undefined ? [] : [component]),
         ], {cwd: root, detached: grouped, stdio: ['ignore', 'pipe', 'pipe']});
         job.child = child;
         for (const channel of ['stdout', 'stderr']) {
