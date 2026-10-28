@@ -1,0 +1,1 @@
+BackendReport { kind: Metal, label: "metal", native_api: true, browser_api: false, metal: true }; 200ms rotated warmup;31 rotated samples per mode; same resident input and full24scalar output; GPU timestamp wall includes post-completion resolve; ordinary wall excludes profiler; uploaded-f32 centered-f64 reference

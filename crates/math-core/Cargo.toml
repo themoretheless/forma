@@ -1,0 +1,11 @@
+[package]
+name = "osv-math"
+version = "0.1.0"
+edition = "2021"
+description = "Shared f64 vector helpers and typed geometry Error"
+license = "MIT"
+publish = false
+
+[lib]
+name = "math_core"
+path = "src/lib.rs"

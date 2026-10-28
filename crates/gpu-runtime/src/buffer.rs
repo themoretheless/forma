@@ -17,6 +17,16 @@ impl<'a> WriteOnly<'a, [u8]> {
     }
 
     #[inline]
+    pub fn expect(self, _msg: &str) -> Self {
+        self
+    }
+
+    #[inline]
+    pub fn unwrap(self) -> Self {
+        self
+    }
+
+    #[inline]
     pub fn copy_from_slice(&mut self, src: &[u8]) {
         self.slice.copy_from_slice(src);
     }
@@ -356,6 +366,18 @@ impl<'a> BufferSlice<'a> {
 
 pub struct BufferView<'a> {
     slice: &'a [u8],
+}
+
+impl<'a> BufferView<'a> {
+    #[inline]
+    pub fn expect(self, _msg: &str) -> Self {
+        self
+    }
+
+    #[inline]
+    pub fn unwrap(self) -> Self {
+        self
+    }
 }
 
 impl<'a> Deref for BufferView<'a> {

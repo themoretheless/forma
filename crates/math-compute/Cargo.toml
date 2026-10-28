@@ -1,0 +1,29 @@
+[package]
+name = "osv-math-compute"
+version = "0.1.0"
+edition = "2021"
+description = "GPU/CUDA/tensor backends for point kernels"
+license = "MIT"
+publish = false
+
+[lib]
+name = "math_compute"
+path = "src/lib.rs"
+
+[features]
+gpu = ["tensor", "dep:gpu-compute", "dep:compute-core"]
+cuda = ["gpu", "gpu-compute/cuda"]
+tensor = ["dep:tensor-core"]
+tensor-wgsl = ["gpu"]
+tensor-cuda = ["tensor", "dep:compute-cuda"]
+tensor-mlx = ["tensor", "dep:compute-mlx"]
+
+[dependencies]
+math-core = { package = "osv-math", version = "0.1.0", path = "../math-core" }
+compute-core = { version = "0.1.0", path = "../compute-core", optional = true }
+gpu-compute = { version = "0.1.0", path = "../gpu-compute", optional = true }
+tensor-core = { version = "0.1.0", path = "../tensor-core", optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+compute-cuda = { version = "0.1.0", path = "../compute-cuda", optional = true }
+compute-mlx = { version = "0.1.0", path = "../compute-mlx", optional = true }

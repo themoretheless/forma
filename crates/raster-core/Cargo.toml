@@ -1,0 +1,13 @@
+[package]
+name = "raster-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+wgpu = { package = "gpu-runtime", version = "0.1.0", path = "../gpu-runtime", default-features = false, features = ["wgsl", "std"] }
+gpu-compute = { version = "0.1.0", path = "../gpu-compute" }
+
+[dev-dependencies]
+# WGSL validation for the shipped shaders.
+naga = { package = "gpu-shader", version = "0.1.0", path = "../gpu-shader", features = ["wgsl-in"] }

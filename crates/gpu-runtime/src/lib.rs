@@ -225,6 +225,14 @@ pub struct Queue {
     pub(crate) metal: MetalDevice,
 }
 
+impl PartialEq for Queue {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.metal.raw, &other.metal.raw)
+            && Arc::ptr_eq(&self.metal.queue, &other.metal.queue)
+    }
+}
+impl Eq for Queue {}
+
 impl std::fmt::Debug for Queue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Queue")
