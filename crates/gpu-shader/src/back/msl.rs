@@ -1535,6 +1535,7 @@ fn translate_expr_with_ctx(
                     let inner_args = &trimmed[1..close_paren];
                     let translated_args: Vec<String> = split_comma_top_level(inner_args)
                         .into_iter()
+                        .filter(|a| !a.trim().is_empty())
                         .map(|a| {
                             translate_expr_with_ctx(
                                 module,
@@ -1587,6 +1588,7 @@ fn translate_expr_with_ctx(
                     } else {
                         split_comma_top_level(raw_args)
                             .into_iter()
+                            .filter(|a| !a.trim().is_empty())
                             .map(|a| {
                                 translate_expr_with_ctx(
                                     module,
