@@ -1,0 +1,6 @@
+{
+  "source": "crates/compute-mlx/src/metal/low_binary.metal",
+  "archive": "crates/compute-mlx/qualification/compiled-typed-initial-source/crates/compute-mlx/src/metal/low_binary.metal",
+  "bytes": 839,
+  "sha256": "0ed97a4b8300a9ed5ff2bce8ac131579701f847719228fe93bc0367af77919c4"
+}

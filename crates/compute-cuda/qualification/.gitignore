@@ -1,0 +1,4 @@
+# Keep compact reports/diagnostics; generated PTX is reproducible and stays local.
+*.ptx
+__pycache__/
+!nvrtc-*/*.log

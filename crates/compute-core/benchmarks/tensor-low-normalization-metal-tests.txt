@@ -1,0 +1,35 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.70s
+     Running tests/tensor_low_normalization.rs (crates/target/debug/build/compute-core/297475cc987b6f6c/out/tensor_low_normalization-297475cc987b6f6c)
+
+running 4 tests
+test all_recorded_outputs_replay_strided_inputs_and_preserve_odd_neighbor_words ... ok
+test packed_statistics_satisfy_shared_conformance ... ok
+test packed_stats_validation_is_transactional_across_types_and_moments_outputs ... ok
+test tiny_bf16_rows_cross_workgroup_grid_limit_without_losing_normal_results ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.84s
+
+     Running tests/tensor_normalization.rs (crates/target/debug/build/compute-core/64baa8d1db0adf7a/out/tensor_normalization-64baa8d1db0adf7a)
+
+running 5 tests
+test overflow_classification_and_tiny_epsilon_do_not_corrupt_normalized_outputs ... ok
+test shader_statistics_satisfy_shared_conformance ... ok
+test short_single_groups_and_grid_stride_rows_cross_the_specialization_boundaries ... ok
+test strided_hierarchies_preserve_sentinels_and_reuse_resident_normalization_chains ... ok
+test validation_rejects_aliases_foreign_views_and_invalid_metadata_before_recording ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.99s
+

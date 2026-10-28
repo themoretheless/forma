@@ -1,0 +1,36 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s
+     Running tests/tensor_index.rs (crates/target/debug/build/compute-core/5c43dda94c502750/out/tensor_index-5c43dda94c502750)
+
+running 5 tests
+test indexing_errors_reject_cross_type_aliases_foreign_counts_and_invalid_axes ... ok
+test prepared_mask_scan_gather_compact_chain_reuses_all_gpu_state ... ok
+test scans_cover_hierarchy_boundaries_reverse_wrapping_and_offset_outputs ... ok
+test shader_index_backend_satisfies_shared_conformance ... ok
+test u32_compaction_and_gather_preserve_large_integer_bits_and_reset_counts ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.80s
+
+     Running tests/tensor_low_index.rs (crates/target/debug/build/compute-core/9205e6ead9ecab4c/out/tensor_low_index-9205e6ead9ecab4c)
+
+running 5 tests
+test direct_packed_scans_replay_strided_boundaries_and_preserve_output_neighbors ... ok
+test packed_index_backend_satisfies_shared_conformance ... ok
+test packed_index_recording_rejects_alias_dtype_owner_layout_and_rolls_back ... ok
+test prepared_low_compare_select_scan_gather_compact_chain_reuses_gpu_buffers ... ok
+test raw_payload_moves_replay_into_odd_halfwords_and_reset_resident_counts ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.22s
+

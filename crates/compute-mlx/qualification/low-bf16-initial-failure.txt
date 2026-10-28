@@ -1,0 +1,62 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-mlx/2a20d23b61da9ba4/out/compute_mlx-2a20d23b61da9ba4)
+
+running 2 tests
+test ffi::tests::missing_library_is_an_error_without_native_initialization ... ok
+test ffi::tests::native_shape_error_returns_message_and_keeps_c_api_usable ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/index.rs (crates/target/debug/build/compute-mlx/1f9e105ef0993f21/out/index-1f9e105ef0993f21)
+
+running 5 tests
+test common_index_backend_conformance ... ok
+test compaction_all_false_all_true_empty_scalar_and_resident_count ... ok
+test compaction_is_stable_for_strides_broadcast_masks_and_large_odd_counts ... ok
+test device_gather_masks_invalid_indices_and_counts_each_index_once ... ok
+test index_methods_enforce_dtype_ownership_and_mask_shape ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/low_precision.rs (crates/target/debug/build/compute-mlx/24f3e3e8f061be53/out/low_precision-24f3e3e8f061be53)
+
+running 5 tests
+test common_low_backend_conformance ... 
+thread 'common_low_backend_conformance' (29003823) panicked at tensor-core/src/conformance/low_precision.rs:67:13:
+assertion `left == right` failed: Bf16 exact encode 0x0001
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test device_casts_match_rne_including_subnormals_and_special_values ... 
+thread 'device_casts_match_rne_including_subnormals_and_special_values' (29003851) panicked at compute-mlx/tests/low_precision.rs:103:17:
+assertion `left == right` failed: Bf16 cast at 17, f32 bits=00010000
+  left: 0
+ right: 1
+FAILED
+test low_empty_scalar_batch_and_validation_paths_are_explicit ... ok
+test low_matmul_accumulates_before_rounding_and_retains_native_output ... ok
+test native_storage_and_strided_views_preserve_all_bit_patterns ... ok
+
+failures:
+
+failures:
+    common_low_backend_conformance
+    device_casts_match_rne_including_subnormals_and_special_values
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.40s
+
+error: test failed, to rerun pass `-p compute-mlx --test low_precision`

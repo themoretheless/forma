@@ -1,0 +1,38 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.95s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-mlx/2a20d23b61da9ba4/out/compute_mlx-2a20d23b61da9ba4)
+
+running 5 tests
+test ffi::tests::missing_library_is_an_error_without_native_initialization ... ok
+test ffi::tests::native_shape_error_returns_message_and_keeps_c_api_usable ... ok
+test native::compiled::callback::tests::callback_contains_panics_releases_locals_and_recovers ... 
+thread 'native::compiled::callback::tests::callback_contains_panics_releases_locals_and_recovers' (30046868) panicked at compute-mlx/src/native/compiled/callback.rs:250:17:
+injected trace failure
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+test native::compiled::callback::tests::native_callback_failure_releases_arrays_and_allows_next_trace ... 
+thread 'native::compiled::callback::tests::native_callback_failure_releases_arrays_and_allows_next_trace' (30046869) panicked at compute-mlx/src/native/compiled/callback.rs:302:10:
+called `Result::unwrap()` on an `Err` value: "MLX failed to create an array"
+FAILED
+test native::low_scatter::tests::list_allocation_pads_safely_and_preserves_u32_token_capacity ... ok
+
+failures:
+
+failures:
+    native::compiled::callback::tests::native_callback_failure_releases_arrays_and_allows_next_trace
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p compute-mlx --lib`

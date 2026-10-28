@@ -1,0 +1,31 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running tests/attention.rs (crates/target/debug/build/compute-mlx/3550b9389eaf51cc/out/attention-3550b9389eaf51cc)
+
+running 1 test
+test constant_extreme_values_keep_finite_convex_outputs ... 
+thread 'constant_extreme_values_keep_finite_convex_outputs' (29238070) panicked at compute-mlx/tests/attention.rs:19:5:
+inf != 3.4028234663852886e38
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    constant_extreme_values_keep_finite_convex_outputs
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p compute-mlx --test attention`

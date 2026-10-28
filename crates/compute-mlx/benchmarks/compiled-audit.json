@@ -1,0 +1,35 @@
+{
+  "scope": "Independent CPU recomputation from both frozen compiled benchmark raw logs",
+  "runs": [
+    {
+      "log": "compiled-metal.txt",
+      "median_p90_pairs": 6,
+      "individual_samples": 186,
+      "validated_output_buffers": 372,
+      "programs_with_final_trace_count_one": 3
+    },
+    {
+      "log": "compiled-metal-repeat.txt",
+      "median_p90_pairs": 6,
+      "individual_samples": 186,
+      "validated_output_buffers": 372,
+      "programs_with_final_trace_count_one": 3
+    }
+  ],
+  "totals": {
+    "median_p90_pairs": 12,
+    "individual_samples": 372,
+    "validated_output_buffers": 744,
+    "validation_failures": 0,
+    "single_trace_programs": 6
+  },
+  "checks": [
+    "Every series contains 31 finite, positive timing samples.",
+    "Medians and nearest-rank p90 values were recomputed at sorted indices 15 and 27 and agree within the printed precision.",
+    "All six host median ratios agree within the printed precision.",
+    "All six programs start with zero traces and finish with exactly one trace.",
+    "Both logs finish with all three cases and both paths validated.",
+    "All 89 source hashes and the compiled binary remain unchanged across both runs.",
+    "The measurements do not establish GPU execution times or the contribution of any particular fusion."
+  ]
+}

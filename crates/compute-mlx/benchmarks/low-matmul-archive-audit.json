@@ -1,0 +1,31 @@
+{
+  "scope": "Final archive and evidence audit across all three candidates",
+  "stages": [
+    {
+      "stage": "initial",
+      "archived_sources_verified": 83,
+      "raw_logs_verified": 2,
+      "summary_and_audit_verified": true
+    },
+    {
+      "stage": "simd",
+      "archived_sources_verified": 84,
+      "raw_logs_verified": 2,
+      "summary_and_audit_verified": true
+    },
+    {
+      "stage": "routed",
+      "archived_sources_verified": 85,
+      "raw_logs_verified": 2,
+      "summary_and_audit_verified": true
+    }
+  ],
+  "workspace_manifest_snapshot": "low-matmul-shared-source/crates/Cargo.toml",
+  "qualification_logs_verified": true,
+  "totals": {
+    "raw_runs": 6,
+    "median_p90_pairs": 144,
+    "individual_samples": 4464,
+    "validation_failures": 0
+  }
+}

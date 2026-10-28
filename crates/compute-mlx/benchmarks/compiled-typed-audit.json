@@ -1,0 +1,35 @@
+{
+  "scope": "Independent CPU recomputation from two complete typed compiled benchmark logs",
+  "runs": [
+    {
+      "log": "compiled-typed-metal.txt",
+      "median_p90_pairs": 12,
+      "individual_samples": 372,
+      "validated_output_buffers": 744,
+      "programs_with_final_trace_count_one": 6
+    },
+    {
+      "log": "compiled-typed-metal-repeat.txt",
+      "median_p90_pairs": 12,
+      "individual_samples": 372,
+      "validated_output_buffers": 744,
+      "programs_with_final_trace_count_one": 6
+    }
+  ],
+  "checks": [
+    "Every series contains 31 finite, positive timing samples.",
+    "Medians and nearest-rank p90 values were independently recomputed at sorted indices 15 and 27 and match the printed precision.",
+    "All 12 median ratios agree with the raw samples within the printed precision.",
+    "All 12 compiled programs start with zero traces and end with exactly one trace.",
+    "Both logs finish with six cases, two paths and all measured outputs validated.",
+    "All 106 source hashes, the source archive manifest and the release binary remain unchanged after both complete runs.",
+    "These wall measurements do not establish GPU execution time or the contribution of a particular fusion."
+  ],
+  "totals": {
+    "median_p90_pairs": 24,
+    "individual_samples": 744,
+    "validated_output_buffers": 1488,
+    "validation_failures": 0,
+    "single_trace_programs": 12
+  }
+}

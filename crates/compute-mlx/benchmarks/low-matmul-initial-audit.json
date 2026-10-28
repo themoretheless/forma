@@ -1,0 +1,32 @@
+{
+  "scope": "CPU-only audit of both initial raw benchmark logs",
+  "runs": [
+    {
+      "log": "low-matmul-initial-metal.txt",
+      "median_p90_pairs": 24,
+      "individual_samples": 744,
+      "cases": 12,
+      "validation_failures": 0
+    },
+    {
+      "log": "low-matmul-initial-metal-repeat.txt",
+      "median_p90_pairs": 24,
+      "individual_samples": 744,
+      "cases": 12,
+      "validation_failures": 0
+    }
+  ],
+  "totals": {
+    "median_p90_pairs": 48,
+    "individual_samples": 1488,
+    "validation_failures": 0
+  },
+  "checks": [
+    "Every path has31 finite positive samples",
+    "Recomputed medians match printed values within0.00000051ms",
+    "Nearest-rank p90 uses sorted index27 and matches printed values within0.00000051ms",
+    "All24 baseline/direct median ratios across2runs match printed host ratios within0.00000051",
+    "Both logs report744 measured outputs validated and normal completion",
+    "No inference ofGPUduration orcauseofcrossrundrift"
+  ]
+}

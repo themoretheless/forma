@@ -1,0 +1,36 @@
+{
+  "date": "2026-09-27",
+  "backend": "Metal",
+  "samples_per_case_and_mode": 31,
+  "minimum_warmup_ms": 200,
+  "rustc": "rustc 1.100.0-nightly (215a8af4b 2026-09-15)",
+  "rejected_run": {
+    "raw": "crates/compute-core/benchmarks/tensor-reduction-generic-metal.txt",
+    "selection": "All strided f32 sum stages used TENSOR_REDUCE_WGSL, operation=0, divisor=1, ten-word headers. Same bounded hierarchical schedule. The benchmark source and WGSL hashes below are unchanged from this run; Rust planner hashes describe the retained version only."
+  },
+  "retained_run": {
+    "raw": "crates/compute-core/benchmarks/tensor-reduction-specialized-metal.txt",
+    "selection": "Strided f32 Sum uses unchanged TENSOR_SUM_WGSL, eight-word headers; other ops/u32/mean use TENSOR_REDUCE_WGSL. Complete contiguous f32 sum uses existing array schedule."
+  },
+  "sources_sha256": {
+    "crates/compute-core/examples/bench_tensor_reduction_generic.rs": "b5089b05f3c14842b0d96e601c83f1e986f72bd0626fd565d747a9a15c0ff20d",
+    "crates/compute-core/examples/tensor_reduction_candidates/baseline.wgsl": "db7357f68bbc679aaf97145274c29759fe7bc0258fee57eb3a95a0fbd6e5eec8",
+    "crates/compute-core/examples/tensor_reduction_candidates/prior_hierarchical.wgsl": "46c8fdb72daf32866a2666c559bec84684ece88ad35d87a23c20b74a3187e62b",
+    "crates/compute-core/shaders/tensor_reduce.wgsl": "98d13a373a4913f2e0d03d127c1d3617e8e1e8337ca3f4505900975da7bcf19c",
+    "crates/compute-core/shaders/tensor_sum.wgsl": "46c8fdb72daf32866a2666c559bec84684ece88ad35d87a23c20b74a3187e62b",
+    "crates/compute-core/src/tensor/reduction.rs": "f23ee6f358ec3ef432035f7f2ab033d0a9b2e5995cdbaddd70c5ac04c219f09d",
+    "crates/compute-core/src/tensor/kernels.rs": "792107b0213656d06fbc6e8f0b2c5c1657a29a43dd3f5a979e89d34b24b21369",
+    "crates/compute-core/src/tensor/program.rs": "71b9f9e5629befafee409f8e555085ebba367a9fe941f2dddcb9ab2b811e0bcb",
+    "crates/compute-core/src/tensor/indexing.rs": "290613d3a642c7c83a55673a0b6fdc1ac26ec4122a2bbb691dcc60619e496308",
+    "crates/compute-core/src/tensor_backend.rs": "be4b1b5bbf4edd47ac3d24b4707716a5bf98f8b06aa8aa023a180da66768d710",
+    "crates/compute-core/tests/tensor_reduce.rs": "c87f1dace8decfa4b49343b6514de5425c7dc1e5a65c1a88c021aebb96f01193",
+    "crates/gpu-compute/src/profiling.rs": "0f23cdcd699e99b37574abc6b0a308d5c6a57237389d6dd3cf73b9a85c4d17c5",
+    "crates/tensor-core/src/reduction.rs": "0a4fb05f81e37c9d1742f8ddf5f713746a90b98d17811bc23856d631a8984708",
+    "crates/tensor-core/src/shape.rs": "e8014c95b38d5a1ebfbb958523e0156c06647c4c639c8c418d7910515b572087"
+  },
+  "raw_sha256": {
+    "crates/compute-core/benchmarks/tensor-reduction-generic-metal.txt": "b5cc655dd949ff6befdc1a729755f4ea5fd78b19a48633e93b08fb579d3ee22c",
+    "crates/compute-core/benchmarks/tensor-reduction-specialized-metal.txt": "bb349e5f5006bf95855b55c39c7a0c0a882d3a59abb7954eb3f184457e55ef3f",
+    "crates/compute-core/benchmarks/tensor-reductions-retained-metal-tests.txt": "c77c4b01f94c3f8010804be115d3e724642719443dd93d6bd97f5e86248241e4"
+  }
+}

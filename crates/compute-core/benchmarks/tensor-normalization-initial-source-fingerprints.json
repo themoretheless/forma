@@ -1,0 +1,18 @@
+{
+  "measurement": "tensor-normalization-initial-metal.txt",
+  "stage": "Initial bounded row-summary implementation, before small-group specialization",
+  "sha256": {
+    "crates/compute-core/examples/bench_tensor_normalization.rs": "2e9e320fb380837ec82fbda4780be566b8c6ece4d993c42f19f7b6d98d694646",
+    "crates/compute-core/shaders/tensor_elementwise.wgsl": "64c58ad91b8c6e3bf6cde4e3b2a8d639208bbb0dd611cacd91b4e5e10fdfe434",
+    "crates/compute-core/shaders/tensor_reduce.wgsl": "98d13a373a4913f2e0d03d127c1d3617e8e1e8337ca3f4505900975da7bcf19c",
+    "crates/compute-core/shaders/tensor_stats_common.wgsl": "f6f718f3a82408a3a88f5a1a6f46a79c36eaf542c62d8f3966dd0a0aadc9da88",
+    "crates/compute-core/shaders/tensor_stats_finish.wgsl": "745166efc481990010b22ce3cab486a3d245a327148f666b9e9ee953a62ca3d7",
+    "crates/compute-core/shaders/tensor_stats_output.wgsl": "de4073ed86a8d16b30ba47f43d028270f2a0e2caddd8c4c84deb5bf943aa0dfe",
+    "crates/compute-core/shaders/tensor_stats_reduce.wgsl": "7f7a1aca54333b24b04b82bca7ca32d8bd6f6b65a8064466b4fb7367196b808b",
+    "crates/compute-core/shaders/tensor_sum.wgsl": "46c8fdb72daf32866a2666c559bec84684ece88ad35d87a23c20b74a3187e62b",
+    "crates/compute-core/src/tensor/normalization.rs": "bc687beb25c72cb2d0a2c01330df130413104b444a1c2ba0b46cfb70c2f7ad3f",
+    "crates/compute-core/src/tensor/program.rs": "09931302b171acd30f99b53150b8d448a55b8288eec18a673eed7d52107b8504",
+    "crates/compute-core/src/tensor/reduction.rs": "f23ee6f358ec3ef432035f7f2ab033d0a9b2e5995cdbaddd70c5ac04c219f09d",
+    "crates/compute-core/src/tensor_backend.rs": "e284109dfc8aacd3496b2fd3bef683c180b6ea276e7daa8220cf10ea9e7d06c9"
+  }
+}

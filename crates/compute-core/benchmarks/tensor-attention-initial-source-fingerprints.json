@@ -1,0 +1,22 @@
+{
+  "measurement": "tensor-attention-initial-metal.txt",
+  "sha256": {
+    "crates/compute-core/examples/bench_tensor_attention.rs": "d5e63f5566878bc32869f109e3a874fe9b42b6af433ef47473f8a8c43ec6cc08",
+    "crates/compute-core/shaders/tensor_attention.wgsl": "6cadafbbd6d85510733017a12774441ad70dada4f2303251d1cc4dc55fcd819e",
+    "crates/compute-core/src/tensor/attention.rs": "9353c0f446a8ca96f3788c41d3017ed8726d02799e2153de86bf1990cb6d643b",
+    "crates/compute-core/src/tensor_backend.rs": "00ad4c3e9153af2df90c41345eae868a8d8e779f70dadde4f913a691a08e0c30",
+    "crates/compute-core/src/tensor/program.rs": "09931302b171acd30f99b53150b8d448a55b8288eec18a673eed7d52107b8504",
+    "crates/compute-core/src/tensor/normalization.rs": "3130dabc469f003b68ebddefec4f13fa6fe6767b1848134af84976a93ba0558d",
+    "crates/compute-core/src/tensor/matmul.rs": "714f9b5f4115f5b5b21022d58446df6b9c7b2af53065677688176c350f09e148",
+    "crates/compute-core/shaders/tensor_matmul.wgsl": "434477e4f3ba65b387e088582403ea0206e24242a816ce2be3f5fa883585eb54",
+    "crates/compute-core/shaders/tensor_elementwise.wgsl": "64c58ad91b8c6e3bf6cde4e3b2a8d639208bbb0dd611cacd91b4e5e10fdfe434",
+    "crates/tensor-core/src/attention.rs": "745c23a42e28712449944fe553742eabc864d293a71c4d27cce33363bb04e1bc",
+    "crates/tensor-core/src/conformance/attention.rs": "50901bb39b248b2b1e48b970ef91ea3b76b42e74412adb56aae9f734a450b1c1",
+    "crates/compute-core/shaders/tensor_stats_common.wgsl": "f6f718f3a82408a3a88f5a1a6f46a79c36eaf542c62d8f3966dd0a0aadc9da88",
+    "crates/compute-core/shaders/tensor_stats_finish.wgsl": "745166efc481990010b22ce3cab486a3d245a327148f666b9e9ee953a62ca3d7",
+    "crates/compute-core/shaders/tensor_stats_output.wgsl": "de4073ed86a8d16b30ba47f43d028270f2a0e2caddd8c4c84deb5bf943aa0dfe",
+    "crates/compute-core/shaders/tensor_stats_reduce.wgsl": "7f7a1aca54333b24b04b82bca7ca32d8bd6f6b65a8064466b4fb7367196b808b",
+    "crates/compute-core/shaders/tensor_stats_small.wgsl": "a8bd218d3e98ebc5dcfcc74f27fda81501ffe382da615f0e051c48f30155b4f7"
+  },
+  "stage": "Initial unsplit streaming attention"
+}

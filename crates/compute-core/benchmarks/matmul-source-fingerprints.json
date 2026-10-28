@@ -1,0 +1,21 @@
+{
+  "recorded_date": "2026-09-27",
+  "backend": "Metal",
+  "rustc": "1.100.0-nightly (215a8af4b 2026-09-15)",
+  "command": "crates/target/release/examples/bench_matmul_candidates --extended",
+  "source_sha256": {
+    "src/matrix.rs": "010b9ceeeb7b91d9826f82c01c31a457abc2cf1d6aa849d27199bd04549042a7",
+    "src/matrix/kernels.rs": "30f696ee694a0c82ecf8ca7a77ce71f9b159ba222308738713737d41aa6b980a",
+    "examples/bench_matmul_candidates.rs": "4f522cebfa1b8e271d96908f5f1d245f5e2251b2662af85c442ad3659b5f34c1",
+    "shaders/matmul.wgsl": "606684c436dacbae7974b23d900d115389fef95758478cdda836fad58eb551c6",
+    "shaders/matmul_aligned.wgsl": "844b96937777105dbe06abd62e790d7ef670cadd4f619bf025abaff9e385bc02",
+    "shaders/matmul_direct.wgsl": "e16e094c9df35b9e7cecf2be5838e83613e9675ff2a818a673acf900e4cabd26",
+    "shaders/matmul_dot.wgsl": "cad893fdf4ed2396d1f43901357ac566162607a282c50392aba3db72d30c5b53",
+    "examples/matmul_candidates/aligned32.wgsl": "cf58655b768e46a4c2ffc0e664ae750971c7a46063672a5f470c0e8d5cf78c25",
+    "examples/matmul_candidates/baseline32.wgsl": "606684c436dacbae7974b23d900d115389fef95758478cdda836fad58eb551c6",
+    "examples/matmul_candidates/cooperative_dot.wgsl": "cad893fdf4ed2396d1f43901357ac566162607a282c50392aba3db72d30c5b53",
+    "examples/matmul_candidates/naive.wgsl": "e16e094c9df35b9e7cecf2be5838e83613e9675ff2a818a673acf900e4cabd26",
+    "examples/matmul_candidates/vector32.wgsl": "844b96937777105dbe06abd62e790d7ef670cadd4f619bf025abaff9e385bc02",
+    "examples/matmul_candidates/vector_direct.wgsl": "654920e5ad1ebfc2a09254dd2259444557c86d05a40769d1df982f809a17702b"
+  }
+}

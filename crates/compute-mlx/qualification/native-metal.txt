@@ -1,0 +1,26 @@
+command: crates/target/debug/build/compute-mlx/ba5ee64e78024b6b/out/compute_mlx-ba5ee64e78024b6b --nocapture --test-threads=1
+
+running 2 tests
+test ffi::tests::missing_library_is_an_error_without_native_initialization ... ok
+test ffi::tests::native_shape_error_returns_message_and_keeps_c_api_usable ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+command: crates/target/debug/build/compute-mlx/f37400ced4bd95d6/out/native-f37400ced4bd95d6 --nocapture --test-threads=1
+
+running 6 tests
+test arithmetic_comparison_and_axis_reduction_match_references ... ok
+test batched_matmul_zero_inner_and_empty_reductions ... ok
+test common_tensor_backend_conformance ... ok
+test strided_views_broadcast_and_lazy_lifetime_follow_logical_values ... MLX runtime=0.32.1 GPU stream
+ok
+test unsigned_scans_gather_and_dtype_boundaries ... ok
+test validation_failure_leaves_backend_usable_and_owner_checks_apply ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+
+command: crates/target/debug/examples/linear
+backend=Mlx runtime=0.32.1 output=[13.0, 6.0]
+

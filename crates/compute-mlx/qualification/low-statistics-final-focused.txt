@@ -1,0 +1,37 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling tensor-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/tensor-core)
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.60s
+     Running tests/low_statistics.rs (crates/target/debug/build/compute-mlx/9fec963e4e8b72e3/out/low_statistics-9fec963e4e8b72e3)
+
+running 4 tests
+test bounded_group_and_element_grids_visit_all_statistic_rows ... ok
+test common_low_statistics_conformance ... ok
+test direct_long_strided_statistics_preserve_partial_rows_and_lazy_inputs ... ok
+test validation_precedes_empty_shortcuts_and_foreign_execution ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s
+
+     Running tests/statistics.rs (crates/target/debug/build/compute-mlx/c9d8cbd27b6e7932/out/statistics-c9d8cbd27b6e7932)
+
+running 6 tests
+test arbitrary_axis_statistics_match_cpu_groups_for_strided_inputs ... ok
+test common_stats_backend_conformance ... ok
+test layer_norm_uses_both_safe_scaled_branches_with_subnormal_epsilon ... ok
+test scaled_moments_and_layer_norm_handle_overflowing_raw_variance ... ok
+test softmax_preserves_log_normalizers_with_huge_offsets_and_extremes ... ok
+test stats_empty_singleton_owner_dtype_and_epsilon_validation ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+

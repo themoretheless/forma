@@ -1,0 +1,17 @@
+{
+  "scope": "Candidate4: guarded F16 normal conversion plus F16-only 256-word query cache; BF16 and native f32 unchanged",
+  "base": "tensor-low-attention-guarded-f16-source-fingerprints.json",
+  "overlay": "tensor-low-attention-f16-cache-source",
+  "qualification": {
+    "log": "tensor-low-attention-f16-cache-metal-tests.txt",
+    "library_passed": 13,
+    "tensor_low_attention_passed": 4,
+    "failed": 0
+  },
+  "files": {
+    "crates/compute-core/src/tensor/low/attention_source.rs": {
+      "bytes": 8962,
+      "sha256": "969d5de2b59d4b92be7da425720dae9909165e4618920871ea25736a8d9496a1"
+    }
+  }
+}

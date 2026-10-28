@@ -1,0 +1,23 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running tests/tensor_normalization.rs (crates/target/debug/build/compute-core/64baa8d1db0adf7a/out/tensor_normalization-64baa8d1db0adf7a)
+
+running 1 test
+test overflow_classification_and_tiny_epsilon_do_not_corrupt_normalized_outputs ... subnormal normalization: a=1e-20, epsilon=3.4028235e38, actual=-0.0 (0x80000000), f64_reference=-5.421010851953291e-40
+subnormal normalization: a=1e-20, epsilon=3.4028235e38, actual=0.0 (0x00000000), f64_reference=5.421010851953291e-40
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.15s
+

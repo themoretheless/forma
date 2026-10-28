@@ -1,0 +1,30 @@
+Executed 2026-09-27 on the local Metal GPU with COMPUTE_REQUIRE_GPU=1.
+Test-result excerpt copied from the command tool output; Cargo warnings and
+build paths omitted. These are correctness test durations, not benchmarks.
+
+Command:
+COMPUTE_REQUIRE_GPU=1 cargo test --manifest-path crates/Cargo.toml -p compute-core --test tensor_reduce --test tensor --test tensor_index --test tensor_backend -- --test-threads=1
+
+tests/tensor.rs: 10 passed; 0 failed; finished in 1.82s
+tests/tensor_backend.rs: 2 passed; 0 failed; finished in 0.15s
+tests/tensor_index.rs: 5 passed; 0 failed; finished in 0.70s
+
+tests/tensor_reduce.rs:
+running 6 tests
+test f32_reductions_cover_tails_hierarchies_offsets_and_repeated_updates ... ok
+test reductions_reject_invalid_outputs_owners_axes_and_leave_program_usable ... ok
+test shader_reductions_satisfy_shared_conformance ... ok
+test shader_vector_matmul_satisfies_shared_conformance ... ok
+test u32_reductions_preserve_bits_wrapping_identities_and_hierarchy ... ok
+test vector_batched_matmul_reuses_strided_inputs_and_composes_with_reductions ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.95s
+
+CPU validation:
+cargo test --manifest-path crates/Cargo.toml -p compute-core --lib uint_reduction_specialization_validates
+test tensor::kernels::tests::uint_reduction_specialization_validates ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.01s
+
+cargo test --manifest-path crates/Cargo.toml -p compute-core --test kernels shipped_kernels_validate_with_naga
+test shipped_kernels_validate_with_naga ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.04s

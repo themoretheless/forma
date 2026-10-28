@@ -1,0 +1,327 @@
+{
+  "runtime": "MLX 0.32.1 / MLX-C 0.6.0_4; Apple M4 Max Metal",
+  "command": "COMPUTE_REQUIRE_MLX=1 cargo test --offline --manifest-path crates/Cargo.toml -p compute-mlx -- --test-threads=1",
+  "focused_command": "COMPUTE_REQUIRE_MLX=1 cargo test --offline --manifest-path crates/Cargo.toml -p compute-mlx --test low_attention -- --test-threads=1 --nocapture",
+  "tests": {
+    "unit": 3,
+    "integration": 61,
+    "failed": 0
+  },
+  "log": "crates/compute-mlx/qualification/low-attention-metal.txt",
+  "log_sha256": "ea82c8875803dfce86313c7a209e35ffd3917930cd0811ffac7cac180b59670d",
+  "focused_log": "crates/compute-mlx/qualification/low-attention-focused.txt",
+  "focused_log_sha256": "f05d036a7993d34c2af721269d6c6b113dcd6933744b2ca5c6cd3d2246df453e",
+  "notes": [
+    "Four new low-attention tests and shared conformance passed on the first actual Metal run; no numerical tolerance changes.",
+    "All Q/K/V loads are native low-format. One streaming custom kernel writes f32 output directly without full conversion or score/probability tensors.",
+    "BF16 subnormal times large Q/K products, both operand orders, extreme V, dropped early tiles and f32 mask precision passed the independent shared fixture.",
+    "Full 64-test regression includes the shared integer power-of-two codec extraction. A test-only unit-variant pattern was then simplified for strict Clippy, and the final four focused tests passed again.",
+    "No MLX low-attention performance measurement was made."
+  ],
+  "sources": [
+    {
+      "path": "crates/Cargo.lock",
+      "sha256": "845ecc2077260479526e05b7c88d9113c6c8bf7677caa51e033c73faef10f32c"
+    },
+    {
+      "path": "crates/compute-mlx/Cargo.toml",
+      "sha256": "8b9bc3d39139c1ea04eae9238e60b64f8dc97b248c970b4eebd41d753f0656ac"
+    },
+    {
+      "path": "crates/compute-mlx/src/ffi.rs",
+      "sha256": "27518d05fbad4e48e8f452da423afafb0ffe3bc87567fc4d47620581e54a89df"
+    },
+    {
+      "path": "crates/compute-mlx/src/lib.rs",
+      "sha256": "5f26f54bc8d4273f0fb308ad995af0a4040c81eab1660396a2ddb63e4892364b"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_attention.metal",
+      "sha256": "6fa356edcdeb051826fcc22630d21badf92a20271dcdbc84ae81698b0d43da72"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_attention_common.h",
+      "sha256": "872827f1e7a9c1ab0939d47d56e2080cc8fdda6c9c8a864fa1029f465f174d40"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_binary.metal",
+      "sha256": "0ed97a4b8300a9ed5ff2bce8ac131579701f847719228fe93bc0367af77919c4"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_common.h",
+      "sha256": "8e380cee39c5a53804aed9032d4933c76da0ce8981737c0a8d615b4907551d8c"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_compare.metal",
+      "sha256": "5cd92357e121df902abe7264b1d887e0a2acfb6a4a2311363b6d6518e52296fa"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_reduce.metal",
+      "sha256": "72ebd59c4882a6050bbfc6c5fb53db00707448e4b138642a65da0429cedcf27f"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_scan.metal",
+      "sha256": "49e24ffdee7d9b2d159bf70d339cf65d7aa2014c7146a7f1a3b6d34cc805793e"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_scatter_fold.metal",
+      "sha256": "b682bd0d63f36dd35fe750b1af8439cf43b843495f5ebdc880b14d8fc0fc3f0f"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_scatter_lists.metal",
+      "sha256": "85bcdfcc91c85cf05adfcbd02e2f073524cd091197ff62c886197ab081242bf2"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_select.metal",
+      "sha256": "6cc1eafdc9db868b34f05e0053d7cd2614225298db2f7991c53ef49a48c0dd47"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_stats_common.h",
+      "sha256": "16d8fa56aa36b947c7b43a29172dcbd7fb78eaffb119f40a9da239326e84d96e"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_stats_emit.metal",
+      "sha256": "f8332334e26fc3895e2a8b28f0dfd09d79357f38c4d0479d803aad6fec7da1dc"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_stats_rows.metal",
+      "sha256": "8cc0ff0e3b2884c464c8f993dd7f6966154116bd27b5e1b97f4a954ee569a72e"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_stats_state.metal",
+      "sha256": "10a6acc434e524bdbcb0a47a4e0f91e802915719c8bd1c3ce17886e345afbc83"
+    },
+    {
+      "path": "crates/compute-mlx/src/metal/low_unary.metal",
+      "sha256": "89dfefe2a9cf0b83482b99eeffdd3363abf96fe5b0cfac4f669bf507a40eb8fb"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/attention.rs",
+      "sha256": "287da7208deddc055db4708486b4aede4e2da1f0b625767cb70c9e44fa129ad0"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/custom_metal.rs",
+      "sha256": "79a37dbf984120b804c556f21e4f1c0fdbe0a4d496aa4f452138b3d0b6ffd859"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/index.rs",
+      "sha256": "ec088f2a1efe8b7868337eca8080f6636ec90cafeb563b0f05e5aca5354dfd12"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/low_attention.rs",
+      "sha256": "45deb7c001494500c89adb68264c3869941a4388e993f79bce7ceac534b9ec22"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/low_index.rs",
+      "sha256": "c2ec0cfd796100aa60d35ffd9a6101d1f114225d07640b0179a394862f4820df"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/low_kernels.rs",
+      "sha256": "324b873bf9fb1a22d84e65a17e112ccbf7f5bce186038d2ca02077a90dbe4a28"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/low_ops.rs",
+      "sha256": "9d11a83a801e5f63c7ac0080cfe0ea3c17a18e5fcafd4dd4b6046098d3ca0a55"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/low_precision.rs",
+      "sha256": "aa01b7fe9fa7a880f11d4c9d6bc014f57e880ccd361300fa59dcb8ec74919473"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/low_scatter.rs",
+      "sha256": "e82a9f647a81b6543046b09cb23de33992e0fd1dd24704cf9c06145edbc1cc3c"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/low_statistics.rs",
+      "sha256": "1e114a7aa1591292d181b97b953c226cff6901f36a9ade632ab20ff38fe443c1"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/reduction.rs",
+      "sha256": "e41c3227cdb9710a19f7811a7512ff76a25697e849a854f826bcbe647aa3582d"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/scatter.rs",
+      "sha256": "ca62065ce4581b3b97fb50d23fde2034ae255d58e8c08d322237d665512cf364"
+    },
+    {
+      "path": "crates/compute-mlx/src/native/statistics.rs",
+      "sha256": "0669165bd5f3a3ac888fb05acdc5fa11d8f7d357fa3a7a8c4480ecd29bafd939"
+    },
+    {
+      "path": "crates/compute-mlx/src/native.rs",
+      "sha256": "5e7fe35fb7d82ae47b4403b133fb7e3ed3362b44dc78cfbf9ad76d1646630fa8"
+    },
+    {
+      "path": "crates/compute-mlx/tests/attention.rs",
+      "sha256": "627c29ba83adc5d73071db0d22b7d735737dce37e3424e8b5aaec9eb5fc8f5b1"
+    },
+    {
+      "path": "crates/compute-mlx/tests/index.rs",
+      "sha256": "72e261d376defd8f16adbc6f89ce1a11a38929753dc64447636ad06759cd8be0"
+    },
+    {
+      "path": "crates/compute-mlx/tests/low_attention.rs",
+      "sha256": "200afb191f93322d562aa627c5dc2826e23e48db0403c54ef89ff32e2ff43f6a"
+    },
+    {
+      "path": "crates/compute-mlx/tests/low_index.rs",
+      "sha256": "16bb021e238bbd32b920a5a2d496c3d525a88a26cf5ad87c4119c64e76b9edb5"
+    },
+    {
+      "path": "crates/compute-mlx/tests/low_ops.rs",
+      "sha256": "35c3445579f31df8f89c4280c2cfbae23153533a20da136802b512e56590bfd3"
+    },
+    {
+      "path": "crates/compute-mlx/tests/low_precision.rs",
+      "sha256": "4f8144558c5772131efa987035509f0108e187b66e8ee111ac53dc2a1d2b1689"
+    },
+    {
+      "path": "crates/compute-mlx/tests/low_scatter.rs",
+      "sha256": "10d356d7d8f05ca318bfd91e481c3c9b69a85beeba644ed929b2ae00e3259211"
+    },
+    {
+      "path": "crates/compute-mlx/tests/low_statistics.rs",
+      "sha256": "5ca586857315b8bb77a309f2218ea51a209b1dd333cc09d1d4ebff6b333688b9"
+    },
+    {
+      "path": "crates/compute-mlx/tests/native.rs",
+      "sha256": "4835f7ce76bf68859222172fcc07e970edf4de27185216193f93d5f568ee2ef4"
+    },
+    {
+      "path": "crates/compute-mlx/tests/reduction.rs",
+      "sha256": "70fd56edf0f37f193b06c6728f72d32ae4d668d08f320198775ed3a289069bc7"
+    },
+    {
+      "path": "crates/compute-mlx/tests/scatter.rs",
+      "sha256": "4bd9fded403fc16559184766a0ea7b88c2caa3545d63af3718b9ed8bba735a1a"
+    },
+    {
+      "path": "crates/compute-mlx/tests/statistics.rs",
+      "sha256": "d5747568e29b2f84f698ffa04d9c2e3fd3c17dbb5ecbfc640e708f19ec09f7df"
+    },
+    {
+      "path": "crates/tensor-core/Cargo.toml",
+      "sha256": "3ba0c47e97fea210328deeb68e0734bc22b78655532bfec42b5602bcafb98f2e"
+    },
+    {
+      "path": "crates/tensor-core/src/attention.rs",
+      "sha256": "745c23a42e28712449944fe553742eabc864d293a71c4d27cce33363bb04e1bc"
+    },
+    {
+      "path": "crates/tensor-core/src/backend.rs",
+      "sha256": "d1dc166dbcb26ead35d7c70070903c9139f742055148ecdef05699fceeee52f1"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/attention.rs",
+      "sha256": "f7072df35f42be8f3abeae134184b1919c8b09ffcd39554e8c4e4a1e2934a476"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/indexing.rs",
+      "sha256": "e9573ef58be9869691eb5f1cf6c0c26e40f603020d71585a3bb1b7e04eb32b09"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/low_attention.rs",
+      "sha256": "3b088abb1d9e12dfedd5deb06a9bb4d2ec5391bc06550e98a6a13391b031cdcf"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/low_index.rs",
+      "sha256": "4333e24d3b17f61146dd918ec2398ae2979a5cefdb3dd2346388479bce3cc2d6"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/low_ops.rs",
+      "sha256": "becf768bfb2e829ab66369c09dd2afe111e2b81c676759dc39adc73e23e70c1b"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/low_precision.rs",
+      "sha256": "79dca01f0993a070270ba1a0f0958758dc41d436bb34ddda5acd08dceb5bd499"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/low_scatter.rs",
+      "sha256": "c076222f44fab480044e95540a5294b996c751f67d733f2f3715ae2e1af8223b"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/low_statistics.rs",
+      "sha256": "266f41544196198ba13863a4f0dd35cdecf7edf89216b0547d3e089e15adefd6"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/reduction.rs",
+      "sha256": "8f97294816707a08aa88e533e6ab7211c826cf36bcd4637a686a5a6e52f9acc5"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/scatter.rs",
+      "sha256": "cac299ecc6b626c73c60cbbe83a3e2708711c9164b2d241732d0b8427416f80d"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/statistics.rs",
+      "sha256": "ac2f4e8a95a53a01bc21fdc9ec557bce4b76345226e2a0fc471b54598e69d83b"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance/vectors.rs",
+      "sha256": "4733183e67ac942a2c7593f08cfb34709b47c16c712313f31d2ddbcf173c29c8"
+    },
+    {
+      "path": "crates/tensor-core/src/conformance.rs",
+      "sha256": "eafd2a2a4ae9c21eaf675bb9b28386aecf24a9dc089e0be226174fc2208a86ec"
+    },
+    {
+      "path": "crates/tensor-core/src/error.rs",
+      "sha256": "c8267114eabeeb9f6566a415c46a51a7d39d4b365f4021a30ecfd21c6a37957d"
+    },
+    {
+      "path": "crates/tensor-core/src/indexing.rs",
+      "sha256": "a849273f783ca0e1064b2f7e7377872fc35d6512dad36175f352f551ebadbe47"
+    },
+    {
+      "path": "crates/tensor-core/src/layout.rs",
+      "sha256": "4329cd21d5b16c96f63a75c98f40f5e697bdc269ca74da0edbdfff8fc3e4259c"
+    },
+    {
+      "path": "crates/tensor-core/src/lib.rs",
+      "sha256": "06f1d5d2a18652bd134e41b24b45c8afc924d6db2d9e325f824a7a9d77ead840"
+    },
+    {
+      "path": "crates/tensor-core/src/low_attention.rs",
+      "sha256": "194a83ac6501291e648deb3d607a95d34291793feb06f4609217c0ead81a92df"
+    },
+    {
+      "path": "crates/tensor-core/src/low_index.rs",
+      "sha256": "fc4b69baf2cd1bda0f1e3a0d3626e2972953ac521e01a51a84c7ab421bf2d2c2"
+    },
+    {
+      "path": "crates/tensor-core/src/low_ops.rs",
+      "sha256": "cc739731d4d76cefd131707a0d7800197cd6ac14c69f428ca688db88d11b9208"
+    },
+    {
+      "path": "crates/tensor-core/src/low_precision.rs",
+      "sha256": "d47f7c70315fcd8ed285472da18065f8fbb0642c2ccfca65cff60bee7d135814"
+    },
+    {
+      "path": "crates/tensor-core/src/low_scatter.rs",
+      "sha256": "b233e41b10d6e08ba9a65683630b7fd20db4fadc6fef694e7a79d4e6cd9b11c8"
+    },
+    {
+      "path": "crates/tensor-core/src/low_statistics.rs",
+      "sha256": "bbf030dda03bc3037ea919ddb66ab4ef889a7e0fa330f4015aaa5f64926c9ced"
+    },
+    {
+      "path": "crates/tensor-core/src/ops.rs",
+      "sha256": "cdc3b761acce2b4247a04672a08ea6c1611a10020c1ce3feab03df2cd057b62f"
+    },
+    {
+      "path": "crates/tensor-core/src/reduction.rs",
+      "sha256": "0a4fb05f81e37c9d1742f8ddf5f713746a90b98d17811bc23856d631a8984708"
+    },
+    {
+      "path": "crates/tensor-core/src/scatter.rs",
+      "sha256": "67b6bfbe1de074d43d19a2a1155bafa3ef49c55d26c5b0714391a87a03720078"
+    },
+    {
+      "path": "crates/tensor-core/src/shape.rs",
+      "sha256": "e8014c95b38d5a1ebfbb958523e0156c06647c4c639c8c418d7910515b572087"
+    },
+    {
+      "path": "crates/tensor-core/src/statistics.rs",
+      "sha256": "ad05f9401b01fdbc968b609f611414cd8794a551267d595345f5afee0fd1f8b4"
+    }
+  ]
+}

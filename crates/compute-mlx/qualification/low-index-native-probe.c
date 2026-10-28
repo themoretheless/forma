@@ -1,0 +1,13 @@
+#include <mlx/c/fast.h>
+#include <mlx/c/ops.h>
+#include <mlx/c/device.h>
+#include <mlx/c/error.h>
+#include <mlx/c/version.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+static void error(const char *m,void *p){fprintf(stderr,"MLX: %s\n",m);}
+#define CHECK(x) do{if(x){fprintf(stderr,"failure line %d\n",__LINE__);exit(3);}}while(0)
+static int checkbits(const char *name,mlx_array a,const uint16_t *expected,size_t n,mlx_stream s){mlx_array v=mlx_array_new(),c=mlx_array_new();CHECK(mlx_view(&v,a,MLX_UINT16,s));CHECK(mlx_contiguous(&c,v,false,s));CHECK(mlx_array_eval(c));const uint16_t *p=mlx_array_data_uint16(c);size_t mismatches=0;for(size_t i=0;i<n;i++)if(p[i]!=expected[i]){if(mismatches<8)printf("%s mismatch %zu actual=%04x expected=%04x\n",name,i,p[i],expected[i]);mismatches++;}printf("%s count=%zu mismatches=%zu\n",name,n,mismatches);mlx_array_free(v);mlx_array_free(c);return mismatches!=0;}
+static int probe(mlx_stream s,mlx_dtype dt){int shape[]={256,256},ishape[]={256};uint16_t *x=malloc(65536*2),*y=malloc(65536*2),*expected=malloc(65536*2);uint32_t *mask=malloc(65536*4),ix[256];for(size_t i=0;i<65536;i++){x[i]=i;y[i]=~i;mask[i]=i%3==0?0:i%3==1?1:0xffffffff;expected[i]=mask[i]?x[i]:y[i];}for(int i=0;i<256;i++)ix[i]=255-i;mlx_array a=mlx_array_new_data(x,shape,2,dt),b=mlx_array_new_data(y,shape,2,dt),m=mlx_array_new_data(mask,shape,2,MLX_UINT32),indices=mlx_array_new_data(ix,ishape,1,MLX_UINT32),out=mlx_array_new();printf("storage=%d\n",dt);CHECK(mlx_where(&out,m,a,b,s));int failed=checkbits("where",out,expected,65536,s);CHECK(mlx_take_axis(&out,a,indices,1,s));for(int r=0;r<256;r++)for(int c=0;c<256;c++)expected[r*256+c]=x[r*256+255-c];failed|=checkbits("take_axis",out,expected,65536,s);int idims[]={1,256};mlx_array expanded=mlx_array_new();CHECK(mlx_reshape(&expanded,indices,idims,2,s));CHECK(mlx_put_along_axis(&out,b,expanded,a,1,s));failed|=checkbits("put_along_axis_unique",out,expected,65536,s);mlx_array_free(expanded);mlx_array_free(out);mlx_array_free(indices);mlx_array_free(m);mlx_array_free(b);mlx_array_free(a);free(x);free(y);free(expected);free(mask);return failed;}
+int main(){mlx_set_error_handler(error,NULL,NULL);mlx_device d=mlx_device_new_type(MLX_GPU,0);bool available=false;CHECK(mlx_device_is_available(&available,d));if(!available)return 2;mlx_stream s=mlx_stream_new_device(d);mlx_string v=mlx_string_new();CHECK(mlx_version(&v));printf("MLX %s raw low routing native GPU probe\n",mlx_string_data(v));mlx_string_free(v);int failed=probe(s,MLX_FLOAT16)|probe(s,MLX_BFLOAT16);mlx_synchronize(s);mlx_stream_free(s);mlx_device_free(d);return failed;}

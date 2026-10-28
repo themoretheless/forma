@@ -1,0 +1,65 @@
+[workspace]
+members = ["value-codec", "math-core", "cad-predicates", "gpu-compute", "compute-core", "tensor-core", "compute-cuda", "compute-mlx", "raster-core", "rush-runtime", "rush-frontend", "sketch-core", "geometry-ops", "planar-geometry", "brep-topology", "brep-core", "nurbs-core", "polygon-core", "gcode-core", "gcode-optimize", "printer-core", "printer-cli", "slicer-core", "mechanics-core", "mechanical-core", "openscad-core", "geometry-bridge", "geometry-wasm", "languages-bridge", "languages-wasm", "wasm-brotli", "subdivision-core", "sdf-core", "photogrammetry-core", "photogrammetry-ffi", "photogrammetry-wasm"]
+resolver = "3"
+exclude = ["vendor/usvg", "vendor/resvg"]
+
+[patch.crates-io]
+usvg = { path = "vendor/usvg" }
+resvg = { path = "vendor/resvg" }
+
+[workspace.package]
+edition = "2024"
+# Last stable Cargo accepts as rust-version. Dev/CI compile with floating nightly.
+rust-version = "1.98"
+publish = false
+
+[workspace.dependencies]
+wgpu = { version = "30", default-features = false, features = ["wgsl", "std"] }
+naga = { version = "30", features = ["wgsl-in"] }
+# Always the latest released rbench (moving `release` branch). Pin with `tag = "v…"` when needed.
+rbench = { git = "https://github.com/themoretheless/rbench", branch = "release" }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# Photogrammetry hot loops: measured against the size profile on native and WASM.
+# Other geometry kernels retain the workspace size profile.
+[profile.release.package.photogrammetry-core]
+opt-level = 3
+
+[profile.release.package.photogrammetry-ffi]
+opt-level = 3
+
+# Hot geometry kernels: measured against the workspace size profile (same
+# precedent as photogrammetry-core above).
+[profile.release.package.polygon-core]
+opt-level = 3
+
+[profile.release.package.brep-core]
+opt-level = 3
+
+[profile.release.package.planar-geometry]
+opt-level = 3
+
+[profile.release.package.cad-predicates]
+opt-level = 3
+
+[profile.release.package.sdf-core]
+opt-level = 3
+
+[profile.release.package.subdivision-core]
+opt-level = 3
+
+# Separate compression bootstrap: opt-level 2 measured faster and smaller than
+# z for cold WASM decoding. See docs/design/solid-analysis-2026-09-19.md.
+[profile.release.package.wasm-brotli]
+opt-level = 2
+[profile.release.package.brotli-decompressor]
+opt-level = 2
+[profile.release.package.alloc-no-stdlib]
+opt-level = 2
+[profile.release.package.alloc-stdlib]
+opt-level = 2

@@ -1,0 +1,49 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running tests/tensor_low_normalization.rs (crates/target/debug/build/compute-core/297475cc987b6f6c/out/tensor_low_normalization-297475cc987b6f6c)
+
+running 4 tests
+test all_recorded_outputs_replay_strided_inputs_and_preserve_odd_neighbor_words ... FAILED
+test packed_statistics_satisfy_shared_conformance ... FAILED
+test packed_stats_validation_is_transactional_across_types_and_moments_outputs ... ok
+test tiny_bf16_rows_cross_workgroup_grid_limit_without_losing_normal_results ... FAILED
+
+failures:
+
+---- all_recorded_outputs_replay_strided_inputs_and_preserve_odd_neighbor_words stdout ----
+
+thread 'all_recorded_outputs_replay_strided_inputs_and_preserve_odd_neighbor_words' (29603628) panicked at compute-core/tests/tensor_low_normalization.rs:37:5:
+-0.0 != -7.312079422128962e-18
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- packed_statistics_satisfy_shared_conformance stdout ----
+
+thread 'packed_statistics_satisfy_shared_conformance' (29603657) panicked at tensor-core/src/conformance/statistics.rs:81:13:
+layer_norm[0]: NaN != 1.0606601
+
+---- tiny_bf16_rows_cross_workgroup_grid_limit_without_losing_normal_results stdout ----
+
+thread 'tiny_bf16_rows_cross_workgroup_grid_limit_without_losing_normal_results' (29603803) panicked at compute-core/tests/tensor_low_normalization.rs:37:5:
+-0.0 != -2.4532694666933983e-18
+
+
+failures:
+    all_recorded_outputs_replay_strided_inputs_and_preserve_odd_neighbor_words
+    packed_statistics_satisfy_shared_conformance
+    tiny_bf16_rows_cross_workgroup_grid_limit_without_losing_normal_results
+
+test result: FAILED. 1 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.51s
+
+error: test failed, to rerun pass `-p compute-core --test tensor_low_normalization`

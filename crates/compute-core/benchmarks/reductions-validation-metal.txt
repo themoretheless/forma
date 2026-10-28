@@ -1,0 +1,384 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-core/0c0444cd0ad16afc/out/compute_core-0c0444cd0ad16afc)
+
+running 3 tests
+test kernel::contract::tests::reflection_validates_entry_point_and_used_buffer_contract_without_gpu ... ok
+test matrix::kernels::tests::measured_policy_respects_alignment_bounds_and_regression_cases ... ok
+test readback::tests::typed_wait_preserves_pending_results_after_timeout ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/batch.rs (crates/target/debug/build/compute-core/c86722a2d22945e7/out/batch-c86722a2d22945e7)
+
+running 1 test
+test shared_pass_orders_reused_outputs_scan_and_reduction ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/contracts.rs (crates/target/debug/build/compute-core/6a06fa5cb4fa5b3d/out/contracts-6a06fa5cb4fa5b3d)
+
+running 4 tests
+test actual_workgroup_size_covers_all_elements_without_a_tuning_anchor ... ok
+test cache_keys_use_compiled_contract_and_eviction_preserves_live_kernels ... ok
+test one_bind_group_remains_compatible_across_entry_points_using_different_slots ... ok
+test reflected_bindings_reject_errors_before_recording_and_remain_usable ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/dot.rs (crates/target/debug/build/compute-core/6145df061e8a8cad/out/dot-6145df061e8a8cad)
+
+running 4 tests
+test dot_into_reuses_scalar_prefix_and_preserves_queued_results ... ok
+test dot_matches_f64_for_tails_large_inputs_signs_and_dynamic_range ... ok
+test dot_validation_is_atomic_and_scalar_broadcast_is_not_implicit ... ok
+test fused_dot_preserves_runtime_send_sync ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+
+     Running tests/fused_sum.rs (crates/target/debug/build/compute-core/a3aaa9af0fa5aa6a/out/fused_sum-a3aaa9af0fa5aa6a)
+
+running 4 tests
+test constant_and_broadcast_sums_reuse_outputs_and_reset_empty_results ... ok
+test fused_map_sum_matches_f64_across_empty_partial_and_large_inputs ... ok
+test invalid_sum_bindings_and_predicates_do_not_append_work ... ok
+test predicates_select_values_and_fuse_conditional_sums_for_all_comparisons ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/fusion.rs (crates/target/debug/build/compute-core/6d2f0d803cec39ec/out/fusion-6d2f0d803cec39ec)
+
+running 6 tests
+test branches_share_expressions_and_prune_dead_nodes_before_caching ... ok
+test compilation_and_execution_reject_wrong_graph_or_device_and_binding_overflow ... ok
+test constant_only_empty_and_scalar_expressions_have_defined_results ... ok
+test generated_operations_and_broadcast_order_match_cpu ... ok
+test grid_stride_writes_tail_above_the_workgroup_dispatch_limit ... ok
+test invalid_binding_calls_leave_the_prepared_program_usable ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.65s
+
+     Running tests/fusion_contract.rs (crates/target/debug/build/compute-core/a3686216091dc2ea/out/fusion_contract-a3686216091dc2ea)
+
+running 4 tests
+test graph_rejects_foreign_handles_even_when_node_indices_match ... ok
+test graph_validates_slots_and_all_host_supplied_floats_without_gpu ... ok
+test repeated_readonly_input_allocations_are_accepted ... ok
+test seven_live_inputs_use_all_uniform_step_fields_with_scalar_broadcast ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/kernels.rs (crates/target/debug/build/compute-core/9b26be2868a7e784/out/kernels-9b26be2868a7e784)
+
+running 12 tests
+test broken_wgsl_is_an_error_not_a_panic ... ok
+test non_power_of_two_workgroup_is_rejected ... ok
+test recorded_chain_reuses_buffers_and_consumes_reduction_on_gpu ... ok
+test reduce_f32_handles_lengths_beyond_the_dispatch_limit ... ok
+test reduction_handles_empty_singleton_and_workgroup_one ... ok
+test reduction_handles_non_multiple_lengths ... ok
+test scale_add4_matches_cpu_reference ... ok
+test scale_add_matches_cpu_reference ... ok
+test shipped_kernels_validate_with_naga ... ok
+test tuned_workgroup_substitution_stays_valid ... ok
+test zip_mul4_then_reduce_computes_dot_product ... ok
+test zip_mul_then_block_sum_computes_the_dot_product ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
+
+     Running tests/matrix.rs (crates/target/debug/build/compute-core/a014a91c882ec73a/out/matrix-a014a91c882ec73a)
+
+running 6 tests
+test empty_dimensions_and_zero_inner_dimension_have_defined_reusable_results ... ok
+test matrix_chains_reuse_inputs_and_need_only_final_scalar_readback ... ok
+test matrix_validation_rejects_shapes_overflow_foreign_arrays_and_aliases ... ok
+test matrix_workloads_stride_beyond_one_dispatch_grid ... ok
+test selected_matrix_kernels_match_reference_and_restore_reused_outputs ... ok
+test tiled_matrix_products_match_f64_reference_at_tile_boundaries ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.31s
+
+     Running tests/reduction.rs (crates/target/debug/build/compute-core/617db0392f6f42ef/out/reduction-617db0392f6f42ef)
+
+running 5 tests
+test arbitrary_lengths_and_unpadded_scalar_buffers_match_f64 ... ok
+test cancellation_and_dynamic_range_use_f64_reference ... ok
+test invalid_sum_outputs_leave_program_usable ... ok
+test raw_reduction_retains_custom_workgroups_and_composes_in_one_pass ... ok
+test reused_program_overwrites_output_and_respects_prefix_sentinels ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.09s
+
+     Running tests/runtime.rs (crates/target/debug/build/compute-core/4ba5d58482b69e10/out/runtime-4ba5d58482b69e10)
+
+running 9 tests
+test binary_operations_match_cpu_for_odd_length_arrays ... ok
+test empty_arrays_and_singletons_have_defined_results ... ok
+test errors_do_not_poison_a_program ... ok
+test grid_strided_arrays_cover_more_than_one_dispatch_grid ... ok
+test nonblocking_read_and_abandoned_tickets ... ok
+test normalization_and_broadcasting_stay_on_gpu ... ok
+test program_reuses_allocations_and_overlapping_readbacks_capture_each_submission ... ok
+test typed_arrays_preserve_u32_bits_and_support_partial_updates ... ok
+test unary_math_matches_cpu ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests/selection.rs (crates/target/debug/build/compute-core/07f313fd35dda800/out/selection-07f313fd35dda800)
+
+running 8 tests
+test compact_is_stable_composable_and_clears_tail_on_every_run ... ok
+test comparison_masks_match_cpu_and_broadcast_on_either_side ... ok
+test comparison_rejects_invalid_lengths_owners_and_cross_type_output_aliases ... ok
+test exclusive_scan_covers_more_blocks_than_dispatch_limit ... ok
+test exclusive_scan_matches_wrapping_cpu_across_blocks_and_levels ... ok
+test four_item_scan_visits_multiple_blocks_per_workgroup_with_wrapping_and_normalization ... ok
+test gpu_comparison_compaction_and_sum_reuse_a_changing_threshold_without_mask_readback ... ok
+test scan_and_compaction_reject_foreign_lengths_and_all_output_aliases ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.09s
+
+     Running unittests src/lib.rs (crates/target/debug/build/gpu-compute/a36ff2ef8ca2e6df/out/gpu_compute-a36ff2ef8ca2e6df)
+
+running 9 tests
+test backend::tests::available_backend_report_is_well_formed_when_present ... ok
+test backend::tests::available_subgroup_report_is_well_formed_when_present ... ok
+test backend::tests::tuned_workgroup_size_falls_back_to_default_off_metal ... ok
+test backend::tests::tuned_workgroup_size_selects_metal_variant ... ok
+test context::tests::optional_features_require_explicit_adapter_support ... ok
+test memory::tests::backend_allocation_validation_is_recoverable_and_scopes_are_balanced ... ok
+test profiling::tests::completion_and_mapping_timeouts_keep_pending_tickets ... ok
+test profiling::tests::timestamp_conversion_preserves_short_deltas_and_rejects_unusable_samples ... ok
+test readback::tests::stalled_callback_can_timeout_then_fail_without_an_empty_success ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/features.rs (crates/target/debug/build/gpu-compute/f760c9712ea929e9/out/features-f760c9712ea929e9)
+
+running 1 test
+test native_subgroups_and_timestamps_require_explicit_opt_in ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/memory.rs (crates/target/debug/build/gpu-compute/6bb7e92c111fcec0/out/memory-6bb7e92c111fcec0)
+
+running 1 test
+test unsupported_buffer_usages_return_errors_before_allocation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/profiling.rs (crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240)
+
+running 4 tests
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... ok
+test cancelled_ticket_and_invalid_pass_do_not_poison_timer ... ok
+test reused_timer_preserves_tickets_within_encoder_and_across_submissions ... ok
+test timestamps_are_explicitly_enabled_and_context_identity_is_preserved ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/readback.rs (crates/target/debug/build/gpu-compute/a4579147a7bfdbb3/out/readback-a4579147a7bfdbb3)
+
+running 2 tests
+test ranges_empty_consumption_and_cancellation_are_distinct ... ok
+test staging_is_unmapped_after_success_and_after_cancel ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running unittests src/lib.rs (crates/target/debug/build/osv-math/254202d4115747ee/out/math_core-254202d4115747ee)
+
+running 87 tests
+test acceleration::tests::acceleration_parse_and_placement ... ok
+test acceleration::tests::recommended_for_distance_pairs_keeps_small_batches_on_cpu ... ok
+test acceleration::tests::recommended_for_nearest_neighbor_scales_with_work ... ok
+test acceleration::tests::recommended_for_point_cloud_stats_uses_cuda_only_for_large_clouds ... ok
+test acceleration::tests::recommended_for_transformed_point_bounds_stays_on_cpu ... ok
+test bounds::tests::point_bounds_auto_matches_cpu_reference ... ok
+test bounds::tests::point_bounds_gpu_matches_cpu_reference ... ok
+test bounds::tests::point_bounds_rejects_empty_and_nonfinite_points ... ok
+test bounds::tests::point_bounds_reports_min_max_center_and_extent ... ok
+test bounds::tests::transformed_point_bounds_auto_matches_cpu_reference ... ok
+test bounds::tests::transformed_point_bounds_gpu_matches_cpu_reference ... ok
+test bounds::tests::transformed_point_bounds_matches_materialized_reference ... ok
+test bounds::tests::transformed_point_bounds_rejects_empty_and_nonfinite_points ... ok
+test camera_gestures::tests::collapsed_pinch_pans_without_spurious_zoom ... ok
+test camera_gestures::tests::distance_limits_and_nonfinite_fallback ... ok
+test camera_gestures::tests::orbit_wraps_and_pan_uses_camera_basis ... ok
+test chamfer::tests::chamfer_auto_matches_cpu_reference ... ok
+test chamfer::tests::chamfer_gpu_matches_cpu_reference ... ok
+test chamfer::tests::chamfer_rejects_empty_clouds ... ok
+test chamfer::tests::directed_chamfer_reports_mean_rms_and_max ... ok
+test chamfer::tests::hausdorff_reports_worst_case_distance ... ok
+test chamfer::tests::symmetric_chamfer_averages_both_directions ... ok
+test distance_pairs::tests::squared_distance_pair_sum_accelerated_gpu_matches_reference ... ok
+test distance_pairs::tests::squared_distance_pair_sum_matches_vector_sum ... ok
+test distance_pairs::tests::squared_distance_pairs_accelerated_cpu_matches_reference ... ok
+test distance_pairs::tests::squared_distance_pairs_accelerated_gpu_matches_reference ... ok
+test distance_pairs::tests::squared_distance_pairs_matches_scalar_reference ... ok
+test distance_pairs::tests::squared_distance_pairs_rejects_mismatched_lengths ... ok
+test gpu::session::tests::explicit_session_shares_device_and_keeps_math_contracts ... ok
+test gpu::tests::gpu_nearest_neighbor_empty_input ... ok
+test gpu::tests::gpu_nearest_neighbor_matches_cpu_reference_when_available ... ok
+test gpu::tests::gpu_squared_distance_pair_sum_matches_cpu_reference_when_available ... ok
+test gpu::tests::gpu_squared_distance_pairs_matches_cpu_reference_when_available ... ok
+test linalg::hotpath_bench::leaf_math_throughput ... ok
+test linalg::tests::eigen_reconstructs ... ok
+test linalg::tests::svd_rank_two ... ok
+test linalg::transform_tests::transform_points_matches_scalar_mv_add ... ok
+test local_plane::tests::local_point_planes_fit_query_neighborhoods ... ok
+test local_plane::tests::local_point_planes_gpu_matches_cpu_reference ... ok
+test local_plane::tests::local_point_planes_reject_invalid_inputs ... ok
+test moments::tests::centers_handle_extreme_coordinates_and_weights ... ok
+test moments::tests::covariance_preserves_small_spread_at_large_offset ... ok
+test moments::tests::point_fit_plane_gpu_matches_cpu_reference ... ok
+test moments::tests::point_fit_plane_recovers_known_plane ... ok
+test moments::tests::point_fit_plane_rejects_too_few_points ... ok
+test moments::tests::point_moments_auto_matches_cpu_reference ... ok
+test moments::tests::point_moments_gpu_matches_cpu_reference ... ok
+test moments::tests::point_moments_rejects_empty_and_nonfinite_points ... ok
+test moments::tests::point_moments_reports_centroid_second_moment_and_covariance ... ok
+test moments::tests::point_principal_axes_orders_variance_descending ... ok
+test moments::tests::weighted_center_rejects_invalid_inputs ... ok
+test nearest_four::tests::nearest_four_finds_sorted_neighbors ... ok
+test nearest_four::tests::nearest_four_gpu_matches_reference ... ok
+test nearest_four::tests::nearest_four_handles_short_targets ... ok
+test nearest_neighbor::nearest_neighbor_tests::nearest_neighbor_accelerated_auto_matches_reference ... ok
+test nearest_neighbor::nearest_neighbor_tests::nearest_neighbor_accelerated_cpu_matches_reference ... ok
+test nearest_neighbor::nearest_neighbor_tests::nearest_neighbor_accelerated_empty_input ... ok
+test nearest_neighbor::nearest_neighbor_tests::nearest_neighbor_accelerated_gpu_dispatch_matches_cpu ... ok
+test nearest_neighbor::nearest_neighbor_tests::nearest_neighbor_empty_queries_is_empty ... ok
+test nearest_neighbor::nearest_neighbor_tests::nearest_neighbor_empty_targets_is_infinite ... ok
+test nearest_neighbor::nearest_neighbor_tests::nearest_neighbor_finds_closest_by_brute_force ... ok
+test nearest_two::tests::nearest_two_finds_best_and_second_best ... ok
+test nearest_two::tests::nearest_two_first_only_matches_nearest_neighbor ... ok
+test nearest_two::tests::nearest_two_gpu_matches_reference ... ok
+test nearest_two::tests::nearest_two_handles_empty_and_single_target ... ok
+test orbit_camera::tests::keeps_eye_outside_bounds_and_extends_far_plane ... ok
+test orbit_camera::tests::refuses_invalid_parameters ... ok
+test registration::registration_tests::icp_register_recovers_small_rigid_offset ... ok
+test registration::registration_tests::icp_rejects_invalid_inputs ... ok
+test registration::registration_tests::icp_reports_post_fit_error_for_iteration ... ok
+test registration::registration_tests::rigid_transform_recovers_known_correspondences ... ok
+test stats::tests::point_cloud_stats_auto_matches_cpu_reference ... ok
+test stats::tests::point_cloud_stats_gpu_matches_cpu_reference ... ok
+test stats::tests::point_cloud_stats_matches_separate_cpu_summaries ... ok
+test stats::tests::point_cloud_stats_rejects_empty_and_nonfinite_points ... ok
+test stats::tests::transformed_point_cloud_stats_auto_matches_cpu_reference ... ok
+test stats::tests::transformed_point_cloud_stats_gpu_matches_cpu_reference ... ok
+test stats::tests::transformed_point_cloud_stats_matches_materialized_reference ... ok
+test transform_error::tests::transformed_rmse_handles_empty_input ... ok
+test transform_error::tests::transformed_sum_auto_matches_cpu_reference ... ok
+test transform_error::tests::transformed_sum_gpu_matches_cpu_reference ... ok
+test transform_error::tests::transformed_sum_matches_materialized_reference ... ok
+test transform_error::tests::transformed_sum_rejects_mismatched_lengths ... ok
+test viewport::tests::css_ray_and_projection_roundtrip ... ok
+test viewport::tests::inverse_residual_and_small_invertible_scale ... ok
+test viewport::tests::selected_corner_ties_and_transform ... ok
+test viewport::tests::singular_and_invalid_viewports_refuse ... ok
+
+test result: ok. 87 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+
+     Running tests/gpu_nearest_cooperative.rs (crates/target/debug/build/osv-math/21da5215b5cb4b6a/out/gpu_nearest_cooperative-21da5215b5cb4b6a)
+
+running 3 tests
+test cooperative_matches_raw_reference_for_partial_groups_ties_and_overflow ... ok
+test policy_stays_within_measured_metal_envelope ... ok
+test recorded_and_synchronous_dispatch_share_results_and_reuse_shape_changes ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/gpu_plans.rs (crates/target/debug/build/osv-math/b9a21297c2f26c1e/out/gpu_plans-b9a21297c2f26c1e)
+
+running 3 tests
+test borrowed_buffer_validation_and_execution_reports ... ok
+test math_and_generic_compute_share_one_submission_and_final_readback ... ok
+test scratch_growth_retains_old_plans_and_reports_generations ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/gpu_recorded_domains.rs (crates/target/debug/build/osv-math/43c44d338ffe7fa6/out/gpu_recorded_domains-43c44d338ffe7fa6)
+
+running 5 tests
+test domain_into_rejects_foreign_wrong_lengths_and_aliases_before_recording ... ok
+test empty_neighbor_targets_and_ties_have_explicit_sentinels ... ok
+test nearest_inlier_selection_and_sum_stay_on_gpu_across_repeated_submissions ... ok
+test recorded_neighbors_compose_with_transform_sum_and_generic_compute ... ok
+test statistics_cover_single_odd_and_hierarchical_clouds_and_reuse_outputs ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.63s
+
+     Running tests/gpu_stable_stats.rs (crates/target/debug/build/osv-math/aa5e1723302d8feb/out/gpu_stable_stats-aa5e1723302d8feb)
+
+running 4 tests
+test centered_stats_correct_rounded_mean_and_reuse_after_transform_and_upload ... ok
+test centered_stats_preserve_translated_covariance_and_raw_packed_fields ... ok
+test centered_stats_validate_before_appending_and_accept_shared_context ... ok
+test stable_session_matches_uploaded_f32_reference_and_documents_quantization ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running unittests src/lib.rs (crates/target/debug/build/raster-core/4adb4cd290d9216f/out/raster_core-4adb4cd290d9216f)
+
+running 5 tests
+test chunks::tests::expansion_is_line_based_and_preserves_everything_else ... ok
+test chunks::tests::shadow_bindings_parameterize_group_and_slots ... ok
+test chunks::tests::sources_without_markers_are_borrowed ... ok
+test chunks::tests::unknown_markers_panic - should panic ... ok
+test codegen::tests::generated_module_exports_every_source_as_template_literal ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/wgsl_export.rs (crates/target/debug/build/raster-core/a9e4119322b51044/out/wgsl_export-a9e4119322b51044)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/frame.rs (crates/target/debug/build/raster-core/aec7352130a80ddd/out/frame-aec7352130a80ddd)
+
+running 6 tests
+test deep_selection_underlay_draws_through_geometry ... ok
+test edges_draw_on_top_of_the_mesh_with_depth_bias ... ok
+test grid_lines_and_overlay_compose ... ok
+test instanced_draws_place_each_record_its_own_transform ... ok
+test shadow_pass_darkens_occluded_floor_and_toggles_off_exactly ... ok
+test transparent_mesh_blends_over_opaque_and_skips_depth_write ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/render.rs (crates/target/debug/build/raster-core/d85dcb171a6af802/out/render-d85dcb171a6af802)
+
+running 4 tests
+test caller_records_render_and_readback_in_one_submission ... ok
+test mesh_without_morph_source_draws_its_target_vertices ... ok
+test morph_weight_moves_the_triangle_on_the_gpu ... ok
+test rgba_readback_handles_padded_rows_and_rejects_invalid_sizes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/shaders.rs (crates/target/debug/build/raster-core/bc8b34e7a66e8819/out/shaders-bc8b34e7a66e8819)
+
+running 10 tests
+test generated_layouts_match_the_layout_table ... ok
+test generated_ts_matches_the_wgsl_sources ... ok
+test generated_variant_goldens_match_the_rust_variants ... ok
+test immediate_variant_panics_without_object_uniform - should panic ... ok
+test immediate_variant_serves_style_from_immediate_address_space ... ok
+test instanced_variant_panics_on_drifted_source - should panic ... ok
+test instanced_variant_reads_per_instance_records ... ok
+test instanced_variants_validate_with_naga ... ok
+test shipped_shaders_validate_with_naga ... ok
+test uniform_layout_matches_the_wgsl_contract ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s

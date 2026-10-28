@@ -1,0 +1,17 @@
+MLX 0.32.1 raw low routing native GPU probe
+storage=9
+where count=65536 mismatches=0
+take_axis count=65536 mismatches=0
+put_along_axis_unique count=65536 mismatches=0
+storage=12
+where mismatch 0 actual=7fc0 expected=ffff
+where mismatch 1 actual=0000 expected=0001
+where mismatch 2 actual=0000 expected=0002
+where mismatch 3 actual=7fc0 expected=fffc
+where mismatch 4 actual=0000 expected=0004
+where mismatch 5 actual=0000 expected=0005
+where mismatch 6 actual=7fc0 expected=fff9
+where mismatch 7 actual=0000 expected=0007
+where count=65536 mismatches=507
+take_axis count=65536 mismatches=0
+put_along_axis_unique count=65536 mismatches=0

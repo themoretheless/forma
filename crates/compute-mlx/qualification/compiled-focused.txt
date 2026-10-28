@@ -1,0 +1,54 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.51s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-mlx/2a20d23b61da9ba4/out/compute_mlx-2a20d23b61da9ba4)
+
+running 5 tests
+test ffi::tests::missing_library_is_an_error_without_native_initialization ... ok
+test ffi::tests::native_shape_error_returns_message_and_keeps_c_api_usable ... ok
+test native::compiled::callback::tests::callback_contains_panics_releases_locals_and_recovers ... 
+thread 'native::compiled::callback::tests::callback_contains_panics_releases_locals_and_recovers' (30063318) panicked at compute-mlx/src/native/compiled/callback.rs:230:17:
+injected trace failure
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+test native::compiled::callback::tests::native_callback_failure_releases_arrays_and_allows_next_trace ... ok
+test native::low_scatter::tests::list_allocation_pads_safely_and_preserves_u32_token_capacity ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/compiled.rs (crates/target/debug/build/compute-mlx/08c5c0e45cbb2c80/out/compiled-08c5c0e45cbb2c80)
+
+running 10 tests
+test changed_resident_inputs_replay_map_and_reductions_with_duplicate_outputs ... ok
+test disabled_mode_is_qualified_without_mutating_parent_global_state ... compiled disabled-mode child:
+
+running 1 test
+test disabled_native_compilation_still_replays_fresh_values_in_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.04s
+
+disabled compiler: 3 fresh executions, 3 callback traces
+
+ok
+test disabled_native_compilation_still_replays_fresh_values_in_child ... ok
+test empty_output_list_replays_without_evaluated_result_handles ... ok
+test invalid_builder_values_and_shapes_do_not_corrupt_valid_nodes ... ok
+test runtime_input_rejection_happens_before_native_tracing ... ok
+test same_shape_new_transpose_and_zero_strides_reuse_the_native_trace ... ok
+test shape_nodes_and_batched_matmul_follow_independent_coordinates ... ok
+test unevaluated_outputs_keep_input_and_context_lifetimes_after_program_drop ... ok
+test vector_matmul_and_empty_contractions_keep_shared_shape_rules ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+

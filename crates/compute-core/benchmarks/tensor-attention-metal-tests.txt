@@ -1,0 +1,25 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.63s
+     Running tests/tensor_attention.rs (crates/target/debug/build/compute-core/c8f7c8bcbc580e3d/out/tensor_attention-c8f7c8bcbc580e3d)
+
+running 5 tests
+test attention_checks_owners_masks_shapes_and_aliases_without_partial_recording ... ok
+test scaled_value_accumulator_handles_extreme_finite_values_without_raw_weighted_sums ... ok
+test shader_attention_satisfies_shared_conformance ... ok
+test streaming_attention_handles_long_single_query_and_workgroup_grid_stride ... ok
+test strided_attention_reuses_masks_inputs_and_output_offsets_across_key_and_value_tiles ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+

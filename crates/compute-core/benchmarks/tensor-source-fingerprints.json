@@ -1,0 +1,30 @@
+{
+  "backend": "Metal",
+  "samples_per_case_and_mode": 31,
+  "minimum_warmup_ms": 200,
+  "rustc": "rustc 1.100.0-nightly (215a8af4b 2026-09-15)",
+  "sources_sha256": {
+    "crates/compute-core/examples/bench_tensor_reduction.rs": "388b8890f3e14834da1d80b3d119935dd1a08cf2d3789ecda9299d0f92d56eb6",
+    "crates/compute-core/examples/tensor_program.rs": "565326ebe9517425024400082cd1790d8a15c2a901f24aa0aa6af16331f15cd6",
+    "crates/compute-core/examples/tensor_reduction_candidates/baseline.wgsl": "db7357f68bbc679aaf97145274c29759fe7bc0258fee57eb3a95a0fbd6e5eec8",
+    "crates/compute-core/shaders/tensor_elementwise.wgsl": "64c58ad91b8c6e3bf6cde4e3b2a8d639208bbb0dd611cacd91b4e5e10fdfe434",
+    "crates/compute-core/shaders/tensor_matmul.wgsl": "434477e4f3ba65b387e088582403ea0206e24242a816ce2be3f5fa883585eb54",
+    "crates/compute-core/shaders/tensor_sum.wgsl": "46c8fdb72daf32866a2666c559bec84684ece88ad35d87a23c20b74a3187e62b",
+    "crates/compute-core/src/tensor/kernels.rs": "d9712eb8365e2bcd0817429a6ad3027de53885b18301d374e19f69ca3b01b40c",
+    "crates/compute-core/src/tensor/mod.rs": "9cef0943a7de54a41b99a5908a138c005ead22707363ccc69f969db75c8a0c8e",
+    "crates/compute-core/src/tensor/program.rs": "c0de09a3135ae174f1f25bc3619e8a2440f93f31133ea346fcdc1b4c0c6faef2",
+    "crates/compute-core/src/tensor_backend.rs": "f604bf80371b21f6c76d13644e550732f2688883ea9dcf600af00d8c5ad04556",
+    "crates/compute-core/tests/tensor.rs": "b76876644368eb6762c7d4b6577e553c77fd47cb4c13ce90175c5bf5802967ce",
+    "crates/gpu-compute/src/profiling.rs": "f3033a9f7abdeaa430845defccabe1e5cad3efaafee0417b5e7f7cd43ebcc81f",
+    "crates/tensor-core/src/backend.rs": "26f29395da347dfcc02526095aca87f6741ee95303a4242934b2d1a0b93271e3",
+    "crates/tensor-core/src/conformance.rs": "85493f618a814a6d9ff63556a4d321097e2489350f4892182ae9037a82f8866e",
+    "crates/tensor-core/src/error.rs": "066ea6de98cd67275bc8b5f8a61251885894a88585e155db0649396247609a50",
+    "crates/tensor-core/src/layout.rs": "4329cd21d5b16c96f63a75c98f40f5e697bdc269ca74da0edbdfff8fc3e4259c",
+    "crates/tensor-core/src/lib.rs": "a1901242d4e1aea5cde77cff8df77a08c417a42e818572a4c4f52b376a33cfdc",
+    "crates/tensor-core/src/ops.rs": "96989c6a76f90e3289dd7535d125221c2c1d74639bd191d0321dabd2a8f72521",
+    "crates/tensor-core/src/shape.rs": "0df3666982ee71a6f62f4ad971a0a80ab50610b3d09bfdb86328cd60d7684cd1"
+  },
+  "raw_sha256": {
+    "crates/compute-core/benchmarks/tensor-reduction-metal.txt": "480e12320a544a51c3dc75c2c94b9c2d8abd3414d00b381710a122db100d4436"
+  }
+}

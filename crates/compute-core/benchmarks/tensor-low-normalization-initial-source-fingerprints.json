@@ -1,0 +1,66 @@
+{
+  "scope": "Initial low-statistics numerical failure: unchanged Rust planning, pre-fix helper and specialization, native shaders verified against preceding phase hashes",
+  "native_verified": {
+    "tensor_stats_common.wgsl": {
+      "bytes": 2024,
+      "sha256": "f6f718f3a82408a3a88f5a1a6f46a79c36eaf542c62d8f3966dd0a0aadc9da88",
+      "verified_against": "tensor-low-scatter-source-fingerprints.json"
+    },
+    "tensor_stats_small.wgsl": {
+      "bytes": 5338,
+      "sha256": "a8bd218d3e98ebc5dcfcc74f27fda81501ffe382da615f0e051c48f30155b4f7",
+      "verified_against": "tensor-low-scatter-source-fingerprints.json"
+    },
+    "tensor_stats_finish.wgsl": {
+      "bytes": 1700,
+      "sha256": "745166efc481990010b22ce3cab486a3d245a327148f666b9e9ee953a62ca3d7",
+      "verified_against": "tensor-low-scatter-source-fingerprints.json"
+    }
+  },
+  "files": {
+    "debug_low_stats.rs": {
+      "bytes": 1735,
+      "sha256": "8892f0c9448646fec6c657afd2df4ce607d043b13ef8c5fd0b509b250c1e242f"
+    },
+    "debug_low_stats_after_low_fix.rs": {
+      "bytes": 3006,
+      "sha256": "13c58d724008a89a235c0bb456d7c886ef4fd79871f69faaa7225fb154fb461a"
+    },
+    "normalization.rs": {
+      "bytes": 13187,
+      "sha256": "e52c852c559a7dcd8ff9815b1154ef56b78d676c939255a826554e52009b4770"
+    },
+    "statistics.rs": {
+      "bytes": 12542,
+      "sha256": "a3128a2ae8c31e077a45787ede11d23d99c02977b5786ed50c7a7fc92aca8d25"
+    },
+    "statistics_sources.rs": {
+      "bytes": 5940,
+      "sha256": "2a2c55a4c79ef26ea6132ef7f45846157f811ac42356eb3d52abde0b0438eead"
+    },
+    "tensor_low_stats.wgsl": {
+      "bytes": 3074,
+      "sha256": "0fd7fa96be2e3d2c5bf22dff6795dfa6e8c06b9cc45678234b9f7f4877cd27bd"
+    },
+    "tensor_stats_common.wgsl": {
+      "bytes": 2024,
+      "sha256": "f6f718f3a82408a3a88f5a1a6f46a79c36eaf542c62d8f3966dd0a0aadc9da88"
+    },
+    "tensor_stats_finish.wgsl": {
+      "bytes": 1700,
+      "sha256": "745166efc481990010b22ce3cab486a3d245a327148f666b9e9ee953a62ca3d7"
+    },
+    "tensor_stats_output.wgsl": {
+      "bytes": 3732,
+      "sha256": "de4073ed86a8d16b30ba47f43d028270f2a0e2caddd8c4c84deb5bf943aa0dfe"
+    },
+    "tensor_stats_reduce.wgsl": {
+      "bytes": 2925,
+      "sha256": "7f7a1aca54333b24b04b82bca7ca32d8bd6f6b65a8064466b4fb7367196b808b"
+    },
+    "tensor_stats_small.wgsl": {
+      "bytes": 5338,
+      "sha256": "a8bd218d3e98ebc5dcfcc74f27fda81501ffe382da615f0e051c48f30155b4f7"
+    }
+  }
+}

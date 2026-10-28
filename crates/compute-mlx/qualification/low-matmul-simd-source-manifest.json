@@ -1,0 +1,47 @@
+{
+  "stage": "SIMD-group float8x8 candidate with group-uniform protected BF16 subnormal fallback",
+  "base": "low-matmul-tiled-source-manifest.json",
+  "overlay": "crates/compute-mlx/qualification/low-matmul-simd-source",
+  "command": "COMPUTE_REQUIRE_MLX=1 cargo test --offline --manifest-path crates/Cargo.toml -p compute-mlx --test low_matmul --test low_precision --test low_attention -- --test-threads=1 --nocapture",
+  "tests": {
+    "passed": 15,
+    "failed": 0
+  },
+  "log": "crates/compute-mlx/qualification/low-matmul-simd-metal.txt",
+  "log_sha256": "91e579dfaf07b30e54a0ad308d45ec73735ce56bd6c608e59cc91ff1fc36d7ed",
+  "files": {
+    "crates/compute-mlx/src/metal/low_matmul.metal": {
+      "bytes": 4059,
+      "sha256": "c28eb598a43f198fb93839f61226f2171d2e90a9e09947ae333300ea8bddf298"
+    },
+    "crates/compute-mlx/src/native/low_matmul.rs": {
+      "bytes": 2655,
+      "sha256": "c13372c0e1f5e7ae03a7674513a1aea27ce7a125358b34242a6c192df09c4ffe"
+    },
+    "crates/compute-mlx/tests/low_matmul.rs": {
+      "bytes": 10278,
+      "sha256": "6944a06d66a45fc49b45e810acda21e95ebeb66bec53408c4308d2372b12fd72"
+    },
+    "crates/tensor-core/src/conformance/low_precision/matmul/accumulation.rs": {
+      "bytes": 7843,
+      "sha256": "ecc03a5b4bafd4b177b07203d5537e82cca8a31e14adc6bc5e5a34c3c59a1425"
+    },
+    "crates/tensor-core/src/conformance/low_precision/matmul.rs": {
+      "bytes": 12878,
+      "sha256": "6e3fce64fa427a0d721fb46996f4dbc66c0d6a233f7a416df905e5450ac17556"
+    }
+  },
+  "full_tests": {
+    "unit": 3,
+    "integration": 67,
+    "failed": 0
+  },
+  "full_log": "crates/compute-mlx/qualification/low-matmul-simd-full-metal.txt",
+  "full_log_sha256": "56f986fc29ea1a2c8234d5bc77e50392b20bc337a73fc31ef95387675c101e93",
+  "notes": [
+    "First focused15 passed; full70 then passed against strengthened inexact shared matmul fixtures.",
+    "Five-file overlay includes three MLX implementation/test files plus two strengthened shared oracle files.",
+    "No numerical tolerances weakened; mixed first/middle/final BF16 tiny Ktiles pass both operand orders with M/N tails.",
+    "Paired benchmark follows this frozen stage."
+  ]
+}

@@ -1,0 +1,162 @@
+{
+  "scope": "Typed MLX fresh-output eager versus compiled replay",
+  "timing": "Host wall time from graph invocation through both complete result readbacks and synchronization.",
+  "samples_per_path": 31,
+  "warmup_ms": 200,
+  "runs": [
+    {
+      "log": "compiled-typed-metal.txt",
+      "cases": [
+        {
+          "case": "low_arithmetic_f16",
+          "eager": {
+            "median_ms": 0.438834,
+            "p90_ms": 0.457125
+          },
+          "compiled": {
+            "median_ms": 0.4165,
+            "p90_ms": 0.43
+          },
+          "eager_over_compiled_host_median": 1.0536230492196879
+        },
+        {
+          "case": "low_arithmetic_bf16",
+          "eager": {
+            "median_ms": 0.867542,
+            "p90_ms": 0.905292
+          },
+          "compiled": {
+            "median_ms": 0.829042,
+            "p90_ms": 0.905792
+          },
+          "eager_over_compiled_host_median": 1.0464391430108488
+        },
+        {
+          "case": "low_matmul_f16",
+          "eager": {
+            "median_ms": 0.218916,
+            "p90_ms": 0.22125
+          },
+          "compiled": {
+            "median_ms": 0.21125000000000002,
+            "p90_ms": 0.214875
+          },
+          "eager_over_compiled_host_median": 1.0362887573964497
+        },
+        {
+          "case": "low_matmul_bf16",
+          "eager": {
+            "median_ms": 0.221,
+            "p90_ms": 0.223459
+          },
+          "compiled": {
+            "median_ms": 0.212708,
+            "p90_ms": 0.216042
+          },
+          "eager_over_compiled_host_median": 1.0389830189743685
+        },
+        {
+          "case": "u32_select_sum_small",
+          "eager": {
+            "median_ms": 0.25025,
+            "p90_ms": 0.26175
+          },
+          "compiled": {
+            "median_ms": 0.224625,
+            "p90_ms": 0.287667
+          },
+          "eager_over_compiled_host_median": 1.1140790205898718
+        },
+        {
+          "case": "u32_select_sum_large",
+          "eager": {
+            "median_ms": 0.265625,
+            "p90_ms": 0.27345800000000003
+          },
+          "compiled": {
+            "median_ms": 0.236083,
+            "p90_ms": 0.253708
+          },
+          "eager_over_compiled_host_median": 1.1251339571252483
+        }
+      ]
+    },
+    {
+      "log": "compiled-typed-metal-repeat.txt",
+      "cases": [
+        {
+          "case": "low_arithmetic_f16",
+          "eager": {
+            "median_ms": 0.37583300000000003,
+            "p90_ms": 0.379708
+          },
+          "compiled": {
+            "median_ms": 0.351833,
+            "p90_ms": 0.355667
+          },
+          "eager_over_compiled_host_median": 1.0682141811598116
+        },
+        {
+          "case": "low_arithmetic_bf16",
+          "eager": {
+            "median_ms": 0.375208,
+            "p90_ms": 0.381875
+          },
+          "compiled": {
+            "median_ms": 0.35179200000000005,
+            "p90_ms": 0.354792
+          },
+          "eager_over_compiled_host_median": 1.0665620593987355
+        },
+        {
+          "case": "low_matmul_f16",
+          "eager": {
+            "median_ms": 0.24075,
+            "p90_ms": 0.25075
+          },
+          "compiled": {
+            "median_ms": 0.237291,
+            "p90_ms": 0.245208
+          },
+          "eager_over_compiled_host_median": 1.0145770383200374
+        },
+        {
+          "case": "low_matmul_bf16",
+          "eager": {
+            "median_ms": 0.242208,
+            "p90_ms": 0.257
+          },
+          "compiled": {
+            "median_ms": 0.23658300000000002,
+            "p90_ms": 0.245417
+          },
+          "eager_over_compiled_host_median": 1.023776010955986
+        },
+        {
+          "case": "u32_select_sum_small",
+          "eager": {
+            "median_ms": 0.21054099999999998,
+            "p90_ms": 0.233333
+          },
+          "compiled": {
+            "median_ms": 0.20620799999999997,
+            "p90_ms": 0.21425
+          },
+          "eager_over_compiled_host_median": 1.0210127638112974
+        },
+        {
+          "case": "u32_select_sum_large",
+          "eager": {
+            "median_ms": 0.220834,
+            "p90_ms": 0.224417
+          },
+          "compiled": {
+            "median_ms": 0.205791,
+            "p90_ms": 0.211625
+          },
+          "eager_over_compiled_host_median": 1.073098434819793
+        }
+      ]
+    }
+  ]
+}

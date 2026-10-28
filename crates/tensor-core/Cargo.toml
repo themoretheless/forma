@@ -1,0 +1,12 @@
+[package]
+name = "tensor-core"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Shared tensor contracts and conformance helpers"
+license = "MIT"
+
+[features]
+conformance = []
+
+[dependencies]

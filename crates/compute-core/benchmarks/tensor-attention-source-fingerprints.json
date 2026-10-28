@@ -1,0 +1,27 @@
+{
+  "measurement": "tensor-attention-metal.txt",
+  "stage": "Bounded split-key decode and streaming attention",
+  "sha256": {
+    "crates/compute-core/examples/bench_tensor_attention.rs": "d5e63f5566878bc32869f109e3a874fe9b42b6af433ef47473f8a8c43ec6cc08",
+    "crates/compute-core/shaders/tensor_attention.wgsl": "81d9b0d1a02ad21b07a7fdafe3eed4a5f739d33d49396cf43f6d6a0dd4fe7ec0",
+    "crates/compute-core/shaders/tensor_attention_common.wgsl": "2f579f22e800a144c2ecbb27b24ae2f874f3328f9c673b22eee488cc92bd228b",
+    "crates/compute-core/shaders/tensor_attention_merge.wgsl": "cf95c3b199397aeef61ddd4e960f59f6882306f3de19800e1de3f0b67cdb60fd",
+    "crates/compute-core/shaders/tensor_elementwise.wgsl": "64c58ad91b8c6e3bf6cde4e3b2a8d639208bbb0dd611cacd91b4e5e10fdfe434",
+    "crates/compute-core/shaders/tensor_matmul.wgsl": "434477e4f3ba65b387e088582403ea0206e24242a816ce2be3f5fa883585eb54",
+    "crates/compute-core/shaders/tensor_stats_common.wgsl": "f6f718f3a82408a3a88f5a1a6f46a79c36eaf542c62d8f3966dd0a0aadc9da88",
+    "crates/compute-core/shaders/tensor_stats_finish.wgsl": "745166efc481990010b22ce3cab486a3d245a327148f666b9e9ee953a62ca3d7",
+    "crates/compute-core/shaders/tensor_stats_output.wgsl": "de4073ed86a8d16b30ba47f43d028270f2a0e2caddd8c4c84deb5bf943aa0dfe",
+    "crates/compute-core/shaders/tensor_stats_reduce.wgsl": "7f7a1aca54333b24b04b82bca7ca32d8bd6f6b65a8064466b4fb7367196b808b",
+    "crates/compute-core/shaders/tensor_stats_small.wgsl": "a8bd218d3e98ebc5dcfcc74f27fda81501ffe382da615f0e051c48f30155b4f7",
+    "crates/compute-core/src/runtime.rs": "be124c8b6d0116c3d1eddf3b65b7e3ac8ce9740628c5d8837e9f6dec74eef049",
+    "crates/compute-core/src/shaders.rs": "20069ee295838774393b6c8eec953b42deeaed9840ae277c4711442f0f8835c3",
+    "crates/compute-core/src/tensor/attention.rs": "8476e21796f3533e39ba7ed1ba921e86dcce21c66d245458edbc53bfdb76e87a",
+    "crates/compute-core/src/tensor/matmul.rs": "714f9b5f4115f5b5b21022d58446df6b9c7b2af53065677688176c350f09e148",
+    "crates/compute-core/src/tensor/normalization.rs": "3130dabc469f003b68ebddefec4f13fa6fe6767b1848134af84976a93ba0558d",
+    "crates/compute-core/src/tensor/program.rs": "09931302b171acd30f99b53150b8d448a55b8288eec18a673eed7d52107b8504",
+    "crates/compute-core/src/tensor_backend.rs": "00ad4c3e9153af2df90c41345eae868a8d8e779f70dadde4f913a691a08e0c30",
+    "crates/compute-core/tests/tensor_attention.rs": "644f72d1384434c10e3ca354c295c322b720362b39cde3811d99a9db1684e42e",
+    "crates/tensor-core/src/attention.rs": "745c23a42e28712449944fe553742eabc864d293a71c4d27cce33363bb04e1bc",
+    "crates/tensor-core/src/conformance/attention.rs": "50901bb39b248b2b1e48b970ef91ea3b76b42e74412adb56aae9f734a450b1c1"
+  }
+}

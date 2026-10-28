@@ -1,0 +1,24 @@
+{
+  "measurement": "tensor-low-metal.txt",
+  "scope": "Source snapshot for resident f32/packed16 matmul benchmark; no performance claim outside measured workloads",
+  "sha256": {
+    "crates/compute-core/examples/bench_tensor_low.rs": "e18f51d4862c232758d42d7bdf07c58d843d2ed9d71b4078bb267e5daac43d71",
+    "crates/compute-core/shaders/low_codec.wgsl": "c0e55c02eedb1f245c440855d3d6c9a0cb12a5227a42ba464b17a9dc5eb43f4c",
+    "crates/compute-core/shaders/tensor_low_matmul.wgsl": "748f1cd97d95e004d8c80e406a47b7d9d178a1e60cfe8e3b1468ba3d0b9bbdc4",
+    "crates/compute-core/shaders/tensor_low_pack.wgsl": "70162df685db3723a8849c56e9a02f51b58cdd988bab0a2545d07298fb5cf9a6",
+    "crates/compute-core/shaders/tensor_low_unpack.wgsl": "7f33b8cfa20a65b82a69389ddefab6dd13fd9d648f9b845b406ad8fcd7c42f98",
+    "crates/compute-core/shaders/tensor_matmul.wgsl": "434477e4f3ba65b387e088582403ea0206e24242a816ce2be3f5fa883585eb54",
+    "crates/compute-core/src/tensor/low/kernels.rs": "7537f15a9de6184b3407aa56f09574f4a309e11a1ae5348b8262b1f1e8b93c49",
+    "crates/compute-core/src/tensor/low/mod.rs": "af26eb543dc5d76ebf5d4ea79c5b49f77da9a7c74da9f05cf73a1635db8c8e82",
+    "crates/compute-core/src/tensor/low/program.rs": "c8fd44573de106b12c1b6565bbc98612f8359d87341678ed9d92d30bdfb9d562",
+    "crates/compute-core/src/tensor/matmul.rs": "714f9b5f4115f5b5b21022d58446df6b9c7b2af53065677688176c350f09e148",
+    "crates/compute-core/src/tensor/program.rs": "09931302b171acd30f99b53150b8d448a55b8288eec18a673eed7d52107b8504",
+    "crates/compute-core/src/tensor_low_backend.rs": "f010d3baa5b092a1bdc60a384358a9c571324ecbaa9cacf527b84fcfcdb5e6e7"
+  },
+  "post_measurement_documentation_changes": {
+    "crates/compute-core/src/tensor/low/mod.rs": {
+      "current_sha256": "20ecaf2a822646c8fb7635a97d65fb8de30931b53dde0af0fff20c724dd0d959",
+      "change": "Only write_low_storage_bits documentation changed: unused final padding lane resets to zero. Original measured hash remains above; executable code is unchanged."
+    }
+  }
+}

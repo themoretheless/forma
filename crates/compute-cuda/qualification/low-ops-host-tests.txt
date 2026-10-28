@@ -1,0 +1,48 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-cuda v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-cuda)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.89s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-cuda/e31d80fd51d43af8/out/compute_cuda-e31d80fd51d43af8)
+
+running 12 tests
+test low_precision::tests::native_low_gemm_support_is_explicit_and_storage_is_two_bytes ... ok
+test policy::tests::rectangular_row_major_layout_and_integer_limits ... ok
+test policy::tests::precision_is_explicit_and_unsupported_modes_do_not_fall_back ... ok
+test runtime::tests::logical_broadcast_count_is_bounded_without_allocating ... ok
+test libraries::tests::an_old_library_returns_its_missing_symbol_before_any_call ... ok
+test reduction::tests::reduction_metadata_keeps_axis_order_and_broadcast_strides ... ok
+test attention::tests::metadata_preserves_offsets_strides_broadcast_and_grouped_heads ... ok
+test indexing::gather::tests::gather_flat_addressing_preserves_prefix_indices_and_suffix_axes ... ok
+test matmul::tests::broadcast_batches_point_at_original_matrices ... ok
+test statistics::tests::row_plan_preserves_strides_and_bounds_partial_storage ... ok
+test attention::tests::matrix_promotion_is_a_view_even_with_transposed_strides ... ok
+test indexing::scan::tests::scan_row_addressing_matches_strided_layout_for_every_axis ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cuda_tensor.rs (crates/target/debug/build/compute-cuda/0bd32056ac749a4b/out/cuda_tensor-0bd32056ac749a4b)
+
+running 1 test
+SKIP CUDA runtime qualification: CUDA unavailable: CUDA driver/device is absent or initialization failed
+test native_cuda_tensor_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests compute_cuda
+
+running 1 test
+test compute-cuda/src/lib.rs - (line 18) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.52s; merged doctests compilation took 0.20s

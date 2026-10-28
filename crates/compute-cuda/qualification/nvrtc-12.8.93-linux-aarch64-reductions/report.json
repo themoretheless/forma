@@ -1,0 +1,1214 @@
+{
+  "qualification": "NVRTC source compilation only; no CUDA driver, GPU execution, cuBLAS or numerical validation",
+  "created_utc": "2026-09-27T01:34:57Z",
+  "container_image": "sha256:82150a52ec202c1b14d7817e14516c392bb7f5cfebd88f1ed531cb37ebd39922",
+  "host_architecture": "aarch64",
+  "python": "3.11.2",
+  "source": {
+    "parts": {
+      "kernels.cu": {
+        "bytes": 2307,
+        "sha256": "1241ca021598caaf31b8907d71c8ab0a4a9fbda24a7f1a357d8aead8da8ff38f"
+      },
+      "indexing.cu": {
+        "bytes": 9534,
+        "sha256": "f6f89a1160f457a82fba85885ac4f2773e5ef5e01b6990299d6ec83dee6b9570"
+      },
+      "reductions.cu": {
+        "bytes": 4107,
+        "sha256": "d5cf3bcc14485b30b25c3c4c0e01225b1b2646d42cf65dbfc7fb56f8047f2b49"
+      }
+    },
+    "bytes": 15948,
+    "sha256": "3b674b4ccc3638975a39fb8cd8fab7a26457943c38de11eefc8e55b54eaafc25"
+  },
+  "requested_compute_capabilities": [
+    70,
+    80,
+    90,
+    120
+  ],
+  "compilations": [
+    {
+      "requested_capability": 70,
+      "architecture": 70,
+      "options": [
+        "--ftz=false",
+        "--prec-sqrt=true",
+        "--prec-div=true",
+        "--fmad=false",
+        "--gpu-architecture=compute_70"
+      ],
+      "status": 0,
+      "compile_seconds": 0.2743760759476572,
+      "log": "compute-70.log",
+      "ptx": "compute-70.ptx",
+      "ptx_bytes": 369015,
+      "ptx_sha256": "2b3cfe7ec7bcb282120ab8f8a7043015cb140d7bf91dcd8e4c9d43faaf8c4eb8",
+      "entry_points": [
+        "add_scan_f32",
+        "add_scan_u32",
+        "binary",
+        "compact_f32",
+        "compact_u32",
+        "compare_f32",
+        "compare_u32",
+        "copy_u32",
+        "fill_f32",
+        "fill_u32",
+        "gather_f32",
+        "gather_u32",
+        "invalid_indices",
+        "normalize_mask",
+        "reduce_all",
+        "reduce_all_u32",
+        "reduce_axes",
+        "reduce_axes_u32",
+        "scan_f32",
+        "scan_u32",
+        "unary",
+        "where_f32",
+        "where_u32"
+      ],
+      "parameter_types": {
+        "unary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32",
+          "f32",
+          "f32"
+        ],
+        "binary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "copy_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compare_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "compare_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "where_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "where_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "add_scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "add_scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "invalid_indices": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "normalize_mask": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "reduce_axes": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_axes_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "fill_f32": [
+          "u64",
+          "u64",
+          "f32"
+        ],
+        "fill_u32": [
+          "u64",
+          "u64",
+          "u32"
+        ]
+      }
+    },
+    {
+      "requested_capability": 80,
+      "architecture": 80,
+      "options": [
+        "--ftz=false",
+        "--prec-sqrt=true",
+        "--prec-div=true",
+        "--fmad=false",
+        "--gpu-architecture=compute_80"
+      ],
+      "status": 0,
+      "compile_seconds": 0.2636937570059672,
+      "log": "compute-80.log",
+      "ptx": "compute-80.ptx",
+      "ptx_bytes": 369015,
+      "ptx_sha256": "4091ca702c37862b9f73ff82e57b8b6c669c49aa3517d01d78668cb591079c0a",
+      "entry_points": [
+        "add_scan_f32",
+        "add_scan_u32",
+        "binary",
+        "compact_f32",
+        "compact_u32",
+        "compare_f32",
+        "compare_u32",
+        "copy_u32",
+        "fill_f32",
+        "fill_u32",
+        "gather_f32",
+        "gather_u32",
+        "invalid_indices",
+        "normalize_mask",
+        "reduce_all",
+        "reduce_all_u32",
+        "reduce_axes",
+        "reduce_axes_u32",
+        "scan_f32",
+        "scan_u32",
+        "unary",
+        "where_f32",
+        "where_u32"
+      ],
+      "parameter_types": {
+        "unary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32",
+          "f32",
+          "f32"
+        ],
+        "binary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "copy_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compare_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "compare_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "where_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "where_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "add_scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "add_scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "invalid_indices": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "normalize_mask": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "reduce_axes": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_axes_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "fill_f32": [
+          "u64",
+          "u64",
+          "f32"
+        ],
+        "fill_u32": [
+          "u64",
+          "u64",
+          "u32"
+        ]
+      }
+    },
+    {
+      "requested_capability": 90,
+      "architecture": 90,
+      "options": [
+        "--ftz=false",
+        "--prec-sqrt=true",
+        "--prec-div=true",
+        "--fmad=false",
+        "--gpu-architecture=compute_90"
+      ],
+      "status": 0,
+      "compile_seconds": 0.2623506799573079,
+      "log": "compute-90.log",
+      "ptx": "compute-90.ptx",
+      "ptx_bytes": 369015,
+      "ptx_sha256": "5785be02330d8f40b8c60de7885e059b28233f7414a27f125b426fd86f1522b8",
+      "entry_points": [
+        "add_scan_f32",
+        "add_scan_u32",
+        "binary",
+        "compact_f32",
+        "compact_u32",
+        "compare_f32",
+        "compare_u32",
+        "copy_u32",
+        "fill_f32",
+        "fill_u32",
+        "gather_f32",
+        "gather_u32",
+        "invalid_indices",
+        "normalize_mask",
+        "reduce_all",
+        "reduce_all_u32",
+        "reduce_axes",
+        "reduce_axes_u32",
+        "scan_f32",
+        "scan_u32",
+        "unary",
+        "where_f32",
+        "where_u32"
+      ],
+      "parameter_types": {
+        "unary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32",
+          "f32",
+          "f32"
+        ],
+        "binary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "copy_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compare_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "compare_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "where_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "where_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "add_scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "add_scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "invalid_indices": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "normalize_mask": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "reduce_axes": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_axes_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "fill_f32": [
+          "u64",
+          "u64",
+          "f32"
+        ],
+        "fill_u32": [
+          "u64",
+          "u64",
+          "u32"
+        ]
+      }
+    },
+    {
+      "requested_capability": 120,
+      "architecture": 120,
+      "options": [
+        "--ftz=false",
+        "--prec-sqrt=true",
+        "--prec-div=true",
+        "--fmad=false",
+        "--gpu-architecture=compute_120"
+      ],
+      "status": 0,
+      "compile_seconds": 0.4536575970123522,
+      "log": "compute-120.log",
+      "ptx": "compute-120.ptx",
+      "ptx_bytes": 618464,
+      "ptx_sha256": "642876f9848eab92f35a74f24ccb91576989296adeeee84215e103cba52a6d2a",
+      "entry_points": [
+        "add_scan_f32",
+        "add_scan_u32",
+        "binary",
+        "compact_f32",
+        "compact_u32",
+        "compare_f32",
+        "compare_u32",
+        "copy_u32",
+        "fill_f32",
+        "fill_u32",
+        "gather_f32",
+        "gather_u32",
+        "invalid_indices",
+        "normalize_mask",
+        "reduce_all",
+        "reduce_all_u32",
+        "reduce_axes",
+        "reduce_axes_u32",
+        "scan_f32",
+        "scan_u32",
+        "unary",
+        "where_f32",
+        "where_u32"
+      ],
+      "parameter_types": {
+        "unary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32",
+          "f32",
+          "f32"
+        ],
+        "binary": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "copy_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compare_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "compare_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "where_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "where_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u64"
+        ],
+        "scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64",
+          "u32",
+          "u32"
+        ],
+        "add_scan_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "add_scan_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32"
+        ],
+        "invalid_indices": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "gather_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u64"
+        ],
+        "normalize_mask": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_f32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "compact_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64"
+        ],
+        "reduce_axes": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_axes_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "reduce_all_u32": [
+          "u64",
+          "u64",
+          "u64",
+          "u64",
+          "u32",
+          "u64",
+          "u32"
+        ],
+        "fill_f32": [
+          "u64",
+          "u64",
+          "f32"
+        ],
+        "fill_u32": [
+          "u64",
+          "u64",
+          "u32"
+        ]
+      }
+    }
+  ],
+  "wheel": {
+    "package": "nvidia-cuda-nvrtc-cu12",
+    "version": "12.8.93",
+    "filename": "nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+    "sha256": "fc1fec1e1637854b4c0a65fb9a8346b51dd9ee69e61ebaccc82058441f15bce8",
+    "download_url": "https://files.pythonhosted.org/packages/eb/d1/e50d0acaab360482034b84b6e27ee83c6738f7d32182b987f9c7a4e32962/nvidia_cuda_nvrtc_cu12-12.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl",
+    "libraries": [
+      {
+        "name": "libnvrtc-builtins.so.12.8",
+        "sha256": "ed835e23d384a62986f30ca02b67e2e776da62f51302740a67ed3482e36632b2"
+      },
+      {
+        "name": "libnvrtc.so.12",
+        "sha256": "0b703c99c16057bc8131458acb2880f4eafad273ce0a9e58679e3db667b0b5bf"
+      }
+    ]
+  },
+  "nvrtc_version": [
+    12,
+    8
+  ],
+  "supported_architectures": [
+    50,
+    52,
+    53,
+    60,
+    61,
+    62,
+    70,
+    72,
+    75,
+    80,
+    86,
+    87,
+    89,
+    90,
+    100,
+    101,
+    120
+  ],
+  "success": true
+}

@@ -1,0 +1,35 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.45s
+     Running tests/tensor_index.rs (crates/target/debug/build/compute-core/5c43dda94c502750/out/tensor_index-5c43dda94c502750)
+
+running 5 tests
+test indexing_errors_reject_cross_type_aliases_foreign_counts_and_invalid_axes ... ok
+test prepared_mask_scan_gather_compact_chain_reuses_all_gpu_state ... ok
+test scans_cover_hierarchy_boundaries_reverse_wrapping_and_offset_outputs ... ok
+test shader_index_backend_satisfies_shared_conformance ... ok
+test u32_compaction_and_gather_preserve_large_integer_bits_and_reset_counts ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.69s
+
+     Running tests/tensor_scatter.rs (crates/target/debug/build/compute-core/5bee1f7a48a6bb41/out/tensor_scatter-5bee1f7a48a6bb41)
+
+running 4 tests
+test replace_is_logically_last_and_repeated_plans_reset_owners_counts_and_base ... ok
+test scatter_rejects_cross_type_aliases_foreign_buffers_and_transactional_overflow ... ok
+test shader_scatter_satisfies_shared_conformance ... ok
+test typed_atomic_folds_include_base_handle_contention_and_preserve_wrapping ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+

@@ -1,0 +1,33 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/low_statistics.rs (crates/target/debug/build/compute-mlx/9fec963e4e8b72e3/out/low_statistics-9fec963e4e8b72e3)
+
+running 4 tests
+test bounded_group_and_element_grids_visit_all_statistic_rows ... ok
+test common_low_statistics_conformance ... ok
+test direct_long_strided_statistics_preserve_partial_rows_and_lazy_inputs ... 
+thread 'direct_long_strided_statistics_preserve_partial_rows_and_lazy_inputs' (29592642) panicked at compute-mlx/tests/low_statistics.rs:21:5:
+-9.535049e-6 != -9.53637938005905e-6
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test validation_precedes_empty_shortcuts_and_foreign_execution ... ok
+
+failures:
+
+failures:
+    direct_long_strided_statistics_preserve_partial_rows_and_lazy_inputs
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.72s
+
+error: test failed, to rerun pass `-p compute-mlx --test low_statistics`

@@ -1,0 +1,18 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `release` profile [optimized] target(s) in 11.89s
+     Running `crates/target/release/examples/bench_fusion`
+backend=metal, operations=9, compile_ms=46.090; wall time includes submission, wait and full readback; 3 warmups, 15 rotated samples
+n=4097 resident_chain_ms=0.230 resident_fused_ms=0.154 upload_chain_ms=0.251 upload_fused_ms=0.193 cpu_ms=0.017 dispatches=9->1 temporary_bytes=131104->0 readback_bytes=16388
+n=1000003 resident_chain_ms=2.436 resident_fused_ms=0.930 upload_chain_ms=3.131 upload_fused_ms=1.666 cpu_ms=3.832 dispatches=9->1 temporary_bytes=32000096->0 readback_bytes=4000012

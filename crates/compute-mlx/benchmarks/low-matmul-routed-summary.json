@@ -1,0 +1,430 @@
+{
+  "stage": "Combined routed final candidate: stride hoist, K-parallel GEMV/dot, identity-broadcast omission",
+  "backend": "MLX 0.32.1 / MLX-C 0.6.0_4; Apple M4 Max Metal",
+  "measured_outputs": 1488,
+  "validation_failures": 0,
+  "sources_unchanged_after_both_runs": true,
+  "harness_unchanged_from_initial": true,
+  "timing": "host wall only; graph construction through full readback and synchronization",
+  "no_individual_edit_attribution": true,
+  "runs": [
+    {
+      "log": "low-matmul-routed-metal.txt",
+      "results": [
+        {
+          "case": "vector_dot",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12237500000000001,
+              "host_p90_ms": 0.128291,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.114833,
+              "host_p90_ms": 0.121542,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.0656779845514792
+        },
+        {
+          "case": "vector_dot",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.121791,
+              "host_p90_ms": 0.124833,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.11375,
+              "host_p90_ms": 0.11683299999999999,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.0706901098901098
+        },
+        {
+          "case": "decode_vector",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.163625,
+              "host_p90_ms": 0.17962499999999998,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.145875,
+              "host_p90_ms": 0.167209,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.1216795201371037
+        },
+        {
+          "case": "decode_vector",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.140583,
+              "host_p90_ms": 0.146334,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.132917,
+              "host_p90_ms": 0.13937500000000003,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.0576750904699925
+        },
+        {
+          "case": "matrix_vector",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.116709,
+              "host_p90_ms": 0.119083,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.11950000000000001,
+              "host_p90_ms": 0.123917,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9766443514644351
+        },
+        {
+          "case": "matrix_vector",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.11275,
+              "host_p90_ms": 0.14400000000000002,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.11491699999999999,
+              "host_p90_ms": 0.164041,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9811429118407199
+        },
+        {
+          "case": "odd_gemm",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.130083,
+              "host_p90_ms": 0.138375,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.135,
+              "host_p90_ms": 0.14550000000000002,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9635777777777778
+        },
+        {
+          "case": "odd_gemm",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.122791,
+              "host_p90_ms": 0.126292,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.12379200000000001,
+              "host_p90_ms": 0.12720900000000002,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9919138554995475
+        },
+        {
+          "case": "moderate_gemm",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12379200000000001,
+              "host_p90_ms": 0.12995800000000002,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.136333,
+              "host_p90_ms": 0.143209,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9080120000293399
+        },
+        {
+          "case": "moderate_gemm",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12379200000000001,
+              "host_p90_ms": 0.12575,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.133042,
+              "host_p90_ms": 0.139708,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9304730836878581
+        },
+        {
+          "case": "batch_transpose_broadcast",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12433299999999999,
+              "host_p90_ms": 0.131,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.126667,
+              "host_p90_ms": 0.13070900000000002,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9815737327007032
+        },
+        {
+          "case": "batch_transpose_broadcast",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12233400000000001,
+              "host_p90_ms": 0.127208,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.125667,
+              "host_p90_ms": 0.13004100000000002,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9734775239322974
+        }
+      ]
+    },
+    {
+      "log": "low-matmul-routed-metal-repeat.txt",
+      "results": [
+        {
+          "case": "vector_dot",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.127542,
+              "host_p90_ms": 0.132542,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.120208,
+              "host_p90_ms": 0.124666,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.061010914415014
+        },
+        {
+          "case": "vector_dot",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.123292,
+              "host_p90_ms": 0.12679100000000001,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.115542,
+              "host_p90_ms": 0.1205,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.06707517612643
+        },
+        {
+          "case": "decode_vector",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.126459,
+              "host_p90_ms": 0.130833,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.123917,
+              "host_p90_ms": 0.130625,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.0205137309650814
+        },
+        {
+          "case": "decode_vector",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.122125,
+              "host_p90_ms": 0.128333,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.119083,
+              "host_p90_ms": 0.123292,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 1.0255452079641931
+        },
+        {
+          "case": "matrix_vector",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.109125,
+              "host_p90_ms": 0.11529199999999999,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.117542,
+              "host_p90_ms": 0.12575,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9283915536574161
+        },
+        {
+          "case": "matrix_vector",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.11574999999999999,
+              "host_p90_ms": 0.118959,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.122791,
+              "host_p90_ms": 0.127667,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9426586639085927
+        },
+        {
+          "case": "odd_gemm",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12108300000000001,
+              "host_p90_ms": 0.123958,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.1215,
+              "host_p90_ms": 0.125125,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.996567901234568
+        },
+        {
+          "case": "odd_gemm",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12291599999999998,
+              "host_p90_ms": 0.13033399999999998,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.12395900000000001,
+              "host_p90_ms": 0.13241699999999998,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.991585927605095
+        },
+        {
+          "case": "moderate_gemm",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.12208299999999998,
+              "host_p90_ms": 0.125542,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.132833,
+              "host_p90_ms": 0.138125,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9190713151099499
+        },
+        {
+          "case": "moderate_gemm",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.127375,
+              "host_p90_ms": 0.134125,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.138875,
+              "host_p90_ms": 0.145792,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9171917191719171
+        },
+        {
+          "case": "batch_transpose_broadcast",
+          "dtype": "F16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.125166,
+              "host_p90_ms": 0.127834,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.127,
+              "host_p90_ms": 0.130791,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9855590551181103
+        },
+        {
+          "case": "batch_transpose_broadcast",
+          "dtype": "Bf16",
+          "paths": {
+            "cast_both_then_f32_matmul": {
+              "host_median_ms": 0.122791,
+              "host_p90_ms": 0.130083,
+              "samples": 31
+            },
+            "direct_low_to_f32_matmul": {
+              "host_median_ms": 0.127792,
+              "host_p90_ms": 0.137458,
+              "samples": 31
+            }
+          },
+          "baseline_over_direct_host_median": 0.9608660949042194
+        }
+      ]
+    }
+  ]
+}

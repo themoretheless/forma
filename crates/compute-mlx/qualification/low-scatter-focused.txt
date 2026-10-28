@@ -1,0 +1,22 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/low_scatter.rs (crates/target/debug/build/compute-mlx/28b13b394955232c/out/low_scatter-28b13b394955232c)
+
+running 3 tests
+test common_low_scatter_backend_conformance ... ok
+test lists_handle_contention_strides_broadcast_and_fresh_repeated_calls ... ok
+test low_scatter_validates_before_empty_execution_and_keeps_counts_resident ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.49s
+

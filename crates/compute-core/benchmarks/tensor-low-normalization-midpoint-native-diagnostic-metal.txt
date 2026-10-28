@@ -1,0 +1,41 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+warning: function `reduce` is never used
+  --> compute-core/examples/../src/tensor/low/statistics_sources.rs:60:15
+   |
+60 | pub(super) fn reduce() -> String {
+   |               ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `finish` is never used
+  --> compute-core/examples/../src/tensor/low/statistics_sources.rs:84:15
+   |
+84 | pub(super) fn finish() -> String {
+   |               ^^^^^^
+
+warning: function `output` is never used
+   --> compute-core/examples/../src/tensor/low/statistics_sources.rs:105:15
+    |
+105 | pub(super) fn output() -> String {
+    |               ^^^^^^
+
+warning: `compute-core` (example "debug_low_stats") generated 3 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+     Running `crates/target/debug/examples/debug_low_stats`
+[9d000000, 9d000000, 1d000000, 1, 0, 1d000000, bf800000, 0, bf800000, 3f800000, a23504f4, 0]
+[-1.6940659e-21, -1.6940659e-21, 1.6940659e-21, 1e-45, 0.0, 1.6940659e-21, -1.0, 0.0, -1.0, 1.0, -2.4532696e-18, 0.0]
+[7f7f0000, 7f770000, 7f7f0000, 0, 7f7b0000, 7c800000, 3f800000, 3e800000, 3f400000, 3f000000, 3f87c3b6, 609e1d28]
+[3.3895314e38, 3.2831931e38, 3.3895314e38, 0.0, 3.3363623e38, 5.316912e36, 1.0, 0.25, 0.75, 0.5, 1.0606601, 9.114645e19]
+native_f32_near_max_norm=[NaN, NaN, NaN, NaN, NaN]

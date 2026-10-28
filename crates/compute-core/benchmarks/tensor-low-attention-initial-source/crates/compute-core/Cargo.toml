@@ -1,0 +1,15 @@
+[package]
+name = "compute-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+wgpu.workspace = true
+gpu-compute = { path = "../gpu-compute" }
+tensor-core = { path = "../tensor-core" }
+naga.workspace = true
+
+[dev-dependencies]
+tensor-core = { path = "../tensor-core", features = ["conformance"] }

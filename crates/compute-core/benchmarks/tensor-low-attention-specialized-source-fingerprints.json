@@ -1,0 +1,23 @@
+{
+  "scope": "Candidate1: per-dtype cached pipelines, no F16 BF16-flush guard, nonzero-only BF16 guard; exactcodec unchanged",
+  "base": "tensor-low-attention-initial-source-fingerprints.json",
+  "overlay": "tensor-low-attention-specialized-source",
+  "files": {
+    "crates/compute-core/src/runtime.rs": {
+      "bytes": 8024,
+      "sha256": "3d1ef9b003fa8d23e0d77d0f5659274618dc2eaca1cf6a0336870756e706cf68"
+    },
+    "crates/compute-core/src/tensor/low/attention.rs": {
+      "bytes": 4968,
+      "sha256": "95cb2a4cf7910a00a844779c4b671695ebfcdd528240badc44c7a436a7b6368d"
+    },
+    "crates/compute-core/src/tensor/low/attention_source.rs": {
+      "bytes": 2662,
+      "sha256": "9fe35d8ce16a9a89ca99d1ffa8ffb79abef0074da3a61ba53330ab9553fdb4f0"
+    },
+    "crates/compute-core/shaders/tensor_low_attention_load.wgsl": {
+      "bytes": 1183,
+      "sha256": "64d38351f9864ddb23d6a33dfd2fe41440fb9ee1d6a1df97e2a60cf643400936"
+    }
+  }
+}

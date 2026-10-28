@@ -1,0 +1,46 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running tests/low_attention.rs (crates/target/debug/build/compute-mlx/157a79836480c37d/out/low_attention-157a79836480c37d)
+
+running 4 tests
+test bounded_grid_reuses_groups_without_skipping_rows ... ok
+test common_low_attention_conformance ... ok
+test owner_and_mask_validation_precede_empty_shortcuts ... ok
+test strided_wide_values_and_skipped_tiles_keep_lazy_inputs_alive ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/low_matmul.rs (crates/target/debug/build/compute-mlx/2e4d133bd75ceb71/out/low_matmul-2e4d133bd75ceb71)
+
+running 6 tests
+test bounded_tile_grid_reuses_groups_and_zero_strides ... ok
+test broadcast_transposed_partial_tiles_preserve_values_and_lazy_lifetime ... ok
+test empty_products_and_preallocation_validation_follow_common_contract ... ok
+test f32_output_retains_extra_bits_and_accumulation_cancellation ... ok
+test mixed_bf16_tiles_preserve_accumulators_before_and_after_tiny_products ... ok
+test tiny_bf16_operands_form_normal_products_in_both_orders ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.59s
+
+     Running tests/low_precision.rs (crates/target/debug/build/compute-mlx/24f3e3e8f061be53/out/low_precision-24f3e3e8f061be53)
+
+running 5 tests
+test common_low_backend_conformance ... ok
+test device_casts_match_rne_including_subnormals_and_special_values ... ok
+test low_empty_scalar_batch_and_validation_paths_are_explicit ... ok
+test low_matmul_accumulates_before_rounding_and_retains_native_output ... ok
+test native_storage_and_strided_views_preserve_all_bit_patterns ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+

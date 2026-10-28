@@ -1,0 +1,34 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.27s
+     Running tests/index.rs (crates/target/debug/build/compute-mlx/b36f9751851c93fc/out/index-b36f9751851c93fc)
+
+running 4 tests
+test compaction_all_false_all_true_empty_scalar_and_resident_count ... ok
+test compaction_is_stable_for_strides_broadcast_masks_and_large_odd_counts ... ok
+test device_gather_masks_invalid_indices_and_counts_each_index_once ... 
+thread 'device_gather_masks_invalid_indices_and_counts_each_index_once' (28723677) panicked at compute-mlx/tests/index.rs:64:52:
+called `Result::unwrap()` on an `Err` value: Native { operation: "read_u32", message: "[metal::Device] Unable to load kernel init_reduce_sumuint32\n at mlx/c/array.cpp:352" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test index_methods_enforce_dtype_ownership_and_mask_shape ... ok
+
+failures:
+
+failures:
+    device_gather_masks_invalid_indices_and_counts_each_index_once
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+error: test failed, to rerun pass `-p compute-mlx --test index`

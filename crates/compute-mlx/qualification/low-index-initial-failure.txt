@@ -1,0 +1,37 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.09s
+     Running tests/low_index.rs (crates/target/debug/build/compute-mlx/ba96f8e726daf5c4/out/low_index-ba96f8e726daf5c4)
+
+running 4 tests
+test chunk_scan_boundaries_broadcast_grid_stride_and_lifetimes ... 
+thread 'chunk_scan_boundaries_broadcast_grid_stride_and_lifetimes' (29422310) panicked at compute-mlx/tests/low_index.rs:93:45:
+called `Result::unwrap()` on an `Err` value: Native { operation: "read_f32", message: "[metal::Device] Unable to build metal library from source\nmlx/backend/metal/kernels/utils.h:517:35: error: subscripted value is not an array, pointer, or vector\n        if (false) prefix += carry[group];\n                             ~~~~~^~~~~~\n\n at mlx/c/array.cpp:352" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test common_low_index_backend_conformance ... 
+thread 'common_low_index_backend_conformance' (29422321) panicked at compute-mlx/tests/low_index.rs:30:59:
+called `Result::unwrap()` on an `Err` value: Native { operation: "read_f32", message: "[metal::Device] Unable to build metal library from source\nmlx/backend/metal/kernels/utils.h:517:35: error: subscripted value is not an array, pointer, or vector\n        if (false) prefix += carry[group];\n                             ~~~~~^~~~~~\n\n at mlx/c/array.cpp:352" }
+FAILED
+test low_index_ownership_dtype_scalar_and_empty_rules ... ok
+test raw_native_gather_and_unique_compaction_keep_every_payload ... ok
+
+failures:
+
+failures:
+    chunk_scan_boundaries_broadcast_grid_stride_and_lifetimes
+    common_low_index_backend_conformance
+
+test result: FAILED. 2 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.87s
+
+error: test failed, to rerun pass `-p compute-mlx --test low_index`

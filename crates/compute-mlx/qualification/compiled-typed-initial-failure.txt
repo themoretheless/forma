@@ -1,0 +1,95 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.11s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-mlx/2a20d23b61da9ba4/out/compute_mlx-2a20d23b61da9ba4)
+
+running 6 tests
+test ffi::tests::missing_library_is_an_error_without_native_initialization ... ok
+test ffi::tests::native_shape_error_returns_message_and_keeps_c_api_usable ... ok
+test native::compiled::callback::tests::callback_contains_panics_releases_locals_and_recovers ... 
+thread 'native::compiled::callback::tests::callback_contains_panics_releases_locals_and_recovers' (30147343) panicked at compute-mlx/src/native/compiled/callback.rs:136:17:
+injected trace failure
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+ok
+test native::compiled::callback::tests::native_callback_failure_releases_arrays_and_allows_next_trace ... ok
+test native::compiled::tests::compound_lowering_rolls_back_appended_nodes_after_late_failure ... ok
+test native::low_scatter::tests::list_allocation_pads_safely_and_preserves_u32_token_capacity ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/compiled.rs (crates/target/debug/build/compute-mlx/08c5c0e45cbb2c80/out/compiled-08c5c0e45cbb2c80)
+
+running 10 tests
+test changed_resident_inputs_replay_map_and_reductions_with_duplicate_outputs ... ok
+test disabled_mode_is_qualified_without_mutating_parent_global_state ... compiled disabled-mode child:
+
+running 1 test
+test disabled_native_compilation_still_replays_fresh_values_in_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.04s
+
+disabled compiler: 3 fresh executions, 3 callback traces
+
+ok
+test disabled_native_compilation_still_replays_fresh_values_in_child ... ok
+test empty_output_list_replays_without_evaluated_result_handles ... ok
+test invalid_builder_values_and_shapes_do_not_corrupt_valid_nodes ... ok
+test runtime_input_rejection_happens_before_native_tracing ... ok
+test same_shape_new_transpose_and_zero_strides_reuse_the_native_trace ... ok
+test shape_nodes_and_batched_matmul_follow_independent_coordinates ... ok
+test unevaluated_outputs_keep_input_and_context_lifetimes_after_program_drop ... ok
+test vector_matmul_and_empty_contractions_keep_shared_shape_rules ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/compiled_typed.rs (crates/target/debug/build/compute-mlx/9961ca1f03919c4a/out/compiled_typed-9961ca1f03919c4a)
+
+running 18 tests
+test arithmetic::finite_low_sign_and_extrema_bits_are_exact_through_custom_nodes ... ok
+test arithmetic::low_f32_evaluation_and_unsigned_wrapping_use_the_declared_dtype ... ok
+test arithmetic::low_operations_round_each_node_before_the_next_operation ... ok
+test casts::all_raw_low_payloads_survive_views_and_changed_strides_without_retracing ... ok
+test casts::compiled_f32_low_f32_keeps_every_rounding_boundary_inside_the_graph ... ok
+test casts::scalar_zero_stride_and_empty_low_views_keep_bits ... ok
+test matmul::cancellation_accumulates_in_f32_before_low_rounding ... ok
+test matmul::compiled_bf16_tiny_products_survive_matrix_and_vector_paths ... ok
+test matmul::direct_low_matmul_has_unrounded_f32_outputs_with_strided_replay ... 
+thread 'matmul::direct_low_matmul_has_unrounded_f32_outputs_with_strided_replay' (30147483) panicked at compute-mlx/tests/compiled_typed/matmul.rs:90:17:
+assertion failed: expected.iter().zip(&rounded).any(|(&x, &low)| x != decode(dtype, low))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test matmul::vector_promotion_batch_zero_strides_and_empty_products_remain_typed ... 
+thread 'matmul::vector_promotion_batch_zero_strides_and_empty_products_remain_typed' (30147485) panicked at compute-mlx/tests/compiled_typed.rs:87:13:
+assertion `left == right` failed: f32 bits at 0: 0.0 vs -0.0
+  left: 0
+ right: 2147483648
+FAILED
+test reductions::low_extrema_hierarchy_preserves_subnormals_and_both_zero_signs ... ok
+test reductions::low_reductions_keep_f32_partials_and_round_the_completed_result_once ... ok
+test reductions::unsigned_reductions_wrap_exactly_and_empty_contractions_use_typed_identities ... ok
+test unsigned::legacy_transport_rejects_low_and_unsigned_outputs_from_f32_inputs_before_trace ... ok
+test unsigned::unsigned_compare_select_and_reduction_compose_without_signed_or_f32_promotion ... ok
+test validation::lazy_custom_outputs_outlive_program_kernels_constants_and_original_inputs ... ok
+test validation::typed_bindings_validate_owner_dtype_shape_before_trace_and_keep_output_types ... ok
+test validation::typed_builder_rejections_preserve_valid_empty_nodes_and_input_slots ... ok
+
+failures:
+
+failures:
+    matmul::direct_low_matmul_has_unrounded_f32_outputs_with_strided_replay
+    matmul::vector_promotion_batch_zero_strides_and_empty_products_remain_typed
+
+test result: FAILED. 16 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.96s
+
+error: test failed, to rerun pass `-p compute-mlx --test compiled_typed`

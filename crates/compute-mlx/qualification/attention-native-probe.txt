@@ -1,0 +1,13 @@
+MLX 0.32.1 direct C GPU SDPA probe
+fallback_bool_allfalse code=0 Q=[1,1,4,3] K=[1,1,3,3] Vdim=5 row_first: [ 2 2 2 2 ]
+fallback_additive_allinf code=0 Q=[1,1,4,3] K=[1,1,3,3] Vdim=5 row_first: [ nan nan nan nan ]
+fallback_bool_mixed code=0 Q=[1,1,4,3] K=[1,1,3,3] Vdim=5 row_first: [ 2 1 2 1 ]
+fallback_additive_mixed code=0 Q=[1,1,4,3] K=[1,1,3,3] Vdim=5 row_first: [ nan 1 nan 1 ]
+vector_bool_allfalse code=0 Q=[1,1,4,64] K=[1,1,4,64] Vdim=64 row_first: [ 0 0 0 0 ]
+vector_additive_allinf code=0 Q=[1,1,4,64] K=[1,1,4,64] Vdim=64 row_first: [ 0 0 0 0 ]
+full_bool_mixed code=0 Q=[1,1,16,64] K=[1,1,8,64] Vdim=64 row_first: [ 1.125 1 1.125 1 1.125 ]
+full_additive_mixed code=0 Q=[1,1,16,64] K=[1,1,8,64] Vdim=64 row_first: [ 0 1 0 1 0 ]
+fallback_causal_q_gt_k code=0 Q=[1,1,4,3] K=[1,1,2,3] Vdim=5 row_first: [ 1.5 1.5 1 1.5 ]
+fallback_causal_q_lt_k code=0 Q=[1,1,2,3] K=[1,1,4,3] Vdim=5 row_first: [ 2 2.5 ]
+fallback_GQA_Dv_unequal code=0 Q=[1,4,3,3] K=[1,2,4,3] Vdim=5 row_first: [ 2.5 2.5 2.5 ] [ 2.5 2.5 2.5 ] [ 12.5 12.5 12.5 ] [ 12.5 12.5 12.5 ]
+vector_GQA_Dv_192_128 code=0 Q=[1,4,2,192] K=[1,2,4,192] Vdim=128 row_first: [ 2.5 2.5 ] [ 2.5 2.5 ] [ 12.5 12.5 ] [ 12.5 12.5 ]

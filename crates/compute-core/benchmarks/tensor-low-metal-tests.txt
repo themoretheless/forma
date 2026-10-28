@@ -1,0 +1,40 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s
+     Running tests/tensor.rs (crates/target/debug/build/compute-core/a8bbe2bf73a4d0aa/out/tensor-a8bbe2bf73a4d0aa)
+
+running 10 tests
+test all_unary_and_binary_ops_accept_transposes_and_axis_broadcast ... ok
+test arbitrary_axis_sets_keepdims_scalar_and_empty_reductions ... ok
+test axis_sum_and_batched_matmul_cross_workgroup_dispatch_limit ... ok
+test batched_matmul_broadcasts_and_handles_transposes_odd_tiles ... ok
+test complete_contiguous_tensor_sum_reuses_array_reduction_and_prefixes ... ok
+test hierarchical_axis_reductions_reuse_strided_inputs_and_offset_outputs ... ok
+test invalid_metadata_ownership_shapes_and_aliases_leave_program_usable ... ok
+test rank_twelve_views_materialize_without_fixed_rank_limit ... ok
+test view_chain_broadcast_reduce_and_repeated_execution_preserve_sentinels ... ok
+test zero_contractions_overwrite_reused_outputs_and_zero_batch_is_empty ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.76s
+
+     Running tests/tensor_low.rs (crates/target/debug/build/compute-core/0d63ebe94e16e096/out/tensor_low-0d63ebe94e16e096)
+
+running 4 tests
+test low_metadata_dtype_ownership_and_cross_type_aliases_are_rejected ... ok
+test packed_views_preserve_all_neighboring_halves_with_odd_offsets_and_reuse ... ok
+test recorded_cast_strided_batched_matmul_and_low_output_reuse_without_expansion ... ok
+test shader_low_backend_satisfies_exhaustive_shared_conformance ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+

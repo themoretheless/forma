@@ -1,0 +1,85 @@
+{
+  "scope": "Final guarded-F16, cache-free WGSL source frozen after focused required Metal qualification: 17 passed (13 library + 4 tensor_low_attention), 0 failed",
+  "files": {
+    "crates/compute-core/shaders/float_power2.wgsl": {
+      "bytes": 1501,
+      "sha256": "fafe1617acd6bb4f2de3f9e855967f3e2904993aefe05e0e958588efb815ff7d"
+    },
+    "crates/compute-core/shaders/tensor_attention_common.wgsl": {
+      "bytes": 915,
+      "sha256": "001e87760c00069bd5e7a36d015f22521bf580710eead2cc49e3564cb17d2d22"
+    },
+    "crates/compute-core/shaders/tensor_attention.wgsl": {
+      "bytes": 7579,
+      "sha256": "81d9b0d1a02ad21b07a7fdafe3eed4a5f739d33d49396cf43f6d6a0dd4fe7ec0"
+    },
+    "crates/compute-core/shaders/tensor_attention_merge.wgsl": {
+      "bytes": 2776,
+      "sha256": "cf95c3b199397aeef61ddd4e960f59f6882306f3de19800e1de3f0b67cdb60fd"
+    },
+    "crates/compute-core/shaders/tensor_low_attention_load.wgsl": {
+      "bytes": 1183,
+      "sha256": "64d38351f9864ddb23d6a33dfd2fe41440fb9ee1d6a1df97e2a60cf643400936"
+    },
+    "crates/compute-core/shaders/tensor_stats_common.wgsl": {
+      "bytes": 2054,
+      "sha256": "7a7d598b4e9d8005bdcbb8109e15bb521a052736ce332c56f017b73023110851"
+    },
+    "crates/compute-core/shaders/tensor_stats_small.wgsl": {
+      "bytes": 5350,
+      "sha256": "ba9ab69c01b3b8e5e84bb365d6912dc7d8c82a2aae4eccd78b2918eae93e62d9"
+    },
+    "crates/compute-core/shaders/tensor_stats_finish.wgsl": {
+      "bytes": 1712,
+      "sha256": "e310ae416836911e811f87de54550fda1a1a8a2c74b9d9d0a4e631fa8eafdbfa"
+    },
+    "crates/compute-core/shaders/tensor_low_stats.wgsl": {
+      "bytes": 1885,
+      "sha256": "75d60f02821921464b280c93fad21912e1c1f7110432bd2b675cc4da9ba1093b"
+    },
+    "crates/compute-core/src/shaders.rs": {
+      "bytes": 7682,
+      "sha256": "1bf3e9263c0014eb7b2df788c86a3aa203bddba849139e76be9dcd8b34f8d0a3"
+    },
+    "crates/compute-core/src/runtime.rs": {
+      "bytes": 8024,
+      "sha256": "3d1ef9b003fa8d23e0d77d0f5659274618dc2eaca1cf6a0336870756e706cf68"
+    },
+    "crates/compute-core/src/tensor/attention.rs": {
+      "bytes": 12413,
+      "sha256": "17c2bbf473e8d5ca49c7bb12b6c4a1a134a64f5837ba1c1981f0f6e5ea84508a"
+    },
+    "crates/compute-core/src/tensor/low/attention.rs": {
+      "bytes": 4968,
+      "sha256": "95cb2a4cf7910a00a844779c4b671695ebfcdd528240badc44c7a436a7b6368d"
+    },
+    "crates/compute-core/src/tensor/low/attention_source.rs": {
+      "bytes": 7659,
+      "sha256": "e19eb5950bb51522c11e3608f80ffe9206a6c197a4f52b101fa324e48ef95023"
+    },
+    "crates/compute-core/src/tensor/low/statistics_sources.rs": {
+      "bytes": 5964,
+      "sha256": "5f1f52fd45d01faa926da2b32bf00ade4cb76ae8a7d095b12a154d82d27491db"
+    },
+    "crates/compute-core/src/tensor/low/mod.rs": {
+      "bytes": 6168,
+      "sha256": "28890285390ad9df230025d646b0fd5442010459e0f53451f6ddd5b2e4fe3f7f"
+    },
+    "crates/compute-core/src/tensor_low_backend.rs": {
+      "bytes": 12809,
+      "sha256": "9e63f1b405d9af41dca571ee3f94e2d174ac7e8380e25bf1dec707f5b44b6046"
+    },
+    "crates/compute-core/tests/tensor_low_attention.rs": {
+      "bytes": 18456,
+      "sha256": "6e99a5d74f8aa520f965f05f0a8fb23db25d77b93b92b6b13348797a98004ab7"
+    }
+  },
+  "qualification": {
+    "log": "tensor-low-attention-guarded-f16-metal-tests.txt",
+    "passed": 17,
+    "failed": 0,
+    "library_passed": 13,
+    "tensor_low_attention_passed": 4
+  },
+  "initial_manifest": "tensor-low-attention-initial-wgsl-source-fingerprints.json"
+}

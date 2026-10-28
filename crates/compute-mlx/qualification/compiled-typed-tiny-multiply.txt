@@ -1,0 +1,12 @@
+     Locking 5 packages to highest Rust 1.100.0-nightly compatible versions
+   Compiling cfg-if v1.0.5
+   Compiling tensor-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/tensor-core)
+   Compiling libloading v0.8.9
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+   Compiling mlx-compiled-tiny-multiply v0.0.0 (/tmp/mlx-compiled-tiny-multiply)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.80s
+     Running `crates/target/debug/mlx-compiled-tiny-multiply`
+left=0001 right=7f7f f64_product=0.0311279296875 eager_low=0000 compiled_low=0000 traces=1
+left=7f7f right=0001 f64_product=0.0311279296875 eager_low=0000 compiled_low=0000 traces=1
+left=007f right=7f7f f64_product=3.9532470703125 eager_low=0000 compiled_low=0000 traces=1
+left=7f7f right=007f f64_product=3.9532470703125 eager_low=0000 compiled_low=0000 traces=1

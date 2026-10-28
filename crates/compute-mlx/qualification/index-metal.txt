@@ -1,0 +1,51 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-mlx/ba5ee64e78024b6b/out/compute_mlx-ba5ee64e78024b6b)
+
+running 2 tests
+test ffi::tests::missing_library_is_an_error_without_native_initialization ... ok
+test ffi::tests::native_shape_error_returns_message_and_keeps_c_api_usable ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/index.rs (crates/target/debug/build/compute-mlx/b36f9751851c93fc/out/index-b36f9751851c93fc)
+
+running 5 tests
+test common_index_backend_conformance ... ok
+test compaction_all_false_all_true_empty_scalar_and_resident_count ... ok
+test compaction_is_stable_for_strides_broadcast_masks_and_large_odd_counts ... ok
+test device_gather_masks_invalid_indices_and_counts_each_index_once ... ok
+test index_methods_enforce_dtype_ownership_and_mask_shape ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/native.rs (crates/target/debug/build/compute-mlx/f37400ced4bd95d6/out/native-f37400ced4bd95d6)
+
+running 6 tests
+test arithmetic_comparison_and_axis_reduction_match_references ... ok
+test batched_matmul_zero_inner_and_empty_reductions ... ok
+test common_tensor_backend_conformance ... ok
+test strided_views_broadcast_and_lazy_lifetime_follow_logical_values ... MLX runtime=0.32.1 GPU stream
+ok
+test unsigned_scans_gather_and_dtype_boundaries ... ok
+test validation_failure_leaves_backend_usable_and_owner_checks_apply ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+   Doc-tests compute_mlx
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

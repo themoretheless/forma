@@ -1,0 +1,35 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+     Running tests/low_ops.rs (crates/target/debug/build/compute-mlx/ee9882c3d6919058/out/low_ops-ee9882c3d6919058)
+
+running 6 tests
+test common_low_ops_backend_conformance ... 
+thread 'common_low_ops_backend_conformance' (29348802) panicked at compute-mlx/tests/low_ops.rs:256:57:
+called `Result::unwrap()` on an `Err` value: Native { operation: "read_low_bits", message: "[metal::Device] Unable to build metal library from source\nmlx/backend/metal/kernels/utils.h:482:21: error: use of undeclared identifier 'lhs_ndim'\nfor (int d = 0; d < lhs_ndim; ++d) count *= ulong(lhs_shape[d]);\n                    ^\nmlx/backend/metal/kernels/utils.h:482:51: error: use of undeclared identifier 'lhs_shape'\nfor (int d = 0; d < lhs_ndim; ++d) count *= ulong(lhs_shape[d]);\n                                                  ^\nmlx/backend/metal/kernels/utils.h:484:54: error: use of undeclared identifier 'lhs_shape'\n    ushort left = as_type<ushort>(lhs[elem_to_loc(i, lhs_shape, lhs_strides, lhs_ndim)]);\n                                                     ^\nmlx/backend/metal/kernels/utils.h:484:65: error: use of undeclared identifier 'lhs_strides'\n    ushort left = as_type<ushort>(lhs[elem_to_loc(i, lhs_shape, lhs_strides, lhs_ndim)]);\n                                                                ^\nmlx/backend/metal/kernels/utils.h:484:78: error: use of undeclared identifier 'lhs_ndim'\n    ushort left = as_type<ushort>(lhs[elem_to_loc(i, lhs_shape, lhs_strides, lhs_ndim)]);\n                                                                             ^\nmlx/backend/metal/kernels/utils.h:485:55: error: use of undeclared identifier 'rhs_shape'\n    ushort right = as_type<ushort>(rhs[elem_to_loc(i, rhs_shape, rhs_strides, rhs_ndim)]);\n                                                      ^\nmlx/backend/metal/kernels/utils.h:485:66: error: use of undeclared identifier 'rhs_strides'\n    ushort right = as_type<ushort>(rhs[elem_to_loc(i, rhs_shape, rhs_strides, rhs_ndim)]);\n                                                                 ^\nmlx/backend/metal/kernels/utils.h:485:79: error: use of undeclared identifier 'rhs_ndim'\n    ushort right = as_type<ushort>(rhs[elem_to_loc(i, rhs_shape, rhs_strides, rhs_ndim)]);\n                                                                              ^\n\n at mlx/c/array.cpp:352" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test custom_arithmetic_evaluates_once_in_f32_with_broadcast_and_cache_reuse ... ok
+test custom_extrema_select_exact_subnormals_and_zero_signs ... ok
+test custom_hierarchy_has_f32_partials_and_keeps_lazy_inputs_alive ... ok
+test custom_low_validation_empty_axes_and_empty_contractions ... ok
+test custom_unary_preserves_every_finite_sign_bit_and_strided_storage ... ok
+
+failures:
+
+failures:
+    common_low_ops_backend_conformance
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.61s
+
+error: test failed, to rerun pass `-p compute-mlx --test low_ops`

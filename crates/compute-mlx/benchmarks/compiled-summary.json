@@ -1,0 +1,129 @@
+{
+  "stage": "Fixed-shape compiled MLX resident graph replay",
+  "runtime": "MLX 0.32.1 / MLX-C 0.6.0_4; Apple M4 Max Metal",
+  "timing": "Host wall time from graph invocation through both complete readbacks and stream synchronization.",
+  "sources_unchanged_after_both_runs": true,
+  "measured_invocations": 372,
+  "validated_output_buffers": 744,
+  "validation_failures": 0,
+  "runs": [
+    {
+      "log": "compiled-metal.txt",
+      "results": [
+        {
+          "case": "small",
+          "paths": {
+            "eager": {
+              "host_median_ms": 0.182667,
+              "host_p90_ms": 0.18637499999999999,
+              "samples": 31
+            },
+            "compiled": {
+              "host_median_ms": 0.17929099999999998,
+              "host_p90_ms": 0.18241700000000002,
+              "samples": 31
+            }
+          },
+          "eager_over_compiled_host_median": 1.0188297237451964,
+          "initial_trace_count": 0,
+          "final_trace_count": 1
+        },
+        {
+          "case": "large",
+          "paths": {
+            "eager": {
+              "host_median_ms": 0.27954100000000004,
+              "host_p90_ms": 0.317625,
+              "samples": 31
+            },
+            "compiled": {
+              "host_median_ms": 0.259208,
+              "host_p90_ms": 0.292041,
+              "samples": 31
+            }
+          },
+          "eager_over_compiled_host_median": 1.0784427949754638,
+          "initial_trace_count": 0,
+          "final_trace_count": 1
+        },
+        {
+          "case": "changing_layout_broadcast",
+          "paths": {
+            "eager": {
+              "host_median_ms": 0.213792,
+              "host_p90_ms": 0.21754099999999998,
+              "samples": 31
+            },
+            "compiled": {
+              "host_median_ms": 0.21025,
+              "host_p90_ms": 0.214958,
+              "samples": 31
+            }
+          },
+          "eager_over_compiled_host_median": 1.0168466111771701,
+          "initial_trace_count": 0,
+          "final_trace_count": 1
+        }
+      ]
+    },
+    {
+      "log": "compiled-metal-repeat.txt",
+      "results": [
+        {
+          "case": "small",
+          "paths": {
+            "eager": {
+              "host_median_ms": 0.206292,
+              "host_p90_ms": 0.20975,
+              "samples": 31
+            },
+            "compiled": {
+              "host_median_ms": 0.20366599999999999,
+              "host_p90_ms": 0.21804199999999999,
+              "samples": 31
+            }
+          },
+          "eager_over_compiled_host_median": 1.0128936592263806,
+          "initial_trace_count": 0,
+          "final_trace_count": 1
+        },
+        {
+          "case": "large",
+          "paths": {
+            "eager": {
+              "host_median_ms": 0.24891699999999997,
+              "host_p90_ms": 0.27295899999999995,
+              "samples": 31
+            },
+            "compiled": {
+              "host_median_ms": 0.231666,
+              "host_p90_ms": 0.250166,
+              "samples": 31
+            }
+          },
+          "eager_over_compiled_host_median": 1.0744649624891005,
+          "initial_trace_count": 0,
+          "final_trace_count": 1
+        },
+        {
+          "case": "changing_layout_broadcast",
+          "paths": {
+            "eager": {
+              "host_median_ms": 0.227291,
+              "host_p90_ms": 0.25866700000000004,
+              "samples": 31
+            },
+            "compiled": {
+              "host_median_ms": 0.210125,
+              "host_p90_ms": 0.24420799999999998,
+              "samples": 31
+            }
+          },
+          "eager_over_compiled_host_median": 1.081694229625223,
+          "initial_trace_count": 0,
+          "final_trace_count": 1
+        }
+      ]
+    }
+  ]
+}

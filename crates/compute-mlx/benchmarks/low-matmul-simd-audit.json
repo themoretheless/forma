@@ -1,0 +1,33 @@
+{
+  "scope": "CPU-only audit of both SIMD raw benchmark logs",
+  "runs": [
+    {
+      "log": "low-matmul-simd-metal.txt",
+      "median_p90_pairs": 24,
+      "individual_samples": 744,
+      "cases": 12,
+      "validation_failures": 0
+    },
+    {
+      "log": "low-matmul-simd-metal-repeat.txt",
+      "median_p90_pairs": 24,
+      "individual_samples": 744,
+      "cases": 12,
+      "validation_failures": 0
+    }
+  ],
+  "totals": {
+    "median_p90_pairs": 48,
+    "individual_samples": 1488,
+    "validation_failures": 0
+  },
+  "checks": [
+    "All31 samples perpath finite andpositive",
+    "Medians and nearest-rank p90 recomputed from raw samples agree within print precision",
+    "All24 hostratios agree within printprecision",
+    "Both runs completed and validated744 measured output buffers",
+    "All84 captured sources and compiled binary unchanged",
+    "Benchmark harness byte-identical initial stage",
+    "No GPUtime orcausal inference fromcrossrun changes"
+  ]
+}

@@ -1,0 +1,44 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.54s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-core/7083192f769a2c1e/out/compute_core-7083192f769a2c1e)
+
+running 13 tests
+test kernel::contract::tests::reflection_validates_entry_point_and_used_buffer_contract_without_gpu ... ok
+test matrix::kernels::tests::measured_policy_respects_alignment_bounds_and_regression_cases ... ok
+test readback::tests::typed_wait_preserves_pending_results_after_timeout ... ok
+test tensor::attention::tests::split_key_schedule_bounds_workspace_and_respects_cutoffs ... ok
+test tensor::index_kernels::tests::integer_specializations_validate ... ok
+test tensor::kernels::tests::uint_reduction_specialization_validates ... ok
+test tensor::low::attention_source::tests::guarded_f16_attention_loader_preserves_every_finite_pattern ... production f16 loader: 63488 finite patterns × 9 neighbors × 2 parities = 1142784 exact f32 cases
+ok
+test tensor::low::attention_source::tests::packed_attention_specialization_validates ... ok
+test tensor::low::index_sources::tests::packed_index_specializations_validate ... ok
+test tensor::low::kernels::tests::packed_reduction_specialization_validates ... ok
+test tensor::low::scatter_source::tests::packed_scatter_specializations_validate ... ok
+test tensor::low::statistics_sources::tests::packed_statistics_specializations_validate ... ok
+test tensor::scatter_kernels::tests::uint_scatter_specialization_validates ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/tensor_low_attention.rs (crates/target/debug/build/compute-core/b6bf8e850bb88c84/out/tensor_low_attention-b6bf8e850bb88c84)
+
+running 4 tests
+test depth_boundaries_zero_strides_and_grid_stride_reuse_preserve_attention ... ok
+test direct_low_attention_satisfies_shared_conformance ... ok
+test low_attention_validates_dtype_owner_alias_and_empty_masks_before_recording ... ok
+test strided_packed_tiles_split_keys_and_odd_outputs_replay_changing_inputs_and_masks ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.23s
+

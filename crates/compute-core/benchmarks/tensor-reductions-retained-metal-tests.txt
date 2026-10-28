@@ -1,0 +1,27 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling tensor-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/tensor-core)
+   Compiling compute-core v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running tests/tensor_reduce.rs (crates/target/debug/build/compute-core/4ca2b8e9f3245919/out/tensor_reduce-4ca2b8e9f3245919)
+
+running 6 tests
+test f32_reductions_cover_tails_hierarchies_offsets_and_repeated_updates ... ok
+test reductions_reject_invalid_outputs_owners_axes_and_leave_program_usable ... ok
+test shader_reductions_satisfy_shared_conformance ... ok
+test shader_vector_matmul_satisfies_shared_conformance ... ok
+test u32_reductions_preserve_bits_wrapping_identities_and_hierarchy ... ok
+test vector_batched_matmul_reuses_strided_inputs_and_composes_with_reductions ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.41s
+

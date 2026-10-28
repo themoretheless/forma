@@ -1,0 +1,19 @@
+{
+  "scope": "Candidate2: shared256word decodedQcache forD<=256, directfallback otherwise; nativef32baseline unchanged",
+  "base": "tensor-low-attention-specialized-source-fingerprints.json",
+  "overlay": "tensor-low-attention-query-cache-source",
+  "files": {
+    "crates/compute-core/src/tensor/low/attention_source.rs": {
+      "bytes": 3059,
+      "sha256": "650c5cc7dfdef9a9e0e00f02edbf3a54d971cf92f76bea1d29eae495b6e79bd3"
+    },
+    "crates/compute-core/shaders/tensor_low_attention_load.wgsl": {
+      "bytes": 1626,
+      "sha256": "43174e0555a6339d67967afae6acc8f796b57b1097c7358c13c5523834eea921"
+    },
+    "crates/compute-core/tests/tensor_low_attention.rs": {
+      "bytes": 18458,
+      "sha256": "f67519cae0f8e439c3294c48b1c8adb7281f4701c98d2575fce8327e5b78f5e1"
+    }
+  }
+}

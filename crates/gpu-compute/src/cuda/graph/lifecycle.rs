@@ -85,11 +85,11 @@ impl<B: Backend> Capture<B> {
         }
         let mut cleanup = Ok(());
         for handle in [graph, retry_graph] {
-            if handle != B::Graph::default()
-                && let Err(error) = self.backend.destroy_graph(handle)
-            {
-                self.backend.cleanup_error(error.clone());
-                cleanup = Err(error);
+            if handle != B::Graph::default() {
+                if let Err(error) = self.backend.destroy_graph(handle) {
+                    self.backend.cleanup_error(error.clone());
+                    cleanup = Err(error);
+                }
             }
             if graph != B::Graph::default() && graph == retry_graph {
                 break;
@@ -142,16 +142,16 @@ impl<B: Backend> Drop for Executable<B> {
             return;
         }
         let exec = std::mem::take(&mut self.exec);
-        if exec != B::Exec::default()
-            && let Err(error) = self.backend.destroy_exec(exec)
-        {
-            self.backend.cleanup_error(error);
+        if exec != B::Exec::default() {
+            if let Err(error) = self.backend.destroy_exec(exec) {
+                self.backend.cleanup_error(error);
+            }
         }
         let graph = std::mem::take(&mut self.graph);
-        if graph != B::Graph::default()
-            && let Err(error) = self.backend.destroy_graph(graph)
-        {
-            self.backend.cleanup_error(error);
+        if graph != B::Graph::default() {
+            if let Err(error) = self.backend.destroy_graph(graph) {
+                self.backend.cleanup_error(error);
+            }
         }
     }
 }

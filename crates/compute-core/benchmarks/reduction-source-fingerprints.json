@@ -1,0 +1,28 @@
+{
+  "backend": "Metal",
+  "sample_policy": "21 rotated exploration samples;31 rotated final production samples; held warmup at least200ms; separate unprofiled host and GPU timings",
+  "rustc": "rustc 1.100.0-nightly (215a8af4b 2026-09-15)",
+  "cargo": "cargo 1.100.0-nightly (7941be6fb 2026-09-11)",
+  "uname": "Darwin arm64",
+  "sources_sha256": {
+    "crates/compute-core/examples/bench_reduction_candidates.rs": "4dbcb6404ffb024795b12dde3d700f6b243d001dc61189a9cdb7d94fa79230f6",
+    "crates/compute-core/examples/reduction_candidates/baseline.wgsl": "bcc060cd42d177fbcd882198fd847d83b16cdb14d2d0550b4f8175185c4503c1",
+    "crates/compute-core/examples/reduction_candidates/chunked.wgsl": "76d227c5e39afe694b8e74acba5e194b388630bf99429ac9779b7adfcae9a60e",
+    "crates/compute-core/examples/reduction_candidates/scalar_vector.wgsl": "b8933e70e9879d5ec1b09abbd840245745ad2b8d988ccc47e21490bbe0279f02",
+    "crates/compute-core/examples/reduction_candidates/vector.wgsl": "1f24afcd9b46233428adefc27d5cad4a14082206688372e09891d76a2a8d9718",
+    "crates/compute-core/shaders/block_sum.wgsl": "bcc060cd42d177fbcd882198fd847d83b16cdb14d2d0550b4f8175185c4503c1",
+    "crates/compute-core/src/batch.rs": "1584dedf226fdf4e97b7304c923c6c6e37f926e1e69889bca4ef3569304bec23",
+    "crates/compute-core/src/kernel.rs": "1e9acd1ed3ad39b9b2dafb139ebc13d387668526d7bbbe5ff3a5eb175b5a802a",
+    "crates/compute-core/src/program.rs": "5e8970b33a3db93d2213e00214624fc65698db6c45779d29e549583258fcea3d",
+    "crates/compute-core/src/reduction.rs": "254cdce1678982d45b2e09620e56c8bf2f041bb67dd33b3a5a5ec6bd66d5180e",
+    "crates/compute-core/tests/reduction.rs": "4a002ff568ce1a8e5cac46a2bee51da215819758911e7f7c7ecd580e0e0e9f52",
+    "crates/gpu-compute/src/profiling.rs": "f3033a9f7abdeaa430845defccabe1e5cad3efaafee0417b5e7f7cd43ebcc81f"
+  },
+  "raw_sha256": {
+    "crates/compute-core/benchmarks/reduction-candidates-metal-round1.txt": "ae1771b8f59eeb6c1cbd208b27723bc776a30d1da27acbaaf3134c20b9ebc2f4",
+    "crates/compute-core/benchmarks/reduction-candidates-metal-round2.txt": "20361b0375a80679f62dc667b2aa883c2571dcf6c2bb4d1c11f143a8fc15b00f",
+    "crates/compute-core/benchmarks/reduction-production-metal-round3.txt": "cede61f3094ba51656a801a89ea89ab07994d679b112995fd5b5e063437c579e",
+    "crates/compute-core/benchmarks/reduction-production-metal-round4.txt": "c505919d52a683725620bdecfae5e5a508c796b879f7bce7b9292eeff96bef73",
+    "crates/compute-core/benchmarks/reduction-tests-metal.txt": "8bb57fd3ab23b4bb9878d4f4e09f7c7b0c2affa84b699a2ef2b395838e5c89eb"
+  }
+}

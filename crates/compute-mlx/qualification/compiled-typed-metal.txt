@@ -1,0 +1,220 @@
+warning: binary `wgsl_export` should have a kebab-case name
+  |
+1 | /Users/themoretheless/Documents/Sources/open-scad-viewer/crates/target/.../wgsl_export
+  |                                                                            ^^^^^^^^^^^
+  |
+  = note: `cargo::non_kebab_case_bins` is set to `warn` by default
+help: to change the binary name to `wgsl-export`, convert the file stem
+  |
+1 - src/bin/wgsl_export.rs
+1 + src/bin/wgsl-export.rs
+  |
+warning: `raster-core` (manifest) generated 1 warning
+   Compiling compute-mlx v0.1.0 (/Users/themoretheless/Documents/Sources/open-scad-viewer/crates/compute-mlx)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.90s
+     Running unittests src/lib.rs (crates/target/debug/build/compute-mlx/2a20d23b61da9ba4/out/compute_mlx-2a20d23b61da9ba4)
+
+running 6 tests
+test ffi::tests::missing_library_is_an_error_without_native_initialization ... ok
+test ffi::tests::native_shape_error_returns_message_and_keeps_c_api_usable ... ok
+test native::compiled::callback::tests::callback_contains_panics_releases_locals_and_recovers ... ok
+test native::compiled::callback::tests::native_callback_failure_releases_arrays_and_allows_next_trace ... ok
+test native::compiled::tests::compound_lowering_rolls_back_appended_nodes_after_late_failure ... ok
+test native::low_scatter::tests::list_allocation_pads_safely_and_preserves_u32_token_capacity ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/attention.rs (crates/target/debug/build/compute-mlx/3550b9389eaf51cc/out/attention-3550b9389eaf51cc)
+
+running 7 tests
+test causal_offsets_cover_native_alignment_explicit_masks_and_signed_extremes ... ok
+test common_attention_backend_conformance ... ok
+test constant_extreme_values_keep_finite_convex_outputs ... ok
+test empty_shapes_dtype_and_owner_errors_are_checked_before_native_attention ... ok
+test large_scales_apply_after_dot_without_overflowing_finite_query_values ... ok
+test masked_rows_are_zero_across_native_fallback_vector_full_and_two_pass_shapes ... ok
+test strided_batch_broadcast_and_grouped_heads_keep_lazy_graph_inputs_alive ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/compiled.rs (crates/target/debug/build/compute-mlx/08c5c0e45cbb2c80/out/compiled-08c5c0e45cbb2c80)
+
+running 10 tests
+test changed_resident_inputs_replay_map_and_reductions_with_duplicate_outputs ... ok
+test disabled_mode_is_qualified_without_mutating_parent_global_state ... ok
+test disabled_native_compilation_still_replays_fresh_values_in_child ... ok
+test empty_output_list_replays_without_evaluated_result_handles ... ok
+test invalid_builder_values_and_shapes_do_not_corrupt_valid_nodes ... ok
+test runtime_input_rejection_happens_before_native_tracing ... ok
+test same_shape_new_transpose_and_zero_strides_reuse_the_native_trace ... ok
+test shape_nodes_and_batched_matmul_follow_independent_coordinates ... ok
+test unevaluated_outputs_keep_input_and_context_lifetimes_after_program_drop ... ok
+test vector_matmul_and_empty_contractions_keep_shared_shape_rules ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/compiled_typed.rs (crates/target/debug/build/compute-mlx/9961ca1f03919c4a/out/compiled_typed-9961ca1f03919c4a)
+
+running 19 tests
+test arithmetic::finite_low_sign_and_extrema_bits_are_exact_through_custom_nodes ... ok
+test arithmetic::low_f32_evaluation_and_unsigned_wrapping_use_the_declared_dtype ... ok
+test arithmetic::low_operations_round_each_node_before_the_next_operation ... ok
+test casts::all_raw_low_payloads_survive_views_and_changed_strides_without_retracing ... ok
+test casts::compiled_f32_low_f32_keeps_every_rounding_boundary_inside_the_graph ... ok
+test casts::scalar_zero_stride_and_empty_low_views_keep_bits ... ok
+test matmul::cancellation_accumulates_in_f32_before_low_rounding ... ok
+test matmul::compiled_bf16_tiny_products_survive_matrix_and_vector_paths ... ok
+test matmul::direct_low_matmul_has_unrounded_f32_outputs_with_strided_replay ... ok
+test matmul::vector_promotion_batch_zero_strides_and_empty_products_remain_typed ... ok
+test reductions::low_extrema_hierarchy_preserves_subnormals_and_both_zero_signs ... ok
+test reductions::low_reductions_keep_f32_partials_and_round_the_completed_result_once ... ok
+test reductions::unsigned_reductions_wrap_exactly_and_empty_contractions_use_typed_identities ... ok
+test tiny::eager_and_compiled_bf16_multiply_preserve_normal_results_from_tiny_operands ... ok
+test unsigned::legacy_transport_rejects_low_and_unsigned_outputs_from_f32_inputs_before_trace ... ok
+test unsigned::unsigned_compare_select_and_reduction_compose_without_signed_or_f32_promotion ... ok
+test validation::lazy_custom_outputs_outlive_program_kernels_constants_and_original_inputs ... ok
+test validation::typed_bindings_validate_owner_dtype_shape_before_trace_and_keep_output_types ... ok
+test validation::typed_builder_rejections_preserve_valid_empty_nodes_and_input_slots ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.27s
+
+     Running tests/index.rs (crates/target/debug/build/compute-mlx/1f9e105ef0993f21/out/index-1f9e105ef0993f21)
+
+running 5 tests
+test common_index_backend_conformance ... ok
+test compaction_all_false_all_true_empty_scalar_and_resident_count ... ok
+test compaction_is_stable_for_strides_broadcast_masks_and_large_odd_counts ... ok
+test device_gather_masks_invalid_indices_and_counts_each_index_once ... ok
+test index_methods_enforce_dtype_ownership_and_mask_shape ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/low_attention.rs (crates/target/debug/build/compute-mlx/157a79836480c37d/out/low_attention-157a79836480c37d)
+
+running 4 tests
+test bounded_grid_reuses_groups_without_skipping_rows ... ok
+test common_low_attention_conformance ... ok
+test owner_and_mask_validation_precede_empty_shortcuts ... ok
+test strided_wide_values_and_skipped_tiles_keep_lazy_inputs_alive ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/low_index.rs (crates/target/debug/build/compute-mlx/ba96f8e726daf5c4/out/low_index-ba96f8e726daf5c4)
+
+running 4 tests
+test chunk_scan_boundaries_broadcast_grid_stride_and_lifetimes ... ok
+test common_low_index_backend_conformance ... ok
+test low_index_ownership_dtype_scalar_and_empty_rules ... ok
+test raw_native_gather_and_unique_compaction_keep_every_payload ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running tests/low_matmul.rs (crates/target/debug/build/compute-mlx/2e4d133bd75ceb71/out/low_matmul-2e4d133bd75ceb71)
+
+running 8 tests
+test bounded_tile_grid_reuses_groups_and_zero_strides ... ok
+test broadcast_transposed_partial_tiles_preserve_values_and_lazy_lifetime ... ok
+test empty_products_and_preallocation_validation_follow_common_contract ... ok
+test f32_output_retains_extra_bits_and_accumulation_cancellation ... ok
+test gemv_dot_and_vector_matrix_cover_inexact_strided_k_tails ... ok
+test gemv_tiny_bf16_middle_and_tail_products_survive_parallel_reduction ... ok
+test mixed_bf16_tiles_preserve_accumulators_before_and_after_tiny_products ... ok
+test tiny_bf16_operands_form_normal_products_in_both_orders ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/low_ops.rs (crates/target/debug/build/compute-mlx/ee9882c3d6919058/out/low_ops-ee9882c3d6919058)
+
+running 6 tests
+test common_low_ops_backend_conformance ... ok
+test custom_arithmetic_evaluates_once_in_f32_with_broadcast_and_cache_reuse ... ok
+test custom_extrema_select_exact_subnormals_and_zero_signs ... ok
+test custom_hierarchy_has_f32_partials_and_keeps_lazy_inputs_alive ... ok
+test custom_low_validation_empty_axes_and_empty_contractions ... ok
+test custom_unary_preserves_every_finite_sign_bit_and_strided_storage ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.25s
+
+     Running tests/low_precision.rs (crates/target/debug/build/compute-mlx/24f3e3e8f061be53/out/low_precision-24f3e3e8f061be53)
+
+running 5 tests
+test common_low_backend_conformance ... ok
+test device_casts_match_rne_including_subnormals_and_special_values ... ok
+test low_empty_scalar_batch_and_validation_paths_are_explicit ... ok
+test low_matmul_accumulates_before_rounding_and_retains_native_output ... ok
+test native_storage_and_strided_views_preserve_all_bit_patterns ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+     Running tests/low_scatter.rs (crates/target/debug/build/compute-mlx/28b13b394955232c/out/low_scatter-28b13b394955232c)
+
+running 3 tests
+test common_low_scatter_backend_conformance ... ok
+test lists_handle_contention_strides_broadcast_and_fresh_repeated_calls ... ok
+test low_scatter_validates_before_empty_execution_and_keeps_counts_resident ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.25s
+
+     Running tests/low_statistics.rs (crates/target/debug/build/compute-mlx/9fec963e4e8b72e3/out/low_statistics-9fec963e4e8b72e3)
+
+running 4 tests
+test bounded_group_and_element_grids_visit_all_statistic_rows ... ok
+test common_low_statistics_conformance ... ok
+test direct_long_strided_statistics_preserve_partial_rows_and_lazy_inputs ... ok
+test validation_precedes_empty_shortcuts_and_foreign_execution ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.74s
+
+     Running tests/native.rs (crates/target/debug/build/compute-mlx/bdaf1d5d736668db/out/native-bdaf1d5d736668db)
+
+running 6 tests
+test arithmetic_comparison_and_axis_reduction_match_references ... ok
+test batched_matmul_zero_inner_and_empty_reductions ... ok
+test common_tensor_backend_conformance ... ok
+test strided_views_broadcast_and_lazy_lifetime_follow_logical_values ... ok
+test unsigned_scans_gather_and_dtype_boundaries ... ok
+test validation_failure_leaves_backend_usable_and_owner_checks_apply ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/reduction.rs (crates/target/debug/build/compute-mlx/94651ddea64104d9/out/reduction-94651ddea64104d9)
+
+running 6 tests
+test common_reduce_backend_conformance ... ok
+test empty_reduction_contracts_are_checked_before_native_evaluation ... ok
+test means_use_logical_broadcast_counts_and_remain_resident ... ok
+test unsigned_reductions_remain_exact_for_strided_inputs_and_wrap_products ... ok
+test vector_matmul_empty_batches_preserve_empty_shape ... ok
+test vector_matmul_uses_native_promotion_with_broadcast_and_empty_contraction ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/scatter.rs (crates/target/debug/build/compute-mlx/3d6f24b090ed37f3/out/scatter-3d6f24b090ed37f3)
+
+running 5 tests
+test common_scatter_backend_conformance ... ok
+test invalid_empty_and_scalar_scatter_inputs_preserve_contract ... ok
+test replace_duplicate_winners_follow_logical_index_order_repeatedly ... ok
+test scatter_reductions_broadcast_updates_and_fold_exact_unsigned_values ... ok
+test scatter_rejects_foreign_dtypes_and_incompatible_updates ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/statistics.rs (crates/target/debug/build/compute-mlx/c9d8cbd27b6e7932/out/statistics-c9d8cbd27b6e7932)
+
+running 6 tests
+test arbitrary_axis_statistics_match_cpu_groups_for_strided_inputs ... ok
+test common_stats_backend_conformance ... ok
+test layer_norm_uses_both_safe_scaled_branches_with_subnormal_epsilon ... ok
+test scaled_moments_and_layer_norm_handle_overflowing_raw_variance ... ok
+test softmax_preserves_log_normalizers_with_huge_offsets_and_extremes ... ok
+test stats_empty_singleton_owner_dtype_and_epsilon_validation ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+   Doc-tests compute_mlx
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

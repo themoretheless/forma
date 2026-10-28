@@ -1,0 +1,19 @@
+{
+  "scope": "Candidate3: cache-free per-dtype attention with selected-normal F16 unpack and integer fallback for exponent 0/31; BF16 and native f32 unchanged",
+  "base": "tensor-low-attention-specialized-source-fingerprints.json",
+  "overlay": "tensor-low-attention-guarded-f16-source",
+  "files": {
+    "crates/compute-core/src/tensor/low/attention_source.rs": {
+      "bytes": 7659,
+      "sha256": "e19eb5950bb51522c11e3608f80ffe9206a6c197a4f52b101fa324e48ef95023"
+    },
+    "crates/compute-core/shaders/tensor_low_attention_load.wgsl": {
+      "bytes": 1183,
+      "sha256": "64d38351f9864ddb23d6a33dfd2fe41440fb9ee1d6a1df97e2a60cf643400936"
+    },
+    "crates/compute-core/tests/tensor_low_attention.rs": {
+      "bytes": 18456,
+      "sha256": "6e99a5d74f8aa520f965f05f0a8fb23db25d77b93b92b6b13348797a98004ab7"
+    }
+  }
+}

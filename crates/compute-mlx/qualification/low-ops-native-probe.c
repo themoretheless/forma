@@ -1,0 +1,18 @@
+#include <mlx/c/fast.h>
+#include <mlx/c/ops.h>
+#include <mlx/c/device.h>
+#include <mlx/c/error.h>
+#include <mlx/c/version.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+static void error(const char *m,void *p){fprintf(stderr,"MLX: %s\n",m);}
+#define CHECK(x) do{if(x){fprintf(stderr,"failure line %d\n",__LINE__);exit(3);}}while(0)
+static void bits(const char *name,mlx_array a,mlx_stream s){mlx_array v=mlx_array_new(),c=mlx_array_new();CHECK(mlx_view(&v,a,MLX_UINT16,s));CHECK(mlx_contiguous(&c,v,false,s));CHECK(mlx_array_eval(c));const uint16_t *p=mlx_array_data_uint16(c);printf("%s dtype=%d:",name,mlx_array_dtype(a));for(size_t i=0;i<mlx_array_size(c);i++)printf(" %04x",p[i]);puts("");mlx_array_free(v);mlx_array_free(c);}
+static void probe(mlx_stream s,mlx_dtype dt){int shape[]={8};uint16_t x[]={0,0x8000,1,0x8001,2,0x8002,0x007f,0x807f},y[]={0x8000,0,2,0x8002,1,0x8001,1,0x8001};mlx_array a=mlx_array_new_data(x,shape,1,dt),b=mlx_array_new_data(y,shape,1,dt),o=mlx_array_new();printf("storage=%d\n",dt);CHECK(mlx_negative(&o,a,s));bits("neg",o,s);CHECK(mlx_abs(&o,a,s));bits("abs",o,s);CHECK(mlx_minimum(&o,a,b,s));bits("min",o,s);CHECK(mlx_maximum(&o,a,b,s));bits("max",o,s);uint16_t z[]={dt==MLX_FLOAT16?0x3c00:0x3f80,dt==MLX_FLOAT16?0x1000:0x3b80};int n[]={2};mlx_array r=mlx_array_new_data(z,n,1,dt);CHECK(mlx_sum(&o,r,false,s));bits("sum(1,quarter-ulp)",o,s);
+ const char *in[]={"inp"},*out[]={"out"};mlx_vector_string ins=mlx_vector_string_new_data(in,1),outs=mlx_vector_string_new_data(out,1);
+ const char *source="uint lane = thread_position_in_threadgroup.x; threadgroup float tmp[32]; float v=0.0f; for (ulong i=lane;i<ulong(inp_shape[0]);i+=32){ ushort b=as_type<ushort>(inp[elem_to_loc(i,inp_shape,inp_strides,inp_ndim)]); v += BF ? as_type<float>(uint(b)<<16) : float(as_type<half>(b)); } tmp[lane]=v; threadgroup_barrier(mem_flags::mem_threadgroup); for(uint n=16;n>0;n>>=1){if(lane<n)tmp[lane]+=tmp[lane+n];threadgroup_barrier(mem_flags::mem_threadgroup);} if(lane==0)out[0]=tmp[0];";
+ mlx_fast_metal_kernel ker=mlx_fast_metal_kernel_new(dt==MLX_FLOAT16?"low_probe_f16_v1":"low_probe_bf16_v1",ins,outs,source,"",false,false);if(!ker.ctx)exit(4);mlx_fast_metal_kernel_config cfg=mlx_fast_metal_kernel_config_new();CHECK(mlx_fast_metal_kernel_config_add_output_arg(cfg,NULL,0,MLX_FLOAT32));CHECK(mlx_fast_metal_kernel_config_set_grid(cfg,32,1,1));CHECK(mlx_fast_metal_kernel_config_set_thread_group(cfg,32,1,1));CHECK(mlx_fast_metal_kernel_config_add_template_arg_bool(cfg,"BF",dt==MLX_BFLOAT16));mlx_vector_array inputs=mlx_vector_array_new_value(r),outputs=mlx_vector_array_new();CHECK(mlx_fast_metal_kernel_apply(&outputs,ker,inputs,cfg,s));CHECK(mlx_vector_array_get(&o,outputs,0));CHECK(mlx_array_eval(o));printf("custom direct low→f32 sum=%.10g expected=%.10g\n",mlx_array_data_float32(o)[0],dt==MLX_FLOAT16?1.00048828125:1.00390625);
+ mlx_vector_array_free(inputs);mlx_vector_array_free(outputs);mlx_fast_metal_kernel_config_free(cfg);mlx_fast_metal_kernel_free(ker);mlx_vector_string_free(ins);mlx_vector_string_free(outs);mlx_array_free(a);mlx_array_free(b);mlx_array_free(r);mlx_array_free(o);
+}
+int main(){mlx_set_error_handler(error,NULL,NULL);mlx_device d=mlx_device_new_type(MLX_GPU,0);bool available=false;CHECK(mlx_device_is_available(&available,d));if(!available)return 2;mlx_stream s=mlx_stream_new_device(d);mlx_string v=mlx_string_new();CHECK(mlx_version(&v));printf("MLX %s native low ops/custom Metal probe GPU\n",mlx_string_data(v));mlx_string_free(v);probe(s,MLX_FLOAT16);probe(s,MLX_BFLOAT16);mlx_synchronize(s);mlx_stream_free(s);mlx_device_free(d);return 0;}

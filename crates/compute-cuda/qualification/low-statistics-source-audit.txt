@@ -1,0 +1,37 @@
+CUDA low-statistics source/PTX audit, 2026-09-27
+Existing NVRTC 12.8.93 Linux aarch64 compilation; no NVIDIA device execution.
+
+Source concatenation:
+kernels.cu: 2307 bytes, 1241ca021598caaf31b8907d71c8ab0a4a9fbda24a7f1a357d8aead8da8ff38f MATCH
+indexing.cu: 9921 bytes, 745279f72e62e4b5592bd5a6a4f4179dbd87a66e4303ecf332af3194fccda493 MATCH
+reductions.cu: 5043 bytes, 688608a68819141cd95efe1a7d79416918ef99c8451bcdea15944445525969df MATCH
+scatter.cu: 4324 bytes, af931e38e2cbd2b7db490fdc4d3ea3f3b5d80a5a2f80e24ec08044d474c32e54 MATCH
+low_precision.cu: 2161 bytes, 12e423142e04a0a897fd9dd63f947aa3d62a5ad919542ee381e2878875f01243 MATCH
+statistics.cu: 6963 bytes, e4c212f58ae867163a0eb45fb5f428083fbc83fe720a0e0161e5e69cd6054f34 MATCH
+attention.cu: 5744 bytes, 56a9e08efd5ba95fecbcecbef328d9a06b8a53fdc28a8119f71e3673fb91d887 MATCH
+low_ops.cu: 2447 bytes, 616a9368c49749dae01f77167071fba0d55dbb742817140fb54637282cd2f90b MATCH
+low_indexing.cu: 2403 bytes, 80ef93191f0d26342f08e1926723985779a12b9b8b4ea14a207d973409b2db85 MATCH
+low_scatter.cu: 3343 bytes, 90716ff76f5dc93745c7d7c3079b9dd26a0c7f57e18cc27e17a36d3db5c29c42 MATCH
+low_statistics.cu: 1661 bytes, d574ec9e18b438f2449fe59500d6eb5b964780ad988c97c5ff8593f397acbf55 MATCH
+
+Combined: 46317 bytes; SHA256 624b0c91e46398b9038dd23e6d4c92fd829a86cdd021b210855576c0fbb07fff MATCH
+
+compute_70: status 0; 50 entries; ordered parameter types MATCH; 918633 PTX bytes; SHA256 e211038adf9f2c29eef96a02f82b23572e8dd7f6082d55ca70a801a49a801517 MATCH
+compute_80: status 0; 50 entries; ordered parameter types MATCH; 918633 PTX bytes; SHA256 8de9cb0f32a402b5806ea6265ce6a137d250cc593df3d31a8f2fac72419a5964 MATCH
+compute_90: status 0; 50 entries; ordered parameter types MATCH; 918697 PTX bytes; SHA256 a23e7b256e9bba823b848f359ce066c9202cf5295fd756d0b017cd5819f85e8b MATCH
+compute_120: status 0; 50 entries; ordered parameter types MATCH; 1899431 PTX bytes; SHA256 865ebbbb5c7ac21c32e7e3bb70bf8b4da3212854bbdbf18d4ab10226109f2575 MATCH
+
+New loader entries:
+stats_partial_low: u64, u64, u64, u64, u64, u64, u64, u32, u32, u64, u32, u32
+stats_emit_low: u64, u64, u64, u64, u64, u64, u64, u32, u32, u64, u32, f32, u32
+stats_moments_low: u64, u64, u64, u64, u64, u64, u64, u32, u32, u64, u32
+
+All old exported parameter signatures are unchanged.
+Native u16 loads and exact f32-to-f64 conversions observed in compute_80 PTX.
+Input conversion has no FTZ modifier. Exponential/reciprocal library sequences
+may use approximate FTZ instructions; no blanket FTZ-free claim is made.
+
+Limits: source compilation and ABI widths do not qualify memory access,
+numerical results, CUDA execution, cuBLAS execution, or performance on NVIDIA.
+Native fixture is wired but this host has no NVIDIA driver/device.
+See low-statistics-host-tests.txt and low-statistics-cuda-required.txt.

@@ -1,0 +1,42 @@
+{
+  "stage": "Combined candidate3: hoisted matrix stride addressing, K-parallel GEMV/dot, local identity-view cloning",
+  "base": "low-matmul-simd-source-manifest.json",
+  "overlay": "crates/compute-mlx/qualification/low-matmul-routed-source",
+  "tests": {
+    "unit": 3,
+    "integration": 69,
+    "failed": 0
+  },
+  "focused_tests": {
+    "passed": 13,
+    "failed": 0
+  },
+  "log": "crates/compute-mlx/qualification/low-matmul-routed-metal.txt",
+  "log_sha256": "bda9b12ce23f1d995757f1c9b4f4f34e1534258241ca00a5ec8dc2217d9d20f1",
+  "focused_log": "crates/compute-mlx/qualification/low-matmul-routed-focused.txt",
+  "focused_log_sha256": "a6efda96fc96e25fd27b3773dde48fe916bbbfa63ca171d32f9ea493d825e17b",
+  "notes": [
+    "Focused13 and full72 passed on their first native runs; no numeric/source correction required.",
+    "A test-only manual-multiple expression was simplified for strict Clippy before the final full run.",
+    "All three changes are combined; matched timing cannot isolate any individual contribution.",
+    "GEMV inexact K65/257/1025, BF16 tiny middle/tail both orders/routes, and bounded-grid reuse for both matrix/vector paths are covered."
+  ],
+  "files": {
+    "crates/compute-mlx/src/native/low_matmul.rs": {
+      "bytes": 3432,
+      "sha256": "adfda6f42818a1e38e1e36152d7da0be6d5cd5e999c96a5a6eb8d9b305600382"
+    },
+    "crates/compute-mlx/src/metal/low_matmul.metal": {
+      "bytes": 4605,
+      "sha256": "448b80bc10350e194803311f217b8d16189bffeaff788162c79def1ca496c5e5"
+    },
+    "crates/compute-mlx/src/metal/low_matvec.metal": {
+      "bytes": 1810,
+      "sha256": "120bb46caef5c181cce64b33eeff1cd32d0fccdf0b153a2593c4a8eedb69e8cf"
+    },
+    "crates/compute-mlx/tests/low_matmul.rs": {
+      "bytes": 15734,
+      "sha256": "15cd52767d76d19b9ee014050343727b76b81f12d9e4bfa5e5b3fb79d93b3b8a"
+    }
+  }
+}
