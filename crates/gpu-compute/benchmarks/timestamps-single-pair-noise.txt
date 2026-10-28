@@ -1,0 +1,25 @@
+Original integrated GPU test failure before repeated same-encoder sampling.
+The isolated timing ratio failed; freshness was not asserted in this version.
+
+---- alternating_workloads_measure_the_current_pass_instead_of_previous_samples stdout ----
+dispatches=1 gpu_ns=38416 wall_ns=5783667
+dispatches=128 gpu_ns=7341250 wall_ns=9297750
+dispatches=128 gpu_ns=4502541 wall_ns=6719666
+dispatches=1 gpu_ns=37500 wall_ns=1323166
+dispatches=1 gpu_ns=39417 wall_ns=1431209
+dispatches=128 gpu_ns=7227458 wall_ns=9411459
+dispatches=128 gpu_ns=4407250 wall_ns=6233500
+dispatches=1 gpu_ns=37459 wall_ns=838500
+dispatches=1 gpu_ns=37250 wall_ns=863125
+dispatches=128 gpu_ns=6716709 wall_ns=8860500
+dispatches=128 gpu_ns=4371833 wall_ns=6228958
+dispatches=1 gpu_ns=37458 wall_ns=881167
+dispatches=1 gpu_ns=37042 wall_ns=799083
+dispatches=128 gpu_ns=7202458 wall_ns=9157375
+dispatches=128 gpu_ns=4338375 wall_ns=6100833
+dispatches=1 gpu_ns=37500 wall_ns=896583
+same_encoder_order=[1, 128] short_ns=884375 long_ns=6234708
+
+thread 'alternating_workloads_measure_the_current_pass_instead_of_previous_samples' (28372511) panicked at gpu-compute/tests/profiling.rs:337:9:
+same-encoder tickets retained the wrong pass: [884375.0, 6234708.0]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

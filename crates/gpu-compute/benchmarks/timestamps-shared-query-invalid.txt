@@ -1,0 +1,18 @@
+
+running 1 test
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... dispatches=1 gpu_ns=0 wall_ns=4281750
+dispatches=128 gpu_ns=37958 wall_ns=5695333
+dispatches=128 gpu_ns=4431875 wall_ns=5890375
+dispatches=1 gpu_ns=4431875 wall_ns=528125
+
+thread 'alternating_workloads_measure_the_current_pass_instead_of_previous_samples' (28125500) panicked at gpu-compute/tests/profiling.rs:285:9:
+GPU sample exceeds enclosing wall interval
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    alternating_workloads_measure_the_current_pass_instead_of_previous_samples
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.04s

@@ -17,6 +17,12 @@ pub mod display_list;
 pub mod mcp;
 #[cfg(feature="gpu")]
 pub mod gpu;
+#[cfg(feature="gpu")]
+pub use gpu_compute;
+#[cfg(feature="gpu")]
+pub use gpu_shader;
+#[cfg(feature="gpu")]
+pub use wgpu as gpu_runtime;
 #[cfg(feature="native")]
 pub mod native_window;
 

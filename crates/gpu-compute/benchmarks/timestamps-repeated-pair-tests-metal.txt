@@ -1,0 +1,314 @@
+RUN 0 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture', 'alternating_workloads_measure_the_current_pass_instead_of_previous_samples', '--test-threads=1'] EXIT 0
+
+running 1 test
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... dispatches=1 gpu_ns=37750 wall_ns=5801917
+dispatches=128 gpu_ns=5865625 wall_ns=8076458
+dispatches=128 gpu_ns=4434750 wall_ns=6764625
+dispatches=1 gpu_ns=39583 wall_ns=1182666
+dispatches=1 gpu_ns=37292 wall_ns=1117958
+dispatches=128 gpu_ns=4652750 wall_ns=6322042
+dispatches=128 gpu_ns=4447625 wall_ns=6491417
+dispatches=1 gpu_ns=40291 wall_ns=1193667
+dispatches=1 gpu_ns=37167 wall_ns=821709
+dispatches=128 gpu_ns=6182167 wall_ns=7922584
+dispatches=128 gpu_ns=4330000 wall_ns=6467417
+dispatches=1 gpu_ns=37750 wall_ns=815541
+dispatches=1 gpu_ns=37208 wall_ns=765042
+dispatches=128 gpu_ns=6068583 wall_ns=7774375
+dispatches=128 gpu_ns=4383625 wall_ns=6470458
+dispatches=1 gpu_ns=181834 wall_ns=916417
+same_encoder_order=[1, 128] repetition=0 short_ns=37459 long_ns=6114875
+same_encoder_order=[128, 1] repetition=0 short_ns=37625 long_ns=4411959
+same_encoder_order=[128, 1] repetition=1 short_ns=37667 long_ns=6141500
+same_encoder_order=[1, 128] repetition=1 short_ns=37167 long_ns=4407125
+same_encoder_order=[1, 128] repetition=2 short_ns=37833 long_ns=4322292
+same_encoder_order=[128, 1] repetition=2 short_ns=38417 long_ns=4860667
+same_encoder_order=[128, 1] repetition=3 short_ns=38042 long_ns=4300958
+same_encoder_order=[1, 128] repetition=3 short_ns=1058583 long_ns=4297333
+same_encoder_order=[1, 128] repetition=4 short_ns=43458 long_ns=4371250
+same_encoder_order=[128, 1] repetition=4 short_ns=37750 long_ns=6358583
+same_encoder_order=[128, 1] repetition=5 short_ns=21333 long_ns=3789292
+same_encoder_order=[1, 128] repetition=5 short_ns=40875 long_ns=3748375
+same_encoder_order=[1, 128] repetition=6 short_ns=21375 long_ns=2597833
+same_encoder_order=[128, 1] repetition=6 short_ns=21875 long_ns=2524292
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.20s
+
+
+RUN 1 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture', 'alternating_workloads_measure_the_current_pass_instead_of_previous_samples', '--test-threads=1'] EXIT 0
+
+running 1 test
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... dispatches=1 gpu_ns=1136250 wall_ns=6616250
+dispatches=128 gpu_ns=4454416 wall_ns=6605167
+dispatches=128 gpu_ns=3824291 wall_ns=5531917
+dispatches=1 gpu_ns=10167 wall_ns=893584
+dispatches=1 gpu_ns=29584 wall_ns=789333
+dispatches=128 gpu_ns=1156709 wall_ns=2780625
+dispatches=128 gpu_ns=1148708 wall_ns=2758250
+dispatches=1 gpu_ns=10167 wall_ns=818959
+dispatches=1 gpu_ns=10125 wall_ns=732000
+dispatches=128 gpu_ns=1187375 wall_ns=3247333
+dispatches=128 gpu_ns=1098666 wall_ns=2665500
+dispatches=1 gpu_ns=9875 wall_ns=703042
+dispatches=1 gpu_ns=9417 wall_ns=848875
+dispatches=128 gpu_ns=1004458 wall_ns=2560083
+dispatches=128 gpu_ns=1539292 wall_ns=3137208
+dispatches=1 gpu_ns=9458 wall_ns=666292
+same_encoder_order=[1, 128] repetition=0 short_ns=9292 long_ns=1041750
+same_encoder_order=[128, 1] repetition=0 short_ns=8834 long_ns=1006875
+same_encoder_order=[128, 1] repetition=1 short_ns=8833 long_ns=962334
+same_encoder_order=[1, 128] repetition=1 short_ns=8875 long_ns=948375
+same_encoder_order=[1, 128] repetition=2 short_ns=210834 long_ns=954625
+same_encoder_order=[128, 1] repetition=2 short_ns=8875 long_ns=959750
+same_encoder_order=[128, 1] repetition=3 short_ns=9000 long_ns=995708
+same_encoder_order=[1, 128] repetition=3 short_ns=8708 long_ns=950083
+same_encoder_order=[1, 128] repetition=4 short_ns=9083 long_ns=997167
+same_encoder_order=[128, 1] repetition=4 short_ns=8791 long_ns=962083
+same_encoder_order=[128, 1] repetition=5 short_ns=9500 long_ns=947792
+same_encoder_order=[1, 128] repetition=5 short_ns=8750 long_ns=953125
+same_encoder_order=[1, 128] repetition=6 short_ns=8625 long_ns=1005959
+same_encoder_order=[128, 1] repetition=6 short_ns=8542 long_ns=936542
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.11s
+
+
+RUN 2 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture', 'alternating_workloads_measure_the_current_pass_instead_of_previous_samples', '--test-threads=1'] EXIT 0
+
+running 1 test
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... dispatches=1 gpu_ns=37917 wall_ns=5444916
+dispatches=128 gpu_ns=6225417 wall_ns=8093875
+dispatches=128 gpu_ns=4404750 wall_ns=6070959
+dispatches=1 gpu_ns=37458 wall_ns=818000
+dispatches=1 gpu_ns=37041 wall_ns=795042
+dispatches=128 gpu_ns=6322542 wall_ns=7917125.000000001
+dispatches=128 gpu_ns=4369916 wall_ns=6368917
+dispatches=1 gpu_ns=37917 wall_ns=842000
+dispatches=1 gpu_ns=37000 wall_ns=948625
+dispatches=128 gpu_ns=932417 wall_ns=2561625
+dispatches=128 gpu_ns=1163000 wall_ns=3010166
+dispatches=1 gpu_ns=8583 wall_ns=706875
+dispatches=1 gpu_ns=8916 wall_ns=756709
+dispatches=128 gpu_ns=967291 wall_ns=2598958
+dispatches=128 gpu_ns=951667 wall_ns=2545542
+dispatches=1 gpu_ns=8958 wall_ns=726250
+same_encoder_order=[1, 128] repetition=0 short_ns=9000 long_ns=970292
+same_encoder_order=[128, 1] repetition=0 short_ns=8834 long_ns=939459
+same_encoder_order=[128, 1] repetition=1 short_ns=8833 long_ns=1554541
+same_encoder_order=[1, 128] repetition=1 short_ns=8917 long_ns=928375
+same_encoder_order=[1, 128] repetition=2 short_ns=8542 long_ns=997375
+same_encoder_order=[128, 1] repetition=2 short_ns=8625 long_ns=921708
+same_encoder_order=[128, 1] repetition=3 short_ns=8834 long_ns=945958
+same_encoder_order=[1, 128] repetition=3 short_ns=151500 long_ns=1373291
+same_encoder_order=[1, 128] repetition=4 short_ns=9000 long_ns=922292
+same_encoder_order=[128, 1] repetition=4 short_ns=8666 long_ns=997208
+same_encoder_order=[128, 1] repetition=5 short_ns=8834 long_ns=926542
+same_encoder_order=[1, 128] repetition=5 short_ns=8584 long_ns=947084
+same_encoder_order=[1, 128] repetition=6 short_ns=8583 long_ns=945084
+same_encoder_order=[128, 1] repetition=6 short_ns=8792 long_ns=1336916
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.12s
+
+
+RUN 3 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture', 'alternating_workloads_measure_the_current_pass_instead_of_previous_samples', '--test-threads=1'] EXIT 0
+
+running 1 test
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... dispatches=1 gpu_ns=38000 wall_ns=5406500
+dispatches=128 gpu_ns=4271791 wall_ns=6183500
+dispatches=128 gpu_ns=6532667 wall_ns=8449417
+dispatches=1 gpu_ns=37542 wall_ns=814125
+dispatches=1 gpu_ns=37042 wall_ns=817541
+dispatches=128 gpu_ns=4270583 wall_ns=6081583
+dispatches=128 gpu_ns=6552125 wall_ns=8428541
+dispatches=1 gpu_ns=37458 wall_ns=938666
+dispatches=1 gpu_ns=37209 wall_ns=839750
+dispatches=128 gpu_ns=4261334 wall_ns=6098208
+dispatches=128 gpu_ns=6450750 wall_ns=8459166
+dispatches=1 gpu_ns=37667 wall_ns=898750
+dispatches=1 gpu_ns=37083 wall_ns=834875
+dispatches=128 gpu_ns=4260541 wall_ns=6091750
+dispatches=128 gpu_ns=4228042 wall_ns=6226084
+dispatches=1 gpu_ns=129667 wall_ns=1921875
+same_encoder_order=[1, 128] repetition=0 short_ns=37833 long_ns=4349083
+same_encoder_order=[128, 1] repetition=0 short_ns=37709 long_ns=4323292
+same_encoder_order=[128, 1] repetition=1 short_ns=39500 long_ns=4629417
+same_encoder_order=[1, 128] repetition=1 short_ns=43000 long_ns=3645334
+same_encoder_order=[1, 128] repetition=2 short_ns=20750 long_ns=2333792
+same_encoder_order=[128, 1] repetition=2 short_ns=16166 long_ns=1948667
+same_encoder_order=[128, 1] repetition=3 short_ns=15917 long_ns=1882625
+same_encoder_order=[1, 128] repetition=3 short_ns=16541 long_ns=3241417
+same_encoder_order=[1, 128] repetition=4 short_ns=185166 long_ns=3373958
+same_encoder_order=[128, 1] repetition=4 short_ns=21000 long_ns=2523375
+same_encoder_order=[128, 1] repetition=5 short_ns=37417 long_ns=2978459
+same_encoder_order=[1, 128] repetition=5 short_ns=37208 long_ns=6259667
+same_encoder_order=[1, 128] repetition=6 short_ns=37250 long_ns=3457917
+same_encoder_order=[128, 1] repetition=6 short_ns=37875 long_ns=6268291
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.18s
+
+
+RUN 4 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture'] EXIT 0
+
+running 4 tests
+test timestamps_are_explicitly_enabled_and_context_identity_is_preserved ... ok
+dispatches=1 gpu_ns=38542 wall_ns=5463584
+test cancelled_ticket_and_invalid_pass_do_not_poison_timer ... ok
+test reused_timer_preserves_tickets_within_encoder_and_across_submissions ... ok
+dispatches=128 gpu_ns=4300167 wall_ns=6076542
+dispatches=128 gpu_ns=6548500 wall_ns=8515834
+dispatches=1 gpu_ns=37625 wall_ns=845708
+dispatches=1 gpu_ns=37167 wall_ns=811458
+dispatches=128 gpu_ns=4254834 wall_ns=5982000
+dispatches=128 gpu_ns=6488583 wall_ns=8404625
+dispatches=1 gpu_ns=37584 wall_ns=923750
+dispatches=1 gpu_ns=37209 wall_ns=806125
+dispatches=128 gpu_ns=4316667 wall_ns=6147625
+dispatches=128 gpu_ns=6511000 wall_ns=8359083.999999999
+dispatches=1 gpu_ns=37167 wall_ns=895584
+dispatches=1 gpu_ns=36958 wall_ns=808500
+dispatches=128 gpu_ns=4266625 wall_ns=6097458
+dispatches=128 gpu_ns=6697625 wall_ns=8577208
+dispatches=1 gpu_ns=37584 wall_ns=840875
+same_encoder_order=[1, 128] repetition=0 short_ns=37000 long_ns=4260792
+same_encoder_order=[128, 1] repetition=0 short_ns=38208 long_ns=6533833
+same_encoder_order=[128, 1] repetition=1 short_ns=37750 long_ns=4295542
+same_encoder_order=[1, 128] repetition=1 short_ns=37084 long_ns=6622000
+same_encoder_order=[1, 128] repetition=2 short_ns=37292 long_ns=4262917
+same_encoder_order=[128, 1] repetition=2 short_ns=37250 long_ns=4218917
+same_encoder_order=[128, 1] repetition=3 short_ns=38167 long_ns=5193917
+same_encoder_order=[1, 128] repetition=3 short_ns=37500 long_ns=4229000
+same_encoder_order=[1, 128] repetition=4 short_ns=37167 long_ns=6402583
+same_encoder_order=[128, 1] repetition=4 short_ns=37708 long_ns=4293042
+same_encoder_order=[128, 1] repetition=5 short_ns=38042 long_ns=6492541
+same_encoder_order=[1, 128] repetition=5 short_ns=36917 long_ns=4309625
+same_encoder_order=[1, 128] repetition=6 short_ns=37417 long_ns=6702458
+same_encoder_order=[128, 1] repetition=6 short_ns=37916 long_ns=4330125
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+
+RUN 5 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture'] EXIT 0
+
+running 4 tests
+test timestamps_are_explicitly_enabled_and_context_identity_is_preserved ... ok
+dispatches=1 gpu_ns=39584 wall_ns=5453625
+test cancelled_ticket_and_invalid_pass_do_not_poison_timer ... ok
+test reused_timer_preserves_tickets_within_encoder_and_across_submissions ... ok
+dispatches=128 gpu_ns=6161542 wall_ns=8001125
+dispatches=128 gpu_ns=4381875 wall_ns=6373875
+dispatches=1 gpu_ns=37250 wall_ns=873666
+dispatches=1 gpu_ns=191375 wall_ns=2336000
+dispatches=128 gpu_ns=4324917 wall_ns=6087125
+dispatches=128 gpu_ns=4274334 wall_ns=6013625
+dispatches=1 gpu_ns=37500 wall_ns=744542
+dispatches=1 gpu_ns=37125 wall_ns=693792
+dispatches=128 gpu_ns=6224458 wall_ns=7894833
+dispatches=128 gpu_ns=4283542 wall_ns=6151833
+dispatches=1 gpu_ns=37375 wall_ns=806375
+dispatches=1 gpu_ns=36916 wall_ns=704958
+dispatches=128 gpu_ns=6159666 wall_ns=7899959
+dispatches=128 gpu_ns=4264792 wall_ns=5981959
+dispatches=1 gpu_ns=37500 wall_ns=739375
+same_encoder_order=[1, 128] repetition=0 short_ns=37042 long_ns=4657125
+same_encoder_order=[128, 1] repetition=0 short_ns=37583 long_ns=4285542
+same_encoder_order=[128, 1] repetition=1 short_ns=37709 long_ns=4405458
+same_encoder_order=[1, 128] repetition=1 short_ns=37958 long_ns=4260709
+same_encoder_order=[1, 128] repetition=2 short_ns=37084 long_ns=6201958
+same_encoder_order=[128, 1] repetition=2 short_ns=38250 long_ns=6120458
+same_encoder_order=[128, 1] repetition=3 short_ns=20875 long_ns=3590042
+same_encoder_order=[1, 128] repetition=3 short_ns=37250 long_ns=4371333
+same_encoder_order=[1, 128] repetition=4 short_ns=20833 long_ns=2524542
+same_encoder_order=[128, 1] repetition=4 short_ns=21041 long_ns=2369250
+same_encoder_order=[128, 1] repetition=5 short_ns=20667 long_ns=2305792
+same_encoder_order=[1, 128] repetition=5 short_ns=17291 long_ns=1822667
+same_encoder_order=[1, 128] repetition=6 short_ns=16375 long_ns=2021166
+same_encoder_order=[128, 1] repetition=6 short_ns=16750 long_ns=1831583
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+
+RUN 6 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture'] EXIT 0
+
+running 4 tests
+test timestamps_are_explicitly_enabled_and_context_identity_is_preserved ... ok
+dispatches=1 gpu_ns=10917 wall_ns=5268291
+test cancelled_ticket_and_invalid_pass_do_not_poison_timer ... ok
+test reused_timer_preserves_tickets_within_encoder_and_across_submissions ... ok
+dispatches=128 gpu_ns=1098292 wall_ns=2806584
+dispatches=128 gpu_ns=2491833 wall_ns=4214959
+dispatches=1 gpu_ns=37083 wall_ns=760917
+dispatches=1 gpu_ns=37208 wall_ns=692000
+dispatches=128 gpu_ns=4317083 wall_ns=5915500
+dispatches=128 gpu_ns=4315000 wall_ns=6252708
+dispatches=1 gpu_ns=104208 wall_ns=1704167
+dispatches=1 gpu_ns=38000 wall_ns=827875
+dispatches=128 gpu_ns=4358416 wall_ns=6003916
+dispatches=128 gpu_ns=963375 wall_ns=2598875
+dispatches=1 gpu_ns=8666 wall_ns=687500
+dispatches=1 gpu_ns=8625 wall_ns=677333
+dispatches=128 gpu_ns=1453042 wall_ns=3053666
+dispatches=128 gpu_ns=951792 wall_ns=2513208
+dispatches=1 gpu_ns=8709 wall_ns=645042
+same_encoder_order=[1, 128] repetition=0 short_ns=8875 long_ns=997041
+same_encoder_order=[128, 1] repetition=0 short_ns=8959 long_ns=944125
+same_encoder_order=[128, 1] repetition=1 short_ns=9000 long_ns=940667
+same_encoder_order=[1, 128] repetition=1 short_ns=8875 long_ns=942542
+same_encoder_order=[1, 128] repetition=2 short_ns=8833 long_ns=1472625
+same_encoder_order=[128, 1] repetition=2 short_ns=9167 long_ns=959833
+same_encoder_order=[128, 1] repetition=3 short_ns=8708 long_ns=954625
+same_encoder_order=[1, 128] repetition=3 short_ns=8875 long_ns=963542
+same_encoder_order=[1, 128] repetition=4 short_ns=8625 long_ns=946167
+same_encoder_order=[128, 1] repetition=4 short_ns=9042 long_ns=940542
+same_encoder_order=[128, 1] repetition=5 short_ns=8625 long_ns=963625
+same_encoder_order=[1, 128] repetition=5 short_ns=8708 long_ns=976750
+same_encoder_order=[1, 128] repetition=6 short_ns=8875 long_ns=962250
+same_encoder_order=[128, 1] repetition=6 short_ns=8833 long_ns=969291
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+
+RUN 7 ['crates/target/debug/build/gpu-compute/10f55ade0017a240/out/profiling-10f55ade0017a240', '--nocapture'] EXIT 0
+
+running 4 tests
+test timestamps_are_explicitly_enabled_and_context_identity_is_preserved ... ok
+dispatches=1 gpu_ns=37833 wall_ns=5300375
+test cancelled_ticket_and_invalid_pass_do_not_poison_timer ... ok
+test reused_timer_preserves_tickets_within_encoder_and_across_submissions ... ok
+dispatches=128 gpu_ns=5305125 wall_ns=7034084
+dispatches=128 gpu_ns=4317125 wall_ns=6079875
+dispatches=1 gpu_ns=37375 wall_ns=792667
+dispatches=1 gpu_ns=37000 wall_ns=790084
+dispatches=128 gpu_ns=5462417 wall_ns=7185583
+dispatches=128 gpu_ns=4302500 wall_ns=6088291
+dispatches=1 gpu_ns=8958 wall_ns=722166
+dispatches=1 gpu_ns=8958 wall_ns=660708
+dispatches=128 gpu_ns=959250 wall_ns=2516083
+dispatches=128 gpu_ns=1466541 wall_ns=3014958
+dispatches=1 gpu_ns=8958 wall_ns=667458
+dispatches=1 gpu_ns=9292 wall_ns=702375
+dispatches=128 gpu_ns=952500 wall_ns=2506916
+dispatches=128 gpu_ns=952542 wall_ns=2549458
+dispatches=1 gpu_ns=8792 wall_ns=644083
+same_encoder_order=[1, 128] repetition=0 short_ns=8833 long_ns=938833
+same_encoder_order=[128, 1] repetition=0 short_ns=8542 long_ns=934792
+same_encoder_order=[128, 1] repetition=1 short_ns=8625 long_ns=920416
+same_encoder_order=[1, 128] repetition=1 short_ns=8750 long_ns=963625
+same_encoder_order=[1, 128] repetition=2 short_ns=9041 long_ns=1007625
+same_encoder_order=[128, 1] repetition=2 short_ns=8959 long_ns=942291
+same_encoder_order=[128, 1] repetition=3 short_ns=9375 long_ns=954833
+same_encoder_order=[1, 128] repetition=3 short_ns=8708 long_ns=948208
+same_encoder_order=[1, 128] repetition=4 short_ns=153334 long_ns=948958
+same_encoder_order=[128, 1] repetition=4 short_ns=9208 long_ns=999833
+same_encoder_order=[128, 1] repetition=5 short_ns=8709 long_ns=953208
+same_encoder_order=[1, 128] repetition=5 short_ns=8750 long_ns=948584
+same_encoder_order=[1, 128] repetition=6 short_ns=8791 long_ns=931083
+same_encoder_order=[128, 1] repetition=6 short_ns=8833 long_ns=924750
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s

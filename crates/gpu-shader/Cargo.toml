@@ -1,0 +1,12 @@
+[package]
+name = "gpu-shader"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Custom multi-target shader parser, validator, and compiler (WGSL -> MSL, SPIR-V, HLSL, CUDA PTX, GLSL)"
+
+[features]
+default = ["wgsl-in"]
+wgsl-in = []
+
+[dependencies]

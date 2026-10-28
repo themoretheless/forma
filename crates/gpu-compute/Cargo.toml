@@ -1,0 +1,18 @@
+[package]
+name = "gpu-compute"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "GPU compute sessions with optional CUDA driver support"
+license = "MIT"
+
+[features]
+cuda = ["dep:cudarc"]
+
+[dependencies]
+gpu-shader = { path = "../gpu-shader", version = "0.1.0" }
+wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0", features = ["metal", "vulkan"] }
+cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "cublas", "dynamic-loading", "cuda-12080"], optional = true }
+
+[target.'cfg(windows)'.dependencies]
+wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0", features = ["dx12"] }

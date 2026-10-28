@@ -1,0 +1,20 @@
+[package]
+name = "gpu-runtime"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Custom zero-copy cross-platform GPU runtime (Metal, Vulkan, DirectX 12, CUDA, OpenGL, WebGPU, RTX, ASD, UMA, dUMA)"
+
+[features]
+default = ["wgsl", "std", "metal", "vulkan", "dx12", "cuda", "opengl", "webgpu"]
+wgsl = []
+std = []
+metal = []
+vulkan = []
+dx12 = []
+cuda = []
+opengl = []
+webgpu = []
+
+[dependencies]
+gpu-shader = { path = "../gpu-shader", version = "0.1.0" }

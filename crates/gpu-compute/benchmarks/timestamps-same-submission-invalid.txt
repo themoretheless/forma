@@ -1,0 +1,30 @@
+
+running 1 test
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... dispatches=1 gpu_ns=41916 wall_ns=4653958
+dispatches=128 gpu_ns=0 wall_ns=5585709
+dispatches=128 gpu_ns=4879417 wall_ns=6173583
+dispatches=1 gpu_ns=0 wall_ns=680750
+dispatches=1 gpu_ns=0 wall_ns=497708
+dispatches=128 gpu_ns=0 wall_ns=5912458
+dispatches=128 gpu_ns=0 wall_ns=5462959
+dispatches=1 gpu_ns=0 wall_ns=918958
+dispatches=1 gpu_ns=0 wall_ns=498917
+dispatches=128 gpu_ns=0 wall_ns=4753125
+dispatches=128 gpu_ns=4491083 wall_ns=5737875
+dispatches=1 gpu_ns=0 wall_ns=740500
+dispatches=1 gpu_ns=0 wall_ns=475625
+dispatches=128 gpu_ns=0 wall_ns=6241458
+dispatches=128 gpu_ns=0 wall_ns=4057875
+dispatches=1 gpu_ns=0 wall_ns=569375
+
+thread 'alternating_workloads_measure_the_current_pass_instead_of_previous_samples' (28127959) panicked at gpu-compute/tests/profiling.rs:304:5:
+distinct workloads must retain their own durations: short=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 41916.0] long=[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 4491083.0, 4879417.0]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    alternating_workloads_measure_the_current_pass_instead_of_previous_samples
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.08s

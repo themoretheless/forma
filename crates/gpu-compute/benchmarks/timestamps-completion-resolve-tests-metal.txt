@@ -1,0 +1,33 @@
+
+running 4 tests
+test alternating_workloads_measure_the_current_pass_instead_of_previous_samples ... dispatches=1 gpu_ns=37833 wall_ns=5345584
+dispatches=128 gpu_ns=4478417 wall_ns=6234041
+dispatches=128 gpu_ns=4314333 wall_ns=6047583
+dispatches=1 gpu_ns=37708 wall_ns=835500
+dispatches=1 gpu_ns=37166 wall_ns=833333
+dispatches=128 gpu_ns=4337042 wall_ns=6011375
+dispatches=128 gpu_ns=4490833 wall_ns=6255750
+dispatches=1 gpu_ns=39625 wall_ns=1209708
+dispatches=1 gpu_ns=37166 wall_ns=860834
+dispatches=128 gpu_ns=4518250 wall_ns=6127125
+dispatches=128 gpu_ns=4364334 wall_ns=6066084
+dispatches=1 gpu_ns=43084 wall_ns=855875
+dispatches=1 gpu_ns=36958 wall_ns=1078375
+dispatches=128 gpu_ns=4484958 wall_ns=6254459
+dispatches=128 gpu_ns=4325584 wall_ns=6063583
+dispatches=1 gpu_ns=36917 wall_ns=780334
+same_encoder_order=[1, 128] short_ns=37875 long_ns=4775250
+same_encoder_order=[128, 1] short_ns=14125 long_ns=3964333
+ok
+test cancelled_ticket_and_invalid_pass_do_not_poison_timer ... ok
+test reused_timer_preserves_tickets_within_encoder_and_across_submissions ... ok
+test timestamps_are_explicitly_enabled_and_context_identity_is_preserved ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+
+running 2 tests
+test profiling::tests::completion_and_mapping_timeouts_keep_pending_tickets ... ok
+test profiling::tests::timestamp_conversion_preserves_short_deltas_and_rejects_unusable_samples ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.04s
