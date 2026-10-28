@@ -1,0 +1,38 @@
+# Keep the long-lived `release` branch on the latest tag tip
+# (git deps: branch = "release").
+name: Advance release branch
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'forma-v*'
+      - 'studio-v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: advance-release-branch
+  cancel-in-progress: false
+
+jobs:
+  advance:
+    name: Update release branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Point release at tag
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B release "${GITHUB_SHA}"
+          git push origin release --force
+          echo "release -> ${GITHUB_SHA} (${GITHUB_REF_NAME})"
