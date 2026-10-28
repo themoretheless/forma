@@ -1789,6 +1789,7 @@ fn translate_call(
         ),
 
         // Math & Bitwise intrinsics
+        "distance" => format!("metal::distance({})", args.join(", ")),
         "inverseSqrt" => format!("rsqrt({})", args.join(", ")),
         "round" => format!("rint({})", args.join(", ")),
         "countLeadingZeros" => format!("clz({})", args.join(", ")),
