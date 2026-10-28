@@ -403,7 +403,7 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
 name = "forma"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bytemuck",
  "gpu-compute",
@@ -1429,7 +1429,7 @@ dependencies = [
 [[package]]
 name = "themoretheless-tokenizer-forma"
 version = "0.8.0"
-source = "git+https://github.com/themoretheless/tokenizer?rev=0236a83afdb9c0db16cc2bd9cee5403cd0095edd#0236a83afdb9c0db16cc2bd9cee5403cd0095edd"
+source = "git+https://github.com/themoretheless/tokenizer?rev=1c83ab03d879b085ec53ec5badf8abcc82c2ee3c#1c83ab03d879b085ec53ec5badf8abcc82c2ee3c"
 dependencies = [
  "serde_json",
 ]

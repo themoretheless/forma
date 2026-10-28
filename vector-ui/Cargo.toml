@@ -1,6 +1,6 @@
 [package]
 name = "forma"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [lib]
@@ -16,7 +16,7 @@ native = ["dep:winit", "dep:softbuffer", "gpu", "dep:objc"]
 gpu = ["dep:wgpu", "dep:gpu-shader", "dep:gpu-compute", "dep:pollster", "dep:bytemuck"]
 
 [dependencies]
-themoretheless-tokenizer-forma = { git = "https://github.com/themoretheless/tokenizer", rev = "0236a83afdb9c0db16cc2bd9cee5403cd0095edd", version = "0.8.0" }
+themoretheless-tokenizer-forma = { git = "https://github.com/themoretheless/tokenizer", rev = "1c83ab03d879b085ec53ec5badf8abcc82c2ee3c", version = "0.8.0" }
 serde_json = "1"
 wasm-bindgen = "=0.2.125"
 winit = { version = "0.30", optional = true }
