@@ -1,0 +1,33 @@
+design OpenScadStudio {
+    SegmentButton { key: 'modeSolid'; selected: true; }
+    SegmentButton { key: 'modeMesh'; selected: false; }
+    SegmentButton { key: 'modeCode'; selected: false; }
+    Surface { key: 'viewportStage'; text: '3D VIEWPORT · PLANETARY GEARBOX (CSG + MANIFOLD)'; }
+    Alert { key: 'manifoldAlert'; tone: 'success'; text: 'Геометрия замкнута (2-Manifold)'; description: '12 480 треугольников · 0 самопересечений'; }
+
+    state 'Mesh · Анализ сетки' {
+        SegmentButton { key: 'modeSolid'; selected: false; }
+        SegmentButton { key: 'modeMesh'; selected: true; }
+        SegmentButton { key: 'modeCode'; selected: false; }
+        Badge { key: 'hudSelectionBadge'; tone: 'warning'; text: 'Сетка · Проверка нормалей и рёбер'; }
+        Surface { key: 'viewportStage'; text: 'MESH INSPECTOR · КАРКАС И ТРИАНГУЛЯЦИЯ (12 480 Δ)'; }
+        TabButton { key: 'dockTabInspector'; selected: false; }
+        TabButton { key: 'dockTabGpu'; selected: true; }
+    }
+
+    state 'Code · Редактор OpenSCAD' {
+        SegmentButton { key: 'modeSolid'; selected: false; }
+        SegmentButton { key: 'modeMesh'; selected: false; }
+        SegmentButton { key: 'modeCode'; selected: true; }
+        SearchField { key: 'commandSearch'; value: 'cylinder'; }
+        Surface { key: 'viewportStage'; text: 'LIVE CSG PREVIEW · СИНХРОНИЗАЦИЯ С AST КОДА'; }
+        TabButton { key: 'dockTabInspector'; selected: false; }
+        TabButton { key: 'dockTabParams'; selected: true; }
+    }
+
+    state 'Конфликт черновиков' {
+        Alert { key: 'manifoldAlert'; tone: 'warning'; text: 'Обнаружен более свежий черновик'; description: 'Локальная копия отличается от IndexedDB'; }
+        Alert { key: 'gpuStatusAlert'; tone: 'danger'; text: 'Требуется пересборка CSG'; description: 'Нажмите «Построить CSG» для обновления буфера'; }
+        StatusBar { key: 'studioStatusBar'; first: 'Внимание · Несохранённые изменения черновика'; second: 'planetary_gearbox.scad *'; third: 'Требуется синхронизация'; }
+    }
+}

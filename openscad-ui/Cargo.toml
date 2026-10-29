@@ -1,0 +1,12 @@
+[package]
+name = "openscad-forma-studio"
+version = "0.2.0"
+edition = "2021"
+publish = false
+
+[features]
+default = []
+native = ["forma/native"]
+
+[dependencies]
+forma = { path = "../vector-ui" }

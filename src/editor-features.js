@@ -6,6 +6,7 @@ import {bracketMatching,foldGutter,foldKeymap,indentOnInput,syntaxHighlighting,d
 import {highlightSelectionMatches,searchKeymap} from '@codemirror/search';
 import {createCompletionSource} from './completion.js';
 import {formaHighlight} from './forma-highlight.js';
+import {tokenizerHighlight} from './tokenizer-highlight.js';
 
 // Everything the code editor needs only once someone reads or types in it: gutters, keymaps,
 // completion, search, bracket and syntax highlighting with the Forma parser. It loads as its own
@@ -25,5 +26,5 @@ export function editorFeatures(getProject){
   ];
 }
 
-// The language a file is edited with: the Forma grammar for markup, plain text otherwise.
-export const languageFor=path=>path?.endsWith('.ui')?formaHighlight:[];
+// The language a file is edited with: the Forma grammar for markup, multi-language Rust tokenizer WASM otherwise.
+export const languageFor=path=>path?.endsWith('.ui')?formaHighlight:tokenizerHighlight(path);

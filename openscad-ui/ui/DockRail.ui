@@ -1,0 +1,51 @@
+component DockRail {
+    Grid {
+        width: 340;
+        height: 48;
+        columns: [*, *, *, 40];
+        rows: [34];
+        padding: 7 10;
+        gap: 4;
+        background: state.theme.surface;
+
+        TabButton {
+            cell: 1 1;
+            key: 'tabScene';
+            width: *;
+            height: 34;
+            text: 'Сцена';
+            selected: false;
+            clicked -> actions.selectDockTab('scene');
+        }
+
+        TabButton {
+            cell: 1 2;
+            key: 'tabInspector';
+            width: *;
+            height: 34;
+            text: 'Инспектор';
+            selected: true;
+            clicked -> actions.selectDockTab('inspector');
+        }
+
+        TabButton {
+            cell: 1 3;
+            key: 'tabParams';
+            width: *;
+            height: 34;
+            text: 'Параметры';
+            selected: false;
+            clicked -> actions.selectDockTab('params');
+        }
+
+        IconButton {
+            cell: 1 4;
+            key: 'closeDockBtn';
+            width: 34;
+            height: 34;
+            icon: 'assets/close.svg';
+            text: 'Скрыть боковую панель';
+            clicked -> actions.closeDock();
+        }
+    }
+}

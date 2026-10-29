@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <polyline points="2.5 17 2.5 7 7 12.5 11.5 7 11.5 17" fill="none" stroke="currentColor" stroke-width="1.9"/>
+  <line x1="17.5" y1="6.5" x2="17.5" y2="17" stroke="currentColor" stroke-width="1.9"/>
+  <polyline points="14.2 13.5 17.5 17 20.8 13.5" fill="none" stroke="currentColor" stroke-width="1.9"/>
+</svg>

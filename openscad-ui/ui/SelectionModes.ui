@@ -1,0 +1,60 @@
+component SelectionModes {
+    Grid {
+        width: 420;
+        height: 110;
+        columns: [*];
+        rows: [34, 38];
+        padding: 12;
+        gap: 10;
+        background: state.theme.surface;
+
+        Grid {
+            cell: 1 1;
+            width: *;
+            height: 34;
+            columns: [*, *, *];
+            rows: [34];
+            gap: 4;
+
+            SegmentButton {
+                cell: 1 1;
+                key: 'selPoint';
+                width: *;
+                height: 34;
+                text: '1 · Точка';
+                selected: false;
+                clicked -> actions.setSelectionMode('point');
+            }
+
+            SegmentButton {
+                cell: 1 2;
+                key: 'selFace';
+                width: *;
+                height: 34;
+                text: '3 · Грань';
+                selected: true;
+                clicked -> actions.setSelectionMode('face');
+            }
+
+            SegmentButton {
+                cell: 1 3;
+                key: 'selBody';
+                width: *;
+                height: 34;
+                text: '4 · Тело';
+                selected: false;
+                clicked -> actions.setSelectionMode('object');
+            }
+        }
+
+        TableRow {
+            cell: 2 1;
+            key: 'selectionHudRow';
+            width: *;
+            height: 38;
+            first: 'Грань #14 · [0, 0, 1]';
+            second: 'R = 42.0 мм';
+            third: 'Фокус [/] · Изоляция [.]';
+        }
+    }
+}

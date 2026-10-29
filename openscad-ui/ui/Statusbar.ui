@@ -1,0 +1,19 @@
+component Statusbar {
+    Grid {
+        width: 1180;
+        height: 26;
+        columns: [*];
+        rows: [26];
+        background: state.theme.canvas;
+
+        StatusBar {
+            cell: 1 1;
+            key: 'mainStatusBar';
+            width: *;
+            height: 26;
+            first: 'WebGPU · Metal · Manifold CSG · Forma UI';
+            second: 'planetary_gearbox.scad · Сохранено в браузере';
+            third: '12 480 треугольников · UTF-8';
+        }
+    }
+}

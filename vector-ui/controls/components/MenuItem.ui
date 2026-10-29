@@ -1,5 +1,5 @@
 // One menu row snapshot; its owner closes the popup and updates selected.
-component MenuItem : Button {
+component MenuItem : Control {
     width: 220;
     height: 34;
     radius: 6;

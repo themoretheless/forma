@@ -12,7 +12,7 @@ import {createShellRegion,keyText} from './forma-shell.js';
 export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}={}){
  const $=selector=>root.querySelector(selector);
  const body=document.body,header=$('header'),run=$('#run');
- body.classList.add('minimal');
+ body.classList.add('minimal','show-layers');
  const scope=createEventScope(),listen=scope.listen,observe=scope.observe;
  const on=(type,callback)=>events.on(type,callback,{signal:scope.signal});
  const panels={code:'show-code',layers:'show-layers',problems:'show-problems'};
@@ -96,6 +96,31 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
  const topbar=document.createElement('div');topbar.className='forma-topbar';
  const corner=document.createElement('div');corner.className='canvas-corner';
  const hints=document.createElement('div');hints.className='minimal-hints';
+ const resizers=[];
+ function attachResizer(panel,cls,prop,axis,sign,min,max,def){
+  if(!panel)return;
+  const bar=document.createElement('div');bar.className='panel-resizer '+cls;
+  panel.append(bar);resizers.push(bar);
+  let startPos=0,startSize=0;
+  listen(bar,'pointerdown',e=>{
+   if(e.button!==0)return;
+   e.preventDefault();bar.setPointerCapture(e.pointerId);bar.classList.add('dragging');
+   startPos=axis==='x'?e.clientX:e.clientY;
+   startSize=axis==='x'?panel.getBoundingClientRect().width:panel.getBoundingClientRect().height;
+  });
+  listen(bar,'pointermove',e=>{
+   if(!bar.hasPointerCapture(e.pointerId))return;
+   const delta=((axis==='x'?e.clientX:e.clientY)-startPos)*sign;
+   const next=Math.round(Math.min(max,Math.max(min,startSize+delta)));
+   document.documentElement.style.setProperty(prop,next+'px');
+  });
+  const end=e=>{if(bar.hasPointerCapture(e.pointerId))bar.releasePointerCapture(e.pointerId);bar.classList.remove('dragging');};
+  listen(bar,'pointerup',end);listen(bar,'pointercancel',end);
+  listen(bar,'dblclick',()=>document.documentElement.style.setProperty(prop,def+'px'));
+ }
+ attachResizer($('.explorer'),'explorer-resizer','--explorer-width','x',1,160,640,260);
+ attachResizer($('.bottom'),'bottom-resizer','--bottom-height','y',-1,100,520,210);
+ attachResizer($('.inspector'),'inspector-resizer','--inspector-width','x',-1,200,560,262);
  const zoomTargets={out:'[data-zoom="out"]',reset:'[data-zoom="reset"]',in:'[data-zoom="in"]',fit:'[data-fit]'};
  const hintList=[['/','добавить'],['⌘K','команды'],['⌘P','файлы'],['⌘\\','код'],['L','слои']];
  function draw(){
@@ -219,5 +244,5 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
   else if(e.key==='/'){e.preventDefault();openPalette('insert');}
  },{capture:true});
 
- return {toggle,openPalette,destroy(){destroyed=true;scope.dispose();for(const r of Object.values(regions??{}))r.destroy();palette.remove();topbar.remove();corner.remove();hints.remove();body.classList.remove('minimal','forma-chrome','forma-inspector',...Object.values(panels),'has-selection','running','used-shortcut');}};
+ return {toggle,openPalette,destroy(){destroyed=true;scope.dispose();for(const r of Object.values(regions??{}))r.destroy();for(const b of resizers)b.remove();palette.remove();topbar.remove();corner.remove();hints.remove();body.classList.remove('minimal','forma-chrome','forma-inspector',...Object.values(panels),'has-selection','running','used-shortcut');}};
 }

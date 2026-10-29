@@ -1,0 +1,41 @@
+component EditorStats {
+    Grid {
+        width: 680;
+        height: 42;
+        columns: [*, *, *];
+        rows: [38];
+        padding: 2;
+        gap: 4;
+        background: state.theme.surface;
+
+        TableRow {
+            cell: 1 1;
+            key: 'statMeshes';
+            width: *;
+            height: 38;
+            first: 'Тела и сетки';
+            second: '4 тела';
+            third: '12 480 Δ';
+        }
+
+        TableRow {
+            cell: 1 2;
+            key: 'statVolume';
+            width: *;
+            height: 38;
+            first: 'Объём CSG';
+            second: '48 320 мм³';
+            third: '2-Manifold';
+        }
+
+        TableRow {
+            cell: 1 3;
+            key: 'statArea';
+            width: *;
+            height: 38;
+            first: 'Площадь GPU';
+            second: '14 912 мм²';
+            third: '0.42 мс';
+        }
+    }
+}

@@ -27,11 +27,13 @@ function readTree(base,folders,filter=()=>true){
  for(const folder of folders)walk(path.join(base,folder));
  return out;
 }
-const shellFiles=materializeTheme({...readTree(path.join(root,'vector-ui/controls'),['components','assets']),...readTree(path.join(root,'studio-ui'),['components','ui'])},'dark');
-const project=projectDir?readTree(path.resolve(projectDir),['.'],name=>/\.(ui|svg)$/.test(name)):sampleProject;
-const entry=Object.keys(project).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')&&/^component\s/m.test(project[p].replace(/^#.*$/gm,'')));
+const controlLibrary=readTree(path.join(root,'vector-ui/controls'),['components','assets']);
+const shellFiles=materializeTheme({...controlLibrary,...readTree(path.join(root,'studio-ui'),['components','ui'])},'dark');
+const rawProject=projectDir?readTree(path.resolve(projectDir),['.'],name=>/\.(ui|svg)$/.test(name)):readTree(path.join(root,'openscad-ui'),['ui'],name=>/\.(ui|svg)$/.test(name));
+const project=materializeTheme({...controlLibrary,...rawProject},'dark');
+const entry=rawProject['ui/OpenScadStudio.ui']?'ui/OpenScadStudio.ui':Object.keys(rawProject).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')&&/^component\s/m.test(rawProject[p].replace(/^#.*$/gm,'')))??Object.keys(project).find(p=>p.endsWith('.ui')&&!p.endsWith('.design.ui')&&/^component\s/m.test(project[p].replace(/^#.*$/gm,'')));
 if(!entry)throw Error('В проекте нет .ui компонента');
-const title=projectDir?path.basename(path.resolve(projectDir)):'knowledge-workspace';
+const title=projectDir?path.basename(path.resolve(projectDir)):'open-scad-viewer';
 
 // Design states of the entry, as Studio's state tabs list them.
 const states=[{name:'Базовые значения',state:{}}];
@@ -74,7 +76,8 @@ function compileWindow(){
  return linked;
 }
 function compileApp(){
- const linked=compileComponents(project,entry,structuredClone(states[selected].state),{measureText:text_metrics});
+ const designState=selected===0?null:states[selected].name;
+ const linked=compileComponents(project,entry,structuredClone(states[selected].state),{measureText:text_metrics,designState});
  return {source:linked.source,template:linked.template};
 }
 

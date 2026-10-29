@@ -1,0 +1,21 @@
+// Interactive base control: shared paint/content surface plus pointer and focus interaction.
+component Control : Surface {
+    width: 160;
+    height: 32;
+    radius: 8;
+    fontSize: 14;
+    borderWidth: 1;
+    horizontalPadding: 12;
+    iconSize: 16;
+    text: '';
+    background: state.theme.surfaceRaised;
+    hoverBackground: state.theme.surfaceHover;
+    pressedBackground: state.theme.surfacePressed;
+    disabledBackground: state.theme.surface;
+    disabledBorderColor: state.theme.border;
+    focusBorderColor: state.theme.focus;
+
+    override interaction: PointerArea {
+        clicked -> events.clicked();
+    };
+}

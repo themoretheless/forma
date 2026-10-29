@@ -1,5 +1,5 @@
 // Selectable chip snapshot; distinct from passive Badge.
-component Chip : Button {
+component Chip : Control {
     width: 84;
     height: 28;
     radius: 14;

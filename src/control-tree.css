@@ -28,6 +28,6 @@
 .control-tree-label{overflow:hidden;text-overflow:ellipsis;flex-shrink:0;max-width:85%}
 .control-tree-detail{color:#7488aa;overflow:hidden;text-overflow:ellipsis;font-size:10px}
 .control-tree-status,.control-tree-empty{font-size:10px;color:#c3a272;padding:5px 10px;margin:0}
-.control-tree-template{font-size:10px;text-align:left;border-top:1px solid #303746;border-radius:0;flex-shrink:0;color:#9cb5eb}
-.control-tree-template[hidden]{display:none}
+.control-tree-extract,.control-tree-template{font-size:10px;text-align:left;border-top:1px solid #303746;border-radius:0;flex-shrink:0;color:#9cb5eb}
+.control-tree-extract[hidden],.control-tree-template[hidden]{display:none}
 @media(max-width:750px){.control-tree-panel{min-height:170px}.control-tree-detail{display:none}.control-tree-scopes button{font-size:10px}.preview-tools{flex-wrap:wrap}}

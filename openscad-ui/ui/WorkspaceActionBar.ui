@@ -1,0 +1,47 @@
+component WorkspaceActionBar {
+    Grid {
+        width: 520;
+        height: 48;
+        columns: [*, *, *, *];
+        rows: [32];
+        padding: 8 12;
+        gap: 8;
+        background: state.theme.surface;
+
+        SecondaryButton {
+            cell: 1 1;
+            key: 'addCubeBtn';
+            width: *;
+            height: 32;
+            text: '+ Куб';
+            clicked -> actions.insertPrimitive('cube');
+        }
+
+        SecondaryButton {
+            cell: 1 2;
+            key: 'addCylinderBtn';
+            width: *;
+            height: 32;
+            text: '+ Цилиндр';
+            clicked -> actions.insertPrimitive('cylinder');
+        }
+
+        SecondaryButton {
+            cell: 1 3;
+            key: 'addSphereBtn';
+            width: *;
+            height: 32;
+            text: '+ Сфера';
+            clicked -> actions.insertPrimitive('sphere');
+        }
+
+        PrimaryButton {
+            cell: 1 4;
+            key: 'booleanOpBtn';
+            width: *;
+            height: 32;
+            text: 'Вычитание CSG';
+            clicked -> actions.applyBoolean('difference');
+        }
+    }
+}

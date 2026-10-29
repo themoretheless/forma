@@ -1,5 +1,5 @@
 // One side-navigation row with an explicit selected snapshot.
-component NavigationItem : Button {
+component NavigationItem : Control {
     width: 220;
     height: 40;
     radius: 10;

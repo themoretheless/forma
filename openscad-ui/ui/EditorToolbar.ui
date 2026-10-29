@@ -1,0 +1,48 @@
+component EditorToolbar {
+    Grid {
+        width: 480;
+        height: 48;
+        columns: [148, 128, *, 110];
+        rows: [32];
+        padding: 8 12;
+        gap: 8;
+        background: state.theme.surface;
+
+        PrimaryIconButton {
+            cell: 1 1;
+            key: 'renderFullBtn';
+            width: *;
+            height: 32;
+            icon: 'assets/play.svg';
+            text: 'Построить CSG';
+            clicked -> actions.renderFull();
+        }
+
+        Checkbox {
+            cell: 1 2;
+            key: 'autoRenderCheck';
+            width: *;
+            height: 32;
+            text: 'Автосборка';
+            checked: true;
+        }
+
+        Badge {
+            cell: 1 3;
+            key: 'astBadge';
+            width: *;
+            height: 28;
+            tone: 'success';
+            text: 'AST · 0 ошибок';
+        }
+
+        SecondaryButton {
+            cell: 1 4;
+            key: 'formatBtn';
+            width: *;
+            height: 32;
+            text: 'Формат кода';
+            clicked -> actions.formatCode();
+        }
+    }
+}

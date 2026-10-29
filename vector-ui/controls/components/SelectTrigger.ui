@@ -1,5 +1,5 @@
 // Select trigger snapshot; the popup list and selection controller are external.
-component SelectTrigger : Button {
+component SelectTrigger : Control {
     width: 240;
     height: 38;
     radius: 8;

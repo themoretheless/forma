@@ -1,0 +1,81 @@
+component ComputeInspector {
+    Frame {
+        width: 360;
+        height: 420;
+        background: state.theme.canvas;
+
+        Column {
+            width: 360;
+            height: 420;
+            padding: 16;
+            gap: 10;
+
+            WindowHeader {
+                key: 'computeHeader';
+                width: 328;
+                height: 32;
+                text: 'GPU-ИНСПЕКТОР ТЕНЗОРНОГО ЯДРА FORMA';
+            }
+
+            TableHeader {
+                key: 'computeColumns';
+                width: 328;
+                height: 30;
+                first: 'Параметр';
+                second: 'Значение';
+                third: 'Устройство';
+            }
+
+            TableRow {
+                key: 'rowArea';
+                width: 328;
+                height: 36;
+                first: 'Площадь поверхности';
+                second: '14 912.4 мм²';
+                third: 'Metal GPU';
+            }
+
+            TableRow {
+                key: 'rowVolume';
+                width: 328;
+                height: 36;
+                first: 'Объём твердого тела';
+                second: '48 320.0 мм³';
+                third: 'Manifold';
+            }
+
+            TableRow {
+                key: 'rowDispatchTime';
+                width: 328;
+                height: 36;
+                first: 'Время GPU-редукции';
+                second: '0.42 мс';
+                third: 'Workgroup 256';
+            }
+
+            ProgressBar {
+                key: 'gpuUtilizationBar';
+                width: 328;
+                height: 10;
+                value: 82%;
+            }
+
+            Alert {
+                key: 'verifyAlert';
+                width: 328;
+                height: 68;
+                tone: 'success';
+                text: 'Тензорная редукция верифицирована';
+                description: 'gpu-runtime · совпадение с CPU-эталоном 100%';
+            }
+
+            PrimaryButton {
+                key: 'recomputeBtn';
+                width: 328;
+                height: 36;
+                text: 'Пересчитать метрики на GPU';
+                clicked -> actions.runGeometryAnalysis();
+            }
+        }
+    }
+}

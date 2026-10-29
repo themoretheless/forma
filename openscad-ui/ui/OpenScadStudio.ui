@@ -1,0 +1,766 @@
+#[design('./OpenScadStudio.design.ui')]
+component OpenScadStudio {
+    contextType: 'crate::OpenScadVm';
+
+    Grid {
+        width: 1180;
+        height: 760;
+        columns: [*];
+        rows: [48, *, 26];
+        gap: 0;
+        background: state.theme.canvas;
+
+        // 1. ВЕРХНЯЯ ПАНЕЛЬ РАБОЧЕГО ПРОСТРАНСТВА OPENSCAD
+        Grid {
+            cell: 1 1;
+            width: *;
+            height: 48;
+            columns: [148, 282, 164, *, 120, 116];
+            rows: [32];
+            padding: 8 14;
+            gap: 10;
+            background: state.theme.surface;
+
+            LeadingIconButton {
+                cell: 1 1;
+                key: 'brandFileBtn';
+                width: *;
+                height: 32;
+                icon: 'assets/file.svg';
+                text: 'OpenSCAD · Файл';
+                clicked -> actions.openFileMenu();
+            }
+
+            Row {
+                cell: 1 2;
+                width: *;
+                height: 32;
+                padding: 1;
+                gap: 2;
+                radius: 8;
+                background: state.theme.canvas;
+
+                SegmentButton {
+                    key: 'modeSolid';
+                    width: *;
+                    height: 30;
+                    text: 'Solid';
+                    selected: true;
+                    clicked -> actions.openWorkspaceMode('solid');
+                }
+
+                SegmentButton {
+                    key: 'modeMesh';
+                    width: *;
+                    height: 30;
+                    text: 'Mesh';
+                    selected: false;
+                    clicked -> actions.openWorkspaceMode('mesh');
+                }
+
+                SegmentButton {
+                    key: 'modeCode';
+                    width: *;
+                    height: 30;
+                    text: 'Code';
+                    selected: false;
+                    clicked -> actions.openWorkspaceMode('code');
+                }
+            }
+
+            Badge {
+                cell: 1 3;
+                key: 'kernelBadge';
+                width: *;
+                height: 28;
+                tone: 'accent';
+                text: 'Manifold · Forma GPU';
+            }
+
+            SearchField {
+                cell: 1 4;
+                key: 'commandSearch';
+                width: *;
+                height: 32;
+                value: '';
+                placeholder: 'Команды и примитивы…';
+                suffix: '⌘K';
+            }
+
+            SecondaryButton {
+                cell: 1 5;
+                key: 'toggleCodeBtn';
+                width: *;
+                height: 32;
+                text: 'Исходный код';
+                clicked -> actions.toggleEditor();
+            }
+
+            PrimaryButton {
+                cell: 1 6;
+                key: 'exportBtn';
+                width: *;
+                height: 32;
+                text: 'Экспорт 3MF';
+                clicked -> actions.openExportDialog();
+            }
+        }
+
+        // 2. ОСНОВНАЯ РАБОЧАЯ ОБЛАСТЬ (ДЕРЕВО + КОД | 3D VIEWPORT | ИНСПЕКТОР)
+        Grid {
+            cell: 2 1;
+            width: *;
+            height: *;
+            columns: [300, *, 320];
+            rows: [*];
+            gap: 1;
+            background: state.theme.border;
+
+            // 2A. ЛЕВАЯ ПАНЕЛЬ: ДЕРЕВО СЦЕНЫ CSG И ИСХОДНЫЙ КОД OPENSCAD
+            Grid {
+                cell: 1 1;
+                width: *;
+                height: *;
+                columns: [*];
+                rows: [30, 162, 30, *, 32, 66, 30];
+                padding: 10;
+                gap: 8;
+                background: state.theme.surface;
+
+                WindowHeader {
+                    cell: 1 1;
+                    key: 'outlinerHeader';
+                    width: *;
+                    height: 30;
+                    text: 'СЦЕНА И ИЕРАРХИЯ CSG';
+                }
+
+                Column {
+                    cell: 2 1;
+                    width: *;
+                    height: *;
+                    gap: 2;
+
+                    TreeItem {
+                        key: 'treeRoot';
+                        width: *;
+                        text: 'planetary_gearbox.scad';
+                        branch: true;
+                        expanded: true;
+                    }
+
+                    TreeItem {
+                        key: 'treeDiff';
+                        width: *;
+                        indent: 14;
+                        text: 'difference() · Корпус редуктора';
+                        branch: true;
+                        expanded: true;
+                        selected: true;
+                    }
+
+                    TreeItem {
+                        key: 'treeSunGear';
+                        width: *;
+                        indent: 28;
+                        text: 'sun_gear(teeth = 18, m = 2.0)';
+                        branch: false;
+                    }
+
+                    TreeItem {
+                        key: 'treePlanetRing';
+                        width: *;
+                        indent: 28;
+                        text: 'planet_carrier(count = 4)';
+                        branch: false;
+                    }
+
+                    TreeItem {
+                        key: 'treeBoreHole';
+                        width: *;
+                        indent: 28;
+                        text: 'cylinder(r = 11, h = 42, center = true)';
+                        branch: false;
+                    }
+                }
+
+                WindowHeader {
+                    cell: 3 1;
+                    key: 'sourceHeader';
+                    width: *;
+                    height: 30;
+                    text: 'КОД OPENSCAD · 28 СТРОК';
+                }
+
+                Column {
+                    cell: 4 1;
+                    width: *;
+                    height: *;
+                    gap: 2;
+
+                    CodeLine {
+                        key: 'codeLine1';
+                        width: *;
+                        number: '1';
+                        text: '$fn = 96; // точность аппроксимации';
+                    }
+
+                    CodeLine {
+                        key: 'codeLine2';
+                        width: *;
+                        number: '2';
+                        text: 'module housing(outer_r = 42, height = 28) {';
+                    }
+
+                    CodeLine {
+                        key: 'codeLine3';
+                        width: *;
+                        number: '3';
+                        text: '  difference() {';
+                    }
+
+                    CodeLine {
+                        key: 'codeLine4';
+                        width: *;
+                        number: '4';
+                        text: '    cylinder(r = outer_r, h = height);';
+                    }
+
+                    CodeLine {
+                        key: 'codeLine5';
+                        width: *;
+                        number: '5';
+                        text: '    translate([0, 0, -1])';
+                    }
+
+                    CodeLine {
+                        key: 'codeLine6';
+                        width: *;
+                        number: '6';
+                        text: '      cylinder(r = outer_r - 6, h = height + 2);';
+                    }
+
+                    CodeLine {
+                        key: 'codeLine7';
+                        width: *;
+                        number: '7';
+                        text: '  }';
+                    }
+                }
+
+                Grid {
+                    cell: 5 1;
+                    width: *;
+                    height: 32;
+                    columns: [*, *];
+                    rows: [32];
+                    gap: 8;
+
+                    PrimaryIconButton {
+                        cell: 1 1;
+                        key: 'compileScadBtn';
+                        width: *;
+                        height: 32;
+                        icon: 'assets/play.svg';
+                        text: 'Построить CSG';
+                        clicked -> actions.compileModel();
+                    }
+
+                    SecondaryButton {
+                        cell: 1 2;
+                        key: 'formatScadBtn';
+                        width: *;
+                        height: 32;
+                        text: 'Форматировать';
+                        clicked -> actions.formatCode();
+                    }
+                }
+
+                Alert {
+                    cell: 6 1;
+                    key: 'manifoldAlert';
+                    width: *;
+                    height: 66;
+                    tone: 'success';
+                    text: 'Геометрия замкнута (2-Manifold)';
+                    description: '12 480 треугольников · 0 самопересечений';
+                }
+
+                Grid {
+                    cell: 7 1;
+                    width: *;
+                    height: 30;
+                    columns: [*, *];
+                    rows: [30];
+                    gap: 8;
+
+                    Checkbox {
+                        cell: 1 1;
+                        key: 'autoCompileCheck';
+                        width: *;
+                        height: 30;
+                        text: 'Автосборка';
+                        checked: true;
+                    }
+
+                    Checkbox {
+                        cell: 1 2;
+                        key: 'wireframeOverlayCheck';
+                        width: *;
+                        height: 30;
+                        text: 'Рёбра сетки';
+                        checked: true;
+                    }
+                }
+            }
+
+            // 2B. ЦЕНТРАЛЬНАЯ ОБЛАСТЬ: 3D VIEWPORT + ПАНЕЛЬ КАМЕРЫ И РЕЖИМОВ ВЫДЕЛЕНИЯ
+            Grid {
+                cell: 1 2;
+                width: *;
+                height: *;
+                columns: [*];
+                rows: [34, *, 38, 38];
+                padding: 12;
+                gap: 10;
+                background: state.theme.canvas;
+
+                // Панель инструментов вьюпорта
+                Grid {
+                    cell: 1 1;
+                    width: *;
+                    height: 34;
+                    columns: [34, 34, 34, 34, *, 126];
+                    rows: [34];
+                    gap: 6;
+
+                    IconButton {
+                        cell: 1 1;
+                        key: 'viewFitBtn';
+                        width: 34;
+                        height: 34;
+                        icon: 'assets/fit.svg';
+                        text: 'Вписать в экран';
+                        clicked -> actions.fitView();
+                    }
+
+                    IconButton {
+                        cell: 1 2;
+                        key: 'viewFocusBtn';
+                        width: 34;
+                        height: 34;
+                        icon: 'assets/focus.svg';
+                        text: 'Фокус на выделенном';
+                        clicked -> actions.focusSelection();
+                    }
+
+                    IconButton {
+                        cell: 1 3;
+                        key: 'viewGridBtn';
+                        width: 34;
+                        height: 34;
+                        icon: 'assets/grid.svg';
+                        text: 'Координатная сетка';
+                        clicked -> actions.toggleGrid();
+                    }
+
+                    IconButton {
+                        cell: 1 4;
+                        key: 'viewMeasureBtn';
+                        width: 34;
+                        height: 34;
+                        icon: 'assets/ruler.svg';
+                        text: 'Измерение размеров';
+                        clicked -> actions.toggleMeasure();
+                    }
+
+                    Row {
+                        cell: 1 5;
+                        width: *;
+                        height: 34;
+                        padding: 2;
+                        gap: 2;
+                        radius: 8;
+                        background: state.theme.surface;
+
+                        SegmentButton {
+                            key: 'selPoint';
+                            width: *;
+                            height: 30;
+                            text: '1 · Точка';
+                            selected: false;
+                            clicked -> actions.setSelectionMode('point');
+                        }
+
+                        SegmentButton {
+                            key: 'selFace';
+                            width: *;
+                            height: 30;
+                            text: '3 · Грань';
+                            selected: true;
+                            clicked -> actions.setSelectionMode('face');
+                        }
+
+                        SegmentButton {
+                            key: 'selBody';
+                            width: *;
+                            height: 30;
+                            text: '4 · Тело';
+                            selected: false;
+                            clicked -> actions.setSelectionMode('object');
+                        }
+                    }
+
+                    Badge {
+                        cell: 1 6;
+                        key: 'projectionBadge';
+                        width: 126;
+                        height: 30;
+                        tone: 'neutral';
+                        text: 'Изометрия · 60 FPS';
+                    }
+                }
+
+                // Холст 3D-сцены WebGPU / Metal с интерактивным HUD
+                Grid {
+                    cell: 2 1;
+                    key: 'viewportCard';
+                    width: *;
+                    height: *;
+                    columns: [*];
+                    rows: [28, *, 32];
+                    padding: 16;
+                    gap: 14;
+                    radius: 14;
+                    background: #141923;
+
+                    Grid {
+                        cell: 1 1;
+                        width: *;
+                        height: 28;
+                        columns: [*, 184, 82];
+                        rows: [28];
+                        gap: 8;
+
+                        Badge {
+                            cell: 1 1;
+                            key: 'hudSelectionBadge';
+                            width: *;
+                            height: 26;
+                            tone: 'accent';
+                            text: 'Грань #14 · Нормаль [0, 0, 1]';
+                        }
+
+                        Badge {
+                            cell: 1 2;
+                            key: 'hudBboxBadge';
+                            width: 184;
+                            height: 26;
+                            tone: 'success';
+                            text: 'Габариты: 84 × 84 × 28 мм';
+                        }
+
+                        Chip {
+                            cell: 1 3;
+                            key: 'hudAxesChip';
+                            width: 82;
+                            height: 26;
+                            text: 'Z ↑ · ММ';
+                        }
+                    }
+
+                    Surface {
+                        cell: 2 1;
+                        key: 'viewportStage';
+                        width: *;
+                        height: *;
+                        radius: 10;
+                        background: #0f131b;
+                        text: '3D VIEWPORT · PLANETARY GEARBOX (CSG + MANIFOLD)';
+                        color: state.theme.text;
+                        fontSize: 14;
+                    }
+
+                    Grid {
+                        cell: 3 1;
+                        width: *;
+                        height: 32;
+                        columns: [*, *, *, *];
+                        rows: [32];
+                        gap: 8;
+
+                        SecondaryButton {
+                            cell: 1 1;
+                            key: 'addBoxPrimitive';
+                            width: *;
+                            height: 32;
+                            text: '+ Параллелепипед';
+                            clicked -> actions.insertPrimitive('cube');
+                        }
+
+                        SecondaryButton {
+                            cell: 1 2;
+                            key: 'addCylinderPrimitive';
+                            width: *;
+                            height: 32;
+                            text: '+ Цилиндр';
+                            clicked -> actions.insertPrimitive('cylinder');
+                        }
+
+                        SecondaryButton {
+                            cell: 1 3;
+                            key: 'addSpherePrimitive';
+                            width: *;
+                            height: 32;
+                            text: '+ Сфера';
+                            clicked -> actions.insertPrimitive('sphere');
+                        }
+
+                        PrimaryButton {
+                            cell: 1 4;
+                            key: 'booleanDiffBtn';
+                            width: *;
+                            height: 32;
+                            text: 'Вычитание CSG';
+                            clicked -> actions.applyBoolean('difference');
+                        }
+                    }
+                }
+
+                // Нижняя сводка метрик выбранного тела / грани
+                Grid {
+                    cell: 3 1;
+                    width: *;
+                    height: 38;
+                    columns: [*, *];
+                    rows: [38];
+                    gap: 6;
+
+                    TableRow {
+                        cell: 1 1;
+                        key: 'metricVolumeRow';
+                        width: *;
+                        height: 38;
+                        first: 'Объём тела';
+                        second: '48 320 мм³';
+                        third: 'Замкнуто';
+                    }
+
+                    TableRow {
+                        cell: 1 2;
+                        key: 'metricAreaRow';
+                        width: *;
+                        height: 38;
+                        first: 'Площадь GPU';
+                        second: '14 912 мм²';
+                        third: '0.42 мс';
+                    }
+                }
+
+                TableRow {
+                    cell: 4 1;
+                    key: 'metricPickRow';
+                    width: *;
+                    height: 38;
+                    first: 'Выделение';
+                    second: 'housing.face[14] · R = 42.0 мм';
+                    third: 'Фокус [/] · Изоляция [.]';
+                }
+            }
+
+            // 2C. ПРАВАЯ ДОК-ПАНЕЛЬ: ПАРАМЕТРЫ CUSTOMIZER И GPU-ИНСПЕКТОР FORMA
+            Column {
+                cell: 1 3;
+                width: *;
+                height: *;
+                padding: 10;
+                gap: 8;
+                background: state.theme.surface;
+
+                Grid {
+                    width: *;
+                    height: 34;
+                    columns: [*, *, *];
+                    rows: [34];
+                    gap: 2;
+
+                    TabButton {
+                        cell: 1 1;
+                        key: 'dockTabInspector';
+                        width: *;
+                        height: 34;
+                        text: 'Инспектор';
+                        selected: true;
+                        clicked -> actions.selectDockTab('inspector');
+                    }
+
+                    TabButton {
+                        cell: 1 2;
+                        key: 'dockTabParams';
+                        width: *;
+                        height: 34;
+                        text: 'Параметры';
+                        selected: false;
+                        clicked -> actions.selectDockTab('params');
+                    }
+
+                    TabButton {
+                        cell: 1 3;
+                        key: 'dockTabGpu';
+                        width: *;
+                        height: 34;
+                        text: 'GPU Анализ';
+                        selected: false;
+                        clicked -> actions.selectDockTab('gpu');
+                    }
+                }
+
+                DisclosureHeader {
+                    key: 'transformSection';
+                    width: *;
+                    height: 36;
+                    value: 'Геометрия и параметры CSG';
+                }
+
+                Grid {
+                    width: *;
+                    height: 36;
+                    columns: [*, *];
+                    rows: [36];
+                    gap: 8;
+
+                    TextField {
+                        cell: 1 1;
+                        key: 'paramOuterRadius';
+                        width: *;
+                        height: 36;
+                        value: 'outer_r = 42.0 мм';
+                        placeholder: 'Внешний радиус';
+                    }
+
+                    TextField {
+                        cell: 1 2;
+                        key: 'paramHeight';
+                        width: *;
+                        height: 36;
+                        value: 'height = 28.0 мм';
+                        placeholder: 'Высота корпуса';
+                    }
+                }
+
+                Grid {
+                    width: *;
+                    height: 36;
+                    columns: [*, *];
+                    rows: [36];
+                    gap: 8;
+
+                    TextField {
+                        cell: 1 1;
+                        key: 'paramTeethCount';
+                        width: *;
+                        height: 36;
+                        value: 'teeth = 18';
+                        placeholder: 'Число зубьев';
+                    }
+
+                    TextField {
+                        cell: 1 2;
+                        key: 'paramSegments';
+                        width: *;
+                        height: 36;
+                        value: '$fn = 96';
+                        placeholder: 'Сегменты ($fn)';
+                    }
+                }
+
+                Slider {
+                    key: 'fnResolutionSlider';
+                    width: *;
+                    height: 28;
+                    value: 75%;
+                }
+
+                DisclosureHeader {
+                    key: 'gpuSection';
+                    width: *;
+                    height: 36;
+                    value: 'Тензорное GPU-ядро Forma';
+                }
+
+                TableHeader {
+                    key: 'gpuTableHeader';
+                    width: *;
+                    height: 30;
+                    first: 'Метрика';
+                    second: 'Значение';
+                    third: 'Статус';
+                }
+
+                TableRow {
+                    key: 'gpuBackendRow';
+                    width: *;
+                    height: 34;
+                    first: 'Бэкенд';
+                    second: 'Metal GPU';
+                    third: 'Активен';
+                }
+
+                TableRow {
+                    key: 'gpuTrianglesRow';
+                    width: *;
+                    height: 34;
+                    first: 'Треугольники';
+                    second: '12 480 Δ';
+                    third: 'BVH';
+                }
+
+                TableRow {
+                    key: 'gpuSurfaceAreaRow';
+                    width: *;
+                    height: 34;
+                    first: 'Площадь';
+                    second: '14 912 мм²';
+                    third: '0.42 мс';
+                }
+
+                TableRow {
+                    key: 'gpuMemoryRow';
+                    width: *;
+                    height: 34;
+                    first: 'Буфер сетки';
+                    second: '1.84 МБ';
+                    third: 'UMA';
+                }
+
+                PrimaryButton {
+                    key: 'runGpuComputeBtn';
+                    width: *;
+                    height: 34;
+                    text: 'Рассчитать площадь на GPU';
+                    clicked -> actions.runGeometryAnalysis();
+                }
+
+                Alert {
+                    key: 'gpuStatusAlert';
+                    width: *;
+                    height: 66;
+                    tone: 'accent';
+                    text: 'GPU-редукция верифицирована';
+                    description: 'Расхождение с CPU-эталоном < 0.0001%';
+                }
+            }
+        }
+
+        // 3. НИЖНЯЯ СТРОКА СОСТОЯНИЯ
+        StatusBar {
+            cell: 3 1;
+            key: 'studioStatusBar';
+            width: *;
+            height: 26;
+            first: 'WebGPU · Metal · Manifold CSG · Forma UI';
+            second: 'planetary_gearbox.scad · Сохранено в браузере';
+            third: '12 480 треугольников · UTF-8';
+        }
+    }
+}

@@ -45,13 +45,13 @@ export function treeRows(roots,collapsed=new Set(),query=''){
   walk(needle?roots.map(filtered).filter(Boolean):roots,1,null);return out;
 }
 
-export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpenTemplate,onReorder=()=>{},canReorder=()=>false,storage={getItem:key=>readStorage('localStorage',key),setItem:(key,value)=>writeStorage('localStorage',key,value)}}){
+export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpenTemplate,onExtract=()=>{},onReorder=()=>{},canReorder=()=>false,storage={getItem:key=>readStorage('localStorage',key),setItem:(key,value)=>writeStorage('localStorage',key,value)}}){
   const panel=document.createElement('section');panel.className='control-tree-panel';panel.setAttribute('aria-label','Дерево контролов');
-  panel.innerHTML=`<div class="control-tree-heading"><span>КОНТРОЛЫ</span><button data-action="expand" title="Развернуть дерево" aria-label="Развернуть дерево">⊞</button><button data-action="collapse" title="Свернуть дерево" aria-label="Свернуть дерево">⊟</button></div><div class="control-tree-scopes"><button data-scope="designer">Дизайнер</button><button data-scope="file">Файл</button></div><div class="control-tree-file"></div><input class="control-tree-search" type="search" placeholder="Найти контрол…" aria-label="Поиск в дереве контролов"><div class="control-tree-status" role="status"></div><div class="control-tree-items" role="tree" aria-label="Иерархия контролов"></div><button class="control-tree-template" hidden>Открыть шаблон компонента ↗</button>`;
+  panel.innerHTML=`<div class="control-tree-heading"><span>КОНТРОЛЫ</span><button data-action="expand" title="Развернуть дерево" aria-label="Развернуть дерево">⊞</button><button data-action="collapse" title="Свернуть дерево" aria-label="Свернуть дерево">⊟</button></div><div class="control-tree-scopes"><button data-scope="designer">Дизайнер</button><button data-scope="file">Файл</button></div><div class="control-tree-file"></div><input class="control-tree-search" type="search" placeholder="Найти контрол…" aria-label="Поиск в дереве контролов"><div class="control-tree-status" role="status"></div><div class="control-tree-items" role="tree" aria-label="Иерархия контролов"></div><button class="control-tree-extract" hidden>Вынести в .ui…</button><button class="control-tree-template" hidden>Открыть шаблон компонента ↗</button>`;
   explorer.querySelector('.explorer-note').before(panel);
   const toggle=document.createElement('button');toggle.id='toggle-control-tree';toggle.textContent='☷ Дерево';toggle.setAttribute('aria-controls','control-tree-panel');panel.id='control-tree-panel';toolbar.prepend(toggle);
-  const list=panel.querySelector('.control-tree-items'),search=panel.querySelector('input'),status=panel.querySelector('.control-tree-status'),template=panel.querySelector('.control-tree-template');
-  let visible=true,scope='designer',roots=[],rows=[],selectedId=null,focusId=null,query='',disabled=false,templatePath=null;
+  const list=panel.querySelector('.control-tree-items'),search=panel.querySelector('input'),status=panel.querySelector('.control-tree-status'),extractBtn=panel.querySelector('.control-tree-extract'),template=panel.querySelector('.control-tree-template');
+  let visible=true,scope='designer',roots=[],rows=[],selectedId=null,focusId=null,query='',disabled=false,templatePath=null,extractItem=null;
   // draggingId is the row the pointer grabbed, dragRow/dropRow the elements carrying its markers.
   let draggingId=null,dragRow=null,dropRow=null,movable=new Set(),reorderDrawn=false;
   // `movable` is what the structure allows; the handlers ask again, because a design scenario can
@@ -169,14 +169,15 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
   for(const b of panel.querySelectorAll('[data-scope]'))b.onclick=()=>setView({scope:b.dataset.scope});
   panel.querySelector('[data-action=expand]').onclick=()=>{collapsed.clear();draw();};
   panel.querySelector('[data-action=collapse]').onclick=()=>{function walk(items){for(const n of items){if(n.children.length)collapsed.add(n.id);walk(n.children);}}walk(roots);draw();};
+  extractBtn.onclick=()=>{if(extractItem&&!disabled)onExtract({path:extractItem.path,start:extractItem.node.start,node:extractItem.node});};
   template.onclick=()=>{if(templatePath)onOpenTemplate(templatePath);};
   function setView(next){if(next.visible!==undefined)visible=next.visible;if(next.scope!==undefined)scope=next.scope;updateView();onScopeChange();}
   function syncSelection(start,path,redraw=false){
     const previousSelected=selectedId,previousFocus=focusId;
-    selectedId=null;templatePath=null;
+    selectedId=null;templatePath=null;extractItem=null;
     const item=sources.get(path)?.get(start);
-    if(item){selectedId=item.id;templatePath=item.templatePath??null;for(let id=parents.get(item.id);id!=null;id=parents.get(id))if(collapsed.delete(id))redraw=true;}
-    template.hidden=!templatePath;const focused=list.contains(document.activeElement);if(!focused)focusId=selectedId??focusId;
+    if(item){selectedId=item.id;templatePath=item.templatePath??null;const parentId=parents.get(item.id),parentHasNode=parentId&&parents.get(parentId)!=null;if(structural(item.id)&&item.node&&parentHasNode&&!['Scroll','Modal'].includes(item.node.type))extractItem=item;for(let id=parentId;id!=null;id=parents.get(id))if(collapsed.delete(id))redraw=true;}
+    extractBtn.hidden=!extractItem||disabled;template.hidden=!templatePath;const focused=list.contains(document.activeElement);if(!focused)focusId=selectedId??focusId;
     if(redraw)draw(focused);
     else {
       if(!elements.has(focusId))focusId=elements.has(selectedId)?selectedId:rows[0]?.id;

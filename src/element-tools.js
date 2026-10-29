@@ -4,14 +4,14 @@ import {copyElements,copyElement,insertElements,insertElement,removeElement,move
 import {selectionBounds,alignSelection,distributeSelection,snapSelection,intersects} from './selection-layout.js';
 import {flowsCoordinates} from './positioning.js';
 import {controlCss} from './handoff.js';
-export function createElementTools({viewport,artboard,toolbar,context,select,commit,history,report,copy=text=>navigator.clipboard?.writeText(text)}){
+export function createElementTools({viewport,artboard,toolbar,context,select,commit,extract=()=>{},history,report,copy=text=>navigator.clipboard?.writeText(text)}){
  const events=createEventScope(),listen=events.listen;
  let clipboard='',drag=null,selection=[],primary=null,snapping=true,resize=null,padTarget=null;
  // A palette entry can be pulled out of the menu onto the canvas, and only this module's own drag
  // carries a control, so a foreign payload — a file, somebody else's text — stays a plain browser drag.
  const MIME='application/x-forma-control';let payload=null,hint=null;
  const bar=document.createElement('div');bar.className='element-tools';bar.hidden=true;bar.setAttribute('role','menu');bar.setAttribute('aria-label','Редактирование элементов');
- const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['group','Сгруппировать'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y'],['css','Скопировать CSS']];
+ const labels=[['copy','Копировать'],['cut','Вырезать'],['paste','Вставить'],['duplicate','Дублировать'],['group','Сгруппировать'],['extract','Вынести в .ui…'],['delete','Удалить'],['up','↑ Выше'],['down','↓ Ниже'],['undo','Отменить'],['redo','Повторить'],['snap','Привязки'],['left','По левому краю'],['center','По центру X'],['right','По правому краю'],['top','По верхнему краю'],['middle','По центру Y'],['bottom','По нижнему краю'],['distribute-x','Равные интервалы X'],['distribute-y','Равные интервалы Y'],['css','Скопировать CSS']];
  for(const [action,label] of labels){const b=document.createElement('button');b.textContent=label;b.dataset.action=action;b.setAttribute('role',action==='snap'?'menuitemcheckbox':'menuitem');b.tabIndex=-1;b.onclick=()=>{run(action);closeMenu(true);};bar.append(b);}
  const count=document.createElement('span');count.className='selection-count';bar.append(count);toolbar.after(bar);viewport.tabIndex=0;
  // The palette is the only way to create a control the page does not have yet, so its entries
@@ -248,6 +248,12 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    apply(insertElements(c.source,Math.max(...selection),copied),c);
   }
   if(action==='paste')apply(insertElements(c.source,c.start,text??clipboard),c);
+  if(action==='extract'){
+   if(selection.length!==1)throw Error('Выберите один элемент для вынесения в .ui');
+   const loc=locateElement(c.source,selection[0]);
+   if(!loc.parent||['Scroll','Modal'].includes(loc.node.type))throw Error('Выберите дочерний элемент');
+   extract({path:c.path,start:selection[0],node:loc.node});return;
+  }
   if(action==='group'){
    if(selection.length<2)throw Error('Выберите хотя бы два контрола');
    const list=items(c),bounds=selectionBounds(list.map(i=>i.bounds)),parent=locateElement(c.source,selection[0]).parent;
@@ -447,6 +453,7 @@ export function createElementTools({viewport,artboard,toolbar,context,select,com
    if(action==='add')disabled=!c||!c.root||!(c.inserts??[]).some(item=>item.type===b.dataset.type);
    if(['copy','cut','delete','duplicate','css'].includes(action))disabled=!c||!selection.length;
    if(action==='group'){disabled=!c||selection.length<2;title='Объединяет выбранные контролы в контейнер · Ctrl+G';}
+   if(action==='extract'){disabled=!c||selection.length!==1||!location?.parent||['Scroll','Modal'].includes(location?.node.type);title='Выносит выбранный элемент в отдельный компонент components/<Name>.ui';}
    if(action==='snap'){if(b.getAttribute('aria-checked')!==String(snapping))b.setAttribute('aria-checked',String(snapping));title='Края и центры · Alt при переносе отключает привязку';}
    if(alignments.has(action))disabled=!c||!!c.grid||selection.length<(action.startsWith('distribute-')?3:2);
    if(action==='up'||action==='down'){const siblings=location?.parent?.children??[],index=siblings.indexOf(location?.node);disabled=!c||selection.length!==1||index<0||location?.node.type==='Scroll'||(action==='up'?index===0:index===siblings.length-1);title='Порядок среди соседей · Alt+'+(action==='up'?'↑':'↓');}

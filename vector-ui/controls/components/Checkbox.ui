@@ -1,5 +1,5 @@
 // checked/indeterminate are explicit snapshot values; the host owns updates.
-component Checkbox : Button {
+component Checkbox : Control {
     width: 240;
     height: 32;
     text: 'Параметр';

@@ -306,3 +306,49 @@ export function editElements(source,starts,operation){
 }
 export function copyElements(source,starts){return [...new Set(starts)].sort((a,b)=>a-b).map(start=>copyElement(source,start)).join('\n');}
 export function insertElements(source,start,text){return insertElement(source,start,text,true);}
+const PLACEMENT_PROPS=new Set(['key','x','y','cell','row','column','row.span','column.span']);
+export function extractElement(source,start,componentName){
+ const name=String(componentName??'').trim();
+ if(!/^[A-Z][A-Za-z0-9_]*$/.test(name))throw Error('Имя компонента должно начинаться с заглавной латинской буквы (например, MyButton)');
+ const {node,parent}=locateElement(source,start);
+ if(!parent||['Scroll','Modal'].includes(node.type))throw Error('Выберите дочерний элемент для вынесения в компонент');
+ const column=index=>source.slice(source.lastIndexOf('\n',index-1)+1,index).match(/^ */)[0];
+ const pad=column(node.start),inner=pad+'    ';
+ let componentSource,instanceText;
+ if(holdsChildren(node)){
+  const raw=source.slice(node.start,node.end);
+  const lines=raw.split('\n'),base=lines.length>1?lines.at(-1).match(/^ */)[0]:'';
+  const reindented=lines.map((line,index)=>line.trim()?('    '+(index&&line.startsWith(base)?line.slice(base.length):line.trimStart())):line).join('\n');
+  componentSource=`component ${name} {\n${reindented}\n}\n`;
+  parse(componentSource);
+  const kept=[];
+  for(const [k,range] of Object.entries(node.propertyRanges??{})){
+   if(PLACEMENT_PROPS.has(k)||k==='width'||k==='height')kept.push(`${k}: ${source.slice(range.from,range.to).trim()};`);
+  }
+  instanceText=kept.length?`${name} {\n${kept.map(line=>inner+line).join('\n')}\n${pad}}`:`${name} { }`;
+ }else{
+  const defLines=[],instLines=[];
+  for(const [k,range] of Object.entries(node.propertyRanges??{})){
+   const valText=source.slice(range.from,range.to).trim();
+   if(PLACEMENT_PROPS.has(k))instLines.push(`${k}: ${valText};`);
+   else{
+    defLines.push(`    ${k}: ${valText};`);
+    if(k==='width'||k==='height')instLines.push(`${k}: ${valText};`);
+   }
+  }
+  for(const [ev,action] of Object.entries(node.events??{})){
+   const args=(node.eventArgExpressions?.[ev]??node.eventArgs?.[ev]??[]).map(a=>a?.expr??literal(a)).join(', ');
+   instLines.push(`${ev} -> ${action}(${args});`);
+  }
+  for(const [prop,bind] of Object.entries(node.bindings??{})){
+   instLines.push(`${prop} <=> ${bind};`);
+  }
+  const body=defLines.length?`\n${defLines.join('\n')}\n`:' ';
+  componentSource=`component ${name} : ${node.type} {${body}}\n`;
+  parse(componentSource);
+  instanceText=instLines.length?`${name} {\n${instLines.map(line=>inner+line).join('\n')}\n${pad}}`:`${name} { }`;
+ }
+ const next=source.slice(0,node.start)+instanceText+source.slice(node.end);
+ parse(next);
+ return {from:node.start,to:node.end,insert:instanceText,start:node.start,starts:[node.start],componentName:name,componentPath:`components/${name}.ui`,componentSource};
+}

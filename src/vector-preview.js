@@ -56,7 +56,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   Object.assign(gpuCanvas.style,{position:'absolute',left:'0',top:'0',pointerEvents:'none'});
   gpuCanvas.setAttribute('aria-hidden','true');gpuCanvas.hidden=true;host.insertBefore(gpuCanvas,outline);
   const backendBadge=document.createElement('span');
-  Object.assign(backendBadge.style,{position:'absolute',right:'4px',bottom:'4px',font:'10px monospace',lineHeight:'14px',color:'#a1aec8',pointerEvents:'none'});
+  Object.assign(backendBadge.style,{position:'absolute',right:'6px',top:'-18px',font:'10px monospace',lineHeight:'14px',color:'#a1aec8',pointerEvents:'none'});
   backendBadge.textContent='CPU';host.append(backendBadge);
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas 2D недоступен');
@@ -101,8 +101,12 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   function raster(model) {
     const width = model.render_width(), height = model.render_height();
     if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) throw new Error('Некорректный размер векторного интерфейса');
-    const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
-    const scale = Math.min(dpr, 4096 / width, 4096 / height, Math.sqrt(8_000_000 / (width * height)));
+    const dpr = Math.min(8, Math.max(1, (window.devicePixelRatio || 1) * (window.visualViewport?.scale || 1)));
+    const zoom = Math.max(1, Number(host.parentElement?.style?.zoom) || 1);
+    const targetScale = dpr * zoom;
+    const maxDim = gpu ? gpu.maxTextureDimension2D ?? 8192 : 4096;
+    const maxPixels = gpu ? 32_000_000 : 8_000_000;
+    const scale = Math.min(targetScale, maxDim / width, maxDim / height, Math.sqrt(maxPixels / (width * height)));
     const pixelWidth = Math.max(1, Math.floor(width * scale));
     const pixelHeight = Math.max(1, Math.floor(height * scale));
     const revision=model.visual_revision();
@@ -419,7 +423,9 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   listen(window, 'pointermove', proximity);
   listen(window, 'pointerout', event => { if (!event.relatedTarget) proximity(null); });
   listen(window, 'scroll', () => { if (proximityPosition) proximity(proximityPosition); }, {capture:true});
-  listen(window, 'resize', () => { if (button && host.isConnected) {change(() => {},true);if(proximityPosition)proximity(proximityPosition);} });
+  const onResize = () => { if (button && host.isConnected) {change(() => {},true);if(proximityPosition)proximity(proximityPosition);} };
+  listen(window, 'resize', onResize);
+  if (window.visualViewport) listen(window.visualViewport, 'resize', onResize);
   listen(window, 'blur', () => { proximityPosition=null; cancel(); });
 
   return {
@@ -518,6 +524,10 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       canvas.focus({preventScroll:true});
       change(() => button.focus_control?.(index));
       return true;
+    },
+    refreshScale() {
+      if (!button || destroyed || !host.isConnected) return;
+      try { paint(); } catch (error) { report(error); }
     },
     activate,
     // Canvas tools need geometry, not strings, text values and interaction state

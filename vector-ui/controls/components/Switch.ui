@@ -1,5 +1,5 @@
 // checked is a snapshot. text names the switch without painting a caption.
-component Switch : Button {
+component Switch : Control {
     width: 44;
     height: 26;
     radius: 13;

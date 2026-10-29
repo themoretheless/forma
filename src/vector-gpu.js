@@ -81,6 +81,7 @@ export async function createGpuPainter(canvas,onFailure){
       }
     },
     memoryArchitecture,
+    maxTextureDimension2D:Math.min(8192,device.limits.maxTextureDimension2D||8192),
     snapshot(){
       const s=pool.snapshot();
       return {

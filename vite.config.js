@@ -6,7 +6,47 @@ import {createRustRunner} from './rust-runner.js';
 import {createNativeRunner} from './native-runner.js';
 import {evaluateDesignData} from './design-data-runner.js';
 import {createVectorRunner} from './vector-runner.js';
-import {readFile} from 'node:fs/promises';
+import {readFile,readdir,writeFile,stat,lstat,realpath,mkdir,rename,rm,cp} from 'node:fs/promises';
+import {resolve as resolvePath,relative as relativePath,dirname as dirnamePath,basename as basenamePath,extname as extnamePath,join as joinPath} from 'node:path';
+
+const openScadRoot=realpathSync(fileURLToPath(new URL('../open-scad-viewer',import.meta.url)));
+const ALLOWED_HOSTS=new Set(['127.0.0.1:5173','localhost:5173']);
+const ALLOWED_ORIGINS=new Set(['http://127.0.0.1:5173','http://localhost:5173']);
+function assertLocalWorkspaceRequest(req){
+  const host=req.headers.host;
+  if(host&&!ALLOWED_HOSTS.has(host))throw Error('Forbidden host');
+  if(req.method==='POST'){
+    const origin=req.headers.origin;
+    if(origin&&!ALLOWED_ORIGINS.has(origin))throw Error('Forbidden origin');
+    const fetchSite=req.headers['sec-fetch-site'];
+    if(fetchSite&&fetchSite!=='same-origin'&&fetchSite!=='none')throw Error('Cross-site request blocked');
+  }
+}
+async function resolveWorkspacePath(rel=''){
+  const clean=String(rel??'').replace(/^\/+/,'');
+  if(clean.includes('\0'))throw Error('Invalid workspace path');
+  const full=resolvePath(openScadRoot,clean);
+  const diff=relativePath(openScadRoot,full);
+  if(diff.startsWith('..'))throw Error('Invalid workspace path');
+  // Walk up to the nearest existing ancestor and verify its realpath stays inside openScadRoot
+  let probe=full;
+  while(probe!==openScadRoot){
+    try{
+      const st=await lstat(probe);
+      if(st.isSymbolicLink())throw Error('Symlinks are not allowed in workspace');
+      const real=await realpath(probe);
+      const realDiff=relativePath(openScadRoot,real);
+      if(realDiff.startsWith('..'))throw Error('Workspace path escapes root via symlink');
+      break;
+    }catch(e){
+      if(e.code!=='ENOENT')throw e;
+      const parent=dirnamePath(probe);
+      if(parent===probe)break;
+      probe=parent;
+    }
+  }
+  return full;
+}
 
 // The language package is linked from the sibling tokenizer checkout (scripts/tokenizer.mjs); its
 // JS reaches Vite through imports, but the WASM it fetches by URL is outside the root and got 403.
@@ -22,7 +62,96 @@ export default defineConfig({optimizeDeps:{exclude:['@themoretheless/tokenizer-f
       if(!['/forma.js','/forma_bg.wasm'].includes(name))return next();
       try{const bytes=await readFile(new URL('./public/vector-pkg'+name,import.meta.url));res.setHeader('Content-Type',name.endsWith('.wasm')?'application/wasm':'text/javascript');res.setHeader('Cache-Control','no-store');res.end(bytes);}catch{res.statusCode=503;res.end('Build vector-ui WASM first');}
     });
-    const token=randomUUID();const pending=new Map();let client=null,selectedBackend='ask',selectedPlatform='desktop';
+    server.middlewares.use('/__forma_tokenizer',async(req,res,next)=>{
+      const name=req.url?.split('?')[0];
+      if(!['/tokenizer_wasm.js','/tokenizer_wasm_bg.wasm'].includes(name))return next();
+      try{const bytes=await readFile(new URL('../tokenizer/playground/public/wasm'+name,import.meta.url));res.setHeader('Content-Type',name.endsWith('.wasm')?'application/wasm':'text/javascript');res.setHeader('Cache-Control','no-store');res.end(bytes);}catch{res.statusCode=503;res.end('Tokenizer WASM unavailable');}
+    });
+    server.middlewares.use('/__forma_workspace',async(req,res)=>{
+      res.setHeader('Content-Type','application/json');
+      const send=(status,value)=>{res.statusCode=status;res.end(JSON.stringify(value));};
+      try{
+        assertLocalWorkspaceRequest(req);
+        const url=new URL(req.url??'/','http://127.0.0.1:5173');
+        if(req.method==='GET'&&url.pathname==='/list'){
+          const dir=url.searchParams.get('dir')??'';
+          const full=await resolveWorkspacePath(dir);
+          const dirents=await readdir(full,{withFileTypes:true});
+          const visible=dirents.filter(d=>!d.name.startsWith('.')&&!d.isSymbolicLink());
+          const entries=await Promise.all(visible.map(async d=>{
+            const rel=dir?`${dir}/${d.name}`:d.name;
+            if(!d.isDirectory())return {name:d.name,path:rel,kind:'file'};
+            let count=0;
+            try{const sub=await readdir(joinPath(full,d.name));count=sub.filter(n=>!n.startsWith('.')).length;}catch{}
+            return {name:d.name,path:rel,kind:'directory',count};
+          }));
+          entries.sort((a,b)=>a.kind!==b.kind?(a.kind==='directory'?-1:1):a.name.localeCompare(b.name,undefined,{sensitivity:'base'}));
+          return send(200,{dir,entries});
+        }
+        if(req.method==='GET'&&url.pathname==='/read'){
+          const path=url.searchParams.get('path')??'';
+          const full=await resolveWorkspacePath(path);
+          const info=await stat(full);
+          if(info.size>2_000_000)return send(413,{error:'Файл слишком большой для предпросмотра (> 2 МБ)'});
+          const content=await readFile(full,'utf8');
+          return send(200,{path,content});
+        }
+        if(req.method==='POST'&&url.pathname==='/write'){
+          const path=url.searchParams.get('path')??'';
+          const full=await resolveWorkspacePath(path);
+          let body='';for await(const chunk of req){body+=chunk;if(body.length>2_000_000)return send(413,{error:'File too large'});}
+          const {content}=JSON.parse(body||'{}');
+          await mkdir(dirnamePath(full),{recursive:true});
+          await writeFile(full,String(content??''),'utf8');
+          return send(200,{ok:true,path});
+        }
+        if(req.method==='POST'&&url.pathname==='/mkdir'){
+          const path=url.searchParams.get('path')??'';
+          const full=await resolveWorkspacePath(path);
+          await mkdir(full,{recursive:true});
+          return send(200,{ok:true,path});
+        }
+        if(req.method==='POST'&&url.pathname==='/rename'){
+          let body='';for await(const chunk of req){body+=chunk;if(body.length>65_536)return send(413,{error:'Payload too large'});}
+          const {from,to}=JSON.parse(body||'{}');
+          if(!from||!to)return send(400,{error:'from and to are required'});
+          const fullFrom=await resolveWorkspacePath(from),fullTo=await resolveWorkspacePath(to);
+          if(fullFrom===openScadRoot||fullTo===openScadRoot)return send(400,{error:'Cannot move workspace root'});
+          if(fullTo.startsWith(fullFrom+'/'))return send(400,{error:'Нельзя переместить папку внутрь самой себя'});
+          await mkdir(dirnamePath(fullTo),{recursive:true});
+          await rename(fullFrom,fullTo);
+          return send(200,{ok:true,from,to});
+        }
+        if(req.method==='POST'&&url.pathname==='/delete'){
+          let body='';for await(const chunk of req){body+=chunk;if(body.length>65_536)return send(413,{error:'Payload too large'});}
+          const {path}=JSON.parse(body||'{}');
+          if(!path)return send(400,{error:'path is required'});
+          const full=await resolveWorkspacePath(path);
+          if(full===openScadRoot)return send(400,{error:'Cannot delete workspace root'});
+          await rm(full,{recursive:true,force:false});
+          return send(200,{ok:true,path});
+        }
+        if(req.method==='POST'&&url.pathname==='/duplicate'){
+          let body='';for await(const chunk of req){body+=chunk;if(body.length>65_536)return send(413,{error:'Payload too large'});}
+          const {path}=JSON.parse(body||'{}');
+          if(!path)return send(400,{error:'path is required'});
+          const full=await resolveWorkspacePath(path);
+          const dir=dirnamePath(path)==='.'?'':dirnamePath(path);
+          const ext=extnamePath(path),stem=basenamePath(path,ext);
+          let copyRel='',copyFull='';
+          for(let i=1;i<100;i++){
+            const candidateName=`${stem}-copy${i>1?'-'+i:''}${ext}`;
+            copyRel=dir?`${dir}/${candidateName}`:candidateName;
+            copyFull=await resolveWorkspacePath(copyRel);
+            try{await stat(copyFull);}catch{break;}
+          }
+          await cp(full,copyFull,{recursive:true});
+          return send(200,{ok:true,path:copyRel});
+        }
+        return send(404,{error:'Not found'});
+      }catch(e){return send(e.message.startsWith('Forbidden')||e.message.startsWith('Cross-site')?403:500,{error:e.message});}
+    });
+    const token=randomUUID();const pending=new Map();let client=null,selectedBackend='svet',selectedPlatform='desktop';
     const runner=createRustRunner(data=>client?.send('forma:rust-output',data));
     const native=createNativeRunner(data=>client?.send('forma:rust-output',data));
     const vector=createVectorRunner(data=>client?.send('forma:rust-output',data));

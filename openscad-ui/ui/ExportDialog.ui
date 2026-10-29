@@ -1,0 +1,143 @@
+component ExportDialog {
+    Frame {
+        width: 560;
+        height: 440;
+        background: state.theme.canvas;
+
+        Column {
+            width: 560;
+            height: 440;
+            padding: 20;
+            gap: 12;
+
+            WindowHeader {
+                key: 'exportHeader';
+                width: 520;
+                height: 34;
+                text: 'ЭКСПОРТ МОДЕЛИ OPENSCAD · 3MF / STL / STEP';
+            }
+
+            Row {
+                width: 520;
+                height: 32;
+                gap: 6;
+
+                SegmentButton {
+                    key: 'fmt3mf';
+                    width: 125;
+                    height: 32;
+                    text: '3MF · Архив';
+                    selected: true;
+                    clicked -> actions.setFormat('3mf');
+                }
+
+                SegmentButton {
+                    key: 'fmtStl';
+                    width: 125;
+                    height: 32;
+                    text: 'STL · Сетка';
+                    selected: false;
+                    clicked -> actions.setFormat('stl');
+                }
+
+                SegmentButton {
+                    key: 'fmtOff';
+                    width: 125;
+                    height: 32;
+                    text: 'OFF · Полигоны';
+                    selected: false;
+                    clicked -> actions.setFormat('off');
+                }
+
+                SegmentButton {
+                    key: 'fmtScad';
+                    width: 125;
+                    height: 32;
+                    text: 'SCAD · Исходник';
+                    selected: false;
+                    clicked -> actions.setFormat('scad');
+                }
+            }
+
+            TableRow {
+                key: 'exportFileRow';
+                width: 520;
+                height: 38;
+                first: 'Файл';
+                second: 'planetary_gearbox.3mf';
+                third: '2.14 МБ';
+            }
+
+            TableRow {
+                key: 'exportManifoldRow';
+                width: 520;
+                height: 38;
+                first: 'Топология';
+                second: 'Замкнутый 2-Manifold';
+                third: '12 480 Δ';
+            }
+
+            TableRow {
+                key: 'exportUnitsRow';
+                width: 520;
+                height: 38;
+                first: 'Единицы измерения';
+                second: 'Миллиметры (мм)';
+                third: 'Масштаб 1:1';
+            }
+
+            Row {
+                width: 520;
+                height: 32;
+                gap: 12;
+
+                Checkbox {
+                    key: 'binaryCheck';
+                    width: 254;
+                    height: 32;
+                    text: 'Бинарное сжатие буфера';
+                    checked: true;
+                }
+
+                Checkbox {
+                    key: 'colorsCheck';
+                    width: 254;
+                    height: 32;
+                    text: 'Сохранить цвета материалов';
+                    checked: true;
+                }
+            }
+
+            Alert {
+                key: 'exportReadyAlert';
+                width: 520;
+                height: 66;
+                tone: 'success';
+                text: 'Модель готова к 3D-печати и слайсингу';
+                description: 'Незамкнутых рёбер и вырожденных граней не обнаружено';
+            }
+
+            Row {
+                width: 520;
+                height: 36;
+                gap: 10;
+
+                SecondaryButton {
+                    key: 'cancelExportBtn';
+                    width: 255;
+                    height: 36;
+                    text: 'Отмена';
+                    clicked -> actions.closeExportDialog();
+                }
+
+                PrimaryButton {
+                    key: 'confirmExportBtn';
+                    width: 255;
+                    height: 36;
+                    text: 'Скачать planetary_gearbox.3mf';
+                    clicked -> actions.confirmExport();
+                }
+            }
+        }
+    }
+}

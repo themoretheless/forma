@@ -1,12 +1,14 @@
 // A tree row snapshot. Expansion, selection and child visibility belong to its owner.
-component TreeItem : Button {
+component TreeItem : Control {
     width: 240;
     height: 28;
     radius: 5;
     fontSize: 13;
     text: 'src';
+    badge: '';
     branch: true;
     expanded: false;
+    showChevron: true;
     selected: false;
     indent: 0;
     icon: match props.branch {
@@ -17,18 +19,41 @@ component TreeItem : Button {
         true => state.theme.surfaceHover;
         _ => #00000000;
     };
+    hoverBackground: match props.selected {
+        true => state.theme.surfaceHover;
+        _ => #00000000;
+    };
+    pressedBackground: match props.selected {
+        true => state.theme.surfaceHover;
+        _ => #00000000;
+    };
+    transitionDuration: state.motion.control;
+    borderWidth: 0;
     borderColor: #00000000;
+    focusBorderColor: #00000000;
+    disabledBorderColor: #00000000;
+    revealWidth: 0;
+    revealColor: #00000000;
     color: match (props.branch, props.selected) {
         (false, false) => state.theme.textMuted;
         _ => state.theme.text;
     };
+    iconColor: match props.branch {
+        true => state.theme.accent;
+        _ => props.textColor;
+    };
+
+    override reveal: Frame {};
 
     override content: TreeContent {
         text: props.text;
+        badge: props.badge;
         color: props.textColor;
+        iconColor: props.iconColor;
         fontSize: props.fontSize;
         branch: props.branch;
         expanded: props.expanded;
+        showChevron: props.showChevron;
         indent: props.indent;
         icon: props.icon;
     };

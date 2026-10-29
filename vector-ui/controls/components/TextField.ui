@@ -1,5 +1,5 @@
 // TextInput editing and rendering are provided by the shared Rust runtime.
-component TextField : Button {
+component TextField : Control {
     width: 240;
     height: 38;
     radius: 8;

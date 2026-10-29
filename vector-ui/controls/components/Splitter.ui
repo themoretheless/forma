@@ -1,5 +1,5 @@
 // Separate hit target; parent composition chooses sizes after a drag.
-component Splitter : Button {
+component Splitter : Control {
     width: 8; height: 160; radius: 0; borderWidth: 0;
     background: state.theme.canvas;
     hoverBackground: state.theme.borderStrong;

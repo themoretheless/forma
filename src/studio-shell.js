@@ -13,9 +13,9 @@ import {createKeyedPool} from './keyed-pool.js';
 const raw=import.meta.glob('../vector-ui/controls/{components,assets}/*',{query:'?raw',import:'default',eager:true});
 const library=materializeTheme(Object.fromEntries(Object.entries(raw).map(([path,value])=>[path.slice('../vector-ui/controls/'.length),value])),'dark');
 // Surfaces that draw themselves: the design canvas, the code editor, pickers and native inspection.
-const foreign='#preview,.cm-editor,.color-picker,#native-inspection,.element-selection-overlay,.layout-overlay';
+const foreign='#preview,.cm-editor,.color-picker,#native-inspection,.element-selection-overlay,.layout-overlay,.project-switcher-wrap,.tree-header-actions,.tree-search-bar,.tree-context-menu,.tree-inline-row';
 // Milliseconds of shell painting per animation frame.
-const frameBudget=8;
+const frameBudget=24;
 const selector='button,a.controls-link,.control-tree-row,label:has(>input[type="checkbox"]),input:not([type="checkbox"]):not([type="file"]):not([type="hidden"]),select,#filename,footer,#output>p.error,#output>p.ok';
 
 // The DOM remains the layout, keyboard, accessibility and browser-input host.
@@ -63,17 +63,39 @@ export async function mountStudioShell(root){
   if(el.matches('.controls-link,.layout-parts button,.layout-breadcrumbs button'))return 'ghost';
   return 'button';
  }
+ function treeVisual(el){
+  if(el.matches('.control-tree-row'))return {icon:el.hasAttribute('aria-expanded')?'assets/grid.svg':'assets/file-ui.svg',iconColor:el.hasAttribute('aria-expanded')?themes.dark.accent:'#BB9AF7'};
+  if(!el.matches('.file'))return {};
+  if(el.hasAttribute('aria-expanded'))return {icon:'assets/folder.svg',iconColor:el.getAttribute('aria-expanded')==='true'?themes.dark.accentInk:themes.dark.accent};
+  const p=(el.dataset.path??'').toLowerCase();
+  if(p.endsWith('.ui'))return {icon:'assets/file-ui.svg',iconColor:'#BB9AF7'};
+  if(p.endsWith('.rs'))return {icon:'assets/file-rust.svg',iconColor:'#E58E5A'};
+  if(/\.(?:m|c)?ts$/.test(p))return {icon:'assets/file-ts.svg',iconColor:'#4FC1FF'};
+  if(/\.(?:m|c)?js$/.test(p))return {icon:'assets/file-js.svg',iconColor:'#E5C07B'};
+  if(p.endsWith('.json'))return {icon:'assets/file-json.svg',iconColor:'#73DACA'};
+  if(p.endsWith('.toml'))return {icon:'assets/file-toml.svg',iconColor:'#7DCFFF'};
+  if(/\.(?:md|txt)$|license$/i.test(p))return {icon:'assets/file-md.svg',iconColor:'#9ECE6A'};
+  if(/\.(?:py|sh)$/.test(p))return {icon:'assets/file-py.svg',iconColor:'#7DCFFF'};
+  if(/\.(?:html|css|svg)$/.test(p))return {icon:'assets/file-web.svg',iconColor:'#F7768E'};
+  return {icon:'assets/file.svg',iconColor:'#8A95A7'};
+ }
  function describe(el,bounds){
   const k=kind(el);
   let text=collapseText(el.textContent);
   const glyph=glyphIcon(el.textContent);
   if(k==='leading'||k==='primaryLeading')text=glyph.text;
   else if(k!=='tree')text=text.replace(glyphPrefix,'');
-  if(k==='tree')text=el.matches('.file')?el.dataset.path.split('/').at(-1):[el.querySelector('.control-tree-label')?.textContent,el.querySelector('.control-tree-detail')?.textContent].filter(Boolean).join(' ');
+  if(k==='tree')text=el.matches('.file')?(el.dataset.path??el.dataset.folder??'').split('/').at(-1):[el.querySelector('.control-tree-label')?.textContent,el.querySelector('.control-tree-detail')?.textContent].filter(Boolean).join(' ');
   if(k==='select')text=el.selectedOptions[0]?.textContent??'';
   if(k==='status')text=[el.querySelector('#status')?.textContent,'Forma UI · UTF-8',el.querySelector('#position')?.textContent].join('\n');
   const input=k==='check'?el.querySelector('input'):el;
-  return shellControl({kind:k,text:k==='icon'||k==='accentIcon'?'':text,icon:canvasIcon(el)?`assets/${canvasIcon(el)[1]}.svg`:glyph?`assets/${glyph.icon}.svg`:/[⊟−]/.test(el.textContent)?'assets/minus.svg':el.textContent.includes('■')?'assets/close.svg':el.textContent.includes('☷')?'assets/folder.svg':'assets/plus.svg',tone:el.matches('.error,.bad')?'danger':'success',width:Math.ceil(bounds.width),height:Math.ceil(bounds.height),selected:el.matches('.active,.chosen')||el.getAttribute('aria-selected')==='true'||el.getAttribute('aria-pressed')==='true'||el.getAttribute('aria-checked')==='true'||(el.matches('.layout-toggle,#toggle-control-tree')&&el.getAttribute('aria-expanded')==='true'),disabled:!!input.disabled||el.getAttribute('aria-disabled')==='true',checked:!!input.checked,branch:el.hasAttribute('aria-expanded'),expanded:el.getAttribute('aria-expanded')==='true',indent:Math.max(0,(Number(el.getAttribute('aria-level')??1)-1)*14)});
+  const tv=k==='tree'?treeVisual(el):{};
+  const w=el.matches('.file,.control-tree-row')?640:Math.ceil(bounds.width);
+  const h=el.matches('.file,.control-tree-row')?24:Math.ceil(bounds.height);
+  const rawCount=el.dataset?.count;
+  const nCount=rawCount!==undefined&&rawCount!==''?Number(rawCount):0;
+  const badge=k==='tree'&&nCount>=1&&nCount<=999?String(nCount):'';
+  return shellControl({kind:k,text:k==='icon'||k==='accentIcon'?'':text,badge,icon:k==='tree'?tv.icon:canvasIcon(el)?`assets/${canvasIcon(el)[1]}.svg`:glyph?`assets/${glyph.icon}.svg`:/[⊟−]/.test(el.textContent)?'assets/minus.svg':el.textContent.includes('■')?'assets/close.svg':el.textContent.includes('☷')?'assets/folder.svg':'assets/plus.svg',iconColor:tv.iconColor,showChevron:!el.querySelector?.('.tree-chevron'),tone:el.matches('.error,.bad')?'danger':'success',width:w,height:h,selected:el.matches('.active,.chosen')||el.getAttribute('aria-selected')==='true'||el.getAttribute('aria-pressed')==='true'||el.getAttribute('aria-checked')==='true'||(el.matches('.layout-toggle,#toggle-control-tree')&&el.getAttribute('aria-expanded')==='true'),disabled:!!input.disabled||el.getAttribute('aria-disabled')==='true',checked:!!input.checked,branch:el.hasAttribute('aria-expanded'),expanded:el.getAttribute('aria-expanded')==='true',indent:Math.max(0,(Number(el.getAttribute('aria-level')??1)-1)*12)});
  }
  function request(el,invalidate=false){if(stopped)return;const rec=records.get(el);if(rec&&invalidate)rec.specDirty=true;if(rec?.visible)dirty.add(el);if(!frame&&dirty.size)frame=requestAnimationFrame(draw);}
  function release(rec){rec.model?.free();rec.model=null;rec.signature='';rec.paintKey=null;}
@@ -85,10 +107,11 @@ export async function mountStudioShell(root){
   const model=rec.model;
   if(!model||rec.paintedSignature!==rec.signature)return null;
   model.pointer(-1000,-1000,3);model.focus(false);
+  let steps=0;while(model.is_animating()&&steps++<32)model.tick(50);
   const paint=!model.is_animating()&&rec.surface.take(keepHost);
   if(!paint)return null;
   model.release_cpu_cache();
-  const item={signature:rec.signature,model,paint,paintKey:rec.paintKey};rec.model=null;release(rec);return item;
+  const item={signature:rec.signature,model,paint,paintKey:null};rec.model=null;release(rec);return item;
  }
  // A control that leaves the page or the viewport parks what it showed, and what it showed before
  // that, for the next control with the same description.
@@ -97,8 +120,8 @@ export async function mountStudioShell(root){
   park(rec.previous);rec.previous=null;
  }
  function fail(el,rec,error){release(rec);forget(rec.previous);rec.previous=null;rec.surface.suspend();el.classList.remove('forma-native-surface');el.style.removeProperty('--forma-surface');delete el.dataset.formaComponent;rec.failed=String(error);}
- function updateReveal(model,bounds){
-  const point=proximityPosition;
+ function updateReveal(model,bounds,el){
+  const point=proximityPosition&&(!el||kind(el)!=='tree')?proximityPosition:null;
   model.reveal_pointer(point?point.x-bounds.left:0,point?point.y-bounds.top:0,!!point);
  }
  function proximity(event){
@@ -108,8 +131,8 @@ export async function mountStudioShell(root){
  function draw(time){
   frame=0;const dt=Math.min(50,lastTime?time-lastTime:16);lastTime=time;const started=performance.now();
   if(proximityDirty){proximityDirty=false;for(const [el,rec]of records){
-   if(!rec.visible||!rec.model)continue;
-   const revision=rec.model.visual_revision();updateReveal(rec.model,el.getBoundingClientRect());
+   if(!rec.visible||!rec.model||kind(el)==='tree')continue;
+   const revision=rec.model.visual_revision();updateReveal(rec.model,el.getBoundingClientRect(),el);
    if(rec.model.visual_revision()!==revision||rec.model.is_animating())dirty.add(el);
   }}
   const batch=dirty;dirty=spare;dirty.clear();
@@ -132,13 +155,14 @@ export async function mountStudioShell(root){
      if(item&&item===rec.previous)rec.previous=null;
      let next=item?.model;
      if(!next){const out=compiledScene(spec,signature);next=new wasm.Runtime();try{next.load_component(out.source,out.template);}catch(error){next.free();throw error;}}
-     if(rec.model){next.preserve_interaction(rec.model);const last=stash(rec,true);if(last){forget(rec.previous);rec.previous=last;}else release(rec);}
+     if(rec.model){if(kind(el)!=='tree')next.preserve_interaction(rec.model);const last=stash(rec,true);if(last){forget(rec.previous);rec.previous=last;}else release(rec);}
      if(item&&rec.surface.adopt(item.paint)){rec.paintKey=item.paintKey;rec.paintedSignature=signature;el.dataset.formaComponent=spec.type;}
      else if(item)painter.discard(item.paint);
-     rec.model=next;rec.signature=signature;next.set_reduced_motion(motion.matches);updateReveal(next,rec.bounds);
+     rec.model=next;rec.signature=signature;next.set_reduced_motion(motion.matches);updateReveal(next,rec.bounds,el);
     }
     const model=rec.model;model.tick(dt);
-    const scale=Math.min(2,devicePixelRatio||1),width=Math.ceil(spec.props.width*scale),height=Math.ceil(spec.props.height*scale);
+    const rawScale=Math.min(8,Math.max(1,(window.devicePixelRatio||1)*(window.visualViewport?.scale||1)));
+    const scale=Math.min(rawScale,4096/spec.props.width,4096/spec.props.height),width=Math.ceil(spec.props.width*scale),height=Math.ceil(spec.props.height*scale);
     const revision=model.visual_revision(),paintKey=`${revision}:${width}:${height}`;
     if(signature!==rec.paintedSignature||paintKey!==rec.paintKey){
      rec.surface.paint(model.content_pixels(width,height,scale),width,height,model.is_animating()?null:signature);el.dataset.formaComponent=spec.type;
@@ -151,7 +175,7 @@ export async function mountStudioShell(root){
   if(dirty.size)frame=requestAnimationFrame(draw);
  }
  // Both observers report every new control once with what it already is; only a change is news.
- const resize=scope.resize(entries=>{for(const entry of entries){const size=entry.borderBoxSize?.[0],props=records.get(entry.target)?.spec?.props;
+ const resize=scope.resize(entries=>{for(const entry of entries){if(entry.target.matches?.('.file'))continue;const size=entry.borderBoxSize?.[0],props=records.get(entry.target)?.spec?.props;
   if(!size||!props||Math.ceil(size.inlineSize)!==props.width||Math.ceil(size.blockSize)!==props.height)request(entry.target,true);}});
  const visible=scope.intersect(entries=>{for(const entry of entries){const rec=records.get(entry.target);if(!rec||rec.visible===entry.isIntersecting)continue;rec.visible=entry.isIntersecting;if(rec.visible)request(entry.target,true);else retire(rec);}});
  function register(el){if(records.has(el)||!eligible(el))return;const icon=canvasIcon(el);if(icon){el.classList.add('studio-canvas-icon');el.setAttribute('aria-label',icon[2]);el.title=icon[2]+(el.title&&el.title!==icon[2]?' — '+el.title:'');}
@@ -174,23 +198,22 @@ export async function mountStudioShell(root){
   return after.length===before.size&&after.every(name=>before.has(name));
  }
  const mutations=scope.observe(root,entries=>{
-  let removed=false,changed=false;
+  let changed=false;
+  for(const entry of entries)if(entry.type==='childList'&&entry.removedNodes.length){prune();break;}
   for(const entry of entries){
    const target=entry.target.nodeType===1?entry.target:entry.target.parentElement;
    if(target?.closest(foreign)||entry.type==='attributes'&&ownClassChange(entry))continue;
    if(entry.type==='childList'){
     for(const node of entry.addedNodes){if(node.nodeType!==1||node.matches('.forma-control-paint'))continue;register(node);node.querySelectorAll(selector).forEach(register);}
-    if(entry.removedNodes.length)removed=true;
     if([...entry.addedNodes,...entry.removedNodes].every(n=>n.nodeType===1&&n.matches('.forma-control-paint')))continue;
    }
    changed=true;
    for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el)){request(el,true);break;}
   }
-  if(removed)prune();
   // A change can move controls under a pointer that stays put, and their proximity paint follows
   // the pointer's place relative to each control, so it is worked out again from the new boxes.
   if(changed&&proximityPosition&&!stopped){proximityDirty=true;if(!frame)frame=requestAnimationFrame(draw);}
-  },{subtree:true,childList:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','class','value']},{immediate:false});
+  },{subtree:true,childList:true,characterData:true,attributes:true,attributeOldValue:true,attributeFilter:['disabled','aria-disabled','aria-selected','aria-pressed','aria-checked','aria-expanded','data-count','class','value']},{immediate:false});
  function owner(target){for(let el=target;el&&el!==root;el=el.parentElement)if(records.has(el))return el;}
  function pointer(event,phase){const el=owner(event.target),rec=records.get(el);if(!rec?.model||kind(el)==='field')return;
   const bounds=el.getBoundingClientRect();rec.model.pointer(event.clientX-bounds.left,event.clientY-bounds.top,phase);if(event.pointerType==='touch')rec.model.reveal_pointer(0,0,false);request(el);
@@ -198,12 +221,14 @@ export async function mountStudioShell(root){
  listen(window,'pointermove',proximity);
  listen(window,'pointerout',e=>{if(!e.relatedTarget)proximity(null);});
  listen(window,'blur',()=>proximity(null));
- listen(window,'resize',()=>{for(const el of records.keys())request(el,true);proximityDirty=true;if(!frame&&!stopped)frame=requestAnimationFrame(draw);});
+ const onViewportResize=()=>{for(const el of records.keys())request(el,true);proximityDirty=true;if(!frame&&!stopped)frame=requestAnimationFrame(draw);};
+ listen(window,'resize',onViewportResize);
+ if(window.visualViewport)listen(window.visualViewport,'resize',onViewportResize);
  listen(root,'scroll',()=>{proximityDirty=true;if(!frame&&!stopped)frame=requestAnimationFrame(draw);},{capture:true});
  listen(root,'pointermove',e=>pointer(e,0));listen(root,'pointerdown',e=>pointer(e,1));listen(root,'pointerup',e=>pointer(e,2));
- listen(root,'pointerout',e=>{const el=owner(e.target);if(el&&!el.contains(e.relatedTarget)){const model=records.get(el)?.model;model?.pointer(-1000,-1000,3);if(model)updateReveal(model,el.getBoundingClientRect());request(el);}});
- listen(root,'focusin',e=>{const el=owner(e.target);if(el&&kind(el)!=='field')records.get(el)?.model?.focus(true);request(el);});
- listen(root,'focusout',e=>{const el=owner(e.target);records.get(el)?.model?.focus(false);request(el);});
+ listen(root,'pointerout',e=>{const el=owner(e.target);if(el&&!el.contains(e.relatedTarget)){const model=records.get(el)?.model;model?.pointer(-1000,-1000,3);if(model)updateReveal(model,el.getBoundingClientRect(),el);request(el);}});
+ listen(root,'focusin',e=>{const el=owner(e.target);if(el&&!['field','tree'].includes(kind(el))){records.get(el)?.model?.focus(true);request(el);}});
+ listen(root,'focusout',e=>{const el=owner(e.target);if(el&&kind(el)!=='tree'){records.get(el)?.model?.focus(false);request(el);}});
  for(const event of ['keydown','keyup'])listen(root,event,e=>{const el=owner(e.target);if(!el?.matches('button,a.controls-link')||![' ','Enter'].includes(e.key))return;records.get(el)?.model?.key_event(e.key===' '?1:2,event==='keydown',e.repeat);request(el);});
  for(const event of ['change','input','click'])listen(root,event,e=>{const el=owner(e.target);request(el,true);});
  listen(motion,'change',()=>{for(const [el,rec]of records){rec.model?.set_reduced_motion(motion.matches);request(el);}});
