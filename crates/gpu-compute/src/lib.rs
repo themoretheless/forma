@@ -40,3 +40,9 @@ pub use wgpu;
 
 #[cfg(feature = "cuda")]
 pub mod cuda;
+
+/// Native Metal shared memory integration for wgpu 30 clients.
+#[cfg(all(feature = "native-wgpu", target_os = "macos"))]
+pub mod metal_memory;
+#[cfg(feature = "native-wgpu")]
+pub use wgpu_native as native_wgpu;
