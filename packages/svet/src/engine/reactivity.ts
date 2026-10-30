@@ -1197,12 +1197,25 @@ export function effect(
   ctx.effectRegistry[id] = entry;
   entry.run();
 
+  // The entry and its internal handle are pooled, but a caller's handle belongs
+  // to exactly one effect lifetime. In particular, a retained owner cleanup must
+  // never dispose a replacement effect after this entry has been reused.
+  const pooledHandle = entry.handle;
+  let disposed = false;
+  const handle: EffectHandle = {
+    id,
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      pooledHandle.dispose();
+    },
+  };
+
   if (parentOwner) {
-    const h = entry.handle;
-    parentOwner.disposables.push(() => h.dispose());
+    parentOwner.disposables.push(handle.dispose);
   }
 
-  return entry.handle;
+  return handle;
 }
 
 /**

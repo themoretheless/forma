@@ -139,6 +139,14 @@ export function createResource<T, S = true>(
   let activeAbortController: AbortController | null = null;
   let isDisposed = false;
 
+  let pending = false;
+  const finishLoading = () => {
+    if (!pending) return;
+    pending = false;
+    loading.set(false);
+    suspense?.decrement();
+  };
+
   const abortCurrent = () => {
     if (activeAbortController) {
       activeAbortController.abort();
@@ -149,20 +157,24 @@ export function createResource<T, S = true>(
   onCleanup(() => {
     isDisposed = true;
     abortCurrent();
+    finishLoading();
   });
 
   const load = async (srcVal: S): Promise<T | undefined> => {
+    if (isDisposed) return undefined;
     abortCurrent();
     const currentVersion = ++fetchVersion;
     const controller = new AbortController();
     activeAbortController = controller;
 
-    const wasLoading = loading.peek();
-    loading.set(true);
-    error.set(null);
-    if (!wasLoading && suspense) {
-      suspense.increment();
+    if (!pending) {
+      pending = true;
+      suspense?.increment();
     }
+    batch(() => {
+      loading.set(true);
+      error.set(null);
+    });
 
     try {
       const result = await (hasSource
@@ -173,7 +185,7 @@ export function createResource<T, S = true>(
       if (!isDisposed && currentVersion === fetchVersion && !controller.signal.aborted) {
         batch(() => {
           data.set(result);
-          loading.set(false);
+          finishLoading();
         });
       }
       return result;
@@ -185,7 +197,7 @@ export function createResource<T, S = true>(
       if (currentVersion === fetchVersion) {
         batch(() => {
           error.set(normalized);
-          loading.set(false);
+          finishLoading();
         });
         if (reportError) {
           reportError(normalized);
@@ -193,8 +205,9 @@ export function createResource<T, S = true>(
       }
       return undefined;
     } finally {
-      if (!wasLoading && suspense) {
-        suspense.decrement();
+      if (currentVersion === fetchVersion) {
+        activeAbortController = null;
+        finishLoading();
       }
     }
   };
@@ -204,6 +217,12 @@ export function createResource<T, S = true>(
     if (srcVal !== false && srcVal !== null && srcVal !== undefined) {
       untrack(() => {
         void load(srcVal);
+      });
+    } else {
+      untrack(() => {
+        ++fetchVersion;
+        abortCurrent();
+        finishLoading();
       });
     }
   });
@@ -220,7 +239,11 @@ export function createResource<T, S = true>(
   Object.defineProperty(accessor, 'error', { value: error, enumerable: true });
   accessor.refetch = () => load(untrack(sourceFn));
   accessor.mutate = (val: T | undefined) => data.set(val);
-  accessor.abort = abortCurrent;
+  accessor.abort = () => {
+    ++fetchVersion;
+    abortCurrent();
+    finishLoading();
+  };
 
   return accessor;
 }

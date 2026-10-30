@@ -46,7 +46,7 @@
 # Build Rust WASM core and embed into TypeScript
 npm run build:wasm
 
-# Run full Vitest suite (20 integration & unit tests)
+# Run full Vitest suite
 npm test
 
 # Start interactive Vite dev server
@@ -55,3 +55,24 @@ npm run dev
 # Build production bundle
 npm run build
 ```
+
+## Async resource lifecycle
+
+`createResource(source, fetcher)` cancels the previous request when its source
+changes. A source value of `false`, `null`, or `undefined` cancels pending work
+and pauses automatic fetching, retaining the last successful value.
+
+`resource.abort()` immediately clears `loading` and releases the resource's
+`Suspense` pending state, even if the fetcher ignores its `AbortSignal`.
+Superseded requests cannot overwrite current data or errors, or release
+`Suspense` while their replacement is still pending. Disposing the owner aborts
+pending work; subsequent `refetch()` calls resolve to `undefined` without fetching.
+
+## Effect handle lifetime
+
+Each `effect()` call returns its own handle. Calling `dispose()` repeatedly is
+safe, including after its internal WASM slot and JavaScript entry have been
+reused by another effect. The handle's `id` remains the original numeric slot ID;
+slot IDs may be recycled and are not unique lifetime identifiers. Owner cleanup
+uses the same lifetime-bound handle, so manually disposing an owned effect cannot
+cause later owner teardown to stop an unrelated replacement.
