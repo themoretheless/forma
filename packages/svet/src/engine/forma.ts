@@ -28,6 +28,7 @@
 import { For, h, insertChild, Show } from './dom.ts';
 import {
   Canvas3D,
+  Viewport3D,
   createCubeMesh3D,
   createPerspectiveCamera3D,
   createTransform3D,
@@ -38,9 +39,9 @@ import {
   createRoot,
   effect,
   onCleanup,
-  ReadonlySignal,
+  type ReadonlySignal,
   signal,
-  Signal,
+  type Signal,
   untrack,
 } from './reactivity.ts';
 
@@ -1972,9 +1973,10 @@ export function compileFormaComponent(
                     locals: { ...(locals ?? {}), [itemVar]: item },
                   })
                 : idx,
-            children: (item) => {
+            children: (_item, _index, current) => {
               const frag = document.createDocumentFragment();
-              const childLocals = { ...(locals ?? {}), [itemVar]: item };
+              const childLocals = Object.defineProperties({}, Object.getOwnPropertyDescriptors(locals ?? {}));
+              Object.defineProperty(childLocals, itemVar, { get: current, enumerable: true, configurable: true });
               for (const ch of ast.children) {
                 insertChild(frag, renderAstNode(ch, childLocals));
               }
@@ -2001,11 +2003,11 @@ export function compileFormaComponent(
     const tag = ast.tag ?? 'Frame';
 
     // Declarative 3D GPU Widget inside Forma `.ui`: `Scene3D { rotX: ...; rotY: ...; rotZ: ...; scale: ...; width: ...; height: ...; }`
-    if (tag === 'Scene3D' || tag === 'OrbitCube3D') {
-      const width = mergedProps.width
+    if (tag === 'Scene3D' || tag === 'OrbitCube3D' || tag === 'Viewport3D') {
+      const width = () => mergedProps.width
         ? Number(evaluateFormaExpression(mergedProps.width, localScope)) || 320
         : 320;
-      const height = mergedProps.height
+      const height = () => mergedProps.height
         ? Number(evaluateFormaExpression(mergedProps.height, localScope)) || 180
         : 180;
       const transform = createTransform3D({
@@ -2015,8 +2017,9 @@ export function compileFormaComponent(
       });
       const camera = createPerspectiveCamera3D({
         fovYRad: Math.PI / 3,
-        aspect: width / Math.max(1, height),
+        aspect: width() / Math.max(1, height()),
       });
+      effect(() => camera.aspect.set(width() / Math.max(1, height())));
       const cube = createCubeMesh3D({ size: 1.35, transform, camera });
       onCleanup(() => {
         cube.mesh.dispose();
@@ -2044,7 +2047,8 @@ export function compileFormaComponent(
         });
       }
 
-      const canvas = Canvas3D({
+      const canvas = (tag === 'Viewport3D' ? Viewport3D : Canvas3D)({
+        renderMode: mergedProps.renderMode ? String(evaluateFormaExpression(mergedProps.renderMode, localScope)) as 'sync' | 'animation-frame' : undefined,
         mesh: cube.mesh,
         edges: cube.edges,
         faces: cube.faces,
@@ -2627,7 +2631,7 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
   const propCount = (uiSource.match(/(?:^|\s)(?:required\s+)?prop\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;
   const stateCount = (uiSource.match(/(?:^|\s)state\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;
   const letCount = (uiSource.match(/(?:^|\s)let\s+[a-zA-Z0-9_]+\s*=/gm) ?? []).length;
-  const has3DViewport = /\b(Scene3D|OrbitCube3D)\s*\{/.test(uiSource);
+  const has3DViewport = /\b(Scene3D|OrbitCube3D|Viewport3D)\s*\{/.test(uiSource);
 
   const hasError = diagnostics.some((d) => d.severity === 'error');
   return {
@@ -2646,7 +2650,7 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
  * Both `uiAst` (`parseFormaSource`) and `uiValidation` (`validateFormaSource`) are computed
  * at build time so the browser runs `compileFormaAst(uiAst, options)` with 0ms of source parsing!
  */
-export function compileFormaToJsModule(uiSource: string, importSource = 'svet'): string {
+export function compileFormaToJsModule(uiSource: string, importSource = 'svet-engine'): string {
   const report = validateFormaSource(uiSource);
   const precompiledAst = parseFormaSource(uiSource);
   return `import { compileFormaAst } from ${JSON.stringify(importSource)};

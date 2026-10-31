@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>Svet model adoption</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}iframe{width:30%;height:55px;border:1px solid #abc}</style>
+<h1>Svet model reset across documents</h1><p>Native forms in same-origin iframes and closed shadow roots, with synchronous reset and teardown.</p>
+<button id="run">Run model adoption checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {createRoot,getGraphTelemetry,h,insertChild,Portal,resetReactiveSystem,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview'),tick=async()=>{await Promise.resolve();await Promise.resolve();};
+run.onclick=async()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const stops=[],sources=[],lines=[];
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const model=()=>{const value=signal('edited');sources.push(value);return value;};
+ const target=(closed=false)=>{const frame=document.createElement('iframe');preview.append(frame);const doc=frame.contentDocument,form=doc.createElement('form');if(closed){const host=doc.createElement('div');doc.body.append(host);host.attachShadow({mode:'closed'}).append(form);}else doc.body.append(form);return{doc,form};};
+ try{
+  for(const closed of [false,true]){const {form}=target(closed),source=model();createRoot(stop=>{stops.push(stop);Portal({mount:form,children:()=>h('input',{model:source})});});form.reset();await tick();check(source()==='','Portal model follows native reset in foreign '+(closed?'closed-shadow':'document')+' form');}
+  for(const closed of [false,true]){const {form}=target(closed),source=model(),append=form.appendChild;form.appendChild=function(node){const value=append.call(this,node);form.reset();return value;};try{createRoot(stop=>{stops.push(stop);insertChild(form,h('input',{model:source}));});}finally{delete form.appendChild;}await tick();check(source()==='','reset inside native insertion is captured before commit in '+(closed?'closed shadow':'document'));}
+  const {form}=target(),source=model();let calls=0;createRoot(stop=>{stops.push(stop);insertChild(form,h('input',{model:source,onClick(){calls++;}}));});form.querySelector('input').click();form.reset();await tick();check(calls===1&&source()==='','model reset and delegated events migrate together on the same node');
+  const canceled=target(),kept=model();createRoot(stop=>{stops.push(stop);insertChild(canceled.form,h('input',{model:kept}));});canceled.form.addEventListener('reset',event=>event.preventDefault());canceled.form.reset();await tick();check(kept()==='edited','canceled reset preserves the adopted model');
+  const retired=target(),old=model();let dispose;createRoot(stop=>{dispose=stop;stops.push(stop);insertChild(retired.form,h('input',{model:old}));});retired.form.reset();dispose();await tick();check(old()==='edited','owner disposal before queued reset publication preserves model state');
+  for(const stop of stops)stop();for(const value of sources)value.dispose();check(getGraphTelemetry().nodes===0,'all adopted model scopes and graph nodes retire');result.textContent=lines.join('\n')+'\n8/8 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();for(const source of sources)source.dispose();run.disabled=false;}
+};
+</script>

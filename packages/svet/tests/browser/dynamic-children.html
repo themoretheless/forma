@@ -1,0 +1,31 @@
+<!doctype html><meta charset="utf-8"><title>Svet dynamic child recovery</title>
+<style>body{font:17px system-ui;max-width:1000px;margin:40px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:20px;line-height:1.7;white-space:pre-wrap}</style>
+<h1>Svet dynamic child recovery</h1><p>Consumed fragments, transactional range replacement, retry and lifetime invalidation.</p>
+<button id="run">Run dynamic child checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {h,mount,signal,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+const group=(...nodes)=>{const fragment=document.createDocumentFragment();fragment.append(...nodes);return fragment;};
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();const lines=[];let app,host,native;
+ const a=h('b',null,'A'),b=h('i',null,'B'),value=signal(group(a,b)),retry=signal(0);
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);};
+ try{
+  app=mount(()=>h('div',null,()=>{retry();return value();}),preview);host=preview.firstChild;native=host.insertBefore;
+  check(host.querySelector('b')===a&&host.querySelector('i')===b,'initial fragment preserves real child identities');
+  value.set('text');check(host.textContent==='text'&&!a.parentNode&&!b.parentNode,'fragment-to-text removes the complete old range');
+  value.set(group(h('u',null,'current')));check(host.textContent==='current','text-to-fragment replacement retains one committed range');
+  const candidate=group(h('b',null,'new A'),h('i',null,'new B'));let calls=0,failed=false;
+  host.insertBefore=function(node,anchor){const result=native.call(this,node,anchor);if(++calls===2)throw Error('partial');return result;};
+  try{value.set(candidate);}catch(error){failed=error.message==='partial';}
+  check(failed&&host.textContent==='current'&&candidate.textContent==='new Anew B','partial insertion restores old DOM and the candidate fragment');
+  host.insertBefore=native;retry.set(1);check(host.textContent==='new Anew B','the same recovered fragment can be retried');
+  calls=0;failed=false;host.insertBefore=function(node,anchor){if(++calls===2)app.unmount();return native.call(this,node,anchor);};
+  try{value.set(group(h('em',null,'stale')));}catch(error){failed=error.message.includes('disposed');}
+  check(failed&&preview.textContent===''&&!host.querySelector('em'),'late insertion after unmount leaves no provisional content');
+  host.insertBefore=native;value.dispose();retry.dispose();check(getGraphTelemetry().nodes===0,'teardown leaves zero reactive nodes');
+  result.textContent=lines.join('\n')+'\n7/7 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{if(host&&native)host.insertBefore=native;app?.unmount();value.dispose();retry.dispose();run.disabled=false;}
+};
+</script>

@@ -577,6 +577,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const dmaWrites: Array<{ bufferOffset: number; dataOffset: number; size: number }> = [];
 
     const mockDiscreteGpu = {
+      createBuffer: ({ size }: { size: number }) => ({ size, destroy() {} }),
       queue: {
         writeBuffer(_buf: any, bufferOffset: number, _data: any, dataOffset = 0, size = 0) {
           dmaWrites.push({ bufferOffset, dataOffset, size });
@@ -599,7 +600,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     expect(syncReport.architecture).toBe('DUMA');
     expect(syncReport.dirtyFloatMin).toBe(100);
     expect(syncReport.dirtyFloatMax).toBe(102);
-    expect(syncReport.bytesTransferred).toBe(8);
+    expect(syncReport.bytesTransferred).toBe(16);
 
     // Verify the discrete GPU queue received ONLY the 16-byte aligned partial DMA slice (16 bytes instead of 1024 bytes!)
     expect(dmaWrites.length).toBe(1);

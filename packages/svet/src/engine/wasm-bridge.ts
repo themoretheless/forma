@@ -53,6 +53,7 @@ export interface SvetWasmExports {
   svet_link_2(target: number, s0: number, s1: number): void;
   svet_is_tracking(): number;
   // GPU + UMA + DUMA Arena Exports
+  svet_gpu_get_arena_limit_f32(): number;
   svet_gpu_alloc_f32(len: number): number;
   svet_gpu_free_f32(offset: number, len: number): void;
   svet_gpu_get_arena_ptr(): number;
@@ -71,6 +72,10 @@ export interface SvetWasmExports {
   ): void;
   // 3D Scene Graph Linear Memory Math Kernels
   svet_gpu_mat4_mul(aOffset: number, bOffset: number, dstOffset: number): void;
+  svet_depends_on(target: number, source: number): number;
+  svet_pending_effect_count(): number;
+  svet_pending_effect_entry_count(): number;
+  svet_gpu_valid_perspective(fovYRad: number, aspect: number, near: number, far: number): number;
   svet_gpu_mat4_perspective(
     dstOffset: number,
     fovYRad: number,
@@ -96,6 +101,12 @@ export interface SvetWasmExports {
     dstOffset: number,
     vertexCount: number
   ): void;
+  svet_gpu_clip_primitive_3d(offset: number, count: number, a: number, b: number, c: number, d: number, size: number): number;
+  svet_gpu_clip_output_ptr(): number;
+  svet_prepare_gpu_pick_vertices(length: number): number;
+  svet_gpu_pick_snapshot_3d(count: number, indices: number, occlude: number, vw: number, vh: number, x: number, y: number, radius: number): number;
+  svet_prepare_gpu_pick_indices(length: number): number;
+  svet_gpu_pick_visible_vertex_3d(offset: number, count: number, indices: number, vw: number, vh: number, x: number, y: number, radius: number): number;
   svet_gpu_pick_nearest_vertex_3d(
     clipVertsOffset: number,
     vertexCount: number,
@@ -110,6 +121,19 @@ export interface SvetWasmExports {
 let compiledModule: WebAssembly.Module | null = null;
 let defaultCore: SvetWasmExports | null = null;
 let activeCore: SvetWasmExports | null = null;
+let asyncCoreResolver: (() => SvetWasmExports | undefined) | undefined;
+let escapeAsyncContext: (<T>(callback: () => T) => T) | undefined;
+
+/** Keep long-lived device event subscriptions outside a request's async store. */
+export function withoutAsyncCoreContext<T>(callback: () => T): T {
+  return escapeAsyncContext ? escapeAsyncContext(callback) : callback();
+}
+
+/** Internal adapter hook; the browser entry has no Node dependency. */
+export function installAsyncCoreResolver(resolver: () => SvetWasmExports | undefined, escape?: <T>(callback: () => T) => T): void {
+  asyncCoreResolver = resolver;
+  escapeAsyncContext = escape;
+}
 
 function getCompiledModule(): WebAssembly.Module {
   if (!compiledModule) {
@@ -135,6 +159,8 @@ export function getWasmCore(): SvetWasmExports {
   if (activeCore) {
     return activeCore;
   }
+  const requestCore = asyncCoreResolver?.();
+  if (requestCore) return requestCore;
   if (!defaultCore) {
     defaultCore = createWasmCoreInstance();
   }

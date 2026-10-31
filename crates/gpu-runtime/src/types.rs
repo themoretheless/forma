@@ -215,10 +215,24 @@ pub struct SurfaceConfiguration {
 pub struct SurfaceTexture {
     pub texture: crate::Texture,
     pub suboptimal: bool,
+    pub(crate) drawable: Option<Arc<crate::metal::ObjCObject>>,
+    pub(crate) layer: Option<Arc<crate::metal::ObjCObject>>,
+    pub(crate) device: Option<crate::Device>,
 }
 
 impl SurfaceTexture {
-    pub fn present(self) {}
+    pub fn present(self) {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let (Some(device), Some(drawable)) = (&self.device, &self.drawable) {
+            let layer_ptr = self
+                .layer
+                .as_ref()
+                .map_or(std::ptr::null_mut(), |l| l.as_ptr());
+            unsafe {
+                device.metal.present_drawable(layer_ptr, drawable.as_ptr());
+            }
+        }
+    }
 }
 
 pub enum CurrentSurfaceTexture {
@@ -248,6 +262,8 @@ impl std::fmt::Debug for CurrentSurfaceTexture {
 #[derive(Debug, Clone)]
 pub struct Surface<'a> {
     pub(crate) config: Arc<Mutex<Option<(crate::Device, SurfaceConfiguration)>>>,
+    pub(crate) metal_layer: Option<Arc<crate::metal::ObjCObject>>,
+    pub(crate) metal_view: Option<Arc<crate::metal::ObjCObject>>,
     pub(crate) _marker: std::marker::PhantomData<&'a ()>,
 }
 
@@ -289,6 +305,16 @@ impl<'a> Surface<'a> {
     }
 
     pub fn configure(&self, device: &crate::Device, config: &SurfaceConfiguration) {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let Some(layer) = &self.metal_layer {
+            let view_ptr = self
+                .metal_view
+                .as_ref()
+                .map_or(std::ptr::null_mut(), |v| v.as_ptr());
+            unsafe {
+                device.metal.configure_metal_layer(layer.as_ptr(), view_ptr, config);
+            }
+        }
         if let Ok(mut guard) = self.config.lock() {
             *guard = Some((device.clone(), config.clone()));
         }
@@ -298,6 +324,29 @@ impl<'a> Surface<'a> {
         let Some((device, cfg)) = self.config.lock().ok().and_then(|g| g.clone()) else {
             return CurrentSurfaceTexture::Outdated;
         };
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let Some(layer) = &self.metal_layer {
+            let acquired = unsafe { device.metal.acquire_drawable(layer.as_ptr(), &cfg) };
+            match acquired {
+                Some((drawable, texture)) => {
+                    let suboptimal = texture.size.width != cfg.width.max(1)
+                        || texture.size.height != cfg.height.max(1);
+                    let surface_tex = SurfaceTexture {
+                        texture,
+                        suboptimal,
+                        drawable: Some(drawable),
+                        layer: Some(layer.clone()),
+                        device: Some(device),
+                    };
+                    return if suboptimal {
+                        CurrentSurfaceTexture::Suboptimal(surface_tex)
+                    } else {
+                        CurrentSurfaceTexture::Success(surface_tex)
+                    };
+                }
+                None => return CurrentSurfaceTexture::Timeout,
+            }
+        }
         let texture = device.create_texture(&crate::TextureDescriptor {
             label: Some("Surface drawable texture"),
             size: crate::Extent3d {
@@ -315,6 +364,9 @@ impl<'a> Surface<'a> {
         CurrentSurfaceTexture::Success(SurfaceTexture {
             texture,
             suboptimal: false,
+            drawable: None,
+            layer: None,
+            device: Some(device),
         })
     }
 }

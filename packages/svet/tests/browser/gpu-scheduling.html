@@ -1,0 +1,93 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet frame scheduling checks</title>
+<style>body{font:16px system-ui;max-width:850px;margin:40px auto;padding:20px}button{padding:10px 16px}pre{padding:20px;background:#eff6ff;white-space:pre-wrap}</style>
+<h1>Svet frame scheduling checks</h1>
+<p>Compares synchronous submissions with coalescing and controlled GPU backpressure.</p>
+<button id="run">Run scheduling checks</button>
+<pre id="results" role="status">Not run</pre>
+<div id="preview"></div>
+<script type="module">
+import { configureGpuSubsystem, createMesh3D, createTransform3D, createRoot, onCleanup, Viewport3D } from '/src/engine/index.ts';
+const output = document.querySelector('#results'), preview = document.querySelector('#preview');
+let previewStop;
+document.querySelector('#run').addEventListener('click', async () => {
+  let device, stop, release; const records = [];
+  const assert = (value, message) => { if (!value) throw new Error(message); };
+  try {
+    previewStop?.(); preview.replaceChildren();
+    const adapter = await navigator.gpu?.requestAdapter(); if (!adapter) { output.textContent = 'SKIP: no WebGPU adapter'; return; }
+    device = await adapter.requestDevice(); configureGpuSubsystem({ device });
+    let submissions = 0, latestVertices;
+    const submit = device.queue.submit.bind(device.queue), write = device.queue.writeBuffer.bind(device.queue), done = device.queue.onSubmittedWorkDone.bind(device.queue);
+    device.queue.submit = commands => { submissions++; submit(commands); };
+    device.queue.writeBuffer = (buffer, offset, data, start, size) => {
+      if (buffer.usage & 0x20) latestVertices = Array.from(new Float32Array(data, start, size / 4));
+      write(buffer, offset, data, start, size);
+    };
+    const createBuffer = device.createBuffer.bind(device);
+    device.createBuffer = descriptor => { const buffer = createBuffer(descriptor), record = { destroyed: false }; records.push(record); const destroy = buffer.destroy.bind(buffer); buffer.destroy = () => { record.destroyed = true; destroy(); }; return buffer; };
+    const scene = (mode, withPicking = false) => createRoot(dispose => {
+      stop = dispose; const transform = createTransform3D();
+      const mesh = createMesh3D({ positions: [-0.6,-0.5,0.2, 0.6,-0.5,0.2, 0,0.6,0.2], indices: [0,1,2], transform });
+      onCleanup(() => { mesh.dispose(); transform.dispose(); });
+      const hits = [];
+      const viewport = Viewport3D({ mesh, renderMode: mode, onVertexPick: withPicking ? (index, distance, z, frame) => hits.push({ index, frame }) : undefined }); preview.append(viewport);
+      return { transform, mesh, viewport, hits };
+    });
+    const settle = async condition => {
+      for (let i = 0; i < 125 && !condition(); i++) await new Promise(resolve => setTimeout(resolve, 16));
+      assert(condition(), 'scheduling did not settle');
+    };
+    let failNext = false;
+    const push = device.pushErrorScope.bind(device), pop = device.popErrorScope.bind(device), scopes = [];
+    device.pushErrorScope = filter => { push(filter); scopes.push(filter); };
+    device.popErrorScope = () => { const filter = scopes.pop(), inject = failNext && filter === 'validation'; return pop().then(error => error || (inject ? new GPUValidationError('injected scheduled failure') : null)); };
+    const sync = scene('sync');
+    const start = performance.now();
+    for (let i = 1; i <= 100; i++) sync.transform.rotation.set([i / 200,0,0]);
+    const syncUpdateMs = performance.now() - start, syncSubmissions = submissions;
+    await done(); await settle(() => sync.viewport.dataset.renderValidation === 'passed');
+    assert(syncSubmissions === 101, 'sync submission reference mismatch');
+    stop(); stop = undefined; preview.replaceChildren(); submissions = 0;
+    let gate = new Promise(resolve => { release = resolve; });
+    let held = true;
+    device.queue.onSubmittedWorkDone = () => Promise.all([done(), held ? gate : Promise.resolve()]).then(() => {});
+    const scheduled = scene('animation-frame');
+    const deferredStart = performance.now();
+    for (let i = 1; i <= 100; i++) scheduled.transform.rotation.set([i / 200,0,0]);
+    const scheduledUpdateMs = performance.now() - deferredStart;
+    await done(); await settle(() => scheduled.viewport.dataset.renderValidation === 'passed');
+    assert(submissions === 1, 'busy frame admitted extra submissions');
+    held = false; release(); await settle(() => submissions === 2 && scheduled.viewport.dataset.renderValidation === 'passed');
+    await done();
+    assert(JSON.stringify(latestVertices) === JSON.stringify(Array.from(scheduled.mesh.transformedVertices.peek())), 'scheduled frame did not use latest vertices');
+    stop(); stop = undefined;
+    assert(records.every(record => record.destroyed), 'scheduled teardown retained a buffer');
+    const previous = submissions; await new Promise(resolve => setTimeout(resolve, 32)); assert(submissions === previous, 'disposed viewport submitted another frame');
+    preview.replaceChildren(); submissions = 0; held = true; gate = new Promise(resolve => { release = resolve; }); failNext = true;
+    const failed = scene('animation-frame');
+    for (let i = 1; i <= 100; i++) failed.transform.rotation.set([i / 200,0,0]);
+    await done(); await settle(() => failed.viewport.dataset.renderValidation === 'failed');
+    assert(failed.viewport.dataset.renderBackend === 'canvas2d-zsort' && submissions === 1, 'failed frame released GPU credit too early');
+    failNext = false; held = false; release(); await settle(() => submissions === 2 && failed.viewport.dataset.renderValidation === 'passed');
+    await done(); stop(); stop = undefined;
+    assert(records.every(record => record.destroyed), 'failed-frame recovery leaked buffers');
+    preview.replaceChildren(); submissions = 0; held = true; gate = new Promise(resolve => { release = resolve; });
+    const coherent = scene('animation-frame', true), pickCanvas = coherent.viewport.children[0];
+    const pickAt = factor => { const rect = pickCanvas.getBoundingClientRect(); pickCanvas.dispatchEvent(new MouseEvent('click',{ clientX:rect.left+rect.width*factor,clientY:rect.top+rect.height*0.75,bubbles:true })); };
+    coherent.mesh.vertices.setAt(0, -0.2); await done();
+    await settle(() => coherent.viewport.dataset.renderValidation === 'passed');
+    pickAt(0.2); assert(coherent.hits.length === 1 && coherent.hits[0].index === 0, 'pending model update changed drawn-frame picking');
+    const oldFrame = coherent.hits[0].frame;
+    held = false; release(); await settle(() => submissions === 2 && coherent.viewport.dataset.renderValidation === 'passed'); await done();
+    pickAt(0.2); assert(coherent.hits.length === 1, 'redrawn frame retained old picking positions');
+    pickAt(0.4); assert(coherent.hits.length === 2 && coherent.hits[1].index === 0 && coherent.hits[1].frame.id > oldFrame.id && coherent.hits[1].frame.mesh === coherent.mesh, 'latest frame picking metadata or position mismatch');
+    stop(); stop = undefined; assert(records.every(record => record.destroyed), 'picking-frame teardown leaked buffers');
+    output.textContent = `PASS sync: 100 updates -> ${syncSubmissions} submissions (initial included)\nPASS held scheduled frame: 100 updates -> 1 pending submission\nPASS release: 2 total submissions, latest vertices uploaded\nPASS teardown: all buffers destroyed, no later submissions\nPASS failed frame drains queued work before retry\nPASS picking follows the submitted frame while model updates wait\n6/6 passed\nCPU update-loop observations: sync ${syncUpdateMs.toFixed(2)} ms, scheduled ${scheduledUpdateMs.toFixed(2)} ms\nControlled single burst with an injected completion gate; not a frame-time/throughput benchmark.`;
+    preview.replaceChildren(); configureGpuSubsystem({ device: null });
+    createRoot(dispose => { previewStop = dispose; const transform = createTransform3D(); const mesh = createMesh3D({ positions: [-0.6,-0.5,0.2, 0.6,-0.5,0.2, 0,0.6,0.2], transform }); onCleanup(() => { mesh.dispose(); transform.dispose(); }); preview.append(Viewport3D({ mesh })); });
+  } catch (error) { output.textContent = 'FAIL: ' + error.message; }
+  finally { release?.(); stop?.(); configureGpuSubsystem({ device: null }); device?.destroy(); }
+});
+</script>

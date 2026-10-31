@@ -1,0 +1,42 @@
+<!doctype html><meta charset="utf-8"><title>Svet adoption A/B</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}table{border-collapse:collapse;width:100%;margin:20px 0}td,th{padding:9px;text-align:left;border-bottom:1px solid #ccd}pre{white-space:pre-wrap;background:#eef6f1;padding:16px}iframe{display:none}textarea{width:100%;height:80px}</style>
+<h1>Svet document adoption — traversal A/B</h1><p>Baseline NodeList traversal versus sibling pointers. Identical engine snapshots except the traversal. Timings include native insertion; construction and checks are outside the timed sections.</p>
+<button id="run" disabled>Run alternating benchmark</button><pre id="status">Run node scripts/prepare-adoption-bench.mjs first.</pre><table><thead><tr><th>Scenario</th><th>Baseline median ms</th><th>Candidate median ms</th><th>Change</th></tr></thead><tbody id="rows"></tbody></table><details><summary>Raw result</summary><textarea id="raw" readonly></textarea></details>
+<script type="module">
+const run=document.querySelector('#run'),status=document.querySelector('#status'),rows=document.querySelector('#rows'),raw=document.querySelector('#raw');
+const metadata=await(await fetch('/node_modules/.cache/svet-adoption-bench/metadata.json',{cache:'no-store'})).json();const [baseline,candidate]=await Promise.all(['baseline','candidate'].map(variant=>import(/* @vite-ignore */ '/node_modules/.cache/svet-adoption-bench/'+metadata.snapshot+'/'+variant+'/index.js')));run.disabled=false;status.textContent='Ready: '+metadata.snapshot+'. Nine alternating rounds after two warm-up rounds.';
+const median=values=>[...values].sort((a,b)=>a-b)[Math.floor(values.length/2)];
+const frame=()=>{const node=document.createElement('iframe');document.body.append(node);return node;};
+run.onclick=async()=>{
+ run.disabled=true;rows.replaceChildren();const frames=[frame(),frame()],documents=frames.map(frame=>frame.contentDocument),records=[];
+ try{
+  for(const scenario of ['same-document plain','cross-document plain','cross-document deep','cross-document events + models']){
+   const contexts={},iterations=scenario.startsWith('same')?120:12;
+   for(const [name,engine] of Object.entries({baseline,candidate})){
+    engine.resetReactiveSystem();let stop,tree,source,calls=0;const a=documents[0].createElement('div'),b=documents[scenario.startsWith('same')?0:1].createElement('div');a.ownerDocument.body.append(a);b.ownerDocument.body.append(b);
+    engine.createRoot(dispose=>{stop=dispose;tree=document.createElement('div');
+     if(scenario.endsWith('deep')){let parent=tree;for(let i=0;i<1500;i++){const child=document.createElement('div');parent.append(child);parent=child;}}
+     else if(scenario.endsWith('models')){source=engine.signal('edited');for(let i=0;i<400;i++)tree.append(engine.h('div',null,engine.h('button',{onClick(){calls++;}},'row'),engine.h('input',{model:source})));}
+     else for(let i=0;i<1500;i++){const child=document.createElement('span');child.textContent='row';tree.append(child);}
+     engine.insertChild(a,tree);
+    });
+    contexts[name]={engine,stop,tree,source,a,b,samples:[],calls:()=>calls};
+   }
+   try{
+    for(let round=-2;round<9;round++){
+     for(const name of round%2===0?['baseline','candidate']:['candidate','baseline']){
+      const c=contexts[name],start=performance.now();for(let i=0;i<iterations;i++){c.engine.insertChild(c.b,c.tree);c.engine.insertChild(c.a,c.tree);}const elapsed=performance.now()-start;if(round>=0)c.samples.push(elapsed);
+      if(c.tree.parentNode!==c.a)throw Error('placement failed');
+      if(c.source){const before=c.calls();c.tree.querySelector('button').click();if(c.calls()!==before+1)throw Error('handler failed');if(c.tree.querySelector('input').value!=='edited')throw Error('model failed');}
+     }
+     status.textContent=scenario+': round '+(round+1)+'/9';await new Promise(resolve=>requestAnimationFrame(resolve));
+    }
+    const record={scenario,movesPerSample:iterations*2,baseline:contexts.baseline.samples,candidate:contexts.candidate.samples};record.baselineMedianMs=median(record.baseline);record.candidateMedianMs=median(record.candidate);record.changePercent=(record.candidateMedianMs/record.baselineMedianMs-1)*100;records.push(record);
+    const row=document.createElement('tr');for(const value of [scenario,record.baselineMedianMs.toFixed(3),record.candidateMedianMs.toFixed(3),record.changePercent.toFixed(1)+'%']){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}rows.append(row);
+   }finally{for(const c of Object.values(contexts)){c.stop();c.source?.dispose();if(c.engine.getGraphTelemetry().nodes!==0)throw Error('reactive graph not retired');c.a.remove();c.b.remove();}}
+  }
+  raw.value=JSON.stringify({completedAt:new Date().toISOString(),userAgent:navigator.userAgent,metadata,records},null,2);status.textContent='4/4 scenarios passed placement/handler/model and graph retirement checks. Negative change means less time. Local measurement; no whole-app or cross-browser claim.';
+ }catch(error){status.textContent='FAIL '+(error.stack??error);}
+ finally{for(const frame of frames)frame.remove();run.disabled=false;}
+};
+</script>

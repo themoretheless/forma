@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>Svet event context</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}#preview{display:flex;gap:8px;flex-wrap:wrap}</style>
+<h1>Svet event owner and reactive context</h1><p>Provider lookup, view-owned subscriptions, nested dispatch and foreign-core tracking.</p>
+<button id="run">Run event context checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {createContext,createRoot,effect,getCurrentOwner,getGraphTelemetry,h,mount,onCleanup,resetReactiveSystem,signal,useContext} from '/src/engine/index.ts';
+import {createWasmCoreInstance,getWasmCore,withWasmCore} from '/src/engine/wasm-bridge.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],stops=[],sources=[],context=createContext('default'),other=createWasmCoreInstance();
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const source=()=>{const value=signal(0);sources.push(value);return value;};
+ try{
+  for(const [prop,eventName] of [['onClick','click'],['onFocus','focus']]){
+   let button,seen,owned=false,receiver=false;createRoot(stop=>{stops.push(stop);context.Provider({value:'bound',children:()=>button=h('button',{[prop](event){seen=useContext(context);owned=getCurrentOwner()!==null;receiver=this===button&&event.currentTarget===button;}},prop)});preview.append(button);});button.dispatchEvent(new Event(eventName,{bubbles:true}));check(seen==='bound'&&owned&&receiver&&useContext(context)==='default'&&getCurrentOwner()===null,prop+' enters its provider/owner and preserves native this/currentTarget');
+  }
+  for(const [prop,eventName] of [['onClick','click'],['onFocus','focus']]){
+   const value=source();let button,dispose,runs=0,cleaned=0;createRoot(stop=>{dispose=stop;stops.push(stop);button=h('button',{[prop](){effect(()=>{value();runs++;});onCleanup(()=>{cleaned++;});}},'owned '+prop);preview.append(button);});button.dispatchEvent(new Event(eventName,{bubbles:true}));dispose();value.set(1);check(runs===1&&cleaned===1,prop+' subscriptions and cleanup retire with the bound view');
+  }
+  for(const [prop,eventName] of [['onClick','click'],['onFocus','focus']]){
+   const value=source(),trigger=source();let button,runs=0;createRoot(stop=>{stops.push(stop);button=h('button',{[prop](){value();}},'untracked '+prop);preview.append(button);effect(()=>{trigger();runs++;button.dispatchEvent(new Event(eventName,{bubbles:true}));});});value.set(1);const isolated=runs===1;trigger.set(1);check(isolated&&runs===2,prop+' callback reads do not subscribe the dispatching effect');
+  }
+  let outer,inner;const nested=[];createRoot(stop=>{stops.push(stop);context.Provider({value:'inner',children:()=>inner=h('button',{onFocus(){nested.push(useContext(context));}},'nested inner')});context.Provider({value:'outer',children:()=>outer=h('button',{onClick(){nested.push(useContext(context));inner.dispatchEvent(new Event('focus'));nested.push(useContext(context));}},'nested outer')});preview.append(outer,inner);});outer.click();check(nested.join(',')==='outer,inner,outer'&&useContext(context)==='default','nested direct/delegated events restore each provider in turn');
+  const shadowHost=document.createElement('div');preview.append(shadowHost);const shadow=shadowHost.attachShadow({mode:'closed'});let shadowChild,shadowCalls=0;const shadowApp=mount(()=>h('button',{onClick(){shadowChild=h('button',{onClick(){shadowCalls++;}},'event-created child');shadow.append(shadowChild);}},'shadow parent'),shadow);stops.push(shadowApp.unmount);shadow.firstChild.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:false}));shadowChild.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:false}));const routed=shadowCalls===1;shadowApp.unmount();shadowChild.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:false}));check(routed&&shadowCalls===1,'event-created nodes inherit closed-shadow mount routing and teardown');
+  let foreignSource,foreignButton,foreignRuns=0,foreignCore;const ownedCore=getWasmCore();withWasmCore(other,()=>{foreignSource=signal(0);sources.push(foreignSource);});createRoot(stop=>{stops.push(stop);foreignButton=h('button',{onClick(){foreignCore=getWasmCore();foreignSource();}},'foreign core');preview.append(foreignButton);});withWasmCore(other,()=>createRoot(stop=>{stops.push(stop);effect(()=>{foreignRuns++;foreignButton.click();});}));foreignSource.set(1);check(foreignRuns===1&&foreignCore===ownedCore&&getWasmCore()===ownedCore,'foreign-core dispatch pauses caller tracking and restores the captured core');
+  const failingSource=source(),failure=Error('intentional callback failure');let failedButton,disposeFailed,failureSeen=false,failureContext='',failureRuns=0;const onError=event=>{if(event.error===failure){failureSeen=true;event.preventDefault();}};window.addEventListener('error',onError);
+  try{createRoot(stop=>{disposeFailed=stop;stops.push(stop);context.Provider({value:'error-bound',children:()=>failedButton=h('button',{onFocus(){failureContext=useContext(context);effect(()=>{failingSource();failureRuns++;});throw failure;}},'intentional error')});preview.append(failedButton);});failedButton.dispatchEvent(new Event('focus'));}finally{window.removeEventListener('error',onError);}failingSource.set(1);const ownedFailure=failureRuns===2;disposeFailed();failingSource.set(2);check(failureSeen&&failureContext==='error-bound'&&ownedFailure&&failureRuns===2&&getCurrentOwner()===null,'native error reporting restores context and keeps pre-error resources view-owned');
+  for(const stop of stops)stop();for(const value of sources)value.dispose();check(getGraphTelemetry().nodes===0&&withWasmCore(other,()=>getGraphTelemetry().nodes)===0,'all bound-view resources and both reactive cores retire');result.textContent=lines.join('\n')+'\n11/11 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();for(const value of sources)value.dispose();run.disabled=false;}
+};
+</script>

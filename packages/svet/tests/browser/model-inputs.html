@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>Svet input model checks</title>
+<style>body{font:17px system-ui;max-width:1000px;margin:40px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:20px;line-height:1.7;white-space:pre-wrap}</style>
+<h1>Svet input model checks</h1><p>Native radio clicks, current option values, reactive input types and teardown.</p>
+<button id="run">Run input model checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {h,mount,signal,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();const lines=[];let app,field;
+ const selected=signal('b'),option=signal('c'),type=signal('text'),value=signal('hello');
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);};
+ try{
+  app=mount(()=>h('div',null,...['a','b'].map(v=>h('input',{type:'radio',name:'group',model:selected,value:v})),h('input',{type:'radio',name:'group',model:selected,value:option})),preview);
+  const radios=Array.from(preview.querySelectorAll('input'));
+  check(radios[1].checked&&radios.map(r=>r.value).join(',')==='a,b,c','radio model selects the matching option without overwriting values');
+  radios[2].click();check(selected()==='c'&&radios[2].checked&&!radios[1].checked,'native click updates the model and radio group');
+  selected.set('a');check(radios[0].checked&&!radios[2].checked,'model updates the existing radio group');
+  option.set('z');check(radios[2].value==='z'&&!radios[2].checked,'reactive option value refreshes checked state');
+  const host=document.createElement('div');preview.append(host);
+  field=mount(()=>h('input',{type,model:value}),host);const input=host.querySelector('input');
+  value.set(true);type.set('checkbox');check(input.type==='checkbox'&&input.checked,'type transition reapplies unchanged model as checked');
+  input.click();check(value()===false,'native checkbox click uses current input type');
+  value.set(12);type.set('number');input.value='3.5';input.dispatchEvent(new Event('input',{bubbles:true}));check(value()===3.5,'numeric input uses current conversion after type change');
+  field.unmount();app.unmount();radios[1].checked=true;radios[1].dispatchEvent(new Event('change'));check(selected()==='a','retained detached radio no longer writes to the model');
+  selected.dispose();option.dispose();type.dispose();value.dispose();check(getGraphTelemetry().nodes===0,'all model effects and signals are released');
+  result.textContent=lines.join('\n')+'\n9/9 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{field?.unmount();app?.unmount();selected.dispose();option.dispose();type.dispose();value.dispose();run.disabled=false;}
+};
+</script>

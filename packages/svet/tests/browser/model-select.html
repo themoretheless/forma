@@ -1,0 +1,28 @@
+<!doctype html><meta charset="utf-8"><title>Svet select model checks</title>
+<style>body{font:17px system-ui;max-width:1000px;margin:40px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:20px;line-height:1.7;white-space:pre-wrap}</style>
+<h1>Svet select model checks</h1><p>Initial selection, array models, dynamic options and observer teardown.</p>
+<button id="run">Run select model checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {For,h,mount,signal,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=async()=>{
+ run.disabled=true;resetReactiveSystem();const lines=[];let app;
+ const single=signal('b'),many=signal(['a','c']),rows=signal(['a','b','c']),label=signal('a');
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);};
+ const checkpoint=async()=>{await Promise.resolve();await Promise.resolve();};
+ const chosen=select=>Array.from(select.selectedOptions,o=>o.value).join(',');
+ try{
+  app=mount(()=>h('div',null,h('select',{model:single},For({each:rows,children:v=>h('option',{value:v},v)})),h('select',{model:many,multiple:true},...['a','b','c'].map(v=>h('option',{value:v},v))),h('select',{model:single},h('option',null,label))),preview);
+  const [one,multi,implicit]=preview.querySelectorAll('select');
+  check(one.value==='b','single select applies its model after options are attached');
+  check(chosen(multi)==='a,c','multiple select initializes from an array');
+  many.set(['b']);check(chosen(multi)==='b','model updates selected options without remounting');
+  multi.options[0].selected=true;multi.options[1].selected=false;multi.dispatchEvent(new Event('change',{bubbles:true}));check(many().join(',')==='a','change publishes selected option strings in DOM order');
+  rows.set(['c','b']);await checkpoint();check(one.value==='b','dynamic option deletion and reorder preserve the model selection');
+  label.set('b');await checkpoint();check(implicit.value==='b','implicit option text updates trigger model synchronization');
+  rows.set(['b']);app.unmount();await checkpoint();single.dispose();many.dispose();rows.dispose();label.dispose();check(getGraphTelemetry().nodes===0,'queued mutations and teardown leave zero reactive nodes');
+  result.textContent=lines.join('\n')+'\n7/7 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{app?.unmount();single.dispose();many.dispose();rows.dispose();label.dispose();run.disabled=false;}
+};
+</script>

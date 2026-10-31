@@ -1,6 +1,6 @@
 import {
   batch,
-  Canvas3D,
+  Viewport3D,
   compileFormaComponent,
   computed,
   configureGpuSubsystem,
@@ -222,7 +222,7 @@ function App() {
         <h1>Svet Engine — {title()}</h1>
         <p>
           Гибридный фреймворк <b>TypeScript + Rust WebAssembly (SIMD128) + GPU (UMA/DUMA) + Forma .ui</b>.
-          Побеждает React 19, Vue 3.5 и Svelte 5 во всех 8 архитектурных бенчмарках.
+          Демонстрация реактивных обновлений, списков, Forma .ui и вычислительных примитивов.
         </p>
       </header>
 
@@ -343,7 +343,8 @@ function App() {
 
         <div className="card">
           <h2>5. 3D GPU Scene Graph (SIMD128 Viewport)</h2>
-          {Canvas3D({
+          {Viewport3D({
+            renderMode: 'animation-frame',
             mesh: cube3D.mesh,
             edges: cube3D.edges,
             faces: cube3D.faces,

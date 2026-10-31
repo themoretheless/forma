@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>Svet native form reset</title>
+<style>body{font:17px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}#preview input{max-width:120px}form{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}</style>
+<h1>Svet native form reset</h1><p>Native reset/reset-button default actions, canceled reset, batched state and model teardown.</p>
+<button id="run">Run reset checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {bindProp,createRoot,effect,getGraphTelemetry,h,resetReactiveSystem,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+const tick=async()=>{await Promise.resolve();await Promise.resolve();};
+run.onclick=async()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],signals=[];let stop,observer;
+ const source=value=>{const valueSignal=signal(value);signals.push(valueSignal);return valueSignal;};
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ try{
+  preview.innerHTML='<form id="native-reset"><input id="text" value="default"><input id="number" type="number" value="3"><input id="box" type="checkbox" checked><input id="radio-a" type="radio" name="choice" value="a" checked><input id="radio-b" type="radio" name="choice" value="b"><select id="many" multiple><option value="a" selected>A</option><option value="b">B</option><option value="c" selected>C</option></select><select id="one"><option value="a" selected>A</option><option value="b">B</option></select><input id="upload" type="file"><button type="reset">Native reset</button></form><input id="external" form="native-reset" value="outside">';
+  const form=preview.querySelector('form'),field=id=>preview.querySelector('#'+id);
+  const text=source('edited'),number=source(12),box=source(false),choice=source('b'),many=source(['b']),one=source('b'),upload=source(null),external=source('outside edited');
+  createRoot(dispose=>{stop=dispose;for(const [id,model] of Object.entries({text,number,box,'radio-a':choice,'radio-b':choice,many,one,upload,external}))bindProp(field(id),'model',model);});
+  const seen=[];observer=effect(()=>{seen.push([text(),number(),box()]);});
+  const transfer=new DataTransfer();transfer.items.add(new File(['fixture'],'selected.txt'));field('upload').files=transfer.files;field('upload').dispatchEvent(new Event('change'));
+  field('one').options[0].textContent='Changed before reset';form.reset();const deferred=text()==='edited';await tick();
+  check(deferred&&text()==='default'&&number()===3&&box()===true,'native reset publishes text, numeric and checked defaults after the default action');
+  check(seen.length===2&&JSON.stringify(seen[1])===JSON.stringify(['default',3,true]),'observers see one consistent batch of changed fields');
+  check(choice()==='a'&&field('radio-a').checked&&!field('radio-b').checked&&JSON.stringify(many())==='["a","c"]'&&one()==='a','radio and select defaults survive queued option observers');
+  check(upload()===null&&field('upload').files.length===0&&external()==='outside','reset clears a nonempty native FileList and updates external form-associated controls');
+  const prevent=event=>event.preventDefault();form.addEventListener('reset',prevent);text.set('kept');form.reset();await tick();
+  check(text()==='kept'&&field('text').value==='kept','preventDefault cancels model publication as well as native reset');form.removeEventListener('reset',prevent);
+  field('text').dispatchEvent(new CompositionEvent('compositionstart'));field('text').value='composing';form.querySelector('button').click();await tick();text.set('after composition reset');
+  check(field('text').value==='after composition reset','native reset button ends composition and permits later model writes');
+  let detached;const detachedText=source('detached edited');createRoot(dispose=>{const outer=stop;stop=()=>{dispose();outer();};detached=h('form',null,h('input',{model:detachedText}));});
+  detached.reset();await tick();check(detachedText()==='','Svet-created detached form reset reaches its local model coordinator');
+  text.set('retained');form.reset();stop();stop=undefined;await tick();const unchanged=text()==='retained';observer.dispose();observer=undefined;for(const sig of signals)sig.dispose();
+  check(unchanged&&getGraphTelemetry().nodes===0,'teardown cancels queued publication and retires the complete reactive graph');
+  result.textContent=lines.join('\n')+'\n8/8 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{stop?.();observer?.dispose();for(const sig of signals)sig.dispose();run.disabled=false;}
+};
+</script>

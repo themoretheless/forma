@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>Svet document adoption</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}iframe{width:48%;height:100px;border:1px solid #abc}</style>
+<h1>Svet delegated events across documents</h1><p>Same-origin iframe adoption, synchronous native dispatch, reactive updates and rollback.</p>
+<button id="run">Run adoption checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {createRoot,For,getGraphTelemetry,h,insertChild,mount,Portal,resetReactiveSystem,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const stops=[],sources=[],lines=[];
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const fails=(callback,error)=>{try{callback();return false;}catch(value){return error?value===error:true;}};
+ const frame=()=>{const element=document.createElement('iframe');preview.append(element);return element.contentDocument;};
+ try{
+  const doc=frame();let mounted=0;const app=mount(()=>h('section',null,h('button',{onClick(){mounted++;}},'foreign mounted button')),doc.body);stops.push(app.unmount);doc.querySelector('button').click();check(mounted===1,'mount routes a nested handler through the destination document immediately');
+  const portalDoc=frame();let portals=0;createRoot(stop=>{stops.push(stop);Portal({mount:portalDoc.body,children:()=>h('button',{onClick(){portals++;}},'portal button')});});portalDoc.querySelector('button').click();check(portals===1,'Portal preserves its delegated handler after native subtree adoption');
+  const dynamicDoc=frame(),enabled=signal(false),rows=signal([]);sources.push(enabled,rows);let updates=0;
+  const dynamicApp=mount(()=>h('div',null,()=>enabled()?h('button',{onClick(){updates++;}},'dynamic'):null,For({each:rows,keyFn:x=>x,children:x=>h('button',{onClick(){updates+=x;}},'keyed row')})),dynamicDoc.body);stops.push(dynamicApp.unmount);enabled.set(true);rows.set([2]);for(const node of dynamicDoc.querySelectorAll('button'))node.click();check(updates===3,'new reactive and keyed children route correctly after a foreign mount');
+  let moves=0;createRoot(stop=>{stops.push(stop);const fragment=document.createDocumentFragment(),node=h('button',{onClick(){moves++;}},'moving fragment child');fragment.append(node);insertChild(portalDoc.body,fragment);node.click();insertChild(preview,node);node.click();insertChild(portalDoc.body,node);node.click();});check(moves===3,'consumed fragments and return moves invoke each handler once');
+  let synchronous=0;createRoot(stop=>{stops.push(stop);const node=h('button',{onClick(){synchronous++;}}),append=doc.body.appendChild;doc.body.appendChild=function(child){const value=append.call(this,child);node.click();return value;};try{insertChild(doc.body,node);}finally{delete doc.body.appendChild;}});check(synchronous===1,'the destination listener is staged before native insertion can dispatch');
+  let nestedMoves=0;createRoot(stop=>{stops.push(stop);const node=h('button',{onClick(){nestedMoves++;}}),append=doc.body.appendChild;doc.body.appendChild=function(child){insertChild(portalDoc.body,child);const value=append.call(this,child);node.click();return value;};try{insertChild(doc.body,node);}finally{delete doc.body.appendChild;}});check(nestedMoves===1,'nested adoption cannot release the outer insertion destination before its event');
+  const rollbackSource=signal('initial');sources.push(rollbackSource);const rollbackApp=mount(()=>h('div',null,rollbackSource),dynamicDoc.body);stops.push(rollbackApp.unmount);let rolledBack=0,rollbackPassed=false;
+  createRoot(stop=>{stops.push(stop);const node=h('button',{onClick(){rolledBack++;}},'rollback origin');preview.append(node);const target=dynamicDoc.body.firstChild,insert=target.insertBefore,failure=Error('late insertion failed');let once=true;target.insertBefore=function(child,anchor){const value=insert.call(this,child,anchor);if(child===node&&once){once=false;throw failure;}return value;};try{rollbackPassed=fails(()=>rollbackSource.set(node),failure)&&node.parentNode===preview;node.click();}finally{delete target.insertBefore;}});check(rollbackPassed&&rolledBack===1,'partial native insertion rollback restores both placement and source-document routing');
+  let removalCalls=0,removalPassed=false;createRoot(stop=>{stops.push(stop);const node=h('button',{onDblClick(){removalCalls++;}}),remove=document.removeEventListener,failure=Error('physical removal failed');let once=true;document.removeEventListener=function(type,listener,options){if(type==='dblclick'&&once){once=false;throw failure;}return remove.call(this,type,listener,options);};try{removalPassed=fails(()=>insertChild(portalDoc.body,node),failure);node.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));insertChild(preview,node);node.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));}finally{delete document.removeEventListener;}});check(removalPassed&&removalCalls===2,'a physically retained retired listener cannot duplicate callbacks after return adoption');
+  const retained=doc.querySelector('button');app.unmount();retained.click();check(mounted===1,'owner teardown disables adopted callbacks even when their native node is retained');
+  for(const stop of stops)stop();for(const source of sources)source.dispose();check(getGraphTelemetry().nodes===0,'all adopted view owners and reactive graph nodes retire');
+  result.textContent=lines.join('\n')+'\n10/10 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();for(const source of sources)source.dispose();run.disabled=false;}
+};
+</script>

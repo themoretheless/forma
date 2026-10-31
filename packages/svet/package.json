@@ -1,26 +1,71 @@
 {
   "name": "svet-engine",
   "version": "1.0.0",
-  "description": "Svet: Production-Ready Hybrid TypeScript + Rust WebAssembly + GPU (UMA/DUMA) UI Framework",
+  "description": "Svet: reactive TypeScript + Rust WebAssembly UI framework",
   "type": "module",
-  "main": "./src/engine/index.ts",
-  "types": "./src/engine/index.ts",
+  "main": "./dist/package/index.js",
+  "types": "./dist/package/index.d.ts",
   "exports": {
-    ".": "./src/engine/index.ts",
-    "./jsx-runtime": "./src/engine/jsx-runtime.ts",
-    "./jsx-dev-runtime": "./src/engine/jsx-runtime.ts"
+    ".": {
+      "types": "./dist/package/index.d.ts",
+      "import": "./dist/package/index.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/package/jsx-runtime.d.ts",
+      "import": "./dist/package/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/package/jsx-runtime.d.ts",
+      "import": "./dist/package/jsx-runtime.js"
+    },
+    "./server": {
+      "types": "./dist/package/server.d.ts",
+      "import": "./dist/package/server.js"
+    },
+    "./compiler": {
+      "types": "./dist/package/compiler.d.ts",
+      "import": "./dist/package/compiler.js"
+    },
+    "./reactivity": {
+      "types": "./dist/package/reactivity.d.ts",
+      "import": "./dist/package/reactivity.js"
+    }
   },
   "scripts": {
     "build:wasm": "cd crates/svet-wasm && RUSTFLAGS=\"-C target-feature=+simd128\" cargo build --target wasm32-unknown-unknown --release && node ../../scripts/embed-wasm.mjs",
     "test": "vitest run",
     "dev": "vite",
-    "build": "npm run build:wasm && tsc --noEmit && vite build"
+    "build": "npm run build:wasm && tsc --noEmit && npm run build:package && vite build",
+    "build:package": "node scripts/build-package.mjs",
+    "pretest": "npm run build:package",
+    "prepack": "npm run build:package",
+    "test:package": "npm run build:package && node scripts/check-package.mjs",
+    "test:actions": "npm run build:package && node --test scripts/check-action-http.mjs",
+    "dev:actions": "node scripts/serve-action-browser.mjs",
+    "dev:resume": "npm run build:package && node scripts/serve-resumption-browser.mjs",
+    "bench:adoption:prepare": "node scripts/prepare-adoption-bench.mjs"
   },
   "devDependencies": {
+    "@jridgewell/trace-mapping": "^0.3.31",
     "@types/node": "^22.0.0",
     "jsdom": "^30.1.3",
-    "typescript": "^5.6.0",
+    "typescript": "^5.9.3",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
+  },
+  "dependencies": {
+    "@babel/parser": "^8.0.10",
+    "magic-string": "^1.4.5"
+  },
+  "sideEffects": [
+    "./dist/package/server.js"
+  ],
+  "files": [
+    "dist/package",
+    "README.md",
+    "DEVELOPMENT.md"
+  ],
+  "engines": {
+    "node": "^22.18.0 || >=24.11.0"
   }
 }

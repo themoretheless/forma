@@ -1,0 +1,35 @@
+<!doctype html><meta charset="utf-8"><title>Svet file models</title>
+<style>body{font:17px system-ui;max-width:1080px;margin:40px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:20px;line-height:1.8;white-space:pre-wrap}#preview{display:flex;gap:20px;margin-top:20px}</style>
+<h1>Svet native FileList models</h1>
+<p>In-memory files through native DataTransfer/FileList setters. No picker, disk reads or network upload.</p>
+<button id="run">Run file model checks</button><pre id="result">Not run</pre><div id="preview"></div><div id="resumed"></div>
+<script type="module">
+import {disposeResumedContainer,getGraphTelemetry,h,mount,resetReactiveSystem,resumeContainer,serializeDomNodeToHtml,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview'),resumed=document.querySelector('#resumed');
+run.onclick=()=>{
+ run.disabled=true;disposeResumedContainer(resumed);resetReactiveSystem();preview.replaceChildren();resumed.replaceChildren();const lines=[];let app,model,type;
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const files=(...names)=>{const transfer=new DataTransfer();for(const name of names)transfer.items.add(new File(['fixture '+name],name,{type:'text/plain'}));return transfer.files;};
+ try{
+  model=signal(null);type=signal('file');app=mount(()=>h('input',{type,multiple:true,model}),preview);const input=preview.querySelector('input');
+  check(input.files.length===0&&input.value===''&&model()===null,'nullable initial file model constructs an empty native picker');
+  const selected=files('first.txt','second.txt');input.files=selected;input.dispatchEvent(new Event('input'));const ignored=model()===null;input.dispatchEvent(new Event('change'));
+  check(ignored&&model()===input.files&&model().length===2&&model()[1].name==='second.txt','change publishes the actual nonempty FileList; input does not publish a duplicate');
+  const replacement=files('replacement.txt');model.set(replacement);
+  check(input.files===replacement&&input.files[0].name==='replacement.txt','programmatic FileList assignment updates native selected files without a path write');
+  model.set(null);check(input.files.length===0&&input.value===''&&model()===null,'null clears native selection and leaves the model empty');
+  type.set('text');model.set('text mode');const text=input.value==='text mode';model.set(null);type.set('file');model.set(selected);
+  check(text&&input.type==='file'&&input.files.length===2,'reactive type transitions select the correct model representation');
+  resumed.innerHTML='<input type="file" multiple data-svet-model="upload">';const state=resumeContainer(resumed,JSON.stringify({signals:{upload:null}})),field=resumed.querySelector('input');
+  field.files=replacement;field.dispatchEvent(new Event('change'));const published=state.upload()===field.files;state.upload.set(null);
+  check(published&&field.files.length===0,'JSON-null resumption uses the common FileList/change/clear binding');
+  const html=serializeDomNodeToHtml(input);
+  check(!html.includes('value=')&&!html.includes('fakepath')&&!html.includes('first.txt'),'SSR omits selected file paths and unrestorable value attributes');
+  app.unmount();app=undefined;disposeResumedContainer(resumed);const late=files('late.txt');input.files=late;input.dispatchEvent(new Event('change'));const snapshot=model()===selected;model.set(replacement);const detached=input.files===late;
+  model.dispose();model=undefined;type.dispose();type=undefined;
+  check(snapshot&&detached&&getGraphTelemetry().nodes===0,'teardown removes file publication/synchronization and retires all graph nodes');
+  result.textContent=lines.join('\n')+'\n8/8 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{app?.unmount();disposeResumedContainer(resumed);model?.dispose();type?.dispose();run.disabled=false;}
+};
+</script>

@@ -490,6 +490,7 @@ name = "gpu-runtime"
 version = "0.1.0"
 dependencies = [
  "gpu-shader",
+ "raw-window-handle",
 ]
 
 [[package]]

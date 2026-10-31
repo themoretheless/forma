@@ -15,7 +15,7 @@ const base64 = bytes.toString('base64');
 const content = `// AUTO-GENERATED FILE — DO NOT EDIT MANUALLY
 // Built from crates/svet-wasm/src/lib.rs (${bytes.length} bytes)
 
-export const WASM_BASE64 = "${base64}";
+export const WASM_BASE64: string = "${base64}";
 
 export function decodeWasmBinary(): Uint8Array {
   if (typeof Buffer !== 'undefined') {

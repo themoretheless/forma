@@ -16,7 +16,9 @@ test('svet package and svet-wasm crate live inside packages/svet and are covered
 
  const pkg=JSON.parse(readFileSync(pkgPath,'utf8'));
  assert.equal(pkg.name,'svet-engine');
- assert.equal(pkg.exports['.'],'./src/engine/index.ts');
+ assert.equal(pkg.exports['.'].import,'./dist/package/index.js');
+ assert.equal(pkg.exports['.'].types,'./dist/package/index.d.ts');
+ assert.ok(pkg.files.includes('dist/package'));
 
  const gateSteps=steps({platform:'darwin',installedTargets:[],viteEntry:'node_modules/vite/bin/vite.js'}).list;
  const svetStep=gateSteps.find(item=>item.id==='svet-wasm');
@@ -26,7 +28,7 @@ test('svet package and svet-wasm crate live inside packages/svet and are covered
 
 test('svet embedded WASM reactive DAG and LIS reconciler instantiate and execute in Node',async()=>{
  const wasmBinarySource=readFileSync(resolve(root,'packages/svet/src/engine/wasm-binary.ts'),'utf8');
- const base64Match=/WASM_BASE64\s*=\s*"([^"]+)"/.exec(wasmBinarySource);
+ const base64Match=/WASM_BASE64(?:\s*:\s*string)?\s*=\s*"([^"]+)"/.exec(wasmBinarySource);
  assert.ok(base64Match,'WASM_BASE64 must be present in wasm-binary.ts');
  const bytes=Buffer.from(base64Match[1],'base64');
  const mod=new WebAssembly.Module(bytes);
@@ -63,7 +65,8 @@ test('svet embedded WASM reactive DAG and LIS reconciler instantiate and execute
 });
 
 test('svet-wasm Rust test suite passes via cargo',()=>{
- const run=spawnSync('cargo',['test','--locked','--manifest-path','packages/svet/crates/svet-wasm/Cargo.toml','--lib','--tests'],{cwd:root,encoding:'utf8'});
+ const run=spawnSync('cargo',['test','--locked','--manifest-path','packages/svet/crates/svet-wasm/Cargo.toml','--lib','--tests','--','--test-threads=1'],{cwd:root,encoding:'utf8'});
  assert.equal(run.status,0,run.stderr||run.stdout);
- assert.match(run.stdout,/test result: ok\. 4 passed/);
+ const summary=/test result: ok\. (\d+) passed; 0 failed/.exec(run.stdout);
+ assert.ok(summary&&Number(summary[1])>=5,run.stdout);
 });

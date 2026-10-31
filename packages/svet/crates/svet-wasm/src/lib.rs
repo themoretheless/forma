@@ -17,6 +17,36 @@
 
 use std::cell::UnsafeCell;
 
+fn perspective_matrix(fov_y_rad: f32, aspect: f32, near: f32, far: f32) -> Option<[f32; 16]> {
+    if ![fov_y_rad, aspect, near, far].iter().all(|v| v.is_finite())
+        || fov_y_rad <= 0.0 || fov_y_rad >= std::f32::consts::PI
+        || aspect <= 0.0 || near <= 0.0 || far <= near {
+        return None;
+    }
+    let f = 1.0 / (0.5 * fov_y_rad).tan();
+    let z = far / (near - far);
+    // Avoid the overflowing near*far intermediate of near*far/(near-far).
+    let m = [f / aspect, 0.0, 0.0, 0.0, 0.0, f, 0.0, 0.0,
+        0.0, 0.0, z, -1.0, 0.0, 0.0, near * z, 0.0];
+    if m.iter().all(|v| v.is_finite()) && m[0] > 0.0 && m[5] > 0.0 && m[14] < 0.0 {
+        Some(m)
+    } else { None }
+}
+
+/// Maximum per-context GPU arena storage: 256 MiB of float32 values.
+pub const MAX_GPU_ARENA_FLOATS: u32 = 67_108_864;
+
+/// Grow the arena within a caller-supplied element limit (small limits aid tests).
+fn grow_gpu_arena(arena: &mut Vec<f32>, new_len: usize, limit: usize) -> bool {
+    if new_len > limit || new_len < arena.len() || arena.capacity() > limit { return false; }
+    if new_len > arena.capacity() {
+        let capacity = arena.capacity().saturating_mul(2).max(new_len).min(limit);
+        if arena.try_reserve_exact(capacity - arena.len()).is_err() { return false; }
+    }
+    arena.resize(new_len, 0.0);
+    true
+}
+
 pub const KIND_SIGNAL: u8 = 0;
 pub const KIND_COMPUTED: u8 = 1;
 pub const KIND_EFFECT: u8 = 2;
@@ -30,8 +60,17 @@ pub const STATE_DISPOSED: u8 = 255;
 pub struct Node {
     pub kind: u8,
     pub in_queue: bool,
+    pub tracking: bool,
+    /// Identity of this slot allocation, independent of reactive write epochs.
+    pub lifetime: u32,
     pub alive: bool,
     pub epoch: u32,
+}
+
+#[derive(Clone, Copy)]
+pub struct ScheduledEffect {
+    pub id: u32,
+    pub lifetime: u32,
 }
 
 pub struct ReactiveGraph {
@@ -55,10 +94,10 @@ pub struct ReactiveGraph {
     pub free_list: Vec<u32>,
     /// Count of currently active (non-disposed) nodes
     pub active_count: u32,
-    /// Tracking stack for automatic dependency discovery (`computed` / `effect` evaluation)
-    pub tracking_stack: Vec<(u32, usize)>,
-    /// Queued effect IDs that need to be run on flush
-    pub pending_effects: Vec<u32>,
+    /// Discovery frames `(observer, cursor, slot_lifetime)` for computed/effect evaluation
+    pub tracking_stack: Vec<(u32, usize, u32)>,
+    /// Scheduled effect identities; native IDs alone can be reused before flush
+    pub pending_effects: Vec<ScheduledEffect>,
     /// Output buffer exposed to JS via zero-copy `Uint32Array` view
     pub flush_buffer: Vec<u32>,
     /// Batch depth counter (allows nested `batch(() => ...)` without intermediate flushes)
@@ -71,8 +110,15 @@ pub struct ReactiveGraph {
     pub lis_input_buffer: Vec<u32>,
     /// Reusable traversal stack for `trigger_write` (avoids per-write Vec allocation)
     pub propagate_stack: Vec<(u32, u8)>,
+    dependency_stack: Vec<u32>,
+    dependency_seen: Vec<u32>,
+    dependency_epoch: u32,
     /// Contiguous 16-byte-aligned f32 page for UMA/DUMA GPU Tensor Signals
     pub gpu_f32_arena: Vec<f32>,
+    /// Homogeneous clipping result, valid until the next clipping call.
+    pub gpu_clip_output: Vec<f32>,
+    pub gpu_pick_indices: Vec<u32>,
+    pub gpu_pick_vertices: Vec<f32>,
     /// Dirty bitset (1 bit per 32 floats / 128-byte cache line) for partial DUMA DMA transfers
     pub gpu_dirty_blocks: Vec<u32>,
     /// Free blocks `(offset, aligned_len)` in `gpu_f32_arena` for O(1) GPU tensor memory recycling
@@ -104,7 +150,11 @@ impl ReactiveGraph {
             lis_buffer: Vec::new(),
             lis_input_buffer: Vec::new(),
             propagate_stack: Vec::new(),
+            dependency_stack: Vec::new(), dependency_seen: Vec::new(), dependency_epoch: 0,
             gpu_f32_arena: Vec::new(),
+            gpu_clip_output: Vec::new(),
+            gpu_pick_indices: Vec::new(),
+            gpu_pick_vertices: Vec::new(),
             gpu_dirty_blocks: Vec::new(),
             gpu_free_blocks: Vec::new(),
             gpu_dirty_min: u32::MAX,
@@ -131,7 +181,11 @@ impl ReactiveGraph {
         self.lis_buffer.clear();
         self.lis_input_buffer.clear();
         self.propagate_stack.clear();
+        self.dependency_stack.clear(); self.dependency_seen.clear(); self.dependency_epoch = 0;
         self.gpu_f32_arena.clear();
+        self.gpu_clip_output.clear();
+        self.gpu_pick_indices.clear();
+        self.gpu_pick_vertices.clear();
         self.gpu_dirty_blocks.clear();
         self.gpu_free_blocks.clear();
         self.gpu_dirty_min = u32::MAX;
@@ -144,7 +198,7 @@ impl ReactiveGraph {
     pub fn gpu_alloc_f32(&mut self, len: u32) -> u32 {
         let aligned_len = match len.checked_add(3) {
             Some(v) => v & !3,
-            None => return 0,
+            None => return u32::MAX,
         };
         if aligned_len == 0 {
             return self.gpu_f32_arena.len() as u32;
@@ -183,10 +237,12 @@ impl ReactiveGraph {
 
         let start = self.gpu_f32_arena.len() as u32;
         let new_len = match (start as usize).checked_add(aligned_len as usize) {
-            Some(l) if l <= 67_108_864 => l, // Cap arena to 256 MB (64M floats) to prevent OOM DoS
-            _ => return 0,
+            Some(l) if l <= MAX_GPU_ARENA_FLOATS as usize => l,
+            _ => return u32::MAX,
         };
-        self.gpu_f32_arena.resize(new_len, 0.0);
+        if !grow_gpu_arena(&mut self.gpu_f32_arena, new_len, MAX_GPU_ARENA_FLOATS as usize) {
+            return u32::MAX;
+        }
 
         let required_blocks = ((self.gpu_f32_arena.len() + 31) / 32 + 31) / 32;
         if self.gpu_dirty_blocks.len() < required_blocks {
@@ -468,15 +524,7 @@ impl ReactiveGraph {
         if d.checked_add(16).map_or(true, |end| end > self.gpu_f32_arena.len()) {
             return;
         }
-        let f = 1.0 / (0.5 * fov_y_rad).tan();
-        let nf = 1.0 / (near - far);
-
-        let m = [
-            f / aspect, 0.0, 0.0, 0.0,
-            0.0, f, 0.0, 0.0,
-            0.0, 0.0, far * nf, -1.0,
-            0.0, 0.0, near * far * nf, 0.0,
-        ];
+        let Some(m) = perspective_matrix(fov_y_rad, aspect, near, far) else { return; };
         self.gpu_f32_arena[d..d + 16].copy_from_slice(&m);
         self.gpu_mark_dirty(dst_offset, 16);
     }
@@ -600,6 +648,62 @@ impl ReactiveGraph {
         self.gpu_mark_dirty(dst_offset, vertex_count.saturating_mul(4));
     }
 
+    /// Clip a segment or convex polygon in homogeneous WebGPU coordinates.
+    pub fn gpu_clip_primitive_3d(&mut self, offset: u32, count: u32, indices: &[u32]) -> u32 {
+        self.gpu_clip_output.clear();
+        if !(2..=4).contains(&indices.len()) || indices.iter().any(|&i| i >= count) { return 0; }
+        let end = (count as usize).checked_mul(4).and_then(|total| (offset as usize).checked_add(total));
+        if end.map_or(true, |end| end > self.gpu_f32_arena.len()) { return 0; }
+        let mut vertices: Vec<[f64; 4]> = Vec::with_capacity(10);
+        for &index in indices {
+            let base = offset as usize + index as usize * 4;
+            let v = std::array::from_fn(|axis| self.gpu_f32_arena[base + axis] as f64);
+            if v.iter().any(|value| !value.is_finite()) { return 0; }
+            vertices.push(v);
+        }
+        let distance = |v: [f64; 4], plane: usize| match plane {
+            0 => v[3] + v[0], 1 => v[3] - v[0],
+            2 => v[3] + v[1], 3 => v[3] - v[1],
+            4 => v[2], _ => v[3] - v[2],
+        };
+        let interpolate = |a: [f64; 4], b: [f64; 4], t: f64| {
+            std::array::from_fn(|axis| a[axis] + (b[axis] - a[axis]) * t)
+        };
+        if indices.len() == 2 {
+            let a = vertices[0]; let b = vertices[1];
+            let mut enter: f64 = 0.0; let mut exit: f64 = 1.0;
+            for plane in 0..6 {
+                let da = distance(a, plane); let db = distance(b, plane);
+                if da < 0.0 && db < 0.0 { return 0; }
+                if da < 0.0 { enter = enter.max(da / (da - db)); }
+                if db < 0.0 { exit = exit.min(da / (da - db)); }
+            }
+            if enter > exit { return 0; }
+            vertices = vec![interpolate(a, b, enter), interpolate(a, b, exit)];
+        } else {
+            for plane in 0..6 {
+                if vertices.is_empty() { break; }
+                let mut output = Vec::with_capacity(vertices.len() + 1);
+                let mut previous = *vertices.last().unwrap();
+                let mut dp = distance(previous, plane);
+                for &current in &vertices {
+                    let dc = distance(current, plane);
+                    if (dp >= 0.0) != (dc >= 0.0) {
+                        output.push(interpolate(previous, current, dp / (dp - dc)));
+                    }
+                    if dc >= 0.0 { output.push(current); }
+                    previous = current; dp = dc;
+                }
+                vertices = output;
+            }
+        }
+        if vertices.iter().any(|v| v[3] <= 0.0) { return 0; }
+        for vertex in vertices {
+            self.gpu_clip_output.extend(vertex.map(|value| value as f32));
+        }
+        (self.gpu_clip_output.len() / 4) as u32
+    }
+
     /// Z-Aware 3D Vertex Picking inside the WASM UMA/DUMA arena (`gpu_pick_nearest_vertex_3d`).
     /// Projects `vertex_count` clip-space vec4 vertices (`[x, y, z, w]` at `clip_verts_offset`)
     /// onto a `(viewport_w, viewport_h)` canvas and finds the closest vertex to `(click_x, click_y)`
@@ -616,6 +720,43 @@ impl ReactiveGraph {
         click_y: f32,
         max_radius_px: f32,
     ) -> i32 {
+        self.gpu_pick_vertex_impl(clip_verts_offset, vertex_count, viewport_w, viewport_h, click_x, click_y, max_radius_px, &[])
+    }
+
+    pub fn gpu_pick_snapshot_3d(&mut self, count: u32, indices: u32, occlude: u32, vw: f32, vh: f32, x: f32, y: f32, radius: f32) -> i32 {
+        if (count as usize).checked_mul(4).map_or(true, |len| len > self.gpu_pick_vertices.len()) { return -1; }
+        // Scratch geometry is isolated from the live tensor arena and graph nodes.
+        let mut scratch = ReactiveGraph::new();
+        scratch.gpu_f32_arena = std::mem::take(&mut self.gpu_pick_vertices);
+        scratch.gpu_pick_indices = std::mem::take(&mut self.gpu_pick_indices);
+        let result = if occlude != 0 && indices != 0 {
+            scratch.gpu_pick_visible_vertex_3d(0, count, indices, vw, vh, x, y, radius)
+        } else { scratch.gpu_pick_nearest_vertex_3d(0, count, vw, vh, x, y, radius) };
+        self.gpu_pick_vertices = std::mem::take(&mut scratch.gpu_f32_arena);
+        self.gpu_pick_indices = std::mem::take(&mut scratch.gpu_pick_indices);
+        result
+    }
+
+    pub fn gpu_pick_visible_vertex_3d(&mut self, offset: u32, count: u32, index_count: u32, vw: f32, vh: f32, x: f32, y: f32, radius: f32) -> i32 {
+        let len = index_count as usize;
+        if len > self.gpu_pick_indices.len() || len % 3 != 0 { return -1; }
+        let mut triangles = Vec::new();
+        for base in (0..len).step_by(3) {
+            let indices = [self.gpu_pick_indices[base], self.gpu_pick_indices[base + 1], self.gpu_pick_indices[base + 2]];
+            let size = self.gpu_clip_primitive_3d(offset, count, &indices) as usize;
+            if size < 3 { continue; }
+            let points: Vec<[f64; 3]> = self.gpu_clip_output.chunks_exact(4).map(|v| [v[0] as f64 / v[3] as f64, v[1] as f64 / v[3] as f64, v[2] as f64 / v[3] as f64]).collect();
+            for i in 1..size - 1 { triangles.push([points[0], points[i], points[i + 1]]); }
+        }
+        self.gpu_pick_vertex_impl(offset, count, vw, vh, x, y, radius, &triangles)
+    }
+
+    fn gpu_pick_vertex_impl(&self, clip_verts_offset: u32, vertex_count: u32, viewport_w: f32, viewport_h: f32, click_x: f32, click_y: f32, max_radius_px: f32, triangles: &[[[f64; 3]; 3]]) -> i32 {
+        if !viewport_w.is_finite() || !viewport_h.is_finite() || viewport_w <= 0.0 || viewport_h <= 0.0
+            || !click_x.is_finite() || !click_y.is_finite()
+            || !max_radius_px.is_finite() || max_radius_px < 0.0 {
+            return -1;
+        }
         let base = clip_verts_offset as usize;
         let total = match (vertex_count as usize).checked_mul(4) {
             Some(t) => t,
@@ -627,8 +768,8 @@ impl ReactiveGraph {
 
         let half_w = viewport_w * 0.5;
         let half_h = viewport_h * 0.5;
-        let scale_x = half_w * 0.65;
-        let scale_y = half_h * 0.65;
+        let scale_x = half_w;
+        let scale_y = half_h;
         let max_dist_sq = max_radius_px * max_radius_px;
 
         let mut best_idx: i32 = -1;
@@ -642,16 +783,29 @@ impl ReactiveGraph {
             let z = self.gpu_f32_arena[off + 2];
             let w = self.gpu_f32_arena[off + 3];
 
-            let inv_w = if w.abs() > 1e-5 { 1.0 / w } else { 1.0 };
-            let sx = half_w + x * inv_w * scale_x;
-            let sy = half_h - y * inv_w * scale_y;
-            let ndc_z = z * inv_w;
+            if !x.is_finite() || !y.is_finite() || !z.is_finite() || !w.is_finite()
+                || w <= 0.0 || x < -w || x > w || y < -w || y > w || z < 0.0 || z > w {
+                continue;
+            }
+            let sx = half_w + (x / w) * scale_x;
+            let sy = half_h - (y / w) * scale_y;
+            let ndc_z = z / w;
 
             let dx = sx - click_x;
             let dy = sy - click_y;
             let dist_sq = dx * dx + dy * dy;
 
             if dist_sq <= max_dist_sq {
+                let px = x as f64 / w as f64; let py = y as f64 / w as f64;
+                let hidden = triangles.iter().any(|[a,b,c]| {
+                    let denominator = (b[1]-c[1])*(a[0]-c[0]) + (c[0]-b[0])*(a[1]-c[1]);
+                    if denominator.abs() < 1e-14 { return false; }
+                    let u = ((b[1]-c[1])*(px-c[0]) + (c[0]-b[0])*(py-c[1])) / denominator;
+                    let v = ((c[1]-a[1])*(px-c[0]) + (a[0]-c[0])*(py-c[1])) / denominator;
+                    let t = 1.0-u-v;
+                    u >= -1e-9 && v >= -1e-9 && t >= -1e-9 && u*a[2]+v*b[2]+t*c[2]+1e-6 < z as f64 / w as f64
+                });
+                if hidden { continue; }
                 // Depth-aware composite score: when two vertices project near the same 2D pixel
                 // (within ~4px tolerance), the foreground vertex (smaller `ndc_z`) always wins!
                 let depth_bias = ndc_z * 16.0;
@@ -678,9 +832,19 @@ impl ReactiveGraph {
 
         if let Some(reused_id) = self.free_list.pop() {
             let idx = reused_id as usize;
+            let mut lifetime = self.nodes[idx].lifetime.wrapping_add(1);
+            if lifetime == 0 {
+                // Avoid aliasing any ancient token when a slot's counter wraps.
+                self.pending_effects.retain(|pending| pending.id != reused_id);
+                for frame in &mut self.tracking_stack {
+                    if frame.0 == reused_id { *frame = (u32::MAX,0,0); }
+                }
+                lifetime = 1;
+            }
             self.nodes[idx] = Node {
+                lifetime,
                 kind,
-                in_queue: false,
+                in_queue: false, tracking: false,
                 alive: true,
                 epoch: self.global_epoch,
             };
@@ -695,8 +859,9 @@ impl ReactiveGraph {
 
         let id = self.nodes.len() as u32;
         self.nodes.push(Node {
+            lifetime: 1,
             kind,
-            in_queue: false,
+            in_queue: false, tracking: false,
             alive: true,
             epoch: self.global_epoch,
         });
@@ -709,6 +874,21 @@ impl ReactiveGraph {
         id
     }
 
+    #[inline]
+    fn advance_topology_epoch(&mut self) {
+        self.topology_epoch = self.topology_epoch.wrapping_add(1);
+        if self.topology_epoch == 0 { self.clear_wrapped_topology_caches(); }
+    }
+
+    #[cold]
+    fn clear_wrapped_topology_caches(&mut self) {
+        // Zero remains an invalid cache stamp; no stamp from an older cycle may match.
+        self.topology_epoch = 1;
+        self.terminal_cache_epoch.fill(0);
+        self.single_terminal_effect.fill(u32::MAX);
+        for cache in &mut self.downstream_computeds { cache.clear(); }
+    }
+
     /// Disposes a node completely, severing both incoming and outgoing edges
     /// and returning its ID to `free_list` for O(1) slot recycling.
     #[inline]
@@ -717,7 +897,7 @@ impl ReactiveGraph {
         if idx >= self.nodes.len() || !self.nodes[idx].alive {
             return;
         }
-        self.topology_epoch = self.topology_epoch.wrapping_add(1);
+        self.advance_topology_epoch();
 
         // 1. Sever incoming edges (sources -> this node)
         self.clear_sources(id);
@@ -725,9 +905,18 @@ impl ReactiveGraph {
         // 2. Sever outgoing edges (this node -> subscribers)
         let subs = std::mem::take(&mut self.subscribers[idx]);
         for sub_id in subs {
+            let lifetime = self.nodes.get(sub_id as usize).filter(|node| node.alive && node.tracking).map(|node| node.lifetime);
             if let Some(sub_sources) = self.sources.get_mut(sub_id as usize) {
                 if let Some(pos) = sub_sources.iter().position(|&x| x == id) {
-                    sub_sources.swap_remove(pos);
+                    let mut tracked = false;
+                    for frame in &mut self.tracking_stack {
+                        if frame.0 == sub_id && Some(frame.2) == lifetime {
+                            tracked = true;
+                            if pos < frame.1 { frame.1 -= 1; }
+                        }
+                    }
+                    // Preserve the already-read prefix of active discovery passes.
+                    if tracked { sub_sources.remove(pos); } else { sub_sources.swap_remove(pos); }
                 }
             }
         }
@@ -735,12 +924,13 @@ impl ReactiveGraph {
         // 3. Mark dead and push to free_list
         let node = &mut self.nodes[idx];
         node.alive = false;
-        node.in_queue = false;
+        node.in_queue = false; node.tracking = false;
         self.node_states[idx] = STATE_DISPOSED;
         if self.active_count > 0 {
             self.active_count -= 1;
         }
         self.free_list.push(id);
+        self.compact_pending_effects_if_needed();
     }
 
     #[inline]
@@ -755,7 +945,7 @@ impl ReactiveGraph {
         }
         if !self.subscribers[s].contains(&target) {
             self.subscribers[s].push(target);
-            self.topology_epoch = self.topology_epoch.wrapping_add(1);
+            self.advance_topology_epoch();
         }
         if !self.sources[t].contains(&source) {
             self.sources[t].push(source);
@@ -768,8 +958,13 @@ impl ReactiveGraph {
         if t >= self.nodes.len() {
             return;
         }
+        if let Some(node) = self.nodes.get(t).filter(|node| node.alive) {
+            for frame in &mut self.tracking_stack {
+                if frame.0 == target && frame.2 == node.lifetime { frame.1 = 0; }
+            }
+        }
         if !self.sources[t].is_empty() {
-            self.topology_epoch = self.topology_epoch.wrapping_add(1);
+            self.advance_topology_epoch();
         }
         let prev_sources = std::mem::take(&mut self.sources[t]);
         for src in prev_sources {
@@ -797,95 +992,73 @@ impl ReactiveGraph {
     /// zero vector mutations or allocations occur!
     #[inline]
     pub fn begin_tracking(&mut self, target: u32) {
-        self.tracking_stack.push((target, 0));
+        if let Some(node) = self.nodes.get_mut(target as usize) {
+            if node.alive && !node.tracking && (node.kind == KIND_COMPUTED || node.kind == KIND_EFFECT) {
+                node.tracking = true;
+                self.tracking_stack.push((target,0,node.lifetime)); return;
+            }
+        }
+        // Preserve stack balance without attaching reads to an outer observer.
+        self.tracking_stack.push((u32::MAX,0,0));
     }
 
-    /// Pauses dependency tracking (`untrack`) by pushing `u32::MAX` sentinel onto `tracking_stack`.
-    /// Unlike creating a dummy node, this takes 0 allocations!
     #[inline]
-    pub fn pause_tracking(&mut self) {
-        self.tracking_stack.push((u32::MAX, 0));
-    }
+    pub fn pause_tracking(&mut self) { self.tracking_stack.push((u32::MAX,0,0)); }
 
-    /// Resumes dependency tracking after `pause_tracking`.
     #[inline]
     pub fn resume_tracking(&mut self) {
-        if let Some(&(top, _)) = self.tracking_stack.last() {
-            if top == u32::MAX {
-                self.tracking_stack.pop();
-            }
-        }
+        if self.tracking_stack.last().is_some_and(|frame| frame.0 == u32::MAX) { self.tracking_stack.pop(); }
     }
 
-    /// Finish tracking dependencies for current observer, prune any unused trailing sources, and mark it clean.
+    /// Finish only the lifetime that began this frame, pruning unused trailing sources.
     #[inline]
     pub fn end_tracking(&mut self) {
-        if let Some((target, cursor)) = self.tracking_stack.pop() {
-            if target != u32::MAX {
-                let t = target as usize;
-                if t < self.sources.len() {
-                    let old_len = self.sources[t].len();
-                    if cursor < old_len {
-                        for i in cursor..old_len {
-                            let stale_src = self.sources[t][i] as usize;
-                            if let Some(subs) = self.subscribers.get_mut(stale_src) {
-                                if let Some(pos) = subs.iter().position(|&x| x == target) {
-                                    subs.swap_remove(pos);
-                                }
-                            }
-                        }
-                        self.sources[t].truncate(cursor);
-                    }
-                }
-                if let Some(node) = self.nodes.get(t) {
-                    if node.alive {
-                        self.node_states[t] = STATE_CLEAN;
-                    }
+        let Some((target,cursor,lifetime)) = self.tracking_stack.pop() else { return; };
+        let t = target as usize;
+        if !self.nodes.get(t).is_some_and(|node| node.alive && node.lifetime == lifetime
+            && (node.kind == KIND_COMPUTED || node.kind == KIND_EFFECT)) { return; }
+        self.nodes[t].tracking = false;
+        let old_len = self.sources[t].len();
+        if cursor < old_len {
+            self.advance_topology_epoch();
+            for i in cursor..old_len {
+                let stale_src = self.sources[t][i] as usize;
+                if let Some(subs) = self.subscribers.get_mut(stale_src) {
+                    if let Some(pos) = subs.iter().position(|&id| id == target) { subs.swap_remove(pos); }
                 }
             }
+            self.sources[t].truncate(cursor);
         }
+        self.node_states[t] = STATE_CLEAN;
     }
 
-    /// Record a read of `source`. If an observer is currently tracking on the stack
-    /// (and tracking is not paused with `u32::MAX`), verifies or creates edge `source -> observer` in O(1).
+    /// Verify reads in place; reordering existing sources changes no graph edges.
     #[inline]
     pub fn track_read(&mut self, source: u32) {
-        if let Some((observer, cursor)) = self.tracking_stack.last_mut() {
-            let obs = *observer;
-            if obs != u32::MAX {
-                let t = obs as usize;
-                let cur = *cursor;
-                if t < self.sources.len() {
-                    if cur < self.sources[t].len() && self.sources[t][cur] == source {
-                        // Fast path: exact same dependency at exact same slot! 0 vector work!
-                        *cursor = cur + 1;
-                        return;
-                    }
-                    // Check if `source` was already recorded earlier in this tracking pass
-                    if self.sources[t][..cur].contains(&source) {
-                        return;
-                    }
-                    // If the slot at `cur` held a different old dependency, remove `obs` from its subscribers
-                    if cur < self.sources[t].len() {
-                        let replaced_src = self.sources[t][cur] as usize;
-                        if let Some(subs) = self.subscribers.get_mut(replaced_src) {
-                            if let Some(pos) = subs.iter().position(|&x| x == obs) {
-                                subs.swap_remove(pos);
-                            }
-                        }
-                        self.sources[t][cur] = source;
-                        let s = source as usize;
-                        if s < self.subscribers.len() && !self.subscribers[s].contains(&obs) {
-                            self.subscribers[s].push(obs);
-                        }
-                        *cursor = cur + 1;
-                        return;
-                    }
-                }
-                *cursor = cur + 1;
-                self.link(source, obs);
-            }
+        if !self.nodes.get(source as usize).is_some_and(|node| node.alive) { return; }
+        let Some(&(observer,cursor,lifetime)) = self.tracking_stack.last() else { return; };
+        let t = observer as usize;
+        if source == observer || !self.nodes.get(t).is_some_and(|node| node.alive && node.lifetime == lifetime
+            && (node.kind == KIND_COMPUTED || node.kind == KIND_EFFECT)) { return; }
+        let cur = cursor.min(self.sources[t].len());
+        if cur < self.sources[t].len() && self.sources[t][cur] == source {
+            self.tracking_stack.last_mut().unwrap().1 = cur + 1; return;
         }
+        if self.sources[t][..cur].contains(&source) { return; }
+        if let Some(offset) = self.sources[t][cur..].iter().position(|&id| id == source) {
+            self.sources[t].swap(cur,cur + offset);
+            self.tracking_stack.last_mut().unwrap().1 = cur + 1; return;
+        }
+        if cur < self.sources[t].len() {
+            let old = self.sources[t][cur] as usize;
+            if let Some(subs) = self.subscribers.get_mut(old) {
+                if let Some(pos) = subs.iter().position(|&id| id == observer) { subs.swap_remove(pos); }
+            }
+            self.sources[t][cur] = source;
+            if !self.subscribers[source as usize].contains(&observer) { self.subscribers[source as usize].push(observer); }
+            self.advance_topology_epoch();
+        } else { self.link(source,observer); }
+        self.tracking_stack.last_mut().unwrap().1 = cur + 1;
     }
 
     /// Trigger a change on `source` (signal or computed whose value changed)
@@ -986,7 +1159,7 @@ impl ReactiveGraph {
             if node.kind == KIND_EFFECT {
                 if !node.in_queue {
                     node.in_queue = true;
-                    self.pending_effects.push(curr_id);
+                    self.pending_effects.push(ScheduledEffect { id: curr_id, lifetime: node.lifetime });
                 }
             } else if node.kind == KIND_COMPUTED {
                 for &sub in &self.subscribers[idx] {
@@ -994,6 +1167,7 @@ impl ReactiveGraph {
                 }
             }
         }
+        self.compact_pending_effects_if_needed();
     }
 
     #[inline]
@@ -1013,17 +1187,56 @@ impl ReactiveGraph {
         }
     }
 
-    /// Drains all scheduled alive effects into `flush_buffer` so JS can read them in one zero-copy slice.
+    pub fn depends_on(&mut self, target: u32, source: u32) -> bool {
+        if !self.nodes.get(target as usize).is_some_and(|n| n.alive)
+            || !self.nodes.get(source as usize).is_some_and(|n| n.alive) { return false; }
+        if target == source { return true; }
+        if self.subscribers[source as usize].is_empty() { return false; }
+        self.dependency_seen.resize(self.nodes.len(), 0);
+        self.dependency_epoch = self.dependency_epoch.wrapping_add(1);
+        if self.dependency_epoch == 0 { self.dependency_seen.fill(0); self.dependency_epoch = 1; }
+        let epoch = self.dependency_epoch;
+        self.dependency_stack.clear(); self.dependency_stack.push(target);
+        let mut found = false;
+        while let Some(id) = self.dependency_stack.pop() {
+            if id == source { found = true; break; }
+            let i = id as usize;
+            if self.dependency_seen[i] == epoch { continue; }
+            self.dependency_seen[i] = epoch;
+            self.dependency_stack.extend(self.sources[i].iter().copied());
+        }
+        self.dependency_stack.clear();
+        found
+    }
+
+    fn compact_pending_effects_if_needed(&mut self) {
+        // Compact only after enough churn, keeping scans amortized rather than
+        // removing one token by a full queue scan on every disposal.
+        let limit = (self.active_count as usize).saturating_mul(2).saturating_add(64);
+        if self.pending_effects.len() <= limit { return; }
+        let nodes = &self.nodes;
+        self.pending_effects.retain(|pending| nodes.get(pending.id as usize).is_some_and(|node|
+            node.alive && node.kind == KIND_EFFECT && node.in_queue && node.lifetime == pending.lifetime));
+    }
+
+    pub fn pending_effect_count(&self) -> usize {
+        self.pending_effects.iter().filter(|pending| {
+            self.nodes.get(pending.id as usize).is_some_and(|n| n.alive && n.kind == KIND_EFFECT && n.in_queue
+                && n.lifetime == pending.lifetime && self.node_states[pending.id as usize] != STATE_CLEAN)
+        }).count()
+    }
+
+    /// Drains scheduled effects from matching live slot lifetimes into the uint32 JS flush buffer.
     pub fn prepare_flush(&mut self) -> usize {
         self.flush_buffer.clear();
         if self.batch_depth > 0 {
             return 0;
         }
-        for &eff_id in &self.pending_effects {
-            if let Some(node) = self.nodes.get_mut(eff_id as usize) {
-                node.in_queue = false;
-                if node.alive {
-                    self.flush_buffer.push(eff_id);
+        for pending in &self.pending_effects {
+            if let Some(node) = self.nodes.get_mut(pending.id as usize) {
+                if node.alive && node.kind == KIND_EFFECT && node.in_queue && node.lifetime == pending.lifetime {
+                    node.in_queue = false;
+                    self.flush_buffer.push(pending.id);
                 }
             }
         }
@@ -1294,18 +1507,15 @@ pub extern "C" fn svet_link_2(target: u32, s0: u32, s1: u32) {
 #[no_mangle]
 pub extern "C" fn svet_is_tracking() -> u32 {
     with_graph(|g| {
-        if let Some(&(top, _)) = g.tracking_stack.last() {
-            if top != u32::MAX {
-                return 1;
-            }
-        }
-        0
+        g.tracking_stack.last().is_some_and(|&(target,_,lifetime)| g.nodes.get(target as usize)
+            .is_some_and(|node| node.alive && node.lifetime == lifetime && (node.kind == KIND_COMPUTED || node.kind == KIND_EFFECT))) as u32
     })
 }
 
-// ============================================================================
-// GPU + UMA + DUMA C-ABI Exports
-// ============================================================================
+#[no_mangle]
+pub extern "C" fn svet_gpu_get_arena_limit_f32() -> u32 {
+    MAX_GPU_ARENA_FLOATS
+}
 
 #[no_mangle]
 pub extern "C" fn svet_gpu_alloc_f32(len: u32) -> u32 {
@@ -1369,6 +1579,26 @@ pub extern "C" fn svet_gpu_mat4_mul(a_offset: u32, b_offset: u32, dst_offset: u3
 }
 
 #[no_mangle]
+pub extern "C" fn svet_depends_on(target: u32, source: u32) -> u32 {
+    with_graph(|g| g.depends_on(target, source) as u32)
+}
+
+#[no_mangle]
+pub extern "C" fn svet_pending_effect_entry_count() -> u32 {
+    with_graph(|g| g.pending_effects.len() as u32)
+}
+
+#[no_mangle]
+pub extern "C" fn svet_pending_effect_count() -> u32 {
+    with_graph(|g| g.pending_effect_count() as u32)
+}
+
+#[no_mangle]
+pub extern "C" fn svet_gpu_valid_perspective(fov_y_rad: f32, aspect: f32, near: f32, far: f32) -> u32 {
+    perspective_matrix(fov_y_rad, aspect, near, far).is_some() as u32
+}
+
+#[no_mangle]
 pub extern "C" fn svet_gpu_mat4_perspective(
     dst_offset: u32,
     fov_y_rad: f32,
@@ -1428,6 +1658,36 @@ pub extern "C" fn svet_gpu_pick_nearest_vertex_3d(
             max_radius_px,
         )
     })
+}
+
+#[no_mangle]
+pub extern "C" fn svet_prepare_gpu_pick_vertices(len: usize) -> *mut f32 {
+    if len > 67_108_864 { return std::ptr::null_mut(); }
+    with_graph(|g| { g.gpu_pick_vertices.resize(len, 0.0); g.gpu_pick_vertices.as_mut_ptr() })
+}
+#[no_mangle]
+pub extern "C" fn svet_gpu_pick_snapshot_3d(count: u32, indices: u32, occlude: u32, vw: f32, vh: f32, x: f32, y: f32, radius: f32) -> i32 {
+    with_graph(|g| g.gpu_pick_snapshot_3d(count, indices, occlude, vw, vh, x, y, radius))
+}
+
+#[no_mangle]
+pub extern "C" fn svet_prepare_gpu_pick_indices(len: usize) -> *mut u32 {
+    with_graph(|g| { g.gpu_pick_indices.resize(len, 0); g.gpu_pick_indices.as_mut_ptr() })
+}
+#[no_mangle]
+pub extern "C" fn svet_gpu_pick_visible_vertex_3d(offset: u32, count: u32, indices: u32, vw: f32, vh: f32, x: f32, y: f32, radius: f32) -> i32 {
+    with_graph(|g| g.gpu_pick_visible_vertex_3d(offset, count, indices, vw, vh, x, y, radius))
+}
+
+/// Internal scratch result consumed synchronously by Canvas2D transport.
+#[no_mangle]
+pub extern "C" fn svet_gpu_clip_primitive_3d(offset: u32, count: u32, a: u32, b: u32, c: u32, d: u32, size: u32) -> u32 {
+    if !(2..=4).contains(&size) { return with_graph(|g| { g.gpu_clip_output.clear(); 0 }); }
+    with_graph(|g| g.gpu_clip_primitive_3d(offset, count, &[a, b, c, d][..size as usize]))
+}
+#[no_mangle]
+pub extern "C" fn svet_gpu_clip_output_ptr() -> *const f32 {
+    with_graph(|g| g.gpu_clip_output.as_ptr())
 }
 
 #[cfg(test)]
@@ -1512,4 +1772,542 @@ mod tests {
         assert_eq!(g.gpu_dirty_min, 70);
         assert_eq!(g.gpu_dirty_max, 78);
     }
+    #[test]
+    fn test_gpu_arena_growth_caps_reserved_storage() {
+        let mut arena = Vec::new();
+        assert!(grow_gpu_arena(&mut arena, 40, 64));
+        arena[0] = 17.0;
+        assert!(grow_gpu_arena(&mut arena, 44, 64));
+        assert_eq!(arena.len(), 44);
+        assert!(arena.capacity() <= 64, "reserved {} floats above limit 64", arena.capacity());
+        assert_eq!(arena[0], 17.0);
+        assert!(arena[40..].iter().all(|&value| value == 0.0));
+    }
+
+    #[test]
+    fn test_gpu_arena_growth_is_amortized_and_preserves_zeroed_tail() {
+        let mut arena = Vec::new();
+        let mut changes = 0;
+        for length in 1..=64 {
+            let previous_capacity = arena.capacity();
+            assert!(grow_gpu_arena(&mut arena, length, 64));
+            changes += (previous_capacity != arena.capacity()) as usize;
+            assert!(arena.capacity() <= 64);
+            assert_eq!(arena[length - 1], 0.0);
+            if length > 1 { assert_eq!(arena[0], 17.0); }
+            arena[0] = 17.0;
+        }
+        assert!(changes < 16, "growth reserved on too many individual steps: {changes}");
+        let pointer = arena.as_ptr();
+        assert!(!grow_gpu_arena(&mut arena, 65, 64));
+        assert_eq!(arena.as_ptr(), pointer);
+        assert_eq!(arena.len(), 64);
+        assert_eq!(arena[0], 17.0);
+    }
+
+    #[test]
+    fn test_gpu_arena_reservation_overflow_preserves_existing_storage() {
+        let mut arena = vec![17.0; 4];
+        let capacity = arena.capacity();
+        let pointer = arena.as_ptr();
+        assert!(!grow_gpu_arena(&mut arena, usize::MAX, usize::MAX));
+        assert_eq!(arena.as_ptr(), pointer);
+        assert_eq!(arena.capacity(), capacity);
+        assert_eq!(arena, vec![17.0; 4]);
+    }
+
+    #[test]
+    fn test_gpu_allocation_failure_preserves_existing_arena() {
+        let mut g = ReactiveGraph::new();
+        assert_eq!(g.gpu_alloc_f32(4), 0);
+        g.gpu_f32_arena[0] = 42.0;
+        assert_eq!(g.gpu_alloc_f32(u32::MAX), u32::MAX);
+        let limit = svet_gpu_get_arena_limit_f32();
+        assert_eq!(limit, 67_108_864);
+        assert_eq!(g.gpu_alloc_f32(limit + 1), u32::MAX);
+        assert_eq!(g.gpu_f32_arena.len(), 4);
+        assert_eq!(g.gpu_f32_arena[0], 42.0);
+    }
+
+    #[test]
+    fn test_gpu_picker_matches_webgpu_viewport_projection() {
+        let mut g = ReactiveGraph::new();
+        let offset = g.gpu_alloc_f32(4);
+        g.gpu_f32_arena[..4].copy_from_slice(&[0.8, 0.4, 0.2, 1.0]);
+        assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 200.0, 200.0, 180.0, 60.0, 1.0), 0);
+        assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 200.0, 200.0, 152.0, 74.0, 1.0), -1);
+    }
+
+    #[test]
+    fn test_gpu_picker_rejects_clipped_vertices_and_invalid_queries() {
+        let mut g = ReactiveGraph::new();
+        let offset = g.gpu_alloc_f32(4);
+        for vertex in [[0.0,0.0,0.2,-1.0], [0.0,0.0,-0.1,1.0], [0.0,0.0,1.1,1.0],
+            [1.1,0.0,0.2,1.0], [0.0,1.1,0.2,1.0], [0.0,0.0,0.0,0.0], [f32::NAN,0.0,0.2,1.0]] {
+            g.gpu_f32_arena[..4].copy_from_slice(&vertex);
+            assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 200.0, 200.0, 100.0, 100.0, 1000.0), -1);
+        }
+        for w in [0.000001, f32::MIN_POSITIVE, f32::from_bits(1)] {
+            g.gpu_f32_arena[..4].copy_from_slice(&[0.0, 0.0, 0.0, w]);
+            assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 200.0, 200.0, 100.0, 100.0, 0.0), 0);
+        }
+        g.gpu_f32_arena[..4].copy_from_slice(&[0.0, 0.0, 0.0000005, 0.000001]);
+        assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 200.0, 200.0, 100.0, 100.0, 0.0), 0);
+        assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 0.0, 200.0, 100.0, 100.0, 1.0), -1);
+        assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 200.0, 200.0, 100.0, 100.0, -1.0), -1);
+        assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 1, 200.0, 200.0, f32::NAN, 100.0, 1.0), -1);
+    }
+
+    #[test]
+    fn test_homogeneous_segment_clipping() {
+        let mut g = ReactiveGraph::new(); let offset = g.gpu_alloc_f32(8);
+        g.gpu_f32_arena[..8].copy_from_slice(&[-0.5, 0.0, -0.5, 1.0, 0.5, 0.0, 0.5, 1.0]);
+        assert_eq!(g.gpu_clip_primitive_3d(offset, 2, &[0,1]), 2);
+        assert_eq!(g.gpu_clip_output, vec![0.0,0.0,0.0,1.0, 0.5,0.0,0.5,1.0]);
+        g.gpu_f32_arena[..8].copy_from_slice(&[-2.0,0.0,0.5,1.0, 2.0,0.0,0.5,1.0]);
+        assert_eq!(g.gpu_clip_primitive_3d(offset, 2, &[0,1]), 2);
+        assert_eq!(g.gpu_clip_output, vec![-1.0,0.0,0.5,1.0, 1.0,0.0,0.5,1.0]);
+        assert_eq!(g.gpu_clip_primitive_3d(offset, 2, &[0,2]), 0);
+        assert!(g.gpu_clip_output.is_empty());
+        assert_eq!(g.gpu_clip_primitive_3d(u32::MAX, u32::MAX, &[0,1]), 0);
+    }
+
+    #[test]
+    fn test_homogeneous_polygon_clipping() {
+        let mut g = ReactiveGraph::new(); let offset = g.gpu_alloc_f32(16);
+        g.gpu_f32_arena[..16].copy_from_slice(&[-0.5,-0.5,-0.5,1.0, 0.5,-0.5,0.5,1.0,
+            0.5,0.5,0.5,1.0, -0.5,0.5,-0.5,1.0]);
+        assert_eq!(g.gpu_clip_primitive_3d(offset, 4, &[0,1,2,3]), 4);
+        for v in g.gpu_clip_output.chunks_exact(4) {
+            assert!(v[0] >= 0.0 && v[0] <= 0.5); assert!(v[2] >= 0.0 && v[2] <= v[3]);
+        }
+        // A completely clipped polygon must clear the previous scratch result.
+        g.gpu_f32_arena[..16].fill(-1.0);
+        assert_eq!(g.gpu_clip_primitive_3d(offset, 4, &[0,1,2,3]), 0);
+        assert!(g.gpu_clip_output.is_empty());
+        g.gpu_f32_arena[0] = f32::NAN;
+        assert_eq!(g.gpu_clip_primitive_3d(offset, 4, &[0,1,2,3]), 0);
+    }
+
+    #[test]
+    fn test_segment_clipping_all_planes_and_seeded_reference_samples() {
+        let mut g = ReactiveGraph::new(); let offset = g.gpu_alloc_f32(8);
+        for outside in [[-2.0,0.0,0.5,1.0], [2.0,0.0,0.5,1.0], [0.0,-2.0,0.5,1.0],
+            [0.0,2.0,0.5,1.0], [0.0,0.0,-1.0,1.0], [0.0,0.0,2.0,1.0]] {
+            g.gpu_f32_arena[..4].copy_from_slice(&outside);
+            g.gpu_f32_arena[4..8].copy_from_slice(&[0.0,0.0,0.5,1.0]);
+            assert_eq!(g.gpu_clip_primitive_3d(offset, 2, &[0,1]), 2);
+            let forward = g.gpu_clip_output.clone();
+            assert_eq!(g.gpu_clip_primitive_3d(offset, 2, &[1,0]), 2);
+            assert_eq!(&forward[..4], &g.gpu_clip_output[4..]);
+        }
+        let mut seed: u32 = 42;
+        let mut next = || { seed = seed.wrapping_mul(1664525).wrapping_add(1013904223); (seed >> 8) as f32 / 16777216.0 * 4.0 - 2.0 };
+        for _ in 0..500 {
+            let a = [next(),next(),next(),next() + 1.0];
+            let b = [next(),next(),next(),next() + 1.0];
+            g.gpu_f32_arena[..4].copy_from_slice(&a); g.gpu_f32_arena[4..8].copy_from_slice(&b);
+            let size = g.gpu_clip_primitive_3d(offset, 2, &[0,1]);
+            let mut sampled_inside = false;
+            for step in 0..=32 {
+                let t = step as f32 / 32.0;
+                let v: [f32; 4] = std::array::from_fn(|axis| a[axis] + (b[axis] - a[axis]) * t);
+                sampled_inside |= v[3] > 0.0 && v[0].abs() <= v[3] && v[1].abs() <= v[3] && v[2] >= 0.0 && v[2] <= v[3];
+            }
+            if sampled_inside { assert_eq!(size, 2); }
+            for v in g.gpu_clip_output.chunks_exact(4) {
+                assert!(v.iter().all(|value| value.is_finite()));
+                assert!(v[3] > 0.0 && v[0].abs() <= v[3] + 1e-5 && v[1].abs() <= v[3] + 1e-5);
+                assert!(v[2] >= -1e-5 && v[2] <= v[3] + 1e-5);
+            }
+        }
+    }
+
+    #[test]
+    fn test_visible_vertex_picker_skips_hidden_candidate_and_finds_visible_neighbor() {
+        let mut g = ReactiveGraph::new(); let offset = g.gpu_alloc_f32(20);
+        g.gpu_f32_arena[..20].copy_from_slice(&[-0.8,-0.8,0.2,1.0, 0.8,-0.8,0.2,1.0, 0.0,0.8,0.2,1.0,
+            0.0,0.0,0.8,1.0, 0.15,0.0,0.1,1.0]);
+        g.gpu_pick_indices = vec![0,1,2];
+        assert_eq!(g.gpu_pick_nearest_vertex_3d(offset, 4, 200.0,200.0,100.0,100.0,20.0), 3);
+        assert_eq!(g.gpu_pick_visible_vertex_3d(offset, 4, 3, 200.0,200.0,100.0,100.0,20.0), -1);
+        assert_eq!(g.gpu_pick_visible_vertex_3d(offset, 5, 3, 200.0,200.0,100.0,100.0,20.0), 4);
+        assert_eq!(g.gpu_pick_visible_vertex_3d(offset, 5, 3, 200.0,200.0,20.0,180.0,1.0), 0);
+        g.gpu_f32_arena[14] = 0.2;
+        assert_eq!(g.gpu_pick_visible_vertex_3d(offset, 5, 3, 200.0,200.0,100.0,100.0,1.0), 3);
+    }
+
+    #[test]
+    fn test_visible_picker_clips_triangles_and_handles_perspective_winding() {
+        let mut g = ReactiveGraph::new(); let offset = g.gpu_alloc_f32(16);
+        g.gpu_f32_arena[..16].copy_from_slice(&[-0.8,-0.8,-0.2,1.0, 0.8,-0.8,0.2,1.0, 0.0,0.8,0.2,1.0, 0.0,0.0,0.8,1.0]);
+        g.gpu_pick_indices = vec![0,1,2];
+        assert_eq!(g.gpu_pick_visible_vertex_3d(offset, 4, 3, 200.0,200.0,100.0,100.0,1.0), -1);
+        g.gpu_f32_arena[..12].copy_from_slice(&[-0.8,-0.8,0.2,1.0, 1.6,-1.6,0.4,2.0, 0.0,0.4,0.1,0.5]);
+        g.gpu_pick_indices = vec![2,1,0];
+        assert_eq!(g.gpu_pick_visible_vertex_3d(offset, 4, 3, 200.0,200.0,100.0,100.0,1.0), -1);
+        g.gpu_pick_indices.clear();
+        assert_eq!(g.gpu_pick_visible_vertex_3d(offset, 4, 0, 200.0,200.0,100.0,100.0,1.0), 3);
+    }
+
+    #[test]
+    fn test_snapshot_picker_preserves_live_geometry_and_owns_only_scratch() {
+        let mut g = ReactiveGraph::new(); g.create_node(KIND_SIGNAL);
+        g.gpu_f32_arena = vec![111.0,222.0,333.0,444.0];
+        g.gpu_pick_vertices = vec![-0.8,-0.8,0.2,1.0, 0.8,-0.8,0.2,1.0, 0.0,0.8,0.2,1.0, 0.0,0.0,0.8,1.0];
+        g.gpu_pick_indices = vec![0,1,2];
+        let pointer = g.gpu_pick_vertices.as_ptr();
+        assert_eq!(g.gpu_pick_snapshot_3d(4,3,1,200.0,200.0,100.0,100.0,1.0), -1);
+        assert_eq!(g.gpu_pick_snapshot_3d(4,3,0,200.0,200.0,100.0,100.0,1.0), 3);
+        assert_eq!(g.gpu_f32_arena, vec![111.0,222.0,333.0,444.0]);
+        assert_eq!(g.active_count, 1); assert_eq!(g.gpu_pick_vertices.as_ptr(), pointer);
+        assert_eq!(g.gpu_pick_indices, vec![0,1,2]);
+    }
+
+    #[test]
+    fn perspective_validation_rejects_invalid_and_degenerate_float32_parameters() {
+        for p in [[0.0,1.0,0.1,100.0], [std::f32::consts::PI,1.0,0.1,100.0],
+            [1.0,0.0,0.1,100.0], [1.0,1.0,0.0,100.0], [1.0,1.0,10.0,10.0],
+            [f32::NAN,1.0,0.1,100.0], [1.0,f32::INFINITY,0.1,100.0],
+            [f32::from_bits(1),1.0,0.1,100.0], [1.0,f32::from_bits(1),0.1,100.0]] {
+            assert!(perspective_matrix(p[0],p[1],p[2],p[3]).is_none());
+        }
+    }
+
+    #[test]
+    fn perspective_rejection_preserves_destination_and_dirty_state() {
+        let mut g = ReactiveGraph::new(); let offset = g.gpu_alloc_f32(16);
+        g.gpu_f32_arena[..16].fill(7.0); g.gpu_clear_dirty();
+        g.gpu_mat4_perspective(offset,1.0,0.0,0.1,100.0);
+        assert_eq!(g.gpu_f32_arena, vec![7.0;16]);
+        assert_eq!(g.gpu_dirty_min, u32::MAX);
+    }
+
+    #[test]
+    fn perspective_large_depth_range_avoids_intermediate_overflow() {
+        let m = perspective_matrix(1.0,1.0,1.0e20,1.0e30).unwrap();
+        assert!(m.iter().all(|v| v.is_finite())); assert!(m[14] < -9.0e19);
+        for (z, expected) in [(-1.0e20,0.0),(-1.0e30,1.0)] {
+            let depth = (m[10]*z + m[14]) / -z;
+            assert!((depth - expected).abs() < 1.0e-6);
+        }
+    }
+
+    #[test]
+    fn dependency_reachability_handles_diamonds_cycles_and_disposal() {
+        let mut g = ReactiveGraph::new();
+        let s = g.create_node(KIND_SIGNAL); let a = g.create_node(KIND_COMPUTED);
+        let b = g.create_node(KIND_COMPUTED); let c = g.create_node(KIND_COMPUTED);
+        g.link(s,a); g.link(s,b); g.link(a,c); g.link(b,c);
+        assert!(g.depends_on(c,s)); assert!(!g.depends_on(s,c));
+        g.link(c,a); let independent = g.create_node(KIND_SIGNAL); assert!(!g.depends_on(c,independent));
+        g.dispose_node(s); assert!(!g.depends_on(c,s));
+    }
+
+    #[test]
+    fn dependency_queries_reuse_scratch_and_leave_reactive_state_unchanged() {
+        let mut g = ReactiveGraph::new();
+        let source = g.create_node(KIND_SIGNAL); let derived = g.create_node(KIND_COMPUTED);
+        g.link(source,derived); assert!(g.depends_on(derived,source));
+        let stack = g.dependency_stack.as_ptr(); let seen = g.dependency_seen.as_ptr();
+        let states = g.node_states.clone(); let topology = g.topology_epoch; let clock = g.global_epoch;
+        for _ in 0..100 { assert!(g.depends_on(derived,source)); }
+        assert_eq!(g.dependency_stack.as_ptr(),stack); assert_eq!(g.dependency_seen.as_ptr(),seen);
+        assert_eq!(g.node_states,states); assert_eq!(g.topology_epoch,topology); assert_eq!(g.global_epoch,clock);
+        g.dependency_epoch = u32::MAX;
+        assert!(g.depends_on(derived,source));
+        assert_eq!(g.node_states,states);
+    }
+
+    #[test]
+    fn pending_queue_does_not_run_a_replacement_that_was_never_scheduled() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let old = g.create_node(KIND_EFFECT); g.sync_sources(old,&[source]); g.trigger_write(source);
+        g.dispose_node(old); let fresh = g.create_node(KIND_EFFECT); assert_eq!(fresh,old);
+        assert_eq!(g.prepare_flush(),0);
+    }
+
+    #[test]
+    fn pending_queue_preserves_real_schedule_order_when_a_slot_is_reused() {
+        let mut g = ReactiveGraph::new();
+        let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL); let c = g.create_node(KIND_SIGNAL);
+        let old = g.create_node(KIND_EFFECT); let peer = g.create_node(KIND_EFFECT);
+        g.sync_sources(old,&[a]); g.sync_sources(peer,&[b]); g.trigger_write(a); g.trigger_write(b);
+        g.dispose_node(old); let fresh = g.create_node(KIND_EFFECT); assert_eq!(fresh,old);
+        g.sync_sources(fresh,&[c]); g.trigger_write(c);
+        assert_eq!(g.prepare_flush(),2); assert_eq!(g.flush_buffer,vec![peer,fresh]);
+        assert_eq!(g.prepare_flush(),0);
+    }
+
+    #[test]
+    fn pending_queue_rejects_replacement_signal_and_computed_slots() {
+        for kind in [KIND_SIGNAL,KIND_COMPUTED] {
+            let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+            let old = g.create_node(KIND_EFFECT); g.sync_sources(old,&[source]); g.trigger_write(source);
+            g.dispose_node(old); assert_eq!(g.create_node(kind),old); assert_eq!(g.prepare_flush(),0);
+        }
+    }
+
+    #[test]
+    fn pending_lifetime_wrap_purges_old_tokens_without_dropping_other_jobs() {
+        let mut g = ReactiveGraph::new();
+        let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        let old = g.create_node(KIND_EFFECT); let peer = g.create_node(KIND_EFFECT);
+        g.pending_effects.push(ScheduledEffect { id: old, lifetime: 1 });
+        g.nodes[old as usize].lifetime = u32::MAX;
+        g.sync_sources(old,&[a]); g.sync_sources(peer,&[b]); g.trigger_write(a); g.trigger_write(b);
+        g.dispose_node(old); let fresh = g.create_node(KIND_EFFECT); assert_eq!(fresh,old);
+        assert_eq!(g.nodes[fresh as usize].lifetime,1);
+        assert!(g.pending_effects.iter().all(|pending| pending.id != old));
+        assert_eq!(g.pending_effect_count(),1);
+        g.sync_sources(fresh,&[a]); g.trigger_write(a);
+        assert_eq!(g.pending_effect_count(),2); assert_eq!(g.prepare_flush(),2);
+        assert_eq!(g.flush_buffer,vec![peer,fresh]);
+    }
+
+    #[test]
+    fn pending_count_observes_dirty_work_without_consuming_it() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let effect = g.create_node(KIND_EFFECT); g.sync_sources(effect,&[source]); g.trigger_write(source);
+        assert_eq!(g.pending_effect_count(),1); assert_eq!(g.pending_effect_count(),1);
+        assert!(g.nodes[effect as usize].in_queue); assert_eq!(g.pending_effects.len(),1);
+        g.set_state(effect,STATE_CLEAN); assert_eq!(g.pending_effect_count(),0);
+        g.trigger_write(source); assert_eq!(g.pending_effect_count(),1);
+        assert_eq!(g.pending_effects.len(),1); assert_eq!(g.prepare_flush(),1);
+        assert_eq!(g.pending_effect_count(),0);
+    }
+
+    #[test]
+    fn pending_churn_keeps_entry_count_and_capacity_bounded_without_flushing() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let mut warm_capacity = 0;
+        for i in 0..10_000 {
+            let effect = g.create_node(KIND_EFFECT); g.sync_sources(effect,&[source]);
+            g.trigger_write(source); g.dispose_node(effect);
+            assert!(g.pending_effects.len() <= 66, "expired pending jobs grew with churn");
+            if i == 200 { warm_capacity = g.pending_effects.capacity(); }
+        }
+        assert_eq!(g.active_count,1); assert_eq!(g.nodes.len(),2);
+        assert_eq!(g.pending_effects.capacity(),warm_capacity);
+        assert_eq!(g.pending_effect_count(),0); assert_eq!(g.prepare_flush(),0);
+    }
+
+    #[test]
+    fn pending_compaction_preserves_live_job_order_and_flags() {
+        let mut g = ReactiveGraph::new(); let churn = g.create_node(KIND_SIGNAL);
+        let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        let left = g.create_node(KIND_EFFECT); let right = g.create_node(KIND_EFFECT);
+        g.sync_sources(left,&[a]); g.sync_sources(right,&[b]); g.trigger_write(a); g.trigger_write(b);
+        for _ in 0..1000 {
+            let effect = g.create_node(KIND_EFFECT); g.sync_sources(effect,&[churn]); g.trigger_write(churn); g.dispose_node(effect);
+        }
+        assert!(g.pending_effects.len() <= 74);
+        assert!(g.nodes[left as usize].in_queue && g.nodes[right as usize].in_queue);
+        assert_eq!(g.pending_effect_count(),2); assert_eq!(g.prepare_flush(),2);
+        assert_eq!(g.flush_buffer,vec![left,right]);
+    }
+
+    #[test]
+    fn pending_compaction_retains_clean_scheduled_jobs_for_later_writes() {
+        let mut g = ReactiveGraph::new(); let churn = g.create_node(KIND_SIGNAL); let source = g.create_node(KIND_SIGNAL);
+        let live = g.create_node(KIND_EFFECT); g.sync_sources(live,&[source]); g.trigger_write(source); g.set_state(live,STATE_CLEAN);
+        for _ in 0..1000 {
+            let effect = g.create_node(KIND_EFFECT); g.sync_sources(effect,&[churn]); g.trigger_write(churn); g.dispose_node(effect);
+        }
+        assert!(g.pending_effects.len() <= 70); assert_eq!(g.pending_effect_count(),0);
+        g.trigger_write(source); assert_eq!(g.pending_effect_count(),1);
+        assert_eq!(g.prepare_flush(),1); assert_eq!(g.flush_buffer,vec![live]);
+    }
+
+    #[test]
+    fn pending_population_drop_compacts_expired_entries_without_new_writes() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let effects: Vec<_> = (0..1000).map(|_| { let id = g.create_node(KIND_EFFECT); g.sync_sources(id,&[source]); id }).collect();
+        g.trigger_write(source);
+        for &id in &effects[1..] { g.dispose_node(id); }
+        assert!(g.pending_effects.len() <= 68); assert_eq!(g.pending_effect_count(),1);
+        assert_eq!(g.prepare_flush(),1); assert_eq!(g.flush_buffer,vec![effects[0]]);
+    }
+
+    #[test]
+    fn topology_wrap_does_not_restore_a_stale_no_subscriber_cache() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        assert_eq!(g.trigger_and_flush_fast(source),0);
+        let effect = g.create_node(KIND_EFFECT); let other = g.create_node(KIND_SIGNAL); let derived = g.create_node(KIND_COMPUTED);
+        g.topology_epoch = u32::MAX;
+        g.sync_sources(effect,&[source]); g.link(other,derived);
+        assert_eq!(g.trigger_and_flush_fast(source),(effect as i32)+1);
+    }
+
+    #[test]
+    fn topology_wrap_does_not_restore_a_detached_effect_cache() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL); let effect = g.create_node(KIND_EFFECT);
+        g.sync_sources(effect,&[source]); assert_eq!(g.trigger_and_flush_fast(source),(effect as i32)+1);
+        g.set_state(effect,STATE_CLEAN);
+        let other = g.create_node(KIND_SIGNAL); let a = g.create_node(KIND_COMPUTED); let b = g.create_node(KIND_COMPUTED);
+        g.topology_epoch = u32::MAX; g.clear_sources(effect); g.link(other,a); g.link(other,b);
+        assert_eq!(g.trigger_and_flush_fast(source),0);
+    }
+
+    #[test]
+    fn topology_wrap_cannot_dirty_a_signal_reusing_a_cached_effect_slot() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL); let effect = g.create_node(KIND_EFFECT);
+        g.sync_sources(effect,&[source]); assert_eq!(g.trigger_and_flush_fast(source),(effect as i32)+1);
+        let other = g.create_node(KIND_SIGNAL); let derived = g.create_node(KIND_COMPUTED);
+        g.topology_epoch = u32::MAX; g.dispose_node(effect); let replacement = g.create_node(KIND_SIGNAL);
+        assert_eq!(replacement,effect); g.link(other,derived);
+        assert_eq!(g.trigger_and_flush_fast(source),0); assert_eq!(g.get_state(replacement),STATE_CLEAN);
+    }
+
+    #[test]
+    fn topology_wrap_invalidates_cached_downstream_computed_slots() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let derived = g.create_node(KIND_COMPUTED); let effect = g.create_node(KIND_EFFECT);
+        g.sync_sources(derived,&[source]); g.sync_sources(effect,&[derived]);
+        assert_eq!(g.trigger_and_flush_fast(source),(effect as i32)+1);
+        assert_eq!(g.downstream_computeds[source as usize],vec![derived]);
+        g.topology_epoch = u32::MAX; g.clear_sources(derived); g.clear_sources(effect); g.dispose_node(derived); g.dispose_node(effect);
+        let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        assert_eq!(a,effect); assert_eq!(b,derived);
+        assert_eq!(g.trigger_and_flush_fast(source),0);
+        assert_eq!(g.get_state(a),STATE_CLEAN); assert_eq!(g.get_state(b),STATE_CLEAN);
+    }
+
+    #[test]
+    fn topology_wrap_rebuilds_cache_and_noop_links_preserve_it() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL); let effect = g.create_node(KIND_EFFECT);
+        g.sync_sources(effect,&[source]); assert_eq!(g.trigger_and_flush_fast(source),(effect as i32)+1);
+        g.set_state(effect,STATE_CLEAN);
+        let other = g.create_node(KIND_SIGNAL); let derived = g.create_node(KIND_COMPUTED);
+        g.topology_epoch = u32::MAX; g.link(other,derived);
+        assert_eq!(g.topology_epoch,1); assert_eq!(g.terminal_cache_epoch[source as usize],0);
+        assert_eq!(g.single_terminal_effect[source as usize],u32::MAX);
+        assert_eq!(g.trigger_and_flush_fast(source),(effect as i32)+1);
+        assert_eq!(g.terminal_cache_epoch[source as usize],g.topology_epoch);
+        let epoch = g.topology_epoch; g.link(source,effect); g.clear_sources(other);
+        assert_eq!(g.topology_epoch,epoch); assert_eq!(g.terminal_cache_epoch[source as usize],epoch);
+        g.set_state(effect,STATE_CLEAN); assert_eq!(g.trigger_and_flush_fast(source),(effect as i32)+1);
+        assert_eq!(g.get_state(effect),STATE_DIRTY);
+    }
+
+    #[test]
+    fn cursor_pruning_invalidates_cached_terminal_effects() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.sync_sources(e,&[a,b]); assert_eq!(g.trigger_and_flush_fast(b),(e as i32)+1); g.set_state(e,STATE_CLEAN);
+        g.begin_tracking(e); g.track_read(a); g.end_tracking();
+        assert_eq!(g.trigger_and_flush_fast(b),0);
+    }
+
+    #[test]
+    fn cursor_replacement_invalidates_both_old_and_new_source_caches() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.sync_sources(e,&[a]); assert_eq!(g.trigger_and_flush_fast(a),(e as i32)+1); g.set_state(e,STATE_CLEAN); assert_eq!(g.trigger_and_flush_fast(b),0);
+        g.begin_tracking(e); g.track_read(b); g.end_tracking();
+        assert_eq!(g.trigger_and_flush_fast(a),0); assert_eq!(g.trigger_and_flush_fast(b),(e as i32)+1);
+    }
+
+    #[test]
+    fn cursor_dependency_reordering_preserves_both_forward_edges() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.sync_sources(e,&[a,b]); g.begin_tracking(e); g.track_read(b); g.track_read(a); g.end_tracking();
+        assert_eq!(g.sources[e as usize],vec![b,a]); assert!(g.subscribers[a as usize].contains(&e)); assert!(g.subscribers[b as usize].contains(&e));
+        assert_eq!(g.trigger_and_flush_fast(b),(e as i32)+1);
+    }
+
+    #[test]
+    fn cursor_ignores_self_and_invalid_reads_without_advancing() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.begin_tracking(e); g.track_read(e); g.track_read(u32::MAX); g.track_read(a); g.end_tracking();
+        assert_eq!(g.sources[e as usize],vec![a]);
+    }
+
+    #[test]
+    fn cursor_cannot_mutate_a_replacement_observer_lifetime() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL); let old = g.create_node(KIND_EFFECT);
+        g.begin_tracking(old); g.track_read(a); g.dispose_node(old); let fresh = g.create_node(KIND_EFFECT); assert_eq!(fresh,old);
+        g.track_read(b); g.end_tracking();
+        assert!(g.sources[fresh as usize].is_empty()); assert_eq!(g.get_state(fresh),STATE_DIRTY);
+    }
+
+    #[test]
+    fn cursor_stale_inner_frame_preserves_the_outer_tracker() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        let outer = g.create_node(KIND_EFFECT); let inner = g.create_node(KIND_COMPUTED);
+        g.begin_tracking(outer); g.track_read(a); g.begin_tracking(inner); g.track_read(a);
+        g.dispose_node(inner); let fresh = g.create_node(KIND_COMPUTED); assert_eq!(fresh,inner);
+        g.track_read(b); g.end_tracking(); g.track_read(b); g.end_tracking();
+        assert_eq!(g.sources[outer as usize],vec![a,b]); assert!(g.sources[fresh as usize].is_empty());
+        assert!(g.tracking_stack.is_empty()); assert_eq!(g.get_state(fresh),STATE_DIRTY);
+    }
+
+    #[test]
+    fn cursor_lifetime_wrap_invalidates_ancient_tracking_frames() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let old = g.create_node(KIND_EFFECT);
+        g.begin_tracking(old); g.nodes[old as usize].lifetime = u32::MAX; g.dispose_node(old);
+        let fresh = g.create_node(KIND_EFFECT); assert_eq!(fresh,old); assert_eq!(g.nodes[fresh as usize].lifetime,1);
+        g.track_read(a); g.end_tracking(); assert!(g.sources[fresh as usize].is_empty()); assert_eq!(g.get_state(fresh),STATE_DIRTY);
+    }
+
+    #[test]
+    fn cursor_source_disposal_does_not_turn_an_unread_tail_into_a_read_prefix() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        let c = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.sync_sources(e,&[a,b]); g.begin_tracking(e); g.track_read(a); g.dispose_node(a); g.track_read(c); g.end_tracking();
+        assert_eq!(g.sources[e as usize],vec![c]); assert!(!g.subscribers[b as usize].contains(&e));
+    }
+
+    #[test]
+    fn cursor_explicit_source_replacement_restarts_the_discovery_cursor() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        let c = g.create_node(KIND_SIGNAL); let d = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.begin_tracking(e); g.track_read(a); g.sync_sources(e,&[c,d]); g.track_read(b); g.end_tracking();
+        assert_eq!(g.sources[e as usize],vec![b]);
+    }
+
+    #[test]
+    fn cursor_pause_and_invalid_begin_preserve_outer_tracking() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        let c = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.begin_tracking(e); g.track_read(a); g.pause_tracking(); g.track_read(b); g.resume_tracking();
+        g.begin_tracking(u32::MAX); g.track_read(b); g.end_tracking();
+        g.begin_tracking(a); g.track_read(b); g.end_tracking(); g.track_read(c); g.end_tracking();
+        assert_eq!(g.sources[e as usize],vec![a,c]); assert!(!g.subscribers[b as usize].contains(&e));
+        assert!(g.tracking_stack.is_empty());
+    }
+
+    #[test]
+    fn cursor_stable_and_reordered_reads_reuse_storage_and_topology_cache() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.begin_tracking(e); g.track_read(a); g.track_read(b); g.end_tracking();
+        assert_eq!(g.trigger_and_flush_fast(a),(e as i32)+1); g.set_state(e,STATE_CLEAN);
+        let sources = g.sources[e as usize].as_ptr(); let subs_a = g.subscribers[a as usize].as_ptr(); let subs_b = g.subscribers[b as usize].as_ptr();
+        let stack = g.tracking_stack.as_ptr(); let epoch = g.topology_epoch;
+        for i in 0..100 {
+            g.begin_tracking(e);
+            if i % 2 == 0 { g.track_read(b); g.track_read(a); } else { g.track_read(a); g.track_read(b); }
+            g.end_tracking();
+        }
+        assert_eq!(g.sources[e as usize].as_ptr(),sources); assert_eq!(g.subscribers[a as usize].as_ptr(),subs_a); assert_eq!(g.subscribers[b as usize].as_ptr(),subs_b);
+        assert_eq!(g.tracking_stack.as_ptr(),stack); assert_eq!(g.topology_epoch,epoch);
+        assert_eq!(g.terminal_cache_epoch[a as usize],epoch); assert_eq!(g.trigger_and_flush_fast(a),(e as i32)+1);
+    }
+
+    #[test]
+    fn cursor_recursive_begin_does_not_replace_the_outer_dependency_pass() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL);
+        let c = g.create_node(KIND_SIGNAL); let e = g.create_node(KIND_EFFECT);
+        g.begin_tracking(e); g.track_read(a); g.begin_tracking(e); g.track_read(b); g.end_tracking();
+        g.track_read(c); g.end_tracking(); assert_eq!(g.sources[e as usize],vec![a,c]);
+        assert!(!g.subscribers[b as usize].contains(&e)); assert!(g.tracking_stack.is_empty());
+    }
+
+    #[test]
+    fn cursor_fresh_lifetime_can_track_before_the_stale_frame_is_closed() {
+        let mut g = ReactiveGraph::new(); let a = g.create_node(KIND_SIGNAL); let b = g.create_node(KIND_SIGNAL); let old = g.create_node(KIND_EFFECT);
+        g.begin_tracking(old); g.track_read(a); g.dispose_node(old); let fresh = g.create_node(KIND_EFFECT); assert_eq!(fresh,old);
+        g.begin_tracking(fresh); g.track_read(b); g.end_tracking(); g.track_read(a); g.end_tracking();
+        assert_eq!(g.sources[fresh as usize],vec![b]); assert_eq!(g.get_state(fresh),STATE_CLEAN);
+        assert_eq!(g.trigger_and_flush_fast(a),0); assert_eq!(g.trigger_and_flush_fast(b),(fresh as i32)+1);
+    }
+
 }

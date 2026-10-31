@@ -1,0 +1,302 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet adaptive viewport checks</title>
+<style>body{font:16px system-ui;max-width:850px;margin:40px auto;padding:20px}button{padding:10px 16px}pre{padding:20px;background:#eff6ff;white-space:pre-wrap}#preview{margin-top:20px}</style>
+<h1>Svet adaptive viewport checks</h1>
+<p>Real WebGPU rendering, validation, device loss and independent Canvas2D recovery.</p>
+<button id="run">Run render checks</button>
+<pre id="results" role="status">Not run</pre>
+<div id="preview"></div>
+<script type="module">
+import { configureGpuSubsystem, createMesh3D, createTransform3D, createPerspectiveCamera3D, getGraphTelemetry, createRoot, Viewport3D, signal, batch, onCleanup, pickNearestVertex3D } from '/src/engine/index.ts';
+const output = document.querySelector('#results'), preview = document.querySelector('#preview');
+let previewStop;
+document.querySelector('#run').addEventListener('click', async () => {
+  let stop; const devices = []; const reports = [];
+  const assert = (condition, message) => { if (!condition) throw new Error(message); };
+  const deviceWrapper = async (faults = { pipeline: false }) => {
+    const adapter = await navigator.gpu?.requestAdapter(); if (!adapter) throw new Error('no WebGPU adapter');
+    const device = await adapter.requestDevice(); devices.push(device);
+    const allocations = [];
+    const track = (resource, kind) => {
+      const record = { resource, kind, destroyed: false }; allocations.push(record);
+      const destroy = resource.destroy.bind(resource);
+      resource.destroy = () => { record.destroyed = true; destroy(); };
+      return resource;
+    };
+    const createBuffer = device.createBuffer.bind(device), createTexture = device.createTexture.bind(device);
+    device.createBuffer = descriptor => track(createBuffer(descriptor), 'buffer');
+    device.createTexture = descriptor => track(createTexture(descriptor), 'texture');
+    let pipelineCount = 0;
+    const createPipeline = device.createRenderPipeline.bind(device);
+    device.createRenderPipeline = descriptor => { pipelineCount++; return createPipeline(faults.pipeline ? { ...descriptor, vertex: { ...descriptor.vertex, buffers: descriptor.vertex.buffers.map(buffer => ({ ...buffer, arrayStride: 4 })) } } : descriptor); };
+    const scopeStack = [], pushScope = device.pushErrorScope.bind(device), popScope = device.popErrorScope.bind(device);
+    device.pushErrorScope = filter => { pushScope(filter); scopeStack.push(filter); };
+    device.popErrorScope = () => {
+      const filter = scopeStack.pop();
+      return popScope().then(error => {
+        if (error || faults.errorFilter !== filter) return error;
+        // Fault injection into a real native scope result, not actual memory exhaustion.
+        return filter === 'out-of-memory' ? new GPUOutOfMemoryError('injected OOM') : new GPUInternalError('injected internal error');
+      });
+    };
+    const wrapper = device; // GPUCanvasContext.configure requires a native branded GPUDevice.
+    return { device, wrapper, allocations, get pipelineCount() { return pipelineCount; } };
+  };
+  const pixels = canvas => {
+    const rgba = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+    let count = 0; for (let i = 3; i < rgba.length; i += 4) if (rgba[i]) count++; return count;
+  };
+  try {
+    previewStop?.(); preview.replaceChildren(); configureGpuSubsystem({ device: null });
+    let viewport, width, height, selected, transform, lastPick; const meshes = [];
+    createRoot(dispose => {
+      stop = dispose;
+      width = signal(360); height = signal(220);
+      onCleanup(() => { width.dispose(); height.dispose(); });
+      transform = createTransform3D();
+      onCleanup(() => { for (const mesh of meshes) mesh.dispose(); selected?.dispose(); transform.dispose(); });
+      const mesh = createMesh3D({ positions: [-0.6, -0.5, 0.2, 0.6, -0.5, 0.2, 0, 0.6, 0.2], indices: [0, 1, 2], transform });
+      meshes.push(mesh); selected = signal(mesh);
+      viewport = Viewport3D({ mesh: selected, width, height, onVertexPick: index => { lastPick = index; }, edges: [[0, 1], [1, 2], [2, 0]] });
+      preview.append(viewport);
+    });
+    const [primary, fallback] = viewport.children;
+    assert(viewport.dataset.renderBackend === 'canvas2d-zsort' && pixels(fallback) > 0, 'initial 2D frame missing');
+    reports.push('PASS initial 2D frame contains pixels');
+    const marker = fallback.getContext('2d').getImageData(72, 165, 1, 1).data;
+    assert(marker[1] > 150 && marker[2] < 200, '2D vertex marker does not match standard viewport coordinates');
+    const clickVertex = target => {
+      const rect = target.getBoundingClientRect();
+      target.dispatchEvent(new MouseEvent('click', { clientX: rect.left + rect.width * 0.2, clientY: rect.top + rect.height * 0.75, bubbles: true }));
+      assert(lastPick === 0, 'off-center vertex was not picked'); lastPick = undefined;
+    };
+    clickVertex(fallback);
+    const first = await deviceWrapper(); first.device.pushErrorScope('validation');
+    configureGpuSubsystem({ device: first.wrapper });
+    const gpuPixel = (x = primary.width / 2, y = primary.height / 2) => {
+      const snapshot = document.createElement('canvas'); snapshot.width = primary.width; snapshot.height = primary.height;
+      const ctx = snapshot.getContext('2d'); ctx.drawImage(primary, 0, 0);
+      return Array.from(ctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data);
+    };
+    clickVertex(primary);
+    const corner = gpuPixel(primary.width * 0.225, primary.height * 0.725);
+    assert(corner[2] > 150 && corner[1] > 100, 'off-center GPU coverage does not match viewport projection');
+    reports.push('PASS off-center GPU coverage, 2D marker and both backend picking agree');
+    const center = gpuPixel();
+    assert(center[2] > 150 && center[1] > 100 && center[0] < 100, 'GPU center pixel is not triangle blue: ' + center);
+    reports.push('PASS GPU center pixel contains triangle color');
+    const oldAllocations = first.allocations.slice();
+    batch(() => { width.set(480); height.set(280); });
+    const resizedCenter = gpuPixel();
+    assert(primary.width === 480 && primary.height === 280 && fallback.width === 480 && fallback.height === 280, 'resize dimensions mismatch');
+    assert(oldAllocations.filter(item => item.kind === 'buffer').every(item => !item.destroyed), 'resize replaced geometry buffers');
+    assert(oldAllocations.filter(item => item.kind === 'texture').every(item => item.destroyed), 'resize retained old depth texture');
+    assert(first.allocations.length === oldAllocations.length + 1 && first.pipelineCount === 1, 'resize allocated more than one texture');
+    assert(resizedCenter[2] > 150 && resizedCenter[1] > 100, 'resized triangle missing');
+    const largeDepth = first.allocations.at(-1);
+    batch(() => { width.set(360); height.set(220); });
+    const smallerCenter = gpuPixel();
+    assert(smallerCenter[1] > 100 && smallerCenter[2] > 150 && largeDepth.destroyed, 'shrink failed to replace depth attachment');
+    assert(first.allocations.length === oldAllocations.length + 2 && first.pipelineCount === 1, 'shrink recreated buffers or pipeline');
+    assert(oldAllocations.filter(item => item.kind === 'buffer').every(item => !item.destroyed), 'shrink replaced geometry buffers');
+    reports.push('PASS grow/shrink resize replaces only depth textures and retains GPU pixels');
+    const previousGeometry = first.allocations.slice(), previousLive = previousGeometry.filter(item => !item.destroyed), previousPipelines = first.pipelineCount;
+    const largePositions = new Float32Array(65537 * 3);
+    largePositions.set([-0.8,-0.7,0.3, 0.8,-0.7,0.3]); largePositions.set([0,0.7,0.3], 65536 * 3);
+    const replacementMesh = createMesh3D({ positions: largePositions, indices: [0,1,65536], indexFormat: 'uint32', transform });
+    meshes.push(replacementMesh); selected.set(replacementMesh);
+    const replacedCenter = gpuPixel();
+    assert(replacedCenter[2] > 150 && replacedCenter[1] > 100, 'replacement mesh pixels missing');
+    assert(first.allocations.length === previousGeometry.length + 1 && first.pipelineCount === previousPipelines, 'mesh growth recreated unrelated resources');
+    assert(previousLive.filter(item => item.kind === 'buffer' && (item.resource.usage & 0x20)).every(item => item.destroyed), 'mesh growth retained old vertex allocation');
+    assert(previousLive.filter(item => item.kind !== 'buffer' || !(item.resource.usage & 0x20)).every(item => !item.destroyed), 'mesh growth destroyed index/depth resources');
+    reports.push('PASS uint32 mesh growth replaces only vertex allocation and preserves pixels');
+    const beforeTopology = first.allocations.slice(), activeTopology = beforeTopology.filter(item => !item.destroyed), pipelineCount = first.pipelineCount;
+    replacementMesh.updateIndices([]);
+    const emptyCenter = gpuPixel(); assert(emptyCenter[1] < 50 && emptyCenter[2] < 50, 'empty topology still draws vertices');
+    replacementMesh.updateIndices([0,1,65536]);
+    const restoredCenter = gpuPixel(); assert(restoredCenter[1] > 100 && restoredCenter[2] > 150, 'topology restoration failed');
+    assert(selected() === replacementMesh && activeTopology.every(item => !item.destroyed), 'fitting topology update replaced live resources');
+    assert(first.allocations.length === beforeTopology.length && first.pipelineCount === pipelineCount, 'fitting topology update allocated resources');
+    replacementMesh.updateIndices([0,1,65536, 0,1,65536]);
+    const grownCenter = gpuPixel(); assert(grownCenter[1] > 100 && grownCenter[2] > 150, 'grown index buffer did not render');
+    assert(first.allocations.length === beforeTopology.length + 1 && activeTopology.filter(item => item.destroyed).length === 1, 'growth replaced more than the index buffer');
+    assert(first.pipelineCount === pipelineCount, 'growth recreated the pipeline');
+    const beforeMeshShrink = first.allocations.length, liveBeforeShrink = first.allocations.filter(item => !item.destroyed);
+    selected.set(meshes[0]); const meshShrinkCenter = gpuPixel();
+    assert(meshShrinkCenter[1] > 100 && meshShrinkCenter[2] > 150, 'smaller replacement mesh pixels missing');
+    assert(first.allocations.length === beforeMeshShrink && first.pipelineCount === pipelineCount && liveBeforeShrink.every(item => !item.destroyed), 'smaller mesh replacement allocated or destroyed resources');
+    reports.push('PASS topology and smaller mesh reuse capacity; index growth replaces one buffer');
+    await first.device.queue.onSubmittedWorkDone();
+    assert(viewport.dataset.renderBackend === 'webgpu-depth24plus' && primary.style.display === 'block', 'GPU upgrade failed');
+    const error = await first.device.popErrorScope(); assert(!error, error?.message);
+    reports.push('PASS real GPU triangle submitted without validation errors');
+    first.device.destroy(); await first.device.lost; await Promise.resolve(); await Promise.resolve();
+    assert(viewport.dataset.renderBackend === 'canvas2d-zsort' && pixels(fallback) > 0, '2D recovery failed');
+    assert(first.allocations.length === 7 && first.allocations.every(item => item.destroyed), 'lost-device resources retained');
+    reports.push('PASS device loss restores a populated 2D frame and releases all GPU resources');
+    const second = await deviceWrapper(); second.device.pushErrorScope('validation');
+    configureGpuSubsystem({ device: second.wrapper }); await second.device.queue.onSubmittedWorkDone();
+    assert(viewport.dataset.renderBackend === 'webgpu-depth24plus' && viewport.children[0] === primary, 'replacement changed interaction surface');
+    const secondError = await second.device.popErrorScope(); assert(!secondError, secondError?.message);
+    reports.push('PASS replacement device renders on the original canvas');
+    stop(); stop = undefined;
+    assert(second.allocations.length === 3 && second.allocations.every(item => item.destroyed), 'teardown leaked resources');
+    reports.push('PASS owner teardown destroys all render allocations');
+    configureGpuSubsystem({ device: null }); preview.replaceChildren();
+    let clippedViewport;
+    createRoot(dispose => {
+      stop = dispose; const transform = createTransform3D();
+      const mesh = createMesh3D({ positions: [-0.8,-0.6,-0.4, 0.8,-0.6,0.4, 0.8,0.6,0.4, -0.8,0.6,-0.4], indices: [0,1,2,0,2,3], transform });
+      onCleanup(() => { mesh.dispose(); transform.dispose(); });
+      clippedViewport = Viewport3D({ mesh, width: 200, height: 200, faces: [[0,1,2,3]], fillStyle: '#00ff00', showVertices: false });
+      preview.append(clippedViewport);
+    });
+    const [clippedGpu, clipped2d] = clippedViewport.children;
+    const ctx2d = clipped2d.getContext('2d');
+    assert(ctx2d.getImageData(50,100,1,1).data[3] === 0, '2D drew behind near plane');
+    assert(ctx2d.getImageData(150,100,1,1).data[1] === 255, '2D discarded visible half of clipped face');
+    second.device.pushErrorScope('validation'); configureGpuSubsystem({ device: second.wrapper });
+    const capture = document.createElement('canvas'); capture.width = 200; capture.height = 200;
+    const captureCtx = capture.getContext('2d'); captureCtx.drawImage(clippedGpu, 0, 0);
+    const left = captureCtx.getImageData(50,100,1,1).data, right = captureCtx.getImageData(150,100,1,1).data;
+    assert(left[1] < 50 && left[2] < 50 && right[1] > 100 && right[2] > 150, 'GPU/2D near-plane coverage differs');
+    const clipError = await second.device.popErrorScope(); assert(!clipError, clipError?.message);
+    stop(); stop = undefined;
+    assert(second.allocations.every(item => item.destroyed), 'clipped viewport teardown retained allocations');
+    reports.push('PASS near-plane clipped face has matching GPU/2D sampled coverage');
+    configureGpuSubsystem({ device: null }); preview.replaceChildren();
+    let failingViewport, failingMesh;
+    createRoot(dispose => {
+      stop = dispose; const transform = createTransform3D();
+      failingMesh = createMesh3D({ positions: [-0.6,-0.5,0.2, 0.6,-0.5,0.2, 0,0.6,0.2], indices: [0,1,2], transform });
+      onCleanup(() => { failingMesh.dispose(); transform.dispose(); });
+      failingViewport = Viewport3D({ mesh: failingMesh }); preview.append(failingViewport);
+    });
+    const faults = { pipeline: true }, invalid = await deviceWrapper(faults);
+    configureGpuSubsystem({ device: invalid.wrapper });
+    const settle = async (target = failingViewport) => {
+      for (let i = 0; i < 50 && target.dataset.renderValidation === 'pending'; i++) await new Promise(resolve => setTimeout(resolve, 0));
+      assert(target.dataset.renderValidation !== 'pending', 'render validation did not settle');
+    };
+    await settle();
+    assert(failingViewport.dataset.renderValidation === 'failed' && failingViewport.dataset.renderBackend === 'canvas2d-zsort', 'native validation error did not restore 2D');
+    assert(failingViewport.dataset.renderError && pixels(failingViewport.children[1]) > 0, 'native failure lost diagnostics or fallback pixels');
+    assert(invalid.allocations.every(item => item.destroyed), 'native validation failure retained allocations');
+    faults.pipeline = false; failingMesh.updateIndices([2,1,0]);
+    const recoveredCanvas = failingViewport.children[0], recovery = document.createElement('canvas');
+    recovery.width = recoveredCanvas.width; recovery.height = recoveredCanvas.height;
+    const recoveryCtx = recovery.getContext('2d'); recoveryCtx.drawImage(recoveredCanvas, 0, 0);
+    const recoveryPixel = recoveryCtx.getImageData(Math.floor(recovery.width / 2), Math.floor(recovery.height / 2), 1, 1).data;
+    assert(recoveryPixel[1] > 100 && recoveryPixel[2] > 150, 'recovered GPU frame has no triangle pixel');
+    await settle();
+    assert(failingViewport.dataset.renderValidation === 'passed' && failingViewport.dataset.renderBackend === 'webgpu-depth24plus', 'native validation recovery failed');
+    stop(); stop = undefined;
+    assert(invalid.allocations.every(item => item.destroyed), 'recovered renderer teardown retained allocations');
+    reports.push('PASS native validation error frees resources, restores 2D and recovers GPU');
+    configureGpuSubsystem({ device: null }); preview.replaceChildren();
+    let limitedViewport, limitedWidth;
+    const limit = invalid.device.limits.maxTextureDimension2D, allocationCount = invalid.allocations.length;
+    createRoot(dispose => {
+      stop = dispose; limitedWidth = signal(limit + 1); const transform = createTransform3D();
+      const mesh = createMesh3D({ positions: [-0.6,-0.5,0.2, 0.6,-0.5,0.2, 0,0.6,0.2], indices: [0,1,2], transform });
+      onCleanup(() => { mesh.dispose(); transform.dispose(); limitedWidth.dispose(); });
+      limitedViewport = Viewport3D({ mesh, width: limitedWidth, height: 16 }); preview.append(limitedViewport);
+    });
+    configureGpuSubsystem({ device: invalid.wrapper });
+    assert(limitedViewport.dataset.renderBackend === 'canvas2d-zsort' && limitedViewport.dataset.renderError.includes('maxTextureDimension2D'), 'native texture limit was not preflighted');
+    assert(invalid.allocations.length === allocationCount && pixels(limitedViewport.children[1]) > 0, 'over-limit frame allocated GPU resources or lost 2D pixels');
+    limitedWidth.set(32);
+    const limitCanvas = limitedViewport.children[0], limitCapture = document.createElement('canvas');
+    limitCapture.width = 32; limitCapture.height = 16; const limitCtx = limitCapture.getContext('2d'); limitCtx.drawImage(limitCanvas, 0, 0);
+    const limitPixel = limitCtx.getImageData(16,8,1,1).data;
+    await settle(limitedViewport);
+    assert(limitedViewport.dataset.renderValidation === 'passed' && limitPixel[1] > 100 && limitPixel[2] > 150, 'valid size did not recover GPU pixels');
+    stop(); stop = undefined; assert(invalid.allocations.every(item => item.destroyed), 'limit recovery teardown leaked resources');
+    reports.push('PASS native texture limit rejects allocation and a fitting resize restores GPU pixels');
+    configureGpuSubsystem({ device: null }); preview.replaceChildren();
+    let scopedViewport, scopedMesh;
+    createRoot(dispose => {
+      stop = dispose; const transform = createTransform3D();
+      scopedMesh = createMesh3D({ positions: [-0.6,-0.5,0.2, 0.6,-0.5,0.2, 0,0.6,0.2], indices: [0,1,2], transform });
+      onCleanup(() => { scopedMesh.dispose(); transform.dispose(); });
+      scopedViewport = Viewport3D({ mesh: scopedMesh }); preview.append(scopedViewport);
+    });
+    faults.errorFilter = 'out-of-memory'; configureGpuSubsystem({ device: invalid.wrapper }); await settle(scopedViewport);
+    assert(scopedViewport.dataset.renderBackend === 'canvas2d-zsort' && scopedViewport.dataset.renderError.includes('out-of-memory'), 'injected OOM scope result was ignored');
+    assert(invalid.allocations.every(item => item.destroyed), 'OOM scope handling retained native resources');
+    faults.errorFilter = 'internal'; scopedMesh.updateIndices([2,1,0]); await settle(scopedViewport);
+    assert(scopedViewport.dataset.renderBackend === 'canvas2d-zsort' && scopedViewport.dataset.renderError.includes('internal'), 'injected internal scope result was ignored');
+    assert(invalid.allocations.every(item => item.destroyed), 'internal scope handling retained native resources');
+    faults.errorFilter = undefined; scopedMesh.updateIndices([0,1,2]); await settle(scopedViewport);
+    assert(scopedViewport.dataset.renderValidation === 'passed', 'three-filter scope recovery failed');
+    stop(); stop = undefined;
+    assert(invalid.allocations.every(item => item.destroyed), 'scope recovery teardown retained native resources');
+    reports.push('PASS injected OOM/internal scope results free native resources and recover');
+    configureGpuSubsystem({ device: null }); preview.replaceChildren();
+    let pickView, pickMesh; const hits = [];
+    configureGpuSubsystem({ device: invalid.wrapper });
+    createRoot(dispose => {
+      stop = dispose; const transform = createTransform3D();
+      pickMesh = createMesh3D({ positions: [-0.8,-0.8,0.2, 0.8,-0.8,0.2, 0,0.8,0.2, 0,0,0.8], indices: [0,1,2], transform });
+      onCleanup(() => { pickMesh.dispose(); transform.dispose(); });
+      pickView = Viewport3D({ mesh: pickMesh, width: 200, height: 200, onVertexPick: index => hits.push(index) }); preview.append(pickView);
+    });
+    const pickCanvas = pickView.children[0], pickCapture = document.createElement('canvas'); pickCapture.width = pickCapture.height = 200;
+    const pickCtx = pickCapture.getContext('2d'); pickCtx.drawImage(pickCanvas,0,0);
+    assert(pickCtx.getImageData(100,100,1,1).data[2] > 150, 'occluding triangle GPU pixel missing');
+    await settle(pickView);
+    const clickCenter = () => { const rect = pickCanvas.getBoundingClientRect(); pickCanvas.dispatchEvent(new MouseEvent('click',{ clientX:rect.left+rect.width/2, clientY:rect.top+rect.height/2, bubbles:true })); };
+    clickCenter(); assert(hits.length === 0, 'GPU picking selected a hidden vertex');
+    assert(pickNearestVertex3D(pickMesh,100,100,{ viewportWidth:200,viewportHeight:200,maxRadiusPx:1,occlusion:'none' }).vertexIndex === 3, 'through-surface override failed');
+    pickMesh.updateIndices([]); await settle(pickView); clickCenter();
+    assert(hits.length === 1 && hits[0] === 3, 'removing occluder did not expose vertex');
+    pickMesh.updateIndices([0,1,2]); await settle(pickView); clickCenter(); assert(hits.length === 1, 'restored occluder did not hide vertex');
+    stop(); stop = undefined;
+    reports.push('PASS Rust picking rejects GPU-occluded vertex and follows topology updates');
+    preview.replaceChildren();
+    const cameraBaseline = getGraphTelemetry().nodes;
+    let cameraViewport, camera;
+    createRoot(dispose => {
+      stop = dispose; const transform = createTransform3D();
+      camera = createPerspectiveCamera3D({ fovYRad: Math.PI / 2, aspect: 1, near: 0.1, far: 10 });
+      const mesh = createMesh3D({ positions: [-0.8,-0.8,-2, 0.8,-0.8,-2, 0,0.8,-2], indices: [0,1,2], transform, camera });
+      cameraViewport = Viewport3D({ mesh, width: 200, height: 200 }); preview.append(cameraViewport);
+    });
+    const cameraCapture = document.createElement('canvas'); cameraCapture.width = cameraCapture.height = 200;
+    const cameraCtx = cameraCapture.getContext('2d');
+    const cameraPixel = (x, y) => {
+      cameraCtx.clearRect(0,0,200,200); cameraCtx.drawImage(cameraViewport.children[0],0,0);
+      return Array.from(cameraCtx.getImageData(x,y,1,1).data);
+    };
+    const initialCameraPixel = cameraPixel(130,130);
+    assert(initialCameraPixel[2] > 100 && initialCameraPixel[1] > 70, 'initial perspective camera triangle missing: ' + initialCameraPixel);
+    const cameraAllocations = invalid.allocations.length, cameraPipelines = invalid.pipelineCount;
+    const cameraMatrix = Array.from(camera.projectionMatrix.peek()); let invalidCameraRejected = false;
+    try { camera.aspect.set(0); } catch (error) { invalidCameraRejected = error instanceof RangeError; }
+    assert(invalidCameraRejected && camera.aspect.peek() === 1, 'invalid camera aspect was accepted');
+    assert(JSON.stringify(Array.from(camera.projectionMatrix.peek())) === JSON.stringify(cameraMatrix), 'invalid camera update changed projection');
+    assert(cameraPixel(130,130)[2] > 100, 'invalid camera update lost GPU pixels');
+    camera.setProjection({ aspect: 2, near: 0.2, far: 20 });
+    assert(cameraPixel(130,130)[2] < 50 && cameraPixel(100,100)[2] > 100, 'atomic camera update did not change GPU coverage');
+    await settle(cameraViewport);
+    assert(cameraViewport.dataset.renderValidation === 'passed', 'updated camera frame did not validate');
+    assert(invalid.allocations.length === cameraAllocations && invalid.pipelineCount === cameraPipelines, 'camera update rebuilt GPU allocations');
+    reports.push('PASS native camera rejects invalid projection and atomically updates GPU pixel coverage');
+    stop(); stop = undefined;
+    assert(invalid.allocations.every(item => item.destroyed), 'automatic scene teardown retained GPU resources');
+    assert(getGraphTelemetry().nodes === cameraBaseline, 'automatic scene teardown retained parameter/mesh/viewport nodes');
+    reports.push('PASS automatic scene owner teardown releases GPU allocations and all reactive nodes');
+    configureGpuSubsystem({ device:null }); preview.replaceChildren();
+    createRoot(dispose => {
+      previewStop = dispose; const transform = createTransform3D();
+      const mesh = createMesh3D({ positions: [-0.6, -0.5, 0.2, 0.6, -0.5, 0.2, 0, 0.6, 0.2], indices: [0, 1, 2], transform });
+      onCleanup(() => { mesh.dispose(); transform.dispose(); });
+      preview.append(Viewport3D({ mesh, width: 360, height: 220, edges: [[0, 1], [1, 2], [2, 0]] }));
+    });
+    output.textContent = reports.join('\n') + '\n17/17 passed. Preview: independent Canvas2D fallback.';
+  } catch (error) { output.textContent = reports.join('\n') + '\nFAIL: ' + error.message; }
+  finally { stop?.(); for (const device of devices) device.destroy(); }
+});
+</script>

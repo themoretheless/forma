@@ -106,9 +106,33 @@ impl Instance {
         std::future::ready(res)
     }
 
-    pub fn create_surface<'a, W>(&self, _target: W) -> Result<Surface<'a>, RequestDeviceError> {
+    pub fn create_surface<'a, W>(&self, target: W) -> Result<Surface<'a>, RequestDeviceError>
+    where
+        W: raw_window_handle::HasWindowHandle,
+    {
+        let mut metal_layer = None;
+        let mut metal_view = None;
+        if let Ok(handle) = target.window_handle() {
+            match handle.as_raw() {
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                raw_window_handle::RawWindowHandle::AppKit(appkit) => {
+                    let view_ptr = appkit.ns_view.as_ptr();
+                    metal_layer = unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, true) };
+                    metal_view = crate::metal::ObjCObject::from_unretained(view_ptr).map(Arc::new);
+                }
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                raw_window_handle::RawWindowHandle::UiKit(uikit) => {
+                    let view_ptr = uikit.ui_view.as_ptr();
+                    metal_layer = unsafe { MetalDevice::ensure_metal_layer_for_view(view_ptr, false) };
+                    metal_view = crate::metal::ObjCObject::from_unretained(view_ptr).map(Arc::new);
+                }
+                _ => {}
+            }
+        }
         Ok(Surface {
             config: Arc::new(Mutex::new(None)),
+            metal_layer,
+            metal_view,
             _marker: std::marker::PhantomData,
         })
     }

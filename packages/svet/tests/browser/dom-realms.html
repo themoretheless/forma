@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>Svet cross-realm DOM checks</title>
+<style>body{font:17px system-ui;max-width:1000px;margin:40px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:20px;line-height:1.7;white-space:pre-wrap}iframe{display:none}</style>
+<h1>Svet cross-realm DOM checks</h1><p>Iframe nodes, adopted prototypes, reactive replacement and SVG namespaces.</p>
+<button id="run">Run cross-realm checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {h,mount,signal,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();const lines=[];let app;const child=signal('start'),frame=document.createElement('iframe');document.body.append(frame);
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);};
+ try{
+  const doc=frame.contentDocument,button=doc.createElement('button'),adopted=doc.createElement('b'),title=doc.createElement('title'),dynamic=doc.createElement('i');let clicks=0;
+  button.textContent='foreign button';button.addEventListener('click',()=>clicks++);adopted.textContent='adopted';title.textContent='foreign title';dynamic.textContent='dynamic';document.adoptNode(adopted);
+  check(!(button instanceof Node)&&!(adopted instanceof Node),'iframe and adopted nodes retain foreign prototypes');
+  app=mount(()=>h('div',null,button,adopted,h('span',{id:'dynamic'},child),h('svg',null,title)),preview);
+  button.click();check(preview.querySelector('button')===button&&clicks===1,'static insertion preserves node identity and native listener');
+  check(preview.querySelector('b')===adopted,'adopted foreign node is recognized without constructor lookup');
+  child.set(dynamic);check(preview.querySelector('i')===dynamic,'reactive replacement accepts a foreign node');
+  child.set('finished');check(!dynamic.parentNode&&preview.querySelector('#dynamic').textContent==='finished','reactive replacement removes the foreign node');
+  check(preview.querySelector('title')?.namespaceURI==='http://www.w3.org/2000/svg','foreign HTML title receives SVG namespace conversion');
+  app.unmount();child.dispose();check(getGraphTelemetry().nodes===0,'teardown releases all reactive nodes');
+  result.textContent=lines.join('\n')+'\n7/7 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{app?.unmount();child.dispose();frame.remove();run.disabled=false;}
+};
+</script>

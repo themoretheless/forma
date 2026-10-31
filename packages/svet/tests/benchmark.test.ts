@@ -842,6 +842,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
 
     let dumaBytesSent = 0;
     const mockPciDevice = {
+      createBuffer: ({ size }: { size: number }) => ({ size, destroy() {} }),
       queue: {
         writeBuffer(_b: any, _off: number, _data: any, _dOff = 0, size = 0) {
           dumaBytesSent += size;

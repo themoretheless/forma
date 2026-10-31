@@ -1,0 +1,57 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet WebGPU upload checks</title>
+<style>body{font:16px system-ui;max-width:850px;margin:40px auto;padding:20px}button{padding:10px 16px}pre{padding:20px;background:#eff6ff;white-space:pre-wrap}</style>
+<h1>Svet WebGPU upload checks</h1>
+<p>Creates real device buffers, uploads the WASM arena, and checks GPU readback.</p>
+<button id="run">Run GPU checks</button>
+<pre id="results" role="status">Not run</pre>
+<script type="module">
+import { configureGpuSubsystem, createGpuTensor, createRoot, syncGpuArena } from '/src/engine/index.ts';
+const output = document.querySelector('#results');
+document.querySelector('#run').addEventListener('click', async () => {
+  let device, stop; const readbacks = [];
+  try {
+    const adapter = await navigator.gpu?.requestAdapter();
+    if (!adapter) { output.textContent = 'SKIP: no WebGPU adapter available'; return; }
+    device = await adapter.requestDevice(); device.pushErrorScope('validation');
+    let latest; let writes = 0;
+    const wrapper = {
+      createBuffer(descriptor) { latest = device.createBuffer(descriptor); return latest; },
+      queue: { writeBuffer(...args) { device.queue.writeBuffer(...args); writes += args[4]; } },
+    };
+    let a, b;
+    createRoot(dispose => {
+      stop = dispose; configureGpuSubsystem({ architecture: 'DUMA', device: wrapper });
+      a = createGpuTensor([1, 2, 3, 4]); syncGpuArena();
+      b = createGpuTensor([5, 6, 7, 8]); syncGpuArena();
+    });
+    const read = async () => {
+      const staging = device.createBuffer({ size: 32, usage: 0x01 | 0x08 }); readbacks.push(staging);
+      const encoder = device.createCommandEncoder(); encoder.copyBufferToBuffer(latest, 0, staging, 0, 32);
+      device.queue.submit([encoder.finish()]); await staging.mapAsync(0x01);
+      const values = Array.from(new Float32Array(staging.getMappedRange())); staging.unmap(); return values;
+    };
+    const initial = await read();
+    if (JSON.stringify(initial) !== '[1,2,3,4,5,6,7,8]') throw new Error('growth lost arena contents');
+    writes = 0; a.setAt(2, 99); const report = syncGpuArena();
+    if (writes !== 16 || report.bytesTransferred !== writes) throw new Error('aligned transfer accounting mismatch');
+    const changed = await read();
+    if (JSON.stringify(changed) !== '[1,2,99,4,5,6,7,8]') throw new Error('partial upload readback mismatch');
+    if (syncGpuArena().bytesTransferred !== 0) throw new Error('clean arena uploaded again');
+    stop();
+    createRoot(dispose => {
+      stop = dispose; configureGpuSubsystem({ architecture: 'UMA', device: wrapper });
+      a = createGpuTensor([1, 2, 3, 4]); b = createGpuTensor([5, 6, 7, 8]); syncGpuArena();
+    });
+    writes = 0; a.setAt(2, 100); const uma = syncGpuArena();
+    if (writes !== 4 || uma.bytesTransferred !== 4) throw new Error('UMA dirty window accounting mismatch');
+    const unified = await read();
+    if (JSON.stringify(unified) !== '[1,2,100,4,5,6,7,8]') throw new Error('UMA readback mismatch');
+    const validation = await device.popErrorScope();
+    if (validation) throw new Error(validation.message);
+    output.textContent = 'PASS full upload after growth\nPASS aligned partial upload (16 bytes)\nPASS real GPU readback\nPASS clean arena skips upload\nPASS UMA dirty window upload (4 bytes)\n5/5 passed (no WebGPU validation errors)';
+  } catch (error) { output.textContent = 'FAIL: ' + error.message; }
+  finally { stop?.(); for (const buffer of readbacks) buffer.destroy(); device?.destroy(); }
+});
+</script>

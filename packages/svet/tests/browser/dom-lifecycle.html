@@ -1,0 +1,86 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet DOM lifecycle checks</title>
+<style>
+  body { font: 16px system-ui; max-width: 850px; margin: 40px auto; padding: 20px; }
+  button { padding: 10px 16px; }
+  pre { padding: 20px; background: #eff6ff; white-space: pre-wrap; }
+</style>
+<h1>Svet DOM lifecycle checks</h1>
+<p>Native browser checks for event ownership, mount replacement, and Shadow DOM.</p>
+<button id="run">Run checks</button>
+<pre id="results" role="status">Not run</pre>
+<section id="sandbox"></section>
+<script type="module">
+import { bindProp, createRoot, h, mount, resetReactiveSystem, signal } from '/src/engine/index.ts';
+const sandbox = document.querySelector('#sandbox');
+const output = document.querySelector('#results');
+function assert(value, message) { if (!value) throw new Error(message); }
+const checks = [
+  ['model teardown', () => {
+    const value = signal('before');
+    const app = mount(() => h('input', { model: value }), sandbox);
+    const input = sandbox.querySelector('input');
+    app.unmount(); input.value = 'late'; input.dispatchEvent(new Event('input'));
+    assert(value() === 'before', 'detached input changed its former signal');
+  }],
+  ['mount replacement', () => {
+    const old = mount(() => h('p', null, 'old'), sandbox);
+    const current = mount(() => h('p', null, 'new'), sandbox);
+    old.unmount();
+    assert(sandbox.textContent === 'new', 'old unmount removed the replacement');
+    current.unmount();
+  }],
+  ['native event methods and currentTarget', () => {
+    const button = document.createElement('button'); sandbox.append(button);
+    let current, saved, calls = 0, stop;
+    createRoot(dispose => {
+      stop = dispose;
+      bindProp(button, 'onClick', event => {
+        current = event.currentTarget; saved = event; calls++;
+        event.preventDefault(); event.stopImmediatePropagation();
+      });
+      bindProp(button, 'onClick', () => { calls++; });
+    });
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    button.dispatchEvent(event); stop(); button.click();
+    assert(current === button, 'incorrect currentTarget');
+    assert(event.defaultPrevented && calls === 1, 'event methods or teardown failed');
+    assert(saved.currentTarget === null, 'currentTarget retained after dispatch');
+  }],
+  ['open Shadow DOM retargeting', () => {
+    const host = document.createElement('div'); sandbox.append(host);
+    const root = host.attachShadow({ mode: 'open' });
+    const button = document.createElement('button'), span = document.createElement('span');
+    button.append(span); root.append(button);
+    const targets = []; let stop;
+    createRoot(dispose => {
+      stop = dispose;
+      bindProp(button, 'onClick', event => { targets.push(event.target); });
+      bindProp(host, 'onClick', event => { targets.push(event.target); });
+    });
+    span.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true })); stop();
+    assert(targets.length === 2 && targets[0] === span && targets[1] === host, 'incorrect composed path or retargeting');
+  }],
+  ['multiple documents', () => {
+    const doc = document.implementation.createHTMLDocument('isolated');
+    const button = doc.createElement('button'); doc.body.append(button);
+    let calls = 0, stop;
+    createRoot(dispose => { stop = dispose; bindProp(button, 'onClick', () => { calls++; }); });
+    button.click(); stop(); button.click();
+    assert(calls === 1, 'ownerDocument delegation or teardown failed');
+  }],
+];
+document.querySelector('#run').addEventListener('click', () => {
+  const lines = []; let failed = 0;
+  for (const [name, run] of checks) {
+    resetReactiveSystem();
+    try { run(); lines.push(`PASS ${name}`); }
+    catch (error) { failed++; lines.push(`FAIL ${name}: ${error.message}`); }
+    finally { sandbox.replaceChildren(); }
+  }
+  resetReactiveSystem();
+  lines.push(`${checks.length - failed}/${checks.length} passed`);
+  output.textContent = lines.join('\n');
+});
+</script>

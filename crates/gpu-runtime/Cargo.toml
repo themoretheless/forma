@@ -18,3 +18,4 @@ webgpu = []
 
 [dependencies]
 gpu-shader = { path = "../gpu-shader", version = "0.1.0" }
+raw-window-handle = "0.6"

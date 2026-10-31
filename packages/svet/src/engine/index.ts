@@ -8,11 +8,16 @@ export {
   signal,
   computed,
   effect,
+  ReactiveStabilizationError,
+  ReactiveCycleError,
   batch,
   untrack,
   createRoot,
   onCleanup,
   getCurrentOwner,
+  captureReactiveContext,
+  ReactiveContextDisposedError,
+  type CapturedReactiveContext,
   runWithOwnerScope,
   lookupOwnerContext,
   runWithIsolatedContext,
@@ -65,9 +70,11 @@ export {
 export {
   serializeState,
   resumeContainer,
+  disposeResumedContainer,
   renderToString,
   serializeDomNodeToHtml,
   createServerAction,
+  ServerActionDisposedError,
   type ResumableSnapshot,
   type ServerAction,
 } from './resumable.ts';
@@ -79,7 +86,7 @@ export {
   withWasmCore,
 } from './wasm-bridge.ts';
 
-export { transformSvetJsx, svetVitePlugin } from './compiler.ts';
+export { transformSvetJsx, transformSvetJsxWithMap, SvetJsxCompileError, svetVitePlugin } from './compiler.ts';
 
 export {
   configureGpuSubsystem,
@@ -89,13 +96,19 @@ export {
   syncGpuArena,
   executeGpuVectorFma,
   dispatchGpuComputeKernel,
+  dispatchGpuComputeKernelAsync,
   getGpuTelemetry,
+  GpuComputeCapacityError,
+  type GpuComputeQueueTelemetry,
   createTransform3D,
   createPerspectiveCamera3D,
   createMesh3D,
   createCubeMesh3D,
   pickNearestVertex3D,
   Canvas3D,
+  Viewport3D,
+  type Canvas3DProps,
+  type VertexPickFrame3D,
   GpuSparkline,
   type MemoryArchitecture,
   type GpuDeviceTelemetry,
@@ -104,9 +117,12 @@ export {
   type WebGpuQueueLike,
   type GpuSubsystemConfig,
   type WebGpuComputeDispatchOptions,
+  type AsyncWebGpuComputeDispatchOptions,
+  type GpuComputeResult,
   type Vec3Tuple,
   type ReactiveTransform3D,
   type PerspectiveCamera3D,
+  type PerspectiveCamera3DOptions,
   type Mesh3D,
 } from './gpu.ts';
 

@@ -1,0 +1,94 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet WGSL compute checks</title>
+<style>body{font:16px system-ui;max-width:850px;margin:40px auto;padding:20px}button{padding:10px 16px}pre{padding:20px;background:#eff6ff;white-space:pre-wrap}</style>
+<h1>Svet WGSL compute checks</h1>
+<p>Executes WGSL, publishes readback to reactive tensors, and tests device replacement.</p>
+<button id="run">Run compute checks</button>
+<pre id="results" role="status">Not run</pre>
+<script type="module">
+import { configureGpuSubsystem, createGpuTensor, createRoot, dispatchGpuComputeKernelAsync, effect, getGpuTelemetry, GpuComputeCapacityError } from '/src/engine/index.ts';
+const source = `
+@group(0) @binding(0) var<storage, read> a: array<f32>;
+@group(0) @binding(1) var<storage, read> b: array<f32>;
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+  if (id.x < arrayLength(&output)) { output[id.x] = a[id.x] * 2.0 + b[id.x]; }
+}`;
+const status = document.querySelector('#results');
+const equal = (actual, expected) => { if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`Expected ${expected}, got ${actual}`); };
+document.querySelector('#run').addEventListener('click', async () => {
+  let device, destroyedDevice, stop; const lines = [];
+  try {
+    const adapter = await navigator.gpu?.requestAdapter();
+    if (!adapter) { status.textContent = 'SKIP: no WebGPU adapter available'; return; }
+    device = await adapter.requestDevice();
+    let injectedFilter; const stack = [], push = device.pushErrorScope.bind(device), pop = device.popErrorScope.bind(device), allocations = [];
+    const createBuffer = device.createBuffer.bind(device);
+    device.createBuffer = descriptor => { const buffer = createBuffer(descriptor), record = { destroyed: false }; allocations.push(record); const destroy = buffer.destroy.bind(buffer); buffer.destroy = () => { record.destroyed = true; destroy(); }; return buffer; };
+    device.pushErrorScope = filter => { push(filter); stack.push(filter); };
+    device.popErrorScope = () => { const filter = stack.pop(); return pop().then(error => error || (filter === injectedFilter ? (filter === 'out-of-memory' ? new GPUOutOfMemoryError('injected OOM') : new GPUInternalError('injected internal')) : null)); };
+    device.pushErrorScope('validation');
+    const observed = []; let a, b, output;
+    const result = await createRoot(dispose => {
+      stop = dispose; configureGpuSubsystem({ device });
+      a = createGpuTensor([1, 2, 3, 4, 5, 6, 7]); b = createGpuTensor([10, 20, 30, 40, 50, 60, 70]); output = createGpuTensor(7);
+      effect(() => { observed.push(Array.from(output())); });
+      return dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a, b], output });
+    });
+    if (result.backend !== 'webgpu') throw new Error('WGSL was not executed on WebGPU');
+    equal(Array.from(output()), [12, 24, 36, 48, 60, 72, 84]); lines.push('PASS WGSL with two inputs and a 7-element tail');
+    if (result.uploadedBytes !== 84 || result.readbackBytes !== 28) throw new Error('Incorrect compute transfer report');
+    lines.push('PASS upload/readback byte counts (84 / 28)');
+    if (observed.length !== 2) throw new Error('Result was not published exactly once');
+    lines.push('PASS single reactive publication');
+    let invalidRejected = false, fallbacks = 0;
+    try { await dispatchGpuComputeKernelAsync({ wgsl: 'invalid shader source', inputs: [a, b], output, fallbackKernel() { fallbacks++; } }); }
+    catch (error) { invalidRejected = /WGSL|validation|shader/i.test(error.message); }
+    if (!invalidRejected || fallbacks) throw new Error('Invalid WGSL was concealed');
+    equal(Array.from(output()), [12, 24, 36, 48, 60, 72, 84]); lines.push('PASS invalid shader rejects without fallback or output mutation');
+    for (const filter of ['out-of-memory','internal']) {
+      injectedFilter = filter; let rejected = false;
+      try { await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output, fallbackKernel() { fallbacks++; } }); }
+      catch (error) { rejected = error.message.includes(filter); }
+      if (!rejected || fallbacks) throw new Error('Injected scope error was concealed: ' + filter);
+      equal(Array.from(output()), [12,24,36,48,60,72,84]);
+      if (allocations.some(record => !record.destroyed)) throw new Error('Scope error leaked compute buffer');
+    }
+    injectedFilter = undefined;
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
+    equal(Array.from(output()), [12,24,36,48,60,72,84]);
+    lines.push('PASS injected OOM/internal results reject without output mutation and recover');
+    configureGpuSubsystem({ device, maxPendingComputeBytes: 0 });
+    const allocationsBeforeCapacity = allocations.length; let capacityError;
+    try { await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output }); }
+    catch (error) { capacityError = error; }
+    if (!(capacityError instanceof GpuComputeCapacityError) || capacityError.reason !== 'snapshot-bytes' || capacityError.requestedSnapshotBytes !== 84) throw new Error('Native device capacity error was not typed/accounted correctly');
+    if (allocations.length !== allocationsBeforeCapacity || getGpuTelemetry().pendingComputeCount !== 0) throw new Error('Capacity rejection allocated GPU storage or retained admission');
+    equal(Array.from(output()), [12,24,36,48,60,72,84]);
+    lines.push('PASS native device byte admission rejects before buffer allocation and preserves output');
+    configureGpuSubsystem({ maxPendingComputeBytes: 84 });
+    const admitted = dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
+    const occupied = getGpuTelemetry();
+    if (occupied.pendingComputeCount !== 1 || occupied.pendingComputeSnapshotBytes !== 84) throw new Error('Native device pending admission telemetry is incorrect');
+    await admitted; equal(Array.from(output()), [12,24,36,48,60,72,84]);
+    if (getGpuTelemetry().pendingComputeCount || getGpuTelemetry().pendingComputeSnapshotBytes) throw new Error('Native device queue did not drain');
+    lines.push('PASS exact byte-budget boundary executes WGSL and returns queue telemetry to zero');
+    const lossAdapter = await navigator.gpu.requestAdapter();
+    if (!lossAdapter) throw new Error('No adapter for loss test');
+    destroyedDevice = await lossAdapter.requestDevice(); configureGpuSubsystem({ device: destroyedDevice });
+    const lostWork = dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a, b], output });
+    destroyedDevice.destroy();
+    let rejected = false; try { await lostWork; } catch { rejected = true; }
+    await destroyedDevice.lost; await Promise.resolve();
+    if (!rejected || getGpuTelemetry().webgpuAvailable) throw new Error('Lost device stayed active');
+    configureGpuSubsystem({ device });
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a, b], output });
+    equal(Array.from(output()), [12, 24, 36, 48, 60, 72, 84]); lines.push('PASS device loss rejects and replacement computes again');
+    const validation = await device.popErrorScope();
+    if (validation) throw new Error(validation.message);
+    status.textContent = lines.join('\n') + '\n8/8 passed';
+  } catch (error) { status.textContent = lines.join('\n') + '\nFAIL: ' + error.message; }
+  finally { stop?.(); configureGpuSubsystem({ device: null }); destroyedDevice?.destroy(); device?.destroy(); }
+});
+</script>

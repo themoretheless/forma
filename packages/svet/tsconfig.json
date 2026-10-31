@@ -15,7 +15,8 @@
     "paths": {
       "svet": ["./src/engine/index.ts"],
       "svet/jsx-runtime": ["./src/engine/jsx-runtime.ts"]
-    }
+    },
+    "verbatimModuleSyntax": true
   },
   "include": ["src", "tests"]
 }

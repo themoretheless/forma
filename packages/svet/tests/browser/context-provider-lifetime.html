@@ -1,0 +1,48 @@
+<!doctype html><meta charset="utf-8"><title>Svet Provider lifetimes</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}#preview{display:flex;gap:16px}</style>
+<h1>Svet context Provider lifetime</h1><p>Native fragments, metadata snapshots, context shadowing and owner/graph invalidation.</p>
+<button id="run">Run Provider checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {createContext,createRoot,effect,getGraphTelemetry,h,insertChild,resetReactiveSystem,signal,useContext} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],stops=[],sources=[];let replacement,observer;
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const fails=callback=>{try{callback();return false;}catch{return true;}};
+ try{
+  const context=createContext('default');let valueReads=0,childReads=0,factories=0;const provided=[];
+  createRoot(stop=>{stops.push(stop);preview.append(context.Provider({get value(){valueReads++;return 'provided';},get children(){childReads++;provided.push(useContext(context));return()=>{factories++;provided.push(useContext(context));return h('span',null,useContext(context));};}}));});
+  check(valueReads===1&&childReads===1&&factories===1&&provided.join(',')==='provided,provided'&&preview.textContent==='provided','metadata is read once and children getter/factory see the provided value');
+  const nested=[];createRoot(stop=>{stops.push(stop);context.Provider({value:'outer',children:()=>{nested.push(useContext(context));const fragment=context.Provider({value:'inner',children:()=>{nested.push(useContext(context));return document.createTextNode('inner');}});nested.push(useContext(context));return fragment;}});});
+  check(nested.join(',')==='outer,inner,outer'&&useContext(context)==='default','nested providers shadow and restore context without changing the default');
+  const metadataSource=signal(0),metadataContexts=[],childContexts=[];sources.push(metadataSource);
+  createRoot(stop=>{stops.push(stop);context.Provider({value:'outer',children:()=>context.Provider({get value(){effect(()=>{metadataSource();metadataContexts.push(useContext(context));});return 'inner';},children:()=>{childContexts.push(useContext(context));return document.createTextNode('child');}})});});metadataSource.set(1);
+  check(metadataContexts.join(',')==='outer,outer'&&childContexts.join(',')==='inner','value-getter effects retain parent context on later runs while children see the provided value');
+  const source=signal(0);sources.push(source);let runs=0,failedValue=false,retired=false;
+  createRoot(stop=>{stops.push(stop);const before=getGraphTelemetry().nodes;failedValue=fails(()=>context.Provider({get value(){effect(()=>{source();runs++;});throw Error('value getter failed');},children:null}));retired=getGraphTelemetry().nodes===before;});source.set(1);
+  check(failedValue&&retired&&runs===1,'value getter failure retires provisional subscriptions while caller survives');
+  let called=0,failedChildren=false;createRoot(stop=>{stops.push(stop);failedChildren=fails(()=>context.Provider({value:'value',get children(){stop();return()=>{called++;return document.createTextNode('stale');};}}));});
+  check(failedChildren&&called===0,'caller teardown in children metadata prevents child factory execution');
+  const host=document.createElement('div'),node=document.createTextNode('original');host.append(node);preview.append(host);let failedOutput=false;
+  createRoot(stop=>{stops.push(stop);failedOutput=fails(()=>context.Provider({value:'value',children:()=>{stop();return node;}}));});
+  check(failedOutput&&node.parentNode===host,'disposed child factory output cannot move an existing native node');
+  const arrayHost=document.createElement('div'),first=document.createTextNode('first'),second=document.createTextNode('second');arrayHost.append(first,second);preview.append(arrayHost);let writes=0,arrayFailed=false;
+  const descriptor=Object.getOwnPropertyDescriptor(document,'createDocumentFragment'),create=document.createDocumentFragment;
+  try{
+    createRoot(stop=>{stops.push(stop);document.createDocumentFragment=function(){const fragment=create.call(this),append=fragment.appendChild.bind(fragment);fragment.appendChild=node=>{const result=append(node);writes++;stop();return result;};return fragment;};arrayFailed=fails(()=>context.Provider({value:'value',children:[first,second]}));});
+  }finally{if(descriptor)Object.defineProperty(document,'createDocumentFragment',descriptor);else delete document.createDocumentFragment;}
+  check(arrayFailed&&writes===1&&second.parentNode===arrayHost,'invalidation during first child-array insertion prevents the next native move');
+  const textHost=document.createElement('div');textHost.textContent='existing';let textFailed=false;
+  createRoot(stop=>{stops.push(stop);textFailed=fails(()=>insertChild(textHost,{toString(){stop();return 'stale';}}));});
+  check(textFailed&&textHost.textContent==='existing','static child coercion cannot append returned text after owner teardown');
+  let fresh,resetFailed=false,resetChildren=0;createRoot(stop=>{stops.push(stop);resetFailed=fails(()=>context.Provider({get value(){resetReactiveSystem();fresh=signal(17);sources.push(fresh);return 'value';},children:()=>{resetChildren++;return document.createTextNode('stale');}}));});fresh.set(18);
+  check(resetFailed&&resetChildren===0&&fresh()===18,'graph reset in value metadata rejects publication and preserves fresh state');
+  const values=[];let resetOutput=false;createRoot(stop=>{stops.push(stop);resetOutput=fails(()=>context.Provider({value:'value',children:()=>{effect(()=>{fresh();});resetReactiveSystem();replacement=signal(17);observer=effect(()=>{values.push(replacement());});return node;}}));});replacement.set(18);
+  check(resetOutput&&node.parentNode===host&&values.join(',')==='17,18','reset during child rendering preserves replacement effects and rejects DOM movement');
+  for(const stop of stops)stop();for(const value of sources)value.dispose();const preserved=replacement()===18;observer.dispose();observer=undefined;replacement.dispose();replacement=undefined;
+  check(preserved&&getGraphTelemetry().nodes===0,'teardown of old provider scopes cannot dispose replacement graph lifetimes');
+  result.textContent=lines.join('\n')+'\n11/11 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();for(const value of sources)value.dispose();observer?.dispose();replacement?.dispose();run.disabled=false;}
+};
+</script>

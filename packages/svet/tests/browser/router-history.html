@@ -1,0 +1,63 @@
+<!doctype html><meta charset="utf-8"><title>Svet browser history recovery</title>
+<style>body{font:17px system-ui;max-width:1050px;margin:40px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:20px;line-height:1.8;white-space:pre-wrap}</style>
+<h1>Svet browser history recovery</h1>
+<p>Real History API traversal, synchronous guards, compensation and redirects. Run in a disposable tab.</p>
+<button id="run">Run history checks</button><pre id="result">Not run</pre>
+<script type="module">
+import {createRouter,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result');
+const url=()=>location.pathname+location.search+location.hash;
+const wait=async(predicate)=>{const end=performance.now()+3000;while(!predicate()){if(performance.now()>end)throw Error('history transition timed out: '+url());await new Promise(resolve=>setTimeout(resolve,10));}};
+run.onclick=async()=>{
+ run.disabled=true;resetReactiveSystem();const lines=[];let router;
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ try{
+  history.replaceState({host:'retained'},'', '/svet-history/start?q=one#top');
+  router=createRouter({routes:[]});router.navigate('/svet-history/middle');router.navigate('/svet-history/end?q=two#last');
+  const length=history.length;let calls=0;
+  let remove=router.beforeEach(()=>{calls++;return false;});
+  history.back();await wait(()=>calls===1&&url()==='/svet-history/end?q=two#last');
+  check(router.path()==='/svet-history/end'&&history.length===length&&calls===1,'denied Back returns to the accepted entry without adding history or guarding compensation');
+  remove();history.back();await wait(()=>router.path()==='/svet-history/middle');calls=0;
+  remove=router.beforeEach(()=>{calls++;return false;});history.forward();
+  await wait(()=>calls===1&&url()==='/svet-history/middle');
+  check(router.path()==='/svet-history/middle'&&history.length===length,'denied Forward returns to the accepted entry and retains the forward stack');
+  remove();history.forward();await wait(()=>router.path()==='/svet-history/end');calls=0;
+  remove=router.beforeEach(()=>{calls++;return false;});history.go(-2);
+  await wait(()=>calls===1&&url()==='/svet-history/end?q=two#last');
+  check(router.query().q==='two'&&router.hash()==='last'&&calls===1,'denied multi-entry traversal restores the full distance, query and hash');
+  remove();remove=router.beforeEach(to=>to.path==='/svet-history/middle'?'/svet-history/login?next=middle#gate':undefined);
+  history.back();await wait(()=>router.path()==='/svet-history/login');
+  check(url()==='/svet-history/login?next=middle#gate'&&history.length===length,'popstate redirect replaces the visited slot and publishes the same full URL');
+  remove();history.forward();await wait(()=>router.path()==='/svet-history/end');history.back();await wait(()=>router.path()==='/svet-history/login');
+  check(url()==='/svet-history/login?next=middle#gate','the replacement survives Forward then Back');
+  history.back();await wait(()=>router.path()==='/svet-history/start');
+  check(history.state.host==='retained'&&url()==='/svet-history/start?q=one#top','initial host state and full URL survive tracked round trips');
+  router.navigate('/svet-history/reentrant');router.navigate('/svet-history/tail');
+  remove=router.beforeEach(to=>{if(to.path==='/svet-history/reentrant')router.navigate('/svet-history/newer');});
+  history.back();await wait(()=>router.path()==='/svet-history/newer');
+  check(url()==='/svet-history/newer','a nested successful navigation supersedes the outer rejected traversal');remove();
+  router.dispose();router=undefined;
+  const settle=action=>new Promise((resolve,reject)=>{
+    let quiet;
+    const cleanup=()=>{clearTimeout(quiet);clearTimeout(limit);window.removeEventListener('popstate',changed);};
+    const changed=()=>{clearTimeout(quiet);quiet=setTimeout(()=>{cleanup();resolve();},80);};
+    const limit=setTimeout(()=>{cleanup();reject(Error('history burst did not settle'));},3000);
+    window.addEventListener('popstate',changed);changed();action();
+  });
+  for(const deltas of [[-1,-1],[-1,-2],[-2,-1],[-1,1],[-2,1,-1],[-1,-1,1,1]]){
+    router=createRouter({routes:[]});for(let i=1;i<=5;i++)router.navigate('/svet-history/burst/'+i);
+    history.go(-2);await wait(()=>router.path()==='/svet-history/burst/3');
+    const count=history.length,unguard=router.beforeEach(()=>false);
+    await settle(()=>{for(const delta of deltas)history.go(delta);});
+    const consistent=url()==='/svet-history/burst/3'&&router.path()==='/svet-history/burst/3'&&history.length===count;
+    unguard();const admitted=router.navigate('/svet-history/ready');
+    check(consistent&&admitted&&url()==='/svet-history/ready','burst '+JSON.stringify(deltas)+' settles at the accepted middle entry and releases navigation');
+    router.dispose();router=undefined;
+  }
+  check(getGraphTelemetry().nodes===0,'router disposal retires all reactive graph nodes');
+  result.textContent=lines.join('\n')+'\n14/14 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{router?.dispose();run.disabled=false;}
+};
+</script>

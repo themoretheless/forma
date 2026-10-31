@@ -15,19 +15,26 @@
  *    `OwnerScope` disposal when switching routes.
  */
 
-import { type ChildNodeValue, h, insertChild } from './dom.ts';
+import { type ChildNodeValue, h, insertChild, captureViewLifetime, mountOwnedViewNodes, withDocumentAdoption } from './dom.ts';
 import {
   batch,
   createRoot,
   effect,
+  getCurrentOwner,
+  getReactiveGeneration,
+  isOwnerScopeDisposed,
+  registerReactiveResetFinalizer,
+  runUntrackedInCore,
+  type EffectHandle,
   lookupOwnerContext,
   onCleanup,
-  ReadonlySignal,
+  type ReadonlySignal,
   runWithOwnerScope,
   signal,
-  Signal,
+  type Signal,
   untrack,
 } from './reactivity.ts';
+import { getWasmCore } from './wasm-bridge.ts';
 
 // ============================================================================
 // 1. Hierarchical Context System (`createContext` / `useContext`)
@@ -43,12 +50,28 @@ export function createContext<T>(defaultValue: T): SvetContext<T> {
   const id = Symbol('svet-context');
 
   const Provider = (props: { value: T; children: ChildNodeValue | (() => Node) }): DocumentFragment => {
-    return runWithOwnerScope([[id, props.value]], () => {
-      const frag = document.createDocumentFragment();
-      const content =
-        typeof props.children === 'function' ? (props.children as () => Node)() : props.children;
-      insertChild(frag, content);
-      return frag;
+    const assertCallerCurrent = captureViewLifetime();
+    assertCallerCurrent();
+    return runWithOwnerScope([], () => {
+      const assertConstructionCurrent = captureViewLifetime();
+      const assertConstruction = () => {assertCallerCurrent();assertConstructionCurrent();};
+      assertConstruction();
+      const value = props.value;
+      assertConstruction();
+      return runWithOwnerScope([[id, value]], () => {
+        const assertProviderCurrent = captureViewLifetime();
+        const assertCurrent = () => {assertConstruction();assertProviderCurrent();};
+        assertCurrent();
+        const children = props.children;
+        assertCurrent();
+        const frag = document.createDocumentFragment();
+        assertCurrent();
+        const content = typeof children === 'function' ? (children as () => Node)() : children;
+        assertCurrent();
+        insertChild(frag, content, assertCurrent);
+        assertCurrent();
+        return frag;
+      });
     });
   };
 
@@ -67,23 +90,36 @@ export function Portal(props: {
   mount?: HTMLElement;
   children: ChildNodeValue | (() => Node);
 }): Comment {
-  const placeholder = document.createComment('svet-portal');
-  const target = props.mount ?? document.body;
-  const container = document.createElement('div');
-  container.setAttribute('data-svet-portal', '');
-
-  const content =
-    typeof props.children === 'function' ? (props.children as () => Node)() : props.children;
-  insertChild(container, content);
-  target.appendChild(container);
-
-  onCleanup(() => {
-    if (container.parentNode) {
-      container.parentNode.removeChild(container);
+  return runWithOwnerScope([], () => {
+    const owner = getCurrentOwner()!, core = getWasmCore(), generation = getReactiveGeneration(core);
+    const assertCurrent = () => {
+      if (owner.disposed) throw new Error('Portal construction owner disposed');
+      if (generation !== getReactiveGeneration(core)) throw new Error('Reactive graph reset during portal construction');
+    };
+    const placeholder = document.createComment('svet-portal');
+    const container = document.createElement('div');
+    container.setAttribute('data-svet-portal', '');
+    // Register before user rendering/insertion so partial attachment can be undone.
+    const removeContainer = () => { container.parentNode?.removeChild(container); };
+    onCleanup(removeContainer);
+    try {
+      const target = props.mount ?? document.body;
+      assertCurrent();
+      const children = props.children;
+      assertCurrent();
+      const content = typeof children === 'function' ? (children as () => Node)() : children;
+      assertCurrent();
+      insertChild(container, content, assertCurrent);
+      assertCurrent();
+      withDocumentAdoption(target, container, () => { target.appendChild(container); }, assertCurrent);
+      assertCurrent();
+      return placeholder;
+    } catch (failure) {
+      // An insertion hook can attach after owner cleanup has already run.
+      try { removeContainer(); } catch { /* Preserve the construction failure. */ }
+      throw failure;
     }
   });
-
-  return placeholder;
 }
 
 // ============================================================================
@@ -109,6 +145,8 @@ export interface Resource<T> {
   refetch(): Promise<T | undefined>;
   mutate(value: T | undefined): void;
   abort(): void;
+  /** Permanently cancels this resource and releases its signals and source observer. */
+  dispose(): void;
 }
 
 /**
@@ -122,13 +160,21 @@ export function createResource<T, S = true>(
   maybeFetcher?: (source: S, ctx: ResourceFetcherContext) => Promise<T>,
   options?: { initialValue?: T }
 ): Resource<T> {
+  const owner = getCurrentOwner(), core = getWasmCore(), generation = getReactiveGeneration(core);
+  const assertConstructionCurrent = () => {
+    if (isOwnerScopeDisposed(owner)) throw new Error('Resource construction owner disposed');
+    if (generation !== getReactiveGeneration(core)) throw new Error('Resource graph reset during construction');
+  };
+  assertConstructionCurrent();
   const hasSource = typeof maybeFetcher === 'function';
   const sourceFn = hasSource ? (sourceOrFetcher as () => S) : () => true as unknown as S;
   const fetcher = hasSource
     ? maybeFetcher!
     : (sourceOrFetcher as unknown as (s: S, ctx: ResourceFetcherContext) => Promise<T>);
 
-  const data = signal<T | undefined>(options?.initialValue);
+  const initialValue = options?.initialValue;
+  assertConstructionCurrent();
+  const data = signal<T | undefined>(initialValue);
   const loading = signal<boolean>(false);
   const error = signal<Error | null>(null);
 
@@ -137,95 +183,143 @@ export function createResource<T, S = true>(
 
   let fetchVersion = 0;
   let activeAbortController: AbortController | null = null;
+  let activeCancellation: (() => void) | null = null;
+  let unregisterReset: (() => void) | null = null;
   let isDisposed = false;
+  let sourceObserver: EffectHandle | undefined;
+  const isCurrent = () => !isDisposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
 
   let pending = false;
   const finishLoading = () => {
     if (!pending) return;
     pending = false;
-    loading.set(false);
-    suspense?.decrement();
+    try { loading.set(false); } finally { suspense?.decrement(); }
   };
 
-  const abortCurrent = () => {
-    if (activeAbortController) {
-      activeAbortController.abort();
-      activeAbortController = null;
-    }
-  };
-
-  onCleanup(() => {
-    isDisposed = true;
-    abortCurrent();
-    finishLoading();
+  const abortCurrent = () => runUntrackedInCore(core, () => {
+    const controller = activeAbortController, cancel = activeCancellation;
+    activeAbortController = null;
+    activeCancellation = null;
+    const unregister = unregisterReset;
+    unregisterReset = null;
+    unregister?.();
+    // Settle the public wait independently of an uncooperative fetcher. Clear
+    // both slots before synchronous abort listeners can start a replacement.
+    cancel?.();
+    controller?.abort();
   });
 
-  const load = async (srcVal: S): Promise<T | undefined> => {
-    if (isDisposed) return undefined;
-    abortCurrent();
+  const dispose = () => runUntrackedInCore(core, () => {
+    if (isDisposed) return;
+    isDisposed = true; ++fetchVersion;
+    if (owner && !owner.disposed) {
+      const index = owner.disposables.indexOf(dispose);
+      if (index >= 0) owner.disposables.splice(index, 1);
+    }
+    try { abortCurrent(); finishLoading(); }
+    finally {
+      try { sourceObserver?.dispose(); }
+      finally { data.dispose(); loading.dispose(); error.dispose(); }
+    }
+  });
+  onCleanup(dispose);
+
+  const performLoad = async (srcVal: S, cancel: () => void): Promise<T | undefined> => {
+    if (!isCurrent()) return undefined;
     const currentVersion = ++fetchVersion;
+    abortCurrent();
+    if (!isCurrent() || currentVersion !== fetchVersion) return undefined;
     const controller = new AbortController();
     activeAbortController = controller;
-
-    if (!pending) {
-      pending = true;
-      suspense?.increment();
-    }
-    batch(() => {
-      loading.set(true);
-      error.set(null);
+    activeCancellation = cancel;
+    unregisterReset = registerReactiveResetFinalizer(core, () => {
+      if (currentVersion !== fetchVersion) return;
+      const version = ++fetchVersion;
+      abortCurrent();
+      if (version === fetchVersion) finishLoading();
     });
+    const requestCurrent = () => isCurrent() && currentVersion === fetchVersion && !controller.signal.aborted;
 
     try {
+      if (!pending) {
+        pending = true;
+        suspense?.increment();
+      }
+      batch(() => {
+        loading.set(true);
+        error.set(null);
+      });
+
+      if (!requestCurrent()) return undefined;
       const result = await (hasSource
         ? fetcher(srcVal, { signal: controller.signal })
         : (sourceOrFetcher as (ctx: ResourceFetcherContext) => Promise<T>)({
             signal: controller.signal,
           }));
-      if (!isDisposed && currentVersion === fetchVersion && !controller.signal.aborted) {
-        batch(() => {
-          data.set(result);
-          finishLoading();
-        });
-      }
-      return result;
+      runUntrackedInCore(core, () => {
+        if (requestCurrent()) {
+          batch(() => {
+            data.set(result);
+            finishLoading();
+          });
+        }
+      });
+      return requestCurrent() ? result : undefined;
     } catch (err) {
-      if (isDisposed || controller.signal.aborted) {
-        return undefined;
-      }
-      const normalized = err instanceof Error ? err : new Error(String(err));
-      if (currentVersion === fetchVersion) {
+      runUntrackedInCore(core, () => {
+        if (!requestCurrent()) return;
+        const normalized = err instanceof Error ? err : new Error(String(err));
+        if (!requestCurrent()) return;
         batch(() => {
           error.set(normalized);
           finishLoading();
         });
-        if (reportError) {
-          reportError(normalized);
-        }
-      }
+        if (requestCurrent() && reportError) reportError(normalized);
+      });
       return undefined;
     } finally {
-      if (currentVersion === fetchVersion) {
-        activeAbortController = null;
-        finishLoading();
-      }
+      runUntrackedInCore(core, () => {
+        if (currentVersion === fetchVersion) {
+          activeAbortController = null;
+          activeCancellation = null;
+          const unregister = unregisterReset;
+          unregisterReset = null;
+          unregister?.();
+          finishLoading();
+        }
+      });
     }
   };
 
-  effect(() => {
-    const srcVal = sourceFn();
-    if (srcVal !== false && srcVal !== null && srcVal !== undefined) {
-      untrack(() => {
-        void load(srcVal);
-      });
-    } else {
-      untrack(() => {
-        ++fetchVersion;
-        abortCurrent();
-        finishLoading();
-      });
-    }
-  });
+  const load = (srcVal: S): Promise<T | undefined> => {
+    let cancel!: () => void;
+    const cancellation = new Promise<undefined>(resolve => { cancel = () => resolve(undefined); });
+    // Keep publication in performLoad's direct await continuation, preserving
+    // its ordering relative to observers awaiting the fetcher's original Promise.
+    // race also observes eventual failures after cancellation has won.
+    return Promise.race([runUntrackedInCore(core, () => performLoad(srcVal, cancel)), cancellation]);
+  };
+
+  try {
+    sourceObserver = effect(() => {
+      const srcVal = sourceFn();
+      if (srcVal !== false && srcVal !== null && srcVal !== undefined) {
+        untrack(() => {
+          void load(srcVal);
+        });
+      } else {
+        untrack(() => {
+          const version = ++fetchVersion;
+          abortCurrent();
+          if (version === fetchVersion) finishLoading();
+        });
+      }
+    });
+    assertConstructionCurrent();
+  } catch (failure) {
+    try { dispose(); } catch { /* Preserve source initialization failure. */ }
+    throw failure;
+  }
 
   const accessor = (() => {
     const err = error();
@@ -237,13 +331,18 @@ export function createResource<T, S = true>(
 
   Object.defineProperty(accessor, 'loading', { value: loading, enumerable: true });
   Object.defineProperty(accessor, 'error', { value: error, enumerable: true });
-  accessor.refetch = () => load(untrack(sourceFn));
-  accessor.mutate = (val: T | undefined) => data.set(val);
-  accessor.abort = () => {
-    ++fetchVersion;
-    abortCurrent();
-    finishLoading();
+  accessor.dispose = dispose;
+  accessor.refetch = async () => {
+    if (!isCurrent()) return undefined;
+    return runUntrackedInCore(core, () => isCurrent() ? load(sourceFn()) : undefined);
   };
+  accessor.mutate = (val: T | undefined) => { if (isCurrent()) data.set(val); };
+  accessor.abort = () => runUntrackedInCore(core, () => {
+    if (isDisposed) return;
+    const version = ++fetchVersion;
+    abortCurrent();
+    if (version === fetchVersion) finishLoading();
+  });
 
   return accessor;
 }
@@ -256,42 +355,66 @@ export function Suspense(props: {
   fallback: ChildNodeValue | (() => Node);
   children: ChildNodeValue | (() => Node);
 }): DocumentFragment {
-  const pendingCount = signal(0);
-  const controller: SuspenseController = {
-    increment() {
-      pendingCount.update((c) => c + 1);
-    },
-    decrement() {
-      pendingCount.update((c) => Math.max(0, c - 1));
-    },
-  };
+  return runWithOwnerScope([], () => {
+    const assertViewCurrent = captureViewLifetime();
+    const pendingCount = signal(0);
+    onCleanup(pendingCount.dispose);
+    const controller: SuspenseController = {
+      increment() {
+        pendingCount.update((c) => c + 1);
+      },
+      decrement() {
+        pendingCount.update((c) => Math.max(0, c - 1));
+      },
+    };
 
-  const frag = document.createDocumentFragment();
-  const contentWrapper = document.createElement('div');
-  contentWrapper.setAttribute('data-svet-suspense-content', '');
+    const frag = document.createDocumentFragment();
+    const contentWrapper = document.createElement('div');
+    contentWrapper.setAttribute('data-svet-suspense-content', '');
 
-  const fallbackWrapper = document.createElement('div');
-  fallbackWrapper.setAttribute('data-svet-suspense-fallback', '');
+    const fallbackWrapper = document.createElement('div');
+    fallbackWrapper.setAttribute('data-svet-suspense-fallback', '');
 
-  runWithOwnerScope([[SuspenseContext.id, controller]], () => {
-    const mainNodes =
-      typeof props.children === 'function' ? (props.children as () => Node)() : props.children;
-    insertChild(contentWrapper, mainNodes);
+    try {
+      runWithOwnerScope([[SuspenseContext.id, controller]], () => {
+        const children = props.children;
+        assertViewCurrent();
+        const mainNodes = typeof children === 'function' ? (children as () => Node)() : children;
+        assertViewCurrent();
+        insertChild(contentWrapper, mainNodes, assertViewCurrent);
+        assertViewCurrent();
+      });
+
+      assertViewCurrent();
+      const fallback = props.fallback;
+      assertViewCurrent();
+      const fbNodes = typeof fallback === 'function' ? (fallback as () => Node)() : fallback;
+      assertViewCurrent();
+      insertChild(fallbackWrapper, fbNodes, assertViewCurrent);
+      assertViewCurrent();
+
+      effect(() => {
+        assertViewCurrent();
+        const isPending = pendingCount() > 0;
+        contentWrapper.style.display = isPending ? 'none' : 'contents';
+        assertViewCurrent();
+        fallbackWrapper.style.display = isPending ? 'contents' : 'none';
+        assertViewCurrent();
+      });
+
+      assertViewCurrent();
+      frag.appendChild(fallbackWrapper);
+      assertViewCurrent();
+      frag.appendChild(contentWrapper);
+      assertViewCurrent();
+      return frag;
+    } catch (failure) {
+      for (const wrapper of [fallbackWrapper, contentWrapper]) {
+        try { wrapper.parentNode?.removeChild(wrapper); } catch { /* Preserve the construction failure. */ }
+      }
+      throw failure;
+    }
   });
-
-  const fbNodes =
-    typeof props.fallback === 'function' ? (props.fallback as () => Node)() : props.fallback;
-  insertChild(fallbackWrapper, fbNodes);
-
-  effect(() => {
-    const isPending = pendingCount() > 0;
-    contentWrapper.style.display = isPending ? 'none' : 'contents';
-    fallbackWrapper.style.display = isPending ? 'contents' : 'none';
-  });
-
-  frag.appendChild(fallbackWrapper);
-  frag.appendChild(contentWrapper);
-  return frag;
 }
 
 /**
@@ -302,88 +425,83 @@ export function ErrorBoundary(props: {
   fallback: (error: Error, reset: () => void) => Node;
   children: ChildNodeValue | (() => Node);
 }): DocumentFragment {
-  const caughtError = signal<Error | null>(null);
-  const attemptCounter = signal(0);
-  const frag = document.createDocumentFragment();
-  const anchor = document.createComment('svet-error-boundary');
-  frag.appendChild(anchor);
+  return runWithOwnerScope([], () => {
+    const assertViewCurrent = captureViewLifetime();
+    const caughtError = signal<Error | null>(null);
+    const attemptCounter = signal(0);
+    onCleanup(() => { caughtError.dispose(); attemptCounter.dispose(); });
+    const frag = document.createDocumentFragment();
+    const anchor = document.createComment('svet-error-boundary');
+    frag.appendChild(anchor);
 
-  let currentNodes: Node[] = [];
-  let disposeCurrentScope: (() => void) | null = null;
+    let currentNodes: Node[] = [];
+    let disposeCurrentScope: (() => void) | null = null;
 
-  const clearCurrent = () => {
-    if (disposeCurrentScope) {
-      disposeCurrentScope();
-      disposeCurrentScope = null;
-    }
-    for (const n of currentNodes) {
-      if (n.parentNode) {
-        n.parentNode.removeChild(n);
+    const clearCurrent = () => {
+      if (disposeCurrentScope) {
+        disposeCurrentScope();
+        disposeCurrentScope = null;
       }
-    }
-    currentNodes = [];
-  };
-
-  const mountSubtree = (nodesToMount: Node) => {
-    const temp = document.createDocumentFragment();
-    insertChild(temp, nodesToMount);
-    const list = Array.from(temp.childNodes);
-    if (anchor.parentNode) {
-      for (const n of list) {
-        anchor.parentNode.insertBefore(n, anchor);
+      for (const n of currentNodes) {
+        if (n.parentNode) {
+          n.parentNode.removeChild(n);
+        }
       }
-    } else {
-      for (const n of list) {
-        frag.insertBefore(n, anchor);
-      }
-    }
-    currentNodes = list;
-  };
-
-  const reset = () => {
-    caughtError.set(null);
-    attemptCounter.update((c) => c + 1);
-  };
-
-  effect(() => {
-    const err = caughtError();
-    attemptCounter();
-    clearCurrent();
-
-    const mountErrorFallback = (errorObj: Error) => {
-      clearCurrent();
-      createRoot((dispose) => {
-        disposeCurrentScope = dispose;
-        const fbNode = untrack(() => props.fallback(errorObj, reset));
-        mountSubtree(fbNode);
-      });
+      currentNodes = [];
     };
 
-    if (err) {
-      mountErrorFallback(err);
-    } else {
-      createRoot((dispose) => {
-        disposeCurrentScope = dispose;
-        try {
-          const childNode = runWithOwnerScope(
-            [[ErrorBoundaryContext.id, (asyncErr: Error) => caughtError.set(asyncErr)]],
-            () =>
-              untrack(() =>
-                typeof props.children === 'function'
-                  ? (props.children as () => Node)()
-                  : (props.children as Node)
-              )
-          );
-          mountSubtree(childNode);
-        } catch (syncErr) {
-          const normalized = syncErr instanceof Error ? syncErr : new Error(String(syncErr));
-          mountErrorFallback(normalized);
-        }
-      });
-    }
-  });
+    onCleanup(clearCurrent);
 
-  return frag;
+    const mountSubtree = (nodesToMount: Node) => {
+      currentNodes = mountOwnedViewNodes(frag, anchor, nodesToMount, assertViewCurrent);
+    };
+
+    const reset = () => batch(() => {
+      caughtError.set(null);
+      attemptCounter.update((c) => c + 1);
+    });
+
+    effect(() => {
+      const err = caughtError();
+      attemptCounter();
+      clearCurrent();
+
+      const mountErrorFallback = (errorObj: Error) => {
+        assertViewCurrent();
+        clearCurrent();
+        createRoot((dispose) => {
+          disposeCurrentScope = dispose;
+          const fbNode = untrack(() => props.fallback(errorObj, reset));
+          mountSubtree(fbNode);
+        });
+      };
+
+      if (err) {
+        mountErrorFallback(err);
+      } else {
+        createRoot((dispose) => {
+          disposeCurrentScope = dispose;
+          try {
+            const childNode = runWithOwnerScope(
+              [[ErrorBoundaryContext.id, (asyncErr: Error) => caughtError.set(asyncErr)]],
+              () =>
+                untrack(() =>
+                  typeof props.children === 'function'
+                    ? (props.children as () => Node)()
+                    : (props.children as Node)
+                )
+            );
+            mountSubtree(childNode);
+          } catch (syncErr) {
+            const normalized = syncErr instanceof Error ? syncErr : new Error(String(syncErr));
+            mountErrorFallback(normalized);
+          }
+        });
+      }
+    });
+
+    return frag;
+  });
 }
 
 // ============================================================================
@@ -460,6 +578,11 @@ function parseUrlParts(rawUrl: string): {
   return { pathname: pathname || '/', query, hash };
 }
 
+function decodeRouteSegment(segment: string): string {
+  if (!segment.includes('%')) return segment;
+  try { return decodeURIComponent(segment); } catch { return segment; }
+}
+
 function matchRoutePattern(
   pattern: string,
   pathname: string
@@ -476,18 +599,36 @@ function matchRoutePattern(
   const params: Record<string, string> = {};
   for (let i = 0; i < patternParts.length; i++) {
     const p = patternParts[i];
-    const actual = pathParts[i];
+    const actual = decodeRouteSegment(pathParts[i]);
     if (p.startsWith(':')) {
-      try {
-        params[p.slice(1)] = decodeURIComponent(actual);
-      } catch {
-        params[p.slice(1)] = actual;
-      }
-    } else if (p !== actual) {
+      Object.defineProperty(params, p.slice(1), {
+        value: actual, enumerable: true, writable: true, configurable: true,
+      });
+    } else if (decodeRouteSegment(p) !== actual) {
       return null;
     }
   }
   return params;
+}
+
+// Reserved history metadata. The chain belongs to one live router; entries from
+// another router/document are deliberately not assigned a guessed distance.
+const routerHistoryKey = '__svet_router_history__';
+let nextHistoryChain = 0;
+type RouterHistoryPosition = {chain: string; index: number};
+function readRouterHistoryPosition(state: unknown): RouterHistoryPosition | null {
+  const value = state && typeof state === 'object'
+    ? (state as Record<string, unknown>)[routerHistoryKey] : null;
+  if (!value || typeof value !== 'object') return null;
+  const {chain, index} = value as RouterHistoryPosition;
+  return typeof chain === 'string' && Number.isSafeInteger(index) && index >= 0 ? {chain, index} : null;
+}
+function stampRouterHistory(state: unknown, position: RouterHistoryPosition): Record<string, unknown> {
+  // Preserve host object fields. Non-record state is retained in an envelope.
+  const base = state !== null && typeof state === 'object' && !Array.isArray(state)
+    && Object.getPrototypeOf(state) === Object.prototype
+    ? state : {__svet_router_state__: state};
+  return {...base, [routerHistoryKey]: position};
 }
 
 export function createRouter(options: {
@@ -495,10 +636,27 @@ export function createRouter(options: {
   initialPath?: string;
   beforeEach?: NavigationGuard;
 }): RouterInstance {
+  const owner = getCurrentOwner(), core = getWasmCore(), generation = getReactiveGeneration(core);
+  if (isOwnerScopeDisposed(owner)) throw new Error('Router construction owner disposed');
+  const browserWindow = typeof window !== 'undefined' ? window : undefined;
+  const browserOrigin = browserWindow?.location.origin;
+  const resolutionBase = browserOrigin && browserOrigin !== 'null' ? `${browserOrigin}/` : 'http://svet.invalid/';
+  const origin = new URL(resolutionBase).origin;
+  const normalize = (to: string, base: string): string | null => {
+    if (typeof to !== 'string') return null;
+    try {
+      const destination = new URL(to, new URL(base, resolutionBase));
+      if (!/^https?:$/.test(destination.protocol) || destination.origin !== origin) return null;
+      return `${destination.pathname}${destination.search}${destination.hash}`;
+    } catch { return null; }
+  };
+  const initialGuard = options.beforeEach;
+  let disposed = false, navigationVersion = 0;
+  const isCurrent = () => !disposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
   const initialFull =
     options.initialPath ??
-    (typeof window !== 'undefined'
-      ? `${window.location.pathname}${window.location.search ?? ''}${window.location.hash ?? ''}`
+    (browserWindow
+      ? `${browserWindow.location.pathname}${browserWindow.location.search ?? ''}${browserWindow.location.hash ?? ''}`
       : '/');
 
   const match = (rawUrl: string) => {
@@ -512,18 +670,47 @@ export function createRouter(options: {
     return { route: null, params: {}, pathname, query, hash };
   };
 
-  const initialMatch = match(initialFull);
+  const initialBase = browserWindow
+    ? `${browserWindow.location.pathname}${browserWindow.location.search ?? ''}${browserWindow.location.hash ?? ''}`
+    : '/';
+  const initialTarget = normalize(initialFull, initialBase);
+  if (initialTarget === null) throw new TypeError('Invalid or external initial router URL');
+  let currentFull = initialTarget;
+  const history = browserWindow?.history;
+  const historyChains = new Set<string>();
+  let physicalPosition: RouterHistoryPosition | null = null;
+  let acceptedPosition: RouterHistoryPosition | null = null;
+  let acceptedCommit = {};
+  let restoring = false;
+  const fullLocation = () => browserWindow
+    ? `${browserWindow.location.pathname}${browserWindow.location.search}${browserWindow.location.hash}` : currentFull;
+  const ownPosition = (state: unknown): RouterHistoryPosition | null => {
+    const position = readRouterHistoryPosition(state);
+    return position && historyChains.has(position.chain) ? position : null;
+  };
+  const stampPhysicalEntry = (): RouterHistoryPosition => {
+    const chain = `svet:${Date.now()}:${++nextHistoryChain}`;
+    historyChains.add(chain);
+    const position = {chain, index: 0};
+    history!.replaceState(stampRouterHistory(history!.state, position), '', fullLocation());
+    physicalPosition = position;
+    return position;
+  };
+
+  const initialMatch = match(currentFull);
+  if (!isCurrent()) throw new Error('Router context or owner invalidated during construction');
   const currentPath = signal(initialMatch.pathname);
   const currentParams = signal<Record<string, string>>(initialMatch.params);
   const currentQuery = signal<Record<string, string>>(initialMatch.query);
   const currentHash = signal<string>(initialMatch.hash);
 
   const guards = new Set<NavigationGuard>();
-  if (options.beforeEach) {
-    guards.add(options.beforeEach);
+  if (initialGuard) {
+    guards.add(initialGuard);
   }
 
   const beforeEach = (guard: NavigationGuard): (() => void) => {
+    if (!isCurrent()) return () => {};
     guards.add(guard);
     return () => {
       guards.delete(guard);
@@ -531,8 +718,12 @@ export function createRouter(options: {
   };
 
   const syncPathInternal = (to: string, pushHistory: boolean, redirectDepth = 0): boolean => {
-    if (redirectDepth > 10) return false;
-    const nextMatch = match(to);
+    if (!isCurrent() || redirectDepth > 10) return false;
+    const normalized = normalize(to, currentFull);
+    if (normalized === null) return false;
+    const attempt = ++navigationVersion;
+    const nextMatch = match(normalized);
+    if (!isCurrent() || attempt !== navigationVersion) return false;
     const fromState = {
       path: currentPath.peek(),
       params: currentParams.peek(),
@@ -546,19 +737,37 @@ export function createRouter(options: {
       hash: nextMatch.hash,
     };
 
-    for (const guard of guards) {
+    for (const guard of Array.from(guards)) {
+      if (!guards.has(guard)) continue;
       const res = guard(toState, fromState);
+      if (!isCurrent() || attempt !== navigationVersion) return false;
       if (res === false) {
         return false;
       }
-      if (typeof res === 'string' && res !== to) {
-        return syncPathInternal(res, pushHistory, redirectDepth + 1);
+      if (typeof res === 'string') {
+        const redirect = normalize(res, currentFull);
+        if (redirect === null) return false;
+        if (redirect !== normalized) return syncPathInternal(redirect, pushHistory, redirectDepth + 1);
       }
     }
 
-    if (pushHistory && typeof window !== 'undefined' && window.history?.pushState) {
-      window.history.pushState({}, '', to);
+    if (pushHistory && history) {
+      physicalPosition = ownPosition(history.state);
+      const previous = physicalPosition ?? stampPhysicalEntry();
+      // Retain the initial entry as a rollback destination before the first push.
+      if (!acceptedPosition) acceptedPosition = previous;
+      const next = {chain: previous.chain, index: previous.index + 1};
+      history.pushState(stampRouterHistory({}, next), '', normalized);
+      physicalPosition = next;
+    } else if (history) {
+      // A guard redirect during traversal belongs to the visited slot, not a new push.
+      if (normalized !== fullLocation()) history.replaceState(history.state, '', normalized);
+      if (!physicalPosition) stampPhysicalEntry();
     }
+    if (!isCurrent() || attempt !== navigationVersion) return false;
+    currentFull = normalized;
+    acceptedPosition = physicalPosition;
+    acceptedCommit = {};
     batch(() => {
       currentPath.set(nextMatch.pathname);
       currentParams.set(nextMatch.params);
@@ -569,25 +778,67 @@ export function createRouter(options: {
   };
 
   const navigate = (to: string): boolean => {
-    return syncPathInternal(to, true);
+    return restoring ? false : syncPathInternal(to, true);
   };
 
-  // Listen to browser Back/Forward (`popstate`) automatically!
-  const onPopState = () => {
-    if (typeof window !== 'undefined') {
-      const fullLoc = `${window.location.pathname}${window.location.search ?? ''}${window.location.hash ?? ''}`;
-      syncPathInternal(fullLoc, false);
+  const restoreAcceptedEntry = () => {
+    if (!isCurrent() || !history) return;
+    const target = acceptedPosition;
+    if (target && physicalPosition && target.chain === physicalPosition.chain
+        && target.index !== physicalPosition.index) {
+      restoring = true;
+      try { history.go(target.index - physicalPosition.index); }
+      catch (failure) { restoring = false; throw failure; }
+    } else {
+      // External entries have no trustworthy relative index. Preserve their data
+      // and repair the URL in place rather than destroying forward history.
+      restoring = false;
+      history.replaceState(history.state, '', currentFull);
+      acceptedPosition = stampPhysicalEntry();
     }
   };
-  if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-    window.addEventListener('popstate', onPopState);
+  const onPopState = () => {
+    if (!isCurrent() || !history) return;
+    physicalPosition = ownPosition(history.state);
+    if (restoring && acceptedPosition && physicalPosition
+        && acceptedPosition.chain === physicalPosition.chain
+        && acceptedPosition.index === physicalPosition.index && fullLocation() === currentFull) {
+      restoring = false;
+      return; // Compensation is not another guarded navigation.
+    }
+    if (restoring) {
+      restoreAcceptedEntry();
+      return;
+    }
+    const previousCommit = acceptedCommit;
+    try { syncPathInternal(fullLocation(), false); }
+    catch (failure) {
+      // Native restoration failure must not hide the original guard failure.
+      if (acceptedCommit === previousCommit) {
+        try { restoreAcceptedEntry(); } catch { /* Keep the primary transition failure. */ }
+      }
+      throw failure;
+    }
+    // A nested successful navigation owns its new URL/position. Rejected guards
+    // recover only when no newer commit superseded their transition.
+    if (acceptedCommit === previousCommit) restoreAcceptedEntry();
+  };
+  if (browserWindow && typeof browserWindow.addEventListener === 'function') {
+    browserWindow.addEventListener('popstate', onPopState);
   }
 
   const dispose = () => {
-    if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-      window.removeEventListener('popstate', onPopState);
+    if (disposed) return;
+    disposed = true; navigationVersion++;
+    if (owner && !owner.disposed) {
+      const index = owner.disposables.indexOf(dispose);
+      if (index >= 0) owner.disposables.splice(index, 1);
+    }
+    if (browserWindow && typeof browserWindow.removeEventListener === 'function') {
+      browserWindow.removeEventListener('popstate', onPopState);
     }
     guards.clear();
+    historyChains.clear();
     currentPath.dispose();
     currentParams.dispose();
     currentQuery.dispose();
@@ -619,82 +870,91 @@ export function RouterView(props: {
   router: RouterInstance;
   fallback?: () => Node;
 }): DocumentFragment {
-  const frag = document.createDocumentFragment();
-  const anchor = document.createComment('svet-router-view');
-  frag.appendChild(anchor);
+  return runWithOwnerScope([], () => {
+    const assertViewCurrent = captureViewLifetime();
+    const router = props.router;
+    const frag = document.createDocumentFragment();
+    const anchor = document.createComment('svet-router-view');
+    frag.appendChild(anchor);
 
-  let currentNodes: Node[] = [];
-  let disposeRouteScope: (() => void) | null = null;
+    let currentNodes: Node[] = [];
+    let disposeRouteScope: (() => void) | null = null;
 
-  const clearRoute = () => {
-    if (disposeRouteScope) {
-      disposeRouteScope();
-      disposeRouteScope = null;
-    }
-    for (const n of currentNodes) {
-      if (n.parentNode) {
-        n.parentNode.removeChild(n);
+    const clearRoute = () => {
+      if (disposeRouteScope) {
+        disposeRouteScope();
+        disposeRouteScope = null;
       }
-    }
-    currentNodes = [];
-  };
-
-  effect(() => {
-    const pathname = props.router.path();
-    clearRoute();
-
-    const { route, params } = props.router.match(pathname);
-    createRoot((dispose) => {
-      disposeRouteScope = dispose;
-      runWithOwnerScope([[RouterContext.id, props.router]], () => {
-        const rendered = untrack(() => {
-          if (route) {
-            return route.component(params);
-          }
-          return props.fallback ? props.fallback() : document.createTextNode('404 Not Found');
-        });
-
-        const temp = document.createDocumentFragment();
-        insertChild(temp, rendered);
-        const list = Array.from(temp.childNodes);
-        if (anchor.parentNode) {
-          for (const n of list) {
-            anchor.parentNode.insertBefore(n, anchor);
-          }
-        } else {
-          for (const n of list) {
-            frag.insertBefore(n, anchor);
-          }
+      for (const n of currentNodes) {
+        if (n.parentNode) {
+          n.parentNode.removeChild(n);
         }
-        currentNodes = list;
+      }
+      currentNodes = [];
+    };
+
+    onCleanup(clearRoute);
+
+    effect(() => {
+      const pathname = router.path();
+      clearRoute();
+
+      const { route, params } = router.match(pathname);
+      createRoot((dispose) => {
+        disposeRouteScope = dispose;
+        runWithOwnerScope([[RouterContext.id, router]], () => {
+          const rendered = untrack(() => {
+            if (route) {
+              return route.component(params);
+            }
+            return props.fallback ? props.fallback() : document.createTextNode('404 Not Found');
+          });
+
+          currentNodes = mountOwnedViewNodes(frag, anchor, rendered, assertViewCurrent);
+        });
       });
     });
-  });
 
-  return frag;
+    return frag;
+  });
 }
 
 export function Link(props: {
   to: string;
   className?: string;
+  target?: string;
+  download?: boolean | string;
+  rel?: string;
   children?: ChildNodeValue;
 }): Node {
   const router = useContext(RouterContext);
-  const safeHref = /^(javascript:|vbscript:|data:text\/html)/i.test(
-    props.to.replace(/[\u0000-\u0020]+/g, '')
-  )
-    ? '#'
-    : props.to;
+  const to = props.to;
+  const unsafe = /^(javascript:|vbscript:|data:text\/html)/i.test(to.replace(/[\u0000-\u0020]+/g, ''));
+  const safeHref = unsafe ? '#' : to;
   return h(
     'a',
     {
       href: safeHref,
       className: props.className,
+      target: props.target,
+      download: props.download,
+      rel: props.rel,
       onClick: (e: MouseEvent) => {
+        if (e.defaultPrevented) return;
+        if (unsafe) { e.preventDefault(); return; }
+        if (!router || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+        const anchor = e.currentTarget as HTMLAnchorElement | null;
+        if (!anchor || anchor.hasAttribute('download')) return;
+        const doc = anchor.ownerDocument;
+        const target = anchor.getAttribute('target') || doc.querySelector('base[target]')?.getAttribute('target') || '';
+        if (target && target.toLowerCase() !== '_self') return;
+        const location = doc.defaultView?.location;
+        if (!location) return;
+        let destination: URL;
+        try { destination = new URL(anchor.href, location.href); } catch { return; }
+        if (!/^https?:$/.test(destination.protocol) || destination.origin !== location.origin) return;
         e.preventDefault();
-        if (router && safeHref !== '#') {
-          router.navigate(safeHref);
-        }
+        router.navigate(`${destination.pathname}${destination.search}${destination.hash}`);
       },
     },
     props.children

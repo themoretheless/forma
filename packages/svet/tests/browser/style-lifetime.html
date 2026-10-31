@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>Svet style lifetimes</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}</style>
+<h1>Svet style lifetime safety</h1><p>Real CSS writes, nested style subscriptions, failed updates and owner/graph invalidation.</p>
+<button id="run">Run style checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {bindProp,createRoot,getGraphTelemetry,h,mount,resetReactiveSystem,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],stops=[],sources=[];let fresh;
+ const source=value=>{const model=signal(value);sources.push(model);return model;};
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const fails=callback=>{try{callback();return false;}catch{return true;}};
+ try{
+  const first=source('red'),second=source('blue'),styles=source({color:first}),app=mount(()=>h('div',{style:styles},'Live style target'),preview);stops.push(app.unmount);const el=preview.firstChild,baseline=getGraphTelemetry().nodes;
+  let bounded=true;for(let i=0;i<30;i++){styles.set({color:i%2?first:second});bounded&&=getGraphTelemetry().nodes===baseline;}styles.set({width:'3px'});first.set('green');second.set('yellow');
+  check(bounded&&el.style.color===''&&el.style.width==='3px','ordinary style replacement releases nested accessors with bounded native node count');
+  const rejected=document.createElement('div'),color=source('red'),failure=Error('coercion failed');let staticFailed=false,retired=false;
+  createRoot(stop=>{stops.push(stop);const before=getGraphTelemetry().nodes;staticFailed=fails(()=>bindProp(rejected,'style',{color,width:{toString(){throw failure;}}}));retired=getGraphTelemetry().nodes===before;});color.set('blue');
+  check(staticFailed&&retired&&rejected.style.color==='red','failed static style setup retires provisional nested subscriptions while preserving its caller');
+  const beforeUpdate=getGraphTelemetry().nodes,failedUpdate=fails(()=>styles.set({color,width:{toString(){throw failure;}}})),noProvisional=getGraphTelemetry().nodes===beforeUpdate;color.set('purple');const frozen=el.style.color==='blue';styles.set({width:'4px'});
+  check(failedUpdate&&noProvisional&&frozen&&el.style.color===''&&el.style.width==='4px','failed reactive update retires its provisional scope and a later valid snapshot recovers');
+  const getterTarget=document.createElement('div');getterTarget.style.color='black';let later=0,getterFailed=false;
+  createRoot(stop=>{stops.push(stop);getterFailed=fails(()=>bindProp(getterTarget,'style',{get color(){stop();return 'red';},get width(){later++;return '3px';}}));});
+  check(getterFailed&&later===0&&getterTarget.style.color==='black','owner teardown in a getter stops later getters and all CSS writes');
+  const resetTarget=document.createElement('div');let resetFailed=false;
+  createRoot(stop=>{stops.push(stop);resetFailed=fails(()=>bindProp(resetTarget,'style',{color:{toString(){resetReactiveSystem();fresh=signal(17);return 'red';}},width:'3px'}));});
+  check(resetFailed&&resetTarget.style.cssText===''&&fresh()===17,'graph reset during value coercion blocks stale CSS and preserves the fresh graph');
+  const resolverTarget=document.createElement('div');let resolverFailed=false;
+  createRoot(stop=>{stops.push(stop);resolverFailed=fails(()=>bindProp(resolverTarget,'style',()=>{stop();return 'color:red';}));});
+  check(resolverFailed&&resolverTarget.style.cssText==='','an invalidated resolver cannot publish its returned cssText');
+  const nativeTarget=document.createElement('div'),native=nativeTarget.style.setProperty.bind(nativeTarget.style);let nativeFailed=false;
+  createRoot(stop=>{stops.push(stop);nativeTarget.style.setProperty=(...args)=>{native(...args);stop();};nativeFailed=fails(()=>bindProp(nativeTarget,'style',{'--first':'one','--second':'two'}));});
+  check(nativeFailed&&nativeTarget.style.getPropertyValue('--first')==='one'&&nativeTarget.style.getPropertyValue('--second')==='','teardown in a native setter prevents writes to subsequent properties');
+  for(const stop of stops)stop();for(const model of sources)model.dispose();const preserved=fresh()===17;fresh.dispose();fresh=undefined;
+  check(preserved&&getGraphTelemetry().nodes===0,'cleanup of retired scopes preserves fresh lifetimes and final graph count returns to zero');
+  result.textContent=lines.join('\n')+'\n8/8 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();for(const model of sources)model.dispose();fresh?.dispose();run.disabled=false;}
+};
+</script>

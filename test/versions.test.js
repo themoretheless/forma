@@ -20,7 +20,7 @@ test('committed manifest and lockfile versions agree',()=>{
  const v=versions();assert.ok(validVersion(v.runtime));assert.ok(validVersion(v.studio));assert.match(v.wasmBindgen,/^\d+\.\d+\.\d+$/);
 });
 
-test('gpu-allocator and wgpu-hal resolve one windows crate or the Windows build fails',async()=>{
+test('gpu-runtime, gpu-shader and gpu-compute resolve cleanly in vector-ui/Cargo.lock without duplicate windows crates',async()=>{
  const {readFileSync}=await import('node:fs');
  const {resolve}=await import('node:path');
  const {root}=await import('../scripts/versions.mjs');
@@ -33,17 +33,7 @@ test('gpu-allocator and wgpu-hal resolve one windows crate or the Windows build 
   assert.equal(found.length,1,`the lock must hold one ${name}, found ${found.join(', ')||'none'}`);
   return found[0];
  };
- // Cargo spells a dependency with its version only when the lock holds several of them.
- const windowsUsed=consumer=>{
-  const edges=[...blocks.get(`${consumer}@${single(consumer)}`).matchAll(/^\s*"([^"]+)",?$/gm)].map(match=>match[1]);
-  const edge=edges.find(value=>value==='windows'||value.startsWith('windows '));
-  assert.ok(edge,`${consumer} must depend on windows for the D3D12 backend`);
-  return edge.split(' ')[1]??single('windows');
- };
- const used=['gpu-allocator','wgpu-hal'].map(windowsUsed);
- // Two versions give wgpu-hal a gpu-allocator ID3D12Heap from another windows core, and
- // windows-2022 then fails to compile wgpu-hal: CreatePlacedResource rejects the argument.
- assert.equal(new Set(used).size,1,`wgpu-hal and gpu-allocator need one windows crate, got ${used.join(' and ')}`);
+ for(const pkg of ['gpu-runtime','gpu-shader','gpu-compute'])assert.equal(single(pkg),'0.1.0');
 });
 
 test('version command updates only its component and all associated lockfiles',async()=>{

@@ -1,0 +1,25 @@
+<!doctype html><meta charset="utf-8"><title>Svet independent instances</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{white-space:pre-wrap;background:#eef6f1;padding:18px;line-height:1.7}#preview{display:flex;gap:10px}</style>
+<h1>Svet independent engine instances</h1><p>Two separately compiled engines share a native event dispatcher while preserving their own owners and reactive cores.</p>
+<button id="run" disabled>Run instance checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+const metadata=await(await fetch('/node_modules/.cache/svet-adoption-bench/metadata.json',{cache:'no-store'})).json();
+const [first,second]=await Promise.all(['baseline','candidate'].map(variant=>import(/* @vite-ignore */ '/node_modules/.cache/svet-adoption-bench/'+metadata.snapshot+'/'+variant+'/index.js')));
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');run.disabled=false;
+run.onclick=()=>{
+ run.disabled=true;preview.replaceChildren();first.resetReactiveSystem();second.resetReactiveSystem();const stops=[],lines=[];
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ try{
+  let a=0,b=0,stopFirst;const buttons=[];
+  first.createRoot(stop=>{stopFirst=stop;stops.push(stop);const node=first.h('button',{onClick(){a++;}},'first engine');buttons.push(node);preview.append(node);});second.createRoot(stop=>{stops.push(stop);const node=second.h('button',{onClick(){b++;}},'second engine');buttons.push(node);preview.append(node);});for(const button of buttons)button.click();check(a===1&&b===1,'independent engine handlers fire once each on one document');
+  const order=[];let outer,inner;first.createRoot(stop=>{stops.push(stop);outer=first.h('div',{onClick(){order.push('outer');}});preview.append(outer);});second.createRoot(stop=>{stops.push(stop);inner=second.h('button',{onClick(){order.push('inner');}},'nested');outer.append(inner);});inner.click();check(order.join(',')==='inner,outer','mixed nested engines preserve child-before-parent bubbling');
+  const shared=document.createElement('button');preview.append(shared);let sharedA=0,sharedB=0,retireShared;
+  first.createRoot(stop=>{retireShared=stop;stops.push(stop);first.bindProp(shared,'onClick',()=>{sharedA++;});});second.createRoot(stop=>{stops.push(stop);second.bindProp(shared,'onClick',()=>{sharedB++;});});shared.click();retireShared();shared.click();check(sharedA===1&&sharedB===2,'bindings on one node stay additive and retire independently');
+  const immediate=document.createElement('button');preview.append(immediate);const immediateOrder=[];first.createRoot(stop=>{stops.push(stop);first.bindProp(immediate,'onClick',event=>{immediateOrder.push('first');event.stopImmediatePropagation();});});second.createRoot(stop=>{stops.push(stop);second.bindProp(immediate,'onClick',()=>{immediateOrder.push('second');});});immediate.click();check(immediateOrder.join(',')==='first','native stopImmediatePropagation applies across engine instances');
+  stopFirst();buttons[0].click();buttons[1].click();check(a===1&&b===2,'retiring one engine owner preserves the other engine callback');
+  const host=document.createElement('div');preview.append(host);const root=host.attachShadow({mode:'closed'}),shadowButton=document.createElement('button');root.append(shadowButton);let shadows=0;first.createRoot(stop=>{stops.push(stop);first.bindProp(shadowButton,'onClick',()=>{shadows++;});});second.createRoot(stop=>{stops.push(stop);second.bindProp(shadowButton,'onClick',()=>{shadows++;});});shadowButton.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:false}));check(shadows===2,'closed-shadow dispatch coordinates bindings from both engine instances');
+  for(const stop of stops)stop();check(first.getGraphTelemetry().nodes===0&&second.getGraphTelemetry().nodes===0,'both independent reactive graphs retire');result.textContent=lines.join('\n')+'\n7/7 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();run.disabled=false;}
+};
+</script>

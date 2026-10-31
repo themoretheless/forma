@@ -1,0 +1,44 @@
+<!doctype html><meta charset="utf-8"><title>Svet attribute lifetimes</title>
+<style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}</style>
+<h1>Svet attribute lifetime safety</h1><p>Real HTML/property/namespace operations, provisional subscriptions and graph/owner invalidation.</p>
+<button id="run">Run attribute checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {bindProp,createRoot,effect,getGraphTelemetry,h,mount,resetReactiveSystem,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],stops=[],sources=[];let fresh;
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const fails=callback=>{try{callback();return false;}catch{return true;}};
+ try{
+  const resolver=document.createElement('div');let resolverFailed=false;
+  createRoot(stop=>{stops.push(stop);resolverFailed=fails(()=>bindProp(resolver,'title',()=>{stop();return 'stale';}));});
+  check(resolverFailed&&!resolver.hasAttribute('title'),'owner-disposed attribute resolver cannot publish its returned value');
+  const coerced=document.createElement('div');let resetFailed=false;
+  createRoot(stop=>{stops.push(stop);resetFailed=fails(()=>bindProp(coerced,'title',{toString(){resetReactiveSystem();fresh=signal(17);sources.push(fresh);return 'stale';}}));});
+  check(resetFailed&&!coerced.hasAttribute('title')&&fresh()===17,'graph reset during coercion blocks stale attributes and preserves fresh state');
+  let inputSafe=true;for(const key of ['value','type']){
+    const input=document.createElement('input');createRoot(stop=>{stops.push(stop);inputSafe&&=fails(()=>bindProp(input,key,{toString(){stop();return key==='type'?'checkbox':'stale';}}));});inputSafe&&=input.value===''&&input.type==='text';
+  }
+  check(inputSafe,'native value and type remain unchanged after invalidating coercion');
+  const use=document.createElementNS('http://www.w3.org/2000/svg','use');let namespaceFailed=false;
+  createRoot(stop=>{stops.push(stop);namespaceFailed=fails(()=>bindProp(use,'xlinkHref',{toString(){stop();return '#stale';}}));});
+  check(namespaceFailed&&!use.hasAttributeNS('http://www.w3.org/1999/xlink','href'),'namespace attributes check lifetime before native setAttributeNS');
+  const button=document.createElement('button');let presenceFailed=false;
+  createRoot(stop=>{stops.push(stop);button.hasAttribute=()=>{stop();return false;};presenceFailed=fails(()=>bindProp(button,'disabled',true));});
+  check(presenceFailed&&!button.disabled,'invalidating native presence reads cannot publish boolean attributes');
+  const matching=document.createElement('div');matching.title='same';let matchingFailed=false,setterFailed=false;const written=document.createElement('div'),native=written.setAttribute.bind(written);
+  createRoot(stop=>{stops.push(stop);matching.getAttribute=()=>{stop();return 'same';};matchingFailed=fails(()=>bindProp(matching,'title','same'));});
+  createRoot(stop=>{stops.push(stop);written.setAttribute=(...args)=>{native(...args);stop();};setterFailed=fails(()=>bindProp(written,'title','written while live'));});
+  check(matchingFailed&&setterFailed&&written.title==='written while live','matching reads and teardown during a native write reject stale completion');
+  const source=signal('initial'),nested=signal(0);sources.push(source,nested);let runs=0;const failure=Error('coercion failed');
+  const app=mount(()=>h('div',{title:()=>{const value=source();if(value==='bad'){effect(()=>{nested();runs++;});return {toString(){throw failure;}};}return value;}},'Bound attribute target'),preview);stops.push(app.unmount);
+  const baseline=getGraphTelemetry().nodes,failed=fails(()=>source.set('bad')),retired=getGraphTelemetry().nodes===baseline;nested.set(1);source.set('recovered');
+  check(failed&&retired&&runs===1&&preview.firstChild.title==='recovered','failed reactive coercion retires temporary effects and later valid input recovers');
+  const ordinary=h('input',{type:'checkbox',checked:true,'aria-checked':false}),link=h('a',{href:'javascript:alert(1)'}),semantics=ordinary.checked&&ordinary.getAttribute('aria-checked')==='false'&&!link.hasAttribute('href');
+  for(const stop of stops)stop();const preserved=fresh()===17;for(const model of sources)model.dispose();
+  check(semantics&&preserved&&getGraphTelemetry().nodes===0,'boolean/ARIA/URL policies remain intact and teardown returns the graph to zero');
+  result.textContent=lines.join('\n')+'\n8/8 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();for(const model of sources)model.dispose();run.disabled=false;}
+};
+</script>

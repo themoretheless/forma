@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet current row value checks</title>
+<style>body{font:16px system-ui;margin:40px auto;max-width:980px;padding:0 24px;color:#182231}button{font:inherit;padding:8px 14px}pre{background:#edf6f0;padding:20px;white-space:pre-wrap;line-height:1.6}#preview{padding:20px;border:1px solid #ccd6df;border-radius:8px;line-height:2}input{width:130px;margin-right:12px}span{margin-right:12px}</style>
+<h1>Svet current row value checks</h1>
+<p>Same-key data replacement, retained DOM state, current actions and nested Forma locals.</p>
+<button id="run">Run current row checks</button><pre id="result">Not run</pre>
+<p>Verified row label snapshots:</p><div id="preview"></div>
+<script type="module">
+import {For,h,mount,signal,createGpuTensor,compileFormaComponent,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const output=document.querySelector('#result'),preview=document.querySelector('#preview'),button=document.querySelector('#run');
+button.addEventListener('click',()=>{
+  button.disabled=true;output.textContent='';let passed=0,app,items,instance;const snapshots=[];
+  const check=(condition,label)=>{if(!condition)throw new Error(label);passed++;output.textContent+='PASS '+label+'\n';};
+  try{
+    resetReactiveSystem();items=signal([{id:1,label:'A'},{id:2,label:'B'}]);const selected=[],currentById=new Map();let renders=0;
+    app=mount(()=>For({each:items,keyFn:item=>item.id,children:(initial,index,current)=>{
+      renders++;createGpuTensor([initial.id]);if(initial.id===3)throw new Error('row failed');currentById.set(initial.id,current);
+      const fragment=document.createDocumentFragment();fragment.append(h('input',{value:'draft '+initial.id}),h('span',{'data-live-label':''},()=>current().label+'@'+index()),h('button',{onClick:()=>selected.push(current().label)},'pick'),document.createElement('br'));return fragment;
+    }}),preview);
+    const originalLabels=Array.from(preview.querySelectorAll('[data-live-label]')),originalButtons=Array.from(preview.querySelectorAll('button')),input=preview.querySelector('input');input.focus();input.setSelectionRange(2,4);
+    items.set([{id:1,label:'new A'},{id:2,label:'new B'}]);
+    check(originalLabels[0].textContent==='new A@0'&&preview.querySelector('[data-live-label]')===originalLabels[0]&&renders===2&&document.activeElement===input&&input.value==='draft 1'&&input.selectionStart===2&&input.selectionEnd===4,'same-key replacement preserves DOM, input value, focus and selection');
+    items.set([{id:2,label:'new B'},{id:1,label:'prime A'}]);
+    check(preview.querySelectorAll('[data-live-label]')[1]===originalLabels[0]&&originalLabels[0].textContent==='prime A@1'&&originalLabels[1].textContent==='new B@0'&&renders===2,'reorder publishes current values and indexes without rebuilding rows');
+    originalButtons[0].click();check(selected.join(',')==='prime A','retained event callback reads the latest item');
+    const baseline=getGraphTelemetry().nodes;let rejected=false;try{items.set([{id:1,label:'uncommitted'},{id:3,label:'bad'}]);}catch(error){rejected=error.message==='row failed';}
+    check(rejected&&currentById.get(1)().label==='prime A'&&originalLabels[0].textContent==='prime A@1'&&getGraphTelemetry().nodes===baseline,'failed preparation leaves current values and resources at their committed state');
+    snapshots.push(...Array.from(preview.querySelectorAll('[data-live-label]'),node=>node.textContent));app.unmount();app=null;items.dispose();items=null;
+    check(getGraphTelemetry().nodes===0,'row-owned current/index signals and watchers are released');
+    instance=compileFormaComponent(`component LiveList { state rows: List = []; Column { for row in state.rows key row.id { Text { text: row.label; } Button { text: 'select'; clicked -> events.selected(row.label); } } } }`);
+    instance.state.rows.set([{id:1,label:'old'}]);app=instance.mount(preview);const text=preview.querySelector('[data-forma-type="Text"]'),events=[];instance.onEvent('selected',value=>events.push(value));
+    instance.state.rows.set([{id:1,label:'new'}]);preview.querySelector('button').click();
+    check(text.textContent==='new'&&preview.querySelector('[data-forma-type="Text"]')===text&&events.join(',')==='new','Forma text and actions follow same-key replacements on the same element');
+    snapshots.push(text.textContent);app.unmount();app=null;instance.dispose();instance=null;
+    instance=compileFormaComponent(`component NestedList { state groups: List = []; Column { for group in state.groups key group.id { for child in group.children key child.id { Text { text: group.title + ':' + child.label; } } } } }`);
+    instance.state.groups.set([{id:1,title:'old group',children:[{id:1,label:'old child'}]}]);app=instance.mount(preview);const nested=preview.querySelector('[data-forma-type="Text"]');
+    instance.state.groups.set([{id:1,title:'new group',children:[{id:1,label:'new child'}]}]);const updated=nested.textContent==='new group:new child'&&preview.querySelector('[data-forma-type="Text"]')===nested;snapshots.push(nested.textContent);
+    app.unmount();app=null;instance.dispose();instance=null;
+    check(updated&&getGraphTelemetry().nodes===0,'nested Forma loops keep live outer/inner locals and fully tear down');
+    preview.replaceChildren(...snapshots.map(label=>{const row=document.createElement('p');row.textContent=label;return row;}));output.textContent+=passed+'/7 passed';
+  }catch(error){output.textContent+='FAIL '+(error.stack||error.message);}
+  finally{app?.unmount();items?.dispose();instance?.dispose();button.disabled=false;}
+});
+</script>

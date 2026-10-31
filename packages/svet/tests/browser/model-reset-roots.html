@@ -1,0 +1,59 @@
+<!doctype html><meta charset="utf-8"><title>Svet reset in changing DOM roots</title>
+<style>body{font:15px system-ui;max-width:1100px;margin:24px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.6;white-space:pre-wrap}#preview{display:flex;gap:12px}</style>
+<h1>Svet reset in changing DOM roots</h1><p>Late native append/move, closed ShadowRoot mount, cancellation and root cleanup.</p>
+<button id="run">Run reset root checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {createRoot,effect,For,Portal,Show,getGraphTelemetry,h,mount,resetReactiveSystem,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+const tick=async()=>{await Promise.resolve();await Promise.resolve();};
+run.onclick=async()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],signals=[],stops=[];let observed;
+ const source=value=>{const model=signal(value);signals.push(model);return model;};
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ const root=()=>{const host=document.createElement('div');preview.append(host);return host.attachShadow({mode:'closed'});};
+ let documentEvents=0;const documentReset=()=>documentEvents++;document.addEventListener('reset',documentReset);
+ try{
+  const late=source('edited');let first,second,input;
+  createRoot(stop=>{stops.push(stop);first=h('form',null);second=h('form',null);input=h('input',{model:late});first.append(input);});
+  first.reset();await tick();check(late()==='','late native append into an initially empty detached Svet form resets immediately');
+  late.set('moved');second.append(input);second.reset();await tick();check(late()==='','native move into a second live detached Svet form routes reset without an observer checkpoint');
+  const tree=root(),nativeForm=document.createElement('form'),container=document.createElement('div');nativeForm.append(container);tree.append(nativeForm);const shadowText=source('edited');
+  const app=mount(()=>h('input',{model:shadowText}),container);stops.push(app.unmount);nativeForm.reset();await tick();
+  check(shadowText()===''&&documentEvents===0,'mount receives enclosing native-form reset inside a closed shadow tree without document propagation');
+  const direct=root(),directText=source('direct');let directInput;const directApp=mount(()=>{directInput=h('input',{model:directText});return directInput;},direct);stops.push(directApp.unmount);
+  const later=document.createElement('form');later.append(directInput);direct.append(later);later.reset();await tick();
+  check(directText()==='','direct ShadowRoot mount routes reset for a native form inserted after mounting');
+  const destination=root();destination.append(container);
+  // Retain the modeled input, then wrap it in a native descendant form after migration.
+  const migrated=container.firstChild;const subtreeForm=document.createElement('form');subtreeForm.append(migrated);container.append(subtreeForm);shadowText.set('migrated');subtreeForm.reset();await tick();
+  check(shadowText()==='','a mounted subtree moved between closed shadow trees keeps local reset routing');
+  directText.set('kept');const prevent=event=>event.preventDefault();later.addEventListener('reset',prevent);later.reset();await tick();
+  check(directText()==='kept','canceled shadow reset preserves model and native value');later.removeEventListener('reset',prevent);
+  const arrayTree=root(),many=source(['b']);let arrayForm;const arrayApp=mount(()=>{arrayForm=h('form',null,h('select',{multiple:true,model:many},h('option',{value:'a',selected:true},'A'),h('option',{value:'b'},'B')));return arrayForm;},arrayTree);stops.push(arrayApp.unmount);
+  let runs=0;observed=effect(()=>{many();runs++;});arrayForm.reset();await tick();
+  check(JSON.stringify(many())==='["a"]'&&runs===2,'form and shadow capture share exactly one array publication');
+  directText.set('retained');later.reset();for(const stop of stops)stop();await tick();const frozen=directText()==='retained';observed.dispose();observed=undefined;for(const model of signals)model.dispose();
+  check(frozen&&getGraphTelemetry().nodes===0,'root teardown cancels queued reset writes and releases the complete graph');
+  const eventsTree=root(),calls=[],eventTargets=[];const eventsApp=mount(()=>h('section',{onClick:event=>{calls.push('parent');eventTargets.push(event.currentTarget);}},h('button',{onClick:event=>{calls.push('button');eventTargets.push(event.currentTarget);}},'click')),eventsTree);stops.push(eventsApp.unmount);
+  const eventButton=eventsTree.querySelector('button');eventButton.click();
+  check(calls.join(',')==='button,parent'&&eventTargets[0]===eventButton&&eventTargets[1]===eventsTree.firstChild,'closed ShadowRoot click bubbles once through logical handlers/currentTarget');
+  let inputs=0;const inputTree=root(),inputApp=mount(()=>h('input',{onInput:()=>inputs++}),inputTree);stops.push(inputApp.unmount);inputTree.firstChild.dispatchEvent(new Event('input',{bubbles:true,composed:false}));
+  check(inputs===1,'noncomposed input reaches the local delegation area');
+  const openHost=document.createElement('div');preview.append(openHost);const openTree=openHost.attachShadow({mode:'open'});let openCalls=0;const openApp=mount(()=>h('button',{onClick:()=>openCalls++},'reuse'),openTree);stops.push(openApp.unmount);
+  const reusable=new MouseEvent('click',{bubbles:true,composed:true}),openButton=openTree.firstChild;openButton.dispatchEvent(reusable);openButton.dispatchEvent(reusable);
+  check(openCalls===2,'open shadow route avoids duplicate document calls and permits synchronous Event reuse');
+  const dynamicTree=root(),visible=source(false),rows=source([1]),rowCalls=[];const dynamicApp=mount(()=>Show({when:visible,children:()=>For({each:rows,keyFn:value=>value,children:value=>h('button',{onClick:()=>rowCalls.push(value)},String(value))})}),dynamicTree);stops.push(dynamicApp.unmount);visible.set(true);dynamicTree.querySelector('button').click();rows.set([2]);dynamicTree.querySelector('button').click();
+  check(rowCalls.join(',')==='1,2','Show/For children created after mount inherit local event routing');
+  let portalCalls=0;const portalHost=document.createElement('div');preview.append(portalHost);const portalTree=root(),portalApp=mount(()=>Portal({mount:portalHost,children:h('button',{onClick:()=>portalCalls++},'portal')}),portalTree);stops.push(portalApp.unmount);portalHost.querySelector('button').click();
+  check(portalCalls===1,'Portal from closed shadow mount retains document fallback');
+  let slotCalls=0,slotted;const slotHost=document.createElement('div');preview.append(slotHost);const slotTree=slotHost.attachShadow({mode:'open'}),slotApp=mount(()=>{slotted=h('button',{onClick:()=>slotCalls++},'slot');return h('slot');},slotTree);stops.push(slotApp.unmount);slotHost.append(slotted);slotted.click();
+  check(slotCalls===1,'slotted light-DOM callback is not duplicated by shadow/document delegation');
+  let stoppedCalls=0;const stopTree=root(),stopHost=stopTree.host;stopHost.addEventListener('click',()=>stoppedCalls++);const stopApp=mount(()=>h('button',{onClick:event=>event.stopPropagation()},'stop'),stopTree);stops.push(stopApp.unmount);stopTree.firstChild.click();
+  check(stoppedCalls===0,'local stopPropagation prevents native host bubbling');
+  const retained=eventButton;for(const stop of stops)stop();eventsTree.append(retained);retained.click();for(const model of signals)model.dispose();
+  check(calls.length===2&&getGraphTelemetry().nodes===0,'unmount removes shadow callbacks and retires all dynamic event graph nodes');
+  result.textContent=lines.join('\n')+'\n16/16 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();observed?.dispose();for(const model of signals)model.dispose();document.removeEventListener('reset',documentReset);run.disabled=false;}
+};
+</script>

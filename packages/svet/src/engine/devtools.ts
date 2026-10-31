@@ -2,7 +2,7 @@
  * # Svet DevTools, Deterministic Time-Travel Debugger & High-Performance UI Kit (`devtools.ts`)
  *
  * 1. **Deterministic Time-Travel Debugger (`createTimeTravelDebugger`)**:
- *    - Records snapshots of tracked `Signal<any>` values and WASM/GPU telemetry in $O(1)$.
+ *    - Records snapshots of tracked `Signal<any>` values and WASM/GPU telemetry.
  *    - Allows scrubbing backward/forward (`undo()`, `redo()`, `jumpTo(index)`) atomically inside `batch()`
  *      without triggering duplicate intermediate history entries!
  *
@@ -12,16 +12,16 @@
  */
 
 import { getDomMutationCount, h, insertChild } from './dom.ts';
-import { getGpuTelemetry, GpuDeviceTelemetry } from './gpu.ts';
+import { getGpuTelemetry, type GpuDeviceTelemetry } from './gpu.ts';
 import {
   batch,
   computed,
   effect,
   getGraphTelemetry,
   onCleanup,
-  ReadonlySignal,
+  type ReadonlySignal,
   signal,
-  Signal,
+  type Signal,
 } from './reactivity.ts';
 
 // ============================================================================

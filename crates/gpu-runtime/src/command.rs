@@ -652,7 +652,7 @@ impl<'a> Drop for RenderPass<'a> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[ComputeDispatchOp]) {
     let s = metal_selectors();
     let f_set_pso: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
@@ -740,7 +740,7 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) unsafe fn encode_non_compute_op(_metal: &MetalDevice, cmd_buf: *mut c_void, op: RecordedOp) {
     let s = metal_selectors();
     let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -943,7 +943,7 @@ pub(crate) unsafe fn encode_non_compute_op(_metal: &MetalDevice, cmd_buf: *mut c
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) {
     let s = metal_selectors();
     let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =

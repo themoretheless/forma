@@ -142,3 +142,31 @@ jobs:
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
+
+  svet:
+    name: Svet engine and installed package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/svet
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: packages/svet/package-lock.json
+      - run: npm ci
+      - name: Build WASM, ESM package and demo
+        run: npm run build
+      - name: Engine and native Node regressions
+        run: npm test
+      - name: Native HTTP action cancellation and concurrency
+        run: npm run test:actions
+      - name: Rust reactive graph and allocator regressions
+        run: cargo test --locked --manifest-path crates/svet-wasm/Cargo.toml
+      - name: Install tarball in an independent consumer and verify public APIs
+        run: npm run test:package

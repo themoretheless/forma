@@ -4,7 +4,7 @@ use std::ffi::{c_char, c_void, CStr, CString};
 use std::ptr;
 use std::sync::{Arc, Mutex, OnceLock};
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "objc")]
 extern "C" {
     pub fn objc_getClass(name: *const c_char) -> *mut c_void;
@@ -12,17 +12,21 @@ extern "C" {
     pub fn objc_msgSend();
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "Metal", kind = "framework")]
 extern "C" {
     pub fn MTLCreateSystemDefaultDevice() -> *mut c_void;
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {}
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[link(name = "QuartzCore", kind = "framework")]
+extern "C" {}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "Foundation", kind = "framework")]
 extern "C" {}
 
@@ -174,6 +178,32 @@ pub struct Selectors {
     pub set_sample_count_counter: *mut c_void,
     pub gpu_start_time: *mut c_void,
     pub gpu_end_time: *mut c_void,
+    // CAMetalLayer & surface presentation
+    pub cls_ca_metal_layer: *mut c_void,
+    pub layer_creator: *mut c_void,
+    pub view_layer: *mut c_void,
+    pub set_layer: *mut c_void,
+    pub set_wants_layer: *mut c_void,
+    pub is_kind_of_class: *mut c_void,
+    pub sublayers: *mut c_void,
+    pub object_at_index: *mut c_void,
+    pub add_sublayer: *mut c_void,
+    pub bounds: *mut c_void,
+    pub set_frame: *mut c_void,
+    pub set_autoresizing_mask: *mut c_void,
+    pub set_device: *mut c_void,
+    pub set_drawable_size: *mut c_void,
+    pub set_framebuffer_only: *mut c_void,
+    pub set_opaque: *mut c_void,
+    pub set_display_sync_enabled: *mut c_void,
+    pub set_maximum_drawable_count: *mut c_void,
+    pub next_drawable: *mut c_void,
+    pub drawable_texture: *mut c_void,
+    pub present_drawable: *mut c_void,
+    pub wait_until_scheduled: *mut c_void,
+    pub presents_with_transaction: *mut c_void,
+    pub cls_ns_autorelease_pool: *mut c_void,
+    pub drain: *mut c_void,
 }
 
 unsafe impl Send for Selectors {}
@@ -181,19 +211,19 @@ unsafe impl Sync for Selectors {}
 
 static SELECTORS: OnceLock<Selectors> = OnceLock::new();
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 fn sel(name: &str) -> *mut c_void {
     let c = CString::new(name).unwrap();
     unsafe { sel_registerName(c.as_ptr()) }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 fn cls(name: &str) -> *mut c_void {
     let c = CString::new(name).unwrap();
     unsafe { objc_getClass(c.as_ptr()) }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub fn selectors() -> &'static Selectors {
     SELECTORS.get_or_init(|| Selectors {
         release: sel("release"),
@@ -343,7 +373,53 @@ pub fn selectors() -> &'static Selectors {
         set_sample_count_counter: sel("setSampleCount:"),
         gpu_start_time: sel("GPUStartTime"),
         gpu_end_time: sel("GPUEndTime"),
+        cls_ca_metal_layer: cls("CAMetalLayer"),
+        layer_creator: sel("layer"),
+        view_layer: sel("layer"),
+        set_layer: sel("setLayer:"),
+        set_wants_layer: sel("setWantsLayer:"),
+        is_kind_of_class: sel("isKindOfClass:"),
+        sublayers: sel("sublayers"),
+        object_at_index: sel("objectAtIndex:"),
+        add_sublayer: sel("addSublayer:"),
+        bounds: sel("bounds"),
+        set_frame: sel("setFrame:"),
+        set_autoresizing_mask: sel("setAutoresizingMask:"),
+        set_device: sel("setDevice:"),
+        set_drawable_size: sel("setDrawableSize:"),
+        set_framebuffer_only: sel("setFramebufferOnly:"),
+        set_opaque: sel("setOpaque:"),
+        set_display_sync_enabled: sel("setDisplaySyncEnabled:"),
+        set_maximum_drawable_count: sel("setMaximumDrawableCount:"),
+        next_drawable: sel("nextDrawable"),
+        drawable_texture: sel("texture"),
+        present_drawable: sel("present"),
+        wait_until_scheduled: sel("waitUntilScheduled"),
+        presents_with_transaction: sel("presentsWithTransaction"),
+        cls_ns_autorelease_pool: cls("NSAutoreleasePool"),
+        drain: sel("drain"),
     })
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct CGSize {
+    pub width: f64,
+    pub height: f64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct CGPoint {
+    pub x: f64,
+    pub y: f64,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct CGRect {
+    pub origin: CGPoint,
+    pub size: CGSize,
 }
 
 #[repr(C)]
@@ -426,7 +502,7 @@ impl ObjCObject {
         if ptr.is_null() {
             None
         } else {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             unsafe {
                 let s = selectors();
                 let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -445,7 +521,7 @@ impl ObjCObject {
 
 impl Clone for ObjCObject {
     fn clone(&self) -> Self {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
             let f: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -458,7 +534,7 @@ impl Clone for ObjCObject {
 
 impl Drop for ObjCObject {
     fn drop(&mut self) {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         if !self.0.is_null() {
             unsafe {
                 let s = selectors();
@@ -470,7 +546,7 @@ impl Drop for ObjCObject {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub unsafe fn nsstring_from_str(st: &str) -> *mut c_void {
     let s = selectors();
     let c = CString::new(st).unwrap_or_default();
@@ -479,7 +555,7 @@ pub unsafe fn nsstring_from_str(st: &str) -> *mut c_void {
     f(s.cls_ns_string, s.string_with_utf8, c.as_ptr())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub unsafe fn nsstring_to_string(ns: *mut c_void) -> String {
     if ns.is_null() {
         return String::new();
@@ -495,7 +571,7 @@ pub unsafe fn nsstring_to_string(ns: *mut c_void) -> String {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub unsafe fn nserror_description(err: *mut c_void) -> String {
     if err.is_null() {
         return "unknown Metal error".to_string();
@@ -528,7 +604,7 @@ unsafe impl Send for MetalDevice {}
 unsafe impl Sync for MetalDevice {}
 
 impl MetalDevice {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn create_system_default() -> Option<Self> {
         unsafe {
             let dev_ptr = MTLCreateSystemDefaultDevice();
@@ -575,12 +651,12 @@ impl MetalDevice {
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
     pub fn create_system_default() -> Option<Self> {
         None
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn alloc_buffer(&self, size: usize, options: u64) -> (Arc<ObjCObject>, *mut u8) {
         let aligned_size = ((size.max(16) + 255) & !255).max(256);
         if let Ok(mut pool) = self.buffer_pool.lock() {
@@ -614,7 +690,7 @@ impl MetalDevice {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn alloc_buffer_with_bytes(&self, bytes: &[u8], options: u64) -> (Arc<ObjCObject>, *mut u8) {
         if bytes.is_empty() {
             return self.alloc_buffer(16, options);
@@ -648,7 +724,7 @@ impl MetalDevice {
     }
 
     /// ASD (Apple Silicon Direct / Accelerated Storage Direct) zero-copy page-aligned buffer creation
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub unsafe fn alloc_buffer_no_copy(
         &self,
         page_aligned_ptr: *mut c_void,
@@ -689,7 +765,7 @@ impl MetalDevice {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn compile_compute_pipeline(
         &self,
         msl_source: &str,
@@ -799,7 +875,7 @@ impl MetalDevice {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn flush_pending_compute(&self) {
         let ops: Vec<crate::ComputeDispatchOp> = self
             .pending_compute_ops
@@ -832,7 +908,7 @@ impl MetalDevice {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn wait_idle(&self) {
         self.flush_pending_compute();
         let cmd_opt = self.last_cmd_buf.lock().ok().and_then(|mut g| g.take());
@@ -852,7 +928,7 @@ impl MetalDevice {
         }
     }
 
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn is_last_cmd_completed(&self) -> bool {
         if let Ok(pending) = self.pending_compute_ops.lock() {
             if !pending.is_empty() {
@@ -927,7 +1003,7 @@ impl MetalDevice {
             }
         }
 
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
             let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -1172,7 +1248,7 @@ impl MetalDevice {
     }
 
     pub fn create_texture(&self, desc: &crate::TextureDescriptor<'_>) -> crate::Texture {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
             let f_td: unsafe extern "C" fn(
@@ -1265,7 +1341,7 @@ impl MetalDevice {
     }
 
     pub fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> crate::Sampler {
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
             let f_alloc: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -1312,7 +1388,7 @@ impl MetalDevice {
             self.wait_idle();
         }
         if buffer.inner.ptr.is_null() {
-            #[cfg(target_os = "macos")]
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
             unsafe {
                 let (stg_raw, _) = self.alloc_buffer_with_bytes(data, 0);
                 let s = selectors();
@@ -1362,7 +1438,7 @@ impl MetalDevice {
         if data.is_empty() || size.width == 0 || size.height == 0 {
             return;
         }
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
             let bpr = data_layout
@@ -1442,7 +1518,7 @@ impl MetalDevice {
 
         let idx = self.next_submission_index.fetch_add(1, Ordering::Relaxed);
 
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let cbs: Vec<crate::CommandBuffer> = command_buffers.into_iter().collect();
             let is_pure_untimed_compute = !cbs.is_empty()
@@ -1535,6 +1611,7 @@ impl MetalDevice {
             let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
                 std::mem::transmute(objc_msgSend as *const c_void);
 
+            let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
             let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
             assert!(!cmd_buf_ptr.is_null(), "Failed to create MTLCommandBuffer");
             let cmd_buf = Arc::new(ObjCObject::from_unretained(cmd_buf_ptr).unwrap());
@@ -1688,6 +1765,9 @@ impl MetalDevice {
             }
 
             f_void(cmd_buf.as_ptr(), s.commit);
+            if !pool.is_null() {
+                f_void(pool, s.drain);
+            }
             if let Ok(mut last) = self.last_cmd_buf.lock() {
                 *last = Some((cmd_buf, idx));
             }
@@ -1700,6 +1780,208 @@ impl MetalDevice {
         }
 
         SubmissionIndex(idx)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub unsafe fn ensure_metal_layer_for_view(view_ptr: *mut c_void, is_appkit: bool) -> Option<Arc<ObjCObject>> {
+        if view_ptr.is_null() {
+            return None;
+        }
+        let s = selectors();
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_is_kind: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> bool =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_usize: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_at_idx: unsafe extern "C" fn(*mut c_void, *mut c_void, usize) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_rect: unsafe extern "C" fn(*mut c_void, *mut c_void) -> CGRect =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+
+        if is_appkit {
+            f_set_bool(view_ptr, s.set_wants_layer, true);
+        }
+        let root_layer = f_obj(view_ptr, s.view_layer);
+        if !root_layer.is_null() && f_is_kind(root_layer, s.is_kind_of_class, s.cls_ca_metal_layer) {
+            return ObjCObject::from_unretained(root_layer).map(Arc::new);
+        }
+
+        if !root_layer.is_null() {
+            let sublayers = f_obj(root_layer, s.sublayers);
+            if !sublayers.is_null() {
+                let count = f_usize(sublayers, s.count);
+                for i in 0..count {
+                    let child = f_at_idx(sublayers, s.object_at_index, i);
+                    if !child.is_null() && f_is_kind(child, s.is_kind_of_class, s.cls_ca_metal_layer) {
+                        return ObjCObject::from_unretained(child).map(Arc::new);
+                    }
+                }
+            }
+        }
+
+        let new_layer = f_obj(s.cls_ca_metal_layer, s.layer_creator);
+        if new_layer.is_null() {
+            return None;
+        }
+        if is_appkit && root_layer.is_null() {
+            f_set_obj(view_ptr, s.set_layer, new_layer);
+            f_set_bool(view_ptr, s.set_wants_layer, true);
+        } else if !root_layer.is_null() {
+            let b = f_rect(root_layer, s.bounds);
+            f_set_rect(new_layer, s.set_frame, b);
+            // kCALayerWidthSizable (2) | kCALayerHeightSizable (16) = 18
+            f_set_u64(new_layer, s.set_autoresizing_mask, 18);
+            f_set_obj(root_layer, s.add_sublayer, new_layer);
+        } else if is_appkit {
+            f_set_obj(view_ptr, s.set_layer, new_layer);
+        }
+        ObjCObject::from_unretained(new_layer).map(Arc::new)
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub unsafe fn configure_metal_layer(
+        &self,
+        layer_ptr: *mut c_void,
+        view_ptr: *mut c_void,
+        config: &crate::SurfaceConfiguration,
+    ) {
+        if layer_ptr.is_null() {
+            return;
+        }
+        let s = selectors();
+        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_u64: unsafe extern "C" fn(*mut c_void, *mut c_void, u64) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_size: unsafe extern "C" fn(*mut c_void, *mut c_void, CGSize) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_rect: unsafe extern "C" fn(*mut c_void, *mut c_void) -> CGRect =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_rect: unsafe extern "C" fn(*mut c_void, *mut c_void, CGRect) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const c_void);
+
+        f_set_obj(layer_ptr, s.set_device, self.raw.as_ptr());
+        f_set_u64(layer_ptr, s.set_pixel_format, config.format.to_mtl_pixel_format());
+        let fb_only = config.usage == crate::TextureUsages::RENDER_ATTACHMENT;
+        f_set_bool(layer_ptr, s.set_framebuffer_only, fb_only);
+        let opaque = !matches!(
+            config.alpha_mode,
+            crate::CompositeAlphaMode::PreMultiplied | crate::CompositeAlphaMode::PostMultiplied
+        );
+        f_set_bool(layer_ptr, s.set_opaque, opaque);
+        let max_drawables = config.desired_maximum_frame_latency.clamp(2, 3) as u64;
+        f_set_u64(layer_ptr, s.set_maximum_drawable_count, max_drawables);
+        #[cfg(target_os = "macos")]
+        {
+            let vsync = matches!(config.present_mode, crate::PresentMode::Fifo | crate::PresentMode::FifoRelaxed);
+            f_set_bool(layer_ptr, s.set_display_sync_enabled, vsync);
+        }
+        if !view_ptr.is_null() {
+            let root_layer = f_obj(view_ptr, s.view_layer);
+            if !root_layer.is_null() && root_layer != layer_ptr {
+                let b = f_rect(root_layer, s.bounds);
+                f_set_rect(layer_ptr, s.set_frame, b);
+            }
+        }
+        f_set_size(
+            layer_ptr,
+            s.set_drawable_size,
+            CGSize {
+                width: config.width.max(1) as f64,
+                height: config.height.max(1) as f64,
+            },
+        );
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub unsafe fn acquire_drawable(
+        &self,
+        layer_ptr: *mut c_void,
+        config: &crate::SurfaceConfiguration,
+    ) -> Option<(Arc<ObjCObject>, crate::Texture)> {
+        if layer_ptr.is_null() {
+            return None;
+        }
+        let s = selectors();
+        let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_usize: unsafe extern "C" fn(*mut c_void, *mut c_void) -> usize =
+            std::mem::transmute(objc_msgSend as *const c_void);
+
+        let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
+        let drawable_ptr = f_obj(layer_ptr, s.next_drawable);
+        let Some(drawable_obj) = ObjCObject::from_unretained(drawable_ptr) else {
+            if !pool.is_null() {
+                f_void(pool, s.drain);
+            }
+            return None;
+        };
+        let drawable = Arc::new(drawable_obj);
+        let tex_ptr = f_obj(drawable.as_ptr(), s.drawable_texture);
+        let Some(tex_obj) = ObjCObject::from_unretained(tex_ptr) else {
+            if !pool.is_null() {
+                f_void(pool, s.drain);
+            }
+            return None;
+        };
+        if !pool.is_null() {
+            f_void(pool, s.drain);
+        }
+        let tex_raw = Arc::new(tex_obj);
+        let w = (f_usize(tex_raw.as_ptr(), s.width) as u32).max(1);
+        let h = (f_usize(tex_raw.as_ptr(), s.height) as u32).max(1);
+        let tex = crate::Texture {
+            raw: tex_raw,
+            size: crate::Extent3d {
+                width: w,
+                height: h,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: crate::TextureDimension::D2,
+            format: config.format,
+            usage: config.usage | crate::TextureUsages::RENDER_ATTACHMENT,
+            storage_mode: 2,
+        };
+        Some((drawable, tex))
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    pub unsafe fn present_drawable(&self, layer_ptr: *mut c_void, drawable_ptr: *mut c_void) {
+        if drawable_ptr.is_null() {
+            return;
+        }
+        let s = selectors();
+        let f_void: unsafe extern "C" fn(*mut c_void, *mut c_void) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool =
+            std::mem::transmute(objc_msgSend as *const c_void);
+
+        self.flush_pending_compute();
+        let transactional = !layer_ptr.is_null() && f_bool(layer_ptr, s.presents_with_transaction);
+        if let Ok(guard) = self.last_cmd_buf.lock() {
+            if let Some((cmd_buf, _)) = guard.as_ref() {
+                f_void(cmd_buf.as_ptr(), s.wait_until_scheduled);
+            }
+        }
+        let _ = transactional;
+        f_void(drawable_ptr, s.present_drawable);
     }
 }
 

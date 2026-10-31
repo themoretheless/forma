@@ -207,7 +207,7 @@ function buildDecorations(view,info){
 
 export function tokenizerHighlight(path){
   const info=detectTokenizerLanguage(path);
-  if(!info||info.lang==='forma')return [];
+  if(!info||info.lang==='forma'||typeof window==='undefined')return [];
   ensureTokenizerWasm();
   const plugin=ViewPlugin.fromClass(class{
     constructor(view){

@@ -3,7 +3,8 @@ import path from 'node:path';
 import { svetVitePlugin } from './src/engine/compiler.ts';
 
 export default defineConfig({
-  plugins: [svetVitePlugin()],
+  plugins: [svetVitePlugin({ runtimeImportSource: 'svet' })],
+  build: { outDir: 'dist/demo' },
   server: {
     fs: {
       allow: [

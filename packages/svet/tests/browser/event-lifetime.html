@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><title>Svet event lifetimes</title>
+<style>body{font:17px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:18px;line-height:1.7;white-space:pre-wrap}</style>
+<h1>Svet event lifetime isolation</h1><p>Retained native DOM, reactive graph reset, synchronous core ownership and listener teardown.</p>
+<button id="run">Run event lifetime checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {bindProp,createRoot,getGraphTelemetry,h,mount,resetReactiveSystem,signal} from '/src/engine/index.ts';
+import {createWasmCoreInstance,getWasmCore,withWasmCore} from '/src/engine/wasm-bridge.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],stops=[],sources=[];
+ const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ try{
+  let clicks=0,focuses=0,correct=true;const app=mount(()=>h('div',null,h('button',{onClick:function(event){clicks++;correct&&=this===event.currentTarget;}},'retained'),h('input',{onFocus:function(event){focuses++;correct&&=this===event.currentTarget;}})),preview);stops.push(app.unmount);
+  const button=preview.querySelector('button'),input=preview.querySelector('input');button.click();input.dispatchEvent(new Event('focus'));
+  check(clicks===1&&focuses===1&&correct,'live direct/delegated handlers retain native this and logical currentTarget');
+  resetReactiveSystem();const fresh=signal(33);sources.push(fresh);button.click();input.dispatchEvent(new Event('focus'));
+  check(clicks===1&&focuses===1&&fresh()===33,'graph reset suppresses retained old DOM callbacks without touching fresh graph state');
+  let freshCalls=0;createRoot(stop=>{stops.push(stop);bindProp(button,'onClick',()=>freshCalls++);});button.click();
+  check(freshCalls===1&&clicks===1,'a new callback on the same retained node remains live after stale bindings detach');
+  const peers=[];let peer;
+  createRoot(stop=>{stops.push(stop);peer=h('button',{onClick:()=>{peers.push('first');resetReactiveSystem();createRoot(finish=>{stops.push(finish);bindProp(peer,'onClick',()=>peers.push('fresh'));});}},'peers');bindProp(peer,'onClick',()=>peers.push('old'));preview.append(peer);});peer.click();peer.click();
+  check(peers.join(',')==='first,fresh','reset during dispatch skips old peers while preserving a freshly registered callback');
+  const registered=createWasmCoreInstance(),other=createWasmCoreInstance(),cores=[];let isolated;
+  withWasmCore(registered,()=>createRoot(stop=>{stops.push(stop);isolated=h('input',{onClick:()=>cores.push(getWasmCore()),onFocus:()=>cores.push(getWasmCore())});preview.append(isolated);}));
+  const restored=withWasmCore(other,()=>{isolated.click();isolated.dispatchEvent(new Event('focus'));return getWasmCore()===other;});
+  check(restored&&cores.length===2&&cores.every(core=>core===registered),'synchronous callbacks enter their registration core and restore the dispatching core');
+  const host=document.createElement('div');preview.append(host);const root=host.attachShadow({mode:'closed'});let shadowCalls=0;const shadowApp=mount(()=>h('button',{onClick:()=>shadowCalls++},'shadow'),root);stops.push(shadowApp.unmount);const retained=root.firstChild;retained.click();resetReactiveSystem();retained.click();
+  check(shadowCalls===1,'closed-shadow local delegation observes graph lifetime too');
+  const late=document.createElement('input'),native=late.addEventListener.bind(late);let lateCalls=0,rejected=false;
+  createRoot(stop=>{stops.push(stop);late.addEventListener=(name,listener,options)=>{stop();native(name,listener,options);};try{bindProp(late,'onFocus',()=>lateCalls++);}catch{rejected=true;}});late.dispatchEvent(new Event('focus'));
+  check(rejected&&lateCalls===0,'owner teardown during direct registration removes the late native callback');
+  for(const stop of stops)stop();for(const value of sources)value.dispose();
+  check(getGraphTelemetry().nodes===0&&registered.svet_get_node_count()===0&&other.svet_get_node_count()===0,'teardown retires graph state across the default and independent cores');
+  result.textContent=lines.join('\n')+'\n8/8 passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();for(const value of sources)value.dispose();run.disabled=false;}
+};
+</script>
