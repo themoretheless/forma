@@ -118,9 +118,53 @@ pub struct CommandEncoderDescriptor<'a> {
     pub label: Label<'a>,
 }
 
+#[derive(Clone, Default)]
+pub enum DynamicOffsets {
+    #[default]
+    Empty,
+    Inline {
+        len: u8,
+        vals: [u32; 4],
+    },
+    Heap(Vec<u32>),
+}
+
+impl DynamicOffsets {
+    #[inline]
+    pub fn from_slice(offsets: &[u32]) -> Self {
+        if offsets.is_empty() {
+            Self::Empty
+        } else if offsets.len() <= 4 {
+            let mut vals = [0u32; 4];
+            vals[..offsets.len()].copy_from_slice(offsets);
+            Self::Inline {
+                len: offsets.len() as u8,
+                vals,
+            }
+        } else {
+            Self::Heap(offsets.to_vec())
+        }
+    }
+
+    #[inline]
+    pub fn get(&self, idx: usize) -> Option<u32> {
+        match self {
+            Self::Empty => None,
+            Self::Inline { len, vals } => {
+                if idx < *len as usize {
+                    Some(vals[idx])
+                } else {
+                    None
+                }
+            }
+            Self::Heap(v) => v.get(idx).copied(),
+        }
+    }
+}
+
 pub(crate) struct ComputeDispatchOp {
     pub(crate) pipeline: ComputePipeline,
-    pub(crate) bind_groups: Vec<(u32, Option<BindGroup>, Vec<u32>)>,
+    pub(crate) bind_groups: Vec<(u32, Option<BindGroup>, DynamicOffsets)>,
     pub(crate) immediates: Vec<u8>,
     pub(crate) groups: [u32; 3],
 }
@@ -142,7 +186,7 @@ pub(crate) enum RenderCommand {
     SetBindGroup {
         index: u32,
         bind_group: BindGroup,
-        offsets: Vec<u32>,
+        offsets: DynamicOffsets,
     },
     SetVertexBuffer {
         slot: u32,
@@ -293,28 +337,26 @@ impl CommandEncoder {
             .timestamp_writes
             .as_ref()
             .and_then(|tw| tw.end_of_pass_write_index.map(|i| (tw.query_set.clone(), i)));
+        let dispatches = self.device.take_compute_dispatches();
         ComputePass {
             encoder: self,
             current_pipeline: None,
-            bind_groups: Vec::with_capacity(4),
+            bind_groups: Vec::new(),
             immediates: Vec::new(),
-            dispatches: Vec::with_capacity(8),
+            dispatches,
             start_timestamp: start_ts,
             end_timestamp: end_ts,
         }
     }
 
     pub fn begin_render_pass(&mut self, desc: &RenderPassDescriptor<'_>) -> RenderPass<'_> {
-        let color_attachments = desc
-            .color_attachments
-            .iter()
-            .map(|ca| {
-                ca.as_ref().map(|c| OwnedColorAttachment {
-                    view: c.view.clone(),
-                    ops: c.ops,
-                })
+        let mut color_attachments = self.device.take_color_atts();
+        color_attachments.extend(desc.color_attachments.iter().map(|ca| {
+            ca.as_ref().map(|c| OwnedColorAttachment {
+                view: c.view.clone(),
+                ops: c.ops,
             })
-            .collect();
+        }));
         let depth_stencil_attachment =
             desc.depth_stencil_attachment
                 .as_ref()
@@ -330,11 +372,12 @@ impl CommandEncoder {
             .timestamp_writes
             .as_ref()
             .and_then(|tw| tw.end_of_pass_write_index.map(|i| (tw.query_set.clone(), i)));
+        let commands = self.device.take_render_cmds();
         RenderPass {
             encoder: self,
             color_attachments,
             depth_stencil_attachment,
-            commands: Vec::with_capacity(32),
+            commands,
             start_timestamp,
             end_timestamp,
         }
@@ -452,7 +495,7 @@ pub struct CommandBuffer {
 pub struct ComputePass<'a> {
     encoder: &'a mut CommandEncoder,
     current_pipeline: Option<ComputePipeline>,
-    bind_groups: Vec<(u32, Option<BindGroup>, Vec<u32>)>,
+    bind_groups: Vec<(u32, Option<BindGroup>, DynamicOffsets)>,
     immediates: Vec<u8>,
     dispatches: Vec<ComputeDispatchOp>,
     start_timestamp: Option<(QuerySet, u32)>,
@@ -475,11 +518,13 @@ impl<'a> ComputePass<'a> {
         let bind_group = bind_group.into();
         if let Some(entry) = self.bind_groups.iter_mut().find(|(i, _, _)| *i == index) {
             entry.1 = bind_group.cloned();
-            entry.2.clear();
-            entry.2.extend_from_slice(offsets);
+            entry.2 = DynamicOffsets::from_slice(offsets);
         } else {
-            self.bind_groups
-                .push((index, bind_group.cloned(), offsets.to_vec()));
+            self.bind_groups.push((
+                index,
+                bind_group.cloned(),
+                DynamicOffsets::from_slice(offsets),
+            ));
         }
     }
 
@@ -525,6 +570,8 @@ impl<'a> Drop for ComputePass<'a> {
                 start_ts,
                 end_ts,
             });
+        } else {
+            self.encoder.device.recycle_compute_dispatches(dispatches);
         }
     }
 }
@@ -556,7 +603,7 @@ impl<'a> RenderPass<'a> {
             self.commands.push(RenderCommand::SetBindGroup {
                 index,
                 bind_group: bg.clone(),
-                offsets: offsets.to_vec(),
+                offsets: DynamicOffsets::from_slice(offsets),
             });
         }
     }
@@ -682,7 +729,7 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
             let Some(bg) = bg_opt else { continue };
             for (b_idx, (binding, buf, base_off, byte_size)) in bg.buffers.iter().enumerate() {
                 let slot = msl_buffer_slot(*group_idx, *binding) as usize;
-                let dyn_off = dyn_offsets.get(b_idx).copied().unwrap_or(0) as u64;
+                let dyn_off = dyn_offsets.get(b_idx).unwrap_or(0) as u64;
                 let final_off = (*base_off + dyn_off) as usize;
                 f_set_buf(
                     enc,
@@ -696,11 +743,11 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
                     buffer_sizes[slot] = rem as u32;
                 }
             }
-            for (binding, tex) in &bg.textures {
+            for (binding, tex) in bg.textures.iter() {
                 let slot = msl_texture_slot(*group_idx, *binding) as usize;
                 f_set_tex(enc, s.set_texture, tex.raw.as_ptr(), slot);
             }
-            for (binding, samp) in &bg.samplers {
+            for (binding, samp) in bg.samplers.iter() {
                 let slot = msl_sampler_slot(*group_idx, *binding) as usize;
                 f_set_samp(enc, s.set_sampler_state, samp.raw.as_ptr(), slot);
             }
@@ -937,14 +984,14 @@ pub(crate) unsafe fn encode_non_compute_op(_metal: &MetalDevice, cmd_buf: *mut c
             }
         }
         RecordedOp::RenderPass(rp) => {
-            encode_render_pass(cmd_buf, rp);
+            encode_render_pass(_metal, cmd_buf, rp);
         }
         RecordedOp::ComputePass { .. } => {}
     }
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) {
+pub(crate) unsafe fn encode_render_pass(metal: &MetalDevice, cmd_buf: *mut c_void, mut rp: RenderPassOp) {
     let s = metal_selectors();
     let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
         std::mem::transmute(metal_msg_send as *const c_void);
@@ -962,7 +1009,8 @@ pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) 
     let rpd = f_obj(s.cls_mtl_render_pass_descriptor, s.render_pass_descriptor);
     let color_atts = f_obj(rpd, s.color_attachments);
 
-    for (i, ca_opt) in rp.color_attachments.iter().enumerate() {
+    let owned_color_atts = std::mem::take(&mut rp.color_attachments);
+    for (i, ca_opt) in owned_color_atts.iter().enumerate() {
         if let Some(ca) = ca_opt {
             let att = f_sub(color_atts, s.object_at_indexed_subscript, i);
             f_set_obj(att, s.set_attachment_texture, ca.view.texture.raw.as_ptr());
@@ -993,6 +1041,7 @@ pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) 
             f_set_u64(att, s.set_store_action, store_act);
         }
     }
+    metal.recycle_color_atts(owned_color_atts);
 
     if let Some(dsa) = &rp.depth_stencil_attachment {
         let d_att = f_obj(rpd, s.depth_attachment);
@@ -1017,10 +1066,12 @@ pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) 
         }
     }
 
+    let mut commands = std::mem::take(&mut rp.commands);
     let f_rce: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> *mut c_void =
         std::mem::transmute(metal_msg_send as *const c_void);
     let enc = f_rce(cmd_buf, s.render_command_encoder_with_desc, rpd);
     if enc.is_null() {
+        metal.recycle_render_cmds(commands);
         return;
     }
 
@@ -1062,7 +1113,7 @@ pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) 
     let mut current_primitive_type = 3u64; // MTLPrimitiveTypeTriangle
     let mut active_index_buffer: Option<(Buffer, IndexFormat, u64)> = None;
 
-    for cmd in rp.commands {
+    for cmd in commands.drain(..) {
         match cmd {
             RenderCommand::SetPipeline(pipe) => {
                 f_set_pso(enc, s.set_render_pipeline_state, pipe.pso.as_ptr());
@@ -1098,7 +1149,7 @@ pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) 
             } => {
                 for (b_i, (binding, buf, base_off, _)) in bind_group.buffers.iter().enumerate() {
                     let slot = msl_buffer_slot(index, *binding) as usize;
-                    let dyn_off = offsets.get(b_i).copied().unwrap_or(0) as u64;
+                    let dyn_off = offsets.get(b_i).unwrap_or(0) as u64;
                     let final_off = (*base_off + dyn_off) as usize;
                     f_set_buf(
                         enc,
@@ -1115,12 +1166,12 @@ pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) 
                         slot,
                     );
                 }
-                for (binding, tex) in &bind_group.textures {
+                for (binding, tex) in bind_group.textures.iter() {
                     let slot = msl_texture_slot(index, *binding) as usize;
                     f_set_tex(enc, s.set_vertex_texture, tex.raw.as_ptr(), slot);
                     f_set_tex(enc, s.set_fragment_texture, tex.raw.as_ptr(), slot);
                 }
-                for (binding, samp) in &bind_group.samplers {
+                for (binding, samp) in bind_group.samplers.iter() {
                     let slot = msl_sampler_slot(index, *binding) as usize;
                     f_set_samp(enc, s.set_vertex_sampler_state, samp.raw.as_ptr(), slot);
                     f_set_samp(enc, s.set_fragment_sampler_state, samp.raw.as_ptr(), slot);
@@ -1251,5 +1302,6 @@ pub(crate) unsafe fn encode_render_pass(cmd_buf: *mut c_void, rp: RenderPassOp) 
         }
     }
 
+    metal.recycle_render_cmds(commands);
     f_void(enc, s.end_encoding);
 }

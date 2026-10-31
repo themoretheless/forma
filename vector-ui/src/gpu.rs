@@ -412,24 +412,9 @@ impl Renderer {
         encoder.resolve_query_set(&timing.queries, 0..2, &timing.resolve, 0);
         encoder.copy_buffer_to_buffer(&timing.resolve, 0, &timing.readback, 0, 16);
         self.queue.submit(Some(encoder.finish()));
-        let (send, recv) = std::sync::mpsc::channel();
-        timing
-            .readback
-            .slice(..)
-            .map_async(wgpu::MapMode::Read, move |result| {
-                let _ = send.send(result);
-            });
-        self.device
-            .poll(wgpu::PollType::wait_indefinitely())
-            .map_err(|e| e.to_string())?;
-        recv.recv()
-            .map_err(|e| e.to_string())?
-            .map_err(|e| e.to_string())?;
-        let values = timing.readback.slice(..).get_mapped_range();
+        let values = timing.readback.uma_slice();
         let begin = u64::from_ne_bytes(values[..8].try_into().unwrap());
         let end = u64::from_ne_bytes(values[8..16].try_into().unwrap());
-        drop(values);
-        timing.readback.unmap();
         timing.pending = false;
         Ok(timestamp_duration_ns(begin, end, timing.period_ns))
     }

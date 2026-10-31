@@ -137,9 +137,9 @@ pub struct BindGroupDescriptor<'a> {
 
 #[derive(Clone)]
 pub struct BindGroup {
-    pub(crate) buffers: Vec<(u32, Buffer, u64, u64)>,
-    pub(crate) textures: Vec<(u32, Texture)>,
-    pub(crate) samplers: Vec<(u32, Sampler)>,
+    pub(crate) buffers: Arc<[(u32, Buffer, u64, u64)]>,
+    pub(crate) textures: Arc<[(u32, Texture)]>,
+    pub(crate) samplers: Arc<[(u32, Sampler)]>,
 }
 
 #[derive(Debug, Clone)]

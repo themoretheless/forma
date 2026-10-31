@@ -587,7 +587,7 @@ pub unsafe fn nserror_description(err: *mut c_void) -> String {
 pub struct MetalDevice {
     pub raw: Arc<ObjCObject>,
     pub queue: Arc<ObjCObject>,
-    pub name: String,
+    pub name: Arc<str>,
     pub has_unified_memory: bool,
     pub max_buffer_length: u64,
     pub recommended_working_set: u64,
@@ -595,7 +595,11 @@ pub struct MetalDevice {
     pub compute_pipeline_cache: Arc<Mutex<std::collections::HashMap<u64, Arc<ObjCObject>>>>,
     pub render_pipeline_cache: Arc<Mutex<std::collections::HashMap<u64, (Arc<ObjCObject>, Option<Arc<ObjCObject>>)>>>,
     pub buffer_pool: Arc<Mutex< Vec<(usize, u64, Arc<ObjCObject>, *mut u8)> >>,
-    pub last_cmd_buf: Arc<Mutex<Option<(Arc<ObjCObject>, u64)>>>,
+    pub(crate) cmd_ops_pool: Arc<Mutex<Vec<Vec<crate::RecordedOp>>>>,
+    pub(crate) render_cmds_pool: Arc<Mutex<Vec<Vec<crate::RenderCommand>>>>,
+    pub(crate) color_atts_pool: Arc<Mutex<Vec<Vec<Option<crate::OwnedColorAttachment>>>>>,
+    pub(crate) compute_dispatches_pool: Arc<Mutex<Vec<Vec<crate::ComputeDispatchOp>>>>,
+    pub last_cmd_buf: Arc<Mutex<Option<(ObjCObject, u64)>>>,
     pub(crate) pending_compute_ops: Arc<Mutex<Vec<crate::ComputeDispatchOp>>>,
     pub next_submission_index: Arc<std::sync::atomic::AtomicU64>,
 }
@@ -621,7 +625,7 @@ impl MetalDevice {
                 std::mem::transmute(objc_msgSend as *const c_void);
 
             let name_ns = f_ptr(raw.as_ptr(), s.name);
-            let name = nsstring_to_string(name_ns);
+            let name: Arc<str> = nsstring_to_string(name_ns).into();
             let has_unified_memory = f_bool(raw.as_ptr(), s.has_unified_memory);
             let max_buffer_length = f_u64(raw.as_ptr(), s.max_buffer_length);
             let recommended_working_set = f_u64(raw.as_ptr(), s.recommended_max_working_set_size);
@@ -644,6 +648,10 @@ impl MetalDevice {
                 compute_pipeline_cache: Arc::new(Mutex::new(std::collections::HashMap::new())),
                 render_pipeline_cache: Arc::new(Mutex::new(std::collections::HashMap::new())),
                 buffer_pool: Arc::new(Mutex::new(Vec::new())),
+                cmd_ops_pool: Arc::new(Mutex::new(Vec::with_capacity(8))),
+                render_cmds_pool: Arc::new(Mutex::new(Vec::with_capacity(8))),
+                color_atts_pool: Arc::new(Mutex::new(Vec::with_capacity(8))),
+                compute_dispatches_pool: Arc::new(Mutex::new(Vec::with_capacity(8))),
                 last_cmd_buf: Arc::new(Mutex::new(None)),
                 pending_compute_ops: Arc::new(Mutex::new(Vec::with_capacity(32))),
                 next_submission_index: Arc::new(std::sync::atomic::AtomicU64::new(1)),
@@ -765,6 +773,90 @@ impl MetalDevice {
         }
     }
 
+    #[inline]
+    pub(crate) fn take_cmd_ops(&self) -> Vec<crate::RecordedOp> {
+        self.cmd_ops_pool
+            .lock()
+            .ok()
+            .and_then(|mut p| p.pop())
+            .unwrap_or_else(|| Vec::with_capacity(16))
+    }
+
+    #[inline]
+    pub(crate) fn recycle_cmd_ops(&self, mut v: Vec<crate::RecordedOp>) {
+        v.clear();
+        if v.capacity() >= 4 {
+            if let Ok(mut p) = self.cmd_ops_pool.lock() {
+                if p.len() < 16 {
+                    p.push(v);
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn take_render_cmds(&self) -> Vec<crate::RenderCommand> {
+        self.render_cmds_pool
+            .lock()
+            .ok()
+            .and_then(|mut p| p.pop())
+            .unwrap_or_else(|| Vec::with_capacity(32))
+    }
+
+    #[inline]
+    pub(crate) fn recycle_render_cmds(&self, mut v: Vec<crate::RenderCommand>) {
+        v.clear();
+        if v.capacity() >= 4 {
+            if let Ok(mut p) = self.render_cmds_pool.lock() {
+                if p.len() < 16 {
+                    p.push(v);
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn take_color_atts(&self) -> Vec<Option<crate::OwnedColorAttachment>> {
+        self.color_atts_pool
+            .lock()
+            .ok()
+            .and_then(|mut p| p.pop())
+            .unwrap_or_else(|| Vec::with_capacity(4))
+    }
+
+    #[inline]
+    pub(crate) fn recycle_color_atts(&self, mut v: Vec<Option<crate::OwnedColorAttachment>>) {
+        v.clear();
+        if v.capacity() >= 1 {
+            if let Ok(mut p) = self.color_atts_pool.lock() {
+                if p.len() < 16 {
+                    p.push(v);
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub(crate) fn take_compute_dispatches(&self) -> Vec<crate::ComputeDispatchOp> {
+        self.compute_dispatches_pool
+            .lock()
+            .ok()
+            .and_then(|mut p| p.pop())
+            .unwrap_or_else(|| Vec::with_capacity(8))
+    }
+
+    #[inline]
+    pub(crate) fn recycle_compute_dispatches(&self, mut v: Vec<crate::ComputeDispatchOp>) {
+        v.clear();
+        if v.capacity() >= 1 {
+            if let Ok(mut p) = self.compute_dispatches_pool.lock() {
+                if p.len() < 16 {
+                    p.push(v);
+                }
+            }
+        }
+    }
+
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn compile_compute_pipeline(
         &self,
@@ -877,14 +969,14 @@ impl MetalDevice {
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn flush_pending_compute(&self) {
-        let ops: Vec<crate::ComputeDispatchOp> = self
-            .pending_compute_ops
-            .lock()
-            .map(|mut v| std::mem::take(&mut *v))
-            .unwrap_or_default();
-        if ops.is_empty() {
+        let ops: Vec<crate::ComputeDispatchOp> = if let Ok(mut v) = self.pending_compute_ops.lock() {
+            if v.is_empty() {
+                return;
+            }
+            std::mem::take(&mut *v)
+        } else {
             return;
-        }
+        };
         unsafe {
             let s = selectors();
             let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -896,7 +988,7 @@ impl MetalDevice {
             if cmd_buf_ptr.is_null() {
                 return;
             }
-            let cmd_buf = Arc::new(ObjCObject::from_unretained(cmd_buf_ptr).unwrap());
+            let cmd_buf = ObjCObject::from_unretained(cmd_buf_ptr).unwrap();
             let enc = f_obj(cmd_buf.as_ptr(), s.compute_command_encoder);
             crate::encode_compute_dispatches(enc, &ops);
             f_void(enc, s.end_encoding);
@@ -1328,7 +1420,7 @@ impl MetalDevice {
             let tex_ptr = f_new_tex(self.raw.as_ptr(), s.new_texture_with_desc, td);
             assert!(!tex_ptr.is_null(), "Failed to create MTLTexture");
             crate::Texture {
-                raw: Arc::new(ObjCObject(tex_ptr)),
+                raw: ObjCObject(tex_ptr),
                 size: desc.size,
                 mip_level_count: desc.mip_level_count,
                 sample_count: desc.sample_count,
@@ -1520,7 +1612,18 @@ impl MetalDevice {
 
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
-            let cbs: Vec<crate::CommandBuffer> = command_buffers.into_iter().collect();
+            let mut iter = command_buffers.into_iter();
+            let Some(mut first_cb) = iter.next() else {
+                return SubmissionIndex(idx);
+            };
+            let mut extra_cbs: Vec<crate::CommandBuffer> = iter.collect();
+            for mut extra in extra_cbs.drain(..) {
+                let mut ops = std::mem::take(&mut extra.ops);
+                first_cb.ops.append(&mut ops);
+                self.recycle_cmd_ops(ops);
+                first_cb.on_submit_callbacks.append(&mut extra.on_submit_callbacks);
+            }
+            let cbs = [first_cb];
             let is_pure_untimed_compute = !cbs.is_empty()
                 && cbs.iter().all(|cb| {
                     cb.on_submit_callbacks.is_empty()
@@ -1539,12 +1642,15 @@ impl MetalDevice {
             if is_pure_untimed_compute {
                 let mut should_flush = false;
                 if let Ok(mut pending) = self.pending_compute_ops.lock() {
-                    for cb in cbs {
-                        for op in cb.ops {
+                    for mut cb in cbs {
+                        let mut ops = std::mem::take(&mut cb.ops);
+                        for op in ops.drain(..) {
                             if let RecordedOp::ComputePass { mut dispatches, .. } = op {
                                 pending.append(&mut dispatches);
+                                self.recycle_compute_dispatches(dispatches);
                             }
                         }
+                        self.recycle_cmd_ops(ops);
                     }
                     if pending.len() >= 1 {
                         should_flush = true;
@@ -1559,7 +1665,9 @@ impl MetalDevice {
             let is_callback_only = cbs.iter().all(|cb| cb.ops.is_empty());
             if is_callback_only {
                 self.wait_idle();
-                for cb in cbs {
+                for mut cb in cbs {
+                    let ops = std::mem::take(&mut cb.ops);
+                    self.recycle_cmd_ops(ops);
                     for callback in cb.on_submit_callbacks {
                         callback();
                     }
@@ -1593,17 +1701,23 @@ impl MetalDevice {
                         );
                     }
                 }
+                let ops = std::mem::take(&mut cb.ops);
+                self.recycle_cmd_ops(ops);
                 for callback in cb.on_submit_callbacks {
                     callback();
                 }
                 return SubmissionIndex(idx);
             }
 
-            let mut pending: Vec<ComputeDispatchOp> = self
-                .pending_compute_ops
-                .lock()
-                .map(|mut v| std::mem::take(&mut *v))
-                .unwrap_or_default();
+            let mut pending: Vec<ComputeDispatchOp> = if let Ok(mut v) = self.pending_compute_ops.lock() {
+                if v.is_empty() {
+                    Vec::new()
+                } else {
+                    std::mem::take(&mut *v)
+                }
+            } else {
+                Vec::new()
+            };
 
             let s = selectors();
             let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -1614,7 +1728,7 @@ impl MetalDevice {
             let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
             let cmd_buf_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
             assert!(!cmd_buf_ptr.is_null(), "Failed to create MTLCommandBuffer");
-            let cmd_buf = Arc::new(ObjCObject::from_unretained(cmd_buf_ptr).unwrap());
+            let cmd_buf = ObjCObject::from_unretained(cmd_buf_ptr).unwrap();
 
             let mut active_compute_enc: *mut c_void = ptr::null_mut();
             if !pending.is_empty() {
@@ -1626,7 +1740,8 @@ impl MetalDevice {
 
             for mut cb in cbs {
                 callbacks.append(&mut cb.on_submit_callbacks);
-                for op in cb.ops {
+                let mut ops = std::mem::take(&mut cb.ops);
+                for op in ops.drain(..) {
                     match op {
                         RecordedOp::ComputePass {
                             dispatches,
@@ -1634,6 +1749,7 @@ impl MetalDevice {
                             end_ts,
                         } => {
                             if dispatches.is_empty() {
+                                self.recycle_compute_dispatches(dispatches);
                                 if let Some((qs, i)) = start_ts {
                                     encode_non_compute_op(
                                         self,
@@ -1664,6 +1780,7 @@ impl MetalDevice {
                                 let sub_cmd_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
                                 let sub_enc = f_obj(sub_cmd_ptr, s.compute_command_encoder);
                                 encode_compute_dispatches(sub_enc, &dispatches);
+                                self.recycle_compute_dispatches(dispatches);
                                 f_void(sub_enc, s.end_encoding);
                                 f_void(sub_cmd_ptr, s.commit);
                                 f_void(sub_cmd_ptr, s.wait_until_completed);
@@ -1703,6 +1820,7 @@ impl MetalDevice {
                                     f_obj(cmd_buf.as_ptr(), s.compute_command_encoder);
                             }
                             encode_compute_dispatches(active_compute_enc, &dispatches);
+                            self.recycle_compute_dispatches(dispatches);
                         }
                         RecordedOp::RenderPass(mut rp) => {
                             if !active_compute_enc.is_null() {
@@ -1713,7 +1831,7 @@ impl MetalDevice {
                             let end_ts = rp.end_ts.take();
                             if start_ts.is_some() || end_ts.is_some() {
                                 let sub_cmd_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
-                                crate::encode_render_pass(sub_cmd_ptr, rp);
+                                crate::encode_render_pass(self, sub_cmd_ptr, rp);
                                 f_void(sub_cmd_ptr, s.commit);
                                 f_void(sub_cmd_ptr, s.wait_until_completed);
 
@@ -1747,7 +1865,7 @@ impl MetalDevice {
                                 }
                                 continue;
                             }
-                            crate::encode_render_pass(cmd_buf.as_ptr(), rp);
+                            crate::encode_render_pass(self, cmd_buf.as_ptr(), rp);
                         }
                         other => {
                             if !active_compute_enc.is_null() {
@@ -1758,6 +1876,7 @@ impl MetalDevice {
                         }
                     }
                 }
+                self.recycle_cmd_ops(ops);
             }
 
             if !active_compute_enc.is_null() {
@@ -1888,6 +2007,17 @@ impl MetalDevice {
         {
             let vsync = matches!(config.present_mode, crate::PresentMode::Fifo | crate::PresentMode::FifoRelaxed);
             f_set_bool(layer_ptr, s.set_display_sync_enabled, vsync);
+            let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) =
+                std::mem::transmute(objc_msgSend as *const c_void);
+            // Set nextDrawableTimeout to 16ms so occluded/background windows return None quickly
+            // instead of blocking the event loop for 1.0 second.
+            let sel_timeout = sel_registerName(c"setNextDrawableTimeout:".as_ptr());
+            let responds_sel = sel_registerName(c"respondsToSelector:".as_ptr());
+            let f_responds: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) -> bool =
+                std::mem::transmute(objc_msgSend as *const c_void);
+            if f_responds(layer_ptr, responds_sel, sel_timeout) {
+                f_set_f64(layer_ptr, sel_timeout, 0.016);
+            }
         }
         if !view_ptr.is_null() {
             let root_layer = f_obj(view_ptr, s.view_layer);
@@ -1911,7 +2041,7 @@ impl MetalDevice {
         &self,
         layer_ptr: *mut c_void,
         config: &crate::SurfaceConfiguration,
-    ) -> Option<(Arc<ObjCObject>, crate::Texture)> {
+    ) -> Option<(ObjCObject, crate::Texture)> {
         if layer_ptr.is_null() {
             return None;
         }
@@ -1925,15 +2055,14 @@ impl MetalDevice {
 
         let pool = f_obj(f_obj(s.cls_ns_autorelease_pool, s.alloc), s.init);
         let drawable_ptr = f_obj(layer_ptr, s.next_drawable);
-        let Some(drawable_obj) = ObjCObject::from_unretained(drawable_ptr) else {
+        let Some(drawable) = ObjCObject::from_unretained(drawable_ptr) else {
             if !pool.is_null() {
                 f_void(pool, s.drain);
             }
             return None;
         };
-        let drawable = Arc::new(drawable_obj);
         let tex_ptr = f_obj(drawable.as_ptr(), s.drawable_texture);
-        let Some(tex_obj) = ObjCObject::from_unretained(tex_ptr) else {
+        let Some(tex_raw) = ObjCObject::from_unretained(tex_ptr) else {
             if !pool.is_null() {
                 f_void(pool, s.drain);
             }
@@ -1942,7 +2071,6 @@ impl MetalDevice {
         if !pool.is_null() {
             f_void(pool, s.drain);
         }
-        let tex_raw = Arc::new(tex_obj);
         let w = (f_usize(tex_raw.as_ptr(), s.width) as u32).max(1);
         let h = (f_usize(tex_raw.as_ptr(), s.height) as u32).max(1);
         let tex = crate::Texture {
@@ -1977,11 +2105,19 @@ impl MetalDevice {
         let transactional = !layer_ptr.is_null() && f_bool(layer_ptr, s.presents_with_transaction);
         if let Ok(guard) = self.last_cmd_buf.lock() {
             if let Some((cmd_buf, _)) = guard.as_ref() {
-                f_void(cmd_buf.as_ptr(), s.wait_until_scheduled);
+                if transactional {
+                    f_void(cmd_buf.as_ptr(), s.wait_until_scheduled);
+                }
             }
         }
-        let _ = transactional;
         f_void(drawable_ptr, s.present_drawable);
+        if transactional {
+            let cls_ca_tx = objc_getClass(c"CATransaction".as_ptr());
+            let sel_flush = sel_registerName(c"flush".as_ptr());
+            if !cls_ca_tx.is_null() {
+                f_void(cls_ca_tx, sel_flush);
+            }
+        }
     }
 }
 

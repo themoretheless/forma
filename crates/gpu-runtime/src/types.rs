@@ -215,7 +215,7 @@ pub struct SurfaceConfiguration {
 pub struct SurfaceTexture {
     pub texture: crate::Texture,
     pub suboptimal: bool,
-    pub(crate) drawable: Option<Arc<crate::metal::ObjCObject>>,
+    pub(crate) drawable: Option<crate::metal::ObjCObject>,
     pub(crate) layer: Option<Arc<crate::metal::ObjCObject>>,
     pub(crate) device: Option<crate::Device>,
 }

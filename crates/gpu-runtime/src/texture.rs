@@ -114,7 +114,7 @@ pub struct TextureDescriptor<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Texture {
-    pub(crate) raw: Arc<ObjCObject>,
+    pub(crate) raw: ObjCObject,
     pub(crate) size: Extent3d,
     pub(crate) mip_level_count: u32,
     pub(crate) sample_count: u32,

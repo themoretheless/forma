@@ -154,7 +154,7 @@ impl Adapter {
             DeviceType::DiscreteGpu
         };
         let info = AdapterInfo {
-            name: metal.name.clone(),
+            name: metal.name.to_string(),
             vendor: 0x106B, // Apple
             device: 1,
             device_type,
@@ -208,7 +208,7 @@ impl Adapter {
     ) -> impl Future<Output = Result<(Device, Queue), RequestDeviceError>> {
         let dev = Device {
             metal: self.metal.clone(),
-            info: self.info.clone(),
+            info: Arc::new(self.info.clone()),
             features: desc.required_features & self.features,
             limits: desc.required_limits.clone(),
             error_stack: Arc::new(Mutex::new(Vec::new())),
@@ -223,7 +223,7 @@ impl Adapter {
 #[derive(Clone)]
 pub struct Device {
     pub(crate) metal: MetalDevice,
-    pub(crate) info: AdapterInfo,
+    pub(crate) info: Arc<AdapterInfo>,
     pub(crate) features: Features,
     pub(crate) limits: Limits,
     pub(crate) error_stack: Arc<Mutex<Vec<(ErrorFilter, Option<Error>)>>>,
@@ -267,7 +267,7 @@ impl std::fmt::Debug for Queue {
 
 impl Device {
     pub fn adapter_info(&self) -> AdapterInfo {
-        self.info.clone()
+        (*self.info).clone()
     }
 
     pub fn features(&self) -> Features {
@@ -496,9 +496,9 @@ impl Device {
         }
 
         BindGroup {
-            buffers,
-            textures,
-            samplers,
+            buffers: buffers.into(),
+            textures: textures.into(),
+            samplers: samplers.into(),
         }
     }
 
@@ -575,10 +575,11 @@ impl Device {
     }
 
     pub fn create_command_encoder(&self, _desc: &CommandEncoderDescriptor<'_>) -> CommandEncoder {
+        let ops = self.metal.take_cmd_ops();
         CommandEncoder {
             device: self.metal.clone(),
             error_stack: self.error_stack.clone(),
-            ops: Vec::with_capacity(16),
+            ops,
             on_submit_callbacks: Mutex::new(Vec::new()),
         }
     }
