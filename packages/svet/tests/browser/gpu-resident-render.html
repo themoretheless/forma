@@ -1,0 +1,123 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet resident rendering checks</title>
+<style>body{font:16px system-ui;max-width:920px;margin:24px auto;padding:16px}button{padding:10px 16px}pre{padding:16px;background:#eff6ff;white-space:pre-wrap}#preview{display:flex;gap:16px}</style>
+<h1>Svet resident rendering checks</h1>
+<p>GPU compute → vertex binding, with readback only for explicit picking.</p>
+<button id="run">Run resident renderer checks</button>
+<pre id="results" role="status">Not run</pre><div id="preview"></div>
+<script type="module">
+import {configureGpuSubsystem,createGpuTensor,createMesh3D,createTransform3D,createRoot,
+ dispatchGpuComputeResident,readGpuResidentSnapshot,Viewport3D,signal,getGpuTelemetry} from '/src/engine/index.ts';
+const shader = `
+@group(0) @binding(0) var<storage, read> input: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> output: array<vec4<f32>>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+ if(id.x < arrayLength(&output)) { output[id.x] = input[id.x]; }
+}`;
+const shifted = shader.replace('output[id.x] = input[id.x];','output[id.x] = input[id.x] + vec4<f32>(0.2,0.0,0.0,0.0);');
+const results=document.querySelector('#results'),preview=document.querySelector('#preview');
+const assert=(condition,message)=>{if(!condition)throw Error(message);};
+const until=async(fn,message)=>{const end=performance.now()+5000;while(!fn()){if(performance.now()>end)throw Error(message);await new Promise(requestAnimationFrame);}};
+const click=(view,x,y)=>{const canvas=view.children[0],r=canvas.getBoundingClientRect();
+ const event=new MouseEvent('click',{clientX:r.left+r.width*x,clientY:r.top+r.height*y,bubbles:true});
+ const point={x:(event.clientX-r.left)*canvas.width/r.width,y:(event.clientY-r.top)*canvas.height/r.height};
+ view.dispatchEvent(event);return point;};
+let capturedGPUFrame;
+const pixel=(canvas,x,y)=>{const copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;const ctx=copy.getContext('2d');ctx.drawImage(canvas,0,0);capturedGPUFrame=copy;return Array.from(ctx.getImageData(x,y,1,1).data);};
+document.querySelector('#run').onclick=async()=>{
+ const button=document.querySelector('#run');button.disabled=true;results.textContent='Running…';preview.replaceChildren();capturedGPUFrame=undefined;
+ const reports=[],handles=[],buffers=[],textures=[];let device,stop,failStop,scheduledStop,scheduledSelected,releaseScheduled,mesh,transform,input,selected,width;
+ try{
+  const adapter=await navigator.gpu?.requestAdapter();assert(adapter,'No WebGPU adapter');const info=adapter.info??{};
+  reports.push('INFO '+JSON.stringify({vendor:info.vendor,architecture:info.architecture,isFallbackAdapter:info.isFallbackAdapter??adapter.isFallbackAdapter??null}));
+  device=await adapter.requestDevice();let uploadBytes=0,mapCalls=0,submits=0,holdMap;
+  const createBuffer=device.createBuffer.bind(device),createTexture=device.createTexture.bind(device),write=device.queue.writeBuffer.bind(device.queue);
+  device.createBuffer=descriptor=>{
+   const buffer=createBuffer(descriptor),record={usage:descriptor.usage,destroyed:false,maps:0};buffers.push(record);
+   const destroy=buffer.destroy.bind(buffer),map=buffer.mapAsync.bind(buffer);
+   buffer.destroy=()=>{record.destroyed=true;return destroy();};
+   buffer.mapAsync=(...args)=>{mapCalls++;record.maps++;const operation=map(...args),held=holdMap;
+    if(!held)return operation;holdMap=undefined;held.reached();return Promise.all([operation,held.wait]).then(()=>undefined);};
+   return buffer;
+  };
+  device.createTexture=descriptor=>{const texture=createTexture(descriptor),record={destroyed:false};textures.push(record);
+   const destroy=texture.destroy.bind(texture);texture.destroy=()=>{record.destroyed=true;return destroy();};return texture;};
+  device.queue.writeBuffer=(...args)=>{uploadBytes+=args[4];return write(...args);};
+  const submit=device.queue.submit.bind(device.queue);device.queue.submit=(...args)=>{submits++;return submit(...args);};
+  device.pushErrorScope('validation');configureGpuSubsystem({device});
+  input=createGpuTensor([0,0,.4,1,-.8,-.6,.4,1,.8,-.6,.4,1]);
+  const first=await dispatchGpuComputeResident({wgsl:shader,inputs:[input],outputLength:12});handles.push(first);input.dispose();
+  const second=await dispatchGpuComputeResident({wgsl:shifted,inputs:[first],outputLength:12});handles.push(second);
+  const uploadsBefore=uploadBytes;assert(uploadsBefore===48&&mapCalls===0,'Unexpected compute transfers');
+  transform=createTransform3D();mesh=createMesh3D({positions:[.8,.8,.5,.9,.8,.5,.8,.9,.5],indices:[0,1,2],transform});
+  selected=signal(first);width=signal(200);const picks=[];
+  const view=createRoot(dispose=>{stop=dispose;return Viewport3D({mesh,gpuVertices:selected,width,height:200,
+   onVertexPick:(index,distance,z,frame)=>picks.push({index,distance,z,frame})});});preview.append(view);
+  // Capture this submitted canvas texture before the browser presents/recycles it.
+  // These fixture-only pixel copies are separate from application map/upload counters.
+  let primary=view.children[0];const initialPixel=pixel(primary,100,130);
+  await until(()=>view.dataset.renderValidation==='passed','Initial render validation');
+  assert(initialPixel[2]>150&&initialPixel[1]>100&&initialPixel[0]<100,'Resident triangle pixel missing: '+initialPixel);
+  assert(uploadBytes-uploadsBefore===8&&mapCalls===0,'Renderer uploaded vertices or read back GPU data');
+  assert(buffers.filter(item=>(item.usage&0x20)&&!(item.usage&0x80)).length===0,'Renderer allocated a second vertex buffer');
+  const beforeResize=uploadBytes;width.set(240);await until(()=>view.dataset.renderValidation==='passed','Resize validation');
+  assert(primary.width===240&&uploadBytes===beforeResize&&mapCalls===0,'Resize copied resident vertices');
+  reports.push('PASS real GPU pixels from resident float4 storage; index-only upload, no vertex buffer copy or per-frame map, resize retained data');
+  const clickPoint=click(view,.5,.5);await until(()=>view.dataset.pickReadback==='passed','Resident pick readback');
+  const expectedDistance=Math.hypot(clickPoint.x-120,clickPoint.y-100);
+  assert(picks.length===1&&picks[0].index===0&&Math.abs(picks[0].distance-expectedDistance)<.0001&&Math.abs(picks[0].z-.4)<.0001,'Picking geometry mismatch: '+JSON.stringify(picks.map(({index,distance,z,frame})=>({index,distance,z,width:frame.width,height:frame.height}))));
+  assert(picks[0].frame.width===240&&picks[0].frame.gpuVertices===first&&picks[0].frame.backend==='webgpu-depth24plus'&&mapCalls===1,'Pick frame/counter mismatch');
+  reports.push('PASS explicit click maps once and picks the displayed GPU geometry with captured frame dimensions');
+  let reached,release;const reachedPromise=new Promise(yes=>{reached=yes;}),wait=new Promise(yes=>{release=yes;});holdMap={wait,reached};
+  click(view,.5,.5);await reachedPromise;selected.set(second);
+  await until(()=>view.dataset.pickReadback==='cancelled'&&getGpuTelemetry().pendingComputeCount===0,'Stale pick cancellation');
+  release();await device.queue.onSubmittedWorkDone();
+  assert(picks.length===1&&buffers.filter(item=>item.maps).every(item=>item.destroyed),'Stale pick published or kept staging');
+  first.dispose();await until(()=>view.dataset.renderValidation==='passed','Replacement frame');
+  assert(view.dataset.renderBackend==='webgpu-depth24plus'&&second.active,'Disposing consumed source invalidated independent frame');
+  reports.push('PASS replacement cancels native map and destroys staging; old source disposal preserves the new frame');
+  const createPipeline=device.createRenderPipeline.bind(device);
+  device.createRenderPipeline=descriptor=>createPipeline({...descriptor,vertex:{...descriptor.vertex,entryPoint:'missing_vertex_entry'}});
+  const failed=createRoot(dispose=>{failStop=dispose;return Viewport3D({mesh,gpuVertices:second,width:200,height:200});});preview.append(failed);
+  device.createRenderPipeline=createPipeline;
+  await until(()=>failed.dataset.renderBackend==='unavailable','Invalid renderer was not retired');
+  const fallback=failed.children[1].getContext('2d').getImageData(0,0,200,200).data;
+  assert(failed.dataset.renderValidation==='failed'&&failed.dataset.renderError.includes('missing_vertex_entry')&&!fallback.some((value,index)=>index%4===3&&value),'Failure lost its native diagnostic or substituted CPU geometry');
+  assert(second.active,'Renderer failure disposed caller result');failStop();failed.remove();
+  reports.push('PASS native render validation failure refuses stale Canvas2D substitution and retains caller-owned resident storage');
+  const third=await dispatchGpuComputeResident({wgsl:shader,inputs:[second],outputLength:12});handles.push(third);
+  const beforeRecoveryUploads=uploadBytes,beforeRecoveryMaps=mapCalls;second.dispose();
+  assert(view.dataset.renderBackend==='unavailable','Disposed source left a live pick frame');click(view,.5,.5);
+  assert(picks.length===1&&mapCalls===beforeRecoveryMaps,'Disposed frame started picking');
+  selected.set(third);const recoveredPixel=pixel(primary,140,130);
+  await until(()=>view.dataset.renderValidation==='passed','Resident recovery validation');
+  assert(recoveredPixel[1]>100&&recoveredPixel[2]>150,'Independent GPU result did not redraw');
+  assert(uploadBytes-beforeRecoveryUploads===8&&mapCalls===beforeRecoveryMaps,'Recovery uploaded/read resident vertices');
+  reports.push('PASS source disposal invalidates rendering and picking; independent result recovers with only index upload');
+  const scheduledFirst=await dispatchGpuComputeResident({wgsl:shader,inputs:[third],outputLength:12});handles.push(scheduledFirst);
+  const scheduledSecond=await dispatchGpuComputeResident({wgsl:shader,inputs:[third],outputLength:12});handles.push(scheduledSecond);
+  const realDone=device.queue.onSubmittedWorkDone.bind(device.queue),completionGate=new Promise(yes=>{releaseScheduled=yes;});
+  let holdDone=true;device.queue.onSubmittedWorkDone=()=>{const operation=realDone();if(!holdDone)return operation;holdDone=false;return Promise.all([operation,completionGate]).then(()=>undefined);};
+  const beforeScheduled=submits;scheduledSelected=signal(scheduledFirst);
+  const scheduledView=createRoot(dispose=>{scheduledStop=dispose;return Viewport3D({mesh,gpuVertices:scheduledSelected,renderMode:'animation-frame',width:100,height:100});});preview.append(scheduledView);
+  device.queue.onSubmittedWorkDone=realDone;scheduledSelected.set(scheduledSecond);scheduledFirst.dispose();
+  await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
+  assert(submits===beforeScheduled+1&&scheduledView.dataset.renderBackend==='unavailable','Retired frame lost queue backpressure');
+  releaseScheduled();await until(()=>scheduledView.dataset.renderValidation==='passed'&&scheduledView.dataset.renderBackend==='webgpu-depth24plus','Scheduled latest frame did not resume');
+  assert(submits===beforeScheduled+2,'Latest scheduled frame was dropped or submitted repeatedly');
+  scheduledStop();scheduledView.remove();scheduledSecond.dispose();scheduledSelected.dispose();
+  reports.push('PASS source retirement waits for submitted queue completion observation, then renders the latest scheduled result once');
+  stop();assert(third.active,'Renderer teardown destroyed caller-owned resident data');
+  const copied=await readGpuResidentSnapshot(third);assert(Math.abs(copied[0]-.2)<.0001,'Explicit post-render snapshot failed');third.dispose();
+  assert(buffers.every(item=>item.destroyed)&&textures.every(item=>item.destroyed),'GPU allocations leaked after teardown');
+  assert(getGpuTelemetry().pendingComputeCount===0&&getGpuTelemetry().residentComputeBytes===0,'GPU queue or persistent credits leaked');
+  const validation=await device.popErrorScope();assert(!validation,validation?.message??'');
+  reports.push('PASS teardown releases render allocations without owning the source; explicit snapshot and disposal drain all credits');
+  results.textContent=reports.join('\n')+'\n7/7 passed';
+ }catch(error){results.textContent=reports.join('\n')+'\nFAIL: '+error.message;}
+ finally{releaseScheduled?.();scheduledStop?.();scheduledSelected?.dispose();stop?.();failStop?.();handles.forEach(handle=>handle.dispose());mesh?.dispose();transform?.dispose();input?.dispose();selected?.dispose();width?.dispose();configureGpuSubsystem({device:null});device?.destroy();
+  if(capturedGPUFrame){const figure=document.createElement('figure'),caption=document.createElement('figcaption');caption.textContent='Validated GPU frame — fixture-only pixel capture';figure.append(capturedGPUFrame,caption);preview.replaceChildren(figure);}
+  button.disabled=false;}
+};
+</script>

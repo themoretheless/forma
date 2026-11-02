@@ -1,0 +1,67 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/readable-ssr.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/readable-ssr.test.ts (9 tests | 2 failed) 218ms
+   × reports a background producer failure through reader.closed without a second read 103ms
+   × closes after the complete frame without requiring an extra consumer read 103ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/readable-ssr.test.ts > reports a background producer failure through reader.closed without a second read
+AssertionError: expected 'still pending' to be Error: background component failed // Object.is equality
+
+- Expected:
+Error {
+  "message": "background component failed",
+}
+
++ Received:
+"still pending"
+
+ ❯ tests/readable-ssr.test.ts:47:121
+     45|  const reader=renderToReadableStreamAsync(()=>({node:h('main',null,h(a…
+     46|  await reader.read();const observed=reader.closed.catch(error=>error);…
+     47|  try{expect(await Promise.race([observed,new Promise(resolve=>{timer=s…
+       |                                                                                                                         ^
+     48|  expect(cleaned).toBe(1);
+     49| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/readable-ssr.test.ts > closes after the complete frame without requiring an extra consumer read
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/readable-ssr.test.ts:53:131
+     51|  const reader=renderToReadableStreamAsync(()=>({node:h('p',null,'done'…
+     52|  let timer:ReturnType<typeof setTimeout>|undefined;
+     53|  try{expect(await Promise.race([reader.closed.then(()=>true),new Promi…
+       |                                                                                                                                   ^
+     54| });
+     55|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 7 passed (9)
+   Start at  19:42:34
+   Duration  621ms (environment 46%, tests 41%, transform 7%, import 5%)
+

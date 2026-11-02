@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "rawSha256": "abf0764f098a65c48320769a6291812a2d8591cb51ddd38eacf0a69b81632485",
+  "createdRoots": 5912928,
+  "collectedObjects": 23651712,
+  "maxBacklog": 41,
+  "maxAgeMs": 44.20662500000071,
+  "windowMeans": [
+    {
+      "rss": 53710574.17458707,
+      "heapUsed": 8121157.616447585,
+      "external": 4442037.986518368,
+      "arrayBuffers": 33139
+    },
+    {
+      "rss": 53528708.34703199,
+      "heapUsed": 8167996.738711315,
+      "external": 4442038,
+      "arrayBuffers": 33139
+    },
+    {
+      "rss": 54149841.00257849,
+      "heapUsed": 8172394.029912325,
+      "external": 4442038,
+      "arrayBuffers": 33139
+    },
+    {
+      "rss": 54584467.73573586,
+      "heapUsed": 8172338.458458455,
+      "external": 4442038,
+      "arrayBuffers": 33139
+    }
+  ],
+  "scope": "Independent retained-report accounting validation, not a general plateau assertion."
+}

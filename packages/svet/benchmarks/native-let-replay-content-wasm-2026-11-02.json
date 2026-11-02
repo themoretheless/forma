@@ -1,0 +1,27 @@
+{
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "name": "Custom visual template reads props.__state through transferred snapshot",
+      "status": "passed"
+    },
+    {
+      "name": "Column For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Frame For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through single retained Let collection alias",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through chained retained Let collection alias",
+      "status": "passed"
+    }
+  ],
+  "wasmSha256": "e0e9413f91cf7b3115ff47325210b485bb62fc6b4d0013ee4a2a9a738deb1c79",
+  "status": "passed"
+}

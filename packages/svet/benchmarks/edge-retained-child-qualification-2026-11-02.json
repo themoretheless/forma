@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "scope": "Retained successful-child cross-copy DOM callback in local stable and beta workerd plus installed-package gate",
+  "sameFixtureBeforeAfter": true,
+  "beforeError": "Svet SSR owner scope has already completed inside onClick/getWasmCore",
+  "profiles": {
+    "before": {
+      "status": "failed",
+      "wasmBridgeSha256": "5512f8d9b635aacb4f9d556ea133e5853ffcc154256a9a45cf0c9d3c80d4deb3",
+      "gc": null
+    },
+    "after": {
+      "status": "passed",
+      "wasmBridgeSha256": "fcb1236341553e5e97e04c73895d65b1a33c4b55c446f5d3b0906980db1d1aec",
+      "gc": "passed"
+    },
+    "beta": {
+      "status": "passed",
+      "wasmBridgeSha256": "fcb1236341553e5e97e04c73895d65b1a33c4b55c446f5d3b0906980db1d1aec",
+      "gc": "passed"
+    }
+  },
+  "evidence": [
+    "edge-retained-child-before-2026-11-02.json",
+    "edge-retained-child-after-2026-11-02.json",
+    "edge-retained-child-beta-2026-11-02.json",
+    "edge-retained-child-package-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Local LinkeDOM/workerd only",
+    "Natural GC/RSS and mixed versions remain open"
+  ],
+  "sourceSha256": {
+    "packages/svet/tests/edge/cross-copy-owner.mjs": "f08d636f2a4954a29247b573e22131d210929adbb5191b4122a5ff02275eedfe",
+    "packages/svet/scripts/check-edge-ssr.mjs": "7fb4e23687e2d853b7e89735fe425313071b73d972c29997eda868a9f9b5d29f",
+    "packages/svet/scripts/check-package.mjs": "aa677af5f8ec6817f49f0e6404495c4ffd1fa633bc8f5ac35f73cfa144f1b339"
+  },
+  "installedPackageGate": "passed; process exit0"
+}

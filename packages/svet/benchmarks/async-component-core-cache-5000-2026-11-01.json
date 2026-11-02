@@ -1,0 +1,128 @@
+{
+  "protocol": "async-component-churn-v1",
+  "startedAt": "2026-11-01T13:20:10.238Z",
+  "node": "v22.23.4",
+  "execArgv": [
+    "--expose-gc"
+  ],
+  "cycles": 5000,
+  "samples": [
+    {
+      "cycle": 0,
+      "rss": 129121448,
+      "heapTotal": 88637440,
+      "heapUsed": 38804104,
+      "external": 3680765,
+      "arrayBuffers": 781956,
+      "pendingProbes": 0,
+      "alive": 0
+    },
+    {
+      "cycle": 10,
+      "rss": 130432384,
+      "heapTotal": 77889536,
+      "heapUsed": 39704248,
+      "external": 5936394,
+      "arrayBuffers": 781964,
+      "pendingProbes": 210,
+      "alive": 1
+    }
+  ],
+  "timings": {
+    "success": {
+      "count": 10,
+      "min": 0.3507079999999405,
+      "max": 31.304917000000046,
+      "mean": 4.7080167000000195
+    },
+    "failure": {
+      "count": 10,
+      "min": 0.296875,
+      "max": 14.856499999999983,
+      "mean": 3.669525199999941
+    },
+    "cancel": {
+      "count": 10,
+      "min": 0.7870410000000447,
+      "max": 4.799125000000004,
+      "mean": 2.662829100000022
+    }
+  },
+  "windows": [
+    {
+      "count": 1,
+      "memory": {
+        "rss": {
+          "min": 130432384,
+          "max": 130432384,
+          "mean": 130432384,
+          "first": 130432384,
+          "last": 130432384
+        },
+        "heapUsed": {
+          "min": 39704248,
+          "max": 39704248,
+          "mean": 39704248,
+          "first": 39704248,
+          "last": 39704248
+        },
+        "external": {
+          "min": 5936394,
+          "max": 5936394,
+          "mean": 5936394,
+          "first": 5936394,
+          "last": 5936394
+        },
+        "arrayBuffers": {
+          "min": 781964,
+          "max": 781964,
+          "mean": 781964,
+          "first": 781964,
+          "last": 781964
+        }
+      }
+    },
+    {
+      "count": 0,
+      "memory": {}
+    },
+    {
+      "count": 0,
+      "memory": {}
+    },
+    {
+      "count": 0,
+      "memory": {}
+    }
+  ],
+  "retireCache": false,
+  "scope": "Fresh isolated request per success/failure/cancel; real WASM + JSDOM, bounded WeakRef batches and ring memory samples. No browser/Edge/driver memory or general plateau claim.",
+  "baseline": {
+    "cycle": 0,
+    "rss": 129121448,
+    "heapTotal": 88637440,
+    "heapUsed": 38804104,
+    "external": 3680765,
+    "arrayBuffers": 781956,
+    "pendingProbes": 0,
+    "alive": 0
+  },
+  "retained": [
+    "core"
+  ],
+  "status": "failed",
+  "error": "AssertionError [ERR_ASSERTION]: Retired async component objects retained after ten GC turns\n\n1 !== 0\n\n    at sample (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-async-component-churn.mjs:64:9)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-async-component-churn.mjs:71:23",
+  "completedAt": "2026-11-01T13:20:10.571Z",
+  "checkedObjects": 0,
+  "cleanups": 30,
+  "lateRefusals": 20,
+  "maxGcRounds": 10,
+  "sampleCount": 2,
+  "sourceSha256": "b06cce73ef966c51c10130eb9d3894cdaa30cd5b83b4049eea28f69ad64342a6",
+  "runtimeSha256": {
+    "server.js": "b3686cc372d3e0a7a835952fdc457bbcf04e09f2fccea99bf9f41d7618ba03f2",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "7145e0111743b02253812ec33a450b972a7f536860827b2814b7504845244944",
+    "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2"
+  }
+}

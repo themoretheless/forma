@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-02",
+  "status": "passed within explicit-teardown scope",
+  "cases": 6,
+  "iterations_per_case": 8,
+  "collected_teardown_targets": 272,
+  "generic_controls": {
+    "held": 4,
+    "released": 0
+  },
+  "live_subscription_controls": {
+    "held": 3,
+    "released": 0
+  },
+  "checks": {
+    "standalone_independent_copy_forced_gc": "passed",
+    "integrated_packed_installed_copy_gc_gate": "passed",
+    "script_syntax": "passed",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "scripts/check-cross-core-retention.mjs": "ef76c699cb2a999f7a08ee0ce5087c0548d3e94a46437ab17cd0c4fb266229ca",
+    "scripts/check-package.mjs": "1c67c5c67a1f2a7bab00f1dd7d8a2abd24e13efa9a3f749fb9e7fcf272fa7b4e"
+  },
+  "limits": [
+    "Forced-GC reachability proof; not natural-GC RSS/external plateau",
+    "Requires explicit disposal/reset of the tested subscriptions and releasing user handles",
+    "Hot context caches are replaced with live control core; idle cache retention is not tested",
+    "Does not qualify browser GC, arbitrary scheduling or throughput",
+    "SSR external-memory budget failure remains unresolved"
+  ]
+}

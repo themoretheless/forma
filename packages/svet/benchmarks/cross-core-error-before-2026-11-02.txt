@@ -1,0 +1,56 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/cross-core-dependencies.test.ts (29 tests | 2 failed) 20ms
+   × recovers foreign computed failures observed by target effect (initialFailure=false) 6ms
+   × recovers foreign computed failures observed by target effect (initialFailure=true) 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/cross-core-dependencies.test.ts > recovers foreign computed failures observed by target effect (initialFailure=false)
+Error: foreign failure
+ ❯ Object.compute tests/cross-core-dependencies.test.ts:225:58
+    223| it.each([false, true])('recovers foreign computed failures observed by…
+    224|   const own = getWasmCore(), other = createWasmCoreInstance(), source …
+    225|   const value = computed(() => { if (source() % 2) throw Error('foreig…
+       |                                                          ^
+    226|   const seen: Array<number | string> = [];
+    227|   const observer = withWasmCore(other, () => effect(() => { try { seen…
+ ❯ evaluateIfNeeded src/engine/reactivity.ts:1476:29
+ ❯ getter src/engine/reactivity.ts:1549:13
+ ❯ Object.publish src/engine/reactivity.ts:431:7
+ ❯ Object.run src/engine/reactivity.ts:1733:31
+ ❯ flushEffects src/engine/reactivity.ts:1185:31
+ ❯ batch src/engine/reactivity.ts:1911:18
+ ❯ getter.set src/engine/reactivity.ts:1295:14
+ ❯ tests/cross-core-dependencies.test.ts:229:35
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/cross-core-dependencies.test.ts > recovers foreign computed failures observed by target effect (initialFailure=true)
+AssertionError: expected [ 'failed' ] to deeply equal [ 'failed', 7 ]
+
+- Expected
++ Received
+
+  [
+    "failed",
+-   7,
+  ]
+
+ ❯ tests/cross-core-dependencies.test.ts:230:33
+    228|   try {
+    229|     if (!initialFailure) { source.set(1); expect(seen).toEqual([7, 'fa…
+    230|     source.set(2); expect(seen).toEqual(initialFailure ? ['failed', 7]…
+       |                                 ^
+    231|     source.set(3); expect(seen.at(-1)).toBe('failed');
+    232|     source.set(4); expect(seen.at(-1)).toBe(7);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 27 passed (29)
+   Start at  08:14:42
+   Duration  183ms (transform 42%, import 34%, tests 21%, worker 2%)
+

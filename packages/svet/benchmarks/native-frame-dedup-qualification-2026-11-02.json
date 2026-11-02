@@ -1,0 +1,106 @@
+{
+  "status": "validated-private-frame-metadata-compaction",
+  "change": "Omit captured __locals entries already retained in __lexicals and overridden by replay; user model/item/alias snapshots remain owned",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "daa999a563d55eea4e138372ec60eea3402af971c79e60d0400933ec67a763f2",
+    "vector-ui/tests/compare-scene-snapshot-wasm.cjs": "24c34b6a83c78739be97a25f8a88ac98e29d27f9589ed06cbaee988eb3a6b828"
+  },
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 876251,
+      "afterEditRequestedBytes": 777179,
+      "reductionPercent": 11.306349436405782,
+      "beforeEditAllocations": 6822,
+      "afterEditAllocations": 6126
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 7633084,
+      "afterEditRequestedBytes": 6189500,
+      "reductionPercent": 18.912198529454148,
+      "beforeEditAllocations": 57275,
+      "afterEditAllocations": 46811
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 56432484,
+      "afterEditRequestedBytes": 43721316,
+      "reductionPercent": 22.524558727558407,
+      "beforeEditAllocations": 417106,
+      "afterEditAllocations": 324274
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 374456712,
+      "afterEditRequestedBytes": 284531080,
+      "reductionPercent": 24.014960639829575,
+      "beforeEditAllocations": 2750225,
+      "afterEditAllocations": 2093073
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 880625,
+      "afterEditRequestedBytes": 781553,
+      "reductionPercent": 11.250191625266147,
+      "beforeEditAllocations": 6858,
+      "afterEditAllocations": 6162
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 7655675,
+      "afterEditRequestedBytes": 6212091,
+      "reductionPercent": 18.85639084731261,
+      "beforeEditAllocations": 57442,
+      "afterEditAllocations": 46978
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 56498723,
+      "afterEditRequestedBytes": 43787555,
+      "reductionPercent": 22.498150975907894,
+      "beforeEditAllocations": 417593,
+      "afterEditAllocations": 324761
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 374632383,
+      "afterEditRequestedBytes": 284706751,
+      "reductionPercent": 24.003699648142806,
+      "beforeEditAllocations": 2751512,
+      "afterEditAllocations": 2094360
+    }
+  ],
+  "repeat": "Two release candidate runs have identical allocation counters",
+  "plainControl": "Ordinary Column counters unchanged",
+  "validation": {
+    "libraryTests": 165,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "actualGeneratedNodeArtifactGate": "passed",
+    "actualGeneratedNodeSnapshotAndAliasCases": 5,
+    "oldNewWasmArtifactComparisonCases": 4,
+    "remoteCI": "not run"
+  },
+  "compatibility": "Only duplicate private frame locals differ after normalization; source/templates/all other fields equal; preceding local WASM reader accepts new artifacts at8/32/96/256 controls; legacy duplicate metadata commits same model as compact metadata",
+  "transportBytes256": {
+    "before": 35653311,
+    "after": 28622783
+  },
+  "limitations": [
+    "284706751 requested bytes/edit at256 lexical controls remains high",
+    "Cumulative requested bytes,not live/peak memory",
+    "No controlled latency/FPS/presentation claim",
+    "Compatibility is with preceding local WASM build,not all historical releases",
+    "Other environments and remaining copies remain open"
+  ]
+}

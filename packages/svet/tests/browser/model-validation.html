@@ -1,0 +1,30 @@
+<!doctype html><meta charset="utf-8"><title>Svet native form validation</title>
+<style>body{font:16px system-ui;max-width:1000px;margin:32px auto}pre{white-space:pre-wrap;background:#eef6f1;padding:16px}form{display:flex;gap:8px;margin:16px 0}button,input{font:inherit}</style>
+<h1>Svet native form validation</h1><button id="run">Run validation checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<script type="module">
+import {createRoot,getGraphTelemetry,h,resetReactiveSystem,signal} from '/src/engine/index.ts';
+const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
+run.onclick=async()=>{
+ run.disabled=true;resetReactiveSystem();preview.replaceChildren();const lines=[],signals=[];let stop;
+ const source=value=>{const s=signal(value);signals.push(s);return s;};
+ const check=(ok,label)=>{if(!ok)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
+ try{
+  const email=source(''),age=source(15),required=source(true),disabled=source(false),skip=source(false);let form,input,number,button,submits=0,invalid=0;
+  createRoot(dispose=>{stop=dispose;form=h('form',{noValidate:skip},input=h('input',{type:'email',model:email,required,disabled}),number=h('input',{type:'number',model:age,min:18,max:99}),button=h('button',{type:'submit'},'Submit'));});preview.append(form);
+  form.addEventListener('submit',event=>{event.preventDefault();submits++;});form.addEventListener('invalid',()=>invalid++,true);
+  check(input.validity.valueMissing&&number.validity.rangeUnderflow&&!form.checkValidity(),'required and numeric range constraints remain native');
+  form.requestSubmit(button);check(submits===0&&invalid>=4,'invalid requestSubmit rejects submission and exposes invalid events');
+  email.set('invalid');age.set(24);check(input.validity.typeMismatch&&number.validity.valid,'reactive model writes update native validity');
+  input.value='hello@example.com';input.dispatchEvent(new InputEvent('input',{bubbles:true}));check(email()==='hello@example.com'&&form.checkValidity(),'native input publishes model and clears invalid state');
+  form.requestSubmit(button);check(submits===1,'valid native requestSubmit reaches submit handler once');
+  input.setCustomValidity('server rejected');check(!form.checkValidity()&&input.validity.customError,'custom validity remains intact through model binding');email.set('new@example.com');check(input.validity.customError,'model updates do not erase custom validity');input.setCustomValidity('');
+  email.set('');required.set(false);check(form.checkValidity(),'reactive required=false removes required constraint');required.set(true);disabled.set(true);check(!input.willValidate&&form.checkValidity(),'reactive disabled excludes field from validation');disabled.set(false);
+  skip.set(true);form.requestSubmit(button);check(submits===2&&form.noValidate,'reactive noValidate permits explicit native bypass');skip.set(false);
+  button.formNoValidate=true;form.requestSubmit(button);check(submits===3,'submitter formNoValidate bypass remains native');button.formNoValidate=false;
+  email.set('retained');form.reset();stop();stop=undefined;await Promise.resolve();await Promise.resolve();check(email()==='retained','teardown refuses queued model reset publication');
+  for(const s of signals)s.dispose();check(getGraphTelemetry().nodes===0,'all model graph resources released');
+  result.textContent=lines.join('\n')+'\n'+lines.length+'/'+lines.length+' passed';
+ }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{stop?.();for(const s of signals)s.dispose();run.disabled=false;}
+};
+</script>

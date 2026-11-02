@@ -1,0 +1,1 @@
+{"status":"passed","requests":112,"collectedObjects":672}

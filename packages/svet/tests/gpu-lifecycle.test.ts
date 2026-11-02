@@ -2,6 +2,94 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { configureGpuSubsystem, createRoot, runWithOwnerScope, onCleanup, effect, executeGpuVectorFma, dispatchGpuComputeKernel, initWebGpuHardware, createGpuTensor, createTransform3D, createPerspectiveCamera3D, createMesh3D, flushEffects, getGraphTelemetry, getCurrentOwner, getWasmCore, getGpuTelemetry, resetGpuTelemetry, resetReactiveSystem, signal, runWithIsolatedContext, syncGpuArena } from '../src/engine';
 
 beforeEach(() => { resetReactiveSystem(); configureGpuSubsystem({ architecture: 'DUMA', device: null }); resetGpuTelemetry(); });
+
+it.each(['uint16', 'uint32'] as const)('rejects oversized %s index snapshots before allocation or element reads', indexFormat => {
+  const transform = createTransform3D();
+  const mesh = createMesh3D({ transform, positions: [0,0,0], indices: [0,0,0], indexFormat });
+  const previous = mesh.indices, nodes = getGraphTelemetry().nodes, arena = getGpuTelemetry().arenaFloatCount;
+  const bytes = indexFormat === 'uint16' ? 2 : 4;
+  const limit = getWasmCore().svet_gpu_get_arena_limit_f32() * 4;
+  expect(mesh.maxIndexBytes).toBe(limit);
+  const length = Math.floor(limit / bytes / 3) * 3 + 3;
+  let allocations = 0, reads = 0;
+  const name = indexFormat === 'uint16' ? 'Uint16Array' : 'Uint32Array';
+  const Constructor = globalThis[name];
+  vi.stubGlobal(name, new Proxy(Constructor, { construct(target, args, receiver) {
+    if (typeof args[0] === 'number' && args[0] > 1_000_000) { allocations++; throw Error('large index snapshot attempted'); }
+    return Reflect.construct(target, args, receiver);
+  } }));
+  try {
+    for (const candidateLength of [length, Number.MAX_SAFE_INTEGER - 1]) {
+      expect(() => createMesh3D({ transform, positions: [0,0,0], indexFormat,
+        indices: { length: candidateLength, get 0() { reads++; return 0; } },
+      })).toThrow(/maxIndexBytes/);
+      expect(() => mesh.updateIndices({ length: candidateLength, get 0() { reads++; return 0; } }, indexFormat)).toThrow(/maxIndexBytes/);
+    }
+    expect(mesh.indices).toBe(previous);
+    expect([allocations, reads]).toEqual([0, 0]);
+    expect(getGraphTelemetry().nodes).toBe(nodes); expect(getGpuTelemetry().arenaFloatCount).toBe(arena);
+  } finally { vi.unstubAllGlobals(); mesh.dispose(); transform.dispose(); }
+});
+
+it.each([-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])('rejects invalid index budget %s before source reads', maxIndexBytes => {
+  const transform = createTransform3D(), nodes = getGraphTelemetry().nodes; let reads = 0;
+  expect(() => createMesh3D({ transform, maxIndexBytes,
+    positions: { get length() { reads++; return 3; }, 0: 0, 1: 0, 2: 0 },
+    indices: { get length() { reads++; return 0; } },
+  })).toThrow(/maxIndexBytes.*safe integer/);
+  expect(reads).toBe(0); expect(getGraphTelemetry().nodes).toBe(nodes);
+  transform.dispose();
+});
+
+it('enforces exact byte budgets for each index width and preserves rejected topology', () => {
+  const transform = createTransform3D();
+  const options = { transform, positions: [0,0,0, 1,0,0, 0,1,0], indices: [0,1,2], maxIndexBytes: 12, indexFormat: 'uint32' as const };
+  const mesh = createMesh3D(options);
+  expect(mesh.maxIndexBytes).toBe(12); expect(mesh.indices?.byteLength).toBe(12);
+  options.maxIndexBytes = 0;
+  mesh.updateIndices([0,1,2, 2,1,0], 'uint16');
+  expect(mesh.indices?.byteLength).toBe(12);
+  const previous = mesh.indices; let reads = 0, notifications = 0;
+  const observer = effect(() => { mesh.indices; notifications++; });
+  expect(() => mesh.updateIndices({ length: 6, get 0() { reads++; return 0; } }, 'uint32')).toThrow(/maxIndexBytes/);
+  expect(mesh.indices).toBe(previous); expect([reads, notifications]).toEqual([0, 1]);
+  mesh.updateIndices([0,1,2]); expect(mesh.indices).toBeInstanceOf(Uint16Array);
+  expect(mesh.maxIndexBytes).toBe(12);
+  expect(Reflect.set(mesh, 'maxIndexBytes', 0)).toBe(false);
+  observer.dispose(); mesh.dispose(); transform.dispose(); expect(getGraphTelemetry().nodes).toBe(0);
+});
+
+it('does not coerce object-valued index budgets or read source data after rejecting them', () => {
+  const transform = createTransform3D(), nodes = getGraphTelemetry().nodes;
+  let coercions = 0, reads = 0;
+  const maxIndexBytes = { valueOf() { coercions++; return 6; } } as unknown as number;
+  expect(() => createMesh3D({ transform, maxIndexBytes,
+    positions: { get length() { reads++; return 3; }, 0: 0, 1: 0, 2: 0 },
+  })).toThrow(/maxIndexBytes/);
+  expect([coercions, reads]).toEqual([0, 0]); expect(getGraphTelemetry().nodes).toBe(nodes);
+  transform.dispose();
+});
+
+it('allows empty and nonindexed topology under a zero-byte index budget', () => {
+  const transform = createTransform3D(), mesh = createMesh3D({ transform, positions: [0,0,0], indices: [], maxIndexBytes: 0 });
+  expect(mesh.indices).toEqual(new Uint16Array(0));
+  expect(() => mesh.updateIndices([0,0,0])).toThrow(/maxIndexBytes/);
+  mesh.updateIndices(undefined, 'uint32'); expect(mesh.indices).toBeUndefined();
+  mesh.updateIndices([]); expect(mesh.indices).toEqual(new Uint32Array(0));
+  mesh.dispose(); transform.dispose(); expect(getGraphTelemetry().nodes).toBe(0);
+});
+
+it('does not supersede a valid outer update when a nested index budget check rejects', () => {
+  const transform = createTransform3D(), mesh = createMesh3D({ transform, positions: [0,0,0], maxIndexBytes: 6 });
+  let rejected = false, nestedReads = 0;
+  mesh.updateIndices({ length: 3, get 0() {
+    try { mesh.updateIndices({ length: 3, get 0() { nestedReads++; return 0; } }, 'uint32'); }
+    catch (error) { rejected = error instanceof RangeError && /maxIndexBytes/.test(error.message); }
+    return 0;
+  }, 1: 0, 2: 0 });
+  expect(rejected).toBe(true); expect(nestedReads).toBe(0); expect(mesh.indices).toEqual(new Uint16Array([0,0,0]));
+  mesh.dispose(); transform.dispose();
+});
 function device() {
   const buffers: Array<{ bytes: Uint8Array; destroyed: boolean; destroy(): void }> = [];
   const writes: number[] = [];

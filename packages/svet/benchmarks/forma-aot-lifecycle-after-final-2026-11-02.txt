@@ -1,0 +1,1 @@
+{"status":"passed","retainedTargets":0,"cases":[{"name":"production factory releases never-mounted disposed instances","status":"passed"},{"name":"HMR tracks mounted instances and preserves registration until last unmount","status":"passed"},{"name":"HMR explicit dispose unregisters a mounted instance","status":"passed"}]}

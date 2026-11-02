@@ -1,0 +1,4 @@
+component Green {
+    width:64; height:64;
+    Rectangle { background:#00ff00; radius:0; }
+}

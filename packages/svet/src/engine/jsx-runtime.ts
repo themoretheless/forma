@@ -1,10 +1,10 @@
-import { type ChildNodeValue, type Component, Fragment, h } from './dom.ts';
+import { type ChildNodeValue, type Component, type AsyncComponent, Fragment, h } from './dom.ts';
 import { type Signal } from './reactivity.ts';
 
 export { Fragment };
 
 export function jsx(
-  type: string | Component<any>,
+  type: string | Component<any> | AsyncComponent<any>,
   props: Record<string, any> | null,
   key?: string | number
 ): Node {
@@ -25,6 +25,7 @@ export const jsxDEV = jsx;
 
 export namespace JSX {
   export type Element = Node;
+  export type ElementType = string | Component<any> | AsyncComponent<any>;
   export interface ElementChildrenAttribute {
     children: {};
   }

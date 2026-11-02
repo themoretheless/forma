@@ -1,0 +1,89 @@
+{
+  "startedAt": "2026-11-01T20:15:28.510Z",
+  "node": "v22.23.4",
+  "durationMs": 1000,
+  "concurrency": 8,
+  "gcMode": "forced",
+  "forcedGCs": 2,
+  "cleanupFailures": [],
+  "requestFailures": [],
+  "requests": 16,
+  "completed": 11,
+  "disconnected": 5,
+  "bytesRead": 2917873,
+  "readerPauses": 33,
+  "drains": 22,
+  "maxNodesAfterFinish": 0,
+  "samples": [
+    {
+      "elapsedMs": 890.1912920000004,
+      "requests": 8,
+      "rss": 149718248,
+      "heapTotal": 82083840,
+      "heapUsed": 43340776,
+      "external": 20957019,
+      "arrayBuffers": 884813
+    },
+    {
+      "elapsedMs": 1485.3602090000004,
+      "requests": 16,
+      "rss": 151865896,
+      "heapTotal": 82608128,
+      "heapUsed": 43663928,
+      "external": 21826019,
+      "arrayBuffers": 884813
+    }
+  ],
+  "windows": [
+    {
+      "count": 0,
+      "heapMin": null,
+      "heapMax": 0,
+      "rssMin": null,
+      "rssMax": 0
+    },
+    {
+      "count": 0,
+      "heapMin": null,
+      "heapMax": 0,
+      "rssMin": null,
+      "rssMax": 0
+    },
+    {
+      "count": 0,
+      "heapMin": null,
+      "heapMax": 0,
+      "rssMin": null,
+      "rssMax": 0
+    },
+    {
+      "count": 2,
+      "heapMin": 43340776,
+      "heapMax": 43663928,
+      "rssMin": 149718248,
+      "rssMax": 151865896,
+      "externalMin": 20957019,
+      "externalMax": 21826019,
+      "arrayBuffersMin": 884813,
+      "arrayBuffersMax": 884813
+    }
+  ],
+  "scope": "Loopback Node HTTP/fetch streaming with delayed reader calls, concurrent clients and shell disconnects. Writer drains are observed; no proxy/browser, sustained kernel-buffer saturation or universal RSS bound claim.",
+  "sourceSha256": "3414489679d9e5a19510f407499df8f5c603e0fa0a2903ea9f167af78563aa38",
+  "runtimeSha256": {
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  },
+  "updatedAt": "2026-11-01T20:15:30.125Z",
+  "elapsedMs": 1485.4158340000004,
+  "status": "passed",
+  "completedAt": "2026-11-01T20:15:30.119Z",
+  "finalSourceSha256": "3414489679d9e5a19510f407499df8f5c603e0fa0a2903ea9f167af78563aa38",
+  "finalRuntimeSha256": {
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  },
+  "artifactsUnchanged": true
+}

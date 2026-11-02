@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-02",
+  "status": "oversized sole-root Scroll content leading edge and full extents fixed",
+  "before": "512-wide empty Row in320-wide viewport centered at negative origin; max horizontal offset96 rather than192",
+  "after": "Scroll layout centers only when space remains; oversized containers/leaves start at allocated origin and overflow positive",
+  "checks": {
+    "lib_tests": 159,
+    "public_integration_tests": 8,
+    "allocation_tests": 10,
+    "explicit_hardware_gpu_tests": 6,
+    "native_bin_check": "passed",
+    "wasm32_check_and_build": "passed",
+    "actual_node_wasm": "passed",
+    "diff_check": "passed"
+  },
+  "matrix": [
+    "empty Row/Column/Stack/Frame/Grid512x600 in320x300 viewport:offset192x300 and return0",
+    "oversized TextInput starts at viewport origin20,50 and scrolls192x300",
+    "previous fractional/crop/full-frame CPU/GPU pixel tests",
+    "NodeJS compile/load roundtrip and oversized two-axis offsets"
+  ],
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "e9503d7d07bf73bed094a0f4b0f09bd5ed3e891e6d38025d6e29e4a1613ceb82",
+    "vector-ui/tests/scene_artifact.rs": "33bee3a8664327e661f3479f7235c8306fa6784d7dddca5eed504a99fda837ce",
+    "vector-ui/tests/check-scene-artifact-wasm.cjs": "350718937a7815a61af4cba90019128ec7140b35e235f1f554cb8dc41ef47529"
+  },
+  "limits": [
+    "Scope is sole-root Scroll; nested/multiple viewports remain open",
+    "General overflow/RTL/reverse-direction and browser interaction matrix remain open",
+    "No performance claim; current browser report predates positioning change",
+    "Frozen2h traced HTTP diagnostic left running unchanged"
+  ]
+}

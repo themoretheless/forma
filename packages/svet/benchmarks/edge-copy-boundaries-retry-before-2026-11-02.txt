@@ -1,0 +1,35 @@
+{
+  "startedAt": "2026-11-01T22:01:07.686Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN",
+  "packageRoot": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-ZdvZMD/consumer/node_modules/svet-engine",
+  "independentEngineModules": 16,
+  "hostOptionsAdapter": "native-v4",
+  "crossCopyBoundaries": {
+    "status": "failed",
+    "error": "Error: Foreign Edge retry failed {\"label\":\"B-A\",\"mounts\":3,\"text\":\"content\",\"html\":\"content<!--svet-error-boundary-->\"}\n    at check (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39129:21)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39183:9\n    at async awaitRequest (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39369:14)\n    at async runWithAsyncRequestScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:982:12)\n    at async file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39398:16\n    at async crossCopyBoundaries (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39162:5)\n    at async Object.fetch (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:60294:84)"
+  },
+  "status": "failed",
+  "error": "Error: Edge cross-copy boundaries failed: {\"status\":\"failed\",\"error\":\"Error: Foreign Edge retry failed {\\\"label\\\":\\\"B-A\\\",\\\"mounts\\\":3,\\\"text\\\":\\\"content\\\",\\\"html\\\":\\\"content<!--svet-error-boundary-->\\\"}\\n    at check (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39129:21)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39183:9\\n    at async awaitRequest (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39369:14)\\n    at async runWithAsyncRequestScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:982:12)\\n    at async file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39398:16\\n    at async crossCopyBoundaries (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:39162:5)\\n    at async Object.fetch (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-9vAXtN/worker.js:60294:84)\"}\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:36:317\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+  "completedAt": "2026-11-01T22:01:08.324Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "wasmBridgeSha256": "fcb1236341553e5e97e04c73895d65b1a33c4b55c446f5d3b0906980db1d1aec",
+  "reactivitySha256": "449dde72ac75867bf40900305a8e9307732a7282f020d6f978e938284805a579",
+  "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+  "driverSourceSha256": "4e4ac50a499c025674f24a5ae20c6c49b713c60b63dd0babafe29086c368ccd0",
+  "inspectorSourceSha256": "60a1d9fe15df70504241bcc3876b177750c1dde850738b485200136441176cad",
+  "retentionSourceSha256": "2fbeb87297173e13e9033186ff9bb221cf08847b93355331e306c570f789eacd",
+  "crossCopySourceSha256": "f08d636f2a4954a29247b573e22131d210929adbb5191b4122a5ff02275eedfe",
+  "boundarySourceSha256": "340f3f14d6c0c9938d46c809428b3c511fde4c1aa39ea45bb8e323db3664aa05",
+  "workerSourceSha256": "d0c012d67e2b20e232980c350430cba2a8d2a7b7a225a502a881a48bb7b34883",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "c50a5133197064b7ced5964d85d10dfd836fcce25cbc27126a9e39475378f57c"
+}

@@ -1,0 +1,59 @@
+{
+  "status": "validated-owned-artifact-retention-and-payload-reduction",
+  "change": "At control transport boundary omit root replay metadata only when an exact typed copy is retained in a frame;keep unmatched/later scope metadata",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "3fc138d28581d7bf9c203a2c6779c1860f4e2c6b75ae75979b6dc51330ae62e0",
+    "vector-ui/examples/binding_sync_bench.rs": "4e88ce550954e70c91a94a7f225c362421746e1caf577f3b874dc578029e8176",
+    "vector-ui/tests/compare-scene-snapshot-wasm.cjs": "a69857d16a26768a53088296254e30ea191ba0b0bdca9504bd669b41d22c3e24"
+  },
+  "baselineMethod": "Same source/harness with only the two compaction calls bypassed;candidate restored byte-for-byte before final tests/build",
+  "baselineSourceSha256": "334855599ff16fc9fe07a33b3df346f0d6629c79129f3bf0044fbe0c00889bf4",
+  "rows": [
+    {
+      "controls": 8,
+      "beforeRetainedAllocatorBytes": 237424,
+      "afterRetainedAllocatorBytes": 171952,
+      "reductionPercent": 27.575982209043737
+    },
+    {
+      "controls": 32,
+      "beforeRetainedAllocatorBytes": 3042670,
+      "afterRetainedAllocatorBytes": 2257134,
+      "reductionPercent": 25.81732491528822
+    },
+    {
+      "controls": 96,
+      "beforeRetainedAllocatorBytes": 25887790,
+      "afterRetainedAllocatorBytes": 19340974,
+      "reductionPercent": 25.289203906552082
+    },
+    {
+      "controls": 256,
+      "beforeRetainedAllocatorBytes": 181092378,
+      "afterRetainedAllocatorBytes": 135619610,
+      "reductionPercent": 25.110260576510846
+    }
+  ],
+  "repeat": "Both candidate runs have identical artifact counters;every before/after sample returns allocator delta to zero after Drop",
+  "editCounters": "Cumulative edit allocation counts/requested bytes unchanged;no edit-speed claim",
+  "transportBytes256": {
+    "before": 28622783,
+    "after": 21516991
+  },
+  "validation": {
+    "libraryTests": 166,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "actualGeneratedNodeSnapshotAndAliasCases": 5,
+    "oldNewArtifactComparisonCases": 4,
+    "olderReader": "preceding local WASM build accepts new artifacts",
+    "remoteCI": "not run"
+  },
+  "limitations": [
+    "Retained metric is Rust GlobalAlloc Layout byte delta for owned artifact,excludes Document,allocator overhead,RSS,GPU",
+    "Not peak memory or full Runtime footprint",
+    "No controlled latency/FPS/presentation claim",
+    "Remaining per-control model copies and large-form readiness remain open"
+  ]
+}

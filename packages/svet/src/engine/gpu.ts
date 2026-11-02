@@ -11,6 +11,7 @@ import {
   untrack,
   flushEffects,
   invalidateSingleSignalFastPath,
+  allocateReactiveNode,
   getReactiveGeneration,
   registerReactiveResetCleanup,
   getCurrentOwner,
@@ -26,6 +27,8 @@ import {
   disposeTrackedNode,
 } from './reactivity.ts';
 import { getWasmCore, withWasmCore, withoutAsyncCoreContext, KIND_SIGNAL, type SvetWasmExports } from './wasm-bridge.ts';
+import { residentVertexRecord, assertResidentRecord, snapshotResidentVertices,
+  type GpuResidentTensor, type GpuResidentRecord } from './gpu-resident-bridge.ts';
 
 export type MemoryArchitecture = 'UMA' | 'DUMA';
 
@@ -39,6 +42,11 @@ export interface GpuComputeQueueTelemetry {
 }
 
 export interface GpuDeviceTelemetry extends GpuComputeQueueTelemetry {
+  /** Persistent-result reservations, including pending creation; excludes transient GPU buffers. */
+  residentComputeBytes: number;
+  residentComputeCount: number;
+  maxResidentComputeBytes: number;
+
   architecture: MemoryArchitecture;
   webgpuAvailable: boolean;
   arenaFloatCount: number;
@@ -86,6 +94,8 @@ export interface WebGpuDeviceLike {
   createTexture?(descriptor: any): any;
   createCommandEncoder?(): any;
   createBindGroup?(descriptor: any): any;
+  createBindGroupLayout?(descriptor: any): any;
+  createPipelineLayout?(descriptor: any): any;
   pushErrorScope?(filter: 'validation' | 'out-of-memory' | 'internal'): void;
   popErrorScope?(): PromiseLike<{ message: string } | null>;
   lost?: PromiseLike<{ reason?: string; message?: string }>;
@@ -96,6 +106,8 @@ export interface WebGpuDeviceLike {
 export interface GpuSubsystemConfig {
   /** Shared device snapshot budget; default 256 MiB. Existing work is never evicted. */
   maxPendingComputeBytes?: number;
+  /** Shared persistent compute-result budget; default 256 MiB. Existing results are retained. */
+  maxResidentComputeBytes?: number;
   architecture?: MemoryArchitecture;
   device?: WebGpuDeviceLike | null;
 }
@@ -143,7 +155,9 @@ function detachDevice(state: GpuState, reason: Error, notify = true): void {
   const buffer = state.buffer, device = state.device, owned = state.ownsDevice;
   state.buffer = null; state.bufferSize = 0; state.forceUpload = true; state.device = null; state.ownsDevice = false;
   try { if (notify) notifyRenderers(state); } finally {
-    try { buffer?.destroy?.(); } finally { if (owned) device?.destroy?.(); }
+    try { buffer?.destroy?.(); } finally {
+      if (owned && device) { computePipelineCaches.delete(device); device.destroy?.(); }
+    }
   }
 }
 type DeviceLossHub = { states: Set<WeakRef<GpuState>>; message?: string };
@@ -151,6 +165,7 @@ const deviceLossHubs = new WeakMap<WebGpuDeviceLike, DeviceLossHub>();
 function subscribeDeviceLoss(device: WebGpuDeviceLike, hub: DeviceLossHub): void {
   const lost = (message: string) => {
     hub.message = message;
+    computePipelineCaches.delete(device);
     for (const reference of Array.from(hub.states)) {
       const state = reference.deref();
       if (state?.device === device) {
@@ -205,21 +220,23 @@ export function configureGpuSubsystem(config: GpuSubsystemConfig = {}): GpuDevic
   const core = getWasmCore(), generation = getReactiveGeneration(core), state = gpuState(core);
   const initialization = state.initializationVersion;
   // Read user-controlled fields once before publishing any configuration change.
-  config = { architecture: config.architecture, device: config.device, maxPendingComputeBytes: config.maxPendingComputeBytes };
+  config = { architecture: config.architecture, device: config.device,
+    maxPendingComputeBytes: config.maxPendingComputeBytes, maxResidentComputeBytes: config.maxResidentComputeBytes };
   if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during configuration');
   if (isOwnerScopeDisposed(owner)) throw new Error('GPU configuration owner disposed');
   if (initialization !== state.initializationVersion) throw new Error('GPU configuration changed during configuration');
   if (config.architecture !== undefined && config.architecture !== 'UMA' && config.architecture !== 'DUMA') {
     throw new TypeError('Invalid GPU memory architecture');
   }
-  if (config.maxPendingComputeBytes !== undefined) {
-    if (!Number.isSafeInteger(config.maxPendingComputeBytes) || config.maxPendingComputeBytes < 0) {
-      throw new RangeError('maxPendingComputeBytes must be a nonnegative safe integer');
-    }
-    const device = config.device === undefined ? state.device : config.device;
-    if (!device) throw new Error('A GPU device is required to configure the compute snapshot budget');
-    computeSnapshotBudgets.set(device, config.maxPendingComputeBytes);
+  const budgetDevice = config.device === undefined ? state.device : config.device;
+  for (const key of ['maxPendingComputeBytes', 'maxResidentComputeBytes'] as const) {
+    const value = config[key];
+    if (value === undefined) continue;
+    if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${key} must be a nonnegative safe integer`);
+    if (!budgetDevice) throw new Error('A GPU device is required to configure a compute budget');
   }
+  if (config.maxPendingComputeBytes !== undefined) computeSnapshotBudgets.set(budgetDevice!, config.maxPendingComputeBytes);
+  if (config.maxResidentComputeBytes !== undefined) residentComputeBudgets.set(budgetDevice!, config.maxResidentComputeBytes);
   unregisterConfiguration(state);
   state.initializationVersion++;
   if (config.architecture) state.architecture = config.architecture;
@@ -285,7 +302,7 @@ export function createGpuTensor(initialOrLength: number | ArrayLike<number>): Gp
   }
   const offset = core.svet_gpu_alloc_f32(length) >>> 0;
   if (offset === 0xffffffff) throw new RangeError('GPU tensor arena capacity exceeded');
-  const id = core.svet_create_node(KIND_SIGNAL);
+  const id = allocateReactiveNode(core, KIND_SIGNAL);
   invalidateSingleSignalFastPath();
   let disposed = false;
   const assertLive = () => {
@@ -582,9 +599,11 @@ export function dispatchGpuComputeKernel(options: WebGpuComputeDispatchOptions):
     assertContext();
     return runWithCapturedOwner(core, owner, () => options.fallbackKernel!(inputViews, workingOutput));
   });
-  if (returned != null && typeof (returned as PromiseLike<unknown>).then === 'function') {
-    // Observe late rejection while keeping all callback-owned arrays private.
-    void Promise.resolve(returned).catch(() => {});
+  const then = returned == null ? undefined : (returned as PromiseLike<unknown>).then;
+  if (typeof then === 'function') {
+    // Cache the user accessor once and preserve its receiver during native
+    // assimilation. Observe late rejection without exposing working arrays.
+    void Promise.resolve({then: then.bind(returned)}).catch(() => {});
     throw new TypeError('Synchronous compute received an asynchronous callback; use dispatchGpuComputeKernelAsync');
   }
   if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during computation');
@@ -593,10 +612,24 @@ export function dispatchGpuComputeKernel(options: WebGpuComputeDispatchOptions):
   options.output.write(workingOutput);
 }
 
+export interface GpuComputeChainStage {
+  wgsl: string;
+  entryPoint?: string;
+  workgroups?: [number, number?, number?];
+  /** Private stage output length in floats; defaults to the final tensor length. */
+  outputLength?: number;
+}
 export interface AsyncWebGpuComputeDispatchOptions extends Omit<WebGpuComputeDispatchOptions, 'fallbackKernel'> {
   /** Entry point defaults to main. Inputs use bindings 0..N-1, output uses N. */
   entryPoint?: string;
   signal?: AbortSignal;
+  /** First private output length; the last stage must match output.length. */
+  outputLength?: number;
+  /** Up to 31 additional GPU stages. Each reads the previous result
+   * at binding 0 and writes binding 1, seeded with the previous result's prefix.
+   * One submission/readback/publication covers the whole chain. */
+  chain?: readonly GpuComputeChainStage[];
+  /** When hardware is absent, this callback implements the entire chain. */
   fallbackKernel?: (inputs: Float32Array[], output: Float32Array) => void | PromiseLike<void>;
 }
 export interface GpuComputeResult { backend: 'webgpu' | 'fallback'; elements: number; uploadedBytes: number; readbackBytes: number }
@@ -618,18 +651,72 @@ export class GpuComputeCapacityError extends Error {
 
 
 const computeQueues = new WeakMap<WebGpuDeviceLike, Promise<void>>();
+type ComputePipelineCache = { entries: Map<string, any>; keyBytes: number };
+const computePipelineCaches = new WeakMap<WebGpuDeviceLike, ComputePipelineCache>();
+const MAX_COMPUTE_PIPELINES = 32;
+const MAX_COMPUTE_PIPELINE_KEY_BYTES = 1024 * 1024;
+function computePipelineKey(wgsl: string, entryPoint: string, namespace = ''): string | undefined {
+  // Do not coerce user objects or retain unbounded shader source in cache keys.
+  if (typeof wgsl !== 'string' || typeof entryPoint !== 'string' ||
+      (wgsl.length + entryPoint.length) * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES) return;
+  const key = `${namespace}${entryPoint.length}:${entryPoint}${wgsl}`;
+  return key.length * 2 <= MAX_COMPUTE_PIPELINE_KEY_BYTES ? key : undefined;
+}
+function findComputePipeline(device: WebGpuDeviceLike, key: string | undefined): any {
+  if (key === undefined) return;
+  const cache = computePipelineCaches.get(device), pipeline = cache?.entries.get(key);
+  if (pipeline) { cache!.entries.delete(key); cache!.entries.set(key, pipeline); }
+  return pipeline;
+}
+function forgetComputePipeline(device: WebGpuDeviceLike, key: string | undefined): void {
+  if (key === undefined) return;
+  const cache = computePipelineCaches.get(device);
+  if (cache?.entries.delete(key)) cache.keyBytes -= key.length * 2;
+}
+function retainComputePipeline(device: WebGpuDeviceLike, key: string | undefined, pipeline: any): void {
+  if (key === undefined || deviceLossHubs.get(device)?.message !== undefined) return;
+  let cache = computePipelineCaches.get(device);
+  if (!cache) { cache = { entries: new Map(), keyBytes: 0 }; computePipelineCaches.set(device, cache); }
+  forgetComputePipeline(device, key);
+  while (cache.entries.size >= MAX_COMPUTE_PIPELINES || cache.keyBytes + key.length * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES) {
+    forgetComputePipeline(device, cache.entries.keys().next().value!);
+  }
+  cache.entries.set(key, pipeline); cache.keyBytes += key.length * 2;
+}
 // Includes running work and cancelled entries whose queue closures still retain snapshots.
 const pendingComputations = new WeakMap<WebGpuDeviceLike, number>();
 const MAX_PENDING_COMPUTATIONS = 32;
 const pendingSnapshotBytes = new WeakMap<WebGpuDeviceLike, number>();
 const computeSnapshotBudgets = new WeakMap<WebGpuDeviceLike, number>();
 const DEFAULT_COMPUTE_SNAPSHOT_BUDGET = 256 * 1024 * 1024;
+const residentComputeBudgets = new WeakMap<WebGpuDeviceLike, number>();
+const residentComputeUsage = new WeakMap<WebGpuDeviceLike, {bytes: number; count: number}>();
 function computeQueueTelemetry(device: WebGpuDeviceLike | null): GpuComputeQueueTelemetry {
   return {
     pendingComputeCount: device ? pendingComputations.get(device) ?? 0 : 0,
     pendingComputeSnapshotBytes: device ? pendingSnapshotBytes.get(device) ?? 0 : 0,
     maxPendingComputeCount: MAX_PENDING_COMPUTATIONS,
     maxPendingComputeBytes: device ? computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET : DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
+  };
+}
+
+/** @internal Reserve before copying host data; retain queued credits until drainage. */
+function reserveGpuComputeAdmission(device: WebGpuDeviceLike, snapshotBytes: number): () => void {
+  const pending = pendingComputations.get(device) ?? 0;
+  if (pending >= MAX_PENDING_COMPUTATIONS) throw new GpuComputeCapacityError('count', computeQueueTelemetry(device));
+  const retained = pendingSnapshotBytes.get(device) ?? 0;
+  if (!Number.isSafeInteger(snapshotBytes) || snapshotBytes < 0 ||
+      snapshotBytes > (computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET) - retained) {
+    throw new GpuComputeCapacityError('snapshot-bytes', computeQueueTelemetry(device), snapshotBytes);
+  }
+  pendingComputations.set(device, pending + 1); pendingSnapshotBytes.set(device, retained + snapshotBytes);
+  let released = false;
+  return () => {
+    if (released) return; released = true;
+    const remaining = pendingComputations.get(device)! - 1;
+    const bytes = pendingSnapshotBytes.get(device)! - snapshotBytes;
+    if (remaining) pendingComputations.set(device, remaining); else pendingComputations.delete(device);
+    if (bytes) pendingSnapshotBytes.set(device, bytes); else pendingSnapshotBytes.delete(device);
   };
 }
 
@@ -667,6 +754,23 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
   };
   assertContext();
   options = snapshotGpuComputeOptions(options, assertContext);
+  const chain: GpuComputeChainStage[] = [];
+  if (options.chain !== undefined) {
+    if (!Array.isArray(options.chain)) throw new RangeError('GPU compute chain supports at most 31 additional stages');
+    const length = options.chain.length;
+    assertContext();
+    if (!Number.isInteger(length) || length < 0 || length > 31) throw new RangeError('GPU compute chain supports at most 31 additional stages');
+    for (const value of options.chain) {
+      assertContext();
+      if (chain.length >= 31) throw new RangeError('GPU compute chain supports at most 31 additional stages');
+      const stage = snapshotGpuOptionMetadata(value, assertContext);
+      if (typeof stage.wgsl !== 'string' || (stage.entryPoint !== undefined && typeof stage.entryPoint !== 'string')) {
+        throw new TypeError('Invalid GPU compute chain shader or entry point');
+      }
+      chain.push(stage);
+    }
+    assertContext();
+  }
   options.signal?.throwIfAborted();
   assertContext();
   const state = gpuState(core);
@@ -712,18 +816,38 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
     if (outputRecord?.core !== core) throw new Error('GPU output belongs to a different reactive context');
     const workingOutput = options.output.peek().slice();
     const candidate = state.device;
-    let dimensions: number[] = [];
+    const kernels = [{ wgsl: options.wgsl, entryPoint: options.entryPoint, workgroups: options.workgroups, outputLength: options.outputLength }, ...chain];
+    const outputLengths = kernels.map(kernel => {
+      const length = kernel.outputLength ?? workingOutput.length;
+      // GPU-only intermediates are independent of the WASM arena limit.
+      if (!Number.isSafeInteger(length) || length < 0 || length > Math.floor(Number.MAX_SAFE_INTEGER / Float32Array.BYTES_PER_ELEMENT)) {
+        throw new RangeError('Invalid GPU compute stage outputLength');
+      }
+      return length;
+    });
+    if (outputLengths.at(-1) !== workingOutput.length) throw new RangeError('Final GPU compute stage must match output tensor length');
+    const outputByteLengths = outputLengths.map(length => length * Float32Array.BYTES_PER_ELEMENT);
+    const maxOutputBytes = Math.max(...outputByteLengths);
+    const initialOutputBytes = Math.min(workingOutput.byteLength, outputByteLengths[0]);
+    const dimensions: number[][] = [];
     if (candidate?.createComputePipeline && candidate.createShaderModule && candidate.createBindGroup &&
         candidate.createBuffer && candidate.createCommandEncoder && candidate.queue.submit) {
-      const groups = options.workgroups ?? [Math.ceil(workingOutput.length / 64), 1, 1];
-      if (!Array.isArray(groups) || groups.length < 1 || groups.length > 3) throw new RangeError('Invalid GPU workgroup dimensions');
-      dimensions = [groups[0], groups[1] ?? 1, groups[2] ?? 1];
-      if (dimensions.some(n => !Number.isInteger(n) || n < 1 || n > (candidate.limits?.maxComputeWorkgroupsPerDimension ?? 65535))) {
-        throw new RangeError('Invalid GPU workgroup count');
+      for (let stage = 0; stage < kernels.length; stage++) {
+        const kernel = kernels[stage];
+        const groups = kernel.workgroups ?? [Math.ceil(outputLengths[stage] / 64), 1, 1];
+        if (!Array.isArray(groups)) throw new RangeError('Invalid GPU workgroup dimensions');
+        const length = groups.length; assertContext();
+        if (!Number.isInteger(length) || length < 1 || length > 3) throw new RangeError('Invalid GPU workgroup dimensions');
+        const counts: number[] = [];
+        for (let i = 0; i < 3; i++) { const count = groups[i]; assertContext(); counts.push(i === 0 ? count! : count ?? 1); }
+        if (counts.some(n => !Number.isInteger(n) || n < 1 || n > (candidate.limits?.maxComputeWorkgroupsPerDimension ?? 65535))) {
+          throw new RangeError('Invalid GPU workgroup count');
+        }
+        dimensions.push(counts);
       }
-      for (const view of [...inputViews, workingOutput]) {
-        if (!view.byteLength || view.byteLength > (candidate.limits?.maxBufferSize ?? Infinity) ||
-            view.byteLength > (candidate.limits?.maxStorageBufferBindingSize ?? Infinity)) throw new RangeError('Invalid GPU storage binding size');
+      for (const byteLength of [...inputViews.map(view => view.byteLength), ...outputByteLengths]) {
+        if (!byteLength || byteLength > (candidate.limits?.maxBufferSize ?? Infinity) ||
+            byteLength > (candidate.limits?.maxStorageBufferBindingSize ?? Infinity)) throw new RangeError('Invalid GPU storage binding size');
       }
     } else if (!options.fallbackKernel) throw new Error('WebGPU compute is unavailable and no fallbackKernel was supplied');
     assertContext();
@@ -742,7 +866,7 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
       assertCurrent();
       options.output.write(values);
       return { backend, elements: values.length,
-        uploadedBytes: backend === 'webgpu' ? inputViews.reduce((sum, input) => sum + input.byteLength, values.byteLength) : 0,
+        uploadedBytes: backend === 'webgpu' ? inputViews.reduce((sum, input) => sum + input.byteLength, initialOutputBytes) : 0,
         readbackBytes: backend === 'webgpu' ? values.byteLength : 0 };
     });
     try {
@@ -765,34 +889,73 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
         const buffers: any[] = [];
         const scopes: Array<'validation' | 'out-of-memory' | 'internal'> = [];
         let mapped = false, staging: any, result: Float32Array | undefined;
+        const pipelines: Array<{ key: string | undefined; pipeline: any }> = [];
         let failed = false, failure: unknown;
         try {
           if (device.pushErrorScope && device.popErrorScope) {
             for (const filter of ['validation', 'out-of-memory', 'internal'] as const) { device.pushErrorScope(filter); scopes.push(filter); }
           }
-          const shader = device.createShaderModule!({ code: options.wgsl });
-          if (shader.getCompilationInfo) {
-            const info = await waitForGpu(shader.getCompilationInfo() as PromiseLike<{ messages: Array<{ type: string; message: string; lineNum: number; linePos: number }> }>, signals);
-            const error = info.messages.find(message => message.type === 'error');
-            if (error) throw new Error(`WGSL ${error.lineNum}:${error.linePos}: ${error.message}`);
+          for (const kernel of kernels) {
+            const entryPoint = kernel.entryPoint ?? 'main';
+            const key = computePipelineKey(kernel.wgsl, entryPoint);
+            let pipeline = findComputePipeline(device, key)
+              ?? (key === undefined ? undefined : pipelines.find(item => item.key === key)?.pipeline);
+            // Remember attempted keys as well, so a later failure evicts all
+            // pipelines used by this transaction before any result is published.
+            const record = { key, pipeline }; pipelines.push(record);
+            if (!pipeline) {
+              const shader = device.createShaderModule!({ code: kernel.wgsl });
+              if (shader.getCompilationInfo) {
+                const info = await waitForGpu(shader.getCompilationInfo() as PromiseLike<{ messages: Array<{ type: string; message: string; lineNum: number; linePos: number }> }>, signals);
+                const error = info.messages.find(message => message.type === 'error');
+                if (error) throw new Error(`WGSL ${error.lineNum}:${error.linePos}: ${error.message}`);
+              }
+              assertCurrent();
+              pipeline = device.createComputePipeline!({ layout: 'auto', compute: { module: shader, entryPoint } });
+              record.pipeline = pipeline;
+            }
           }
           assertCurrent();
-          const pipeline = device.createComputePipeline!({ layout: 'auto', compute: { module: shader, entryPoint: options.entryPoint ?? 'main' } });
           const views = [...inputViews, workingOutput];
           const storage = views.map((view, binding) => {
-            const buffer = device.createBuffer!({ size: view.byteLength, usage: 0x80 | 0x08 | (binding === inputViews.length ? 0x04 : 0) });
+            const isOutput = binding === inputViews.length;
+            const size = isOutput ? outputByteLengths[0] : view.byteLength;
+            const buffer = device.createBuffer!({ size: isOutput ? maxOutputBytes : size, usage: 0x80 | 0x08 | (isOutput ? 0x04 : 0) });
             if (!buffer) throw new Error('GPU compute buffer allocation failed');
             buffers.push(buffer);
-            device.queue.writeBuffer(buffer, 0, view.buffer, view.byteOffset, view.byteLength);
-            return { binding, resource: { buffer, size: view.byteLength } };
+            const uploaded = Math.min(view.byteLength, size);
+            if (uploaded) device.queue.writeBuffer(buffer, 0, view.buffer, view.byteOffset, uploaded);
+            return { binding, resource: { buffer, size } };
           });
-          const group = device.createBindGroup!({ layout: pipeline.getBindGroupLayout(0), entries: storage });
           staging = device.createBuffer!({ size: workingOutput.byteLength, usage: 0x01 | 0x08 });
           if (!staging) throw new Error('GPU readback allocation failed');
           buffers.push(staging);
-          const encoder = device.createCommandEncoder!(), pass = encoder.beginComputePass();
-          pass.setPipeline(pipeline); pass.setBindGroup(0, group); pass.dispatchWorkgroups(...dimensions); pass.end();
-          encoder.copyBufferToBuffer(storage[inputViews.length].resource.buffer, 0, staging, 0, workingOutput.byteLength);
+          const encoder = device.createCommandEncoder!();
+          let previous = storage[inputViews.length].resource.buffer;
+          let alternate: any;
+          if (chain.length) {
+            alternate = device.createBuffer!({ size: maxOutputBytes, usage: 0x80 | 0x08 | 0x04 });
+            if (!alternate) throw new Error('GPU compute chain buffer allocation failed');
+            buffers.push(alternate);
+          }
+          for (let i = 0; i < pipelines.length; i++) {
+            assertCurrent();
+            const pipeline = pipelines[i].pipeline;
+            let entries = storage;
+            if (i > 0) {
+              const copiedBytes = Math.min(outputByteLengths[i - 1], outputByteLengths[i]);
+              if (outputByteLengths[i] > copiedBytes) encoder.clearBuffer(alternate, copiedBytes, outputByteLengths[i] - copiedBytes);
+              encoder.copyBufferToBuffer(previous, 0, alternate, 0, copiedBytes);
+              entries = [previous, alternate].map((buffer, binding) => ({
+                binding, resource: { buffer, size: outputByteLengths[i - 1 + binding] },
+              }));
+            }
+            const group = device.createBindGroup!({ layout: pipeline.getBindGroupLayout(0), entries });
+            const pass = encoder.beginComputePass();
+            pass.setPipeline(pipeline); pass.setBindGroup(0, group); pass.dispatchWorkgroups(...dimensions[i]); pass.end();
+            if (i > 0) [previous, alternate] = [alternate, previous];
+          }
+          encoder.copyBufferToBuffer(previous, 0, staging, 0, workingOutput.byteLength);
           device.queue.submit!([encoder.finish()]);
           await waitForGpu(staging.mapAsync(0x01, 0, workingOutput.byteLength), signals);
           mapped = true;
@@ -814,7 +977,10 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
             catch (error) { if (!failed) { failed = true; failure = error; } }
           }
         }
-        if (failed) throw failure;
+        if (failed) { for (const { key } of pipelines) forgetComputePipeline(device, key); throw failure; }
+        assertCurrent();
+        // Error scopes must finish successfully before publishing to this cache.
+        for (const { key, pipeline } of pipelines) retainComputePipeline(device, key, pipeline);
         return publish(result!, 'webgpu');
       };
       // Error scopes belong to a device, so serialize complete validation/readback
@@ -848,6 +1014,9 @@ export function getGpuTelemetry(): GpuDeviceTelemetry {
     arenaFloatCount: floatCount, arenaByteLength: floatCount * 4,
     lastSyncBytesTransferred: state.lastBytes, totalSyncCount: state.syncCount,
     totalBytesTransferred: state.totalBytes,
+    residentComputeBytes: state.device ? residentComputeUsage.get(state.device)?.bytes ?? 0 : 0,
+    residentComputeCount: state.device ? residentComputeUsage.get(state.device)?.count ?? 0 : 0,
+    maxResidentComputeBytes: state.device ? residentComputeBudgets.get(state.device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET : DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
     ...computeQueueTelemetry(state.device) };
 }
 
@@ -1055,6 +1224,8 @@ export function createPerspectiveCamera3D(options?: PerspectiveCamera3DOptions):
 
 export interface Mesh3D {
   readonly vertexCount: number;
+  /** Maximum bytes in one privately copied index array; fixed at construction. */
+  readonly maxIndexBytes: number;
   /** Optional triangle index buffer; its element width selects the WebGPU index format. */
   readonly indices?: Uint16Array | Uint32Array;
   /** Copy/validate new topology; undefined selects nonindexed lines, [] selects no triangles. */
@@ -1068,7 +1239,7 @@ export interface Mesh3D {
   dispose(): void;
 }
 
-function copyMeshIndices(values: ArrayLike<number> | undefined, vertexCount: number, indexFormat: 'uint16' | 'uint32', assertCurrent: () => void): Uint16Array | Uint32Array | undefined {
+function copyMeshIndices(values: ArrayLike<number> | undefined, vertexCount: number, indexFormat: 'uint16' | 'uint32', maxIndexBytes: number, assertCurrent: () => void): Uint16Array | Uint32Array | undefined {
   if (indexFormat !== 'uint16' && indexFormat !== 'uint32') throw new RangeError('Invalid Mesh3D index format');
   const maxIndex = indexFormat === 'uint32' ? 0xffffffff : 65535;
   let indices: Uint16Array | Uint32Array | undefined;
@@ -1077,6 +1248,10 @@ function copyMeshIndices(values: ArrayLike<number> | undefined, vertexCount: num
     assertCurrent();
     if (!Number.isSafeInteger(length) || length < 0 || length % 3 !== 0) {
       throw new RangeError('Mesh3D triangle indices must contain complete triples');
+    }
+    const bytesPerIndex = indexFormat === 'uint32' ? 4 : 2;
+    if (length > Math.floor(maxIndexBytes / bytesPerIndex)) {
+      throw new RangeError('Mesh3D index snapshot exceeds maxIndexBytes');
     }
     indices = indexFormat === 'uint32' ? new Uint32Array(length) : new Uint16Array(length);
     for (let i = 0; i < length; i++) {
@@ -1102,6 +1277,9 @@ export function createMesh3D(options: {
   indices?: ArrayLike<number>;  // Optional triangle indices (3 per triangle)
   /** Defaults to uint16; select uint32 explicitly for indices above 65535. */
   indexFormat?: 'uint16' | 'uint32';
+  /** Per-snapshot CPU index byte budget; defaults to the native arena byte limit
+   * (currently 256 MiB). This is independent of GPU allocation limits. */
+  maxIndexBytes?: number;
   transform: ReactiveTransform3D;
   camera?: PerspectiveCamera3D;
 }): Mesh3D {
@@ -1112,6 +1290,10 @@ export function createMesh3D(options: {
   };
   assertConstruction();
   options = snapshotGpuOptionMetadata(options, assertConstruction);
+  const maxIndexBytes = options.maxIndexBytes ?? core.svet_gpu_get_arena_limit_f32() * Float32Array.BYTES_PER_ELEMENT;
+  if (!Number.isSafeInteger(maxIndexBytes) || maxIndexBytes < 0) {
+    throw new RangeError('Mesh3D maxIndexBytes must be a nonnegative safe integer');
+  }
   const worldMatrix = options.transform.worldMatrix;
   assertConstruction(); worldMatrix.peek(); assertConstruction();
   const projectionMatrix = options.camera?.projectionMatrix;
@@ -1128,7 +1310,7 @@ export function createMesh3D(options: {
     throw new RangeError('Mesh3D storage exceeds GPU tensor arena capacity');
   }
   let indexFormat = options.indexFormat ?? 'uint16';
-  const indices = copyMeshIndices(options.indices, vertexCount, indexFormat, assertConstruction);
+  const indices = copyMeshIndices(options.indices, vertexCount, indexFormat, maxIndexBytes, assertConstruction);
   const homogeneous = new Float32Array(vertexCount * 4);
   for (let i = 0; i < vertexCount; i++) {
     for (let axis = 0; axis < 3; axis++) {
@@ -1172,6 +1354,7 @@ export function createMesh3D(options: {
     };
     return {
       vertexCount,
+      get maxIndexBytes() { return maxIndexBytes; },
       get indices() { assertLive(); return topology(); },
       updateIndices(values, format = indexFormat) {
         assertLive();
@@ -1180,7 +1363,7 @@ export function createMesh3D(options: {
           assertLive();
           if (version !== topologyVersion) throw new Error('Mesh3D topology changed during update');
         };
-        const next = copyMeshIndices(values, vertexCount, format, assertCandidate);
+        const next = copyMeshIndices(values, vertexCount, format, maxIndexBytes, assertCandidate);
         assertCandidate();
         // Failed candidates never advance the commit version. Observers may
         // publish another topology during set; no older state is written after it.
@@ -1337,6 +1520,8 @@ export function pickNearestVertex3D(
 export interface VertexPickFrame3D {
   /** Caller-owned source mesh identity; it may have been replaced or disposed since drawing. */
   mesh: Mesh3D;
+  /** GPU source identity for resident frames; mesh host positions are not its rendered data. */
+  gpuVertices?: GpuResidentTensor;
   id: number;
   width: number;
   height: number;
@@ -1344,6 +1529,7 @@ export interface VertexPickFrame3D {
 }
 interface VertexPickSnapshot3D extends VertexPickFrame3D {
   vertices: Float32Array;
+  resident?: GpuResidentTensor;
   indices?: Uint16Array | Uint32Array;
   vertexCount: number;
 }
@@ -1366,6 +1552,9 @@ function pickFrameSnapshot(core: SvetWasmExports, frame: VertexPickSnapshot3D, x
 export interface Canvas3DProps {
   /** Mesh lifetime remains caller-owned; an accessor supports reactive replacement. */
   mesh: Mesh3D | (() => Mesh3D);
+  /** Optional immutable clip-space float4 buffer, matching mesh.vertexCount.
+   * Draws directly on WebGPU. Picking reads a snapshot only on click; no 2D substitute. */
+  gpuVertices?: GpuResidentTensor | (() => GpuResidentTensor | null) | null;
   edges?: Array<[number, number]>;
   faces?: Array<[number, number, number, number]>;
   /** Positive integer drawing-buffer dimensions; accessors are tracked reactively. */
@@ -1432,7 +1621,9 @@ function observeRenderQueue(result: PromiseLike<void>, target: WeakRef<RenderVal
 }
 
 function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElement; fallback: HTMLCanvasElement }): HTMLCanvasElement {
+  const renderOwner = getCurrentOwner(), renderGeneration = getReactiveGeneration();
   const currentMesh = () => typeof props.mesh === 'function' ? props.mesh() : props.mesh;
+  const currentResident = () => typeof props.gpuVertices === 'function' ? props.gpuVertices() : props.gpuVertices ?? null;
   const dimension = (value: number | (() => number) | undefined, fallback: number) => {
     const result = typeof value === 'function' ? value() : value ?? fallback;
     if (!Number.isInteger(result) || result < 1 || result > 0xffffffff) {
@@ -1457,7 +1648,7 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   const view = canvas.ownerDocument.defaultView;
   if (surfaces) { surfaces.fallback.width = width; surfaces.fallback.height = height; }
   const selectBackend = (backend: string) => {
-    if (backend === 'unavailable') pickSnapshot = null;
+    if (backend === 'unavailable') clearPickFrame();
     canvas.dataset.renderBackend = backend;
     if (surfaces) {
       surfaces.viewport.dataset.renderBackend = backend;
@@ -1467,10 +1658,21 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   };
 
   let pickSnapshot: VertexPickSnapshot3D | null = null;
+  let pendingPick: AbortController | null = null;
+  function clearPickFrame() {
+    if (pendingPick) {
+      pendingPick.abort(new Error('GPU pick frame retired'));
+      for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) surface.dataset.pickReadback = 'cancelled';
+    }
+    pendingPick = null; pickSnapshot = null;
+  }
   let pickSequence = 0;
-  const capturePickFrame = (mesh: Mesh3D, vertices: Float32Array, indices: Mesh3D['indices'], backend: VertexPickFrame3D['backend']) => {
+  const capturePickFrame = (mesh: Mesh3D, vertices: Float32Array | null, indices: Mesh3D['indices'],
+    backend: VertexPickFrame3D['backend'], resident?: GpuResidentTensor) => {
+    clearPickFrame();
     if (!props.onVertexPick) return;
-    pickSnapshot = { mesh, id: ++pickSequence, width, height, backend, vertexCount: mesh.vertexCount, vertices: vertices.slice(), indices: indices?.slice() };
+    pickSnapshot = { mesh, id: ++pickSequence, width, height, backend, vertexCount: mesh.vertexCount,
+      vertices: vertices?.slice() ?? new Float32Array(0), resident, indices: indices?.slice() };
   };
 
   if (props.orbitTransform) {
@@ -1529,11 +1731,39 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       const clickX = (e.clientX - rect.left) * (rect.width ? frame.width / rect.width : 1);
       const clickY = (e.clientY - rect.top) * (rect.height ? frame.height / rect.height : 1);
       const occlusion = props.pickOcclusion ?? (frame.backend === 'webgpu-depth24plus' ? 'indexed' : 'none');
-      const hit = withWasmCore(renderCore, () => pickFrameSnapshot(renderCore, frame, clickX, clickY, occlusion === 'indexed'));
-      if (hit) {
-        const { vertices: _vertices, indices: _indices, vertexCount: _count, ...info } = frame;
-        withWasmCore(renderCore, () => props.onVertexPick!(hit.vertexIndex, hit.distancePx, hit.ndcZ, info));
+      const publishPick = (vertices: Float32Array) => {
+        if (rendererDisposed || pickSnapshot !== frame || renderGeneration !== getReactiveGeneration(renderCore) || isOwnerScopeDisposed(renderOwner)) return;
+        const hit = withWasmCore(renderCore, () => pickFrameSnapshot(renderCore, {...frame, vertices}, clickX, clickY, occlusion === 'indexed'));
+        if (hit) {
+          const { vertices: _vertices, resident: _resident, indices: _indices, vertexCount: _count, ...sourceInfo } = frame;
+          const info: VertexPickFrame3D = frame.resident ? {...sourceInfo, gpuVertices: frame.resident} : sourceInfo;
+          runUntrackedInCore(renderCore, () => runWithCapturedOwner(renderCore, renderOwner, () => {
+            const callback = props.onVertexPick;
+            if (!rendererDisposed && pickSnapshot === frame && !isOwnerScopeDisposed(renderOwner)) {
+              callback?.(hit.vertexIndex, hit.distancePx, hit.ndcZ, info);
+            }
+          }));
+        }
+      };
+      if (!frame.resident) { publishPick(frame.vertices); return; }
+      pendingPick?.abort(new Error('GPU pick superseded'));
+      const cancellation = new AbortController(); pendingPick = cancellation;
+      for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) {
+        surface.dataset.pickReadback = 'pending'; delete surface.dataset.pickError;
       }
+      const request = runUntrackedInCore(renderCore, () => runWithCapturedOwner(renderCore, renderOwner,
+        () => snapshotResidentVertices(frame.resident!, cancellation.signal)));
+      void request.then(vertices => {
+        if (pendingPick !== cancellation || cancellation.signal.aborted) return;
+        publishPick(vertices);
+        if (pendingPick !== cancellation || cancellation.signal.aborted || rendererDisposed) return;
+        for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) surface.dataset.pickReadback = 'passed';
+      }).catch(error => {
+        if (pendingPick !== cancellation || cancellation.signal.aborted || rendererDisposed) return;
+        for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) {
+          surface.dataset.pickReadback = 'failed'; surface.dataset.pickError = String(error);
+        }
+      }).finally(() => { if (pendingPick === cancellation) pendingPick = null; });
     };
     interaction.addEventListener('click', onClickPick);
     onCleanup(() => interaction.removeEventListener('click', onClickPick));
@@ -1608,9 +1838,25 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     submission.queueDone = true; finishSubmission();
   } };
   const validationReference = new WeakRef(validationTarget);
+  let selectedResident: GpuResidentRecord | null = null;
+  let releaseResidentWatch = () => {};
+  const watchResident = (record: GpuResidentRecord | null) => {
+    if (selectedResident === record) return;
+    releaseResidentWatch(); releaseResidentWatch = () => {}; selectedResident = record;
+    if (!record) return;
+    const stop = () => {
+      if (rendererDisposed) return;
+      // Preserve scheduled backpressure and resume the newest dirty source only
+      // after the retired frame's queue completion has been observed.
+      failFrame('Resident vertices disposed');
+    };
+    record.lifetime.signal.addEventListener('abort', stop, {once: true});
+    releaseResidentWatch = () => record.lifetime.signal.removeEventListener('abort', stop);
+  };
   const releaseRenderResources = () => {
+    releaseResidentWatch(); releaseResidentWatch = () => {}; selectedResident = null;
     validationFloor = ++renderEpoch;
-    pickSnapshot = null;
+    clearPickFrame();
     submission = null;
     const resources = [webgpuVertexBuffer, webgpuIndexBuffer, webgpuDepthTexture];
     const ctx = webgpuCtx;
@@ -1622,13 +1868,18 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     try { ctx?.unconfigure?.(); } catch { /* device may already be lost */ }
   };
   let webgpuInitialized = false;
+  let lastRenderFailure: string | undefined;
 
-  const tryRenderWebGpu = (clipVerts: Float32Array, mesh: Mesh3D, indices: Mesh3D['indices']): boolean => {
+  const tryRenderWebGpu = (clipVerts: Float32Array | null, mesh: Mesh3D, indices: Mesh3D['indices'],
+    resident: GpuResidentRecord | null = null, residentHandle?: GpuResidentTensor): boolean => {
+    lastRenderFailure = undefined;
     const activeDevice = renderState.device;
     if (activeDevice !== renderDevice) releaseRenderResources();
     if (props.preferWebGpu === false || !activeDevice || !activeDevice.createRenderPipeline) {
       return false;
     }
+    watchResident(resident);
+    const vertexBytes = resident?.bytes ?? clipVerts!.byteLength;
     const frame = ++renderEpoch;
     const scopes: Array<'validation' | 'out-of-memory' | 'internal'> = [];
     try {
@@ -1646,7 +1897,7 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
         }
       };
       checkLimit('maxTextureDimension2D', Math.max(width, height));
-      checkLimit('maxBufferSize', Math.max(64, clipVerts.byteLength));
+      checkLimit('maxBufferSize', resident ? vertexBytes : Math.max(64, vertexBytes));
       if (indices) checkLimit('maxBufferSize', Math.max(16, Math.ceil(indices.byteLength / 4) * 4));
       if (!webgpuInitialized) {
         const ctx = (canvas as any).getContext?.('webgpu');
@@ -1664,8 +1915,11 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
         });
         webgpuInitialized = true;
       }
-      if (!webgpuVertexBuffer || clipVerts.byteLength > webgpuVertexCapacity) {
-        const capacity = Math.max(64, clipVerts.byteLength);
+      if (resident && webgpuVertexBuffer) {
+        webgpuVertexBuffer.destroy?.(); webgpuVertexBuffer = null; webgpuVertexCapacity = 0;
+      }
+      if (!resident && (!webgpuVertexBuffer || vertexBytes > webgpuVertexCapacity)) {
+        const capacity = Math.max(64, vertexBytes);
         const next = activeDevice.createBuffer?.({ size: capacity, usage: 0x0020 | 0x0008 });
         if (!next) throw new Error('Incomplete render resources');
         const previous = webgpuVertexBuffer;
@@ -1687,7 +1941,8 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
         previous?.destroy?.();
       }
 
-      if (!webgpuCtx || !webgpuVertexBuffer) return false;
+      const vertexBuffer = resident?.buffer ?? webgpuVertexBuffer;
+      if (!webgpuCtx || !vertexBuffer) return false;
       if (!webgpuPipeline || pipelineIndexed !== hasIndices) {
         const shaderModule = activeDevice.createShaderModule?.({
           code: DEFAULT_3D_WGSL_SHADER,
@@ -1744,12 +1999,8 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
         uploadedIndices = indices;
       }
 
-      activeDevice.queue.writeBuffer(
-        webgpuVertexBuffer,
-        0,
-        clipVerts.buffer,
-        clipVerts.byteOffset,
-        clipVerts.byteLength
+      if (!resident) activeDevice.queue.writeBuffer(
+        webgpuVertexBuffer, 0, clipVerts!.buffer, clipVerts!.byteOffset, vertexBytes
       );
       const encoder = activeDevice.createCommandEncoder?.();
       if (!encoder) throw new Error('Missing GPU command encoder');
@@ -1776,7 +2027,7 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
           : {}),
       });
       pass.setPipeline(webgpuPipeline);
-      pass.setVertexBuffer(0, webgpuVertexBuffer);
+      pass.setVertexBuffer(0, vertexBuffer);
       if (webgpuIndexBuffer && pass.setIndexBuffer && pass.drawIndexed) {
         pass.setIndexBuffer(webgpuIndexBuffer, indices?.BYTES_PER_ELEMENT === 4 ? 'uint32' : 'uint16');
         pass.drawIndexed(webgpuIndexCount, 1, 0, 0, 0);
@@ -1787,14 +2038,20 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       if (!activeDevice.queue.submit) throw new Error('Missing GPU queue submit');
       if (scheduledMode && !activeDevice.queue.onSubmittedWorkDone) throw new Error('GPU queue completion is unavailable');
       if (scheduledMode) submission = { frame, queueDone: false, validationDone: scopes.length === 0 };
+      if (resident) assertResidentRecord(resident);
       activeDevice.queue.submit([encoder.finish()]);
+      if (resident) {
+        assertResidentRecord(resident);
+        if (isOwnerScopeDisposed(renderOwner) || renderGeneration !== getReactiveGeneration(renderCore)) throw new Error('Resident renderer lifetime ended');
+      }
       if (scheduledMode) observeRenderQueue(activeDevice.queue.onSubmittedWorkDone!(), validationReference, frame);
       selectBackend('webgpu-depth24plus');
-      capturePickFrame(mesh, clipVerts, indices, 'webgpu-depth24plus');
+      capturePickFrame(mesh, clipVerts, indices, 'webgpu-depth24plus', residentHandle);
       return true;
     } catch (error) {
       releaseRenderResources();
-      setValidation('failed', error instanceof Error ? error.message : String(error));
+      lastRenderFailure = error instanceof Error ? error.message : String(error);
+      setValidation('failed', lastRenderFailure);
       return false;
     } finally {
       if (scopes.length) {
@@ -1810,7 +2067,7 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   const draw = (force2d = false) => {
     const nextWidth = dimension(props.width, 360), nextHeight = dimension(props.height, 200);
     if (nextWidth !== width || nextHeight !== height) {
-      pickSnapshot = null;
+      clearPickFrame();
       width = nextWidth; height = nextHeight;
       for (const surface of surfaces ? [canvas, surfaces.fallback] : [canvas]) {
         surface.width = width; surface.height = height;
@@ -1818,10 +2075,23 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       }
       if (surfaces) surfaces.viewport.style.width = `${width + 2}px`;
     }
-    // Subscribe to the WASM UMA/DUMA transformed vertex buffer
-    const mesh = currentMesh();
-    const clipVerts = mesh.transformedVertices();
+    const mesh = currentMesh(), residentHandle = currentResident();
     const indices = mesh.indices;
+    if (residentHandle) {
+      // A resident frame has no authoritative host replica for forced recovery.
+      // Keep the original GPU diagnostic rather than replacing it with a fallback error.
+      if (force2d) { selectBackend('unavailable'); return; }
+      try {
+        const resident = residentVertexRecord(residentHandle, renderCore, renderState.device, mesh.vertexCount);
+        if (tryRenderWebGpu(null, mesh, indices, resident, residentHandle)) return;
+        throw new Error(lastRenderFailure ?? 'Resident vertices require an available WebGPU renderer');
+      } catch (error) {
+        releaseRenderResources(); setValidation('failed', error instanceof Error ? error.message : String(error));
+        selectBackend('unavailable'); return;
+      }
+    }
+    watchResident(null);
+    const clipVerts = mesh.transformedVertices();
     const halfW = width * 0.5;
     const halfH = height * 0.5;
     const count = mesh.vertexCount;
@@ -1843,7 +2113,7 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     selectBackend(ctx ? 'canvas2d-zsort' : 'unavailable');
     if (!ctx) return;
 
-    pickSnapshot = null;
+    clearPickFrame();
     ctx.clearRect(0, 0, width, height);
 
     // Rust clips homogeneous primitives before JS transports finite screen points.
@@ -1903,7 +2173,9 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   const render = () => {
     if (!scheduledMode) { draw(); return; }
     // Track the latest sources now; the deferred draw runs without graph tracking.
-    const mesh = currentMesh(); mesh.transformedVertices(); mesh.indices;
+    const mesh = currentMesh();
+    if (!currentResident()) mesh.transformedVertices();
+    mesh.indices;
     dimension(props.width, 360); dimension(props.height, 200);
     if (initialDraw) { initialDraw = false; draw(); return; }
     dirty = true; scheduleLatest();
@@ -1922,8 +2194,14 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     try { withWasmCore(renderCore, () => untrack(() => draw())); }
     catch (error) { setValidation('failed', error instanceof Error ? error.message : String(error)); selectBackend('unavailable'); }
   };
-  renderState.renderers.add(onDeviceChange);
-  onCleanup(() => { validationTarget.settle = validationTarget.queue = () => {}; rendererDisposed = true; cancelFrameRequest(); dirty = false; drainingFrame = null; renderState.renderers.delete(onDeviceChange); releaseRenderResources(); setValidation('disposed'); });
+  const disposeRenderer = () => {
+    validationTarget.settle = validationTarget.queue = () => {}; rendererDisposed = true;
+    cancelFrameRequest(); dirty = false; drainingFrame = null; renderState.renderers.delete(onDeviceChange);
+    releaseRenderResources(); setValidation('disposed');
+  };
+  if (isOwnerScopeDisposed(renderOwner) || renderGeneration !== getReactiveGeneration(renderCore)) {
+    disposeRenderer(); selectBackend('unavailable');
+  } else { renderState.renderers.add(onDeviceChange); onCleanup(disposeRenderer); }
 
   return canvas;
 }
@@ -1991,3 +2269,8 @@ export function GpuSparkline(props: {
 
   return canvas;
 }
+
+// Internal executor primitives shared with immutable resident-result operations.
+export { gpuState, tensorRecords, computeQueues, computePipelineKey, findComputePipeline,
+  forgetComputePipeline, retainComputePipeline, snapshotGpuOptionMetadata, waitForGpu,
+  checkGpuSignals, reserveGpuComputeAdmission, residentComputeBudgets, residentComputeUsage };

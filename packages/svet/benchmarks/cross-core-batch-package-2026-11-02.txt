@@ -1,0 +1,20 @@
+{
+  "edgeHostQualification": false,
+  "node": "v26.13.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "completedAt": "2026-11-02T03:27:28.263Z",
+  "packageFiles": 62,
+  "unpackedBytes": 2576450,
+  "checks": [
+    "archive allowlist",
+    "isolated installation",
+    "native Node ESM exports",
+    "concurrent SSR",
+    "sync and async compute fallback",
+    "compiled Forma import",
+    "strict JSX declarations without Vite",
+    "negative type fixture",
+    "external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build"
+  ]
+}

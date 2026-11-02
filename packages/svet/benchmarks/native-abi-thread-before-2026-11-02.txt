@@ -1,0 +1,27 @@
+   Compiling svet-wasm v0.1.0 (/Users/themoretheless/Documents/Sources/forma/packages/svet/crates/svet-wasm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.70s
+     Running unittests src/lib.rs (/tmp/svet-native-validation/debug/deps/svet_wasm-b0e4ec48046757b9)
+
+running 1 test
+test native_abi_thread_tests::native_abi_threads_are_isolated ... FAILED
+
+failures:
+
+---- native_abi_thread_tests::native_abi_threads_are_isolated stdout ----
+
+thread '<unnamed>' (4982868) panicked at src/lib.rs:2421:13:
+assertion `left == right` failed: native ABI inherited another thread's graph
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'native_abi_thread_tests::native_abi_threads_are_isolated' (4982867) panicked at src/lib.rs:2431:16:
+called `Result::unwrap()` on an `Err` value: Any { .. }
+
+
+failures:
+    native_abi_thread_tests::native_abi_threads_are_isolated
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 53 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `--lib`

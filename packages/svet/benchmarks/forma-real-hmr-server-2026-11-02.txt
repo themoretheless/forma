@@ -1,0 +1,6 @@
+  ➜  Local:   http://127.0.0.1:4216/
+{"root":"/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gRrjIq","installed":"/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-NMaqTq/consumer/node_modules/svet-engine","output":"/Users/themoretheless/Documents/Sources/forma/packages/svet/benchmarks/forma-real-hmr-2026-11-02.json"}
+8:29:32 AM [vite] (client) hmr update /View.ui
+8:29:33 AM [vite] (client) hmr update /View.ui
+8:29:33 AM [vite] (client) hmr update /View.ui
+8:29:33 AM [vite] (client) hmr update /View.ui

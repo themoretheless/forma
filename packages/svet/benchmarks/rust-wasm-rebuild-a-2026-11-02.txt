@@ -1,0 +1,2 @@
+   Compiling svet-wasm v0.1.0 (/Users/themoretheless/Documents/Sources/forma/packages/svet/crates/svet-wasm)
+    Finished `release` profile [optimized] target(s) in 1.80s

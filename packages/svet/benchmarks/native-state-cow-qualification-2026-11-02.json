@@ -1,0 +1,107 @@
+{
+  "status": "validated-native-allocation-reduction",
+  "change": "Borrow visual expansion state until lexical write; For iterations retain owned local state",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "0cdf4d82776e8fa50293d70fe7066178508c653b70ca402b974e7cc132aaa3ca",
+    "vector-ui/examples/binding_sync_bench.rs": "7af42ae17007537c2d1a282ab2e3fc76ee6da828e0a36fac8d31e85d991273da",
+    "rust-toolchain.toml": "9cbeb062ec3a97a5b5b76aacde94f5dcb034ed98f32af151480764de2e03d6f9"
+  },
+  "rustc": "1.97.1 (8bab26f4f 2026-07-14)",
+  "profile": "release,fat LTO",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 756210,
+      "afterEditRequestedBytes": 556695,
+      "requestedBytesReductionPercent": 26.38354425358036,
+      "beforeEditAllocations": 6511,
+      "afterEditAllocations": 4735
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 5597759,
+      "afterEditRequestedBytes": 3228500,
+      "requestedBytesReductionPercent": 42.32513404024718,
+      "beforeEditAllocations": 44676,
+      "afterEditAllocations": 26052
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 37766439,
+      "afterEditRequestedBytes": 18087804,
+      "requestedBytesReductionPercent": 52.10614376430884,
+      "beforeEditAllocations": 287259,
+      "afterEditAllocations": 139227
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 240646547,
+      "afterEditRequestedBytes": 104124344,
+      "requestedBytesReductionPercent": 56.731419877801116,
+      "beforeEditAllocations": 1789658,
+      "afterEditAllocations": 780506
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 760584,
+      "afterEditRequestedBytes": 561069,
+      "requestedBytesReductionPercent": 26.23181660408318,
+      "beforeEditAllocations": 6547,
+      "afterEditAllocations": 4771
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 5620350,
+      "afterEditRequestedBytes": 3251091,
+      "requestedBytesReductionPercent": 42.155008140062456,
+      "beforeEditAllocations": 44843,
+      "afterEditAllocations": 26219
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 37832678,
+      "afterEditRequestedBytes": 18154043,
+      "requestedBytesReductionPercent": 52.01491419666353,
+      "beforeEditAllocations": 287746,
+      "afterEditAllocations": 139714
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 240822218,
+      "afterEditRequestedBytes": 104300015,
+      "requestedBytesReductionPercent": 56.690036381942136,
+      "beforeEditAllocations": 1790945,
+      "afterEditAllocations": 781793
+    }
+  ],
+  "repeat": "All allocation counters identical across two candidate runs",
+  "profiling": {
+    "samples": 546,
+    "periodAllocations": 65536,
+    "maxSamples": 1024,
+    "truncated": false,
+    "baselineCountersUnchanged": true,
+    "interpretation": "Systematic diagnostic stack samples identify clone callsites; not an unbiased estimate of byte attribution"
+  },
+  "validation": {
+    "libraryTests": 160,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "generatedNodeWasm": "passed"
+  },
+  "limitations": [
+    "Cumulative requested bytes are not live/peak memory",
+    "No latency/FPS/presentation improvement claim on this loaded host",
+    "Remaining model snapshots/instantiation/scene expansion clones open",
+    "No fresh browser/window/GPU qualification for this source change"
+  ]
+}

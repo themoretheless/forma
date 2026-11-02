@@ -1,0 +1,37 @@
+{
+  "startedAt": "2026-11-01T17:33:56.510Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "responses": [
+    {
+      "httpStatus": 500,
+      "result": {
+        "status": "failed",
+        "error": "TypeError: Cannot set property value of [object Object] which has only a getter\n    at Object.synchronize (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21612:25)\n    at Object.run (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20865:31)\n    at effect (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21008:11)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21698:7\n    at runWithOwnerScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20376:12)\n    at bindModel (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21550:10)\n    at bindProp (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21788:5)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:22593:9\n    at runWithOwnerScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20376:12)\n    at h (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:22542:10)"
+      }
+    },
+    {
+      "httpStatus": 500,
+      "result": {
+        "status": "failed",
+        "error": "TypeError: Cannot set property value of [object Object] which has only a getter\n    at Object.synchronize (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21612:25)\n    at Object.run (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20865:31)\n    at effect (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21008:11)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21698:7\n    at runWithOwnerScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20376:12)\n    at bindModel (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21550:10)\n    at bindProp (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21788:5)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:22593:9\n    at runWithOwnerScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20376:12)\n    at h (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:22542:10)"
+      }
+    }
+  ],
+  "status": "failed",
+  "error": "Error: Edge DOM lifecycle matrix failed: {\"httpStatus\":500,\"result\":{\"status\":\"failed\",\"error\":\"TypeError: Cannot set property value of [object Object] which has only a getter\\n    at Object.synchronize (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21612:25)\\n    at Object.run (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20865:31)\\n    at effect (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21008:11)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21698:7\\n    at runWithOwnerScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20376:12)\\n    at bindModel (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21550:10)\\n    at bindProp (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:21788:5)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:22593:9\\n    at runWithOwnerScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:20376:12)\\n    at h (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-FrsxNq/worker.js:22542:10)\"}}\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:25:224\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+  "completedAt": "2026-11-01T17:33:56.664Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "workerSourceSha256": "4984aeb0d5e10e1e5102f11f5f89ac7c95fae13eb6ef2deae10d0e8acc8f41fb",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "fb4193fa3be93c0e02a0cf28b45e652d89477fb5326de09099d4a20daab9da62"
+}

@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-02",
+  "change": "Owned layout normalization consumes intermediate trees in scene_visual and position_scene; borrowed public/internal callers retain cloning wrapper.",
+  "checks": {
+    "lib": 140,
+    "allocations": 7,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3,
+    "release": "before1/after1/before2/after2 retained workload 8/32/96/256 editors, both schedulers; repeat allocation arrays equal"
+  },
+  "analysis": "native-owned-layout-analysis-2026-11-02.json",
+  "source_sha256": {
+    "before/form_document.rs": "890830fa875de7594f6f83abc56fc4be5e15d187e0ccb685d03083d28b65795b",
+    "after/form_document.rs": "595a03812b55539df99663db59e7779be2a3ec275f035ac808bada8c206eedab",
+    "shared/harness.rs": "1a783546f9c1d11bb2e147490c326c510c27988579e9823056af49c83248f743"
+  },
+  "svet256_edit": {
+    "before_requested_bytes": 377214957,
+    "after_requested_bytes": 330374486,
+    "before_allocations": 2796021,
+    "after_allocations": 2447329
+  },
+  "limitations": [
+    "Cumulative requested bytes are not peak memory/RSS.",
+    "Timing varies strongly; second after run slower than before. No speed/FPS claim.",
+    "Full model snapshots and layout copies remain; interactive readiness not achieved."
+  ]
+}

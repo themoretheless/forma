@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>Svet browser retention GC</title>
+<style>body{font:16px system-ui;max-width:1000px;margin:32px auto}button{padding:12px;margin:5px}pre{white-space:pre-wrap;background:#eef5ff;padding:16px}</style>
+<h1>Svet browser retention GC</h1><p>Production ESM. Use bounded allocation pressure between allocation, inspection and release. Live controls must survive before release.</p>
+<button id="allocate">Allocate and teardown</button><button id="pressure" disabled>Allocation pressure</button><button id="inspect" disabled>Inspect after GC</button><button id="release" disabled>Release controls and handles</button><pre id="result">Not run</pre>
+<script type="module">
+import * as e from '../../dist/package/index.js';
+const pressure=document.querySelector('#pressure');
+const result=document.querySelector('#result'),allocate=document.querySelector('#allocate'),inspect=document.querySelector('#inspect'),release=document.querySelector('#release');
+let held=[],probes=[],phase='initial',report;
+const track=(kind,value)=>probes.push({kind,ref:new WeakRef(value)});
+function receiver(index){
+ const container=document.createElement('main'),handle=e.createSsrStreamReceiver(container);track('receiverContainer',container);
+ handle.apply({version:1,sequence:0,streamId:'gc-'+index,payload:{type:'shell',html:'<p>probe</p>'}});
+ const mode=['dispose','reset','replacement','protocol-error'][index%4];
+ if(mode==='reset')e.resetReactiveSystem();else if(mode==='replacement')e.createSsrStreamReceiver(container).dispose();else if(mode==='protocol-error'){try{handle.apply({version:2});}catch{}}else handle.dispose();
+ if(handle.active)throw Error('Terminal receiver stayed active');held.push(handle);
+}
+function select(index){
+ const container=document.createElement('div'),source=e.signal('b');track('selectSource',source);
+ const app=e.mount(()=>e.h('select',{value:source},e.h('option',{value:'a'},'A'),e.h('option',{value:'b'},'B')),container);
+ const node=container.firstChild;node.append(e.h('option',{value:'b'},'queued'));app.unmount();source.dispose();held.push(node);
+}
+allocate.onclick=()=>{
+ try{held=[];probes=[];e.resetReactiveSystem();report={startedAt:new Date().toISOString(),userAgent:navigator.userAgent,observations:[],scope:'Native browser WeakRef collection under bounded allocation pressure. Production ESM, retained terminal receivers and detached select DOM. No SSR request cores/Edge/RSS plateau claim.'};
+ for(let i=0;i<32;i++)receiver(i);for(let i=0;i<16;i++)select(i);
+ for(let i=0;i<4;i++){const control=document.createElement('div');track('liveControl',control);held.push(control);}
+ phase='held';allocate.disabled=true;inspect.disabled=false;release.disabled=false;pressure.disabled=false;result.textContent='Allocated: 32 terminal receivers, 16 detached selects, 4 retained live controls. Apply allocation pressure, then Inspect.';
+ }catch(error){result.textContent='FAIL '+error.stack;}
+};
+pressure.onclick=async()=>{
+ pressure.disabled=true;result.textContent='Applying bounded allocation pressure (12 task-separated rounds)...';
+ for(let round=0;round<12;round++){
+  {const bytes=new Uint8Array(16*1024*1024);bytes.fill(round);const array=Array.from({length:500000},(_,i)=>i+round);if(array[100]!==100+round||bytes[0]!==round)throw Error('Pressure allocation failed');}
+  await new Promise(resolve=>setTimeout(resolve,10));
+ }
+ report.pressureRuns=(report.pressureRuns??0)+1;report.gcMechanism='Natural browser GC under bounded allocation pressure; raw CDP collectGarbage unavailable';
+ result.textContent='Pressure complete. Inspect after GC.';pressure.disabled=false;
+};
+inspect.onclick=async()=>{
+ const alive={};for(const p of probes)if(p.ref.deref())alive[p.kind]=(alive[p.kind]??0)+1;
+ const expected=phase==='held'?{liveControl:4}:{};
+ const passed=JSON.stringify(alive)===JSON.stringify(expected);report.observations.push({phase,alive,expected,passed});report.status=passed?'passed':'failed';report.graph=e.getGraphTelemetry().nodes;
+ result.textContent=JSON.stringify(report,null,2);await fetch('/__gc_result',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(report)});
+};
+release.onclick=()=>{held=[];phase='released';release.disabled=true;result.textContent='Released controls and handles. Apply allocation pressure, then Inspect again.';};
+</script>

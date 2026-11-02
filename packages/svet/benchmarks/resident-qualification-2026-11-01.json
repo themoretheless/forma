@@ -1,0 +1,28 @@
+{
+  "completedAt": "2026-11-01T10:55:11.746Z",
+  "node": "v22.23.4",
+  "platform": "darwin",
+  "arch": "arm64",
+  "suite": {
+    "files": 84,
+    "tests": 1207,
+    "maxWorkers": 4,
+    "durationSeconds": 12.06
+  },
+  "hardware": {
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "isFallbackAdapter": false,
+    "residentChecks": 7,
+    "evidence": "resident-compute-metal-2026-11-01.txt"
+  },
+  "sourceSha256": {
+    "src/engine/gpu.ts": "3644dcfbb70c9baec1e272698a4122a25dd9b05709280a45e16e0fd3df5fb7b0",
+    "src/engine/gpu-resident.ts": "9d08ecf07f3ea5abb08fb8070dd89f2d5be9087425f7f2db18e5fe7db210870d",
+    "src/engine/index.ts": "4a83595245126742079954996bb7dc88f56eb3d5f4304be6b203c5027d9bf6c2",
+    "src/engine/wasm-binary.ts": "fecf2b99a3d71c81eab86502726bd2a5ec060df9d8ce91df09a0cbadbea64204",
+    "tests/gpu-resident.test.ts": "bcb5e9bac9314d0ae7e64c2889127f4935c86436becaa49d41719d42b9223858",
+    "tests/browser/gpu-resident.html": "6c5b36dcd86486815547002481116c7456bda114206769ae0c160a6df68951ca"
+  },
+  "scope": "Correctness and transfer-count qualification. No application performance, renderer interop, aggregate GPU/driver memory or JS/RSS plateau claim."
+}

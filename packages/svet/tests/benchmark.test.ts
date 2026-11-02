@@ -1,14 +1,9 @@
 /**
  * @vitest-environment jsdom
  *
- * # Svet Engine — Comprehensive Benchmark Suite (`tests/benchmark.test.ts`)
- *
- * Compares **Svet (TypeScript + Rust WASM + GPU UMA/DUMA)** head-to-head against:
- * 1. **Virtual DOM Engine (React/Vue-style VNode Tree Allocation + Diffing)**
- * 2. **Naive JS Reactive Engine (JS Set/Map Graph + Cascading Diamond Glitches)**
- * 3. **Full-Buffer PCIe Transfer vs Svet DUMA Multi-Span Partial Cache-Line DMA**
- * 4. **Traditional SSR Full Hydration ($O(N)$ Component Re-execution) vs Svet $O(1)$ Resumability**
- * 5. **WASM $O(n \log n)$ LIS Keyed List Reconciler on 1,000 DOM Rows**
+ * Synthetic algorithm exercises, not measurements of React, Vue or Svelte.
+ * Peer columns execute local approximations without importing those runtimes.
+ * Timings include jsdom and are not browser/GPU/application qualification.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -95,14 +90,14 @@ function diffVueBlockTree(oldBlock: VNode[], newBlock: VNode[], tableEl: HTMLEle
   return mutations;
 }
 
-describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte)', () => {
-  it('Run and print full head-to-head benchmark suite with separate columns for Svet, React, Vue, and Svelte', () => {
+describe('Svet and local algorithm simulations', () => {
+  it('exercise workloads and report measured timings with explicit simulation labels', () => {
     const results: Array<{
       Benchmark: string;
       'Svet (TS + Rust WASM)': string;
-      'React 19 (Fiber VDOM)': string;
-      'Vue 3.5 (Proxy + Block VDOM)': string;
-      'Svelte 5 (JS Runes / Dirty Bitmask)': string;
+      'Local VNode simulation': string;
+      'Local proxy/block simulation': string;
+      'Local reaction/cursor simulation': string;
     }> = [];
 
     // ------------------------------------------------------------------------
@@ -141,7 +136,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     }
     const svetDomMs = performance.now() - t0SvetDom;
 
-    // 1B. React 19 Fiber VDOM (re-render 1,000-row VNode tree + full props/children diff on each update)
+    // 1B. Local VNode tree allocation and recursive diff.
     const reactValues = Array.from({ length: ROW_COUNT }, (_, i) => i);
     const reactTableEl = document.createElement('div');
     for (let i = 0; i < ROW_COUNT; i++) {
@@ -167,7 +162,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     }
     const reactDomMs = performance.now() - t0ReactDom;
 
-    // 1C. Vue 3.5 Proxy + Block Tree VDOM (reactive Proxy trap + dynamic children block array diff)
+    // 1C. Local proxy reads and dynamic block array diff.
     const vueState = new Proxy(
       Array.from({ length: ROW_COUNT }, (_, i) => ({ val: i })),
       {
@@ -201,7 +196,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     }
     const vueDomMs = performance.now() - t0VueDom;
 
-    // 1D. Svelte 5 ($state rune proxy + $effect.pre / template_effect linked-list reaction walk + set_text)
+    // 1D. Local proxy and Set-based reaction dispatch.
     const svelteTableEl = document.createElement('div');
     const svelteTextNodes: Text[] = [];
     type SvelteEffectNode = {
@@ -286,10 +281,10 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
 
     results.push({
       Benchmark: '1. 1,000 Updates in 1,000-Row Table',
-      'Svet (TS + Rust WASM)': `${svetDomMs.toFixed(2)} ms (0 VNodes, WASM O(1))`,
-      'React 19 (Fiber VDOM)': `${reactDomMs.toFixed(2)} ms (1M VNodes diffed)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `${vueDomMs.toFixed(2)} ms (1M Block VNodes)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `${svelteDomMs.toFixed(2)} ms (JS Set + Closures)`,
+      'Svet (TS + Rust WASM)': `${svetDomMs.toFixed(2)} ms (direct row updates)`,
+      'Local VNode simulation': `${reactDomMs.toFixed(2)} ms (1M VNodes diffed)`,
+      'Local proxy/block simulation': `${vueDomMs.toFixed(2)} ms (1M Block VNodes)`,
+      'Local reaction/cursor simulation': `${svelteDomMs.toFixed(2)} ms (JS Set + Closures)`,
     });
 
     // ------------------------------------------------------------------------
@@ -320,7 +315,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     }
     const svetDagMs = performance.now() - t0Dag;
 
-    // 2B. React (useMemo chain inside component re-render: allocates 62 dependency arrays [a, b] per render * 5000)
+    // 2B. Local dependency-array allocation simulation.
     const t0ReactDag = performance.now();
     let prevDeps: Array<[number, number]> = Array.from({ length: 62 }, () => [0, 0]);
     for (let i = 0; i < 5000; i++) {
@@ -343,7 +338,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     }
     const reactDagMs = performance.now() - t0ReactDag;
 
-    // 2C. Vue 3.5 (Actual 60 ComputedRefImpl closures + JS Doubly-Linked List Link objects + Dep version checks)
+    // 2C. Local computed simulation; not Vue runtime or linked-list implementation.
     type VueCompNode = {
       value: number;
       flags: number;
@@ -433,7 +428,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     }
     const vueDagMs = performance.now() - t0VueDag;
 
-    // 2D. Svelte 5 (Actual 60 $derived rune closures + mark_reactions dirty bitmask walk + JS Reaction Array/Set)
+    // 2D. Local derived simulation; not the Svelte runtime.
     type SvelteDerived = {
       v: number;
       flags: number;
@@ -525,10 +520,10 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
 
     results.push({
       Benchmark: '2. 30-Layer Diamond DAG (5,000 Ticks)',
-      'Svet (TS + Rust WASM)': `${svetDagMs.toFixed(2)} ms (0 Glitches, 0 JS GC)`,
-      'React 19 (Fiber VDOM)': `${reactDagMs.toFixed(2)} ms (310k useMemo [deps] allocs)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `${vueDagMs.toFixed(2)} ms (JS Link/Dep Heap Objects)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `${svelteDagMs.toFixed(2)} ms (JS Reaction Array/Set GC)`,
+      'Svet (TS + Rust WASM)': `${svetDagMs.toFixed(2)} ms (synchronous diamond updates)`,
+      'Local VNode simulation': `${reactDagMs.toFixed(2)} ms (310k useMemo [deps] allocs)`,
+      'Local proxy/block simulation': `${vueDagMs.toFixed(2)} ms (JS Link/Dep Heap Objects)`,
+      'Local reaction/cursor simulation': `${svelteDagMs.toFixed(2)} ms (JS Reaction Array/Set GC)`,
     });
 
     // ------------------------------------------------------------------------
@@ -715,9 +710,9 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     results.push({
       Benchmark: '3. 1,000-Row List Reorder (Move 999->1, 500->10)',
       'Svet (TS + Rust WASM)': `${svetLisMs.toFixed(2)} ms (${svetLisDomMoves} DOM moves via WASM LIS)`,
-      'React 19 (Fiber VDOM)': `${reactListMs.toFixed(2)} ms (${reactDomMoves} DOM moves, no LIS!)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `${vueListMs.toFixed(2)} ms (2 moves + 1,000 VNodes)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `${svelteListMs.toFixed(2)} ms (${svelteMoves} moves + JS Map/Block)`,
+      'Local VNode simulation': `${reactListMs.toFixed(2)} ms (${reactDomMoves} DOM moves, no LIS!)`,
+      'Local proxy/block simulation': `${vueListMs.toFixed(2)} ms (2 moves + 1,000 VNodes)`,
+      'Local reaction/cursor simulation': `${svelteListMs.toFixed(2)} ms (${svelteMoves} moves + JS Map/Block)`,
     });
 
     // ------------------------------------------------------------------------
@@ -741,7 +736,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     const recycleMs = performance.now() - t0Recycle;
     const finalCapacity = getGraphTelemetry().capacity;
 
-    // 4B. React 19 (50,000 Hook mount/unmount cycles: allocates FiberNode + Hook node + Effect list + Passive schedule)
+    // 4B. Local hook-shaped allocation simulation; no scheduler is run.
     const t0ReactRecycle = performance.now();
     const reactPassiveEffects: Array<any> = [];
     for (let i = 0; i < 50000; i++) {
@@ -773,7 +768,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     const reactRecycleMs = performance.now() - t0ReactRecycle;
     reactPassiveEffects.length = 0;
 
-    // 4C. Vue 3.5 (50,000 EffectScope + ReactiveEffect + Link doubly-linked node + Dep map allocations)
+    // 4C. Local scope/effect allocation and cleanup simulation.
     const t0VueRecycle = performance.now();
     const vueDepSubs = new Set<any>();
     for (let i = 0; i < 50000; i++) {
@@ -797,7 +792,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     }
     const vueRecycleMs = performance.now() - t0VueRecycle;
 
-    // 4D. Svelte 5 (50,000 branch_effect + user_effect + reaction Set add/delete + teardown Set)
+    // 4D. Local branch/reaction allocation and cleanup simulation.
     const t0SvelteRecycle = performance.now();
     const svelteSourceReactions = new Set<any>();
     for (let i = 0; i < 50000; i++) {
@@ -828,10 +823,10 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
 
     results.push({
       Benchmark: '4. 50,000 Effect Mount/Dispose Cycles',
-      'Svet (TS + Rust WASM)': `${recycleMs.toFixed(2)} ms (Cap: ${baseCapacity}->${finalCapacity}, 0 B leak)`,
-      'React 19 (Fiber VDOM)': `${reactRecycleMs.toFixed(2)} ms (100k Hook/Deps GC Objects)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `${vueRecycleMs.toFixed(2)} ms (100k Effect/Link GC Objects)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `${svelteRecycleMs.toFixed(2)} ms (100k Effect/Set GC Objects)`,
+      'Svet (TS + Rust WASM)': `${recycleMs.toFixed(2)} ms (Cap: ${baseCapacity}->${finalCapacity}, stable native node capacity)`,
+      'Local VNode simulation': `${reactRecycleMs.toFixed(2)} ms (100k Hook/Deps GC Objects)`,
+      'Local proxy/block simulation': `${vueRecycleMs.toFixed(2)} ms (100k Effect/Link GC Objects)`,
+      'Local reaction/cursor simulation': `${svelteRecycleMs.toFixed(2)} ms (100k Effect/Set GC Objects)`,
     });
 
     // ------------------------------------------------------------------------
@@ -872,19 +867,19 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     const fmaMs = performance.now() - t0Fma;
 
     results.push({
-      Benchmark: '5. DUMA Partial DMA Sync (500 Frames, 128 KB)',
+      Benchmark: '5. Mock-device partial uploads (500 updates, 128 KB)',
       'Svet (TS + Rust WASM)': `${dumaMs.toFixed(2)} ms (${(dumaBytesSent / 1024).toFixed(1)} KB via 128B dirty lines)`,
-      'React 19 (Fiber VDOM)': `No GPU Arena (${(fullBufferBytesWouldBe / 1024 / 1024).toFixed(1)} MB full copy)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `No GPU Arena (${(fullBufferBytesWouldBe / 1024 / 1024).toFixed(1)} MB + Proxy trap)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `No GPU Arena (${(fullBufferBytesWouldBe / 1024 / 1024).toFixed(1)} MB full copy)`,
+      'Local VNode simulation': `No GPU Arena (${(fullBufferBytesWouldBe / 1024 / 1024).toFixed(1)} MB full copy)`,
+      'Local proxy/block simulation': `No GPU Arena (${(fullBufferBytesWouldBe / 1024 / 1024).toFixed(1)} MB + Proxy trap)`,
+      'Local reaction/cursor simulation': `No GPU Arena (${(fullBufferBytesWouldBe / 1024 / 1024).toFixed(1)} MB full copy)`,
     });
 
     results.push({
-      Benchmark: '6. GPU/UMA Linear Arena FMA (200 x 16,384 f32)',
-      'Svet (TS + Rust WASM)': `${fmaMs.toFixed(2)} ms (${((200 * TENSOR_FLOATS * 2) / (fmaMs * 1000)).toFixed(1)} MFLOP/s Zero-Copy)`,
-      'React 19 (Fiber VDOM)': `N/A (Immutable Array copy per state tick)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `N/A (Deep Proxy trap overhead on Array)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `N/A (Deep $state Proxy trap on Array)`,
+      Benchmark: '6. WASM CPU arena FMA (200 x 16,384 f32)',
+      'Svet (TS + Rust WASM)': `${fmaMs.toFixed(2)} ms (${((200 * TENSOR_FLOATS * 2) / (fmaMs * 1000)).toFixed(1)} MFLOP/s WASM CPU)`,
+      'Local VNode simulation': `Not measured`,
+      'Local proxy/block simulation': `Not measured`,
+      'Local reaction/cursor simulation': `Not measured`,
     });
 
     // ------------------------------------------------------------------------
@@ -910,7 +905,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     restored.activeUsers.set(1025);
     const resumeMs = performance.now() - t0Resume;
 
-    // React 19 Hydration: re-execute 500 component functions and walk DOM nodes + VDOM tree
+    // Local VNode construction and DOM traversal; no hydration runtime.
     const ssrRootReact = document.createElement('div');
     ssrRootReact.innerHTML = ssrMarkup;
     const t0HydrateReact = performance.now();
@@ -925,7 +920,7 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     diffReactVNode(hydratedVTree, hydratedVTree, ssrRootReact);
     const hydrateReactMs = performance.now() - t0HydrateReact;
 
-    // Vue 3.5 Hydration: walk 500 static blocks + create component instances
+    // Local DOM child walk; no component instances are created.
     const ssrRootVue = document.createElement('div');
     ssrRootVue.innerHTML = ssrMarkup;
     const t0HydrateVue = performance.now();
@@ -934,18 +929,27 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
       const node = ssrRootVue.childNodes[i];
       if (node.firstChild) vueWalkCount++;
     }
-    const hydrateVueMs = performance.now() - t0HydrateVue + hydrateReactMs * 0.65;
-    void vueWalkCount;
+    const hydrateVueMs = performance.now() - t0HydrateVue;
+    expect(vueWalkCount).toBe(501);
 
-    // Svelte 5 Hydration: walk template DOM siblings via hydrate_node cursors
-    const hydrateSvelteMs = hydrateReactMs * 0.45;
+    // Local cursor walk only; no Svelte runtime or hydration is measured.
+    const ssrRootCursor = document.createElement('div');
+    ssrRootCursor.innerHTML = ssrMarkup;
+    const t0HydrateCursor = performance.now();
+    let cursorWalkCount = 0;
+    for (let node = ssrRootCursor.firstChild; node; node = node.nextSibling) {
+      if (node.firstChild) cursorWalkCount++;
+    }
+    const hydrateSvelteMs = performance.now() - t0HydrateCursor;
+    expect(cursorWalkCount).toBe(501);
+    expect(ssrRoot1.querySelector('#svet-b0')?.textContent).toBe('1025');
 
     results.push({
       Benchmark: '7. SSR Boot (500 Static Components + 1 Signal)',
-      'Svet (TS + Rust WASM)': `${resumeMs.toFixed(2)} ms (O(1) Resume, 0 Comps Run)`,
-      'React 19 (Fiber VDOM)': `${hydrateReactMs.toFixed(2)} ms (O(N) 500 Fibers Hydrated)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `${hydrateVueMs.toFixed(2)} ms (O(N) 500 VNodes Hydrated)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `${hydrateSvelteMs.toFixed(2)} ms (O(N) DOM Cursor Walk)`,
+      'Svet (TS + Rust WASM)': `${resumeMs.toFixed(2)} ms (one restored binding)`,
+      'Local VNode simulation': `${hydrateReactMs.toFixed(2)} ms (local VNode traversal)`,
+      'Local proxy/block simulation': `${hydrateVueMs.toFixed(2)} ms (local DOM child traversal)`,
+      'Local reaction/cursor simulation': `${hydrateSvelteMs.toFixed(2)} ms (local sibling cursor traversal)`,
     });
 
     // ------------------------------------------------------------------------
@@ -977,15 +981,16 @@ describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte
     void mesh3D;
 
     results.push({
-      Benchmark: '8. 3D Scene Graph (200 Frames x 1,000 Vertices)',
+      Benchmark: '8. CPU scene updates (200 x 1,000 vertices)',
       'Svet (TS + Rust WASM)': `${scene3DMs.toFixed(2)} ms (${((200 * VERTEX_COUNT) / scene3DMs / 1000).toFixed(1)}M vert/s in WASM)`,
-      'React 19 (Fiber VDOM)': `N/A (JS Three.js Bridge + Fiber Reconciliation)`,
-      'Vue 3.5 (Proxy + Block VDOM)': `N/A (Vue Proxy breaks 3D Matrix perf unless markRaw)`,
-      'Svelte 5 (JS Runes / Dirty Bitmask)': `N/A (JS Heap Float32 copies per frame)`,
+      'Local VNode simulation': `Not measured`,
+      'Local proxy/block simulation': `Not measured`,
+      'Local reaction/cursor simulation': `Not measured`,
     });
 
     console.table(results);
 
+    expect(finalEffectRuns).toBe(5001);
     expect(svetLisDomMoves).toBe(2);
     expect(reactDomMoves).toBeGreaterThan(900);
     expect(finalCapacity).toBe(baseCapacity);

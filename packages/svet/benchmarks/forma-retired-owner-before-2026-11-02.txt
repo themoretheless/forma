@@ -1,0 +1,33 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-events.test.ts (9 tests | 1 failed) 38ms
+   × disposal inside a mounted view update drains the child returned after scope retirement 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > disposal inside a mounted view update drains the child returned after scope retirement
+AssertionError: expected 3 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 3
+
+ ❯ tests/forma-hmr-events.test.ts:139:84
+    137|   try {
+    138|     retire = true; expect(() => inst.hotReload(source)).toThrow(/dispo…
+    139|     expect(container.childNodes.length).toBe(0); expect(getGraphTeleme…
+       |                                                                                    ^
+    140|   } finally { handle.unmount(); inst.dispose(); }
+    141| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 8 passed (9)
+   Start at  08:50:23
+   Duration  709ms (environment 80%, transform 7%, import 6%, tests 6%, worker 1%)
+

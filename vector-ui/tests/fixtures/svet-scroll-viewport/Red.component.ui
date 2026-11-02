@@ -1,0 +1,4 @@
+component Red {
+    width:64; height:64;
+    Rectangle { background:#ff0000; radius:0; }
+}

@@ -1,0 +1,39 @@
+{
+  "cases": [
+    {
+      "name": "production factory releases never-mounted disposed instances",
+      "status": "passed"
+    },
+    {
+      "name": "HMR tracks mounted instances and preserves registration until last unmount",
+      "status": "passed"
+    },
+    {
+      "name": "HMR explicit disposal retires live views before handles unmount",
+      "status": "passed"
+    },
+    {
+      "name": "cached factory uses the newest AST even when no instance was mounted during update",
+      "status": "passed"
+    },
+    {
+      "name": "HMR drains healthy instances after one failure and defers newly mounted instances",
+      "status": "passed"
+    },
+    {
+      "name": "invalid semantic HMR preserves live state and factory AST until a valid update",
+      "status": "passed"
+    }
+  ],
+  "node": "v26.13.0",
+  "generatedSha256": "1ec5858586f633159b0f59685405a73f2f4746e8163bbcf536ff1364c908860e",
+  "retainedTargets": 0,
+  "gc": {
+    "targets": 8,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "status": "passed",
+  "probeSha256": "33ec43055bacdc48e54fba6664c0cae132458a00531d4e7a3a6b02dd9848e06b",
+  "compilerSha256": "857587bcde21b0dae1ba58955669d413721de150b7288b55d94f468c997a6899"
+}

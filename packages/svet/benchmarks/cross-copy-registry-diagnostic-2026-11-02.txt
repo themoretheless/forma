@@ -1,0 +1,13 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+stdout | tests/cross-copy-registry-diagnostic.test.ts > reports live copy registry during a local observer
+copy-registry-before 1 [ 0 ]
+copy-registry-active 1 [ 1 ]
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  00:05:21
+   Duration  1.32s (transform 90%, import 8%, tests 1%, worker 1%)
+

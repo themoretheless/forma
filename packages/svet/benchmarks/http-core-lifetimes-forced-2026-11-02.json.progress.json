@@ -1,0 +1,1464 @@
+{
+  "coreLifetimeMode": "1",
+  "diagnosticsVersion": 1,
+  "runtimePackageBase": "file:///Users/themoretheless/Documents/Sources/forma/packages/svet/dist/package/",
+  "runtimeFileCount": 20,
+  "startedAt": "2026-11-02T04:03:26.407Z",
+  "node": "v22.23.4",
+  "durationMs": 1000,
+  "concurrency": 8,
+  "gcMode": "forced",
+  "forcedGCs": 21,
+  "cleanupFailures": [],
+  "requestFailures": [],
+  "requests": 168,
+  "completed": 112,
+  "disconnected": 56,
+  "bytesRead": 29710520,
+  "readerPauses": 336,
+  "drains": 224,
+  "maxNodesAfterFinish": 0,
+  "samples": [
+    {
+      "elapsedMs": 90.20612500000004,
+      "requests": 8,
+      "rss": 150602696,
+      "heapTotal": 82870272,
+      "heapUsed": 43490128,
+      "external": 21617216,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 14,
+          "opened": 17,
+          "closed": 3,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 5839,
+          "bytesWritten": 1334804
+        },
+        "responses": {
+          "active": 0,
+          "peak": 7
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 14
+        },
+        "v8": {
+          "externalMemory": 6022299,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79331328
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 8,
+          "finalized": 8,
+          "memoryCreated": 8,
+          "memoryFinalized": 8,
+          "bytesRegistered": 8912896,
+          "bytesFinalized": 8912896,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 140.98070800000005,
+      "requests": 16,
+      "rss": 152750200,
+      "heapTotal": 83132416,
+      "heapUsed": 43852712,
+      "external": 21834621,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 15,
+          "opened": 20,
+          "closed": 5,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 12283,
+          "bytesWritten": 2935538
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 15
+        },
+        "v8": {
+          "externalMemory": 21834621,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79560704
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 16,
+          "finalized": 8,
+          "memoryCreated": 16,
+          "memoryFinalized": 8,
+          "bytesRegistered": 17825792,
+          "bytesFinalized": 8912896,
+          "maxPendingMemories": 8,
+          "pending": 8,
+          "pendingMemories": 8,
+          "pendingRegisteredBytes": 8912896,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 186.52175,
+      "requests": 24,
+      "rss": 153422832,
+      "heapTotal": 83132416,
+      "heapUsed": 43908728,
+      "external": 20774767,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 24,
+          "closed": 8,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 18524,
+          "bytesWritten": 4271132
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20774767,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79560704
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 24,
+          "finalized": 24,
+          "memoryCreated": 24,
+          "memoryFinalized": 24,
+          "bytesRegistered": 26738688,
+          "bytesFinalized": 26738688,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 229.19904100000008,
+      "requests": 32,
+      "rss": 154472416,
+      "heapTotal": 83132416,
+      "heapUsed": 44055216,
+      "external": 20783550,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 27,
+          "closed": 11,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 24966,
+          "bytesWritten": 5607121
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20783550,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79560704
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 32,
+          "finalized": 32,
+          "memoryCreated": 32,
+          "memoryFinalized": 32,
+          "bytesRegistered": 35651584,
+          "bytesFinalized": 35651584,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 276.9457080000001,
+      "requests": 40,
+      "rss": 155899000,
+      "heapTotal": 83132416,
+      "heapUsed": 44108272,
+      "external": 21834621,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 29,
+          "closed": 13,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 31410,
+          "bytesWritten": 7207855
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 21834621,
+          "mallocedMemory": 2130024,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79560704
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 40,
+          "finalized": 32,
+          "memoryCreated": 40,
+          "memoryFinalized": 32,
+          "bytesRegistered": 44564480,
+          "bytesFinalized": 35651584,
+          "maxPendingMemories": 8,
+          "pending": 8,
+          "pendingMemories": 8,
+          "pendingRegisteredBytes": 8912896,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 322.16087500000003,
+      "requests": 48,
+      "rss": 156440392,
+      "heapTotal": 83132416,
+      "heapUsed": 44150024,
+      "external": 20774767,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 32,
+          "closed": 16,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 37651,
+          "bytesWritten": 8543449
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20774767,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79560704
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 48,
+          "finalized": 40,
+          "memoryCreated": 48,
+          "memoryFinalized": 40,
+          "bytesRegistered": 53477376,
+          "bytesFinalized": 44564480,
+          "maxPendingMemories": 8,
+          "pending": 8,
+          "pendingMemories": 8,
+          "pendingRegisteredBytes": 8912896,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 367.171875,
+      "requests": 56,
+      "rss": 157522528,
+      "heapTotal": 83394560,
+      "heapUsed": 44191040,
+      "external": 20775358,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 35,
+          "closed": 19,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 44093,
+          "bytesWritten": 9879438
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20775358,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79790080
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 56,
+          "finalized": 56,
+          "memoryCreated": 56,
+          "memoryFinalized": 56,
+          "bytesRegistered": 62390272,
+          "bytesFinalized": 62390272,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 412.492041,
+      "requests": 64,
+      "rss": 158195208,
+      "heapTotal": 83394560,
+      "heapUsed": 44241408,
+      "external": 21842813,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 37,
+          "closed": 21,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 50537,
+          "bytesWritten": 11480172
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 21842813,
+          "mallocedMemory": 1945704,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79790080
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 64,
+          "finalized": 64,
+          "memoryCreated": 64,
+          "memoryFinalized": 64,
+          "bytesRegistered": 71303168,
+          "bytesFinalized": 71303168,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 459.48520800000006,
+      "requests": 72,
+      "rss": 158687376,
+      "heapTotal": 83656704,
+      "heapUsed": 44267936,
+      "external": 20775358,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 40,
+          "closed": 24,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 56979,
+          "bytesWritten": 12816161
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20775358,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 80052224
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 72,
+          "finalized": 72,
+          "memoryCreated": 72,
+          "memoryFinalized": 72,
+          "bytesRegistered": 80216064,
+          "bytesFinalized": 80216064,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 501.6013750000001,
+      "requests": 80,
+      "rss": 159081144,
+      "heapTotal": 83918848,
+      "heapUsed": 44305472,
+      "external": 20775358,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 43,
+          "closed": 27,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 63421,
+          "bytesWritten": 14152150
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20775358,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 80314368
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 80,
+          "finalized": 72,
+          "memoryCreated": 80,
+          "memoryFinalized": 72,
+          "bytesRegistered": 89128960,
+          "bytesFinalized": 80216064,
+          "maxPendingMemories": 8,
+          "pending": 8,
+          "pendingMemories": 8,
+          "pendingRegisteredBytes": 8912896,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 550.861041,
+      "requests": 88,
+      "rss": 159655280,
+      "heapTotal": 84705280,
+      "heapUsed": 44279792,
+      "external": 21840829,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 45,
+          "closed": 29,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 69897,
+          "bytesWritten": 15752884
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 21840829,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 80609280
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 88,
+          "finalized": 80,
+          "memoryCreated": 88,
+          "memoryFinalized": 80,
+          "bytesRegistered": 98041856,
+          "bytesFinalized": 89128960,
+          "maxPendingMemories": 8,
+          "pending": 8,
+          "pendingMemories": 8,
+          "pendingRegisteredBytes": 8912896,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 596.41875,
+      "requests": 96,
+      "rss": 160098248,
+      "heapTotal": 84180992,
+      "heapUsed": 44303152,
+      "external": 20771799,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 48,
+          "closed": 32,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 76371,
+          "bytesWritten": 17088873
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20771799,
+          "mallocedMemory": 1658984,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79839232
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 96,
+          "finalized": 96,
+          "memoryCreated": 96,
+          "memoryFinalized": 96,
+          "bytesRegistered": 106954752,
+          "bytesFinalized": 106954752,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 640.9300410000001,
+      "requests": 104,
+      "rss": 160295048,
+      "heapTotal": 83918848,
+      "heapUsed": 44325000,
+      "external": 19444376,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 51,
+          "closed": 35,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 82845,
+          "bytesWritten": 18424862
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 19444376,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79331328
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 104,
+          "finalized": 104,
+          "memoryCreated": 104,
+          "memoryFinalized": 104,
+          "bytesRegistered": 115867648,
+          "bytesFinalized": 115867648,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 689.158333,
+      "requests": 112,
+      "rss": 160508640,
+      "heapTotal": 83918848,
+      "heapUsed": 42899000,
+      "external": 10877005,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 53,
+          "closed": 37,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 89321,
+          "bytesWritten": 20025596
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 10877005,
+          "mallocedMemory": 1831016,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78839808
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 112,
+          "finalized": 112,
+          "memoryCreated": 112,
+          "memoryFinalized": 112,
+          "bytesRegistered": 124780544,
+          "bytesFinalized": 124780544,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 731.930166,
+      "requests": 120,
+      "rss": 160902288,
+      "heapTotal": 83132416,
+      "heapUsed": 42932888,
+      "external": 20763167,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 56,
+          "closed": 40,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 95593,
+          "bytesWritten": 21361190
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20763167,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78053376
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 120,
+          "finalized": 112,
+          "memoryCreated": 120,
+          "memoryFinalized": 112,
+          "bytesRegistered": 133693440,
+          "bytesFinalized": 124780544,
+          "maxPendingMemories": 8,
+          "pending": 8,
+          "pendingMemories": 8,
+          "pendingRegisteredBytes": 8912896,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 776.533583,
+      "requests": 128,
+      "rss": 161164816,
+      "heapTotal": 83394560,
+      "heapUsed": 42956824,
+      "external": 20763758,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 59,
+          "closed": 43,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 102067,
+          "bytesWritten": 22697179
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20763758,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78315520
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 128,
+          "finalized": 128,
+          "memoryCreated": 128,
+          "memoryFinalized": 128,
+          "bytesRegistered": 142606336,
+          "bytesFinalized": 142606336,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 824.201291,
+      "requests": 136,
+      "rss": 161787840,
+      "heapTotal": 83394560,
+      "heapUsed": 42966688,
+      "external": 21823021,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 61,
+          "closed": 45,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 108543,
+          "bytesWritten": 24297913
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 21823021,
+          "mallocedMemory": 2494568,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78315520
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 136,
+          "finalized": 136,
+          "memoryCreated": 136,
+          "memoryFinalized": 136,
+          "bytesRegistered": 151519232,
+          "bytesFinalized": 151519232,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 866.5257500000001,
+      "requests": 144,
+      "rss": 161984736,
+      "heapTotal": 83656704,
+      "heapUsed": 43019264,
+      "external": 20771359,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 64,
+          "closed": 48,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 114815,
+          "bytesWritten": 25633507
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 20771359,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78577664
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 144,
+          "finalized": 136,
+          "memoryCreated": 144,
+          "memoryFinalized": 136,
+          "bytesRegistered": 160432128,
+          "bytesFinalized": 151519232,
+          "maxPendingMemories": 8,
+          "pending": 8,
+          "pendingMemories": 8,
+          "pendingRegisteredBytes": 8912896,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 911.9300830000001,
+      "requests": 152,
+      "rss": 160543088,
+      "heapTotal": 82165760,
+      "heapUsed": 39934224,
+      "external": 19172242,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 67,
+          "closed": 51,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 121087,
+          "bytesWritten": 26969101
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 19172242,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 76840960
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 152,
+          "finalized": 152,
+          "memoryCreated": 152,
+          "memoryFinalized": 152,
+          "bytesRegistered": 169345024,
+          "bytesFinalized": 169345024,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 965.6519999999999,
+      "requests": 160,
+      "rss": 160674400,
+      "heapTotal": 81903616,
+      "heapUsed": 40016656,
+      "external": 21819661,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 69,
+          "closed": 53,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 127563,
+          "bytesWritten": 28569835
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 21819661,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 76087296
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 160,
+          "finalized": 160,
+          "memoryCreated": 160,
+          "memoryFinalized": 160,
+          "bytesRegistered": 178257920,
+          "bytesFinalized": 178257920,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    },
+    {
+      "elapsedMs": 1007.981375,
+      "requests": 168,
+      "rss": 160936784,
+      "heapTotal": 81903616,
+      "heapUsed": 39998312,
+      "external": 19308520,
+      "arrayBuffers": 884989,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 72,
+          "closed": 56,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 133835,
+          "bytesWritten": 29905429
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 19308520,
+          "mallocedMemory": 1089640,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 75808768
+        },
+        "mainWasmBytes": 1114112,
+        "requestCoreLifetimes": {
+          "created": 168,
+          "finalized": 168,
+          "memoryCreated": 168,
+          "memoryFinalized": 168,
+          "bytesRegistered": 187170816,
+          "bytesFinalized": 187170816,
+          "maxPendingMemories": 8,
+          "pending": 0,
+          "pendingMemories": 0,
+          "pendingRegisteredBytes": 0,
+          "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+        }
+      }
+    }
+  ],
+  "windows": [
+    {
+      "count": 4,
+      "heapMin": 43490128,
+      "heapMax": 44055216,
+      "rssMin": 150602696,
+      "rssMax": 154472416,
+      "externalMin": 20774767,
+      "externalMax": 21834621,
+      "arrayBuffersMin": 884989,
+      "arrayBuffersMax": 884989,
+      "externalPeakObservation": {
+        "elapsedMs": 140.98070800000005,
+        "requests": 16,
+        "rss": 152750200,
+        "heapTotal": 83132416,
+        "heapUsed": 43852712,
+        "external": 21834621,
+        "arrayBuffers": 884989,
+        "diagnostics": {
+          "sockets": {
+            "active": 15,
+            "opened": 20,
+            "closed": 5,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 12283,
+            "bytesWritten": 2935538
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 15
+          },
+          "v8": {
+            "externalMemory": 21834621,
+            "mallocedMemory": 1089640,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 79560704
+          },
+          "mainWasmBytes": 1114112,
+          "requestCoreLifetimes": {
+            "created": 16,
+            "finalized": 8,
+            "memoryCreated": 16,
+            "memoryFinalized": 8,
+            "bytesRegistered": 17825792,
+            "bytesFinalized": 8912896,
+            "maxPendingMemories": 8,
+            "pending": 8,
+            "pendingMemories": 8,
+            "pendingRegisteredBytes": 8912896,
+            "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+          }
+        }
+      }
+    },
+    {
+      "count": 5,
+      "heapMin": 44108272,
+      "heapMax": 44267936,
+      "rssMin": 155899000,
+      "rssMax": 158687376,
+      "externalMin": 20774767,
+      "externalMax": 21842813,
+      "arrayBuffersMin": 884989,
+      "arrayBuffersMax": 884989,
+      "externalPeakObservation": {
+        "elapsedMs": 412.492041,
+        "requests": 64,
+        "rss": 158195208,
+        "heapTotal": 83394560,
+        "heapUsed": 44241408,
+        "external": 21842813,
+        "arrayBuffers": 884989,
+        "diagnostics": {
+          "sockets": {
+            "active": 16,
+            "opened": 37,
+            "closed": 21,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 50537,
+            "bytesWritten": 11480172
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 16
+          },
+          "v8": {
+            "externalMemory": 21842813,
+            "mallocedMemory": 1945704,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 79790080
+          },
+          "mainWasmBytes": 1114112,
+          "requestCoreLifetimes": {
+            "created": 64,
+            "finalized": 64,
+            "memoryCreated": 64,
+            "memoryFinalized": 64,
+            "bytesRegistered": 71303168,
+            "bytesFinalized": 71303168,
+            "maxPendingMemories": 8,
+            "pending": 0,
+            "pendingMemories": 0,
+            "pendingRegisteredBytes": 0,
+            "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+          }
+        }
+      }
+    },
+    {
+      "count": 6,
+      "heapMin": 42899000,
+      "heapMax": 44325000,
+      "rssMin": 159081144,
+      "rssMax": 160902288,
+      "externalMin": 10877005,
+      "externalMax": 21840829,
+      "arrayBuffersMin": 884989,
+      "arrayBuffersMax": 884989,
+      "externalPeakObservation": {
+        "elapsedMs": 550.861041,
+        "requests": 88,
+        "rss": 159655280,
+        "heapTotal": 84705280,
+        "heapUsed": 44279792,
+        "external": 21840829,
+        "arrayBuffers": 884989,
+        "diagnostics": {
+          "sockets": {
+            "active": 16,
+            "opened": 45,
+            "closed": 29,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 69897,
+            "bytesWritten": 15752884
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 16
+          },
+          "v8": {
+            "externalMemory": 21840829,
+            "mallocedMemory": 1089640,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 80609280
+          },
+          "mainWasmBytes": 1114112,
+          "requestCoreLifetimes": {
+            "created": 88,
+            "finalized": 80,
+            "memoryCreated": 88,
+            "memoryFinalized": 80,
+            "bytesRegistered": 98041856,
+            "bytesFinalized": 89128960,
+            "maxPendingMemories": 8,
+            "pending": 8,
+            "pendingMemories": 8,
+            "pendingRegisteredBytes": 8912896,
+            "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+          }
+        }
+      }
+    },
+    {
+      "count": 6,
+      "heapMin": 39934224,
+      "heapMax": 43019264,
+      "rssMin": 160543088,
+      "rssMax": 161984736,
+      "externalMin": 19172242,
+      "externalMax": 21823021,
+      "arrayBuffersMin": 884989,
+      "arrayBuffersMax": 884989,
+      "externalPeakObservation": {
+        "elapsedMs": 824.201291,
+        "requests": 136,
+        "rss": 161787840,
+        "heapTotal": 83394560,
+        "heapUsed": 42966688,
+        "external": 21823021,
+        "arrayBuffers": 884989,
+        "diagnostics": {
+          "sockets": {
+            "active": 16,
+            "opened": 61,
+            "closed": 45,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 108543,
+            "bytesWritten": 24297913
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 16
+          },
+          "v8": {
+            "externalMemory": 21823021,
+            "mallocedMemory": 2494568,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 78315520
+          },
+          "mainWasmBytes": 1114112,
+          "requestCoreLifetimes": {
+            "created": 136,
+            "finalized": 136,
+            "memoryCreated": 136,
+            "memoryFinalized": 136,
+            "bytesRegistered": 151519232,
+            "bytesFinalized": 151519232,
+            "maxPendingMemories": 8,
+            "pending": 0,
+            "pendingMemories": 0,
+            "pendingRegisteredBytes": 0,
+            "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+          }
+        }
+      }
+    }
+  ],
+  "scope": "Loopback Node HTTP/fetch streaming with delayed reader calls, concurrent clients and shell disconnects. Writer drains are observed; no proxy/browser, sustained kernel-buffer saturation or universal RSS bound claim.",
+  "sourceSha256": "58c9766943939119ea8f16f8e2a8a19d21a00faaf09afe08fc308beba6a6f0fd",
+  "fixtureSha256": "262d89caa1d33137c6db5008b4157c57a8821a145c1841a4a367f48ee8b75a36",
+  "runtimeSha256": {
+    "advanced.js": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d",
+    "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+    "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "forma.js": "edbbb8773dfec0b33c66166c4e2517fe15c8ba7c04500b63a8ff3a402016977b",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu.js": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+    "index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+    "reactivity.js": "aab693d13fa59e7f3d154db9b9021ce101a67b04d70905810c2ff236fa830f29",
+    "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "ssr-runtime.js": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+    "stream-codec.js": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+    "stream-protocol.js": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "svet-core.wasm": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+    "wasm-binary.js": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46",
+    "wasm-bridge.js": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+  },
+  "updatedAt": "2026-11-02T04:03:27.428Z",
+  "externalPeakObservation": {
+    "elapsedMs": 412.492041,
+    "requests": 64,
+    "rss": 158195208,
+    "heapTotal": 83394560,
+    "heapUsed": 44241408,
+    "external": 21842813,
+    "arrayBuffers": 884989,
+    "diagnostics": {
+      "sockets": {
+        "active": 16,
+        "opened": 37,
+        "closed": 21,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 50537,
+        "bytesWritten": 11480172
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {
+        "TCPServerWrap": 1,
+        "TCPSocketWrap": 16
+      },
+      "v8": {
+        "externalMemory": 21842813,
+        "mallocedMemory": 1945704,
+        "peakMallocedMemory": 33030144,
+        "totalPhysicalSize": 79790080
+      },
+      "mainWasmBytes": 1114112,
+      "requestCoreLifetimes": {
+        "created": 64,
+        "finalized": 64,
+        "memoryCreated": 64,
+        "memoryFinalized": 64,
+        "bytesRegistered": 71303168,
+        "bytesFinalized": 71303168,
+        "maxPendingMemories": 8,
+        "pending": 0,
+        "pendingMemories": 0,
+        "pendingRegisteredBytes": 0,
+        "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+      }
+    }
+  },
+  "elapsedMs": 1008.0775830000001,
+  "status": "passed",
+  "beforeShutdown": {
+    "memory": {
+      "rss": 160936784,
+      "heapTotal": 81903616,
+      "heapUsed": 40024160,
+      "external": 19308520,
+      "arrayBuffers": 884989
+    },
+    "diagnostics": {
+      "sockets": {
+        "active": 16,
+        "opened": 72,
+        "closed": 56,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 133835,
+        "bytesWritten": 29905429
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {
+        "TCPServerWrap": 1,
+        "TCPSocketWrap": 16
+      },
+      "v8": {
+        "externalMemory": 19308520,
+        "mallocedMemory": 1613952,
+        "peakMallocedMemory": 33030144,
+        "totalPhysicalSize": 75808768
+      },
+      "mainWasmBytes": 1114112,
+      "requestCoreLifetimes": {
+        "created": 168,
+        "finalized": 168,
+        "memoryCreated": 168,
+        "memoryFinalized": 168,
+        "bytesRegistered": 187170816,
+        "bytesFinalized": 187170816,
+        "maxPendingMemories": 8,
+        "pending": 0,
+        "pendingMemories": 0,
+        "pendingRegisteredBytes": 0,
+        "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+      }
+    }
+  },
+  "afterShutdown": {
+    "memory": {
+      "rss": 160953168,
+      "heapTotal": 81903616,
+      "heapUsed": 40210496,
+      "external": 19308520,
+      "arrayBuffers": 884989
+    },
+    "diagnostics": {
+      "sockets": {
+        "active": 0,
+        "opened": 72,
+        "closed": 72,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 133835,
+        "bytesWritten": 29905429
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {},
+      "v8": {
+        "externalMemory": 19308520,
+        "mallocedMemory": 1613952,
+        "peakMallocedMemory": 33030144,
+        "totalPhysicalSize": 75808768
+      },
+      "mainWasmBytes": 1114112,
+      "requestCoreLifetimes": {
+        "created": 168,
+        "finalized": 168,
+        "memoryCreated": 168,
+        "memoryFinalized": 168,
+        "bytesRegistered": 187170816,
+        "bytesFinalized": 187170816,
+        "maxPendingMemories": 8,
+        "pending": 0,
+        "pendingMemories": 0,
+        "pendingRegisteredBytes": 0,
+        "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+      }
+    }
+  },
+  "completedAt": "2026-11-02T04:03:27.426Z",
+  "finalSourceSha256": "58c9766943939119ea8f16f8e2a8a19d21a00faaf09afe08fc308beba6a6f0fd",
+  "finalFixtureSha256": "262d89caa1d33137c6db5008b4157c57a8821a145c1841a4a367f48ee8b75a36",
+  "finalRuntimeSha256": {
+    "advanced.js": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d",
+    "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+    "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "forma.js": "edbbb8773dfec0b33c66166c4e2517fe15c8ba7c04500b63a8ff3a402016977b",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu.js": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+    "index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+    "reactivity.js": "aab693d13fa59e7f3d154db9b9021ce101a67b04d70905810c2ff236fa830f29",
+    "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "ssr-runtime.js": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+    "stream-codec.js": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+    "stream-protocol.js": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "svet-core.wasm": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+    "wasm-binary.js": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46",
+    "wasm-bridge.js": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+  },
+  "artifactsUnchanged": true
+}

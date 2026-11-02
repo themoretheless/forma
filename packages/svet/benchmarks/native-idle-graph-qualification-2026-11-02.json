@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-02",
+  "change": "Unchanged scheduler model returns existing pending state without retracking/cloning; empty scope-count changes now notify topology.",
+  "checks": {
+    "native_lib": 141,
+    "allocation_tests": 7,
+    "native_bin_check": "passed"
+  },
+  "regressions": [
+    "Empty scopes add/remove schedules render; retries remain pending until complete.",
+    "Existing property mutation, retirement and render-error retry tests passed.",
+    "Same96-editor workload asserts idle Svet allocation count equals legacy:1331 each."
+  ],
+  "source_sha256": {
+    "vector-ui/src/native_document_graph.rs": "d5c3f3a429568a1e870529b0c689674f5187bee0f55392edea5babf59d169634",
+    "vector-ui/tests/runtime_allocations.rs": "7620986ebadd471088f9c273027790615b8008f132055c39dd8761780f7c005c"
+  },
+  "limitations": [
+    "Native-only scheduler; no new wasm/GPU run.",
+    "No release timing/peak memory claim.",
+    "Model equality still traverses state; edit-time snapshots remain open."
+  ]
+}

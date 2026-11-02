@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-02",
+  "scope": "Internal native scene scope traversal; public snapshots remain owned",
+  "change": [
+    "borrow inherited state unless nonempty node-local state overlays it",
+    "borrow inherited props until scope resolution writes",
+    "borrow container child state until a Let writes; detach then",
+    "explicitly materialize owned values for returned __state/key-scope snapshots and writable For/Let locals"
+  ],
+  "checks": {
+    "native_library_tests": 136,
+    "runtime_allocation_tests": 5,
+    "metal_gpu_tests": 3,
+    "native_binary_check": "passed",
+    "wasm32_library_check": "passed",
+    "diff_check": "passed"
+  },
+  "regression": "Five controls observe parent/node/later/inner/later; nested Let and node-local overrides do not leak; earlier returned snapshot remains parent after model changes",
+  "controls96": {
+    "render_requested_bytes": [
+      77230175,
+      70679176
+    ],
+    "sync_noop_requested_bytes": [
+      90393124,
+      83842125
+    ],
+    "sync_one_edit_requested_bytes": [
+      90393136,
+      83842137
+    ],
+    "sync_noop_allocation_count": [
+      725708,
+      677030
+    ]
+  },
+  "analysis": "native-scope-cow-analysis-2026-11-02.json",
+  "performance_scope": "A1/B1/A2/B2 seven-sample release processes with same TLS allocation counter; request counts/bytes repeated identically. Latest HTTP progress confirms active request churn during these timed runs. Latency is inconclusive.",
+  "source_archive": "native-scope-cow-sources-2026-11-02.tar.gz",
+  "source_archive_sha256": "c110a27d3c8b477921e96bff915a0694a859582c1e9a27b10363f034c470f4a5",
+  "source_sha256": {
+    "before/form_document.rs": "24643e08c459697f65615f0b4110a7da9f3fa0de4716f488726e6f317bad65db",
+    "after/form_document.rs": "12d9fded4cfc23dfb0893ad920a3d3a592df51665bf33c625990d2cbf9683cf2",
+    "shared/runtime.rs": "f61561bee29114b6a9650cecbe464fd851200654388544c9d97cf7d66de1ea33",
+    "shared/harness.rs": "d7eab708619965eaa44d3f33b5b389ca87316fa1bf63003bb2d8c8c195ce263d",
+    "shared/Cargo.toml": "e6f5d39cf27de1b8802108396708e5dca0eb3f023972ffaa1b08f9350297a0a5",
+    "shared/Cargo.lock": "264e549e0e0844b1953e8864b0329d2ccae6210ed6e5319034693ac024a38f13"
+  },
+  "logs": {
+    "tests": "packages/svet/benchmarks/native-scope-cow-tests-2026-11-02.txt",
+    "gpu": "packages/svet/benchmarks/native-scope-cow-gpu-2026-11-02.txt",
+    "native": "packages/svet/benchmarks/native-scope-cow-native-2026-11-02.txt",
+    "wasm": "packages/svet/benchmarks/native-scope-cow-wasm-2026-11-02.txt",
+    "build": "packages/svet/benchmarks/native-scope-cow-build-2026-11-02.txt"
+  },
+  "limitations": [
+    "cumulative calling-thread requests, not retained/peak/RSS",
+    "public owned snapshots and For locals still copy root model data",
+    "roughly84MB requested per96-editor sync remains excessive",
+    "no quiet-host/application-FPS/p95, browser or remote-CI qualification"
+  ]
+}

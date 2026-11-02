@@ -1,0 +1,32 @@
+{
+  "startedAt": "2026-11-01T16:08:49.301Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-7pomVg",
+  "httpStatus": 200,
+  "result": {
+    "status": "passed",
+    "carrier": true,
+    "requests": 8,
+    "html": [
+      "<p>0</p>",
+      "<p>1</p>",
+      "<p>2</p>",
+      "<p>3</p>",
+      "<p>4</p>",
+      "<p>5</p>",
+      "<p>6</p>",
+      "<p>7</p>"
+    ],
+    "cleaned": 8
+  },
+  "status": "passed",
+  "completedAt": "2026-11-01T16:08:49.403Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundleSha256": "ac94013ce8e2a4b52eaa0a1b806db963cbf340ecfbc86c58f32f1a558288eec7"
+}

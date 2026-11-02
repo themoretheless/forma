@@ -1,0 +1,19 @@
+{
+  "status": "passed",
+  "scope": "Current-source Vite fixture, Codex in-app Chromium; native constraint validation and model lifecycle. Not installed production or Edge DOM qualification.",
+  "checks": 13,
+  "sourceSha256": {
+    "tests/browser/model-validation.html": "6214d82d3210770dfa8a496974a090c35c481ed207f3696305c3e014021bf873",
+    "src/engine/dom.ts": "18cec4e44572b76103436eefb00069f153a31284790e2237d9543066cc8a3b6f",
+    "src/engine/reactivity.ts": "f082ec6319dfb300eda8c9c06b1be276b47d04640f2a9dde53b578a47fb7e78d",
+    "src/engine/wasm-binary.ts": "b4c55eed61131b1dd3dc484d0519758b7a0212cf689059c82e8443bf714c050c"
+  },
+  "evidence": [
+    "model-validation-browser-2026-11-01.txt",
+    "model-validation-browser-2026-11-01.png"
+  ],
+  "limitations": [
+    "Single browser, current-source dev build.",
+    "Edge LinkeDOM native form reset and validity APIs remain unqualified."
+  ]
+}

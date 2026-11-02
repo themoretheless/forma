@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-02",
+  "status": "partial; tested three-core diamond delivery fixed",
+  "before": "terminal observations [5,10,10] rather than [5,10]; reverse dependency order reproduced duplicate even with explicit batch",
+  "after": "explicit/implicit batch and both dependency read orders observe [5,10] once",
+  "checks": {
+    "full_js": {
+      "passed": 1326,
+      "files": 100
+    },
+    "focused_batch_stabilization": 51,
+    "independent_copy_probe": "19/19",
+    "typescript": "passed",
+    "package_build": "passed",
+    "installed_package_with_dedicated_bridge_gc_gate": "passed",
+    "standalone_updated_runtime_gc": "272 teardown targets collected; positive generic/live-subscription controls passed",
+    "scoped_diff_check": "passed"
+  },
+  "source_sha256": {
+    "src/engine/reactivity.ts": "1380e48a243954fe59570d9633012130cea6e319c2a3edcf0eb9a6f0f4834efb",
+    "tests/cross-core-dependencies.test.ts": "058b617c7cadb218243c595f57c4d80263c0b4ddde6f28cc2d63e5b385781343",
+    "scripts/check-cross-copy-tracking.mjs": "85e062906a74211ac9a9e9b6bd4db87826ea8cd2c4ab203e1b1714b1fd29aafb"
+  },
+  "limitations": [
+    "Arbitrary scheduling and active-effect fan-out topologies remain open",
+    "Pre-delivery observer-boundary refresh overhead unmeasured",
+    "Browser production/HMR/GC qualification remains open",
+    "No new HTTP natural-GC soak; external-memory budget failure remains open"
+  ]
+}

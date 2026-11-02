@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.40s
+     Running tests/retained_allocations.rs (/tmp/forma-svet-native-binding-validation/debug/deps/retained_allocations-59eba21349b3d5d5)
+
+running 2 tests
+test native_cpu_animation_and_gpu_input_serialization_reuse_allocations ... ok
+test multiple_controls_reuse_native_buffers_for_static_and_animated_frames ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/runtime_allocations.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_allocations-36521b7401686453)
+
+running 8 tests
+test document_markup_parse_pays_only_for_owned_property_values ... ok
+test scene_construction_allocations_scale_with_control_count ... ok
+test warmed_pointer_tick_and_paint_buffers_do_not_allocate ... ok
+test idle_editors_and_ranges_do_not_recompose_each_tick ... ok
+test idle_scalar_binding_does_not_copy_unrelated_model_payload ... ok
+test retained_idle_bindings_reuse_the_displayed_scene ... ok
+test retained_large_form_can_repair_a_pending_visual_error ... ok
+test transport_sizes_control_buffers_instead_of_growing_them ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+

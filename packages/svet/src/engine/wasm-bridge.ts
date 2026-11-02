@@ -9,7 +9,7 @@
  *   and O(n log n) Longest Increasing Subsequence (LIS) reconciliation.
  */
 
-import { decodeWasmBinary } from './wasm-binary.ts';
+import { decodeWasmBinary,WASM_EXPORTS } from './wasm-binary.ts';
 
 export const KIND_SIGNAL = 0;
 export const KIND_COMPUTED = 1;
@@ -120,7 +120,10 @@ export interface SvetWasmExports {
 
 let compiledModule: WebAssembly.Module | null = null;
 let defaultCore: SvetWasmExports | null = null;
-let activeCore: SvetWasmExports | null = null;
+// Explicit synchronous scopes select one native core across compatible copies.
+// Only live calls are stored; async continuations use their host carrier again.
+const coreOverrideHost = globalThis as unknown as Record<symbol, SvetWasmExports[] | undefined>;
+const coreOverrides = coreOverrideHost[Symbol.for('svet.wasm-core.overrides.v1')] ??= [];
 let asyncCoreResolver: (() => SvetWasmExports | undefined) | undefined;
 let escapeAsyncContext: (<T>(callback: () => T) => T) | undefined;
 
@@ -133,6 +136,15 @@ export function withoutAsyncCoreContext<T>(callback: () => T): T {
 export function installAsyncCoreResolver(resolver: () => SvetWasmExports | undefined, escape?: <T>(callback: () => T) => T): void {
   asyncCoreResolver = resolver;
   escapeAsyncContext = escape;
+}
+
+/** Install this package's precompiled asset before any core is created. */
+export function installSvetWasmModule(module:WebAssembly.Module):void {
+  if(!(module instanceof WebAssembly.Module))throw TypeError('Expected a precompiled Svet WebAssembly.Module');
+  if(compiledModule){if(compiledModule===module)return;throw Error('Svet WASM module is already initialized');}
+  const actual=WebAssembly.Module.exports(module).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
+  if(WebAssembly.Module.imports(module).length||JSON.stringify(actual)!==JSON.stringify(WASM_EXPORTS))throw TypeError('Incompatible Svet WASM export shape');
+  compiledModule=module;
 }
 
 function getCompiledModule(): WebAssembly.Module {
@@ -156,9 +168,8 @@ export function createWasmCoreInstance(): SvetWasmExports {
  * Returns the currently active WASM core (either the isolated SSR context or the default singleton).
  */
 export function getWasmCore(): SvetWasmExports {
-  if (activeCore) {
-    return activeCore;
-  }
+  const activeCore = coreOverrides.length ? coreOverrides[coreOverrides.length - 1] : undefined;
+  if (activeCore) return activeCore;
   const requestCore = asyncCoreResolver?.();
   if (requestCore) return requestCore;
   if (!defaultCore) {
@@ -171,12 +182,11 @@ export function getWasmCore(): SvetWasmExports {
  * Temporarily switches the active WASM core to `customCore` for the duration of `fn`.
  */
 export function withWasmCore<T>(customCore: SvetWasmExports, fn: () => T): T {
-  const prev = activeCore;
-  activeCore = customCore;
+  coreOverrides.push(customCore);
   try {
     return fn();
   } finally {
-    activeCore = prev;
+    coreOverrides.pop();
   }
 }
 

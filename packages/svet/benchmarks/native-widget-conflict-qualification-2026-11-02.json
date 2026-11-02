@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-02",
+  "scope": "Binding value arbitration between live widgets and newer model state",
+  "negative_control": "One edited widget plus an untouched widget produced two model writes instead of one; untouched widget overwrote the newer model value",
+  "policy": [
+    "compare widget values to last accepted binding snapshot",
+    "pending changed widget value wins its binding when model also changed",
+    "unchanged widget preserves existing model value",
+    "missing model paths may still initialize from live widgets",
+    "acknowledge snapshots only after successful atomic binding commit, including when subsequent scene rendering fails"
+  ],
+  "implementation": [
+    "per-Runtime baseline only for text/range widgets",
+    "reuse baseline strings/map on acknowledgement rather than recopy all values every sync",
+    "no baseline acknowledgement on refused metadata/key/tree transaction"
+  ],
+  "checks": {
+    "native_library_tests": 132,
+    "runtime_allocation_tests": 5,
+    "native_feature_binary_check": "passed",
+    "wasm32_library_check": "passed",
+    "diff_check": "passed"
+  },
+  "covered": [
+    "text model update survives unchanged widget",
+    "pending edit wins same-field concurrent model value",
+    "committed value does not replay over later model update",
+    "range model update and keyboard range edits",
+    "collection reorder/insertion preserves changed model value of untouched b",
+    "render-error correction from model as well as widget across legacy/Svet/backend-switch cases",
+    "existing failed-transaction retry and missing-state initialization regressions remain green"
+  ],
+  "logs": {
+    "before": "packages/svet/benchmarks/native-widget-conflict-before-2026-11-02.txt",
+    "after": "packages/svet/benchmarks/native-widget-conflict-after-2026-11-02.txt",
+    "native": "packages/svet/benchmarks/native-widget-conflict-native-2026-11-02.txt",
+    "wasm": "packages/svet/benchmarks/native-widget-conflict-wasm-2026-11-02.txt"
+  },
+  "limitations": [
+    "value-snapshot policy rather than historical edit-revision ordering; net edits back to baseline count as unchanged",
+    "multiple independent Documents sharing one Runtime binding owner are not qualified",
+    "no new full-window/GPU or remote CI qualification",
+    "allocation tests cover existing warmed runtime paths, not a zero-allocation claim for Document sync",
+    "large-model baseline/state/key-scan cost and peak memory remain open"
+  ],
+  "source_sha256": {
+    "vector-ui/src/runtime.rs": "f61561bee29114b6a9650cecbe464fd851200654388544c9d97cf7d66de1ea33",
+    "vector-ui/src/form_document.rs": "817328aed490209e2345c9a546ba53fd44a70a09be280a1a4736c6acf54ef95a"
+  }
+}

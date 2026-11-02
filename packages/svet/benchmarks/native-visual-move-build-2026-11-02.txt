@@ -1,0 +1,2 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `release` profile [optimized] target(s) in 46.67s

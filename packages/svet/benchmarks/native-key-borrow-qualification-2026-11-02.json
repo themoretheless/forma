@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-02",
+  "change": "Borrow scalar plain item-member keys while scanning; lazily create full evaluator context only when a value/expression requires fallback. No index cache.",
+  "semantics": [
+    "Retain full duplicate-key scan and 16384 cap.",
+    "Exact dotted fields, enum precedence and reserved namespaces disable direct member path.",
+    "Computed keys/synthetic members/non-scalars retain evaluator semantics."
+  ],
+  "checks": {
+    "lib": 139,
+    "allocation_tests": 7,
+    "native_check": "passed",
+    "wasm32_check": "passed"
+  },
+  "regression": "Mixed direct/computed item ids, reorder and exact dotted-field duplicate refusal; existing props-based scopes and key-changing writes passed.",
+  "allocation_observation": {
+    "retained_idle_96_editors_before_previous_receipt": 141278,
+    "after": 30494,
+    "budget": 40000,
+    "scalar_1024_unrelated_records": 23
+  },
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "c4a7f2a9ae0d202d3860ed6ac5f8adff62bf46137de44970ecac0d13fbc9a451",
+    "vector-ui/tests/runtime_allocations.rs": "c634eeabe47c49c6d192b270770fb2d3909c7f18675073149203c7fb508d1ccf"
+  },
+  "limitations": [
+    "No release latency/FPS/peak memory claim.",
+    "Scan remains quadratic across controls; no cache introduced.",
+    "Complex key expressions still clone evaluator context.",
+    "No new hardware GPU rerun; general readiness remains open."
+  ]
+}

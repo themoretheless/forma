@@ -1,0 +1,70 @@
+{
+  "protocol": "async-component-churn-v1",
+  "startedAt": "2026-11-01T13:17:11.967Z",
+  "node": "v22.23.4",
+  "execArgv": [
+    "--expose-gc"
+  ],
+  "cycles": 200,
+  "samples": [
+    {
+      "cycle": 0,
+      "rss": 129940456,
+      "heapTotal": 89948160,
+      "heapUsed": 38814624,
+      "external": 3680760,
+      "arrayBuffers": 781956,
+      "pendingProbes": 0,
+      "alive": 0
+    },
+    {
+      "cycle": 10,
+      "rss": 131497200,
+      "heapTotal": 77889536,
+      "heapUsed": 39722552,
+      "external": 5936394,
+      "arrayBuffers": 781964,
+      "pendingProbes": 210,
+      "alive": 1
+    }
+  ],
+  "timings": {
+    "success": {
+      "count": 10,
+      "min": 0.18345799999997325,
+      "max": 5.4926660000000425,
+      "mean": 0.8646539000000075
+    },
+    "failure": {
+      "count": 10,
+      "min": 0.21462500000001228,
+      "max": 0.9259159999999724,
+      "mean": 0.4168916000000082
+    },
+    "cancel": {
+      "count": 10,
+      "min": 0.16983399999998028,
+      "max": 0.7580829999999992,
+      "mean": 0.28970850000000037
+    }
+  },
+  "scope": "Fresh isolated request per success/failure/cancel; real WASM + JSDOM, bounded WeakRef batches and ring memory samples. No browser/Edge/driver memory or general plateau claim.",
+  "retained": [
+    "core"
+  ],
+  "status": "failed",
+  "error": "AssertionError [ERR_ASSERTION]: Retired async component objects retained after ten GC turns\n\n1 !== 0\n\n    at sample (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-async-component-churn.mjs:56:9)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-async-component-churn.mjs:63:23",
+  "completedAt": "2026-11-01T13:17:12.036Z",
+  "checkedObjects": 0,
+  "cleanups": 30,
+  "lateRefusals": 20,
+  "maxGcRounds": 10,
+  "sampleCount": 2,
+  "sourceSha256": "0da119f9f25c9e9d103d70196ceee1e475a9157a28d5078959d04a33bd6dd5c1",
+  "runtimeSha256": {
+    "server.js": "078e756002047f41d1a991969a17b2647ac91cb15ab106c9880f2d06094fad80",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "f113354fe8442141b38711321a770f9c5b3509f12064c7c7a799ab5cfe707e2c",
+    "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2"
+  }
+}

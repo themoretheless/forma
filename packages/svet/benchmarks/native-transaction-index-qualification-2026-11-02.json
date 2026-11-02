@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-02",
+  "change": "Transaction-local key indexes only for collections whose keys are all direct scalar member reads. Nested map keyed by root collection path/member path; no stored cross-sync cache. Clear after each model write.",
+  "checks": {
+    "lib": 140,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "observations": {
+    "retained_idle96_previous": 12062,
+    "retained_idle96_after": 1331,
+    "budget": 2000
+  },
+  "regressions": [
+    "Key-changing write creates duplicate: subsequent binding refuses and atomic transaction rolls back.",
+    "Distinct outer local key scopes remain uncached.",
+    "Mixed computed/plain keys, exact dotted field priority, reorder/remove and error recovery all pass."
+  ],
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "890830fa875de7594f6f83abc56fc4be5e15d187e0ccb685d03083d28b65795b",
+    "vector-ui/tests/runtime_allocations.rs": "10be05172caec029ba9f0e2dc5f212ae66ee1e54294960e7b69149c2721ba5c0"
+  },
+  "limitations": [
+    "Allocation reduction is measured; release latency/FPS/peak memory are not qualified.",
+    "Earlier general scope cache was rejected; this narrower index does not clone contexts or retain cross-sync state.",
+    "Complex keys and frequent writes still rescan; worst-case quadratic behavior remains.",
+    "No new hardware GPU qualification."
+  ]
+}

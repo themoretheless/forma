@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>Svet retained UI callbacks GC</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto}button{padding:10px;margin:4px}pre{white-space:pre-wrap;background:#eef6f1;padding:20px}</style>
+<h1>Retained UI callback / core GC</h1><button id="allocate" disabled>Allocate and teardown</button><button id="pressure" disabled>Allocation pressure</button><button id="inspect" disabled>Inspect</button><button id="release" disabled>Release controls</button><pre id="result">Loading</pre><script id="raw-results" type="application/json"></script>
+<script type="module">
+const metadata=await(await fetch('/metadata.json')).json(),engines=await Promise.all(['/first/index.js','/second/index.js'].map(url=>import(/* @vite-ignore */ url)));
+const refs=[],held=[],observations=[];let controls=[],phase='held',pressureRuns=0;
+const result=document.querySelector('#result'),raw=document.querySelector('#raw-results');
+function allocate(engine,kind){
+ const core=engine.createWasmCoreInstance();refs.push({kind:kind+'Core',ref:new WeakRef(core)},{kind:kind+'Memory',ref:new WeakRef(core.memory)});
+ engine.withWasmCore(core,()=>{
+  const container=document.createElement('section');const app=engine.mount(()=>{
+   if(kind==='boundary')return engine.ErrorBoundary({children:()=>{throw Error('controlled');},fallback:(_,retry)=>{held.push(retry);return document.createTextNode('error');}});
+   const router=engine.createRouter({routes:[],initialPath:'/retired'});held.push(router,router.path,router.navigate,router.beforeEach(()=>{}));return engine.RouterView({router});
+  },container);app.unmount();if(engine.getGraphTelemetry().nodes!==0)throw Error('Graph survived unmount');
+ });engine.getGraphTelemetry();
+}
+document.querySelector('#allocate').disabled=false;result.textContent='Ready';
+document.querySelector('#allocate').onclick=()=>{for(const engine of engines)for(let i=0;i<4;i++)for(const kind of ['boundary','router'])allocate(engine,kind);controls=Array.from({length:4},()=>({live:true}));for(const control of controls)refs.push({kind:'control',ref:new WeakRef(control)});for(const id of ['pressure','inspect','release'])document.querySelector('#'+id).disabled=false;document.querySelector('#allocate').disabled=true;result.textContent='16 cores +16 Memory;40 retained callbacks/objects;4 live controls. Apply pressure then inspect.';};
+document.querySelector('#pressure').onclick=async()=>{const button=document.querySelector('#pressure');button.disabled=true;for(let round=0;round<12;round++){const bytes=new Uint8Array(16*1024*1024);bytes.fill(round);const values=Array.from({length:500000},(_,i)=>i+round);if(values[100]!==100+round)throw Error('Pressure failed');await new Promise(resolve=>setTimeout(resolve,10));}pressureRuns++;button.disabled=false;result.textContent='Pressure complete; inspect.';};
+document.querySelector('#release').onclick=()=>{controls=[];phase='released';document.querySelector('#release').disabled=true;result.textContent='Controls released,40 callback references still held; apply pressure then inspect.';};
+document.querySelector('#inspect').onclick=()=>{const alive={};for(const row of refs)if(row.ref.deref())alive[row.kind]=(alive[row.kind]??0)+1;const passed=Object.keys(alive).every(kind=>kind==='control')&&(alive.control??0)===(phase==='held'?4:0);observations.push({phase,alive,passed});const report={status:passed?'passed':'failed',build:metadata,userAgent:navigator.userAgent,targets:refs.length,retainedReferences:held.length,pressureRuns,observations,scope:'Native browser natural GC under bounded pressure; two installed independent copies; terminal handles retained, no async carrier/RSS qualification'};raw.textContent=JSON.stringify(report);result.textContent=JSON.stringify({status:report.status,targets:report.targets,retainedReferences:report.retainedReferences,observations},null,2);};
+</script>

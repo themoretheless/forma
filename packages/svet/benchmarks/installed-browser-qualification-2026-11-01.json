@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "matrixAssertions": 90,
+  "matrixFixtures": 11,
+  "recoveryChecks": 4,
+  "packageSha256": "6d429df42a28a2334ddb1265ab1493dab3abd1ae87f7c87b5468817b7cefd0c1",
+  "consumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-8RG76C/consumer",
+  "runtimeFiles": 15,
+  "verifiedAssets": 36,
+  "scope": "Installed archive production consumer; Chrome156 and physical Apple Metal3. Not SSR/HTTP browser or other adapters qualification."
+}

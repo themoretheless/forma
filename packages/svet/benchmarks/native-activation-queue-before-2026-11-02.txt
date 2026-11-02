@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.56s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 1 test
+test runtime::tests::failed_binding_transaction_retries_activation_exactly_once ... FAILED
+
+failures:
+
+---- runtime::tests::failed_binding_transaction_retries_activation_exactly_once stdout ----
+
+thread 'runtime::tests::failed_binding_transaction_retries_activation_exactly_once' (5673128) panicked at src/runtime.rs:1761:13:
+assertion `left == right` failed
+  left: Bool(true)
+ right: Bool(false)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::tests::failed_binding_transaction_retries_activation_exactly_once
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 122 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

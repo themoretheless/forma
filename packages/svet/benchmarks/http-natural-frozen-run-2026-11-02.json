@@ -1,0 +1,14 @@
+{
+  "execSessionId": 85177,
+  "manifest": "http-natural-frozen-final-manifest-2026-11-02.json",
+  "output": "http-natural-frozen-2h-2026-11-02.json",
+  "durationMs": 7200000,
+  "gcMode": "natural",
+  "qualification": "in progress; revalidate live session, not checkpoint alone",
+  "investigationGrowthBudgetsMiB": {
+    "heap": 16,
+    "rss": 64,
+    "external": 64,
+    "arrayBuffers": 16
+  }
+}

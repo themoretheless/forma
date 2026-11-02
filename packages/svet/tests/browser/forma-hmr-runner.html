@@ -1,0 +1,148 @@
+<!doctype html><meta charset="utf-8"><title>Svet Vite HMR</title>
+<style>body{font:16px system-ui;max-width:950px;margin:30px auto}section,pre{padding:16px;border:1px solid #ccd3dd;margin:12px 0}pre{white-space:pre-wrap}</style>
+<h1>Forma Vite HMR lifecycle</h1><p id="status">Running…</p><section id="left"></section><section id="right"></section><pre id="result"></pre><script id="raw-results" type="application/json"></script>
+<script type="module">
+import createView,{uiAst,uiValidation} from './View.ui';
+import {getGraphTelemetry,compileFormaComponent,parseFormaSource,getWasmCore} from __RUNTIME_IMPORT__;
+import * as peer from __PEER_RUNTIME_IMPORT__;
+const report={userAgent:navigator.userAgent,cases:[],hmrUpdates:0,trace:[]};
+const same=(a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);};
+const until=async fn=>{const deadline=performance.now()+10000;while(!fn()){if(performance.now()>deadline)throw Error('HMR DOM deadline');await new Promise(resolve=>setTimeout(resolve,10));}};
+const update=async version=>{const response=await fetch('/__probe/update',{method:'POST',body:String(version)});if(!response.ok)throw Error('Update refused');};
+const record=name=>report.cases.push({name,status:'passed'});
+let instance,left,right,fresh,freshHandle,faulty,faultyHandle,healthy,healthyHandle,extra,validationInstance,validationHandle,probeView,probeHandle;
+const semanticErrors=[];const onRejection=event=>{const message=String(event.reason?.message??event.reason);if(message.includes('Invalid Forma HMR'))semanticErrors.push(message);};window.addEventListener('unhandledrejection',onRejection);
+try{
+ if(!import.meta.hot)throw Error('Real Vite hot context missing');
+ import.meta.hot.on('vite:afterUpdate',()=>{report.hmrUpdates++;});
+ if(!uiAst||!uiValidation.valid)throw Error('Precompiled UI AST/validation missing');
+ for(const mode of ['mount','render']){
+  let fail=true,handle;const reason=Error('controlled child render failure');
+  const parent=compileFormaComponent("component Parent { state count: Number = 1; Column { Text { key:'parent'; text:state.count; } Child {} } }",{components:{Child:()=>{
+   const child=compileFormaComponent("component Child { state value: Number = 2; Text { text:state.value; } }"),render=child.render.bind(child);
+   child.render=()=>{if(fail)throw reason;return render();};return child;
+  }}}),container=document.createElement('div'),baseline=getGraphTelemetry().nodes;
+  try{let refused=false;try{if(mode==='mount')parent.mount(container);else parent.render();}catch(error){if(error!==reason)throw error;refused=true;}
+   same(refused,true);same(getGraphTelemetry().nodes,baseline);same(parent.getElementByKey('parent'),undefined);
+   fail=false;handle=parent.mount(container);same(container.textContent,'12');
+  }finally{handle?.unmount();parent.dispose();}
+  same(getGraphTelemetry().nodes,0);record(`Failed child ${mode} releases graph and retry succeeds`);
+ }
+
+ for(const phase of ['factory','child-render','connection']){
+  let parent;const tag='svet-hmr-dispose-connect';
+  if(phase==='connection')customElements.define(tag,class extends HTMLElement{connectedCallback(){parent.dispose();}});
+  parent=compileFormaComponent("component Parent { Column { Child {} } }",{components:{Child:()=>{
+   const child=compileFormaComponent("component Child { state value: Number = 2; Text { text:state.value; } }"),render=child.render.bind(child);
+   if(phase==='factory')parent.dispose();
+   else if(phase==='child-render')child.render=()=>{parent.dispose();return render();};
+   else child.render=()=>document.createElement(tag);
+   return child;
+  }}});
+  const container=document.createElement('div');document.body.append(container);
+  try{let refused=false;try{parent.mount(container);}catch(error){if(!/disposed/i.test(error.message))throw error;refused=true;}
+   same(refused,true);same(container.childNodes.length,0);same(getGraphTelemetry().nodes,0);
+  }finally{parent.dispose();container.remove();}
+  record(`Reentrant disposal during ${phase} refuses mount and releases graph`);
+ }
+ for(const mode of ['dispose','unmount']){
+  let retire=false,parent,handle;
+  const source="component Parent { Column { Child {} } }";
+  parent=compileFormaComponent(source,{components:{Child:()=>{
+   const child=compileFormaComponent("component Child { state value: Number = 2; Text { text:state.value; } }");
+   if(retire){if(mode==='dispose')parent.dispose();else handle.unmount();}return child;
+  }}});
+  const baseline=getGraphTelemetry().nodes,container=document.createElement('div');handle=parent.mount(container);
+  try{retire=true;let refused=false;try{parent.hotReload(source);}catch(error){if(!/disposed/i.test(error.message))throw error;refused=true;}
+   same(refused,true);same(container.childNodes.length,0);same(getGraphTelemetry().nodes,mode==='dispose'?0:baseline);
+   if(mode==='unmount'){retire=false;handle=parent.mount(container);same(container.textContent,'2');}
+  }finally{handle.unmount();parent.dispose();}
+  same(getGraphTelemetry().nodes,0);record(`Mounted-view update ${mode} retires late returned child`);
+ }
+ for(const failure of ['child-render','insertion']){
+  let fail=false;const source="component App { state count: Number = 0; Button { key:'inc'; text:'old'; clicked -> state.increment('count',1); } Child {} }";
+  const view=compileFormaComponent(source,{components:{Child:()=>{const child=compileFormaComponent("component Child { state value: Number = 2; Text { text:state.value; } }"),render=child.render.bind(child);child.render=()=>{if(fail&&failure==='child-render')throw Error('staging refused');return render();};return child;}}});
+  const container=document.createElement('div'),handle=view.mount(container),button=container.querySelector('button'),baseline=getGraphTelemetry().nodes,insert=container.insertBefore.bind(container);let inserts=0;
+  try{fail=true;if(failure==='insertion')container.insertBefore=(node,anchor)=>{if(++inserts===2)throw Error('staging refused');return insert(node,anchor);};
+   let refused=false;try{view.hotReload(source.replace("text:'old'","text:'new'"));}catch(error){if(error.message!=='staging refused')throw error;refused=true;}
+   same(refused,true);same(container.textContent,'old2');same(container.querySelector('button')===button,true);same(view.getElementByKey('inc')===button,true);same(getGraphTelemetry().nodes,baseline);button.click();same(view.state.count(),1);
+   fail=false;container.insertBefore=insert;view.hotReload(source.replace("text:'old'","text:'retry'"));same(container.textContent,'retry2');same(getGraphTelemetry().nodes,baseline);button.click();same(view.state.count(),1);
+  }finally{container.insertBefore=insert;handle.unmount();view.dispose();}
+  same(getGraphTelemetry().nodes,0);record(`Failed HMR ${failure} preserves prior view and retries`);
+ }
+ {
+  let update=false,calls=0;const source="component App { Button { key:'button'; text:'old'; } Child {} }";
+  const view=compileFormaComponent(source,{components:{Child:()=>{const child=compileFormaComponent("component Child { state value: Number = 2; Text { text:state.value; } }"),render=child.render.bind(child);child.render=()=>{if(update&&++calls===2)throw Error('second view refused');return render();};return child;}}});
+  const a=document.createElement('div'),b=document.createElement('div'),left=view.mount(a),right=view.mount(b),oldA=a.querySelector('button'),oldB=b.querySelector('button'),baseline=getGraphTelemetry().nodes;
+  try{update=true;let refused=false;try{view.hotReload(source.replace("text:'old'","text:'new'"));}catch(error){if(error.message!=='second view refused')throw error;refused=true;}
+   same(refused,true);same(a.querySelector('button')===oldA,true);same(b.querySelector('button')===oldB,true);same(a.textContent,'old2');same(b.textContent,'old2');same(getGraphTelemetry().nodes,baseline);
+   update=false;view.hotReload(source.replace("text:'old'","text:'retry'"));same(a.textContent,'retry2');same(b.textContent,'retry2');same(getGraphTelemetry().nodes,baseline);
+  }finally{left.unmount();right.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record('All views prepare before any previous view retires; second-view failure preserves both');
+ }
+ {
+  let fail=false;const source="component App { state count: Number = 2; #[range(0,10)] prop limit: Number = 5; let doubled = state.count * 2; Column { Text { text:doubled; } Child {} } }";
+  const view=compileFormaComponent(source,{components:{Child:()=>{const child=compileFormaComponent("component Child { Text { text:'child'; } }"),render=child.render.bind(child);child.render=()=>{if(fail)throw Error('document refused');return render();};return child;}}});
+  const container=document.createElement('div'),handle=view.mount(container),oldLet=view.computedLets.doubled,baseline=getGraphTelemetry().nodes;
+  try{fail=true;const candidate=source.replace('state count: Number = 2;',"state count: Number = 2; state added: Number = 9; prop extra: String = 'candidate';").replace('range(0,10)','range(0,1)').replace('state.count * 2','state.count * 3');
+   let refused=false;try{view.hotReload(candidate);}catch(error){if(error.message!=='document refused')throw error;refused=true;}
+   same(refused,true);same(view.computedLets.doubled===oldLet,true);same(oldLet(),4);same(view.isValid(),true);same('added' in view.state,false);same('extra' in view.props,false);same(getGraphTelemetry().nodes,baseline);
+   view.state.count.set(3);same(oldLet(),6);same(container.textContent,'6child');fail=false;view.hotReload(source.replace('state.count * 2','state.count * 4'));same(container.textContent,'12child');same(getGraphTelemetry().nodes,baseline);
+  }finally{handle.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record('Preparation failure restores document constraints/signals and original reactive computed handles');
+ }
+ for(const mode of ['dispose','unmount']){
+  let retire=false,handle;const source="component App { Column { Child {} } }";
+  const view=compileFormaComponent(source,{components:{Child:()=>{const child=compileFormaComponent("component Child { state value: Number = 2; Text { text:state.value; } }"),dispose=child.dispose.bind(child);child.dispose=()=>{dispose();if(retire){if(mode==='dispose')view.dispose();else handle.unmount();}};return child;}}});
+  const baseline=getGraphTelemetry().nodes,container=document.createElement('div');handle=view.mount(container);
+  try{retire=true;let refused=false;try{view.hotReload(source);}catch(error){if(!/disposed/i.test(error.message))throw error;refused=true;}same(refused,true);same(container.childNodes.length,0);same(getGraphTelemetry().nodes,mode==='dispose'?0:baseline);
+   if(mode==='unmount'){retire=false;handle=view.mount(container);same(container.textContent,'2');}
+  }finally{retire=false;handle.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record(`Old child cleanup ${mode} during commit drains candidate without publishing it`);
+ }
+ {
+  let fail=true;const view=compileFormaComponent("component App { Column { Child {} } }",{components:{Child:()=>{compileFormaComponent("component Helper { state hidden: Number = 3; Text { text:state.hidden; } }");const child=compileFormaComponent("component Child { state value: Number = 2; Text { text:state.value; } }");if(fail)throw Error('factory refused before return');return child;}}});
+  const container=document.createElement('div'),baseline=getGraphTelemetry().nodes;let handle;
+  try{let refused=false;try{view.mount(container);}catch(error){if(error.message!=='factory refused before return')throw error;refused=true;}same(refused,true);same(container.childNodes.length,0);same(getGraphTelemetry().nodes,baseline);fail=false;handle=view.mount(container);same(container.textContent,'2');}
+  finally{handle?.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record('Factory throwing before return releases completed child instance and retry succeeds');
+ }
+ for(const phase of ['props','locale','lets']){
+  const ast=parseFormaSource("component App { prop first: Number = 1; prop second: Number = 2; state own: Number = 3; let doubled = state.own * 2; Text { text:doubled; } }"),reason=Error('constructor refused'),baseline=getGraphTelemetry().nodes;
+  const props=phase==='props'?{first:1,get second(){throw reason;}}:undefined;
+  const options={props,get locale(){if(phase==='locale')throw reason;return 'ru';}};
+  if(phase==='lets')ast.letExpressions.push({get name(){throw reason;},expr:'1'});
+  let refused=false;try{compileFormaComponent(ast,options);}catch(error){if(error!==reason)throw error;refused=true;}
+  same(refused,true);same(getGraphTelemetry().nodes,baseline);record(`Constructor ${phase} refusal drains owned allocations`);
+ }
+ same(getWasmCore()===peer.getWasmCore(),false);
+ for(const [name,compileParent,compileChild] of [['local-to-peer',compileFormaComponent,peer.compileFormaComponent],['peer-to-local',peer.compileFormaComponent,compileFormaComponent]]){
+  let fail=true,handle;const childSource="component Child { state value: Number = 2; Text { text:state.value; } }";
+  const view=compileParent("component App { Column { Child {} } }",{components:{Child:()=>{compileChild(childSource);const child=compileChild(childSource);if(fail)throw Error('cross-copy factory refused');return child;}}});
+  const container=document.createElement('div'),baseline=[getGraphTelemetry().nodes,peer.getGraphTelemetry().nodes];
+  try{let refused=false;try{view.mount(container);}catch(error){if(error.message!=='cross-copy factory refused')throw error;refused=true;}same(refused,true);same([getGraphTelemetry().nodes,peer.getGraphTelemetry().nodes],baseline);fail=false;handle=view.mount(container);same(container.textContent,'2');}
+  finally{handle?.unmount();view.dispose();}same([getGraphTelemetry().nodes,peer.getGraphTelemetry().nodes],[0,0]);record(`Cross-copy factory ${name} failure drains both cores and retries`);
+ }
+ const a=document.querySelector('#left'),b=document.querySelector('#right');instance=createView();left=instance.mount(a);right=instance.mount(b);
+ instance.state.count.set(7);same(a.textContent.includes('v1:7'),true);same(b.textContent.includes('v1:7'),true);record('AOT UI mounts twice and preserves shared state');
+ const baseline=getGraphTelemetry().nodes,retained=a.querySelector('button');report.trace.push({step:'baseline',nodes:baseline,count:instance.state.count()});
+ for(const version of [2,3]){await update(version);await until(()=>a.textContent.includes(`v${version}:7`)&&b.textContent.includes(`v${version}:7`));same(instance.state.count(),7);report.trace.push({step:'update'+version,nodes:getGraphTelemetry().nodes,count:instance.state.count()});same(getGraphTelemetry().nodes,baseline);retained.click();report.trace.push({step:'stale-click'+version,count:instance.state.count()});same(instance.state.count(),7);}
+ record('Two real file/HMR updates preserve state and graph size; stale callback retired');
+ left.unmount();left.unmount();const remaining=getGraphTelemetry().nodes;
+ await update(4);await until(()=>b.textContent.includes('v4:7'));same(a.textContent,'');same(getGraphTelemetry().nodes,remaining);record('One unmount preserves other mounted view across real HMR');
+ const stale=b.querySelector('button');instance.dispose();same(b.childNodes.length,0);stale.click();same(instance.state.count(),7);same(getGraphTelemetry().nodes,0);b.textContent='replacement';right.unmount();same(b.textContent,'replacement');record('Direct instance disposal retires mounted graph; late unmount preserves replacement');
+ const updates=report.hmrUpdates;await update(5);await until(()=>report.hmrUpdates>updates);same(getGraphTelemetry().nodes,0);record('Post-dispose HMR does not revive disposed instance');
+ fresh=createView();freshHandle=fresh.mount(a);same(a.textContent.includes('v5:1'),true);fresh.dispose();freshHandle.unmount();same(getGraphTelemetry().nodes,0);record('Cached importer factory creates new instance from latest AST after no-owner update');
+ extra=document.createElement('section');document.body.append(extra);faulty=createView();faultyHandle=faulty.mount(extra);healthy=createView();healthyHandle=healthy.mount(a);
+ const originalReload=faulty.hotReload.bind(faulty);report.expectedHmrFailures=0;
+ faulty.hotReload=()=>{report.expectedHmrFailures++;throw Error('Controlled instance HMR failure');};
+ await update(6);await until(()=>a.textContent.includes('v6:1'));same(report.expectedHmrFailures,1);same(extra.textContent.includes('v5:1'),true);
+ faulty.hotReload=originalReload;await update(7);await until(()=>a.textContent.includes('v7:1')&&extra.textContent.includes('v7:1'));
+ faulty.dispose();healthy.dispose();same(getGraphTelemetry().nodes,0);record('One failed real HMR instance does not block healthy view; next update recovers both');
+ validationInstance=createView();validationHandle=validationInstance.mount(a);validationInstance.state.count.set(9);const validationNodes=getGraphTelemetry().nodes,oldButton=a.querySelector('button');
+ await update(8);await until(()=>semanticErrors.length>0);same(a.textContent.includes('v7:9'),true);same(getGraphTelemetry().nodes,validationNodes);same(a.querySelector('button')===oldButton,true);
+ probeView=createView();probeHandle=probeView.mount(document.createElement('div'));same(probeView.isValid(),true);probeView.dispose();probeHandle.unmount();
+ oldButton.click();same(validationInstance.state.count(),10);await update(9);await until(()=>a.textContent.includes('v9:10'));same(getGraphTelemetry().nodes,validationNodes);
+ validationInstance.dispose();same(getGraphTelemetry().nodes,0);report.semanticHmrFailures=semanticErrors.length;record('Semantic-invalid HMR preserves DOM/state/graph and cached AST until valid recovery');
+ report.status='passed';
+}catch(error){report.status='failed';report.error=String(error.stack??error);}
+finally{left?.unmount();right?.unmount();instance?.dispose();freshHandle?.unmount();fresh?.dispose();faultyHandle?.unmount();healthyHandle?.unmount();faulty?.dispose();healthy?.dispose();extra?.remove();validationHandle?.unmount();validationInstance?.dispose();probeHandle?.unmount();probeView?.dispose();window.removeEventListener('unhandledrejection',onRejection);}
+report.completedAt=new Date().toISOString();document.querySelector('#status').textContent=report.status;document.querySelector('#result').textContent=JSON.stringify(report,null,2);document.querySelector('#raw-results').textContent=JSON.stringify(report);
+await fetch('/__probe/result',{method:'POST',body:JSON.stringify(report)});
+</script>

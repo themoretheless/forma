@@ -1,0 +1,340 @@
+{
+  "measuredAt": "2026-10-31T23:10:18.788Z",
+  "node": "v22.23.4",
+  "execArgv": [],
+  "benchmarkSha256": "75ad7da5d37cf848b509b396c1f008ce2b1b75ff0e2c2e052bdfcb5151e50398",
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M4 Max",
+  "hashes": {
+    "baseline": {
+      "advanced.js": "f3206611680073a9d55cc72ffab29e9b1609c677f80f0581ad0a49acd7e22899",
+      "compiler.js": "18fe7e52b3220e421397fee2aa082d3c8f59a481da686c83fcd72864343f447a",
+      "devtools.js": "7c0d5c6a566344aeca0cae6d2676b1510883fe653b1f002c751b195a3b7e67cf",
+      "dom.js": "cbbdbb131f41e647eece811a81699ae16cae905858424d93ae30cc004c0a093e",
+      "forma.js": "e63bf36329daed8d69eed13bf6f1e34618e529e7433af09fdd52d487e193031a",
+      "gpu.js": "8e60a727ba7ac5330653ac2db07491e66cc1b6f304c260d0f5a5679966022d13",
+      "index.js": "5985d56e68fa122fda887abdfeb2b2f0f61187489382cfb0c78fa1e19d2ede86",
+      "jsx-runtime.js": "c7f7b3128a103e725bc192103cb9c160993bb8e119587e708b5c1ac335a0331c",
+      "reactivity.js": "6f4efc67596b57ed38523a8779779303d80550713abed8d3d88f47cc2f771c23",
+      "resumable.js": "e77119d4abbc4dd0214a6496c9d56136eebd67a9a46f27f145f890be95e736f0",
+      "server.js": "3c6913ebf28ddb660091c769fba98a2a3eac904b3765983fba939368952bfb37",
+      "wasm-binary.js": "b4066ba9b8cc0b009f740f30c6394cce5f633a2a860a95b3b51523615bbd39a3",
+      "wasm-bridge.js": "673372f96874e90fc27c6750320bffab41ca1f2543a0557fd068aa5761415ce7"
+    },
+    "candidate": {
+      "advanced.js": "f3206611680073a9d55cc72ffab29e9b1609c677f80f0581ad0a49acd7e22899",
+      "compiler.js": "18fe7e52b3220e421397fee2aa082d3c8f59a481da686c83fcd72864343f447a",
+      "devtools.js": "7c0d5c6a566344aeca0cae6d2676b1510883fe653b1f002c751b195a3b7e67cf",
+      "dom.js": "cbbdbb131f41e647eece811a81699ae16cae905858424d93ae30cc004c0a093e",
+      "forma.js": "e63bf36329daed8d69eed13bf6f1e34618e529e7433af09fdd52d487e193031a",
+      "gpu.js": "8e60a727ba7ac5330653ac2db07491e66cc1b6f304c260d0f5a5679966022d13",
+      "index.js": "5985d56e68fa122fda887abdfeb2b2f0f61187489382cfb0c78fa1e19d2ede86",
+      "jsx-runtime.js": "c7f7b3128a103e725bc192103cb9c160993bb8e119587e708b5c1ac335a0331c",
+      "reactivity.js": "1a1f4b321ba8bb5326f0f9c856b506afc6a8d27a1d47b74ae92951556d170b8d",
+      "resumable.js": "e77119d4abbc4dd0214a6496c9d56136eebd67a9a46f27f145f890be95e736f0",
+      "server.js": "3c6913ebf28ddb660091c769fba98a2a3eac904b3765983fba939368952bfb37",
+      "wasm-binary.js": "b4066ba9b8cc0b009f740f30c6394cce5f633a2a860a95b3b51523615bbd39a3",
+      "wasm-bridge.js": "673372f96874e90fc27c6750320bffab41ca1f2543a0557fd068aa5761415ce7"
+    }
+  },
+  "workloads": [
+    {
+      "depth": 1,
+      "iterations": 32,
+      "untracksPerEvaluation": 4000,
+      "medians": {
+        "baseline": 3.196458000000007,
+        "candidate": 2.6199170000000436
+      },
+      "samples": [
+        {
+          "round": 0,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 3.196458000000007,
+          "candidate": 2.6151669999999854
+        },
+        {
+          "round": 1,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 2.6199170000000436,
+          "baseline": 3.102958000000001
+        },
+        {
+          "round": 2,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 21.332582999999943,
+          "candidate": 5.575167000000079
+        },
+        {
+          "round": 3,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 2.348082999999974,
+          "baseline": 2.8244580000000497
+        },
+        {
+          "round": 4,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 2.8811249999999973,
+          "candidate": 2.6132499999999936
+        },
+        {
+          "round": 5,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 79.16624999999999,
+          "baseline": 4.108124999999973
+        },
+        {
+          "round": 6,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 3.9776669999999967,
+          "candidate": 25.755708000000027
+        }
+      ]
+    },
+    {
+      "depth": 32,
+      "iterations": 32,
+      "untracksPerEvaluation": 4000,
+      "medians": {
+        "baseline": 24.053583000000003,
+        "candidate": 5.310208999999986
+      },
+      "samples": [
+        {
+          "round": 0,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 6.201624999999922,
+          "candidate": 2.5850000000000364
+        },
+        {
+          "round": 1,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 13.25541700000008,
+          "baseline": 9.063832999999931
+        },
+        {
+          "round": 2,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 31.459749999999985,
+          "candidate": 27.13516699999991
+        },
+        {
+          "round": 3,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 4.508291999999983,
+          "baseline": 23.13508300000001
+        },
+        {
+          "round": 4,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 24.053583000000003,
+          "candidate": 5.310208999999986
+        },
+        {
+          "round": 5,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 3.155291000000034,
+          "baseline": 28.830584000000044
+        },
+        {
+          "round": 6,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 45.48149999999998,
+          "candidate": 36.61370799999986
+        }
+      ]
+    },
+    {
+      "depth": 128,
+      "iterations": 32,
+      "untracksPerEvaluation": 4000,
+      "medians": {
+        "baseline": 68.62574999999993,
+        "candidate": 3.3565419999999904
+      },
+      "samples": [
+        {
+          "round": 0,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 47.8900000000001,
+          "candidate": 3.247124999999869
+        },
+        {
+          "round": 1,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 3.2566249999999854,
+          "baseline": 63.98575000000005
+        },
+        {
+          "round": 2,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 133.99091599999997,
+          "candidate": 4.259082999999919
+        },
+        {
+          "round": 3,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 3.2640000000001237,
+          "baseline": 19.505458999999973
+        },
+        {
+          "round": 4,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 68.62574999999993,
+          "candidate": 3.6240000000000236
+        },
+        {
+          "round": 5,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 3.3565419999999904,
+          "baseline": 90.39104199999997
+        },
+        {
+          "round": 6,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 86.74691699999994,
+          "candidate": 7.728375000000142
+        }
+      ]
+    },
+    {
+      "depth": 256,
+      "iterations": 32,
+      "untracksPerEvaluation": 4000,
+      "medians": {
+        "baseline": 128.81720900000028,
+        "candidate": 6.634958999999981
+      },
+      "samples": [
+        {
+          "round": 0,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 128.81720900000028,
+          "candidate": 3.838333000000148
+        },
+        {
+          "round": 1,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 3.774499999999989,
+          "baseline": 115.29066700000021
+        },
+        {
+          "round": 2,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 133.71387500000037,
+          "candidate": 45.01825000000008
+        },
+        {
+          "round": 3,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 6.634958999999981,
+          "baseline": 90.0724580000001
+        },
+        {
+          "round": 4,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 91.33874999999989,
+          "candidate": 7.375708999999915
+        },
+        {
+          "round": 5,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": 5.0053750000001855,
+          "baseline": 152.7364580000003
+        },
+        {
+          "round": 6,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": 131.53554199999962,
+          "candidate": 30.6626669999996
+        }
+      ]
+    }
+  ],
+  "scope": "Synthetic nested-computed invalidation with repeated untrack calls at the leaf. Includes source writes, graph evaluation and assertions. Both variants must preserve values, dependency isolation and teardown. Not application latency or general engine throughput."
+}

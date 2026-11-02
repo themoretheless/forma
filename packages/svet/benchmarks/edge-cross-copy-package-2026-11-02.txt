@@ -1,0 +1,30 @@
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 1017d571b 101574fa3 10156c9e4 10156d59b 10337dd67 10138a2a7 10138a233 10138afb3 1008f6b9f 10325e3c3 10325f0cf 10325fa2b 10322f9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 1017d571b 101574fa3 10156c9e4 10156d59b 10337dd67 10138a2a7 10138a233 10138afb3 1008f6b9f 10325e3c3 10325f0cf 10325fa2b 10322f9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 1017d571b 101574fa3 10156c9e4 10156d59b 10337dd67 10138a2a7 10138a233 10138afb3 101429d2b 1008606ac 10324bdef 10337dd67 101067518 1008606ac 10156cd80 10156d12b 10337dd67 10138a247 10138aae3 10138afb3 1008f6b9f 10325e3c3 10325f0cf 10325fa2b 10322f9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 1017d571b 101574fa3 10156c9e4 10156d59b 10337dd67 10138a2a7 10138a233 10138afb3 101429d2b 1008606ac 10324bdef 10337dd67 101067518 1008606ac 10156cd80 10156d12b 10337dd67 10138a247 10138aae3 10138afb3 1008f6b9f 10325e3c3 10325f0cf 10325fa2b 10322f9a4
+{
+  "edgeHostQualification": true,
+  "node": "v22.23.4",
+  "platform": "darwin",
+  "arch": "arm64",
+  "completedAt": "2026-11-01T21:02:51.552Z",
+  "packageFiles": 62,
+  "unpackedBytes": 2434632,
+  "consumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-FUcd6z/consumer",
+  "checks": [
+    "archive allowlist",
+    "isolated installation",
+    "native Node ESM exports",
+    "concurrent SSR",
+    "sync and async compute fallback",
+    "compiled Forma import",
+    "strict JSX declarations without Vite",
+    "negative type fixture",
+    "external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build"
+  ]
+}
+Consumer verification evidence retained at /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-FUcd6z

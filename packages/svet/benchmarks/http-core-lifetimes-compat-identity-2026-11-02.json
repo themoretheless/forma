@@ -1,0 +1,77 @@
+{
+  "codec": "identity",
+  "gzip": false,
+  "startedAt": "2026-11-02T04:04:28.770Z",
+  "node": "v22.23.4",
+  "checks": [
+    "native HTTP body disconnect cancels pending next and releases request graph",
+    "fresh progressive stream succeeds with real writer drain after a cancelled request",
+    "unsupported codec rejected before request state or SSR creation"
+  ],
+  "pending": {
+    "started": true,
+    "finished": false,
+    "nodes": 1,
+    "drains": 0,
+    "gzip": false,
+    "flushes": 0,
+    "compressedBytes": 0,
+    "phase": "next",
+    "pipelineSettled": false,
+    "compressorClosed": false,
+    "cleaned": 0,
+    "payloadSize": 132096
+  },
+  "cancelled": {
+    "started": true,
+    "finished": true,
+    "nodes": 0,
+    "drains": 0,
+    "gzip": false,
+    "flushes": 0,
+    "compressedBytes": 0,
+    "phase": "failed",
+    "pipelineSettled": false,
+    "compressorClosed": false,
+    "cleaned": 1,
+    "payloadSize": 132096
+  },
+  "encodedBytes": [
+    248,
+    132403,
+    132494
+  ],
+  "completed": {
+    "started": true,
+    "finished": true,
+    "nodes": 0,
+    "drains": 2,
+    "gzip": false,
+    "flushes": 0,
+    "compressedBytes": 0,
+    "phase": "finished",
+    "pipelineSettled": false,
+    "compressorClosed": false,
+    "cleaned": 1,
+    "payloadSize": 132096
+  },
+  "chunkTypes": [
+    "shell",
+    "patch",
+    "complete"
+  ],
+  "chunkBytes": [
+    248,
+    132403,
+    132494
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-02T04:04:28.903Z",
+  "sourceSha256": "186f2ac7595f50848dce955bc4bc6e0c47fee4f383c5b1bfc3b763ec0a59c193",
+  "runtimeSha256": {
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "reactivity.js": "aab693d13fa59e7f3d154db9b9021ce101a67b04d70905810c2ff236fa830f29"
+  }
+}

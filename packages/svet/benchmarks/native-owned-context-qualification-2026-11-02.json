@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "scope": "Native-only owned graph adapter primitives using the same Rust ReactiveGraph; host owns values/rendering",
+  "nativeTests": 66,
+  "capabilities": [
+    "independent owned contexts with identity-safe handles",
+    "stale/reset/recycled/drained-job refusal",
+    "dynamic dependency discovery and batched deduplication",
+    "nested native-host computed evaluation and cycle refusal",
+    "unwind-safe tracking/batch scopes",
+    "weak context lifetime and owned thread transfer"
+  ],
+  "example": "Count1\u21923\u219210;one job per batch;branch replacement;graph0",
+  "webRuntime": "20 JS/WASM files byte-equal to prior1297/99-qualified artifact",
+  "checks": {
+    "nativeExample": "passed",
+    "wasm32ExampleCompilation": "passed",
+    "wasmReleaseIdentity": "passed",
+    "CIYaml": "parsed;native example step added",
+    "scopedDiff": "passed"
+  },
+  "sourceSha256": {
+    "packages/svet/crates/svet-wasm/src/lib.rs": "2f2d1f2e4dc8a6287d178defba5a4edc81f7e5a2010d55651ea26d5b56e360e1",
+    "packages/svet/crates/svet-wasm/src/native.rs": "b5e5dc4b7c86a845b91a6fa5ef48e898356ce551b7b758f773b23b299dd5b0f8",
+    "packages/svet/crates/svet-wasm/examples/native_bindings.rs": "faa245abad83ec6a92a58585fb39dd9bf49ad66c9a1e0d7c8668f430c9009152",
+    ".github/workflows/ci.yml": "bae6ac8b6daa59a73d8e7c82013aec301fb92f451659433a858595bf3ea72760"
+  },
+  "evidence": [
+    "native-owned-context-final-tests-2026-11-02.txt",
+    "native-owned-bindings-example-2026-11-02.txt",
+    "native-owned-context-wasm-examples-2026-11-02.txt",
+    "native-owned-context-wasm-build-2026-11-02.txt",
+    "native-owned-context-wasm-provenance-2026-11-02.json"
+  ],
+  "limitations": [
+    "Not yet wired into native Studio/renderer or Forma model evaluation",
+    "No automatic callback/value runtime or hierarchical component owner implementation",
+    "No native application performance/GPU/RSS qualification",
+    "Remote CI not executed"
+  ]
+}

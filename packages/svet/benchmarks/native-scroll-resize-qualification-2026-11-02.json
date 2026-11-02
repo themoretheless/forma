@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-02",
+  "change": "Retained layout revision includes viewport rect and scroll mode, even when controls/frame bounds do not change.",
+  "before": "New retained .ui regression failed: width-only centered viewport change left layout_revision=1.",
+  "checks": {
+    "lib": 158,
+    "allocation_tests": 8,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3
+  },
+  "regression": [
+    "Legacy and Svet:16 editors in sole root Scroll; initial max scroll212.",
+    "Width320\u2192160 changes viewport while control bounds remain equal; layout revision advances; offset212 preserved.",
+    "Height300\u2192400 clamps scroll offset to112.",
+    "Removing all items leaves0 controls and offset[0,0]; subsequent idle does not rebuild."
+  ],
+  "source_sha256": "0134afb85996d630d1b398000f505b1640ed7c0d9aa865f6c31160f4257c5111",
+  "limitations": [
+    "Model-driven viewport resize proof, not OS-window/multi-monitor resize qualification.",
+    "Existing hardware GPU suite passed; viewport-specific pixel/live-window proof remains open.",
+    "Multiple/nested scroll views and explicit blank-content extent matrix remain open."
+  ]
+}

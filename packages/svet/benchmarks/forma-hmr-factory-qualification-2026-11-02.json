@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-02",
+  "status": "cached HMR factory AST and cross-instance error isolation fixed",
+  "before": [
+    "Factory imported before no-owner update creates original AST",
+    "One instance error skips healthy updates"
+  ],
+  "changes": [
+    "Current AST shared through hot.data and updated with no mounted instances",
+    "Explicit production factory still compiles pre-parsed uiAst",
+    "Accept iterates registration snapshot, skips retired entries and defers newcomers",
+    "First error rethrown only after remaining registered instances update"
+  ],
+  "checks": {
+    "full_js": {
+      "passed": 1342,
+      "files": 101,
+      "maxWorkers": 2
+    },
+    "generated_module_lifecycle_cases": 5,
+    "typescript": "passed",
+    "build": "passed",
+    "fresh_installed_package_gc_gate": "passed",
+    "actual_chromium_browser": "14/14",
+    "real_file_changes": 6,
+    "intentional_hmr_failures": 1,
+    "next_file_update_recovered_both_instances": true,
+    "current_installed_runtime_bytes": "equal",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "src/engine/forma.ts": "2e2a0122d4f4540a7d33a4fe03e4ed947df6bb30aa2afb1d8953d9be3f5ac494",
+    "scripts/check-forma-aot-lifecycle.mjs": "2a4f47792c397d6b62ded5c741820484fa81a735ed511b2463dd80af6400c1a1",
+    "scripts/check-package.mjs": "1a12ffb5cdeeef6e18e194fcbf4c669e877e8b5c8470bfcd1e1714a8db69c605",
+    "scripts/serve-forma-hmr-probe.mjs": "98fd37d93540e1625a79c0a331298630850c09f99d7b8a5951e41a9c81fd1b1f",
+    "tests/browser/forma-hmr-runner.html": "65efece94f6910a1477b941a67cb927b1cb34ea72c2ebb3ea3b33c96175ce093"
+  },
+  "limits": [
+    "Controlled failure is intentionally forwarded/logged by Vite; not a zero-error console gate",
+    "No atomic rollback for arbitrary partial render failure",
+    "Invalid semantic modules, async/pending errors, other browser engines and performance remain open",
+    "Frozen2h HTTP run predates current runtime"
+  ]
+}

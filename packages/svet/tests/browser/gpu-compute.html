@@ -18,14 +18,43 @@ const source = `
 const status = document.querySelector('#results');
 const equal = (actual, expected) => { if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error(`Expected ${expected}, got ${actual}`); };
 document.querySelector('#run').addEventListener('click', async () => {
+  const button = document.querySelector('#run'); button.disabled = true;
+  status.textContent = 'Running WebGPU checks…';
   let device, destroyedDevice, stop; const lines = [];
   try {
     const adapter = await navigator.gpu?.requestAdapter();
     if (!adapter) { status.textContent = 'SKIP: no WebGPU adapter available'; return; }
+    const info = adapter.info ?? {};
+    lines.push('INFO adapter ' + JSON.stringify({ vendor: info.vendor, architecture: info.architecture,
+      device: info.device, description: info.description,
+      isFallbackAdapter: info.isFallbackAdapter ?? adapter.isFallbackAdapter ?? null }));
     device = await adapter.requestDevice();
+    let shaderCount = 0, pipelineCount = 0;
+    const createShader = device.createShaderModule.bind(device), createPipeline = device.createComputePipeline.bind(device);
+    device.createShaderModule = descriptor => { shaderCount++; return createShader(descriptor); };
+    device.createComputePipeline = descriptor => { pipelineCount++; return createPipeline(descriptor); };
+    let submits = 0, uploadedBytes = 0, holdNextMap;
+    const submit = device.queue.submit.bind(device.queue), writeBuffer = device.queue.writeBuffer.bind(device.queue);
+    device.queue.submit = (...args) => { submits++; return submit(...args); };
+    device.queue.writeBuffer = (...args) => { uploadedBytes += args[4]; return writeBuffer(...args); };
     let injectedFilter; const stack = [], push = device.pushErrorScope.bind(device), pop = device.popErrorScope.bind(device), allocations = [];
     const createBuffer = device.createBuffer.bind(device);
-    device.createBuffer = descriptor => { const buffer = createBuffer(descriptor), record = { destroyed: false }; allocations.push(record); const destroy = buffer.destroy.bind(buffer); buffer.destroy = () => { record.destroyed = true; destroy(); }; return buffer; };
+    device.createBuffer = descriptor => {
+      const buffer = createBuffer(descriptor), record = { destroyed: false, mapCalls: 0, mappedBytes: 0 };
+      allocations.push(record);
+      const destroy = buffer.destroy.bind(buffer), map = buffer.mapAsync.bind(buffer);
+      buffer.destroy = () => { record.destroyed = true; destroy(); };
+      buffer.mapAsync = (...args) => {
+        record.mapCalls++; record.mappedBytes += args[2] ?? descriptor.size;
+        const operation = map(...args), gate = holdNextMap;
+        if (!gate) return operation;
+        holdNextMap = undefined; gate.reached();
+        // Real mapping starts immediately. The test delays only observation of
+        // its result, so cancellation still exercises native buffer cleanup.
+        return Promise.all([operation, gate.release]).then(() => undefined);
+      };
+      return buffer;
+    };
     device.pushErrorScope = filter => { push(filter); stack.push(filter); };
     device.popErrorScope = () => { const filter = stack.pop(); return pop().then(error => error || (filter === injectedFilter ? (filter === 'out-of-memory' ? new GPUOutOfMemoryError('injected OOM') : new GPUInternalError('injected internal')) : null)); };
     device.pushErrorScope('validation');
@@ -42,11 +71,138 @@ document.querySelector('#run').addEventListener('click', async () => {
     lines.push('PASS upload/readback byte counts (84 / 28)');
     if (observed.length !== 2) throw new Error('Result was not published exactly once');
     lines.push('PASS single reactive publication');
+    a.write([2, 3, 4, 5, 6, 7, 8]);
+    await dispatchGpuComputeKernelAsync({ wgsl: source, entryPoint: 'main', inputs: [a,b], output, workgroups: [2] });
+    equal(Array.from(output()), [14,26,38,50,62,74,86]);
+    a.write([1, 2, 3, 4, 5, 6, 7]);
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
+    equal(Array.from(output()), [12,24,36,48,60,72,84]);
+    if (shaderCount !== 1 || pipelineCount !== 1) throw new Error('Repeated dispatch recompiled a validated pipeline');
+    lines.push('PASS pipeline reuse preserves updated data and changed workgroups');
+    const multiEntry = source + `
+@compute @workgroup_size(64) fn alternate(@builtin(global_invocation_id) id: vec3<u32>) {
+  if (id.x < arrayLength(&output)) { output[id.x] = a[id.x] * 2.0 + b[id.x]; }
+}`;
+    for (const entryPoint of ['main', 'alternate', 'alternate']) {
+      await dispatchGpuComputeKernelAsync({ wgsl: multiEntry, entryPoint, inputs: [a,b], output });
+      equal(Array.from(output()), [12,24,36,48,60,72,84]);
+    }
+    if (shaderCount !== 3 || pipelineCount !== 3) throw new Error('Shader/entry point cache keys were conflated or not reused');
+    lines.push('PASS shader and entry-point cache separation');
+    const unary = `
+@group(0) @binding(0) var<storage, read> previous: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+  if (id.x < arrayLength(&output)) { output[id.x] = previous[id.x] * 2.0 + 1.0; }
+}`;
+    const beforeChain = observed.length, pipelinesBeforeChain = pipelineCount;
+    const submitsBeforeChain = submits, uploadsBeforeChain = uploadedBytes;
+    const mapsBeforeChain = allocations.reduce((sum, record) => sum + record.mapCalls, 0);
+    const mappedBytesBeforeChain = allocations.reduce((sum, record) => sum + record.mappedBytes, 0);
+    const chainReport = await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output,
+      chain: [{ wgsl: unary }, { wgsl: unary }] });
+    equal(Array.from(output()), [51,99,147,195,243,291,339]);
+    if (observed.length !== beforeChain + 1 || chainReport.uploadedBytes !== 84 || chainReport.readbackBytes !== 28) {
+      throw new Error('Resident chain published intermediate results or repeated transfers');
+    }
+    if (pipelineCount !== pipelinesBeforeChain + 1) throw new Error('Chain did not reuse identical stage pipeline');
+    if (submits !== submitsBeforeChain + 1 || uploadedBytes !== uploadsBeforeChain + 84
+      || allocations.reduce((sum, record) => sum + record.mapCalls, 0) !== mapsBeforeChain + 1
+      || allocations.reduce((sum, record) => sum + record.mappedBytes, 0) !== mappedBytesBeforeChain + 28) {
+      throw new Error('Actual chain submit/upload/map calls did not match transfer report');
+    }
+    if (allocations.some(record => !record.destroyed)) throw new Error('Resident chain leaked buffers');
+    lines.push('PASS three GPU-resident stages with one publication and final readback');
+    const partial = unary.replace('if (id.x < arrayLength(&output))', 'if (id.x == 0u)')
+      .replace('previous[id.x] * 2.0 + 1.0', 'previous[id.x] + 100.0');
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output,
+      chain: [{ wgsl: partial }, { wgsl: partial }] });
+    equal(Array.from(output()), [212,24,36,48,60,72,84]);
+    lines.push('PASS partial-write stages preserve previous GPU values');
+    const buffersBeforeMaxChain = allocations.length;
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output,
+      chain: Array.from({ length: 31 }, () => ({ wgsl: unary })) });
+    const expectedMaxChain = [12,24,36,48,60,72,84];
+    for (let i = 0; i < 31; i++) for (let j = 0; j < expectedMaxChain.length; j++) {
+      expectedMaxChain[j] = Math.fround(expectedMaxChain[j] * 2 + 1);
+    }
+    equal(Array.from(output()), expectedMaxChain);
+    if (allocations.length !== buffersBeforeMaxChain + 5 || allocations.some(record => !record.destroyed)) {
+      throw new Error('Maximum chain did not use bounded intermediate storage');
+    }
+    lines.push('PASS 32-stage chain uses five total buffers for two inputs');
+    const expand = source.replace('a[id.x] * 2.0 + b[id.x]',
+      'a[id.x % arrayLength(&a)] * 2.0 + b[id.x % arrayLength(&b)]');
+    const reduce = `
+@group(0) @binding(0) var<storage, read> previous: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@compute @workgroup_size(1) fn main() {
+  var sum: f32 = 0.0;
+  for (var i: u32 = 0u; i < arrayLength(&previous); i = i + 1u) { sum = sum + previous[i]; }
+  output[0] = sum;
+}`;
+    const partialUnary = unary.replace('if (id.x < arrayLength(&output))', 'if (id.x == 0u)');
+    const beforeReshape = observed.length;
+    const reshapeReport = await dispatchGpuComputeKernelAsync({ wgsl: expand, inputs: [a,b], output, outputLength: 129,
+      chain: [{ wgsl: reduce, outputLength: 1, workgroups: [1] }, { wgsl: partialUnary }] });
+    equal(Array.from(output()), [12241,0,0,0,0,0,0]);
+    if (observed.length !== beforeReshape + 1 || reshapeReport.uploadedBytes !== 84 || reshapeReport.readbackBytes !== 28) {
+      throw new Error('Reshaped chain repeated transfers or publication');
+    }
+    if (allocations.some(record => !record.destroyed)) throw new Error('Reshaped chain leaked buffers');
+    lines.push('PASS 129-to-1-to-7 GPU stages with reduction and zeroed growth tails');
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
+    const idle = () => {
+      const telemetry = getGpuTelemetry();
+      if (telemetry.pendingComputeCount || telemetry.pendingComputeSnapshotBytes
+        || allocations.some(record => !record.destroyed) || stack.length !== 1) {
+        throw new Error('Failed chain retained buffers, queue credit or error scopes');
+      }
+    };
+    const beforeBadBinding = observed.length, buffersBeforeBadBinding = allocations.length;
+    let badBindingFailure, badBindingFallbacks = 0;
+    try {
+      // This shader compiles, but requires three bindings. A following stage
+      // receives only the previous result and its destination (two bindings).
+      await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output,
+        chain: [{ wgsl: source }], fallbackKernel() { badBindingFallbacks++; } });
+    } catch (error) { badBindingFailure = error; }
+    if (!badBindingFailure || !/validation|bind|OperationError/i.test(badBindingFailure.name + ': ' + badBindingFailure.message)
+      || badBindingFallbacks || observed.length !== beforeBadBinding
+      || allocations.length !== buffersBeforeBadBinding + 5) throw new Error('Late binding error was concealed or published');
+    equal(Array.from(output()), [12,24,36,48,60,72,84]); idle();
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output, chain: [{ wgsl: unary }] });
+    equal(Array.from(output()), [25,49,73,97,121,145,169]);
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
+    lines.push('PASS real late-stage binding failure preserves output, frees resources and recovers');
+    let reachedMap, releaseMap;
+    const mapReached = new Promise(resolve => { reachedMap = resolve; });
+    holdNextMap = { reached: reachedMap, release: new Promise(resolve => { releaseMap = resolve; }) };
+    const beforeCancelledChain = observed.length; let cancelOwner;
+    const cancelledChain = createRoot(dispose => {
+      cancelOwner = dispose;
+      return dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output,
+        chain: [{ wgsl: unary }, { wgsl: unary }] });
+    });
+    let cancellationFailure;
+    try {
+      await Promise.race([mapReached, cancelledChain.then(() => { throw new Error('Chain settled before reaching the readback gate'); })]);
+      cancelOwner();
+      try { await cancelledChain; } catch (error) { cancellationFailure = error; }
+    } finally { cancelOwner?.(); releaseMap(); holdNextMap = undefined; }
+    if (!cancellationFailure || !/owner disposed/.test(cancellationFailure.message)
+      || observed.length !== beforeCancelledChain) throw new Error('Cancelled chain published or failed for an unexpected reason');
+    equal(Array.from(output()), [12,24,36,48,60,72,84]); idle();
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output, chain: [{ wgsl: unary }] });
+    equal(Array.from(output()), [25,49,73,97,121,145,169]);
+    await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
+    lines.push('PASS owner cancellation during native readback is atomic, releases resources and recovers');
     let invalidRejected = false, fallbacks = 0;
     try { await dispatchGpuComputeKernelAsync({ wgsl: 'invalid shader source', inputs: [a, b], output, fallbackKernel() { fallbacks++; } }); }
     catch (error) { invalidRejected = /WGSL|validation|shader/i.test(error.message); }
     if (!invalidRejected || fallbacks) throw new Error('Invalid WGSL was concealed');
     equal(Array.from(output()), [12, 24, 36, 48, 60, 72, 84]); lines.push('PASS invalid shader rejects without fallback or output mutation');
+    const pipelinesBeforeErrors = pipelineCount;
     for (const filter of ['out-of-memory','internal']) {
       injectedFilter = filter; let rejected = false;
       try { await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output, fallbackKernel() { fallbacks++; } }); }
@@ -58,6 +214,7 @@ document.querySelector('#run').addEventListener('click', async () => {
     injectedFilter = undefined;
     await dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
     equal(Array.from(output()), [12,24,36,48,60,72,84]);
+    if (pipelineCount !== pipelinesBeforeErrors + 2) throw new Error('Failed validation remained cached or recovery did not recompile');
     lines.push('PASS injected OOM/internal results reject without output mutation and recover');
     configureGpuSubsystem({ device, maxPendingComputeBytes: 0 });
     const allocationsBeforeCapacity = allocations.length; let capacityError;
@@ -87,8 +244,8 @@ document.querySelector('#run').addEventListener('click', async () => {
     equal(Array.from(output()), [12, 24, 36, 48, 60, 72, 84]); lines.push('PASS device loss rejects and replacement computes again');
     const validation = await device.popErrorScope();
     if (validation) throw new Error(validation.message);
-    status.textContent = lines.join('\n') + '\n8/8 passed';
+    status.textContent = lines.join('\n') + `\n${lines.filter(line => line.startsWith('PASS ')).length}/16 passed`;
   } catch (error) { status.textContent = lines.join('\n') + '\nFAIL: ' + error.message; }
-  finally { stop?.(); configureGpuSubsystem({ device: null }); destroyedDevice?.destroy(); device?.destroy(); }
+  finally { try { stop?.(); configureGpuSubsystem({ device: null }); destroyedDevice?.destroy(); device?.destroy(); } finally { button.disabled = false; } }
 });
 </script>

@@ -1,0 +1,9 @@
+{
+  "measuredAt": "2026-11-01T15:04:23.955Z",
+  "node": "v22.23.4",
+  "iterations": 24,
+  "retained": {},
+  "released": {},
+  "status": "passed",
+  "scope": "Caller-retained stream iterators after complete/return/error; Node isolated WASM and JSDOM; no RSS or browser GC claim."
+}

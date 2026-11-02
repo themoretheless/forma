@@ -1,0 +1,14 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.77s
+     Running tests/runtime_gpu.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_gpu-39ee4ffab579e709)
+
+running 6 tests
+test retained_ui_editor_and_summary_render_at_their_scene_bounds ... ok
+test animations_change_only_their_own_pixels_at_integer_and_fractional_dpi ... ok
+test retained_scroll_viewport_matches_independent_rect_crop_reference ... ok
+test fractional_scroll_viewport_clips_at_physical_pixel_centers ... ok
+test analytic_text_coverage_matches_supersampled_reference ... ok
+test retained_scroll_cpu_gpu_pixels_agree_including_fractional_edges ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.73s
+

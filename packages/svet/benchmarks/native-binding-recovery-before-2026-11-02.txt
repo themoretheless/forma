@@ -1,0 +1,22 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.41s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 1 test
+test runtime::tests::retained_document_recovers_after_render_error_without_losing_input ... FAILED
+
+failures:
+
+---- runtime::tests::retained_document_recovers_after_render_error_without_losing_input stdout ----
+
+thread 'runtime::tests::retained_document_recovers_after_render_error_without_losing_input' (5567800) panicked at src/runtime.rs:1688:55:
+called `Result::unwrap()` on an `Err` value: "Expected scalar text"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::tests::retained_document_recovers_after_render_error_without_losing_input
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 119 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "name": "production factory releases never-mounted disposed instances",
+      "status": "passed"
+    },
+    {
+      "name": "HMR tracks mounted instances and preserves registration until last unmount",
+      "status": "passed"
+    },
+    {
+      "name": "HMR explicit disposal retires live views before handles unmount",
+      "status": "passed"
+    },
+    {
+      "name": "cached factory uses the newest AST even when no instance was mounted during update",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Updated 1/. Input:\n\n'1increment'\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:49:58\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:45:1"
+    },
+    {
+      "name": "HMR drains healthy instances after one failure and defers newly mounted instances",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Updated 1/. Input:\n\n'1increment'\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:59:10\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:53:1"
+    }
+  ],
+  "node": "v22.23.4",
+  "generatedSha256": "31b484ccecebe50e1540b7e6fc73860ddb2b7615709cfdfa14d35f8143d8786e",
+  "retainedTargets": 0,
+  "gc": {
+    "targets": 8,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "status": "failed",
+  "probeSha256": "2a4f47792c397d6b62ded5c741820484fa81a735ed511b2463dd80af6400c1a1",
+  "compilerSha256": "9fae0aa7ccaa7658dcc14fd449244cc3204886587058fc9bcd5fa1170c5a98bc"
+}

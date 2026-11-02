@@ -1,0 +1,131 @@
+{
+  "startedAt": "2026-11-01T17:59:06.570Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-yaFyce",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "responses": [
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>0</p>",
+          "<p>1</p>",
+          "<p>2</p>",
+          "<p>3</p>",
+          "<p>4</p>",
+          "<p>5</p>",
+          "<p>6</p>",
+          "<p>7</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    },
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>100</p>",
+          "<p>101</p>",
+          "<p>102</p>",
+          "<p>103</p>",
+          "<p>104</p>",
+          "<p>105</p>",
+          "<p>106</p>",
+          "<p>107</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    }
+  ],
+  "gcCapabilities": {
+    "weakRef": true,
+    "finalizationRegistry": true
+  },
+  "churn": {
+    "requestedMs": 1000,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 0,
+    "domCycles": 0,
+    "streams": 0,
+    "stringRenders": 0,
+    "timeouts": 0
+  },
+  "status": "failed",
+  "error": "Error: Edge churn non-JSON response 500: Error: Promise will never complete.\n    at async Object.fetch (file:///private/tmp/svet-edge-host-KjJ3yY/node_modules/miniflare/dist/src/workers/core/entry.worker.js:4765:22); progress={\"progress\":[[0,\"complete\"],[100,\"complete\"],[10000,\"complete\"],[10500,\"complete\"],[10600,\"timeout-close\"],[10700,\"timeout-close\"],[10100,\"timeout-close\"],[10200,\"timeout-close\"],[10300,\"timeout-close\"],[10400,\"timeout-close\"]],\"timerEvents\":[{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"fire\",\"owner\":100,\"handle\":\"2\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"clear\",\"owner\":100,\"handle\":\"undefined\"},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"await-abort\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-fail\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-release\",\"tag\":100},{\"kind\":\"stream-create\",\"tag\":10000},{\"kind\":\"create\",\"owner\":10000,\"handle\":\"3\",\"delay\":10},{\"kind\":\"stream-create\",\"tag\":10500},{\"kind\":\"create\",\"owner\":10500,\"handle\":\"4\",\"delay\":10},{\"kind\":\"stream-create\",\"tag\":10600},{\"kind\":\"create\",\"owner\":10600,\"handle\":\"5\",\"delay\":10},{\"kind\":\"stream-create\",\"tag\":10700},{\"kind\":\"create\",\"owner\":10700,\"handle\":\"6\",\"delay\":10},{\"kind\":\"stream-create\",\"tag\":10100},{\"kind\":\"create\",\"owner\":10100,\"handle\":\"7\",\"delay\":10},{\"kind\":\"stream-create\",\"tag\":10200},{\"kind\":\"create\",\"owner\":10200,\"handle\":\"8\",\"delay\":10},{\"kind\":\"stream-create\",\"tag\":10300},{\"kind\":\"create\",\"owner\":10300,\"handle\":\"9\",\"delay\":10},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"create\",\"owner\":10400,\"handle\":\"10\",\"delay\":10},{\"kind\":\"fire\",\"owner\":10000,\"handle\":\"3\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10000},{\"kind\":\"await-abort\",\"tag\":10000},{\"kind\":\"await-abort\",\"tag\":10000},{\"kind\":\"stream-fail\",\"tag\":10000},{\"kind\":\"stream-release\",\"tag\":10000},{\"kind\":\"stream-fail\",\"tag\":10000},{\"kind\":\"clear\",\"owner\":10400,\"handle\":\"undefined\"},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"fire\",\"owner\":10500,\"handle\":\"4\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10500},{\"kind\":\"await-abort\",\"tag\":10500},{\"kind\":\"await-abort\",\"tag\":10500},{\"kind\":\"stream-fail\",\"tag\":10500},{\"kind\":\"stream-release\",\"tag\":10500},{\"kind\":\"stream-fail\",\"tag\":10500},{\"kind\":\"clear\",\"owner\":10400,\"handle\":\"undefined\"},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-create\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"fire\",\"owner\":10600,\"handle\":\"5\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10600},{\"kind\":\"await-abort\",\"tag\":10600},{\"kind\":\"await-abort\",\"tag\":10600},{\"kind\":\"stream-fail\",\"tag\":10600},{\"kind\":\"stream-release\",\"tag\":10600},{\"kind\":\"stream-fail\",\"tag\":10600},{\"kind\":\"fire\",\"owner\":10700,\"handle\":\"6\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10700},{\"kind\":\"await-abort\",\"tag\":10700},{\"kind\":\"await-abort\",\"tag\":10700},{\"kind\":\"stream-fail\",\"tag\":10700},{\"kind\":\"stream-release\",\"tag\":10700},{\"kind\":\"stream-fail\",\"tag\":10700},{\"kind\":\"fire\",\"owner\":10100,\"handle\":\"7\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10100},{\"kind\":\"await-abort\",\"tag\":10100},{\"kind\":\"await-abort\",\"tag\":10100},{\"kind\":\"stream-fail\",\"tag\":10100},{\"kind\":\"stream-release\",\"tag\":10100},{\"kind\":\"stream-fail\",\"tag\":10100},{\"kind\":\"fire\",\"owner\":10200,\"handle\":\"8\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10200},{\"kind\":\"await-abort\",\"tag\":10200},{\"kind\":\"await-abort\",\"tag\":10200},{\"kind\":\"stream-fail\",\"tag\":10200},{\"kind\":\"stream-release\",\"tag\":10200},{\"kind\":\"stream-fail\",\"tag\":10200},{\"kind\":\"fire\",\"owner\":10300,\"handle\":\"9\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10300},{\"kind\":\"await-abort\",\"tag\":10300},{\"kind\":\"await-abort\",\"tag\":10300},{\"kind\":\"stream-fail\",\"tag\":10300},{\"kind\":\"stream-release\",\"tag\":10300},{\"kind\":\"stream-fail\",\"tag\":10300},{\"kind\":\"fire\",\"owner\":10400,\"handle\":\"10\",\"delay\":10},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"await-abort\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400},{\"kind\":\"stream-release\",\"tag\":10400},{\"kind\":\"stream-fail\",\"tag\":10400}]}\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:37:179\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Promise.all (index 6)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:35:19",
+  "completedAt": "2026-11-01T17:59:06.798Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "workerSourceSha256": "d9b4106b4af60575e9e8ffcdcd4049c4ec81048f49a43c4951f4645cf2584776",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "8c7856ccb374b4e8a0eecfeb6ef1a43e2b563e6c86ab5b258830e7cef4629ed5"
+}

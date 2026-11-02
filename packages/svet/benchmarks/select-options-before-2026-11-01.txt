@@ -1,0 +1,62 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/select-value.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/select-value.test.ts (5 tests | 2 failed) 18ms
+   × reapplies one-way values after option insertions, removals and moves 4ms
+   × refreshes implicit text and explicit option values without reevaluating the binding 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/select-value.test.ts > reapplies one-way values after option insertions, removals and moves
+AssertionError: expected 'a' to be 'b' // Object.is equality
+
+Expected: "b"
+Received: "a"
+
+ ❯ tests/select-value.test.ts:23:61
+     21|  const app=mount(()=>h('select',{value},For({each:rows,children:item=>…
+     22|  const select=document.querySelector('select')!;expect(select.selected…
+     23|  rows.set(['a','b']);await mutations();expect(select.value).toBe('b');
+       |                                                             ^
+     24|  rows.set(['b','a']);await mutations();expect(select.value).toBe('b');
+     25|  rows.set(['a']);await mutations();expect(select.selectedIndex).toBe(-…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/select-value.test.ts > refreshes implicit text and explicit option values without reevaluating the binding
+AssertionError: expected -1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ -1
+
+ ❯ tests/select-value.test.ts:32:69
+     30|  const app=mount(()=>h('select',{value:()=>{reads++;return 'target';}}…
+     31|  const select=document.querySelector('select')!;
+     32|  label.set('target');await mutations();expect(select.selectedIndex).to…
+       |                                                                     ^
+     33|  label.set('gone');optionValue.set('target');await mutations();expect(…
+     34|  app.unmount();label.dispose();optionValue.dispose();expect(getGraphTe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  21:39:39
+   Duration  532ms (environment 83%, transform 7%, import 6%, tests 4%, worker 1%)
+

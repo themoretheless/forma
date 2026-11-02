@@ -1,0 +1,535 @@
+{
+  "date": "2026-11-02",
+  "change": "Square rectangle border coverage uses exact outer minus inset area on CPU/GPU, including translucent source-over and fully collapsed inset. CPU stores partial outer/border coverage sparsely; full fill/stroke use palette.",
+  "checks": {
+    "lib": 158,
+    "allocation_tests": 8,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 6,
+    "pixel_cases": 72,
+    "maximum_difference": 1
+  },
+  "before": "New1.25-width border cases failed CPU/GPU parity up to32/255.",
+  "independent_reference": "Fractional corner with alpha128 blue border over red fill expects[45,26,70,255] within1; thin and fully covering borders both checked.",
+  "results": [
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.001801,
+      "max": 1
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.00177,
+      "max": 1
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 67.0,
+      "mean": 0.002792,
+      "max": 1
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 1.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 1.25,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-alpha",
+      "dpi": 2.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 1.0,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 1.25,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-alpha",
+      "dpi": 2.0,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 1.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 2.9e-05,
+      "max": 1
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 2e-05,
+      "max": 1
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 1.25,
+      "offset": 64.0,
+      "mean": 2.9e-05,
+      "max": 1
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-border",
+      "dpi": 2.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 3.1e-05,
+      "max": 1
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.000854,
+      "max": 1
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 1.0,
+      "offset": 67.0,
+      "mean": 0.001862,
+      "max": 1
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 1e-05,
+      "max": 1
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 2e-05,
+      "max": 1
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 1.25,
+      "offset": 67.0,
+      "mean": 1e-05,
+      "max": 1
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-border",
+      "dpi": 2.0,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 1.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 1.25,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer-wide-border",
+      "dpi": 2.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 3.1e-05,
+      "max": 1
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.000854,
+      "max": 1
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 1.0,
+      "offset": 67.0,
+      "mean": 0.001862,
+      "max": 1
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 1.25,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional-wide-border",
+      "dpi": 2.0,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    }
+  ],
+  "source_sha256": {
+    "before/lib.rs": "be56a6e467d68043f16239bc836664c540019efc4a89fc3c8fde40999b212f01",
+    "before/raster_cache.rs": "d0952274aa3254ff3c35ad7f584c3e902a0a33a081e9022c9a78d9794d5231b0",
+    "before/vector.wgsl": "59c4d827805210651960d160b61983bb894f0f3d7114ee00abc1d0d5a2c7ef6a",
+    "after/lib.rs": "e39939088f577a0ff115d4b8a4274e84dfc1f923593949654f4b453c36699715",
+    "after/raster_cache.rs": "bd1b1ffeda15148e8a3d9b6c68757781aa46daf775c11c93ab14259d97c8c2fc",
+    "after/vector.wgsl": "58ca5c145ea7181f25f1cf65cf3d6d6b31a05477e4355fa2c2125b6e37ef55bc",
+    "after/runtime_gpu.rs": "930143b81cb7f7511a7973c2ff607f2e1d1470bac4603c2e44d67b19fcbdcd1c"
+  },
+  "limitations": [
+    "Zero-radius rectangular borders only; rounded borders remain separate.",
+    "CPU sparse-edge memory/throughput and other hardware/backends/window matrix unqualified.",
+    "Coarse legacy samples remain for rounded shapes; no global renderer parity claim."
+  ]
+}

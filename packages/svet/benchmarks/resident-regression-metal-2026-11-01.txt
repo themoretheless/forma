@@ -1,0 +1,3 @@
+Browser tab: 8, Title: "Svet WGSL compute checks", URL: "http://127.0.0.1:4197/tests/browser/gpu-compute.html".
+There has been no change in the accessibility tree.
+The focused UI element is 1 AXWebArea Svet WGSL compute checks, URL: 127.0.0.1:4197/tests/browser/gpu-compute.html

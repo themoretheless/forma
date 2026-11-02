@@ -1,0 +1,143 @@
+{
+  "date": "2026-11-02",
+  "change": "Consume instances; transfer owned __state into SceneControl after template/Slider evaluation instead of cloning it. Public snapshot ownership preserved.",
+  "checks": {
+    "lib": 136,
+    "allocation_tests": 5,
+    "wasm32_check": "passed",
+    "native_bin_check": "passed",
+    "release_harness": "passed; before/after repeated twice"
+  },
+  "regressions": "Existing scope isolation/owned snapshots, props.__state, bindings and Slider tests in lib suite.",
+  "source_sha256": {
+    "before/form_document.rs": "12d9fded4cfc23dfb0893ad920a3d3a592df51665bf33c625990d2cbf9683cf2",
+    "after/form_document.rs": "f8392d90f71d271ba13f5cd1d74f06c87864fec1670e33a7114473dfcd8f7a9f",
+    "shared/harness.rs": "d7eab708619965eaa44d3f33b5b389ca87316fa1bf63003bb2d8c8c195ce263d"
+  },
+  "source_archive": "native-snapshot-move-sources-2026-11-02.tar.gz",
+  "source_archive_sha256": "c39872ce18eeae4086570baff5005ecbde7682159ff9548ecab6598b299c1ccb",
+  "baseline": "/tmp/svet-scope-cow-after; before source hash matches native-scope-cow receipt after source",
+  "results": [
+    {
+      "controls": 8,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last_sample": [
+          9521,
+          1096046
+        ],
+        "after_last_sample": [
+          9065,
+          1041261
+        ],
+        "requested_bytes_reduction_percent": 4.998421599093472
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last_sample": [
+          10674,
+          1201077
+        ],
+        "after_last_sample": [
+          10218,
+          1146292
+        ],
+        "requested_bytes_reduction_percent": 4.561322879382423
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last_sample": [
+          10676,
+          1201089
+        ],
+        "after_last_sample": [
+          10220,
+          1146304
+        ],
+        "requested_bytes_reduction_percent": 4.561277307510103
+      }
+    },
+    {
+      "controls": 32,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last_sample": [
+          76111,
+          9590312
+        ],
+        "after_last_sample": [
+          70447,
+          8847461
+        ],
+        "requested_bytes_reduction_percent": 7.745848101709307
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last_sample": [
+          92280,
+          11082989
+        ],
+        "after_last_sample": [
+          86616,
+          10340138
+        ],
+        "requested_bytes_reduction_percent": 6.702623272476405
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last_sample": [
+          92282,
+          11083001
+        ],
+        "after_last_sample": [
+          86618,
+          10340150
+        ],
+        "requested_bytes_reduction_percent": 6.702616015283224
+      }
+    },
+    {
+      "controls": 96,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last_sample": [
+          535269,
+          70679176
+        ],
+        "after_last_sample": [
+          487557,
+          64260357
+        ],
+        "requested_bytes_reduction_percent": 9.081626814664624
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last_sample": [
+          677030,
+          83842125
+        ],
+        "after_last_sample": [
+          629318,
+          77423306
+        ],
+        "requested_bytes_reduction_percent": 7.655840068462005
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last_sample": [
+          677032,
+          83842137
+        ],
+        "after_last_sample": [
+          629320,
+          77423318
+        ],
+        "requested_bytes_reduction_percent": 7.6558389727113045
+      }
+    }
+  ],
+  "raw": "native-snapshot-move-comparison-2026-11-02.json",
+  "logs": {
+    "tests": "native-snapshot-move-tests-2026-11-02.txt",
+    "wasm": "native-snapshot-move-wasm-2026-11-02.txt",
+    "native": "native-snapshot-move-native-2026-11-02.txt",
+    "build": "native-snapshot-move-build-2026-11-02.txt"
+  },
+  "limitations": [
+    "Requested bytes are cumulative allocations, not live/peak/RSS.",
+    "HTTP soak PID99442 observed live during session; timings noisy, no latency/FPS claim.",
+    "No new physical GPU test this turn; rendering algorithm unchanged.",
+    "Large-model scope sharing and readiness remain open."
+  ]
+}

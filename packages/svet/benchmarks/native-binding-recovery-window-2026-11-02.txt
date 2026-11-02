@@ -1,0 +1,5 @@
+Presentation: Metal topLeft + synchronized transaction; implicit resize animations disabled
+Renderer: GPU vector / Metal (UMA) / Apple M4 Max
+Запуск Forma на бэкенде: svet (svet (Reactive Push-Pull DAG + UMA/DUMA GPU)) · F6: платформа · F7: бэкенд
+F8: непрерывный FPS-тест; обычный режим перерисовывает окно только при изменениях
+Ошибка bindings: Expected scalar text

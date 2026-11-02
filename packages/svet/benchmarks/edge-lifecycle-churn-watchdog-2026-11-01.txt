@@ -1,0 +1,256 @@
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 1059b571b 105754fa3 10574c9e4 10574d59b 10755dd67 10556a2a7 10556a233 10556afb3 104ad6b9f 10743e3c3 10743f0cf 10743fa2b 10740f9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 1059b571b 105754fa3 10574c9e4 10574d59b 10755dd67 10556a2a7 10556a233 10556afb3 104ad6b9f 10743e3c3 10743f0cf 10743fa2b 10740f9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 1059b571b 105754fa3 10574c9e4 10574d59b 10755dd67 10556a2a7 10556a233 10556afb3 104a406ac 10742bdef 10755dd67 105247518 104a406ac 10574cd80 10574d12b 10755dd67 10556a247 10556aae3 10556afb3 104ad6b9f 10743e3c3 10743f0cf 10743fa2b 10740f9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 1059b571b 105754fa3 10574c9e4 10574d59b 10755dd67 10556a2a7 10556a233 10556afb3 104a406ac 10742bdef 10755dd67 105247518 104a406ac 10574cd80 10574d12b 10755dd67 10556a247 10556aae3 10556afb3 104ad6b9f 10743e3c3 10743f0cf 10743fa2b 10740f9a4
+{
+  "startedAt": "2026-11-01T17:52:37.854Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-jihv6K",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "responses": [
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>0</p>",
+          "<p>1</p>",
+          "<p>2</p>",
+          "<p>3</p>",
+          "<p>4</p>",
+          "<p>5</p>",
+          "<p>6</p>",
+          "<p>7</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    },
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>100</p>",
+          "<p>101</p>",
+          "<p>102</p>",
+          "<p>103</p>",
+          "<p>104</p>",
+          "<p>105</p>",
+          "<p>106</p>",
+          "<p>107</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    }
+  ],
+  "gcCapabilities": {
+    "weakRef": true,
+    "finalizationRegistry": true
+  },
+  "churn": {
+    "requestedMs": 1000,
+    "concurrency": 8,
+    "events": 128,
+    "domCycles": 2048,
+    "streams": 1024,
+    "stringRenders": 1024,
+    "timeouts": 128,
+    "elapsedMs": 1038.3696249999998,
+    "status": "passed"
+  },
+  "responseTransport": "direct-loopback-workerd",
+  "transports": [
+    {
+      "codec": "identity",
+      "mode": "complete",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "identity",
+      "mode": "error-observation",
+      "transport": "clean-eof-without-complete",
+      "eofRejected": true
+    },
+    {
+      "codec": "identity",
+      "mode": "error",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "identity",
+      "mode": "cancel",
+      "state": {
+        "signalAborted": true,
+        "phase": "component-pending",
+        "retiredPhase": "component-pending",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "complete",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "error-observation",
+      "transport": "clean-eof-without-complete",
+      "eofRejected": true
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "error",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "cancel",
+      "state": {
+        "signalAborted": true,
+        "phase": "component-pending",
+        "retiredPhase": "component-pending",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    }
+  ],
+  "proxyAborts": [
+    {
+      "codec": "identity",
+      "before": {
+        "signalAborted": false,
+        "phase": "component-pending",
+        "cleaned": 0,
+        "nodes": 1
+      },
+      "state": {
+        "signalAborted": false,
+        "deadlineAborted": true,
+        "phase": "component-pending",
+        "retiredPhase": "component-pending",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "before": {
+        "signalAborted": false,
+        "phase": "component-pending",
+        "cleaned": 0,
+        "nodes": 1
+      },
+      "state": {
+        "signalAborted": false,
+        "deadlineAborted": true,
+        "phase": "component-pending",
+        "retiredPhase": "component-pending",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    }
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-01T17:52:40.265Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "workerSourceSha256": "f0e31655bd4aa266aea037934a0105ea8ffad2253b46bb0841b2c38b75170803",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "069249e87b976e4c64dec858224ac5ca98936a31845592c87e056799acb1742f"
+}

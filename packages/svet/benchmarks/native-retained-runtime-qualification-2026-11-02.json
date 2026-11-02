@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-02",
+  "scope": "Release retained Runtime sync; 8/32/96/256 editors, legacy and Svet, 7 alternating idle/edit samples in each of 2 sequential processes.",
+  "command": "CARGO_TARGET_DIR=/tmp/forma-svet-native-binding-validation cargo run --locked --release --manifest-path vector-ui/Cargo.toml --example binding_sync_bench -- --retained",
+  "checks": [
+    "Every idle avoids rebuild; every edit rebuilds.",
+    "Actual widget and model first-item title checked after every edit.",
+    "Item count and Svet tracking/batch depths checked.",
+    "All allocation counts/requested bytes identical across both process runs."
+  ],
+  "analysis": "native-retained-runtime-analysis-2026-11-02.json",
+  "run_timestamps": "native-retained-runtime-runs-2026-11-02.json",
+  "source_sha256": {
+    "vector-ui/examples/binding_sync_bench.rs": "1a783546f9c1d11bb2e147490c326c510c27988579e9823056af49c83248f743",
+    "vector-ui/src/runtime.rs": "7aa69d4780d5ac983ae4dc0bfd91579057b206b811f98b1bc9d20c7c960be4fd",
+    "vector-ui/src/form_document.rs": "890830fa875de7594f6f83abc56fc4be5e15d187e0ccb685d03083d28b65795b",
+    "vector-ui/src/native_document_graph.rs": "0b716eb31869c90c2a307855ee2ad7c3971ecb7773ccc557c6db0ab0059def46"
+  },
+  "binary_sha256": "511e88fc51e7353367c821d7996e04829ed7cd658cccb1d96f77a05f3128099d",
+  "observed_svet256": {
+    "idle_allocations": 4771,
+    "idle_requested_bytes": 278501,
+    "edit_allocations": 2796021,
+    "edit_requested_bytes": 377214957,
+    "idle_median_ms_by_run": [
+      0.402917,
+      0.397083
+    ],
+    "edit_median_ms_by_run": [
+      93.452417,
+      95.474792
+    ]
+  },
+  "limitations": [
+    "CPU synchronization only; painting/presentation excluded.",
+    "Requested bytes are cumulative, not peak/RSS; allocator instrumentation overhead included.",
+    "HTTP soak PID99442 confirmed active around run; host not isolated. Timing descriptive, not readiness/FPS/p95 qualification.",
+    "One edit per sample; no simultaneous event burst or full UI workload.",
+    "256-editor edit path remains too expensive for interactive frame budgets; full-scene snapshots/rebuild remain open."
+  ]
+}

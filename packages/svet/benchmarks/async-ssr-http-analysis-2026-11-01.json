@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "requests": 240,
+  "modeCounts": {
+    "success": 80,
+    "failure": 80,
+    "disconnect": 80
+  },
+  "peakConcurrent": 12,
+  "unfinishedResponseClosures": 80,
+  "writesToDisconnectedResponses": 0,
+  "installedRegressionRequests": 48,
+  "installedConsumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-y4JLSj/consumer",
+  "scope": "Actual loopback HTTP disconnect before headers, async component/request isolation; not SSR streaming, browser/proxy or memory qualification.",
+  "installedPackageSha256": "e357e7c91dc18f880ed1c31db010b35a35d5971036494c03a9ea9e98682d407a"
+}

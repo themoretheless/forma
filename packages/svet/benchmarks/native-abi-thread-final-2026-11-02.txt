@@ -1,0 +1,69 @@
+   Compiling svet-wasm v0.1.0 (/Users/themoretheless/Documents/Sources/forma/packages/svet/crates/svet-wasm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.29s
+     Running unittests src/lib.rs (/tmp/svet-native-validation/debug/deps/svet_wasm-b0e4ec48046757b9)
+
+running 55 tests
+test tests::cached_terminal_source_does_not_dirty_unrelated_computeds ... ok
+test tests::cached_empty_source_drains_preexisting_foreign_pending_effects ... ok
+test tests::cursor_cannot_mutate_a_replacement_observer_lifetime ... ok
+test tests::cursor_dependency_reordering_preserves_both_forward_edges ... ok
+test tests::cursor_ignores_self_and_invalid_reads_without_advancing ... ok
+test tests::cursor_pause_and_invalid_begin_preserve_outer_tracking ... ok
+test tests::cached_no_effect_source_still_invalidates_lazy_computeds ... ok
+test tests::cursor_explicit_source_replacement_restarts_the_discovery_cursor ... ok
+test tests::cursor_recursive_begin_does_not_replace_the_outer_dependency_pass ... ok
+test tests::cursor_lifetime_wrap_invalidates_ancient_tracking_frames ... ok
+test tests::cursor_pruning_invalidates_cached_terminal_effects ... ok
+test tests::cursor_replacement_invalidates_both_old_and_new_source_caches ... ok
+test tests::cursor_fresh_lifetime_can_track_before_the_stale_frame_is_closed ... ok
+test native_abi_thread_tests::native_abi_threads_are_isolated ... ok
+test tests::cursor_source_disposal_does_not_turn_an_unread_tail_into_a_read_prefix ... ok
+test tests::cursor_stable_and_reordered_reads_reuse_storage_and_topology_cache ... ok
+test tests::cursor_stale_inner_frame_preserves_the_outer_tracker ... ok
+test tests::dependency_reachability_handles_diamonds_cycles_and_disposal ... ok
+test tests::dependency_queries_reuse_scratch_and_leave_reactive_state_unchanged ... ok
+test tests::pending_lifetime_wrap_purges_old_tokens_without_dropping_other_jobs ... ok
+test tests::pending_count_observes_dirty_work_without_consuming_it ... ok
+test tests::pending_queue_preserves_real_schedule_order_when_a_slot_is_reused ... ok
+test tests::pending_queue_rejects_replacement_signal_and_computed_slots ... ok
+test tests::pending_queue_does_not_run_a_replacement_that_was_never_scheduled ... ok
+test tests::perspective_large_depth_range_avoids_intermediate_overflow ... ok
+test tests::perspective_rejection_preserves_destination_and_dirty_state ... ok
+test tests::perspective_validation_rejects_invalid_and_degenerate_float32_parameters ... ok
+test tests::terminal_cache_is_source_specific_when_a_foreign_effect_is_drained ... ok
+test tests::test_diamond_dependency_glitch_free ... ok
+test tests::test_free_list_slot_recycling ... ok
+test tests::test_gpu_allocation_failure_preserves_existing_arena ... ok
+test tests::test_gpu_arena_growth_caps_reserved_storage ... ok
+test tests::test_gpu_arena_growth_is_amortized_and_preserves_zeroed_tail ... ok
+test tests::test_gpu_arena_reservation_overflow_preserves_existing_storage ... ok
+test tests::test_gpu_picker_matches_webgpu_viewport_projection ... ok
+test tests::pending_compaction_retains_clean_scheduled_jobs_for_later_writes ... ok
+test tests::test_gpu_picker_rejects_clipped_vertices_and_invalid_queries ... ok
+test tests::pending_compaction_preserves_live_job_order_and_flags ... ok
+test tests::test_gpu_uma_duma_dirty_page_tracking ... ok
+test tests::test_homogeneous_polygon_clipping ... ok
+test tests::test_homogeneous_segment_clipping ... ok
+test tests::test_lis_reconciler ... ok
+test tests::topology_wrap_cannot_dirty_a_signal_reusing_a_cached_effect_slot ... ok
+test tests::topology_wrap_does_not_restore_a_stale_no_subscriber_cache ... ok
+test tests::test_snapshot_picker_preserves_live_geometry_and_owns_only_scratch ... ok
+test tests::test_visible_vertex_picker_skips_hidden_candidate_and_finds_visible_neighbor ... ok
+test tests::topology_wrap_invalidates_cached_downstream_computed_slots ... ok
+test tests::test_visible_picker_clips_triangles_and_handles_perspective_winding ... ok
+test tests::topology_wrap_rebuilds_cache_and_noop_links_preserve_it ... ok
+test tests::topology_wrap_does_not_restore_a_detached_effect_cache ... ok
+test tests::test_segment_clipping_all_planes_and_seeded_reference_samples ... ok
+test tests::pending_churn_keeps_entry_count_and_capacity_bounded_without_flushing ... ok
+test tests::pending_population_drop_compacts_expired_entries_without_new_writes ... ok
+test native_abi_thread_tests::native_abi_concurrent_flush_buffers_are_thread_local ... ok
+test tests::test_gpu_arena_fragmented_churn_reuses_storage_after_warmup ... ok
+
+test result: ok. 55 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+   Doc-tests svet_wasm
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

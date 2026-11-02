@@ -1,0 +1,46 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/ssr-carrier.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/ssr-carrier.test.ts (3 tests | 1 failed) 29ms
+   × validates independent carriers before installing hooks, then renders with an injected host 26ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ssr-carrier.test.ts > validates independent carriers before installing hooks, then renders with an injected host
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/ssr-carrier.test.ts:46:68
+     44|   await runtime.runWithOwnerScopeAsync([],()=>{effect(()=>{observed=so…
+     45|    afterParent=afterParentGate.then(()=>{
+     46|     expect(()=>withWasmCore(parentCore,()=>h('b',null,'expired'))).toT…
+       |                                                                    ^
+     47|     withWasmCore(foreignCore,()=>expect(h('b',null,'foreign').textCont…
+     48|    });
+ ❯ tests/ssr-carrier.test.ts:55:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  23:28:17
+   Duration  627ms (environment 81%, transform 7%, import 6%, tests 5%)
+

@@ -1,0 +1,21 @@
+{
+  "status": "completed-diagnostic-only",
+  "sessionId": 57834,
+  "durationMs": 1800000,
+  "gcMode": "natural",
+  "forcedGCsExpected": 0,
+  "manifest": "http-diagnostics-30m-manifest-2026-11-02.json",
+  "report": "http-diagnostics-30m-2026-11-02.json",
+  "progress": "http-diagnostics-30m-2026-11-02.json.progress.json",
+  "log": "/tmp/svet-http-diagnostics-30m.txt",
+  "scope": "Diagnostic duration includes former ~24-minute failure region; not 2-hour qualification.",
+  "pid": 39306,
+  "observedProgress": {
+    "elapsedMs": 180664.586375,
+    "requests": 37960,
+    "updatedAt": "2026-11-02T03:41:20.917Z"
+  },
+  "completedAt": "2026-11-02T04:08:20.241Z",
+  "requests": 359048,
+  "qualification": "http-diagnostics-30m-qualification-2026-11-02.json"
+}

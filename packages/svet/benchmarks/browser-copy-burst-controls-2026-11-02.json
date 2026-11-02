@@ -1,0 +1,42 @@
+{
+  "status": "partial",
+  "scope": "Full17-case semantics with explicit inter-case pacing; continuous unpaced stress remains open",
+  "pacedResult": "17/17 passed; burst patterns and3s deadlines unchanged",
+  "pacing": [
+    {
+      "ms": 4363.60000000149,
+      "kind": "case-pacing",
+      "args": [
+        10000,
+        133
+      ],
+      "case": "B\u2192A denied traversal burst [-1,-1]",
+      "url": "/svet-copy-burst/ready?q=ok#done",
+      "state": {
+        "__svet_router_history__": {
+          "chain": "svet:1793571323967:3",
+          "index": 4
+        }
+      },
+      "route": null
+    }
+  ],
+  "nativeControls": {
+    "199HistoryCommands": "last traversal succeeds",
+    "201CommandsIncludingTwoNativeNavigations": "last traversal emits no popstate within3s without any Svet import"
+  },
+  "fixtureRepair": "Retired Link observer records defaultPrevented before independent test listener cancels default navigation",
+  "continuousUnpaced": "After cancelling native Link default,16/17 still fails final burst compensation; no runtime repair claimed",
+  "evidence": [
+    "history-native-replay-2026-11-02.json",
+    "history-native-replay-complete-2026-11-02.json",
+    "browser-copy-burst-no-default-2026-11-02.json",
+    "browser-copy-burst-paced-2026-11-02.json",
+    "browser-copy-burst-paced-2026-11-02.png"
+  ],
+  "limitations": [
+    "No exact browser quota or mechanism established",
+    "No global high-rate stress qualification",
+    "Competing routers/other browsers remain open"
+  ]
+}

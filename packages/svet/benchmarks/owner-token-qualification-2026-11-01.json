@@ -1,0 +1,130 @@
+{
+  "status": "passed",
+  "scope": "Closed owner-channel token retirement; pinned local workerd/LinkeDOM and installed Node ALS. Successful child scopes remain parent-owned; late implicit/expired same-core calls refuse, active captured-root and foreign-core overrides remain usable.",
+  "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+  "sourceSha256": {
+    "src/engine/ssr-runtime.ts": "1fe22d9636da3e7ae99f75d6f8ec9c6afbb02c3d6c3f678966ab03d75e31479a",
+    "tests/ssr-carrier.test.ts": "445c6208d9bf0243fb1f9290a7558fd098a345bc2fb7e1421bef9e6b8a333589",
+    "tests/edge/worker.mjs": "281886c6432504d5d490ac0a5c70e930eafe1a9ba37180ae0f211a999c36c160",
+    "tests/edge/retention.mjs": "2fbeb87297173e13e9033186ff9bb221cf08847b93355331e306c570f789eacd",
+    "scripts/check-package.mjs": "f967dc9d3c86f0ec4a54f7130a9c40723f3cea89fb760e253356966995efa9ee",
+    "scripts/check-ssr-runtime-package.mjs": "0c7a89e40bb109bbeb4ea2619a94406c991ff019bea0a284186d80a9bda39a21",
+    "scripts/check-edge-ssr.mjs": "039f60f926c0119f898f00c744a9cbfa571efb767b176628af5db8781829e807"
+  },
+  "controlledRevert": {
+    "runtimeMatchesPreviousQualification": true,
+    "sameWorkerAndRetentionFixture": true,
+    "ownerTokensHeld": 20,
+    "afterRelease": {
+      "complete:core": 4,
+      "complete:memory": 4,
+      "cancel:core": 4,
+      "cancel:memory": 4,
+      "abort:core": 4,
+      "abort:memory": 4,
+      "error:core": 4,
+      "error:memory": 4,
+      "timeout:core": 4,
+      "timeout:memory": 4
+    }
+  },
+  "installedEdge": {
+    "allocation": {
+      "requests": 24,
+      "objects": 144,
+      "retainedTerminalPairs": 24,
+      "positiveControls": 4,
+      "ownerTokensHeld": 20,
+      "ownerTokensRetired": true
+    },
+    "withHandles": {
+      "phase": "held",
+      "attempt": 1,
+      "alive": {
+        "liveControl": 4
+      },
+      "held": 24,
+      "controls": 4,
+      "objects": 144,
+      "ownerTokensHeld": 20
+    },
+    "afterRelease": {
+      "phase": "released",
+      "attempt": 1,
+      "alive": {},
+      "held": 0,
+      "controls": 0,
+      "objects": 144,
+      "ownerTokensHeld": 20
+    },
+    "gcCommands": [
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      }
+    ],
+    "churn": {
+      "requestedMs": 1000,
+      "timeoutTransport": "readable",
+      "directSocket": false,
+      "diagnosticKeepalive": false,
+      "concurrency": 8,
+      "events": 160,
+      "domCycles": 2560,
+      "streams": 1280,
+      "stringRenders": 1280,
+      "timeouts": 160,
+      "elapsedMs": 1038.690291,
+      "status": "passed"
+    }
+  },
+  "installedHost": {
+    "requests": 17,
+    "renders": 11,
+    "owners": 13,
+    "coresCollected": 17
+  },
+  "checks": {
+    "JS": "1286 tests / 97 files passed",
+    "typescript": "passed",
+    "HTTPActions": "4/4",
+    "installedPackageWithEdgeGC": "passed"
+  },
+  "evidence": [
+    "owner-token-qualified-suite-2026-11-01.txt",
+    "owner-token-types-2026-11-01.txt",
+    "owner-token-actions-2026-11-01.txt",
+    "owner-token-package-2026-11-01.txt",
+    "owner-token-installed-edge-2026-11-01.json",
+    "owner-token-installed-host-2026-11-01.json",
+    "owner-token-edge-reverted-2026-11-01.json",
+    "owner-token-edge-60s-2026-11-01.json",
+    "owner-token-edge-60s-2026-11-01.txt"
+  ],
+  "limitations": [
+    "Forced inspector GC does not prove natural GC cadence or multi-hour RSS bounds.",
+    "Only pinned local workerd and Node carrier qualified; other providers and native browser carriers remain open."
+  ],
+  "churn60s": {
+    "requestedMs": 60000,
+    "timeoutTransport": "readable",
+    "directSocket": false,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 5728,
+    "domCycles": 91648,
+    "streams": 45824,
+    "stringRenders": 45824,
+    "timeouts": 5728,
+    "elapsedMs": 60264.973958,
+    "status": "passed"
+  }
+}

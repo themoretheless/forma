@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-02",
+  "status": "traced-accounting validation passed;2h run active",
+  "checks": {
+    "unittest_methods": 10,
+    "valid_traced_smoke": "refused only for qualification duration",
+    "corrupted_counter_variants": 8,
+    "live_traced_report": "incomplete, no issues",
+    "frozen_runtime_bytes": "20 files match manifest, installed package and current dist"
+  },
+  "source_sha256": {
+    "scripts/analyze-http-soak.py": "a9b5082c5996cddf7e354cf3b92a86e1c3b99b6807ae5233ff14120c2bced14b",
+    "scripts/test_analyze_http_soak.py": "d9422fbc10617c15cf068a806dcce32497314c2b7ead2c1123ad764ac0bcbf78"
+  },
+  "limits": [
+    "No final2h result",
+    "Callback lag is not exact live-memory size",
+    "Previous external-memory growth failure not resolved by instrumentation"
+  ]
+}

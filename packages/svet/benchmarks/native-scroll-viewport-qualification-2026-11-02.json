@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-02",
+  "change": "Lower sole root Scroll viewport extents to root Frame padding, preserve outer Frame size, position content in viewport coordinates and serialize Scroll as controls-only. Force layout positioning for root Scroll; reject unsupported properties/actions or extents outside frame content area.",
+  "checks": {
+    "lib": 157,
+    "allocation_tests": 8,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3
+  },
+  "regressions": [
+    "Source numeric320x300 viewport in360x400 Frame gives[20,50,320,300].",
+    "Source50% viewport with/without root padding gives expected rect.",
+    "Outer render size unchanged;16x32 rows scroll to exact maximum offset.",
+    "Pointer over hidden content immediately above viewport cannot hover; inside viewport can.",
+    "Oversized viewport refuses explicitly.",
+    "18-case binding-map parity now includes explicit Scroll width/height and constructs Runtime."
+  ],
+  "source_sha256": "b6035409adfbb79243e801c46ae486b4cc19954de7587287fd3bf0dc70591a08",
+  "limitations": [
+    "Only sole root Scroll lowering; arbitrary nested/multiple viewports remain unsupported.",
+    "Viewport must fit frame content area. Non-layout Scroll styling/actions explicitly rejected.",
+    "No viewport-specific hardware pixel reference/live-window or performance qualification.",
+    "Empty content extent and resize/complex layout matrices remain open."
+  ]
+}

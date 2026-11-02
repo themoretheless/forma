@@ -1,0 +1,36 @@
+{
+  "status": "diagnostic-matrix-passed-historical-failure-unresolved",
+  "runtimeFilesEqual": 20,
+  "nodeCases": 18,
+  "browserMatrix": {
+    "direct": {
+      "report": "forma-watcher-burst-browser-2026-11-02.json",
+      "writes": 96,
+      "cases": 3,
+      "watchTraceEntries": 213,
+      "traceMayBeTruncated": false
+    },
+    "atomic": {
+      "report": "forma-watcher-atomic-burst-browser-2026-11-02.json",
+      "writes": 96,
+      "cases": 3,
+      "watchTraceEntries": 412,
+      "traceMayBeTruncated": false
+    },
+    "chunked": {
+      "report": "forma-watcher-chunked-burst-browser-2026-11-02.json",
+      "writes": 96,
+      "cases": 3,
+      "watchTraceEntries": 318,
+      "traceMayBeTruncated": false
+    }
+  },
+  "runtimeSourceSha256": "8adcc1f5adeb5c7c5467b6ca5cf49aceb85a563ced76531284ee5990226a6bae",
+  "limitations": [
+    "Historical update5 watcher failure not reproduced or explained",
+    "macOS local filesystem/Chromium only",
+    "Timings are diagnostic,not benchmark",
+    "Intermediate writes can coalesce",
+    "No runtime changes or current-runtime HTTP soak qualification"
+  ]
+}

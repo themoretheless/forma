@@ -1,0 +1,53 @@
+{
+  "runs": [
+    {
+      "variant": "weak",
+      "sourceSha256": "3a1fb2a6e119b146de58d8bd523a43e0aa07bba8c35f72ebe9d89f6f2643872e",
+      "exitCode": 1,
+      "elapsedSeconds": 12.582138417004899,
+      "loadAverageBefore": [
+        22.720703125,
+        20.2138671875,
+        17.87841796875
+      ],
+      "log": "cross-copy-weak-bench-abba-1-weak-2026-11-02.txt"
+    },
+    {
+      "variant": "local",
+      "sourceSha256": "64be0b4a8fad1f5ef2deb67ed51f8a7e67a0cb08e9ad7d0cad37c061caa81c13",
+      "exitCode": 1,
+      "elapsedSeconds": 13.142980292002903,
+      "loadAverageBefore": [
+        23.365234375,
+        20.43603515625,
+        17.984375
+      ],
+      "log": "cross-copy-weak-bench-abba-2-local-2026-11-02.txt"
+    },
+    {
+      "variant": "local",
+      "sourceSha256": "64be0b4a8fad1f5ef2deb67ed51f8a7e67a0cb08e9ad7d0cad37c061caa81c13",
+      "exitCode": 1,
+      "elapsedSeconds": 12.239004916998965,
+      "loadAverageBefore": [
+        24.80419921875,
+        20.8896484375,
+        18.18798828125
+      ],
+      "log": "cross-copy-weak-bench-abba-3-local-2026-11-02.txt"
+    },
+    {
+      "variant": "weak",
+      "sourceSha256": "3a1fb2a6e119b146de58d8bd523a43e0aa07bba8c35f72ebe9d89f6f2643872e",
+      "exitCode": 0,
+      "elapsedSeconds": 9.912643291994755,
+      "loadAverageBefore": [
+        24.833984375,
+        21.0244140625,
+        18.26708984375
+      ],
+      "log": "cross-copy-weak-bench-abba-4-weak-2026-11-02.txt"
+    }
+  ],
+  "scope": "Diagnostic ABBA, one worker, unchanged5000ms timeout; active HTTP soak and unrelated host load, not isolated-host performance qualification."
+}

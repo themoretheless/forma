@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "requests": 15000,
+  "checkedObjects": 120000,
+  "manualSamplerCacheAdvance": false,
+  "maxGcRounds": 6,
+  "windowMeanMemory": [
+    {
+      "rss": 134878580.35199997,
+      "heapUsed": 40103681.53599995,
+      "external": 28201081.544000007,
+      "arrayBuffers": 781980.192
+    },
+    {
+      "rss": 137263731.776,
+      "heapUsed": 40261400.06400001,
+      "external": 21236416.135999996,
+      "arrayBuffers": 781977.5360000001
+    },
+    {
+      "rss": 138499873.79200003,
+      "heapUsed": 40302135.935999975,
+      "external": 18669493.383999996,
+      "arrayBuffers": 781982.1120000002
+    },
+    {
+      "rss": 139684207.9999999,
+      "heapUsed": 40316455.48800002,
+      "external": 21198667.272,
+      "arrayBuffers": 781981.6320000001
+    }
+  ],
+  "installedRequestRegression": {
+    "requests": 300,
+    "checkedObjects": 2400,
+    "maxGcRounds": 1
+  },
+  "scope": "Bounded fresh-request churn; object collection and request teardown verified, no long-term RSS plateau or latency speedup claim.",
+  "installedPackageSha256": "6173e173df5433c5fd4f7010ca8b11fe865e5f6103f1cfd52d9e03714e64252b",
+  "installedConsumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-gW2eeO/consumer",
+  "runtimeSha256": {
+    "server.js": "eebb963efb33dd56a70a610dad36f9b0846b9bfcef4ad13d10f5250af2975c24",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b",
+    "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2"
+  },
+  "sourceSha256": {
+    "src/engine/reactivity.ts": "f082ec6319dfb300eda8c9c06b1be276b47d04640f2a9dde53b578a47fb7e78d",
+    "src/engine/server.ts": "e2be24c77b225f8095a779eda368e100fbce90063d2f51fdfa14897768cd3332",
+    "scripts/measure-async-component-churn.mjs": "64f683d0aa07ea26b2e6c8ee1335d0b463c707df7a81eb533f4e9884c79d08c0"
+  }
+}

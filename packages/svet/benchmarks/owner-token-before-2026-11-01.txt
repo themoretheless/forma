@@ -1,0 +1,45 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/ssr-carrier.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/ssr-carrier.test.ts (3 tests | 1 failed) 28ms
+   × validates independent carriers before installing hooks, then renders with an injected host 26ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ssr-carrier.test.ts > validates independent carriers before installing hooks, then renders with an injected host
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/ssr-carrier.test.ts:47:98
+     45|  });
+     46|  expect(ownerTokens).toHaveLength(5);
+     47|  expect(ownerTokens.every(token=>token.closed&&token.core===undefined&…
+       |                                                                                                  ^
+     48|  expect(renderTokens).toHaveLength(7);
+     49|  expect(renderTokens.every(token=>token.closed&&token.stream===undefin…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  23:10:14
+   Duration  565ms (environment 80%, transform 7%, import 6%, tests 6%, worker 1%)
+

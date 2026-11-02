@@ -59,7 +59,13 @@ impl<T: Clone + PartialEq + 'static> Property<T> {
             callback(self.get());
             return true;
         }
-        let ids: Vec<u64> = self.0.listeners.borrow().iter().map(|&(id, _)| id).collect();
+        let ids: Vec<u64> = self
+            .0
+            .listeners
+            .borrow()
+            .iter()
+            .map(|&(id, _)| id)
+            .collect();
         for id in ids {
             let callback = self
                 .0
@@ -216,10 +222,14 @@ struct FieldInner<T> {
     context_subscription: RefCell<Option<Subscription>>,
     context: RefCell<Option<Box<dyn Any>>>,
     wake: Rc<Wake>,
+    #[cfg(not(target_arch = "wasm32"))]
+    native_key: Cell<u64>,
 }
 #[derive(Default)]
 struct Wake {
     pending: Cell<bool>,
+    #[cfg(not(target_arch = "wasm32"))]
+    native: RefCell<NativeBindings>,
     callback: RefCell<Option<Rc<dyn Fn()>>>,
 }
 impl Wake {
@@ -232,6 +242,109 @@ impl Wake {
         }
     }
 }
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Default)]
+struct NativeBindings {
+    next: u64,
+    fields: BTreeMap<u64, Rc<dyn Fn()>>,
+    graph: Option<svet_wasm::native::Context>,
+    nodes: BTreeMap<u64, (svet_wasm::native::Node, svet_wasm::native::Node)>,
+    jobs: std::collections::HashMap<svet_wasm::native::Node, u64>,
+}
+#[cfg(not(target_arch = "wasm32"))]
+impl NativeBindings {
+    fn add_nodes(&mut self, key: u64) {
+        use svet_wasm::native::Kind;
+        if let Some(graph) = &mut self.graph {
+            let source = graph.create(Kind::Signal).expect("native binding source");
+            let effect = graph.create(Kind::Effect).expect("native binding effect");
+            graph
+                .track(&effect, |scope| scope.read(&source))
+                .unwrap()
+                .unwrap();
+            self.jobs.insert(effect.clone(), key);
+            self.nodes.insert(key, (source, effect));
+        }
+    }
+    fn register(&mut self, dirty: Rc<dyn Fn()>) -> u64 {
+        self.next = self
+            .next
+            .checked_add(1)
+            .expect("native binding identity exhausted");
+        let key = self.next;
+        self.fields.insert(key, dirty);
+        self.add_nodes(key);
+        key
+    }
+    fn remove(&mut self, key: u64) {
+        self.fields.remove(&key);
+        if let Some((source, effect)) = self.nodes.remove(&key) {
+            self.jobs.remove(&effect);
+            if let Some(graph) = &mut self.graph {
+                graph.dispose(&effect).unwrap();
+                graph.dispose(&source).unwrap();
+            }
+        }
+    }
+    fn notify(&mut self, key: u64) -> bool {
+        if let (Some(graph), Some((source, _))) = (&mut self.graph, self.nodes.get(&key)) {
+            graph.notify(source).unwrap();
+            true
+        } else {
+            false
+        }
+    }
+    fn drain(&mut self) -> usize {
+        let Some(graph) = &mut self.graph else {
+            return 0;
+        };
+        let jobs = graph.take_effects();
+        let count = jobs.len();
+        for job in jobs {
+            if let Some(key) = self.jobs.get(&job) {
+                let (source, effect) = self.nodes.get(key).unwrap();
+                graph
+                    .track(effect, |scope| scope.read(source))
+                    .unwrap()
+                    .unwrap();
+                if let Some(dirty) = self.fields.get(key) {
+                    dirty();
+                }
+            }
+        }
+        count
+    }
+    fn enable(&mut self, enabled: bool) {
+        self.drain();
+        if enabled == self.graph.is_some() {
+            return;
+        }
+        self.nodes.clear();
+        self.jobs.clear();
+        self.graph = enabled.then(svet_wasm::native::Context::new);
+        for key in self.fields.keys().copied().collect::<Vec<_>>() {
+            self.add_nodes(key);
+        }
+    }
+}
+impl<T> FieldInner<T> {
+    fn invalidate(&self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        let scheduled = self.wake.native.borrow_mut().notify(self.native_key.get());
+        #[cfg(target_arch = "wasm32")]
+        let scheduled = false;
+        if !scheduled {
+            self.dirty.set(true);
+        }
+        self.wake.notify();
+    }
+}
+impl<T> Drop for FieldInner<T> {
+    fn drop(&mut self) {
+        #[cfg(not(target_arch = "wasm32"))]
+        self.wake.native.borrow_mut().remove(self.native_key.get());
+    }
+}
 struct Field<T>(Rc<FieldInner<T>>);
 impl<T> Clone for Field<T> {
     fn clone(&self) -> Self {
@@ -240,7 +353,7 @@ impl<T> Clone for Field<T> {
 }
 impl<T: Clone + PartialEq + 'static> Field<T> {
     fn empty(wake: Rc<Wake>) -> Self {
-        Self(Rc::new(FieldInner {
+        let field = Rc::new(FieldInner {
             property: RefCell::new(None),
             dirty: Cell::new(true),
             reset: Cell::new(true),
@@ -250,7 +363,20 @@ impl<T: Clone + PartialEq + 'static> Field<T> {
             context_subscription: RefCell::new(None),
             context: RefCell::new(None),
             wake,
-        }))
+            #[cfg(not(target_arch = "wasm32"))]
+            native_key: Cell::new(0),
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let weak = Rc::downgrade(&field);
+            let key = field.wake.native.borrow_mut().register(Rc::new(move || {
+                if let Some(field) = weak.upgrade() {
+                    field.dirty.set(true);
+                }
+            }));
+            field.native_key.set(key);
+        }
+        Self(field)
     }
     fn attach(&self, property: Option<Property<T>>) {
         self.0.epoch.set(self.0.epoch.get().wrapping_add(1));
@@ -260,16 +386,14 @@ impl<T: Clone + PartialEq + 'static> Field<T> {
             let weak = Rc::downgrade(&self.0);
             *self.0.property_subscription.borrow_mut() = Some(property.subscribe(move |_| {
                 if let Some(field) = weak.upgrade() {
-                    field.dirty.set(true);
                     field.revision.set(field.revision.get().wrapping_add(1));
-                    field.wake.notify();
+                    field.invalidate();
                 }
             }));
         }
         *self.0.property.borrow_mut() = property;
-        self.0.dirty.set(true);
         self.0.reset.set(true);
-        self.0.wake.notify();
+        self.0.invalidate();
     }
     fn explicit(property: Property<T>, wake: Rc<Wake>) -> Self {
         let field = Self::empty(wake);
@@ -1021,7 +1145,25 @@ impl Form {
             _ => control.base_disabled.get(),
         }
     }
+    /// Use an owned Svet graph to schedule this form's property bindings.
+    /// This does not select the Studio renderer backend.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn set_svet_bindings(&mut self, enabled: bool) {
+        self.wake.native.borrow_mut().enable(enabled);
+        self.wake.notify();
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn svet_binding_telemetry(&self) -> Option<svet_wasm::native::Telemetry> {
+        self.wake
+            .native
+            .borrow()
+            .graph
+            .as_ref()
+            .map(|graph| graph.telemetry())
+    }
     pub fn sync(&mut self) -> Result<(), String> {
+        #[cfg(not(target_arch = "wasm32"))]
+        self.wake.native.borrow_mut().drain();
         if self.is_dirty() {
             if let Some(document) = &mut self.document {
                 let mut program = document.program.clone();
@@ -1091,8 +1233,9 @@ impl Form {
                         }
                     }
                 }
-                let (source, template, scene) = program.render_scene()?;
-                for item in &scene {
+                let artifact = program.render_scene_artifact()?;
+                let scene = &artifact.controls;
+                for item in scene {
                     for ((node, event), types) in &document.event_types {
                         if *node != item.node {
                             continue;
@@ -1125,7 +1268,7 @@ impl Form {
                         }
                     }
                 }
-                let mut next = Runtime::from_sources(&source, &template)?;
+                let mut next = Runtime::from_scene_artifact(&artifact)?;
                 next.preserve_binding_interaction(&self.runtime);
                 document.base_disabled = (0..next.control_count())
                     .map(|i| next.control_disabled(i))
@@ -1140,7 +1283,7 @@ impl Form {
                         control.base_disabled.set(next.control_disabled(index));
                     }
                 }
-                document.scene = scene;
+                document.scene = artifact.controls;
                 document.program.states = program.states;
                 self.runtime = next;
                 for (_, _, input) in &document.inputs {
@@ -1206,6 +1349,13 @@ impl Form {
             }
         }
         self.wake.pending.set(false);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let pending = self.wake.native.borrow_mut().drain() > 0;
+            if pending {
+                self.wake.notify();
+            }
+        }
         Ok(())
     }
     pub fn runtime(&self) -> &Runtime {
@@ -1463,6 +1613,8 @@ impl Form {
 impl Drop for Form {
     fn drop(&mut self) {
         self.wake.callback.borrow_mut().take();
+        #[cfg(not(target_arch = "wasm32"))]
+        self.wake.native.borrow_mut().enable(false);
         // Detached handles do not leave model listeners or event callbacks alive.
         for control in &self.controls {
             control.bindings.borrow_mut().clear();
@@ -1478,6 +1630,150 @@ impl Drop for Form {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn svet_bindings_drive_runtime_and_release_retained_control() {
+        let mut form = Form::new(
+            "component Demo { Frame { width:100; height:60; Button { width:80; height:40; } } }",
+            "component Button { Rectangle { ContentInput { width:80; height:30; value:'seed'; } PointerArea { clicked -> events.clicked(); } } }",
+        ).unwrap();
+        let control = form.add_control(0, Context::new(Rc::new(()))).unwrap();
+        let property = Property::new("first".to_string());
+        control.bind_value(property.clone());
+        form.set_svet_bindings(true);
+        form.sync().unwrap();
+        assert_eq!(form.runtime().text_value(0), "first");
+        assert_eq!(form.svet_binding_telemetry().unwrap().nodes, 2);
+        property.set("second".into());
+        property.set("third".into());
+        let binding = control
+            .state
+            .bindings
+            .borrow()
+            .get(&Target::Value)
+            .unwrap()
+            .clone();
+        assert!(!binding.dirty(), "only graph drain may dirty this binding");
+        form.sync().unwrap();
+        assert_eq!(form.runtime().text_value(0), "third");
+        form.update(|runtime| {
+            runtime.focus_control(0);
+            runtime.text_insert("!");
+        })
+        .unwrap();
+        assert_eq!(property.get(), form.runtime().text_value(0));
+        assert!(property.get().contains('!'));
+        property.set("pending".into());
+        form.set_svet_bindings(false);
+        form.sync().unwrap();
+        assert_eq!(form.runtime().text_value(0), "pending");
+        form.set_svet_bindings(true);
+        drop(binding);
+        property.set("stale".into());
+        let replacement = Property::new("replacement".to_string());
+        control.bind_value(replacement.clone());
+        assert_eq!(form.svet_binding_telemetry().unwrap().nodes, 2);
+        form.sync().unwrap();
+        assert_eq!(form.runtime().text_value(0), "replacement");
+        property.set("retired".into());
+        assert!(!form.is_dirty());
+        let wake = form.wake.clone();
+        drop(form);
+        assert!(wake.native.borrow().graph.is_none());
+        assert!(wake.native.borrow().fields.is_empty());
+        assert!(replacement.0.listeners.borrow().is_empty());
+        drop(control);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn svet_scheduler_deduplicates_and_isolates_forms() {
+        let wake = Rc::new(Wake::default());
+        let property = Property::new(0);
+        let field = Field::explicit(property.clone(), wake.clone());
+        wake.native.borrow_mut().enable(true);
+        field.0.dirty.set(false);
+        for value in 1..100 {
+            property.set(value);
+        }
+        assert!(!field.0.dirty.get());
+        assert_eq!(wake.native.borrow_mut().drain(), 1);
+        assert!(field.0.dirty.get());
+        field.0.dirty.set(false);
+        property.set(100);
+        assert_eq!(wake.native.borrow_mut().drain(), 1);
+        let other = Rc::new(Wake::default());
+        let other_field = Field::explicit(Property::new(0), other.clone());
+        other.native.borrow_mut().enable(true);
+        other_field.0.dirty.set(false);
+        property.set(101);
+        assert_eq!(other.native.borrow_mut().drain(), 0);
+        drop(field);
+        assert_eq!(wake.native.borrow_mut().drain(), 0);
+        assert_eq!(
+            wake.native
+                .borrow()
+                .graph
+                .as_ref()
+                .unwrap()
+                .telemetry()
+                .nodes,
+            0
+        );
+        assert!(!other_field.0.dirty.get());
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn svet_context_replacement_and_reentrant_wake_preserve_latest_value() {
+        struct Model {
+            value: Property<i32>,
+        }
+        let first = Rc::new(Model {
+            value: Property::new(1),
+        });
+        let second = Rc::new(Model {
+            value: Property::new(2),
+        });
+        let context = Context::new(first.clone());
+        let wake = Rc::new(Wake::default());
+        let field = Field::path(&context, |model| model.value.clone(), wake.clone());
+        wake.native.borrow_mut().enable(true);
+        field.0.dirty.set(false);
+        wake.pending.set(false);
+        let weak = Rc::downgrade(&wake);
+        let property = first.value.clone();
+        *wake.callback.borrow_mut() = Some(Rc::new(move || {
+            // Arbitrary host notification must run outside the graph RefCell borrow.
+            assert_eq!(
+                weak.upgrade()
+                    .unwrap()
+                    .native
+                    .borrow()
+                    .graph
+                    .as_ref()
+                    .unwrap()
+                    .telemetry()
+                    .nodes,
+                2
+            );
+            property.set(3);
+        }));
+        first.value.set(4);
+        assert_eq!(wake.native.borrow_mut().drain(), 1);
+        assert_eq!(field.get(), Some(3));
+        context.set(second.clone());
+        assert_eq!(wake.native.borrow_mut().drain(), 1);
+        assert_eq!(field.get(), Some(2));
+        field.0.dirty.set(false);
+        first.value.set(10);
+        assert_eq!(wake.native.borrow_mut().drain(), 0);
+        assert!(!field.0.dirty.get());
+        second.value.set(20);
+        assert_eq!(wake.native.borrow_mut().drain(), 1);
+        assert_eq!(field.get(), Some(20));
+    }
 
     #[test]
     fn property_notifications_allow_reentrant_writes_and_disconnect_on_drop() {

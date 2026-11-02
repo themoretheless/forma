@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.63s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 1 test
+test form_document::tests::unchanged_widgets_do_not_overwrite_newer_model_values ... FAILED
+
+failures:
+
+---- form_document::tests::unchanged_widgets_do_not_overwrite_newer_model_values stdout ----
+
+thread 'form_document::tests::unchanged_widgets_do_not_overwrite_newer_model_values' (5854546) panicked at src/form_document.rs:5227:9:
+assertion `left == right` failed
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    form_document::tests::unchanged_widgets_do_not_overwrite_newer_model_values
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 130 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

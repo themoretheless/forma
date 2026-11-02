@@ -1,6 +1,183 @@
 #![cfg(feature = "gpu")]
 use forma::{gpu::Renderer, Runtime};
 
+#[test]
+#[ignore="requires a real GPU"]
+fn retained_scroll_cpu_gpu_pixels_agree_including_fractional_edges() {
+    pollster::block_on(async {
+        let instance = wgpu::Instance::default();
+        let adapter = instance.request_adapter(&Default::default()).await.unwrap();
+        println!("Scroll CPU/GPU adapter: {:?}", adapter.get_info());
+        let mut renderer = Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm).await.unwrap();
+        let mut failures = Vec::new();
+        for (name, source) in [
+            ("integer", include_str!("fixtures/svet-scroll-viewport/App.ui")),
+            ("fractional", include_str!("fixtures/svet-scroll-viewport/Fractional.ui")),
+            ("integer-alpha", include_str!("fixtures/svet-scroll-viewport/App.ui")),
+            ("fractional-alpha", include_str!("fixtures/svet-scroll-viewport/Fractional.ui")),
+            ("integer-border", include_str!("fixtures/svet-scroll-viewport/App.ui")),
+            ("fractional-border", include_str!("fixtures/svet-scroll-viewport/Fractional.ui")),
+            ("integer-wide-border", include_str!("fixtures/svet-scroll-viewport/App.ui")),
+            ("fractional-wide-border", include_str!("fixtures/svet-scroll-viewport/Fractional.ui")),
+        ] {
+            let translucent = name.ends_with("-alpha");
+            let mut red = include_str!("fixtures/svet-scroll-viewport/Red.component.ui").replace("#ff0000", if translucent { "#ff000080" } else { "#ff0000" });
+            let mut green = include_str!("fixtures/svet-scroll-viewport/Green.component.ui").replace("#00ff00", if translucent { "#00ff0080" } else { "#00ff00" });
+            if name.ends_with("-border") {
+                let border = if name.contains("wide-border") { "radius:0; Border { width:40; background:#0000ff80; }" }
+                    else { "radius:0; Border { width:1.25; background:#0000ff80; }" };
+                red = red.replace("radius:0;", border);
+                green = green.replace("radius:0;", border);
+            }
+            let files = std::collections::BTreeMap::from([
+                ("App.ui".into(), source.into()),
+                ("Red.component.ui".into(), red),
+                ("Green.component.ui".into(), green),
+            ]);
+            for scale in [1., 1.25, 2.] {
+                let mut model = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+                let max_scroll = 128. - model.viewport()[3];
+                for offset in [0., 32., max_scroll] {
+                    model.scroll(0., offset - model.scroll_offset()[1]);
+                    let gpu = read(&mut renderer, &model, scale);
+                    let width = (128. * scale) as u32;
+                    let cpu = model.pixels(width, width, scale);
+                    assert_eq!(gpu.len(), cpu.len());
+                    // Closed-form area references, independent of either
+                    // renderer: quarter-covered corner; then a 7/8 red and
+                    // 1/8 green source-over seam above the opaque background.
+                    let area_reference = if name == "fractional" && scale == 1. && offset == 0. {
+                        Some((32usize, 33usize, [77u8, 26, 38, 255]))
+                    } else if name == "fractional" && scale == 1.25 && offset == 32. {
+                        Some((41, 81, [197, 36, 6, 255]))
+                    } else if name == "fractional-alpha" && scale == 1. && offset == 0. {
+                        Some((32, 33, [47, 30, 45, 255]))
+                    } else if name == "fractional-alpha" && scale == 1.25 && offset == 32. {
+                        Some((41, 81, [114, 34, 27, 255]))
+                    } else if name.starts_with("fractional-") && name.ends_with("-border") && scale == 1. && offset == 0. {
+                        Some((32, 33, [45, 26, 70, 255]))
+                    } else { None };
+                    if let Some((x, y, expected)) = area_reference {
+                        let start = (y * width as usize + x) * 4;
+                        for k in 0..4 {
+                            assert!(gpu[start + k].abs_diff(expected[k]) <= 1, "GPU area reference {name} DPI{scale} offset{offset}");
+                            assert!(cpu[start + k].abs_diff(expected[k]) <= 1, "CPU area reference {name} DPI{scale} offset{offset}");
+                        }
+                    }
+                    let mut worst = (0u8, 0usize);
+                    let mut sum = 0u64;
+                    for (i, (a, b)) in gpu.iter().zip(&cpu).enumerate() {
+                        let difference = a.abs_diff(*b);
+                        if difference > worst.0 { worst = (difference, i); }
+                        sum += difference as u64;
+                    }
+                    let mean = sum as f64 / gpu.len() as f64;
+                    println!("{name} DPI{scale} offset{offset}: CPU/GPU mean{mean:.6} max{} at({},{}), channel{}", worst.0, worst.1 / 4 % width as usize, worst.1 / 4 / width as usize, worst.1 % 4);
+                    if worst.0 > 4 {
+                        let start = worst.1 / 4 * 4;
+                        println!("Worst pixel CPU {:?}, GPU {:?}", &cpu[start..start + 4], &gpu[start..start + 4]);
+                    }
+                    if worst.0 > 4 || mean >= 0.1 {
+                        failures.push(format!("{name} DPI{scale} offset{offset}: max{} mean{mean:.6}", worst.0));
+                    }
+                }
+            }
+        }
+        assert!(failures.is_empty(), "CPU/GPU parity failures:\n{}", failures.join("\n"));
+    });
+}
+
+#[test]
+#[ignore="requires a real GPU"]
+fn fractional_scroll_viewport_clips_at_physical_pixel_centers() {
+    pollster::block_on(async {
+        let instance = wgpu::Instance::default();
+        let adapter = instance.request_adapter(&Default::default()).await.unwrap();
+        println!("Fractional Scroll adapter: {:?}", adapter.get_info());
+        let mut renderer = Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm).await.unwrap();
+        let files = std::collections::BTreeMap::from([
+            ("App.ui".into(), include_str!("fixtures/svet-scroll-viewport/Fractional.ui").into()),
+            ("Red.component.ui".into(), include_str!("fixtures/svet-scroll-viewport/Red.component.ui").into()),
+            ("Green.component.ui".into(), include_str!("fixtures/svet-scroll-viewport/Green.component.ui").into()),
+        ]);
+        for scale in [1., 1.25, 2.] {
+            let mut model = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+            assert_eq!(model.viewport(), vec![32.5, 33.5, 63., 61.]);
+            for offset in [0., 32., 67.] {
+                model.scroll(0., offset - model.scroll_offset()[1]);
+                let actual = read(&mut renderer, &model, scale);
+                let width = (128. * scale) as usize;
+                let mut compared = 0;
+                for (index, pixel) in actual.chunks_exact(4).enumerate() {
+                    let x = ((index % width) as f32 + 0.5) / scale;
+                    let y = ((index / width) as f32 + 0.5) / scale;
+                    let inside = (32.5..95.5).contains(&x) && (33.5..94.5).contains(&y);
+                    if inside {
+                        // Isolate viewport clipping from scrollbar paint and
+                        // primitive antialiasing at tile edges/seams. Every
+                        // outside pixel remains checked, including AA spill.
+                        let near_edge = (x - 32.5).abs() < 1. / scale
+                            || [33.5 - offset, 97.5 - offset, 161.5 - offset].iter().any(|edge| (y - edge).abs() < 1. / scale);
+                        if x >= 87.5 || near_edge { continue; }
+                    }
+                    let expected = if !inside { [17, 34, 51, 255] }
+                        else if y - 33.5 + offset < 64. { [255, 0, 0, 255] }
+                        else { [0, 255, 0, 255] };
+                    assert_eq!(pixel, expected, "fractional DPI{scale}, scroll{offset}, pixel({x},{y})");
+                    compared += 1;
+                }
+                assert!(compared as f32 > (width * width) as f32 * 0.9);
+                println!("Fractional Scroll DPI{scale} offset{offset}: {compared} pixels match center-clip reference");
+            }
+        }
+    });
+}
+
+#[test]
+#[ignore="requires a real GPU"]
+fn retained_scroll_viewport_matches_independent_rect_crop_reference() {
+    pollster::block_on(async {
+        let instance = wgpu::Instance::default();
+        let adapter = instance.request_adapter(&Default::default()).await.unwrap();
+        println!("Scroll crop adapter: {:?}", adapter.get_info());
+        let mut renderer = Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm).await.unwrap();
+        let files = std::collections::BTreeMap::from([
+            ("App.ui".into(), include_str!("fixtures/svet-scroll-viewport/App.ui").into()),
+            ("Red.component.ui".into(), include_str!("fixtures/svet-scroll-viewport/Red.component.ui").into()),
+            ("Green.component.ui".into(), include_str!("fixtures/svet-scroll-viewport/Green.component.ui").into()),
+        ]);
+        for scale in [1., 1.25, 2.] {
+            let mut model = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+            assert_eq!(model.viewport(), vec![32., 32., 64., 64.]);
+            for offset in [0., 32., 64.] {
+                model.scroll(0., offset - model.scroll_offset()[1]);
+                let actual = read(&mut renderer, &model, scale);
+                let width = (128. * scale) as usize;
+                if let Ok(directory) = std::env::var("SVET_GPU_EVIDENCE_DIR") {
+                    std::fs::create_dir_all(&directory).unwrap();
+                    std::fs::write(std::path::Path::new(&directory).join(format!("scroll-dpi-{scale}-offset-{offset}-size-{width}.rgba")), &actual).unwrap();
+                }
+                let mut compared = 0;
+                for (index, pixel) in actual.chunks_exact(4).enumerate() {
+                    let x = (index % width) as f32 / scale + 0.5 / scale;
+                    let y = (index / width) as f32 / scale + 0.5 / scale;
+                    let inside = (32. ..96.).contains(&x) && (32. ..96.).contains(&y);
+                    // Scrollbar painting is a separate feature. Its reserved
+                    // strip is excluded; clipping outside the viewport is not.
+                    if inside && x >= 88. { continue; }
+                    let expected = if !inside { [17, 34, 51, 255] }
+                        else if y - 32. + offset < 64. { [255, 0, 0, 255] }
+                        else { [0, 255, 0, 255] };
+                    assert_eq!(pixel, expected, "DPI{scale}, scroll{offset}, pixel({x},{y})");
+                    compared += 1;
+                }
+                assert!(compared as f32 > (width * width) as f32 * 0.95);
+                println!("Scroll crop DPI{scale} offset{offset}: {compared} pixels match independent reference");
+            }
+        }
+    });
+}
+
 fn read(renderer:&mut Renderer,model:&Runtime,scale:f32)->Vec<u8>{
     let w=(128.*scale)as u32;let h=(128.*scale)as u32;
     let target=renderer.device.create_texture(&wgpu::TextureDescriptor{label:Some("Independent controls"),size:wgpu::Extent3d{width:w,height:h,depth_or_array_layers:1},mip_level_count:1,sample_count:1,dimension:wgpu::TextureDimension::D2,format:wgpu::TextureFormat::Rgba8Unorm,usage:wgpu::TextureUsages::RENDER_ATTACHMENT|wgpu::TextureUsages::COPY_SRC,view_formats:&[]});
@@ -113,6 +290,38 @@ fn analytic_text_coverage_matches_supersampled_reference(){
             assert!(mean<0.1,"mean error {mean} against the scanline reference");
             assert!(max<=4,"max error {max} against the scanline reference");
             assert_eq!(bad,0,"{bad} channels differ by more than 4/255");
+        }
+    });
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+#[ignore="requires a real GPU"]
+fn retained_ui_editor_and_summary_render_at_their_scene_bounds() {
+    pollster::block_on(async {
+        let instance=wgpu::Instance::default();
+        let adapter=instance.request_adapter(&Default::default()).await.unwrap();
+        let mut renderer=Renderer::new(&adapter,wgpu::TextureFormat::Rgba8Unorm).await.unwrap();
+        let files=std::collections::BTreeMap::from([("App.ui".to_string(),
+            "component App { state query: String = 'seed'; Column { width:128; height:128; TextInput { width:110; height:30; value <-> state.query; background:#27334a; } Text { width:110; height:30; text:'Value: ${state.query}'; } } }".to_string())]);
+        let mut model=Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+        model.set_svet_document_scheduling(true);
+        for scale in [1.,1.25,2.] {
+            let actual=read(&mut renderer,&model,scale);
+            let w=(128.*scale)as usize;
+            let bounds=model.control_bounds(0);
+            let x=((bounds[0]+bounds[2]-5.)*scale)as usize;
+            let y=((bounds[1]+15.)*scale)as usize;
+            assert_eq!(&actual[(y*w+x)*4..(y*w+x)*4+4], &[0x27,0x33,0x4a,255],"editor background at DPI {scale}");
+            // A blank patch strictly inside the editor avoids comparing the
+            // independent CPU/GPU glyph antialiasing formulas at fractional DPI.
+            for dy in 5..25 {
+                for dx in 90..100 {
+                    let x=((bounds[0]+dx as f32)*scale)as usize;
+                    let y=((bounds[1]+dy as f32)*scale)as usize;
+                    assert_eq!(&actual[(y*w+x)*4..(y*w+x)*4+4], &[0x27,0x33,0x4a,255], "blank editor patch DPI {scale}");
+                }
+            }
         }
     });
 }

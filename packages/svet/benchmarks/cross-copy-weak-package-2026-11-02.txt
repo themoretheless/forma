@@ -1,0 +1,43 @@
+
+> svet-engine@1.0.0 test:package
+> npm run build:package && node scripts/check-package.mjs --keep
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 101b4d71b 1018ecfa3 1018e49e4 1018e559b 1036f5d67 1017022a7 101702233 101702fb3 100c6eb9f 1035d63c3 1035d70cf 1035d7a2b 1035a79a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 101b4d71b 1018ecfa3 1018e49e4 1018e559b 1036f5d67 1017022a7 101702233 101702fb3 100c6eb9f 1035d63c3 1035d70cf 1035d7a2b 1035a79a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 101b4d71b 1018ecfa3 1018e49e4 1018e559b 1036f5d67 1017022a7 101702233 101702fb3 1017a1d2b 100bd86ac 1035c3def 1036f5d67 1013df518 100bd86ac 1018e4d80 1018e512b 1036f5d67 101702247 101702ae3 101702fb3 100c6eb9f 1035d63c3 1035d70cf 1035d7a2b 1035a79a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 101b4d71b 1018ecfa3 1018e49e4 1018e559b 1036f5d67 1017022a7 101702233 101702fb3 1017a1d2b 100bd86ac 1035c3def 1036f5d67 1013df518 100bd86ac 1018e4d80 1018e512b 1036f5d67 101702247 101702ae3 101702fb3 100c6eb9f 1035d63c3 1035d70cf 1035d7a2b 1035a79a4
+{"status":"failed","requests":0,"collectedObjects":0,"error":"AssertionError [ERR_ASSERTION]: Cancellation affected a neighbouring request\n\nfalse !== true\n\n    at runBatch (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:35:31)\n    at async bounded (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:47:54)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:51:3"}
+Consumer verification evidence retained at /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-wMKAAL
+node:internal/errors:983
+  const err = new Error(message);
+              ^
+
+Error: Command failed: /opt/homebrew/Cellar/node@22/22.23.4_2/bin/node --expose-gc /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-wMKAAL/consumer/ssr-deadline-churn.json 1000 /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-wMKAAL/consumer/node_modules/svet-engine
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at checkExecSyncError (node:child_process:916:11)
+    at execFileSync (node:child_process:952:15)
+    at run (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:18:12)
+    at node (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:24:29)
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:895:3 {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    '{"status":"failed","requests":0,"collectedObjects":0,"error":"AssertionError [ERR_ASSERTION]: Cancellation affected a neighbouring request\\n\\nfalse !== true\\n\\n    at runBatch (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:35:31)\\n    at async bounded (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:47:54)\\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:51:3"}\n',
+    ''
+  ],
+  pid: 41715,
+  stdout: '{"status":"failed","requests":0,"collectedObjects":0,"error":"AssertionError [ERR_ASSERTION]: Cancellation affected a neighbouring request\\n\\nfalse !== true\\n\\n    at runBatch (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:35:31)\\n    at async bounded (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:47:54)\\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-deadlines.mjs:51:3"}\n',
+  stderr: ''
+}
+
+Node.js v22.23.4

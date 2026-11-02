@@ -1,0 +1,31 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run --maxWorkers=4
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  89 passed (89)
+      Tests  1249 passed (1249)
+   Start at  19:14:23
+   Duration  8.22s (environment 70%, tests 17%, import 10%, transform 2%, worker 1%)
+
+    Isolate  89 workers spawned · ~272ms startup each (spawn + environment, per file)
+             at least ~5.79s faster with isolate: false — reuses workers across files instead of one per file
+

@@ -1,0 +1,29 @@
+{
+  "startedAt": "2026-11-01T21:06:19.033Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw",
+  "packageRoot": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-rGZhI2/consumer/node_modules/svet-engine",
+  "independentEngineModules": 16,
+  "hostOptionsAdapter": "native-v4",
+  "status": "failed",
+  "error": "Error: Edge cross-copy ownership failed: {\"status\":\"failed\",\"error\":\"Error: Foreign child owner lost\\n    at check2 (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:14335:21)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:14363:15\\n    at withWasmCore2 (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:12811:12)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:14362:13\\n    at async awaitRequest (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:11945:14)\\n    at async file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:12014:30\\n    at async file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:14358:11\\n    at async awaitRequest (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:11934:14)\\n    at async runWithAsyncRequestScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:772:12)\\n    at async file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2ZPYNw/worker.js:11963:16\"}\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:36:448\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Promise.all (index 0)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:36:43",
+  "completedAt": "2026-11-01T21:06:19.356Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "reactivitySha256": "5df0af8d5692f1354ccc03a35db666c8fb4e109b2e198e7c751559279e428e5d",
+  "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+  "driverSourceSha256": "d2ce32e8aa6f32d75bc72d245fd300399dca28eff3a6de47a3a3a14897d208d0",
+  "inspectorSourceSha256": "60a1d9fe15df70504241bcc3876b177750c1dde850738b485200136441176cad",
+  "retentionSourceSha256": "2fbeb87297173e13e9033186ff9bb221cf08847b93355331e306c570f789eacd",
+  "crossCopySourceSha256": "77b57c9ccca6702b082e733ab598366bea7a6f1396ee43d5a063a2683185b2f0",
+  "workerSourceSha256": "bc3423e51490b478515cb631dd2a98ecd5f549fe9c389d0a17b02341bc70e6af",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "03a527da550e616c6fe831fa15e5589004b790cbba7e7c1ec304adcf12d28837"
+}

@@ -31,6 +31,12 @@ export type ChildNodeValue =
   | ChildNodeValue[];
 
 export type Component<P = Record<string, any>> = (props: P) => Node;
+/** Async function components require Node renderToStringAsync. */
+export type AsyncComponent<P = Record<string, any>> = (props: P) => PromiseLike<Node>;
+type AsyncComponentRenderer = (component: Component<any> | AsyncComponent<any>, props: Record<string | symbol, any>) => Node | undefined;
+let asyncComponentRenderer: AsyncComponentRenderer | undefined;
+/** @internal Installed by the Node SSR entry; inactive outside an async render request. */
+export function installAsyncComponentRenderer(renderer: AsyncComponentRenderer): void { asyncComponentRenderer = renderer; }
 
 let domMutationCounter = 0;
 
@@ -364,6 +370,38 @@ function retainOwnedResetRoot(root: EventTarget): void {
   } catch (failure) {stop();throw failure;}
 }
 
+function isMultipleSelect(el: HTMLElement): boolean {
+  const reflected = (el as unknown as HTMLSelectElement).multiple;
+  return typeof reflected === 'boolean' ? reflected : el.hasAttribute('multiple');
+}
+function selectedSelectValues(el: HTMLElement): string[] {
+  return Array.from((el as unknown as HTMLSelectElement).options)
+    .filter(option => option.selected).map(option => option.value);
+}
+
+function synchronizeSelectValue(select: HTMLSelectElement, value: unknown, assertCurrent: () => void): void {
+  assertCurrent();const next = value == null ? '' : String(value);assertCurrent();
+  const options = Array.from(select.options);assertCurrent();let selected = -1;
+  for (let index = 0; index < options.length; index++) {
+    assertCurrent();if (selected < 0 && options[index].value === next) selected = index;assertCurrent();
+  }
+  // Avoid rewriting an already coherent selection (including default state).
+  let coherent = true;
+  for (let index = 0; index < options.length; index++) {
+    assertCurrent();if (options[index].selected !== (index === selected)) coherent = false;assertCurrent();
+  }
+  if (coherent) return;
+  // Clear first: some DOM hosts enforce single selection even when deselecting.
+  for (const option of options) {
+    assertCurrent();if (option.selected) { option.selected = false;domMutationCounter++;assertCurrent(); }
+  }
+  if (selected >= 0) {
+    assertCurrent();options[selected].selected = true;domMutationCounter++;assertCurrent();
+  } else if (select.selectedIndex !== -1) {
+    assertCurrent();select.selectedIndex = -1;domMutationCounter++;assertCurrent();
+  }
+}
+
 function bindModel(el: HTMLElement, sig: Signal<any>): void {
   return runWithOwnerScope([], () => {
     const owner = getCurrentOwner()!, core = getWasmCore(), generation = getReactiveGeneration(core);
@@ -394,7 +432,7 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
         } else if (inputEl.files !== currentVal) {
           assertCurrent(); inputEl.files = currentVal; domMutationCounter++; assertCurrent();
         }
-      } else if (el.tagName === 'SELECT' && (el as unknown as HTMLSelectElement).multiple) {
+      } else if (el.tagName === 'SELECT' && isMultipleSelect(el)) {
         const select = el as unknown as HTMLSelectElement;
         const values = new Set(Array.isArray(currentVal) ? currentVal.map(String) : []);
         assertCurrent();
@@ -402,9 +440,20 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
           const nextSelected = values.has(option.value);
           assertCurrent();
           if (option.selected !== nextSelected) {
-            assertCurrent(); option.selected = nextSelected; domMutationCounter++; assertCurrent();
+            assertCurrent();
+            const nativeReflection = typeof select.multiple === 'boolean';assertCurrent();
+            if (nativeReflection) option.selected = nextSelected;
+            else {
+              // Attribute-backed DOM hosts may omit multiple reflection and
+              // implement option.selected as single-select regardless of parent.
+              if (nextSelected) option.setAttribute('selected', '');
+              else option.removeAttribute('selected');
+            }
+            domMutationCounter++; assertCurrent();
           }
         }
+      } else if (el.tagName === 'SELECT') {
+        synchronizeSelectValue(el as unknown as HTMLSelectElement, currentVal, assertCurrent);
       } else if (inputEl.type === 'checkbox' || inputEl.type === 'radio') {
         const nextChecked = inputEl.type === 'radio'
           ? currentVal != null && String(currentVal) === inputEl.value : Boolean(currentVal);
@@ -428,8 +477,8 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
       const isFile = el.tagName === 'INPUT' && inputEl.type === 'file';
       const eventName = isCheckbox || isRadio || isFile || el.tagName === 'SELECT' ? 'change' : 'input';
       if (event.type !== eventName || (isTextModel() && (composing || (event as InputEvent).isComposing))) return;
-      if (el.tagName === 'SELECT' && (el as unknown as HTMLSelectElement).multiple) {
-        commitValue(Array.from((el as unknown as HTMLSelectElement).selectedOptions, option => option.value));
+      if (el.tagName === 'SELECT' && isMultipleSelect(el)) {
+        commitValue(selectedSelectValues(el));
       } else if (isFile) commitValue(inputEl.files);
       else if (isCheckbox) commitValue(inputEl.checked);
       else if (isRadio) { if (inputEl.checked) commitValue(inputEl.value); }
@@ -497,8 +546,8 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
           if (!isCurrent()) return null;
           composing = false;
           let value: unknown, priority = 1;
-          if (el.tagName === 'SELECT' && (el as unknown as HTMLSelectElement).multiple) {
-            value = Array.from((el as unknown as HTMLSelectElement).selectedOptions, option => option.value);
+          if (el.tagName === 'SELECT' && isMultipleSelect(el)) {
+            value = selectedSelectValues(el);
           } else if (inputEl.type === 'radio') {
             const checked = inputEl.checked;
             value = checked ? inputEl.value : null; priority = checked ? 2 : 0;
@@ -682,15 +731,45 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
 function bindAttribute(el: HTMLElement, key: string, value: any, notifyModel: boolean): void {
   const assertBindingCurrent = captureViewLifetime();
   assertBindingCurrent();
+  const isSelectValue = el.tagName === 'SELECT' && key === 'value';
+  let cachedSelectValue = '';
   const apply = () => {
     const assertRunCurrent = captureViewLifetime();
     const assertCurrent = () => {assertBindingCurrent();assertRunCurrent();};
     assertCurrent();
     const resolved = isReactiveAccessor(value) ? value() : value;
     assertCurrent();
-    if (notifyModel) applyAttributeValue(el, key, resolved, assertCurrent);
-    else applyStaticAttribute(el, key, resolved, assertCurrent);
+    const attributeValue = isSelectValue ? (resolved == null ? '' : String(resolved)) : resolved;
+    assertCurrent();if (isSelectValue) cachedSelectValue = attributeValue as string;
+    if (notifyModel) applyAttributeValue(el, key, attributeValue, assertCurrent);
+    else applyStaticAttribute(el, key, attributeValue, assertCurrent);
   };
+  if (isSelectValue) {
+    const core = getWasmCore(), owner = getCurrentOwner(), generation = getReactiveGeneration(core);
+    const synchronizers = modelSynchronizers.get(el) ?? new Set<() => void>();
+    let active = true, observer: MutationObserver | undefined;
+    const refresh = () => {
+      if (!active || isOwnerScopeDisposed(owner) || generation !== getReactiveGeneration(core)) return;
+      runWithCapturedOwner(core, owner, () => untrack(() => {
+        assertBindingCurrent();
+        synchronizeSelectValue(el as unknown as HTMLSelectElement, cachedSelectValue, assertBindingCurrent);
+      }));
+    };
+    const cleanup = () => {
+      active = false;try {observer?.disconnect();} catch {/* Still unlink selection refresh. */}synchronizers.delete(refresh);
+      if (!synchronizers.size && modelSynchronizers.get(el) === synchronizers) modelSynchronizers.delete(el);
+    };
+    modelSynchronizers.set(el, synchronizers);synchronizers.add(refresh);onCleanup(cleanup);
+    try {
+      const Observer = el.ownerDocument.defaultView?.MutationObserver ?? globalThis.MutationObserver;
+      assertBindingCurrent();
+      if (Observer) {
+        observer = new Observer(refresh);assertBindingCurrent();
+        observer.observe(el, {childList: true, subtree: true, characterData: true,
+          attributes: true, attributeFilter: ['value']});assertBindingCurrent();
+      }
+    } catch (error) {cleanup();throw error;}
+  }
   if (isReactiveAccessor(value)) {
     runWithOwnerScope([], () => effect(() => runWithOwnerScope([], apply)));
   } else if (typeof value === 'object' && value !== null) {
@@ -806,6 +885,9 @@ function applyStaticAttribute(el: HTMLElement, key: string, val: any, assertCurr
   }
   // Raw string/non-function inline event attributes remain blocked.
   if (lowerAttr.startsWith('on')) return;
+  if (attrName === 'value' && el.tagName === 'SELECT') {
+    synchronizeSelectValue(el as unknown as HTMLSelectElement, val, assertCurrent);return;
+  }
   if (attrName === 'value' && 'value' in el) {
     assertCurrent(); const str = val == null ? '' : String(val); assertCurrent();
     if ((el as HTMLInputElement).value !== str) {
@@ -1112,7 +1194,7 @@ function upgradeAmbiguousSvgChild(parent: HTMLElement, childNode: Node): Node {
  * Core hyperscript / JSX factory that builds real DOM & SVG nodes directly (Zero VDOM).
  */
 export function h(
-  type: string | Component<any>,
+  type: string | Component<any> | AsyncComponent<any>,
   props: Record<string, any> | null,
   ...children: ChildNodeValue[]
 ): Node {
@@ -1141,9 +1223,20 @@ export function h(
     }
 
     if (typeof type === 'function') {
+      const rendered = asyncComponentRenderer?.(type, normalizedProps);
+      assertCurrent();
+      if (rendered !== undefined) return rendered;
       const result = untrack(() => type(normalizedProps));
       assertCurrent();
-      return result;
+      const then = untrack(() => result && (result as unknown as {then?: unknown}).then);
+      assertCurrent();
+      if (typeof then === 'function') {
+        // Observe an unsupported promise too, so a rejected component does not
+        // escape as an unhandled rejection alongside the synchronous diagnostic.
+        void untrack(() => Promise.resolve(result)).catch(() => {});
+        throw new TypeError('Async components require renderToStringAsync from svet-engine/server');
+      }
+      return result as Node;
     }
 
     const forceSvg =

@@ -1,0 +1,54 @@
+<!doctype html><meta charset="utf-8"><title>Forma scene artifact browser check</title>
+<style>body{font:16px system-ui;background:#eff2f5;padding:24px}canvas{background:white;border:1px solid #9ba4af}pre{white-space:pre-wrap}#status{font-weight:600}</style>
+<h1>Scene artifact</h1><p id="status">Loading WASM…</p><canvas width="360" height="400"></canvas><pre id="report"></pre>
+<script type="module">
+import init, { Runtime } from './forma.js';
+const report={status:'running',userAgent:navigator.userAgent,cases:[]};
+const equal=(a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);};
+async function check(name,fn){try{await fn();report.cases.push({name,status:'passed'});}catch(error){report.cases.push({name,status:'failed',error:String(error.stack??error)});}}
+let runtime;
+try{
+ await init();runtime=new Runtime();
+ const compile=height=>Runtime.compile_ui_scene_artifact(JSON.stringify({'App.ui':`component App { Column { width:360; height:400; Scroll { width:320; height:300; Column { width:100; height:${height}; } } } }`}), 'App.ui','{}');
+ const json=compile(512),artifact=JSON.parse(json);
+ await check('browser Rust compile and complete JSON load',()=>{equal(artifact.protocol,'forma-scene-artifact/1');runtime.load_scene_artifact(json);equal(Array.from(runtime.viewport()),[20,50,320,300]);equal(runtime.control_count(),0);});
+ const before=runtime.pixels(360,400,1).slice();
+ await check('empty layout extent and scrollbar pixels remain clipped',()=>{
+  runtime.scroll(0,10000);equal(Array.from(runtime.scroll_offset()),[0,212]);
+  const after=runtime.pixels(360,400,1);let changed=0,outside=0;
+  for(let y=0;y<400;y++)for(let x=0;x<360;x++)for(let c=0;c<4;c++)if(before[(y*360+x)*4+c]!==after[(y*360+x)*4+c]){changed++;if(x<20||x>=340||y<50||y>=350)outside++;}
+  if(!changed)throw Error('Scrollbar pixels did not change');equal(outside,0);report.changedBytes=changed;
+ });
+ await check('refused malformed/version/extent loads preserve live scene',()=>{
+  const revision=runtime.layout_revision();for(const bad of ['{',json.replace('forma-scene-artifact/1','forma-scene-artifact/99'),JSON.stringify({...artifact,logical_content_end:[-1,500]})]){
+   let refused=false;try{runtime.load_scene_artifact(bad);}catch{refused=true;}if(!refused)throw Error('Invalid artifact accepted');equal(runtime.layout_revision(),revision);equal(Array.from(runtime.scroll_offset()),[0,212]);
+  }
+ });
+ await check('CPU frames render at fractional and Retina scales',()=>{for(const scale of [1,1.25,2]){const w=Math.ceil(360*scale),h=Math.ceil(400*scale);equal(runtime.pixels(w,h,scale).length,w*h*4);}});
+ const pixels=runtime.pixels(360,400,1);document.querySelector('canvas').getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels),360,400),0,0);
+ await check('valid replacement shrinks logical content and revises caches',()=>{const revision=runtime.layout_revision();runtime.load_scene_artifact(compile(200));runtime.scroll(0,10000);equal(Array.from(runtime.scroll_offset()),[0,0]);if(runtime.layout_revision()===revision)throw Error('Revision did not change');});
+ for(const chained of [false,true])await check(`browser input/CPU frame commits ${chained?'chained':'single'} Let alias`,()=>{
+  const files={'App.ui':"component App { state items: List = []; Column { width:360; height:200; let visible = state.items; for item in visible key item.id { TextInput { width:200; height:32; value <-> item.title; } } } }".replace('for item in visible',chained?'let chosen = visible; for item in chosen':'for item in visible')};
+  const view=new Runtime();
+  try{view.load_ui_files_json(JSON.stringify(files),'App.ui',JSON.stringify({items:[{id:'a',title:'Alpha'},{id:'b',title:'Beta'}]}));equal(view.control_count(),2);if(!view.focus_control(0))throw Error('Input focus refused');view.tick(1000);
+   const bounds=Array.from(view.control_bounds(0)),before=view.pixels(360,200,1).slice();
+   if(!view.text_insert('—правка'))throw Error('Input insert refused');const edited=view.text_value(0);if(!edited.includes('—правка'))throw Error('Unicode input lost');equal(view.sync_ui_bindings(),true);
+   equal(JSON.parse(view.ui_state_json()).items.map(x=>x.title),[edited,'Beta']);equal(view.sync_ui_bindings(),false);view.tick(1000);
+   const pixels=view.pixels(360,200,1).slice();let changed=0,inside=0;
+   for(let y=0;y<200;y++)for(let x=0;x<360;x++)for(let c=0;c<4;c++)if(before[(y*360+x)*4+c]!==pixels[(y*360+x)*4+c]){changed++;if(x>=bounds[0]&&x<bounds[0]+bounds[2]&&y>=bounds[1]&&y<bounds[1]+bounds[3])inside++;}
+   if(!inside)throw Error('Edited input has no changed pixels within its bounds');
+   for(const scale of [1,1.25,2]){const w=Math.ceil(360*scale),h=Math.ceil(200*scale);equal(view.pixels(w,h,scale).length,w*h*4);}
+   const figure=document.createElement('figure'),caption=document.createElement('figcaption'),canvas=document.createElement('canvas');caption.textContent=(chained?'Chained':'Single')+' Let alias: '+edited;canvas.width=360;canvas.height=200;canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(pixels),360,200),0,0);figure.append(caption,canvas);document.querySelector('#report').before(figure);
+   (report.aliasFrames??=[]).push({chained,edited,changedBytes:changed,changedBytesInsideControl:inside,bounds});
+  }finally{view.free();}
+ });
+ await check('browser custom template reads transferred props.__state and updates visible text',()=>{
+  const files={'App.ui':"component App { use 'Caption.ui'; state caption: String = 'initial'; Column { width:360; height:200; Caption {} } }",'Caption.ui':"component Caption { width:200; height:40; Rectangle { Text { text:props.__state.caption; } } }"};
+  const compile=caption=>Runtime.compile_ui_scene_artifact(JSON.stringify(files),'App.ui',JSON.stringify({caption}));const first=compile('Browser state'),artifact=JSON.parse(first);equal(artifact.controls[0].state.caption.value,'Browser state');if(!artifact.templates.includes('Browser state'))throw Error('Captured state missing from template');
+  const view=new Runtime();try{view.load_scene_artifact(first);const before=view.pixels(360,200,1).slice();view.load_scene_artifact(compile('Updated'));const after=view.pixels(360,200,1);if(!after.some((value,index)=>value!==before[index]))throw Error('Custom template state did not change visible frame');}finally{view.free();}
+ });
+}catch(error){report.error=String(error.stack??error);}finally{runtime?.free();}
+report.status=!report.error&&report.cases.length===8&&report.cases.every(x=>x.status==='passed')?'passed':'failed';
+report.completedAt=new Date().toISOString();document.querySelector('#status').textContent=report.status;document.querySelector('#report').textContent=JSON.stringify(report,null,2);
+await fetch('/result',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(report)});
+</script>

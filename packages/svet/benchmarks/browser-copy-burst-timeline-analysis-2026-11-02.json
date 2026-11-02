@@ -1,0 +1,40 @@
+{
+  "status": "investigation-open",
+  "combinedResult": "16/17 reproduced with timeline",
+  "finalGo": {
+    "ms": 5588.80000000447,
+    "kind": "go",
+    "args": [
+      -2
+    ],
+    "case": "B\u2192A denied traversal burst [-1,-1,1,1]",
+    "url": "/svet-copy-burst/5?q=5#h5",
+    "state": {
+      "__svet_router_history__": {
+        "chain": "svet:1793571117189:8",
+        "index": 5
+      }
+    },
+    "route": {
+      "path": "/svet-copy-burst/5",
+      "query": {
+        "q": "5"
+      },
+      "hash": "h5"
+    }
+  },
+  "popstatesAfterFinalGo": 0,
+  "nativeOnlyControl": {
+    "commands": 199,
+    "popstatesAfterLast": 1,
+    "finalUrl": "/svet-copy-burst/3?q=3#h3"
+  },
+  "conclusion": "No native event after final engine-run go within3s; native-only scheduled replay succeeds. Command-count/tempo alone does not reproduce failure. No root-cause or fix claimed.",
+  "next": "Compare event/command interleaving and synchronous router compensation against native-only scheduled replay; inspect pending traversal at each case boundary",
+  "evidence": [
+    "browser-copy-burst-timeline-2026-11-02.json",
+    "browser-copy-burst-timeline-2026-11-02.png",
+    "history-native-replay-2026-11-02.json",
+    "history-native-replay-2026-11-02.png"
+  ]
+}

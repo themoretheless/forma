@@ -1,0 +1,34 @@
+{
+  "startedAt": "2026-11-01T17:43:56.828Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "observations": [
+    {
+      "phase": "held",
+      "alive": {
+        "liveControl": 4
+      },
+      "expected": {
+        "liveControl": 4
+      },
+      "passed": true
+    },
+    {
+      "phase": "released",
+      "alive": {},
+      "expected": {},
+      "passed": true
+    }
+  ],
+  "scope": "Native browser WeakRef collection with external CDP GC. Production ESM, retained terminal receivers and detached select DOM. No SSR request cores/Edge/RSS plateau claim.",
+  "pressureRuns": 2,
+  "gcMechanism": "Natural browser GC under bounded allocation pressure; raw CDP collectGarbage unavailable",
+  "status": "passed",
+  "graph": 0,
+  "manifest": {
+    "tests/browser/retention-gc.html": "14bdd9c115df4fb88f9ab8bc8af9a60a1b077a8cd899cf7345d4de630fca4d8a",
+    "dist/package/index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "dist/package/dom.js": "8561d8d6518f49ceacc846bfad360b5eec9fd84055ef0f91bc7930219bb1e941",
+    "dist/package/stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889"
+  },
+  "recordedAt": "2026-11-01T17:44:37.476Z"
+}

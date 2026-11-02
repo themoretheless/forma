@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "scope": "Constructor owned allocation cleanup on synchronous errors",
+  "sourceSha256": "9a71b20e50cc6a6686b7be32ad2229064a895b4d46d4abe7c4224f62595a4017",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-LnvJXs/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "browserReport": "forma-constructor-browser-2026-11-02.json",
+  "checks": {
+    "baseline": "3 failed/18 passed",
+    "full": "1363 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageGC": "passed",
+    "browser": "25/25"
+  },
+  "commands": [
+    "npx vitest run tests/forma-hmr-events.test.ts",
+    "npx vitest run --maxWorkers=2",
+    "npx tsc --noEmit",
+    "npm run build:package",
+    "node scripts/check-package.mjs --keep",
+    "node scripts/serve-forma-hmr-probe.mjs <installed> <report> 4222"
+  ],
+  "limitations": [
+    "Independent-copy factory construction registry remains open",
+    "Arbitrary external/in-place side effects cannot be reversed",
+    "General post-commit rollback and async/other-browser/performance/current-runtime soak unqualified"
+  ]
+}

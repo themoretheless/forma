@@ -1,0 +1,13 @@
+component App {
+    Column {
+        width:128; height:128; background:#112233;
+        Scroll {
+            width:63; height:61;
+            Column {
+                width:63; height:128;
+                Red { width:63; }
+                Green { width:63; }
+            }
+        }
+    }
+}

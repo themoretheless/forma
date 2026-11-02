@@ -1,0 +1,1513 @@
+{
+  "diagnosticsVersion": 1,
+  "runtimePackageBase": "file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Xo6Vf0/consumer/node_modules/svet-engine/dist/package/",
+  "runtimeFileCount": 20,
+  "startedAt": "2026-11-02T03:38:20.240Z",
+  "node": "v22.23.4",
+  "durationMs": 1800000,
+  "concurrency": 8,
+  "gcMode": "natural",
+  "forcedGCs": 0,
+  "cleanupFailures": [],
+  "requestFailures": [],
+  "requests": 359048,
+  "completed": 239365,
+  "disconnected": 119683,
+  "bytesRead": 63496952087,
+  "readerPauses": 718095,
+  "drains": 478730,
+  "maxNodesAfterFinish": 0,
+  "samples": [
+    {
+      "elapsedMs": 1799456.420833,
+      "requests": 358920,
+      "rss": 157733080,
+      "heapTotal": 105037824,
+      "heapUsed": 67120152,
+      "external": 60407785,
+      "arrayBuffers": 8097552,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119656,
+          "closed": 119640,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291529321,
+          "bytesWritten": 63892797775
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 60407785,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 84606976
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799493.5810419999,
+      "requests": 358928,
+      "rss": 146278624,
+      "heapTotal": 97337344,
+      "heapUsed": 55456792,
+      "external": 20767546,
+      "arrayBuffers": 6206049,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119659,
+          "closed": 119643,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291535891,
+          "bytesWritten": 63894133764
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 20767546,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 76660736
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799527.647125,
+      "requests": 358936,
+      "rss": 143624200,
+      "heapTotal": 94306304,
+      "heapUsed": 52632968,
+      "external": 26762369,
+      "arrayBuffers": 2763688,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119661,
+          "closed": 119645,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291542463,
+          "bytesWritten": 63895734498
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 26762369,
+          "mallocedMemory": 733288,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 73629696
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799560.195667,
+      "requests": 358944,
+      "rss": 156405592,
+      "heapTotal": 105283584,
+      "heapUsed": 66347688,
+      "external": 41514837,
+      "arrayBuffers": 8078972,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119664,
+          "closed": 119648,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291548828,
+          "bytesWritten": 63897070092
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 41514837,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 84606976
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799592.082375,
+      "requests": 358952,
+      "rss": 156438480,
+      "heapTotal": 104710144,
+      "heapUsed": 66166296,
+      "external": 50969867,
+      "arrayBuffers": 8096818,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119667,
+          "closed": 119651,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291555398,
+          "bytesWritten": 63898406081
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 50969867,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 84033536
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799630.532708,
+      "requests": 358960,
+      "rss": 148703792,
+      "heapTotal": 99794944,
+      "heapUsed": 57616264,
+      "external": 21819391,
+      "arrayBuffers": 7257894,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119669,
+          "closed": 119653,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291561970,
+          "bytesWritten": 63900006815
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 21819391,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78872576
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799677.167917,
+      "requests": 358968,
+      "rss": 144279656,
+      "heapTotal": 95158272,
+      "heapUsed": 53497016,
+      "external": 26755228,
+      "arrayBuffers": 2756547,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119672,
+          "closed": 119656,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291568335,
+          "bytesWritten": 63901342409
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 26755228,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 74235904
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799707.574792,
+      "requests": 358976,
+      "rss": 157061048,
+      "heapTotal": 106135552,
+      "heapUsed": 67287016,
+      "external": 41508287,
+      "arrayBuffers": 8072422,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119675,
+          "closed": 119659,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291574905,
+          "bytesWritten": 63902678398
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 41508287,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 85213184
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799742.5874579998,
+      "requests": 358984,
+      "rss": 142476960,
+      "heapTotal": 94453760,
+      "heapUsed": 50862440,
+      "external": 18639930,
+      "arrayBuffers": 4078433,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119677,
+          "closed": 119661,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291581477,
+          "bytesWritten": 63904279132
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 18639930,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 73531392
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799775.370625,
+      "requests": 358992,
+      "rss": 155258352,
+      "heapTotal": 105431040,
+      "heapUsed": 64710752,
+      "external": 33392989,
+      "arrayBuffers": 9394308,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119680,
+          "closed": 119664,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291588047,
+          "bytesWritten": 63905615121
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 33392989,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 84508672
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799807.2497919998,
+      "requests": 359000,
+      "rss": 151227432,
+      "heapTotal": 101187584,
+      "heapUsed": 59829336,
+      "external": 41511044,
+      "arrayBuffers": 8075179,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119683,
+          "closed": 119667,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291594412,
+          "bytesWritten": 63906950715
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 41511044,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 80756736
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799840.730125,
+      "requests": 359008,
+      "rss": 154963608,
+      "heapTotal": 103972864,
+      "heapUsed": 63369432,
+      "external": 52027290,
+      "arrayBuffers": 9154241,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119685,
+          "closed": 119669,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291600984,
+          "bytesWritten": 63908551449
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 52027290,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 83542016
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799872.6526249999,
+      "requests": 359016,
+      "rss": 148638592,
+      "heapTotal": 97665024,
+      "heapUsed": 56926824,
+      "external": 55911139,
+      "arrayBuffers": 3600906,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119688,
+          "closed": 119672,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291607349,
+          "bytesWritten": 63909887043
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 55911139,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 77234176
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799913.18125,
+      "requests": 359024,
+      "rss": 143001344,
+      "heapTotal": 93863936,
+      "heapUsed": 51836872,
+      "external": 19694750,
+      "arrayBuffers": 5133253,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119691,
+          "closed": 119675,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291613714,
+          "bytesWritten": 63911222637
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 19694750,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 73433088
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799949.3832919998,
+      "requests": 359032,
+      "rss": 140346920,
+      "heapTotal": 90832896,
+      "heapUsed": 48896680,
+      "external": 25296589,
+      "arrayBuffers": 1297908,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119693,
+          "closed": 119677,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291620286,
+          "bytesWritten": 63912823371
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 25296589,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 70402048
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799981.301417,
+      "requests": 359040,
+      "rss": 153128312,
+      "heapTotal": 101810176,
+      "heapUsed": 62715472,
+      "external": 40057249,
+      "arrayBuffers": 6621384,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119696,
+          "closed": 119680,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291626651,
+          "bytesWritten": 63914158965
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 40057249,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 81379328
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1800017.949458,
+      "requests": 359048,
+      "rss": 153161200,
+      "heapTotal": 101236736,
+      "heapUsed": 62473768,
+      "external": 49503838,
+      "arrayBuffers": 6630789,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119699,
+          "closed": 119683,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291633221,
+          "bytesWritten": 63915494954
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 49503838,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 81051648
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1798949.378292,
+      "requests": 358800,
+      "rss": 152636936,
+      "heapTotal": 100990976,
+      "heapUsed": 61954248,
+      "external": 59549919,
+      "arrayBuffers": 7239686,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119616,
+          "closed": 119600,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291431786,
+          "bytesWritten": 63871436190
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 59549919,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 81297408
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1798979.380417,
+      "requests": 358808,
+      "rss": 165434712,
+      "heapTotal": 111968256,
+      "heapUsed": 75742000,
+      "external": 74302978,
+      "arrayBuffers": 12555561,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119619,
+          "closed": 119603,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291438356,
+          "bytesWritten": 63872772179
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 74302978,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 92274688
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799016.381542,
+      "requests": 358816,
+      "rss": 163435744,
+      "heapTotal": 110575616,
+      "heapUsed": 73023016,
+      "external": 80834497,
+      "arrayBuffers": 9649896,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119621,
+          "closed": 119605,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291444928,
+          "bytesWritten": 63874372913
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 80834497,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 91127808
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799053.23225,
+      "requests": 358824,
+      "rss": 145836160,
+      "heapTotal": 99631104,
+      "heapUsed": 55233456,
+      "external": 20768226,
+      "arrayBuffers": 6206729,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119624,
+          "closed": 119608,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291451293,
+          "bytesWritten": 63875708507
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 20768226,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 79413248
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799083.6774169998,
+      "requests": 358832,
+      "rss": 158617552,
+      "heapTotal": 110608384,
+      "heapUsed": 68945296,
+      "external": 35520694,
+      "arrayBuffers": 11522013,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119627,
+          "closed": 119611,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291457658,
+          "bytesWritten": 63877044101
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 35520694,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 90390528
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799121.203125,
+      "requests": 358840,
+      "rss": 147278144,
+      "heapTotal": 98844672,
+      "heapUsed": 56005496,
+      "external": 21154401,
+      "arrayBuffers": 6592904,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119629,
+          "closed": 119613,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291464230,
+          "bytesWritten": 63878644835
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 21154401,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78381056
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799157.3328749998,
+      "requests": 358848,
+      "rss": 142854008,
+      "heapTotal": 94208000,
+      "heapUsed": 51492608,
+      "external": 26097957,
+      "arrayBuffers": 2099276,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119632,
+          "closed": 119616,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291470800,
+          "bytesWritten": 63879980824
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 26097957,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 73744384
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799189.532292,
+      "requests": 358856,
+      "rss": 155635400,
+      "heapTotal": 105185280,
+      "heapUsed": 65264040,
+      "external": 40851016,
+      "arrayBuffers": 7415151,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119635,
+          "closed": 119619,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291477370,
+          "bytesWritten": 63881316813
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 40851016,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 84721664
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799223.5149579998,
+      "requests": 358864,
+      "rss": 158109840,
+      "heapTotal": 106807296,
+      "heapUsed": 67147352,
+      "external": 51356921,
+      "arrayBuffers": 8483872,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119637,
+          "closed": 119621,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291483942,
+          "bytesWritten": 63882917547
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 51356921,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 86589440
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799259.3662079999,
+      "requests": 358872,
+      "rss": 138331208,
+      "heapTotal": 91209728,
+      "heapUsed": 46688496,
+      "external": 11920964,
+      "arrayBuffers": 898411,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119640,
+          "closed": 119624,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291490512,
+          "bytesWritten": 63884253536
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 11920964,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 70746112
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799288.6407919999,
+      "requests": 358880,
+      "rss": 151112600,
+      "heapTotal": 102187008,
+      "heapUsed": 60429808,
+      "external": 26673432,
+      "arrayBuffers": 6213695,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119643,
+          "closed": 119627,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291496877,
+          "bytesWritten": 63885589130
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 26673432,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 81723392
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799324.763542,
+      "requests": 358888,
+      "rss": 148703792,
+      "heapTotal": 99270656,
+      "heapUsed": 57277064,
+      "external": 21817096,
+      "arrayBuffers": 7255599,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119645,
+          "closed": 119629,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291503449,
+          "bytesWritten": 63887189864
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 21817096,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 78839808
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799358.562333,
+      "requests": 358896,
+      "rss": 144279656,
+      "heapTotal": 94633984,
+      "heapUsed": 53162072,
+      "external": 26752933,
+      "arrayBuffers": 2754252,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119648,
+          "closed": 119632,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291509814,
+          "bytesWritten": 63888525458
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16
+        },
+        "v8": {
+          "externalMemory": 26752933,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 74203136
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799389.3363329999,
+      "requests": 358904,
+      "rss": 157044640,
+      "heapTotal": 105611264,
+      "heapUsed": 66960704,
+      "external": 41514184,
+      "arrayBuffers": 8078319,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119651,
+          "closed": 119635,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291516384,
+          "bytesWritten": 63889861447
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 41514184,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 85180416
+        },
+        "mainWasmBytes": 1114112
+      }
+    },
+    {
+      "elapsedMs": 1799421.617083,
+      "requests": 358912,
+      "rss": 159519104,
+      "heapTotal": 107233280,
+      "heapUsed": 68440440,
+      "external": 52019221,
+      "arrayBuffers": 9146172,
+      "diagnostics": {
+        "sockets": {
+          "active": 16,
+          "opened": 119653,
+          "closed": 119637,
+          "readableBytes": 0,
+          "writableBytes": 0,
+          "bytesRead": 291522956,
+          "bytesWritten": 63891462181
+        },
+        "responses": {
+          "active": 0,
+          "peak": 9
+        },
+        "resources": {
+          "TCPServerWrap": 1,
+          "TCPSocketWrap": 16,
+          "Immediate": 1
+        },
+        "v8": {
+          "externalMemory": 52019221,
+          "mallocedMemory": 565352,
+          "peakMallocedMemory": 33030144,
+          "totalPhysicalSize": 86802432
+        },
+        "mainWasmBytes": 1114112
+      }
+    }
+  ],
+  "windows": [
+    {
+      "count": 11329,
+      "heapMin": 45928872,
+      "heapMax": 79943384,
+      "rssMin": 144197136,
+      "rssMax": 224400680,
+      "externalMin": 7863704,
+      "externalMax": 184653806,
+      "arrayBuffersMin": 889694,
+      "arrayBuffersMax": 13486441,
+      "externalPeakObservation": {
+        "elapsedMs": 306001.798125,
+        "requests": 62992,
+        "rss": 175414656,
+        "heapTotal": 116424704,
+        "heapUsed": 77146488,
+        "external": 184653806,
+        "arrayBuffers": 9660181,
+        "diagnostics": {
+          "sockets": {
+            "active": 16,
+            "opened": 21013,
+            "closed": 20997,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 50920536,
+            "bytesWritten": 11213507196
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 16
+          },
+          "v8": {
+            "externalMemory": 184653806,
+            "mallocedMemory": 565352,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 96976896
+          },
+          "mainWasmBytes": 1114112
+        }
+      }
+    },
+    {
+      "count": 10711,
+      "heapMin": 45917088,
+      "heapMax": 78844432,
+      "rssMin": 138068920,
+      "rssMax": 170890584,
+      "externalMin": 7463814,
+      "externalMax": 147770544,
+      "arrayBuffersMin": 888500,
+      "arrayBuffersMax": 14271890,
+      "externalPeakObservation": {
+        "elapsedMs": 715440.8941670001,
+        "requests": 142000,
+        "rss": 146508360,
+        "heapTotal": 98123776,
+        "heapUsed": 50664192,
+        "external": 147770544,
+        "arrayBuffers": 1475964,
+        "diagnostics": {
+          "sockets": {
+            "active": 16,
+            "opened": 47349,
+            "closed": 47333,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 115137715,
+            "bytesWritten": 25278105110
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 16,
+            "Immediate": 1
+          },
+          "v8": {
+            "externalMemory": 147770544,
+            "mallocedMemory": 565352,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 78888960
+          },
+          "mainWasmBytes": 1114112
+        }
+      }
+    },
+    {
+      "count": 11051,
+      "heapMin": 46003600,
+      "heapMax": 80134168,
+      "rssMin": 136987648,
+      "rssMax": 171023000,
+      "externalMin": 7461932,
+      "externalMax": 170568729,
+      "arrayBuffersMin": 887711,
+      "arrayBuffersMax": 15795918,
+      "externalPeakObservation": {
+        "elapsedMs": 1306427.410583,
+        "requests": 254976,
+        "rss": 164780432,
+        "heapTotal": 109871104,
+        "heapUsed": 69181944,
+        "external": 170568729,
+        "arrayBuffers": 8551232,
+        "diagnostics": {
+          "sockets": {
+            "active": 16,
+            "opened": 85008,
+            "closed": 84992,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 207045324,
+            "bytesWritten": 45389394428
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 16,
+            "Immediate": 1
+          },
+          "v8": {
+            "externalMemory": 170568729,
+            "mallocedMemory": 565352,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 89964544
+          },
+          "mainWasmBytes": 1114112
+        }
+      }
+    },
+    {
+      "count": 11790,
+      "heapMin": 44608408,
+      "heapMax": 78639408,
+      "rssMin": 136151920,
+      "rssMax": 170220136,
+      "externalMin": 7194164,
+      "externalMax": 156366290,
+      "arrayBuffersMin": 889169,
+      "arrayBuffersMax": 13884306,
+      "externalPeakObservation": {
+        "elapsedMs": 1755242.5381669998,
+        "requests": 348976,
+        "rss": 165910832,
+        "heapTotal": 110690304,
+        "heapUsed": 70068192,
+        "external": 156366290,
+        "arrayBuffers": 9684217,
+        "diagnostics": {
+          "sockets": {
+            "active": 16,
+            "opened": 116341,
+            "closed": 116325,
+            "readableBytes": 0,
+            "writableBytes": 0,
+            "bytesRead": 283455258,
+            "bytesWritten": 62122738743
+          },
+          "responses": {
+            "active": 0,
+            "peak": 9
+          },
+          "resources": {
+            "TCPServerWrap": 1,
+            "TCPSocketWrap": 16,
+            "Immediate": 1
+          },
+          "v8": {
+            "externalMemory": 156366290,
+            "mallocedMemory": 565352,
+            "peakMallocedMemory": 33030144,
+            "totalPhysicalSize": 90013696
+          },
+          "mainWasmBytes": 1114112
+        }
+      }
+    }
+  ],
+  "scope": "Loopback Node HTTP/fetch streaming with delayed reader calls, concurrent clients and shell disconnects. Writer drains are observed; no proxy/browser, sustained kernel-buffer saturation or universal RSS bound claim.",
+  "sourceSha256": "c453ea43f4a29a32847195ce51de08e371e4d9502ba3a3aff298d922d6c1ee39",
+  "fixtureSha256": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c",
+  "runtimeSha256": {
+    "advanced.js": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d",
+    "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+    "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "forma.js": "edbbb8773dfec0b33c66166c4e2517fe15c8ba7c04500b63a8ff3a402016977b",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu.js": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+    "index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+    "reactivity.js": "aab693d13fa59e7f3d154db9b9021ce101a67b04d70905810c2ff236fa830f29",
+    "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "ssr-runtime.js": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+    "stream-codec.js": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+    "stream-protocol.js": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "svet-core.wasm": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+    "wasm-binary.js": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46",
+    "wasm-bridge.js": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+  },
+  "updatedAt": "2026-11-02T04:08:20.242Z",
+  "externalPeakObservation": {
+    "elapsedMs": 306001.798125,
+    "requests": 62992,
+    "rss": 175414656,
+    "heapTotal": 116424704,
+    "heapUsed": 77146488,
+    "external": 184653806,
+    "arrayBuffers": 9660181,
+    "diagnostics": {
+      "sockets": {
+        "active": 16,
+        "opened": 21013,
+        "closed": 20997,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 50920536,
+        "bytesWritten": 11213507196
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {
+        "TCPServerWrap": 1,
+        "TCPSocketWrap": 16
+      },
+      "v8": {
+        "externalMemory": 184653806,
+        "mallocedMemory": 565352,
+        "peakMallocedMemory": 33030144,
+        "totalPhysicalSize": 96976896
+      },
+      "mainWasmBytes": 1114112
+    }
+  },
+  "elapsedMs": 1800017.990417,
+  "status": "passed",
+  "beforeShutdown": {
+    "memory": {
+      "rss": 153161200,
+      "heapTotal": 101236736,
+      "heapUsed": 62483400,
+      "external": 49503838,
+      "arrayBuffers": 6630789
+    },
+    "diagnostics": {
+      "sockets": {
+        "active": 16,
+        "opened": 119699,
+        "closed": 119683,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 291633221,
+        "bytesWritten": 63915494954
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {
+        "TCPServerWrap": 1,
+        "TCPSocketWrap": 16
+      },
+      "v8": {
+        "externalMemory": 49503838,
+        "mallocedMemory": 565352,
+        "peakMallocedMemory": 33030144,
+        "totalPhysicalSize": 81051648
+      },
+      "mainWasmBytes": 1114112
+    }
+  },
+  "afterShutdown": {
+    "memory": {
+      "rss": 153161200,
+      "heapTotal": 101236736,
+      "heapUsed": 62648464,
+      "external": 49503838,
+      "arrayBuffers": 6630789
+    },
+    "diagnostics": {
+      "sockets": {
+        "active": 0,
+        "opened": 119699,
+        "closed": 119699,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 291633221,
+        "bytesWritten": 63915494954
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {},
+      "v8": {
+        "externalMemory": 49503838,
+        "mallocedMemory": 565352,
+        "peakMallocedMemory": 33030144,
+        "totalPhysicalSize": 81051648
+      },
+      "mainWasmBytes": 1114112
+    }
+  },
+  "completedAt": "2026-11-02T04:08:20.241Z",
+  "finalSourceSha256": "c453ea43f4a29a32847195ce51de08e371e4d9502ba3a3aff298d922d6c1ee39",
+  "finalFixtureSha256": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c",
+  "finalRuntimeSha256": {
+    "advanced.js": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d",
+    "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+    "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "forma.js": "edbbb8773dfec0b33c66166c4e2517fe15c8ba7c04500b63a8ff3a402016977b",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu.js": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+    "index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+    "reactivity.js": "aab693d13fa59e7f3d154db9b9021ce101a67b04d70905810c2ff236fa830f29",
+    "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "ssr-runtime.js": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+    "stream-codec.js": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+    "stream-protocol.js": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "svet-core.wasm": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+    "wasm-binary.js": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46",
+    "wasm-bridge.js": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+  },
+  "artifactsUnchanged": true
+}

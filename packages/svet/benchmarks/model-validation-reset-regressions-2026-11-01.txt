@@ -1,0 +1,21 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/model-reset.test.ts tests/model-reset-roots.test.ts --maxWorkers=2
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+
+ Test Files  2 passed (2)
+      Tests  30 passed (30)
+   Start at  23:48:57
+   Duration  1.14s (environment 83%, import 7%, transform 5%, tests 5%, worker 1%)
+

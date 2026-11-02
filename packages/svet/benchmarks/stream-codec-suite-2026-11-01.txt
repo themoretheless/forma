@@ -1,0 +1,57 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run --maxWorkers=4
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ tests/stream-codec.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/stream-codec.test.ts [ tests/stream-codec.test.ts ]
+Error: Transform failed with 1 error:
+
+[31m[PARSE_ERROR] [0mExpected a semicolon or an implicit semicolon after a statement, but found none
+   [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m tests/stream-codec.test.ts:7:73 [38;5;246m][0m
+   [38;5;246m│[0m
+ [38;5;246m7 │[0m [38;5;249m [0m[38;5;249me[0m[38;5;249mx[0m[38;5;249mp[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mt[0m[38;5;249m([0m[38;5;249md[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249md[0m[38;5;249me[0m[38;5;249m.[0m[38;5;249md[0m[38;5;249me[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249md[0m[38;5;249me[0m[38;5;249m([0m[38;5;249mJ[0m[38;5;249mS[0m[38;5;249mO[0m[38;5;249mN[0m[38;5;249m.[0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249me[0m[38;5;249m([0m[38;5;249mJ[0m[38;5;249mS[0m[38;5;249mO[0m[38;5;249mN[0m[38;5;249m.[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249mn[0m[38;5;249mg[0m[38;5;249mi[0m[38;5;249mf[0m[38;5;249my[0m[38;5;249m([0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249md[0m[38;5;249me[0m[38;5;249m.[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249mc[0m[38;5;249mo[0m[38;5;249md[0m[38;5;249me[0m[38;5;249m([0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m)[0m[38;5;249m)[0m[38;5;249m)[0m[38;5;249m)[0m[38;5;249m)[0m[38;5;249m)[0m[38;5;249m.[0m[38;5;249mt[0m[38;5;249mo[0m[38;5;249mE[0m[38;5;249mq[0m[38;5;249mu[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m([0m[38;5;249mf[0m[38;5;249mi[0m[38;5;249mr[0m[38;5;249ms[0m[38;5;249mt[0m[38;5;249m)[0m[38;5;249m;[0m
+ [38;5;240m  │[0m                                                                         │ 
+ [38;5;240m  │[0m                                                                         ╰─ 
+ [38;5;240m  │[0m 
+ [38;5;240m  │[0m [38;5;115mHelp[0m: Try inserting a semicolon here
+[38;5;246m───╯[0m
+
+  Plugin: vite:oxc
+  File: /Users/themoretheless/Documents/Sources/forma/packages/svet/tests/stream-codec.test.ts
+ ❯ transformWithOxc node_modules/vite/dist/node/chunks/node.js:7618:19
+ ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/node.js:7690:26
+ ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/node.js:8582:51
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/node.js:20155:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 89 passed (90)
+      Tests  1250 passed (1250)
+   Start at  19:17:40
+   Duration  7.80s (environment 69%, tests 18%, import 11%, transform 1%, worker 1%)
+
+    Isolate  90 workers spawned · ~256ms startup each (spawn + environment, per file)
+             at least ~5.51s faster with isolate: false — reuses workers across files instead of one per file
+

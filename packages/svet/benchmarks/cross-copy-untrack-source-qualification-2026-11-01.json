@@ -1,0 +1,28 @@
+{
+  "status": "partial",
+  "scope": "Source-only same-realm compatible-copy untrack; installed package gate pending long soak completion.",
+  "crossCopyPassed": 7,
+  "crossCopyOpen": [
+    "automatic foreign-signal dependencies"
+  ],
+  "evidence": [
+    "cross-copy-tracking-before-2026-11-01.json",
+    "cross-copy-untrack-qualified-2026-11-01.json",
+    "cross-copy-untrack-types-2026-11-01.txt",
+    "cross-copy-untrack-full-suite-2026-11-01.txt",
+    "cross-copy-untrack-benchmark-repeat-2026-11-01.txt",
+    "cross-copy-untrack-expanded-2026-11-01.json",
+    "cross-copy-untrack-gc-2026-11-01.json",
+    "cross-copy-untrack-full-repeat-2026-11-01.txt"
+  ],
+  "fullSuite": "1292 passed /1 benchmark timeout; unchanged5000ms limit",
+  "GC": {
+    "coresCollected": 24,
+    "memoriesCollected": 24,
+    "controlsHeld": 4,
+    "controlsReleased": 0,
+    "liveContextRegistry": 0
+  },
+  "fullSuiteRepeat": "1292 passed /1 benchmark timeout, 2 workers, unchanged5000ms limit; full suite remains not green",
+  "supersededBy": "cross-copy-weak-registry-source-2026-11-02.json"
+}

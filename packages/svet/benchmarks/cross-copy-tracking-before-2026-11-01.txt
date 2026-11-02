@@ -1,0 +1,28 @@
+{
+  "status": "requirements-open",
+  "cases": [
+    {
+      "name": "foreign untrack pauses an existing observer",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n2 !== 1\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:11:122\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:9:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:10:1"
+    },
+    {
+      "name": "foreign untrack permits newly-created observers to track",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack restores collection after throw",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n2 !== 1\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:17:240\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:9:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:16:1"
+    },
+    {
+      "name": "foreign signal invalidates an observer in another copy",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 2\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:20:107\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:9:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:19:1"
+    },
+    {
+      "name": "separate cores retain graph isolation after teardown",
+      "status": "passed"
+    }
+  ]
+}

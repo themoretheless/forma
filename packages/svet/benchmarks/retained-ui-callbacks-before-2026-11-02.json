@@ -1,0 +1,26 @@
+{
+  "unmountNodes": {
+    "boundary": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "router": [
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "status": "retained",
+  "retained": {
+    "boundary": 4,
+    "router": 4
+  },
+  "handles": 8,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "node": "v22.23.4",
+  "scope": "Installed Node ALS+JSDOM; retained retry functions and disposed router objects; four requests per kind"
+}

@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "scope": "Per-view staged construction and insertion failure preservation",
+  "sourceSha256": "9cd69f90a55a59cbaab4bdd28ab7315d3b864c9780e9d0832a989b630f3c74f5",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-9T7CrE/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "browserReport": "forma-hmr-staging-browser-2026-11-02.json",
+  "checks": {
+    "baseline": "child-render failure lost prior DOM:1 failed/10 passed",
+    "full": "1354 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageGC": "passed",
+    "browser": "17/17"
+  },
+  "limitations": [
+    "AST/state/lets are applied before rendering; no whole-instance transaction",
+    "Multiple views can commit independently",
+    "Cleanup exceptions and arbitrary reentrant commit callbacks remain open",
+    "Connected callbacks can observe candidate and old nodes during insertion",
+    "Other browsers/async/performance and current-runtime soak unqualified"
+  ]
+}

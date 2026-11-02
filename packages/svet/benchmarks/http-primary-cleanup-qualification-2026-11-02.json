@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "scope": "HTTP soak diagnostics only; original long-run timeout root cause remains unknown. No two-hour memory qualification.",
+  "sourceSha256": "3414489679d9e5a19510f407499df8f5c603e0fa0a2903ea9f167af78563aa38",
+  "normalRequests": 192,
+  "forcedModeRequests": 16,
+  "injectedPrimary": {
+    "name": "Error",
+    "message": "HTTP stats failed for soak-0-0",
+    "operation": "stats",
+    "requestId": "soak-0-0",
+    "elapsedMs": 261.7876669999996,
+    "cause": {
+      "name": "AssertionError",
+      "message": "stats 503"
+    }
+  },
+  "injectedCleanup": [
+    {
+      "name": "Error",
+      "message": "HTTP forget failed for soak-0-0",
+      "operation": "forget",
+      "requestId": "soak-0-0",
+      "elapsedMs": 227.0407499999992,
+      "cause": {
+        "name": "AssertionError",
+        "message": "forget 503"
+      },
+      "primary": {
+        "name": "Error",
+        "message": "HTTP stats failed for soak-0-0",
+        "operation": "stats",
+        "requestId": "soak-0-0",
+        "elapsedMs": 261.7876669999996,
+        "cause": {
+          "name": "AssertionError",
+          "message": "stats 503"
+        }
+      }
+    }
+  ],
+  "batchSettledBeforeTeardown": true,
+  "evidence": [
+    "http-primary-cleanup-injected-final-2026-11-02.json",
+    "http-primary-cleanup-normal-2026-11-02.json",
+    "http-primary-cleanup-forced-2026-11-02.json"
+  ]
+}

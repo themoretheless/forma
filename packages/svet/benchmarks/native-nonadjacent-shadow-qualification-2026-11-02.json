@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-02",
+  "change": "Capture inherited context for any item-name shadow; resolve the new item collection against pre-shadow context even when its immediate parent has another name.",
+  "checks": {
+    "lib": 146,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": [
+    "Expanded three-level real .ui test: item/item/item and item/branch/item, fresh/cached maps, reordered root groups, same mid/leaf ids in separate groups.",
+    "All previous duplicate/removal/cyclic metadata cases pass."
+  ],
+  "source_sha256": "c27e6ec2ef102bcecb88fa67ab4761c0119d5ce723201058421f1d58986994a5",
+  "limitations": [
+    "Arbitrary later references to earlier locals across several shadowings need full lexical scope-chain representation and further proof.",
+    "Owned parent contexts increase copies; memory/performance not qualified.",
+    "Derived collections/browser/AOT remain open."
+  ]
+}

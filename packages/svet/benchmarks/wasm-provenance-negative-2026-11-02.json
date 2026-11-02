@@ -1,0 +1,17 @@
+{
+  "status": "failed",
+  "rebuilt": "/tmp/svet-wasm-qualification-b/control-custom-section.wasm",
+  "installedPackage": null,
+  "sourceSha256": {
+    "crates/svet-wasm/src/lib.rs": "79f354a236c1b789a544f78f24c629a941794b4991bba5c2bcfa33f35953b914",
+    "crates/svet-wasm/Cargo.toml": "3f97ddc2396ab425351c9154d41d39de944484c8647ce41db2cf4a83e8e24099",
+    "crates/svet-wasm/Cargo.lock": "0e0f370a1631035bbc16f9fe824f93abec96bc5fb8857cf947d8016535420070",
+    "../../rust-toolchain.toml": "9cbeb062ec3a97a5b5b76aacde94f5dcb034ed98f32af151480764de2e03d6f9"
+  },
+  "scope": "Byte/export identity of caller-rebuilt WASM, checked-in embedded source and optional installed public asset/runtime. Caller must first build current Rust sources with locked pinned toolchain.",
+  "rebuiltSha256": "f969dba3fab106f47476ac6fe2054e97c46ec9ed149a2720cee84d87c34061c5",
+  "embeddedSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bytes": 54325,
+  "error": "AssertionError [ERR_ASSERTION]: Rebuilt WASM differs from checked-in embedded binary\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-wasm-provenance.mjs:13:2",
+  "checkerSha256": "f63812a1c48468663f63c643e0d4bf0cb4c42730c43a1f7e59cbea27b04fcb42"
+}

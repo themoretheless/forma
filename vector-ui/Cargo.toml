@@ -18,6 +18,7 @@ gpu = ["dep:wgpu", "dep:gpu-shader", "dep:gpu-compute", "dep:pollster", "dep:byt
 [dependencies]
 themoretheless-tokenizer-forma = { git = "https://github.com/themoretheless/tokenizer", rev = "1c83ab03d879b085ec53ec5badf8abcc82c2ee3c", version = "0.8.0" }
 serde_json = "1"
+serde = { version = "1", features = ["derive"] }
 wasm-bindgen = "=0.2.125"
 winit = { version = "0.30", optional = true }
 softbuffer = { version = "0.4", optional = true }
@@ -39,3 +40,6 @@ objc = { version = "0.2", optional = true }
 [profile.release]
 codegen-units = 1
 lto = "fat"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+svet-wasm = { path = "../packages/svet/crates/svet-wasm" }

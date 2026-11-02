@@ -1,0 +1,92 @@
+{
+  "sequence": [
+    "A1 initial",
+    "A2 baseline",
+    "B1 optimized",
+    "A3 baseline",
+    "B2 optimized"
+  ],
+  "analysis": "per-process median of seven samples; no cross-process confidence interval",
+  "results": [
+    {
+      "controls": 8,
+      "noop_ms": {
+        "median_by_run": {
+          "A2": 0.605959,
+          "B1": 0.794709,
+          "A3": 0.648417,
+          "B2": 0.7608750000000001
+        },
+        "B1_over_A2": 1.3114897212517678,
+        "B2_over_A3": 1.1734346878629032,
+        "AA_A3_over_A2": 1.0700674468074574
+      },
+      "one_edit_ms": {
+        "median_by_run": {
+          "A2": 0.5705,
+          "B1": 0.792625,
+          "A3": 0.600584,
+          "B2": 0.639125
+        },
+        "B1_over_A2": 1.3893514460999123,
+        "B2_over_A3": 1.0641725387289704,
+        "AA_A3_over_A2": 1.0527326906222612
+      }
+    },
+    {
+      "controls": 32,
+      "noop_ms": {
+        "median_by_run": {
+          "A2": 4.763083000000001,
+          "B1": 5.095084,
+          "A3": 4.192459,
+          "B2": 4.5513330000000005
+        },
+        "B1_over_A2": 1.0697029633957669,
+        "B2_over_A3": 1.0855998830280749,
+        "AA_A3_over_A2": 0.8801986024597933
+      },
+      "one_edit_ms": {
+        "median_by_run": {
+          "A2": 5.276999999999999,
+          "B1": 4.138584,
+          "A3": 4.195375,
+          "B2": 4.145541
+        },
+        "B1_over_A2": 0.7842683342808414,
+        "B2_over_A3": 0.9881216816136816,
+        "AA_A3_over_A2": 0.7950303202577224
+      }
+    },
+    {
+      "controls": 96,
+      "noop_ms": {
+        "median_by_run": {
+          "A2": 30.698334,
+          "B1": 32.822166,
+          "A3": 39.07575,
+          "B2": 31.651208
+        },
+        "B1_over_A2": 1.069183949852132,
+        "B2_over_A3": 0.809996174097746,
+        "AA_A3_over_A2": 1.2728948092101675
+      },
+      "one_edit_ms": {
+        "median_by_run": {
+          "A2": 30.701916,
+          "B1": 31.379875000000002,
+          "A3": 32.622625,
+          "B2": 24.292082999999998
+        },
+        "B1_over_A2": 1.0220819769033307,
+        "B2_over_A3": 0.7446391269862557,
+        "AA_A3_over_A2": 1.0625599066846512
+      }
+    }
+  ],
+  "binaries": {
+    "/tmp/svet-binding-sync-bench-baseline": "7838a2570fd6f5e9a971428a39327c7077b92c343ae8cc94c413243c547a5ce7",
+    "/tmp/svet-binding-sync-bench-optimized": "1e25923cae1793e5a8920712c973d9ce4ac6c2f1e46b100c89118b48f2dbf972"
+  },
+  "setup_note": "Initial sequence stopped before B1 because copied binary lacked execute bit; chmod corrected it and full sequence reran. Initial A2 retained separately."
+}

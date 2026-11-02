@@ -1,0 +1,247 @@
+{
+  "status": "passed",
+  "rebuilt": "/tmp/svet-wasm-native-abi-check/wasm32-unknown-unknown/release/svet_wasm.wasm",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-09qhPH/consumer/node_modules/svet-engine",
+  "sourceSha256": {
+    "crates/svet-wasm/src/lib.rs": "534795017c2e5436368cd63687d64b01e9ac25bf36f1ce0faba4f0e717173986",
+    "crates/svet-wasm/Cargo.toml": "3f97ddc2396ab425351c9154d41d39de944484c8647ce41db2cf4a83e8e24099",
+    "crates/svet-wasm/Cargo.lock": "0e0f370a1631035bbc16f9fe824f93abec96bc5fb8857cf947d8016535420070",
+    "../../rust-toolchain.toml": "9cbeb062ec3a97a5b5b76aacde94f5dcb034ed98f32af151480764de2e03d6f9"
+  },
+  "scope": "Byte/export identity of caller-rebuilt WASM, checked-in embedded source and optional installed public asset/runtime. Caller must first build current Rust sources with locked pinned toolchain.",
+  "rebuiltSha256": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+  "embeddedSha256": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+  "bytes": 54320,
+  "exports": [
+    {
+      "name": "memory",
+      "kind": "memory"
+    },
+    {
+      "name": "svet_alloc_u32",
+      "kind": "function"
+    },
+    {
+      "name": "svet_batch_end",
+      "kind": "function"
+    },
+    {
+      "name": "svet_batch_start",
+      "kind": "function"
+    },
+    {
+      "name": "svet_begin_tracking",
+      "kind": "function"
+    },
+    {
+      "name": "svet_compute_lis",
+      "kind": "function"
+    },
+    {
+      "name": "svet_compute_lis_buffered",
+      "kind": "function"
+    },
+    {
+      "name": "svet_create_node",
+      "kind": "function"
+    },
+    {
+      "name": "svet_depends_on",
+      "kind": "function"
+    },
+    {
+      "name": "svet_dispose_node",
+      "kind": "function"
+    },
+    {
+      "name": "svet_end_tracking",
+      "kind": "function"
+    },
+    {
+      "name": "svet_free_u32",
+      "kind": "function"
+    },
+    {
+      "name": "svet_get_capacity",
+      "kind": "function"
+    },
+    {
+      "name": "svet_get_edge_count",
+      "kind": "function"
+    },
+    {
+      "name": "svet_get_flush_ptr",
+      "kind": "function"
+    },
+    {
+      "name": "svet_get_lis_ptr",
+      "kind": "function"
+    },
+    {
+      "name": "svet_get_node_count",
+      "kind": "function"
+    },
+    {
+      "name": "svet_get_state",
+      "kind": "function"
+    },
+    {
+      "name": "svet_get_states_ptr",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_alloc_f32",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_clear_dirty",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_clip_output_ptr",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_clip_primitive_3d",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_collect_dirty_spans",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_free_f32",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_get_arena_len",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_get_arena_limit_f32",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_get_arena_ptr",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_get_dirty_max",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_get_dirty_min",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_mark_dirty",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_mat4_compose_trs",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_mat4_mul",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_mat4_perspective",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_pick_nearest_vertex_3d",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_pick_snapshot_3d",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_pick_visible_vertex_3d",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_transform_positions_vec4",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_valid_perspective",
+      "kind": "function"
+    },
+    {
+      "name": "svet_gpu_vector_fma",
+      "kind": "function"
+    },
+    {
+      "name": "svet_is_tracking",
+      "kind": "function"
+    },
+    {
+      "name": "svet_link_1",
+      "kind": "function"
+    },
+    {
+      "name": "svet_link_2",
+      "kind": "function"
+    },
+    {
+      "name": "svet_pause_tracking",
+      "kind": "function"
+    },
+    {
+      "name": "svet_pending_effect_count",
+      "kind": "function"
+    },
+    {
+      "name": "svet_pending_effect_entry_count",
+      "kind": "function"
+    },
+    {
+      "name": "svet_prepare_flush",
+      "kind": "function"
+    },
+    {
+      "name": "svet_prepare_gpu_pick_indices",
+      "kind": "function"
+    },
+    {
+      "name": "svet_prepare_gpu_pick_vertices",
+      "kind": "function"
+    },
+    {
+      "name": "svet_prepare_lis_input",
+      "kind": "function"
+    },
+    {
+      "name": "svet_reset",
+      "kind": "function"
+    },
+    {
+      "name": "svet_resume_tracking",
+      "kind": "function"
+    },
+    {
+      "name": "svet_set_state",
+      "kind": "function"
+    },
+    {
+      "name": "svet_sync_sources_buffered",
+      "kind": "function"
+    },
+    {
+      "name": "svet_track_read",
+      "kind": "function"
+    },
+    {
+      "name": "svet_trigger_and_flush",
+      "kind": "function"
+    },
+    {
+      "name": "svet_trigger_write",
+      "kind": "function"
+    }
+  ],
+  "installedAssetSha256": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+  "checkerSha256": "f63812a1c48468663f63c643e0d4bf0cb4c42730c43a1f7e59cbea27b04fcb42"
+}

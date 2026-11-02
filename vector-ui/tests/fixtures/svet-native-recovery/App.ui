@@ -1,0 +1,8 @@
+component App {
+ state query: String = 'seed';
+ Column { width:520; height:220; padding:16; gap:12;
+  Text { text:'Svet error recovery'; color:#ffffff; fontSize:22; }
+  TextInput { key:'editor'; width:480; height:40; value <-> state.query; background:#27334a; }
+  Text { key:'summary'; text: state.query == 'seed1' ? [1] : 'Value: ${state.query}'; color:#ffffff; fontSize:20; }
+ }
+}

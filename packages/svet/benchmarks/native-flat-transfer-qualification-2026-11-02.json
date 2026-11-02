@@ -1,0 +1,102 @@
+{
+  "status": "validated-native-flat-frame-allocation-reduction",
+  "change": "Move expanded flat-root children and snapshots into control collection; fallback uses snapshot-transfer instantiation",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "abed4fbcac69a3bd15ebf7bc546020bb4243624e8a327a3b52a2863201c7a967",
+    "vector-ui/examples/binding_sync_bench.rs": "15b4704e824a974c9dd7ce7bad94bbe3a56ba9c7029199dc7acf1ad90825c8d9",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "acefff364695033a764e2d1e662e5b0e12e4b3bf4740b3f78259ec2d15322038"
+  },
+  "layout": "Frame",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 519966,
+      "afterEditRequestedBytes": 442652,
+      "reductionPercent": 14.869049130135437,
+      "beforeEditAllocations": 4369,
+      "afterEditAllocations": 3665
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 3094203,
+      "afterEditRequestedBytes": 2261173,
+      "reductionPercent": 26.92228014774726,
+      "beforeEditAllocations": 24673,
+      "afterEditAllocations": 18017
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 17673187,
+      "afterEditRequestedBytes": 10983773,
+      "reductionPercent": 37.8506378051678,
+      "beforeEditAllocations": 135154,
+      "afterEditAllocations": 84466
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 103055519,
+      "afterEditRequestedBytes": 57201457,
+      "reductionPercent": 44.49452338404117,
+      "beforeEditAllocations": 769710,
+      "afterEditAllocations": 429742
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 524340,
+      "afterEditRequestedBytes": 447026,
+      "reductionPercent": 14.74501277796849,
+      "beforeEditAllocations": 4405,
+      "afterEditAllocations": 3701
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 3116794,
+      "afterEditRequestedBytes": 2283764,
+      "reductionPercent": 26.72714334024,
+      "beforeEditAllocations": 24840,
+      "afterEditAllocations": 18184
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 17739426,
+      "afterEditRequestedBytes": 11050012,
+      "reductionPercent": 37.70930355920197,
+      "beforeEditAllocations": 135641,
+      "afterEditAllocations": 84953
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 103231190,
+      "afterEditRequestedBytes": 57377128,
+      "reductionPercent": 44.41880598295922,
+      "beforeEditAllocations": 770997,
+      "afterEditAllocations": 431029
+    }
+  ],
+  "repeat": "All allocation counters identical across two Frame runs",
+  "control": "Column allocation counters unchanged from preceding candidate",
+  "validation": {
+    "libraryTests": 163,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "generatedNodeArtifactGate": "passed",
+    "generatedNodeSnapshotCases": 3,
+    "remoteCI": "not run; snapshot cases part of existing studio CI gate"
+  },
+  "regression": "Old flat Frame artifact retains root/item snapshots after document model replacement; both old/new artifacts load with expected controls/text",
+  "limitations": [
+    "Cumulative requested bytes,not live/peak memory",
+    "No latency/FPS/presentation claim",
+    "Remaining snapshots/scene-expansion clones and large-form readiness open",
+    "No fresh browser/window/GPU qualification"
+  ]
+}

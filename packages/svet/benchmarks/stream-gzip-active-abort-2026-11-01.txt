@@ -1,0 +1,153 @@
+{
+  "startedAt": "2026-11-01T15:31:03.935Z",
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "codec": "identity",
+      "mode": "disconnect",
+      "before": {
+        "started": true,
+        "finished": false,
+        "nodes": 3,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 32768,
+        "phase": "drain",
+        "pipelineSettled": false,
+        "compressorClosed": false,
+        "cleaned": 0,
+        "payloadSize": 4194304
+      },
+      "after": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 49152,
+        "phase": "failed",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 4194304
+      }
+    },
+    {
+      "codec": "identity",
+      "mode": "external-abort",
+      "before": {
+        "started": true,
+        "finished": false,
+        "nodes": 3,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 16384,
+        "phase": "drain",
+        "pipelineSettled": false,
+        "compressorClosed": false,
+        "cleaned": 0,
+        "payloadSize": 4194304
+      },
+      "after": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 49152,
+        "phase": "failed",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 4194304
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "disconnect",
+      "before": {
+        "started": true,
+        "finished": false,
+        "nodes": 3,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 16384,
+        "phase": "drain",
+        "pipelineSettled": false,
+        "compressorClosed": false,
+        "cleaned": 0,
+        "payloadSize": 4194304
+      },
+      "after": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 32768,
+        "phase": "failed",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 4194304
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "external-abort",
+      "before": {
+        "started": true,
+        "finished": false,
+        "nodes": 3,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 16384,
+        "phase": "drain",
+        "pipelineSettled": false,
+        "compressorClosed": false,
+        "cleaned": 0,
+        "payloadSize": 4194304
+      },
+      "after": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 1,
+        "compressedBytes": 16384,
+        "phase": "failed",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 4194304
+      }
+    }
+  ],
+  "recovery": {
+    "started": true,
+    "finished": true,
+    "nodes": 0,
+    "drains": 2,
+    "gzip": true,
+    "flushes": 3,
+    "compressedBytes": 955,
+    "phase": "finished",
+    "pipelineSettled": true,
+    "compressorClosed": true,
+    "cleaned": 1,
+    "payloadSize": 132096
+  },
+  "status": "passed",
+  "completedAt": "2026-11-01T15:31:04.188Z",
+  "sourceSha256": "b60943fe7124990ee265baa5ccdc01d5f09931bef69338e523181f11c7d2836f",
+  "fixtureSha256": "cc4c700f187ba83c020fda764b6ca3fe0c0fad00d5f821de2e78f59cfbf2ef92",
+  "scope": "4MiB deterministic varied HTML, observed pending compressor drain/flush, identity/reference codecs, downstream disconnect and explicit host abort; real loopback HTTP, followed by fresh compressed recovery. Not kernel socket saturation, browser/proxy or long memory plateau."
+}

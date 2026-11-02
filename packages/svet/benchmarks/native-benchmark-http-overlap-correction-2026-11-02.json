@@ -1,0 +1,38 @@
+{
+  "type": "benchmark-background-context-correction",
+  "httpMeasurementsCompletedAt": "2026-11-02T00:31:24.645Z",
+  "observations": [
+    {
+      "artifact": "native-binding-sync-A2-2026-11-02.json",
+      "writtenAtUtc": "2026-11-02T00:29:56.838293+00:00",
+      "writtenAfterHttpMeasurementsCompleted": false
+    },
+    {
+      "artifact": "native-binding-sync-B2-2026-11-02.json",
+      "writtenAtUtc": "2026-11-02T00:29:59.462329+00:00",
+      "writtenAfterHttpMeasurementsCompleted": false
+    },
+    {
+      "artifact": "native-binding-copy-R1-2026-11-02.json",
+      "writtenAtUtc": "2026-11-02T00:43:02.204901+00:00",
+      "writtenAfterHttpMeasurementsCompleted": true
+    },
+    {
+      "artifact": "native-binding-copy-C2-2026-11-02.json",
+      "writtenAtUtc": "2026-11-02T00:43:03.976146+00:00",
+      "writtenAfterHttpMeasurementsCompleted": true
+    },
+    {
+      "artifact": "native-render-phases-A1-2026-11-02.json",
+      "writtenAtUtc": "2026-11-02T00:50:47.447149+00:00",
+      "writtenAfterHttpMeasurementsCompleted": true
+    },
+    {
+      "artifact": "native-render-phases-B2-2026-11-02.json",
+      "writtenAtUtc": "2026-11-02T00:50:51.334625+00:00",
+      "writtenAfterHttpMeasurementsCompleted": true
+    }
+  ],
+  "correction": "A live-looking legacy tool session did not prove that HTTP measurements were still active. Later copy/render benchmark artifacts were written after final HTTP measurement completion. Do not attribute their timing variance to concurrent HTTP request churn. Other host activity and lack of isolation remain limitations.",
+  "unaffected": "Raw benchmark counters, timing samples, source hashes and no-speedup conclusions remain unchanged."
+}

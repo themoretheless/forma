@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-02",
+  "status": "late-returned child disposed when mounted-view owner retires during factory",
+  "before": "Mounted-view hotReload disposal left3 native child signals after owner cleanup registration had closed",
+  "change": "Capture child owner before invoking factory; explicitly dispose returned child if parent/owner is retired before registering cleanup",
+  "checks": {
+    "full_js": {
+      "passed": 1342,
+      "files": 101,
+      "maxWorkers": 2,
+      "note": "Valid full rerun started after build completed; earlier run hit missing dist/index.js during parallel build and is preserved as invalid orchestration evidence"
+    },
+    "typescript": "passed",
+    "build": "passed",
+    "fresh_installed_package_gc_gate": "passed",
+    "browser_lifecycle": "12/12, including2 public hotReload API retirement cases and4 real Vite happy-path file updates",
+    "current_installed_runtime_bytes": "equal",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "src/engine/forma.ts": "16bcca9bb5ae70fb99d824666228db1897e72af8aaea2c9d45a5e4cd6263261f",
+    "tests/forma-hmr-events.test.ts": "123a3c441b21189050f8e2fbec8b2af8445cca32f3453688d2b945d44daedbd2",
+    "tests/browser/forma-hmr-runner.html": "04851673d467d3827a545e2be0f5f318cc0cbabcbe299d5044d8789df582e287"
+  },
+  "limits": [
+    "Factory throwing before returning a child and arbitrary getter/reset/reentrant callbacks remain open",
+    "No atomic failed-HMR UI rollback or cross-instance Vite accept-error isolation proof",
+    "Other browsers, async/HMR recovery and performance remain open",
+    "Frozen2h HTTP diagnostic uses prior runtime"
+  ]
+}

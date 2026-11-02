@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-02",
+  "status": "cross-core computed failure/recovery dependencies retained",
+  "before": [
+    "Forwarding effect error bypassed target handling",
+    "Initial foreign computed error retired bridge and lost future notifications"
+  ],
+  "change": "Forwarding evaluation tracks failure state; target getter owns the actual error. Failure epochs suppress duplicate refresh notifications; recovery notifies even if cached successful value is unchanged.",
+  "checks": {
+    "full_js": {
+      "passed": 1332,
+      "files": 100
+    },
+    "independent_copy_probe": "22/22 passed",
+    "typescript": "passed",
+    "package_build": "passed",
+    "installed_package_and_bridge_gc": "passed",
+    "diff_check": "passed"
+  },
+  "covered": [
+    "initial and later failures handled by target",
+    "recovery to same cached successful value",
+    "target computed chain recovery",
+    "uncaught target errors propagate and next write recovers",
+    "source/caller tracking restoration and both graphs empty after teardown"
+  ],
+  "source_sha256": {
+    "src/engine/reactivity.ts": "6e0680495549713ec95b88ee25c79eb8963797aca8512df6812e5efdb3d687ac",
+    "tests/cross-core-dependencies.test.ts": "06e04d3e5d4f5789f363880f0dd745ff447b3e515343fd297e6076ea476c1908",
+    "tests/reactive-core-context.test.ts": "74d93943a1ca322a5b414d5daecf890a0280db08f058379ceb4b734803ab2a7c",
+    "scripts/check-cross-copy-tracking.mjs": "48880e83d598cc3dceb6f271187194847230f1aa4875913f957d23f7fdb73e8c"
+  },
+  "limits": [
+    "Arbitrary mixed-core scheduling/failure topologies and browser matrix remain open",
+    "Frozen2h allocation diagnostic predates this reactivity.js; current dist differs by reactivity.js only and will not be qualified by that run",
+    "No performance claim or external-memory fix"
+  ]
+}

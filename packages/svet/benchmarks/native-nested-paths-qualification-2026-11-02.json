@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-02",
+  "change": "Recursive model lookup/borrowed lookup/mutable collection traversal support paths through list indices; state writes traverse existing lists without replacing them with objects.",
+  "checks": {
+    "lib": 143,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": [
+    "Nested path groups.0.items.1.title reads and writes.",
+    "Synthetic nested length readable but not mutable binding target.",
+    "Out-of-range/non-numeric/list-length writes leave model unchanged.",
+    "IR Document binding to state.groups.0.items follows stable key after reorder and preserves other item."
+  ],
+  "source_sha256": "6c6ee62090df2cd01fbcb127ce08255f6155dd59f73a33a4d59b4e0e08730f88",
+  "limitations": [
+    "IR Document path proof; not full compiler syntax/AOT/browser qualification.",
+    "Nested For using parent local collection expressions remains unresolved.",
+    "No implicit list growth; invalid list indices return false.",
+    "No new GPU/latency/peak-memory qualification."
+  ]
+}

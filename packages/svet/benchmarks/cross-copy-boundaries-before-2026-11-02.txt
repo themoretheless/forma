@@ -1,0 +1,22 @@
+[
+  {
+    "name": "A→B Suspense sees pending, completion and unmount cancellation",
+    "status": "failed",
+    "error": "AssertionError [ERR_ASSERTION]: Foreign pending was invisible\n\n'none' !== 'contents'\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:21:82\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:14:43)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:16:8"
+  },
+  {
+    "name": "A→B ErrorBoundary sees foreign rejection and retry",
+    "status": "failed",
+    "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'content' !== 'error'\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:30:88\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:26:2"
+  },
+  {
+    "name": "B→A Suspense sees pending, completion and unmount cancellation",
+    "status": "failed",
+    "error": "AssertionError [ERR_ASSERTION]: Foreign pending was invisible\n\n'none' !== 'contents'\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:21:82\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:14:43)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:16:8"
+  },
+  {
+    "name": "B→A ErrorBoundary sees foreign rejection and retry",
+    "status": "failed",
+    "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n'content' !== 'error'\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:30:88\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-boundaries.mjs:26:2"
+  }
+]

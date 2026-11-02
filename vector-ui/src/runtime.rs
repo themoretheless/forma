@@ -96,16 +96,38 @@ struct RasterCache {
     paint: Option<(u32, bool)>,
 }
 
+#[derive(PartialEq)]
+enum BindingWidgetValue { Text(String), Range(f32) }
+
+const MAX_UI_ACTIVATIONS: usize = 4096;
+#[derive(Default)]
+struct UiActivations {
+    events: Vec<usize>,
+    overflow: bool,
+}
+impl UiActivations {
+    fn record(&mut self, index: usize) {
+        if self.events.len() >= MAX_UI_ACTIVATIONS { self.overflow = true; }
+        else if !self.overflow { self.events.push(index); }
+    }
+    fn clear(&mut self) {
+        self.events.clear();
+        self.overflow = false;
+    }
+}
+
 #[wasm_bindgen]
 pub struct Runtime {
     scene: markup::Scene,
     controls: Vec<Button>,
     editors: Vec<Option<crate::text_input::Editor>>,
     range_values: Vec<Option<f32>>,
+    binding_widget_baseline: RefCell<std::collections::BTreeMap<usize, BindingWidgetValue>>,
     nodes: Vec<Node>,
     focused: Option<usize>,
     captured: Option<usize>,
     last_event: Option<usize>,
+    ui_activations: UiActivations,
     // Modal layers: each control belongs to the base scene or to one layer.
     // Only the topmost open layer receives input; lower layers stay visible
     // under its backdrop and the base scene keeps its scroll offset.
@@ -121,6 +143,15 @@ pub struct Runtime {
     geometry: RefCell<Option<GeometryCache>>,
     raster_cache: RefCell<Option<RasterCache>>,
     ui_document: Option<crate::form_document::Document>,
+    ui_render_pending: bool,
+    // Binding indices for the last committed scene, reused while model state
+    // is unchanged. Recovery resolves current control identities separately.
+    ui_binding_scene: Vec<crate::form_document::SceneControl>,
+    // State of the last successfully displayed retained scene. Documents are
+    // private to Runtime; project/source replacement installs a new Runtime.
+    ui_binding_states: Vec<crate::form_document::Properties>,
+    #[cfg(not(target_arch = "wasm32"))]
+    svet_document: Option<crate::native_document_graph::DocumentGraph>,
 }
 
 fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> {
@@ -162,29 +193,74 @@ impl Runtime {
         initial_state: &crate::form_document::Properties,
     ) -> Result<Self, String> {
         let doc = crate::form_document::Document::from_ui_files(files, entry_file, initial_state)?;
-        let (scene_src, templates) = doc.render()?;
+        let (scene_src, templates, controls, logical_end) = doc.render_scene_with_extents()?;
         let mut rt = Self::from_sources(&scene_src, &templates)?;
+        rt.apply_logical_content_end(logical_end);
+        rt.ui_binding_scene = controls;
+        rt.ui_binding_states = doc.states.clone();
         rt.ui_document = Some(doc);
         Ok(rt)
     }
 
+    /// Select owned Svet scheduling for retained native document updates.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn set_svet_document_scheduling(&mut self, enabled: bool) {
+        if enabled && self.svet_document.is_none() {
+            let states = self.ui_document.as_ref().map_or(&[][..], |doc| doc.states.as_slice());
+            self.svet_document = Some(crate::native_document_graph::DocumentGraph::new(states));
+        } else if !enabled {
+            self.svet_document = None;
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn svet_document_telemetry(&self) -> Option<svet_wasm::native::Telemetry> {
+        self.svet_document.as_ref().map(|graph| graph.telemetry())
+    }
+
     /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from the live runtime
     /// back into the retained Rust `.ui` `Document`, re-rendering the scene while preserving focus
-    /// and active text/slider interaction. Returns `Ok(true)` if any bound state property changed.
+    /// and active text/slider interaction. Returns `Ok(true)` when the scene is rebuilt,
+    /// including a successful retry of an earlier failed render.
     pub fn sync_ui_bindings_native(&mut self) -> Result<bool, String> {
+        if self.ui_activations.overflow {
+            return Err("Pending UI activation limit exceeded; cancel pending activations or reload the document".into());
+        }
         let Some(mut doc) = self.ui_document.take() else {
             return Ok(false);
         };
         let activated = self.last_event.take();
-        let changed = match doc.sync_runtime_bindings(self, activated) {
+        let model_changed = doc.states != self.ui_binding_states;
+        let controls = if !model_changed {
+            std::borrow::Cow::Borrowed(self.ui_binding_scene.as_slice())
+        } else {
+            match doc.binding_scene_controls() {
+                Ok(controls) => std::borrow::Cow::Owned(controls),
+                Err(error) => {
+                    self.ui_render_pending = true;
+                    self.last_event = activated;
+                    self.ui_document = Some(doc);
+                    return Err(error);
+                }
+            }
+        };
+        let changed = match doc.sync_runtime_binding_events(self, &self.ui_activations.events, &controls) {
             Ok(c) => c,
             Err(e) => {
+                // Binding writes are atomic; an uncommitted activation must
+                // remain available for retry after the metadata is repaired.
+                self.last_event = activated;
                 self.ui_document = Some(doc);
                 return Err(e);
             }
         };
-        if changed > 0 {
-            let (scene_src, templates, _) = match doc.render_scene() {
+        self.ui_activations.clear();
+        #[cfg(not(target_arch = "wasm32"))]
+        let needs_render = self.svet_document.as_mut().map_or(changed > 0, |graph| graph.reconcile(&doc.states)) || model_changed || self.ui_render_pending;
+        #[cfg(target_arch = "wasm32")]
+        let needs_render = changed > 0 || model_changed || self.ui_render_pending;
+        self.ui_render_pending = needs_render;
+        if needs_render {
+            let (scene_src, templates, controls, logical_end) = match doc.render_scene_with_extents() {
                 Ok(res) => res,
                 Err(e) => {
                     self.ui_document = Some(doc);
@@ -198,8 +274,16 @@ impl Runtime {
                     return Err(e);
                 }
             };
+            next.apply_logical_content_end(logical_end);
             next.preserve_binding_interaction(self);
+            next.ui_binding_scene = controls;
+            next.ui_binding_states = doc.states.clone();
             next.ui_document = Some(doc);
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if let Some(graph) = &mut self.svet_document { graph.complete(); }
+                next.svet_document = self.svet_document.take();
+            }
             *self = next;
             Ok(true)
         } else {
@@ -374,6 +458,36 @@ impl Runtime {
             nodes: a11y_nodes,
         }
     }
+    /// Atomically replace the scene from versioned JSON; a refusal preserves this Runtime.
+    pub fn load_scene_artifact_native(&mut self, json: &str) -> Result<(), String> {
+        let artifact = crate::form_document::SceneArtifact::from_json(json)?;
+        let mut next = Self::from_scene_artifact(&artifact)?;
+        next.revision = self.revision.wrapping_add(1);
+        next.geometry_revision = self.geometry_revision.wrapping_add(1);
+        next.layout_revision = self.layout_revision.wrapping_add(1);
+        *self = next;
+        Ok(())
+    }
+    /// Consume the complete Rust Document transport, including non-control layout extents.
+    pub fn from_scene_artifact(artifact: &crate::form_document::SceneArtifact) -> Result<Self, String> {
+        if artifact.logical_content_end.is_some_and(|end| end.iter().any(|v| !v.is_finite() || *v < 0.)) {
+            return Err("Invalid logical content extent".into());
+        }
+        let mut runtime = Self::from_sources(&artifact.source, &artifact.templates)?;
+        if artifact.controls.len() != runtime.controls.len() {
+            return Err("Scene control mapping count does not match rendered controls".into());
+        }
+        for (mapping, control) in artifact.controls.iter().zip(&runtime.controls) {
+            if mapping.key != control.scene.button.key {
+                return Err("Scene control mapping key/order does not match rendered controls".into());
+            }
+        }
+        if artifact.logical_content_end.is_some() && !runtime.scene.scroll {
+            return Err("Logical content extent requires a Scroll scene".into());
+        }
+        runtime.apply_logical_content_end(artifact.logical_content_end);
+        Ok(runtime)
+    }
     pub fn from_sources(source: &str, component: &str) -> Result<Self, String> {
         let mut scene = markup::parse(source)?;
         let templates = templates(component, scene.buttons.len())?;
@@ -490,6 +604,7 @@ impl Runtime {
         let editors=controls.iter().map(|c|c.template.inputs.first().map(|input|crate::text_input::Editor::new(input.clone(),c.template.content.clone())).transpose()).collect::<Result<Vec<_>,_>>()?;
         let mut runtime=Self {
             range_values: vec![None; controls.len()],
+            binding_widget_baseline: RefCell::new(Default::default()),
             editors,
             modal_open: scene.modals.iter().map(|m| m.open).collect(),
             modal_restore: vec![None; scene.modals.len()],
@@ -502,6 +617,7 @@ impl Runtime {
             focused: None,
             captured: None,
             last_event: None,
+            ui_activations: UiActivations::default(),
             scroll: [0.; 2],
             revision: 0,
             geometry_revision: 0,
@@ -509,9 +625,55 @@ impl Runtime {
             geometry: RefCell::new(None),
             raster_cache: RefCell::new(None),
             ui_document: None,
+            ui_render_pending: false,
+            ui_binding_scene: Vec::new(),
+            ui_binding_states: Vec::new(),
+            #[cfg(not(target_arch = "wasm32"))]
+            svet_document: None,
         };
         runtime.refresh_editors();
+        runtime.acknowledge_binding_widgets();
         Ok(runtime)
+    }
+    pub(crate) fn binding_widget_changed(&self, index: usize) -> bool {
+        let baseline = self.binding_widget_baseline.borrow();
+        match baseline.get(&index) {
+            Some(BindingWidgetValue::Text(value)) => self
+                .editors
+                .get(index)
+                .and_then(Option::as_ref)
+                .is_some_and(|editor| editor.model.value() != value),
+            Some(BindingWidgetValue::Range(value)) => self.range_value(index) != *value,
+            None => false,
+        }
+    }
+    pub(crate) fn acknowledge_binding_widgets(&self) {
+        let mut baseline = self.binding_widget_baseline.borrow_mut();
+        for (index, control) in self.controls.iter().enumerate() {
+            if let Some(editor) = &self.editors[index] {
+                match baseline.get_mut(&index) {
+                    Some(BindingWidgetValue::Text(value)) => {
+                        if value != editor.model.value() {
+                            value.clear();
+                            value.push_str(editor.model.value());
+                        }
+                    }
+                    _ => {
+                        baseline.insert(
+                            index,
+                            BindingWidgetValue::Text(editor.model.value().to_owned()),
+                        );
+                    }
+                }
+            } else if let Some(range) = &control.template.range {
+                match baseline.get_mut(&index) {
+                    Some(BindingWidgetValue::Range(value)) => *value = range.value,
+                    _ => {
+                        baseline.insert(index, BindingWidgetValue::Range(range.value));
+                    }
+                }
+            }
+        }
     }
     pub fn nodes(&self) -> &[Node] {
         &self.nodes
@@ -528,7 +690,13 @@ impl Runtime {
                 if previous.captured==Some(old_index){self.captured=Some(i);}
             }
         }
-        let layout_changed=self.width()!=previous.width()||self.height()!=previous.height()||self.controls.len()!=previous.controls.len()||self.controls.iter().zip(&previous.controls).any(|(a,b)|a.bounds()!=b.bounds());
+        let layout_changed = self.width() != previous.width()
+            || self.height() != previous.height()
+            || self.scene.scroll != previous.scene.scroll
+            || self.viewport_rect() != previous.viewport_rect()
+            || self.content_size() != previous.content_size()
+            || self.controls.len() != previous.controls.len()
+            || self.controls.iter().zip(&previous.controls).any(|(a, b)| a.bounds() != b.bounds());
         self.revision=previous.revision.wrapping_add(1);
         self.geometry_revision=previous.geometry_revision.wrapping_add(1);
         self.layout_revision=previous.layout_revision.wrapping_add(u32::from(layout_changed));
@@ -791,6 +959,12 @@ impl Runtime {
         });
         list
     }
+    fn apply_logical_content_end(&mut self, end: Option<[f64; 2]>) {
+        if let Some([right, bottom]) = end {
+            self.scene.content_width = self.scene.content_width.max((right + f64::from(self.scene.padding[1])).min(f64::from(f32::MAX)) as f32);
+            self.scene.content_height = self.scene.content_height.max((bottom + f64::from(self.scene.padding[2])).min(f64::from(f32::MAX)) as f32);
+        }
+    }
     fn content_size(&self) -> [f32; 2] {
         [
             self.scene.content_width - self.scene.padding[1] - self.scene.padding[3],
@@ -1023,6 +1197,16 @@ impl Runtime {
         *self = next;
         Ok(())
     }
+    /// Load a complete artifact atomically through the Rust parser/runtime.
+    pub fn load_scene_artifact(&mut self, json: &str) -> Result<(), JsValue> {
+        self.load_scene_artifact_native(json).map_err(|e| JsValue::from_str(&e))
+    }
+    /// Compile a UI project to a versioned transport in Rust for a later runtime load.
+    pub fn compile_ui_scene_artifact(files_json: &str, entry_file: &str, state_json: &str) -> Result<String, JsValue> {
+        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)
+            .map_err(|e| JsValue::from_str(&e))?;
+        doc.render_scene_artifact().and_then(|artifact| artifact.to_json()).map_err(|e| JsValue::from_str(&e))
+    }
     pub fn load(&mut self, source: &str) -> Result<(), JsValue> {
         self.load_component(source, crate::BUTTON_COMPONENT)
     }
@@ -1035,16 +1219,29 @@ impl Runtime {
     ) -> Result<(), JsValue> {
         let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)
             .map_err(|e| JsValue::from_str(&e))?;
-        let (scene_src, templates, _) = doc.render_scene().map_err(|e| JsValue::from_str(&e))?;
+        let (scene_src, templates, controls, logical_end) = doc.render_scene_with_extents().map_err(|e| JsValue::from_str(&e))?;
         self.load_component(&scene_src, &templates)?;
+        self.apply_logical_content_end(logical_end);
+        self.ui_binding_scene = controls;
+        self.ui_binding_states = doc.states.clone();
         self.ui_document = Some(doc);
         Ok(())
     }
     /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from the live runtime
     /// back into the retained Rust `.ui` `Document`, re-rendering the scene while preserving focus
-    /// and active text/slider interaction. Returns `true` if any bound state property changed.
+    /// and active text/slider interaction. Returns `true` after a successful scene rebuild.
     pub fn sync_ui_bindings(&mut self) -> Result<bool, JsValue> {
         self.sync_ui_bindings_native().map_err(|e| JsValue::from_str(&e))
+    }
+    /// Number of accepted activations waiting for a successful binding commit.
+    pub fn pending_ui_binding_activations(&self) -> usize { self.ui_activations.events.len() }
+    /// Explicitly discard buffered activations, clearing an overflow refusal.
+    /// Widget values remain available for the next binding synchronization.
+    pub fn cancel_ui_binding_activations(&mut self) -> usize {
+        let count = self.ui_activations.events.len();
+        self.ui_activations.clear();
+        self.last_event = None;
+        count
     }
     /// Exports the current state of the retained Rust `.ui` `Document` as a JSON string.
     pub fn ui_state_json(&self) -> String {
@@ -1335,6 +1532,7 @@ impl Runtime {
             self.controls[i].key_event(key, pressed, repeat);
             if self.controls[i].clicks() != clicks {
                 self.last_event = Some(i);
+                if self.ui_document.is_some() { self.ui_activations.record(i); }
             }
             self.update_revision(before);
         }
@@ -1370,6 +1568,7 @@ impl Runtime {
             c.pointer_interaction(px, py, event);
             if c.clicks() != clicks {
                 self.last_event = Some(i);
+                if self.ui_document.is_some() { self.ui_activations.record(i); }
             }
         }
         if kind==1 || (kind==0 && self.captured.is_some()) {
@@ -1400,6 +1599,7 @@ impl Runtime {
             c.activate();
             if c.clicks() != count {
                 self.last_event = Some(i);
+                if self.ui_document.is_some() { self.ui_activations.record(i); }
             }
         }
     }
@@ -1514,6 +1714,7 @@ impl Runtime {
         }
         self.captured = None;
         self.last_event = None;
+        self.ui_activations.clear();
         self.set_focus(focused);
         self.update_revision(before);
         matches
@@ -1602,6 +1803,300 @@ mod tests {
     const VISUAL:&str="component Button { Rectangle { radius:4; background:Brush { color:#ff0000; hover:#00ff00; pressed:#0000ff; transition:0ms; }; Border { width:2; background:Brush { color:#ffffff; focus:#ffff00; }; } PointerArea { clicked -> events.clicked(); } } }";
     fn model() -> Runtime {
         Runtime::from_sources(TWO, VISUAL).unwrap()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn svet_retained_document_updates_editor_and_dependent_text() {
+        let files = std::collections::BTreeMap::from([("App.ui".to_string(),
+            "component App { state query: String = 'seed'; Column { width:260; height:100; TextInput { key:'edit'; width:200; height:32; value <-> state.query; } Text { key:'summary'; text:'Value: ${state.query}'; } } }".to_string())]);
+        let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+        runtime.set_svet_document_scheduling(true);
+        let initial = runtime.svet_document_telemetry().unwrap();
+        assert_eq!(initial.nodes, 3);
+        assert_eq!(initial.edges, 2);
+        for suffix in ["-one", "-two"] {
+            assert!(runtime.focus_control(0));
+            runtime.text_key("End", false, false);
+            assert!(runtime.text_insert(suffix));
+            let value = runtime.text_value(0);
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.ui_state_properties()["query"], crate::form_document::Value::Text(value.clone()));
+            assert_eq!(runtime.text_value(0), value);
+            assert_eq!(runtime.focused_index(), 0);
+            assert!(runtime.controls.iter().any(|control| control.template.content.iter().any(|content|
+                matches!(content, crate::template::Content::Text { text, .. } if text.text == format!("Value: {value}")))));
+            assert!(!runtime.sync_ui_bindings_native().unwrap());
+            let telemetry = runtime.svet_document_telemetry().unwrap();
+            assert_eq!(telemetry.nodes, initial.nodes);
+            assert_eq!(telemetry.slots, initial.slots);
+        }
+        // Separate windows/runtimes have independent owned graphs.
+        let mut other = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+        other.set_svet_document_scheduling(true);
+        assert_eq!(other.text_value(0), "seed");
+        assert!(!other.sync_ui_bindings_native().unwrap());
+        runtime.set_svet_document_scheduling(false);
+        assert!(runtime.svet_document_telemetry().is_none());
+        runtime.text_insert("-legacy");
+        assert!(runtime.sync_ui_bindings_native().unwrap());
+        runtime.set_svet_document_scheduling(true);
+        assert!(!runtime.sync_ui_bindings_native().unwrap());
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn retained_document_recovers_after_render_error_without_losing_input() {
+        for (svet, switch, model_fix) in [(false, false), (true, false), (false, true), (true, true)].into_iter().flat_map(|(svet, switch)| [(svet, switch, false), (svet, switch, true)]) {
+            let mut files = std::collections::BTreeMap::from([("App.ui".to_string(),
+                "component App { state query: String = 'seed'; state agreed: Bool = false; Column { width:260; height:100; TextInput { key:'editor'; width:200; height:32; value <-> state.query; } Toggle { key:'toggle'; checked <-> state.agreed; } Text { key:'summary'; text: state.query == 'bad' ? [1] : state.query; } } }".to_string())]);
+            files.insert("Toggle.component.ui".into(), "component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".into());
+            let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+            runtime.set_svet_document_scheduling(svet);
+            let initial_graph = runtime.svet_document_telemetry().map(|t| (t.nodes, t.edges, t.slots));
+            runtime.set_binding_value(0, "bad", true).unwrap();
+            assert!(runtime.sync_ui_bindings_native().is_err());
+            assert_eq!(runtime.ui_state_properties()["query"], crate::form_document::Value::Text("bad".into()));
+            assert!(runtime.ui_render_pending);
+            // Multiple activations while the template is broken must toggle
+            // the current model, rather than the last rendered false value.
+            for checked in [true, false] {
+                runtime.activate_control(1);
+                assert!(runtime.sync_ui_bindings_native().is_err());
+                assert_eq!(runtime.ui_state_properties()["agreed"], crate::form_document::Value::Bool(checked));
+            }
+            if switch { runtime.set_svet_document_scheduling(!svet); }
+            if model_fix {
+                runtime.ui_document.as_mut().unwrap().states[0].insert("query".into(), crate::form_document::Value::Text("recovered".into()));
+            } else { runtime.set_binding_value(0, "recovered", true).unwrap(); }
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.ui_state_properties()["query"], crate::form_document::Value::Text("recovered".into()));
+            assert_eq!(runtime.text_value(0), "recovered");
+            assert!(!runtime.ui_render_pending);
+            assert!(!runtime.sync_ui_bindings_native().unwrap());
+            if !switch {
+                assert_eq!(runtime.svet_document_telemetry().map(|t| (t.nodes, t.edges, t.slots)), initial_graph);
+            }
+            if let Some(t) = runtime.svet_document_telemetry() {
+                assert_eq!(t.tracking_depth, 0);
+                assert_eq!(t.batch_depth, 0);
+            }
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn failed_binding_transaction_retries_activation_exactly_once() {
+        use crate::form_document::{Properties, Value};
+        for (svet, count) in [(false, 1), (false, 2), (false, 3), (true, 1), (true, 2), (true, 3)] {
+            let files = std::collections::BTreeMap::from([
+                ("App.ui".to_string(), "component App { state agreed: Bool = false; state query: String = 'seed'; Column { width:260; height:100; Toggle { checked <-> state.agreed; } TextInput { width:200; height:32; value <-> state.query; } } }".to_string()),
+                ("Toggle.component.ui".to_string(), "component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".to_string()),
+            ]);
+            let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+            runtime.set_svet_document_scheduling(svet);
+            let document = runtime.ui_document.as_mut().unwrap();
+            let Some(Value::Object(bindings)) = document.root.children[1].props.get_mut("__bindings") else { panic!("editor bindings"); };
+            bindings.insert("value".into(), Value::List(vec![]));
+            for _ in 0..count { runtime.activate_control(0); }
+            for _ in 0..2 {
+                assert!(runtime.sync_ui_bindings_native().is_err());
+                assert_eq!(runtime.ui_state_properties()["agreed"], Value::Bool(false));
+                assert_eq!(runtime.last_event, Some(0));
+            }
+            assert_eq!(runtime.pending_ui_binding_activations(), count);
+            let document = runtime.ui_document.as_mut().unwrap();
+            let Some(Value::Object(bindings)) = document.root.children[1].props.get_mut("__bindings") else { panic!("editor bindings"); };
+            bindings.insert("value".into(), Value::Text("state.query".into()));
+            let rendered = runtime.sync_ui_bindings_native().unwrap();
+            assert_eq!(rendered, !svet || count % 2 == 1);
+            assert_eq!(runtime.ui_state_properties()["agreed"], Value::Bool(count % 2 == 1));
+            assert_eq!(runtime.last_event, None);
+            assert!(!runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.ui_state_properties()["agreed"], Value::Bool(count % 2 == 1));
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    fn activation_queue_runtime(svet: bool) -> Runtime {
+        let files = std::collections::BTreeMap::from([
+            ("App.ui".to_string(), "component App { state flag: Bool = false; state query: String = 'seed'; Column { width:260; height:140; Toggle { checked <-> state.flag; } Toggle { selected <-> state.flag; } TextInput { width:200; height:32; value <-> state.query; } } }".to_string()),
+            ("Toggle.component.ui".to_string(), "component Toggle { prop checked: Bool = false; prop selected: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".to_string()),
+        ]);
+        let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+        runtime.set_svet_document_scheduling(svet);
+        runtime
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn buffered_binding_activations_preserve_order_across_controls() {
+        use crate::form_document::Value;
+        for svet in [false, true] {
+            for (order, expected) in [([0, 1], true), ([1, 0], false)] {
+                let mut runtime = activation_queue_runtime(svet);
+                let document = runtime.ui_document.as_mut().unwrap();
+                let Some(Value::Object(bindings)) = document.root.children[2].props.get_mut("__bindings") else { panic!("editor bindings"); };
+                bindings.insert("value".into(), Value::List(vec![]));
+                for index in order {
+                    runtime.activate_control(index);
+                    assert!(runtime.sync_ui_bindings_native().is_err());
+                }
+                assert_eq!(runtime.pending_ui_binding_activations(), 2);
+                let document = runtime.ui_document.as_mut().unwrap();
+                let Some(Value::Object(bindings)) = document.root.children[2].props.get_mut("__bindings") else { panic!("editor bindings"); };
+                bindings.insert("value".into(), Value::Text("state.query".into()));
+                runtime.sync_ui_bindings_native().unwrap();
+                assert_eq!(runtime.ui_state_properties()["flag"], Value::Bool(expected));
+                assert_eq!(runtime.pending_ui_binding_activations(), 0);
+                assert!(!runtime.sync_ui_bindings_native().unwrap());
+            }
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn activation_queue_overflow_is_bounded_and_requires_explicit_cancellation() {
+        use crate::form_document::Value;
+        let mut runtime = activation_queue_runtime(true);
+        for _ in 0..=MAX_UI_ACTIVATIONS { runtime.activate_control(0); }
+        assert_eq!(runtime.pending_ui_binding_activations(), MAX_UI_ACTIVATIONS);
+        for _ in 0..2 {
+            assert!(runtime.sync_ui_bindings_native().unwrap_err().contains("activation limit"));
+            assert_eq!(runtime.ui_state_properties()["flag"], Value::Bool(false));
+        }
+        assert_eq!(runtime.cancel_ui_binding_activations(), MAX_UI_ACTIVATIONS);
+        assert_eq!(runtime.pending_ui_binding_activations(), 0);
+        assert!(!runtime.sync_ui_bindings_native().unwrap());
+        runtime.activate_control(0);
+        assert!(runtime.sync_ui_bindings_native().unwrap());
+        assert_eq!(runtime.ui_state_properties()["flag"], Value::Bool(true));
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn keyboard_pointer_and_direct_activation_share_the_ordered_queue() {
+        use crate::form_document::Value;
+        let mut runtime = activation_queue_runtime(true);
+        assert!(runtime.focus_control(0));
+        runtime.key_event(1, true, false);
+        runtime.key_event(1, false, false);
+        let bounds = runtime.control_bounds(1);
+        let x = bounds[0] + bounds[2] * 0.5;
+        let y = bounds[1] + bounds[3] * 0.5;
+        runtime.pointer(x, y, 1);
+        runtime.pointer(x, y, 2);
+        runtime.activate_control(0);
+        assert_eq!(runtime.ui_activations.events, vec![0, 1, 0]);
+        runtime.sync_ui_bindings_native().unwrap();
+        assert_eq!(runtime.ui_state_properties()["flag"], Value::Bool(false));
+        assert_eq!(runtime.pending_ui_binding_activations(), 0);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn retained_collection_reorder_during_render_failure_keeps_event_identity() {
+        use crate::form_document::{props, Value};
+        for svet in [false, true] {
+            let files = std::collections::BTreeMap::from([
+                ("App.ui".to_string(), "component App { prop prefix: String = 'row/'; state items: List = []; state broken: Bool = false; Column { width:260; height:140; for item in state.items key props.prefix + item.id { Toggle { checked <-> item.done; } } Text { text:state.broken ? [1] : 'ok'; } } }".to_string()),
+                ("Toggle.component.ui".to_string(), "component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".to_string()),
+            ]);
+            let item = |id: &str| Value::Object(props(vec![("id", Value::Text(id.into())), ("done", Value::Bool(false))]));
+            let state = props(vec![("items", Value::List(vec![item("a"), item("b")]))]);
+            let mut runtime = Runtime::from_ui_files(&files, "App.ui", &state).unwrap();
+            runtime.set_svet_document_scheduling(svet);
+            let a_key = runtime.control_key(0);
+            let b_key = runtime.control_key(1);
+            runtime.activate_control(0);
+            let doc = runtime.ui_document.as_mut().unwrap();
+            doc.states[0].insert("items".into(), Value::List(vec![item("b"), item("a")]));
+            doc.states[0].insert("broken".into(), Value::Bool(true));
+            for _ in 0..2 { assert!(runtime.sync_ui_bindings_native().is_err()); }
+            assert_eq!(runtime.pending_ui_binding_activations(), 0, "accepted toggle must not replay after render failure");
+            let state = runtime.ui_state_properties();
+            let Value::List(items) = &state["items"] else { panic!("items"); };
+            let Value::Object(b) = &items[0] else { panic!("b"); };
+            let Value::Object(a) = &items[1] else { panic!("a"); };
+            assert_eq!(b["done"], Value::Bool(false));
+            assert_eq!(a["done"], Value::Bool(true));
+            runtime.ui_document.as_mut().unwrap().states[0].insert("broken".into(), Value::Bool(false));
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.control_key(0), b_key);
+            assert_eq!(runtime.control_key(1), a_key);
+            assert!(!runtime.sync_ui_bindings_native().unwrap());
+        }
+    }
+    #[test]
+    fn retained_scroll_resize_revises_viewport_and_clamps_offset_when_empty() {
+        use crate::form_document::{Properties, Value};
+        let files = std::collections::BTreeMap::from([("App.ui".into(),
+            "component App { state contentHeight: Number = 512; state viewWidth: Number = 320; state viewHeight: Number = 300; state items: List = []; Column { width:360; height:400; Scroll { width:state.viewWidth; height:state.viewHeight; Column { width:100; height:state.contentHeight; for item in state.items key item.id { TextInput { width:100; height:32; value <-> item.title; } } } } } }".into())]);
+        let items = (0..16).map(|i| Value::Object(Properties::from([
+            ("id".into(), Value::Text(format!("id{i}"))), ("title".into(), Value::Text("Row".into())),
+        ]))).collect();
+        let state = Properties::from([("items".into(), Value::List(items))]);
+        for svet in [false, true] {
+            let mut runtime = Runtime::from_ui_files(&files, "App.ui", &state).unwrap();
+            #[cfg(not(target_arch = "wasm32"))]
+            runtime.set_svet_document_scheduling(svet);
+            let _ = svet;
+            runtime.scroll(0., 10000.);
+            assert_eq!(runtime.scroll_offset()[1], 212.);
+            let bounds = runtime.control_bounds(0);
+            let revision = runtime.layout_revision();
+            runtime.ui_document.as_mut().unwrap().states[0].insert("viewWidth".into(), Value::Number(160.));
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.viewport(), vec![100., 50., 160., 300.]);
+            assert_eq!(runtime.control_bounds(0), bounds);
+            assert_ne!(runtime.layout_revision(), revision, "viewport-only resize must invalidate layout");
+            assert_eq!(runtime.scroll_offset()[1], 212.);
+            runtime.ui_document.as_mut().unwrap().states[0].insert("viewHeight".into(), Value::Number(400.));
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.scroll_offset()[1], 112.);
+            runtime.ui_document.as_mut().unwrap().states[0].insert("items".into(), Value::List(vec![]));
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.control_count(), 0);
+            assert_eq!(runtime.scroll_offset(), vec![0., 112.], "fixed empty layout still occupies content space");
+            let revision = runtime.layout_revision();
+            runtime.ui_document.as_mut().unwrap().states[0].insert("contentHeight".into(), Value::Number(200.));
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.scroll_offset(), vec![0., 0.]);
+            assert_ne!(runtime.layout_revision(), revision, "logical extent changes invalidate layout even without controls");
+            assert!(!runtime.sync_ui_bindings_native().unwrap());
+        }
+    }
+    #[test]
+    fn match_switch_render_error_does_not_apply_old_branch_input() {
+        use crate::form_document::{Properties, Value};
+        let files = std::collections::BTreeMap::from([("App.ui".into(),
+            "component App { state mode: String = 'a'; state broken: Bool = false; state query: String = 'seed'; state other: String = 'Other'; Column { width:260; height:200; match state.mode { 'a' => { TextInput { width:200; height:32; value <-> state.query; } } _ => { TextInput { width:200; height:32; value <-> state.other; } Text { text:state.broken ? [1] : 'ok'; } } } } }".into())]);
+        for svet in [false, true] {
+            let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+            #[cfg(not(target_arch = "wasm32"))]
+            runtime.set_svet_document_scheduling(svet);
+            let _ = svet;
+            runtime.set_binding_value(0, "Obsolete input", true).unwrap();
+            let state = &mut runtime.ui_document.as_mut().unwrap().states[0];
+            state.insert("mode".into(), Value::Text("b".into()));
+            state.insert("broken".into(), Value::Bool(true));
+            assert!(runtime.sync_ui_bindings_native().is_err());
+            assert_eq!(runtime.ui_state_properties()["query"], Value::Text("seed".into()));
+            assert_eq!(runtime.ui_state_properties()["other"], Value::Text("Other".into()));
+            runtime.ui_document.as_mut().unwrap().states[0].insert("broken".into(), Value::Bool(false));
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.text_value(0), "Other");
+            assert_eq!(runtime.ui_state_properties()["query"], Value::Text("seed".into()));
+        }
+    }
+    #[test]
+    fn retained_model_change_rebuilds_without_widget_input() {
+        use crate::form_document::{Properties, Value};
+        let files = std::collections::BTreeMap::from([("App.ui".into(),
+            "component App { state query: String = 'seed'; Column { width:260; height:100; TextInput { width:200; height:32; value <-> state.query; } } }".into())]);
+        for svet in [false, true] {
+            let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+            #[cfg(not(target_arch = "wasm32"))]
+            runtime.set_svet_document_scheduling(svet);
+            let _ = svet;
+            assert!(!runtime.sync_ui_bindings_native().unwrap());
+            runtime.ui_document.as_mut().unwrap().states[0].insert("query".into(), Value::Text("model".into()));
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert_eq!(runtime.text_value(0), "model");
+            assert!(!runtime.sync_ui_bindings_native().unwrap());
+        }
     }
     const EDITOR:&str="component Button { Rectangle { ContentInput { width:80; height:30; value:'seed'; } PointerArea { clicked -> events.clicked(); } } }";
     #[test]

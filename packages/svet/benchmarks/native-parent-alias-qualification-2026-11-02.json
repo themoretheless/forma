@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-02",
+  "change": "Expand nested binding regression matrix with Let rows=parent.items wrapper; no production change.",
+  "checks": {
+    "lib": 151,
+    "allocation_tests": 7,
+    "diff_check": "passed"
+  },
+  "matrix": {
+    "total_cases": 24,
+    "axes": [
+      "direct or Let alias collection",
+      "distinct or shadowed item name",
+      "fresh or cached scene map",
+      "parent+child reorder / parent removal / duplicate parent"
+    ]
+  },
+  "regression": "Parent alias follows live stable parent/child keys, ignores removed parent and refuses duplicate parent without model mutation.",
+  "source_sha256": "db01e72d27490b8b64bc4909b44cbc4be1fae8fe37974003fe7629e8fe369d16",
+  "limitations": [
+    "Project compiled from .ui then Let wrapper inserted in IR; not Let source-syntax qualification.",
+    "No performance/GPU/browser/deployed backend qualification.",
+    "General derived/filter/map collections remain open."
+  ]
+}

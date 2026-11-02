@@ -1,0 +1,123 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet resident compute checks</title>
+<style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:20px}button{padding:10px 16px}pre{padding:20px;background:#eff6ff;white-space:pre-wrap}</style>
+<h1>Svet resident compute checks</h1>
+<p>Hardware WGSL, branching immutable results, explicit readback and lifetime checks.</p>
+<button id="run">Run resident checks</button>
+<pre id="results" role="status">Not run</pre>
+<script type="module">
+import {configureGpuSubsystem, createGpuTensor, createRoot, dispatchGpuComputeResident,
+  readGpuResidentTensor, GpuResidentCapacityError, effect, getGpuTelemetry, getGraphTelemetry, resetReactiveSystem} from '/src/engine/index.ts';
+const unary = `
+@group(0) @binding(0) var<storage, read> input: array<f32>;
+@group(0) @binding(1) var<storage, read_write> output: array<f32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+ if (id.x < arrayLength(&output)) { output[id.x] = input[id.x] * 2.0 + 1.0; }
+}`;
+const join = `
+@group(0) @binding(0) var<storage, read> a: array<f32>;
+@group(0) @binding(1) var<storage, read> b: array<f32>;
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+ if (id.x < arrayLength(&output)) { output[id.x] = a[id.x] + b[id.x]; }
+}`;
+const equal = (a,b) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw Error(`Expected ${b}, got ${a}`); };
+const results = document.querySelector('#results');
+document.querySelector('#run').onclick = async () => {
+ const lines = [], handles = []; let device, observer, input, output, lossDevice;
+ const button = document.querySelector('#run'); button.disabled = true; results.textContent = 'Running…';
+ try {
+  const adapter = await navigator.gpu?.requestAdapter();
+  if (!adapter) throw Error('No WebGPU adapter');
+  const info = adapter.info ?? {};
+  lines.push('INFO ' + JSON.stringify({vendor:info.vendor, architecture:info.architecture, device:info.device,
+   description:info.description,isFallbackAdapter:info.isFallbackAdapter ?? adapter.isFallbackAdapter ?? null}));
+  device = await adapter.requestDevice(); const allocations = [];
+  let writes = 0, submits = 0, maps = 0, gate;
+  const create = device.createBuffer.bind(device), write = device.queue.writeBuffer.bind(device.queue), submit = device.queue.submit.bind(device.queue);
+  device.createBuffer = descriptor => {
+   const buffer = create(descriptor), item = {destroyed:false, size:descriptor.size}; allocations.push(item);
+   const destroy = buffer.destroy.bind(buffer), map = buffer.mapAsync.bind(buffer);
+   buffer.destroy = () => { item.destroyed = true; return destroy(); };
+   buffer.mapAsync = (...args) => {
+    maps++; const pending = map(...args), held = gate;
+    if (!held) return pending; gate = undefined; held.reached();
+    return Promise.all([pending, held.wait]).then(() => undefined);
+   };
+   return buffer;
+  };
+  device.queue.writeBuffer = (...args) => { writes += args[4]; return write(...args); };
+  device.queue.submit = (...args) => { submits++; return submit(...args); };
+  device.pushErrorScope('validation'); configureGpuSubsystem({device});
+  input = createGpuTensor([1,2,3,4,5,6,7]); output = createGpuTensor(new Float32Array(7).fill(99)); let runs = 0;
+  observer = effect(() => { output(); runs++; });
+  const initialNodes = getGraphTelemetry().nodes;
+  const first = await dispatchGpuComputeResident({wgsl:unary,inputs:[input],outputLength:7}); handles.push(first);
+  const left = await dispatchGpuComputeResident({wgsl:unary,inputs:[first],outputLength:7}); handles.push(left);
+  const right = await dispatchGpuComputeResident({wgsl:unary,inputs:[first],outputLength:7}); handles.push(right);
+  const joined = await dispatchGpuComputeResident({wgsl:join,inputs:[left,right],outputLength:7}); handles.push(joined);
+  if (getGraphTelemetry().nodes !== initialNodes) throw Error('Resident graph allocated WASM output nodes');
+  if (writes !== 28 || maps || submits !== 4 || runs !== 1) throw Error('Resident graph transferred/read/published intermediates');
+  equal([first.uploadedBytes, left.uploadedBytes, right.uploadedBytes, joined.uploadedBytes],[28,0,0,0]);
+  equal([getGpuTelemetry().residentComputeBytes,getGpuTelemetry().residentComputeCount],[112,4]);
+  const report = await readGpuResidentTensor(joined,output);
+  equal(Array.from(output()),[14,22,30,38,46,54,62]);
+  equal([writes,maps,submits,runs,report.uploadedBytes,report.readbackBytes],[28,1,5,2,0,28]);
+  lines.push('PASS branching WGSL graph uses one upload, no intermediate maps and one atomic final publication');
+  const mutating = unary.replace('var<storage, read> input', 'var<storage, read_write> input')
+    .replace('output[id.x] = input[id.x] * 2.0 + 1.0;', 'input[id.x] = 999.0; output[id.x] = input[id.x];');
+  let mutationRejected = false;
+  try { await dispatchGpuComputeResident({wgsl:mutating,inputs:[first],outputLength:7}); } catch { mutationRejected = true; }
+  if (!mutationRejected) throw Error('WGSL modified an immutable input');
+  await readGpuResidentTensor(first,output); equal(Array.from(output()),[3,5,7,9,11,13,15]);
+  lines.push('PASS explicit read-only layouts reject input-writing WGSL and preserve resident source data');
+  configureGpuSubsystem({maxPendingComputeBytes:0});
+  const gpuOnly = await dispatchGpuComputeResident({wgsl:unary,inputs:[joined],outputLength:7}); handles.push(gpuOnly);
+  if (writes !== 28 || maps !== 2) throw Error('GPU-only dispatch uploaded or mapped');
+  configureGpuSubsystem({maxPendingComputeBytes:256*1024*1024,maxResidentComputeBytes:140});
+  const count = allocations.length; let rejected;
+  try { await dispatchGpuComputeResident({wgsl:unary,inputs:[first],outputLength:7}); } catch (error) { rejected = error; }
+  if (!(rejected instanceof GpuResidentCapacityError) || allocations.length !== count) throw Error('Resident admission failed after allocation');
+  gpuOnly.dispose(); equal(getGpuTelemetry().residentComputeBytes,112);
+  lines.push('PASS GPU-only dispatch works with zero host snapshot budget; resident budget rejects before allocation');
+  configureGpuSubsystem({maxResidentComputeBytes:256*1024*1024});
+  let invalid = false;
+  try { await dispatchGpuComputeResident({wgsl:'invalid source',inputs:[first],outputLength:7}); } catch { invalid = true; }
+  if (!invalid || getGpuTelemetry().residentComputeBytes !== 112) throw Error('Invalid shader published a handle or leaked its reservation');
+  first.dispose(); if (!joined.active) throw Error('Independent graph result invalidated with source');
+  await readGpuResidentTensor(joined,output); equal(Array.from(output()),[14,22,30,38,46,54,62]);
+  lines.push('PASS invalid WGSL rolls back; disposing consumed inputs preserves independent results');
+  let stop;
+  const owned = await createRoot(dispose => { stop = dispose; return dispatchGpuComputeResident({wgsl:unary,inputs:[joined],outputLength:7}); });
+  const readReached = new Promise(resolve => {
+   let release; const wait = new Promise(yes => { release = yes; }); gate = {wait,release,reached:resolve};
+  });
+  const releaseRead = gate.release;
+  const before = Array.from(output()), beforeRuns = runs;
+  const pending = readGpuResidentTensor(owned,output); await readReached; stop();
+  let cancelled = false; try { await pending; } catch { cancelled = true; }
+  releaseRead();
+  if (!cancelled || owned.active || runs !== beforeRuns) throw Error('Cancelled resident readback published'); equal(Array.from(output()),before);
+  lines.push('PASS owner disposal during native map cancels readback and preserves output');
+  handles.forEach(handle => handle.dispose()); equal(getGpuTelemetry().residentComputeBytes,0);
+  if (allocations.some(item => !item.destroyed)) throw Error('Resident buffers or staging leaked after disposal');
+  const validation = await device.popErrorScope(); if (validation) throw Error(validation.message);
+  const resetHandle = await dispatchGpuComputeResident({wgsl:unary,inputs:[input],outputLength:7}); resetReactiveSystem();
+  if (resetHandle.active || getGpuTelemetry().residentComputeBytes) throw Error('Reset retained resident result');
+  lines.push('PASS reset destroys resident buffers and returns persistent credits');
+  const lossAdapter = await navigator.gpu.requestAdapter();
+  if (!lossAdapter) throw Error('No adapter for device-loss check');
+  lossDevice = await lossAdapter.requestDevice(); configureGpuSubsystem({device:lossDevice});
+  const lossInput = createGpuTensor([1]), lostResult = await dispatchGpuComputeResident({wgsl:unary,inputs:[lossInput],outputLength:1});
+  lossDevice.destroy(); await lossDevice.lost; await Promise.resolve();
+  if (lostResult.active || getGpuTelemetry().webgpuAvailable) throw Error('Device loss kept resident handle active');
+  lossInput.dispose(); lines.push('PASS actual device loss retires resident handles');
+  results.textContent = lines.join('\n') + '\n7/7 passed';
+ } catch (error) { results.textContent = lines.join('\n') + '\nFAIL: ' + error.message; }
+ finally {
+  handles.forEach(handle => handle.dispose()); observer?.dispose(); input?.dispose(); output?.dispose();
+  configureGpuSubsystem({device:null}); device?.destroy(); lossDevice?.destroy(); button.disabled = false;
+ }
+};
+</script>

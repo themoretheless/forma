@@ -1,0 +1,25 @@
+workerd/jsg/util.c++:374: error: e = kj/filesystem.c++:319: failed: expected parts.size() > 0 [0 > 0]; can't use ".." to break out of starting directory
+stack: 10759d39f 10759b2b3 10759b16b 104cad633 104b61b87 1055cf53b 1055b892b 1055c8bb7 1055c8a5b 104ac574f 107554baf 1075502c7 107550cb3 104a3fe97 1075ab86f 1075abb97 1075aa403 1075aa1c3 104a2c8f3 187f594e3; sentryErrorContext = jsgInternalError; wdErrId = 16dgf5n3isu0ua8q1vs4dtio
+service core:user:: Uncaught Error: internal error; reference = 16dgf5n3isu0ua8q1vs4dtio
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+MiniflareCoreError [ERR_RUNTIME_FAILURE]: The Workers runtime failed to start. There was likely a problem with the workerd binary or your configuration.
+Runtime stderr:
+workerd/jsg/util.c++:374: error: e = kj/filesystem.c++:319: failed: expected parts.size() > 0 [0 > 0]; can't use ".." to break out of starting directory
+stack: 10759d39f 10759b2b3 10759b16b 104cad633 104b61b87 1055cf53b 1055b892b 1055c8bb7 1055c8a5b 104ac574f 107554baf 1075502c7 107550cb3 104a3fe97 1075ab86f 1075abb97 1075aa403 1075aa1c3 104a2c8f3 187f594e3; sentryErrorContext = jsgInternalError; wdErrId = 16dgf5n3isu0ua8q1vs4dtio
+service core:user:: Uncaught Error: internal error; reference = 16dgf5n3isu0ua8q1vs4dtio
+    at StartupLogBuffer.handleStartupFailure (/private/tmp/svet-edge-host-KjJ3yY/node_modules/miniflare/dist/src/index.js:83638:13)
+    at Runtime.updateConfig (/private/tmp/svet-edge-host-KjJ3yY/node_modules/miniflare/dist/src/index.js:83728:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async #assembleAndUpdateConfig (/private/tmp/svet-edge-host-KjJ3yY/node_modules/miniflare/dist/src/index.js:104322:30)
+    at async Mutex.runWith (/private/tmp/svet-edge-host-KjJ3yY/node_modules/miniflare/dist/src/index.js:72013:48)
+    at async #waitForReady (/private/tmp/svet-edge-host-KjJ3yY/node_modules/miniflare/dist/src/index.js:104442:5)
+    at async _Miniflare.dispatchFetch (/private/tmp/svet-edge-host-KjJ3yY/node_modules/miniflare/dist/src/index.js:104577:5)
+    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:14:17 {
+  code: 'ERR_RUNTIME_FAILURE',
+  cause: undefined
+}
+
+Node.js v22.23.4

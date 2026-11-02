@@ -1,0 +1,24 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/benchmark.test.ts > Svet Engine — Performance Benchmarks (Svet vs React vs Vue vs Svelte) > Run and print full head-to-head benchmark suite with separate columns for Svet, React, Vue, and Svelte
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/benchmark.test.ts:99:3
+     97|
+     98| describe('Svet Engine — Performance Benchmarks (Svet vs React vs Vue v…
+     99|   it('Run and print full head-to-head benchmark suite with separate co…
+       |   ^
+    100|     const results: Array<{
+    101|       Benchmark: string;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 80 passed (81)
+      Tests  1 failed | 1160 passed (1161)
+   Start at  03:11:35
+   Duration  60.32s (environment 71%, tests 19%, import 9%, transform 1%, worker 1%)
+
+    Isolate  81 workers spawned · ~2.13s startup each (spawn + environment, per file)
+             at least ~41.00s faster with isolate: false — reuses workers across files instead of one per file
+

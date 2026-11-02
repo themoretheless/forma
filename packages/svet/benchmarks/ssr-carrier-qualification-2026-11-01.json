@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "packageSha256": "e5307f71d43c650a9e78c02ecede465c704702be30cc2fdbe46e47b36238eae9",
+  "runtimeFiles": 19,
+  "injectedHostRequests": 8,
+  "nativeAwaitCarrier": true,
+  "synchronousStackRejected": true,
+  "nodeFreeBrowserImportBuild": true,
+  "scope": "Node ALS injected through public host runtime and production browser build; no live Edge/browser async SSR provider."
+}

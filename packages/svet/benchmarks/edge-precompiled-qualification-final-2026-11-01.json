@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "packageSha256": "a36503b69800714bf30b60a6166a7952d2c58943cca662722764ffeffad3dba1",
+  "runtimeFiles": 19,
+  "edgeFetchEvents": 2,
+  "asyncRenders": 16,
+  "wasmBytes": 54320,
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "workerd": "1.20260730.1",
+  "cargoTargetArtifactMatches": true,
+  "scope": "Installed local workerd/LinkeDOM string SSR, fresh native WASM build/embedded/packaged asset equality; no deployed Worker, browser provider or Edge streaming/cancel qualification."
+}

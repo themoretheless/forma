@@ -1,0 +1,24 @@
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/gpu-resident-render.test.ts:159:49
+    157|   selected.set(second);first.dispose();await drain();
+    158|   expect(callbacks.size).toBe(0);expect(gpu.renderDraws).toHaveLength(…
+    159|   finish();await drain();expect(callbacks.size).toBe(1);
+       |                                                 ^
+    160|   const pending=Array.from(callbacks.values());callbacks.clear();pendi…
+    161|   expect(gpu.renderDraws).toHaveLength(2);expect(view.dataset.renderBa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 skipped (14)
+   Start at  15:24:12
+   Duration  637ms (environment 65%, transform 24%, tests 6%, import 5%)
+

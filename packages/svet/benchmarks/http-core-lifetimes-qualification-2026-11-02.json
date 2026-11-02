@@ -1,0 +1,81 @@
+{
+  "date": "2026-11-02",
+  "status": "optional nonretaining finalization counters validated; allocation cause remains open",
+  "mode": "SVET_SOAK_CORE_LIFETIMES=1; default0 preserves existing instrumentation",
+  "runs": {
+    "smoke": {
+      "requests": 1936,
+      "forcedGCs": 0,
+      "lifetimeAccounting": {
+        "created": 1936,
+        "finalized": 1928,
+        "memoryCreated": 1936,
+        "memoryFinalized": 1928,
+        "bytesRegistered": 2156920832,
+        "bytesFinalized": 2148007936,
+        "maxPendingMemories": 104,
+        "pending": 8,
+        "pendingMemories": 8,
+        "pendingRegisteredBytes": 8912896,
+        "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+      }
+    },
+    "forced": {
+      "requests": 168,
+      "forcedGCs": 21,
+      "lifetimeAccounting": {
+        "created": 168,
+        "finalized": 168,
+        "memoryCreated": 168,
+        "memoryFinalized": 168,
+        "bytesRegistered": 187170816,
+        "bytesFinalized": 187170816,
+        "maxPendingMemories": 8,
+        "pending": 0,
+        "pendingMemories": 0,
+        "pendingRegisteredBytes": 0,
+        "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+      }
+    },
+    "disabled": {
+      "requests": 200,
+      "forcedGCs": 0,
+      "lifetimeAccounting": null
+    },
+    "compat-identity": {
+      "checks": 3,
+      "status": "passed"
+    },
+    "compat-gzip": {
+      "checks": 4,
+      "status": "passed"
+    }
+  },
+  "naturalPeak": {
+    "external": 125093210,
+    "requestCoreLifetimes": {
+      "created": 568,
+      "finalized": 472,
+      "memoryCreated": 568,
+      "memoryFinalized": 472,
+      "bytesRegistered": 632815616,
+      "bytesFinalized": 525860864,
+      "maxPendingMemories": 96,
+      "pending": 96,
+      "pendingMemories": 96,
+      "pendingRegisteredBytes": 106954752,
+      "scope": "Finalization callback accounting; pending includes live targets and callback lag, registered bytes exclude later memory growth."
+    }
+  },
+  "source_sha256": {
+    "scripts/soak-ssr-stream-http.mjs": "58c9766943939119ea8f16f8e2a8a19d21a00faaf09afe08fc308beba6a6f0fd",
+    "scripts/browser-fixture-endpoints.mjs": "262d89caa1d33137c6db5008b4157c57a8821a145c1841a4a367f48ee8b75a36"
+  },
+  "limits": [
+    "Finalization callbacks are delayed; pending is not an exact live heap census",
+    "Registered bytes measure initial memory size and exclude later growth",
+    "Short-run co-occurrence supports a GC/native memory pacing hypothesis but does not prove historical2h root cause",
+    "Opt-in tracing overhead unmeasured; no changed budgets or forced GC in natural runs",
+    "Original frozen30m process not changed or restarted"
+  ]
+}

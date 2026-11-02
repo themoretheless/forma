@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-02",
+  "change": "Store ordered Let expressions with captured prop scope and visible For parent indexes; replay against current model and prior Let results during binding key resolution.",
+  "checks": {
+    "lib": 149,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regression": "IR constant/dynamic prefix followed by dependent suffix; changed root prefix and item reorder; fresh/cached maps agree. Constant key accepts original item edit, changed dynamic key rejects old identity; model prefix preserved.",
+  "source_sha256": "3015cc3ef7f558484680f400fc9f0675ffdc99f526ac9aca6a8a7ec631da3531",
+  "limitations": [
+    "Replay clones model per Let step; no performance/peak memory claim.",
+    "Bounded to16384 steps, parent indexes earlier than current For frame.",
+    "Let-derived collections/aliases and complete error/deep nesting/compiler/browser/AOT matrix remain open.",
+    "No new hardware GPU test."
+  ]
+}

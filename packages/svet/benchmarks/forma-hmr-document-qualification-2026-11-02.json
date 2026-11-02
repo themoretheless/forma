@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "scope": "Document metadata and signal/let rollback on HMR preparation failure",
+  "sourceSha256": "875801b817b30b450a4c353ab4c85cbc9209b3ad9e9b35c9916fdf7899ab6456",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-0auVyW/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "browserReport": "forma-hmr-document-browser-2026-11-02.json",
+  "checks": {
+    "baseline": "old computed identity lost:1 failed/13 passed",
+    "full": "1357 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageGC": "passed",
+    "browser": "19/19"
+  },
+  "limitations": [
+    "No rollback after commit starts or cleanup exceptions",
+    "Signal snapshots preserve references; arbitrary in-place/external side effects not reversed",
+    "Candidate connection callbacks can observe tentative metadata and nodes",
+    "Arbitrary async/getter/reset behaviors, other browsers/performance unqualified",
+    "No current-runtime HTTP soak claim"
+  ]
+}

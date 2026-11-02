@@ -1,0 +1,9 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.30s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 1 test
+test form_document::tests::recovery_binding_map_refuses_excessive_source_depth_before_writing ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.03s
+

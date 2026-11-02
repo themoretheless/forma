@@ -1,0 +1,95 @@
+{
+  "node": "v26.13.0",
+  "cases": [
+    {
+      "stable": false,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 533.918625
+        },
+        {
+          "at": 633.46875
+        }
+      ],
+      "finalWrite": 538.42875,
+      "diskIsLatest": true,
+      "transformedLatest": true
+    },
+    {
+      "stable": false,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 1041.879291
+        },
+        {
+          "at": 1117.43575
+        }
+      ],
+      "finalWrite": 1044.954041,
+      "diskIsLatest": true,
+      "transformedLatest": true
+    },
+    {
+      "stable": false,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 1535.760458
+        },
+        {
+          "at": 1636.893833
+        }
+      ],
+      "finalWrite": 1537.287125,
+      "diskIsLatest": true,
+      "transformedLatest": true
+    },
+    {
+      "stable": true,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 1971.561541
+        },
+        {
+          "at": 2065.935958
+        }
+      ],
+      "finalWrite": 1973.574708,
+      "diskIsLatest": true,
+      "transformedLatest": true
+    },
+    {
+      "stable": true,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 2522.819166
+        },
+        {
+          "at": 2635.524833
+        }
+      ],
+      "finalWrite": 2526.719875,
+      "diskIsLatest": true,
+      "transformedLatest": true
+    },
+    {
+      "stable": true,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 3080.364
+        },
+        {
+          "at": 3223.170041
+        }
+      ],
+      "finalWrite": 3143.737875,
+      "diskIsLatest": true,
+      "transformedLatest": true
+    }
+  ]
+}

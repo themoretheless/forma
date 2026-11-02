@@ -1,0 +1,35 @@
+{
+  "date": "2026-11-02",
+  "status": "failed child view creation releases signals and preserves valid sibling key maps",
+  "before": "Failed mount/render leaves8 nodes instead of parent baseline5; child.dispose registered after render",
+  "changes": [
+    "Child cleanup registered immediately after factory returns",
+    "Per-view key maps published on successful creation; failed attempt restores previous live map",
+    "Unmount removes retired map and restores last live sibling map"
+  ],
+  "checks": {
+    "full_js": {
+      "passed": 1337,
+      "files": 101,
+      "maxWorkers": 2,
+      "note": "Initial default-concurrency run timed out in benchmark at unchanged5000ms; full bounded-worker rerun passed without deadline change"
+    },
+    "typescript": "passed",
+    "package_build": "passed",
+    "installed_package_gc_gate": "passed",
+    "real_browser_hmr": "7/7,4 actual updates",
+    "current_installed_runtime_bytes_after_whitespace_cleanup": "equal",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "src/engine/forma.ts": "7352687520d2053c28d75e852fc302e4b746fb5753031529556f9cfb1a935844",
+    "tests/forma-hmr-events.test.ts": "85b2434adc0dad40e7339eb4ec13505bd3fa71a4c83406a4c72e5151dd55bb78",
+    "tests/browser/forma-hmr-runner.html": "62b717794419ed919691da1728140c8837b702e5739182346bc6f3ddf49ee486"
+  },
+  "limits": [
+    "No HMR render-error rollback guarantee for an already-mounted view",
+    "Child factory throwing before it returns an instance and reentrant disposal still require qualification",
+    "Other browsers, async/pending errors and performance remain open",
+    "Frozen2h HTTP diagnostic uses older runtime"
+  ]
+}

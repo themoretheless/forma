@@ -1,0 +1,16 @@
+
+⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of null (reading 'once')
+    at BasicMinimalPluginContext.configureServer (file:///Users/themoretheless/Documents/Sources/forma/node_modules/.vite-temp/vite.config.js.timestamp-1793546044018-ce83ca6b9e92.mjs:3862:22)
+    at _createServer (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vite/dist/node/chunks/node.js:25064:95)
+    at async createViteServer (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/index.1TqnEahn.js:200:17)
+    at async createClusterServer (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/index.1TqnEahn.js:1836:18)
+    at async Vitest._attachRootServer (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/cli-api.De07GUeT.js:12369:30)
+    at async Vitest._start (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/cli-api.De07GUeT.js:12289:3)
+    at async createVitest (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/cli-api.De07GUeT.js:13395:3)
+    at async prepareVitest (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/cli-api.De07GUeT.js:13787:14)
+    at async startVitest (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/cli-api.De07GUeT.js:13705:14)
+    at async start (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vitest/dist/chunks/cac.CLrZKo1g.js:2368:15)
+
+
+

@@ -3,19 +3,21 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const wasmPath = path.resolve(
-  __dirname,
-  '../crates/svet-wasm/target/wasm32-unknown-unknown/release/svet_wasm.wasm'
-);
+const targetRoot = process.env.CARGO_TARGET_DIR
+  ? path.resolve(process.cwd(), process.env.CARGO_TARGET_DIR)
+  : path.resolve(__dirname, '../crates/svet-wasm/target');
+const wasmPath = path.resolve(targetRoot, 'wasm32-unknown-unknown/release/svet_wasm.wasm');
 const outPath = path.resolve(__dirname, '../src/engine/wasm-binary.ts');
 
 const bytes = fs.readFileSync(wasmPath);
 const base64 = bytes.toString('base64');
+const wasmExports = WebAssembly.Module.exports(new WebAssembly.Module(bytes)).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
 
 const content = `// AUTO-GENERATED FILE — DO NOT EDIT MANUALLY
 // Built from crates/svet-wasm/src/lib.rs (${bytes.length} bytes)
 
 export const WASM_BASE64: string = "${base64}";
+export const WASM_EXPORTS = ${JSON.stringify(wasmExports)} as const;
 
 export function decodeWasmBinary(): Uint8Array {
   if (typeof Buffer !== 'undefined') {

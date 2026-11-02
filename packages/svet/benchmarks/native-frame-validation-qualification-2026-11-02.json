@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-02",
+  "change": "Validate lexical frame header before routing:64-frame cap, numeric finite integer nonnegative active index, valid target frame/item and parent map; malformed/partial metadata refuses rather than falling back. Legacy maps with neither field remain supported.",
+  "checks": {
+    "lib": 150,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regression": "Corrupt cached scene active item index to -1 after first direct editor would stage a write; refusal leaves all model state unchanged. Original valid metadata then accepts both pending edits exactly once.",
+  "source_sha256": "f1e5741e93c3d732d901310eee0b7fef387af93419e4c77ff8c4f0453c4eac63",
+  "limitations": [
+    "Malformed metadata matrix not exhaustive; current regression specifically negative active index with transactional retry.",
+    "No new performance/GPU/browser qualification.",
+    "Replay sharing/aliases/full scope matrix remain open."
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "status": "partial",
+  "scope": "Cross-copy denied traversal bursts in Chrome156; installed independent bundles",
+  "isolatedDirections": {
+    "A-B": "11/11 passed",
+    "B-A": "11/11 passed"
+  },
+  "combinedRun": "16/17; last scenario timed out preparing middle entry before guard burst",
+  "unresolved": "Combined-run failure cause not established; no runtime repair or global burst qualification claimed",
+  "next": "Instrument native popstate, issued go commands, physical/accepted positions and pending restoration around setup timeout; reproduce combined run",
+  "evidence": [
+    "browser-copy-history-burst-first-2026-11-02.json",
+    "browser-copy-burst-a-2026-11-02.json",
+    "browser-copy-burst-b-2026-11-02.json",
+    "browser-copy-burst-2026-11-02.png"
+  ]
+}

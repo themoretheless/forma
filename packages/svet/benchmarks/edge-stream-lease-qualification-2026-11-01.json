@@ -1,0 +1,78 @@
+{
+  "status": "passed",
+  "scope": "Lifetime-sensitive native Web Stream timeout progress in pinned local workerd, eight concurrent requests; producer retirement owns the native stream without watchdog I/O. No general Edge GC or full-goal completion claim.",
+  "runtimeSha256": "65af71885e013af0aaae32d393b9057723a02a60743baad5150429efd60788eb",
+  "workerSourceSha256": "030cc266ebc009755167a58d1706a5ccc20a822723d840532752f6cef7de4e69",
+  "sourceSha256": {
+    "src/engine/ssr-runtime.ts": "f46665ad18f2fd10b9d23bc7b629b8d068785b243ed90434208cde228732f470",
+    "scripts/check-edge-ssr.mjs": "f8feb26f467828e075b2eacd19dd096ca07660a4e812dd9951b1eaabb22f9d8d",
+    "scripts/check-package.mjs": "3618ff8c13fa0d3d6f06ac0df9b4a45654d504263c631a5002ca35a849a6f466",
+    "scripts/measure-readable-ssr-retention.mjs": "831b6656daa714d76e4e8e8e019d3d4400fcefcc6fd9d98cea15b601386be61b"
+  },
+  "before": {
+    "file": "edge-stream-lease-reverted-2026-11-01.json",
+    "status": "failed"
+  },
+  "after": {
+    "file": "edge-stream-lease-churn-60s-2026-11-01.json",
+    "requestedMs": 60000,
+    "timeoutTransport": "readable",
+    "directSocket": false,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 1464,
+    "domCycles": 23424,
+    "streams": 11712,
+    "stringRenders": 11712,
+    "timeouts": 1464,
+    "elapsedMs": 60255.233416999996,
+    "status": "passed"
+  },
+  "direct": {
+    "file": "edge-stream-lease-direct-2026-11-01.json",
+    "requestedMs": 5000,
+    "timeoutTransport": "readable",
+    "directSocket": true,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 416,
+    "domCycles": 6656,
+    "streams": 3328,
+    "stringRenders": 3328,
+    "timeouts": 416,
+    "elapsedMs": 5078.92825,
+    "status": "passed"
+  },
+  "installed": {
+    "file": "edge-stream-lease-installed-2026-11-01.json",
+    "requestedMs": 1000,
+    "timeoutTransport": "readable",
+    "directSocket": false,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 112,
+    "domCycles": 1792,
+    "streams": 896,
+    "stringRenders": 896,
+    "timeouts": 112,
+    "elapsedMs": 1009.5343749999998,
+    "status": "passed"
+  },
+  "nodeGC": {
+    "objects": 432,
+    "retainedTerminalPairs": 64,
+    "discardedUnstartedStreams": 16,
+    "alive": 0
+  },
+  "checks": {
+    "JS": "1286 tests / 97 files",
+    "typescript": "passed",
+    "packageWithEdge": "passed; requires normal readable 8-event churn",
+    "HTTPActions": "4/4"
+  },
+  "limitations": [
+    "Exact native heap/GC retainer path not captured; lifetime diagnosis is supported by controlled revert/restore and collection probes.",
+    "Latest workerd override passes timeout churn but full matrix still fails on a separate pre-response fetch error; it is not qualified as a whole.",
+    "Edge GC, deployed providers and multi-hour resource bounds remain open."
+  ]
+}

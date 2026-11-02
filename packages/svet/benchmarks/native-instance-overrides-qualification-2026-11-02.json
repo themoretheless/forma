@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-02",
+  "scope": "Native component instantiation explicit-property precedence and allocation volume",
+  "change": "Restore only explicit properties whose keys selected groups actually overwrote; avoid a second full instance.props clone while retaining metadata accessibility",
+  "checks": {
+    "native_library_tests": 135,
+    "runtime_allocation_tests": 5,
+    "metal_gpu_tests": 3,
+    "native_binary_check": "passed",
+    "wasm32_library_check": "passed",
+    "diff_check": "passed"
+  },
+  "functional_coverage": [
+    "definition groups evaluated from one pre-selection property snapshot",
+    "explicit flag/text values override selected groups",
+    "props.__state.caption remains readable in template expression"
+  ],
+  "controls96": {
+    "render_requested_bytes": [
+      83777999,
+      77230175
+    ],
+    "sync_noop_requested_bytes": [
+      96940948,
+      90393124
+    ],
+    "sync_one_edit_requested_bytes": [
+      96940960,
+      90393136
+    ],
+    "sync_noop_allocation_count": [
+      774668,
+      725708
+    ],
+    "one_edit_time_ratios": [
+      0.9804396849990009,
+      0.8988739822233083
+    ]
+  },
+  "performance_scope": "A1/B1/A2/B2 fresh release processes, seven samples each, same TLS counter harness. Calling-thread cumulative request volume, not RSS or peak/live memory. Both timing pairs improve but no general application FPS/p95 claim.",
+  "source_archive": "native-instance-overrides-sources-2026-11-02.tar.gz",
+  "source_archive_sha256": "b326303cc4e6aba3998c0d3ec957ac551c577705346c95e3eab1394f099e3b58",
+  "source_sha256": {
+    "before/form_document.rs": "597d1fc5f18ffa87e4c6019628014795de18b1e38aa9d15a2db9d9ebe9f5a8b5",
+    "after/form_document.rs": "24643e08c459697f65615f0b4110a7da9f3fa0de4716f488726e6f317bad65db",
+    "shared/runtime.rs": "f61561bee29114b6a9650cecbe464fd851200654388544c9d97cf7d66de1ea33",
+    "shared/harness.rs": "d7eab708619965eaa44d3f33b5b389ca87316fa1bf63003bb2d8c8c195ce263d",
+    "shared/Cargo.toml": "e6f5d39cf27de1b8802108396708e5dca0eb3f023972ffaa1b08f9350297a0a5",
+    "shared/Cargo.lock": "264e549e0e0844b1953e8864b0329d2ccae6210ed6e5319034693ac024a38f13"
+  },
+  "analysis": "native-instance-overrides-analysis-2026-11-02.json",
+  "logs": {
+    "tests": "packages/svet/benchmarks/native-instance-overrides-tests-2026-11-02.txt",
+    "gpu": "packages/svet/benchmarks/native-instance-overrides-gpu-2026-11-02.txt",
+    "native": "packages/svet/benchmarks/native-instance-overrides-native-2026-11-02.txt",
+    "wasm": "packages/svet/benchmarks/native-instance-overrides-wasm-2026-11-02.txt",
+    "build": "packages/svet/benchmarks/native-instance-overrides-build-2026-11-02.txt"
+  },
+  "limitations": [
+    "roughly90MB allocation requests per96-editor sync remains excessive",
+    "state/scope sharing, larger/Frame-root applications and quiet-host timing qualification open",
+    "no new interactive-window/browser/remote CI qualification",
+    "HTTP measurement completion/context correction recorded separately; these timed runs preceded new latest soak launch"
+  ]
+}

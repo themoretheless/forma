@@ -1,0 +1,37 @@
+{
+  "node": "v22.23.4",
+  "probeSha256": "037d0846d39d91c0cdee9dd05c067905a2ca17a6e1319c297cf4856c5c694044",
+  "cyclesPerRun": 20000,
+  "checkedObjectsPerRun": 180000,
+  "default": {
+    "execArgv": [
+      "--expose-gc"
+    ],
+    "maxGcRounds": 10
+  },
+  "synchronousCompilation": {
+    "execArgv": [
+      "--expose-gc",
+      "--no-concurrent-recompilation"
+    ],
+    "maxGcRounds": 1
+  },
+  "earlierDefaultFailures": [
+    {
+      "owner": "owner:2582",
+      "gcRounds": 10
+    },
+    {
+      "owner": "owner:2385",
+      "gcRounds": 10
+    }
+  ],
+  "heapSnapshotSha256": "9a2b2e97743597a77de44dac4d6ba36910ecf50cb03c6b1fa2d3a419fda43ea6",
+  "observedRetainerPath": [
+    "GC roots",
+    "Strong roots / IdentityMapBase",
+    "scene constructor context (localMatrix, worldMatrix, computation)",
+    "previous context / owner"
+  ],
+  "interpretation": "The collector timing depends on VM execution conditions; background compilation is an inference from the roots and controlled flag comparison. This is not a general absence-of-leaks or process-memory plateau proof."
+}

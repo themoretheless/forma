@@ -1,0 +1,51 @@
+{
+  "startedAt": "2026-11-01T14:20:56.643Z",
+  "node": "v22.23.4",
+  "checks": [
+    "native HTTP body disconnect cancels pending next and releases request graph",
+    "fresh progressive stream succeeds with real writer drain after a cancelled request"
+  ],
+  "pending": {
+    "started": true,
+    "finished": false,
+    "nodes": 1,
+    "drains": 0,
+    "cleaned": 0,
+    "payloadSize": 132096
+  },
+  "cancelled": {
+    "started": true,
+    "finished": true,
+    "nodes": 0,
+    "drains": 0,
+    "cleaned": 1,
+    "payloadSize": 132096
+  },
+  "completed": {
+    "started": true,
+    "finished": true,
+    "nodes": 0,
+    "drains": 2,
+    "cleaned": 1,
+    "payloadSize": 132096
+  },
+  "chunkTypes": [
+    "shell",
+    "patch",
+    "complete"
+  ],
+  "chunkBytes": [
+    211,
+    132366,
+    132457
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-01T14:20:56.683Z",
+  "sourceSha256": "1f1e56648690b08d6076149290baee14f4088d1d6eb3de3230ffadaef96a996a",
+  "runtimeSha256": {
+    "server.js": "21499ba64e2a77119a921126c54156b8ba7e857412c1f78bf13b945294b34ce0",
+    "stream.js": "447de363ba085dcc0147cb4b02a4a20b955ede2ce2d75ed2af010c0a86fe3b06",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  }
+}

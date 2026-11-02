@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-02",
+  "status": "partial; cross-core batch coalescing and in-batch freshness implemented",
+  "checks": {
+    "full_js": {
+      "passed": 1321,
+      "files": 100,
+      "expected_failures": 0
+    },
+    "focused_cross_core": 20,
+    "typescript": "passed",
+    "package_build": "passed",
+    "installed_consumer_gc_gate": "passed",
+    "independent_copy_probe": "15/15 passed",
+    "diff_check": "passed"
+  },
+  "semantics": [
+    "Native batches defer observer delivery in written foreign cores until shared synchronous batch ends",
+    "Proxy writes immediately dirty target native graph",
+    "Computed reads and peek refresh foreign boundaries below cached local computed chains during batch",
+    "Revision tokens prevent duplicate forwarding after explicit refresh",
+    "Nested mixed-core writes coalesce",
+    "Body and target failures drain held targets preserving primary failure",
+    "Held generation reset/replacement is safe",
+    "Cross-core feedback delivery is bounded and recovery tested"
+  ],
+  "limitations": [
+    "Dedicated bridge weak-GC retention gate remains open",
+    "Arbitrary scheduling/diamond topology and browser production/HMR matrix remain open",
+    "Hot-path and transport overhead not measured",
+    "Existing natural-GC HTTP external-memory budget failure unresolved; no new soak performed"
+  ],
+  "source_sha256": {
+    "src/engine/reactivity.ts": "356974c7cd5290eaea3c4607adf6a1d81e3a7e8bee9543e6bf60f39578d02f56",
+    "tests/cross-core-dependencies.test.ts": "4cbd7a9744a0a65311aeec93dab4a200be56103a14a5dda854aa8973f99ac49f",
+    "scripts/check-cross-copy-tracking.mjs": "2e12c8fa5ccd30869de99971d906484c1b9837b41a8c05455c1087f0f451cc86"
+  }
+}

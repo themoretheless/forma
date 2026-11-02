@@ -1,0 +1,15 @@
+{
+  "measuredAt": "2026-11-01T15:00:55.484Z",
+  "node": "v22.23.4",
+  "receivers": 32,
+  "beforeRelease": {
+    "retainedHandleContainers": 32,
+    "controlContainers": 0
+  },
+  "afterRelease": {
+    "retainedHandleContainers": 0,
+    "controlContainers": 0
+  },
+  "status": "retention-reproduced",
+  "scope": "Disposed receiver with caller-retained handle; detached JSDOM containers. Does not measure iterator, active complete receiver, RSS or browser GC."
+}

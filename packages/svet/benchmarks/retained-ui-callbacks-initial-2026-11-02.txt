@@ -1,0 +1,27 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: router graph after unmount
+
+1 !== 0
+
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-retained-ui-callbacks.mjs:16:36
+    at awaitRequest (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer/node_modules/svet-engine/dist/package/ssr-runtime.js:176:26)
+    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer/node_modules/svet-engine/dist/package/ssr-runtime.js:214:86
+    at runWithAsyncRequestScope (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer/node_modules/svet-engine/dist/package/reactivity.js:769:22)
+    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer/node_modules/svet-engine/dist/package/ssr-runtime.js:214:55
+    at withWasmCore (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer/node_modules/svet-engine/dist/package/wasm-bridge.js:86:16)
+    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer/node_modules/svet-engine/dist/package/ssr-runtime.js:214:30
+    at AsyncLocalStorage.run (node:internal/async_local_storage/async_hooks:91:14)
+    at Module.runWithIsolatedContextAsync (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer/node_modules/svet-engine/dist/package/ssr-runtime.js:212:25)
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-retained-ui-callbacks.mjs:10:75 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 1,
+  expected: 0,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.4

@@ -1,0 +1,6 @@
+  ➜  Local:   http://127.0.0.1:4218/
+{"root":"/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-HdlD5c","installed":"/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-xzJ18u/consumer/node_modules/svet-engine","output":"/Users/themoretheless/Documents/Sources/forma/packages/svet/benchmarks/forma-child-failure-browser-2026-11-02.json"}
+8:41:53 AM [vite] (client) hmr update /View.ui
+8:41:54 AM [vite] (client) hmr update /View.ui
+8:41:54 AM [vite] (client) hmr update /View.ui
+8:41:54 AM [vite] (client) hmr update /View.ui

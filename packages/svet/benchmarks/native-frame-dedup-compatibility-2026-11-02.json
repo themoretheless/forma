@@ -1,0 +1,50 @@
+{
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "controls": 8,
+      "status": "passed",
+      "removedDuplicateLocals": 8,
+      "beforeBytes": 50389,
+      "afterBytes": 43453,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    },
+    {
+      "controls": 32,
+      "status": "passed",
+      "removedDuplicateLocals": 32,
+      "beforeBytes": 607587,
+      "afterBytes": 498563,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    },
+    {
+      "controls": 96,
+      "status": "passed",
+      "removedDuplicateLocals": 96,
+      "beforeBytes": 5078947,
+      "afterBytes": 4100611,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    },
+    {
+      "controls": 256,
+      "status": "passed",
+      "removedDuplicateLocals": 256,
+      "beforeBytes": 35653311,
+      "afterBytes": 28622783,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    }
+  ],
+  "wasmSha256": {
+    "before": "721d93fccbab057e96bee6a1268c53e986397c6bed5c36019dbe83fd5c5a0743",
+    "after": "ab7c4591656ad40d317c871617e3820c5b58621c03ab5c1774863a7257d7cfda"
+  },
+  "status": "passed"
+}

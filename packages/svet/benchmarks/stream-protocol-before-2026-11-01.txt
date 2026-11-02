@@ -1,0 +1,107 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/stream-protocol.test.ts --maxWorkers=1
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/stream-protocol.test.ts (4 tests | 4 failed) 30ms
+   × rejects unknown versions before inspecting payload or changing DOM 10ms
+   × rejects unversioned legacy records instead of silently interpreting them as v1 2ms
+   × requires sequence zero and contiguous records; rejects duplicate patches before their HTML getter 4ms
+   × keeps pre-existing resumed bindings when protocol validation fails before a shell is accepted 14ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/stream-protocol.test.ts > rejects unknown versions before inspecting payload or changing DOM
+AssertionError: expected [Function] to throw error matching /Unsupported SSR stream version/ but got 'Invalid SSR stream chunk'
+
+- Expected:
+/Unsupported SSR stream version/
+
++ Received:
+"Invalid SSR stream chunk"
+
+ ❯ tests/stream-protocol.test.ts:8:134
+      6| it('rejects unknown versions before inspecting payload or changing DOM…
+      7|  const host=document.createElement('div');host.innerHTML='<b>existing<…
+      8|  expect(()=>receiver.apply({version:2,sequence:0,streamId:'future',get…
+       |                                                                                                                                      ^
+      9|  expect(reads).toBe(0);expect(host.firstChild).toBe(old);expect(receiv…
+     10| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/stream-protocol.test.ts > rejects unversioned legacy records instead of silently interpreting them as v1
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/stream-protocol.test.ts:13:83
+     11| it('rejects unversioned legacy records instead of silently interpretin…
+     12|  const host=document.createElement('div');host.textContent='existing';…
+     13|  expect(()=>receiver.apply({type:'shell',streamId:'legacy',html:'wrong…
+       |                                                                                   ^
+     14| });
+     15| it('requires sequence zero and contiguous records; rejects duplicate p…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/stream-protocol.test.ts > requires sequence zero and contiguous records; rejects duplicate patches before their HTML getter
+TypeError: Invalid SSR stream chunk
+ ❯ src/engine/stream.ts:55:97
+     53|       try{
+     54|         const type=chunk.type;assertCurrent();const id=chunk.streamId;…
+     55|         if(typeof id!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(id)||typ…
+       |                                                                                                 ^
+     56|         if(encoder.encode(html).byteLength>maxBytes)throw RangeError('…
+     57|         if(complete)throw Error('SSR stream already completed');
+ ❯ src/engine/reactivity.ts:654:18
+ ❯ withWasmCore src/engine/wasm-bridge.ts:177:12
+ ❯ runWithCapturedOwner src/engine/reactivity.ts:650:10
+ ❯ src/engine/reactivity.ts:641:16
+ ❯ untrack src/engine/reactivity.ts:1683:12
+ ❯ src/engine/reactivity.ts:992:35
+ ❯ withWasmCore src/engine/wasm-bridge.ts:177:12
+ ❯ runUntrackedInCore src/engine/reactivity.ts:992:10
+ ❯ Object.run src/engine/reactivity.ts:639:14
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/stream-protocol.test.ts > keeps pre-existing resumed bindings when protocol validation fails before a shell is accepted
+AssertionError: expected [Function] to throw error matching /Unsupported SSR stream version/ but got 'Invalid SSR stream chunk'
+
+- Expected:
+/Unsupported SSR stream version/
+
++ Received:
+"Invalid SSR stream chunk"
+
+ ❯ tests/stream-protocol.test.ts:24:50
+     22|  const host=document.createElement('div');host.innerHTML='<input data-…
+     23|  const state=resumeContainer(host,snapshot),input=host.querySelector('…
+     24|  expect(()=>receiver.apply({version:99} as any)).toThrow(/Unsupported …
+       |                                                  ^
+     25|  input.value='5';input.dispatchEvent(new Event('input'));expect(state.…
+     26| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  18:26:05
+   Duration  934ms (environment 83%, transform 6%, import 6%, tests 4%)
+

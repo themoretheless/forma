@@ -1,0 +1,107 @@
+{
+  "status": "validated-lexical-replay-allocation-reduction",
+  "change": [
+    "Borrow root replay state until locals/parents require overlays",
+    "Move evaluated Let values into final locals instead of cloning again"
+  ],
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "821daa1245387441bfbe5698721147b3a5ca34da0b0f664eb4daad61eb4af489",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "d7b3593b952e19aefe6cf228fae8c27ba726c516325acc69d2db88614b2f9d8a"
+  },
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 1011977,
+      "afterEditRequestedBytes": 919827,
+      "reductionPercent": 9.105938178436856,
+      "beforeEditAllocations": 7830,
+      "afterEditAllocations": 7158
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 9746938,
+      "afterEditRequestedBytes": 8331036,
+      "reductionPercent": 14.526633902872877,
+      "beforeEditAllocations": 72827,
+      "afterEditAllocations": 62459
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 75344674,
+      "afterEditRequestedBytes": 62716548,
+      "reductionPercent": 16.760475995954273,
+      "beforeEditAllocations": 555922,
+      "afterEditAllocations": 463378
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 508932998,
+      "afterEditRequestedBytes": 419228808,
+      "reductionPercent": 17.62593314886609,
+      "beforeEditAllocations": 3734801,
+      "afterEditAllocations": 3078417
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 1016351,
+      "afterEditRequestedBytes": 924201,
+      "reductionPercent": 9.066749577655752,
+      "beforeEditAllocations": 7866,
+      "afterEditAllocations": 7194
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 9769529,
+      "afterEditRequestedBytes": 8353627,
+      "reductionPercent": 14.493042602156148,
+      "beforeEditAllocations": 72994,
+      "afterEditAllocations": 62626
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 75410913,
+      "afterEditRequestedBytes": 62782787,
+      "reductionPercent": 16.74575402634364,
+      "beforeEditAllocations": 556409,
+      "afterEditAllocations": 463865
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 509108669,
+      "afterEditRequestedBytes": 419404479,
+      "reductionPercent": 17.6198512149083,
+      "beforeEditAllocations": 3736088,
+      "afterEditAllocations": 3079704
+    }
+  ],
+  "repeat": "All allocation counters repeat exactly across two candidate runs",
+  "plainControl": "Ordinary Column allocation counters unchanged",
+  "validation": {
+    "libraryTests": 164,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "actualGeneratedNodeArtifactGate": "passed",
+    "actualGeneratedNodeSnapshotAndAliasCases": 5,
+    "remoteCI": "not executed; existing studio gate includes added chained alias case"
+  },
+  "regressions": [
+    "Chained Let alias with computed key referring to props survives reorder and preserves captured frames",
+    "WASM single/chained alias input commits correct item and second sync is no-op",
+    "Existing nested shadowing,failed replay rollback/retry tests pass"
+  ],
+  "limitations": [
+    "Lexical Svet256 still requests419404479 bytes/edit;large-form readiness remains open",
+    "Cumulative requested bytes,not live/peak memory",
+    "No controlled latency/FPS/presentation claim",
+    "Remaining replay/model copies and other environments unqualified"
+  ]
+}

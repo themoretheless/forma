@@ -45,6 +45,7 @@ export {
   getDomMutationCount,
   resetDomMutationCount,
   type Component,
+  type AsyncComponent,
   type ChildNodeValue,
   type ReactiveValue,
 } from './dom.ts';
@@ -83,6 +84,7 @@ export {
   computeLisWasm,
   getWasmCore,
   createWasmCoreInstance,
+  installSvetWasmModule,
   withWasmCore,
 } from './wasm-bridge.ts';
 
@@ -118,6 +120,7 @@ export {
   type GpuSubsystemConfig,
   type WebGpuComputeDispatchOptions,
   type AsyncWebGpuComputeDispatchOptions,
+  type GpuComputeChainStage,
   type GpuComputeResult,
   type Vec3Tuple,
   type ReactiveTransform3D,
@@ -168,3 +171,12 @@ export {
   type VirtualListProps,
   type VirtualListHandle,
 } from './devtools.ts';
+
+export { dispatchGpuComputeResident, readGpuResidentTensor, readGpuResidentSnapshot, GpuResidentCapacityError,
+  type GpuResidentTensor, type GpuResidentComputeOptions } from './gpu-resident.ts';
+
+export {createSsrStreamReceiver,SSR_STREAM_VERSION,type SsrStreamChunk,type SsrStreamReceiver} from './stream.ts';
+export {SSR_STREAM_ACCEPT_HEADER,SSR_STREAM_VERSION_HEADER,SSR_STREAM_CONTENT_TYPE,negotiateSsrStreamVersion,assertSsrStreamResponse} from './stream-protocol.ts';
+export {SSR_STREAM_HTML_REFERENCE_CODEC,createSsrStreamTransportEncoder,createSsrStreamTransportDecoder,type SsrStreamTransportFrame,type SsrStreamHtmlReference,type SsrStreamTransportEncoder,type SsrStreamTransportDecoder} from './stream-codec.ts';
+
+export {SSR_STREAM_CODEC_HEADER,negotiateSsrStreamCodec,type SsrStreamCodec} from './stream-protocol.ts';

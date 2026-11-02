@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "scope": "Frozen HTTP soak harness qualification; not two-hour workload completion or memory plateau.",
+  "manifest": "http-natural-frozen-final-manifest-2026-11-02.json",
+  "sourceSha256": {
+    "soak-ssr-stream-http.mjs": "fe24e0130bc3d9df207155f1a25786ca8ef646a774c74cb81fc89f9b561cd9fa",
+    "browser-fixture-endpoints.mjs": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c"
+  },
+  "runtimeArtifacts": 20,
+  "normalRequests": 184,
+  "controlledMutation": "post-start gpu.js edit detected in isolated copy",
+  "doubleFailure": "stats primary and forget cleanup recorded separately",
+  "evidence": [
+    "http-frozen-final-pilot-2026-11-02.json",
+    "http-frozen-tamper-2026-11-02.json",
+    "http-frozen-errors-2026-11-02.json"
+  ]
+}

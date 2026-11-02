@@ -1,0 +1,17 @@
+  ➜  Local:   http://127.0.0.1:4221/
+{"root":"/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-tKlCfR","installed":"/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Rq18ka/consumer/node_modules/svet-engine","output":"/Users/themoretheless/Documents/Sources/forma/packages/svet/benchmarks/forma-hmr-factory-browser-2026-11-02.json"}
+9:03:41 AM [vite] (client) hmr update /View.ui
+9:03:41 AM [vite] (client) hmr update /View.ui
+9:03:41 AM [vite] (client) hmr update /View.ui
+9:03:42 AM [vite] (client) hmr update /View.ui
+9:03:42 AM [vite] (client) hmr update /View.ui
+9:03:42 AM [vite] (client) [Unhandled rejection] Error: Controlled instance HMR failure
+ > faulty.hotReload ../../../../../../../index.html?html-proxy=&index=0.js:69:59
+ > View.ui?t=1793595822012:43:20
+ > ../../../../../../../@vite/client:505:95
+ > ../../../../../../../@vite/client:662:52
+ > ../../../../../../../@vite/client:640:55
+ > HMRClient.queueUpdate ../../../../../../../@vite/client:640:33
+ > handleMessage ../../../../../../../@vite/client:1063:4
+
+9:03:42 AM [vite] (client) hmr update /View.ui

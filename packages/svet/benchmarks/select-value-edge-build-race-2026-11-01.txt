@@ -1,0 +1,23 @@
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 10590171b 1056a0fa3 1056989e4 10569959b 1074a9d67 1054b62a7 1054b6233 1054b6fb3 104a22b9f 10738a3c3 10738b0cf 10738ba2b 10735b9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 10590171b 1056a0fa3 1056989e4 10569959b 1074a9d67 1054b62a7 1054b6233 1054b6fb3 104a22b9f 10738a3c3 10738b0cf 10738ba2b 10735b9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 10590171b 1056a0fa3 1056989e4 10569959b 1074a9d67 1054b62a7 1054b6233 1054b6fb3 10498c6ac 107377def 1074a9d67 105193518 10498c6ac 105698d80 10569912b 1074a9d67 1054b6247 1054b6ae3 1054b6fb3 104a22b9f 10738a3c3 10738b0cf 10738ba2b 10735b9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 10590171b 1056a0fa3 1056989e4 10569959b 1074a9d67 1054b62a7 1054b6233 1054b6fb3 10498c6ac 107377def 1074a9d67 105193518 10498c6ac 105698d80 10569912b 1074a9d67 1054b6247 1054b6ae3 1054b6fb3 104a22b9f 10738a3c3 10738b0cf 10738ba2b 10735b9a4
+node:internal/fs/promises:639
+  return new FileHandle(await PromisePrototypeThen(
+                        ^
+
+Error: ENOENT: no such file or directory, open '/Users/themoretheless/Documents/Sources/forma/packages/svet/dist/package/svet-core.wasm'
+    at async open (node:internal/fs/promises:639:25)
+    at async readFile (node:internal/fs/promises:1252:14)
+    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:67:554 {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/themoretheless/Documents/Sources/forma/packages/svet/dist/package/svet-core.wasm'
+}
+
+Node.js v22.23.4

@@ -1,0 +1,36 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/router-lifecycle.test.ts (13 tests | 1 failed) 51ms
+   × live match observes replacement routes and retired match uses the last observed table 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/router-lifecycle.test.ts > live match observes replacement routes and retired match uses the last observed table
+AssertionError: expected null to be { path: '/b/:id', …(1) } // Object.is equality
+
+- Expected:
+{
+  "component": [Function component],
+  "path": "/b/:id",
+}
+
++ Received:
+null
+
+ ❯ tests/router-lifecycle.test.ts:128:40
+    126|   try {
+    127|     options.routes = [second];
+    128|     expect(router.match('/b/7').route).toBe(second);
+       |                                        ^
+    129|     router.navigate('/b/7'); expect(router.params().id).toBe('7');
+    130|     router.dispose();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  02:36:53
+   Duration  2.20s (environment 85%, transform 7%, import 5%, tests 3%)
+

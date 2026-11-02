@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "scope": "Reentrant dispose/unmount from old child cleanup during HMR commit",
+  "sourceSha256": "824966acbe8173834d1f9398744fb566450e6a9bd5d901bbb2e79fe697af9cd4",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-my49hy/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "browserReport": "forma-hmr-commit-retire-browser-2026-11-02.json",
+  "checks": {
+    "baseline": "2 failed/15 passed",
+    "full": "1359 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageGC": "passed",
+    "browser": "21/21"
+  },
+  "limitations": [
+    "Arbitrary cleanup/commit exceptions and full post-commit rollback remain open",
+    "In-place mutations/external side effects are not reversed",
+    "Tentative DOM/metadata observable by connection callbacks",
+    "Other browsers/async/performance/current-runtime soak unqualified"
+  ]
+}

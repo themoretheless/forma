@@ -18,11 +18,11 @@ extern "C" {
     static kCAGravityTopLeft: *mut Object;
 }
 
-pub fn configure(window: &Window) -> Result<(), String> {
+unsafe fn layer_for(window: &Window) -> Result<*mut Object, String> {
     let RawWindowHandle::AppKit(handle) =
         window.window_handle().map_err(|e| e.to_string())?.as_raw()
     else {
-        return Ok(());
+        return Err("Expected AppKit window".into());
     };
     // SAFETY: called on winit's main thread; Window outlives the NSView and its
     // layers. We only touch its CAMetalLayer, never a global/root app policy.
@@ -52,6 +52,31 @@ pub fn configure(window: &Window) -> Result<(), String> {
         if layer.is_null() {
             return Err("Window Metal layer missing".into());
         }
+        Ok(layer)
+    }
+}
+
+/// Softbuffer owns a sibling CALayer. Keep its last CPU frame from covering
+/// subsequent Metal frames, and hide Metal while the software layer presents.
+pub fn set_visible(window: &Window, visible: bool) -> Result<(), String> {
+    // SAFETY: winit main thread; the window retains the view and its layers.
+    unsafe {
+        let layer = layer_for(window)?;
+        let _: () = msg_send![class!(CATransaction), begin];
+        let _: () = msg_send![class!(CATransaction),setDisableActions:YES];
+        let hidden: BOOL = if visible { objc::runtime::NO } else { YES };
+        let _: () = msg_send![layer,setHidden:hidden];
+        let _: () = msg_send![layer,setContentsScale:window.scale_factor()];
+        let _: () = msg_send![layer,setZPosition:1.0f64];
+        let _: () = msg_send![class!(CATransaction), commit];
+    }
+    Ok(())
+}
+
+pub fn configure(window: &Window) -> Result<(), String> {
+    // SAFETY: winit main thread; layers are retained by the window.
+    unsafe {
+        let layer = layer_for(window)?;
         let names = [
             c"bounds",
             c"position",
@@ -69,6 +94,7 @@ pub fn configure(window: &Window) -> Result<(), String> {
         let _: () = msg_send![class!(CATransaction), begin];
         let _: () = msg_send![class!(CATransaction),setDisableActions:YES];
         let _: () = msg_send![layer,setActions:actions];
+        let _: () = msg_send![layer,setContentsScale:window.scale_factor()];
         let _: () = msg_send![layer,setContentsGravity:kCAGravityTopLeft];
         // wgpu 29 reads this flag when acquiring the drawable and uses the
         // transaction-aware present path (waitUntilScheduled + drawable.present).

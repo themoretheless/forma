@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "scope": "Prepare every mounted view before retiring previous views",
+  "sourceSha256": "a893aaf4ce6db2585db389a8b9323b257ad87b6ce1e31809b29283d005f378e3",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-m5w29X/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "browserReport": "forma-hmr-multiview-browser-2026-11-02.json",
+  "checks": {
+    "baseline": "second-view failure left first view updated:1 failed/12 passed",
+    "full": "1355 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageGC": "passed",
+    "browser": "18/18"
+  },
+  "limitations": [
+    "Document AST/state/lets still apply before view preparation",
+    "No rollback after cleanup/commit exceptions",
+    "Connection callbacks may observe candidate and old nodes",
+    "Arbitrary reentrant HMR, other browsers/async/performance unqualified",
+    "No current-runtime HTTP soak qualification"
+  ]
+}

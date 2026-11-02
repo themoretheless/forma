@@ -1,0 +1,59 @@
+{
+  "startedAt": "2026-11-01T16:21:18.506Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-kEhEoC",
+  "packageRoot": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-z7nyJN/consumer/node_modules/svet-engine",
+  "responses": [
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>0</p>",
+          "<p>1</p>",
+          "<p>2</p>",
+          "<p>3</p>",
+          "<p>4</p>",
+          "<p>5</p>",
+          "<p>6</p>",
+          "<p>7</p>"
+        ],
+        "cleaned": 8
+      }
+    },
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>100</p>",
+          "<p>101</p>",
+          "<p>102</p>",
+          "<p>103</p>",
+          "<p>104</p>",
+          "<p>105</p>",
+          "<p>106</p>",
+          "<p>107</p>"
+        ],
+        "cleaned": 8
+      }
+    }
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-01T16:21:18.662Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "workerSourceSha256": "a00075077461104c964f8a8c00d401ada9ddb952601fdc0a8dee34d1ca800d56",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "3a41827d230f42d3d8ce8b7d54b6fdde5c84d18b04ccb1564dfb003ce8635d30"
+}

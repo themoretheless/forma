@@ -15,6 +15,7 @@
 //!    Computes the Longest Increasing Subsequence in WASM to produce the mathematically minimal
 //!    number of DOM moves for keyed lists.
 
+#[cfg(target_arch = "wasm32")]
 use std::cell::UnsafeCell;
 
 fn perspective_matrix(fov_y_rad: f32, aspect: f32, near: f32, far: f32) -> Option<[f32; 16]> {
@@ -1061,13 +1062,40 @@ impl ReactiveGraph {
         self.tracking_stack.last_mut().unwrap().1 = cur + 1;
     }
 
+    /// Cache only the actual reachable topology, independent of the dirty queue.
+    #[inline]
+    fn cache_terminal_topology(&mut self, source: usize) {
+        self.downstream_computeds[source].clear();
+        let mut terminal = u32::MAX - 1;
+        if !self.subscribers[source].is_empty() {
+            self.dependency_seen.resize(self.nodes.len(), 0);
+            self.dependency_epoch = self.dependency_epoch.wrapping_add(1);
+            if self.dependency_epoch == 0 { self.dependency_seen.fill(0); self.dependency_epoch = 1; }
+            let epoch = self.dependency_epoch;
+            self.dependency_stack.clear();
+            self.dependency_stack.extend(self.subscribers[source].iter().copied());
+            while let Some(id) = self.dependency_stack.pop() {
+                let i = id as usize;
+                if !self.nodes[i].alive || self.dependency_seen[i] == epoch { continue; }
+                self.dependency_seen[i] = epoch;
+                if self.nodes[i].kind == KIND_COMPUTED {
+                    self.downstream_computeds[source].push(id);
+                    self.dependency_stack.extend(self.subscribers[i].iter().copied());
+                } else if self.nodes[i].kind == KIND_EFFECT {
+                    terminal = if terminal == u32::MAX - 1 { id } else { u32::MAX };
+                }
+            }
+        }
+        self.single_terminal_effect[source] = terminal;
+        self.terminal_cache_epoch[source] = self.topology_epoch;
+    }
+
     /// Trigger a change on `source` (signal or computed whose value changed)
     /// and immediately prepare `flush_buffer` if `batch_depth == 0`.
     /// Returns:
     /// - `0` if 0 effects were flushed
     /// - `effect_id + 1` (positive) if exactly 1 effect was flushed
     /// - `-(count as i32)` (negative) if 2 or more effects were flushed
-    #[inline]
     pub fn trigger_and_flush_fast(&mut self, source: u32) -> i32 {
         let s = source as usize;
         if s >= self.nodes.len() || !self.nodes[s].alive {
@@ -1075,11 +1103,14 @@ impl ReactiveGraph {
         }
         // Fast path: if `batch_depth == 0` and this signal has a validated unique downstream effect,
         // mark its cached downstream computeds in a single flat loop without graph stack traversal!
-        if self.batch_depth == 0 && self.terminal_cache_epoch[s] == self.topology_epoch {
+        if self.batch_depth == 0 && self.pending_effects.is_empty() && self.terminal_cache_epoch[s] == self.topology_epoch {
             let cached = self.single_terminal_effect[s];
             if cached == u32::MAX - 1 {
                 self.global_epoch = self.global_epoch.wrapping_add(1);
                 self.nodes[s].epoch = self.global_epoch;
+                for &comp_id in &self.downstream_computeds[s] {
+                    self.node_states[comp_id as usize] = STATE_DIRTY;
+                }
                 return 0;
             }
             if cached < u32::MAX - 1 {
@@ -1096,29 +1127,7 @@ impl ReactiveGraph {
         self.trigger_write(source);
         let count = self.prepare_flush();
         if self.batch_depth == 0 {
-            self.terminal_cache_epoch[s] = self.topology_epoch;
-            if count == 0 {
-                self.single_terminal_effect[s] = u32::MAX - 1;
-            } else if count == 1 {
-                self.single_terminal_effect[s] = self.flush_buffer[0];
-                self.downstream_computeds[s].clear();
-                // Only record computed nodes if this signal actually has computed subscribers!
-                let has_computed_sub = self.subscribers[s]
-                    .iter()
-                    .any(|&sub| self.nodes[sub as usize].kind == KIND_COMPUTED);
-                if has_computed_sub {
-                    for (id_usize, node) in self.nodes.iter().enumerate() {
-                        if node.alive
-                            && node.kind == KIND_COMPUTED
-                            && self.node_states[id_usize] != STATE_CLEAN
-                        {
-                            self.downstream_computeds[s].push(id_usize as u32);
-                        }
-                    }
-                }
-            } else {
-                self.single_terminal_effect[s] = u32::MAX;
-            }
+            self.cache_terminal_topology(s);
         }
         if count == 0 {
             0
@@ -1304,14 +1313,35 @@ impl ReactiveGraph {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 struct GlobalGraph(UnsafeCell<ReactiveGraph>);
+// The shipped WASM module is single-threaded; each instance owns its memory.
+#[cfg(target_arch = "wasm32")]
 unsafe impl Sync for GlobalGraph {}
 
+#[cfg(target_arch = "wasm32")]
 static GRAPH: GlobalGraph = GlobalGraph(UnsafeCell::new(ReactiveGraph::new()));
 
+#[cfg(target_arch = "wasm32")]
 #[inline]
 fn with_graph<R>(f: impl FnOnce(&mut ReactiveGraph) -> R) -> R {
     unsafe { f(&mut *GRAPH.0.get()) }
+}
+
+// Native ABI contexts follow the calling thread, never an unsynchronized
+// process-wide graph. Independent windows on one thread should own ReactiveGraph
+// values directly. Returned native buffer pointers belong to this thread and
+// remain valid only until a subsequent mutation of that context.
+#[cfg(not(target_arch = "wasm32"))]
+std::thread_local! {
+    static NATIVE_GRAPH: std::cell::RefCell<ReactiveGraph> =
+        const { std::cell::RefCell::new(ReactiveGraph::new()) };
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[inline]
+fn with_graph<R>(f: impl FnOnce(&mut ReactiveGraph) -> R) -> R {
+    NATIVE_GRAPH.with(|graph| f(&mut graph.borrow_mut()))
 }
 
 // ============================================================================
@@ -1806,6 +1836,47 @@ mod tests {
     }
 
     #[test]
+    fn test_gpu_arena_fragmented_churn_reuses_storage_after_warmup() {
+        let mut g = ReactiveGraph::new();
+        // Keep a live prefix while differently sized neighbours are repeatedly
+        // split and coalesced. No reset may hide retained arena growth.
+        let anchor = g.gpu_alloc_f32(16);
+        g.gpu_f32_arena[..16].fill(17.0);
+        let sizes: Vec<u32> = (0..128).map(|i| 1 + (i * 37 % 251)).collect();
+        let total: usize = sizes.iter().map(|n| ((n + 3) & !3) as usize).sum();
+        let mut warmed_storage = None;
+        let mut seed = 0x12345678u32;
+        for cycle in 0..2000 {
+            let mut blocks = Vec::new();
+            for &size in &sizes {
+                let offset = g.gpu_alloc_f32(size);
+                assert_ne!(offset, u32::MAX);
+                let range = offset as usize..offset as usize + size as usize;
+                assert!(g.gpu_f32_arena[range.clone()].iter().all(|&v| v == 0.0));
+                g.gpu_f32_arena[range].fill(cycle as f32 + 1.0);
+                blocks.push((offset, size));
+            }
+            assert_eq!(g.gpu_f32_arena.len(), 16 + total);
+            assert!(g.gpu_f32_arena[..16].iter().all(|&v| v == 17.0));
+            // Deterministic Fisher-Yates order exercises both coalescing sides.
+            for i in (1..blocks.len()).rev() {
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                blocks.swap(i, seed as usize % (i + 1));
+            }
+            for (offset, size) in blocks { g.gpu_free_f32(offset, size); }
+            assert_eq!(g.gpu_free_blocks, vec![(16, total as u32)]);
+            g.gpu_clear_dirty();
+            let storage = (g.gpu_f32_arena.as_ptr(), g.gpu_f32_arena.capacity(),
+                g.gpu_dirty_blocks.capacity());
+            if let Some(expected) = warmed_storage { assert_eq!(storage, expected); }
+            else { warmed_storage = Some(storage); }
+            assert!(g.gpu_free_blocks.capacity() <= 256);
+        }
+        g.gpu_free_f32(anchor, 16);
+        assert_eq!(g.gpu_free_blocks, vec![(0, (16 + total) as u32)]);
+    }
+
+    #[test]
     fn test_gpu_arena_reservation_overflow_preserves_existing_storage() {
         let mut arena = vec![17.0; 4];
         let capacity = arena.capacity();
@@ -2130,6 +2201,52 @@ mod tests {
     }
 
     #[test]
+    fn cached_no_effect_source_still_invalidates_lazy_computeds() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let derived = g.create_node(KIND_COMPUTED); g.sync_sources(derived, &[source]);
+        assert_eq!(g.trigger_and_flush_fast(source), 0);
+        g.set_state(derived, STATE_CLEAN);
+        assert_eq!(g.trigger_and_flush_fast(source), 0);
+        assert_eq!(g.get_state(derived), STATE_DIRTY);
+    }
+
+    #[test]
+    fn cached_terminal_source_does_not_dirty_unrelated_computeds() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let other = g.create_node(KIND_SIGNAL); let own = g.create_node(KIND_COMPUTED);
+        let unrelated = g.create_node(KIND_COMPUTED); let effect = g.create_node(KIND_EFFECT);
+        g.sync_sources(own, &[source]); g.sync_sources(unrelated, &[other]); g.sync_sources(effect, &[own]);
+        g.trigger_write(other);
+        assert_eq!(g.trigger_and_flush_fast(source), (effect as i32) + 1);
+        g.set_state(own, STATE_CLEAN); g.set_state(unrelated, STATE_CLEAN); g.set_state(effect, STATE_CLEAN);
+        assert_eq!(g.trigger_and_flush_fast(source), (effect as i32) + 1);
+        assert_eq!(g.get_state(unrelated), STATE_CLEAN);
+    }
+
+    #[test]
+    fn cached_empty_source_drains_preexisting_foreign_pending_effects() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let other = g.create_node(KIND_SIGNAL); let effect = g.create_node(KIND_EFFECT);
+        g.sync_sources(effect, &[other]); assert_eq!(g.trigger_and_flush_fast(source), 0);
+        g.trigger_write(other);
+        assert_eq!(g.trigger_and_flush_fast(source), (effect as i32) + 1);
+        assert_eq!(g.pending_effect_count(), 0);
+    }
+
+    #[test]
+    fn terminal_cache_is_source_specific_when_a_foreign_effect_is_drained() {
+        let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
+        let other = g.create_node(KIND_SIGNAL); let effect = g.create_node(KIND_EFFECT);
+        let derived = g.create_node(KIND_COMPUTED);
+        g.sync_sources(effect, &[other]); g.sync_sources(derived, &[source]);
+        g.trigger_write(other);
+        assert_eq!(g.trigger_and_flush_fast(source), (effect as i32) + 1);
+        g.set_state(effect, STATE_CLEAN); g.set_state(derived, STATE_CLEAN);
+        assert_eq!(g.trigger_and_flush_fast(source), 0);
+        assert_eq!(g.get_state(effect), STATE_CLEAN); assert_eq!(g.get_state(derived), STATE_DIRTY);
+    }
+
+    #[test]
     fn topology_wrap_does_not_restore_a_stale_no_subscriber_cache() {
         let mut g = ReactiveGraph::new(); let source = g.create_node(KIND_SIGNAL);
         assert_eq!(g.trigger_and_flush_fast(source),0);
@@ -2311,3 +2428,63 @@ mod tests {
     }
 
 }
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod native_abi_thread_tests {
+    use super::*;
+
+    #[test]
+    fn native_abi_threads_are_isolated() {
+        // Calls are deliberately sequential, so the old implementation fails
+        // deterministically without exercising its unsynchronized data race.
+        svet_reset();
+        let source = svet_create_node(KIND_SIGNAL);
+        let child = std::thread::spawn(|| {
+            assert_eq!(svet_get_node_count(), 0, "native ABI inherited another thread's graph");
+            let own = svet_create_node(KIND_SIGNAL);
+            assert_eq!(svet_get_node_count(), 1);
+            svet_dispose_node(own);
+            assert_eq!(svet_get_node_count(), 0);
+        });
+        let result = child.join();
+        let count = svet_get_node_count();
+        svet_dispose_node(source);
+        svet_reset();
+        result.unwrap();
+        assert_eq!(count, 1, "another thread changed the caller's graph");
+    }
+
+    #[test]
+    fn native_abi_concurrent_flush_buffers_are_thread_local() {
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let threads: Vec<_> = (0..8).map(|_| {
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                svet_reset();
+                let source = svet_create_node(KIND_SIGNAL);
+                let observer = svet_create_node(KIND_EFFECT);
+                svet_link_1(observer, source);
+                svet_set_state(observer, STATE_CLEAN);
+                barrier.wait();
+                for _ in 0..256 {
+                    svet_trigger_write(source);
+                    assert_eq!(svet_prepare_flush(), 1);
+                    // No mutation on this thread occurs between pointer fetch
+                    // and read; other threads mutate only their own buffers.
+                    assert_eq!(unsafe { *svet_get_flush_ptr() }, observer);
+                    svet_set_state(observer, STATE_CLEAN);
+                    std::thread::yield_now();
+                }
+                assert_eq!(svet_get_node_count(), 2);
+                svet_dispose_node(observer);
+                svet_dispose_node(source);
+                assert_eq!(svet_get_node_count(), 0);
+                svet_reset();
+            })
+        }).collect();
+        for thread in threads { thread.join().unwrap(); }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod native;

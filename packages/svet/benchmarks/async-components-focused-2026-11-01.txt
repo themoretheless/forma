@@ -1,0 +1,24 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/async-components.test.ts tests/async-owner-scope.test.ts --maxWorkers=1
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+
+ Test Files  2 passed (2)
+      Tests  18 passed (18)
+   Start at  17:05:38
+   Duration  1.10s (environment 68%, transform 19%, import 10%, tests 4%)
+
+    Isolate  2 workers spawned · ~396ms startup each (spawn + environment, per file)
+             at least ~396ms faster with isolate: false — reuses workers across files instead of one per file
+

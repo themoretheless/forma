@@ -1,0 +1,111 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet compute pipeline cache A/B</title>
+<style>body{font:16px system-ui;max-width:1000px;margin:32px auto;padding:16px}pre{white-space:pre-wrap;background:#eff6ff;padding:16px}button{padding:12px}</style>
+<h1>Svet compute pipeline cache A/B</h1>
+<p>Same hardware device, WGSL and data; alternating baseline/candidate batches.
+Readback latency includes snapshots, validation, allocations and publication.</p>
+<button id="run">Run cache benchmark</button>
+<pre id="status" role="status">Not run. First run scripts/prepare-compute-cache-bench.mjs.</pre>
+<pre id="result"></pre>
+<script type="module">
+const prefix = '/node_modules/.cache/svet-compute-cache-bench';
+const button = document.querySelector('#run'), status = document.querySelector('#status');
+const source = `
+@group(0) @binding(0) var<storage, read> a: array<f32>;
+@group(0) @binding(1) var<storage, read> b: array<f32>;
+@group(0) @binding(2) var<storage, read_write> output: array<f32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+  if (id.x < arrayLength(&output)) { output[id.x] = a[id.x] * 2.0 + b[id.x]; }
+}`;
+const median = values => [...values].sort((a,b) => a-b)[Math.floor(values.length/2)];
+const assert = (condition, message) => { if (!condition) throw Error(message); };
+button.addEventListener('click', async () => {
+  button.disabled = true;
+  status.textContent = 'Preparing snapshots and adapter…';
+  document.querySelector('#result').textContent = '';
+  let device, engines;
+  try {
+    const response = await fetch(prefix + '/metadata.json', { cache: 'no-store' });
+    assert(response.ok, 'Prepare snapshots first');
+    const metadata = await response.json();
+    const changed = Object.keys(metadata.variants.candidate).filter(file =>
+      metadata.variants.candidate[file].source !== metadata.variants.baseline[file].source);
+    assert(JSON.stringify(changed) === '["gpu.ts"]', 'Unexpected source differences');
+    engines = Object.fromEntries(await Promise.all(['baseline','candidate'].map(async name =>
+      [name, await import(`${prefix}/${metadata.snapshot}/${name}/index.js`)])));
+    const adapter = await navigator.gpu?.requestAdapter();
+    assert(adapter, 'No WebGPU adapter');
+    const info = adapter.info ?? {};
+    const adapterInfo = { vendor: info.vendor, architecture: info.architecture,
+      device: info.device, description: info.description,
+      isFallbackAdapter: info.isFallbackAdapter ?? adapter.isFallbackAdapter ?? null };
+    device = await adapter.requestDevice();
+    let active, counts = {};
+    const createShader = device.createShaderModule.bind(device), createPipeline = device.createComputePipeline.bind(device);
+    device.createShaderModule = descriptor => { counts[active].shaders++; return createShader(descriptor); };
+    device.createComputePipeline = descriptor => { counts[active].pipelines++; return createPipeline(descriptor); };
+    const unhandled = [];
+    device.addEventListener('uncapturederror', event => unhandled.push(event.error.message));
+    for (const engine of Object.values(engines)) engine.configureGpuSubsystem({ device });
+    const workloads = [];
+    for (const length of [7, 65536]) {
+      const inputs = Float32Array.from({ length }, (_, i) => i % 97);
+      const tensors = Object.fromEntries(Object.entries(engines).map(([name, engine]) => [name, {
+        a: engine.createGpuTensor(inputs), b: engine.createGpuTensor(inputs), output: engine.createGpuTensor(length),
+      }]));
+      async function dispatch(name, value) {
+        const engine = engines[name], { a,b,output } = tensors[name];
+        a.setAt(0, value);
+        const report = await engine.dispatchGpuComputeKernelAsync({ wgsl: source, inputs: [a,b], output });
+        assert(report.backend === 'webgpu', 'Hardware compute was bypassed');
+        assert(output.peek()[0] === value * 2, 'Incorrect changed value');
+      }
+      for (const name of ['baseline', 'candidate']) {
+        active = name; counts[name] = { shaders: 0, pipelines: 0 };
+        for (let i = 0; i < 10; i++) await dispatch(name, i);
+      }
+      const rounds = [];
+      for (let round = 0; round < 7; round++) {
+        const entry = { round, order: round % 2 ? ['candidate','baseline'] : ['baseline','candidate'] };
+        for (const name of entry.order) {
+          active = name; counts[name] = { shaders: 0, pipelines: 0 };
+          const start = performance.now();
+          for (let i = 0; i < 40; i++) await dispatch(name, i + 1);
+          const milliseconds = performance.now() - start;
+          const values = tensors[name].output.peek();
+          for (let i = 1; i < length; i++) assert(values[i] === inputs[i] * 3, 'Incorrect result tail');
+          const telemetry = engines[name].getGpuTelemetry();
+          assert(telemetry.pendingComputeCount === 0 && telemetry.pendingComputeSnapshotBytes === 0, 'Queue retained credit');
+          assert(counts[name].pipelines === (name === 'baseline' ? 40 : 0), 'Unexpected pipeline creation count');
+          assert(counts[name].shaders === counts[name].pipelines, 'Unexpected shader creation count');
+          entry[name] = { milliseconds, ...counts[name] };
+        }
+        rounds.push(entry);
+        status.textContent = `${length} floats: ${round + 1}/7 alternating rounds complete`;
+      }
+      const baselineMs = median(rounds.map(round => round.baseline.milliseconds));
+      const candidateMs = median(rounds.map(round => round.candidate.milliseconds));
+      workloads.push({ length, warmupCallsPerVariant: 10, callsPerBatch: 40,
+        baselineMedianBatchMs: baselineMs, candidateMedianBatchMs: candidateMs,
+        candidateChangePercent: (candidateMs / baselineMs - 1) * 100, rounds });
+      for (const { a,b,output } of Object.values(tensors)) { a.dispose(); b.dispose(); output.dispose(); }
+      for (const engine of Object.values(engines)) assert(engine.getGraphTelemetry().nodes === 0, 'Benchmark retained graph nodes');
+    }
+    assert(!unhandled.length, 'Uncaptured GPU errors: ' + unhandled.join('; '));
+    document.querySelector('#result').textContent = JSON.stringify({
+      measuredAt: new Date().toISOString(), userAgent: navigator.userAgent,
+      adapter: adapterInfo, metadata, workloads,
+      scope: 'Sequential dispatch/readback latency on one adapter. JS snapshots, validation, '
+        + 'buffers, publication and result checks included. No GPU timestamp isolation, '
+        + 'application-frame or peer-framework performance claim.',
+    }, null, 2);
+    status.textContent = 'PASS: all outputs, pipeline counts and queue checks passed.\n'
+      + workloads.map(row => `${row.length} floats: baseline ${row.baselineMedianBatchMs.toFixed(3)} ms, candidate ${row.candidateMedianBatchMs.toFixed(3)} ms / 40 calls (${row.candidateChangePercent.toFixed(2)}%)`).join('\n');
+  } catch (error) { status.textContent = 'FAIL: ' + error.message; }
+  finally {
+    for (const engine of Object.values(engines ?? {})) engine.configureGpuSubsystem({ device: null });
+    device?.destroy(); button.disabled = false;
+  }
+});
+</script>

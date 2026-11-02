@@ -411,6 +411,11 @@ mount/root for automatic teardown.
 
 ## Async resource lifecycle
 
+`createResource(fetcher)` and `createResource(source, fetcher)` accept `PromiseLike<T>`
+fetcher results, including native promises and custom thenables. Native await
+assimilation honors only the first settlement; abort settles the public wait
+without requiring a cooperative thenable.
+
 `createResource(source, fetcher)` validates its owner and graph generation before
 allocation and after initial source/fetcher execution. `initialValue` is read once;
 reset or owner teardown during that getter rejects construction before the source
@@ -453,7 +458,8 @@ error observer suppresses stale forwarding to ErrorBoundary. Previously publishe
 values are not rolled back when callbacks subsequently cancel a request.
 
 Explicit refetch source reads, the fetcher's synchronous prefix, and abort listeners
-run in the resource's WASM core with caller/callee dependency tracking paused.
+run in the resource's WASM core with existing synchronous observer tracking paused
+across cores in the current engine copy.
 Async data/error/loading publication is batched in that same core, even when the
 Promise settles outside it. This does not propagate user callback context after
 `await`; explicit continuation capture is still needed there.
@@ -484,6 +490,12 @@ start with the next navigation; removed guards are skipped. Ancestor teardown an
 effect-rerun cleanup deactivate descendant routers immediately: earlier sibling
 cleanup cannot navigate, register guards or process `popstate` through a router
 whose own cleanup has not yet been visited.
+
+Live `match()` and navigation read the current `options.routes` array, including
+array replacement. After disposal, `match()` uses the last observed route table
+and no longer reads the options object. State readers, navigation methods and
+guard-removal callbacks may be retained without retaining the disposed runtime;
+route definitions and their user-supplied component closures remain matcher data.
 
 Navigation resolves relative, query-only and hash-only destinations against the
 current full router URL before guards, route matching or history writes. Same-origin
@@ -592,8 +604,9 @@ User side effects performed inside metadata getters are not rolled back.
 A retained signal's synchronous updater/comparator and the effects/cascades caused
 by its write execute in the signal's own core, even when invoked from another core.
 Computed evaluation/comparison through ordinary reads or `peek()` follows the same
-rule. A foreign entry temporarily pauses the caller's and any paused callee's
-tracking, while newly executing effects/computeds track their own dependencies.
+rule. A foreign entry temporarily pauses all existing synchronous observer frames
+across cores in the current engine copy, while newly executing effects/computeds
+track their own dependencies.
 Caller context/tracking restores on success or failure. Callback writes still
 invalidate already-read caller dependencies. Same-core updater/comparator tracking
 keeps its existing behavior. Cross-graph value reads do not establish an automatic
@@ -630,6 +643,28 @@ effects during nested computed/effect callbacks. Their staged read prefixes are
 retained across observer changes; retired source slots and dependencies not read
 in the current invocation do not request false reruns. Untracked reads alone never
 create subscriptions.
+
+The boundary covers every synchronously suspended core in compatible engine copies
+in the same JavaScript realm (weak observation-copy protocol v2),
+including a third core between caller and callee. New effects/computeds explicitly
+created inside `untrack` still collect their own dependencies. Existing observers
+resume after return or throw; reset generations prevent restoring retired frames.
+Compatible copies that explicitly select the same WASM core share its synchronous
+reactive domain: native dependencies, batching, generations and owner cleanup.
+An explicit synchronous `withWasmCore` scope selects its core for all compatible
+copies in the realm. Nested scopes restore the previous core even after a throw;
+default cores stay independent outside those scopes. The selection ends when the
+callback returns, including a Promise return. After await, select the foreign
+core again or reenter a live captured context. Bound scalar/computed getters
+preserve the native observer when read from another compatible copy.
+Signals belonging to different native cores do not yet create automatic
+dependencies between those cores. Async owner/context lookup follows compatible host resolvers for that explicitly
+selected core. Byte-matched Node ALS copies and the generated local workerd fixture cover
+child cleanup/refusal after await, captured-root precedence and concurrent
+request isolation. The Edge gate instantiates two engines and checks collection
+of their request cores. Implicit core selection, deployed providers, browser
+carriers and mixed-version async behavior remain
+separate unqualified paths.
 
 An effect is limited to 100 synchronous self-write iterations per invocation.
 Queued propagation tracks runs per effect lifetime within a drain and rejects work
@@ -755,12 +790,414 @@ reset graph registries on success, failure, or cancellation. `signal` is optiona
 and can come from a disconnect handler or host-controlled deadline. Cancellation
 cannot stop arbitrary JavaScript or I/O; pass that signal to cancellable I/O too.
 
+For a Node HTTP host, abort when the **response** closes before `writableEnded`;
+a request's normal close is not itself proof of client disconnect. Pass that
+AbortSignal to `renderToStringAsync`, and check `response.destroyed` before
+writing HTML or an error. Remove host listeners when done. The repository's
+`scripts/check-async-ssr-http.mjs` exercises this binding with concurrent native
+HTTP clients, component errors, and disconnects before headers. It does not
+implement or qualify streaming SSR.
+
 Await request work and return plain results or serialized HTML; reactive objects
 belong to the request. Async work attempting to resolve the core after completion
-throws instead of falling back to the default graph. Owner context inside
-individual asynchronous component subtrees is not yet propagated independently
-of the request root. Edge runtimes and browser SSR are not qualified by the Node
-adapter tests.
+throws instead of falling back to the default graph.
+
+Completed isolated requests also retire their core from the reactive hot cache.
+Late cleanup can still resolve its own bookkeeping state, but cannot repopulate
+that cache with a completed request. This releases the cache's strong reference;
+physical memory reclamation and RSS remain controlled by the host runtime.
+
+For independent asynchronous component subtrees, use the Node-only
+`runWithOwnerScopeAsync(contextEntries, callback, { signal })` inside an active
+isolated request. It preserves each child's context and owner across awaits,
+including concurrent siblings and nested children:
+
+```ts
+import { createContext, h, useContext } from 'svet-engine';
+import { renderToStringAsync, runWithOwnerScopeAsync } from 'svet-engine/server';
+
+const Locale = createContext('en');
+const result = await renderToStringAsync(async () => {
+  const nodes = await Promise.all(['en', 'ru'].map(locale =>
+    runWithOwnerScopeAsync([[Locale.id, locale]], async () => {
+      await Promise.resolve();
+      return h('p', null, useContext(Locale));
+    })
+  ));
+  return { node: h('section', null, ...nodes) };
+});
+```
+
+Await each child. Successful child resources remain alive until request teardown;
+failure, cancellation while its callback is pending, or disposal of its parent
+immediately disposes the child. Late implicit continuations of a settled child reject, even while its
+request remains open. Synchronous scopes, effect owners and explicit captured
+context re-entry take priority over the async owner. Use this helper when assigning
+explicit context entries or independently awaiting a child operation.
+
+During Node `renderToStringAsync`, `h()` and JSX also accept async function components:
+
+```ts
+import { h } from 'svet-engine';
+import { renderToStringAsync } from 'svet-engine/server';
+
+async function Message({ text }: { text: string }): Promise<Node> {
+  await Promise.resolve();
+  return h('p', null, text);
+}
+
+const result = await renderToStringAsync(() => ({
+  node: h('section', null, h(Message, { text: 'ready after await' })),
+}));
+```
+
+The host supplies a DOM implementation for the entire asynchronous request.
+Each function component has an independent child owner across awaits; nested
+components settle before HTML/state serialization. Synchronous components still
+return their real DOM immediately. A failed component rejects the request without
+waiting for an uncooperative sibling, and request abort/teardown closes child
+scopes. Cancellation cannot stop arbitrary user JavaScript or external I/O.
+Provider children that require its context must be constructed lazily, for example
+`h(Locale.Provider, { value: 'ru', children: () => h(Message, { text: 'hello' }) })`.
+Eagerly evaluated children have already been constructed before their Provider.
+
+Outside Node `renderToStringAsync`, an async component produces a synchronous
+diagnostic; its rejection is observed. This feature does not implement browser
+async rendering, Edge adapters, or cross-copy async propagation. Streaming uses
+the separate Node chunk protocol below.
+Those environments require separate adapters and qualification; the progressive
+Node data protocol below is a separate API.
+
+## Progressive Node SSR chunks
+
+`svet-engine/server` exports `renderToChunksAsync(view, options)`. It returns an
+`AsyncIterableIterator<SsrStreamChunk>` with three data records:
+
+- `shell`: initial HTML with pending component ranges;
+- `patch`: HTML for a ready async boundary;
+- `complete`: authoritative final HTML and `stateJson`.
+
+```ts
+import { h } from 'svet-engine';
+import { renderToChunksAsync } from 'svet-engine/server';
+
+async function Slow() {
+  await loadData(); // application I/O; forward a disconnect signal to it too
+  return h('p', null, 'ready');
+}
+const chunks = renderToChunksAsync(() => ({
+  node: h('main', null, h('b', null, 'shell'), h(Slow, null)),
+}), { signal: disconnectSignal });
+```
+
+Each wire record is an explicit v1 envelope:
+
+```json
+{"version":1,"sequence":0,"streamId":"request-id","payload":{"type":"shell","html":"<main>...</main>"}}
+```
+
+`SSR_STREAM_VERSION` is exported from `svet-engine` as the supported literal
+version. Sequence starts at zero and increases by one for every record. The
+receiver validates version and sequence before inspecting payload or parsing HTML;
+missing/unknown versions, gaps and replayed records stop that receiver. The initial
+unversioned draft is intentionally unsupported. Its receivers also reject v1's
+nested envelope rather than treating it as the old flat record. This is explicit
+validation, not automatic HTTP version negotiation.
+
+HTTP hosts can opt into explicit negotiation using the public protocol helpers:
+
+```ts
+import {
+  SSR_STREAM_ACCEPT_HEADER, SSR_STREAM_VERSION_HEADER, SSR_STREAM_CONTENT_TYPE,
+  SSR_STREAM_CODEC_HEADER, negotiateSsrStreamCodec,
+  negotiateSsrStreamVersion, assertSsrStreamResponse,
+} from 'svet-engine';
+
+// Server route: check before calling renderToChunksAsync or invoking the view.
+const version = negotiateSsrStreamVersion(request.headers.get(SSR_STREAM_ACCEPT_HEADER));
+const selectedCodec = negotiateSsrStreamCodec(request.headers.get(SSR_STREAM_CODEC_HEADER));
+if (version === undefined || selectedCodec === undefined) {
+  return new Response('No compatible Svet stream version', {
+    status: 406,
+    headers: { Vary: SSR_STREAM_ACCEPT_HEADER + ', ' + SSR_STREAM_CODEC_HEADER },
+  });
+}
+// Set these on the streaming response; preserve/merge any other Vary fields.
+const headers = {
+  'Content-Type': SSR_STREAM_CONTENT_TYPE,
+  [SSR_STREAM_VERSION_HEADER]: String(version),
+  [SSR_STREAM_CODEC_HEADER]: selectedCodec,
+  Vary: SSR_STREAM_ACCEPT_HEADER + ', ' + SSR_STREAM_CODEC_HEADER,
+};
+
+// Client: validate before reading the body or creating a receiver.
+const response = await fetch(url, { headers: { [SSR_STREAM_ACCEPT_HEADER]: '1' } });
+try { assertSsrStreamResponse(response); }
+catch (error) { await response.body?.cancel(); throw error; }
+```
+
+Offers are comma-separated positive integer versions (maximum 16 entries and
+256 characters), without wildcards or quality values. Missing, malformed or
+unsupported offers select no version. The host owns the HTTP status, response
+headers, transport and any explicit full-HTML fallback; these helpers do not
+change existing routes automatically. Wire version/sequence checks still apply
+to every decoded record. These are Svet application headers, not HTTP Accept
+media-type negotiation. Cross-origin hosts must configure CORS for the request
+header and expose the response version header.
+
+The Node host supplies a DOM implementation for the whole request. Frame each
+record over your transport (the repository fixture uses NDJSON) and respect the
+writer's backpressure. These records are **not a raw HTML response**. The producer
+queues one record and serializes patch publication; iteration return, caller
+teardown, or AbortSignal cancellation closes request ownership, including a
+pending `next()`. Defaults are 8 MiB per encoded record and 1024 total async
+boundaries; configure `maxChunkBytes` and `maxBoundaries` for your workload.
+These are protocol bounds, not a bound on DOM or process memory.
+Terminal iterator handles release their producer/view references, including when
+an external abort happens without another read. The next read reports an unread
+failure once, then returns done; `return()` discards that failure. A failure
+value supplied by the application remains referenced until it is read or discarded.
+An unstarted, uncancelled iterator retains its view so it can run on the first read.
+
+Progressive delivery also depends on the host and reverse proxy. A proxy that
+buffers the complete response can hide the early shell even when the producer
+streams correctly. Forward downstream disconnects to the upstream AbortSignal,
+respect writable backpressure, and qualify the actual proxy configuration.
+The installed browser fixture also qualifies native gzip decoding with an
+explicit per-frame sync flush, preserving delivery of the shell before async
+completion. Its `gzip=1` query enables test-host compression; production hosts
+must implement their own compression negotiation, backpressure and disconnect
+handling. Compressor input drain is distinct from TCP saturation.
+The local proxy fixture covers a throttled relay and capped full-response
+buffering; it does not qualify a particular CDN or production proxy.
+
+All async SSR entry points accept an optional `timeoutMs` integer (1 through
+2147483647): isolated/child scopes, string rendering, chunks and Web streams.
+The default has no timeout. Import `SsrTimeoutError` from `svet-engine/server`
+(or `server-runtime` for custom hosts) to identify an expired timer; its
+`timeoutMs` property records the configured value. Timeout errors snapshot their
+stack as text at expiration; a throwing stack formatter falls back to the error
+name and message, preserving timeout cleanup.
+
+```ts
+const result = await renderToStringAsync(view, {
+  signal: request.signal,
+  timeoutMs: 1500,
+});
+```
+
+Caller abort keeps its original reason when it wins the race. Success, failure
+and cancellation remove the timer and caller-signal listener. Child deadlines
+bound that operation without automatically cancelling its parent. Stream timers
+start at construction and cover idle/backpressure time, including before the
+first read. These are host timers: they cannot interrupt synchronous CPU work.
+They bound request lifetime when a proxy fails to forward disconnect, without
+making proxy cancellation itself reliable.
+
+The Web-stream adapter retains its native stream until producer teardown settles,
+then releases the reference. Local workerd qualification includes eight concurrent
+requests with idle `reader.closed` timeout observation, without extra keepalive I/O;
+terminal and discarded unstarted streams are covered by separate Node GC probes.
+
+Single-select `model` bindings synchronize option selection directly, including
+DOM hosts with a getter-only `select.value`. The first matching option is selected;
+an unmatched value clears selection. One-way `<select value={...}>` applies its
+initial value after child options are constructed and reacts to value updates,
+without publishing DOM change events back into the source. Later option
+insertions, removals, text and value changes refresh selection at a DOM mutation
+checkpoint, using the last resolved binding value. The observer is disconnected
+on owner teardown. The local workerd/LinkeDOM form fixture
+covers text input, checkbox, textarea and single select. Multiple-select models also support attribute-backed DOM hosts lacking
+`multiple` and `selectedOptions` reflection: initial/reactive selection, change
+events and selected-option SSR output are qualified in local workerd/LinkeDOM.
+Native form-reset semantics still require their own host qualification.
+
+`svet-engine/server-runtime` exposes the host-neutral SSR implementation:
+`createSsrRuntime(host)` and `assertSsrAsyncContextCarrier(create)`. The existing
+`svet-engine/server` entry supplies Node AsyncLocalStorage and crypto.randomUUID
+and preserves the rendering APIs above.
+
+A custom host must provide three independent async-context carriers through
+`createAsyncContext<T>()`, each with `getStore()`, `run(store, callback)` and
+`exit(callback)`, plus unique `randomUUID()` values. Carriers must preserve
+context through native await, concurrent tasks, nesting, exceptions and exit.
+Run the async carrier assertion before installing a custom runtime; it checks
+these cases and rejects an ordinary synchronous stack carrier. The assertion
+is a bounded conformance probe, not qualification of every host workload.
+The host also supplies a DOM implementation for the entire request lifetime.
+
+Install exactly one runtime per engine module instance: use either the Node
+entry or a custom host factory. A second installation fails before overwriting
+existing hooks. Importing the host-neutral entry alone installs no hooks and
+has no Node builtin dependencies; it is covered by the installed browser build.
+A local workerd/LinkeDOM host is now qualified for the async string-rendering
+path with Workers AsyncLocalStorage, plus in-event stream ownership and direct
+Response/TCP-reset cases. Miniflare proxy reader/explicit request abort did not
+reach the incoming signal in the tested setup; an optional host deadline bounds
+pending request graphs. The fixture tests a 500ms deadline independently of the
+component's 5000ms delay. This is an explicit host policy, not a default timeout.
+Other Edge providers, native browser async context and a deployed Cloudflare
+application remain unqualified. See `tests/edge/worker.mjs` for the tested host binding.
+
+Hosts that forbid runtime WASM code generation can install the package's
+precompiled asset before creating any core:
+
+```ts
+import coreModule from 'svet-engine/core.wasm';
+import { installSvetWasmModule } from 'svet-engine';
+installSvetWasmModule(coreModule);
+```
+
+The host bundler must load `.wasm` as a compiled `WebAssembly.Module` (the Edge
+fixture uses workerd `CompiledWasm`). Ordinary Node imports do not provide that
+loader; Node's existing default path still compiles the embedded bytes. Use the
+asset from the same package build: installation validates imports/export shape,
+not complete ABI equivalence. Once a module is selected it cannot be replaced;
+reinstalling the same module object is harmless. This prevents graph/module
+identity changes beneath existing cores.
+
+The installed asset is emitted from the embedded Rust binary by build:package.
+The embedding script honors absolute/relative CARGO_TARGET_DIR; changing Rust
+still requires build:wasm/build before package-only commands.
+
+Reproduce the optional local Edge gate without adding runtime dependencies:
+
+```sh
+npm install --prefix /tmp/svet-edge-deps --registry=https://registry.npmjs.org --no-audit --no-fund miniflare@4.20260730.0 linkedom@0.18.15 esbuild@0.28.2
+npm --prefix packages/svet run test:edge -- /tmp/svet-edge-deps /tmp/svet-edge-result.json
+SVET_EDGE_DEPS=/tmp/svet-edge-deps npm --prefix packages/svet run test:package -- --keep
+```
+
+For an inspector-backed collection check of the generated local test Worker:
+
+```bash
+SVET_EDGE_DEPS=/tmp/svet-edge-deps SVET_EDGE_GC=1 SVET_EDGE_GC_FORCE=1 npm --prefix packages/svet run test:package -- --keep
+```
+
+The probe retains terminal streams/readers/errors across 24 requests and checks
+WeakRef targets plus live controls. The inspector is scoped to the test Worker
+and closes afterward. Completed request/render/owner tokens drop graph, publisher
+and owner references even if host async-context frames retain the tokens. The
+probe keeps 20 retired owner tokens held throughout collection; successful child
+scopes remain owned by their live parent. Render-session
+retirement also runs when a view never settles and the request is cancelled.
+This collection proof does not establish natural GC cadence or bounded RSS.
+
+The fixture uses compatibility date 2026-07-30 with nodejs_compat and
+enable_request_signal. Forward the incoming request.signal to the readable
+adapter. The local direct-HTTP gate checks real TCP reset cancellation before
+component completion; Miniflare proxy reader cancellation/normal FIN are separate
+unqualified paths. The fixture also covers eight concurrent
+fetch events and eight async renders per event. It tests local workerd, not a
+remote deployment. [Workers AsyncLocalStorage contract](https://developers.cloudflare.com/workers/runtime-apis/nodejs/asynclocalstorage/).
+
+For Fetch/Response hosts running on Node, `svet-engine/server` also exports
+`renderToReadableStreamAsync(view, options): ReadableStream<Uint8Array>`:
+
+```ts
+import { renderToReadableStreamAsync } from 'svet-engine/server';
+
+const body = renderToReadableStreamAsync(view, {
+  signal: request.signal,
+  codec: selectedCodec, // 'identity' or 'svet-html-ref-v1', explicitly negotiated
+  maxChunkBytes: 8 * 1024 * 1024,
+  maxBoundaries: 1024,
+});
+return new Response(body, {
+  headers: {
+    'Content-Type': SSR_STREAM_CONTENT_TYPE,
+    [SSR_STREAM_VERSION_HEADER]: '1',
+    [SSR_STREAM_CODEC_HEADER]: selectedCodec,
+    Vary: SSR_STREAM_ACCEPT_HEADER + ', ' + SSR_STREAM_CODEC_HEADER,
+  },
+});
+```
+
+The adapter emits one UTF-8 NDJSON frame per pull, uses highWaterMark zero and
+starts the isolated request on the first read. Cancel closes the underlying
+iterator, including an outstanding read; external abort and calling-owner
+teardown error the stream and release request ownership. Background producer
+failure also rejects `reader.closed` without another read. After the complete
+frame, the adapter acknowledges producer teardown and closes automatically;
+no extra consumer read is required. Dispose/cancel unused bodies. Consumers and HTTP bridges can add their own buffers, so pull control is
+not a bound on process memory. Response headers/negotiation and compression
+remain the host's responsibility. This entry still imports Node AsyncLocalStorage;
+it does **not** add Edge/browser async SSR support.
+
+An optional transport codec reduces repeated HTML without changing decoded wire v1:
+
+```ts
+import {
+  createSsrStreamTransportEncoder, createSsrStreamTransportDecoder,
+  SSR_STREAM_HTML_REFERENCE_CODEC,
+} from 'svet-engine';
+
+// Use only after both endpoints explicitly agree on SSR_STREAM_HTML_REFERENCE_CODEC.
+const encoder = createSsrStreamTransportEncoder();
+try {
+  for await (const chunk of chunks) {
+    await writeFrame(JSON.stringify(encoder.encode(chunk)) + '\n');
+  }
+} finally { encoder.dispose(); }
+
+const decoder = createSsrStreamTransportDecoder();
+try {
+  for await (const frame of decodedJsonFrames) receiver.apply(decoder.decode(frame));
+  receiver.finish(); // require complete at transport EOF
+} catch (error) { receiver.dispose(); throw error; }
+finally { decoder.dispose(); }
+```
+
+The codec can replace an HTML string containing the immediately preceding HTML
+with a sequence reference plus its prefix/suffix, when that JSON frame is smaller.
+Other records remain full frames. It retains one previous HTML string, validates
+stream identity/order, bounds reconstructed records (8 MiB by default), and
+releases history on complete/error/dispose. It never omits authoritative final
+HTML: decoding restores it exactly, including cross-boundary reactive changes.
+Raw reference frames must **not** be applied directly to a v1 receiver. Wire
+version negotiation alone does not select this codec. Offer formats using
+`SSR_STREAM_CODEC_HEADER`; the server calls `negotiateSsrStreamCodec(offer)`
+and returns the selected value in the same response header, with that header
+in Vary. A missing offer selects identity; an explicit unsupported offer selects
+nothing and should receive 406 before SSR. On the client call
+`assertSsrStreamResponse(response, {codec: selectedCodec})` before reading frames.
+Its default is identity and rejects encoded responses. The fixture host now
+implements this policy; other hosts must opt in explicitly. Bound incoming
+NDJSON lines before JSON parsing as well. Transport cost depends on the payload: local isolated paired measurements show
+extra codec CPU cost without gzip, and almost no byte benefit on tiny records.
+On varied HTML, codec plus buffered gzip reduced processing cost and bytes;
+on repetitive text, gzip alone was cheaper. Keep the codec opt-in and measure
+your own payloads. Buffered gzip timings do not measure progressive HTTP latency.
+
+Installed production Chrome and native HTTP codec paths are qualified in the
+repository fixtures. Paired latency/memory measurements, CORS, production proxies
+and compression comparisons remain open.
+
+In the browser, create `createSsrStreamReceiver(container)` while its owning view
+is active, then call `receiver.apply(chunk)` for decoded records. It captures
+that owner for later asynchronous calls, applies contextual DOM patches (including
+SVG), rejects foreign/stale streams, and resumes bindings on `complete`. The
+returned value of `apply(completeEnvelope)` is the resumed signal map. Call
+`receiver.finish()` after normal transport EOF: it rejects and retires an
+incomplete stream, including EOF before shell. A validated complete keeps its
+resumed bindings active; repeated finish is allowed. Transport read success
+alone does not establish that the complete frame arrived. Parent teardown or
+reset stops the receiver; outside an owning view, call `receiver.dispose()` when
+done. A new receiver on the same container retires the previous one.
+
+The protocol generates no executable inline patch scripts. HTML is trusted
+application markup, not sanitized arbitrary input. On transport/protocol failure,
+dispose the receiver and cancel the producer. The final HTML snapshot reconciles
+reactive writes made after a boundary was sent; matching DOM retains identity,
+while a differing tree is replaced before resumption. Identity framing duplicates final HTML
+on the wire; incremental final reconciliation and its performance remain open.
+Bindings become active at completion, not while a partial shell is displayed.
+
+`tests/browser/streaming-roundtrip.html` exercises an installed production
+consumer against real HTTP: the browser releases a slow component only after
+receiving the shell. `scripts/check-ssr-stream-http.mjs` checks disconnect after
+headers and a fresh stream after cancellation. Streaming retention/throughput,
+proxy behavior, Edge adapters and cross-browser qualification remain open.
 
 ## JSX compiler
 
@@ -894,8 +1331,9 @@ Child insertion checks lifetime around static coercion and native writes and bet
 array entries. Scoped renderers forward their publication guard through the shared
 inserter, retaining their own lifetime/supersession diagnostics. Completed native
 operations or arbitrary user side effects are not rolled back; invalidation stops
-remaining work. Context propagation through asynchronous component subtrees and
-arbitrary native-fault combinations are not qualified by these guarantees.
+remaining work. Node async component ownership is described in the SSR section;
+these DOM construction guarantees alone do not qualify async adapters or
+arbitrary native-fault combinations.
 
 ## DOM ownership and remounting
 
@@ -906,8 +1344,8 @@ a reset in one handler suppresses old peers later in the same dispatch while all
 new registrations to remain live. Synchronous callback execution enters its captured
 WASM core and bound view owner, retaining native `this` and the event facade.
 useContext sees the bound provider; callback-created effects and onCleanup hooks
-belong to that view. Callback reads are untracked in the current engine's caller and
-callee core contexts, while explicitly created observers collect their own reads.
+belong to that view. Callback reads are untracked across the current engine's
+existing synchronous observer frames, while explicitly created observers collect their own reads.
 Nested callbacks and exceptions restore the previous owner/tracking/core state.
 Nodes created by callbacks inherit the bound mount's context and shadow event area.
 
@@ -1129,6 +1567,42 @@ const result = await dispatchGpuComputeKernelAsync({
 // result.uploadedBytes / readbackBytes: logical API transfer sizes, not bus measurements
 ```
 
+An optional `chain` runs up to 31 additional kernels before the final readback:
+
+```ts
+await dispatchGpuComputeKernelAsync({
+  wgsl: firstShader, inputs: [inputA, inputB], output,
+  chain: [{ wgsl: unaryShader }, { wgsl: unaryShader, workgroups: [groups] }],
+});
+```
+
+Each additional stage reads the previous GPU result at group 0/binding 0 and
+writes binding 1. Its float32 length defaults to `output.length`; set
+`outputLength` on the initial dispatch or any following stage to choose a private
+intermediate length. The final stage must match the public tensor length.
+Workgroups default independently to `ceil(stageOutputLength / 64)`.
+
+A stage output starts with the overlapping prefix of the previous result; newly
+exposed elements are zeroed on GPU. The first stage starts with the overlapping
+prefix of the host output snapshot and zeroes elsewhere. This preserves partial
+writes while preventing stale values from an earlier larger stage reappearing
+after shrink/growth. Lengths require safe integer byte counts and must fit device
+buffer/storage limits; GPU-only intermediates are independent of the WASM arena
+limit. Stages can also specify their own `entryPoint` and `workgroups`. Stage
+metadata and counts are captured before asynchronous execution. Two output
+buffers, sized for the largest private output, alternate between stages; there are no intermediate host tensors or
+readbacks. The complete chain uses one submission, one final readback and one
+reactive publication. GPU failures and cancellation before publication leave the public output unchanged.
+Identical stage pipelines are reused within the transaction and cached only
+after successful validation. The existing queue/snapshot budget counts the chain
+as one operation; it does not bound total GPU buffer or driver memory.
+
+When hardware is absent, `fallbackKernel` is called once and must implement the
+whole chain. WGSL is never interpreted by that fallback. Resident intermediate
+results in this API last only for this dispatch. Use immutable resident results
+below to retain GPU data across calls and bind them directly to a viewport.
+Logical transfer counters exclude device-to-device copies between stages.
+
 Descriptors and input values are captured at call time. Results are copied back
 into the live tensor only after mapping and validation complete. A later dispatch
 or a tracked host write supersedes an older pending result; this includes internal
@@ -1201,9 +1675,117 @@ JavaScript overhead, or host fallbacks; they are not a process memory ceiling. A
 The implementation follows the [WebGPU specification](https://gpuweb.github.io/gpuweb/)
 for storage bindings, command submission and mapped readback. Run
 `/tests/browser/gpu-compute.html` to reproduce WGSL output, reactive publication,
-shader diagnostics and device replacement checks. This is a correctness-first
-readback API: pipeline caching, resident GPU results and throughput qualification
-remain open.
+shader diagnostics and device replacement checks. Validated compute pipelines
+are reused per device and exact WGSL/entry point, with LRU limits of 32 entries
+and 1 MiB of UTF-16 cache keys. Oversized sources still execute without caching.
+Entries are published only after successful dispatch validation; failures inside
+the GPU transaction evict their entry. Device loss and destruction of an engine-owned device clear
+its cache. External-device detach and core reset preserve reusable device pipelines;
+tensor bindings and result buffers are created per dispatch. The key budget is
+not a bound on driver memory. Cache behavior has deterministic device-double
+coverage and browser correctness checks on a non-fallback Apple Metal 3 adapter;
+broader physical GPU performance and application throughput qualification remain open.
+
+### Immutable resident compute results
+
+`dispatchGpuComputeResident(options)` runs hardware WGSL and returns a
+`GpuResidentTensor` without allocating a WASM output tensor, mapping a buffer or
+publishing a host value. Inputs may mix host `GpuTensorSignal` snapshots and
+resident handles from the same core/device. Output storage starts zeroed. Bindings
+are inputs `0..N-1`, output `N`; default workgroups assume 64 invocations.
+
+```ts
+const results: GpuResidentTensor[] = [];
+const keep = (value: GpuResidentTensor) => { results.push(value); return value; };
+try {
+  const first = keep(await dispatchGpuComputeResident({ wgsl: unaryShader, inputs: [input], outputLength: input.length }));
+  const left = keep(await dispatchGpuComputeResident({ wgsl: unaryShader, inputs: [first], outputLength: first.length }));
+  const right = keep(await dispatchGpuComputeResident({ wgsl: unaryShader, inputs: [first], outputLength: first.length }));
+  const joined = keep(await dispatchGpuComputeResident({ wgsl: joinShader, inputs: [left, right], outputLength: first.length }));
+  await readGpuResidentTensor(joined, output); // Same length; one reactive publication.
+} finally {
+  for (const value of results) value.dispose();
+}
+```
+
+Each handle is immutable and exposes `length`, `byteLength`, `uploadedBytes`,
+`active` and idempotent `dispose()`. Dispose every unowned result. Owned handles
+are released with their owner; reset, device replacement/detach and loss also
+invalidate and destroy them. A completed result is independent of its consumed
+inputs. Cancellation applies while a call is pending; aborting the caller signal
+after successful creation does not dispose its result. Raw GPU buffers are private.
+
+The hardware-only API requires compute methods, explicit bind/pipeline layouts,
+error scopes and `queue.onSubmittedWorkDone`; it supplies no implicit CPU fallback.
+Input bindings use `read-only-storage`, so WGSL declaring a writable input is
+rejected by WebGPU validation. Resident pipeline cache keys include their input
+count and a separate namespace from the mapped executor's auto layouts. It shares the
+existing device queue, pending-call/snapshot admission and validated pipeline cache.
+Resident inputs incur no upload; only `readGpuResidentTensor(handle, output,
+{signal})` maps/copies back. Its output revision and owner checks prevent stale
+publication, and source disposal cancels pending use/readback.
+
+`configureGpuSubsystem({maxResidentComputeBytes})` sets a shared device budget,
+defaulting to 256 MiB. At most 1024 resident results/reservations may coexist.
+Reservations include queued creation and remain until queue drainage on early
+cancellation. Lowering a budget keeps accepted results; admission above the new
+budget rejects with `GpuResidentCapacityError`. `getGpuTelemetry()` reports
+`residentComputeBytes`, `residentComputeCount` and `maxResidentComputeBytes`.
+This budget covers persistent output storage, excluding upload/staging buffers,
+other renderer allocations and driver/process memory. Snapshot admission remains
+a separate policy. Whole-application performance and aggregate driver memory
+remain open. `/tests/browser/gpu-resident.html` checks native WGSL and lifetime rules.
+`readGpuResidentSnapshot(handle, {signal})` explicitly maps a private CPU float32
+copy without allocating a WASM output tensor or publishing a reactive value.
+
+### Direct resident vertex rendering
+
+Canvas3D and Viewport3D accept `gpuVertices`: a `GpuResidentTensor`, an accessor
+returning one, or `null` for the normal host mesh path. A selected resident source
+must belong to the renderer's core/device and contain exactly one clip-space
+float4 per mesh vertex. Mesh indices/count still define topology. The renderer
+binds the resident storage directly as a vertex buffer; it creates no duplicate
+vertex allocation, uploads no host positions, and performs no per-frame map.
+
+```ts
+const selected = signal<GpuResidentTensor | null>(gpuResult);
+const viewport = Viewport3D({
+  mesh, gpuVertices: selected, width: 360, height: 220,
+  onVertexPick(index, distance, z, frame) {
+    console.log(index, distance, z, frame.gpuVertices); // Submitted GPU source identity.
+  },
+});
+```
+
+The caller owns the resident results and mesh. Replacing a selected handle releases
+only renderer-owned allocations/subscriptions, not the old handle. Teardown also
+leaves caller-owned results alive. Disposing a selected source invalidates its
+render/pick frame. A new compatible source can recover. Invalid, unavailable or
+failed resident rendering reports `unavailable` with the original GPU diagnostic;
+it does not draw different host positions as a Canvas2D substitute. Selecting
+`null` explicitly restores the normal host/fallback policy.
+
+Resident positions are already in clip space. Host mesh transform/camera/orbit
+updates do not transform an immutable GPU result: recompute the producer and
+publish a new handle when those inputs change. Indices may still require an
+upload. Renderer and driver allocations remain outside the persistent-result budget.
+
+Picking maps vertex data only on click through `readGpuResidentSnapshot`, then
+uses the existing Rust scratch picker and indexed-occlusion rules. A newer click,
+frame replacement, resize, source disposal, teardown or reset cancels stale work.
+Callback invocation restores the renderer's captured core/owner only while that
+frame remains current. An await inside a browser callback still requires explicit
+capture/re-entry. `VertexPickFrame3D.gpuVertices` identifies the submitted GPU source;
+mesh host coordinates are not its rendered positions. Inspect `data-pick-readback`
+(`pending`, `passed`, `failed`, `cancelled`) and `data-pick-error` for diagnostics.
+This optional interaction readback shares compute admission and is not a per-frame
+copy. It can be costly for large meshes; no click-latency/throughput claim is made.
+
+`renderMode: 'animation-frame'` keeps its queue backpressure when a source retires:
+the latest dirty source resumes after the old submitted frame drains. Run
+`/tests/browser/gpu-resident-render.html` for native pixels, transfer counters,
+readback cancellation and lifetime checks. Pixel snapshots in that fixture are
+explicit verification copies separate from application map/upload counters.
 
 ### Adaptive 3D viewport
 
@@ -1279,6 +1861,17 @@ default (`0..65535`); use `indexFormat: 'uint32'` for larger indices. Mesh indic
 are copied into `Uint16Array` or `Uint32Array`, and WebGPU binds the matching format.
 Direct mutations of a mesh's exposed index array do not signal a redraw; call
 `mesh.updateIndices(values, format?)` to validate, copy and publish new topology.
+
+`maxIndexBytes` limits the byte length of each private index snapshot, for both
+construction and `updateIndices`. Its default equals the native arena byte limit
+(currently 256 MiB), as a separate host-allocation policy; set a nonnegative safe
+integer explicitly to choose another budget. The captured value is exposed by
+the read-only `mesh.maxIndexBytes` getter. `uint16` uses two bytes per index and
+`uint32` uses four. Over-budget input throws `RangeError` before allocation or
+element reads, preserving the previous topology, format and observers. A zero
+budget permits empty/nonindexed topology. This limits one index array, not total
+memory: an update prepares its new copy while the previous copy can remain live,
+and GPU allocations/driver storage have independent limits.
 
 Projection now uses the standard WebGPU viewport mapping in both backends and
 Rust vertex picking: `x = width/2 * (1 + clipX/clipW)` and
@@ -1366,7 +1959,7 @@ Use `renderMode: 'animation-frame'` on Canvas3D/Viewport3D (or Forma) to coalesc
 reactive updates. The first draw stays synchronous. Later updates retain only a
 redraw request and draw the latest state on requestAnimationFrame. A viewport
 admits at most one GPU submission until both queue.onSubmittedWorkDone and every
-error scope settle successfully. Failure releases resources and shows 2D, while GPU retry waits for already-submitted
+error scope settle successfully. Failure releases resources and shows 2D for host meshes (unavailable for a selected resident source), while GPU retry waits for already-submitted
 work to settle. Teardown/reset cancel deferred callbacks and ignore late completions. GPU devices
 without queue completion support fall back to 2D in this mode. Without browser
 requestAnimationFrame, drawing remains synchronous. Mode is selected at construction.
@@ -1377,13 +1970,15 @@ per viewport, not a global device scheduler. Run `/tests/browser/gpu-scheduling.
 for submission counts and controlled backpressure checks; its single update-loop
 timings are observations, not frame-time or throughput qualification.
 
-Viewport picking uses an immutable copy of the vertices and indices from its last
-completed Canvas2D draw or WebGPU submission. Pending model/mesh/topology updates
+Host-mesh viewport picking uses an immutable copy of the vertices and indices from
+its last completed Canvas2D draw or WebGPU submission. Resident frames instead
+keep immutable GPU source identity and read vertices only on click as described above. Pending model/mesh/topology updates
 cannot change that hit test before a new draw. `onVertexPick(index, distance, z,
 frame)` adds exported `VertexPickFrame3D` metadata: source mesh identity, draw id,
 dimensions and backend. Existing three-parameter handlers can ignore the extra
 argument. Source mesh identity may refer to a replaced/disposed caller-owned mesh;
-the hit test does not read that mesh again. The synchronous callback invocation restores its WASM core.
+the hit test does not read that mesh again. Callback invocation restores its WASM
+core and owner; resident callbacks are asynchronous and suppressed if their frame retires.
 
 Copies are created only for viewports with a picking callback. Picking transports
 the saved geometry into isolated Rust scratch without allocating reactive nodes or
@@ -1414,3 +2009,115 @@ and trees with delegated events plus model bindings. Each has two warm-up rounds
 nine alternating measured rounds; timed sections include native writes, while tree
 construction, correctness checks and teardown occur outside timing. This is a local
 A/B tool, not a whole-application benchmark or a comparison against other frameworks.
+
+
+Browser qualification scenarios, reproducible commands and remaining coverage
+are listed in [BROWSER_MATRIX.md](BROWSER_MATRIX.md). Recorded passes apply to
+those scenarios and environments; [PLAN.md](PLAN.md) tracks the remaining work.
+For two independent copies of the current engine in one document, run
+`node scripts/prepare-event-instances.mjs --serve` from this package and open
+the printed URL. The fixture checks shared event dispatch and graph isolation;
+it does not establish cross-copy reactive tracking or async-context propagation.
+
+
+## Rust / embedded WASM provenance
+
+CI checks the committed embedded binary **before** `npm run build` regenerates it.
+The pinned Rust toolchain builds with `--locked`, `wasm32-unknown-unknown`, release
+profile and `-C target-feature=+simd128`. `scripts/check-wasm-provenance.mjs` compares
+rebuilt bytes and exports against `src/engine/wasm-binary.ts`. With an installed
+package argument it also checks the public WASM asset and decoded runtime embed.
+
+From the repository root:
+
+```sh
+CARGO_TARGET_DIR=/tmp/svet-wasm-check RUSTFLAGS='-C target-feature=+simd128' cargo build --locked --manifest-path packages/svet/crates/svet-wasm/Cargo.toml --target wasm32-unknown-unknown --release
+node packages/svet/scripts/check-wasm-provenance.mjs /tmp/svet-wasm-check/wasm32-unknown-unknown/release/svet_wasm.wasm /tmp/svet-wasm-provenance.json
+SVET_REBUILT_WASM=/tmp/svet-wasm-check/wasm32-unknown-unknown/release/svet_wasm.wasm npm --prefix packages/svet run test:package
+```
+
+The final command makes installed-tarball provenance mandatory in that run.
+A normal package-only check can omit `SVET_REBUILT_WASM`; it then makes no claim
+that a Rust rebuild was performed. The report records source/toolchain-file hashes;
+the caller is responsible for producing the supplied rebuild with those sources.
+
+
+Compiled `.ui` modules keep an active-instance registry only during HMR. Creating
+an instance does not register it; successful mount does. Multiple mounted views
+share one registry entry until the last unmount, and explicit instance disposal
+unregisters it. Unmounting a view preserves component state for remount; call
+`instance.dispose()` when the component state itself is no longer needed.
+
+
+## Native Rust graph contexts
+
+`ReactiveGraph::new()` creates an owned Rust graph. Use a separate owned value
+for each native window/request; Rust borrowing governs access to that value.
+The C-ABI functions use a thread-local graph on native targets. Node IDs and
+graph-owned flush/state/GPU buffer pointers belong to that calling-thread context;
+do not pass them to another thread, and do not retain a buffer pointer across a
+mutation that can reallocate its storage. The shipped single-threaded wasm32
+module keeps one graph per WebAssembly instance.
+
+The native Studio `--svet` selector now enables owned retained-document graph
+scheduling. Rendering still uses the shared vector `paint_native` path;
+full Svet graph/renderer/lifetime integration remains open.
+
+
+For a native window adapter, `svet_wasm::native::Context` wraps an owned graph with
+checked `Node` handles. Handles include context and allocation identity, so old
+jobs cannot operate on recycled/reset slots or another window. `track`/nested
+`Tracking::evaluate` discover dynamic dependencies; `batch` delays ready effects,
+and `take_effects` returns owned job handles. Tracking/batch guards restore their
+stacks on panic. Host Rust code owns values, computed caches, error/retry policy
+and rendering. Native Studio uses a separate owned document scheduler; full
+window/renderer lifecycle qualification remains open.
+
+```sh
+CARGO_TARGET_DIR=/tmp/svet-native-validation cargo run --locked --manifest-path packages/svet/crates/svet-wasm/Cargo.toml --example native_bindings
+```
+
+This native-only example validates batched binding projection, branch dependency
+replacement and teardown. It does not open a native window or qualify a renderer.
+
+### Native Forma property scheduling
+
+On native targets, `forma::binding::Form::set_svet_bindings(true)` selects an
+owned Svet graph for property binding scheduling. Call `sync` before painting
+(or drive input through `update`); notifications coalesce until graph jobs are
+drained. `svet_binding_telemetry()` returns the active graph metrics. Disabling
+this mode preserves pending property writes. Each form owns a separate context.
+
+This opt-in covers typed Form bindings. Studio `--svet` additionally enables
+`Runtime::set_svet_document_scheduling(true)` for retained `.ui` documents:
+state signals feed a render effect, the graph survives scene replacement, and
+backend switching/hot reload reapply the selection. Window/renderer lifecycle
+and interactive Studio end-to-end qualification remain open.
+
+Retained document bindings buffer activations in capture order until a
+successful atomic model update. Current widget values are sampled once per
+batch. The per-runtime queue is limited to4096 events; overflow returns an
+error without changing model state until the host explicitly cancels buffered
+activations or replaces the document. `pending_ui_binding_activations()`
+reports the queued count; `cancel_ui_binding_activations()` discards those
+events and clears the refusal. This queue is not a journal of historical
+widget values and does not migrate pending events across document replacement.
+
+Within a retained document, binding routing matches live controls by key. For
+root-backed For collections, retained bindings resolve the current item index
+by its stable key after reorder, including recovery from a failed template.
+Removed items do not transfer events to their former index, and inserted items
+do not inherit old widget values. Ambiguous keys reject the atomic update.
+Nested/derived collection routing and migration across document replacement
+require separate qualification.
+
+Value bindings compare text/range widgets with their last accepted snapshot.
+An unchanged widget preserves an existing model value; an uncommitted changed
+widget wins its binding. Successful atomic commit acknowledges the snapshot;
+refusal leaves input pending. This compares values, not a history of edits,
+and does not claim timestamp-based last-writer ordering.
+
+Native scene expansion borrows inherited state/props during read-only traversal
+and detaches for local writes. Returned scene-control snapshots remain owned
+and independent of subsequent model changes. This preserves the public data
+representation; output snapshots and writable collection locals still copy data.

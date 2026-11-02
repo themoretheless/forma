@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-02",
+  "status": "direct instance disposal retires mounted and direct-render views",
+  "before": "10 nodes retained after dispose where only1 external signal should remain",
+  "changes": [
+    "Instance tracks mounted/rendered view retirement",
+    "dispose idempotently stops views before owned signals",
+    "Caller-owned ViewModel signals remain live",
+    "Late unmount does not clear replacement content",
+    "mount/render/hotReload/snapshot restoration/event registration refuse disposed instances"
+  ],
+  "checks": {
+    "full_js": {
+      "passed": 1334,
+      "files": 101
+    },
+    "typescript": "passed",
+    "package_build": "passed",
+    "fresh_installed_package_gc_aot_gate": "passed",
+    "real_browser_hmr": "5/5,4 actual file updates",
+    "installed_current_runtime_bytes": "equal",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "src/engine/forma.ts": "8ababdc743503155c878f55dd2d53fd3938eef7d528d8594832a0a5666ef76fa",
+    "tests/forma-hmr-events.test.ts": "10d6346ea009d6444bbea99831490f9d106087cbc0104138ca38bca59e9ee8ba",
+    "tests/browser/forma-hmr-runner.html": "57ad80ffbd3cc7f0dd8fe594d02372af9477eb0dcf729012a8b7807325241e01",
+    "scripts/check-forma-aot-lifecycle.mjs": "fc61c25bb2f640c944f4a8400e38f5ac1f6ea6b26766dbb6d5dec37d8c525f53"
+  },
+  "limits": [
+    "Reentrant disposal during render/failing initialization and pending async/HMR recovery remain open",
+    "Other browser engines and browser-GC remain open",
+    "No retained-public-handle GC or performance guarantee",
+    "Frozen2h traced HTTP run uses prior runtime and cannot qualify current dist"
+  ]
+}

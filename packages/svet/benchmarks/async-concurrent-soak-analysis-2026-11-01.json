@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "requests": 61632,
+  "barriers": 2568,
+  "peakRequests": 24,
+  "collectedObjects": 493056,
+  "lateRefusals": 41088,
+  "maxGcRounds": 7,
+  "windowMeanMemory": [
+    {
+      "rss": 137228877.2793055,
+      "heapUsed": 37219873.08827783,
+      "external": 27826082.331403762,
+      "arrayBuffers": 782037.2619392183
+    },
+    {
+      "rss": 135388373.07165122,
+      "heapUsed": 36318372.59813085,
+      "external": 29145286.308411207,
+      "arrayBuffers": 782041.7943925238
+    },
+    {
+      "rss": 124932638.12612613,
+      "heapUsed": 36344805.69369371,
+      "external": 28924989.25225222,
+      "arrayBuffers": 782039.7693693688
+    },
+    {
+      "rss": 126066532.69411762,
+      "heapUsed": 36346516.36470583,
+      "external": 28413337.85882353,
+      "arrayBuffers": 782039.3411764705
+    }
+  ],
+  "scope": "24 synchronized concurrent Node/JSDOM SSR requests; forced-GC samples; no general plateau, production throughput or HTTP transport claim.",
+  "installedRegression": {
+    "requests": 1464,
+    "peakRequests": 24,
+    "collectedObjects": 11712,
+    "maxGcRounds": 5,
+    "consumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-taGLhA/consumer",
+    "packageSha256": "d7ea5e0f77d0e752e38782f527b164b57e3774e82fa60028e5be8d0a1ff861c5"
+  }
+}

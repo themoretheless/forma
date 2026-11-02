@@ -1,0 +1,154 @@
+workerd/server/server/listen/mod.rs:373: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1535: failed: remote.jsg.Error: controlled response body failure
+{
+  "startedAt": "2026-11-01T18:11:50.320Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-2stOip",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "workerdBinaryOverride": "/private/tmp/svet-workerd-20261101/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+  "workerdBinaryVersion": "workerd 2026-11-01",
+  "responses": [
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>0</p>",
+          "<p>1</p>",
+          "<p>2</p>",
+          "<p>3</p>",
+          "<p>4</p>",
+          "<p>5</p>",
+          "<p>6</p>",
+          "<p>7</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "timeoutTransport": "readable",
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    },
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>100</p>",
+          "<p>101</p>",
+          "<p>102</p>",
+          "<p>103</p>",
+          "<p>104</p>",
+          "<p>105</p>",
+          "<p>106</p>",
+          "<p>107</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "timeoutTransport": "readable",
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    }
+  ],
+  "gcCapabilities": {
+    "weakRef": true,
+    "finalizationRegistry": true
+  },
+  "churn": {
+    "requestedMs": 1000,
+    "timeoutTransport": "readable",
+    "directSocket": false,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 128,
+    "domCycles": 2048,
+    "streams": 1024,
+    "stringRenders": 1024,
+    "timeouts": 128,
+    "elapsedMs": 1043.939875,
+    "status": "passed"
+  },
+  "responseTransport": "direct-loopback-workerd",
+  "transports": [
+    {
+      "codec": "identity",
+      "mode": "complete",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    }
+  ],
+  "status": "failed",
+  "error": "TypeError: fetch failed\n    at node:internal/deps/undici/undici:15456:13\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:58:69\n    at async bounded (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:56:55)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:57:101",
+  "completedAt": "2026-11-01T18:11:53.527Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "workerSourceSha256": "4bd7de81056224a55a64bd9aee65674b737566e83c66b4558bf09bd2f5618945",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "f2d76595251e7edbfc3a2c11d403f48963ab8ec5ed7d405618c5d2a9e29039ab"
+}

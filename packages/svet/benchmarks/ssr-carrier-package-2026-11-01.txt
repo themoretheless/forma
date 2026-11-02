@@ -1,0 +1,123 @@
+
+> svet-engine@1.0.0 test:package
+> npm run build:package && node scripts/check-package.mjs
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+node:internal/modules/esm/resolve:318
+  return new ERR_PACKAGE_PATH_NOT_EXPORTED(
+         ^
+
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './server-runtime' is not defined by "exports" in /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json imported from /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json
+    at exportsNotFound (node:internal/modules/esm/resolve:318:10)
+    at packageExportsResolve (node:internal/modules/esm/resolve:608:13)
+    at trySelf (node:internal/modules/cjs/loader:629:34)
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1406:24)
+    at Function.resolve (node:internal/modules/helpers:157:19)
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-ssr-runtime-package.mjs:10:21
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'
+}
+
+Node.js v22.23.4
+node:internal/modules/esm/resolve:318
+  return new ERR_PACKAGE_PATH_NOT_EXPORTED(
+         ^
+
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './server-runtime' is not defined by "exports" in /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json imported from /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json
+    at exportsNotFound (node:internal/modules/esm/resolve:318:10)
+    at packageExportsResolve (node:internal/modules/esm/resolve:608:13)
+    at trySelf (node:internal/modules/cjs/loader:629:34)
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1406:24)
+    at Function.resolve (node:internal/modules/helpers:157:19)
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-ssr-runtime-package.mjs:10:21
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'
+}
+
+Node.js v22.23.4
+Consumer verification evidence retained at /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF
+node:internal/errors:983
+  const err = new Error(message);
+              ^
+
+Error: Command failed: /opt/homebrew/Cellar/node@22/22.23.4_2/bin/node /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-ssr-runtime-package.mjs /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/ssr-runtime-host.json
+node:internal/modules/esm/resolve:318
+  return new ERR_PACKAGE_PATH_NOT_EXPORTED(
+         ^
+
+Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './server-runtime' is not defined by "exports" in /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json imported from /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json
+    at exportsNotFound (node:internal/modules/esm/resolve:318:10)
+    at packageExportsResolve (node:internal/modules/esm/resolve:608:13)
+    at trySelf (node:internal/modules/cjs/loader:629:34)
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1406:24)
+    at Function.resolve (node:internal/modules/helpers:157:19)
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-ssr-runtime-package.mjs:10:21
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'
+}
+
+Node.js v22.23.4
+
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at checkExecSyncError (node:child_process:916:11)
+    at execFileSync (node:child_process:952:15)
+    at run (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:18:12)
+    at node (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:24:29)
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:858:3 {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    '',
+    'node:internal/modules/esm/resolve:318\n' +
+      '  return new ERR_PACKAGE_PATH_NOT_EXPORTED(\n' +
+      '         ^\n' +
+      '\n' +
+      `Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './server-runtime' is not defined by "exports" in /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json imported from /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json\n` +
+      '    at exportsNotFound (node:internal/modules/esm/resolve:318:10)\n' +
+      '    at packageExportsResolve (node:internal/modules/esm/resolve:608:13)\n' +
+      '    at trySelf (node:internal/modules/cjs/loader:629:34)\n' +
+      '    at Module._resolveFilename (node:internal/modules/cjs/loader:1406:24)\n' +
+      '    at Function.resolve (node:internal/modules/helpers:157:19)\n' +
+      '    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-ssr-runtime-package.mjs:10:21\n' +
+      '    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n' +
+      '    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)\n' +
+      '    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n' +
+      "  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'\n" +
+      '}\n' +
+      '\n' +
+      'Node.js v22.23.4\n'
+  ],
+  pid: 96297,
+  stdout: '',
+  stderr: 'node:internal/modules/esm/resolve:318\n' +
+    '  return new ERR_PACKAGE_PATH_NOT_EXPORTED(\n' +
+    '         ^\n' +
+    '\n' +
+    `Error [ERR_PACKAGE_PATH_NOT_EXPORTED]: Package subpath './server-runtime' is not defined by "exports" in /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json imported from /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-32dVsF/consumer/node_modules/svet-engine/package.json\n` +
+    '    at exportsNotFound (node:internal/modules/esm/resolve:318:10)\n' +
+    '    at packageExportsResolve (node:internal/modules/esm/resolve:608:13)\n' +
+    '    at trySelf (node:internal/modules/cjs/loader:629:34)\n' +
+    '    at Module._resolveFilename (node:internal/modules/cjs/loader:1406:24)\n' +
+    '    at Function.resolve (node:internal/modules/helpers:157:19)\n' +
+    '    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-ssr-runtime-package.mjs:10:21\n' +
+    '    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)\n' +
+    '    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:681:26)\n' +
+    '    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\n' +
+    "  code: 'ERR_PACKAGE_PATH_NOT_EXPORTED'\n" +
+    '}\n' +
+    '\n' +
+    'Node.js v22.23.4\n'
+}
+
+Node.js v22.23.4

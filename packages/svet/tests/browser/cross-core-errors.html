@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8"><title>Svet cross-core errors</title>
+<style>body{font:16px system-ui;max-width:950px;margin:30px auto;background:#f6f8fa;color:#16212b}section,pre{background:white;border:1px solid #cbd3dc;padding:16px;margin:12px 0}pre{white-space:pre-wrap}button{padding:8px}</style>
+<h1>Svet cross-core error recovery</h1><p id="status">Loading independent engines…</p><div id="preview"></div><pre id="result"></pre><script type="application/json" id="raw-results"></script>
+<script type="module">
+const build=await(await fetch('/metadata.json')).json();
+const [a,b]=await Promise.all(['/first/index.js','/second/index.js'].map(url=>import(/* @vite-ignore */url)));
+const report={protocol:'svet-cross-core-error-browser/1',userAgent:navigator.userAgent,build,cases:[]};
+const same=(actual,expected)=>{if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error(`${JSON.stringify(actual)} != ${JSON.stringify(expected)}`);};
+async function check(name,fn){try{await fn();same(a.getGraphTelemetry().nodes,0);same(b.getGraphTelemetry().nodes,0);report.cases.push({name,status:'passed'});}catch(error){report.cases.push({name,status:'failed',error:String(error.stack??error)});}finally{a.resetReactiveSystem();b.resetReactiveSystem();}}
+await check('independent browser modules own separate native cores',()=>{if(a.signal===b.signal||a.getWasmCore()===b.getWasmCore())throw Error('Shared instance');});
+for(const initial of [false,true])await check(`DOM observer recovers from ${initial?'initial':'later'} computed failure`,()=>{
+ const source=a.signal(initial?1:0),value=a.computed(()=>{if(source()%2)throw Error('foreign failure');return 7;});
+ const display=document.createElement('section');document.querySelector('#preview').append(display);let observer;const seen=[];
+ try{observer=b.effect(()=>{try{display.textContent=`value:${value()}`;}catch(error){display.textContent=`error:${error.message}`;}seen.push(display.textContent);});
+ if(!initial)source.set(1);same(display.textContent,'error:foreign failure');source.set(2);same(display.textContent,'value:7');
+ same(seen,initial?['error:foreign failure','value:7']:['value:7','error:foreign failure','value:7']);
+ }finally{observer?.dispose();value.dispose();source.dispose();}
+});
+await check('error diamond delivers coherent recovery once across three cores',()=>{
+ const target=b.createWasmCoreInstance(),source=a.signal(0),left=a.computed(()=>source()*2),right=b.computed(()=>{if(source()%2)throw Error('diamond failure');return source()*3;});
+ const seen=[],observer=b.withWasmCore(target,()=>b.effect(()=>{try{seen.push(right()+left());}catch{seen.push('failed');}}));
+ try{source.set(1);source.set(2);same(seen,[0,'failed',10]);}
+ finally{observer.dispose();left.dispose();right.dispose();source.dispose();}
+ same(b.withWasmCore(target,()=>b.getGraphTelemetry().nodes),0);
+});
+await check('failed owner teardown retires bridges and retained DOM callbacks',()=>{
+ const source=a.signal(0),value=a.computed(()=>{if(source()%2)throw Error('owned failure');return 7;});let stop,button;let runs=0;
+ try{b.createRoot(dispose=>{stop=dispose;button=b.h('button',{onClick(){source.set(2);}},'Disposed recovery control');document.querySelector('#preview').append(button);
+ b.effect(()=>{runs++;try{value();}catch{}});});source.set(1);same(runs,2);stop();button.click();same(source.peek(),1);source.set(2);same(runs,2);same(b.getGraphTelemetry().nodes,0);}
+ finally{stop?.();value.dispose();source.dispose();}
+});
+report.status=report.cases.every(c=>c.status==='passed')?'passed':'failed';report.completedAt=new Date().toISOString();
+document.querySelector('#status').textContent=report.status;document.querySelector('#result').textContent=JSON.stringify(report.cases,null,2);document.querySelector('#raw-results').textContent=JSON.stringify(report);
+</script>

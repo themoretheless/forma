@@ -1,0 +1,80 @@
+{
+  "protocol": "async-component-concurrent-soak-v1",
+  "startedAt": "2026-11-01T13:29:16.117Z",
+  "node": "v22.23.4",
+  "execArgv": [
+    "--expose-gc"
+  ],
+  "durationMs": 1000,
+  "width": 24,
+  "samples": [
+    {
+      "cycle": 0,
+      "elapsedMs": 5.369166000000007,
+      "rss": 129678744,
+      "heapTotal": 90734592,
+      "heapUsed": 38830104,
+      "external": 3683193,
+      "arrayBuffers": 781956,
+      "pendingProbes": 0,
+      "alive": 0
+    }
+  ],
+  "timings": {
+    "cancel": {
+      "count": 8,
+      "min": 3.6382090000000176,
+      "max": 9.686624999999992,
+      "mean": 5.870536625000007
+    }
+  },
+  "windows": [
+    {
+      "count": 0,
+      "memory": {}
+    },
+    {
+      "count": 0,
+      "memory": {}
+    },
+    {
+      "count": 0,
+      "memory": {}
+    },
+    {
+      "count": 0,
+      "memory": {}
+    }
+  ],
+  "barriers": 1,
+  "scope": "24 simultaneous isolated success/failure/cancel requests synchronized at a resource-ready barrier; real WASM + JSDOM, bounded WeakRef batches and ring memory samples. No browser/Edge/driver memory or general plateau claim.",
+  "baseline": {
+    "cycle": 0,
+    "elapsedMs": 5.369166000000007,
+    "rss": 129678744,
+    "heapTotal": 90734592,
+    "heapUsed": 38830104,
+    "external": 3683193,
+    "arrayBuffers": 781956,
+    "pendingProbes": 0,
+    "alive": 0
+  },
+  "status": "failed",
+  "error": "TypeError: Cannot read properties of undefined (reading 'html')\n    at run (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-async-components.mjs:49:48)\n    at async Promise.all (index 0)\n    at async batch (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-async-components.mjs:78:6)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-async-components.mjs:85:46",
+  "completedAt": "2026-11-01T13:29:16.140Z",
+  "checkedObjects": 0,
+  "cleanups": 24,
+  "lateRefusals": 0,
+  "maxGcRounds": 1,
+  "sampleCount": 1,
+  "batches": 0,
+  "activeRequests": 0,
+  "peakRequests": 24,
+  "sourceSha256": "f365074f1369c5ccf0b109fa8c8f7d88131c5f1cc3a702198a5547423a811a41",
+  "runtimeSha256": {
+    "server.js": "eebb963efb33dd56a70a610dad36f9b0846b9bfcef4ad13d10f5250af2975c24",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b",
+    "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2"
+  }
+}

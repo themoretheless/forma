@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-02",
+  "status": "analyzer regression checks passed; live soak remains incomplete",
+  "checks": {
+    "unittest_methods": 6,
+    "diagnostics_rejections": [
+      "socket leak",
+      "socket accounting mismatch",
+      "missing shutdown",
+      "negative queue length",
+      "unknown diagnostics version",
+      "recorded request/cleanup failure despite passed label"
+    ],
+    "short_smoke": "needs-investigation: two-hour minimum duration not reached",
+    "historical_2h": "needs-investigation: unchanged external growth budget failure",
+    "live_progress": "incomplete; never qualified while running"
+  },
+  "ci": "Added Python regression command to existing Svet CI job; remote CI not executed",
+  "source_sha256": {
+    "packages/svet/scripts/analyze-http-soak.py": "36c4cf73d63c0fa5987328d16fedd9b7f8203f8a1e54fbdd151114b36e0561e1",
+    "packages/svet/scripts/test_analyze_http_soak.py": "ccfa374f3033f10031a02d6fc2a966eef5aed3f994bca30fcb2821f857c135b9"
+  },
+  "limits": [
+    "No runtime memory fix in this milestone",
+    "30-minute frozen diagnostic still running",
+    "External-memory cause and two-hour qualification remain open"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-02",
+  "change": "Borrow text while encoding collection keys; move encoded key into duplicate set after comparison instead of cloning.",
+  "checks": {
+    "lib": 140,
+    "allocation_tests": 7,
+    "native_check": "passed",
+    "wasm32_check": "passed"
+  },
+  "regression": "Key encoding UTF8 byte lengths, string/number type tags, empty strings, negatives and refusal for NaN/infinity/bool/null; existing reorder/key-expression/duplicate tests passed.",
+  "observations": {
+    "retained_idle_96_editors_previous": 30494,
+    "after": 12062,
+    "budget": 16000,
+    "scalar_1024_unrelated_records": 23
+  },
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "39bbce4f1e66307b9088e09e10bf067f5cb0c29922b29e431bf4174684de140d",
+    "vector-ui/tests/runtime_allocations.rs": "624ae40d72bb51062b12547f93029210d99ca87cb590ffbd0aa7b3b4474810f9"
+  },
+  "limitations": [
+    "Full duplicate scan remains; quadratic scaling across controls still open.",
+    "No release timing/FPS/peak memory claim and no new physical GPU rerun."
+  ]
+}

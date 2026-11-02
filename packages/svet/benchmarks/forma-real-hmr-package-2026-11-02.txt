@@ -1,0 +1,22 @@
+{
+  "edgeHostQualification": false,
+  "node": "v26.13.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "completedAt": "2026-11-02T04:28:55.236Z",
+  "packageFiles": 62,
+  "unpackedBytes": 2612243,
+  "consumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-NMaqTq/consumer",
+  "checks": [
+    "archive allowlist",
+    "isolated installation",
+    "native Node ESM exports",
+    "concurrent SSR",
+    "sync and async compute fallback",
+    "compiled Forma import",
+    "strict JSX declarations without Vite",
+    "negative type fixture",
+    "external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build"
+  ]
+}
+Consumer verification evidence retained at /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-NMaqTq

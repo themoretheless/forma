@@ -1,0 +1,54 @@
+{
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "controls": 8,
+      "status": "passed",
+      "removedDuplicateLocals": 0,
+      "removedRootReplayCopies": 8,
+      "beforeBytes": 43453,
+      "afterBytes": 34165,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    },
+    {
+      "controls": 32,
+      "status": "passed",
+      "removedDuplicateLocals": 0,
+      "removedRootReplayCopies": 32,
+      "beforeBytes": 498563,
+      "afterBytes": 380131,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    },
+    {
+      "controls": 96,
+      "status": "passed",
+      "removedDuplicateLocals": 0,
+      "removedRootReplayCopies": 96,
+      "beforeBytes": 4100611,
+      "afterBytes": 3094051,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    },
+    {
+      "controls": 256,
+      "status": "passed",
+      "removedDuplicateLocals": 0,
+      "removedRootReplayCopies": 256,
+      "beforeBytes": 28622783,
+      "afterBytes": 21516991,
+      "sourceTemplatesEqual": true,
+      "allOtherFieldsEqual": true,
+      "olderReaderAccepts": true
+    }
+  ],
+  "wasmSha256": {
+    "before": "ab7c4591656ad40d317c871617e3820c5b58621c03ab5c1774863a7257d7cfda",
+    "after": "5f2bd19d273be2805090ac680d53ae228bb726a2dd80c64c6ddb97f5e0fb56c8"
+  },
+  "status": "passed"
+}

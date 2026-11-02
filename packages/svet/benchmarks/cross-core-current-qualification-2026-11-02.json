@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-02",
+  "status": "requirements-open",
+  "change": "Fresh independent current-engine Vite copies; add nested foreign-read observer attribution regression. Engine unchanged.",
+  "checks": {
+    "cases_passed": 11,
+    "cases_total": 13,
+    "all_snapshot_source_hashes_match_current": true,
+    "frozen_artifact_hashes": "verified by probe",
+    "teardown_frame_registries": "passed"
+  },
+  "findings": [
+    "Foreign signal fails to invalidate observer in another core.",
+    "With an outer observer in source core and inner foreign observer, read attaches to outer: actual runs[2,1] vs expected[1,2]."
+  ],
+  "report": "cross-core-current-probe-2026-11-02.json",
+  "probe_sha256": "7675ec46e15c686616cd356700907fa0d4f139db17a833f0641c5a26ec3eed29",
+  "implementation_requirements": [
+    "Use active domain frame, never source-context activeEntry alone.",
+    "Rust-owned proxy source in observer core and native source-core bridge observer; host transports notifications/values only.",
+    "Identity includes core, generation, node/lifetime; stale recycled handles cannot notify new observers.",
+    "Dynamic dependencies retire unused bridges; dispose/reset/owner teardown release both native sides.",
+    "Computed equality/laziness, batching and cross-core cycles require explicit matrix before qualification."
+  ],
+  "limitations": [
+    "Two compatible copies in one Node realm, not browser/cross-realm/deployed qualification.",
+    "No bridge implementation or full readiness claim this turn."
+  ]
+}

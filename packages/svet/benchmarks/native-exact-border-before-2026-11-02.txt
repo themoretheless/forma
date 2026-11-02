@@ -1,0 +1,110 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.50s
+     Running tests/runtime_gpu.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_gpu-c6d260de0c042485)
+
+running 1 test
+Scroll CPU/GPU adapter: AdapterInfo { name: "Apple M4 Max", vendor: 4203, device: 1, device_type: IntegratedGpu, device_pci_bus_id: "", driver: "Metal Direct Native Runtime", driver_info: "ASD + UMA + dUMA Accelerated", backend: Metal, subgroup_min_size: 32, subgroup_max_size: 32, transient_saves_memory: true }
+integer DPI1 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI1 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI1 offset64: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI1.25 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI1.25 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI1.25 offset64: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI2 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI2 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer DPI2 offset64: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional DPI1 offset0: CPU/GPU mean0.001801 max1 at(32,33), channel1
+fractional DPI1 offset32: CPU/GPU mean0.001770 max1 at(32,33), channel2
+fractional DPI1 offset67: CPU/GPU mean0.002792 max1 at(32,33), channel0
+fractional DPI1.25 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional DPI1.25 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional DPI1.25 offset67: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional DPI2 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional DPI2 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional DPI2 offset67: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI1 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI1 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI1 offset64: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI1.25 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI1.25 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI1.25 offset64: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI2 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI2 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-alpha DPI2 offset64: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI1 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI1 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI1 offset67: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI1.25 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI1.25 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI1.25 offset67: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI2 offset0: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI2 offset32: CPU/GPU mean0.000000 max0 at(0,0), channel0
+fractional-alpha DPI2 offset67: CPU/GPU mean0.000000 max0 at(0,0), channel0
+integer-border DPI1 offset0: CPU/GPU mean0.208008 max64 at(33,33), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [223, 0, 32, 255]
+integer-border DPI1 offset32: CPU/GPU mean0.205078 max64 at(33,62), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [223, 0, 32, 255]
+integer-border DPI1 offset64: CPU/GPU mean0.208008 max64 at(33,33), channel1
+Worst pixel CPU [0, 159, 96, 255], GPU [0, 223, 32, 255]
+integer-border DPI1.25 offset0: CPU/GPU mean0.042344 max24 at(41,41), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [183, 0, 72, 255]
+integer-border DPI1.25 offset32: CPU/GPU mean0.041563 max24 at(41,78), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [183, 0, 72, 255]
+integer-border DPI1.25 offset64: CPU/GPU mean0.042344 max24 at(41,41), channel1
+Worst pixel CPU [0, 159, 96, 255], GPU [0, 183, 72, 255]
+integer-border DPI2 offset0: CPU/GPU mean0.000732 max32 at(66,66), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [191, 0, 64, 255]
+integer-border DPI2 offset32: CPU/GPU mean0.000488 max32 at(66,125), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [191, 0, 64, 255]
+integer-border DPI2 offset64: CPU/GPU mean0.000732 max32 at(66,66), channel1
+Worst pixel CPU [0, 159, 96, 255], GPU [0, 191, 64, 255]
+fractional-border DPI1 offset0: CPU/GPU mean0.144394 max32 at(33,34), channel0
+Worst pixel CPU [127, 0, 128, 255], GPU [159, 0, 96, 255]
+fractional-border DPI1 offset32: CPU/GPU mean0.200806 max32 at(33,33), channel0
+Worst pixel CPU [127, 0, 128, 255], GPU [159, 0, 96, 255]
+fractional-border DPI1 offset67: CPU/GPU mean0.147369 max32 at(33,33), channel1
+Worst pixel CPU [0, 127, 128, 255], GPU [0, 159, 96, 255]
+fractional-border DPI1.25 offset0: CPU/GPU mean0.064531 max24 at(42,44), channel0
+Worst pixel CPU [255, 0, 0, 255], GPU [231, 0, 24, 255]
+fractional-border DPI1.25 offset32: CPU/GPU mean0.136250 max28 at(41,81), channel0
+Worst pixel CPU [127, 0, 128, 255], GPU [99, 20, 120, 255]
+fractional-border DPI1.25 offset67: CPU/GPU mean0.064531 max24 at(42,42), channel1
+Worst pixel CPU [0, 255, 0, 255], GPU [0, 231, 24, 255]
+fractional-border DPI2 offset0: CPU/GPU mean0.000244 max32 at(67,69), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [191, 0, 64, 255]
+fractional-border DPI2 offset32: CPU/GPU mean0.000488 max32 at(67,128), channel0
+Worst pixel CPU [159, 0, 96, 255], GPU [191, 0, 64, 255]
+fractional-border DPI2 offset67: CPU/GPU mean0.000244 max32 at(67,186), channel1
+Worst pixel CPU [0, 159, 96, 255], GPU [0, 191, 64, 255]
+
+thread 'retained_scroll_cpu_gpu_pixels_agree_including_fractional_edges' (7539285) panicked at tests/runtime_gpu.rs:80:9:
+CPU/GPU parity failures:
+integer-border DPI1 offset0: max64 mean0.208008
+integer-border DPI1 offset32: max64 mean0.205078
+integer-border DPI1 offset64: max64 mean0.208008
+integer-border DPI1.25 offset0: max24 mean0.042344
+integer-border DPI1.25 offset32: max24 mean0.041563
+integer-border DPI1.25 offset64: max24 mean0.042344
+integer-border DPI2 offset0: max32 mean0.000732
+integer-border DPI2 offset32: max32 mean0.000488
+integer-border DPI2 offset64: max32 mean0.000732
+fractional-border DPI1 offset0: max32 mean0.144394
+fractional-border DPI1 offset32: max32 mean0.200806
+fractional-border DPI1 offset67: max32 mean0.147369
+fractional-border DPI1.25 offset0: max24 mean0.064531
+fractional-border DPI1.25 offset32: max28 mean0.136250
+fractional-border DPI1.25 offset67: max24 mean0.064531
+fractional-border DPI2 offset0: max32 mean0.000244
+fractional-border DPI2 offset32: max32 mean0.000488
+fractional-border DPI2 offset67: max32 mean0.000244
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test retained_scroll_cpu_gpu_pixels_agree_including_fractional_edges ... FAILED
+
+failures:
+
+failures:
+    retained_scroll_cpu_gpu_pixels_agree_including_fractional_edges
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 1.28s
+
+error: test failed, to rerun pass `--test runtime_gpu`

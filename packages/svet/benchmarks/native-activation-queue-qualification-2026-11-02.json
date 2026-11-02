@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-02",
+  "scope": "Ordered bounded activation buffering for retained-document bindings",
+  "negative_control": "Two queued toggle activations collapsed to one: final flag true instead of false after metadata repair",
+  "implementation": [
+    "keyboard/pointer/direct activations feed one per-Runtime queue for retained documents",
+    "snapshot current widget values once, replay activations in capture order within one atomic root transaction",
+    "do not clear queued events on binding refusal; clear after binding acceptance even if later rendering fails",
+    "cap queue at 4096 events; overflow refuses binding synchronization until explicit cancellation or document replacement",
+    "export pending_ui_binding_activations and cancel_ui_binding_activations for host recovery"
+  ],
+  "checks": {
+    "native_library_tests": 126,
+    "native_feature_binary_check": "passed",
+    "wasm32_library_check": "passed",
+    "diff_check": "passed"
+  },
+  "covered": [
+    "one/two/three buffered toggles in legacy and Svet modes",
+    "two controls sharing a property preserve selected/toggle order in both directions",
+    "two repeated failed retries do not consume activations",
+    "keyboard, pointer and direct activation capture order",
+    "bounded overflow leaves model unchanged and refuses repeated synchronization",
+    "explicit cancellation clears refusal and allows subsequent fresh activation",
+    "Svet skips rendering after an even toggle batch returns to the original model"
+  ],
+  "logs": {
+    "before": "packages/svet/benchmarks/native-activation-queue-before-2026-11-02.txt",
+    "after": "packages/svet/benchmarks/native-activation-queue-after-2026-11-02.txt",
+    "native": "packages/svet/benchmarks/native-activation-queue-native-2026-11-02.txt",
+    "wasm": "packages/svet/benchmarks/native-activation-queue-wasm-2026-11-02.txt"
+  },
+  "limitations": [
+    "document hot reload/replacement cancels old interaction state; queued event migration across keyed collection reorder remains open",
+    "widget values are sampled at synchronization, not captured as a historical input-event journal",
+    "overflow preserves a bounded prefix but does not partially commit it; explicit cancellation/reload required",
+    "event latency and transaction cost at the admission limit remain unmeasured",
+    "no new real-window/clipboard/IME/GPU or remote CI qualification"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "4f0fe2ccfb01b34ca225838bca4627ffe41ad14174b0c95cbb00a0d058969d3c",
+    "vector-ui/src/form_document.rs": "31cda2d7b3f20a183040f2a30a31080edf75cb268ad9c94808c57455653b2eb7"
+  }
+}

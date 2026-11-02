@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-02",
+  "change": "Flat binding frames with declaration-time visible parent frame indexes replace emitted recursive whole-state shadow snapshots. Nested collection/key evaluation resolves frames in lexical context; per-resolution memoization avoids repeat ancestor resolution. Root-level bindings retain direct-index path.",
+  "checks": {
+    "lib": 148,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": [
+    "Real .ui late branch.items access after unrelated item shadow, computed key item.id+leaf.id, reordered groups, fresh/cached maps.",
+    "Adjacent/nonadjacent shadow, parent/child reorder/removal/duplicates continue to pass.",
+    "Parent frames must reference earlier frames; malformed references refuse.",
+    "Existing idle allocation budgets pass."
+  ],
+  "source_sha256": "5727b00a45041b171b02e820afb82156f758a8aee6a60bb206d46e8794035216",
+  "limitations": [
+    "Let variables shadowing root model fields need explicit lexical-local tracking and further qualification.",
+    "Locals/frame payloads and public control state snapshots remain owned copies; memory/timing not qualified.",
+    "Derived collections and deep/error/browser/AOT matrices remain open.",
+    "No hardware GPU rerun."
+  ]
+}

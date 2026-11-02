@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -23,6 +24,7 @@ function run(command, args, cwd = consumer) {
 const node = (args, cwd) => run(process.execPath, args, cwd);
 let passed = false;
 try {
+  node(['--test', resolve(root, 'scripts/check-embed-wasm-target.mjs')]);
   const [packed] = JSON.parse(run('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', temporary], root));
   assert(packed.files.every(file => file.path.startsWith('dist/package/') || ['package.json', 'README.md', 'DEVELOPMENT.md'].includes(file.path)), 'unexpected development files in tarball');
   assert(packed.files.some(file => file.path === 'dist/package/index.js'));
@@ -32,8 +34,9 @@ try {
   const installed = join(consumer, 'node_modules/svet-engine');
   const metadata = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
   for (const entry of Object.values(metadata.exports)) {
-    assert(entry.import.endsWith('.js') && entry.types.endsWith('.d.ts'));
-    await readFile(join(installed, entry.import));
+    const target=entry.import??entry.default;
+    assert((target.endsWith('.js')||target.endsWith('.wasm')) && entry.types.endsWith('.d.ts'));
+    await readFile(join(installed, target));
     await readFile(join(installed, entry.types));
   }
   // No Vite or TypeScript dependency may be required just to install the runtime.
@@ -42,9 +45,17 @@ try {
   assert.throws(() => consumerRequire.resolve('typescript'));
   await writeFile(join(consumer, 'runtime.mjs'), `
     import assert from 'node:assert/strict';
+    import {readFile as readWasmAsset} from 'node:fs/promises';
+    import {installSvetWasmModule} from 'svet-engine';
+    const wasmAsset=await readWasmAsset(new URL(import.meta.resolve('svet-engine/core.wasm')));
+    installSvetWasmModule(new WebAssembly.Module(wasmAsset));
     import { captureReactiveContext, ReactiveContextDisposedError, Fragment, bindProp, useContext, h, createContext, renderToString, createServerAction, ServerActionDisposedError, For, untrack, Portal, createRouter, Suspense, ErrorBoundary, createResource, initWebGpuHardware, onCleanup, resetReactiveSystem, getCurrentOwner, runWithOwnerScope, signal, effect, computed, batch, createRoot, createWasmCoreInstance, createPerspectiveCamera3D, getGraphTelemetry, compileFormaToJsModule, createGpuTensor, getGpuTelemetry, configureGpuSubsystem, GpuComputeCapacityError, ReactiveStabilizationError, ReactiveCycleError, dispatchGpuComputeKernel, dispatchGpuComputeKernelAsync, Viewport3D, createMesh3D, createTransform3D, pickNearestVertex3D, getWasmCore, withWasmCore } from 'svet-engine';
     import { signal as reactiveSignal, runWithCapturedOwner } from 'svet-engine/reactivity';
-    import { renderToStringAsync, runWithIsolatedContextAsync } from 'svet-engine/server';
+    import { renderToStringAsync, runWithIsolatedContextAsync, runWithOwnerScopeAsync } from 'svet-engine/server';
+    import { dispatchGpuComputeResident, readGpuResidentTensor, readGpuResidentSnapshot, GpuResidentCapacityError } from 'svet-engine';
+    assert.equal(typeof dispatchGpuComputeResident, 'function'); assert.equal(typeof readGpuResidentTensor, 'function'); assert.equal(typeof readGpuResidentSnapshot, 'function');
+    assert.equal(typeof GpuResidentCapacityError, 'function');
+    await assert.rejects(dispatchGpuComputeResident({wgsl: '', inputs: [], outputLength: 1}), /complete WebGPU device/);
     import { transformSvetJsx, svetVitePlugin } from 'svet-engine/compiler';
     import { jsx, Fragment as runtimeFragment } from 'svet-engine/jsx-runtime';
     import { jsxDEV } from 'svet-engine/jsx-dev-runtime';
@@ -165,6 +176,36 @@ try {
     assert.equal(capturedContext.active, false);
     assert.throws(() => capturedContext.run(() => {}), error => error instanceof ReactiveContextDisposedError && error.code === 'SVET_CONTEXT_DISPOSED');
     capturedSource.dispose();
+
+    const ownerConstructionCore = createWasmCoreInstance();
+    withWasmCore(ownerConstructionCore, () => {
+      const entries = []; let fresh, bodyCalls = 0;
+      entries[Symbol.iterator] = function* () {
+        resetReactiveSystem(); fresh = signal(1); yield [Symbol(), 1];
+      };
+      assert.throws(() => runWithOwnerScope(entries, () => bodyCalls++), /reset/);
+      assert.equal(bodyCalls, 0); assert.equal(getCurrentOwner(), null);
+      let observed = 0; const observer = effect(() => { observed = fresh(); });
+      fresh.set(2); assert.equal(observed, 2); observer.dispose(); fresh.dispose();
+      assert.equal(getGraphTelemetry().nodes, 0);
+    });
+
+    const asyncSubtreeContext = createContext('root');
+    let asyncSubtreeCleanups = 0;
+    await runWithIsolatedContextAsync(async () => {
+      const parent = getCurrentOwner();
+      const values = await Promise.all(['a', 'b'].map(name =>
+        runWithOwnerScopeAsync([[asyncSubtreeContext.id, name]], async () => {
+          const owner = getCurrentOwner(); await Promise.resolve();
+          assert.equal(getCurrentOwner(), owner); assert.equal(owner.parent, parent);
+          onCleanup(() => asyncSubtreeCleanups++);
+          return useContext(asyncSubtreeContext);
+        })
+      ));
+      assert.deepEqual(values, ['a', 'b']); assert.equal(getCurrentOwner(), parent);
+      assert.equal(asyncSubtreeCleanups, 0);
+    });
+    assert.equal(asyncSubtreeCleanups, 2); assert.equal(getGraphTelemetry().nodes, 0);
 
     let requestContinuation;
     assert.equal(await runWithIsolatedContextAsync(async () => {
@@ -527,6 +568,41 @@ try {
     lifetimeGate.set(1); lifetimeSource.set(101);
     assert.deepEqual(lifetimeValues, [5, 100, 101]);
     lifetimeObserver.dispose(); lifetimeSource.dispose(); lifetimeGate.dispose();
+    const multiCoreBaseline = getGraphTelemetry().nodes;
+    const multiMiddle = createWasmCoreInstance(), multiInner = createWasmCoreInstance();
+    const multiIncidental = withWasmCore(multiMiddle, () => signal(0));
+    const multiHandles = []; let multiRuns = 0, multiJob;
+    const multiAction = createServerAction({rpc: async () => { multiIncidental(); return 7; }});
+    multiHandles.push(effect(() => withWasmCore(multiMiddle, () => {
+      multiHandles.push(effect(() => {
+        multiRuns++;
+        withWasmCore(multiInner, () => multiHandles.push(effect(() => {
+          multiJob = multiAction(); void multiJob.catch(() => {});
+        })));
+      }));
+    })));
+    multiIncidental.set(1); assert.equal(multiRuns, 1); assert.equal(await multiJob, 7);
+    multiHandles.reverse().forEach(handle => handle.dispose()); multiAction.dispose(); multiIncidental.dispose();
+    assert.equal(getGraphTelemetry().nodes, multiCoreBaseline);
+    assert.equal(withWasmCore(multiMiddle, () => getGraphTelemetry().nodes), 0);
+    assert.equal(withWasmCore(multiInner, () => getGraphTelemetry().nodes), 0);
+
+    const lazyCacheSource = signal(0), lazyCacheValue = computed(() => lazyCacheSource() * 3);
+    for (let i = 0; i < 5; i++) { lazyCacheSource.set(i); assert.equal(lazyCacheValue.peek(), i * 3); }
+    lazyCacheValue.dispose(); lazyCacheSource.dispose();
+    const relocationProbeCore = createWasmCoreInstance(); relocationProbeCore.memory.grow(8);
+    withWasmCore(relocationProbeCore, () => {
+      const source = signal(0), values = Array.from({length:32}, () => computed(() => source()));
+      values.forEach(value => value.peek()); source.set(1); values.forEach(value => value.peek());
+      const pointer = relocationProbeCore.svet_get_states_ptr(), buffer = relocationProbeCore.memory.buffer, extras = [];
+      while (relocationProbeCore.svet_get_states_ptr() === pointer && extras.length < 256) extras.push(signal(0));
+      assert.notEqual(relocationProbeCore.svet_get_states_ptr(),pointer);
+      source.set(2); assert.deepEqual(values.map(value => value.peek()),Array(32).fill(2));
+      assert.equal(relocationProbeCore.memory.buffer,buffer);
+      extras.forEach(value => value.dispose()); values.forEach(value => value.dispose()); source.dispose();
+      assert.equal(getGraphTelemetry().nodes,0);
+    });
+
     const stagedSource = signal(5); let stagedReplacement, stagedRuns = 0;
     const stagedObserver = effect(() => {
       stagedSource(); stagedRuns++;
@@ -544,10 +620,23 @@ try {
     assert.equal(gpuStats.pendingComputeCount, 0); assert.equal(gpuStats.pendingComputeSnapshotBytes, 0);
     assert.equal(gpuStats.maxPendingComputeCount, 32); assert.equal(gpuStats.maxPendingComputeBytes, 256 * 1024 * 1024);
     assert.deepEqual(Array.from(computedTensor()), [4, 6]);
+    const chainTensor = createGpuTensor(2); let chainFallbackCalls = 0;
+    const chainResult = await dispatchGpuComputeKernelAsync({ wgsl: '', inputs: [tensor], output: chainTensor, outputLength: 4,
+      chain: [{ wgsl: '', workgroups: [1], outputLength: 2 }],
+      fallbackKernel([values], result) { chainFallbackCalls++; result.set(values.map(value => value * 4)); }
+    });
+    assert.equal(chainResult.backend, 'fallback'); assert.equal(chainFallbackCalls, 1);
+    assert.deepEqual(Array.from(chainTensor()), [8, 12]); chainTensor.dispose();
     assert.throws(() => dispatchGpuComputeKernel({ wgsl: '', inputs: [tensor], output: computedTensor,
       fallbackKernel(_, values) { values[0] = 99; throw new Error('consumer sync failure'); }
     }), /consumer sync failure/);
     assert.deepEqual(Array.from(computedTensor()), [4, 6]);
+    let consumerThenReads=0, consumerThenCalls=0;
+    const consumerThenable={get then(){consumerThenReads++;return function(resolve,reject){consumerThenCalls++;assert.equal(this,consumerThenable);reject(Error('consumer late thenable failure'));};}};
+    assert.throws(()=>dispatchGpuComputeKernel({wgsl:'',inputs:[tensor],output:computedTensor,
+      fallbackKernel(_,values){values[0]=99;return consumerThenable;}}),/asynchronous callback/);
+    for(let turn=0;turn<8;turn++)await Promise.resolve();
+    assert.equal(consumerThenReads,1);assert.equal(consumerThenCalls,1);assert.deepEqual(Array.from(computedTensor()),[4,6]);
     dispatchGpuComputeKernel({ wgsl: '', inputs: [tensor], output: computedTensor,
       fallbackKernel([values], result) { result.set(values); }
     });
@@ -575,6 +664,18 @@ try {
     rejectedInput.dispose(); rejectedOutput.dispose(); configureGpuSubsystem({ device: null });
     assert.ok(transformSvetJsx('const node = <p>{count()}</p>').includes('() => (count())'));
     const source = 'component ConsumerCard { state count: Number = 1; Text { text: state.count; } }';
+    for (const annotation of ['range(0)', 'range(0,10,20)', 'range(no,10)', 'pattern(123)', 'pattern([abc])']) {
+      assert.throws(() => compileFormaToJsModule('component Contract { #[' + annotation + '] prop value: Number = 5; Column {} }'), /contract|annotation/i);
+    }
+    const multilinePattern = '^a' + String.fromCharCode(10) + 'b$';
+    const patternModule = compileFormaToJsModule("component Contract { #[pattern('" + multilinePattern + "')] prop value: String = 'wrong'; Column {} }");
+    await (await import('node:fs/promises')).writeFile(new URL('./compiled-contract.mjs', import.meta.url), patternModule);
+    const contractModule = await import('./compiled-contract.mjs');
+    assert.equal(contractModule.uiValidation.valid, true);
+    assert.equal(contractModule.uiAst.propConstraints[0].patternSource, multilinePattern);
+    const constrained = contractModule.default();
+    try { assert.equal(constrained.isValid(), false); constrained.props.value.set('a' + String.fromCharCode(10) + 'b'); assert.equal(constrained.isValid(), true); }
+    finally { constrained.dispose(); }
     const compiled = compileFormaToJsModule(source);
     assert.ok(compiled.includes('from "svet-engine"'));
     const { writeFile } = await import('node:fs/promises');
@@ -726,6 +827,27 @@ try {
     assert.deepEqual(reentryTopologyMesh.indices, new Uint32Array([2,1,0]));
     reentryTopologyMesh.updateIndices([0,1,2]); assert(reentryTopologyMesh.indices instanceof Uint32Array);
     reentryTopologyMesh.dispose(); reentryTopologyTransform.dispose();
+    const budgetTransform = createTransform3D();
+    const budgetMesh = createMesh3D({ transform: budgetTransform, positions: [0,0,0], indices: [0,0,0], maxIndexBytes: 6 });
+    const budgetTopology = budgetMesh.indices; let budgetReads = 0;
+    assert.equal(budgetMesh.maxIndexBytes, 6);
+    assert.equal(Reflect.set(budgetMesh, 'maxIndexBytes', 0), false);
+    assert.throws(() => budgetMesh.updateIndices({ length: 3, get 0() { budgetReads++; return 0; } }, 'uint32'), /maxIndexBytes/);
+    assert.equal(budgetReads, 0); assert.equal(budgetMesh.indices, budgetTopology);
+    budgetMesh.updateIndices([0,0,0]); assert(budgetMesh.indices instanceof Uint16Array);
+    budgetMesh.dispose();
+    const defaultBudget = getWasmCore().svet_gpu_get_arena_limit_f32() * 4;
+    const NativeBudgetIndices = Uint32Array; let largeBudgetCopies = 0;
+    globalThis.Uint32Array = new Proxy(NativeBudgetIndices, {construct(target, args, receiver) {
+      if (typeof args[0] === 'number' && args[0] > 1_000_000) { largeBudgetCopies++; throw new Error('large index snapshot attempted'); }
+      return Reflect.construct(target, args, receiver);
+    }});
+    try {
+      const indexLength = Math.floor(defaultBudget / 4 / 3) * 3 + 3;
+      assert.throws(() => createMesh3D({ transform: budgetTransform, positions: [0,0,0], indexFormat: 'uint32',
+        indices: { length: indexLength, get 0() { budgetReads++; return 0; } } }), /maxIndexBytes/);
+      assert.equal(largeBudgetCopies, 0); assert.equal(budgetReads, 0);
+    } finally { globalThis.Uint32Array = NativeBudgetIndices; budgetTransform.dispose(); }
     const arenaLimit = getWasmCore().svet_gpu_get_arena_limit_f32(); assert.equal(arenaLimit, 67_108_864);
     let oversizedTensorReads = 0;
     assert.throws(() => createGpuTensor({length: arenaLimit + 1, get 0() { oversizedTensorReads++; return 0; }}), /Invalid GPU tensor length/);
@@ -757,6 +879,79 @@ try {
 
   `);
   node(['runtime.mjs']);
+  if(process.env.SVET_EDGE_DEPS){
+    node([resolve(root, 'scripts/check-edge-ssr.mjs'), process.env.SVET_EDGE_DEPS, join(consumer, 'edge-ssr.json'), installed]);
+    const edge=JSON.parse(await readFile(join(consumer,'edge-ssr.json'),'utf8'));
+    assert(edge.independentEngineModules>0&&edge.crossCopyOwners?.length===2,'Edge must compile and exercise a second engine copy');
+    assert.deepEqual(edge.retainedUi,{status:'passed',requests:16,retainedReferences:40,nodesAfter:0});assert.equal(edge.retainedUiTargets.targets,32);
+    assert.equal(edge.crossCopyBoundaries.status,'passed');assert.equal(edge.crossCopyBoundaries.cases.length,4);assert.equal(edge.crossCopyBoundaries.nodesAfter,0);
+    for(const row of edge.crossCopyOwners)assert(row.status==='passed'&&row.independentCores===true&&row.requests===4&&row.ownerMatches===4&&row.contexts===1&&row.failedChildCleanups===1&&row.lateRefusals===1&&row.rootOverrides===1&&row.domBindings===2&&row.reactiveDomUpdates===2&&row.eventTeardowns===2&&row.retainedCallbacks===1&&row.nodesAfter===0,'Edge cross-copy owner qualification incomplete');
+    assert.equal(edge.crossCopyOwnerTargets.targets,24);
+    assert.equal(edge.churn?.status,'passed');assert.equal(edge.churn?.concurrency,8);
+    assert.equal(edge.churn?.timeoutTransport,'readable');assert.equal(edge.churn?.diagnosticKeepalive,false);
+    assert(edge.churn.events>=8,'Edge gate must exercise concurrent native timeout streams');
+    if(process.env.SVET_EDGE_GC==='1'){
+      assert.equal(edge.gc?.status,'passed');assert.equal(edge.gc?.allocation.requests,24);
+      assert.deepEqual(edge.gc.withHandles.copyOwners,{targets:24,alive:0,kinds:{core:8,memory:8,signal:4,node:4}});assert.deepEqual(edge.gc.afterRelease.copyOwners,{targets:24,alive:0,kinds:{core:8,memory:8,signal:4,node:4}});
+      const uiTargets={targets:32,alive:0,kinds:{boundaryCore:8,boundaryMemory:8,routerCore:8,routerMemory:8}};assert.deepEqual(edge.gc.withHandles.retainedUi,uiTargets);assert.deepEqual(edge.gc.afterRelease.retainedUi,uiTargets);
+      assert.deepEqual(edge.gc.withHandles.alive,{liveControl:4});assert.deepEqual(edge.gc.afterRelease.alive,{});
+      assert.equal(edge.gc.allocation.ownerTokensHeld,20);assert.equal(edge.gc.allocation.ownerTokensRetired,true);assert.equal(edge.gc.afterRelease.ownerTokensHeld,20);
+      if(process.env.SVET_EDGE_GC_FORCE==='1')assert(edge.gc.gcCommands.length>0&&edge.gc.gcCommands.every(command=>command.status==='acknowledged'),'Inspector GC commands must be acknowledged');
+    }
+  }
+  node(['--expose-gc', resolve(root, 'scripts/check-ssr-runtime-package.mjs'), installed, join(consumer, 'ssr-runtime-host.json')]);
+  if(process.env.SVET_REBUILT_WASM)node([resolve(root,'scripts/check-wasm-provenance.mjs'),resolve(process.env.SVET_REBUILT_WASM),join(consumer,'wasm-provenance.json'),installed]);
+  const aotLifecycle=join(consumer,'forma-aot-lifecycle.json');
+  node(['--expose-gc',resolve(root,'scripts/check-forma-aot-lifecycle.mjs'),installed,aotLifecycle]);
+  const aotReport=JSON.parse(await readFile(aotLifecycle,'utf8'));assert.equal(aotReport.status,'passed');assert.equal(aotReport.cases.length,6);assert.equal(aotReport.retainedTargets,0);assert.deepEqual(aotReport.gc,{targets:8,controlsHeld:4,controlsReleased:0});
+  const retainedRetry=join(consumer,'retained-boundary-retry.json');
+  node(['--expose-gc',resolve(root,'scripts/check-retained-ui-callbacks.mjs'),installed,retainedRetry]);
+  const retryGc=JSON.parse(await readFile(retainedRetry,'utf8'));assert.equal(retryGc.status,'passed');assert.equal(retryGc.retained.boundary,0);assert.equal(retryGc.retained.router,0);assert.equal(retryGc.handles,12);assert.equal(retryGc.controlsHeld,4);assert.equal(retryGc.controlsReleased,0);
+  const copyManifest=join(consumer,'cross-copy-manifest.json'),copyOwners=join(consumer,'cross-copy-async-owner.json');
+  node([resolve(root,'scripts/prepare-installed-copy-probe.mjs'),installed,copyManifest]);
+  const constructionCopies=join(consumer,'forma-construction-copies.json');
+  node([resolve(root,'scripts/check-forma-construction-copies.mjs'),copyManifest,constructionCopies]);
+  const constructionReport=JSON.parse(await readFile(constructionCopies,'utf8'));
+  assert.equal(constructionReport.status,'passed');assert.equal(constructionReport.cases.length,2);
+
+  const copyRouter=join(consumer,'cross-copy-router.json');
+  node([resolve(root,'scripts/check-cross-copy-router.mjs'),copyRouter,copyManifest]);
+  const routerCopies=JSON.parse(await readFile(copyRouter,'utf8'));assert.equal(routerCopies.status,'passed');assert.equal(routerCopies.cases.length,4);
+  const copyBoundaries=join(consumer,'cross-copy-boundaries.json');
+  node([resolve(root,'scripts/check-cross-copy-boundaries.mjs'),copyBoundaries,copyManifest]);
+  const boundaryReport=JSON.parse(await readFile(copyBoundaries,'utf8'));
+  assert.equal(boundaryReport.status,'passed');assert.equal(boundaryReport.cases.length,4);
+  const bridgeRetention=join(consumer,'cross-core-retention.json');
+  node(['--expose-gc',resolve(root,'scripts/check-cross-core-retention.mjs'),bridgeRetention,copyManifest]);
+  const bridgeGc=JSON.parse(await readFile(bridgeRetention,'utf8'));
+  assert.equal(bridgeGc.status,'passed');assert.equal(bridgeGc.cases.length,9);
+  assert.equal(bridgeGc.liveSubscriptionHeld,3);assert.equal(bridgeGc.liveSubscriptionReleased,0);
+  assert.equal(bridgeGc.retention.targets,440);assert.deepEqual(bridgeGc.retention.alive,[]);
+  assert.equal(bridgeGc.retention.controlsHeld,4);assert.equal(bridgeGc.retention.controlsReleased,0);
+  node(['--expose-gc',resolve(root,'scripts/check-cross-copy-async-owner.mjs'),copyOwners,copyManifest]);
+  const ownerCopies=JSON.parse(await readFile(copyOwners,'utf8'));
+  assert(ownerCopies.status==='passed'&&ownerCopies.cases.length===8&&ownerCopies.gc?.coresCollected===8&&ownerCopies.gc?.memoriesCollected===8&&ownerCopies.gc?.controlsHeld===4&&ownerCopies.gc?.controlsReleased===0,'Cross-copy async ownership/GC qualification failed');
+  node([resolve(root, 'scripts/check-async-components-package.mjs'), installed]);
+  node(['--expose-gc', resolve(root, 'scripts/measure-stream-iterator-retention.mjs'), join(consumer, 'stream-iterator-retention.json'), installed]);
+  node(['--expose-gc', resolve(root, 'scripts/measure-stream-receiver-retention.mjs'), join(consumer, 'stream-receiver-retention.json'), installed]);
+  node(['--expose-gc', resolve(root, 'scripts/measure-async-component-churn.mjs'), join(consumer, 'async-component-retention.json'), '100', 'native', installed]);
+  node(['--expose-gc', resolve(root, 'scripts/soak-async-components.mjs'), join(consumer, 'async-component-concurrent.json'), '1000', 'native', installed]);
+  node([resolve(root, 'scripts/check-async-ssr-http.mjs'), installed, join(consumer, 'async-ssr-http.json'), '4']);
+  node([resolve(root, 'scripts/check-ssr-stream-codec.mjs'), join(consumer, 'ssr-stream-codec.json'), installed]);
+  node([resolve(root, 'scripts/check-ssr-stream-negotiation.mjs'), join(consumer, 'ssr-stream-negotiation.json'), installed]);
+  node([resolve(root, 'scripts/check-ssr-stream-proxy.mjs'), join(consumer, 'ssr-stream-proxy.json'), installed]);
+  node(['--expose-gc', resolve(root, 'scripts/soak-readable-ssr.mjs'), join(consumer, 'readable-ssr-concurrent.json'), '1000', installed]);
+  node(['--expose-gc', resolve(root, 'scripts/measure-ssr-timeout-retention.mjs'), join(consumer, 'ssr-timeout-retention.json'), installed]);
+  node(['--expose-gc', resolve(root, 'scripts/soak-ssr-deadlines.mjs'), join(consumer, 'ssr-deadline-churn.json'), '1000', installed]);
+  node(['--expose-gc', resolve(root, 'scripts/soak-child-deadlines.mjs'), join(consumer, 'child-deadline-churn.json'), '1000', installed]);
+  node(['--expose-gc', resolve(root, 'scripts/measure-readable-ssr-retention.mjs'), join(consumer, 'readable-ssr-retention.json'), installed]);
+  node([resolve(root, 'scripts/check-readable-ssr-http.mjs'), join(consumer, 'readable-ssr-http.json'), installed]);
+  node([resolve(root, 'scripts/check-ssr-stream-gzip-flush.mjs'), join(consumer, 'ssr-stream-gzip-pending-flush.json'), installed]);
+  node([resolve(root, 'scripts/check-ssr-stream-gzip-abort.mjs'), join(consumer, 'ssr-stream-gzip-active-abort.json'), installed]);
+  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-gzip-http.json'), 'identity', 'gzip']);
+  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-codec-gzip-http.json'), 'svet-html-ref-v1', 'gzip']);
+  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-codec-http.json'), 'svet-html-ref-v1']);
+  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-http.json')]);
   await writeFile(join(consumer, 'consumer.tsx'), `
     import { createServerAction, ServerActionDisposedError, type ServerAction, For, Link, createResource, type Resource, h, signal, getGraphTelemetry, createGpuTensor, getGpuTelemetry, configureGpuSubsystem, GpuComputeCapacityError, ReactiveStabilizationError, ReactiveCycleError, dispatchGpuComputeKernel, dispatchGpuComputeKernelAsync, type GpuComputeResult, type Signal, Viewport3D, type Canvas3DProps, createMesh3D, type WebGpuDeviceLike, type VertexPickFrame3D } from 'svet-engine';
     import { captureReactiveContext, ReactiveContextDisposedError, type CapturedReactiveContext, mount, createPerspectiveCamera3D, type PerspectiveCamera3DOptions } from 'svet-engine';
@@ -769,7 +964,21 @@ try {
       return context.run(() => 17);
     }
     void captureFactory; void contextErrorCode; void capturedTypes;
-    import { renderToStringAsync } from 'svet-engine/server';
+    import { renderToStringAsync, renderToChunksAsync, runWithOwnerScopeAsync } from 'svet-engine/server';
+    import { dispatchGpuComputeResident, readGpuResidentTensor, readGpuResidentSnapshot, type GpuResidentTensor, type GpuResidentComputeOptions, type GpuTensorSignal, type Mesh3D } from 'svet-engine';
+    function residentTypes(handle: GpuResidentTensor, output: GpuTensorSignal, mesh: Mesh3D): Promise<GpuComputeResult> {
+      const active: boolean = handle.active; void active;
+      // @ts-expect-error resident lengths cannot be mutated
+      handle.length = 1;
+      const options: GpuResidentComputeOptions = {wgsl: '', inputs: [handle, output], outputLength: 1};
+      const next: Promise<GpuResidentTensor> = dispatchGpuComputeResident(options); void next;
+      const snapshot: Promise<Float32Array> = readGpuResidentSnapshot(handle); void snapshot;
+      const residentViewport: Canvas3DProps = {mesh, gpuVertices: () => handle, onVertexPick(_index, _distance, _z, frame) {
+        const source: GpuResidentTensor | undefined = frame.gpuVertices; void source;
+      }}; void residentViewport;
+      return readGpuResidentTensor(handle, output, {signal: new AbortController().signal});
+    }
+    void residentTypes;
     import { svetVitePlugin } from 'svet-engine/compiler';
     const shadow: ShadowRoot = document.createElement('div').attachShadow({mode: 'closed'});
     mount(() => h('form', null, h('input', {model: signal('')})), shadow).unmount();
@@ -785,6 +994,10 @@ try {
     const linkProps: Parameters<typeof Link>[0] = {to: '/download', target: '_blank', download: 'file.bin', rel: 'noopener'};
     const linkNode: Node = Link(linkProps); void linkNode;
     const resource: Resource<number> = createResource(async () => 1);
+    const thenable: PromiseLike<number> = {then(resolve) { return Promise.resolve(resolve?.(1) as never); }};
+    const thenableResource: Resource<number> = createResource<number>(() => thenable);
+    const sourcedThenableResource: Resource<number> = createResource<number, number>(() => 1, () => thenable);
+    void thenableResource; void sourcedThenableResource;
     resource.dispose(); const disposedRefetch: Promise<number | undefined> = resource.refetch(); void disposedRefetch;
     const projectionOptions: PerspectiveCamera3DOptions = { near: 2000, far: 3000 };
     createPerspectiveCamera3D().setProjection(projectionOptions);
@@ -810,15 +1023,29 @@ try {
     void queueStats;
     const count: Signal<number> = signal(1);
     const node: Node = <div title={() => String(count())}>{count()}</div>;
+    async function AsyncChild(props: {label: string}): Promise<Node> { return h('b', null, props.label); }
+    function asyncTypes(): Node { return <AsyncChild label="typed async component" />; }
+    void asyncTypes;
+    const childResult: Promise<number> = runWithOwnerScopeAsync([[Symbol(), 'value']], async () => 42, {signal: new AbortController().signal});
+    void childResult;
+    import {SSR_STREAM_VERSION} from 'svet-engine';
+    const protocolVersion: 1 = SSR_STREAM_VERSION; void protocolVersion;
+    // @ts-expect-error unsupported wire versions cannot be typed as v1
+    const futureVersion: typeof SSR_STREAM_VERSION = 2; void futureVersion;
+    const chunks: AsyncIterableIterator<import('svet-engine').SsrStreamChunk> = renderToChunksAsync(() => ({node})); void chunks;
     const result: Promise<{html: string; stateJson: string}> = renderToStringAsync(async () => ({ node, signals: { count } }));
     const plugin = svetVitePlugin();
-    const computation: Promise<GpuComputeResult> = dispatchGpuComputeKernelAsync({ wgsl: '', inputs: [], output: createGpuTensor([0]), async fallbackKernel(_, output) { output[0] = 1; } });
+    const chainStage: import('svet-engine').GpuComputeChainStage = { wgsl: '', workgroups: [1], outputLength: 1 };
+    const computation: Promise<GpuComputeResult> = dispatchGpuComputeKernelAsync({ wgsl: '', inputs: [], output: createGpuTensor([0]), outputLength: 4, chain: [chainStage], async fallbackKernel(_, output) { output[0] = 1; } });
     const viewport: (props: Canvas3DProps) => HTMLDivElement = Viewport3D;
     const errorFilter: Parameters<NonNullable<WebGpuDeviceLike['pushErrorScope']>>[0] = 'out-of-memory';
     void errorFilter;
     const limits: NonNullable<WebGpuDeviceLike['limits']> = { maxBufferSize: 1024, maxTextureDimension2D: 256 };
     void limits;
     const indexFormat: NonNullable<Parameters<typeof createMesh3D>[0]['indexFormat']> = 'uint32';
+    const indexBudget: NonNullable<Parameters<typeof createMesh3D>[0]['maxIndexBytes']> = 6;
+    const readIndexBudget: (mesh: ReturnType<typeof createMesh3D>) => number = mesh => mesh.maxIndexBytes;
+    void indexBudget; void readIndexBudget;
     void indexFormat;
     const meshSource: Canvas3DProps['mesh'] = () => { throw new Error('type-only fixture'); };
     const picker: NonNullable<Canvas3DProps['onVertexPick']> = (_index,_distance,_z,frame: VertexPickFrame3D) => { const id: number = frame.id; void id; };
@@ -841,14 +1068,52 @@ try {
   await writeFile(join(consumer, 'index.html'), '<h1>Installed Svet consumer</h1><h2>JSX counter</h2><div id="app"></div><h2>Forma card</h2><div id="forma"></div><script type="module" src="/main.tsx"></script>');
   await writeFile(join(consumer, 'Card.ui'), "component ConsumerCard { state count: Number = 1; Column { Text { text: state.count; } Button { text: 'Forma +1'; clicked -> state.increment('count', 1); } } }");
   await writeFile(join(consumer, 'main.tsx'), `import { mount, signal } from 'svet-engine'; import createCard from './Card.ui'; const count = signal(1); mount(() => <button onClick={() => count.update(n => n + 1)}>Count: {count()}</button>, document.querySelector('#app')); createCard({}).mount(document.querySelector('#forma'));`);
-  await writeFile(join(consumer, 'vite.config.mjs'), `import { svetVitePlugin } from 'svet-engine/compiler'; export default {plugins: [svetVitePlugin()], oxc: {jsx: {runtime: 'automatic', importSource: 'svet-engine'}}};`);
+  const residentPage = (await readFile(join(root, 'tests/browser/gpu-resident-render.html'), 'utf8'))
+    .replace("from '/src/engine/index.ts'", "from 'svet-engine'");
+  assert(!residentPage.includes("from '/src/engine/index.ts'"));
+  await writeFile(join(consumer, 'resident-render.html'), residentPage);
+  const recoveryPage = (await readFile(join(root, 'tests/browser/shared-gpu-recovery.html'), 'utf8')).replace("from '/src/engine/index.ts'", "from 'svet-engine'");
+  assert(!recoveryPage.includes("from '/src/engine/index.ts'"));
+  await writeFile(join(consumer, 'shared-gpu-recovery.html'), recoveryPage);
+  const matrixCases = JSON.parse(await readFile(join(root, 'tests/browser/browser-matrix-cases.json'), 'utf8'));
+  const matrixPages = ['browser-matrix', ...matrixCases.map(item => item.name), 'resumption-roundtrip', 'server-action-http', 'async-components-roundtrip', 'streaming-roundtrip'];
+  for (const name of matrixPages) {
+    const page = (await readFile(join(root, `tests/browser/${name}.html`), 'utf8')).replaceAll("from '/src/engine/index.ts'", "from 'svet-engine'").replaceAll("from '/src/engine/wasm-bridge.ts'", "from 'svet-engine'");
+    assert(!page.includes('/src/engine/'), 'workspace runtime import in installed fixture');
+    await writeFile(join(consumer, `${name}.html`), page);
+  }
+  await writeFile(join(consumer, 'browser-matrix-cases.json'), JSON.stringify(matrixCases));
+  await writeFile(join(consumer, 'ssr-runtime-import.html'), `<!doctype html><script type="module">import {createSsrRuntime,assertSsrAsyncContextCarrier} from 'svet-engine/server-runtime'; document.body.textContent=typeof createSsrRuntime+':'+typeof assertSsrAsyncContextCarrier;</script>`);
+  const browserEntries = ['ssr-runtime-import.html', 'index.html', 'resident-render.html', 'shared-gpu-recovery.html', ...matrixPages.map(name => `${name}.html`)];
+  await writeFile(join(consumer, 'vite.config.mjs'), `import { svetVitePlugin } from 'svet-engine/compiler'; export default {plugins: [svetVitePlugin()], build: {rollupOptions: {input: ${JSON.stringify(browserEntries)}}}, oxc: {jsx: {runtime: 'automatic', importSource: 'svet-engine'}}};`);
   node([resolve(root, 'node_modules/vite/bin/vite.js'), 'build']);
   const assets = await readdir(join(consumer, 'dist/assets'));
   const javascript = await Promise.all(assets.filter(file => file.endsWith('.js')).map(file => readFile(join(consumer, 'dist/assets', file), 'utf8')));
   assert(javascript.length > 0);
-  assert(javascript.every(code => !code.includes('node:async_hooks')), 'Node SSR code leaked into browser output');
+  assert(javascript.every(code => !code.includes('node:async_hooks')&&!code.includes('node:crypto')), 'Node SSR code leaked into browser output');
+  const sha = data => createHash('sha256').update(data).digest('hex');
+  const installedRuntimeSha256 = {};
+  for (const name of (await readdir(join(root, 'dist/package'))).filter(name => name.endsWith('.js')).sort()) {
+    const installed = await readFile(join(consumer, 'node_modules/svet-engine/dist/package', name));
+    assert.deepEqual(installed, await readFile(join(root, 'dist/package', name)), `installed runtime differs: ${name}`);
+    installedRuntimeSha256[name] = sha(installed);
+  }
+  const artifactSha256 = {};
+  async function scan(directory, prefix = '') {
+    for (const entry of await readdir(directory, {withFileTypes: true})) {
+      if (entry.isDirectory()) await scan(join(directory, entry.name), prefix + entry.name + '/');
+      else artifactSha256[prefix + entry.name] = sha(await readFile(join(directory, entry.name)));
+    }
+  }
+  await scan(join(consumer, 'dist'));
+  const fixtureSha256 = {};
+  for (const name of matrixPages) fixtureSha256[name + '.html'] = sha(await readFile(join(consumer, name + '.html')));
+  const browserMetadata = {protocol: 'installed-package-browser-v1', createdAt: new Date().toISOString(), node: process.version,
+    packageSha256: sha(await readFile(join(temporary, packed.filename))), installedRuntimeSha256, fixtureSha256, artifactSha256,
+    scope: 'Production browser consumer installed from packed archive; all runtime JS byte-equal to workspace dist/package. Browser execution is a separate gate.'};
+  await writeFile(join(consumer, 'dist/metadata.json'), JSON.stringify(browserMetadata, null, 2) + '\n');
   passed = true;
-  const report = { node: process.version, platform: process.platform, arch: process.arch, completedAt: new Date().toISOString(), packageFiles: packed.entryCount, unpackedBytes: packed.unpackedSize, consumerDirectory: keep ? consumer : undefined, checks: ['archive allowlist', 'isolated installation', 'native Node ESM exports', 'concurrent SSR', 'sync and async compute fallback', 'compiled Forma import', 'strict JSX declarations without Vite', 'negative type fixture', 'external JSX/Forma browser build'] };
+  const report = { edgeHostQualification: Boolean(process.env.SVET_EDGE_DEPS), node: process.version, platform: process.platform, arch: process.arch, completedAt: new Date().toISOString(), packageFiles: packed.entryCount, unpackedBytes: packed.unpackedSize, consumerDirectory: keep ? consumer : undefined, checks: ['archive allowlist', 'isolated installation', 'native Node ESM exports', 'concurrent SSR', 'sync and async compute fallback', 'compiled Forma import', 'strict JSX declarations without Vite', 'negative type fixture', 'external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build'] };
   await writeFile(join(root, 'dist/package-verification.json'), JSON.stringify(report, null, 2) + '\n');
   console.log(JSON.stringify(report, null, 2));
 } finally {

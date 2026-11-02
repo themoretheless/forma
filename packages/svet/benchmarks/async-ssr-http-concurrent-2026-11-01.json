@@ -1,0 +1,3622 @@
+{
+  "protocol": "concurrent-http-async-ssr-v1",
+  "startedAt": "2026-11-01T13:36:52.395Z",
+  "node": "v22.23.4",
+  "rounds": 20,
+  "width": 12,
+  "rows": [
+    {
+      "id": "r0-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r0-success-0\">r0-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r0-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r0-success-3\">r0-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r0-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r0-success-6\">r0-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r0-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r0-success-9\">r0-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r0-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r1-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r1-success-0\">r1-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r1-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r1-success-3\">r1-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r1-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r1-success-6\">r1-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r1-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r1-success-9\">r1-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r1-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r2-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r2-success-0\">r2-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r2-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r2-success-3\">r2-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r2-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r2-success-6\">r2-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r2-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r2-success-9\">r2-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r2-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r3-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r3-success-0\">r3-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r3-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r3-success-3\">r3-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r3-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r3-success-6\">r3-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r3-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r3-success-9\">r3-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r3-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r4-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r4-success-0\">r4-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r4-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r4-success-3\">r4-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r4-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r4-success-6\">r4-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r4-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r4-success-9\">r4-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r4-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r5-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r5-success-0\">r5-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r5-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r5-success-3\">r5-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r5-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r5-success-6\">r5-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r5-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r5-success-9\">r5-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r5-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r6-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r6-success-0\">r6-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r6-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r6-success-3\">r6-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r6-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r6-success-6\">r6-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r6-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r6-success-9\">r6-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r6-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r7-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r7-success-0\">r7-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r7-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r7-success-3\">r7-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r7-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r7-success-6\">r7-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r7-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r7-success-9\">r7-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r7-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r8-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r8-success-0\">r8-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r8-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r8-success-3\">r8-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r8-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r8-success-6\">r8-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r8-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r8-success-9\">r8-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r8-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r9-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r9-success-0\">r9-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r9-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r9-success-3\">r9-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r9-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r9-success-6\">r9-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r9-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r9-success-9\">r9-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r9-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r10-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r10-success-0\">r10-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r10-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r10-success-3\">r10-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r10-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r10-success-6\">r10-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r10-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r10-success-9\">r10-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r10-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r11-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r11-success-0\">r11-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r11-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r11-success-3\">r11-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r11-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r11-success-6\">r11-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r11-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r11-success-9\">r11-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r11-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r12-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r12-success-0\">r12-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r12-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r12-success-3\">r12-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r12-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r12-success-6\">r12-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r12-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r12-success-9\">r12-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r12-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r13-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r13-success-0\">r13-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r13-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r13-success-3\">r13-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r13-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r13-success-6\">r13-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r13-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r13-success-9\">r13-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r13-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r14-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r14-success-0\">r14-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r14-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r14-success-3\">r14-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r14-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r14-success-6\">r14-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r14-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r14-success-9\">r14-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r14-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r15-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r15-success-0\">r15-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r15-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r15-success-3\">r15-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r15-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r15-success-6\">r15-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r15-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r15-success-9\">r15-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r15-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r16-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r16-success-0\">r16-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r16-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r16-success-3\">r16-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r16-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r16-success-6\">r16-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r16-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r16-success-9\">r16-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r16-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r17-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r17-success-0\">r17-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r17-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r17-success-3\">r17-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r17-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r17-success-6\">r17-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r17-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r17-success-9\">r17-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r17-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r18-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r18-success-0\">r18-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r18-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r18-success-3\">r18-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r18-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r18-success-6\">r18-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r18-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r18-success-9\">r18-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r18-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r19-success-0",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r19-success-0\">r19-success-0</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-failure-1",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-disconnect-2",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r19-success-3",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r19-success-3\">r19-success-3</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-failure-4",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-disconnect-5",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r19-success-6",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r19-success-6\">r19-success-6</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-failure-7",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-disconnect-8",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    },
+    {
+      "id": "r19-success-9",
+      "mode": "success",
+      "outcome": "success",
+      "client": {
+        "status": 200,
+        "body": "<p data-request=\"r19-success-9\">r19-success-9</p>"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-failure-10",
+      "mode": "failure",
+      "outcome": "failure",
+      "client": {
+        "status": 500,
+        "body": "{\"error\":\"expected component failure\"}"
+      },
+      "closedBeforeEnd": false,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 1
+    },
+    {
+      "id": "r19-disconnect-11",
+      "mode": "disconnect",
+      "outcome": "disconnected",
+      "client": {
+        "error": "Error: client disconnect"
+      },
+      "closedBeforeEnd": true,
+      "cleanups": 1,
+      "nodes": 0,
+      "pending": 0,
+      "abortHooks": 0,
+      "writes": 0,
+      "lateError": "Error: Svet SSR request has already completed"
+    }
+  ],
+  "scope": "Real loopback HTTP, async Node/JSDOM SSR, disconnect before headers. No streaming-body SSR, proxy/browser/Edge or memory-plateau qualification.",
+  "status": "passed",
+  "completedAt": "2026-11-01T13:36:52.502Z",
+  "completedRequests": 240,
+  "peakRequests": 12,
+  "activeRequests": 0,
+  "sourceSha256": "d173e61a3cf171391d18f1ab769999087a056370d1651b40bf7faacec5028468",
+  "runtimeSha256": {
+    "server.js": "eebb963efb33dd56a70a610dad36f9b0846b9bfcef4ad13d10f5250af2975c24",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b",
+    "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2"
+  }
+}

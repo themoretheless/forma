@@ -1,0 +1,19 @@
+{
+  "status": "completed",
+  "pid": 58568,
+  "sessionId": 76033,
+  "durationMs": 7200000,
+  "gcMode": "natural",
+  "coreLifetimeMode": "1",
+  "manifest": "http-core-traced-2h-manifest-2026-11-02.json",
+  "report": "http-core-traced-2h-2026-11-02.json",
+  "progress": "http-core-traced-2h-2026-11-02.json.progress.json",
+  "log": "/tmp/svet-http-core-traced-2h.txt",
+  "observedProgress": {
+    "elapsedMs": 80291.502292,
+    "requests": 16976,
+    "updatedAt": "2026-11-02T04:10:37.169Z"
+  },
+  "qualification": "http-core-traced-2h-qualification-2026-11-02.json",
+  "terminalReport": "http-core-traced-2h-2026-11-02.json"
+}

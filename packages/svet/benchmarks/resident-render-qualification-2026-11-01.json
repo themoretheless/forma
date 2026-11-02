@@ -1,0 +1,42 @@
+{
+  "completedAt": "2026-11-01T11:36:40.051Z",
+  "node": "v22.23.4",
+  "platform": "darwin",
+  "arch": "arm64",
+  "suite": {
+    "tests": 1221,
+    "files": 85,
+    "maxWorkers": 4,
+    "durationSeconds": 11.25
+  },
+  "hardware": {
+    "architecture": "metal-3",
+    "isFallbackAdapter": false,
+    "devChecks": 7,
+    "installedProductionChecks": 7,
+    "legacyRendererChecks": 17
+  },
+  "sourceSha256": {
+    "src/engine/gpu.ts": "9fd70eabe5fb89bbfea2e95eacfd8c5990e28b637505950702bd69d16f17f5f9",
+    "src/engine/gpu-resident.ts": "4c64637ebcc76eb4b976910a1f6ad8e3be18dfdbb8b7060dc9321803341dd62c",
+    "src/engine/gpu-resident-bridge.ts": "fea017239de52e407cb475331082f0104f690eeea09f3fd3522068b470e820e5",
+    "src/engine/index.ts": "caed25729b4292ca90b56437efe77414141cc91b66af9a849459cf0039155cb4",
+    "tests/gpu-resident-render.test.ts": "c74bebff57f4a8752872d09c92860fff4dcf8248528e2e9514d8f9fe65e58bb2",
+    "tests/helpers/resident-device.ts": "76caf91ebe40bd76816f58df9d9cfa0afe26faec921ea7972853988277a923b2",
+    "tests/browser/gpu-resident-render.html": "aeadb7f19b52d6e641e42bcef6ed67e6430add74ecf838206a0a5ff2a2319114",
+    "scripts/check-package.mjs": "3a5fc92f4e7a405c0d1be27c05601fd422a42da908de19b349e8333fe22c479b"
+  },
+  "installedRuntimeSha256": {
+    "gpu.js": "e310ff0eb51977b39f8626e37c610cbaf86a4ca00536a38ec43d868572a590e4",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "index.js": "66c25b11bacaaf55c448c76e2ead294ba28c326939c2de35b6a04151b9708103",
+    "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2"
+  },
+  "productionAssetSha256": {
+    "resident-render-DY4Jxkpg.js": "4116ffc0c6cad611d793f6c87b513b04dfe3448c67897915e4836def51f8588d",
+    "gpu-CQL2CQPG.js": "8cf172aa6f64f97903dd2b782bf27f3d3983bd28a6314663d73f7f0ea85df34b",
+    "index--22cAi-I.js": "ee4410bb726afce6161a3c3ab1eb065cd028f890a2e98684691b48dbb39fab6f"
+  },
+  "scope": "Bounded native pixels, explicit interaction readback, transfer counts and lifecycle. No application throughput, whole-frame raster equivalence, total GPU/driver memory or JS/RSS plateau claim."
+}

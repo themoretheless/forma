@@ -1,0 +1,154 @@
+{
+  "measuredAt": "2026-10-31T21:12:27.259Z",
+  "node": "v22.23.4",
+  "platform": "darwin",
+  "release": "25.6.0",
+  "arch": "arm64",
+  "cpu": "Apple M4 Max",
+  "embeddedModuleSha256": "274faea71795153ca7da19b21c48567e2475d60cb33f59ebe72eb4e9eef71311",
+  "growth": {
+    "allocations": 4096,
+    "floatsPerAllocation": 256,
+    "milliseconds": 2.119374999999998
+  },
+  "churn": {
+    "warmupCycles": 100,
+    "batches": 7,
+    "cyclesPerBatch": 500,
+    "allocationsPerCycle": 128,
+    "allocationFreePairs": 448000,
+    "batchMilliseconds": [
+      48.439041999999986,
+      38.609583000000015,
+      34.58491699999999,
+      36.072959000000026,
+      31.960792000000026,
+      36.13158299999998,
+      27.62487500000003
+    ],
+    "medianBatchMilliseconds": 36.072959000000026
+  },
+  "memory": [
+    {
+      "phase": "initial",
+      "rss": 17533376,
+      "heapTotal": 9404416,
+      "heapUsed": 4123400,
+      "external": 3292281,
+      "arrayBuffers": 16623,
+      "wasmBytes": 1114112,
+      "arenaFloats": 0
+    },
+    {
+      "phase": "grown",
+      "rss": 26298816,
+      "heapTotal": 9404416,
+      "heapUsed": 4172768,
+      "external": 11762418,
+      "arrayBuffers": 16623,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "freed",
+      "rss": 26364400,
+      "heapTotal": 9666560,
+      "heapUsed": 4174696,
+      "external": 11762418,
+      "arrayBuffers": 16623,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "warmed",
+      "rss": 30411248,
+      "heapTotal": 9666560,
+      "heapUsed": 4211552,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "batch-1",
+      "rss": 30444016,
+      "heapTotal": 9666560,
+      "heapUsed": 4222816,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "batch-2",
+      "rss": 30460400,
+      "heapTotal": 9666560,
+      "heapUsed": 4222920,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "batch-3",
+      "rss": 30460400,
+      "heapTotal": 9666560,
+      "heapUsed": 4223128,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "batch-4",
+      "rss": 30460400,
+      "heapTotal": 9666560,
+      "heapUsed": 4223640,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "batch-5",
+      "rss": 30460400,
+      "heapTotal": 9666560,
+      "heapUsed": 4223920,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "batch-6",
+      "rss": 30460400,
+      "heapTotal": 9666560,
+      "heapUsed": 4233544,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "batch-7",
+      "rss": 30460400,
+      "heapTotal": 9666560,
+      "heapUsed": 4233960,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 1048576
+    },
+    {
+      "phase": "reset",
+      "rss": 30476784,
+      "heapTotal": 9666560,
+      "heapUsed": 4234776,
+      "external": 11763442,
+      "arrayBuffers": 17647,
+      "wasmBytes": 9764864,
+      "arenaFloats": 0
+    }
+  ],
+  "scope": "One isolated WASM core; timings include JS validation and float writes. GC outside timed batches. No baseline comparison, physical GPU, near-limit pressure or process-memory plateau guarantee. WASM high-water storage is retained."
+}

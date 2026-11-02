@@ -1,0 +1,197 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.56s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 159 tests
+test binding::tests::inherited_context_tracks_replacements_while_overridden_and_releases_sources ... ok
+test binding::tests::property_notifications_allow_reentrant_writes_and_disconnect_on_drop ... ok
+test binding::tests::svet_context_replacement_and_reentrant_wake_preserve_latest_value ... ok
+test control_state::tests::binary_and_tristate_checks_have_explicit_cycles ... ok
+test control_models_wasm::tests::indexed_selection_wrapper_preserves_exclusive_and_empty_selection ... ok
+test control_state::tests::malformed_tree_order_and_duplicate_ids_are_rejected ... ok
+test control_state::tests::range_snaps_clamps_and_reaches_non_grid_endpoints ... ok
+test control_state::tests::data_table_and_virtual_list_models_sort_filter_resize_and_virtualize_rows ... ok
+test control_state::tests::exclusive_selection_uses_ids_and_wraps_or_clamps ... ok
+test binding::tests::svet_scheduler_deduplicates_and_isolates_forms ... ok
+test control_models_wasm::tests::tree_adapter_rejects_invalid_topology_or_branch_flags ... ok
+test control_state::tests::rich_text_code_editor_datetime_and_command_palette_models_preserve_invariants ... ok
+test control_state::tests::decimal_steps_do_not_skip_and_invalid_updates_are_atomic ... ok
+test control_state::tests::text_caret_selection_and_deletion_obey_utf8_boundaries ... ok
+test control_models_wasm::tests::tree_wrapper_navigation_and_collapse_use_shared_model_state ... ok
+test control_state::tests::edit_history_is_bounded_and_noop_edits_do_not_add_undo ... ok
+test control_state::tests::text_moves_multiple_unicode_scalars_and_clamps_large_deltas ... ok
+test control_state::tests::text_selection_collapses_and_home_end_extend_from_anchor ... ok
+test control_state::tests::undo_restores_text_and_selection_and_new_edits_drop_redo ... ok
+test control_state::tests::tree_navigation_visits_visible_rows_and_collapse_preserves_visible_selection ... ok
+test form_document::tests::borrowed_collection_keys_preserve_computed_and_exact_field_semantics ... ok
+test form_document::tests::cyclic_collection_parent_metadata_refuses_before_recursing_unbounded ... ok
+test form_document::tests::definition_matches_select_from_one_property_snapshot ... ok
+test form_document::tests::collection_key_encoding_preserves_types_and_utf8_lengths ... ok
+test form_document::tests::conditional_layout_removes_the_cell_and_grid_adds_implicit_rows ... ok
+test form_document::tests::contracts_check_required_properties_and_enum_members ... ok
+test form_document::tests::grouped_match_keeps_explicit_properties_last ... ok
+test form_document::tests::flex_does_not_freeze_conflicting_minimum_and_maximum_together ... ok
+test form_document::tests::lexical_parent_frames_must_point_to_earlier_frames ... ok
+test form_document::tests::keyed_collection_reorders_focus_and_evaluates_event_arguments ... ok
+test binding::tests::svet_bindings_drive_runtime_and_release_retained_control ... ok
+test form_document::tests::collection_binding_activation_follows_key_after_reorder_or_removal ... ok
+test form_document::tests::ambiguous_scene_and_runtime_binding_keys_refuse_before_writing ... ok
+test form_document::tests::empty_scroll_layout_retains_logical_content_height ... ok
+test form_document::tests::failed_let_replay_rolls_back_earlier_widget_writes_and_retries ... ok
+test form_document::tests::bindings_route_root_backed_collections_through_list_indices ... ok
+test form_document::tests::nested_list_paths_read_and_write_without_replacing_lists ... ok
+test form_document::tests::collection_key_changes_revalidate_following_bindings ... ok
+test form_document::tests::let_key_local_shadows_root_model_during_binding_recovery ... ok
+test form_document::tests::pure_expressions_short_circuit_and_interpolate ... ok
+test form_document::tests::later_loop_can_use_earlier_local_after_an_unrelated_shadow ... ok
+test form_document::tests::binding_sync_rejects_invalid_metadata_without_partial_model_writes ... ok
+test form_document::tests::root_scope_reacts_and_reaches_nested_scene_controls ... ok
+test form_document::tests::reused_for_scope_preserves_nested_shadowing_and_owned_snapshots ... ok
+test form_document::tests::source_for_let_siblings_are_visible_and_do_not_leak_between_iterations ... ok
+test form_document::tests::rust_ui_compiler_evaluates_and_synchronizes_two_way_bindings ... ok
+test form_document::tests::collection_editor_values_follow_keys_and_do_not_overwrite_new_items ... ok
+test form_document::tests::rust_ui_compiler_resolves_inheritance_overrides_tokens_svg_and_state ... ok
+test form_document::tests::scene_scope_writes_are_local_and_returned_snapshots_remain_owned ... ok
+test form_document::tests::standalone_primitive_wrappers_keep_nested_nodes_primitive ... ok
+test form_document::tests::rust_ui_compiler_supports_apply_styles_let_match_guards_and_base_slot_wrapping ... ok
+test form_document::tests::source_if_let_sequence_is_visible_only_in_selected_branch ... ok
+test form_document::tests::unchanged_range_preserves_model_and_committed_input_does_not_replay ... ok
+test frame_stats::tests::identical_timestamps_do_not_produce_infinite_fps ... ok
+test frame_stats::tests::drops_old_cadence_when_the_window_moves_on ... ok
+test frame_stats::tests::isolated_frames_never_reuse_an_interval_from_before_idle ... ok
+test frame_stats::tests::preserves_the_last_estimate_until_idle_then_starts_a_new_sample ... ok
+test frame_stats::tests::measures_60_and_120_fps_without_counting_a_phantom_first_interval ... ok
+test frame_stats::tests::retains_the_frame_before_the_sliding_window_boundary ... ok
+test frame_stats::tests::waits_for_a_frame_and_then_for_an_interval ... ok
+test mcp::tests::mcp_initializes_and_lists_tools ... ok
+test native_document_graph::tests::empty_scope_topology_changes_schedule_and_retry ... ok
+test form_document::tests::unchanged_virtual_collection_member_does_not_become_a_model_write ... ok
+test form_document::tests::unchanged_widgets_do_not_overwrite_newer_model_values ... ok
+test native_document_graph::tests::property_changes_retry_and_retirement_are_owned ... ok
+test reveal::tests::proximity_expands_reverses_and_obeys_reduced_motion ... ok
+test raster_cache::tests::sparse_content_retains_only_occupied_rows_without_changing_pixels ... ok
+test form_document::tests::let_collection_aliases_preserve_origin_and_do_not_infer_it_from_values ... ok
+test form_document::tests::source_match_let_aliases_and_guard_switch_preserve_binding_identity ... ok
+test raster_cache::tests::clip_support_contains_all_fractional_coverage_samples ... ok
+test runtime::raster_tests::empty_frame_raster_and_native_have_no_child_access ... ok
+test form_document::tests::three_shadowed_for_levels_preserve_parent_identity ... ok
+test runtime::raster_tests::layout_versions_track_scroll_and_same_object_load_but_not_paint ... ok
+test form_document::tests::collection_indices_handle_distinct_outer_local_scopes ... ok
+test runtime::tests::accessibility_tree_exports_semantic_roles_focus_and_modal_blocking ... ok
+test reveal::tests::pointer_motion_repaints_the_border_without_rebuilding_cached_text ... ok
+test runtime::tests::editor_reconciliation_uses_the_same_unique_keys_as_control_state ... ok
+test runtime::tests::activation_queue_overflow_is_bounded_and_requires_explicit_cancellation ... ok
+test runtime::tests::editor_refresh_tracks_mutations_focus_and_preedit_without_touching_siblings ... ok
+test runtime::tests::keyboard_focus_skips_disabled_and_blur_cancels ... ok
+test runtime::tests::keyboard_pointer_and_direct_activation_share_the_ordered_queue ... ok
+test form_document::tests::recovery_binding_map_refuses_excessive_source_depth_before_writing ... ok
+test runtime::tests::layer_state_survives_reevaluation_under_the_same_key_and_declared_state ... ok
+test runtime::tests::buffered_binding_activations_preserve_order_across_controls ... ok
+test runtime::tests::open_layer_blocks_the_base_scene_traps_focus_and_dismisses_on_escape_or_backdrop ... ok
+test runtime::tests::match_switch_render_error_does_not_apply_old_branch_input ... ok
+test form_document::tests::source_scroll_viewport_extents_preserve_frame_and_clip_input ... ok
+test runtime::tests::passive_controls_are_reported_but_never_focused_or_activated ... ok
+test runtime::tests::reconciliation_uses_keys_and_never_resumes_an_unfinished_gesture ... ok
+test runtime::tests::failed_binding_transaction_retries_activation_exactly_once ... ok
+test runtime::tests::paint_slots_do_not_rebuild_geometry_and_cpu_pixels_are_independent ... ok
+test runtime::tests::retained_model_change_rebuilds_without_widget_input ... ok
+test runtime::tests::reveal_proximity_updates_sibling_paints_without_hover_or_geometry_changes ... ok
+test runtime::tests::reverse_painter_order_blocks_click_through_disabled_controls ... ok
+test runtime::tests::retained_collection_reorder_during_render_failure_keeps_event_identity ... ok
+test form_document::tests::structural_binding_maps_match_rendered_maps_across_layouts_and_branches ... ok
+test runtime::tests::scrolling_moves_only_the_base_scene_under_a_layer ... ok
+test runtime::tests::sibling_states_capture_and_events_are_independent ... ok
+test runtime::tests::template_framing_is_strict_and_unicode_safe ... ok
+test template::tests::brushes_are_property_values_with_color_shorthand ... ok
+test template::tests::component_defaults_and_explicit_instance_overrides ... ok
+test template::tests::evaluates_the_complete_primitive_template ... ok
+test template::tests::events_only_forward_the_declared_component_event ... ok
+test template::tests::invalid_component_defaults_are_diagnostics ... ok
+test template::tests::literals_comments_and_css_colors_work ... ok
+test template::tests::omitted_primitives_are_absent_and_do_not_get_painted ... ok
+test template::tests::references_are_typed_and_re_evaluated_for_each_instance ... ok
+test template::tests::rejects_duplicate_primitives_properties_and_missing_required_values ... ok
+test runtime::tests::scroll_and_rounded_clip_apply_to_all_children ... ok
+test template::tests::rejects_malformed_documents_and_colors ... ok
+test template::tests::rejects_nonfinite_negative_oversize_and_wrong_unit_values ... ok
+test template::tests::reveal_is_an_optional_independent_primitive_with_validated_fields ... ok
+test template::tests::unsupported_primitives_and_fields_are_not_silent ... ok
+test runtime::tests::layers_paint_a_backdrop_above_the_base_scene_and_vanish_when_closed ... ok
+test tests::brush_transition_is_time_driven ... ok
+test tests::clicks_require_press_and_release_inside ... ok
+test tests::component_controls_primitives_and_event_forwarding ... ok
+test tests::composed_content_is_rasterized_and_keeps_button_events ... ok
+test runtime::tests::svet_retained_document_updates_editor_and_dependent_text ... ok
+test tests::disabled_markup_blocks_events ... ok
+test tests::guard_raster_size ... ok
+test form_document::tests::nested_for_bindings_follow_parent_and_child_keys ... ok
+test tests::malformed_markup_keeps_last_scene ... ok
+test tests::frame_clip_rounds_content_and_hit_area ... ok
+test tests::nested_frame_clip_does_not_clip_siblings ... ok
+test tests::overflow_is_valid_layout ... ok
+test template::tests::shape_points_boundaries_and_string_escapes ... ok
+test tests::scroll_is_not_an_overflow_value ... ok
+test tests::hidden_overflow_clips_pixels_and_hit_testing ... ok
+test tests::transparent_artboard_has_no_square_background_and_keeps_overflow ... ok
+test tests::scroll_is_an_element_and_clamps_offsets ... ok
+test text::tests::cubic_contours_are_flattened_into_segments ... ok
+test text::tests::clips_oversized_text_to_label_rectangle ... ok
+test text::tests::draws_cyrillic_font_outlines_with_antialiasing ... ok
+test text::tests::handles_tiny_canvas_and_invalid_inputs_without_out_of_bounds_writes ... ok
+test text::tests::honors_source_alpha_on_transparent_destination ... ok
+test runtime::raster_tests::composite_cache_refreshes_after_text_editing_and_validates_native_size ... ok
+test mcp::tests::mcp_clicks_two_buttons_and_switches_backend_and_platform ... ok
+test text::tests::shape_text_handles_ligatures_combining_marks_bidi_and_fallback_glyphs ... ok
+test runtime::raster_tests::warmed_composite_refreshes_when_reconciliation_only_changes_reveal ... ok
+test text_input::animation_tests::caret_is_smooth_resets_and_stops_without_focus ... ok
+test text::tests::winding_fill_preserves_cyrillic_letter_counter ... ok
+test runtime::tests::retained_document_recovers_after_render_error_without_losing_input ... ok
+test text_input::animation_tests::multiline_hit_clamps_rows_and_retains_unicode_byte_boundaries ... ok
+test text_input::animation_tests::new_unicode_runs_fade_independently_and_replacement_keeps_valid_offsets ... ok
+test text_input::animation_tests::idle_content_is_clean_and_quantized_caret_changes_are_never_skipped ... ok
+test runtime::tests::layout_uses_component_defaults_and_single_scene_is_compatible ... ok
+test runtime::raster_tests::cpu_cache_release_preserves_geometry_and_rebuilds_identical_fallback_pixels ... ok
+test text::tests::linear_caret_hit_matches_prefix_measurements_at_unicode_boundaries ... ok
+test tests::markup_controls_pixels_and_geometry ... ok
+test text::tests::exact_area_rasterizer_matches_scanline_reference ... ok
+test runtime::tests::retained_scroll_resize_revises_viewport_and_clamps_offset_when_empty ... ok
+test raster_cache::tests::packed_leaf_retains_only_local_rows_and_empty_offscreen_leaf_is_valid ... ok
+test raster_cache::tests::pooled_sibling_and_nested_clips_preserve_reference_coverage ... ok
+test tests::unchanged_hover_does_not_dirty_or_rebuild_static_layers ... ok
+test text::tests::streamed_glyphs_preserve_exact_geometry_and_coverage ... ok
+test runtime::raster_tests::layers_composite_above_the_scroll_viewport_and_match_the_reference ... ok
+test tests::cached_raster_preserves_coverage_text_and_clips ... ok
+test runtime::raster_tests::packed_multicontrol_matches_full_canvas_for_overflow_clips_scroll_and_dpi ... ok
+
+test result: ok. 159 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.59s
+
+     Running tests/retained_allocations.rs (/tmp/forma-svet-native-binding-validation/debug/deps/retained_allocations-dd24e590b9c55037)
+
+running 2 tests
+test native_cpu_animation_and_gpu_input_serialization_reuse_allocations ... ok
+test multiple_controls_reuse_native_buffers_for_static_and_animated_frames ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/runtime_allocations.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_allocations-9566d11f114edd74)
+
+running 8 tests
+test document_markup_parse_pays_only_for_owned_property_values ... ok
+test scene_construction_allocations_scale_with_control_count ... ok
+test warmed_pointer_tick_and_paint_buffers_do_not_allocate ... ok
+test idle_editors_and_ranges_do_not_recompose_each_tick ... ok
+test idle_scalar_binding_does_not_copy_unrelated_model_payload ... ok
+test retained_idle_bindings_reuse_the_displayed_scene ... ok
+test retained_large_form_can_repair_a_pending_visual_error ... ok
+test transport_sizes_control_buffers_instead_of_growing_them ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/scene_artifact.rs (/tmp/forma-svet-native-binding-validation/debug/deps/scene_artifact-e450d1a56a912db8)
+
+running 2 tests
+test ordinary_scene_artifact_and_extent_on_non_scroll_scene ... ok
+test public_scene_artifact_retains_empty_scroll_extent ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

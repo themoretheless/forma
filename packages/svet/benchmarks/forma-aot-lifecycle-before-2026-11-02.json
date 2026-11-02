@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "name": "production factory releases never-mounted disposed instances",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Factory module retains disposed cores/Memory\n\n8 !== 0\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:20:169\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:16:1"
+    },
+    {
+      "name": "HMR tracks mounted instances and preserves registration until last unmount",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Never-mounted instance was HMR-active\n\n1 !== 0\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:26:10\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:22:1"
+    },
+    {
+      "name": "HMR explicit dispose unregisters a mounted instance",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 0\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:35:117\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:33:1"
+    }
+  ],
+  "node": "v22.23.4",
+  "generatedSha256": "259b759541551e19e4d7f0a3ca7709430952f9acd4ddaf94c1dc8e6da4eedcf7",
+  "retainedTargets": 8,
+  "status": "failed",
+  "probeSha256": "f0981ef224eb4ae0a3ec810fb011c1a24a41303cee3bc64b2ef178fc630eb0e9",
+  "compilerSha256": "af0b0a9916d6e17843af0b8f3b27ad2b0517390cb14c2f17f8348ce05bae03c7"
+}

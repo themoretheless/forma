@@ -1,0 +1,164 @@
+{
+  "date": "2026-11-02",
+  "change": "Exact pixel/rectangle intersection area for borderless radius0 fills on CPU and GPU. CPU stores sparse fractional edge coverage; opaque interior palette and rounded/bordered path retained. Test-only CPU reference updated to the same precise contract.",
+  "checks": {
+    "lib": 158,
+    "allocation_tests": 8,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 6
+  },
+  "hardware": "Apple M4 Max / Metal",
+  "before": "native-scroll-renderer-parity qualification:3/18 cases failed, maximum59/255.",
+  "after": {
+    "cases": 18,
+    "maximum_channel_difference": 1,
+    "all_passed": true
+  },
+  "independent_area_references": [
+    "Quarter-covered corner expected[77,26,38,255] within1 on both renderers.",
+    "7/8 red then1/8 green source-over expected[197,36,6,255] within1 on both."
+  ],
+  "results": [
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 64.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean": 0.001801,
+      "max": 1
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean": 0.00177,
+      "max": 1
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 67.0,
+      "mean": 0.002792,
+      "max": 1
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean": 0.0,
+      "max": 0
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 67.0,
+      "mean": 0.0,
+      "max": 0
+    }
+  ],
+  "source_sha256": {
+    "before/lib.rs": "4c733e5a2fb4b4f7ffe9a15fbf56a0a412ad8b88477a3cc39ada0d2eaff7bce0",
+    "before/raster_cache.rs": "cf4bb67e4902471cdb63adb6502831a9053dc6f11840a18d9bf44d8cb0848344",
+    "before/vector.wgsl": "4060a8f131edbf24725100e22043be4905aafea88e62f044764f7143894a9ee7",
+    "after/lib.rs": "be56a6e467d68043f16239bc836664c540019efc4a89fc3c8fde40999b212f01",
+    "after/raster_cache.rs": "d0952274aa3254ff3c35ad7f584c3e902a0a33a081e9022c9a78d9794d5231b0",
+    "after/vector.wgsl": "59c4d827805210651960d160b61983bb894f0f3d7114ee00abc1d0d5a2c7ef6a",
+    "after/runtime_gpu.rs": "437592a03ea75c0da6107e171ebcffe3cd5a6dec0e0c6df6ccda4019e84ed2a3"
+  },
+  "limitations": [
+    "Applies to borderless zero-radius rectangles; rounded/bordered shapes and fractional frame masks need separate area-AA matrix.",
+    "Sparse fractional edge storage adds boundary data; throughput/peak memory not benchmarked.",
+    "One Metal adapter, no device-loss/window/backend completion claim."
+  ]
+}

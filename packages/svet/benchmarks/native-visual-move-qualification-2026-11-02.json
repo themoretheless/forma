@@ -1,0 +1,135 @@
+{
+  "date": "2026-11-02",
+  "change": "Move precomputed visual properties/node instead of cloning; construct serialization rectangle without cloning discarded children.",
+  "checks": {
+    "lib": 136,
+    "allocation_tests": 5,
+    "physical_gpu": 3,
+    "native_bin": "passed",
+    "wasm32": "passed",
+    "release_harness": "A1/B1/A2/B2; allocation arrays repeat identical"
+  },
+  "source_sha256": {
+    "before/form_document.rs": "f8392d90f71d271ba13f5cd1d74f06c87864fec1670e33a7114473dfcd8f7a9f",
+    "after/form_document.rs": "c9cc3b909f7bdfb5420cc91c80fce97b7a8a79b84e3d505ba3c8166fa8858d6f",
+    "shared/harness.rs": "d7eab708619965eaa44d3f33b5b389ca87316fa1bf63003bb2d8c8c195ce263d"
+  },
+  "baseline": "before source hash matched previous snapshot-move qualification after source; binary frozen before edits",
+  "results": [
+    {
+      "controls": 8,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          9065,
+          1041261
+        ],
+        "after_last": [
+          8385,
+          981263
+        ],
+        "bytes_reduction_percent": 5.762051973520565
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          10218,
+          1146292
+        ],
+        "after_last": [
+          9538,
+          1086294
+        ],
+        "bytes_reduction_percent": 5.234093930691309
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          10220,
+          1146304
+        ],
+        "after_last": [
+          9540,
+          1086306
+        ],
+        "bytes_reduction_percent": 5.234039137959911
+      }
+    },
+    {
+      "controls": 32,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          70447,
+          8847461
+        ],
+        "after_last": [
+          67727,
+          8607311
+        ],
+        "bytes_reduction_percent": 2.7143380456833843
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          86616,
+          10340138
+        ],
+        "after_last": [
+          83896,
+          10099988
+        ],
+        "bytes_reduction_percent": 2.322502852476438
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          86618,
+          10340150
+        ],
+        "after_last": [
+          83898,
+          10100000
+        ],
+        "bytes_reduction_percent": 2.3225001571543946
+      }
+    },
+    {
+      "controls": 96,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          487557,
+          64260357
+        ],
+        "after_last": [
+          479397,
+          63539759
+        ],
+        "bytes_reduction_percent": 1.121372543884247
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          629318,
+          77423306
+        ],
+        "after_last": [
+          621158,
+          76702708
+        ],
+        "bytes_reduction_percent": 0.9307249163449605
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          629320,
+          77423318
+        ],
+        "after_last": [
+          621160,
+          76702720
+        ],
+        "bytes_reduction_percent": 0.9307247720899747
+      }
+    }
+  ],
+  "raw": "native-visual-move-raw-2026-11-02.json",
+  "source_archive": "native-visual-move-sources-2026-11-02.tar.gz",
+  "limitations": [
+    "Cumulative requested bytes are not RSS/peak/live memory.",
+    "HTTP PID99442 observed live; other host rustc processes also observed; no latency/FPS claim.",
+    "Full native lifecycle and large model readiness remain open."
+  ]
+}

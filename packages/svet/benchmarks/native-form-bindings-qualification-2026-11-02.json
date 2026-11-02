@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-02",
+  "scope": "Opt-in typed Forma native property scheduler using owned Svet Context",
+  "result": "partial native integration; covered local checks passed",
+  "checks": {
+    "native_library_tests": 117,
+    "wasm32_library_check": "passed",
+    "example_locked_offline_checks": [
+      "binding-app",
+      "language-app"
+    ],
+    "diff_check": "passed"
+  },
+  "covered": [
+    "Runtime value projection",
+    "two-way editor input",
+    "repeat-write dedup and rearm",
+    "independent contexts",
+    "reentrant wake outside graph borrow",
+    "context replacement and old subscription removal",
+    "pending backend switch",
+    "queued binding replacement",
+    "retained Control teardown"
+  ],
+  "open": [
+    "Studio --svet/main.rs integration",
+    "retained Document render reentry",
+    "native window/redraw/lifetime end-to-end",
+    "hardware renderer qualification",
+    "full GPU/native-feature CI"
+  ],
+  "logs": {
+    "native-lib": "packages/svet/benchmarks/native-form-bindings-native-lib-2026-11-02.txt",
+    "wasm-check": "packages/svet/benchmarks/native-form-bindings-wasm-check-2026-11-02.txt",
+    "binding-example": "packages/svet/benchmarks/native-form-bindings-binding-example-2026-11-02.txt",
+    "language-example": "packages/svet/benchmarks/native-form-bindings-language-example-2026-11-02.txt"
+  },
+  "sha256": {
+    "vector-ui/src/binding.rs": "44e8b3a1e16e75cf87444be422ff334aeff2cde55739dd640d92f8a1362bf51c",
+    "vector-ui/Cargo.toml": "e6f5d39cf27de1b8802108396708e5dca0eb3f023972ffaa1b08f9350297a0a5",
+    "vector-ui/Cargo.lock": "264e549e0e0844b1953e8864b0329d2ccae6210ed6e5319034693ac024a38f13",
+    "vector-ui/examples/binding-app/Cargo.lock": "fa9b73d7c939d837a7fca1ba27444ee4dfd53aa86ba1ce2f811827fd78d5d19f",
+    "vector-ui/examples/language-app/Cargo.lock": "5645262c38a9e29807ae7d876ca33389fd75f3701dcea8b84ea37e0dce938249",
+    "packages/svet/crates/svet-wasm/src/native.rs": "b5e5dc4b7c86a845b91a6fa5ef48e898356ce551b7b758f773b23b299dd5b0f8",
+    "packages/svet/crates/svet-wasm/src/lib.rs": "2f2d1f2e4dc8a6287d178defba5a4edc81f7e5a2010d55651ea26d5b56e360e1"
+  }
+}

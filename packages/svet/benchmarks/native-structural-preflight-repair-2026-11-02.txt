@@ -1,0 +1,10 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.27s
+     Running tests/runtime_allocations.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_allocations-9566d11f114edd74)
+
+running 1 test
+96-editor pending visual repair: 353598 allocations
+test retained_large_form_can_repair_a_pending_visual_error ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.19s
+

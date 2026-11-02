@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "scope": "Retained disposed router objects/readers/methods and guard-removers release completed request cores; terminal snapshots preserved",
+  "before": {
+    "boundary": 0,
+    "router": 4
+  },
+  "after": {
+    "boundary": 0,
+    "router": 0
+  },
+  "retainedHandles": 12,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "poolCorrection": "Native1 slot after unmount was inactive effect pool; public telemetry reports0 before and after",
+  "checks": {
+    "JS": "1296/99 passed",
+    "typescript": "passed",
+    "installedPackageEdgeGC": "passed;both callback GC profiles mandatory",
+    "HTTPActions": "4/4"
+  },
+  "sourceSha256": {
+    "packages/svet/src/engine/advanced.ts": "fcc584c52814a467abec103111fa1a5ea73be9810781d35f1299235e8f9c1e6f",
+    "packages/svet/scripts/check-retained-ui-callbacks.mjs": "1951883f39c67e76f791e6387052848c876862af212c61dd3f572148331fffc9",
+    "packages/svet/scripts/check-package.mjs": "eedfbee89691771513ba8f1a2bbece0843dd27709ac0e7b270a8efa2553db7f6",
+    "packages/svet/tests/router-lifecycle.test.ts": "c5712ad1f64d788b4675adb88f8895fb70c11c0e8ddf18577a55ca3f81e354ba"
+  },
+  "evidence": [
+    "retained-router-before-final-2026-11-02.json",
+    "retained-router-after-final-2026-11-02.json",
+    "retained-router-installed-2026-11-02.json",
+    "retained-router-final-suite-2026-11-02.txt",
+    "retained-router-final-types-2026-11-02.txt",
+    "retained-router-package-2026-11-02.txt",
+    "retained-router-actions-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Forced Node ALS/JSDOM GC, not native browser/Edge/natural cadence",
+    "Full browser history qualification of this facade revision remains separate",
+    "User-supplied route callbacks may intentionally retain user objects"
+  ]
+}

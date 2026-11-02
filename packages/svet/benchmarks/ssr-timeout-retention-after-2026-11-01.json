@@ -1,0 +1,16 @@
+{
+  "startedAt": "2026-11-01T17:16:28.610Z",
+  "node": "v22.23.4",
+  "requests": 32,
+  "scope": "Retained engine timeout errors and terminal handles across string/chunk/readable/child operations. Native Node object collection; no RSS/Edge/long plateau claim.",
+  "withErrors": {
+    "child:core": 8,
+    "child:memory": 8
+  },
+  "afterRelease": {},
+  "objects": 96,
+  "status": "retention-reproduced",
+  "completedAt": "2026-11-01T17:16:28.738Z",
+  "sourceSha256": "b16bff5089d28f890f97be4144c71aea52b6ce19eb8bdf7a9969e3d99cfe8a76",
+  "runtimeSha256": "3367d54c09186308a03990e61cc82c90821d1e8c19fd94e375983a700805139c"
+}

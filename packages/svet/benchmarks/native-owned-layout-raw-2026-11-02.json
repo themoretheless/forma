@@ -1,0 +1,2006 @@
+{
+  "before1": {
+    "workload": "retained Runtime sync, 7 alternating idle/edit samples; edit includes scene rendering and Runtime replacement, excludes painting/presentation",
+    "results": [
+      {
+        "svet": false,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.010584000000000001,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.43108399999999997,
+            "edit_allocations": 8180,
+            "edit_requested_bytes": 954094
+          },
+          {
+            "idle_ms": 0.013042,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.342625,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.00975,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.330792,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.009708,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.32025,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.008334,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.380209,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.012541,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.34454199999999996,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.009042000000000001,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.318666,
+            "edit_allocations": 8180,
+            "edit_requested_bytes": 955147
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.03025,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.1992079999999996,
+            "edit_allocations": 62809,
+            "edit_requested_bytes": 7952865
+          },
+          {
+            "idle_ms": 0.031834,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.1984589999999997,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.038584,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.221792,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.039958,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.254333,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.036541000000000004,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.139125,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.039083,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.184583,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.032167,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.20025,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.09579199999999999,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 16.695375,
+            "edit_allocations": 433776,
+            "edit_requested_bytes": 57397577
+          },
+          {
+            "idle_ms": 0.116125,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 20.942208,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.121708,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.179416999999999,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.1155,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.437667,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.112167,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.357292000000001,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.111875,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 15.089500000000001,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.117083,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 15.625542,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.661708,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 177.06,
+            "edit_allocations": 2794735,
+            "edit_requested_bytes": 377039297
+          },
+          {
+            "idle_ms": 0.386875,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 175.7,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.34170799999999996,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 180.56904200000002,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.38087499999999996,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 221.10733299999998,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.521625,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 128.258792,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 1.085083,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 178.480667,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.355,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 113.59504199999999,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.017167,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12770,
+            "edit_ms": 0.775292,
+            "edit_allocations": 8216,
+            "edit_requested_bytes": 958468
+          },
+          {
+            "idle_ms": 0.031916,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.636417,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.019625,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.6343749999999999,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.020458,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.631625,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.018875000000000003,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.649375,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.018875000000000003,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.610667,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.017708,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.88,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.062,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38552,
+            "edit_ms": 6.162667,
+            "edit_allocations": 62976,
+            "edit_requested_bytes": 7975456
+          },
+          {
+            "idle_ms": 0.058499999999999996,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 3.572792,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.06241699999999999,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 5.240417,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.053416,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 4.225,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.060125,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 3.5743340000000003,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.0465,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 4.507541000000001,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.08729100000000001,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.555834,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.122042,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108376,
+            "edit_ms": 30.831667,
+            "edit_allocations": 434263,
+            "edit_requested_bytes": 57463816
+          },
+          {
+            "idle_ms": 0.15687500000000001,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 15.625333000000001,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.141417,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 14.984375,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.138917,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 23.296083,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.151417,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 30.63325,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.199166,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 15.656125,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.152542,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 26.330541999999998,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.325,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278500,
+            "edit_ms": 144.768584,
+            "edit_allocations": 2796022,
+            "edit_requested_bytes": 377214968
+          },
+          {
+            "idle_ms": 0.520417,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 128.005875,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.411709,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 159.89683399999998,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.48662500000000003,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 99.926625,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.393708,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 91.845042,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.442417,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 111.657708,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.43512500000000004,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 117.849625,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          }
+        ]
+      }
+    ]
+  },
+  "after1": {
+    "workload": "retained Runtime sync, 7 alternating idle/edit samples; edit includes scene rendering and Runtime replacement, excludes painting/presentation",
+    "results": [
+      {
+        "svet": false,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.010416,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.475542,
+            "edit_allocations": 7184,
+            "edit_requested_bytes": 843521
+          },
+          {
+            "idle_ms": 0.0135,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.393833,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.014708,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.416291,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.012875,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.42174999999999996,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.010417000000000001,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.318625,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.01,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.39525,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.009708,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.482333,
+            "edit_allocations": 7184,
+            "edit_requested_bytes": 844574
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.043250000000000004,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.109209,
+            "edit_allocations": 55045,
+            "edit_requested_bytes": 6994454
+          },
+          {
+            "idle_ms": 0.037959,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.312625,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.065084,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.730375,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.039125,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.2660419999999997,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.042208,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.6985419999999998,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.034625,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.930667,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.0435,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 3.912167,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.123208,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 20.754375,
+            "edit_allocations": 379804,
+            "edit_requested_bytes": 50337086
+          },
+          {
+            "idle_ms": 0.125083,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 19.997625000000003,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.130458,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 17.744708000000003,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.136333,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 20.925666,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.22037500000000002,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 25.769166,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.323166,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 24.037875,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.1175,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 15.840957999999999,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.36595900000000003,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 104.299042,
+            "edit_allocations": 2446043,
+            "edit_requested_bytes": 330198826
+          },
+          {
+            "idle_ms": 0.338042,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 88.17491600000001,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.354,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 102.579583,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.384333,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 101.566875,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.357542,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 78.708625,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.350916,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 84.634458,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.349084,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 84.651875,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.011333,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12770,
+            "edit_ms": 0.371333,
+            "edit_allocations": 7220,
+            "edit_requested_bytes": 847895
+          },
+          {
+            "idle_ms": 0.012416,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.333167,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.011083,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.333459,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.011209,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.32899999999999996,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.010665999999999998,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.329584,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.010542,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.328125,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.010750000000000001,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.33149999999999996,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.039541,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38552,
+            "edit_ms": 2.3333749999999998,
+            "edit_allocations": 55212,
+            "edit_requested_bytes": 7017045
+          },
+          {
+            "idle_ms": 0.044333,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.25625,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.042874999999999996,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.145792,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.041999999999999996,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.08625,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.0385,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.056959,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.037750000000000006,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.036,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.037708,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.036833,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.12300000000000001,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108376,
+            "edit_ms": 15.597167,
+            "edit_allocations": 380291,
+            "edit_requested_bytes": 50403325
+          },
+          {
+            "idle_ms": 0.202125,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 19.2665,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.205167,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 18.06975,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.15554199999999999,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 17.109416999999997,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.1485,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 13.071916,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.13395900000000002,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 13.3455,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.141083,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 12.751583,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.295958,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278500,
+            "edit_ms": 82.680417,
+            "edit_allocations": 2447330,
+            "edit_requested_bytes": 330374497
+          },
+          {
+            "idle_ms": 0.716333,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 91.92620799999999,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.406458,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 79.82033299999999,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.415958,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 82.90920799999999,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.435375,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 80.08975,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.402834,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 80.62187499999999,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.464083,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 79.082208,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          }
+        ]
+      }
+    ]
+  },
+  "before2": {
+    "workload": "retained Runtime sync, 7 alternating idle/edit samples; edit includes scene rendering and Runtime replacement, excludes painting/presentation",
+    "results": [
+      {
+        "svet": false,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.009542,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.37116699999999997,
+            "edit_allocations": 8180,
+            "edit_requested_bytes": 954094
+          },
+          {
+            "idle_ms": 0.009166,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.38941699999999996,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.01375,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.347958,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.009167,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.326208,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.008083,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.31616700000000003,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.007708,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.315708,
+            "edit_allocations": 8179,
+            "edit_requested_bytes": 954083
+          },
+          {
+            "idle_ms": 0.007708,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.311917,
+            "edit_allocations": 8180,
+            "edit_requested_bytes": 955147
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.032291,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.288583,
+            "edit_allocations": 62809,
+            "edit_requested_bytes": 7952865
+          },
+          {
+            "idle_ms": 0.033583,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.426834,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.037541,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.118459,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.030833000000000003,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.17425,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.038,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.2615410000000002,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.036209,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.545375,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          },
+          {
+            "idle_ms": 0.032583,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.186042,
+            "edit_allocations": 62808,
+            "edit_requested_bytes": 7952854
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.11479199999999999,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 17.096332999999998,
+            "edit_allocations": 433776,
+            "edit_requested_bytes": 57397577
+          },
+          {
+            "idle_ms": 0.113833,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 15.485624999999999,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.12237500000000001,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.300125,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.107666,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.380833,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.144625,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.742083,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.125334,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.344833,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          },
+          {
+            "idle_ms": 0.107458,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.315208,
+            "edit_allocations": 433775,
+            "edit_requested_bytes": 57397566
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.249834,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 101.694292,
+            "edit_allocations": 2794735,
+            "edit_requested_bytes": 377039297
+          },
+          {
+            "idle_ms": 0.346125,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 91.72262500000001,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.31629199999999996,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 84.188709,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.380125,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 83.84512500000001,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.33875,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 82.10495900000001,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.349959,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 91.66725000000001,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          },
+          {
+            "idle_ms": 0.32516700000000004,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 88.65058300000001,
+            "edit_allocations": 2794734,
+            "edit_requested_bytes": 377039286
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.010458,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12770,
+            "edit_ms": 0.33433300000000005,
+            "edit_allocations": 8216,
+            "edit_requested_bytes": 958468
+          },
+          {
+            "idle_ms": 0.010499999999999999,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.322041,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.009792,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.3195,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.010375,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.32308400000000004,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.010084000000000001,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.314958,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.009583,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.315125,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          },
+          {
+            "idle_ms": 0.009458,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.31462500000000004,
+            "edit_allocations": 8215,
+            "edit_requested_bytes": 958457
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.036791,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38552,
+            "edit_ms": 2.1376250000000003,
+            "edit_allocations": 62976,
+            "edit_requested_bytes": 7975456
+          },
+          {
+            "idle_ms": 0.036375000000000005,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.103208,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.035417000000000004,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.129667,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.035540999999999996,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.110208,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.036000000000000004,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.1454999999999997,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.035542,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.1047499999999997,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          },
+          {
+            "idle_ms": 0.035457999999999996,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 2.110875,
+            "edit_allocations": 62975,
+            "edit_requested_bytes": 7975445
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.111125,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108376,
+            "edit_ms": 15.645290999999999,
+            "edit_allocations": 434263,
+            "edit_requested_bytes": 57463816
+          },
+          {
+            "idle_ms": 0.142041,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 19.115792,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.144875,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 15.315375000000001,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.16,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 16.382333,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.135083,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 14.883084,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.141333,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 15.074625,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          },
+          {
+            "idle_ms": 0.139458,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 14.532791,
+            "edit_allocations": 434262,
+            "edit_requested_bytes": 57463805
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.29829100000000003,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278500,
+            "edit_ms": 126.03620800000002,
+            "edit_allocations": 2796022,
+            "edit_requested_bytes": 377214968
+          },
+          {
+            "idle_ms": 0.389375,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 121.127792,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.43483299999999997,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 147.867958,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.406208,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 137.75,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.42000000000000004,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 155.902292,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.40291699999999997,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 197.648084,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          },
+          {
+            "idle_ms": 0.433542,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 196.34379199999998,
+            "edit_allocations": 2796021,
+            "edit_requested_bytes": 377214957
+          }
+        ]
+      }
+    ]
+  },
+  "after2": {
+    "workload": "retained Runtime sync, 7 alternating idle/edit samples; edit includes scene rendering and Runtime replacement, excludes painting/presentation",
+    "results": [
+      {
+        "svet": false,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.010083,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.352541,
+            "edit_allocations": 7184,
+            "edit_requested_bytes": 843521
+          },
+          {
+            "idle_ms": 0.024959,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.415,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.012417,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.5419999999999999,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.010375,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.386709,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.012542,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.34858300000000003,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.011167,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.33008400000000004,
+            "edit_allocations": 7183,
+            "edit_requested_bytes": 843510
+          },
+          {
+            "idle_ms": 0.022666,
+            "idle_allocations": 139,
+            "idle_requested_bytes": 6664,
+            "edit_ms": 0.640209,
+            "edit_allocations": 7184,
+            "edit_requested_bytes": 844574
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.033167,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.267458,
+            "edit_allocations": 55045,
+            "edit_requested_bytes": 6994454
+          },
+          {
+            "idle_ms": 0.039458,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.516208,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.043000000000000003,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.415,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.08383299999999999,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.551083,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.036709,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 5.370833,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.339834,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 3.777542,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          },
+          {
+            "idle_ms": 0.040417,
+            "idle_allocations": 463,
+            "idle_requested_bytes": 16082,
+            "edit_ms": 2.0257919999999996,
+            "edit_allocations": 55044,
+            "edit_requested_bytes": 6994443
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.092625,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 13.796209000000001,
+            "edit_allocations": 379804,
+            "edit_requested_bytes": 50337086
+          },
+          {
+            "idle_ms": 0.11825000000000001,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 14.403875,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.11654199999999999,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 47.527708000000004,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.125,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 123.280583,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.141417,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 13.77925,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.12675,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 13.948,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          },
+          {
+            "idle_ms": 0.12000000000000001,
+            "idle_allocations": 1331,
+            "idle_requested_bytes": 42258,
+            "edit_ms": 13.737292,
+            "edit_allocations": 379803,
+            "edit_requested_bytes": 50337075
+          }
+        ]
+      },
+      {
+        "svet": false,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.26933300000000004,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 86.56474999999999,
+            "edit_allocations": 2446043,
+            "edit_requested_bytes": 330198826
+          },
+          {
+            "idle_ms": 0.346875,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 248.503708,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.397042,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 163.50462499999998,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.39266700000000004,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 89.645459,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.403541,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 214.2255,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.420958,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 161.695167,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          },
+          {
+            "idle_ms": 0.429625,
+            "idle_allocations": 3486,
+            "idle_requested_bytes": 102950,
+            "edit_ms": 152.782,
+            "edit_allocations": 2446042,
+            "edit_requested_bytes": 330198815
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 8,
+        "samples": [
+          {
+            "idle_ms": 0.010125,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12770,
+            "edit_ms": 0.370083,
+            "edit_allocations": 7220,
+            "edit_requested_bytes": 847895
+          },
+          {
+            "idle_ms": 0.022541,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.613834,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.020084,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.811167,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.030125,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.633375,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.017,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.328708,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.011,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.294,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          },
+          {
+            "idle_ms": 0.009959,
+            "idle_allocations": 184,
+            "idle_requested_bytes": 12771,
+            "edit_ms": 0.288125,
+            "edit_allocations": 7219,
+            "edit_requested_bytes": 847884
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 32,
+        "samples": [
+          {
+            "idle_ms": 0.036583,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38552,
+            "edit_ms": 1.959292,
+            "edit_allocations": 55212,
+            "edit_requested_bytes": 7017045
+          },
+          {
+            "idle_ms": 0.039833,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 1.9598749999999998,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.039208,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 1.950458,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.038,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 1.949166,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.038417,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 1.947125,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.037541,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 6.465667,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          },
+          {
+            "idle_ms": 0.094083,
+            "idle_allocations": 628,
+            "idle_requested_bytes": 38553,
+            "edit_ms": 4.65825,
+            "edit_allocations": 55211,
+            "edit_requested_bytes": 7017034
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 96,
+        "samples": [
+          {
+            "idle_ms": 0.113083,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108376,
+            "edit_ms": 15.347292,
+            "edit_allocations": 380291,
+            "edit_requested_bytes": 50403325
+          },
+          {
+            "idle_ms": 0.158916,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 24.204834,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.19141699999999998,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 21.850583,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.145042,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 13.906540999999999,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.149917,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 13.383875,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.144583,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 116.62658300000001,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          },
+          {
+            "idle_ms": 0.162833,
+            "idle_allocations": 1816,
+            "idle_requested_bytes": 108377,
+            "edit_ms": 27.542291,
+            "edit_allocations": 380290,
+            "edit_requested_bytes": 50403314
+          }
+        ]
+      },
+      {
+        "svet": true,
+        "controls": 256,
+        "samples": [
+          {
+            "idle_ms": 0.302041,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278500,
+            "edit_ms": 187.448417,
+            "edit_allocations": 2447330,
+            "edit_requested_bytes": 330374497
+          },
+          {
+            "idle_ms": 0.43687499999999996,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 160.874917,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.44587499999999997,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 128.39420800000002,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.46712499999999996,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 330.046292,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.457041,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 182.390208,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.412083,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 304.467583,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          },
+          {
+            "idle_ms": 0.386834,
+            "idle_allocations": 4771,
+            "idle_requested_bytes": 278501,
+            "edit_ms": 293.356458,
+            "edit_allocations": 2447329,
+            "edit_requested_bytes": 330374486
+          }
+        ]
+      }
+    ]
+  }
+}

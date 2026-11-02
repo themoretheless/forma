@@ -1,0 +1,3 @@
+Browser tab: 5, Title: "Svet adaptive viewport checks", URL: "http://127.0.0.1:4197/tests/browser/gpu-render.html".
+There has been no change in the accessibility tree.
+The focused UI element is 4 button Run render checks, ID: run

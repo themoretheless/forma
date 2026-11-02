@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-02",
+  "change": "Capture inherited lexical binding metadata when a nested For collection directly references the same item name it shadows. Resolver reads that parent context by reference.",
+  "checks": {
+    "lib": 146,
+    "allocations": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": [
+    "Real .ui parent/child reorder, removed parent, duplicate parent keys in fresh/cached maps now run with distinct and identical item names (12 cases).",
+    "Three consecutive For levels named item bind to deepest leaf.",
+    "Malformed cyclic parent metadata still boundedly refuses."
+  ],
+  "source_sha256": "8b68e1e388b6a0700ea95b08579629e251e815aa8653d35d374af35e2f607686",
+  "limitations": [
+    "Owned lexical snapshots increase copying in shadowing cases; no performance bound claimed.",
+    "Nonadjacent shadowing, arbitrary lexical chains, computed/derived collections need further matrix.",
+    "No new hardware GPU/browser/AOT qualification."
+  ]
+}

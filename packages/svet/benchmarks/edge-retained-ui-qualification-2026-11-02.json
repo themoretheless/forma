@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "scope": "Retained UI callback collection in local stable and beta/November workerd; compatible independent copies",
+  "sameFixtureBeforeAfter": true,
+  "beforeRetained": 32,
+  "afterRetained": 0,
+  "requests": 16,
+  "retainedReferences": 40,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "priorFullSuite": "1296/99 source-qualified artifact; runtime JS/WASM byte-equal",
+  "checks": {
+    "stableEdgeGC": "passed",
+    "betaNovemberEdgeGC": "passed",
+    "installedPackage": "passed;mandatory retained UI counters and both GC phases"
+  },
+  "sourceSha256": {
+    "packages/svet/tests/edge/retained-ui.mjs": "4ef410db551a5144083e15169ae85b828baef4646de449cbb797fd731f797fcb",
+    "packages/svet/tests/edge/worker.mjs": "433f09b4b8882631d24d9fc2b09b016ef91d3c781a4841a7d5e0526706a0a9c0",
+    "packages/svet/scripts/check-edge-ssr.mjs": "6715b9c4661d866afaf0e2d9ab240b29943aa80368ee6d129bdbb7ade032fc2f",
+    "packages/svet/scripts/check-package.mjs": "25cfd257dd6b667d7d14afb2632ca827e78a1368e91821501929b4e6226d4050"
+  },
+  "evidence": [
+    "edge-retained-ui-before-2026-11-02.json",
+    "edge-retained-ui-after-2026-11-02.json",
+    "edge-retained-ui-beta-2026-11-02.json",
+    "edge-retained-ui-package-2026-11-02.txt",
+    "edge-retained-ui-installed-2026-11-02.json"
+  ],
+  "limitations": [
+    "Inspector forced GC, not natural cadence/RSS or deployed Edge",
+    "Router state/lifetime only; no workerd native History API support claim",
+    "Frozen current2h HTTP qualification remains running"
+  ]
+}

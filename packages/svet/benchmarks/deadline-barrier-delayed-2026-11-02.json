@@ -1,0 +1,209 @@
+{
+  "neighborDelayMs": 150,
+  "startedAt": "2026-11-01T20:25:16.886Z",
+  "node": "v22.23.4",
+  "durationMs": 1000,
+  "concurrency": 16,
+  "requests": 96,
+  "collectedObjects": 576,
+  "modeCounts": {
+    "complete": 24,
+    "cancel": 24,
+    "abort": 24,
+    "timeout": 24
+  },
+  "earlyTimeoutsAtNeighborCheck": 24,
+  "neighborChecks": [
+    {
+      "id": 80,
+      "mode": "complete",
+      "alive": true,
+      "elapsedMs": 159.6766249999996
+    },
+    {
+      "id": 81,
+      "mode": "cancel",
+      "alive": false,
+      "elapsedMs": 159.26945799999976
+    },
+    {
+      "id": 82,
+      "mode": "abort",
+      "alive": false,
+      "elapsedMs": 159.18079099999977
+    },
+    {
+      "id": 83,
+      "mode": "timeout",
+      "alive": false,
+      "elapsedMs": 159.132791
+    },
+    {
+      "id": 84,
+      "mode": "complete",
+      "alive": true,
+      "elapsedMs": 159.11208299999998
+    },
+    {
+      "id": 85,
+      "mode": "cancel",
+      "alive": false,
+      "elapsedMs": 159.08641699999998
+    },
+    {
+      "id": 86,
+      "mode": "abort",
+      "alive": false,
+      "elapsedMs": 159.06670799999984
+    },
+    {
+      "id": 87,
+      "mode": "timeout",
+      "alive": false,
+      "elapsedMs": 158.98424999999997
+    },
+    {
+      "id": 88,
+      "mode": "complete",
+      "alive": true,
+      "elapsedMs": 158.94454099999984
+    },
+    {
+      "id": 89,
+      "mode": "cancel",
+      "alive": false,
+      "elapsedMs": 158.92058399999996
+    },
+    {
+      "id": 90,
+      "mode": "abort",
+      "alive": false,
+      "elapsedMs": 158.9033330000002
+    },
+    {
+      "id": 91,
+      "mode": "timeout",
+      "alive": false,
+      "elapsedMs": 158.75424999999996
+    },
+    {
+      "id": 92,
+      "mode": "complete",
+      "alive": true,
+      "elapsedMs": 158.7009579999999
+    },
+    {
+      "id": 93,
+      "mode": "cancel",
+      "alive": false,
+      "elapsedMs": 158.669625
+    },
+    {
+      "id": 94,
+      "mode": "abort",
+      "alive": false,
+      "elapsedMs": 158.64716599999974
+    },
+    {
+      "id": 95,
+      "mode": "timeout",
+      "alive": false,
+      "elapsedMs": 158.58133399999997
+    }
+  ],
+  "samples": [
+    {
+      "elapsedMs": 207.10966699999994,
+      "requests": 16,
+      "rss": 133365600,
+      "heapTotal": 79724544,
+      "heapUsed": 39985704,
+      "external": 23701846,
+      "arrayBuffers": 791576
+    },
+    {
+      "elapsedMs": 385.2161249999999,
+      "requests": 32,
+      "rss": 133152512,
+      "heapTotal": 79724544,
+      "heapUsed": 40058552,
+      "external": 23701936,
+      "arrayBuffers": 820528
+    },
+    {
+      "elapsedMs": 575.550542,
+      "requests": 48,
+      "rss": 134119432,
+      "heapTotal": 79986688,
+      "heapUsed": 40141776,
+      "external": 23701936,
+      "arrayBuffers": 820528
+    },
+    {
+      "elapsedMs": 756.5110420000001,
+      "requests": 64,
+      "rss": 133185256,
+      "heapTotal": 79986688,
+      "heapUsed": 40163776,
+      "external": 23701936,
+      "arrayBuffers": 820528
+    },
+    {
+      "elapsedMs": 930.7011249999998,
+      "requests": 80,
+      "rss": 133381912,
+      "heapTotal": 79986688,
+      "heapUsed": 40182656,
+      "external": 23701936,
+      "arrayBuffers": 820528
+    },
+    {
+      "elapsedMs": 1105.697292,
+      "requests": 96,
+      "rss": 133742456,
+      "heapTotal": 79986688,
+      "heapUsed": 40181496,
+      "external": 23701936,
+      "arrayBuffers": 820528
+    }
+  ],
+  "windows": [
+    {
+      "count": 1,
+      "heapMin": 39985704,
+      "heapMax": 39985704,
+      "rssMin": 133365600,
+      "rssMax": 133365600
+    },
+    {
+      "count": 1,
+      "heapMin": 40058552,
+      "heapMax": 40058552,
+      "rssMin": 133152512,
+      "rssMax": 133152512
+    },
+    {
+      "count": 1,
+      "heapMin": 40141776,
+      "heapMax": 40141776,
+      "rssMin": 134119432,
+      "rssMax": 134119432
+    },
+    {
+      "count": 3,
+      "heapMin": 40163776,
+      "heapMax": 40182656,
+      "rssMin": 133185256,
+      "rssMax": 133742456
+    }
+  ],
+  "scope": "Concurrent Node deadline churn: 16 live requests, both codecs, complete/cancel/caller abort/timeout. Keep neighbours alive until cancellation has been checked; retain terminal errors/handles during each GC barrier. Samples are observational, not HTTP/Edge/browser or multi-hour memory qualification.",
+  "elapsedMs": 1105.7303330000002,
+  "retainedTerminalHandles": 16,
+  "activeTimers": 0,
+  "peakTimers": 17,
+  "status": "passed",
+  "completedAt": "2026-11-01T20:25:17.991Z",
+  "sourceSha256": "63a607ab67d5c06560b630515155753ed841819e2b7f95ea7b9831c6bcfb2de2",
+  "serverRuntimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70"
+}

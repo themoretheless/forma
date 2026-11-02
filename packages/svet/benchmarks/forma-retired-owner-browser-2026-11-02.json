@@ -1,0 +1,101 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "Failed child mount releases graph and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Failed child render releases graph and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during factory refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during child-render refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during connection refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Mounted-view update dispose retires late returned child",
+      "status": "passed"
+    },
+    {
+      "name": "Mounted-view update unmount retires late returned child",
+      "status": "passed"
+    },
+    {
+      "name": "AOT UI mounts twice and preserves shared state",
+      "status": "passed"
+    },
+    {
+      "name": "Two real file/HMR updates preserve state and graph size; stale callback retired",
+      "status": "passed"
+    },
+    {
+      "name": "One unmount preserves other mounted view across real HMR",
+      "status": "passed"
+    },
+    {
+      "name": "Direct instance disposal retires mounted graph; late unmount preserves replacement",
+      "status": "passed"
+    },
+    {
+      "name": "Post-dispose HMR does not revive disposed instance",
+      "status": "passed"
+    }
+  ],
+  "hmrUpdates": 4,
+  "trace": [
+    {
+      "step": "baseline",
+      "nodes": 11,
+      "count": 7
+    },
+    {
+      "step": "update2",
+      "nodes": 11,
+      "count": 7
+    },
+    {
+      "step": "stale-click2",
+      "count": 7
+    },
+    {
+      "step": "update3",
+      "nodes": 11,
+      "count": 7
+    },
+    {
+      "step": "stale-click3",
+      "count": 7
+    }
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-02T04:54:52.208Z",
+  "fileChanges": [
+    {
+      "version": 2,
+      "at": "2026-11-02T04:54:51.873Z"
+    },
+    {
+      "version": 3,
+      "at": "2026-11-02T04:54:51.904Z"
+    },
+    {
+      "version": 4,
+      "at": "2026-11-02T04:54:52.008Z"
+    },
+    {
+      "version": 5,
+      "at": "2026-11-02T04:54:52.103Z"
+    }
+  ],
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-e2Zh3P/consumer/node_modules/svet-engine",
+  "fixtureSha256": "04851673d467d3827a545e2be0f5f318cc0cbabcbe299d5044d8789df582e287"
+}

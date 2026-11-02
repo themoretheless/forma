@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "scope": "Chrome156 installed independent copies; native DOM and bounded-pressure natural GC",
+  "historyMatrix": "17/17 with explicit inter-case pacing",
+  "GC": {
+    "coresCollected": 16,
+    "memoriesCollected": 16,
+    "retainedReferences": 40,
+    "controlsHeld": 4,
+    "controlsReleased": 0,
+    "forcedGC": false
+  },
+  "evidence": [
+    "retired-router-browser-2026-11-02.json",
+    "retired-router-browser-2026-11-02.png",
+    "retained-ui-browser-gc-2026-11-02.json",
+    "retained-ui-browser-gc-2026-11-02.png"
+  ],
+  "limitations": [
+    "Bounded allocation pressure, not idle GC cadence or RSS plateau",
+    "Continuous unpaced history stress remains open",
+    "Browser async carrier/SSR request core not exercised",
+    "Other browsers/Edge GC of retained router remain open"
+  ]
+}

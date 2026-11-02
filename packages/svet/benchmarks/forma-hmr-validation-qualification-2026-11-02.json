@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "sourceSha256": "220eae1dc904aae33ab236d593f729228ff9566ec0c0b19d9678e9a9078af261",
+  "browserReport": "forma-hmr-validation-browser-2026-11-02.json",
+  "nodeReport": "forma-hmr-validation-node-2026-11-02.json",
+  "installedPackageRuntimeFilesEqual": 20,
+  "checks": {
+    "vitest": "1346 passed/102 files,maxWorkers=2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageAndGC": "passed",
+    "nodeCases": 6,
+    "browserCases": 15
+  },
+  "limitations": [
+    "Arbitrary partial-render rollback",
+    "Malformed annotation grammar",
+    "Other browsers/async lifecycle",
+    "No current-runtime soak or performance qualification"
+  ]
+}

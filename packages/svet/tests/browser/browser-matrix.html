@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8"><title>Svet browser matrix</title><style>body{font:16px system-ui;max-width:1100px;margin:30px auto}button{padding:12px}pre{background:#eff6ff;padding:18px;white-space:pre-wrap}iframe{width:100%;height:340px;border:1px solid #ccd}</style>
+<h1>Svet production browser matrix</h1><p>DOM, events, models, keyed fragments and context lifecycle. Each fixture runs in a fresh same-origin iframe. Programmatic native events; no physical input or cross-browser claim.</p>
+<button id="run">Run browser matrix</button><pre id="status" role="status">Not run</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
+<script type="module">
+import cases from './browser-matrix-cases.json';
+const status=document.querySelector('#status'),raw=document.querySelector('#raw-results'),preview=document.querySelector('#preview');
+const assert=(v,m)=>{if(!v)throw Error(m);};
+const until=async(fn,label)=>{const deadline=performance.now()+15000;while(!fn()){if(performance.now()>deadline)throw Error(label);await new Promise(r=>setTimeout(r,20));}};
+document.querySelector('#run').onclick=async()=>{
+ const button=document.querySelector('#run');button.disabled=true;preview.replaceChildren();
+ const report={protocol:'browser-matrix-v1',startedAt:new Date().toISOString(),userAgent:navigator.userAgent,devicePixelRatio,visibility:document.visibilityState,cases:[]};let frame;
+ try{
+  report.build=await fetch('/metadata.json').then(r=>{assert(r.ok,'Frozen metadata missing');return r.json();});
+  for(const item of cases){
+   const row={...item,status:'running'};report.cases.push(row);status.textContent=`Running ${item.name}`;
+   frame=document.createElement('iframe');frame.title=item.name;
+   const loaded=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('Frame load timeout')),15000);frame.onload=()=>{clearTimeout(timer);resolve();};});
+   frame.src=`./${item.name}.html`;preview.append(frame);await loaded;
+   const doc=frame.contentDocument;await until(()=>doc.querySelector('#run')&&!doc.querySelector('#run').disabled,'Fixture not ready');
+   doc.querySelector('#run').click();
+   await until(()=>/FAIL|\d+\/\d+ passed/.test(doc.querySelector(item.result)?.textContent??''),'Fixture result timeout');
+   row.output=doc.querySelector(item.result).textContent;
+   const final=row.output.match(/(\d+)\/(\d+) passed/),lines=row.output.split('\n').filter(line=>line.startsWith('PASS '));
+   assert(!row.output.includes('FAIL')&&final&&Number(final[1])===item.expected&&Number(final[2])===item.expected&&lines.length===item.expected,'Unexpected fixture result: '+item.name+'\n'+row.output);
+   row.status='passed';row.passed=lines.length;frame.remove();frame=null;
+  }
+  report.status='passed';
+ }catch(error){report.status='failed';report.error=String(error.stack??error);if(report.cases.length)report.cases.at(-1).status='failed';}
+ finally{
+  frame?.remove();report.completedAt=new Date().toISOString();raw.textContent=JSON.stringify(report);
+  status.textContent=report.cases.map(row=>`${row.status==='passed'?'PASS':'FAIL'} ${row.name}: ${row.passed??0}/${row.expected}`).join('\n')+'\n'+(report.status==='passed'?`${report.cases.length}/${cases.length} fixtures; ${report.cases.reduce((n,row)=>n+row.passed,0)} native assertions passed`:`FAIL: ${report.error}`);button.disabled=false;
+ }
+};
+</script>

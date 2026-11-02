@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-02",
+  "change": "Track symbolic writable origin of sequential direct Let aliases; canonicalize collection paths using lexical alias/parent context rather than treating lexical lists as root model fields. No value-equality inference.",
+  "checks": {
+    "lib": 151,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": [
+    "IR rows=state.items; chosen=rows; For over chosen or state.chosen with a conflicting model chosen field.",
+    "Fresh/cached maps, reordered root items: original item receives edit, conflicting model field remains unchanged.",
+    "Literal copied list with identical data has no writable origin; model untouched."
+  ],
+  "source_sha256": "8678316438b983368cc5f925e61ea8f2540a938b8dd1b98eca35fcb6a3c3b56b",
+  "limitations": [
+    "Arbitrary computed/filter/map collections lack writable origin and remain unsupported.",
+    "Parent-member alias helper path not separately qualified this turn.",
+    "No compiler/browser/AOT/live-window or performance/GPU qualification for aliases.",
+    "Replay/public snapshots still copy data."
+  ]
+}

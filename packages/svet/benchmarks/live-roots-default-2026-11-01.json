@@ -1,0 +1,86 @@
+{
+  "startedAt": "2026-11-01T12:19:02.372Z",
+  "node": "v22.23.4",
+  "execArgv": [
+    "--expose-gc"
+  ],
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M4 Max",
+  "batches": 1000,
+  "liveRoots": 64,
+  "replacedPerBatch": 16,
+  "samples": [
+    {
+      "batch": 0,
+      "rss": 27070232,
+      "heapTotal": 16957440,
+      "heapUsed": 7321912,
+      "external": 4410040,
+      "arrayBuffers": 33139,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 64,
+      "remaining": 0
+    },
+    {
+      "batch": 25,
+      "rss": 36443608,
+      "heapTotal": 25608192,
+      "heapUsed": 7494152,
+      "external": 4410080,
+      "arrayBuffers": 33139,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 4
+    }
+  ],
+  "scope": "Node isolated process, two cores, 64 simultaneously live roots; rolling replacement, no reset. Post-forced-GC observations, not DOM/GPU memory or a general RSS bound.",
+  "status": "failed",
+  "error": "AssertionError [ERR_ASSERTION]: Retired root objects retained after ten GC turns\n\n4 !== 0\n\n    at sample (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-live-roots.mjs:40:9)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-live-roots.mjs:57:19",
+  "completedAt": "2026-11-01T12:19:02.446Z",
+  "createdRoots": 480,
+  "cleanups": 416,
+  "aborts": 416,
+  "checkedObjects": 64,
+  "maxGcRounds": 10,
+  "sourceSha256": "cf133106f7aeedd32e4b68b26e9652abb95e884a6d245d94ac091d1d97da7e77",
+  "runtimeSha256": "f113354fe8442141b38711321a770f9c5b3509f12064c7c7a799ab5cfe707e2c"
+}

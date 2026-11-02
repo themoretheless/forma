@@ -1,0 +1,106 @@
+{
+  "status": "validated-lexical-alias-allocation-reduction",
+  "change": "Pass resolved collection path separately while borrowing full retained frame and captured key scope",
+  "workload": "Column,retained Let collection alias,8/32/96/256 controls,7 idle/edit samples,legacy/Svet",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "8fdc942c4bd715ba10997fc5bd3cc3dfa556d59332710a55f1b15c40f4a7a2c1",
+    "vector-ui/examples/binding_sync_bench.rs": "19dbe0040c958e3dbf25993b38b7d5d9be23c4f6d2a45380f97cc46de387db2a",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "94b304c52d940e3ab5431992029b1221e6e672b16fb939d249a323c34be00ffb"
+  },
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 1121457,
+      "afterEditRequestedBytes": 1011977,
+      "reductionPercent": 9.762300293279191,
+      "beforeEditAllocations": 8710,
+      "afterEditAllocations": 7830
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 11232176,
+      "afterEditRequestedBytes": 9746938,
+      "reductionPercent": 13.22306559298928,
+      "beforeEditAllocations": 84027,
+      "afterEditAllocations": 72827
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 88180824,
+      "afterEditRequestedBytes": 75344674,
+      "reductionPercent": 14.556622877554426,
+      "beforeEditAllocations": 650962,
+      "afterEditAllocations": 555922
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 599192088,
+      "afterEditRequestedBytes": 508932998,
+      "reductionPercent": 15.063464923455394,
+      "beforeEditAllocations": 4397841,
+      "afterEditAllocations": 3734801
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 1125831,
+      "afterEditRequestedBytes": 1016351,
+      "reductionPercent": 9.72437248574608,
+      "beforeEditAllocations": 8746,
+      "afterEditAllocations": 7866
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 11254767,
+      "afterEditRequestedBytes": 9769529,
+      "reductionPercent": 13.196523748559164,
+      "beforeEditAllocations": 84194,
+      "afterEditAllocations": 72994
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 88247063,
+      "afterEditRequestedBytes": 75410913,
+      "reductionPercent": 14.545696551963438,
+      "beforeEditAllocations": 651449,
+      "afterEditAllocations": 556409
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 599367759,
+      "afterEditRequestedBytes": 509108669,
+      "reductionPercent": 15.059049914628453,
+      "beforeEditAllocations": 4399128,
+      "afterEditAllocations": 3736088
+    }
+  ],
+  "repeat": "Two final-source candidate runs have identical allocation counters",
+  "plainControl": "Ordinary Column counters unchanged",
+  "validation": {
+    "libraryTests": 164,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "actualGeneratedNodeArtifactGate": "passed",
+    "actualGeneratedNodeSnapshotAndAliasCases": 4,
+    "remoteCI": "not run; Node contract gate includes alias commit"
+  },
+  "regressions": [
+    "Computed item.id referring to captured props resolves after reorder through Let alias",
+    "Captured frames remain unchanged",
+    "Actual Node WASM live input commits correct aliased item and second sync is no-op"
+  ],
+  "limitations": [
+    "Lexical Svet256 still requests509108669 bytes/edit; not large-form readiness",
+    "Cumulative requested bytes,not live/peak memory",
+    "No latency/FPS/presentation claim",
+    "Other environments and remaining lexical replay/model copies open"
+  ]
+}

@@ -1,0 +1,2 @@
+    Checking forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.76s

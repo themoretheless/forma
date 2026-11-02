@@ -1,0 +1,19 @@
+{
+  "status": "needs-investigation",
+  "probeCompleted": false,
+  "issues": [
+    "probe did not pass or remain running",
+    "request accounting mismatch"
+  ],
+  "elapsedMs": 1462380.5875000001,
+  "requests": 189144,
+  "minimumDurationMs": 7200000,
+  "metrics": {},
+  "limitations": [
+    "Window extrema do not establish a stationary distribution or absence of slow leaks.",
+    "Budgets are caller-specified investigation thresholds, not universal RSS bounds.",
+    "Loopback fixture does not qualify gzip, both codecs, proxy or kernel saturation."
+  ],
+  "rawSha256": "5747dd240ae0e31c6a8a0b7c761d71c9a168dbb1e50797df630f3799531e847f",
+  "analyzerSha256": "090d9a6876972893a5687e591429c0dbdae047b4d217b7648ed63cfcdd033295"
+}

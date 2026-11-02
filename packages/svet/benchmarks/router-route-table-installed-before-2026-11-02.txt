@@ -1,0 +1,19 @@
+[
+  {
+    "name": "A→B RouterView exposes router to foreign useRouter and Link",
+    "status": "passed"
+  },
+  {
+    "name": "B→A RouterView exposes router to foreign useRouter and Link",
+    "status": "passed"
+  },
+  {
+    "name": "navigate batches URL publication in a non-ambient core",
+    "status": "passed"
+  },
+  {
+    "name": "live route-table replacement and terminal matcher retirement",
+    "status": "failed",
+    "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n+ actual - expected\n\n+ null\n- {\n-   component: [Function: component],\n-   path: '/next/:id'\n- }\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-router.mjs:38:37\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-router.mjs:14:43)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-router.mjs:35:7"
+  }
+]

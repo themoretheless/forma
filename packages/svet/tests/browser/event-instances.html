@@ -1,15 +1,16 @@
 <!doctype html><meta charset="utf-8"><title>Svet independent instances</title>
 <style>body{font:16px system-ui;max-width:1100px;margin:32px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{white-space:pre-wrap;background:#eef6f1;padding:18px;line-height:1.7}#preview{display:flex;gap:10px}</style>
 <h1>Svet independent engine instances</h1><p>Two separately compiled engines share a native event dispatcher while preserving their own owners and reactive cores.</p>
-<button id="run" disabled>Run instance checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<button id="run" disabled>Run instance checks</button><pre id="result">Not run</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
 <script type="module">
-const metadata=await(await fetch('/node_modules/.cache/svet-adoption-bench/metadata.json',{cache:'no-store'})).json();
-const [first,second]=await Promise.all(['baseline','candidate'].map(variant=>import(/* @vite-ignore */ '/node_modules/.cache/svet-adoption-bench/'+metadata.snapshot+'/'+variant+'/index.js')));
+const metadata=await(await fetch('/metadata.json',{cache:'no-store'})).json();
+const [first,second]=await Promise.all(['/first/index.js','/second/index.js'].map(url=>import(/* @vite-ignore */ url)));
 const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');run.disabled=false;
 run.onclick=()=>{
- run.disabled=true;preview.replaceChildren();first.resetReactiveSystem();second.resetReactiveSystem();const stops=[],lines=[];
+ run.disabled=true;preview.replaceChildren();first.resetReactiveSystem();second.resetReactiveSystem();const stops=[],lines=[];const report={protocol:'independent-engines-v1',startedAt:new Date().toISOString(),userAgent:navigator.userAgent,build:metadata};
  const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
  try{
+  check(first.signal!==second.signal&&first.getWasmCore()!==second.getWasmCore(),'separate URLs instantiate independent modules and WASM cores');
   let a=0,b=0,stopFirst;const buttons=[];
   first.createRoot(stop=>{stopFirst=stop;stops.push(stop);const node=first.h('button',{onClick(){a++;}},'first engine');buttons.push(node);preview.append(node);});second.createRoot(stop=>{stops.push(stop);const node=second.h('button',{onClick(){b++;}},'second engine');buttons.push(node);preview.append(node);});for(const button of buttons)button.click();check(a===1&&b===1,'independent engine handlers fire once each on one document');
   const order=[];let outer,inner;first.createRoot(stop=>{stops.push(stop);outer=first.h('div',{onClick(){order.push('outer');}});preview.append(outer);});second.createRoot(stop=>{stops.push(stop);inner=second.h('button',{onClick(){order.push('inner');}},'nested');outer.append(inner);});inner.click();check(order.join(',')==='inner,outer','mixed nested engines preserve child-before-parent bubbling');
@@ -18,8 +19,13 @@ run.onclick=()=>{
   const immediate=document.createElement('button');preview.append(immediate);const immediateOrder=[];first.createRoot(stop=>{stops.push(stop);first.bindProp(immediate,'onClick',event=>{immediateOrder.push('first');event.stopImmediatePropagation();});});second.createRoot(stop=>{stops.push(stop);second.bindProp(immediate,'onClick',()=>{immediateOrder.push('second');});});immediate.click();check(immediateOrder.join(',')==='first','native stopImmediatePropagation applies across engine instances');
   stopFirst();buttons[0].click();buttons[1].click();check(a===1&&b===2,'retiring one engine owner preserves the other engine callback');
   const host=document.createElement('div');preview.append(host);const root=host.attachShadow({mode:'closed'}),shadowButton=document.createElement('button');root.append(shadowButton);let shadows=0;first.createRoot(stop=>{stops.push(stop);first.bindProp(shadowButton,'onClick',()=>{shadows++;});});second.createRoot(stop=>{stops.push(stop);second.bindProp(shadowButton,'onClick',()=>{shadows++;});});shadowButton.dispatchEvent(new MouseEvent('click',{bubbles:true,composed:false}));check(shadows===2,'closed-shadow dispatch coordinates bindings from both engine instances');
-  for(const stop of stops)stop();check(first.getGraphTelemetry().nodes===0&&second.getGraphTelemetry().nodes===0,'both independent reactive graphs retire');result.textContent=lines.join('\n')+'\n7/7 passed';
- }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
- finally{for(const stop of stops)stop();run.disabled=false;}
+  let firstSource,secondSource,firstRuns=0,secondRuns=0;
+  first.createRoot(stop=>{stops.push(stop);firstSource=first.signal(1);first.onCleanup(firstSource.dispose);first.effect(()=>{firstSource();firstRuns++;});});
+  second.createRoot(stop=>{stops.push(stop);secondSource=second.signal(1);second.onCleanup(secondSource.dispose);second.effect(()=>{secondSource();secondRuns++;});});
+  first.resetReactiveSystem();secondSource.set(2);
+  check(first.getGraphTelemetry().nodes===0&&second.getGraphTelemetry().nodes>0&&firstRuns===1&&secondRuns===2,'reset of one module preserves the other module reactive graph and effect');
+  for(const stop of stops)stop();check(first.getGraphTelemetry().nodes===0&&second.getGraphTelemetry().nodes===0,'both independent reactive graphs retire');report.status='passed';result.textContent=lines.join('\n')+'\n9/9 passed';
+ }catch(error){report.status='failed';report.error=String(error.stack??error);result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{for(const stop of stops)stop();report.output=result.textContent;report.completedAt=new Date().toISOString();document.querySelector('#raw-results').textContent=JSON.stringify(report);run.disabled=false;}
 };
 </script>

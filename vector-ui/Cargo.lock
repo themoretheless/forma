@@ -412,8 +412,10 @@ dependencies = [
  "libc",
  "objc",
  "pollster",
+ "serde",
  "serde_json",
  "softbuffer",
+ "svet-wasm",
  "themoretheless-tokenizer-forma",
  "ttf-parser",
  "wasm-bindgen",
@@ -1263,6 +1265,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4148590afebada386688f18773da617792bf2ef03ffc1e4cbd2b1d45b023e0ba"
 dependencies = [
  "serde_core",
+ "serde_derive",
 ]
 
 [[package]]
@@ -1404,6 +1407,10 @@ name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
+
+[[package]]
+name = "svet-wasm"
+version = "0.1.0"
 
 [[package]]
 name = "syn"

@@ -1,0 +1,2361 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "Burst 1:32 writes reach v41,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 773.2999999970198,
+      "deliveryAfterLastAckMs": 86.90000000596046
+    },
+    {
+      "name": "Burst 2:32 writes reach v73,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 749.3999999910593,
+      "deliveryAfterLastAckMs": 53.900000005960464
+    },
+    {
+      "name": "Burst 3:32 writes reach v105,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 746.2999999970198,
+      "deliveryAfterLastAckMs": 52.79999999701977
+    }
+  ],
+  "hmrUpdates": 6,
+  "status": "passed",
+  "nodesAfter": 0,
+  "completedAt": "2026-11-02T05:57:28.821Z",
+  "fileChanges": [
+    {
+      "version": 10,
+      "at": "2026-11-02T05:57:26.382Z"
+    },
+    {
+      "version": 11,
+      "at": "2026-11-02T05:57:26.406Z"
+    },
+    {
+      "version": 12,
+      "at": "2026-11-02T05:57:26.429Z"
+    },
+    {
+      "version": 13,
+      "at": "2026-11-02T05:57:26.453Z"
+    },
+    {
+      "version": 14,
+      "at": "2026-11-02T05:57:26.476Z"
+    },
+    {
+      "version": 15,
+      "at": "2026-11-02T05:57:26.499Z"
+    },
+    {
+      "version": 16,
+      "at": "2026-11-02T05:57:26.522Z"
+    },
+    {
+      "version": 17,
+      "at": "2026-11-02T05:57:26.560Z"
+    },
+    {
+      "version": 18,
+      "at": "2026-11-02T05:57:26.584Z"
+    },
+    {
+      "version": 19,
+      "at": "2026-11-02T05:57:26.607Z"
+    },
+    {
+      "version": 20,
+      "at": "2026-11-02T05:57:26.630Z"
+    },
+    {
+      "version": 21,
+      "at": "2026-11-02T05:57:26.653Z"
+    },
+    {
+      "version": 22,
+      "at": "2026-11-02T05:57:26.676Z"
+    },
+    {
+      "version": 23,
+      "at": "2026-11-02T05:57:26.699Z"
+    },
+    {
+      "version": 24,
+      "at": "2026-11-02T05:57:26.722Z"
+    },
+    {
+      "version": 25,
+      "at": "2026-11-02T05:57:26.745Z"
+    },
+    {
+      "version": 26,
+      "at": "2026-11-02T05:57:26.768Z"
+    },
+    {
+      "version": 27,
+      "at": "2026-11-02T05:57:26.790Z"
+    },
+    {
+      "version": 28,
+      "at": "2026-11-02T05:57:26.813Z"
+    },
+    {
+      "version": 29,
+      "at": "2026-11-02T05:57:26.841Z"
+    },
+    {
+      "version": 30,
+      "at": "2026-11-02T05:57:26.866Z"
+    },
+    {
+      "version": 31,
+      "at": "2026-11-02T05:57:26.889Z"
+    },
+    {
+      "version": 32,
+      "at": "2026-11-02T05:57:26.912Z"
+    },
+    {
+      "version": 33,
+      "at": "2026-11-02T05:57:26.939Z"
+    },
+    {
+      "version": 34,
+      "at": "2026-11-02T05:57:26.962Z"
+    },
+    {
+      "version": 35,
+      "at": "2026-11-02T05:57:26.985Z"
+    },
+    {
+      "version": 36,
+      "at": "2026-11-02T05:57:27.008Z"
+    },
+    {
+      "version": 37,
+      "at": "2026-11-02T05:57:27.031Z"
+    },
+    {
+      "version": 38,
+      "at": "2026-11-02T05:57:27.055Z"
+    },
+    {
+      "version": 39,
+      "at": "2026-11-02T05:57:27.086Z"
+    },
+    {
+      "version": 40,
+      "at": "2026-11-02T05:57:27.108Z"
+    },
+    {
+      "version": 41,
+      "at": "2026-11-02T05:57:27.131Z"
+    },
+    {
+      "version": 42,
+      "at": "2026-11-02T05:57:27.241Z"
+    },
+    {
+      "version": 43,
+      "at": "2026-11-02T05:57:27.265Z"
+    },
+    {
+      "version": 44,
+      "at": "2026-11-02T05:57:27.288Z"
+    },
+    {
+      "version": 45,
+      "at": "2026-11-02T05:57:27.311Z"
+    },
+    {
+      "version": 46,
+      "at": "2026-11-02T05:57:27.334Z"
+    },
+    {
+      "version": 47,
+      "at": "2026-11-02T05:57:27.362Z"
+    },
+    {
+      "version": 48,
+      "at": "2026-11-02T05:57:27.385Z"
+    },
+    {
+      "version": 49,
+      "at": "2026-11-02T05:57:27.407Z"
+    },
+    {
+      "version": 50,
+      "at": "2026-11-02T05:57:27.430Z"
+    },
+    {
+      "version": 51,
+      "at": "2026-11-02T05:57:27.452Z"
+    },
+    {
+      "version": 52,
+      "at": "2026-11-02T05:57:27.475Z"
+    },
+    {
+      "version": 53,
+      "at": "2026-11-02T05:57:27.499Z"
+    },
+    {
+      "version": 54,
+      "at": "2026-11-02T05:57:27.521Z"
+    },
+    {
+      "version": 55,
+      "at": "2026-11-02T05:57:27.545Z"
+    },
+    {
+      "version": 56,
+      "at": "2026-11-02T05:57:27.571Z"
+    },
+    {
+      "version": 57,
+      "at": "2026-11-02T05:57:27.595Z"
+    },
+    {
+      "version": 58,
+      "at": "2026-11-02T05:57:27.618Z"
+    },
+    {
+      "version": 59,
+      "at": "2026-11-02T05:57:27.641Z"
+    },
+    {
+      "version": 60,
+      "at": "2026-11-02T05:57:27.664Z"
+    },
+    {
+      "version": 61,
+      "at": "2026-11-02T05:57:27.686Z"
+    },
+    {
+      "version": 62,
+      "at": "2026-11-02T05:57:27.708Z"
+    },
+    {
+      "version": 63,
+      "at": "2026-11-02T05:57:27.731Z"
+    },
+    {
+      "version": 64,
+      "at": "2026-11-02T05:57:27.759Z"
+    },
+    {
+      "version": 65,
+      "at": "2026-11-02T05:57:27.782Z"
+    },
+    {
+      "version": 66,
+      "at": "2026-11-02T05:57:27.805Z"
+    },
+    {
+      "version": 67,
+      "at": "2026-11-02T05:57:27.828Z"
+    },
+    {
+      "version": 68,
+      "at": "2026-11-02T05:57:27.851Z"
+    },
+    {
+      "version": 69,
+      "at": "2026-11-02T05:57:27.874Z"
+    },
+    {
+      "version": 70,
+      "at": "2026-11-02T05:57:27.899Z"
+    },
+    {
+      "version": 71,
+      "at": "2026-11-02T05:57:27.922Z"
+    },
+    {
+      "version": 72,
+      "at": "2026-11-02T05:57:27.945Z"
+    },
+    {
+      "version": 73,
+      "at": "2026-11-02T05:57:27.967Z"
+    },
+    {
+      "version": 74,
+      "at": "2026-11-02T05:57:28.044Z"
+    },
+    {
+      "version": 75,
+      "at": "2026-11-02T05:57:28.067Z"
+    },
+    {
+      "version": 76,
+      "at": "2026-11-02T05:57:28.090Z"
+    },
+    {
+      "version": 77,
+      "at": "2026-11-02T05:57:28.112Z"
+    },
+    {
+      "version": 78,
+      "at": "2026-11-02T05:57:28.135Z"
+    },
+    {
+      "version": 79,
+      "at": "2026-11-02T05:57:28.158Z"
+    },
+    {
+      "version": 80,
+      "at": "2026-11-02T05:57:28.182Z"
+    },
+    {
+      "version": 81,
+      "at": "2026-11-02T05:57:28.205Z"
+    },
+    {
+      "version": 82,
+      "at": "2026-11-02T05:57:28.231Z"
+    },
+    {
+      "version": 83,
+      "at": "2026-11-02T05:57:28.254Z"
+    },
+    {
+      "version": 84,
+      "at": "2026-11-02T05:57:28.277Z"
+    },
+    {
+      "version": 85,
+      "at": "2026-11-02T05:57:28.300Z"
+    },
+    {
+      "version": 86,
+      "at": "2026-11-02T05:57:28.323Z"
+    },
+    {
+      "version": 87,
+      "at": "2026-11-02T05:57:28.347Z"
+    },
+    {
+      "version": 88,
+      "at": "2026-11-02T05:57:28.370Z"
+    },
+    {
+      "version": 89,
+      "at": "2026-11-02T05:57:28.392Z"
+    },
+    {
+      "version": 90,
+      "at": "2026-11-02T05:57:28.414Z"
+    },
+    {
+      "version": 91,
+      "at": "2026-11-02T05:57:28.438Z"
+    },
+    {
+      "version": 92,
+      "at": "2026-11-02T05:57:28.463Z"
+    },
+    {
+      "version": 93,
+      "at": "2026-11-02T05:57:28.486Z"
+    },
+    {
+      "version": 94,
+      "at": "2026-11-02T05:57:28.509Z"
+    },
+    {
+      "version": 95,
+      "at": "2026-11-02T05:57:28.532Z"
+    },
+    {
+      "version": 96,
+      "at": "2026-11-02T05:57:28.560Z"
+    },
+    {
+      "version": 97,
+      "at": "2026-11-02T05:57:28.583Z"
+    },
+    {
+      "version": 98,
+      "at": "2026-11-02T05:57:28.605Z"
+    },
+    {
+      "version": 99,
+      "at": "2026-11-02T05:57:28.628Z"
+    },
+    {
+      "version": 100,
+      "at": "2026-11-02T05:57:28.651Z"
+    },
+    {
+      "version": 101,
+      "at": "2026-11-02T05:57:28.674Z"
+    },
+    {
+      "version": 102,
+      "at": "2026-11-02T05:57:28.699Z"
+    },
+    {
+      "version": 103,
+      "at": "2026-11-02T05:57:28.721Z"
+    },
+    {
+      "version": 104,
+      "at": "2026-11-02T05:57:28.745Z"
+    },
+    {
+      "version": 105,
+      "at": "2026-11-02T05:57:28.767Z"
+    }
+  ],
+  "updateMinIntervalMs": 0,
+  "watchTrace": [
+    {
+      "kind": "transform",
+      "at": 1793599046220,
+      "sha256": "af2bfda4e6942d92948b6c4bf5d8bd78e346111e6813ff78a15cfa003ac5b677"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046360,
+      "version": 10
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046382,
+      "version": 10
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046384,
+      "version": 11
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046397,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046397,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046398,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046398,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046401,
+      "sha256": "d221b2ae65c47d36f11803ce3e754112be654ab68aa5302c6e9cc64c078a7d9b"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046406,
+      "version": 11
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046408,
+      "version": 12
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046429,
+      "version": 12
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046431,
+      "version": 13
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046453,
+      "version": 13
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046454,
+      "version": 14
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046476,
+      "version": 14
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046478,
+      "version": 15
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046497,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046497,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046497,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046497,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046498,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046499,
+      "version": 15
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046500,
+      "sha256": "07ae8096ee97aaeb2e9fc4ac95336faa8f1321aad6639a17675b08bd7ab9d0c1"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046501,
+      "version": 16
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046522,
+      "version": 16
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046539,
+      "version": 17
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046560,
+      "version": 17
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046562,
+      "version": 18
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046584,
+      "version": 18
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046586,
+      "version": 19
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046597,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046597,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046598,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046598,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046598,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046600,
+      "sha256": "2701b84b6e7af53fe3ad7bb98387edfa0dd5ee9ba2dd2fd59f83319dec286131"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046607,
+      "version": 19
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046608,
+      "version": 20
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046630,
+      "version": 20
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046631,
+      "version": 21
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046653,
+      "version": 21
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046654,
+      "version": 22
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046676,
+      "version": 22
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046678,
+      "version": 23
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046698,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046698,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046699,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046699,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046699,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046699,
+      "version": 23
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046701,
+      "version": 24
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046702,
+      "sha256": "82cc9a4b6a82b3f6d6834a30a41f111d63dc4ceadfc5efc7266dd32fff696d43"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046722,
+      "version": 24
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046723,
+      "version": 25
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046745,
+      "version": 25
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046747,
+      "version": 26
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046768,
+      "version": 26
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046769,
+      "version": 27
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046790,
+      "version": 27
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046792,
+      "version": 28
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046799,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046799,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046799,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046800,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046800,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046802,
+      "sha256": "cf7b80525bffac14af1e018201b66ef34173fdec5aec752e1a3b985574c167ec"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046813,
+      "version": 28
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046814,
+      "version": 29
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046841,
+      "version": 29
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046843,
+      "version": 30
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046866,
+      "version": 30
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046868,
+      "version": 31
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046889,
+      "version": 31
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046891,
+      "version": 32
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046901,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046901,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046901,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046901,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046902,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046905,
+      "sha256": "1e9ffb021812c08e601521a1fedec0eb981ae5a52bc1ac0dbee66d575acba509"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046912,
+      "version": 32
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046917,
+      "version": 33
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046939,
+      "version": 33
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046941,
+      "version": 34
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046962,
+      "version": 34
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046963,
+      "version": 35
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046985,
+      "version": 35
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046987,
+      "version": 36
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047003,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047003,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047003,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047003,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047004,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047004,
+      "sha256": "03fa48138ffa1e504740dc8c169e7d4f9d0a9c6c51b5fa5cb686cf644a698b0f"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047008,
+      "version": 36
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047009,
+      "version": 37
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047031,
+      "version": 37
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047032,
+      "version": 38
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047055,
+      "version": 38
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047057,
+      "version": 39
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047086,
+      "version": 39
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047087,
+      "version": 40
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047101,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047101,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047102,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047102,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047102,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047104,
+      "sha256": "4717c8732936d2b68fa6275d2969fd274405d9bfabaa721cb1f424a1c8077801"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047108,
+      "version": 40
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047109,
+      "version": 41
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047131,
+      "version": 41
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047202,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047203,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047203,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047203,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047204,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047205,
+      "sha256": "db795c7efe8b4215209906535d3f6b94d86f0e155e378dfa024b879ce313a9bd"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047220,
+      "version": 42
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047241,
+      "version": 42
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047243,
+      "version": 43
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047265,
+      "version": 43
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047266,
+      "version": 44
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047288,
+      "version": 44
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047290,
+      "version": 45
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047303,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047303,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047303,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047303,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047304,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047306,
+      "sha256": "7e717d204739df8c085e38c852f09b7bd6c281bbf4e02ffd7a618c13b18655e1"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047311,
+      "version": 45
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047312,
+      "version": 46
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047334,
+      "version": 46
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047336,
+      "version": 47
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047362,
+      "version": 47
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047363,
+      "version": 48
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047385,
+      "version": 48
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047386,
+      "version": 49
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047404,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047404,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047404,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047404,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047405,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047406,
+      "sha256": "305eeedd0d36f96b49f0c0238540562ae1989ea016135f7d23c53b618f74eb13"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047407,
+      "version": 49
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047408,
+      "version": 50
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047430,
+      "version": 50
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047431,
+      "version": 51
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047452,
+      "version": 51
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047454,
+      "version": 52
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047475,
+      "version": 52
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047477,
+      "version": 53
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047499,
+      "version": 53
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047500,
+      "version": 54
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047504,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047504,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047504,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047505,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047505,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047506,
+      "sha256": "bdd578621226d5ee50fe69918e62ba2ac9ac6c3347b374e03e0aba3d090698d3"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047521,
+      "version": 54
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047523,
+      "version": 55
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047545,
+      "version": 55
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047547,
+      "version": 56
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047571,
+      "version": 56
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047574,
+      "version": 57
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047595,
+      "version": 57
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047597,
+      "version": 58
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047606,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047606,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047606,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047606,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047607,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047608,
+      "sha256": "2124191b0e5443506abd53be8f0f504c94f23f8a5bbc5935310b2a701dcbf184"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047618,
+      "version": 58
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047619,
+      "version": 59
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047641,
+      "version": 59
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047642,
+      "version": 60
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047664,
+      "version": 60
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047665,
+      "version": 61
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047686,
+      "version": 61
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047687,
+      "version": 62
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047706,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047706,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047707,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047707,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047707,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047708,
+      "version": 62
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047709,
+      "version": 63
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047709,
+      "sha256": "7ded7315ce095c7c543a12c747e3d444c43b75db7457170c541181f3037d3fa2"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047731,
+      "version": 63
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047733,
+      "version": 64
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047759,
+      "version": 64
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047760,
+      "version": 65
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047782,
+      "version": 65
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047784,
+      "version": 66
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047805,
+      "version": 66
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047806,
+      "version": 67
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047807,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047807,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047807,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047808,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047808,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047809,
+      "sha256": "8247b2b997dda855a8b28ebfd5ded5911bc80906129da85afd092933c5b36c31"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047828,
+      "version": 67
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047830,
+      "version": 68
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047851,
+      "version": 68
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047852,
+      "version": 69
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047874,
+      "version": 69
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047875,
+      "version": 70
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047899,
+      "version": 70
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047900,
+      "version": 71
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599047908,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599047908,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599047909,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599047909,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599047909,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599047911,
+      "sha256": "debd16a9b13e419a05123cb28036fea3948cec2a145751560ed2b5c295b468b7"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047922,
+      "version": 71
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047923,
+      "version": 72
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047945,
+      "version": 72
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599047946,
+      "version": 73
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599047967,
+      "version": 73
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048009,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048009,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048010,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048010,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048010,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048012,
+      "sha256": "8f7e88eef535d1d04a26d6a792f81f6e6b719d9439ad5c07f102878daa1cdd75"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048023,
+      "version": 74
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048044,
+      "version": 74
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048046,
+      "version": 75
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048067,
+      "version": 75
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048069,
+      "version": 76
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048090,
+      "version": 76
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048091,
+      "version": 77
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048110,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048110,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048110,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048111,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048111,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048112,
+      "version": 77
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048113,
+      "sha256": "0dabf39434f4f3d645c0db784aec7150d69b4bc276c026af2a7d5478654fad0c"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048113,
+      "version": 78
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048135,
+      "version": 78
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048137,
+      "version": 79
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048158,
+      "version": 79
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048160,
+      "version": 80
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048182,
+      "version": 80
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048183,
+      "version": 81
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048205,
+      "version": 81
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048207,
+      "version": 82
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048211,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048211,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048212,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048212,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048213,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048214,
+      "sha256": "737cf277aea1d4bd1c189a2f61522fd0022115ee1ebb0fb6c7bcd9fd3006e08f"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048231,
+      "version": 82
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048232,
+      "version": 83
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048254,
+      "version": 83
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048255,
+      "version": 84
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048277,
+      "version": 84
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048278,
+      "version": 85
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048300,
+      "version": 85
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048301,
+      "version": 86
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048312,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048312,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048312,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048312,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048313,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048314,
+      "sha256": "16ae103ccb3561e33ccbb90ca4489c5e8d4597a743d07fb111ddbdba3dcdb443"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048323,
+      "version": 86
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048325,
+      "version": 87
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048347,
+      "version": 87
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048349,
+      "version": 88
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048370,
+      "version": 88
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048371,
+      "version": 89
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048392,
+      "version": 89
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048393,
+      "version": 90
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048413,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048413,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048413,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048413,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048414,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048414,
+      "version": 90
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048416,
+      "version": 91
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048418,
+      "sha256": "217da739dae423a6c8daa23f80b37cf418a208d3a294c573df29cdb1b1269dc7"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048438,
+      "version": 91
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048440,
+      "version": 92
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048463,
+      "version": 92
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048465,
+      "version": 93
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048486,
+      "version": 93
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048488,
+      "version": 94
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048509,
+      "version": 94
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048511,
+      "version": 95
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048513,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048513,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048513,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048513,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048514,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048515,
+      "sha256": "a94a3ec647cd3583a33cf28f5d518e29cd7a78015c9f6e5b5822846d0e5175ad"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048532,
+      "version": 95
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048534,
+      "version": 96
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048560,
+      "version": 96
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048562,
+      "version": 97
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048583,
+      "version": 97
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048584,
+      "version": 98
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048605,
+      "version": 98
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048606,
+      "version": 99
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048614,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048614,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048614,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048614,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048615,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048618,
+      "sha256": "9e3ee24796bbdd2473de07851fb1d38be92ee02d5ea6cd0ea457d334f5b7aa58"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048628,
+      "version": 99
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048629,
+      "version": 100
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048651,
+      "version": 100
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048652,
+      "version": 101
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048674,
+      "version": 101
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048676,
+      "version": 102
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048699,
+      "version": 102
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048701,
+      "version": 103
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048715,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048715,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048715,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048715,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048716,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048717,
+      "sha256": "f507a4fa985ac93af2e69bcfdfd13b9b98bfd4b0f1a6b4194dbfd92ab5320037"
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048721,
+      "version": 103
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048723,
+      "version": 104
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048745,
+      "version": 104
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599048746,
+      "version": 105
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599048767,
+      "version": 105
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599048816,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599048816,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599048816,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599048816,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599048817,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599048818,
+      "sha256": "adae5474554c0f1d027963ce5074f5b54797e793c3b32e2997073436c9bce7cf"
+    }
+  ],
+  "serverNode": "v22.23.4",
+  "writeMode": "chunked",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-6fmUiE/consumer/node_modules/svet-engine",
+  "peerRuntime": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-Prv7fT/peer",
+  "fixtureSha256": "0e872953a1d108a1bcc658e854d056f53325fb6583e0be0d5658b90c187cf0aa"
+}

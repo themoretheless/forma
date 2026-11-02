@@ -1,0 +1,14 @@
+{
+  "startedAt": "2026-11-01T18:19:06.417Z",
+  "node": "v22.23.4",
+  "requests": 64,
+  "unusedStreams": 16,
+  "scope": "64 Node isolated requests, both codecs, terminal stream+reader handles retained after complete/cancel/abort/background-error. WeakRef object collection only; errors originate outside request. No RSS plateau or arbitrary user error graph claim.",
+  "objects": 432,
+  "aliveWithHandles": {},
+  "aliveAfterRelease": 0,
+  "status": "passed",
+  "completedAt": "2026-11-01T18:19:06.552Z",
+  "sourceSha256": "831b6656daa714d76e4e8e8e019d3d4400fcefcc6fd9d98cea15b601386be61b",
+  "serverRuntimeSha256": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b"
+}

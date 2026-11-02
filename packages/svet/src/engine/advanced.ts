@@ -34,7 +34,7 @@ import {
   type Signal,
   untrack,
 } from './reactivity.ts';
-import { getWasmCore } from './wasm-bridge.ts';
+import { getWasmCore, withWasmCore } from './wasm-bridge.ts';
 
 // ============================================================================
 // 1. Hierarchical Context System (`createContext` / `useContext`)
@@ -78,7 +78,7 @@ export function createContext<T>(defaultValue: T): SvetContext<T> {
   return { id, defaultValue, Provider };
 }
 
-export function useContext<T>(context: SvetContext<T>): T {
+export function useContext<T>(context: Pick<SvetContext<T>, 'id' | 'defaultValue'>): T {
   return lookupOwnerContext(context.id, context.defaultValue);
 }
 
@@ -131,8 +131,14 @@ interface SuspenseController {
   decrement(): void;
 }
 
-const SuspenseContext = createContext<SuspenseController | null>(null);
-const ErrorBoundaryContext = createContext<((err: Error) => void) | null>(null);
+// Built-in protocols must agree across compatible copies sharing an owner/core.
+// User createContext calls intentionally retain unique identities.
+const SuspenseContext: Pick<SvetContext<SuspenseController | null>, 'id' | 'defaultValue'> = {
+  id: Symbol.for('svet.context.suspense.v1'), defaultValue: null,
+} as const;
+const ErrorBoundaryContext: Pick<SvetContext<((err: Error) => void) | null>, 'id' | 'defaultValue'> = {
+  id: Symbol.for('svet.context.error-boundary.v1'), defaultValue: null,
+} as const;
 
 export interface ResourceFetcherContext {
   readonly signal: AbortSignal;
@@ -156,8 +162,8 @@ export interface Resource<T> {
  * in-flight requests via `AbortController` when the source changes or the owner scope disposes!
  */
 export function createResource<T, S = true>(
-  sourceOrFetcher: (() => S) | ((ctx: ResourceFetcherContext) => Promise<T>),
-  maybeFetcher?: (source: S, ctx: ResourceFetcherContext) => Promise<T>,
+  sourceOrFetcher: (() => S) | ((ctx: ResourceFetcherContext) => PromiseLike<T>),
+  maybeFetcher?: (source: S, ctx: ResourceFetcherContext) => PromiseLike<T>,
   options?: { initialValue?: T }
 ): Resource<T> {
   const owner = getCurrentOwner(), core = getWasmCore(), generation = getReactiveGeneration(core);
@@ -170,7 +176,7 @@ export function createResource<T, S = true>(
   const sourceFn = hasSource ? (sourceOrFetcher as () => S) : () => true as unknown as S;
   const fetcher = hasSource
     ? maybeFetcher!
-    : (sourceOrFetcher as unknown as (s: S, ctx: ResourceFetcherContext) => Promise<T>);
+    : (sourceOrFetcher as unknown as (s: S, ctx: ResourceFetcherContext) => PromiseLike<T>);
 
   const initialValue = options?.initialValue;
   assertConstructionCurrent();
@@ -253,7 +259,7 @@ export function createResource<T, S = true>(
       if (!requestCurrent()) return undefined;
       const result = await (hasSource
         ? fetcher(srcVal, { signal: controller.signal })
-        : (sourceOrFetcher as (ctx: ResourceFetcherContext) => Promise<T>)({
+        : (sourceOrFetcher as (ctx: ResourceFetcherContext) => PromiseLike<T>)({
             signal: controller.signal,
           }));
       runUntrackedInCore(core, () => {
@@ -417,6 +423,12 @@ export function Suspense(props: {
   });
 }
 
+// Keep externally retained callbacks outside the component closure environment.
+function retirableCallback(callback: () => void): { invoke: () => void; dispose: () => void } {
+  let active: (() => void) | null = callback;
+  return { invoke: () => { active?.(); }, dispose: () => { active = null; } };
+}
+
 /**
  * Catches synchronous rendering/effect errors AND async `createResource` errors in its subtree,
  * rendering `fallback(error, reset)` and allowing full recovery when `reset()` is invoked.
@@ -456,10 +468,19 @@ export function ErrorBoundary(props: {
       currentNodes = mountOwnedViewNodes(frag, anchor, nodesToMount, assertViewCurrent);
     };
 
-    const reset = () => batch(() => {
-      caughtError.set(null);
-      attemptCounter.update((c) => c + 1);
+    // Retry can be called outside this copy's ambient core (e.g. host SSR).
+    // A weak reference avoids extending core lifetime through a retained retry.
+    const boundaryCore = new WeakRef(getWasmCore());
+    const retry = retirableCallback(() => {
+      const core = boundaryCore.deref();
+      if (!core) return;
+      withWasmCore(core, () => batch(() => {
+        caughtError.set(null);
+        attemptCounter.update((c) => c + 1);
+      }));
     });
+    onCleanup(retry.dispose);
+    const reset = retry.invoke;
 
     effect(() => {
       const err = caughtError();
@@ -535,7 +556,9 @@ export interface RouterInstance {
   dispose(): void;
 }
 
-const RouterContext = createContext<RouterInstance | null>(null);
+const RouterContext: Pick<SvetContext<RouterInstance | null>, 'id' | 'defaultValue'> = {
+  id: Symbol.for('svet.context.router.v1'), defaultValue: null,
+};
 
 function parseUrlParts(rawUrl: string): {
   pathname: string;
@@ -631,6 +654,65 @@ function stampRouterHistory(state: unknown, position: RouterHistoryPosition): Re
   return {...base, [routerHistoryKey]: position};
 }
 
+function routerMatcher(options: { routes: RouteDefinition[] }) {
+  let liveOptions: { routes: RouteDefinition[] } | null = options;
+  let routes: RouteDefinition[] = [];
+  return {
+    match: (rawUrl: string): ReturnType<RouterInstance['match']> => {
+      // Live configuration can replace the array. Retirement keeps the last
+      // observed table without retaining the whole options/guard environment.
+      if (liveOptions) routes = liveOptions.routes;
+      const { pathname, query, hash } = parseUrlParts(rawUrl);
+      for (const route of routes) {
+        const params = matchRoutePattern(route.path, pathname);
+        if (params !== null) return { route, params, pathname, query, hash };
+      }
+      return { route: null, params: {}, pathname, query, hash };
+    },
+    retire: () => { liveOptions = null; },
+  };
+}
+
+function retirableRouterSignal<T>(source: ReadonlySignal<T>) {
+  let current: ReadonlySignal<T> | null = source;
+  let value: T;
+  const read = (() => current ? current() : value) as ReadonlySignal<T>;
+  Object.defineProperties(read, {id: {value: source.id}, __svet_sig: {value: true}});
+  read.peek = () => current ? current.peek() : value;
+  const retire = () => { if (current) { value = current.peek(); current = null; } };
+  read.dispose = () => { if (current) { current.dispose(); retire(); } };
+  return { read, retire };
+}
+
+function retirableRouter(implementation: RouterInstance) {
+  let current: RouterInstance | null = implementation;
+  const path = retirableRouterSignal(implementation.path);
+  const params = retirableRouterSignal(implementation.params);
+  const query = retirableRouterSignal(implementation.query);
+  const hash = retirableRouterSignal(implementation.hash);
+  const removers = new Set<() => void>();
+  const router: RouterInstance = {
+    path: path.read, params: params.read, query: query.read, hash: hash.read,
+    navigate: to => current?.navigate(to) ?? false,
+    beforeEach: guard => {
+      if (!current) return () => {};
+      const remover = retirableCallback(current.beforeEach(guard));
+      removers.add(remover.dispose);
+      return () => {
+        try { remover.invoke(); }
+        finally { remover.dispose(); removers.delete(remover.dispose); }
+      };
+    },
+    match: implementation.match,
+    dispose: () => { current?.dispose(); },
+  };
+  return { router, retire: () => {
+    path.retire(); params.retire(); query.retire(); hash.retire(); current = null;
+    for (const retire of removers) retire();
+    removers.clear();
+  } };
+}
+
 export function createRouter(options: {
   routes: RouteDefinition[];
   initialPath?: string;
@@ -659,16 +741,8 @@ export function createRouter(options: {
       ? `${browserWindow.location.pathname}${browserWindow.location.search ?? ''}${browserWindow.location.hash ?? ''}`
       : '/');
 
-  const match = (rawUrl: string) => {
-    const { pathname, query, hash } = parseUrlParts(rawUrl);
-    for (const route of options.routes) {
-      const matchedParams = matchRoutePattern(route.path, pathname);
-      if (matchedParams !== null) {
-        return { route, params: matchedParams, pathname, query, hash };
-      }
-    }
-    return { route: null, params: {}, pathname, query, hash };
-  };
+  const matcher = routerMatcher(options);
+  const match = matcher.match;
 
   const initialBase = browserWindow
     ? `${browserWindow.location.pathname}${browserWindow.location.search ?? ''}${browserWindow.location.hash ?? ''}`
@@ -768,12 +842,12 @@ export function createRouter(options: {
     currentFull = normalized;
     acceptedPosition = physicalPosition;
     acceptedCommit = {};
-    batch(() => {
+    withWasmCore(core, () => batch(() => {
       currentPath.set(nextMatch.pathname);
       currentParams.set(nextMatch.params);
       currentQuery.set(nextMatch.query);
       currentHash.set(nextMatch.hash);
-    });
+    }));
     return true;
   };
 
@@ -827,6 +901,7 @@ export function createRouter(options: {
     browserWindow.addEventListener('popstate', onPopState);
   }
 
+  let retireHandle: (() => void) | undefined;
   const dispose = () => {
     if (disposed) return;
     disposed = true; navigationVersion++;
@@ -843,10 +918,12 @@ export function createRouter(options: {
     currentParams.dispose();
     currentQuery.dispose();
     currentHash.dispose();
+    matcher.retire();
+    retireHandle?.();
   };
   onCleanup(dispose);
 
-  return {
+  const handle = retirableRouter({
     path: currentPath,
     params: currentParams,
     query: currentQuery,
@@ -855,7 +932,9 @@ export function createRouter(options: {
     beforeEach,
     match,
     dispose,
-  };
+  });
+  retireHandle = handle.retire;
+  return handle.router;
 }
 
 export function useRouter(): RouterInstance {

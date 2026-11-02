@@ -1,0 +1,99 @@
+{
+  "status": "validated-native-allocation-reduction",
+  "change": [
+    "Expand creates node shell with evaluated props/children instead of cloning discarded source subtree",
+    "Instantiate borrows definition nodes until supplied content requires mutation"
+  ],
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "6971013331f158fcf0999869400234f02f6b47fe38c15208ed5870fc2b59370a"
+  },
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 556695,
+      "afterEditRequestedBytes": 520423,
+      "reductionPercent": 6.5155965115548,
+      "beforeEditAllocations": 4735,
+      "afterEditAllocations": 4391
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 3228500,
+      "afterEditRequestedBytes": 3083412,
+      "reductionPercent": 4.493975530432093,
+      "beforeEditAllocations": 26052,
+      "afterEditAllocations": 24676
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 18087804,
+      "afterEditRequestedBytes": 17652540,
+      "reductionPercent": 2.4063949388217654,
+      "beforeEditAllocations": 139227,
+      "afterEditAllocations": 135099
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 104124344,
+      "afterEditRequestedBytes": 102963640,
+      "reductionPercent": 1.114728751616434,
+      "beforeEditAllocations": 780506,
+      "afterEditAllocations": 769498
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 561069,
+      "afterEditRequestedBytes": 524797,
+      "reductionPercent": 6.46480201187376,
+      "beforeEditAllocations": 4771,
+      "afterEditAllocations": 4427
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 3251091,
+      "afterEditRequestedBytes": 3106003,
+      "reductionPercent": 4.4627480436567275,
+      "beforeEditAllocations": 26219,
+      "afterEditAllocations": 24843
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 18154043,
+      "afterEditRequestedBytes": 17718779,
+      "reductionPercent": 2.397614680101834,
+      "beforeEditAllocations": 139714,
+      "afterEditAllocations": 135586
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 104300015,
+      "afterEditRequestedBytes": 103139311,
+      "reductionPercent": 1.112851230174794,
+      "beforeEditAllocations": 781793,
+      "afterEditAllocations": 770785
+    }
+  ],
+  "repeat": "Both release runs have identical allocation counters for all samples",
+  "validation": {
+    "libraryTests": 161,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "actualGeneratedNodeWasm": "passed"
+  },
+  "regression": "Distinct supplied content and no-content instantiation preserve shared definition and independent returned nodes",
+  "limitations": [
+    "Cumulative requested bytes are not live memory",
+    "No controlled latency/FPS/presentation claim",
+    "Full per-control model snapshots and large-form readiness remain open",
+    "No fresh browser/window/GPU qualification"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "node": "v22.23.4",
+  "protocol": "forma-scene-artifact/1",
+  "checks": [
+    "Rust compile via JS static API",
+    "versioned JSON load",
+    "empty layout scroll extent",
+    "viewport parity",
+    "malformed/version/extent/mapping refusals preserve runtime",
+    "reload changes layout revision",
+    "oversized layout reachable along both scroll axes"
+  ],
+  "scope": "Generated wasm-bindgen NodeJS ABI, actual WASM execution; not browser UI/window qualification",
+  "wasmSha256": "e0e9413f91cf7b3115ff47325210b485bb62fc6b4d0013ee4a2a9a738deb1c79"
+}

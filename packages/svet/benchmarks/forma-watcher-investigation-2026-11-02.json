@@ -1,0 +1,22 @@
+{
+  "status": "diagnostic-progress-historical-failure-unresolved",
+  "runtimeSha256": "8adcc1f5adeb5c7c5467b6ca5cf49aceb85a563ced76531284ee5990226a6bae",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-6fmUiE/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "reports": [
+    "forma-watcher-diagnostic-2026-11-02.json",
+    "forma-watcher-traced-browser-2026-11-02.json",
+    "forma-watcher-burst-browser-2026-11-02.json"
+  ],
+  "evidence": {
+    "isolatedNode": "6/6 latest module delivered,with and without write stability",
+    "unpacedChromiumLifecycle": "27/27,eight writes each have watcher/hook trace",
+    "burstChromium": "3/3,96 writes,4 watcher events,last version delivered each cycle,graph0"
+  },
+  "limitations": [
+    "Historical unpaced update5 failure not reproduced or explained",
+    "No universal every-write delivery guarantee; intermediate changes can coalesce",
+    "Timing diagnostic only,not performance baseline",
+    "Other browsers/filesystems/write patterns remain open"
+  ]
+}

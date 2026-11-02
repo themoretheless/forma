@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-02",
+  "status": "diagnostic instrumentation validated; long diagnostic in progress",
+  "diagnostics": [
+    "server sockets and lifecycle byte totals",
+    "server readable/writable queue sizes",
+    "active/peak HTTP responses",
+    "active resource kinds",
+    "V8 external/malloced/physical memory",
+    "main core WASM bytes",
+    "global and per-window external peak observations with simultaneous diagnostics",
+    "before/after shutdown snapshots after server socket close events"
+  ],
+  "smokes": {
+    "smoke": {
+      "status": "passed",
+      "requests": 1512,
+      "forcedGCs": 0,
+      "serverSocketsAfterShutdown": 0,
+      "activeResponsesAfterShutdown": 0,
+      "artifactsUnchanged": true
+    },
+    "forced": {
+      "status": "passed",
+      "requests": 96,
+      "forcedGCs": 12,
+      "serverSocketsAfterShutdown": 0,
+      "activeResponsesAfterShutdown": 0,
+      "artifactsUnchanged": true
+    },
+    "failure": {
+      "status": "failed",
+      "requests": 7,
+      "forcedGCs": 0,
+      "serverSocketsAfterShutdown": 0,
+      "activeResponsesAfterShutdown": 0,
+      "artifactsUnchanged": true
+    }
+  },
+  "package_gate": "passed; consumer preserved for frozen 30-minute diagnostic",
+  "harness_sha256": "c453ea43f4a29a32847195ce51de08e371e4d9502ba3a3aff298d922d6c1ee39",
+  "open": [
+    "30-minute diagnostic pending",
+    "2-hour memory budget qualification not rerun",
+    "No conclusion on cause of external-memory peaks; empty server queues do not rule out client/native allocations",
+    "No forced GC in natural runs; budgets unchanged"
+  ]
+}

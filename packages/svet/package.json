@@ -29,6 +29,14 @@
     "./reactivity": {
       "types": "./dist/package/reactivity.d.ts",
       "import": "./dist/package/reactivity.js"
+    },
+    "./server-runtime": {
+      "types": "./dist/package/ssr-runtime.d.ts",
+      "import": "./dist/package/ssr-runtime.js"
+    },
+    "./core.wasm": {
+      "types": "./dist/package/svet-core.wasm.d.ts",
+      "default": "./dist/package/svet-core.wasm"
     }
   },
   "scripts": {
@@ -43,7 +51,9 @@
     "test:actions": "npm run build:package && node --test scripts/check-action-http.mjs",
     "dev:actions": "node scripts/serve-action-browser.mjs",
     "dev:resume": "npm run build:package && node scripts/serve-resumption-browser.mjs",
-    "bench:adoption:prepare": "node scripts/prepare-adoption-bench.mjs"
+    "bench:adoption:prepare": "node scripts/prepare-adoption-bench.mjs",
+    "bench:resident-app:prepare": "node scripts/prepare-resident-app-bench.mjs",
+    "test:edge": "npm run build:package && node scripts/check-edge-ssr.mjs"
   },
   "devDependencies": {
     "@jridgewell/trace-mapping": "^0.3.31",

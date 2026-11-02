@@ -1,0 +1,54 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/router-foreign-core.test.ts (1 test | 1 failed) 18ms
+   × navigate publishes all URL fields atomically in its own core 17ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/router-foreign-core.test.ts > navigate publishes all URL fields atomically in its own core
+AssertionError: expected [ [ '/start', undefined, …(2) ], …(4) ] to deeply equal [ [ '/start', undefined, …(2) ], …(1) ]
+
+- Expected
++ Received
+
+@@ -6,9 +6,27 @@
+      "",
+    ],
+    [
+      "/next/7",
+      undefined,
++     undefined,
++     "",
++   ],
++   [
++     "/next/7",
++     undefined,
++     undefined,
++     "",
++   ],
++   [
++     "/next/7",
++     undefined,
++     "value",
++     "",
++   ],
++   [
++     "/next/7",
++     undefined,
+      "value",
+      "hash",
+    ],
+  ]
+
+ ❯ tests/router-foreign-core.test.ts:8:59
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  02:05:05
+   Duration  1.34s (environment 78%, transform 14%, import 5%, worker 2%, tests 1%)
+

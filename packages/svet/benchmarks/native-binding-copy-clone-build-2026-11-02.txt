@@ -1,0 +1,12 @@
+   Compiling svet-wasm v0.1.0 (/tmp/svet-binding-sync-isolated/clone/packages/svet/crates/svet-wasm)
+   Compiling forma v0.2.0 (/tmp/svet-binding-sync-isolated/clone/vector-ui)
+warning: function `lookup_binding_ref` is never used
+    --> src/form_document.rs:3595:4
+     |
+3595 | fn lookup_binding_ref<'a>(values: &'a Properties, path: &str) -> Option<&'a Value> {
+     |    ^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `forma` (lib) generated 1 warning
+    Finished `release` profile [optimized] target(s) in 28.19s

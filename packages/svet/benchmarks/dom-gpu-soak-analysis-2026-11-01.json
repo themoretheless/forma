@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "ticks": 7194,
+  "createdRetired": 1031,
+  "residentUpdates": 28776,
+  "explicitSnapshots": 1796,
+  "counterChecks": "creation/destruction bytes and buffers balanced; map count equals explicit snapshots",
+  "scope": "Retained raw accounting validation; no JS/driver memory plateau proof"
+}

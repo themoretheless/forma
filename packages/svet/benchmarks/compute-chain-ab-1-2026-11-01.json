@@ -1,0 +1,563 @@
+{
+  "measuredAt": "2026-10-31T21:39:48.984Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "adapter": {
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": false
+  },
+  "metadata": {
+    "snapshot": "snapshot-1793482776811",
+    "createdAt": "2026-10-31T21:39:36.811Z",
+    "baselineRevision": "48a8c5954d4b81daee605e87578e5fd028e4a94a",
+    "node": "v22.23.4",
+    "typescript": "5.9.3",
+    "fixtureSha256": "8a58d043ee18f3bf81379e59ab2af7abfab973c867040e8dc9ba49acf2fd0448",
+    "chainFixtureSha256": "4c2724ba06666453fe32638da2751731014d8fd3e1f501a27d5b16003d6b1828",
+    "variants": {
+      "baseline": {
+        "advanced.ts": {
+          "source": "1c215e667adc96f75d9a155411be6ec89611ad2d1b08218c9f77530cb4f7d751",
+          "javascript": "f3206611680073a9d55cc72ffab29e9b1609c677f80f0581ad0a49acd7e22899"
+        },
+        "compiler.ts": {
+          "source": "d124cd9acf34db2f9933c6f9ca5f5762670aaa4ca022b435145e2c3cc2277b8a",
+          "javascript": "18fe7e52b3220e421397fee2aa082d3c8f59a481da686c83fcd72864343f447a"
+        },
+        "devtools.ts": {
+          "source": "75cb348a0b43e981b0a0cee5ad47597c2c10a3cae2153c58a19a17bcc298e5e6",
+          "javascript": "7c0d5c6a566344aeca0cae6d2676b1510883fe653b1f002c751b195a3b7e67cf"
+        },
+        "dom.ts": {
+          "source": "7615266dfad73d76bdb5b5df212aaebb9478276eead2e8e539afc36e9e56a4d5",
+          "javascript": "cbbdbb131f41e647eece811a81699ae16cae905858424d93ae30cc004c0a093e"
+        },
+        "forma.ts": {
+          "source": "c93c5375ea2c1951982d3bc6e64f869ca7523c901c6114c0d8a773c7f0b783d3",
+          "javascript": "e63bf36329daed8d69eed13bf6f1e34618e529e7433af09fdd52d487e193031a"
+        },
+        "gpu.ts": {
+          "source": "355f01b8ee69c4e5d6d871eef6c06cfc9d91e05f08f7f16251c2489e590c36cb",
+          "javascript": "cad8ad9e227a86bffa4208f8b69fdd0bef0b196fdd7d794710d319d2a87678b5"
+        },
+        "index.ts": {
+          "source": "da17838e1e14970e5df4d115b2f9eaf66807a810bf2e02372123f2ec11be68ac",
+          "javascript": "5985d56e68fa122fda887abdfeb2b2f0f61187489382cfb0c78fa1e19d2ede86"
+        },
+        "jsx-runtime.ts": {
+          "source": "858bac73965300c8e3e0cbc5d324110aa833b281cc905402d221f96de8e421ad",
+          "javascript": "c7f7b3128a103e725bc192103cb9c160993bb8e119587e708b5c1ac335a0331c"
+        },
+        "reactivity.ts": {
+          "source": "a48d58914494ef25cd5eab67fe89904c583873fd6e0d3c479392e9b2cdbfe59d",
+          "javascript": "45a8eb49f05e4b552ce7552c1f2e2c73230e5e2aa511dc66826ebc7ef5b7f5e9"
+        },
+        "resumable.ts": {
+          "source": "44237719a316eca40bc30ca42415865c9c78d4abfccf0d59d26f25c542a376c1",
+          "javascript": "e77119d4abbc4dd0214a6496c9d56136eebd67a9a46f27f145f890be95e736f0"
+        },
+        "server.ts": {
+          "source": "e813af7266e89f1d60b1c00c42347e0931388a608284f4c2c9d1452fb4811679",
+          "javascript": "3c6913ebf28ddb660091c769fba98a2a3eac904b3765983fba939368952bfb37"
+        },
+        "wasm-binary.ts": {
+          "source": "5ad921d4b11a8e062e22798f187f254d64a6013baba4490b9fa494e67d591963",
+          "javascript": "7641ab5520aaaf47799a27c27920bf01649e323a2b9b9fe8e300551d5b5c837a"
+        },
+        "wasm-bridge.ts": {
+          "source": "295a35ae3c1488110f091d87ebfbe75b81e6526c9211756800b75b98d41189ff",
+          "javascript": "673372f96874e90fc27c6750320bffab41ca1f2543a0557fd068aa5761415ce7"
+        }
+      },
+      "candidate": {
+        "advanced.ts": {
+          "source": "1c215e667adc96f75d9a155411be6ec89611ad2d1b08218c9f77530cb4f7d751",
+          "javascript": "f3206611680073a9d55cc72ffab29e9b1609c677f80f0581ad0a49acd7e22899"
+        },
+        "compiler.ts": {
+          "source": "d124cd9acf34db2f9933c6f9ca5f5762670aaa4ca022b435145e2c3cc2277b8a",
+          "javascript": "18fe7e52b3220e421397fee2aa082d3c8f59a481da686c83fcd72864343f447a"
+        },
+        "devtools.ts": {
+          "source": "75cb348a0b43e981b0a0cee5ad47597c2c10a3cae2153c58a19a17bcc298e5e6",
+          "javascript": "7c0d5c6a566344aeca0cae6d2676b1510883fe653b1f002c751b195a3b7e67cf"
+        },
+        "dom.ts": {
+          "source": "7615266dfad73d76bdb5b5df212aaebb9478276eead2e8e539afc36e9e56a4d5",
+          "javascript": "cbbdbb131f41e647eece811a81699ae16cae905858424d93ae30cc004c0a093e"
+        },
+        "forma.ts": {
+          "source": "c93c5375ea2c1951982d3bc6e64f869ca7523c901c6114c0d8a773c7f0b783d3",
+          "javascript": "e63bf36329daed8d69eed13bf6f1e34618e529e7433af09fdd52d487e193031a"
+        },
+        "gpu.ts": {
+          "source": "cc613fc7ad3e4e9ec7e527873b8f4067a9382b79c94119454672a2740aecd507",
+          "javascript": "b530148a5e186227d4a118055a89f71a962fa7115e69b7602a37651b9ae4acac"
+        },
+        "index.ts": {
+          "source": "da17838e1e14970e5df4d115b2f9eaf66807a810bf2e02372123f2ec11be68ac",
+          "javascript": "5985d56e68fa122fda887abdfeb2b2f0f61187489382cfb0c78fa1e19d2ede86"
+        },
+        "jsx-runtime.ts": {
+          "source": "858bac73965300c8e3e0cbc5d324110aa833b281cc905402d221f96de8e421ad",
+          "javascript": "c7f7b3128a103e725bc192103cb9c160993bb8e119587e708b5c1ac335a0331c"
+        },
+        "reactivity.ts": {
+          "source": "a48d58914494ef25cd5eab67fe89904c583873fd6e0d3c479392e9b2cdbfe59d",
+          "javascript": "45a8eb49f05e4b552ce7552c1f2e2c73230e5e2aa511dc66826ebc7ef5b7f5e9"
+        },
+        "resumable.ts": {
+          "source": "44237719a316eca40bc30ca42415865c9c78d4abfccf0d59d26f25c542a376c1",
+          "javascript": "e77119d4abbc4dd0214a6496c9d56136eebd67a9a46f27f145f890be95e736f0"
+        },
+        "server.ts": {
+          "source": "e813af7266e89f1d60b1c00c42347e0931388a608284f4c2c9d1452fb4811679",
+          "javascript": "3c6913ebf28ddb660091c769fba98a2a3eac904b3765983fba939368952bfb37"
+        },
+        "wasm-binary.ts": {
+          "source": "5ad921d4b11a8e062e22798f187f254d64a6013baba4490b9fa494e67d591963",
+          "javascript": "7641ab5520aaaf47799a27c27920bf01649e323a2b9b9fe8e300551d5b5c837a"
+        },
+        "wasm-bridge.ts": {
+          "source": "295a35ae3c1488110f091d87ebfbe75b81e6526c9211756800b75b98d41189ff",
+          "javascript": "673372f96874e90fc27c6750320bffab41ca1f2543a0557fd068aa5761415ce7"
+        }
+      }
+    },
+    "scope": "Only gpu.ts differs; all other current engine sources and embedded WASM are identical."
+  },
+  "workloads": [
+    {
+      "length": 7,
+      "warmupRequestsPerMode": 10,
+      "requestsPerBatch": 30,
+      "kernelsPerRequest": 3,
+      "serialMedianBatchMs": 61.19999999925494,
+      "chainMedianBatchMs": 24.59999999962747,
+      "chainChangePercent": -59.80392156874681,
+      "rounds": [
+        {
+          "round": 0,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 56.69999999925494,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 5880,
+            "readbackBytes": 2520,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 22.90000000037253,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 2520,
+            "readbackBytes": 840,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        },
+        {
+          "round": 1,
+          "order": [
+            "chain",
+            "serial"
+          ],
+          "chain": {
+            "milliseconds": 25.59999999962747,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 2520,
+            "readbackBytes": 840,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          },
+          "serial": {
+            "milliseconds": 61,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 5880,
+            "readbackBytes": 2520,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          }
+        },
+        {
+          "round": 2,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 68,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 5880,
+            "readbackBytes": 2520,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 23.299999998882413,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 2520,
+            "readbackBytes": 840,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        },
+        {
+          "round": 3,
+          "order": [
+            "chain",
+            "serial"
+          ],
+          "chain": {
+            "milliseconds": 24.600000001490116,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 2520,
+            "readbackBytes": 840,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          },
+          "serial": {
+            "milliseconds": 64.79999999888241,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 5880,
+            "readbackBytes": 2520,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          }
+        },
+        {
+          "round": 4,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 62.5,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 5880,
+            "readbackBytes": 2520,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 24.59999999962747,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 2520,
+            "readbackBytes": 840,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        },
+        {
+          "round": 5,
+          "order": [
+            "chain",
+            "serial"
+          ],
+          "chain": {
+            "milliseconds": 28.5,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 2520,
+            "readbackBytes": 840,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          },
+          "serial": {
+            "milliseconds": 61.19999999925494,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 5880,
+            "readbackBytes": 2520,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          }
+        },
+        {
+          "round": 6,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 50.69999999925494,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 5880,
+            "readbackBytes": 2520,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 24.09999999962747,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 2520,
+            "readbackBytes": 840,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        }
+      ]
+    },
+    {
+      "length": 65536,
+      "warmupRequestsPerMode": 10,
+      "requestsPerBatch": 30,
+      "kernelsPerRequest": 3,
+      "serialMedianBatchMs": 128.69999999925494,
+      "chainMedianBatchMs": 50.59999999962747,
+      "chainChangePercent": -60.68376068382253,
+      "rounds": [
+        {
+          "round": 0,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 136.10000000149012,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 55050240,
+            "readbackBytes": 23592960,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 52.19999999925494,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 23592960,
+            "readbackBytes": 7864320,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        },
+        {
+          "round": 1,
+          "order": [
+            "chain",
+            "serial"
+          ],
+          "chain": {
+            "milliseconds": 58,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 23592960,
+            "readbackBytes": 7864320,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          },
+          "serial": {
+            "milliseconds": 136.2000000011176,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 55050240,
+            "readbackBytes": 23592960,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          }
+        },
+        {
+          "round": 2,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 131.80000000074506,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 55050240,
+            "readbackBytes": 23592960,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 48.90000000037253,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 23592960,
+            "readbackBytes": 7864320,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        },
+        {
+          "round": 3,
+          "order": [
+            "chain",
+            "serial"
+          ],
+          "chain": {
+            "milliseconds": 49.79999999888241,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 23592960,
+            "readbackBytes": 7864320,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          },
+          "serial": {
+            "milliseconds": 128.69999999925494,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 55050240,
+            "readbackBytes": 23592960,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          }
+        },
+        {
+          "round": 4,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 121.29999999888241,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 55050240,
+            "readbackBytes": 23592960,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 50.79999999888241,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 23592960,
+            "readbackBytes": 7864320,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        },
+        {
+          "round": 5,
+          "order": [
+            "chain",
+            "serial"
+          ],
+          "chain": {
+            "milliseconds": 50.59999999962747,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 23592960,
+            "readbackBytes": 7864320,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          },
+          "serial": {
+            "milliseconds": 124.20000000111759,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 55050240,
+            "readbackBytes": 23592960,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          }
+        },
+        {
+          "round": 6,
+          "order": [
+            "serial",
+            "chain"
+          ],
+          "serial": {
+            "milliseconds": 122,
+            "finalPublications": 30,
+            "submissions": 90,
+            "uploadedBytes": 55050240,
+            "readbackBytes": 23592960,
+            "maps": 90,
+            "pipelines": 0,
+            "buffers": 300,
+            "destroyed": 300
+          },
+          "chain": {
+            "milliseconds": 48,
+            "finalPublications": 30,
+            "submissions": 30,
+            "uploadedBytes": 23592960,
+            "readbackBytes": 7864320,
+            "maps": 30,
+            "pipelines": 0,
+            "buffers": 150,
+            "destroyed": 150
+          }
+        }
+      ]
+    }
+  ],
+  "comparison": "Both modes use the same candidate snapshot and warm pipeline cache. Serial uses private host intermediate tensors; both publish final output once.",
+  "scope": "Sequential three-kernel request latency including snapshots, allocations, validation, publication and first-value checks. Device-to-device chain copies are not included in upload/readback byte counts. No GPU timestamp, frame-time, persistent resident-handle or cross-framework claim."
+}

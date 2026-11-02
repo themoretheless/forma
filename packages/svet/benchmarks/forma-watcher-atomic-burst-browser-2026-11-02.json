@@ -1,0 +1,2745 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "Burst 1:32 writes reach v41,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 78.70000000298023,
+      "deliveryAfterLastAckMs": 708.2999999970198
+    },
+    {
+      "name": "Burst 2:32 writes reach v73,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 104.90000000596046,
+      "deliveryAfterLastAckMs": 89.19999998807907
+    },
+    {
+      "name": "Burst 3:32 writes reach v105,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 75.1000000089407,
+      "deliveryAfterLastAckMs": 33.20000000298023
+    }
+  ],
+  "hmrUpdates": 5,
+  "status": "passed",
+  "nodesAfter": 0,
+  "completedAt": "2026-11-02T05:57:26.414Z",
+  "fileChanges": [
+    {
+      "version": 10,
+      "at": "2026-11-02T05:57:25.327Z"
+    },
+    {
+      "version": 11,
+      "at": "2026-11-02T05:57:25.340Z"
+    },
+    {
+      "version": 12,
+      "at": "2026-11-02T05:57:25.343Z"
+    },
+    {
+      "version": 13,
+      "at": "2026-11-02T05:57:25.346Z"
+    },
+    {
+      "version": 14,
+      "at": "2026-11-02T05:57:25.348Z"
+    },
+    {
+      "version": 15,
+      "at": "2026-11-02T05:57:25.351Z"
+    },
+    {
+      "version": 16,
+      "at": "2026-11-02T05:57:25.353Z"
+    },
+    {
+      "version": 17,
+      "at": "2026-11-02T05:57:25.355Z"
+    },
+    {
+      "version": 18,
+      "at": "2026-11-02T05:57:25.357Z"
+    },
+    {
+      "version": 19,
+      "at": "2026-11-02T05:57:25.359Z"
+    },
+    {
+      "version": 20,
+      "at": "2026-11-02T05:57:25.361Z"
+    },
+    {
+      "version": 21,
+      "at": "2026-11-02T05:57:25.363Z"
+    },
+    {
+      "version": 22,
+      "at": "2026-11-02T05:57:25.364Z"
+    },
+    {
+      "version": 23,
+      "at": "2026-11-02T05:57:25.365Z"
+    },
+    {
+      "version": 24,
+      "at": "2026-11-02T05:57:25.367Z"
+    },
+    {
+      "version": 25,
+      "at": "2026-11-02T05:57:25.368Z"
+    },
+    {
+      "version": 26,
+      "at": "2026-11-02T05:57:25.371Z"
+    },
+    {
+      "version": 27,
+      "at": "2026-11-02T05:57:25.373Z"
+    },
+    {
+      "version": 28,
+      "at": "2026-11-02T05:57:25.375Z"
+    },
+    {
+      "version": 29,
+      "at": "2026-11-02T05:57:25.377Z"
+    },
+    {
+      "version": 30,
+      "at": "2026-11-02T05:57:25.378Z"
+    },
+    {
+      "version": 31,
+      "at": "2026-11-02T05:57:25.380Z"
+    },
+    {
+      "version": 32,
+      "at": "2026-11-02T05:57:25.381Z"
+    },
+    {
+      "version": 33,
+      "at": "2026-11-02T05:57:25.382Z"
+    },
+    {
+      "version": 34,
+      "at": "2026-11-02T05:57:25.384Z"
+    },
+    {
+      "version": 35,
+      "at": "2026-11-02T05:57:25.385Z"
+    },
+    {
+      "version": 36,
+      "at": "2026-11-02T05:57:25.387Z"
+    },
+    {
+      "version": 37,
+      "at": "2026-11-02T05:57:25.388Z"
+    },
+    {
+      "version": 38,
+      "at": "2026-11-02T05:57:25.390Z"
+    },
+    {
+      "version": 39,
+      "at": "2026-11-02T05:57:25.396Z"
+    },
+    {
+      "version": 40,
+      "at": "2026-11-02T05:57:25.399Z"
+    },
+    {
+      "version": 41,
+      "at": "2026-11-02T05:57:25.402Z"
+    },
+    {
+      "version": 42,
+      "at": "2026-11-02T05:57:26.130Z"
+    },
+    {
+      "version": 43,
+      "at": "2026-11-02T05:57:26.134Z"
+    },
+    {
+      "version": 44,
+      "at": "2026-11-02T05:57:26.137Z"
+    },
+    {
+      "version": 45,
+      "at": "2026-11-02T05:57:26.139Z"
+    },
+    {
+      "version": 46,
+      "at": "2026-11-02T05:57:26.141Z"
+    },
+    {
+      "version": 47,
+      "at": "2026-11-02T05:57:26.144Z"
+    },
+    {
+      "version": 48,
+      "at": "2026-11-02T05:57:26.146Z"
+    },
+    {
+      "version": 49,
+      "at": "2026-11-02T05:57:26.147Z"
+    },
+    {
+      "version": 50,
+      "at": "2026-11-02T05:57:26.149Z"
+    },
+    {
+      "version": 51,
+      "at": "2026-11-02T05:57:26.151Z"
+    },
+    {
+      "version": 52,
+      "at": "2026-11-02T05:57:26.153Z"
+    },
+    {
+      "version": 53,
+      "at": "2026-11-02T05:57:26.154Z"
+    },
+    {
+      "version": 54,
+      "at": "2026-11-02T05:57:26.156Z"
+    },
+    {
+      "version": 55,
+      "at": "2026-11-02T05:57:26.157Z"
+    },
+    {
+      "version": 56,
+      "at": "2026-11-02T05:57:26.159Z"
+    },
+    {
+      "version": 57,
+      "at": "2026-11-02T05:57:26.165Z"
+    },
+    {
+      "version": 58,
+      "at": "2026-11-02T05:57:26.167Z"
+    },
+    {
+      "version": 59,
+      "at": "2026-11-02T05:57:26.174Z"
+    },
+    {
+      "version": 60,
+      "at": "2026-11-02T05:57:26.177Z"
+    },
+    {
+      "version": 61,
+      "at": "2026-11-02T05:57:26.181Z"
+    },
+    {
+      "version": 62,
+      "at": "2026-11-02T05:57:26.183Z"
+    },
+    {
+      "version": 63,
+      "at": "2026-11-02T05:57:26.185Z"
+    },
+    {
+      "version": 64,
+      "at": "2026-11-02T05:57:26.187Z"
+    },
+    {
+      "version": 65,
+      "at": "2026-11-02T05:57:26.189Z"
+    },
+    {
+      "version": 66,
+      "at": "2026-11-02T05:57:26.191Z"
+    },
+    {
+      "version": 67,
+      "at": "2026-11-02T05:57:26.193Z"
+    },
+    {
+      "version": 68,
+      "at": "2026-11-02T05:57:26.195Z"
+    },
+    {
+      "version": 69,
+      "at": "2026-11-02T05:57:26.200Z"
+    },
+    {
+      "version": 70,
+      "at": "2026-11-02T05:57:26.202Z"
+    },
+    {
+      "version": 71,
+      "at": "2026-11-02T05:57:26.207Z"
+    },
+    {
+      "version": 72,
+      "at": "2026-11-02T05:57:26.213Z"
+    },
+    {
+      "version": 73,
+      "at": "2026-11-02T05:57:26.216Z"
+    },
+    {
+      "version": 74,
+      "at": "2026-11-02T05:57:26.307Z"
+    },
+    {
+      "version": 75,
+      "at": "2026-11-02T05:57:26.309Z"
+    },
+    {
+      "version": 76,
+      "at": "2026-11-02T05:57:26.311Z"
+    },
+    {
+      "version": 77,
+      "at": "2026-11-02T05:57:26.314Z"
+    },
+    {
+      "version": 78,
+      "at": "2026-11-02T05:57:26.317Z"
+    },
+    {
+      "version": 79,
+      "at": "2026-11-02T05:57:26.319Z"
+    },
+    {
+      "version": 80,
+      "at": "2026-11-02T05:57:26.320Z"
+    },
+    {
+      "version": 81,
+      "at": "2026-11-02T05:57:26.322Z"
+    },
+    {
+      "version": 82,
+      "at": "2026-11-02T05:57:26.324Z"
+    },
+    {
+      "version": 83,
+      "at": "2026-11-02T05:57:26.326Z"
+    },
+    {
+      "version": 84,
+      "at": "2026-11-02T05:57:26.328Z"
+    },
+    {
+      "version": 85,
+      "at": "2026-11-02T05:57:26.333Z"
+    },
+    {
+      "version": 86,
+      "at": "2026-11-02T05:57:26.342Z"
+    },
+    {
+      "version": 87,
+      "at": "2026-11-02T05:57:26.345Z"
+    },
+    {
+      "version": 88,
+      "at": "2026-11-02T05:57:26.347Z"
+    },
+    {
+      "version": 89,
+      "at": "2026-11-02T05:57:26.350Z"
+    },
+    {
+      "version": 90,
+      "at": "2026-11-02T05:57:26.351Z"
+    },
+    {
+      "version": 91,
+      "at": "2026-11-02T05:57:26.353Z"
+    },
+    {
+      "version": 92,
+      "at": "2026-11-02T05:57:26.355Z"
+    },
+    {
+      "version": 93,
+      "at": "2026-11-02T05:57:26.356Z"
+    },
+    {
+      "version": 94,
+      "at": "2026-11-02T05:57:26.358Z"
+    },
+    {
+      "version": 95,
+      "at": "2026-11-02T05:57:26.360Z"
+    },
+    {
+      "version": 96,
+      "at": "2026-11-02T05:57:26.361Z"
+    },
+    {
+      "version": 97,
+      "at": "2026-11-02T05:57:26.363Z"
+    },
+    {
+      "version": 98,
+      "at": "2026-11-02T05:57:26.365Z"
+    },
+    {
+      "version": 99,
+      "at": "2026-11-02T05:57:26.367Z"
+    },
+    {
+      "version": 100,
+      "at": "2026-11-02T05:57:26.371Z"
+    },
+    {
+      "version": 101,
+      "at": "2026-11-02T05:57:26.373Z"
+    },
+    {
+      "version": 102,
+      "at": "2026-11-02T05:57:26.375Z"
+    },
+    {
+      "version": 103,
+      "at": "2026-11-02T05:57:26.377Z"
+    },
+    {
+      "version": 104,
+      "at": "2026-11-02T05:57:26.379Z"
+    },
+    {
+      "version": 105,
+      "at": "2026-11-02T05:57:26.380Z"
+    }
+  ],
+  "updateMinIntervalMs": 0,
+  "watchTrace": [
+    {
+      "kind": "transform",
+      "at": 1793599045169,
+      "sha256": "af2bfda4e6942d92948b6c4bf5d8bd78e346111e6813ff78a15cfa003ac5b677"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045326,
+      "version": 10
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045327,
+      "version": 10
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045337,
+      "version": 11
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045340,
+      "version": 11
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045342,
+      "version": 12
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045343,
+      "version": 12
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045346,
+      "version": 13
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045346,
+      "version": 13
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045348,
+      "version": 14
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045348,
+      "version": 14
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045349,
+      "version": 15
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045351,
+      "version": 15
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045353,
+      "version": 16
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045353,
+      "version": 16
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045355,
+      "version": 17
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045355,
+      "version": 17
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045357,
+      "version": 18
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045357,
+      "version": 18
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045358,
+      "version": 19
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045359,
+      "version": 19
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045360,
+      "version": 20
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045361,
+      "version": 20
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045362,
+      "version": 21
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045363,
+      "version": 21
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045364,
+      "version": 22
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045364,
+      "version": 22
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045365,
+      "version": 23
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045365,
+      "version": 23
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045366,
+      "version": 24
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045367,
+      "version": 24
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045368,
+      "version": 25
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045368,
+      "version": 25
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045370,
+      "version": 26
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045371,
+      "version": 26
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045372,
+      "version": 27
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045373,
+      "version": 27
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045374,
+      "version": 28
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045375,
+      "version": 28
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045376,
+      "version": 29
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045377,
+      "version": 29
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045378,
+      "version": 30
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045378,
+      "version": 30
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045379,
+      "version": 31
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045380,
+      "version": 31
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045380,
+      "version": 32
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045381,
+      "version": 32
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045382,
+      "version": 33
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045382,
+      "version": 33
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045383,
+      "version": 34
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045384,
+      "version": 34
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045385,
+      "version": 35
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045385,
+      "version": 35
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045387,
+      "version": 36
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045387,
+      "version": 36
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045388,
+      "version": 37
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045388,
+      "version": 37
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045389,
+      "version": 38
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045390,
+      "version": 38
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045391,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045392,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045393,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045393,
+      "version": 39
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599045393,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599045395,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599045395,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599045397,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045396,
+      "version": 39
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045398,
+      "version": 40
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045399,
+      "version": 40
+    },
+    {
+      "kind": "transform",
+      "at": 1793599045400,
+      "sha256": "cd96ae16fd32c92f3e50a98d6ee85d4a5892ce198a4b722633ea0175756a5a64"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599045401,
+      "version": 41
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599045402,
+      "version": 41
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599045490,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599045491,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599045491,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599045491,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599045492,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046101,
+      "sha256": "db795c7efe8b4215209906535d3f6b94d86f0e155e378dfa024b879ce313a9bd"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046129,
+      "version": 42
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046130,
+      "version": 42
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046132,
+      "version": 43
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046134,
+      "version": 43
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046136,
+      "version": 44
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046137,
+      "version": 44
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046138,
+      "version": 45
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046139,
+      "version": 45
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046141,
+      "version": 46
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046141,
+      "version": 46
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046143,
+      "version": 47
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046144,
+      "version": 47
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046145,
+      "version": 48
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046146,
+      "version": 48
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046147,
+      "version": 49
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046147,
+      "version": 49
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046148,
+      "version": 50
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046149,
+      "version": 50
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046150,
+      "version": 51
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046151,
+      "version": 51
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046152,
+      "version": 52
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046153,
+      "version": 52
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046154,
+      "version": 53
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046154,
+      "version": 53
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046155,
+      "version": 54
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046156,
+      "version": 54
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046156,
+      "version": 55
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046157,
+      "version": 55
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046158,
+      "version": 56
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046159,
+      "version": 56
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046162,
+      "version": 57
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046165,
+      "version": 57
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046166,
+      "version": 58
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046167,
+      "version": 58
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046170,
+      "version": 59
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046174,
+      "version": 59
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046176,
+      "version": 60
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046177,
+      "version": 60
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046180,
+      "version": 61
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046181,
+      "version": 61
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046182,
+      "version": 62
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046183,
+      "version": 62
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046184,
+      "version": 63
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046185,
+      "version": 63
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046186,
+      "version": 64
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046187,
+      "version": 64
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046188,
+      "version": 65
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046189,
+      "version": 65
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046190,
+      "version": 66
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046191,
+      "version": 66
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046193,
+      "version": 67
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046193,
+      "version": 67
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046195,
+      "version": 68
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046195,
+      "version": 68
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046195,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046196,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046197,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046197,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046198,
+      "version": 69
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046198,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046198,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046200,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046200,
+      "version": 69
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046201,
+      "sha256": "6177b36686ab0431f67d0a35c3495c40a1bb2018b32a56c7c3134dea521aa340"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046201,
+      "version": 70
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046202,
+      "version": 70
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046204,
+      "version": 71
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046207,
+      "version": 71
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046210,
+      "version": 72
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046213,
+      "version": 72
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046215,
+      "version": 73
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046216,
+      "version": 73
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046295,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046295,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046295,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046295,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046295,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046296,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046296,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046296,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046296,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046297,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046299,
+      "sha256": "8f7e88eef535d1d04a26d6a792f81f6e6b719d9439ad5c07f102878daa1cdd75"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046307,
+      "version": 74
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046307,
+      "version": 74
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046309,
+      "version": 75
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046309,
+      "version": 75
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046310,
+      "version": 76
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046311,
+      "version": 76
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046312,
+      "version": 77
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046314,
+      "version": 77
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046316,
+      "version": 78
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046317,
+      "version": 78
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046318,
+      "version": 79
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046319,
+      "version": 79
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046320,
+      "version": 80
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046320,
+      "version": 80
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046321,
+      "version": 81
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046322,
+      "version": 81
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046323,
+      "version": 82
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046324,
+      "version": 82
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046325,
+      "version": 83
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046326,
+      "version": 83
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046327,
+      "version": 84
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046328,
+      "version": 84
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046330,
+      "version": 85
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046333,
+      "version": 85
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046335,
+      "version": 86
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046342,
+      "version": 86
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046344,
+      "version": 87
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046345,
+      "version": 87
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046346,
+      "version": 88
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046347,
+      "version": 88
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046349,
+      "version": 89
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046350,
+      "version": 89
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046351,
+      "version": 90
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046351,
+      "version": 90
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046353,
+      "version": 91
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046353,
+      "version": 91
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046354,
+      "version": 92
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046355,
+      "version": 92
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046356,
+      "version": 93
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046356,
+      "version": 93
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046358,
+      "version": 94
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046358,
+      "version": 94
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046359,
+      "version": 95
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046360,
+      "version": 95
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046361,
+      "version": 96
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046361,
+      "version": 96
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046362,
+      "version": 97
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046363,
+      "version": 97
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046365,
+      "version": 98
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046365,
+      "version": 98
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046366,
+      "version": 99
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046367,
+      "version": 99
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046370,
+      "version": 100
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046371,
+      "version": 100
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046373,
+      "version": 101
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046373,
+      "version": 101
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046374,
+      "version": 102
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046375,
+      "version": 102
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046377,
+      "version": 103
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046377,
+      "version": 103
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046378,
+      "version": 104
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046379,
+      "version": 104
+    },
+    {
+      "kind": "write-start",
+      "at": 1793599046380,
+      "version": 105
+    },
+    {
+      "kind": "write-end",
+      "at": 1793599046380,
+      "version": 105
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046396,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046397,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui.next"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793599046398,
+      "event": "moved",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "watcher",
+      "at": 1793599046398,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793599046399,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793599046399,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793599046400,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793599046401,
+      "sha256": "adae5474554c0f1d027963ce5074f5b54797e793c3b32e2997073436c9bce7cf"
+    }
+  ],
+  "serverNode": "v22.23.4",
+  "writeMode": "atomic",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-6fmUiE/consumer/node_modules/svet-engine",
+  "peerRuntime": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-gIsSdP/peer",
+  "fixtureSha256": "0e872953a1d108a1bcc658e854d056f53325fb6583e0be0d5658b90c187cf0aa"
+}

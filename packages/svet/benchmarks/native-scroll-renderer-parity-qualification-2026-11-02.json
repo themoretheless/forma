@@ -1,0 +1,273 @@
+{
+  "date": "2026-11-02",
+  "status": "known failing regression; goal remains open",
+  "change": "Add complete CPU/GPU pixel parity reference over integer/fractional viewport frames, including scrollbar and primitive AA previously excluded. Test-only change.",
+  "hardware": "Apple M4 Max / Metal",
+  "checks": {
+    "hardware_gpu_suite": "5 passed, 1 failed",
+    "cases_passed": 15,
+    "cases_total": 18
+  },
+  "results": [
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.0,
+      "offset": 64.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 1.25,
+      "offset": 64.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "integer",
+      "dpi": 2.0,
+      "offset": 64.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 0.0,
+      "mean_channel_error": 0.002991,
+      "max_channel_error": 59,
+      "worst_xy": [
+        32,
+        33
+      ],
+      "worst_channel": 0,
+      "passed": false
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 32.0,
+      "mean_channel_error": 0.002991,
+      "max_channel_error": 53,
+      "worst_xy": [
+        32,
+        65
+      ],
+      "worst_channel": 1,
+      "passed": false
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.0,
+      "offset": 67.0,
+      "mean_channel_error": 0.002792,
+      "max_channel_error": 1,
+      "worst_xy": [
+        32,
+        33
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 0.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 32.0,
+      "mean_channel_error": 0.070312,
+      "max_channel_error": 58,
+      "worst_xy": [
+        41,
+        81
+      ],
+      "worst_channel": 0,
+      "passed": false
+    },
+    {
+      "kind": "fractional",
+      "dpi": 1.25,
+      "offset": 67.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 0.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 32.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    },
+    {
+      "kind": "fractional",
+      "dpi": 2.0,
+      "offset": 67.0,
+      "mean_channel_error": 0.0,
+      "max_channel_error": 0,
+      "worst_xy": [
+        0,
+        0
+      ],
+      "worst_channel": 0,
+      "passed": true
+    }
+  ],
+  "worst_pixel": {
+    "xy": [
+      32,
+      33
+    ],
+    "cpu": [
+      77,
+      25,
+      38,
+      255
+    ],
+    "gpu": [
+      136,
+      17,
+      26,
+      255
+    ]
+  },
+  "finding": "CPU multisample rectangle AA and GPU SDF coverage differ at fractional corners/seams. Root integer frames all exact; three fractional cases exceed4/255 max threshold.",
+  "next_action": "Unify rectangle coverage/compositing with independent area reference, preserving GPU smooth coverage rather than lowering quality to coarse CPU samples. Keep max<=4 and mean<0.1 parity gates.",
+  "source_sha256": "a3902acaaaa1eed423c716dce957387bf3bc41c4f31628a4f87e16ff4b40eccb",
+  "limitations": [
+    "Production renderers unchanged this turn; defect reproduced, not fixed.",
+    "Current full hardware GPU suite is not green.",
+    "Not a device-loss/window/backend qualification."
+  ]
+}

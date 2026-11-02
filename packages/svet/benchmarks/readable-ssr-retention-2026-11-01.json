@@ -1,0 +1,12 @@
+{
+  "startedAt": "2026-11-01T15:44:08.660Z",
+  "node": "v22.23.4",
+  "requests": 64,
+  "retainedKinds": [],
+  "scope": "64 Node isolated requests, both codecs, terminal stream+reader handles retained after complete/cancel/abort/background-error. WeakRef object collection only; errors originate outside request. No RSS plateau or arbitrary user error graph claim.",
+  "objects": 384,
+  "aliveWithHandles": {},
+  "aliveAfterRelease": 0,
+  "status": "passed",
+  "completedAt": "2026-11-01T15:44:08.797Z"
+}

@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "scope": "Synchronous child factory owns completed same-copy Forma constructions",
+  "sourceSha256": "cc51bf611bc07e33a2cd7519b8a13cf23d2fa013ed29b47139f8503e6fdd43af",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-6hRRU0/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "browserReport": "forma-factory-browser-2026-11-02.json",
+  "checks": {
+    "baseline": "1 failed/17 passed; created child leaked",
+    "full": "1360 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageGC": "passed",
+    "browser": "22/22; two completed instances released after throw; successful nonreturned helper released on teardown"
+  },
+  "limitations": [
+    "Construction throwing before a completed instance exists remains open",
+    "Instances created by independent package copies not captured by this module-local construction scope",
+    "Arbitrary non-Forma resources and external side effects remain factory responsibility",
+    "General post-commit rollback/async/other-browser/performance/current-runtime soak unqualified"
+  ]
+}

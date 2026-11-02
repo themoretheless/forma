@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "scope": "Local workerd independent-copy boundaries; retry batch selects boundary native core",
+  "sameFixtureBeforeAfter": true,
+  "before": "B-A retry mounts3 (expected2)",
+  "after": "4/4 scenarios in stable and beta/November workerd",
+  "checks": {
+    "fullJS": "1294/98 passed",
+    "focusedRegression": "10/10 passed",
+    "typescript": "passed",
+    "HTTPActions": "4/4",
+    "installedPackage": "passed with Edge GC and mandatory4-case boundary fixture"
+  },
+  "sourceSha256": {
+    "packages/svet/src/engine/advanced.ts": "ec9e3b9004aeeb8d09663a1e019790d7c9ff76653a41550b29bc4975aa05c14b",
+    "packages/svet/tests/edge/cross-copy-boundaries.mjs": "340f3f14d6c0c9938d46c809428b3c511fde4c1aa39ea45bb8e323db3664aa05",
+    "packages/svet/tests/boundary-lifecycle.test.ts": "9f05fe0756493786f51ad85e08bad1335e0bf0d49e4074bf36556a661598f790",
+    "packages/svet/scripts/check-edge-ssr.mjs": "4e4ac50a499c025674f24a5ae20c6c49b713c60b63dd0babafe29086c368ccd0",
+    "packages/svet/scripts/check-package.mjs": "69a21674fd21586189d5349ae7b99582ec412c68ccdbb597422ef16fe3cce3a7"
+  },
+  "evidence": [
+    "edge-copy-boundaries-retry-before-2026-11-02.json",
+    "edge-copy-boundaries-after-2026-11-02.json",
+    "edge-copy-boundaries-beta-2026-11-02.json",
+    "edge-copy-boundaries-suite-2026-11-02.txt",
+    "edge-copy-boundaries-regression-2026-11-02.txt",
+    "edge-copy-boundaries-types-2026-11-02.txt",
+    "edge-copy-boundaries-package-2026-11-02.txt",
+    "edge-copy-boundaries-actions-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Local workerd/LinkeDOM, not native browser or deployed providers",
+    "Natural GC/RSS and mixed versions remain open",
+    "Frozen long run uses previous artifact"
+  ],
+  "installedConsumer": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-QyuKtb/consumer"
+}

@@ -1,0 +1,133 @@
+
+> svet-engine@1.0.0 test:package
+> npm run build:package && node scripts/check-package.mjs
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js' imported from /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-stream-receiver-retention.mjs
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at defaultResolve (node:internal/modules/esm/resolve:989:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:679:21)
+    at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:222:31) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js'
+}
+
+Node.js v22.23.4
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js' imported from /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-stream-receiver-retention.mjs
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at defaultResolve (node:internal/modules/esm/resolve:989:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:679:21)
+    at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:222:31) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js'
+}
+
+Node.js v22.23.4
+Consumer verification evidence retained at /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg
+node:internal/errors:983
+  const err = new Error(message);
+              ^
+
+Error: Command failed: /opt/homebrew/Cellar/node@22/22.23.4_2/bin/node --expose-gc /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-stream-receiver-retention.mjs /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/stream-receiver-retention.json /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine
+node:internal/modules/esm/resolve:275
+    throw new ERR_MODULE_NOT_FOUND(
+          ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js' imported from /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-stream-receiver-retention.mjs
+    at finalizeResolution (node:internal/modules/esm/resolve:275:11)
+    at moduleResolve (node:internal/modules/esm/resolve:865:10)
+    at defaultResolve (node:internal/modules/esm/resolve:989:11)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:679:21)
+    at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:222:31) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js'
+}
+
+Node.js v22.23.4
+
+    at genericNodeError (node:internal/errors:983:15)
+    at wrappedFn (node:internal/errors:537:14)
+    at checkExecSyncError (node:child_process:916:11)
+    at execFileSync (node:child_process:952:15)
+    at run (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:18:12)
+    at node (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:24:29)
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:859:3 {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    '',
+    'node:internal/modules/esm/resolve:275\n' +
+      '    throw new ERR_MODULE_NOT_FOUND(\n' +
+      '          ^\n' +
+      '\n' +
+      "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js' imported from /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-stream-receiver-retention.mjs\n" +
+      '    at finalizeResolution (node:internal/modules/esm/resolve:275:11)\n' +
+      '    at moduleResolve (node:internal/modules/esm/resolve:865:10)\n' +
+      '    at defaultResolve (node:internal/modules/esm/resolve:989:11)\n' +
+      '    at #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)\n' +
+      '    at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)\n' +
+      '    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)\n' +
+      '    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:36)\n' +
+      '    at TracingChannel.tracePromise (node:diagnostics_channel:350:14)\n' +
+      '    at ModuleLoader.import (node:internal/modules/esm/loader:679:21)\n' +
+      '    at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:222:31) {\n' +
+      "  code: 'ERR_MODULE_NOT_FOUND',\n" +
+      "  url: 'file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js'\n" +
+      '}\n' +
+      '\n' +
+      'Node.js v22.23.4\n'
+  ],
+  pid: 62426,
+  stdout: '',
+  stderr: 'node:internal/modules/esm/resolve:275\n' +
+    '    throw new ERR_MODULE_NOT_FOUND(\n' +
+    '          ^\n' +
+    '\n' +
+    "Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js' imported from /Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-stream-receiver-retention.mjs\n" +
+    '    at finalizeResolution (node:internal/modules/esm/resolve:275:11)\n' +
+    '    at moduleResolve (node:internal/modules/esm/resolve:865:10)\n' +
+    '    at defaultResolve (node:internal/modules/esm/resolve:989:11)\n' +
+    '    at #cachedDefaultResolve (node:internal/modules/esm/loader:747:20)\n' +
+    '    at ModuleLoader.resolve (node:internal/modules/esm/loader:724:38)\n' +
+    '    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:320:38)\n' +
+    '    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:680:36)\n' +
+    '    at TracingChannel.tracePromise (node:diagnostics_channel:350:14)\n' +
+    '    at ModuleLoader.import (node:internal/modules/esm/loader:679:21)\n' +
+    '    at defaultImportModuleDynamicallyForModule (node:internal/modules/esm/utils:222:31) {\n' +
+    "  code: 'ERR_MODULE_NOT_FOUND',\n" +
+    "  url: 'file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-iiMFxg/consumer/node_modules/svet-engine/index.js'\n" +
+    '}\n' +
+    '\n' +
+    'Node.js v22.23.4\n'
+}
+
+Node.js v22.23.4

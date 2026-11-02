@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-02",
+  "status": "passed within explicit-teardown scope",
+  "checks": {
+    "scenarios": 9,
+    "iterations_per_scenario": 8,
+    "collected_targets": 440,
+    "exception_objects": 24,
+    "generic_controls_held": 4,
+    "generic_controls_released": 0,
+    "live_subscription_controls_held": 3,
+    "live_subscription_controls_released": 0,
+    "standalone_frozen_copy_gc": "passed",
+    "installed_package_gc_gate": "passed",
+    "syntax_and_diff": "passed"
+  },
+  "new_paths": [
+    "computed failure after success and recovery",
+    "initial target-handled computed failure and recovery",
+    "uncaught initial target effect construction fails without handle and retires correctly"
+  ],
+  "source_sha256": {
+    "scripts/check-cross-core-retention.mjs": "88675df0e45a714abb1b0db23a57ba3e7d2fd9336dbc9d74dbafe1dd17a39be8",
+    "scripts/check-package.mjs": "3a638f99f6d9a5b6634c5c960d03cc12d2ba977d78d4b2fe0acab44c7567c37b"
+  },
+  "limits": [
+    "Forced-GC reachability after explicit teardown only",
+    "No natural-GC plateau, browser-GC or abandoned/retained public-handle contract proof",
+    "Frozen2h allocation diagnostic still running on previous runtime"
+  ]
+}

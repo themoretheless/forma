@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-02",
+  "change": "Regression proof for atomic recovery when a later Let replay fails after an earlier editor write is staged; no production runtime change.",
+  "checks": {
+    "lib": 150,
+    "allocation_tests": 7,
+    "diff_check": "passed"
+  },
+  "scenario": [
+    "Two edited controls: direct root query and collection title with Let-derived key.",
+    "Remove model field read by Let; two sync refusals preserve entire model, fresh/cached map paths.",
+    "Restore dependency: both edits commit once; following sync zero writes.",
+    "New model query survives subsequent unchanged widget sync."
+  ],
+  "source_sha256": "f4d56eff37788870abb92a911615da25b770a16906809cd929ce3dfb3b2a265c",
+  "limitations": [
+    "IR Document/native Runtime proof, not live-window/compiler/browser test.",
+    "No performance/GPU/wasm rerun for test-only edit.",
+    "Remaining Let alias/deep/async/window matrices still open."
+  ]
+}

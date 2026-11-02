@@ -1,0 +1,9 @@
+
+ Test Files  81 passed (81)
+      Tests  1161 passed (1161)
+   Start at  03:13:56
+   Duration  47.70s (environment 70%, tests 19%, import 9%, transform 1%, worker 1%)
+
+    Isolate  81 workers spawned · ~1.67s startup each (spawn + environment, per file)
+             at least ~32.23s faster with isolate: false — reuses workers across files instead of one per file
+

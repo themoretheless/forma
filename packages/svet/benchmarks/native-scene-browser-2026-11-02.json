@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "browser Rust compile and complete JSON load",
+      "status": "passed"
+    },
+    {
+      "name": "empty layout extent and scrollbar pixels remain clipped",
+      "status": "passed"
+    },
+    {
+      "name": "refused malformed/version/extent loads preserve live scene",
+      "status": "passed"
+    },
+    {
+      "name": "CPU frames render at fractional and Retina scales",
+      "status": "passed"
+    },
+    {
+      "name": "valid replacement shrinks logical content and revises caches",
+      "status": "passed"
+    }
+  ],
+  "changedBytes": 3720,
+  "completedAt": "2026-11-02T03:56:19.871Z",
+  "servedArtifactSha256": {
+    "index.html": "d15557bd0e41d7f8681b8cbcc9d5666092dc16427cb14ffc061578ad0810f92a",
+    "forma.js": "f5973cd2c2f2182d4ae2ddd79f3367051c450f74b06054c62ea8afda49720c2b",
+    "forma_bg.wasm": "2ab5fbbda0420ed530160d8c1d5fc0c6f7b2e0486ef123a72b9b411848d29d9b"
+  }
+}

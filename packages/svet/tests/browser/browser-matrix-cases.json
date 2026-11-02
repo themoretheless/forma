@@ -1,0 +1,107 @@
+[
+  {
+    "name": "dom-lifecycle",
+    "expected": 5,
+    "result": "#results"
+  },
+  {
+    "name": "dom-realms",
+    "expected": 7,
+    "result": "#result"
+  },
+  {
+    "name": "event-adoption",
+    "expected": 10,
+    "result": "#result"
+  },
+  {
+    "name": "event-context",
+    "expected": 11,
+    "result": "#result"
+  },
+  {
+    "name": "event-lifetime",
+    "expected": 8,
+    "result": "#result"
+  },
+  {
+    "name": "model-inputs",
+    "expected": 9,
+    "result": "#result"
+  },
+  {
+    "name": "model-select",
+    "expected": 7,
+    "result": "#result"
+  },
+  {
+    "name": "model-files",
+    "expected": 8,
+    "result": "#result"
+  },
+  {
+    "name": "dynamic-children",
+    "expected": 7,
+    "result": "#result"
+  },
+  {
+    "name": "for-fragments",
+    "expected": 7,
+    "result": "#result"
+  },
+  {
+    "name": "context-provider-lifetime",
+    "expected": 11,
+    "result": "#result"
+  },
+  {
+    "name": "attribute-lifetime",
+    "expected": 8,
+    "result": "#result"
+  },
+  {
+    "name": "captured-context",
+    "expected": 11,
+    "result": "#result"
+  },
+  {
+    "name": "for-current-item",
+    "expected": 7,
+    "result": "#result"
+  },
+  {
+    "name": "fragment-construction",
+    "expected": 9,
+    "result": "#result"
+  },
+  {
+    "name": "h-construction",
+    "expected": 11,
+    "result": "#result"
+  },
+  {
+    "name": "model-adoption",
+    "expected": 8,
+    "result": "#result"
+  },
+  {
+    "name": "model-reset-roots",
+    "expected": 16,
+    "result": "#result"
+  },
+  {
+    "name": "model-reset",
+    "expected": 8,
+    "result": "#result"
+  },
+  {
+    "name": "style-lifetime",
+    "expected": 8,
+    "result": "#result"
+  },
+  {
+    "name": "model-validation",
+    "expected": 13,
+    "result": "#result"
+  }
+]

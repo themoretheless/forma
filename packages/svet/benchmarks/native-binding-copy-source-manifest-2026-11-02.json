@@ -1,0 +1,16 @@
+{
+  "clone": {
+    "src/form_document.rs": "67ba426219f1e3fec24cc8a3fadf6c8bd4c74bb5d0ff8b0c76287105450b3820",
+    "src/runtime.rs": "f61561bee29114b6a9650cecbe464fd851200654388544c9d97cf7d66de1ea33",
+    "Cargo.toml": "e6f5d39cf27de1b8802108396708e5dca0eb3f023972ffaa1b08f9350297a0a5",
+    "Cargo.lock": "264e549e0e0844b1953e8864b0329d2ccae6210ed6e5319034693ac024a38f13",
+    "examples/binding_sync_bench.rs": "2034e023c7c0c6bfcc3280128a6cd4274514fe3a926800244315dac459b8c3db"
+  },
+  "borrow": {
+    "src/form_document.rs": "238b7dca73afb8dd3aa7ec3919fad56f1c84c110424b3abb58928cf4cde3880b",
+    "src/runtime.rs": "f61561bee29114b6a9650cecbe464fd851200654388544c9d97cf7d66de1ea33",
+    "Cargo.toml": "e6f5d39cf27de1b8802108396708e5dca0eb3f023972ffaa1b08f9350297a0a5",
+    "Cargo.lock": "264e549e0e0844b1953e8864b0329d2ccae6210ed6e5319034693ac024a38f13",
+    "examples/binding_sync_bench.rs": "2034e023c7c0c6bfcc3280128a6cd4274514fe3a926800244315dac459b8c3db"
+  }
+}

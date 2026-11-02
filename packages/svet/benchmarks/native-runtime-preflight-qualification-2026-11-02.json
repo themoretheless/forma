@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-02",
+  "change": "Reuse borrowed committed binding map when retained model states equal displayed snapshot; evaluate fresh map only for externally changed state; render on model changes also with legacy scheduler.",
+  "invariants": [
+    "Private retained document source replaced through Runtime loading; loading initializes new snapshot.",
+    "Displayed state snapshot updates only after successful Runtime creation.",
+    "Pending errors and accepted event semantics retained.",
+    "Public Document sync API still renders fresh scene."
+  ],
+  "checks": {
+    "lib": 138,
+    "allocation_tests": 6,
+    "hardware_gpu": 3,
+    "native_bin_check": "passed",
+    "wasm32_check": "passed"
+  },
+  "regressions": [
+    "Model-only update rebuilds and updates actual editor in legacy and Svet; subsequent noop does not rebuild.",
+    "96-editor retained idle sync budget <200000 allocations: observed 141761; edit and subsequent idle verified.",
+    "Existing error recovery, transactions, queue overflow, switching and collection reorder tests passed."
+  ],
+  "source_sha256": {
+    "vector-ui/src/runtime.rs": "7aa69d4780d5ac983ae4dc0bfd91579057b206b811f98b1bc9d20c7c960be4fd",
+    "vector-ui/tests/runtime_allocations.rs": "3ba37366ada17f134829a5cd6537afefacd7dc1666c9fcec077764214414df1b"
+  },
+  "limitations": [
+    "One extra owned state snapshot per displayed Runtime; peak memory/latency not qualified.",
+    "Idle sync still stages root and resolves bindings; 141761 allocations is substantial.",
+    "Public Document sync remains separate and unchanged.",
+    "No full multiwindow/device/browser qualification."
+  ]
+}

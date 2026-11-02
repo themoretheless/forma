@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-02",
+  "status": "public Rust scene artifact transport implemented; raw text/JSON metadata still open",
+  "api": [
+    "Document::render_scene_artifact",
+    "form_document::SceneArtifact",
+    "Runtime::from_scene_artifact"
+  ],
+  "change": "SceneArtifact carries source/templates/control mapping/logical content end; Form::sync consumes the complete artifact instead of dropping layout metadata.",
+  "checks": {
+    "lib_tests": 159,
+    "public_api_integration_tests": 2,
+    "allocation_tests": 10,
+    "native_bin_check": "passed",
+    "wasm32_lib_check": "passed",
+    "diff_check": "passed"
+  },
+  "covered": [
+    "Public artifact roundtrip preserves512-high empty Scroll content, viewport and212 offset",
+    "Form legacy and Svet sync preserve same extent with zero controls",
+    "NaN/infinity/negative extents rejected",
+    "Extents on non-Scroll source rejected",
+    "Ordinary non-Scroll artifact works without metadata"
+  ],
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "3d4b4f04054f48a816a95a55c9470b2cc3379dfe015928ad33e925ea38c2966d",
+    "vector-ui/src/runtime.rs": "5227bdd03926781e4dbff4e58837553aec270839a934845356bf3e8b89300685",
+    "vector-ui/src/binding.rs": "ef909c3ba6c11b94822dbd6c5dd2c4d52d6a3279c066c2221723ac2ccc217ee1",
+    "vector-ui/tests/scene_artifact.rs": "2af4c99be3866d961fb17f0da6ecbd45200db18158af5059127d8ccce23d46f1"
+  },
+  "limits": [
+    "Artifact is Rust typed transport; raw render_scene tuple/serialized scene strings do not carry metadata",
+    "No JSON/WASM JavaScript artifact wire protocol added",
+    "Nested/multiple viewports and general horizontal matrix remain open",
+    "No renderer changes/performance claims; hardware GPU suite not rerun in this API-only milestone",
+    "Frozen HTTP diagnostic continues independently"
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "date": "2026-11-02",
+  "change": "Measure original visual tree with temporarily swapped resolved properties; restore rectangle props before flattening. No cloned dimension node.",
+  "checks": {
+    "lib": 136,
+    "allocations": 5,
+    "physical_gpu": 3,
+    "native_check": "passed",
+    "wasm_check": "passed",
+    "release": "A1/B1/A2/B2 allocation arrays identical across repeats"
+  },
+  "source_sha256": {
+    "before/form_document.rs": "c9cc3b909f7bdfb5420cc91c80fce97b7a8a79b84e3d505ba3c8166fa8858d6f",
+    "after/form_document.rs": "d0efb4470f838adbed379a9eea36aaab27f7519f72272d7e326508a4e0903d7c",
+    "shared/harness.rs": "d7eab708619965eaa44d3f33b5b389ca87316fa1bf63003bb2d8c8c195ce263d"
+  },
+  "results": [
+    {
+      "controls": 8,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          8385,
+          981263
+        ],
+        "after_last": [
+          8033,
+          951308
+        ]
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          9538,
+          1086294
+        ],
+        "after_last": [
+          9186,
+          1056339
+        ]
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          9540,
+          1086306
+        ],
+        "after_last": [
+          9188,
+          1056351
+        ]
+      }
+    },
+    {
+      "controls": 32,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          67727,
+          8607311
+        ],
+        "after_last": [
+          66319,
+          8487412
+        ]
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          83896,
+          10099988
+        ],
+        "after_last": [
+          82488,
+          9980089
+        ]
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          83898,
+          10100000
+        ],
+        "after_last": [
+          82490,
+          9980101
+        ]
+      }
+    },
+    {
+      "controls": 96,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          479397,
+          63539759
+        ],
+        "after_last": [
+          475173,
+          63179988
+        ]
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          621158,
+          76702708
+        ],
+        "after_last": [
+          616934,
+          76342937
+        ]
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          621160,
+          76702720
+        ],
+        "after_last": [
+          616936,
+          76342949
+        ]
+      }
+    }
+  ],
+  "raw": "native-dimension-move-raw-2026-11-02.json",
+  "limitations": [
+    "Cumulative allocation requests, not peak/RSS.",
+    "HTTP natural soak active; host not isolated. No latency/FPS claim.",
+    "For locals/shared scopes/preflight remain open."
+  ]
+}

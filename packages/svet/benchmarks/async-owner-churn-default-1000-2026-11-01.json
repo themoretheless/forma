@@ -1,0 +1,353 @@
+{
+  "measuredAt": "2026-10-31T23:27:59.208Z",
+  "node": "v22.23.4",
+  "execArgv": [
+    "--expose-gc"
+  ],
+  "probeSha256": "631fe135a8f85f4ee2f7b11bc10eaa8d2926caadb33fd2000b6bdd31d9df8dae",
+  "cycles": 1000,
+  "childScopes": 3000,
+  "checkedObjects": 15000,
+  "maxGcRounds": 4,
+  "cleanups": 3000,
+  "peakScopes": 1,
+  "warmed": {
+    "cycle": 50,
+    "rss": 30347008,
+    "heapTotal": 16957440,
+    "heapUsed": 6906728,
+    "external": 3160007,
+    "arrayBuffers": 33135,
+    "graph": {
+      "nodes": 0,
+      "capacity": 6,
+      "edges": 0,
+      "wasmMemoryBytes": 1179648,
+      "pendingEffectCount": 0,
+      "pendingEffectEntryCount": 0
+    }
+  },
+  "samples": [
+    {
+      "cycle": 50,
+      "rss": 30347008,
+      "heapTotal": 16957440,
+      "heapUsed": 6906728,
+      "external": 3160007,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 100,
+      "rss": 32591616,
+      "heapTotal": 16957440,
+      "heapUsed": 6965464,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 150,
+      "rss": 32771840,
+      "heapTotal": 16957440,
+      "heapUsed": 6983056,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 200,
+      "rss": 32198400,
+      "heapTotal": 16957440,
+      "heapUsed": 7002456,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 250,
+      "rss": 33657920,
+      "heapTotal": 25346048,
+      "heapUsed": 7016360,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 300,
+      "rss": 35984448,
+      "heapTotal": 25346048,
+      "heapUsed": 7045640,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 350,
+      "rss": 38376512,
+      "heapTotal": 25608192,
+      "heapUsed": 7081456,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 400,
+      "rss": 37884992,
+      "heapTotal": 25608192,
+      "heapUsed": 7049432,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 450,
+      "rss": 37917760,
+      "heapTotal": 25608192,
+      "heapUsed": 7071088,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 500,
+      "rss": 37917760,
+      "heapTotal": 25608192,
+      "heapUsed": 7069608,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 550,
+      "rss": 39097408,
+      "heapTotal": 25608192,
+      "heapUsed": 7174624,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 600,
+      "rss": 39130176,
+      "heapTotal": 25608192,
+      "heapUsed": 7122328,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 650,
+      "rss": 39195760,
+      "heapTotal": 25870336,
+      "heapUsed": 7095368,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 700,
+      "rss": 37000304,
+      "heapTotal": 25870336,
+      "heapUsed": 7144576,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 750,
+      "rss": 37033072,
+      "heapTotal": 25870336,
+      "heapUsed": 7145024,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 800,
+      "rss": 37049456,
+      "heapTotal": 25870336,
+      "heapUsed": 7127672,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 850,
+      "rss": 36426864,
+      "heapTotal": 25870336,
+      "heapUsed": 7165528,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 900,
+      "rss": 36426864,
+      "heapTotal": 10141696,
+      "heapUsed": 7149384,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 950,
+      "rss": 36492400,
+      "heapTotal": 13549568,
+      "heapUsed": 7163560,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    },
+    {
+      "cycle": 1000,
+      "rss": 35542128,
+      "heapTotal": 13549568,
+      "heapUsed": 7188200,
+      "external": 3160047,
+      "arrayBuffers": 33135,
+      "graph": {
+        "nodes": 0,
+        "capacity": 6,
+        "edges": 0,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0
+      }
+    }
+  ],
+  "scope": "Successful, rejected and cancelled async children within one live Node request. Checks graph teardown, owner unlinking, external abort hooks, WeakRef collection and stable native capacity. JS/RSS samples are observations, not a proof of global memory plateau or GPU/DOM reclamation."
+}

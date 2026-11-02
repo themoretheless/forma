@@ -1,0 +1,10 @@
+{
+  "startedAt": "2026-11-01T15:39:23.088Z",
+  "node": "v22.23.4",
+  "checks": [],
+  "status": "failed",
+  "error": "AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:\n\n  assert(before.nodes>0&&!before.settled)\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-readable-ssr-http.mjs:28:403\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+  "completedAt": "2026-11-01T15:39:23.119Z",
+  "sourceSha256": "f4a00686d0621312363df70208513961ba04918c716d04127b02a3549b5449c9",
+  "serverRuntimeSha256": "b116caee6922af9a5b8d865893f7c98acf48fd5ef0f298ea05f2f2aad38b04cf"
+}

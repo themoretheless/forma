@@ -1,0 +1,45 @@
+{
+  "protocol": "async-component-churn-v1",
+  "startedAt": "2026-11-01T13:17:00.723Z",
+  "node": "v22.23.4",
+  "execArgv": [
+    "--expose-gc"
+  ],
+  "cycles": 200,
+  "samples": [
+    {
+      "cycle": 0,
+      "rss": 128990448,
+      "heapTotal": 90472448,
+      "heapUsed": 38802024,
+      "external": 3680760,
+      "arrayBuffers": 781956,
+      "pendingProbes": 0,
+      "alive": 0
+    }
+  ],
+  "timings": {
+    "success": {
+      "count": 1,
+      "min": 5.395417000000009,
+      "max": 5.395417000000009,
+      "mean": 5.395417000000009
+    }
+  },
+  "scope": "Fresh isolated request per success/failure/cancel; real WASM + JSDOM, bounded WeakRef batches and ring memory samples. No browser/Edge/driver memory or general plateau claim.",
+  "status": "failed",
+  "error": "TypeError: core.svet_get_pending_effect_count is not a function\n    at run (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-async-component-churn.mjs:45:63)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/measure-async-component-churn.mjs:62:52",
+  "completedAt": "2026-11-01T13:17:00.735Z",
+  "checkedObjects": 0,
+  "cleanups": 1,
+  "lateRefusals": 0,
+  "maxGcRounds": 1,
+  "sampleCount": 1,
+  "sourceSha256": "95b5f2cec729286b6730e277f47352ee7167b857aa1ae07f356be61a01eebc33",
+  "runtimeSha256": {
+    "server.js": "078e756002047f41d1a991969a17b2647ac91cb15ab106c9880f2d06094fad80",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "f113354fe8442141b38711321a770f9c5b3509f12064c7c7a799ab5cfe707e2c",
+    "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2"
+  }
+}

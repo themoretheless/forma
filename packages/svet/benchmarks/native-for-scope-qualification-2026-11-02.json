@@ -1,0 +1,134 @@
+{
+  "date": "2026-11-02",
+  "change": "Reuse For local state across iterations; lazy initial copy; restore inherited binding metadata before evaluating each key.",
+  "checks": {
+    "lib": 137,
+    "allocations": 5,
+    "native_check": "passed",
+    "wasm_check": "passed",
+    "release": "A1/B1/A2/B2 allocation arrays identical across repeats"
+  },
+  "regression": "Nested For shadows item, outer item and keys restored, previous snapshots survive next render; all existing reorder/conflict tests.",
+  "source_sha256": {
+    "before/form_document.rs": "d0efb4470f838adbed379a9eea36aaab27f7519f72272d7e326508a4e0903d7c",
+    "after/form_document.rs": "7aed6a6a1c89d6b8237a2e925866ba9e6f3e3d43260c54c2cfde9344fa730a79",
+    "shared/harness.rs": "d7eab708619965eaa44d3f33b5b389ca87316fa1bf63003bb2d8c8c195ce263d"
+  },
+  "results": [
+    {
+      "controls": 8,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          8033,
+          951308
+        ],
+        "after_last": [
+          7735,
+          908868
+        ],
+        "requested_bytes_reduction_percent": 4.461226017231013
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          9186,
+          1056339
+        ],
+        "after_last": [
+          8888,
+          1013899
+        ],
+        "requested_bytes_reduction_percent": 4.017649637095666
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          9188,
+          1056351
+        ],
+        "after_last": [
+          8890,
+          1013911
+        ],
+        "requested_bytes_reduction_percent": 4.017603997156249
+      }
+    },
+    {
+      "controls": 32,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          66319,
+          8487412
+        ],
+        "after_last": [
+          61269,
+          7791816
+        ],
+        "requested_bytes_reduction_percent": 8.195619583448998
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          82488,
+          9980089
+        ],
+        "after_last": [
+          77438,
+          9284493
+        ],
+        "requested_bytes_reduction_percent": 6.9698376437324345
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          82490,
+          9980101
+        ],
+        "after_last": [
+          77440,
+          9284505
+        ],
+        "requested_bytes_reduction_percent": 6.969829263250949
+      }
+    },
+    {
+      "controls": 96,
+      "render_scene_allocation_count_and_bytes": {
+        "before_last": [
+          475173,
+          63179988
+        ],
+        "after_last": [
+          429291,
+          56901544
+        ],
+        "requested_bytes_reduction_percent": 9.937393467057953
+      },
+      "noop_allocation_count_and_bytes": {
+        "before_last": [
+          616934,
+          76342937
+        ],
+        "after_last": [
+          571052,
+          70064493
+        ],
+        "requested_bytes_reduction_percent": 8.224001127962888
+      },
+      "edit_allocation_count_and_bytes": {
+        "before_last": [
+          616936,
+          76342949
+        ],
+        "after_last": [
+          571054,
+          70064505
+        ],
+        "requested_bytes_reduction_percent": 8.223999835269657
+      }
+    }
+  ],
+  "raw": "native-for-scope-raw-2026-11-02.json",
+  "limitations": [
+    "Cumulative allocation requests, not peak/RSS.",
+    "HTTP natural soak PID99442 observed active; no latency/FPS claim.",
+    "Final source includes test-only key encoding assertion correction made during release compile; production source unchanged.",
+    "No hardware GPU rerun this turn; shared scope and preflight remain open."
+  ]
+}

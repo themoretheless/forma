@@ -1,0 +1,153 @@
+{
+  "status": "passed",
+  "scope": "Pinned July Miniflare/compatibility date, July and November workerd binaries; intentional producer rejection, EOF refusal, cleanup and fresh-request recovery for both codecs.",
+  "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+  "driverSourceSha256": "0a531632d51133d7d439cf2b3dbdf732f2291120760440baffa2c05efc1dd8bd",
+  "workerSourceSha256": "48e706ddf5f888cff6b02a3cfa09877457c122de5e55c4ac26f130a7720f29d1",
+  "observations": {
+    "pinnedInstalled": [
+      {
+        "codec": "identity",
+        "mode": "error-observation",
+        "transport": "clean-eof-without-complete",
+        "eofRejected": true
+      },
+      {
+        "codec": "identity",
+        "mode": "error-recovery",
+        "state": {
+          "producerFailed": false,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      },
+      {
+        "codec": "identity",
+        "mode": "error",
+        "state": {
+          "producerFailed": true,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      },
+      {
+        "codec": "svet-html-ref-v1",
+        "mode": "error-observation",
+        "transport": "clean-eof-without-complete",
+        "eofRejected": true
+      },
+      {
+        "codec": "svet-html-ref-v1",
+        "mode": "error-recovery",
+        "state": {
+          "producerFailed": false,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      },
+      {
+        "codec": "svet-html-ref-v1",
+        "mode": "error",
+        "state": {
+          "producerFailed": true,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      }
+    ],
+    "novemberBinary": [
+      {
+        "codec": "identity",
+        "mode": "error-observation",
+        "transport": "fetch-rejected-before-response",
+        "fetchFailure": {
+          "name": "TypeError",
+          "message": "fetch failed",
+          "causeCode": "UND_ERR_SOCKET"
+        },
+        "eofRejected": true
+      },
+      {
+        "codec": "identity",
+        "mode": "error-recovery",
+        "state": {
+          "producerFailed": false,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      },
+      {
+        "codec": "identity",
+        "mode": "error",
+        "state": {
+          "producerFailed": true,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      },
+      {
+        "codec": "svet-html-ref-v1",
+        "mode": "error-observation",
+        "transport": "fetch-rejected-before-response",
+        "fetchFailure": {
+          "name": "TypeError",
+          "message": "fetch failed",
+          "causeCode": "UND_ERR_SOCKET"
+        },
+        "eofRejected": true
+      },
+      {
+        "codec": "svet-html-ref-v1",
+        "mode": "error-recovery",
+        "state": {
+          "producerFailed": false,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      },
+      {
+        "codec": "svet-html-ref-v1",
+        "mode": "error",
+        "state": {
+          "producerFailed": true,
+          "signalAborted": false,
+          "phase": "component-ready",
+          "retiredPhase": "component-ready",
+          "cleaned": 1,
+          "nodes": 0
+        }
+      }
+    ]
+  },
+  "evidence": [
+    "edge-transport-new-before-2026-11-01.json",
+    "edge-transport-new-qualified-2026-11-01.json",
+    "edge-transport-installed-qualified-2026-11-01.json",
+    "edge-transport-package-2026-11-01.txt"
+  ],
+  "limitations": [
+    "November Miniflare controller and compatibility date not qualified.",
+    "Local loopback only; no deployed-provider or multi-hour memory qualification."
+  ]
+}

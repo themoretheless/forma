@@ -1,0 +1,131 @@
+{
+  "status": "passed",
+  "startedAt": "2026-11-01T19:45:37.116Z",
+  "node": "v22.23.4",
+  "durationMs": 1000,
+  "concurrency": 4,
+  "forcedGCs": 0,
+  "rounds": 2,
+  "requests": 32,
+  "cases": {
+    "identity/plain/shell-disconnect": {
+      "count": 2,
+      "drains": 0,
+      "flushes": 0
+    },
+    "identity/plain/patch-disconnect": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 0
+    },
+    "identity/plain/patch-abort": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 0
+    },
+    "identity/plain/complete": {
+      "count": 2,
+      "drains": 4,
+      "flushes": 0
+    },
+    "identity/gzip/shell-disconnect": {
+      "count": 2,
+      "drains": 0,
+      "flushes": 2
+    },
+    "identity/gzip/patch-abort": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 2
+    },
+    "identity/gzip/patch-disconnect": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 2
+    },
+    "identity/gzip/complete": {
+      "count": 2,
+      "drains": 4,
+      "flushes": 6
+    },
+    "svet-html-ref-v1/plain/shell-disconnect": {
+      "count": 2,
+      "drains": 0,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/plain/patch-disconnect": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/plain/patch-abort": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/plain/complete": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 0
+    },
+    "svet-html-ref-v1/gzip/shell-disconnect": {
+      "count": 2,
+      "drains": 0,
+      "flushes": 2
+    },
+    "svet-html-ref-v1/gzip/patch-disconnect": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 2
+    },
+    "svet-html-ref-v1/gzip/patch-abort": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 2
+    },
+    "svet-html-ref-v1/gzip/complete": {
+      "count": 2,
+      "drains": 2,
+      "flushes": 6
+    }
+  },
+  "samples": [
+    {
+      "elapsedMs": 799.0910419999999,
+      "requests": 16,
+      "rss": 265636848,
+      "heapTotal": 132448256,
+      "heapUsed": 96503760,
+      "external": 57503211,
+      "arrayBuffers": 16730996
+    },
+    {
+      "elapsedMs": 1501.590417,
+      "requests": 32,
+      "rss": 293507208,
+      "heapTotal": 136429568,
+      "heapUsed": 99975368,
+      "external": 56304241,
+      "arrayBuffers": 24969170
+    }
+  ],
+  "scope": "Loopback fetch delayed reads, both codecs, gzip on/off, shell disconnect and observed pending large patch disconnect/host abort. No sustained kernel saturation, remote proxy or universal memory bound claim.",
+  "identities": {
+    "./soak-ssr-transport-matrix.mjs": "ea6d1b93f7623d25bfd28293abbf7b2ac97dc087f51c2b85124366533f3dfa97",
+    "./browser-fixture-endpoints.mjs": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c",
+    "../dist/package/server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "../dist/package/stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "../dist/package/reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  },
+  "updatedAt": "2026-11-01T19:45:38.647Z",
+  "elapsedMs": 1501.590417,
+  "finalIdentities": {
+    "./soak-ssr-transport-matrix.mjs": "ea6d1b93f7623d25bfd28293abbf7b2ac97dc087f51c2b85124366533f3dfa97",
+    "./browser-fixture-endpoints.mjs": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c",
+    "../dist/package/server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "../dist/package/stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "../dist/package/reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  },
+  "artifactsUnchanged": true,
+  "completedAt": "2026-11-01T19:45:38.647Z"
+}

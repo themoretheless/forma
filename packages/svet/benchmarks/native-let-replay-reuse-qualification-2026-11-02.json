@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-02",
+  "change": "Lazy working environment reused across Let replay steps within one frame; restore previous overlay fields from current model before applying each step locals/parents.",
+  "checks": {
+    "lib": 150,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": "Existing sequential constant/dynamic Let identity, lexical shadowing, nested parent contexts and atomic Let failure/retry all pass.",
+  "source_sha256": "f59762cad56693be15d50922bc2fb0a26717c484b0beeb1e75f7b6dcfa040257",
+  "limitations": [
+    "No measured before/after latency/bytes claim.",
+    "One full working model clone remains per replayed frame; lexical overlays still clone values.",
+    "Derived aliases and complete deep/compiler/browser matrix remain open."
+  ]
+}

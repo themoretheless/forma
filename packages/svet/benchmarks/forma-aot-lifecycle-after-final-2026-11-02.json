@@ -1,0 +1,27 @@
+{
+  "cases": [
+    {
+      "name": "production factory releases never-mounted disposed instances",
+      "status": "passed"
+    },
+    {
+      "name": "HMR tracks mounted instances and preserves registration until last unmount",
+      "status": "passed"
+    },
+    {
+      "name": "HMR explicit dispose unregisters a mounted instance",
+      "status": "passed"
+    }
+  ],
+  "node": "v22.23.4",
+  "generatedSha256": "31b484ccecebe50e1540b7e6fc73860ddb2b7615709cfdfa14d35f8143d8786e",
+  "retainedTargets": 0,
+  "gc": {
+    "targets": 8,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "status": "passed",
+  "probeSha256": "ace8c763ef1646d2ebf1ef38671f3c51a20a202add2631434bc125392393c853",
+  "compilerSha256": "edbbb8773dfec0b33c66166c4e2517fe15c8ba7c04500b63a8ff3a402016977b"
+}

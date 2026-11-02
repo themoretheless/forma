@@ -62,6 +62,24 @@ fn round_inside(x:f32,y:f32,bounds:[f32;4],radius:f32)->bool {
     let mx=dx.max(0.);let my=dy.max(0.);
     mx*mx+my*my<=r*r
 }
+fn rect_area_coverage(x:u32,y:u32,scale:f32,bounds:[f32;4])->f32 {
+    let [bx,by,w,h]=bounds;
+    if w<=0.||h<=0.{return 0.;}
+    let dx=((x as f32+1.).min((bx+w)*scale)-(x as f32).max(bx*scale)).clamp(0.,1.);
+    let dy=((y as f32+1.).min((by+h)*scale)-(y as f32).max(by*scale)).clamp(0.,1.);
+    dx*dy
+}
+fn rect_area_paint(fill:[u8;4],border:[u8;4],outer:f32,band:f32)->[u8;4] {
+    let fa=fill[3]as f32/255.;let ba=border[3]as f32/255.;
+    let stroke=ba*band.clamp(0.,outer);
+    let body=fa*(outer-stroke);
+    let alpha=body+stroke;
+    let mut color=[0u8;4];
+    if alpha>0.{for k in 0..3{color[k]=((fill[k]as f32*body+border[k]as f32*stroke)/alpha).round()as u8;}}
+    color[3]=(alpha*255.).round()as u8;
+    if color[3]==0{color.fill(0);}
+    color
+}
 fn round_coverage(x:u32,y:u32,scale:f32,bounds:[f32;4],radius:f32)->f32 {
     let [bx,by,w,h]=bounds;if w<=0.||h<=0.{return 0.;}let r=radius.min(w/2.).min(h/2.);
     let dx=((x as f32+0.5)/scale-bx-w/2.).abs()-(w/2.-r);let dy=((y as f32+0.5)/scale-by-h/2.).abs()-(h/2.-r);
@@ -326,6 +344,11 @@ impl Button {
             let i=((y*width+x)*4) as usize;
             if coverage_alpha>0.{for k in 0..3 {out[i+k]=(rgb[k]/coverage_alpha).clamp(0.,255.).round()as u8;}}
             out[i+3]=(coverage_alpha*255.).round()as u8;
+            if b.radius==0. {
+                let outer=rect_area_coverage(x,y,scale,[b.x,b.y,b.width,b.height]);
+                let inner=rect_area_coverage(x,y,scale,[b.x+border_width,b.y+border_width,b.width-2.*border_width,b.height-2.*border_width]);
+                out[i..i+4].copy_from_slice(&rect_area_paint(color,border,outer,outer-inner));
+            }
 
         }}
         let r=b.radius.min(b.width/2.).min(b.height/2.);
@@ -708,3 +731,6 @@ pub mod android_jni {
         }
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+mod native_document_graph;

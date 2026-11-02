@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-02",
+  "status": "control mapping/rendered leaf count and key order validated before replacement",
+  "checks": {
+    "lib_tests": 159,
+    "integration_tests": 6,
+    "allocation_tests": 10,
+    "native_bin_check": "passed",
+    "wasm32_build": "passed",
+    "actual_generated_node_wasm": "passed",
+    "diff_check": "passed"
+  },
+  "regressions": [
+    "missing mapping",
+    "extra mapping",
+    "reordered keys",
+    "changed key",
+    "serialization-only ghost mapping cannot load nonexistent controls",
+    "mapping refusal preserves current count/keys/cache revision",
+    "JS/WASM ghost mapping refusal preserves viewport/offset/revision"
+  ],
+  "source_sha256": {
+    "vector-ui/src/runtime.rs": "de369634247bd4da9f2d77fd101d48aaaca7f2d87ab671a7e733d651149953bb",
+    "vector-ui/tests/scene_artifact.rs": "41848c6244572c27e4f058aba2bfb2ec1cb6f381640fafe40ebe253de114d799",
+    "vector-ui/tests/check-scene-artifact-wasm.cjs": "3361e448dae3b1a6acb9618a7fcafc38cf33458a4067e272d34d90e71b877358"
+  },
+  "limits": [
+    "Control node/state payload is compiler metadata, not authenticated source identity",
+    "Duplicate equal keys are not globally prohibited by this renderer check; binding ambiguity rules remain separate",
+    "Updated runtime executed in Node WASM; browser report predates this validation-only change",
+    "Frozen HTTP diagnostic continues; external-memory issue unresolved"
+  ]
+}

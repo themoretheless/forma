@@ -1,0 +1,25 @@
+{
+  "startedAt": "2026-11-01T19:41:29.420Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-10-23",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-DJ7qA9",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "status": "failed",
+  "error": "MiniflareCoreError [ERR_VALIDATION]: Unexpected options passed to `new Miniflare()` constructor:\n✖ Unrecognized keys: \"modules\", \"modulesRoot\", \"compatibilityDate\", \"compatibilityFlags\", \"unsafeDirectSockets\"\n✖ Invalid input: expected array, received undefined\n  → at workers\n    at validateOptions (/private/tmp/svet-miniflare-beta-20261023/node_modules/miniflare/dist/src/index.js:137505:24)\n    at new _Miniflare (/private/tmp/svet-miniflare-beta-20261023/node_modules/miniflare/dist/src/index.js:137902:38)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:29:5",
+  "completedAt": "2026-11-01T19:41:29.467Z",
+  "miniflare": "5.20261023.3-beta",
+  "workerd": "1.20261023.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+  "driverSourceSha256": "87c030e5596312e3f890a9c3ebb30826ae9d57fd66421f98878f4834d8df09f0",
+  "inspectorSourceSha256": "60a1d9fe15df70504241bcc3876b177750c1dde850738b485200136441176cad",
+  "retentionSourceSha256": "2fbeb87297173e13e9033186ff9bb221cf08847b93355331e306c570f789eacd",
+  "workerSourceSha256": "48e706ddf5f888cff6b02a3cfa09877457c122de5e55c4ac26f130a7720f29d1",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "37d834f2ac1a1b8b02da80b53b801446da1600542c98044eacd9d92a75f267c4"
+}

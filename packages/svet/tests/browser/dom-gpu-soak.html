@@ -1,0 +1,121 @@
+<!doctype html><meta charset="utf-8"><title>Svet DOM/GPU lifecycle soak</title>
+<style>body{font:16px system-ui;max-width:1000px;margin:30px auto}pre{background:#eff6ff;padding:16px;white-space:pre-wrap}#preview{display:flex;flex-wrap:wrap;gap:12px}button{padding:10px}</style>
+<h1>Svet DOM/GPU lifecycle soak</h1><p>Four live scenes, two WASM cores, one physical GPU device. Rotating owners, reactive DOM, resident geometry, resizing and explicit snapshots.</p>
+<button id="run">Run 60-second soak</button><pre id="status" role="status">Not run</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
+<script type="module">
+import {captureReactiveContext,configureGpuSubsystem,createGpuTensor,createMesh3D,createRoot,createTransform3D,createWasmCoreInstance,dispatchGpuComputeResident,getGraphTelemetry,getGpuTelemetry,onCleanup,readGpuResidentSnapshot,resetReactiveSystem,signal,Viewport3D,withWasmCore,h} from '/src/engine/index.ts';
+const assert=(value,message)=>{if(!value)throw Error(message);},raf=()=>new Promise(requestAnimationFrame);
+const status=document.querySelector('#status'),preview=document.querySelector('#preview'),raw=document.querySelector('#raw-results');
+const shader=`@group(0) @binding(0) var<storage,read> input:array<vec4<f32>>;
+@group(0) @binding(1) var<storage,read_write> output:array<vec4<f32>>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){if(id.x<arrayLength(&output)){output[id.x]=input[id.x];}}`;
+function tracker(device){
+ const counters={uploadedBytes:0,mapCalls:0,readbackBytes:0,submits:0,buffersCreated:0,bufferBytesCreated:0,buffersDestroyed:0,bufferBytesDestroyed:0};
+ const live=new Set(),textures=new Set();let peakBufferBytes=0;
+ const create=device.createBuffer.bind(device),texture=device.createTexture.bind(device),write=device.queue.writeBuffer.bind(device.queue),submit=device.queue.submit.bind(device.queue);
+ device.createBuffer=descriptor=>{
+  const buffer=create(descriptor),entry={bytes:descriptor.size};live.add(entry);counters.buffersCreated++;counters.bufferBytesCreated+=entry.bytes;
+  peakBufferBytes=Math.max(peakBufferBytes,Array.from(live).reduce((sum,item)=>sum+item.bytes,0));
+  const destroy=buffer.destroy.bind(buffer),map=buffer.mapAsync.bind(buffer);let destroyed=false;
+  buffer.destroy=()=>{if(!destroyed){destroyed=true;live.delete(entry);counters.buffersDestroyed++;counters.bufferBytesDestroyed+=entry.bytes;}return destroy();};
+  buffer.mapAsync=(mode,offset=0,size=descriptor.size-offset)=>{counters.mapCalls++;counters.readbackBytes+=size;return map(mode,offset,size);};return buffer;
+ };
+ device.createTexture=descriptor=>{const output=texture(descriptor),entry={};textures.add(entry);const destroy=output.destroy.bind(output);output.destroy=()=>{textures.delete(entry);return destroy();};return output;};
+ device.queue.writeBuffer=(buffer,offset,data,start=0,size)=>{counters.uploadedBytes+=size??data.byteLength-start;return write(buffer,offset,data,start,size);};
+ device.queue.submit=batches=>{counters.submits++;return submit(batches);};
+ return {read:()=>({...counters}),live:()=>({buffers:live.size,bufferBytes:Array.from(live).reduce((sum,item)=>sum+item.bytes,0),textures:textures.size}),
+  resetPeak(){peakBufferBytes=Array.from(live).reduce((sum,item)=>sum+item.bytes,0);},get peakBufferBytes(){return peakBufferBytes;}};
+}
+function renderValidated(canvas){
+ const check=()=>{if(canvas.dataset.renderBackend!=='webgpu-depth24plus'||canvas.dataset.renderValidation==='failed')throw Error(canvas.dataset.renderError??'WebGPU renderer unavailable');return canvas.dataset.renderValidation==='passed';};
+ if(check())return Promise.resolve();
+ return new Promise((resolve,reject)=>{let timer;const observer=new MutationObserver(()=>{try{if(check()){observer.disconnect();clearTimeout(timer);resolve();}}catch(error){observer.disconnect();clearTimeout(timer);reject(error);}});
+  observer.observe(canvas,{attributes:true,attributeFilter:['data-render-validation','data-render-backend']});timer=setTimeout(()=>{observer.disconnect();reject(Error('Render validation timeout'));},5000);
+  try{if(check()){observer.disconnect();clearTimeout(timer);resolve();}}catch(error){observer.disconnect();clearTimeout(timer);reject(error);}
+ });
+}
+
+document.querySelector('#run').onclick=async()=>{
+ const button=document.querySelector('#run');button.disabled=true;preview.replaceChildren();raw.textContent='';
+ const report={protocol:'dom-gpu-soak-v1',startedAt:new Date().toISOString(),durationMs:60000,samples:[],uncapturedErrors:[],created:0,retired:0,updates:0,domEvents:0,snapshots:0,
+ scope:'Bounded application allocation tracking; no forced browser GC, driver memory/RSS or long-term plateau proof.'};
+ const cores=[createWasmCoreInstance(),createWasmCoreInstance()],audit=createWasmCoreInstance(),live=[];let device,tracking,serial=0,baseline,sampleCount=0,lastPicture;
+ const heap=()=>performance.memory?.usedJSHeapSize??null;
+ const graphs=()=>cores.map(core=>withWasmCore(core,()=>({...getGraphTelemetry(),arenaFloats:core.svet_gpu_get_arena_len()})));
+ async function mount(){
+  const core=cores[serial++%2];let stop,context,selected,width,host,view,input,clicks=0,node,handle;
+  withWasmCore(core,()=>createRoot(dispose=>{
+   stop=dispose;configureGpuSubsystem({device});context=captureReactiveContext();selected=signal(null);width=signal(128);
+   onCleanup(()=>{selected.dispose();width.dispose();});
+   const mesh=createMesh3D({transform:createTransform3D(),positions:[0,0,.4,-.8,-.6,.4,.8,-.6,.4],indices:[0,1,2]});
+   input=createGpuTensor([0,0,.4,1,-.8,-.6,.4,1,.8,-.6,.4,1]);
+   node=h('button',{onClick:()=>{clicks++;report.domEvents++;}},()=>`Scene width ${width()}`);
+   host=document.createElement('section');host.append(node);
+   view=()=>Viewport3D({mesh,gpuVertices:selected,width,height:128,renderMode:'sync',showVertices:false});
+  }));
+  try{
+   handle=await context.run(()=>dispatchGpuComputeResident({wgsl:shader,inputs:[input],outputLength:12}));
+   context.run(()=>{input.dispose();selected.set(handle);view=view();});host.append(view);preview.append(host);
+   await device.queue.onSubmittedWorkDone();await renderValidated(view.children[0]);
+   report.created++;return {core,stop,context,selected,width,host,view,node,handle,clicks:()=>clicks};
+  }catch(error){stop();host?.remove();throw error;}
+ }
+ function retire(entry){
+  const before=entry.clicks();entry.stop();entry.node.click();assert(entry.clicks()===before,'Retired DOM callback ran');
+  assert(!entry.context.active&&!entry.handle.active,'Retired owner retained context or GPU handle');
+  entry.host.remove();report.retired++;
+ }
+ async function rotate(){const fresh=await mount();retire(live.shift());live.push(fresh);}
+ function sample(tick){
+  const row={tick,heapUsed:heap(),graphs:graphs(),allocations:tracking.live(),gpu:withWasmCore(audit,()=>getGpuTelemetry())};
+  report.samples[sampleCount++%64]=row;
+  assert(row.allocations.textures===4,'Depth textures accumulated');
+  assert(row.gpu.residentComputeBytes===4*48&&!row.gpu.pendingComputeCount&&!row.gpu.pendingComputeSnapshotBytes,'GPU reservations accumulated');
+  assert(row.allocations.buffers===8,'Application buffers accumulated');
+  assert(preview.children.length===4,'Detached scene still mounted');
+  if(baseline)row.graphs.forEach((g,i)=>{for(const key of ['nodes','edges','capacity','wasmMemoryBytes','arenaFloats'])assert(g[key]===baseline.graphs[i][key],`Graph ${key} grew`);assert(!g.pendingEffectCount,'Pending effects');});else baseline=row;
+ }
+ try{
+  report.build=await fetch('/metadata.json').then(r=>{assert(r.ok,'Frozen build metadata missing');return r.json();});
+  const adapter=await navigator.gpu?.requestAdapter();assert(adapter,'No GPU adapter');const info=adapter.info??{};
+  report.adapter={vendor:info.vendor,architecture:info.architecture,isFallbackAdapter:info.isFallbackAdapter??adapter.isFallbackAdapter??null};
+  report.environment={userAgent:navigator.userAgent,devicePixelRatio,visibility:document.visibilityState};
+  device=await adapter.requestDevice();tracking=tracker(device);device.addEventListener('uncapturederror',event=>{if(report.uncapturedErrors.length<32)report.uncapturedErrors.push(event.error.message);});
+  withWasmCore(audit,()=>configureGpuSubsystem({device}));
+  for(let i=0;i<4;i++)live.push(await mount());
+  report.warmup=[];for(let i=0;i<128;i++){await rotate();if(i%16===15)report.warmup.push({rotations:i+1,graphs:graphs()});}
+  sample(0);
+  const started=performance.now();let tick=0;
+  while(performance.now()-started<report.durationMs){
+   await raf();tick++;
+   await Promise.all(live.map(async entry=>{
+    const next=await entry.context.run(()=>dispatchGpuComputeResident({wgsl:shader,inputs:[entry.handle],outputLength:12}));
+    const old=entry.handle;entry.context.run(()=>{entry.selected.set(next);if(tick%8===0)entry.width.set(tick%16===0?128:160);});entry.handle=next;old.dispose();
+    entry.node.click();assert(entry.node.textContent===`Scene width ${entry.context.run(()=>entry.width())}`,'Reactive DOM width differs');
+    report.updates++;
+    if(tick%16===0){const values=await entry.context.run(()=>readGpuResidentSnapshot(next));assert(values.length===12&&Math.abs(values[2]-.4)<1e-6&&values[3]===1,'GPU snapshot mismatch');report.snapshots++;}
+    const canvas=entry.view.children[0];
+    if(tick%120===0){const copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;copy.getContext('2d').drawImage(canvas,0,0);lastPicture=copy;}
+    await device.queue.onSubmittedWorkDone();await renderValidated(canvas);
+   }));
+   if(tick%8===0)await rotate();
+   if(tick%8===0){sample(tick);status.textContent=`Running: ${tick} frames, ${report.created} scenes created, ${report.retired} retired`;}
+  }
+  report.elapsedMs=performance.now()-started;report.ticks=tick;sample(tick);report.status='passed';
+ }catch(error){report.status='failed';report.error=String(error.stack??error);}
+ finally{
+  try{
+   while(live.length)retire(live.pop());
+   if(device)await device.queue.onSubmittedWorkDone();
+   report.finalGraphs=graphs();for(const g of report.finalGraphs)assert(g.nodes===0&&g.edges===0&&!g.pendingEffectCount,'Graph retained after teardown');
+   if(tracking){report.finalAllocations=tracking.live();report.counters=tracking.read();assert(!report.finalAllocations.buffers&&!report.finalAllocations.textures,'GPU allocations retained');}
+   if(device){report.finalGpu=withWasmCore(audit,()=>getGpuTelemetry());assert(!report.finalGpu.residentComputeBytes&&!report.finalGpu.pendingComputeCount,'Reservations retained');}
+   assert(report.uncapturedErrors.length===0,'Uncaptured GPU errors');assert(report.created===report.retired,'Scene teardown accounting differs');
+  }catch(error){report.status='failed';report.cleanupError=String(error.stack??error);}
+  for(const core of [...cores,audit])withWasmCore(core,()=>{configureGpuSubsystem({device:null});resetReactiveSystem();});device?.destroy();
+  report.sampleCount=sampleCount;report.samples.sort((a,b)=>a.tick-b.tick);report.completedAt=new Date().toISOString();raw.textContent=JSON.stringify(report);
+  status.textContent=report.status==='passed'?`PASS: ${report.ticks} frames; ${report.created} scenes created/retired; ${report.updates} resident updates; ${report.domEvents} DOM events; ${report.snapshots} explicit snapshots. Graphs, GPU buffers, textures and reservations returned to zero. Heap observations do not prove a plateau.`:`FAIL: ${report.error??report.cleanupError}`;
+  if(lastPicture){const label=document.createElement('p');label.textContent='Last submitted frame snapshot (outside performance qualification)';preview.append(label,lastPicture);}button.disabled=false;
+ }
+};
+</script>

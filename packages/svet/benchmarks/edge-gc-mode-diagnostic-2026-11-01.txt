@@ -1,0 +1,363 @@
+{
+  "startedAt": "2026-11-01T18:31:44.270Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-BsHlzE",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "responses": [
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>0</p>",
+          "<p>1</p>",
+          "<p>2</p>",
+          "<p>3</p>",
+          "<p>4</p>",
+          "<p>5</p>",
+          "<p>6</p>",
+          "<p>7</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "timeoutTransport": "readable",
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    },
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>100</p>",
+          "<p>101</p>",
+          "<p>102</p>",
+          "<p>103</p>",
+          "<p>104</p>",
+          "<p>105</p>",
+          "<p>106</p>",
+          "<p>107</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "timeoutTransport": "readable",
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    }
+  ],
+  "gcCapabilities": {
+    "weakRef": true,
+    "finalizationRegistry": true
+  },
+  "churn": {
+    "requestedMs": 1000,
+    "timeoutTransport": "readable",
+    "directSocket": false,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 144,
+    "domCycles": 2304,
+    "streams": 1152,
+    "stringRenders": 1152,
+    "timeouts": 144,
+    "elapsedMs": 1004.3799590000001,
+    "status": "passed"
+  },
+  "gc": {
+    "scope": "Local workerd WeakRef collection, inspector GC requests or allocation pressure, 20 requests/5 modes/both codecs; retain terminal streams/readers/errors. Positive controls survive held phase and collect after release. Not forced GC, RSS plateau or deployed Edge qualification.",
+    "observations": [
+      {
+        "phase": "held",
+        "attempt": 0,
+        "alive": {
+          "complete:capture": 4,
+          "complete:view": 4,
+          "cancel:capture": 4,
+          "cancel:view": 4,
+          "abort:capture": 4,
+          "abort:view": 4,
+          "error:capture": 4,
+          "error:view": 4,
+          "timeout:capture": 4,
+          "timeout:view": 4,
+          "complete:core": 4,
+          "complete:memory": 4,
+          "complete:signal": 4,
+          "complete:node": 4,
+          "cancel:core": 4,
+          "cancel:memory": 4,
+          "cancel:signal": 4,
+          "cancel:node": 4,
+          "abort:core": 4,
+          "abort:memory": 4,
+          "abort:signal": 4,
+          "abort:node": 4,
+          "error:core": 4,
+          "error:memory": 4,
+          "error:signal": 4,
+          "error:node": 4,
+          "timeout:core": 4,
+          "timeout:memory": 4,
+          "timeout:signal": 4,
+          "timeout:node": 4,
+          "liveControl": 4
+        },
+        "held": 20,
+        "controls": 4,
+        "objects": 124
+      },
+      {
+        "phase": "held",
+        "attempt": 1,
+        "alive": {
+          "complete:capture": 4,
+          "complete:view": 4,
+          "complete:core": 4,
+          "complete:memory": 4,
+          "liveControl": 4
+        },
+        "held": 20,
+        "controls": 4,
+        "objects": 124
+      },
+      {
+        "phase": "held",
+        "attempt": 2,
+        "alive": {
+          "complete:capture": 4,
+          "complete:view": 4,
+          "complete:core": 4,
+          "complete:memory": 4,
+          "liveControl": 4
+        },
+        "held": 20,
+        "controls": 4,
+        "objects": 124
+      },
+      {
+        "phase": "released",
+        "attempt": 0,
+        "alive": {
+          "complete:capture": 4,
+          "complete:view": 4,
+          "complete:core": 4,
+          "complete:memory": 4,
+          "liveControl": 4
+        },
+        "held": 0,
+        "controls": 0,
+        "objects": 124
+      },
+      {
+        "phase": "released",
+        "attempt": 1,
+        "alive": {
+          "complete:capture": 4,
+          "complete:view": 4,
+          "complete:core": 4,
+          "complete:memory": 4
+        },
+        "held": 0,
+        "controls": 0,
+        "objects": 124
+      },
+      {
+        "phase": "released",
+        "attempt": 2,
+        "alive": {
+          "complete:capture": 4,
+          "complete:view": 4,
+          "complete:core": 4,
+          "complete:memory": 4
+        },
+        "held": 0,
+        "controls": 0,
+        "objects": 124
+      }
+    ],
+    "allocation": {
+      "requests": 20,
+      "objects": 124,
+      "retainedTerminalPairs": 20,
+      "positiveControls": 4
+    },
+    "initial": {
+      "alive": {
+        "complete:capture": 4,
+        "complete:view": 4,
+        "cancel:capture": 4,
+        "cancel:view": 4,
+        "abort:capture": 4,
+        "abort:view": 4,
+        "error:capture": 4,
+        "error:view": 4,
+        "timeout:capture": 4,
+        "timeout:view": 4,
+        "complete:core": 4,
+        "complete:memory": 4,
+        "complete:signal": 4,
+        "complete:node": 4,
+        "cancel:core": 4,
+        "cancel:memory": 4,
+        "cancel:signal": 4,
+        "cancel:node": 4,
+        "abort:core": 4,
+        "abort:memory": 4,
+        "abort:signal": 4,
+        "abort:node": 4,
+        "error:core": 4,
+        "error:memory": 4,
+        "error:signal": 4,
+        "error:node": 4,
+        "timeout:core": 4,
+        "timeout:memory": 4,
+        "timeout:signal": 4,
+        "timeout:node": 4,
+        "liveControl": 4
+      },
+      "held": 20,
+      "controls": 4,
+      "objects": 124
+    },
+    "inspectorTarget": {
+      "id": "core:user:",
+      "title": "workerd: worker core:user:"
+    },
+    "inspectorEnable": {},
+    "mechanism": "Inspector GC requested; collection verified by WeakRef controls, command acknowledgement recorded separately",
+    "gcCommands": [
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      },
+      {
+        "status": "acknowledged"
+      }
+    ],
+    "heapBefore": {
+      "usedSize": 34074668,
+      "totalSize": 91668480,
+      "embedderHeapUsedSize": 350208,
+      "backingStorageSize": 255864
+    },
+    "heapLast": {
+      "usedSize": 27375888,
+      "totalSize": 28229632,
+      "embedderHeapUsedSize": 174304,
+      "backingStorageSize": 252458
+    },
+    "withHandles": {
+      "phase": "held",
+      "attempt": 2,
+      "alive": {
+        "complete:capture": 4,
+        "complete:view": 4,
+        "complete:core": 4,
+        "complete:memory": 4,
+        "liveControl": 4
+      },
+      "held": 20,
+      "controls": 4,
+      "objects": 124
+    },
+    "afterRelease": {
+      "phase": "released",
+      "attempt": 2,
+      "alive": {
+        "complete:capture": 4,
+        "complete:view": 4,
+        "complete:core": 4,
+        "complete:memory": 4
+      },
+      "held": 0,
+      "controls": 0,
+      "objects": 124
+    },
+    "status": "inconclusive"
+  },
+  "status": "failed",
+  "error": "Error: Edge GC inconclusive: {\"scope\":\"Local workerd WeakRef collection, inspector GC requests or allocation pressure, 20 requests/5 modes/both codecs; retain terminal streams/readers/errors. Positive controls survive held phase and collect after release. Not forced GC, RSS plateau or deployed Edge qualification.\",\"observations\":[{\"phase\":\"held\",\"attempt\":0,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"cancel:capture\":4,\"cancel:view\":4,\"abort:capture\":4,\"abort:view\":4,\"error:capture\":4,\"error:view\":4,\"timeout:capture\":4,\"timeout:view\":4,\"complete:core\":4,\"complete:memory\":4,\"complete:signal\":4,\"complete:node\":4,\"cancel:core\":4,\"cancel:memory\":4,\"cancel:signal\":4,\"cancel:node\":4,\"abort:core\":4,\"abort:memory\":4,\"abort:signal\":4,\"abort:node\":4,\"error:core\":4,\"error:memory\":4,\"error:signal\":4,\"error:node\":4,\"timeout:core\":4,\"timeout:memory\":4,\"timeout:signal\":4,\"timeout:node\":4,\"liveControl\":4},\"held\":20,\"controls\":4,\"objects\":124},{\"phase\":\"held\",\"attempt\":1,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"complete:core\":4,\"complete:memory\":4,\"liveControl\":4},\"held\":20,\"controls\":4,\"objects\":124},{\"phase\":\"held\",\"attempt\":2,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"complete:core\":4,\"complete:memory\":4,\"liveControl\":4},\"held\":20,\"controls\":4,\"objects\":124},{\"phase\":\"released\",\"attempt\":0,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"complete:core\":4,\"complete:memory\":4,\"liveControl\":4},\"held\":0,\"controls\":0,\"objects\":124},{\"phase\":\"released\",\"attempt\":1,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"complete:core\":4,\"complete:memory\":4},\"held\":0,\"controls\":0,\"objects\":124},{\"phase\":\"released\",\"attempt\":2,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"complete:core\":4,\"complete:memory\":4},\"held\":0,\"controls\":0,\"objects\":124}],\"allocation\":{\"requests\":20,\"objects\":124,\"retainedTerminalPairs\":20,\"positiveControls\":4},\"initial\":{\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"cancel:capture\":4,\"cancel:view\":4,\"abort:capture\":4,\"abort:view\":4,\"error:capture\":4,\"error:view\":4,\"timeout:capture\":4,\"timeout:view\":4,\"complete:core\":4,\"complete:memory\":4,\"complete:signal\":4,\"complete:node\":4,\"cancel:core\":4,\"cancel:memory\":4,\"cancel:signal\":4,\"cancel:node\":4,\"abort:core\":4,\"abort:memory\":4,\"abort:signal\":4,\"abort:node\":4,\"error:core\":4,\"error:memory\":4,\"error:signal\":4,\"error:node\":4,\"timeout:core\":4,\"timeout:memory\":4,\"timeout:signal\":4,\"timeout:node\":4,\"liveControl\":4},\"held\":20,\"controls\":4,\"objects\":124},\"inspectorTarget\":{\"id\":\"core:user:\",\"title\":\"workerd: worker core:user:\"},\"inspectorEnable\":{},\"mechanism\":\"Inspector GC requested; collection verified by WeakRef controls, command acknowledgement recorded separately\",\"gcCommands\":[{\"status\":\"acknowledged\"},{\"status\":\"acknowledged\"},{\"status\":\"acknowledged\"},{\"status\":\"acknowledged\"},{\"status\":\"acknowledged\"},{\"status\":\"acknowledged\"}],\"heapBefore\":{\"usedSize\":34074668,\"totalSize\":91668480,\"embedderHeapUsedSize\":350208,\"backingStorageSize\":255864},\"heapLast\":{\"usedSize\":27375888,\"totalSize\":28229632,\"embedderHeapUsedSize\":174304,\"backingStorageSize\":252458},\"withHandles\":{\"phase\":\"held\",\"attempt\":2,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"complete:core\":4,\"complete:memory\":4,\"liveControl\":4},\"held\":20,\"controls\":4,\"objects\":124},\"afterRelease\":{\"phase\":\"released\",\"attempt\":2,\"alive\":{\"complete:capture\":4,\"complete:view\":4,\"complete:core\":4,\"complete:memory\":4},\"held\":0,\"controls\":0,\"objects\":124},\"status\":\"inconclusive\"}\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:64:33\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+  "completedAt": "2026-11-01T18:31:46.494Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "runtimeSha256": "65af71885e013af0aaae32d393b9057723a02a60743baad5150429efd60788eb",
+  "driverSourceSha256": "f5db91663317f7f166d2fb3d745008f3216b4a6cad124abe2a79aa1aaf70b1bf",
+  "retentionSourceSha256": "f1110166264cf4a02c960d610889a6246e1444cbe72fb9c11f294f25712340dc",
+  "workerSourceSha256": "f29bc4d3b1ffe386dc69d5268499353f3fa14c12cb80524ea6b84455117e65c0",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "d390515c53046c6aad5ed4d1d5701b8b6082203c64e0e14baa5c283ec04427b5"
+}

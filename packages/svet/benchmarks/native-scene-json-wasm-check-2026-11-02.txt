@@ -1,0 +1,8 @@
+   Compiling serde_core v1.0.229
+   Compiling serde v1.0.229
+   Compiling syn v3.0.5
+   Compiling serde_derive v1.0.229
+    Checking serde_json v1.0.151
+    Checking themoretheless-tokenizer-forma v0.8.0 (https://github.com/themoretheless/tokenizer?rev=1c83ab03d879b085ec53ec5badf8abcc82c2ee3c#1c83ab03)
+    Checking forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.77s

@@ -1,0 +1,197 @@
+{
+  "results": [
+    {
+      "svet": false,
+      "controls": 8,
+      "before": {
+        "idle_allocations": 139,
+        "idle_requested_bytes": 6664,
+        "edit_allocations": 6031,
+        "edit_requested_bytes": 712546,
+        "edit_median_ms_by_run": [
+          0.27720799999999995,
+          0.349625
+        ]
+      },
+      "after": {
+        "idle_allocations": 139,
+        "idle_requested_bytes": 6664,
+        "edit_allocations": 5687,
+        "edit_requested_bytes": 682511,
+        "edit_median_ms_by_run": [
+          0.269125,
+          0.31216700000000003
+        ]
+      }
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "before": {
+        "idle_allocations": 463,
+        "idle_requested_bytes": 16082,
+        "edit_allocations": 42755,
+        "edit_requested_bytes": 5418827,
+        "edit_median_ms_by_run": [
+          1.666042,
+          1.8515840000000001
+        ]
+      },
+      "after": {
+        "idle_allocations": 463,
+        "idle_requested_bytes": 16082,
+        "edit_allocations": 41379,
+        "edit_requested_bytes": 5298608,
+        "edit_median_ms_by_run": [
+          1.607084,
+          2.4580420000000003
+        ]
+      }
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "before": {
+        "idle_allocations": 1331,
+        "idle_requested_bytes": 42258,
+        "edit_allocations": 281498,
+        "edit_requested_bytes": 37229619,
+        "edit_median_ms_by_run": [
+          10.11925,
+          10.875292
+        ]
+      },
+      "after": {
+        "idle_allocations": 1331,
+        "idle_requested_bytes": 42258,
+        "edit_allocations": 277370,
+        "edit_requested_bytes": 36868888,
+        "edit_median_ms_by_run": [
+          9.566084,
+          9.667250000000001
+        ]
+      }
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "before": {
+        "idle_allocations": 3486,
+        "idle_requested_bytes": 102950,
+        "edit_allocations": 1774297,
+        "edit_requested_bytes": 239214695,
+        "edit_median_ms_by_run": [
+          168.281709,
+          149.007834
+        ]
+      },
+      "after": {
+        "idle_allocations": 3486,
+        "idle_requested_bytes": 102950,
+        "edit_allocations": 1763289,
+        "edit_requested_bytes": 238252060,
+        "edit_median_ms_by_run": [
+          177.820709,
+          115.27324999999999
+        ]
+      }
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "before": {
+        "idle_allocations": 184,
+        "idle_requested_bytes": 12771,
+        "edit_allocations": 6066,
+        "edit_requested_bytes": 715856,
+        "edit_median_ms_by_run": [
+          0.25033299999999997,
+          0.27399999999999997
+        ]
+      },
+      "after": {
+        "idle_allocations": 184,
+        "idle_requested_bytes": 12771,
+        "edit_allocations": 5722,
+        "edit_requested_bytes": 685821,
+        "edit_median_ms_by_run": [
+          0.263542,
+          0.25975
+        ]
+      }
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "before": {
+        "idle_allocations": 628,
+        "idle_requested_bytes": 38553,
+        "edit_allocations": 42922,
+        "edit_requested_bytes": 5441418,
+        "edit_median_ms_by_run": [
+          1.634541,
+          6.510125
+        ]
+      },
+      "after": {
+        "idle_allocations": 628,
+        "idle_requested_bytes": 38553,
+        "edit_allocations": 41546,
+        "edit_requested_bytes": 5321199,
+        "edit_median_ms_by_run": [
+          1.561458,
+          2.978958
+        ]
+      }
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "before": {
+        "idle_allocations": 1816,
+        "idle_requested_bytes": 108377,
+        "edit_allocations": 281985,
+        "edit_requested_bytes": 37295858,
+        "edit_median_ms_by_run": [
+          36.072041,
+          10.019125
+        ]
+      },
+      "after": {
+        "idle_allocations": 1816,
+        "idle_requested_bytes": 108377,
+        "edit_allocations": 277857,
+        "edit_requested_bytes": 36935127,
+        "edit_median_ms_by_run": [
+          10.910458,
+          9.3725
+        ]
+      }
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "before": {
+        "idle_allocations": 4771,
+        "idle_requested_bytes": 278501,
+        "edit_allocations": 1775584,
+        "edit_requested_bytes": 239390366,
+        "edit_median_ms_by_run": [
+          195.280667,
+          120.16825
+        ]
+      },
+      "after": {
+        "idle_allocations": 4771,
+        "idle_requested_bytes": 278501,
+        "edit_allocations": 1764576,
+        "edit_requested_bytes": 238427731,
+        "edit_median_ms_by_run": [
+          153.829042,
+          129.58562500000002
+        ]
+      }
+    }
+  ],
+  "allocation_repeats_equal": true
+}

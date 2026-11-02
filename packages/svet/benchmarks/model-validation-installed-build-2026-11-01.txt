@@ -1,0 +1,76 @@
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 113 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/ssr-runtime-import.html                         0.49 kB │ gzip:  0.22 kB
+dist/index.html                                      0.56 kB │ gzip:  0.25 kB
+dist/model-validation.html                           0.74 kB │ gzip:  0.42 kB
+dist/dom-lifecycle.html                              0.80 kB │ gzip:  0.45 kB
+dist/model-select.html                               0.81 kB │ gzip:  0.46 kB
+dist/model-inputs.html                               0.81 kB │ gzip:  0.47 kB
+dist/style-lifetime.html                             0.82 kB │ gzip:  0.48 kB
+dist/dynamic-children.html                           0.83 kB │ gzip:  0.48 kB
+dist/dom-realms.html                                 0.83 kB │ gzip:  0.48 kB
+dist/event-lifetime.html                             0.83 kB │ gzip:  0.49 kB
+dist/attribute-lifetime.html                         0.84 kB │ gzip:  0.49 kB
+dist/browser-matrix.html                             0.84 kB │ gzip:  0.53 kB
+dist/h-construction.html                             0.88 kB │ gzip:  0.50 kB
+dist/fragment-construction.html                      0.88 kB │ gzip:  0.51 kB
+dist/model-reset.html                                0.90 kB │ gzip:  0.52 kB
+dist/resident-render.html                            0.93 kB │ gzip:  0.50 kB
+dist/context-provider-lifetime.html                  0.94 kB │ gzip:  0.52 kB
+dist/model-reset-roots.html                          0.94 kB │ gzip:  0.52 kB
+dist/event-context.html                              0.95 kB │ gzip:  0.53 kB
+dist/server-action-http.html                         0.95 kB │ gzip:  0.51 kB
+dist/event-adoption.html                             0.96 kB │ gzip:  0.54 kB
+dist/async-components-roundtrip.html                 0.97 kB │ gzip:  0.52 kB
+dist/model-adoption.html                             0.97 kB │ gzip:  0.54 kB
+dist/captured-context.html                           0.98 kB │ gzip:  0.53 kB
+dist/model-files.html                                0.98 kB │ gzip:  0.54 kB
+dist/shared-gpu-recovery.html                        1.00 kB │ gzip:  0.53 kB
+dist/for-fragments.html                              1.08 kB │ gzip:  0.58 kB
+dist/streaming-roundtrip.html                        1.08 kB │ gzip:  0.58 kB
+dist/resumption-roundtrip.html                       1.14 kB │ gzip:  0.63 kB
+dist/for-current-item.html                           1.17 kB │ gzip:  0.60 kB
+dist/assets/modulepreload-polyfill-P2Xu9kJm.js       0.67 kB │ gzip:  0.38 kB
+dist/assets/advanced-HX9kJJmz.js                     1.09 kB │ gzip:  0.58 kB
+dist/assets/index-C4CeZm_4.js                        1.26 kB │ gzip:  0.65 kB
+dist/assets/dom-realms-ROTq3FeO.js                   1.69 kB │ gzip:  0.85 kB
+dist/assets/model-select-BHzzpf_f.js                 1.74 kB │ gzip:  0.88 kB
+dist/assets/async-components-roundtrip-BSVT-DT6.js   1.78 kB │ gzip:  0.94 kB
+dist/assets/dynamic-children-pp-kmaPl.js             1.88 kB │ gzip:  0.91 kB
+dist/assets/model-inputs-BDQX-d04.js                 1.92 kB │ gzip:  0.94 kB
+dist/assets/dom-lifecycle-BZ55FiEc.js                2.17 kB │ gzip:  1.03 kB
+dist/assets/model-adoption-vEtDfqUp.js               2.27 kB │ gzip:  1.05 kB
+dist/assets/for-fragments-CfYFIbSl.js                2.32 kB │ gzip:  1.09 kB
+dist/assets/model-validation-D5FnPFKd.js             2.55 kB │ gzip:  1.21 kB
+dist/assets/model-files-DKhr3Dru.js                  2.57 kB │ gzip:  1.25 kB
+dist/assets/event-lifetime-CTK43I_a.js               2.76 kB │ gzip:  1.30 kB
+dist/assets/style-lifetime-Byyzs27x.js               2.99 kB │ gzip:  1.39 kB
+dist/assets/attribute-lifetime-BcDmIjCf.js           3.04 kB │ gzip:  1.43 kB
+dist/assets/resumption-roundtrip-BiJYPS-a.js         3.05 kB │ gzip:  1.42 kB
+dist/assets/stream-codec-CjbyFnqR.js                 3.13 kB │ gzip:  1.20 kB
+dist/assets/server-action-http-D06p89nz.js           3.19 kB │ gzip:  1.57 kB
+dist/assets/browser-matrix-CZ0iDIue.js               3.26 kB │ gzip:  1.27 kB
+dist/assets/h-construction-BlcGm9J5.js               3.34 kB │ gzip:  1.59 kB
+dist/assets/fragment-construction-DrqfHNXi.js        3.37 kB │ gzip:  1.51 kB
+dist/assets/model-reset-DKoPRdYt.js                  3.41 kB │ gzip:  1.58 kB
+dist/assets/event-context-CIBr4V1p.js                3.69 kB │ gzip:  1.60 kB
+dist/assets/for-current-item-DNTbPE4N.js             3.73 kB │ gzip:  1.57 kB
+dist/assets/event-adoption-CmOyf5Ip.js               3.82 kB │ gzip:  1.56 kB
+dist/assets/context-provider-lifetime-CbWtwX3t.js    4.24 kB │ gzip:  1.72 kB
+dist/assets/captured-context-D-jRNdhm.js             4.42 kB │ gzip:  2.04 kB
+dist/assets/model-reset-roots-B5ehyF9X.js            5.14 kB │ gzip:  2.15 kB
+dist/assets/resumable-DAeQSmTq.js                    6.30 kB │ gzip:  2.81 kB
+dist/assets/shared-gpu-recovery-BMiMBgyt.js          7.61 kB │ gzip:  3.32 kB
+dist/assets/streaming-roundtrip-vrvNPJIS.js          7.94 kB │ gzip:  3.43 kB
+dist/assets/gpu-resident-BCJ74FWT.js                 8.25 kB │ gzip:  3.25 kB
+dist/assets/resident-render-CW86XfKW.js              8.26 kB │ gzip:  3.46 kB
+dist/assets/ssr-runtime-import-Dh6ztewO.js          12.90 kB │ gzip:  4.57 kB
+dist/assets/dom-Bhxs5ASI.js                         24.25 kB │ gzip:  9.03 kB
+dist/assets/gpu-CwE4njJE.js                         27.68 kB │ gzip: 10.34 kB
+dist/assets/forma-B_Z6nanB.js                       29.79 kB │ gzip:  9.65 kB
+dist/assets/reactivity-Df2xa6wZ.js                  96.00 kB │ gzip: 37.31 kB
+
+✓ built in 176ms

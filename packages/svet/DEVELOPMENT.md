@@ -54,7 +54,7 @@ round-trip regressions. Next audit compiler/DOM integration and implement genuin
 async SSR context propagation, together with the remaining reactive graph cases. Keep
 regressions for each reproduced defect.
 
-## Latest local verification (2026-10-31)
+## Early local verification (2026-10-31)
 
 - `npm --prefix packages/svet test`: 234 tests pass in 16 files. jsdom reports its
   existing unimplemented canvas context warnings; this is not GPU qualification.
@@ -3566,3 +3566,5886 @@ checks the new export, oversized tensor preflight and aggregate mesh rejection
 with a safety guard preventing large snapshot allocation if a regression occurs.
 No real near-capacity allocation, allocator reservation or physical GPU pressure
 qualification is inferred from these bounded checks.
+
+### Bounded arena reservation qualification (2026-11-01)
+
+Arena growth now reserves geometrically with try_reserve_exact, capped at the
+native element limit, before resizing. Small-limit regressions cover reserved
+capacity, amortized growth, zeroed tails, preservation of existing values and
+capacity-overflow rejection without changing the previous allocation.
+
+Current verification passed: 48 native Rust tests, release SIMD WASM rebuilt to
+54,035 bytes, full production build, 1101 JS/WASM tests across 78 files, nine
+installed-package checks and four real HTTP action tests. These bounded tests do
+not qualify actual near-limit allocation, process RSS, transient allocator peaks,
+WASM linear-memory reclamation or physical GPU memory pressure. Performance
+measurement and broader work remain tracked in PLAN.md.
+
+### Fragmented arena churn (2026-11-01)
+
+A native regression runs 2000 cycles of 128 differently sized allocations with
+deterministically shuffled frees, retaining a live 16-float prefix throughout.
+It checks zeroed reused slices, preserved prefix values, full free-block
+coalescing after every cycle, unchanged arena address/capacity and dirty-bitmap
+capacity after the first cycle, and a bounded free-list capacity. No reset masks
+retained storage. All 49 Rust tests passed (0.83 seconds for the suite locally).
+The duration is a test observation, not a controlled performance comparison.
+This qualifies 256,000 native allocation/free pairs, not JS heap, WASM runtime
+memory pressure, GPU allocations or whole-application longevity. Production code
+is unchanged by this test-only addition.
+
+### Real WASM arena measurement (2026-11-01)
+
+Reproduce after building the package:
+
+```sh
+node --expose-gc packages/svet/scripts/measure-arena-churn.mjs /tmp/svet-arena-churn.json
+```
+
+The script imports the compiled internal WASM bridge, creates an isolated core,
+checks data and reuses storage without reset between batches. It records module
+hash, Node/OS/CPU, raw batch timings, process memory and WASM linear-memory size.
+GC and memory sampling occur outside timed batches. The recorded run is in
+`benchmarks/arena-churn-2026-11-01.json` (Node 22.23.4, Apple M4 Max).
+
+Growing to 1,048,576 floats via 4096 allocations took 2.119 ms locally. After 100
+warmup cycles, seven batches of 500 cycles made 448,000 allocation/free pairs;
+median batch duration was 36.073 ms including JS assertions and data writes.
+These are observations without an A/B baseline, not allocator-only throughput
+or a speedup claim. Timing variation requires repeated controlled comparisons.
+
+After warmup, WASM memory remained 9,764,864 bytes and arena address stayed fixed.
+Post-GC heapUsed changed from 4,211,552 to 4,233,960 bytes; RSS from 30,411,248 to
+30,460,400 bytes across measured batches. These finite samples do not establish
+long-term process-memory bounds. Reset cleared logical arena length to zero but
+retained the same WASM linear-memory size. No physical GPU or near-limit pressure
+was exercised. Full application lifecycle and multi-core memory checks remain open.
+
+### Mixed lifecycle churn on two WASM cores (2026-11-01)
+
+```sh
+node --expose-gc packages/svet/scripts/measure-lifecycle-churn.mjs /tmp/svet-lifecycle-churn.json 20000
+```
+
+The developer probe alternates two isolated cores without reset, constructing a
+root with a signal/effect, four captured contexts, settled and uncooperative async
+resources, settled and uncooperative server actions, transform, camera and mesh.
+Bare input signals are explicitly registered for cleanup because their lifetime
+is independent of roots. It checks completed results, cancellation settlement,
+disposed captures and zero graph nodes/edges/pending jobs after every teardown.
+There are no physical GPU allocations or DOM nodes in this scenario.
+
+Both 2000- and 20,000-cycle runs passed; raw results are saved in
+`benchmarks/lifecycle-churn-2026-11-01.json` and
+`benchmarks/lifecycle-churn-20k-2026-11-01.json`. The longer run observed 20,000
+root cleanups, 40,000 effect executions, 40,000 resource aborts and 20,000 action
+aborts. Each core retained capacity 29, 88 arena floats and 1,179,648 WASM bytes
+from cycle 100 onward. Native pending queue entries were zero at all samples.
+
+Process-memory readiness remains open. In the longer run, post-GC heapUsed/RSS
+were 6,922,664/33,935,248 bytes at cycle 100, 7,650,920/62,710,712 at 10,000 and
+7,775,520/64,170,016 at 20,000. External memory stayed at 5,456,334 bytes. These
+samples include a growing in-process measurement log and runtime warmup; they
+neither isolate retained application references nor prove a process-memory
+plateau. Follow-up requires bounded measurement storage and retention analysis,
+plus concurrent pending roots, shared devices and reset scenarios.
+
+### Bounded lifecycle recorder and collection checks (2026-11-01)
+
+The lifecycle probe now retains at most 32 rolling samples plus two baseline
+samples. It checks WeakRefs to nine objects per cycle: root owner, input signal,
+effect handle, settled resource, pending resource, action, transform, camera and
+mesh. WeakRefs are drained every 100 cycles, with up to ten explicit collections
+separated by event-loop turns. Dereferencing in the same job before GC would
+itself keep targets alive; the probe avoids that ordering. Collected objects are
+asserted independently of zero native graph counts.
+
+The new 20,000-cycle run passed all 180,000 collection checks, with up to nine GC
+rounds needed in a sample. Raw results, recorder bounds and probe/module hashes
+are in `benchmarks/lifecycle-retention-20k-2026-11-01.json`. Native graph and WASM
+storage remained at the earlier stable values. From cycles 16,900 to 20,000,
+post-GC heapUsed changed from 7,544,392 to 7,574,928 bytes and RSS from 60,206,024
+to 60,714,648 bytes. This supports collection of the sampled lifecycle objects;
+it does not prove all engine references or a flat process RSS. No cause is
+assigned to the residual RSS change without heap/allocator profiling. The older
+unbounded-recorder artifacts remain historical measurements, not results of the
+new probe. Overall memory readiness remains open.
+
+### Bounded compute pipeline reuse (2026-11-01)
+
+Compute dispatch now caches validated pipelines by device identity and exact
+WGSL/entry-point pair. The device-local LRU retains at most 32 entries and 1 MiB
+of UTF-16 key bytes; oversized sources execute without caching. It does not
+cache bindings, tensor views, snapshots or result buffers. Complete transactions
+remain serialized per device. New entries are retained only after successful
+readback, resource cleanup and error-scope resolution; GPU transaction failures
+evict their key, so invalid pipelines and shader errors are retried.
+
+Device loss clears the cache, as does destruction of an engine-owned device.
+Detaching an external device preserves its reusable pipelines for other cores
+or later attachment. Core reset preserves device pipelines independently of
+cleared tensor storage. Keys include the entry-point length to avoid ambiguous
+string concatenation; workgroups and data changes do not invalidate pipelines.
+The key-byte limit does not bound driver pipeline memory.
+
+Nine new deterministic device-double regressions cover repeated dispatch with
+new input/workgroups, WGSL and entry-point discrimination, device replacement
+and reattachment, cold/cached validation failure, LRU count eviction, byte-budget
+eviction, oversized-source bypass, isolated-core sharing with distinct bindings,
+and shader-compilation failure/retry. The first regression failed before the
+implementation because two dispatches created two shader modules.
+
+Full production build, 1110 JS/WASM tests across 78 files, nine installed-package
+checks and git diff --check passed. Release WASM remains 54,035 bytes. These
+tests qualify cache control flow and output/buffer lifecycle using device
+doubles; native browser and physical GPU cache qualification, driver memory and
+throughput measurement remain open. No end-to-end speedup is claimed.
+
+### Compute cache on native browser WebGPU (2026-11-01)
+
+The expanded `tests/browser/gpu-compute.html` fixture passed 10/10 in the local
+in-app browser. Adapter information reported vendor apple, architecture metal-3
+and isFallbackAdapter false. The fixture wraps real GPUDevice creation methods
+to count shader modules and compute pipelines while all WGSL, buffers, bindings,
+submission and readback use the actual device.
+
+Three dispatches of the original source (including changed input, explicit main
+entry point and changed workgroups) created one shader module and one pipeline,
+with checked numerical results. A two-entry-point source created two distinct
+pipelines and reused the alternate entry on its second invocation. Injected
+out-of-memory/internal scope errors evicted the cached original pipeline; the
+fixture checked the exact recompilation count during failure and recovery.
+Invalid WGSL rejection, publication count, transfer accounting, admission budget,
+queue drainage, device loss and replacement also passed.
+
+Text and screenshot evidence are saved in
+`benchmarks/compute-pipeline-metal-2026-11-01.txt` and the adjacent PNG. The outer
+real validation scope completed without error. This adds hardware correctness
+evidence to the deterministic cache tests; it does not measure speedup, driver
+memory, hardware LRU eviction, other adapters/backends or resident GPU graphs.
+
+### Hardware compute-cache A/B (2026-11-01)
+
+Reproduce from the repository root, specifying the pre-cache revision explicitly:
+
+```sh
+node packages/svet/scripts/prepare-compute-cache-bench.mjs 48a8c5954d4b81daee605e87578e5fd028e4a94a
+npm --prefix packages/svet exec -- vite packages/svet --host 127.0.0.1 --port 5189 --strictPort
+```
+
+Open `/tests/browser/compute-cache-bench.html` and run the benchmark. Preparation
+creates immutable source snapshots below node_modules/.cache; only gpu.ts is
+replaced with the baseline revision, while other engine sources and embedded
+WASM are identical. Metadata includes source/JavaScript hashes, baseline commit,
+compiler version and fixture hash. The candidate hash was verified against the
+current worktree; both artifacts differ only in gpu.ts.
+
+Two runs on the same non-fallback Apple Metal 3 adapter used identical WGSL and
+data on a common GPUDevice, with separate engine instances. Each workload warms
+both variants with ten calls, then alternates baseline/candidate order across
+seven rounds of 40 calls per variant. Numerical outputs and queue credits are
+checked; the second run additionally checks zero graph nodes after disposal.
+
+| Run | Floats | Baseline median / 40 calls | Cached median / 40 calls | Change |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 7 | 28.400 ms | 17.700 ms | -37.68% |
+| 2 | 7 | 29.800 ms | 19.300 ms | -35.23% |
+| 1 | 65,536 | 53.000 ms | 41.500 ms | -21.70% |
+| 2 | 65,536 | 56.600 ms | 44.100 ms | -22.08% |
+
+Every measured baseline batch created 40 shader modules/pipelines; every warm
+candidate batch created zero. Raw rounds and hashes are in
+`benchmarks/compute-cache-ab-1-2026-11-01.json` and
+`benchmarks/compute-cache-ab-2-2026-11-01.json`, with screenshot
+`benchmarks/compute-cache-ab-metal-2026-11-01.png`. All result/count/queue checks
+passed; no uncaptured GPU errors were observed. The temporary server was stopped.
+
+These observations measure sequential dispatch/readback wall time including JS
+snapshots, buffer allocation, validation, publication and per-call result checks.
+They do not isolate GPU kernel execution or prove application frame-time gains,
+resident-chain throughput, memory savings or superiority over another framework.
+The first run predates the extra post-workload graph check and fixture hashing;
+those checks lie outside measured batches. Driver caches and concurrent machine
+load are not controlled across machines; retain the raw data for reproduction.
+
+### Resident intermediates within a compute dispatch (2026-11-01)
+
+Async compute options now accept `chain: readonly GpuComputeChainStage[]`, with
+up to 31 additional stages after the original kernel. Each stage has its own
+WGSL, optional entry point and workgroups. Additional stages read the previous
+same-length float32 output at binding 0 and write binding 1. The output is seeded
+from the previous result through a device-to-device copy, preserving untouched
+elements for partially writing kernels.
+
+The executor compiles/checks all stage pipelines before creating storage, reuses
+identical pending pipeline keys locally, and publishes cache entries only after
+the complete transaction validates. Any GPU transaction failure evicts all its
+attempted keys. Two output buffers alternate for all stages; input snapshots are
+uploaded once. A single command encoder/submission, final staging map and host
+publication cover the chain. Logical upload/readback reports exclude GPU copies.
+The device queue and snapshot credit count this as one operation; metadata is
+bounded to 32 kernels but this is not a total GPU memory budget.
+
+Owner teardown, reset, explicit abort, output revisions and device lifetime use
+the existing transaction checks. Stage metadata is copied with checks after
+user-controlled accesses; workgroups for every stage are validated before output
+revision reservation. Hardware absence invokes the explicit fallback once for
+the entire chain. There is no automatic WGSL-to-host translation.
+
+Ten new regressions cover numerical chaining, one submit/map/publication, local
+pipeline reuse, constant storage at 32 stages, partial writes, late pipeline
+failure/retry, owner cancellation during map, descriptor mutation and disposal,
+oversized metadata, invalid-stage revision isolation, and whole-chain fallback.
+The device double now captures each dispatch's bindings when recording commands,
+so multi-pass tests cannot silently use the final group's bindings for all passes.
+
+Production build, final strict TypeScript check, all 1120 JS/WASM tests in 78
+files and nine installed-package checks passed. Installed coverage includes the
+chain option, exported stage type and a native Node whole-chain fallback call.
+The native browser fixture passed 13/13 on non-fallback Apple Metal 3, including
+three stages, partial writes and 32 stages. Wrappers around actual GPU methods
+confirmed one submit, 84 uploaded bytes, one map of 28 bytes and one publication
+for the three-stage/two-input case. Maximum stage count allocated five buffers
+total (two inputs, two outputs, one staging); all were destroyed after completion.
+The outer device validation scope returned no error. Evidence is in
+`benchmarks/resident-chain-metal-2026-11-01.txt` and the adjacent PNG.
+
+Persistent resident result handles across dispatches, branching graphs, different
+intermediate lengths, direct renderer bindings and chain performance measurement
+remain open. This does not close the general GPU-resident API milestone. Earlier
+cache A/B artifacts describe the candidate before this executor generalization;
+they are historical evidence, not a performance measurement of the new chain path.
+
+### Native chain failure and cancellation qualification (2026-11-01)
+
+The real WebGPU fixture now passes 15/15 on the non-fallback Apple Metal 3
+adapter. A late-stage shader requiring three bindings is supplied only the
+two bindings defined by the chain ABI. The shader compiles, all five temporary
+buffers are created, and real device validation rejects the incompatible bind
+group/command transaction. No fallback or intermediate publication occurs;
+the original public output remains intact.
+
+The second scenario starts a real native mapAsync and uses a test-only gate to
+delay observation of its result. A separate root owns the dispatch and is
+disposed after the mapping call begins, while public tensors remain owned by
+the original root. Cancellation rejects without changing output or notifying
+its observer. The gate does not establish that the GPU is still executing at
+the moment of cancellation; it deterministically holds readback completion
+pending at the engine boundary. The native mapping operation is always observed.
+
+After both failures, the fixture checks that every allocated buffer received
+destroy, the device scope stack returned to its single outer validation scope,
+and pending job/snapshot credits returned to zero. A new valid chain executes
+and publishes the expected result after each failure. Final outer validation
+returns no error. Evidence: `benchmarks/chain-transaction-metal-2026-11-01.txt`
+and the adjacent PNG. Destroy calls do not prove immediate driver-memory
+reclamation or cancellation of already submitted GPU commands.
+
+The fixture also disables its run button during execution, clears old status,
+and observes a dispatch failure while waiting for the map gate so an early
+failure cannot leave that test waiting forever. Production engine code is
+unchanged by this qualification step; broader memory and resident-handle work
+remain open.
+
+### Resident-chain versus serial readback measurement (2026-11-01)
+
+Prepare a frozen current candidate with
+`node packages/svet/scripts/prepare-compute-cache-bench.mjs 48a8c5954d4b81daee605e87578e5fd028e4a94a`,
+serve the package root through Vite, and open
+`/tests/browser/compute-chain-bench.html`. Both modes import the same candidate
+snapshot on one device; the baseline snapshot produced by preparation is not
+imported. Metadata includes all engine source/JavaScript hashes and the chain
+fixture hash. Both raw artifacts were checked against the current source files.
+
+The first kernel combines two inputs, followed by two unary transforms. Serial
+execution uses private host intermediate tensors with three separate dispatches;
+chain execution keeps the intermediates on GPU. Both modes have the same single
+observer on the final output and publish it once per request. This avoids adding
+extra intermediate observer callbacks to only one side of the timing comparison.
+Every request checks the changed first value; each batch checks the full tail,
+actual queue/map/upload calls, destruction counts and queue credits. All pipelines
+are warm before timing, with no pipeline creations in measured batches.
+
+Two runs on a non-fallback Apple Metal 3 adapter used ten warmup requests per
+mode and seven alternating rounds of 30 three-kernel requests per mode:
+
+| Run | Floats | Serial median / 30 requests | Chain median / 30 requests | Change |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 7 | 61.200 ms | 24.600 ms | -59.80% |
+| 2 | 7 | 62.200 ms | 25.000 ms | -59.81% |
+| 1 | 65,536 | 128.700 ms | 50.600 ms | -60.68% |
+| 2 | 65,536 | 122.900 ms | 54.100 ms | -55.98% |
+
+For each request, measured uploads decrease from 28 to 12 bytes per element,
+readback from 12 to 4 bytes per element, submissions/maps from three to one,
+and temporary buffer creation/destruction from ten to five. Both modes publish
+the final tensor once, including with private serial intermediates. All numerical,
+transfer, publication, graph-node and queue checks passed, with no uncaptured GPU
+errors. Raw rounds and source hashes are saved in
+`benchmarks/compute-chain-ab-1-2026-11-01.json` and
+`benchmarks/compute-chain-ab-2-2026-11-01.json`; screenshot:
+`benchmarks/compute-chain-ab-metal-2026-11-01.png`.
+
+The observations cover wall-clock request latency, including snapshots, buffers,
+validation, publication and first-value checks. Two device-to-device copies per
+chain are excluded from the upload/readback counters. This is not isolated GPU
+kernel timing, persistent-resident-handle throughput, whole-application frame
+performance, total driver memory or a cross-framework comparison. Performance
+across other devices and workloads remains unqualified.
+
+### Mesh index snapshot byte budgets (2026-11-01)
+
+Mesh construction and updateIndices previously allocated the complete private
+typed index array after checking only triple alignment and safe-integer length.
+Two guarded regressions reproduced attempted oversized allocations for uint16
+and uint32; the guards threw before any real large allocation occurred.
+
+createMesh3D now captures maxIndexBytes, a nonnegative safe integer whose default
+equals the native arena byte limit (currently 256 MiB). This is an independent
+host index-snapshot policy, not a Rust arena allocation. The mesh exposes its
+fixed budget through a read-only getter. Both constructor and topology updates
+compare index count against floor(budget / bytesPerIndex) before constructing
+the private array or reading its elements. Division avoids overflow when the
+advertised count is near MAX_SAFE_INTEGER. Explicit budgets may be smaller or
+larger; native typed-array and actual allocation limits still apply.
+
+Over-budget candidates throw RangeError without replacing topology, changing the
+selected index format, advancing topology commit version or notifying observers.
+A rejected nested update leaves an otherwise valid outer candidate admissible.
+Zero bytes permits empty or nonindexed topology; format widths are accounted
+independently (two bytes for uint16, four for uint32). Invalid budgets reject
+before positions/index source reads and without coercing object-valued inputs.
+
+Eleven new tests cover both widths at default-limit overflow and near-safe-integer
+lengths, constructor/update preallocation guards, invalid budgets, exact boundary
+acceptance, format changes, source-option mutation, runtime read-only metadata,
+empty/nonindexed topology and nested rejection. Large-array constructor guards
+make the regressions safe if the preflight check is removed accidentally.
+
+Full production build, 1131 JS/WASM tests across 78 files, nine installed-package
+checks and git diff --check passed. Installed Node probes verify custom-budget
+width rejection, unchanged topology/format and guarded default-budget rejection;
+strict consumer types check the option and read-only getter. No near-limit
+allocation or physical GPU pressure was attempted. The budget covers one index
+snapshot, not process RSS, GPU storage or combined old/new snapshots during an
+update. Whole-application memory qualification remains open.
+
+### Variable-length GPU intermediates (2026-11-01)
+
+Async dispatch and GpuComputeChainStage accept outputLength, defaulting to the
+public output tensor length at each stage. The final stage must match that
+tensor. Preflight checks every length for a safe integer float32 byte count,
+every hardware binding against device buffer/storage limits, and each stage's
+workgroups against its own output length before reserving the output revision.
+GPU-only intermediate sizes are independent of the native WASM arena bound.
+
+Two output buffers are sized for the largest stage, while bind-group entries
+expose only that stage's logical input/output byte ranges. Between stages, the
+overlapping prefix is copied; any newly exposed tail is cleared on GPU before
+the next pass. This prevents old values in the alternating buffers reappearing
+after shrink/growth. The first stage uploads only the overlapping prefix of the
+host output snapshot, leaving its remaining private storage zero-initialized.
+Transfer reports now account for that shorter upload when appropriate; CPU
+snapshot admission still includes the complete host output snapshot.
+
+Thirteen new cases qualify resized bindings, stale-tail clearing, per-stage
+default workgroups, shortened first-stage upload accounting, invalid lengths,
+final-shape revision isolation, intermediate device limits, descriptor snapshots,
+noncoercion and separation from the host arena limit. The latter uses a controlled
+GPU allocation guard: a permitted above-arena descriptor reaches the device
+without allocating a large actual buffer. Existing-buffer cleanup and credits
+are checked on that deliberate failure.
+
+The final production build and nine installed-package checks passed. The default
+parallel suite initially passed all functional cases but its existing comparative
+benchmark exceeded its 5000-ms timeout. No timeout or benchmark assertions were
+changed. A bounded run with
+`npm --prefix packages/svet test -- --maxWorkers=4` passed all 1144 tests in 78
+files (41.69 seconds locally). Default parallel benchmark timing remains sensitive
+to execution conditions; this result does not claim a measured performance gain.
+Strict consumer declarations cover both initial and following outputLength fields.
+
+Native browser checks passed 16/16 on non-fallback Apple Metal 3 after the final
+build. The new scenario expands two seven-element inputs to 129 values, reduces
+all 129 to one sum, then grows a partially writing result to seven elements.
+It verifies [12241,0,0,0,0,0,0], one final publication, 84 uploaded/28 readback
+bytes, destroyed temporary buffers and a clean outer validation scope. This also
+exercises enough initial workgroups to process beyond 64 invocations. Evidence:
+`benchmarks/shaped-chain-metal-2026-11-01.txt` and the adjacent JPG.
+
+Persistent resident handles, branching graphs, direct renderer bindings, aggregate
+GPU memory budgets and variable-shape performance qualification remain open.
+Earlier serial/chain benchmark artifacts describe the pre-shape executor snapshot;
+their hashes preserve that measurement boundary.
+
+### Untracking all synchronously suspended cores (2026-11-01)
+
+An untracked callback could collect a dependency into a third suspended core:
+owned callback entry paused its caller and callee, while another synchronous
+observer between them remained active. Public untrack also left foreign paused
+observers collecting incidental reads. Three initial regressions reproduced
+extra effect runs and computed reevaluation before the fix.
+
+Effect and computed execution now register their synchronous context frames in
+a module-local stack, unwound on success, throw and reset. untrack temporarily
+pauses the active observer of each represented core, deduplicating repeated
+contexts by their paused state. It restores observers only within the same reset
+generation. Explicitly created child observers still track their own reads, and
+writes to already-read dependencies retain their rerun behavior. Owned callback
+entry still resolves the ambient core before selecting its captured core, so
+adapter-triggered disposal/reset is observed by the existing lifetime rechecks.
+
+Six public regressions cover three-core untrack/action RPC, thrown callbacks,
+suspended computed evaluation, foreign reset and already-read writes. Production
+build, all 1150 JS/WASM tests in 79 files (maxWorkers=4), nine installed-package
+checks and git diff --check passed. Native Node consumer coverage includes the
+third-core action scenario and verifies teardown in each core.
+
+The lifecycle probe was rerun for 20,000 cycles/180,000 WeakRefs. Two early default
+Node runs failed the unchanged ten-GC criterion for one old owner each
+(owner:2582 and owner:2385). A local heap snapshot showed a path from VM strong
+roots labelled IdentityMapBase through a scene-constructor context to its owner;
+the new observer stack was not in that observed path. The raw heap remains local.
+Failure logs are preserved as
+`benchmarks/multicore-retention-default-failed-1-2026-11-01.txt` and `-2-...txt`.
+
+Subsequent default and synchronous-compilation runs used identical probe hashes:
+both collected all 180,000 objects, with maximum ten rounds in ordinary Node and
+one round with --no-concurrent-recompilation. Artifacts:
+`benchmarks/multicore-retention-default-20k-2026-11-01.json`,
+`benchmarks/multicore-retention-sync-20k-2026-11-01.json` and
+`benchmarks/multicore-gc-diagnostic-2026-11-01.json`. Background compiler retention
+is an inference supported by the roots and controlled flag comparison, not a
+general absence-of-leaks proof. Default GC timing and process-memory plateau
+remain unqualified; the failed observations are not erased by later successes.
+
+Probe metadata now records execArgv. Optional SVET_LIFECYCLE_HEAP_SNAPSHOT saves
+a local diagnostic heap on failure; SVET_LIFECYCLE_GC_DIAGNOSTICS can record later
+idle observations. Neither option changes the original collection assertion.
+Tracking across separate package copies, user-await context propagation, and
+performance measurement of the added observer-frame bookkeeping remain open.
+
+### Lazy-cache correctness and managed state-view lifetime (2026-11-01)
+
+Correctness assertions in the nested-untrack benchmark found stale effect-free
+computed values after repeated writes. The native no-terminal-effect cache
+returned without invalidating reachable computed nodes. Cache population also
+included unrelated dirty computeds and could classify a source using foreign
+pending effects. Cache topology is now collected from that source's reachable
+subscribers only; the fast path requires an empty pending queue and invalidates
+its reachable lazy computeds even when no terminal effect exists. Four native
+and six JS regressions reproduced the failures before these changes.
+
+A separate reproduction found that Rust's states Vec can relocate without a
+WASM memory ArrayBuffer change. Managed node allocation now invalidates the
+cached JS states view for signals, computeds, fresh/recycled effects and tensors.
+The view is reused between allocations. Regressions pre-grow linear memory and
+require an actual internal pointer relocation before checking all memo values.
+
+Observer-context registration now keeps one stack entry per synchronously
+observed core with a nesting counter. Reset deliberately leaves that counter
+intact: retired JavaScript frames release their entries in their finally blocks.
+The benchmark preparation script retains both correctness fixes in both variants
+and reverses only context registration for the baseline. The runner checks that
+only reactivity.js differs, validates every measured result and teardown, and
+records raw samples and module hashes. Measurements made before the correctness
+fixes are unsuitable for performance claims. Synthetic untrack results do not
+qualify application frame time, cross-package tracking or await propagation.
+
+Final qualification of this snapshot: all 1160 functional tests passed across
+80 files; the complete 81-file/1161-test run failed only the existing synthetic
+comparison's unchanged 5000-ms timeout (6046 ms locally). Total run 188.23 s.
+Other projects had active test workers during the observation; their contribution
+to that timeout is not proven. The full suite is therefore not recorded as green.
+All nine installed-package checks passed, including lazy-cache and stable-memory
+pointer-relocation consumer probes. The reset-core GC probe collected all 64
+isolated exports objects in one round per batch under Node 22.23.4 with
+--expose-gc --no-concurrent-recompilation. Result:
+`benchmarks/reset-core-gc-2026-11-01.json`. This does not prove process RSS plateau.
+
+Frozen A/B raw results are in `benchmarks/untrack-core-depth-2026-11-01.json`
+and `benchmarks/untrack-core-control-2026-11-01.json`. Seven alternating rounds,
+32 evaluations and 4000 untrack calls per evaluation gave baseline→candidate
+medians of 3.196→2.620, 24.054→5.310, 68.626→3.357 and 128.817→6.635 ms at
+nesting depths 1, 32, 128 and 256 respectively. The no-untrack control used 1000
+evaluations: 0.185→0.526, 4.197→4.898, 84.008→68.092 and 154.463→126.898 ms.
+The shallow control regressed in this observation, and background machine load
+was uncontrolled. These results support the bounded scaling of repeated untrack
+with unique cores, not a universal speedup or neutral bookkeeping overhead.
+Application performance and repeatability remain open. Both variants include
+identical embedded WASM and all pointer/cache correctness fixes; the runner
+asserted that only reactivity.js differed.
+
+The same comparison test subsequently passed in isolation with its unchanged
+5000-ms timeout (`npm --prefix packages/svet test -- tests/benchmark.test.ts
+--maxWorkers=1`, one test passed, total process 5.84 s). That does not replace
+the failed full-suite gate. No timeout, assertion or workload was weakened.
+
+The final native rerun passed 53 tests (zero failures); production rebuild passed
+with a 54,320-byte embedded SIMD WASM. Preserved timeout and isolated-pass summaries:
+`benchmarks/core-suite-timeout-2026-11-01.txt` and
+`benchmarks/core-benchmark-isolated-2026-11-01.txt`.
+
+A subsequent complete run with maxWorkers=4 also passed 1160 functional tests
+and failed only the same unchanged 5000-ms comparison timeout (5994 ms; total
+60.32 s). Summary: `benchmarks/core-suite-workers4-timeout-2026-11-01.txt`.
+Full-suite timing qualification remains open; the isolated pass is not substituted
+for it. Package, native and production-build summaries are retained alongside
+these observations as core-package-check, core-native-check and
+core-production-build-2026-11-01.txt.
+
+### Benchmark evidence boundaries corrected (2026-11-01)
+
+Inspection of the comparison timeout found that most measured wall time belongs
+to local VNode/proxy simulations, not Svet. This fixture imports no React, Vue
+or Svelte runtimes. Its former framework/version labels therefore overstated
+what was measured. They now explicitly identify local simulations. Historical
+output from that fixture must not be used as framework comparison evidence.
+
+The SSR report also previously added 65% of another traversal's time to the Vue
+column and invented the Svelte column as 45% of that time. Both formulas are
+removed. The two columns now time their own actual DOM-child and sibling-cursor
+walks and assert that each visits all 501 expected children. The restored Svet
+binding must contain 1025, and the diamond workload must run its terminal effect
+exactly 5001 times. Existing loads, assertions and the 5000-ms timeout remain.
+
+Stable native capacity is now labelled as capacity, not "0 B leak"; diamond
+updates no longer claim zero JS GC. Mock-device upload and WASM CPU FMA/scene
+workloads are labelled accordingly. Unmeasured framework/GPU capabilities no
+longer receive speculative descriptions. These changes improve evidence quality;
+they do not implement real-framework or hardware performance comparisons.
+
+The focused updated benchmark passed with the unchanged timeout. Actual runtime
+comparisons, application benchmarks, memory plateau and full-suite timing
+qualification remain separate open work.
+
+Final complete run after the report corrections passed all 1161 tests in 81 files
+with maxWorkers=4 (47.70 s). The existing benchmark timeout remains 5000 ms;
+no original workload or assertion was removed, and result assertions were added.
+Summary: `benchmarks/core-suite-verified-2026-11-01.txt`. Earlier timeout records
+remain preserved; this pass does not establish stable timing across machine loads
+or attribute a performance improvement to the report changes.
+TypeScript noEmit and git diff --check also passed after the final fixture edit.
+
+### Independent async SSR subtree ownership (2026-11-01)
+
+The Node server entry now provides runWithOwnerScopeAsync(contextEntries, fn,
+options) inside an isolated request. A separate AsyncLocalStorage owner store
+keeps interleaved sibling and nested child scopes independent across await.
+Successful children remain attached to their parent through request serialization;
+rejection, external abort or parent disposal immediately drains their resources.
+Each settled child's implicit late continuations are closed even while its
+request remains open. The helper awaits thenables through the existing guarded
+request race. An options getter that resets the graph is rejected before user
+work starts. Long-lived device subscription escape now leaves both async stores.
+
+The reactive core resolves the async owner only outside synchronous owner frames.
+A frame depth counter gives createRoot, child scopes, effect execution and
+captured reentry explicit precedence and unwinds across reset generations.
+Computed disposal registration uses its resolved construction owner. The browser
+entry retains no Node dependency. Synchronous runWithOwnerScope callbacks now
+receive a bound disposer; existing zero-argument callbacks remain valid.
+
+Tests cover sibling interleaving, inherited nested context, request-core identity,
+resource abort and exact cleanup on child failure, parent/explicit cancellation,
+request cancellation, reset, captured root priority, closed late work, preflight,
+serialized sibling DOM and updates after successful child settlement. Added
+installed-package Node and declaration probes qualify the new server export.
+This is an explicit async subtree helper: h(asyncComponent), automatic browser
+await propagation, Edge adapters and cross-package coordination remain open.
+
+Final verification: production build (including TypeScript noEmit), all 1172
+JS/WASM tests in 82 files (maxWorkers=4, 46.97 s), nine isolated installed-package
+checks and four real HTTP action tests passed under Node 22.23.4. git diff --check
+also passed. Saved suite summary: `benchmarks/async-owner-suite-2026-11-01.txt`;
+package and HTTP summaries are adjacent. No browser/Edge ownership claim follows
+from these Node tests. Callback cancellation is effective while that callback is
+pending; successful child resources subsequently follow their parent lifetime.
+
+### Owner construction rechecks and async-child churn (2026-11-01)
+
+Three new regressions reproduced an owner-construction hole: context iterators
+and tuple value getters can dispose the parent or reset the graph before scope
+attachment. runWithOwnerScope checked only before reading that user metadata,
+then invoked a stale body and could leave the new generation's current owner
+poisoned. It now rechecks generation and parent lifetime after context copying,
+before attaching a child or mutating the current owner. Four tests cover both
+invalidation paths, a tuple getter, preservation of a fresh post-reset signal,
+and idempotent bound disposal with parent unlinking. All 15 construction/async
+owner tests passed after the change; three failed before it. An installed-package
+consumer probe also covers metadata reset and a usable fresh graph afterward.
+
+The new measure-async-owner-churn.mjs exercises successful, rejected and cancelled
+children within one live isolated Node request without reset. Each child owns
+computed/effect/resource/captured-context objects and cleanup. Successful children
+are stopped via their synchronous parent after settlement. Errors/cancellations
+must drain immediately. Each cycle checks an empty graph, no retained parent
+children or cleanup hooks, and external AbortSignal listener removal. WeakRefs
+cover five objects per child. Samples are bounded to 32, with 750 outstanding
+WeakRefs per GC batch; no unbounded diagnostic log is retained.
+
+Two 1000-cycle runs each checked 3000 children, 3000 cleanups and collection of
+15000 objects. The identical probe SHA256 is
+631fe135a8f85f4ee2f7b11bc10eaa8d2926caadb33fd2000b6bdd31d9df8dae.
+Default Node 22.23.4 needed up to four GC rounds per batch; with
+--no-concurrent-recompilation it needed one. After cycle 50, native capacity stayed
+6 and WASM memory stayed 1179648 bytes. Raw results are
+`benchmarks/async-owner-churn-default-1000-2026-11-01.json` and
+`benchmarks/async-owner-churn-1000-2026-11-01.json`.
+
+Observed default JS heap grew 6906728→7188200 bytes and RSS 30347008→35542128;
+the synchronous-compilation run observed heap 6905752→7167312 and RSS
+30134064→37393592. These observations do not prove JS/RSS plateau, full allocator
+reclamation or concurrent DOM/GPU memory bounds. The GC criterion remained ten
+rounds. No failed observations were discarded or threshold relaxed.
+
+Final qualification of the construction guard: production build passed; the
+complete suite passed all 1176 tests in 83 files (maxWorkers=4, 22.78 s); all nine
+isolated installed-package checks passed, including metadata-reset construction
+and preservation of a fresh graph. TypeScript includes the four new regressions.
+Suite summary: `benchmarks/owner-construction-suite-2026-11-01.txt`; package report:
+`benchmarks/owner-construction-package-2026-11-01.json`. git diff --check passed.
+The final four native HTTP action tests also passed (zero failures).
+
+### Persistent immutable GPU compute results (2026-11-01)
+
+Added hardware-only dispatchGpuComputeResident and explicit readGpuResidentTensor.
+Resident results retain private device buffers across dispatch calls, accept mixed
+host-snapshot and resident inputs, and support branching graphs. No intermediate
+WASM output nodes, map or host publication are required. Each result has immutable
+length/byteLength/uploadedBytes metadata, active state and idempotent disposal.
+The output begins zeroed and becomes public only after queue completion and all
+validation scopes finish. Explicit readback revision-checks its host target and
+publishes once. Raw GPU buffers are not exposed.
+
+Owner teardown, core reset, device detach/replacement and loss retire buffers.
+Disposal of an input cancels pending consumers, while already-completed independent
+results remain valid. Caller cancellation applies to pending calls, not to a
+successfully published result. Shared lifetime hubs avoid one permanent AbortSignal
+listener per handle and drain all registered disposers on reset/loss. The hard
+1024-result boundary is tested with actual mock allocations and a bulk reset.
+
+A device-shared persistent-storage budget defaults to 256 MiB, independent of
+pending CPU snapshot admission. Both live results and queued reservations count;
+early-cancelled queued calls retain credits until their closures drain. Budget
+validation precedes publication of either configuration budget, so an invalid
+resident budget cannot partially change the snapshot budget. Telemetry reports
+residentComputeBytes/residentComputeCount/maxResidentComputeBytes. Upload/staging,
+renderer, driver and process memory remain outside that persistent-output policy.
+
+Review caught an immutability hole in auto pipeline layouts: a shader could declare
+an input read_write. Resident pipelines now use explicit read-only-storage inputs
+and one writable private output. Cache keys include a resident namespace and input
+count, sharing the bounded device cache without reusing incompatible mapped auto
+layouts. Native WGSL attempting to overwrite an input is rejected, and explicit
+readback confirms the input's original values. Shader source is not regex-filtered.
+
+Device-double coverage checks branching, host snapshots, explicit readback,
+revision races, source disposal, queued cancellation credits, shared budgets,
+configuration atomicity, validation failure/recovery, owner/reset/detach/loss,
+shared-device core isolation, capability-getter reconfiguration, immutable binding
+layouts and result-count limits. One initial new test incorrectly used the synchronous
+withWasmCore wrapper across await; it now explicitly reenters before reading its
+foreign-core tensor. This was a test-context error, not automatic await propagation.
+
+Native browser fixture passed 7/7 on non-fallback Apple Metal 3: four-dispatch
+branching graph uploaded 28 bytes once, made no intermediate map or WASM output
+node, then one explicit 28-byte readback published once. Additional cases reject
+input-writing WGSL without mutation; run GPU-only dispatch with a zero host
+snapshot budget; reject persistent admission before allocation; recover from
+invalid shader; cancel during native mapping on owner teardown; and retire results
+on reset and actual device loss. Evidence:
+benchmarks/resident-compute-metal-2026-11-01.txt and adjacent JPG. The first fixture
+attempt reused a consumed GPUAdapter for the loss case; it was corrected to request
+a fresh adapter. Earlier existing hardware compute checks passed 16/16, recorded in
+benchmarks/resident-regression-metal-2026-11-01.txt.
+
+The complete suite passed 1207 tests in 84 files (maxWorkers=4, 12.06 s). Production
+build includes TypeScript noEmit. All nine isolated installed-package checks and four HTTP tests also passed.
+This is correctness/transfer evidence, not application speed or memory-plateau
+qualification. Direct renderer bindings, aggregate GPU/driver budgets, other
+backends and scheduling/throughput measurements remain open.
+
+Final evidence summaries: benchmarks/resident-suite-2026-11-01.txt,
+resident-package-2026-11-01.json and resident-http-2026-11-01.txt. Source hashes and
+qualification scope are recorded in resident-qualification-2026-11-01.json.
+The count-boundary test resets all 1024 results together, verifies every buffer
+is destroyed, and verifies persistent reservations and queue credits return to
+zero. git diff --check passed. No commit, push or publication was performed.
+
+### Resident vertex renderer interoperation and on-demand picking (2026-11-01)
+
+Canvas3D/Viewport3D now accept gpuVertices: an immutable resident handle, a
+reactive accessor, or null for the existing host mesh path. A selected source
+must match the renderer core/device and provide one clip-space float4 per mesh
+vertex. Topology still comes from the mesh. Resident storage has VERTEX usage and
+is bound directly: no duplicate vertex buffer, host transformedVertices read,
+vertex upload or per-frame map. Renderer teardown releases its index/depth/context
+allocations and subscriptions without disposing caller-owned resident storage.
+Source disposal invalidates its frame; selecting a new compatible source recovers.
+Failed resident rendering cannot substitute unrelated host geometry in Canvas2D.
+
+The internal typed bridge stores executor-owned records in one WeakMap with no
+runtime import cycle. Each record supplies its snapshot reader directly, avoiding
+module-global callback registration or reliance on preserved import side effects.
+readGpuResidentSnapshot returns an explicit private CPU float32 copy without a
+WASM output tensor/reactive publication. Canvas picking invokes it only on click,
+then transports that immutable frame into the existing Rust scratch picker with
+indexed occlusion. New clicks, frame replacement, valid resize, source disposal,
+reset and renderer teardown retire pending picks and staging. Callback delivery
+requires the same current frame and restores the captured core and owner.
+VertexPickFrame3D.gpuVertices identifies a resident source; mesh host positions
+are not its rendered coordinates. Raw snapshots still consume shared compute
+admission and may be expensive for large meshes.
+
+A scheduled retirement regression failed before the fix: replacing an in-flight
+source and disposing it left the latest dirty frame unrendered after completion.
+Retirement now follows existing failFrame/drain logic, keeping backpressure until
+the old submitted queue completion is observed, then scheduling the latest source.
+A second regression reproduced loss of the actual pipeline diagnostic behind a
+generic unavailable-renderer message. Resident recovery now preserves the primary
+error while refusing host substitution. Initial-submit owner teardown also removes
+the renderer registration and all renderer allocations. Before-fix summaries are
+saved alongside the final suite evidence.
+
+The final suite passed 1221 tests in 85 files (maxWorkers=4, 11.25 s), production
+build including TypeScript noEmit passed, all nine installed-package checks passed,
+and four real HTTP tests passed. The package check also builds a resident-render
+HTML entry importing installed svet-engine, alongside the existing JSX/Forma
+consumer. Its production assets contain no Node SSR import. This artifact was
+served through Vite preview and tested on the actual GPU, qualifying the exports,
+module boundary and tree shaking as well as development-source execution.
+
+Both dev and installed-package production fixtures passed 7/7 on a non-fallback
+Apple Metal 3 adapter. They verify native GPU triangle pixels from data different
+from the host mesh, only an 8-byte padded topology upload and zero vertex upload/
+map during initial drawing/resize, one explicit picking map with correct frame
+identity/dimensions, native map cancellation on replacement, original driver
+validation diagnostics without Canvas2D substitution, source retirement and
+independent recovery, controlled queue-completion-observation gating for scheduled
+retirement, and complete logical buffer/texture retirement plus zero reserved
+credits. The scheduling gate delays observation, not actual GPU execution.
+The previous nonresident renderer fixture also passed 17/17 on this source.
+
+Early fixture pixel capture after awaiting validation returned transparent data;
+pixel probes now capture the submitted canvas texture synchronously, as in the
+existing render fixture. These verification-only canvas copies are separate from
+application GPUBuffer map/upload counters. A second initial fixture expected an
+ideal zero pointer distance; native MouseEvent integer coordinate conversion gave
+0.3712871287 pixels. The assertion now compares the exact projected emitted-event
+position against the known GPU vertex, rather than changing the picking radius.
+Two new device-double assertions also needed float32 expected values and strict
+Array.at nonnull annotations; neither changed the rendering workloads.
+
+Native evidence: benchmarks/resident-render-metal-2026-11-01.txt/JPG,
+resident-render-package-metal-2026-11-01.txt/JPG and
+resident-render-legacy-metal-2026-11-01.txt. The visible image is labelled as a
+fixture-only captured GPU frame. Qualification covers bounded pixels and behavior,
+not general raster equivalence, app frame time, click latency, aggregate GPU/
+driver/process memory or JS/RSS plateau. Those measurements remain open.
+
+
+## Реальное deformation-приложение: resident/mapped, 2026-11-01
+
+Production snapshot `snapshot-1793535370465`, Node 22.23.4, Vite 8.3.5,
+Chrome 156, физический Apple Metal 3 (`isFallbackAdapter=false`), DPR=2.
+Одинаковые WGSL, topology и параметры; compute → renderer, RAF-paced updates.
+Протокол `interleaved-controls-v2`: 30 warmup frames на сценарий, две отдельные
+калибровки по 60 кадров, пять пар на каждом размере по 120 кадров на путь,
+три resident/resident A/A-пары между большими A/B-раундами. Всего 3240 измеренных
+кадров / 28 сценариев. Калибровки исключены из сравнительных итогов.
+
+| Вершины | mapped median p50 / p95, мс | resident median p50 / p95, мс | upload/frame mapped → resident | readback/frame |
+| --- | --- | --- | --- | --- |
+| 2400 | 1.400 / 1.600 | 1.400 / 1.505 | 115216 → 16 байт | 38400 → 0 байт |
+| 38400 | 1.800 / 2.305 | 1.100 / 1.400 | 1843216 → 16 байт | 614400 → 0 байт |
+
+На большой сетке парные p50 изменения −38.9…−45.0%, p95 −33.3…−39.3%.
+A/A p50 −9.1…+4.0%, p95 −20.0…0.0%: хвост остаётся шумным.
+Малый сценарий не подтверждает устойчивое ускорение. Ранний пилот показал
+временной дрейф и сохранён отдельно; причина дрейфа не установлена.
+Это локальный результат конкретного приложения, а не универсальный speedup.
+Latency включает queue completion и validation; чистое время GPU kernel не измерено.
+RAF median около 8.3 мс в обоих путях; прирост FPS этим не доказан.
+
+Геометрия GPU и пиксели совпали точно во всех парах, CPU reference error <2e-5.
+Uncaptured GPU errors и long tasks не наблюдались. Runtime assertions проверили
+стабильность графа/WASM, отсутствие pending credits и освобождение logical GPU
+allocations после каждого сценария. На большой сетке live buffer bytes выше
+у resident: 1382400 против 768000; пик logical buffer bytes ниже: 1996816 против
+2611216. Это учёт буферов приложения, не driver memory/RSS и не доказательство
+длительного плато. Heap snapshots остаются наблюдениями без вывода о plateau.
+
+Артефакты:
+- `benchmarks/resident-app-pilot-metal-2026-11-01.json` — пилот с дрейфом;
+- `benchmarks/resident-app-interleaved-metal-2026-11-01.json` — raw frames,
+  A/A, hashes исходников и bundle, окружение, quality и lifecycle observations;
+- `benchmarks/resident-app-interleaved-analysis-2026-11-01.json` — независимый
+  пересчёт quantiles, counters, совпадения quality, порядка и числа кадров;
+- `benchmarks/resident-app-interleaved-metal-2026-11-01.jpg` — результат UI;
+- `benchmarks/resident-app-package-2026-11-01.txt` — девять package checks.
+
+Воспроизведение: `npm --prefix packages/svet run bench:resident-app:prepare -- --serve`,
+открыть выведенный localhost URL, запустить default 120 frames / 5 rounds / A/A.
+Не запускать CPU builds/tests одновременно с измерением. Raw JSON доступен в
+DOM `#raw-results`. Независимый анализ: `python3 packages/svet/scripts/analyze-resident-app-bench.py <raw.json>`.
+Preparer прошёл `node --check`, frozen production fixture собран Vite, installed
+package checks — 9/9. Runtime в этом этапе не менялся; полный suite не повторялся.
+Открыты повтор на другом запуске/оборудовании, другие приложения и полная
+квалификация startup, GPU timestamps, DOM/GPU/RSS длительной нагрузки.
+
+
+## Одновременно живые roots: controlled Node churn, 2026-11-01
+
+Добавлен `scripts/measure-live-roots.mjs`: отдельный Node-процесс, два настоящих
+WASM cores, 64 одновременно живых roots. Каждый root содержит signal/effect,
+не завершающийся resource с abort listener и captured context; по 16 roots
+заменяются за batch, новый создаётся перед teardown старого. Reset не вызывается.
+Каждые 25 batches: принудительный GC, WeakRef-проверка retired owner/signal/
+resource/context, снимок process.memoryUsage и графа. Скрипт ограничен 10000
+batches / 402 samples; содержит assertions и сохраняет failure JSON.
+
+Первый вариант оставлял начальную ротацию в верхнем async module frame.
+В двух прогонах после десяти GC оставались четыре объекта root id=79 — последний
+root начальной ротации. Диагностический прогон сохранил эти identity и heap
+snapshot `/tmp/svet-live-roots.heapsnapshot`. Перенос всей ротации в отдельную
+синхронную функцию устранил наблюдаемое удержание без изменения runtime.
+Это свидетельство в пользу ссылки измерителя/VM frame; полный retainer path
+из snapshot ещё не разобран, дефект runtime на этом основании не заявляется.
+Отказы сохранены в `live-roots-default-2026-11-01.json`,
+`live-roots-no-concurrent-2026-11-01.json`, `live-roots-diagnostic-2026-11-01.json`.
+
+Итоговый обычный Node 22.23.4 (`--expose-gc`, без отключения compiler):
+10000 batches, 160080 roots, 640320 WeakRef-объектов освобождены, максимум
+9 GC turns. Прогон `--no-concurrent-recompilation`: 1000 batches, 16080 roots,
+64320 объектов, один GC turn. Оба завершились с nodes/edges/pending=0,
+cleanup и abort ровно по числу roots. Во время нагрузки на каждом core:
+192 nodes, capacity=198, edges=32, WASM memory=1179648 байт — стабильны.
+
+В обычном прогоне после batch=100 heapUsed 7747376…8190008 байт,
+RSS 43259328…52076776 байт; external=4429948 и arrayBuffers=33315 стабильны.
+Heap и RSS выросли: длительное плато не доказано. Записи самого измерителя
+также растут до ограниченного количества samples, что следует учитывать.
+Это ускоренный churn, а не многочасовой soak. DOM, GPU, SSR actions, сцены,
+реальная параллельность и общий GPU device этим сценарием не квалифицированы.
+
+Raw: `benchmarks/live-roots-default-isolated-frame-2026-11-01.json` и
+`benchmarks/live-roots-isolated-frame-2026-11-01.json`; содержат времена,
+execArgv, исходный hash измерителя и hash reactivity runtime, все memory samples.
+Запуск: `node --expose-gc packages/svet/scripts/measure-live-roots.mjs <output.json> 10000`.
+Проверены синтаксис и два полных выполнения. Runtime не менялся.
+
+
+### Продолжение: фиксированный журнал и 1.6 млн roots
+
+`measure-live-roots.mjs` теперь хранит кольцо из 32 samples и одну baseline,
+плюс четыре фиксированных online-агрегата по четвертям запуска. Не более 1600
+pending WeakRef-проб между GC; верхняя граница batches увеличена до 100000.
+Полные samples не накапливаются, порядок ring восстанавливается при записи JSON.
+
+Обычный Node на 10k batches остановился на batch=2450: четыре объекта root
+id=39201 остались после десяти GC. Лимит не ослаблен, raw отказ сохранён:
+`benchmarks/live-roots-ring-10k-2026-11-01.json`. Причина не установлена;
+ранний успешный обычный Node-прогон не доказывает стабильность освобождения.
+
+Изолированный запуск с `--expose-gc --no-concurrent-recompilation` прошёл
+100000 batches за 73.3 с: 1600080 roots, 6400320 WeakRef-объектов освобождены,
+всегда один GC turn, 4002 наблюдения, только 32 samples сохранены в кольце.
+Все cleanups/aborts выполнены, capacity=198 и WASM=1179648 на каждом core
+стабильны, финальные nodes/edges/pending=0. Средний RSS по четвертям:
+45.93 / 47.19 / 45.53 / 44.10 МБ; последний 43.95 МБ. Средний heapUsed:
+8.044 / 8.061 / 8.075 / 8.126 МБ, после teardown 7.498 МБ.
+External и arrayBuffers постоянны. RSS в этом запуске не рос монотонно;
+небольшой рост heap и короткая длительность не позволяют заявлять длительное
+плато или устранять вопрос с обычным compiler mode.
+
+Raw: `benchmarks/live-roots-ring-no-concurrent-100k-2026-11-01.json`.
+Независимо проверены counts, 4000 window samples, 32 retained samples,
+cleanup/abort, graph/WASM invariants и финальный teardown; результат:
+`benchmarks/live-roots-ring-analysis-2026-11-01.json`. Синтаксис измерителя и
+`git diff --check` прошли; runtime не менялся. Следующий диагностический шаг —
+retainer path обычного Node при повторном отказе, затем временной soak с
+фиксированным журналом, DOM/GPU и реальными async-интеграциями.
+
+
+### Retainer evidence обычного Node
+
+Добавлен offline `scripts/inspect-live-root-retainers.py`: находит owner-пробы
+из WeakRef-журнала и печатает входящие сильные edges и кратчайшие пути до
+synthetic roots, исключая weak edges. Проверен на трёх реальных Node snapshots.
+
+Ранний snapshot действительно содержит путь SourceTextModule → Generator →
+parameters_and_registers → объект измерителя → owner. Это подтверждает удержание
+того root кадром module generator в первом варианте измерителя. Сохранено:
+`benchmarks/live-roots-initial-retainer-paths-2026-11-01.txt`.
+
+Новый обычный Node 10k batches прошёл (до десяти GC), но следующий 100k запуск
+упал на batch=50850 после 813680 созданных roots, удерживался root id=813610.
+Snapshot показывает только сильный root `weak_refs_keep_during_job` и взаимные
+ссылки закрытого owner subtree; отдельный runtime/global retainer path этим
+анализом не найден. Сам snapshot меняет VM/GC state, поэтому отсутствие пути
+не доказывает отсутствие исходного удержания. Raw успешного и упавшего запусков:
+`live-roots-ring-retainer-2026-11-01.json`,
+`live-roots-ring-retainer-100k-2026-11-01.json`; пути:
+`live-roots-ring-retainer-paths-2026-11-01.txt`.
+
+Дополнительный диагностический запуск упал на batch=10000: root id=160006,
+четыре объекта после исходных десяти GC. После snapshot, нового event-loop job
+и одного GC все исчезли (`afterSnapshotRemaining=0`). Исходная assertion всё
+равно падает; лимит не изменён и диагностическое освобождение не превращает
+результат в pass. Snapshot также показывает только weak_refs_keep_during_job.
+Raw: `live-roots-postsnapshot-diagnostic-2026-11-01.json`, пути:
+`live-roots-postsnapshot-retainer-paths-2026-11-01.txt`.
+
+Heap snapshots оставлены локально в `/tmp`, SHA256 сохранены в
+`benchmarks/live-roots-snapshot-hashes-2026-11-01.json`. Стабильность обычного
+compiler mode и точная причина GC delay остаются открытыми. Данные совместимы
+с временным VM удержанием, но не доказывают его механизм. Runtime не менялся;
+полезный следующий шаг — отдельный soak без требования освобождения в фиксированное
+число GC, с прежним строгим gate как самостоятельной проверкой и независимым
+контролем роста retained objects/heap/RSS во времени.
+
+
+### Двухминутный timed soak в обычном Node
+
+Добавлен отдельный `scripts/soak-live-roots.mjs`, протокол
+`timed-retention-soak-v1`. Строгий `measure-live-roots.mjs` не изменялся.
+64 одновременно живых roots / два WASM cores / rolling replacement, одна
+forced-GC попытка на sample. Неосвобождённые WeakRef-пробы переносятся в следующий
+sample: измеряются backlog и возраст, вместо требования немедленного освобождения.
+Post-GC backlog ограничен 10000, final drain — десять секунд; превышение budget
+или неосвобождённый final backlog дают failure. Запись: 64 ring samples,
+одна baseline и четыре online memory windows. Текущие цели WeakRef не сохраняются
+сильными ссылками. Массив probes может дополнительно содержать до 1600 новых
+проб очередной группы ротаций перед следующим GC; budget относится к post-GC.
+
+Smoke 1 с прошёл. Основной обычный Node 22.23.4 `--expose-gc` прошёл 120 с:
+5912928 roots, 23651712 WeakRef-объектов освобождены, cleanups/aborts совпали
+с числом roots. 14784 наблюдения, сохранены 64. Максимальный post-GC backlog=41,
+максимальный наблюдавшийся возраст 44.21 мс; final backlog=0. Возраст измеряется
+только для объектов, живых в момент sample, а не как точное время их сборки.
+Graph capacity/WASM стабильны, в конце nodes/edges/pending=0.
+
+Средний heapUsed по четвертям 8.121 / 8.168 / 8.172 / 8.172 МБ;
+RSS 53.71 / 53.53 / 54.15 / 54.58 МБ. После начальной четверти heap почти
+не изменялся в этом ограниченном наблюдении; RSS слегка вырос. Это evidence
+против накопления retired objects в данном двухминутном сценарии, а не
+многочасовой bound, отсутствие любых утечек или отмена строгих GC failures.
+DOM/GPU, actions, сцены и реальная серверная конкурентная нагрузка открыты.
+
+Raw: `benchmarks/live-roots-soak-120s-2026-11-01.json` содержит runtime JS hashes,
+source hash, samples и windows; smoke — `live-roots-soak-smoke-2026-11-01.json`.
+Независимый `scripts/analyze-live-roots-soak.py` проверил итоговое число roots,
+полный accounting объектов/cleanup/abort, время нагрузки, invariants сохранённых
+samples и teardown. Вывод: `benchmarks/live-roots-soak-analysis-2026-11-01.json`.
+
+Запуск: `node --expose-gc packages/svet/scripts/soak-live-roots.mjs <raw.json> 120000`.
+Анализ: `python3 packages/svet/scripts/analyze-live-roots-soak.py <raw.json>`.
+Синтаксис и `git diff --check` прошли; runtime не менялся. Далее — расширить
+нагрузку на actions/сцены, затем браузерный DOM/GPU soak с отдельным учётом
+устройства; многочасовую проверку планировать отдельно от ускоренного churn.
+
+
+### Timed soak: actions и CPU-сцены
+
+`soak-live-roots.mjs` расширен явным сценарием `actions-scenes` (четвёртый
+позиционный аргумент). Каждый из 64 живых roots содержит прежнюю нагрузку,
+server action с успешным RPC и отдельным не завершающимся запросом, transform,
+perspective camera и triangle mesh. Результат успешного action проверяется до
+следующей ротации; teardown должен отменить pending запрос, вызвать abort hook
+и вернуть `ServerActionDisposedError`. Вычисляются transformedVertices.
+Транспорт RPC в этом сценарии локальный Promise, а не HTTP. Pending cancellation
+promises ожидаются группами; журнал и backlog остаются ограниченными.
+WeakRef-проб восемь на root, до 3200 новых между samples сверх прежнего backlog.
+Guard 10000 относится к post-GC backlog. Graph check теперь включает arenaFloats.
+
+Обычный Node 22.23.4 `--expose-gc`, 60 с: 743680 roots, 743680 успешных
+результатов, 743680 отмен и abort hooks; 5949440 WeakRef-объектов освобождены.
+1861 sample, 64 retained. Максимум post-GC backlog=56, наблюдавшийся возраст
+69.06 мс; финальный backlog=0. На каждом core во время нагрузки nodes=800,
+capacity=825, edges=352, WASM=1310720 байт, arenaFloats=2904 стабильны.
+После teardown nodes/edges/pending=0; arena остаётся выделенной для reuse.
+
+Средние heapUsed по четвертям 10.928 / 10.956 / 10.967 / 11.003 МБ;
+RSS 87.80 / 91.41 / 92.37 / 89.97 МБ. Накопления retired объектов до конца
+запуска не обнаружено; многочасовой plateau, DOM/GPU и concurrent HTTP server
+не квалифицированы. Строгий ten-GC gate остаётся отдельным и не изменён.
+
+Raw: `benchmarks/live-roots-actions-scenes-60s-2026-11-01.json`;
+независимый accounting: `benchmarks/live-roots-actions-scenes-analysis-2026-11-01.json`.
+Сохранены также smoke расширенного сценария и повтор default roots после
+изменений измерителя. `analyze-live-roots-soak.py` проверяет objectsPerRoot и
+полный action accounting. Runtime не менялся, полный suite не повторялся.
+
+Воспроизведение:
+`node --expose-gc packages/svet/scripts/soak-live-roots.mjs <raw.json> 60000 actions-scenes`.
+Следующий этап — браузерный DOM/GPU lifecycle с общим device и независимым
+учётом allocations; HTTP transport и async SSR нагрузку проверять отдельно.
+
+
+## Браузерный DOM/GPU lifecycle soak, Apple Metal 3
+
+Добавлены `tests/browser/dom-gpu-soak.html` и
+`scripts/prepare-dom-gpu-soak.mjs`: frozen production Vite bundle, хеши
+исходников и assets, localhost preview на 4200. Четыре одновременно живые
+сцены на двух WASM cores и одном физическом устройстве. Каждый кадр — четыре
+resident dispatch, замена selected GPU handle с dispose старого, настоящие
+DOM click dispatch и проверка reactive текста. Каждые восемь кадров — resize
+и замена одного owner; старый retained button после teardown не вызывает handler.
+Каждые 16 кадров — четыре явных readGpuResidentSnapshot с проверкой данных.
+Это программные native DOM events, не проверка физического пользовательского input.
+
+Первый запуск без полного allocator warmup остановился на tick=40: arenaFloats
+одного core 228→240; GPU allocations не росли и teardown прошёл. Raw сохранён:
+`benchmarks/dom-gpu-soak-before-warmup-2026-11-01.json`. Добавлен фиксированный
+прогрев 128 owner rotations с восемью graph observations. Арена выросла до
+252 floats к rotation=32, затем стабильна до rotation=128 и весь measured run.
+Факт стабилизации не доказывает точный механизм начального роста аллокатора.
+
+Production snapshot `snapshot-1793536454305`, Chrome 156, Apple Metal 3,
+physical adapter, DPR2, visible. 60 с, 7194 RAF-paced ticks, 1031 scene
+created/retired (включая initial/warmup), 28776 resident updates и DOM callbacks,
+1796 snapshots. 33665 буферов созданы и уничтожены, bytes 1582928 в обе стороны;
+map count точно совпал с числом explicit snapshots. После settled tick:
+8 live buffers / 256 bytes, 4 depth textures, 192 resident bytes; pending credits=0.
+После teardown buffers/textures/resident reservations/nodes/edges/pending=0.
+На каждом core capacity=45, WASM memory=1179648, arenaFloats=252 стабильны.
+Uncaptured GPU errors не наблюдались. Raw samples ограничены кольцом 64.
+
+Сохранённые heap observations 8.08…17.90 МБ; forced browser GC не выполнялся,
+JS retention/plateau и driver/process memory не доказаны. Проверка application
+allocation metadata не учитывает внутренний кеш драйвера. Picking, stale map
+cancellation, device loss/reset и другие adapters не входят в этот soak;
+их отдельные предыдущие fixtures не заменяют совместную длительную проверку.
+Частоту RAF этого запуска не трактовать как измерение FPS.
+
+Артефакты: `benchmarks/dom-gpu-soak-metal-2026-11-01.json`, `.jpg`,
+`benchmarks/dom-gpu-soak-analysis-2026-11-01.json`. Независимый пересчёт проверил
+scene/update/snapshot counts, сбалансированные buffer/byte allocations, maps,
+сохранённые settled samples и final graph teardown. Собран production fixture,
+preparer прошёл node --check, git diff --check. Runtime не менялся.
+Metadata.scope измеренного snapshot унаследовал описание app A/B preparer;
+это неточность описания, фактический протокол задают fixture и raw.protocol.
+Текст scope исправлен для следующих builds; raw измерения сохранён неизменным.
+
+Запуск: `node packages/svet/scripts/prepare-dom-gpu-soak.mjs --serve`, открыть
+выведенный URL и Run 60-second soak. Следующие задачи: совместные reset/device
+loss/stale-pick cancellation и браузерная матрица сценариев, затем долгий soak.
+
+
+## Общий GPU device: reset, pending picking и восстановление
+
+Добавлены `tests/browser/shared-gpu-recovery.html` и frozen production preparer
+`scripts/prepare-shared-gpu-recovery.mjs` (localhost 4201). Два WASM cores,
+один физический Apple Metal 3 device. Fixture задерживает наблюдение одного
+настоящего mapAsync через Promise gate: native GPU операция выполняется,
+но приложение ещё ждёт результат. Это управление JS completion observation,
+а не принудительная остановка GPU execution.
+
+Production snapshot `snapshot-1793536740359` прошёл четыре совместные проверки:
+1. Reset core A при pending picking отменяет callback и GPU handle/context A;
+   core B сохраняет handle/context, точные данные snapshot и renderer.
+2. Новый root core A снова рисует на прежнем общем device.
+3. Explicit device.destroy() при pending picking B инвалидирует GPU handles
+   обоих cores; после async drain buffers/textures возвращаются к нулю,
+   stale callback B не доставляется.
+4. После нового requestAdapter/requestDevice оба cores рисуют, picking нового
+   кадра доставляет ровно один callback. Fixture проверяет реальные GPU pixels.
+
+Первый запуск проверял allocation count сразу после device loss и teardown;
+один staging buffer 48 байт ещё ждал async closure. Добавлено ограниченное
+ожидание фактического нулевого allocation count (до 5 с), а не ослабление
+итогового нуля. Audit telemetry после detach имеет device=null и может показывать
+нулевые device credits до завершения старой closure, поэтому не заменяет tracking.
+Отказ: `benchmarks/shared-gpu-recovery-before-fix-2026-11-01.json`.
+Следующий запуск очистил старое устройство, но requestDevice на прежнем adapter
+получил Dawn OperationError "adapter is consumed". Recovery запрашивает новый
+adapter; отказ сохранён в `shared-gpu-recovery-adapter-diagnostic-2026-11-01.json`.
+
+На старом device созданы/уничтожены 12 buffers / 480 bytes, на новом 7 / 272;
+map count 3 и 1. Конечные allocations, graph nodes/edges/pending и GPU credits
+нулевые, uncaptured errors отсутствуют. Независимо проверен accounting двух
+устройств и итоговый teardown. Нет проверки спонтанного hardware/driver crash,
+других adapters, многочасового soak или полного JS/driver memory plateau.
+Runtime в этом этапе не менялся.
+
+Артефакты: `benchmarks/shared-gpu-recovery-metal-2026-11-01.json`, `.jpg`,
+`shared-gpu-recovery-analysis-2026-11-01.json`,
+`shared-gpu-recovery-package-2026-11-01.txt`. Девять installed-package gates
+прошли; recovery fixture добавлен отдельным entry в production build consumer
+установленного пакета. Аппаратный запуск этого этапа использовал workspace
+production bundle; installed-package native recovery отдельно ещё не запускался.
+Scope metadata измеренного snapshot унаследовал описание DOM/GPU soak; raw.protocol
+и fixture задают фактический тест. Текст preparer исправлен для следующих builds.
+
+Проверены node --check preparer/check-package и git diff --check. Следующий этап —
+собрать браузерную матрицу с конкретными сценариями и свежими evidence, а также
+добавить повторяемые recovery cycles/installed-package hardware qualification.
+
+
+## Production browser matrix
+
+Добавлены BROWSER_MATRIX.md, `tests/browser/browser-matrix-cases.json`, runner
+`browser-matrix.html` и frozen `scripts/prepare-browser-matrix.mjs`. На Chrome156
+production snapshot snapshot-1793536910588 прошёл 11 fixtures / 90 assertions.
+Каждый fixture выполнялся в свежем same-origin iframe, runner сверял X/X,
+число PASS lines и отсутствие FAIL. Независимо сверены manifest/counts и все
+source hashes с текущим worktree. Артефакты: `browser-matrix-chromium-2026-11-01.json`,
+`.jpg`, `browser-matrix-analysis-2026-11-01.json` в benchmarks.
+Runtime не менялся; Vite multi-entry build, node --check и git diff --check прошли.
+Router history, Node SSR/resumption, HTTP, две независимо собранные копии,
+installed-package matrix и другие browsers явно остаются открытыми в матрице.
+
+
+## Свежие browser router / Node SSR / HTTP проверки
+
+Router history: frozen production snapshot snapshot-1793537045359, Chrome156,
+14/14 в отдельной disposable top-level tab. Реальные Back/Forward/go, guards,
+compensation без роста history, полные query/hash, redirects, reentrant navigation,
+шесть traversal bursts и graph teardown. Output и screenshot сохранены:
+`benchmarks/router-history-production-2026-11-01.txt` / `.jpg`.
+
+Node SSR/browser resume: 8/8 с Node renderer из dist/package и Vite dev client.
+Добавлен raw report в resumption-roundtrip.html: точные HTML/stateJson ответа,
+Node graph cleanup counts, browser UA и результат взаимодействий. Проверены
+native DOM identity, escaped values, checkbox/number/radio/multi-select/type,
+re-resumption и teardown. Raw/screenshot: `node-ssr-browser-roundtrip-2026-11-01.json`
+/ `.jpg` в benchmarks. Это не frozen production browser SSR qualification.
+
+HTTP browser actions: 7/7, настоящий fetch к loopback Vite fixture. Abort до
+headers и во время JSON streaming подтверждён server stats closed=true,
+complete=false; overlapping bodies сохраняют pending до завершения обоих.
+Disposed action не начинает новый fetch, graph nodes=0. Raw report теперь
+сохраняет bounded журнал diagnostic HTTP replies (макс256); получено12,
+dropped=0. Raw/screenshot: `browser-http-actions-2026-11-01.json` / `.jpg`.
+Node native HTTP tests повторены: 4/4, log `browser-matrix-http-node-2026-11-01.txt`.
+Это dev browser, не frozen production HTTP qualification и не load/soak.
+
+`router-ssr-http-qualification-2026-11-01.json` хранит hashes TS runtime,
+dist/package JS, fixtures/server scripts, точных SSR HTML/stateJson и router
+build metadata. Независимо проверены PASS counts, raw statuses и серверный
+SSR graph cleanup. Browser matrix и PLAN обновлены. Runtime не менялся;
+preparer синтаксис, production router build и git diff --check прошли.
+Следующие пробелы: independently built instances, installed-package browser
+matrix и production browser SSR/HTTP, затем остальные lifecycle fixtures.
+
+
+## Две независимые копии текущего движка в одном document
+
+`event-instances.html` отвязан от исторических adoption baseline/candidate.
+Новый `scripts/prepare-event-instances.mjs` собирает текущий engine index.ts
+двумя независимыми Vite library builds, каждая со своей полной копией module
+state и embedded WASM. URL разные, bytes и SHA256 одинаковые. Build сохраняет
+полный source/asset manifest и отвергает source drift во время подготовки.
+
+Frozen production snapshot snapshot-1793537272214 прошёл 9/9 в Chrome156:
+разные signal function identities / WASM cores; handlers по одному разу;
+child-before-parent bubbling в смешанном дереве; additive bindings на одном
+узле с независимым teardown; stopImmediatePropagation через границу копий;
+сохранение callback второй копии после teardown первой; closed Shadow DOM;
+reset одного module не удаляет второй reactive graph/effect; оба graph nodes=0
+после teardown. Проверка reset добавляет реальные signal/effect, чтобы итоговый
+нулевой граф не был лишь тривиальным результатом event-only roots.
+
+Raw/screenshot: `benchmarks/independent-engines-production-2026-11-01.json` / `.jpg`.
+Независимо проверены9 PASS lines, все source/asset hashes и равенство двух
+bundle hashes; `independent-engines-analysis-2026-11-01.json`. Bundle SHA256:
+ad38e154d0c8470c55b14c6a5524e88b41d853097792fa0bfc36c90a732b9ff2.
+
+Граница: эта проверка подтверждает shared native dispatcher и независимые
+module-owned graphs, не перенос tracking/untrack/async contexts между копиями.
+Разные версии пакета, installed-package duplicates и async/SSR adapters открыты.
+Runtime не менялся; прошли production page + обе library builds, node --check
+preparer и git diff --check. Далее — installed-package browser matrix и
+production browser SSR/HTTP; остальные lifecycle fixtures ещё не все включены.
+
+
+## Installed-package production browser matrix и GPU recovery
+
+`check-package.mjs` теперь собирает matrix runner и11 scenarios из manifest
+как дополнительные entries девятого package gate. Импорты переписываются на
+публичный svet-engine, оставшийся /src/engine/ запрещён. Первый прогон обнаружил
+прямые wasm-bridge imports в двух fixtures; guard остановил сборку. Отказ
+сохранён в `benchmarks/installed-matrix-package-before-import-fix-2026-11-01.txt`.
+После перевода этих импортов на package export все9 gates прошли.
+
+--keep оставляет isolated consumer. Добавлена browser metadata: SHA256 packed
+archive,15 runtime JS, fixture sources и36 production assets; installed JS
+побайтно сверяется с workspace dist/package. Metadata отдельно предупреждает,
+что production build ещё не является browser pass. Новый
+`scripts/serve-installed-browser.mjs` запускает только preview готового output
+на localhost4206 без aliases/dev compilation.
+
+Из consumer установленного архива в Chrome156 прошли11/11 fixtures /90 assertions.
+На том же consumer physical Apple Metal3 recovery прошёл4/4: pending picking,
+core reset без потери соседа, explicit device destruction, fresh adapter/device,
+rendering и один успешный pick. Счётчики allocations обоих устройств
+сбалансированы, final nodes/edges/pending/credits=0. Raw metadata одинаков в
+матрице и recovery. Независимо повторно проверены counts, metadata, все assets
+и installed runtime hashes после browser execution.
+
+Archive SHA256: 6d429df42a28a2334ddb1265ab1493dab3abd1ae87f7c87b5468817b7cefd0c1.
+Consumer и archive сохранены в /tmp, точный путь в qualification JSON.
+Артефакты: `installed-matrix-package-2026-11-01.txt`,
+`installed-browser-matrix-2026-11-01.json` / `.jpg`,
+`installed-gpu-recovery-metal-2026-11-01.json` / `.jpg`,
+`installed-browser-qualification-2026-11-01.json` в benchmarks.
+
+Runtime не менялся; прошли syntax checks и git diff --check. Production browser
+SSR/HTTP, installed-package independent duplicates и остальные fixtures ещё
+открыты; эти результаты не доказывают cross-browser или driver memory plateau.
+
+
+## Installed production Node SSR / browser HTTP
+
+В `check-package.mjs` добавлены production entries resumption-roundtrip и
+server-action-http, public package imports и metadata hashes. Девять gates прошли.
+Общий `browser-fixture-endpoints.mjs` заменяет дублирующий код dev servers;
+`serve-action-browser.mjs` и `serve-resumption-browser.mjs` сохраняют прежние URL
+и вызывают эти handlers. Installed preview подключает handlers через
+configurePreviewServer: отдаёт готовый production output без dev transforms/HMR.
+Node SSR engine импортируется из изолированного consumer/node_modules/svet-engine,
+а не workspace dist/package. Точный SSR ответ теперь содержит provenance этого
+архива/runtime JS/endpoint source; старый dev wrapper передаёт provenance=null.
+
+Chrome156: installed production SSR→resume8/8, HTTP actions7/7. Проверены те же
+native form identity, values/attributes, dynamic options, re-resumption/cleanup;
+fetch abort до headers и во время streaming подтверждён server closed=true,
+complete=false. Overlapping requests корректно удерживают pending до второго
+completion. Node native HTTP tests повторены4/4. Это реальные loopback fetch,
+не Promise mock и не simulated SSR timings.
+
+Archive SHA256 1bd11a4f374c7783b21d7f744e392d36832f6b19ee44a860a553e603dce5b938.
+Независимо сверены15 installed runtime hashes,41 production assets, точные
+SSR HTML/stateJson, Node/server cleanup0,8/7 PASS lines и два server-observed
+aborted replies (до headers и streaming). Raw/proof:
+- `benchmarks/installed-production-ssr-2026-11-01.json` / `.jpg`;
+- `benchmarks/installed-production-http-2026-11-01.json` / `.jpg`;
+- `benchmarks/installed-production-ssr-http-qualification-2026-11-01.json`;
+- `benchmarks/production-ssr-http-package-2026-11-01.txt`;
+- `benchmarks/production-ssr-http-node-2026-11-01.txt`.
+
+Consumer/archive сохранены по пути qualification JSON. Runtime не менялся;
+production build, package gates, syntax checks и git diff --check прошли.
+Отдельный raw результата DOM/GPU матрицы на новом архиве не заявляется:
+предыдущая installed DOM/GPU qualification относится к сохранённому старому
+архиву; runtime JS идентичны, но архив и assets имеют свои manifests.
+Открыты нагрузка/длительная concurrency, arbitrary async SSR components/Edge,
+остальные lifecycle fixtures и cross-browser qualification.
+
+
+## Расширенная installed production lifecycle matrix:20/176
+
+В browser-matrix-cases.json добавлены9 существующих fixtures с явными expected
+counts: attribute-lifetime8, captured-context11, for-current-item7,
+fragment-construction9, h-construction11, model-adoption8, model-reset-roots16,
+model-reset8, style-lifetime8. Новый installed consumer production build включает
+все20 fixtures; прежние tests/assertions не ослаблялись. Отдельная квалификация
+новых fixtures выполнена настоящим Chromium, не только по наличию файлов.
+
+Chrome156:20/20 fixtures /176 assertions прошли. Дополнительно86 assertions
+закрывают binding teardown, explicit continuation reentry после await,
+same-key values/indexes и nested Forma loops, fragment/h construction rollback,
+model adoption/reset, changing roots и closed ShadowRoot. Это explicit capture,
+не автоматическое async h/SSR ownership и не cross-module untrack propagation.
+
+Archive SHA25613d64c3f8815b112f40187db206ad617cd50a364ec5f14d227df6f93ba4f5e82.
+Сохранены raw output каждого fixture, UA/DPR и build metadata. Независимо
+сверены manifest names/counts,176 PASS lines,60 production assets и15 installed
+runtime JS; runtime bytes совпадают с workspace dist/package. Package gates9/9,
+git diff --check прошли. Runtime не менялся, полный engine suite не повторялся.
+
+Артефакты: `benchmarks/expanded-installed-lifecycle-2026-11-01.json` / `.jpg`,
+`expanded-installed-lifecycle-analysis-2026-11-01.json`,
+`expanded-lifecycle-package-2026-11-01.txt`. Consumer/archive сохранены по пути
+analysis JSON. BROWSER_MATRIX.md отражает20 scenarios; старые proofs сохраняются
+со своими package hashes. Следующий этап — определить и реализовать недостающую
+async SSR component integration, сохраняя явные границы browser/Edge и Node.
+
+
+## Автоматические async h/JSX components в Node SSR
+
+Реализована интеграция Node renderToStringAsync с function components h/JSX.
+Node server entry устанавливает внутренний DOM adapter, активный только в ALS
+render session. Каждый function component запускается в runWithOwnerScopeAsync;
+синхронный Node возвращается немедленно, async Node публикуется в marker range.
+Nested tasks и tasks, созданные node/signals getters результата, ожидаются до
+сериализации HTML/state. Session закрывается перед serialization. Ошибка
+fail-fast отклоняет request без ожидания uncooperative sibling; request teardown
+закрывает все child owners. Markers удаляются при commit, stale ranges отвергаются.
+Async owner callback теперь начинает синхронную часть сразу в установленном
+контексте; cancellation promise наблюдается даже при синхронном abort+throw.
+
+Добавлен AsyncComponent type и JSX.ElementType; h/JSX по-прежнему возвращают
+Node. Вне Node renderToStringAsync Promise component вызывает явную диагностику,
+rejection наблюдается. Node async_hooks не попадает в browser output.
+Synchronous component DOM access сохранён. Provider children, которым нужен
+его context, создаются lazy callback; eagerly evaluated children уже исполнились
+до Provider. Host должен держать DOM implementation живой весь async request.
+
+Новые8 regression tests: interleaved providers и nested components после await,
+ошибка/cleanup, abort/late allocation refusal, immediate sync DOM, result getter,
+fail-fast с зависшим sibling, concurrent request isolation, unsupported async
+component outside renderer без unhandled rejection. До реализации два из трёх
+первых тестов падали и были3 unhandled errors; дополнительные integration tests
+поймали раннюю несовместимость sync DOM/getter. Отказы сохранены в
+`async-components-before-2026-11-01.txt` и `async-components-integration-before-2026-11-01.txt`.
+
+Итоговые gates: Rust53/53; production build; JS1229/1229 /86 files /maxWorkers4,
+7.91с; package9/9 с installed Node async component execution и strict JSX type
+fixture; native HTTP4/4. Existing benchmark timeout5000ms не изменён.
+Installed production browser DOM matrix20/20 /176 assertions повторена на новом
+runtime. Новый async-components-roundtrip прошёл5/5: Node provider values,
+request cleanup0, отсутствие pending anchors, DOM identity/state after await,
+native numeric model input и browser teardown0.
+
+Первый browser async roundtrip получил document is not defined: старый sync host
+устанавливал DOM globals только на время синхронного render. Host fixture теперь
+устанавливает DOM implementation на lifetime сервера и восстанавливает globals
+при close; движок сам их не устанавливает. Failure raw сохранён в
+`benchmarks/async-components-browser-host-before-2026-11-01.json`.
+
+Артефакты в benchmarks: async-components-native /production-build /suite-final
+/package /http-2026-11-01.txt; async-components-browser-2026-11-01.json/.jpg;
+async-components-browser-matrix-2026-11-01.json/.jpg;
+async-components-qualification-2026-11-01.json. Qualification связывает source,
+archive,15 runtime JS,62 assets, точные HTML/stateJson и endpoint provenance.
+Archive079ef952516abfa419cb92b85969460963b6232970b87b4008afca39806fbf27.
+
+Открыты browser async component renderer, Edge adapter, streaming SSR,
+cross-copy async propagation, arbitrary native DOM fault combinations,
+retention/latency/throughput новых session/owner scopes и многочасовая нагрузка.
+Это завершённая Node integration в указанном объёме, не весь async/SSR roadmap.
+README, browser matrix и PLAN обновлены. Ничего не committed/pushed/published.
+
+
+## Async component request churn и retired-core cache
+
+Добавлен `scripts/measure-async-component-churn.mjs`: success/failure/cancel
+renderToStringAsync requests с настоящим WASM/JSDOM, component owner, source,
+effect, resource, captured token и DOM node. Error/cancel возобновляют старую
+continuation после teardown: попытка h() должна отказать. Проверяются cleanup,
+external abort hook removal, native graph/pending0 и WeakRef collection.
+Проба ограничена30 requests между GC,32 ring samples + baseline и четырьмя
+online memory windows. Десять GC attempts не ослаблены; failures сохраняют raw.
+
+Первый запуск обнаружил ошибку самого измерителя: неверное имя native pending
+API. Затем стабильное удержание одного core после10 GC воспроизвелось и без
+concurrent recompilation. У runtime есть single-entry hot context cache; переход
+на ambient graph перед GC освобождал core. Этот вариант на5000 cycles прошёл
+15000 requests /105000 probes, но требовал ручного cache advance.
+
+Исправление runtime: runWithIsolatedContextAsync в finally вызывает internal
+retireReactiveContextCache. WeakSet отмечает retired cores, очищается совпадающий
+hot cache; late cleanup читает своё состояние из WeakMap, но больше не записывает
+retired core в hot cache. Простое одноразовое очищение оказалось недостаточным:
+асинхронная очистка могла заполнить cache снова. WeakSet не держит cores сильно.
+Живые/default cores сохраняют прежний быстрый cache-hit путь; влияние cold miss
+WeakSet check и throughput отдельно не измерено, speedup не заявляется.
+
+Native-mode GC regression без ambient mutation падала до исправления на одном
+core, после retirement guard прошла. Финальная проба дополнительно отслеживает
+WebAssembly.Memory:15000 requests,120000 objects (exports/memory/owner/source/
+effect/resource/capture/DOM),15000 cleanups,10000 rejected late continuations.
+Все объекты освобождены, максимум6 GC turns,501 samples /32 retained. В JSON
+`retireCache=false` означает, что sampler НЕ переключает runtime cache вручную;
+сам runtime retirement включён. Четвертные heap means40.104/40.261/40.302/40.316МБ,
+RSS134.88/137.26/138.50/139.68МБ. RSS рос: длительное plateau и native physical
+reclamation этим не доказаны. Тайминги — наблюдения маленького JSDOM сценария
+с forced GC, не A/B, не app latency guarantee и не доказательство ускорения.
+
+Installed package gate теперь запускает ту же пробу отдельным Node --expose-gc
+процессом:300 requests /2400 objects, всё освобождено за один GC turn без ручного
+cache advance. Это автоматическая регрессия удержания, а не проверка внутреннего
+флага. Production build и полный JS suite1229/86 прошли (7.88с,maxWorkers4);
+package9/9 и native HTTP4/4 прошли. Rust не менялся, новых native tests не добавлено.
+
+Артефакты в benchmarks:
+- async-component-churn-default /default-verified /no-concurrent-2026-11-01.json — ранние отказы;
+- async-component-core-cache-before /after /5000-2026-11-01.json — cache experiments;
+- async-component-retention-memory-2026-11-01.json — финальные15000 requests;
+- async-component-retention-installed-2026-11-01.json — installed regression;
+- async-component-retention-analysis-2026-11-01.json — независимый accounting;
+- async-component-retention-build /suite /package /http-2026-11-01.txt — gates.
+Независимо сверены counts, windows, native mode, runtime/source hashes и installed
+probe. Предыдущие passing probes сохранены отдельно и не заменяют финальную пробу.
+
+Воспроизведение после build:package:
+`node --expose-gc packages/svet/scripts/measure-async-component-churn.mjs <raw.json> 5000 native`.
+Не запускать builds/tests одновременно с timing observations. Open scope:
+длительный timed soak/concurrent requests, browser async rendering/Edge/streaming,
+профилирование cache retirement cost и process/driver memory.
+
+
+## Конкурентный async component soak:24 одновременно живых requests
+
+Добавлен `scripts/soak-async-components.mjs`: timed нагрузка Node/JSDOM с24
+одновременно живыми renderToStringAsync requests. В каждом batch8 success,
+8 component failure,8 request cancellation. Shared resource-ready barrier
+проверяет activeRequests=24,24 разных WASM cores и ненулевые живые graph nodes
+до освобождения запросов. Child после barrier проверяет свой core/owner/Provider
+context и reactive effect update. Failure/cancel возобновляют позднюю continuation
+после teardown и требуют отказа h(). Это реальный interleaving с ALS, не24
+последовательных операций в Promise.all без проверки overlap.
+
+На каждый request отслеживаются8 объектов, включая WASM exports и Memory.
+Нет ручного ambient-cache advance. После batch graph/pending0, abort hooks0,
+GC до10 turns;32 ring samples + baseline и4 online windows, без накопления raw
+истории на каждый request. Batch deadline10с прерывает некорректное зависание,
+не заменяет ожидаемые component errors. Первый smoke отказал в измерителе:
+observer продолжал требовать старое значение после намеренного source update;
+доступ к result.value скрыл исходную ошибку. Ожидание effect и диагностика
+result.error исправлены; raw `async-concurrent-smoke-2026-11-01.json` сохранён.
+
+Финальный60-секундный запуск:2568 barriers/batches,61632 requests,
+493056 objects освобождены,61632 cleanup,41088 late refusals, maxGC7.
+На mode20544 операций. Active requests в конце0, peak24.
+Четвертные heap means37.220 /36.318 /36.345 /36.347МБ;
+RSS137.23 /135.39 /124.93 /126.07МБ. После прогрева heap почти не изменялся
+в этом ограниченном интервале, RSS к концу ниже первого окна. Это не
+многочасовой plateau и не общий bound процесса. Тайминги включают ожидание
+barrier; forced-GC loop не является production throughput/latency benchmark.
+Нет настоящего HTTP, браузера, Edge или GPU в этом soak.
+
+Installed package gate дополнен коротким отдельным concurrent probe:
+61 batch /1464 requests /11712 objects, peak24, maxGC5, всё освобождено.
+Все9 package gates прошли. Runtime в этом этапе не менялся, полный engine suite
+не повторялся. Независимо проверены mode/counts, overlap barriers, final active0,
+GC samples/windows и source/runtime hashes; syntax и git diff --check прошли.
+
+Артефакты в benchmarks: async-concurrent-smoke-fixed-2026-11-01.json,
+async-concurrent-soak-60s-2026-11-01.json,
+async-concurrent-soak-analysis-2026-11-01.json,
+async-concurrent-installed-2026-11-01.json,
+async-concurrent-package-2026-11-01.txt. Consumer/archive сохранены по пути
+analysis JSON. Запуск после build:package:
+`node --expose-gc packages/svet/scripts/soak-async-components.mjs <raw.json> 60000`.
+Длительность от1000мс до1ч; runtime может быть выбран installed package path
+в пятом argv (как делает package gate). Не запускать CPU builds/tests параллельно.
+Далее — adapter architecture browser/Edge и streaming, настоящий concurrent
+HTTP async SSR/disconnect, более длительный soak и независимые performance controls.
+
+
+## Конкурентный настоящий HTTP async SSR / disconnect
+
+Добавлен `scripts/check-async-ssr-http.mjs`: native node:http server/client на
+loopback, установленный или workspace runtime, JSDOM host и renderToStringAsync.
+12 requests одновременно доходят до component-ready barrier на12 разных cores;
+все graphs ещё живые. В каждом batch4 success,4 component failure,4 disconnect.
+Клиентские sockets закрываются до headers; server response.close с
+writableEnded=false прерывает signal только соответствующего render.
+Перед release соседей проверяется activeRequests=8 и их живые graph nodes.
+
+20 batches:240 requests —80 HTML200,80 expected component error500,
+80 unfinished-response closures. Все successful HTML содержат только свой
+Provider/request id после await. Disconnects отклоняют render с host reason,
+не пишут ответ (writes=0), поздний h() отказывает. После каждого request
+cleanup1, native nodes/pending0, external abort hooks0; activeRequests в конце0,
+peak12. Это реальный transport test, не Promise-only cancellation.
+
+Package gate запускает этот же script с installed runtime на4 batches:
+48 requests, peak12, всё прошло; package9/9. Runtime в этом этапе не менялся,
+полный engine suite не повторялся. Независимо сверены counts/mode outcomes,
+closed-before-end, отсутствие disconnected writes, teardown и source/runtime
+hashes, installed runtime совпал с основным прогоном. Syntax и diff check прошли.
+
+Raw/анализ: `benchmarks/async-ssr-http-concurrent-2026-11-01.json`,
+`async-ssr-http-installed-2026-11-01.json`, `async-ssr-http-analysis-2026-11-01.json`,
+`async-ssr-http-package-2026-11-01.txt`. Consumer/archive сохранены по пути
+analysis JSON. Script принимает installed package directory в argv2 (пустая
+строка выбирает workspace), output JSON в argv3, число batches в argv4:
+`node packages/svet/scripts/check-async-ssr-http.mjs '' <raw.json> 20`.
+
+Границы: HTTP disconnect проверен до headers при полном HTML render, не во
+время streaming SSR. Нет reverse proxy, browser client, Edge, load/soak,
+memory plateau или production security qualification. Node default agent и
+серверные connections закрываются в finally. Дальше — portable adapter
+architecture/Edge и streaming SSR с отдельными transport/lifetime критериями.
+
+
+## Progressive Node SSR data protocol / native browser receiver
+
+Добавлены renderToChunksAsync в Node server entry и stream.ts с публичным
+SsrStreamChunk/createSsrStreamReceiver. Это настоящее progressive output:
+shell с boundary ranges, patches по readiness, complete с final HTML/stateJson.
+Async boundaries публикуются serially с one-slot rendezvous/backpressure;
+return() закрывает outstanding next(), signal/caller teardown отменяют request.
+Default maxChunkBytes8MiB encoded JSON, maxBoundaries1024 total async boundaries.
+HTML/DOM serialization transient allocations и вся DOM tree не входят в эти bounds.
+
+Stream receiver имеет child ownership, captured reentry после await и reset
+finalizer; replacement receiver не даёт старому handle изменять новый container.
+Contextual Range parsing сохраняет SVG namespace. Snapshot resumption выполняется
+на complete. Protocol не генерирует inline patch scripts; HTML остаётся trusted
+application markup, это не sanitizer. Финальный полный HTML исправляет reactive
+writes после отправленного boundary: matching DOM сохраняется, mismatches
+заменяются до resume. Цена — повторная передача полного HTML; оптимизация открыта.
+
+Новые9 unit regressions: early shell, nested patches/final coherence, native input
+identity, return+pending next, failure with hanging sibling, stale receiver,
+limits/owner disposal, SVG/parent cleanup, paused backpressure + abort hooks,
+undefined rejection/reset (несколько assertions сгруппированы в9 tests).
+Первый focused run выявил detached createRoot у receiver и неподходящий '{}'
+для empty resumption snapshot; исправлены parent scope/reset cleanup и валидный
+serializeState({}). До-исправления log: streaming-receiver-before-2026-11-01.txt.
+
+Gates: production build; JS1238/87,maxWorkers4,8.12с; package9/9 с installed
+stream execution и strict public chunk types; native action HTTP4/4. Existing
+benchmark timeout5000ms не менялся. Rust implementation не менялась.
+
+Native Chrome156 installed production browser roundtrip6/6 прошёл. Контрольный
+HTTP endpoint держит async component до отдельного release-запроса: shell211байт
+при finished=false/nodes1 доказывает отсутствие full-tree buffering. После release
+patch132366байт и complete132457байт; model/input identity сохранены, native input
+обновляет resumed state, escaped script text не создаёт script element. Payload
+выше Node writer highWaterMark даёт2 настоящих write(false)→drain. После complete
+server nodes0/cleanup1, после receiver.dispose client graph0.
+
+Первый browser run ошибочно ожидал graph nodes>0, хотя pending component создал
+только owner и ещё не signal. В fixture добавлен owned pending signal до gate;
+ошибка исходного assertion сохранена streaming-browser-before-2026-11-01.json.
+Node HTTP body disconnect после полученного shell отменяет pending next и чистит
+request graph; следующий свежий stream проходит через shell/patch/complete с drain.
+Эти2 transport checks включены в installed package gate.
+
+Артефакты в benchmarks: streaming-focused /production-build /suite /package-final
+/action-http-2026-11-01.txt; streaming-browser-final-2026-11-01.json/.jpg;
+streaming-http-final-2026-11-01.json; streaming-installed-http-final-2026-11-01.json;
+streaming-qualification-2026-11-01.json. Последний связывает chunk counts/bytes,
+server stats, source/runtime/asset hashes и archive
+ d03f29915d5c8f03aa2baf55c34cb40145628975eb4ca55e25ca2a9f43aa43b8.
+Все16 runtime JS и production assets независимо сверены; consumer/archive сохранены.
+
+Открыты: protocol version negotiation, stream retention/latency/throughput,
+incremental final reconciliation вместо full HTML, больше native DOM/parser
+комбинаций, concurrent long streams/disconnect during drain, proxy behavior,
+Edge/browser producer adapters и другие browsers. Это bounded Node protocol
+с native receiver proof, не завершение всего streaming/adapter roadmap.
+
+HTTP stream checker дополнительно переведён на incremental newline framing,
+без предположения о границах TCP/read chunks. Оба checks повторно прошли
+на workspace и сохранённой installed сборке; ранний prefix-only результат сохранён.
+
+Финальная lifetime guard проверяет отмену и caller lifetime повторно после
+channel.next(), перед возвратом chunk. Suite повторён1238/87 (8.27с), package9/9,
+production build и installed browser6/6 повторены на итоговом архиве
+afe5cac7fb36f42d0e401ea25ed0c647e6bd02ac4feab58657d228d95acbe005.
+Финальные файлы: streaming-suite-final /package-qualified /production-qualified
+-2026-11-01.txt, streaming-browser-qualified-2026-11-01.json/.jpg,
+streaming-installed-http-qualified-2026-11-01.json. Qualification обновлён;
+ранние successful/failed snapshots сохранены, не выдаются за итоговую сборку.
+
+
+## Stream wire v1: version, sequence и pre-shell ownership
+
+Добавлен shared stream-protocol.ts: SSR_STREAM_VERSION=1 и envelope
+{version,sequence,streamId,payload}. Payload содержит прежние shell/patch/complete
+поля. Producer назначает contiguous sequence от0 в единой send path. Receiver
+сначала проверяет version и sequence, затем stream identity, и только после этого
+читает payload/HTML. Missing/unknown versions, skipped/replayed/noninteger records
+отвергаются до DOM writes. Envelope намеренно несовместим с первым unversioned
+черновиком: старый receiver не видит прежних top-level type/html и отказывает.
+Никаких fallback или implicit negotiation не добавлено.
+
+Пять новых регрессий проверяют unknown version без вызова payload getter,
+legacy rejection, first-sequence0/replay rejection, negative/fractional/NaN/
+Infinity/unsafe/skipped sequences и сохранение ранее resumed bindings при отказе
+до shell. Последнее обнаружило отдельную проблему ownership: receiver cleanup
+без принятого shell снимал чужой resume state. Теперь ownsResumption устанавливается
+только после принятия shell; protocol failure до этого освобождает лишь receiver.
+Ранний failing log сохранён: stream-protocol-before-2026-11-01.txt.
+
+Production build сначала нашёл одну не обновлённую legacy запись reset-теста;
+исправление тестовой формы и успешный build записаны отдельно в
+stream-v1-build /build-qualified-2026-11-01.txt. Итоговый suite1243/88,
+maxWorkers4,24.51с прошёл без изменения5000ms benchmark timeout. Package9/9
+прошёл с strict literal-version type fixture и installed Node producer/receiver,
+native action HTTP4/4 прошёл. Installed HTTP stream disconnect/recovery checks
+также прошли на v1 и сверяют version/sequence0,1,2.
+
+Chrome156 installed production browser7/7: unknown version отклоняется до payload
+getter/native DOM mutation; slow-component shell всё ещё приходит до release;
+реальные HTTP records имеют version1 / sequences0,1,2; resume/native input,
+escaped text, writer drain и teardown прошли. Bytes248/132403/132494 для
+shell/patch/complete. Независимо проверены17 runtime JS и64 production assets,
+record metadata и source hashes. Qualification archive:
+2d907fd65a07935cc1f57a60b1205c1dc854ec627a9577587603f8d103ddbdbf.
+
+Дополнительно реально загружен сохранённый старый compiled receiver (не его
+имитация): legacy отверг v1 с Invalid SSR stream chunk, новый receiver отверг
+legacy с Unsupported SSR stream version; DOM остался прежним. Это Node/JSDOM
+проверка двух actual builds, не native browser legacy/new matrix и не гарантия
+совместимости произвольных версий. Raw: stream-v1-legacy-compat-2026-11-01.json.
+
+Артефакты benchmarks: stream-protocol-focused-2026-11-01.txt,
+stream-v1-suite-qualified /package /http-2026-11-01.txt,
+stream-v1-browser-2026-11-01.json/.jpg,
+stream-v1-installed-http-2026-11-01.json,
+stream-v1-qualification-2026-11-01.json. Archive/consumer сохранены по пути metadata.
+README, browser matrix и PLAN обновлены; git diff --check прошёл.
+Открыты HTTP version negotiation/migration, optimization final snapshot,
+stream retention/throughput/long concurrent transport, proxies и Edge adapters.
+
+## Disposed stream receiver: воспроизведённое удержание DOM (2026-11-01)
+
+Добавлен `scripts/measure-stream-receiver-retention.mjs`: 32 сохранённых receiver
+handles после dispose удерживают 32 detached JSDOM containers за 10 GC-раундов.
+Контроль без сохранённых handles освобождён полностью. После удаления handles
+освобождаются и все 32 ранее удержанных контейнера. Raw:
+`benchmarks/stream-receiver-retention-before-2026-11-01.json`.
+Это воспроизведение дефекта, не успешная квалификация: требуется разрыв ссылок
+receiver при teardown. Iterator, complete без dispose, браузерный GC и RSS
+данным измерением не проверяются. Package build прошёл; runtime не менялся.
+
+### Исправление receiver handle retention
+
+Публичный receiver вынесен в отдельное замыкание с очищаемым slot. Любой
+teardown (dispose, reset, replacement, protocol error) обнуляет slot до
+освобождения resumed bindings. Сохранённый handle после teardown не хранит
+внутренние DOM/context/cleanup closures; повторный dispose безопасен, apply
+отклоняется до чтения полей chunk.
+
+GC probe: 32 сохранённых handles, четыре способа teardown, 0 retained
+containers, контроль 0; после освобождения handles тоже 0. Исходный отказ
+32/32 сохранён отдельно. Raw: `benchmarks/stream-receiver-retention-after-2026-11-01.json`.
+Полный suite: 1243 теста / 88 файлов, 11.66 с. TypeScript и package build прошли.
+Installed gate дополнен этим GC probe; первая попытка выявила неверный путь
+к installed entry в harness, исправлено на dist/package/index.js; журнал
+первой попытки сохранён. Iterator/active complete/browser GC/RSS не квалифицированы.
+
+Итоговая квалификация: installed-package 9/9 и HTTP actions 4/4 прошли.
+Журналы: `benchmarks/stream-retention-package-qualified-2026-11-01.txt`,
+`benchmarks/stream-retention-http-2026-11-01.txt`,
+`benchmarks/stream-retention-suite-2026-11-01.txt`. `git diff --check` прошёл.
+
+## Terminal stream iterator retention (2026-11-01)
+
+Новый `scripts/measure-stream-iterator-retention.mjs` сохраняет 24 iterator
+handles после полного чтения, consumer return и producer error. До исправления
+удерживались 24 view, 24 captured objects и 8 core/memory объектов. После
+удаления handles все объекты освобождались: исходный отказ сохранён в
+`benchmarks/stream-iterator-retention-before-2026-11-01.json`.
+
+Публичный iterator теперь находится в отдельном замыкании и отсоединяет
+внутренний producer после terminal next/error/return. WeakSet терминальных
+внутренних iterators позволяет отличать завершение от отклонённого конкурентного
+next, не удерживая сами iterators. Регрессия подтверждает, что concurrent next
+не закрывает ожидающее чтение; return/throw после завершения также проверены.
+
+После исправления 0 удержанных объектов всех пяти типов при сохранённых
+handles: `benchmarks/stream-iterator-retention-after-2026-11-01.json`.
+Probe включён в installed-package gate. Suite 1244/88 прошёл за 7.78 с;
+TypeScript и package build прошли. Это object collection в Node/JSDOM,
+не RSS-плато; external abort без последующего next/return и никогда не
+запущенный iterator пока не проверены.
+
+Итог: package 9/9 (включая установленный GC probe), HTTP actions 4/4,
+`git diff --check` passed. Журналы `benchmarks/stream-iterator-package-2026-11-01.txt`
+и `benchmarks/stream-iterator-http-2026-11-01.txt`.
+
+## External abort without terminal read (2026-11-01)
+
+Расширенный iterator probe воспроизвёл удержание 16 view/captured objects
+после abort до запуска и после первого shell, без следующего next/return.
+Raw: `benchmarks/stream-abort-retention-before-2026-11-01.json`.
+
+Request release теперь уведомляет отдельный public iterator slot, очищая
+ссылку на producer независимо от действий consumer. Slot сохраняет только
+непрочитанную причину ошибки. Поздний next отклоняется с тем же значением
+один раз, далее done; return очищает причину. Удалён промежуточный WeakSet
+терминальных iterators: slot напрямую знает о request teardown.
+GC probe 40 handles (complete/return/error/abort-idle/abort-started): нет
+удержанных view, captures, core, memory или nodes; контроль тоже пуст.
+Raw: `benchmarks/stream-abort-retention-after-2026-11-01.json`.
+Регрессия включает pre-aborted signal, отсутствие вызова view после abort,
+причину по identity и повторное terminal чтение. JS1245/88 прошёл за 11.59с;
+TypeScript/build:package прошли.
+
+Незапущенный и неотменённый iterator обязан сохранять view для будущего next.
+Пользовательская причина ошибки сама может содержать произвольные ссылки:
+они сохраняются до чтения/return согласно контракту ошибки. Длительное
+RSS-плато, proxy transport и browser GC этим не проверяются.
+
+Итоговая квалификация: package9/9 (расширенный installed GC probe), HTTP4/4,
+`git diff --check` passed. Журналы: `benchmarks/stream-abort-package-2026-11-01.txt`,
+`benchmarks/stream-abort-http-2026-11-01.txt`, `benchmarks/stream-abort-suite-2026-11-01.txt`.
+
+## Concurrent native HTTP streaming soak (2026-11-01)
+
+Добавлен `scripts/soak-ssr-stream-http.mjs`: реальный loopback HTTP/fetch,
+8 конкурентных clients, один из трёх отключается после shell; остальные
+читают с паузой 5 мс между reader.read. Последовательность/version/streamId
+проверяются у каждого полного ответа. Каждый запрос требует finished,
+nodes=0, cleanup=1; полный ответ требует минимум двух writer drains.
+Fixture state забывается после каждого запроса, samples ограничены 32,
+агрегаты памяти хранятся отдельно по четвертям.
+
+60.034 с: 11952 requests, 7968 complete, 3984 disconnect, 15936 drains,
+23904 reader pauses, 2113691280 прочитанных bytes. Все request invariants
+прошли; финальный ambient graph пуст. Heap диапазоны по четвертям, MiB:
+37.75–42.08 / 38.55–38.94 / 38.77–39.00 / 38.85–39.17. RSS к последней
+четверти ниже раннего пика; универсальное или многочасовое плато не доказано.
+Raw: `benchmarks/stream-http-soak-60s-2026-11-01.json`; независимая сверка
+сумм, числа samples и source hash: `benchmarks/stream-http-soak-analysis-2026-11-01.json`.
+
+Повтор: `node --expose-gc packages/svet/scripts/soak-ssr-stream-http.mjs OUTPUT 60000`.
+Это delayed fetch reads и реальные drain events, но fetch/OS имеют свои
+буферы: длительное TCP saturation и proxy buffering этим не подтверждены.
+WASM memory capacity/GPU/браузер и аппаратные recovery сценарии не измеряются.
+Runtime не менялся; syntax и diff checks прошли.
+
+## Native HTTP proxy streaming/disconnect matrix (2026-11-01)
+
+Добавлен `scripts/check-ssr-stream-proxy.mjs`: настоящий origin и отдельный
+HTTP proxy, четыре сценария streaming/buffering × complete/disconnect.
+Streaming relay отправляет порции до 4096 bytes с паузой 2 мс; клиент читает
+с паузой 5 мс. Buffered mode собирает ответ с жёстким cap1MiB.
+Сначала подтверждается незавершённый origin с живым graph до release gate.
+Streaming доставляет ранний shell; buffered mode скрывает его до complete.
+Оба полных ответа проверены по sequence/type/version/streamId. Disconnect
+в обоих режимах закрывает upstream: origin finished/nodes0/cleanup1.
+
+4/4 passed, 2 propagated disconnects, buffered peak265148 bytes, relay67
+writes. Origin drains2 на каждый полный ответ. Downstream relayDrains0: это
+не доказательство TCP saturation. Raw с source/runtime hashes:
+`benchmarks/stream-proxy-qualified-2026-11-01.json`. Ранний прогон сохранён
+отдельно. Проверка добавлена в installed-package gate.
+
+Не квалифицированы nginx/CDN, compression, TLS, HTTP2/3, длительное
+насыщение socket buffers или proxy, который не пересылает disconnect.
+README теперь явно описывает зависимость раннего shell от buffering и
+необходимость распространения отмены. Runtime не менялся.
+
+Installed-package9/9 passed с новой proxy проверкой: журнал
+`benchmarks/stream-proxy-package-2026-11-01.txt`. Node syntax и
+`git diff --check` passed; runtime suite не повторялся, runtime не менялся.
+
+## Opt-in HTTP stream version negotiation (2026-11-01)
+
+Публичные `negotiateSsrStreamVersion` и `assertSsrStreamResponse`, а также
+константы Svet request/response headers/content-type добавлены в общий
+protocol module и package index. Server helper принимает bounded список
+positive integer versions (16 entries/256 chars), выбирает v1; отсутствие,
+malformed или несовместимый offer возвращает undefined. Client helper
+проверяет ok, явный version1 и NDJSON content type до чтения body.
+Это application protocol; hosts должны явно включить policy в route,
+задать Vary/status406 и сохранять остальные Vary fields. Старые routes
+автоматически не меняются; full HTML fallback является решением host.
+
+Native HTTP + JSDOM integration7 checks: missing/version2/malformed дают406
+и renderCalls0; wrong response version/type отклоняются с неизменным DOM;
+offers1 и2,1 дают полный render/resume. Raw hashes:
+`benchmarks/stream-http-negotiation-2026-11-01.json`. Проверка включена в
+installed-package gate. JS1247/89 passed за8.33с, TypeScript/package build
+passed. README содержит server/client usage, cancellation на ошибке и CORS
+ограничения. Mixed actual runtime versions в браузере, CORS/preflight,
+capabilities negotiation и production host routes пока не квалифицированы.
+
+Итоговая квалификация: installed-package9/9 с negotiation integration,
+HTTP actions4/4, `git diff --check` passed. Журналы:
+`benchmarks/stream-http-negotiation-package-2026-11-01.txt`,
+`benchmarks/stream-http-negotiation-actions-2026-11-01.txt`,
+`benchmarks/stream-http-negotiation-suite-2026-11-01.txt`.
+
+## Stream boundary topology validation (2026-11-01)
+
+Перед final HTML optimization обнаружен correctness defect: receiver принимал
+пересекающиеся sibling ranges (start1,start2,end1,end2), а Number conversion
+допускал aliases01/1e0. Регрессия до исправления упала: отчёт
+`benchmarks/stream-ranges-regression-before-2026-11-01.txt`. Первый ошибочный
+запуск из repo root поднял чужой Vite config; startup failure сохранён отдельно,
+не считается воспроизведением дефекта.
+
+Scanner теперь требует canonical positive decimal IDs и LIFO closure для
+каждого DOM parent; duplicate/unclosed/foreign-parent markers отклоняются.
+Shell fragment полностью валидируется до dispose старого resume state и
+replaceChildren. Patch fragment проверяется до insert/remove; новые IDs не
+могут дублировать границы вне удаляемого поддерева. Нормальная вложенность
+и sibling ranges сохраняются. Invalid shell/patch регрессии проверяют
+сохранение identity старого input. Installed async-components gate включает
+реальный crossing-shell отказ без изменения DOM.
+
+TypeScript/package build прошли, полный JS1250/89 за11.73с:
+`benchmarks/stream-ranges-suite-qualified-2026-11-01.txt`. Ранний suite1249
+после shell fix сохранён отдельно. Final HTML duplication пока не изменено;
+ускорение или снижение bytes этой правкой не заявляется.
+
+Итог: package9/9 и HTTP4/4 прошли; `git diff --check` passed. Журналы:
+`benchmarks/stream-ranges-package-2026-11-01.txt`,
+`benchmarks/stream-ranges-http-2026-11-01.txt`.
+
+## Optional lossless HTML-reference transport codec (2026-11-01)
+
+Добавлены public encoder/decoder и frame types, `svet-html-ref-v1`. Codec
+использует только предыдущий HTML: если он целиком входит в новый HTML,
+передаёт prefix/referenceSequence/suffix при меньшем encoded JSON. Иначе
+полный v1 record. Получатель восстанавливает authoritative HTML побайтно
+перед обычным receiver: renderer/resume/coherence semantics не меняются.
+State хранит только один предыдущий HTML, закрывается на complete/error/dispose.
+Decoder проверяет identity/sequence/base и bounds до конкатенации, затем
+UTF8 decoded JSON bound. Невалидная session закрывается без восстановления.
+
+Пять tests: Unicode/JSON roundtrip, малые/несвязанные HTML fallback, unknown/
+stale/cross-stream references, byte bounds/dispose, independent sessions.
+Первый suite имел parse error в новом test (лишняя скобка); исправлен,
+исходный журнал сохранён. Итог JS1255/90 за8.06с, TypeScript/build:package passed.
+
+Node async SSR integration: shell/patch/complete, большой escaped Unicode
+fragment и model input. Plain520757 bytes → encoded260752 bytes; complete
+260300→295 bytes. Декодированные records deepEqual оригиналам; plain и
+codec receivers сохраняют identity input и оба возобновляют native model12.
+Raw/hashes: `benchmarks/stream-codec-2026-11-01.json`. 100 codec roundtrips
+сохраняют диагностические timings и один memory sample, без A/B speedup
+или plateau утверждения. Integration включена в installed-package gate.
+
+Codec opt-in, не auto-selection wire negotiation. Host обязан отдельно
+согласовать формат; напрямую reference frames в legacy receiver не подавать.
+README описывает explicit agreement, framing bound и disposal. Реальный
+HTTP/browser codec, paired latency/memory/compression, general diffing и
+снижение server final serialization CPU остаются открытыми.
+
+Installed-package9/9 с codec integration и HTTP actions4/4 passed;
+`git diff --check` passed. Журналы `benchmarks/stream-codec-package-2026-11-01.txt`,
+`benchmarks/stream-codec-http-2026-11-01.txt`,
+`benchmarks/stream-codec-suite-qualified-2026-11-01.txt`.
+
+## HTTP codec agreement and installed browser qualification (2026-11-01)
+
+`svet-stream-codec` request/response header, exported constant and
+`negotiateSsrStreamCodec` added: missing offer→identity, explicit unsupported/
+malformed→undefined, ref preferred when explicitly offered. Response validation
+now defaults to identity and rejects unexpected encoded formats before body.
+Callers selecting ref must pass `{codec}`. Fixture endpoint enforces codec
+selection before creating state/SSR, returns Vary/version/codec headers and
+encodes frames with finally disposal. Legacy raw fixture requests remain identity.
+
+Native installed HTTP4 checks passed: encoded body disconnect and fresh recovery,
+identity client rejects encoded response, unknown offer406 with no created
+request state. Evidence `benchmarks/stream-codec-installed-http-2026-11-01.json`.
+Browser fixture accepts query codec1, validates response headers and decodes
+frames before receiver. Production installed Chrome1567/7 passed: shell pending,
+patch, complete/input identity, model12, escaped text, server graph cleanup and
+receiver cleanup. Encoded bytes248/132403/301. Raw/screenshot:
+`benchmarks/stream-codec-browser-2026-11-01.json` and corresponding jpg.
+18 installed runtime JS files match workspace dist/package byte hashes; all
+production assets checked against metadata. Qualification:
+`benchmarks/stream-codec-browser-qualification-2026-11-01.json`.
+Archive SHA f2aff8ba9a61ac1ec7e8c13581b2852f2e2c25771da570824ec9a8d2aad114a9.
+
+JS1256/90, TypeScript/build:package and package9/9 passed. CORS/preflight,
+malformed codec frames through native browser, real mixed old/new deployments,
+proxy/compression and paired performance remain open. No general latency/RSS
+improvement claimed.
+
+HTTP actions4/4 и `git diff --check` passed; журнал
+`benchmarks/stream-codec-negotiation-actions-2026-11-01.txt`. Временные
+browser tab/server закрыты, consumer/evidence сохранены.
+
+## Isolated paired transport/codec/gzip cost (2026-11-01)
+
+`scripts/bench-ssr-stream-codec.mjs` генерирует три deterministic frozen
+wire-v1 workloads: small, repeated Unicode, varied pseudorandom HTML.
+Четыре раунда на workload, чередование plain/codec и gzip/codec-gzip плюс
+A/A plain в каждом раунде. Каждый trial в свежем Node process, 5 warmup +
+12 measured roundtrips, deepEqual restored records outside timing. Всего72
+processes/864 measured roundtrips; measured operation: serialize, codec,
+optional level6 gzip/gunzip, parse/decode. Нет renderer/DOM/network time.
+
+Во время первого прогона найден лишний state.size(chunk) в encoder после
+canonical validation. Уже вычисленный byte count переиспользуется; остальные
+проверки и bounds сохранены. Первый raw сохранён, итоговый повтор отдельный.
+
+| Workload | Plain bytes | Codec bytes | Gzip bytes | Codec+gzip bytes |
+| --- | ---: | ---: | ---: | ---: |
+| small | 354 | 354 | 170 | 170 |
+| repeated | 192344 | 96421 | 556 | 454 |
+| varied | 134206 | 67352 | 110179 | 55267 |
+
+Итоговые paired processing costs: small codec/plain+132…177%, без bytes
+экономии; repeated codec/plain+20…57%, codec-gzip/gzip+19…25% при102 bytes
+экономии поверх gzip. Varied codec/plain+91…98%, но codec-gzip/gzip−26…−31%
+при почти двукратном bytes сокращении. Varied A/A−0.9…+0.7%. Codec не
+является универсальной CPU оптимизацией и остаётся explicit opt-in.
+
+MemoryBefore/postWarmup/postGc и sampled heap/RSS maxima сохранены по trial.
+Это samples, не peak allocation accounting/plateau; Node allocator/process
+variation исключает вывод об общем memory budget. Gzip буферизует весь
+NDJSON response: это не progressive compression с flush/backpressure и
+не измерение HTTP latency. Отдельный before/after run не считается paired
+доказательством ускорения от удаления лишней сериализации.
+
+Raw: `benchmarks/stream-codec-paired-qualified-2026-11-01.json`; независимый
+анализ с checksums, порядком, counts и A/A: `scripts/analyze-stream-codec-bench.py`,
+`benchmarks/stream-codec-paired-qualified-analysis-2026-11-01.json`.
+Baseline до удаления лишнего прохода сохранён в stream-codec-paired без qualified.
+Suite1256/90 за8.05с passed; syntax/diff checks passed.
+
+Итог: TypeScript, package9/9 и HTTP4/4 passed. Журналы
+`benchmarks/stream-codec-cost-package-2026-11-01.txt`,
+`benchmarks/stream-codec-cost-http-2026-11-01.txt`,
+`benchmarks/stream-codec-cost-suite-2026-11-01.txt`. `git diff --check` passed.
+
+## Progressive gzip transport qualification (2026-11-01)
+
+Fixture host поддерживает explicit query gzip1: Node createGzip + pipeline
+с downstream response, write/drain на compressor input и Z_SYNC_FLUSH после
+каждого frame. Pipe распространяет output backpressure/close; при ошибке
+encoder/compressor уничтожаются в finally, abort закрывает SSR request.
+Gzip является transport опцией fixture, не новым default runtime и не
+автоматическим Accept-Encoding negotiation. Vary codec сохраняется.
+
+Native HTTP gzip identity4 checks и codec-gzip5 checks прошли: shell
+декодируется до component release, все3 frames flush, body disconnect
+освобождает graph/cleanup и fresh stream работает. Оба пути включены в
+installed-package gate; package9/9 passed. Raw:
+`benchmarks/stream-progressive-gzip-2026-11-01.json`,
+`benchmarks/stream-progressive-codec-gzip-2026-11-01.json`; journal
+`benchmarks/stream-progressive-gzip-package-2026-11-01.txt`.
+
+Installed production Chrome156 gzip+codec7/7 passed: native fetch gzip
+decoding, early shell, decoded patches, preserved input identity, model12,
+escaped text и teardown. Server:3 flushes,1 compressor drain,715 compressed
+body bytes, nodes0/cleanup1. Raw/screenshot:
+`benchmarks/stream-progressive-gzip-browser-2026-11-01.json` и jpg.
+18 runtime JS совпали с workspace dist/package, production assets hashes
+проверены: `benchmarks/stream-progressive-gzip-qualification-2026-11-01.json`.
+
+Один compressor input drain не доказывает TCP saturation. Large varied data,
+abort во время активного compressed write/flush, proxy/CDN, compression
+negotiation/CORS и многочасовой memory bound остаются открытыми. Runtime
+не менялся; новые проверки находятся в scripts/installed consumer/browser.
+
+## Large gzip active-write cancellation (2026-11-01)
+
+Fixture payload override ограничен1…4MiB; varied1 генерирует deterministic
+ASCII text. Stats показывают phase, pipelineSettled и compressorClosed.
+Host AbortSignal теперь явно уничтожает compressor/HTTP response; listener
+удаляется в finally, encoder history очищается. Это закрывает transport wait
+при host abort независимо от следующего iterator read.
+
+`scripts/check-ssr-stream-gzip-abort.mjs` проверяет четыре native HTTP cases:
+identity/ref codec × downstream disconnect/explicit host abort. После early
+shell async component release запускает4MiB patch. Тест ждёт реальную
+phase drain/flush, nodes>0, только1 завершённый flush и compressedBytes>4096,
+то есть компрессор уже произвёл output beyond shell. В квалифицированном
+прогоне все четыре отмены произошли в drain, не в flush. После отмены
+обязательны finished/failed, pipelineSettled, compressorClosed, nodes0 и
+cleanup1. Новый gzip stream затем завершается с3 flushes и sequences0/1/2.
+
+Raw: `benchmarks/stream-gzip-active-abort-qualified-2026-11-01.json`.
+Ранний успешный прогон с более слабым output predicate сохранён отдельно.
+Новая проверка включена в installed-package gate. Это Node loopback
+active compressor-write qualification; pending-flush cancellation, kernel
+socket saturation, browser/proxy и длительное memory plateau остаются
+открытыми. Runtime не менялся; browser happy path предыдущего этапа
+относится к сохранённому archive/fixture snapshot, не к новой версии fixture.
+
+Итог: installed-package9/9 с strengthened active-output predicate, HTTP
+actions4/4, syntax/diff checks passed. Независимо сверены4 cases и hashes
+script/fixture. Журналы `benchmarks/stream-gzip-active-abort-package-qualified-2026-11-01.txt`
+и `benchmarks/stream-gzip-active-abort-actions-2026-11-01.txt`.
+Полный runtime suite не повторялся: изменения только fixture/harness/docs.
+
+## Pending native gzip flush + repeated recovery (2026-11-01)
+
+В fixture добавлена узкая fault injection `abort-flush=patch`: после
+настоящего native compressor.flush(Z_SYNC_FLUSH) и до его callback записываются
+pending/phase/nodes/flushes, затем host AbortSignal отменяет request/transport.
+Это deterministic host-abort timing, не remotely timed client race и не fake
+compressor. Обычные requests этот hook не используют.
+
+Новый `scripts/check-ssr-stream-gzip-flush.mjs`: шесть abort/recovery cycles
+для каждого identity/ref codec. Все12 injected aborts пришлись на pending
+patch flush, nodes>0, только shell flush завершён. После каждой отмены
+finished/failed, pipelineSettled, compressorClosed, nodes0/cleanup1. Все12
+следующих gzip requests успешно декодированы, sequence0/1/2 и3 flushes.
+Новый deadlock не воспроизведён; менять runtime на основании этого probe
+не потребовалось.
+
+Raw: `benchmarks/stream-gzip-pending-flush-qualified-2026-11-01.json`.
+Независимая проверка12+12 phases/counts/teardown и script/fixture hashes:
+`benchmarks/stream-gzip-pending-flush-analysis-2026-11-01.json`. Первый
+успешный probe сохранён как pending-flush-before (не воспроизведение дефекта).
+Проверка включена в installed-package gate; package9/9 passed.
+Kernel saturation, browser/proxy timing, full compression negotiation и
+многочасовое plateau остаются открытыми. Runtime suite не повторялся:
+изменения ограничены fixture/harness/package gate.
+
+HTTP actions4/4, syntax и `git diff --check` passed. Журналы:
+`benchmarks/stream-gzip-pending-flush-package-2026-11-01.txt`,
+`benchmarks/stream-gzip-pending-flush-actions-2026-11-01.txt`.
+
+## Node SSR → Web ReadableStream adapter (2026-11-01)
+
+Public server export `renderToReadableStreamAsync(view, options)` возвращает
+ReadableStream<Uint8Array> с UTF8 NDJSON и optional explicitly selected codec.
+HighWaterMark0 запрещает eager pull; iterator запускается при первом read.
+Cancel закрывает pending next и request; external AbortSignal/calling owner
+ошибочно завершает stream и освобождает ownership. Terminal adapter очищает
+ссылку на iterator, signal listeners, caller cleanup hook и codec history.
+View находится за отдельным helper closure. Compression/headers/HTTP policy
+остаются у host. Это Node entry, не Edge ALS replacement.
+
+7 regressions: lazy pull/one frame, cancel-before-first, pending read cancel,
+external abort identity/closed without read, owner disposal, encoded references,
+producer errors/invalid codec. JS1263/91 за9.52с, TypeScript/package build passed.
+Raw suite: `benchmarks/readable-ssr-suite-2026-11-01.txt`.
+
+Native HTTP4 scenarios через new Response(body), Readable.fromWeb и pipeline:
+identity/reference × complete/disconnect. Ранний shell наблюдается при живом
+graph, full decode совпадает с final HTML, cancelled requests graph0/cleanup1.
+Raw: `benchmarks/readable-ssr-http-qualified-2026-11-01.json`. Первый probe
+ошибочно ожидал nodes>0 у fixture без signals; добавлен pending signal, исходный
+assertion failure сохранён отдельно. Проверка включена в installed-package gate.
+
+Readable stream retention/churn, immediate producer failure while no read is
+pending, Edge/browser async ownership, actual browser Response host и длительное
+streaming memory plateau остаются открытыми.
+
+Итог: installed-package9/9 с Readable/Response HTTP probe, HTTP actions4/4,
+`git diff --check` passed. Журналы `benchmarks/readable-ssr-package-2026-11-01.txt`
+и `benchmarks/readable-ssr-actions-2026-11-01.txt`.
+
+## Readable terminal notification + retained-handle GC (2026-11-01)
+
+Две регрессии воспроизведены до fix: background component failure после shell
+не завершал reader.closed без нового read; complete frame тоже требовал
+дополнительного consumer read для закрытия stream. До исправления2 tests
+failed/7 passed: `benchmarks/readable-ssr-background-regression-before-2026-11-01.txt`.
+
+Internal chunk stream теперь уведомляет readable adapter об ошибке при
+request retirement. Public iterator API не меняется; callback latch не
+публикует вторичную consumer-close ошибку вместо первичной причины. Adapter
+создаёт iterator через отдельный одноразовый factory closure, удаляет factory
+сразу после construction. После enqueue complete внутренний terminal next
+ожидает teardown и закрывает stream без дополнительного consumer demand.
+Никакой следующей data frame этот read не производит.
+
+Suite1265/91 за8.72с passed, TypeScript/package build passed.
+`measure-readable-ssr-retention.mjs`:64 requests, identity/ref, complete/cancel/
+abort/background-error; сохранены stream+reader handles. Все384 WeakRef
+объекта (capture/view/core/memory/signal/node) освобождены при сохранённых
+handles, контроль после release также0. Native cache вручную не продвигался.
+Raw/hash evidence: `benchmarks/readable-ssr-retention-qualified-2026-11-01.json`.
+Probe включён в installed-package gate с5сек deadline на request.
+
+Это bounded object collection, не throughput/RSS/WASM buffer peak или long
+plateau. Error objects создаются вне request; произвольная application error
+может содержать явные ссылки, и Web Stream обязан хранить исходную причину
+для последующих read. Edge/browser async runtime всё ещё не реализован.
+
+Итог: installed-package9/9 с retained-handle GC и Readable HTTP probes,
+HTTP actions4/4, source/runtime hash verification и `git diff --check` passed.
+Журналы `benchmarks/readable-ssr-background-package-2026-11-01.txt`,
+`benchmarks/readable-ssr-background-actions-2026-11-01.txt`,
+`benchmarks/readable-ssr-background-suite-2026-11-01.txt`.
+
+## Concurrent Readable SSR isolation/churn soak (2026-11-01)
+
+`scripts/soak-readable-ssr.mjs` держит16 одновременных isolated cores на
+barrier после shell. Identity/ref codecs × complete/cancel/abort/background
+error представлены в каждом batch. После отмены половины streams проверяется,
+что только они graph0, а оставшиеся cores живы. Success проверяет собственный
+signal ID после await и собственный final HTML/sequence; error наблюдается
+через closed без нового read. Каждый request требует cleanup1/nodes0.
+
+После batch удерживаются16 terminal stream/reader pairs; WeakRef probes
+на capture/view/core/memory/signal/node должны освободиться до следующего
+batch. Журнал ограничен32 samples и4 quarter aggregates.
+
+60.022с:64720 requests/4045 barriers, по16180 complete/cancel/abort/error.
+Все388320 objects collected при сохранённых terminal handles. Post-GC heap
+по четвертям MiB:38.01–38.98 /38.90–39.03 /37.66–39.04 /34.88–37.77;
+RSS125.75–131.22 /124.80–132.72 /124.79–126.84 /123.66–126.51.
+Это конкретная минутная Node нагрузка; не universal/multi-hour memory bound
+или HTTP/browser/Edge throughput. Произвольный user error может явно
+содержать сохраняемый graph; controlled errors созданы вне request.
+
+Raw: `benchmarks/readable-concurrent-soak-60s-2026-11-01.json`. Независимо
+проверены sums/16-way barriers/6 probes per request, samples и source/runtime
+hashes: `benchmarks/readable-concurrent-soak-analysis-2026-11-01.json`.
+Короткий1000мс variant включён в installed-package gate; package9/9 passed.
+Syntax и `git diff --check` passed. Runtime не менялся; JS suite не повторялся.
+
+## Host-neutral SSR runtime/carrier contract (2026-11-01)
+
+SSR implementation moved to `src/engine/ssr-runtime.ts` without Node imports.
+`server.ts` is now a thin Node ALS/UUID host adapter preserving public function
+exports and option/view types. New public `svet-engine/server-runtime` export
+provides createSsrRuntime(host), carrier interfaces and bounded async assertion.
+Host creates independent request/owner/render carriers with getStore/run/exit
+and supplies unique IDs; DOM remains host-provided. Singleton installation
+prevents a second factory from overwriting engine hooks; invalid carrier shape
+or shared carrier instances fail before hook installation.
+
+Carrier assertion checks native await, two concurrent contexts, async exit,
+nested rejection restoration and caller restoration. Real Node ALS passes;
+synchronous stack fails. Injected host source test renders4 concurrent async
+subtrees in separate cores with correct values and cleanup. Full suite1268/92
+passed12.40с, TypeScript/package build passed. Source/runtime contract changes
+are tested through existing stream/readable/retention/HTTP package regressions.
+
+Installed package probe resolves the actual import-only public export from
+a consumer ESM bridge, qualifies native ALS, rejects stack and runs8 concurrent
+async renders via injected host. First package attempt used CommonJS resolver
+on an import-only export and failed; harness corrected to actual ESM import.
+Failure preserved in `benchmarks/ssr-carrier-package-2026-11-01.txt`.
+Qualified gate passed9/9: `benchmarks/ssr-carrier-package-qualified-2026-11-01.txt`.
+Browser build includes a direct public server-runtime import and rejects
+node:async_hooks/node:crypto in emitted JS. This is build qualification, not
+a live browser execution of custom async SSR.
+
+No Edge/browser async-context adapter is claimed: the carrier assertion is a
+bounded probe, not a universal guarantee. Host must preserve native await and
+concurrency; DOM compatibility/global lifetime and real deployment validation
+remain necessary. Node memory/HTTP tests do not qualify other hosts.
+
+Retained installed consumer: raw custom-host8 requests подтверждён и сохранён
+в `benchmarks/ssr-carrier-installed-host-2026-11-01.json`;19 runtime files
+сверены с workspace dist/package. Aggregate:
+`benchmarks/ssr-carrier-qualification-2026-11-01.json`. Package archive SHA
+e5307f71d43c650a9e78c02ecede465c704702be30cc2fdbe46e47b36238eae9.
+Final package9/9, HTTP actions4/4, `git diff --check` passed; logs
+`benchmarks/ssr-carrier-package-retained-2026-11-01.txt`,
+`benchmarks/ssr-carrier-actions-2026-11-01.txt`.
+
+## Initial real workerd host + precompiled WASM (2026-11-01)
+
+Temporary tooling pinned: Miniflare4.20260730.0/workerd1.20260730.1,
+LinkeDOM0.18.15, esbuild0.28.2; project dependencies/lockfiles unchanged.
+`tests/edge/worker.mjs` uses workerd native node:async_hooks ALS, shared
+server-runtime host contract and real LinkeDOM. Carrier probe passed, then
+actual workerd refused embedded-byte compilation: CompileError/Wasm code
+generation disallowed by embedder. Raw failure:
+`benchmarks/edge-ssr-wasm-before-2026-11-01.json`. Earlier startup path error
+was separate Miniflare modulesRoot configuration, not an engine failure; log
+`benchmarks/edge-ssr-before-2026-11-01.txt` preserved.
+
+Added public installSvetWasmModule and ./core.wasm asset/types export.
+Installation checks native module/import/export shape against a generated
+export manifest, before bootstrap; different module identity cannot replace
+an already selected module. Identical module object is idempotent. Full ABI
+equivalence is not inferred from export names; host must use the same-build
+asset. build:package emits the asset from embedded bytes, not a second compile.
+Node/browser default byte-compilation path remains available.
+
+Real workerd CompiledWasm binding fixes the failure. Two concurrent fetch
+events ×8 renders: own values0…7 and100…107,8 unique cores/event, cleanup8
+and graph0 per event. Runner supports installed public package exports;
+optional SVET_EDGE_DEPS activates it inside package gate. Reports include
+actual tool versions, bundle/worker source/WASM hashes. No Cloudflare account
+access or remote deployment performed.
+
+Native Rust53 passed; production build with isolated CARGO_TARGET_DIR passed;
+JS1269/93 passed8.18с; TypeScript passed. Packaged/embedded/native freshly built
+WASM all54320 bytes, SHA9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340.
+Precompiled-module regression checks invalid shape, isolated instances, signal
+updates and late replacement rejection.
+
+Also fixed embedding path: old script hardcoded crate/target and ignored
+CARGO_TARGET_DIR. Three isolated script tests cover default/absolute/relative
+target with different valid WASM inputs; all3 passed and enter package gate.
+Raw `benchmarks/edge-embed-target-2026-11-01.txt`. The production build and
+byte hash comparison verify the real /tmp target artifact is embedded.
+
+Local installed workerd success does not qualify Edge streaming/cancel/error
+paths, full LinkeDOM fidelity, CORS, other Edge hosts, native browser carrier,
+long churn or deployed Worker limits. These remain open.
+
+Final qualification: optional installed Edge package gate9/9 passed with
+SVET_EDGE_DEPS; raw copied to `benchmarks/edge-ssr-installed-final-2026-11-01.json`.
+Native /tmp target, embedded bytes and installed ./core.wasm are identical;
+19 installed JS files match workspace outputs. Aggregate:
+`benchmarks/edge-precompiled-qualification-final-2026-11-01.json`. Archive SHA
+a36503b69800714bf30b60a6166a7952d2c58943cca662722764ffeffad3dba1.
+HTTP actions4/4 and `git diff --check` passed. Logs:
+`benchmarks/edge-precompiled-package-final-2026-11-01.txt`,
+`benchmarks/edge-precompiled-actions-final-2026-11-01.txt`,
+`benchmarks/edge-precompiled-rust-2026-11-01.txt`,
+`benchmarks/edge-precompiled-build-2026-11-01.txt`,
+`benchmarks/edge-precompiled-suite-qualified-2026-11-01.txt`.
+
+## Workerd streaming ownership + strict transport EOF (2026-11-01)
+
+Worker fixture now runs8 concurrent streams per fetch event: identity/ref
+×complete/cancel/abort/error. Two fetch events cover16 streams alongside
+16 prior string renders. Each stream checks own core/value, shell pending,
+ordered frames, UTF8 escaping and snapshot. Cancellation preserves neighbouring
+graphs; error reaches closed without read; complete auto-closes. Retired scopes
+refuse8 late signal creations across the two events. Cleanup is synchronized
+with explicit onCleanup gates.
+
+Real Response body tests exposed clean EOF without complete after a producer
+error in the Miniflare/workerd path. Existing engine read-error-only assumption
+was too weak for this transport. Added public receiver.finish(): require a
+successfully applied complete at EOF; otherwise stop partial receiver and throw.
+Completed bindings stay live, finish is idempotent after completion. Pre-shell
+EOF preserves unrelated resumed bindings. Three JS regressions and installed
+package checks added; browser fixture/reference example now call finish.
+
+Body cancellation/normal socket destroy did not produce an incoming abort in
+initial probes (pending graph remained). Preserved failures:
+`benchmarks/edge-stream-transport-2026-11-01.json`,
+`benchmarks/edge-stream-transport-eof-2026-11-01.json`,
+`benchmarks/edge-stream-request-signal-2026-11-01.json`,
+`benchmarks/edge-stream-direct-signal-2026-11-01.json`,
+`benchmarks/edge-stream-raw-disconnect-2026-11-01.json`.
+These paths remain unqualified; they were not relabelled as passing.
+
+Direct loopback workerd listener +enable_request_signal +forwarded request.signal
++actual TCP resetAndDestroy passed both codecs: signalAborted true, retiredPhase
+component-pending, cleaned1/nodes0. Direct response complete/error/reset matrix
+is6 cases, plus2 explicit EOF-error observations. All successful bodies decode
+and resume through Node/JSDOM receiver, validate finish and leave client graph0.
+Read error observations currently report clean-eof-without-complete; both rejected.
+The gate does not claim proxy Reader.cancel/FIN cancellation equivalence.
+
+Installed raw: `benchmarks/edge-stream-installed-qualified-2026-11-01.json`;
+independent counts/hash verification:
+`benchmarks/edge-stream-qualification-2026-11-01.json`. JS1272/93 passed8.40с;
+TypeScript and optional Edge package9/9 passed. Runtime implementation changes
+are limited to client EOF validation; native Worker tests reuse shared SSR core.
+Remote deployment, general proxy cancellation, full browser EOF matrix, Edge
+churn/limits and DOM compatibility remain open.
+
+Final HTTP actions4/4 and `git diff --check` passed. Logs:
+`benchmarks/edge-stream-eof-suite-2026-11-01.txt`,
+`benchmarks/edge-stream-eof-package-2026-11-01.txt`,
+`benchmarks/edge-stream-eof-actions-2026-11-01.txt`. Installed runtime19 JS
+hashes match workspace. Archive SHA22d0063aec00d94d980415a1fab9ed888384ac52e8935cd74bb9f57583db578f.
+
+## Proxy explicit abort and bounded host deadline (2026-11-01)
+
+Explicit AbortController passed to Miniflare dispatchFetch was tested separately
+from reader.cancel. It still did not deliver incoming abort to the Worker:
+pending component/graph remained. Preserved negative evidence:
+`benchmarks/edge-proxy-explicit-abort-2026-11-01.json`. No proxy propagation
+fix is claimed.
+
+Fixture host now combines incoming request.signal with an explicit optional
+deadline controller. Test requests choose500ms while the component is pending
+for5000ms. Deadline closes SSR before component completion; both identity/ref
+show deadlineAborted true, signalAborted false, cleanup1/nodes0 and retiredPhase
+component-pending. Timers/listeners are cleared on abort or successful cleanup;
+already-aborted incoming signal is forwarded immediately. This policy remains
+fixture/host opt-in, not a global Svet timeout.
+
+Raw: `benchmarks/edge-proxy-deadline-qualified-2026-11-01.json`; independent
+source hash/state checks: `benchmarks/edge-proxy-deadline-analysis-2026-11-01.json`.
+Optional Edge package gate includes both proxy deadline cases. Runtime library
+unchanged; this is host policy/qualification, not a new runtime API.
+
+Final optional Edge package9/9 passed, syntax/source-state checks and
+`git diff --check` passed. Log `benchmarks/edge-proxy-deadline-package-final-2026-11-01.txt`.
+Full JS/Rust suites were not repeated because runtime code did not change.
+
+## Shared SSR timeout API (2026-11-01)
+
+Added optional timeoutMs to SsrRequestOptions and inherited stream/readable
+options: integer1…2147483647, undefined by default. Public SsrTimeoutError
+records timeoutMs and is exported by Node/server-runtime entries. Common
+deadline signal composes caller abort, preserves its reason when first, and
+releases timer/listener on abort/settlement. Isolated requests own deadline
+cleanup in finally; child scope releases even on setup failure. String renders
+forward timeout into isolated request; chunks retain it through backpressure
+and Web streams forward it to the chunk lifetime. Stream timer begins during
+construction, even before first read. Synchronous CPU work is not preempted.
+
+4 new regressions: uncooperative render cleanup/graph0, pending chunks and
+unread Web stream error, caller reason identity and zero success/cancel timers
+(fake timers), bounded child/parent survival and invalid values. JS1276/94
+passed8.36с, TypeScript/build:package passed. Actual workerd Web stream timeout
+added to both concurrent fetch events: SsrTimeoutError10, cleanup1/graph0 without
+second read. Raw: `benchmarks/edge-runtime-timeout-2026-11-01.json`.
+
+Optional Edge installed package9/9 passed; native/receiver/churn regressions
+remain enabled. Runtime deadline API does not fix proxy signal forwarding.
+Timeout-specific retained-error/parent-core GC and long concurrent deadline
+churn remain to be qualified.
+
+Final HTTP actions4/4 and `git diff --check` passed. Logs:
+`benchmarks/ssr-timeout-suite-2026-11-01.txt`,
+`benchmarks/ssr-timeout-package-2026-11-01.txt`,
+`benchmarks/ssr-timeout-actions-2026-11-01.txt`.
+
+## Retained timeout diagnostics and final qualification (2026-11-01)
+
+Node GC reproduced retained parent cores/WASM memories through saved child
+SsrTimeoutError objects: 8 cores and 8 memories remained until errors were
+released. Moving error construction before the timer did not fix it. Both
+negative reports remain in ssr-timeout-retention-before/after-2026-11-01.json.
+Snapshotting the lazy stack to a primitive string removes the observed retention;
+the exact heap retainer path was not separately captured. The final implementation
+constructs diagnostics only at expiration and catches formatter failure, falling
+back to name/message. Successful deadlines avoid error/stack construction.
+
+Added regression for an actually expired render with throwing prepareStackTrace:
+typed timeout preserved, cleanup1 and graph0. The pre-aborted caller regression
+also remains. Final suite1278/94 passed9.13s, TypeScript passed, build/package
+with optional local workerd passed, HTTP actions4/4 and diff check passed.
+Package gate includes the retained-error probe against the installed archive.
+Final native probe: 32 concurrent string/chunk/readable/child operations,
+96 objects collected while errors/terminal handles remain held; release control
+also0. It does not qualify long deadline churn, RSS plateau or Edge/browser GC.
+
+Evidence: benchmarks/ssr-timeout-retention-final-2026-11-01.json,
+benchmarks/ssr-timeout-final-suite-2026-11-01.txt,
+benchmarks/ssr-timeout-final-package-2026-11-01.txt,
+benchmarks/ssr-timeout-final-actions-2026-11-01.txt.
+
+## Concurrent deadline churn (2026-11-01)
+
+Added scripts/soak-ssr-deadlines.mjs: configurable1s…1h duration,16-request
+barriers, identity/ref codecs, complete/cancel/caller-abort/timeout modes.
+Every batch first proves16 distinct live cores and own shell IDs. Cancelling
+half must leave the other cores alive. Success checks exact frame sequence and
+own final HTML; timeout checks typed error/configured100ms; caller abort keeps
+its reason. Every operation checks cleanup1, graph0 and explicit removal of
+caller abort listeners. Retained terminal readers/streams/timeout errors remain
+held through GC; six request objects per operation must collect.
+
+60s qualification passed:8336 requests,2084 each mode,50016 collected objects.
+Post-GC heap samples: first window35.96…40.22MB, last36.57…36.69MB;
+RSS first130.61…133.14MB, last126.47…127.63MB (decimal MB). These are observed
+samples with forced GC and one retained batch, not a proof of long plateau,
+production throughput or accumulated arbitrary error retention. Child deadline
+churn, direct timer accounting, HTTP/Edge/browser and multi-hour bounds remain open.
+
+Raw: benchmarks/ssr-deadline-churn-60s-2026-11-01.json includes source/runtime
+SHA256, mode counts,32-sample ring and four memory windows. A1s run against the
+installed archive is now in check-package.mjs. Runtime implementation unchanged;
+full JS suite was not repeated for this harness-only change.
+
+Updated installed-package gate passed (exit0), including1s deadline churn. Log:
+benchmarks/ssr-deadline-churn-package-2026-11-01.txt. Optional Edge was not
+repeated for this harness-only change; previous runtime qualification remains
+separate. Syntax and git diff --check passed.
+
+## Child deadline isolation and timer accounting (2026-11-01)
+
+Added soak-child-deadlines.mjs with eight concurrent isolated parents, each
+running success/caller-abort/timeout/rejection siblings. It verifies reason
+identity, typed timeout, live parent signal updates after child termination,
+successful sibling ownership, cleanup exactly once after parent teardown, graph0,
+and refusal of signal creation in late aborted/timed-out continuations.
+Saved timeout errors remain held while parent core/memory/signals are GC-probed.
+A temporary wrapper tracks process setTimeout/clearTimeout handles, removes
+expired handles before dispatch and restores globals in finally. Every batch
+requires zero remaining timers; all assertion failures propagate outside cleanup.
+
+60s passed:21832 parents,87328 children,43664 late refusals,152824 collected
+objects; active timers0, peak25. Raw child-deadline-churn-60s-2026-11-01.json
+includes runtime/source hashes and a32-sample memory ring. No throughput,
+long plateau, HTTP, browser or Edge claim is inferred.
+
+Added the same timer tracking to the Web-stream deadline harness; separate1s
+probe passed160 operations/960 objects with timers0. Previous60s Web-stream raw
+is retained with its original source hash and has no direct timer accounting.
+Both1s harnesses now run against the isolated installed archive in check-package.
+Runtime source unchanged, so full JS/Rust suites were not repeated.
+Raw: benchmarks/ssr-deadline-timers-2026-11-01.json.
+
+Updated installed-package gate passed (exit0), including both instrumented
+deadline probes. Log: benchmarks/child-deadline-package-2026-11-01.txt.
+Optional Edge was not repeated for this harness-only change. Syntax and
+git diff --check passed.
+
+## Workerd DOM lifecycle matrix (2026-11-01)
+
+Extended the real workerd fixture with16 DOM render cycles per fetch event,
+run in two concurrent events. Covers keyed For identity and index updates,
+removed-row teardown, Show branch replacement, SVG namespace, escaped text,
+and custom event listener removal. Each cycle verifies one root cleanup, four
+row cleanups and graph0. Total32 cycles/64 identity-preserving row moves,
+32 removed rows,128 retired row scopes and32 event teardown checks.
+The Edge driver requires the matrix counters, preventing silent omission.
+
+Initial raw passed before the event case; final raw includes event checks:
+benchmarks/edge-dom-lifecycle-qualified-2026-11-01.json (fixture/bundle/WASM
+hashes, pinned tool versions and transport cases). Installed optional Edge
+package gate passed exit0: benchmarks/edge-dom-lifecycle-package-2026-11-01.txt.
+Runtime library unchanged; JS/Rust suites not repeated for fixture-only edits.
+Syntax and diff checks passed. This qualifies local LinkeDOM SSR semantics,
+not real browser layout/events, GC, arbitrary DOM APIs, a deployed provider
+or long-duration churn. Those remain separate roadmap items.
+
+## Portable single-select model synchronization (2026-11-01)
+
+Expanded actual workerd DOM qualification to text/checkbox/textarea/select
+models. Both fetch events reproduced a TypeError assigning LinkeDOM's getter-only
+select.value. Preserved negative raw edge-forms-initial-2026-11-01.json.
+Single-select model now snapshots options, locates the first matching value,
+clears prior selections then sets the matching option. No match clears native
+selectedIndex. Lifetime guards surround host reads/writes. Multiple-select code
+is unchanged; its host semantics remain unqualified.
+
+Added model-select-host.test.ts: a getter-only select on JSDOM must support
+first-match duplicate values, unmatched clearing and change-event roundtrip,
+then release its graph. Final workerd form probe passes four controls in each
+of two concurrent events, reactive property/HTML updates and cleanup1/graph0.
+Raw edge-forms-after-2026-11-01.json; Edge driver now requires form counters.
+
+Full suite1279/95 passed9.21s, TypeScript passed, optional Edge installed-package
+gate passed exit0. Logs benchmarks/edge-forms-suite-2026-11-01.txt and
+benchmarks/edge-forms-package-2026-11-01.txt. No Rust changes. Browser GC,
+multiple-select/reset/validation and deployed Edge environments remain open.
+
+Final HTTP actions4/4 and git diff --check passed. Log:
+benchmarks/edge-forms-actions-2026-11-01.txt.
+
+## One-way select initialization (2026-11-01)
+
+Two native regressions reproduced lost initial static/reactive select value:
+options were appended after value assignment. Negative log:
+benchmarks/select-value-before-2026-11-01.txt. Extracted shared
+synchronizeSelectValue for model/value bindings, retaining lifetime guards
+and avoiding writes when selection is already coherent. Select value bindings
+register a post-children synchronizer, removed on owner cleanup with map identity
+protection. They remain one-way: DOM change never publishes to source.
+Workerd form matrix now covers6 controls/event, initial static b and reactive
+a→b. Raw benchmarks/select-value-edge-2026-11-01.json passed.
+
+Suite1281/96 passed8.72s, TypeScript passed, installed optional Edge package
+passed exit0; actions4/4 and diff check passed. Logs select-value-final-suite,
+select-value-package and select-value-actions-2026-11-01.txt. An extra raw run
+collided with actions rebuilding dist/package; ENOENT evidence preserved in
+select-value-edge-build-race-2026-11-01.txt. Sequential rerun passed.
+No Rust changes. Late option insertion for one-way value, multiple select/reset
+host qualification and browser GC remain open.
+
+## Late one-way select options (2026-11-01)
+
+Native tests reproduced stale selection on option mutations; negative log
+benchmarks/select-options-before-2026-11-01.txt. Added a lifetime-bound
+MutationObserver for one-way select value. It watches child/text/value changes,
+uses the last resolved string rather than rerunning the user accessor, restores
+captured core/owner and runs untracked. Selection writes are coherent-guarded;
+selected attributes are outside the observer filter. Cleanup disconnects and
+unlinks synchronizers even if host disconnect throws; callbacks refuse disposed
+owners and stale graph generations.
+
+Four regressions cover insert/remove/reorder, implicit text/explicit option
+values with one accessor read, unmount and graph-reset queued work. Full
+suite1285/96 passed8.82s; TypeScript and optional Edge installed-package passed.
+Workerd now verifies7 controls/event including an explicit late option after
+await. Raw benchmarks/select-options-edge-2026-11-01.json. Logs:
+select-options-suite/select-options-package-2026-11-01.txt. No Rust changes.
+This does not prove browser GC, multiple-select/reset host semantics, or DOM
+hosts without MutationObserver. All raw failures remain preserved.
+
+Final HTTP actions4/4 and git diff --check passed. Log:
+benchmarks/select-options-actions-2026-11-01.txt.
+
+## Browser WeakRef retention qualification (2026-11-01)
+
+Added native-browser retention-gc.html and loopback serve-retention-gc.mjs,
+using current production ESM files. UI controls drive allocation, pressure,
+inspection and release; local POST saves raw phases and module/fixture hashes.
+32 terminal receiver containers (four disposal modes) and16 one-way select
+source signals collect while their public receiver handles/detached select DOM
+remain held. Four positive control DOM objects survive held phase, then all
+collect after release. Graph0; Chrome156/IAB. Two complete runs passed.
+
+CDP collectGarbage was rejected by the browser API. Natural collection under
+bounded task-separated allocation pressure was observed instead, with later-task
+WeakRef checks and positive controls. Initial result retained separately with
+old scope wording; final fixture/report explicitly identify actual mechanism.
+No SSR request-core/browser async carrier/Edge GC/RSS plateau claim is made.
+
+Final raw: benchmarks/browser-retention-gc-2026-11-01.json; screenshot same stem.png.
+Saved fixture/index/dom/stream hashes match current files. Runtime unchanged;
+full unit/Edge suites not repeated for browser harness-only changes. Temporary
+tab/server closed. Browser fixture itself was run twice; source syntax and
+git diff --check passed.
+
+## Edge multiple-select host reflection (2026-11-01)
+
+Reproduced silent lost selection in both workerd events. LinkeDOM does not
+reflect multiple and its selected setter cannot represent several options.
+Added isMultipleSelect attribute fallback when no boolean reflection exists;
+attribute-backed hosts use selected attributes, standard reflected hosts retain
+native option.selected writes. Selected values are read from filtered options
+for change/reset paths, so selectedOptions reflection is no longer required.
+Lifetime guards remain around host reads/writes. Native form-reset semantics
+for the attribute-backed host itself are still unqualified.
+
+New native fake-host regression covers omitted multiple/selectedOptions,
+unsupported selected setter, initial a,c→b update, DOM change roundtrip and
+empty selection. Existing native multiple/reset tests remain passing. Actual
+workerd matrix now8 controls/event, initial a,c→reactive b→change b,c and final
+HTML with both selected attributes, cleanup1/graph0. Negative/final raws:
+benchmarks/edge-multiple-before/after-2026-11-01.json.
+
+Final suite1286/97 passed9.29s, TypeScript passed, installed package with
+optional Edge passed exit0. Logs edge-multiple-final-suite/edge-multiple-package-
+2026-11-01.txt. No Rust changes. Native host reset/validation, deployed providers
+and Edge/request-core GC remain separate work.
+
+Final HTTP actions4/4 and git diff --check passed. Log:
+benchmarks/edge-multiple-actions-2026-11-01.txt.
+
+## Open Edge concurrency failure exposed by expanded churn (2026-11-01)
+
+Added optional SVET_EDGE_CHURN_MS (0…1h) to the real workerd runner, eight
+concurrent full fetch probes per barrier. Every event must pass DOM/forms and
+worker-internal stream/string/timeout checks. GC capability reporting confirms
+WeakRef/FinalizationRegistry exist; no Edge GC measurement has yet been made.
+
+The ordinary two-event baseline passes, but eight concurrent events fail with
+workerd/Miniflare HTTP500 `Promise will never complete`. Bounded string-only
+per-trace progress localizes the wait to timeout reader.closed after shell.
+Non-JSON errors now preserve response status/body and phases instead of hiding
+it behind a JSON parse failure. Negative stages/current reports retained.
+
+Minimal native timer→AbortSignal→ReadableStream.error→reader.closed control,
+without Svet/DOM/ALS, passes8/8 both with and without a timer-promise watchdog.
+In the composite probe an independent native watchdog timer-promise restores
+progress, with typed10ms runtime timeout winning (100ms watchdog is not the
+accepted error). This is a diagnostic, not a root cause or runtime fix.
+It is opt-in query keepalive, exposed only by SVET_EDGE_KEEPALIVE=1 in churn.
+Default fixture/runtime has no watchdog workaround.
+
+Current negative: benchmarks/edge-churn-current-failure-2026-11-01.json.
+Diagnostic positive: edge-churn-diagnostic-keepalive-2026-11-01.json,
+136 events/2176 DOM cycles/1088 streams/1088 string renders/136 timeouts in1s;
+not normal-path qualification or throughput evidence. Native control:
+workerd-native-timer-closed-2026-11-01.json and its reproducible standalone
+script check-workerd-timer-closed.mjs. Earlier failure artifacts preserved.
+
+Installed optional Edge package gate passed exit0 for the existing two-event
+baseline: edge-churn-baseline-package-2026-11-01.txt. Runtime source unchanged;
+full JS/Rust suites not repeated. Syntax and git diff --check passed. New P0
+is to isolate/fix eight-event timeout progress without keepalive, add regression
+and only then run long Edge churn/GC. No broad Edge completion claim is made.
+
+## Native stream retained until producer retirement (2026-11-01)
+
+Fixed the eight-event idle reader.closed timeout failure by retaining the native
+ReadableStream in the adapter lifetime until iterator.return/producer teardown
+settles, clearing it on either outcome. No watchdog timer or eager next read was
+added. Existing close/cancel/error paths and one-slot backpressure remain intact.
+Controlled revert restores the failure on the same worker hash; restore passes.
+Exact native heap/GC retainer path was not captured: lifetime sensitivity is
+supported by A/B and collection tests, not a complete native heap trace.
+
+Isolation evidence preserved: timers fire; abort propagates and controller.error
+returns; direct socket also failed before fix. Native controls (direct, promise
+hop, ALS, lazy pull and memory pressure) pass. Chunk timeout isolation passes.
+Timer-idempotence, early notification, pull readiness, stack formatting, source
+factory context and reader-lock experiments did not resolve it and were removed.
+No speculative runtime modifications or debug globals remain. Minimal native
+controls remain reproducible in check-workerd-timer-closed.mjs; raw failures kept.
+
+Pinned workerd60s normal readable churn passed8 concurrent requests without
+keepalive:1464 fetch events,23424 DOM cycles,11712 streams,11712 string renders,
+1464 timeouts. Direct native HTTP5s passed416 events. Installed archive gate
+passed112 events with normal readable transport/no diagnostics. Default driver
+now runs1s; optional installed Edge gate requires8-event normal churn and rejects
+keepalive/chunk opt-outs. Timeout probe helper returns only reader, preventing a
+fixture-side stream reference from masking lifetime behavior.
+
+Extended Node GC with16 discarded unstarted streams:432 total probes collected,
+including objects from64 terminal requests while stream/reader pairs stay
+held. Both workspace and installed archive probes passed. Request cores/views/
+WASM/signals collect; no new unstarted-stream root is introduced by the lease.
+
+Final suite1286/97 passed8.78s, TypeScript/build passed, optional installed Edge
+package gate and HTTP actions4/4 passed. Logs edge-stream-lease-suite/package/
+actions-2026-11-01.txt. Qualification JSON verifies identical worker hashes for
+A/B, installed/workspace runtime identity, churn scope and GC counters:
+benchmarks/edge-stream-lease-qualification-2026-11-01.json. Installed raw receipts
+copied from the retained consumer; no commit/push/publish or Rust changes.
+
+Latest workerd override2026-11-01 passes timeout churn after this fix, while its
+full matrix still fails when controlled producer failure rejects fetch before a
+Response. That separate host transport observation remains unqualified. Binary
+override path/version are now recorded. No Edge GC, deployed-provider or
+multi-hour plateau claim is inferred from this milestone.
+
+## Closed request/render tokens release owned graphs (2026-11-01)
+
+Added tests/edge/retention.mjs:24 concurrent readable requests, six lifecycle
+paths (complete/cancel/caller abort/producer error/component timeout/view timeout),
+both codecs, two repetitions. Tracks140 request objects and4 positive controls.
+Terminal streams/readers/errors remain held through collection. Every allocated
+graph is checked nodes0/cleanup1 before GC; positive controls distinguish absent
+collection from retention. Initial pressure-only result was inconclusive.
+
+Scoped workerd inspector utility discovers exactly one generated core:user:
+target, uses bounded command/connect deadlines and closes on every exit.
+Runtime.enable and getHeapUsage are available. Awaiting collectGarbage alone
+initially timed out; dispatching the command separately and waking processing
+with getHeapUsage yields acknowledgements. All GC command results are recorded.
+The upstream [workerd report](https://github.com/cloudflare/workerd/issues/6824)
+also discusses delayed GC acknowledgements; our proof relies on local command
+traces/WeakRef controls, not assuming that a missing reply proves a leak.
+
+Inspector collection exposed4 complete-mode cores/memories/views/captures even
+after terminal handles were released. Strong heap paths were captured:
+
+1. native AsyncContextFrame storage → closed RequestContext.core → WASM exports;
+2. after clearing request.core, native storage → closed AsyncRenderSession.stream
+   → publish closure → captured lifetime guard → core.
+
+The snapshots change VM state and establish observed roots, not exact prior GC
+scheduling. Raw snapshots stay in /tmp (57MiB/14MiB approximately); hashes and
+compact analyses are recorded. inspect-live-root-retainers.py now accepts optional
+probe-kind (default owner), so complete:core paths are reproducible.
+
+Runtime now keeps only a closed request token after retirement (core cleared;
+local core still handles teardown/cache retirement). retireRenderSession clears
+pending tasks, publisher and failure references, resolves the notification and
+replaces its resolver. It runs in inner finally and root-owner cleanup, covering
+a never-settling view whose inner finally cannot execute. Late component errors
+cannot refill a closed session. Ordinary late request access still throws before
+falling back to a default graph. No user error identity or public API was changed.
+
+New captured-host-token assertions cover fulfillment, rejection, late refusal,
+stream completion and non-settling string/Web views. Before root cleanup the
+new regression failed (edge-gc-unsettled-token-before-2026-11-01.txt). Installed
+public-host probe now retains12 request tokens and11 render sessions while all
+12 core WeakRefs collect. The Node host probe runs with --expose-gc in package gate.
+Owner-channel tokens are deliberately separate open scope, not covered by that
+retained-token test.
+
+Final installed Edge GC passes24 requests/140 collected targets, controls4 before
+release/0 after. Optional GC package mode validates counters and acknowledged
+inspector commands. Native no-keepalive8-event churn remains mandatory. A60s
+functional churn passes9824 events,157184 DOM cycles,78592 streams,78592 string
+renders and9824 timeouts. Final JS1286/97 passed16.84s, TypeScript/build/package
+with Edge GC and HTTP actions4/4 passed. No Rust changes or commit/push/publish.
+
+Receipt: benchmarks/edge-gc-qualification-2026-11-01.json. It verifies installed/
+workspace runtime identity, sources, snapshots/retainer texts, controls, retained
+host tokens and churn scope. Logs: edge-gc-final-suite, edge-gc-qualified-package,
+edge-gc-final-actions-2026-11-01.txt. Long raw scope text predates the forced-GC
+wording clarification; actual command acknowledgements are recorded in that raw.
+This qualifies pinned local workerd/LinkeDOM under inspector collection, not
+natural GC cadence, RSS/GPU memory, deployed providers or multi-hour plateaus.
+
+
+## 2026-11-01 — closed owner-channel tokens: retained-host qualification
+
+Closed async owner tokens now clear both core and owner on success, rejection,
+abort, timeout and carrier setup failure. Successful child scopes and their effects
+remain alive under the parent. Request identity keeps late implicit calls fenced;
+a weak core-to-request index preserves the expired explicit-core refusal after
+request retirement without retaining the core. Active captured-root re-entry and
+foreign-core overrides remain usable. Regressions cover those boundaries.
+
+Controlled runtime revert matches the preceding request/render qualification hash.
+With identical worker/retention fixtures and 20 retained owner tokens it leaves
+20 cores and 20 WASM Memory objects alive after terminal handles and controls are
+released. The final installed runtime collects all 140 request targets while
+20 retired owner tokens remain held; controls survive held phase (4) and collect
+after release (0). All four inspector GC commands acknowledge. Installed Node
+collects 17 cores with 17 request, 13 owner and 11 render tokens held.
+
+Full JS suite: 1286/97; TypeScript passed; installed package/Edge GC passed;
+HTTP actions 4/4. [Qualification receipt](benchmarks/owner-token-qualification-2026-11-01.json)
+binds source/runtime hashes, controlled revert and raw installed reports.
+Forced GC establishes collection under these roots, not natural GC cadence or
+multi-hour RSS bounds. Other providers and native browser carriers remain open.
+
+Final runtime 60-second repeat passed: 5728 events,
+45824 streams and 45824 string renders,
+8 concurrent events, readable timeout transport, no keepalive. The repeated
+inspector GC gate passed with all 20 retired owner tokens still held.
+
+
+## 2026-11-01 — workerd producer failure before Response
+
+Reproduced the transport gate failure with workerd 2026-11-01 binary and pinned
+Miniflare 4.20260730.0. Producer rejection may reset the socket before headers,
+so Node fetch rejects with UND_ERR_SOCKET; the pinned July binary instead permits
+a clean truncated body. The driver now records fetch rejection, body read rejection
+or clean EOF separately. All error paths must refuse receiver completion, reach
+the intentional producer failure marker, clean once with graph0, and pass a fresh
+complete stream through decoder/receiver for both codecs. Errors on complete or
+cancel requests still fail the gate. No runtime behavior was changed.
+
+[Reproduced failure](benchmarks/edge-transport-new-before-2026-11-01.json);
+[final November binary probe](benchmarks/edge-transport-new-qualified-2026-11-01.json).
+The latter passes concurrency, DOM/forms, transport cleanup/recovery and retained
+owner-token inspector GC. This is a binary override using the July Miniflare
+controller and July compatibility date, not qualification of the November
+Miniflare package, deployed providers or new compatibility-date behavior.
+
+Final installed-package gate with pinned workerd and inspector GC also passed.
+Both binary probes share driver/worker/runtime hashes;
+[comparison receipt](benchmarks/edge-transport-qualification-2026-11-01.json).
+Syntax and git diff --check passed. Runtime unchanged; JS/Rust suites were not
+repeated for this driver/fixture-only change.
+
+
+## 2026-11-01 — Miniflare v5 beta and compatibility-date matrix
+
+Registry inspection found stable Miniflare 4.20260730.0 and newer
+5.20261023.3-beta (workerd 1.20261023.1); no 4.20261101.0 exists.
+Installed beta dependencies in a separate /tmp directory, preserving project
+dependencies and stable qualification. Its constructor rejects v4 flat options;
+the driver now uses exported convertV4MiniflareOptions when available. Stable
+v4 continues using its native options. Compatibility date is explicitly selectable
+with SVET_EDGE_COMPATIBILITY_DATE, default remains 2026-07-30.
+
+Passed local DOM/forms/concurrency, readable transport errors/cancellation/recovery
+and retained-owner inspector GC on matched October beta/date, beta controller
+with November workerd/date, and stable controller with November workerd/date.
+[October beta](benchmarks/edge-beta-matched-after-2026-11-01.json),
+[beta + November](benchmarks/edge-beta-november-2026-11-01.json),
+[stable + November](benchmarks/edge-november-compat-2026-11-01.json).
+The initial beta API refusal is retained as edge-beta-matched-2026-11-01.json.
+These are short local probes; beta support is experimental and does not establish
+deployed-provider behavior, natural GC cadence or multi-hour RSS bounds.
+
+
+## 2026-11-01 — natural-GC HTTP long soak in progress
+
+soak-ssr-stream-http now supports SVET_SOAK_GC=natural without --expose-gc;
+forced remains the default. Max duration is 24 hours. The 32-sample ring and
+four aggregate windows remain bounded; windows now include external/ArrayBuffer
+ranges. Atomic .progress.json checkpoints every five seconds retain counters,
+memory windows and startup source/runtime hashes. Final hashes must match
+startup or the report fails, preventing a later build from silently changing
+the qualified artifact identity. Short natural/forced pilots passed; final
+source natural pilot confirms zero forced GCs and unchanged hashes:
+[raw](benchmarks/http-natural-qualified-pilot-2026-11-01.json).
+
+Started a 7,200,000ms natural-GC loopback HTTP run, 8 concurrent clients,
+complete/disconnect mixture and delayed reader calls. Output:
+benchmarks/http-natural-2h-2026-11-01.json; live checkpoint appends
+.progress.json to that path. Execution session 86231. Completion and resource
+bounds are not claimed while it is running. This fixture does not cover gzip,
+both transport codecs, proxy behavior or sustained kernel-buffer saturation.
+
+
+### Natural HTTP soak analysis contract (declared before post-warmup windows)
+
+Added scripts/analyze-http-soak.py. It validates request accounting, graph0,
+natural GC, final artifact identity and minimum duration. Running checkpoints
+return incomplete, never a passed qualification. The first of four quarters is
+warmup; both later quarters are compared to the second quarter for trough and
+peak growth, including an intermediate peak that later recovers. Explicit
+investigation budgets for this host/run: heap16 MiB, RSS64 MiB, external64 MiB,
+ArrayBuffer16 MiB. These are investigation triggers, not universal engine limits.
+At least two observations in every quarter and 7,200,000ms are required.
+Synthetic controls passed for completed stable windows, intermediate growth,
+running status, changed artifacts and forced GC. Current live analysis returns
+incomplete as intended; no post-warmup memory conclusion is available yet.
+
+Final analysis command (after the actual final report exists):
+
+```sh
+python3 packages/svet/scripts/analyze-http-soak.py packages/svet/benchmarks/http-natural-2h-2026-11-01.json --heap-growth-mib 16 --rss-growth-mib 64 --external-growth-mib 64 --arrayBuffers-growth-mib 16
+```
+
+Window extrema alone cannot prove a stationary distribution or exclude slow
+leaks. A threshold exceedance must be investigated rather than relabelled passed.
+
+
+## 2026-11-01 — concurrent HTTP transport soak matrix
+
+Added scripts/soak-ssr-transport-matrix.mjs, separate from the running two-hour
+natural-GC fixture. Each round covers both identity/reference codecs, gzip on/off,
+complete, shell disconnect, pending-patch disconnect and pending-patch host abort.
+Four clients mix outcomes; patch cancellation waits for observed drain/flush
+with live nodes, and gzip additionally requires one completed shell flush plus
+compressed output. Pending patches use 4MiB deterministic varied HTML; complete
+requests use 256KiB and delayed reads. Complete frames validate version, stream
+identity, sequence, count state and escaped HTML. Every request must finish with
+cleanup1/nodes0; gzip must settle its pipeline and close compressor.
+
+The harness keeps bounded counters per 16 cases and a 32-sample memory ring,
+writes atomic progress checkpoints and rejects changed probe/fixture/key runtime
+hashes. It uses natural GC and no --expose-gc. Pilot passed the full matrix.
+This proves observed application/compressor backpressure paths, not sustained
+kernel-buffer saturation or proxy/CDN behavior; a minute is not a long memory bound.
+
+Final minute matrix passed: 94 full rounds, 1,504 requests, 94 repetitions per
+case, 4 concurrent clients, 60,627.9ms; probe/fixture/key runtime hashes unchanged.
+[Raw](benchmarks/transport-matrix-qualified-2026-11-01.json).
+This run overlaps the separate natural-GC HTTP soak; throughput and memory
+should not be presented as isolated-host performance measurements. Syntax and
+git diff --check passed. Runtime unchanged, so full JS/Rust suites not repeated.
+
+
+## 2026-11-01 — native constraint validation/model browser check
+
+Added tests/browser/model-validation.html: 13 checks passed in the in-app
+Chromium current-source Vite page. Native required/email/range validity, rejected
+requestSubmit with invalid events, reactive validity changes, input-to-model,
+valid submit, retained custom validity, dynamic required/disabled, noValidate
+and submitter formNoValidate, queued reset refusal after teardown and graph0.
+[Receipt](benchmarks/model-validation-qualification-2026-11-01.json) binds
+fixture/runtime-source hashes and visible text/screenshot. Existing reset
+coordinator and browser reset fixtures were already implemented; this adds
+constraint-validation evidence rather than reimplementing native browser behavior.
+No runtime change or rebuild. Installed production and Edge LinkeDOM/native
+validation remain separate open qualifications. The long HTTP process is intact.
+
+Focused existing model-reset/model-reset-roots regressions: 30/30 passed in
+2 files; raw model-validation-reset-regressions-2026-11-01.txt.
+Temporary browser tab and Vite server closed; two-hour soak session86231 remains live.
+
+
+## 2026-11-01 — installed production validation and complete DOM matrix
+
+Registered model-validation (13 expected checks) in browser-matrix-cases.json;
+check-package now includes it through the existing declarative fixture list.
+Rebuilt the retained archive consumer with public svet-engine imports, without
+rebuilding workspace dist/package used by the running soak. All installed JS
+was byte-compared to workspace dist/package; fresh fixture/artifact hashes and
+original archive SHA saved in model-validation-installed-metadata-2026-11-01.json.
+Production browser execution passed 21/21 fixtures and 189 native assertions,
+including all existing reset/root/adoption cases and new constraint validation.
+[Raw](benchmarks/model-validation-installed-matrix-2026-11-01.json),
+[screenshot](benchmarks/model-validation-installed-matrix-2026-11-01.png).
+Raw report embeds the same fresh build metadata. This is a retained archive
+consumer rebuild, not a new package gate invocation; additional browsers and
+Edge native form validation remain open. Syntax and git diff --check passed.
+Temporary browser tab and preview server closed.
+
+
+## 2026-11-01 — resource PromiseLike contract and hostile thenables
+
+createResource fetcher signatures now accept PromiseLike<T> for source and
+no-source forms; runtime still uses native await assimilation. This exposes
+existing thenable support in public types rather than adding a parallel
+assimilation path. Four regressions cover first-settlement wins despite repeated
+resolve/reject, throwing then getter with refetch recovery, independent abort
+settlement and stale fulfillment, and owner disposal during getter access.
+The previous Promise-only signature fails the explicit PromiseLike generic type
+regression; raw resource-thenable-types-before-2026-11-01.txt. Final TypeScript
+passed; target suite45/45 and full JS1290/98 passed. Public installed declaration
+fixture now includes both PromiseLike fetcher signatures.
+
+No runtime JS behavior changes; recorded three runtime hashes used by the live
+HTTP soak remained identical after the pretest package build. The long process
+continues without restart. GPU fallback thenables and cross-copy tracking remain
+separate open tasks; these resource tests do not qualify those paths.
+
+Installed package gate with pinned Edge passed, including both PromiseLike
+declaration forms and production build with model-validation fixture.
+[Receipt](benchmarks/resource-thenable-qualification-2026-11-01.json).
+Git diff --check passed. No commit/push.
+
+
+## 2026-11-01 — GPU fallback thenable accessor fix
+
+The sync compatibility fallback read returned.then to detect async output,
+then Promise.resolve read the accessor a second time. A regression reproduced
+2 reads instead of 1. Cache the callable once and bind its original receiver
+inside native Promise assimilation; keep late rejection observed and working
+output private. The sync entry still throws the async-callback diagnostic.
+
+Added regressions for one getter read/one call/original this/unchanged output,
+async first-settlement wins despite later reject/resolve, and abort of an
+uncooperative thenable followed by stale fulfillment without output publication.
+Target GPU suite123 passed; full JS1293/98 and TypeScript passed. This is host
+fallback qualification, not a new hardware GPU claim or cross-copy tracking proof.
+Raw gpu-thenable-before-2026-11-01.txt retains the failure; after/full-suite/types
+logs use the gpu-thenable prefix. Installed public probe now includes the getter
+count/receiver/unchanged-output regression.
+
+The live HTTP soak uses already-loaded Node streaming code and does not exercise
+GPU dispatch. Its recorded server/stream/reactivity hashes remain the relevant
+fixed workload identity; GPU source/build changes are outside that workload.
+
+Final installed public archive gate with pinned Edge passed, including the new
+getter regression. [Receipt](benchmarks/gpu-thenable-qualification-2026-11-01.json).
+Git diff --check passed; long HTTP process remains running.
+
+
+## 2026-11-01 — cross-copy untrack: source qualification, package pending
+
+New check-cross-copy-tracking.mjs imports two independently compiled engines
+from the frozen event-instance build. Before: foreign untrack failed to suppress
+existing observers and reads before a throw; foreign signal invalidation also
+failed. Compatible copies now share only the synchronous live-context stack under
+Symbol.for('svet.reactivity.observation-contexts.v1'). No permanent module callback
+or inactive core registry is added; stack unwinding removes all live entries.
+
+After: foreign untrack suppression, new inner observer tracking, throw recovery,
+reset-generation refusal and separate-core teardown pass. Registry length is0
+after all cases. Automatic foreign-signal subscription remains failing/open;
+the probe intentionally retains requirements-open and nonzero exit rather than
+weakening that expectation.
+[Before](benchmarks/cross-copy-tracking-before-2026-11-01.json),
+[after](benchmarks/cross-copy-untrack-qualified-2026-11-01.json).
+This is a same-realm compatible-copy protocol, not arbitrary-version coordination
+or async context propagation. Independently built source artifacts include hashes.
+
+Workspace package rebuild/installed gate is deferred until the running two-hour
+HTTP soak ends: it currently measures the preceding reactivity runtime. Source
+qualification must not be presented as installed-package delivery of this change.
+
+Source TypeScript passed. Full source suite:1292 passed /1 benchmark timeout
+in98 files (52.23s, worker startup~1.47s). Benchmark workload took5772ms against
+unchanged5000ms limit while the natural HTTP load was live. Raw failure retained
+in cross-copy-untrack-full-suite-2026-11-01.txt; focused repeat is separate, not
+a replacement claim that the full suite passed.
+
+
+### Cross-copy untrack expanded source/GC evidence
+
+Expanded independent-copy probe:7/8 scenarios pass. Added nested observers in
+both copies, incidental-read suppression across both suspended stacks and
+invalidation from a write to an already-read dependency. Automatic foreign
+signal subscription remains the sole failing expectation; overall probe stays
+requirements-open.
+[Raw](benchmarks/cross-copy-untrack-expanded-2026-11-01.json).
+
+Forced Node GC after 24 independently allocated core lifetimes, cross-copy
+untrack/reset and fresh observer teardown collects24 cores +24 WASM Memory
+objects. Controls4 held,0 released; shared live-context array length0.
+[GC raw](benchmarks/cross-copy-untrack-gc-2026-11-01.json).
+This qualifies source bundles only, no browser collection or user-retained handles.
+No workspace package rebuild while the preceding-runtime HTTP soak is live.
+
+Both independent-copy probes now verify every frozen artifact hash before
+import, then embed build metadata. Final expanded and GC probes repeated with
+those integrity checks; results unchanged.
+
+Full source repeat with2 workers also retained benchmark timeout:1292 passed/
+1 failed,75.81s total. Limits unchanged; this milestone remains partial.
+Raw cross-copy-untrack-full-repeat-2026-11-01.txt.
+
+
+## 2026-11-02 — cross-copy coordinator hot-path revision
+
+First ABBA diagnostic (shared/local/local/shared, one worker, timeout5000ms)
+failed both shared-stack runs and passed both local controls. Host load averaged
+~19–20 on16 logical CPUs, with independent Rust builds and the HTTP soak alive.
+Raw cross-copy-untrack-bench-abba-2026-11-02.json and host-context report.
+This warranted investigation rather than attributing all failures to contention.
+
+Replaced globally owned frame array with local per-copy arrays plus global weak
+array references under observation-copies.v2. Enter/leave keep the original local
+push/pop path; only untrack inspects foreign arrays, and single-copy execution
+skips foreign enumeration. Dead weak registrations are pruned on new registration.
+The registry owns neither module callbacks nor inactive cores. Previous v1 shared
+stack design is superseded; mixed protocol versions are not claimed compatible.
+
+Rebuilt independent copies:7/8 expanded cases pass (foreign dependencies still
+open), GC24 cores+24 Memory passes with controls4 held/0 released, TypeScript
+passes. Frozen artifact hashes are checked before import.
+Raw cross-copy-weak-registry-cases-2026-11-02.json and
+cross-copy-weak-registry-gc-2026-11-02.json. A one-copy diagnostic observed one
+weak registration,0 inactive frames and1 during the observer; diagnostic test
+was removed after saving its raw log. The standalone benchmark still timed out
+under current load; a fresh weak/local ABBA is required before any performance
+claim. Package rebuild remains deferred for the preceding-runtime long soak.
+
+Second ABBA (weak/local/local/weak): failures1/1/1/0. Both original local-stack
+controls now timed out too, final weak passed. This confirms the gate is unstable
+under these host conditions; it does not establish a performance improvement or
+absence of regression. Raw cross-copy-weak-bench-abba-2026-11-02.json.
+Retain local hot path/weak discovery design on ownership grounds. Current
+source qualification receipt: cross-copy-weak-registry-source-2026-11-02.json;
+previous v1 receipt is explicitly superseded. Full benchmark and installed
+qualification remain open. Correctness-only run excludes that benchmark openly
+and cannot substitute for the full gate.
+
+
+### Natural two-hour HTTP run terminated, not qualified
+
+Session86231 exited1 authoritatively. Final report:189144 completed-accounted
+requests, elapsed1462380.6ms (~24.4min), unchanged source/key runtime hashes,
+forcedGC0. Error stack points to HTTP control request in run finally (forget),
+so a cleanup failure may have masked the original body failure. No cause is
+asserted from host load alone. Full raw http-natural-2h-2026-11-01.json retained.
+Analyzer returns needs-investigation; no two-hour completion or memory plateau
+claim. Only first quarter has samples. No automatic restart; next step is
+primary/cleanup error preservation before another long qualification.
+
+Correctness-only run ended:1267 tests/95 files passed,2 Vitest worker-startup
+timeouts prevented completion of97 expected files (338.24s). Benchmark excluded
+explicitly. This is an incomplete gate, not a successful full suite. Limits were
+not relaxed. Raw cross-copy-weak-registry-correctness-2026-11-02.txt retained.
+
+
+## 2026-11-02 — primary HTTP errors survive cleanup failures
+
+soak-ssr-stream-http records control operation/id/elapsed time and original cause.
+run catches its primary failure before cleanup; forget failures are kept in a
+bounded8-entry cleanupFailures ring and cannot replace that primary. Cleanup-only
+failures still fail the run. All concurrent requests now settle before global
+server teardown, preventing teardown races with unfinished sibling reports.
+Failed batches retain bounded requestFailures records; elapsed time is captured
+on failure instead of only the last five-second checkpoint.
+
+Deterministic local HTTP injection returns503 on both stats and forget for the
+first request: final error remains stats503, cleanup record separately contains
+forget503 and its primary identity, and the batch fails. Deadline10000ms remains
+unchanged. Raw http-primary-cleanup-injected-2026-11-02.json. This fixes diagnostic
+masking, not the unknown cause of the original24-minute failure.
+
+The two worker-startup-missing correctness files (ssr-lifetime/static-arrays)
+passed25/25 using one threads worker, with unchanged test limits. Combined with
+1267 tests from the earlier source run, all1292 non-benchmark tests have executed
+successfully across runs; this is not a single green full-suite qualification.
+Raw cross-copy-missing-files-2026-11-02.txt.
+
+Final-source natural10s (192 verified requests), forced1s and injected HTTP
+double-failure probes passed their respective expectations; all source hashes
+match and artifactsUnchanged is true.
+[Diagnostics receipt](benchmarks/http-primary-cleanup-qualification-2026-11-02.json).
+The intentionally injected run exits1; it is not a passing workload sample.
+
+
+## 2026-11-02 — installed copies and deadline neighbour-barrier correction
+
+Rebuilt package with weak observation registryv2. Initial package gate failed
+in soak-ssr-deadlines at the cancellation-neighbour liveness assertion, preserving
+its consumer at svet-consumer-wMKAAL. The test required100ms timeout neighbours
+to remain alive after a setImmediate cancellation barrier; that wall-clock
+assumption is invalid if their own deadline expires during the yield. Complete
+neighbours still must remain live. A retired timeout neighbour is now accepted
+only with its exact SsrTimeoutError/timeoutMs100, cleanup1 and listeners0;
+final graph0 and retained-handle GC assertions remain. Default deadline and
+barrier deadline are unchanged. Bounded neighbour observations and a count of
+early legitimate timeouts are saved.
+
+A150ms diagnostic barrier delay deterministically exercises that branch:96
+requests/576 collected objects,24 early timeouts, complete neighbours preserved.
+[Raw](benchmarks/deadline-barrier-delayed-2026-11-02.json). Default targeted probe
+also passed112 requests/672 objects; this predates the added delay option and
+is not the final full package gate.
+
+prepare-installed-copy-probe creates two physical byte-equal runtime trees
+inside the installed consumer so declared Babel dependencies resolve normally,
+without symlinking the runtime or sharing its ESM module identity. All frozen
+files are hashed before import. Installed copy checks7/8 (foreign signal
+dependency still open); forced GC24 cores+24 Memory, controls4 held/0 released.
+[Cases](benchmarks/cross-copy-installed-cases-2026-11-02.json),
+[GC](benchmarks/cross-copy-installed-gc-2026-11-02.json).
+Initial attempt in an unrelated temp root could not resolve @babel/parser;
+that harness error is retained separately and resolved by keeping copies beneath
+the consumer's dependency root. This does not change package dependencies.
+
+Final repeated package gate with inspector-backed Edge GC passed.
+[Installed receipt](benchmarks/cross-copy-weak-installed-qualification-2026-11-02.json)
+binds current source/archive/reactivity hashes, independent installed copies,
+retained-host/Edge collection and corrected deadline barrier. The selected
+untrack milestone is installed-qualified; foreign dependency and full performance
+gates remain open. No commit/push or overall goal completion.
+
+
+## 2026-11-02 — frozen installed HTTP soak restart
+
+HTTP soak accepts an explicit installed package path and hashes all20 JS/WASM
+runtime files, plus both harness and fixture at start/end. Final identity mismatch
+fails the run but does not overwrite an existing primary workload error.
+prepare-http-soak-snapshot preserves harness/fixture bytes under a fresh cache
+directory; package imports use the retained installed consumer, while jsdom30.1.3
+is an explicitly named harness dependency. Workspace source/build edits cannot
+change those selected bytes. Installed artifact directory and snapshot must be
+kept for the run.
+
+Frozen final pilot184 requests passed with all identities unchanged. A controlled
+post-checkpoint gpu.js edit in a separate runtime copy fails identity validation;
+untampered installed package preserved. Frozen HTTP503/503 injection retains
+stats primary and forget cleanup errors separately.
+[Harness receipt](benchmarks/http-frozen-harness-qualification-2026-11-02.json).
+
+Started a new7200000ms natural-GC run on this snapshot with8 clients and unchanged
+10000ms HTTP deadlines. Session handle must be checked live; do not restart from
+a stale checkpoint. Output http-natural-frozen-2h-2026-11-02.json, checkpoint adds
+.progress.json. Original failed24-minute run is preserved. No two-hour memory
+claim until final duration, accounting, identities and windows are audited.
+
+
+## 2026-11-02 — native reactive domains shared by explicit core identity
+
+Independent copies using the same explicit WASM core previously kept separate JS
+node registries, generations and owner state. Reproduced missing computed/batch
+updates, reset leaving foreign handles current, and owner teardown missing foreign
+computeds. A domain registry now shares JS context, reset cleanup/finalizer maps
+and retired-cache membership by core identity using WeakMap/WeakSet storage.
+Separate native cores stay isolated; no synthetic cross-core edges are created.
+
+Live execution frames identify when a computed getter from another module copy
+belongs to the currently executing native observer. Such shared-domain reads
+restore the getter's core without suppressing dependency collection; genuinely
+foreign suspended domains keep the existing untracked boundary. Frames unwind
+in finally, including reset/throw paths. This extends weak copy discovery rather
+than sharing native IDs across different memories.
+
+Expanded independent-build probe11/12: all prior untrack cases plus shared-core
+computed/batch, generation invalidation, owner cleanup and foreign resource reset
+wait pass. Different-core automatic dependency remains open and intentionally
+fails. Full source suite1293/98 passed (threads2); TypeScript passed.
+Raw cross-copy-domain-expanded-2026-11-02.json and
+cross-copy-domain-full-suite-2026-11-02.txt.
+
+Retirement also clears compatible copies' hot caches through weakly registered
+callbacks, and a shared retired WeakSet prevents late cleanup from recaching.
+On the preceding installed runtime, a controlled probe retained core+Memory after
+A retirement and B late cleanup; selecting B's ambient core collected both, with
+controls4 held/0 released. This isolates the foreign-cache root:
+[before](benchmarks/cross-copy-cache-before-2026-11-02.json).
+New installed qualification is pending. Async owner-carrier propagation, default
+separate-core dependencies and arbitrary-version interoperability are not proven
+by these synchronous shared-core tests.
+
+Final installed qualification passed:11/12 expanded cases (only separate-core
+dependency open), same-probe cache retirement before2 retained targets/after0,
+24 cores+24 Memory collected after shared-core reset/computed/foreign-effect
+teardown, controls4 held/0 released. Package gate with inspector Edge GC passed.
+[Receipt](benchmarks/cross-copy-domain-qualification-2026-11-02.json).
+The frozen natural long run continues on the preceding installed weak-registry
+version; no natural-GC/RSS bound for these newer native-domain changes follows
+from that baseline run. Git diff --check passed.
+
+
+## 2026-11-02 — cross-copy Node async owner/context delegation
+
+Before: copy B selecting A's shared core after await saw the request root instead
+of the active child. Foreign computed/onCleanup allocations survived child
+rejection until parent cleanup; late foreign reentry silently used the live
+parent. Four installed-copy ownership scenarios failed. Compatible domains now
+weakly register per-copy resolver delegates. At ownerDepth0 the local resolver
+has priority, then other copies may resolve that explicit core's owner or refuse
+its expired scope. Each host callback checks core/request identity. Synchronous
+owner overrides bypass async lookup as before. Weak callbacks retain neither
+foreign modules nor request cores via the global registry.
+
+Final same-probe installed comparison: before4 failures/2 controls passed, after
+6/6 passed, including provider context after await, child rejection cleanup, late
+refusal with parent usability, captured root/unrelated-core precedence and two
+concurrent requests. With8 completed promises and8 child errors held,8 cores and
+8 Memory collect; controls4 held/0 released. Full JS1293/98, TypeScript and package
+with inspector Edge GC passed. The six-case async owner/GC probe is now required
+in check-package, rather than being a manual-only qualification.
+[Receipt](benchmarks/cross-copy-async-owner-qualification-2026-11-02.json).
+
+Scope remains byte-matched Node ALS copies selecting the same core explicitly.
+Implicit cross-copy core selection, other hosts and mixed build/version carriers
+remain open. Frozen natural-GC HTTP run continues on its older installed baseline,
+without inheriting these newer ownership guarantees or memory qualification.
+
+
+## 2026-11-02 — cross-copy async ownership on local Edge hosts
+
+The Worker now imports a second engine through an independent esbuild namespace,
+including16 duplicate engine modules and a separate default core. Both copies
+install the same compiled WASM Module asset; their JS state/WASM instances remain
+independent. Two concurrent host fetch events exercise8 isolated request cores:
+child owner/context after await, failed-child immediate cleanup, closed-child
+refusal while parent stays usable, captured root precedence inside the active
+child and restoration afterward, plus concurrent child isolation. All graphs0.
+
+With identical driver/worker/copy fixture, the preceding installed runtime fails
+Foreign child owner lost. Current runtime passes both pinned July stable and
+October Miniflare5 beta with November workerd binary/date. Exact versions/flags
+are recorded in the receipt.8 cores+8 Memory are tracked weakly and collect under
+acknowledged inspector GC; existing140 request targets also collect, controls4
+held/0 released. Extra copy probe requests use separate endpoints, preserving
+the existing8-event readable churn workload and its counters.
+
+The Edge-enabled package gate now requires these copy scenarios and all16 copy
+targets collected when GC is enabled. Final installed gate passed; HTTP actions
+4/4 passed. Runtime source did not change this milestone: every runtime file is
+byte-equal to the prior1293-test/full-source-qualified package. Syntax/diff checks
+passed. [Receipt](benchmarks/edge-cross-copy-owner-qualification-2026-11-02.json).
+
+Qualification is local, compatible-copy, explicit shared-core ownership/context
+and computed lifecycle. It does not prove deployed providers, browser carriers,
+implicit core propagation, mixed-version copies, cross-core dependencies or
+natural-GC/RSS bounds. The beta profile remains experimental.
+
+
+## 2026-11-02 — foreign Edge DOM bindings after await
+
+Extended the two-copy Edge fixture to use a parent signal created by engine A
+with engine B's button, reactive attribute/text and delegated click binding after
+await inside A's async child. Both host events assert updates, and the event
+callback restores a descendant child owner, selected native core and provider
+context. Child rejection must dispose bindings before the parent ends. The
+parent signal then demonstrably changes to late while DOM stays at its prior
+value and a new click cannot invoke the removed handler. Parent signal disposal
+finally leaves graph0; retained button is removed from the shared document.
+
+Weak target profile now includes8 request cores,8 Memory,2 parent signals and
+2 buttons. All20 collect with existing controls4 held/0 released; legacy140
+targets collect too. Both pinned stable and beta-controller/November workerd/date
+profiles passed. Installed Edge gate requires DOM counters and20-target/kind
+accounting. Previous runtime fails the unchanged functional prerequisite
+Foreign child owner lost with the same driver/fixture.
+[Receipt](benchmarks/edge-copy-dom-qualification-2026-11-02.json).
+
+Runtime code is unchanged and byte-equal to the prior full1293-test-qualified
+package; syntax/diff checks and final installed package gate passed. This is a
+failed-child teardown proof. Successful child handlers invoked after carrier
+closure, native browser events and deployed/mixed-version hosts remain separate
+open checks. The frozen natural run remains on its named baseline artifact.
+
+
+## 2026-11-02 — captured foreign core scopes after carrier closure
+
+A child successfully completed its carrier while its owner stayed parent-owned.
+A context captured by copy B was still live, but its callback's copy-A signal
+setter consulted A's closed ALS carrier and threw. A second regression showed
+that nested explicit scopes from two copies did not agree on the currently
+selected core. Before2 failures/6 controls passed with the same final probe.
+
+Explicit synchronous core overrides now use a realm-local versioned stack shared
+by compatible copies. Default cores and host async resolvers stay module-local.
+A captured scope in B selects its native core for A's bound writes and new
+computed allocation; after return the uncaptured closed-child guard still throws.
+Nested cross-copy scopes restore in finally, including throw. Nothing holds the
+selection over a user await or Promise return. The global stack is asserted empty
+by the installed probe after all cases.
+
+After8/8 installed cases passed, including8 cores+8 Memory collected with8
+completed promises and8 errors retained (controls4 held/0 released). Full source
+JS1293/98, TypeScript, installed package with Edge inspector GC and native HTTP
+actions4/4 passed. Browser production-source independent-engine fixture9/9 passed:
+separate default cores, bubbling, additive handlers, stopImmediatePropagation,
+closed shadow roots, one-copy reset/retirement and final graph0. Screenshot/raw
+source hashes bind that browser run to this bridge revision.
+[Receipt](benchmarks/cross-copy-captured-core-qualification-2026-11-02.json).
+
+Temporary browser tab/preview server closed. The frozen natural HTTP process
+continues on its prior immutable installed baseline; it does not qualify this
+newer core selection implementation. Cross-realm/mixed-version and implicit
+async core propagation remain open.
+
+
+## 2026-11-02 — retained successful-child Edge DOM callback
+
+Extended the independent-copy Edge fixture with a real delegated button event
+invoked from a completed child carrier while its successful owner remains live
+under the parent. Copy B captures the handler; it selects copy A's native core,
+updates A's signal and allocates/disposes A's computed. The bound DOM updates.
+An uncaptured allocation in that same late continuation still refuses the closed
+child. After parent teardown another event cannot invoke the retained handler.
+
+The identical fixture fails on the previous installed runtime with
+`Svet SSR owner scope has already completed` inside the source-copy getWasmCore
+called by onClick. Current stable workerd and beta/November profiles pass both
+concurrent host events. All24 targets collect:8 cores,8 Memory,4 signals,4 DOM
+nodes, alongside the legacy140 targets and controls4 held/0 released. Driver now
+records wasmBridgeSha256 as well as reactivity/runtime and fixture hashes.
+
+Raw reports: [before](benchmarks/edge-retained-child-before-2026-11-02.json),
+[stable](benchmarks/edge-retained-child-after-2026-11-02.json),
+[beta](benchmarks/edge-retained-child-beta-2026-11-02.json).
+The package gate requires the new counters and exact24-target/kind accounting.
+Runtime source is unchanged in this milestone. This proves local LinkeDOM/workerd
+behavior for compatible copies; deployed providers, native browser async carriers,
+natural-GC/RSS bounds and mixed-version copies remain open.
+
+Installed-package gate completed with exit0, including both new event counters
+and24-target inspector-GC assertions. [Receipt](benchmarks/edge-retained-child-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — shared built-in boundary protocols
+
+A resource created by an independent compatible copy under the same explicit
+native core could not see its host copy's Suspense or ErrorBoundary. Their
+module-local createContext calls generated different symbols. The same final
+probe fails all4 scenarios on the previous installed package.
+
+Built-in Suspense/error-boundary identities now use versioned realm-wide symbol
+keys. User createContext identities remain unique. useContext accepts the
+read-only id/defaultValue lookup contract; Provider is not required for lookup.
+The probe exercises both directions with foreign pending/completion, refetch,
+unmount cancellation, rejection and boundary retry. All4 pass on the rebuilt
+runtime and are mandatory in check-package. This is explicit shared-core,
+compatible-copy JSDOM evidence; other realms, mixed versions, separate-core
+reactive dependencies and deployed/browser async carriers remain open.
+
+Raw: [before](benchmarks/cross-copy-boundaries-before-2026-11-02.json),
+[after](benchmarks/cross-copy-boundaries-after-2026-11-02.json).
+
+Full JS1293/98, TypeScript, installed package with Edge GC and HTTP actions4/4
+passed. [Receipt](benchmarks/cross-copy-boundaries-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Edge built-in boundaries and retry core
+
+Added four independent-copy boundary cases in real local workerd with LinkeDOM:
+both directions of pending/completion/refetch/unmount cancellation and async
+rejection/retry. Each request uses an isolated native core and its own detached
+container. The driver and installed gate require all4 cases and graph0.
+
+This exposed an additional defect: copy B's ErrorBoundary retry, invoked under
+copy A's ambient SSR core, opened batch on B's default core. Its two bound signal
+writes flushed A separately and mounted content twice (mounts3 rather than2).
+The previous installed runtime reproduces that failure with the final fixture.
+Retry now selects the boundary's core before batching; a WeakRef avoids adding
+strong core retention through externally retained retry functions. A source
+regression calls retry under a different ambient core and requires mounts2.
+
+Stable and beta/November workerd profiles pass the4 cases; existing cross-copy
+24-target and legacy140-target GC checks also pass. Raw:
+[retry before](benchmarks/edge-copy-boundaries-retry-before-2026-11-02.json),
+[stable](benchmarks/edge-copy-boundaries-after-2026-11-02.json),
+[beta](benchmarks/edge-copy-boundaries-beta-2026-11-02.json).
+Native browser boundary checks, deployed providers, mixed versions and natural
+GC/RSS remain open. The long frozen HTTP run still measures its earlier artifact.
+
+Final full suite1294/98, focused lifecycle10/10, TypeScript, installed package
+with Edge inspector GC and HTTP actions4/4 passed.
+[Receipt](benchmarks/edge-copy-boundaries-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native browser cross-copy boundary qualification
+
+Chrome156 native DOM passed all4 Suspense/ErrorBoundary scenarios in both
+independently built source bundles and installed-package production bundles.
+The fixture checks foreign pending/completion, refetch/unmount cancellation,
+rejection identity, retry mounts2 and graph0 in both directions. Source and
+installed artifact hashes are recorded; the installed advanced.js digest was
+checked against the retained consumer. prepare-event-instances now accepts a
+bounded fixture choice and optional installed package path for reproducibility.
+
+[Receipt](benchmarks/browser-copy-boundaries-qualification-2026-11-02.json).
+This proves explicit shared-core scopes and async resource settlement with
+native DOM, not a browser async-context carrier or implicit propagation across
+await. Other browsers, realms, versions and natural-GC/RSS remain open. Both
+temporary tabs and preview servers were closed. Runtime code is unchanged from
+the prior1294/98 full-suite/package-qualified revision.
+
+
+## 2026-11-02 — cross-copy router protocol and atomic foreign-core navigation
+
+Independent copies used different module-local RouterContext symbols, so foreign
+useRouter threw even within a host RouterView and foreign Link could not navigate.
+The built-in router protocol now uses a versioned realm-wide Symbol; custom
+contexts remain unique. The installed probe checks both directions: router
+identity, actual Link click interception, route params/query/hash, old-route
+cleanup exactly once, single replacement mount, graph0 and inactive retired Link.
+
+A separate reproduction found non-atomic URL publication when navigate was called
+outside the router's native core: batch selected the caller's ambient default
+while bound signal writes flushed the router core independently. URL observers
+saw path/query/hash intermediate combinations. The commit batch now explicitly
+selects the router's own core. Source regression and installed third case require
+exactly the initial and final URL observations. The same final installed probe
+fails all3 cases on the previous package. Runtime changes remain limited to these
+two defects; cross-core automatic dependencies and mixed-version semantics remain
+open.
+
+Before: [raw](benchmarks/cross-copy-router-before-final-2026-11-02.json).
+The new3-case router probe is mandatory in check-package.
+
+Final installed probe3/3, full JS1295/99, focused regression, TypeScript,
+package with Edge GC and HTTP actions4/4 passed.
+[Receipt](benchmarks/cross-copy-router-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native browser installed cross-copy router
+
+Added a reproducible cross-copy-router browser fixture and bounded builder
+option. Chrome156 passed3/3 with two independently bundled installed runtime
+copies: RouterView/useRouter/Link identity and native click navigation in both
+directions, route cleanup once, query/hash/params, retired Link teardown and graph0;
+plus atomic URL publication from a non-ambient core. Installed advanced.js hash
+was verified against the retained consumer artifact.
+[Receipt](benchmarks/browser-copy-router-qualification-2026-11-02.json).
+Runtime source is unchanged from the1295/99/package-qualified revision. Script
+syntax and scoped diff checks passed. Temporary tab and preview server closed.
+Cross-copy back/forward concurrency, rollback, other browsers and Edge router
+remain open. The frozen long HTTP run is separate and still baseline-specific.
+
+
+## 2026-11-02 — native history with cross-copy observers
+
+Expanded installed native browser router fixture to5/5 cases on Chrome156.
+Both directions now use a router from one copy and a shared-core observer from
+the other while performing actual History API Back/Forward, denied-Back
+compensation and guard redirect. Exact observation sequence rejects intermediate
+URL publication or compensation publication. Guard runs once on refused Back,
+history length stays fixed, redirected slot survives round trips, initial host
+state/full URL survive, and teardown leaves graph0.
+
+An initial fixture expected query.q after redirect to ?next=middle. That
+assertion was wrong; corrected observer reads q or next, preserving the failing
+raw as fixture-error evidence. No runtime change was needed.
+[Receipt](benchmarks/browser-copy-history-qualification-2026-11-02.json).
+This uses one active router per scenario; competing routers, rapid traversal
+bursts across copies and other browsers remain open. Runtime remains the prior
+1295/99/package-qualified artifact. Temporary tab/server closed; scoped diff
+check passed. The separate frozen natural HTTP run is still live.
+
+
+## 2026-11-02 — cross-copy rapid history bursts, partial
+
+Added six denied native history.go burst patterns in both copy directions,
+checking accepted full URL/history length, no foreign observer publication during
+refused traversal, subsequent admitted navigation and graph0. A combined run
+passed16/17; the last B→A case timed out waiting for its initial go(-2) to reach
+the middle entry, before installing the burst guard. Cause is not established.
+
+Independent fresh tabs selecting each burst direction passed11/11 each (five
+prior cases plus all six bursts). Same runtime,3s transition deadline and80ms
+quiet interval. This narrows the observation but does not repair or close the
+combined-run failure. The first failing raw is preserved. Next investigation:
+record native popstate/go timeline and accepted/physical positions around setup
+and delayed callbacks; distinguish native traversal scheduling from runtime
+restoration. No claim of browser throttling without evidence.
+[Partial receipt](benchmarks/browser-copy-burst-qualification-2026-11-02.json).
+Runtime unchanged; scoped diff check passed; tabs/server closed. Broad rapid
+history qualification and simultaneous competing routers remain open.
+
+
+## 2026-11-02 — combined history failure timeline and native control
+
+Instrumented fixture-only History API commands and native popstate before/after
+microtask, case boundaries, history state and selected router fields (bounded
+1000-entry timeline). The full17-case run again passes16 then times out preparing
+the last case. Final go(-2) is logged; no following native popstate arrives in
+3s. This narrows the failure stage but does not establish its cause.
+
+Added native-only replay fixture with the captured199 commands and original
+relative timing, without any Svet imports. It receives a final popstate and
+reaches the expected middle URL. Therefore command count/tempo alone did not
+reproduce the failure. This control is scheduled replay rather than identical
+synchronous event-callback interleaving; it cannot exonerate either the runtime
+or browser. Next: compare native event ordering, compensation issuance and pending
+traversal at case boundaries. No runtime fix or overall burst pass is claimed.
+[Analysis/raw](benchmarks/browser-copy-burst-timeline-analysis-2026-11-02.json).
+Scoped diff/script syntax checks passed; tabs/server closed. Frozen HTTP process
+was authoritatively polled and remained live, without a final report.
+
+
+## 2026-11-02 — native navigation control and paced full burst matrix
+
+Found two native navigations missing from the first199-command replay: retired
+Link test clicks deliberately had defaultPrevented=false and triggered normal
+anchor navigation after engine teardown. Adding these two to native-only replay
+produces201 commands and reproduces the missing final popstate without Svet.
+The original replay's success therefore did not exclude host navigation refusal.
+Exact host quota/mechanism is not established.
+
+Fixture now records defaultPrevented in an independent listener before cancelling
+the native default, retaining the engine teardown assertion while removing test
+side effects. Unpaced run still fails the last burst compensation16/17, so this
+is not a full stress repair. With explicit optional ?paced=1, a10s inter-case
+pause after more than120 recent history commands allows all17 cases to pass.
+Individual burst commands,3s transition deadline and80ms quiet checks unchanged.
+Pacing is recorded in raw timeline. This qualifies those full-case semantics at
+the named pacing, not the original continuous high-rate workload.
+[Controls/results](benchmarks/browser-copy-burst-controls-2026-11-02.json).
+Runtime unchanged; diff/script syntax checks passed; tabs/server closed. The
+continuous stress requirement remains open alongside competing routers.
+
+
+## 2026-11-02 — empty core-override stack hotpath
+
+A fresh-worker installed-artifact AB/AA benchmark exposed a synthetic untrack
+regression after shared-core/owner changes. Candidate median was2.6–4.8x the
+older frozen baseline in the short pilot; AA controls were noisy. A narrower
+comparison changes only wasm-bridge.js: getWasmCore now checks stack length before
+indexing its top, avoiding a negative-property lookup on an empty array.
+
+In the longer alternating AB experiment (512 invalidations ×4000 untrack calls,
+five measured rounds per worker, nested depths1/32/128/256), candidate/baseline
+median ratios are0.348/0.357/0.427/0.291. AA ratios range0.687–1.138. This supports
+retaining the small hotpath change for this workload; it is not application FPS
+or general throughput. The host ran the frozen HTTP soak and overlapping source
+checks, so uncontended/hardware-independent performance qualification remains
+open. Runtime file hashes prove only wasm-bridge.js differs in the narrow AB.
+
+New bench-installed-untrack driver uses sequential fresh workers, alternating
+AB order and candidate AA controls, saves nested raw reports and verifies all
+JS/WASM hashes unchanged before/after. Existing bench-untrack-cores assertions
+still require correct values, untracked dependencies, node/edge counts and graph0.
+Raw: [initial](benchmarks/installed-untrack-ab-aa-2026-11-02.json),
+[short isolated change](benchmarks/core-stack-fastpath-ab-aa-2026-11-02.json),
+[long](benchmarks/core-stack-fastpath-long-ab-aa-2026-11-02.json).
+
+Final JS1295/99, TypeScript, installed package with Edge GC and HTTP actions4/4
+passed. Installed bridge hash matches the measured candidate.
+[Receipt](benchmarks/core-stack-fastpath-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — retained ErrorBoundary retry closure retirement
+
+Installed Node ALS/JSDOM GC probe found4/4 completed boundary request cores and
+Memory retained by externally held retry functions, despite graph0. WeakRef in
+reset was insufficient: the reset closure still retained the component lexical
+environment through its disposed signal/accessor bindings. A module-level
+retirable callback factory now creates the public retry wrapper outside that
+environment. Boundary cleanup clears the wrapper's sole implementation slot;
+retained retry becomes a no-op and no longer reaches the component closure.
+
+Same final probe before4/4 retained → after0/4 with callbacks held; controls4
+held/0 released. New boundary-only installed GC profile is mandatory in package
+gate. The full probe remains failing/open for disposed router objects:4/4 cores
+and Memory retained; each RouterView unmount leaves1 node while parent request
+is live. This is not hidden by the focused boundary gate. Investigate that
+owner/retainer path next, preserving terminal snapshots and late navigate=false.
+
+Full JS1295/99, TypeScript, installed package with Edge GC and HTTP actions4/4
+passed. [Partial receipt](benchmarks/retained-ui-callbacks-qualification-2026-11-02.json).
+GC scope is forced Node ALS/JSDOM; native browser/Edge and natural-GC bounds
+remain separate. No claim that all retained UI handles are fixed.
+
+
+## 2026-11-02 — disposed Router runtime retirement
+
+The apparent1-node unmount residue was an inactive native slot in effectPool,
+not a live owner/subscription: getGraphTelemetry drains pending pooled disposals
+and reports graph0 both before and after this change. Corrected the GC probe to
+use that public accounting boundary. No ownership fix is claimed for the pool.
+
+Disposed router objects did retain4/4 completed request cores and Memory through
+signal/method closures. Added module-level retirable router/read-only-signal
+wrappers: live calls forward to the implementation; teardown captures terminal
+URL values and clears implementation/signal slots. Readers retain id/peek/dispose
+and signal branding; navigate returns false, guards no-op, repeated disposal is
+safe. A separate pure route matcher preserves match after teardown without
+capturing the runtime environment. Guard-removal callbacks also retire their
+implementation slots, including externally retained removers.
+
+The final same-probe comparison holds12 references (four retries, four routers,
+four guard removers). Before: boundary0/router4 retained; after:0/0, controls4
+held/0 released. All request graphs0 after telemetry. Late retry, router methods,
+terminal path/query/hash, matcher and repeated disposal are asserted. Full GC
+profile now mandatory in check-package rather than boundary-only profile.
+Raw: [before](benchmarks/retained-router-before-final-2026-11-02.json),
+[after](benchmarks/retained-router-after-final-2026-11-02.json).
+
+Final JS1296/99, TypeScript, installed package with Edge GC and HTTP actions4/4
+passed. Installed full retained-UI GC probe holds12 references and collects all
+8 cores/Memory pairs with controls4/0.
+[Receipt](benchmarks/retained-router-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native browser retirement qualification
+
+Retired-router installed artifact passed the full17-case native Chrome156
+history matrix with the prior explicit inter-case pacing. Added retained-ui-gc
+fixture for two independent installed engine copies. It creates/tears down eight
+boundaries and eight routers, retaining40 references (retry functions, router
+objects, readers, navigate methods and guard removers). All16 cores and16 Memory
+collect under bounded natural allocation pressure. Four live controls survive
+held phase; all controls collect after release while40 UI references stay held.
+Every allocation asserts graph0 after public telemetry drains the inactive pool.
+
+[Receipt](benchmarks/retired-ui-browser-qualification-2026-11-02.json).
+Artifact hashes bind both runs to the installed advanced.js revision. No runtime
+change this milestone; scoped diff and builder syntax checks passed. Temporary
+tabs/preview servers closed. Pressure is12 task-separated rounds of16MiB bytes
+plus500k-number array, repeated after control release; no forced/CDP GC used.
+This does not qualify idle cadence, RSS plateau, other browsers, browser SSR
+async carrier, Edge retained-router GC or unpaced continuous history stress.
+
+
+## 2026-11-02 — completed frozen two-hour natural HTTP baseline
+
+Exec85177 exited0. Final elapsed7200032ms;1,232,608 requests =821,739 complete
++410,869 disconnect. No request/cleanup failures, forcedGC0, graph0 after every
+request, all frozen harness/fixture/runtime hashes unchanged. Four quarter
+windows have sufficient observations. Analyzer passed heap16MiB/RSS64MiB/
+external64MiB/ArrayBuffer16MiB growth budgets; neither trough nor peak envelopes
+expanded after warmup relative to the second window. This is observed-envelope
+evidence, not a stationary-distribution or universal memory-bound proof.
+[Receipt](benchmarks/http-natural-frozen-2h-qualification-2026-11-02.json).
+
+That runtime predates shared domains/owner propagation/core selection and later
+UI retirement. It cannot qualify current advanced.js/reactivity.js/wasm-bridge.js.
+Prepared a new immutable harness manifest and launched full7200000ms natural-GC
+qualification on installed consumer LPJBKt, exec86721. All20 runtime JS/WASM
+hashes fixed; same explicit budgets. [Run metadata](benchmarks/http-natural-current-run-2026-11-02.json).
+The earlier24-minute failure remains preserved and its primary cause unresolved.
+Gzip/both-codec/proxy/kernel saturation and long Edge workload remain open.
+
+
+## 2026-11-02 — retained UI callback GC in real workerd
+
+New Edge retained-ui fixture exercises both independently compiled compatible
+copies across16 isolated requests. It unmounts eight failed boundaries and eight
+routers, retaining40 references (retry, router object, reader, navigate and guard
+remover). After every carrier closes, terminal callbacks/readers still satisfy
+their contracts; graph0 is asserted through public telemetry.
+
+The same fixture/driver on the previous installed runtime retains all32 weak
+targets (eight boundary cores/Memory plus eight router cores/Memory). Current
+stable and beta/November workerd collect all32 with references held, alongside
+legacy140 and cross-copy24 targets. Live controls4 survive held phase and collect
+after release; inspector GC commands are acknowledged. The driver includes UI
+inspection in its convergence condition and fails retained-ui-retention even if
+legacy targets pass. Package gate requires exact request/reference/target-kind
+accounting and zero UI targets in both GC phases.
+
+Raw: [before](benchmarks/edge-retained-ui-before-2026-11-02.json),
+[stable](benchmarks/edge-retained-ui-after-2026-11-02.json),
+[beta](benchmarks/edge-retained-ui-beta-2026-11-02.json).
+No runtime change this milestone. This is local workerd+LinkeDOM inspector-GC
+qualification, not deployed Edge, natural cadence/RSS bounds or History API
+support. The new frozen two-hour current-runtime HTTP run remains independent.
+
+Final installed-package gate passed, including mandatory retained UI GC and
+subsequent HTTP/codec probes. Runtime remains byte-equal to prior1296/99 artifact.
+[Receipt](benchmarks/edge-retained-ui-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — preserve live route-table replacement
+
+Review of the retired matcher found a regression introduced by extracting its
+pure closure: routerMatcher captured options.routes once, so replacing the array
+while a router was live no longer affected match/navigation. Added a source and
+installed-package regression; previous artifact passes3 copy cases but fails the
+new fourth route-table case.
+
+The isolated matcher now reads liveOptions.routes for each live match, remembers
+the last observed table and drops liveOptions on disposal. Retired matching uses
+that table without invoking later options getters or retaining the config/guard
+environment. Terminal snapshot/late navigate behavior is unchanged. Full retained
+UI probe still releases all8 core/Memory pairs with12 handles held. README now
+states the live/terminal route-table contract.
+
+First full suite:1296 functional checks passed, synthetic benchmark exceeded its
+unchanged5s limit (6.76s) during host load. Preserved raw; rerunning full suite
+with one worker. A prematurely started package check was intentionally stopped
+to avoid competing with that benchmark and will be rerun after the suite.
+The currently running frozen2h HTTP check remains on named LPJBKt baseline;
+it does not cover this later advanced.js revision.
+
+Single-worker full repeat passed1297/99 with the unchanged benchmark5s limit.
+TypeScript and HTTP actions4/4 passed; final package gate running sequentially.
+
+Final package gate passed:4/4 copy-router cases, Node retained UI0/8 pairs
+with12 references and Edge retained UI0/32 targets with40 references.
+[Receipt](benchmarks/router-route-table-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native browser dynamic route tables
+
+Expanded installed cross-copy browser fixture with two route-table replacement
+cases. In each direction, one copy creates the router, the other RouterView
+renders the initial route, observes the replaced options.routes table and mounts
+the new parameterized component. Previous route cleanup1, new params/DOM,
+terminal matcher after an options getter is made throwing, late navigate=false
+and graph0 are asserted.
+
+Same final fixture on prior installed LPJBKt:17 pass/2 new cases fail. Current
+PSJdXD:19/19 pass in Chrome156 native DOM with prior explicit inter-case pacing.
+Fixture and installed advanced.js hashes verified. No runtime change this
+milestone; scoped diff check passed; both tabs and preview servers closed.
+[Receipt](benchmarks/router-table-browser-qualification-2026-11-02.json).
+Unpaced continuous history stress, other browsers, realms/versions and the
+latest revision's long soak remain open; active frozen2h run still names LPJBKt.
+
+
+## 2026-11-02 — Rust source to installed WASM identity gate
+
+Native locked Rust suite passed53/53 on pinned rustc1.97.1. Two independent
+release/simd128 builds in separate target directories compiled successfully and
+are byte-identical:54320 bytes, SHA256
+9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340.
+Those bytes match the checked-in WASM_BASE64, declared exports, installed public
+core.wasm and installed wasm-binary.js decode/export metadata.
+
+Added check-wasm-provenance.mjs, recording current Rust/lock/toolchain-file hashes
+and exact binary/export comparisons. A valid WASM negative control with an extra
+custom section retains identical exports but is rejected for byte mismatch.
+CI now rebuilds/checks before npm build can regenerate the embedded source, then
+sets SVET_REBUILT_WASM for mandatory installed-tarball verification. Ordinary
+package-only runs can omit it and do not claim Rust rebuild provenance.
+
+CI YAML parsed using Ruby's standard YAML parser (Node/Python YAML packages were
+unavailable). Script syntax/scoped diff checks passed. Remote Linux CI execution
+and cross-host reproducibility are not claimed by these local macOS results.
+Runtime JS/WASM is unchanged from the prior1297/99-qualified revision.
+
+Final installed package gate passed with SVET_REBUILT_WASM enabled, alongside
+Edge inspector GC and existing HTTP/codec checks.
+[Receipt](benchmarks/rust-wasm-provenance-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — compiled Forma AOT factory lifetime
+
+Integration review found module-level AOT _activeInstances retained every created
+instance, including production never-mounted/disposed components. The generated
+factory now creates the registry only for HMR, registers only after successful
+mount, removes on explicit dispose and counts mounted views so one unmount cannot
+unregister another live view. Returned unmount is idempotent and unregisters in
+finally even if underlying teardown throws.
+
+Same final probe before:production module retains8 core/Memory targets and both
+HMR cases fail. After:all3 cases pass,8 targets collect with module held and
+controls4 held/0 released. HMR checks cover never-mounted inactivity, two views,
+repeated unmount, a changed AST rendering Reloaded2 while preserving state2,
+last-view unregister and explicit dispose unregister. The3-case probe is mandatory
+in installed-package gate. JS1297/99, TypeScript and HTTP actions4/4 passed.
+
+Separately, source audit confirms native Studio --svet currently selects metadata
+and shared vector paint_native path, without a packages/svet core adapter. Native
+Studio integration must remain open until a real graph/renderer/lifetime adapter
+is implemented and qualified. [Audit](benchmarks/native-studio-svet-integration-audit-2026-11-02.json).
+The browser .ui AOT path is distinct from that native integration requirement.
+
+Final installed-package gate passed with mandatory3-case AOT lifecycle/GC probe,
+Rust provenance and Edge inspector GC.
+[Receipt](benchmarks/forma-aot-lifecycle-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native C-ABI graph isolation
+
+Native reuse audit found process-wide UnsafeCell<ReactiveGraph> with unsafe Sync
+and no synchronization. Added a sequential cross-thread test: parent creates one
+signal, child must see an empty context. Before it deterministically observes1
+rather than0; calls are serialized around join so the negative test does not run
+the unsynchronized data race itself.
+
+Native C-ABI storage now uses thread_local RefCell<ReactiveGraph>; the shipped
+single-threaded wasm32 path retains its per-instance graph. Independent native
+windows on one thread must own ReactiveGraph values directly. Added concurrent
+8-thread test with256 write/flush/read cycles per thread, own buffer IDs, graph
+isolation and disposal. Native full suite55/55 passed. Rebuilt/re-embedded WASM
+remains54320 bytes with the same exports, new digest
+2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea.
+Provenance guard passes the rebuilt/embedded/runtime comparison.
+
+This is a native safety/context prerequisite, not the native Studio adapter or
+renderer integration. Buffer/ID thread ownership is documented. The active
+frozen LPJBKt2h HTTP run still measures its older immutable artifact and cannot
+qualify this later core revision.
+
+Final55 Rust tests, JS1297/99, TypeScript, actions4/4 and installed package with
+Rust provenance/Edge GC passed. Second independent release build is byte-identical
+to the new embedded and installed binary.
+[Receipt](benchmarks/native-abi-thread-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — owned native graph adapter primitives
+
+Added native-only native::Context using an owned ReactiveGraph, with weak context
+identity and monotonic64-bit allocation serials. Public Node handles validate
+context/kind/lifetime before mutation and implement identity-safe equality/hash.
+Old queued and already-drained jobs cannot execute a recycled observer; reset
+invalidates old slots without reusing serials. Context drop expires weak handles,
+and the owned graph can move between threads independently of thread-local ABI.
+
+Tracking and batch scopes restore on unwind; reset refuses active scopes. Native
+hosts can evaluate nested computed values through Tracking::evaluate, register
+current dependencies, reject recursive/transitive cycles and take deduplicated
+ready effect handles. Host owns values/cache/retry/rendering; partial tracking
+reads commit on unwind, with that policy documented. This is adapter infrastructure,
+not automatic value evaluation, component ownership or native window integration.
+
+Rust suite66/66 passed, including new context/slot/cycle/diamond/unwind cases.
+Native binding example executes Count1→3→10 with one job per batch, dynamic branch
+switch, ignored retired dependency and graph0. Added its execution to CI. wasm32
+example compilation and release provenance checks passed; all20 runtime JS/WASM
+files remain byte-equal to the prior1297/99-qualified artifact. No web runtime
+change, so that qualification remains applicable to those exact files.
+Native Studio graph/renderer/lifetime bridge remains open.
+
+[Owned native context receipt](benchmarks/native-owned-context-qualification-2026-11-02.json)
+binds source/CI hashes to native tests/example and unchanged web artifact evidence.
+
+## Native Forma binding scheduler — 2026-11-02
+
+`vector-ui` now depends on the local Svet Rust crate only on native targets.
+Each opt-in Form owns a Context with one signal/effect pair per live Field.
+Property callbacks notify graph sources; sync drains and re-tracks effects
+before dirtying fields and updating Runtime. Identity-safe job lookup avoids
+slot reuse aliasing; field drop disposes graph nodes and subscriptions. Form
+drop releases its graph even when external Control handles survive. Arbitrary
+wake callbacks run outside the graph RefCell borrow.
+
+117 native library tests pass, including actual Runtime values, two-way input,
+repeat-write dedup, context replacement, reentrant wake, pending backend switch,
+queued binding replacement and retained-Control teardown. wasm32 library check
+passes. The first two-way fixture lacked PointerArea and could not focus its
+editor; adding the real interactive template made the input assertion pass.
+The full final suite includes that assertion. This is typed Form scheduling;
+Studio main/retained Document/window lifecycle integration remains open.
+Evidence: `benchmarks/native-form-bindings-qualification-2026-11-02.json`.
+
+## Native retained Document scheduling — 2026-11-02
+
+Studio `--svet`, F7 backend selection and hot reload now select an owned
+Svet document graph. Each state property has a signal; a structural signal
+handles field removal, and a render effect subscribes to all current fields.
+Runtime synchronizes actual editor/toggle values into Document, reconciles
+signals, drains the render job, rebuilds the scene and transfers the graph
+into the replacement Runtime. Render acknowledgement follows successful scene
+construction; pending work survives failed construction and backend changes.
+Errors from native binding sync are surfaced through the render error channel.
+
+The native library suite passes 119 tests, including real `.ui` compilation,
+two consecutive editor updates, dependent summary text, retained focus, stable
+graph slots, separate runtimes and backend switching. The document-graph test
+covers pending retry and property retirement. Native binary and wasm32 checks
+are recorded separately in the qualification receipt. Shared vector painting
+remains; no independent Svet renderer or interactive window qualification is
+claimed. Next: actual Studio window input/redraw/hot reload/close, auxiliary
+window policy, error recovery and retained-resource evidence.
+
+## Native window presentation qualification — 2026-11-02
+
+A real AppKit window exposed two presentation defects that offscreen GPU tests
+did not cover: unset CAMetalLayer contentsScale magnified/cropped the initial
+Retina scene, and the retained softbuffer sibling covered later Metal frames
+after CPU→GPU switching. Runtime/inspector values changed behind a stale image.
+The Metal shim now sets the current window scale, raises Metal above the CPU
+sibling while GPU rendering is active, and hides Metal on CPU frames/fallback.
+
+Final locked native build was exercised through native UI input: seed→seed1 on
+GPU, seed12 on CPU, seed123 after switching back to GPU; hot reload changed the
+title while preserving state, and further input produced seed1234 in both
+editor and dependent summary. Screenshots confirm pixels, not just a backend
+label. Closing the window terminated the process (pgrep exit1). Three hardware
+GPU tests pass on Apple M4 Max/Metal, including a new retained .ui editor bounds
+probe at DPI1/1.25/2. Existing analytic-text and animation tests remain separate.
+The new probe deliberately avoids comparing independent CPU/GPU glyph AA byte
+for byte; an initial strict comparison differed at fractional DPI.
+
+CUA typeText/paste attempts timed out; direct key events succeeded. Clipboard,
+IME, native accessibility control exposure, injected fallback/device loss,
+multi-monitor DPI, auxiliary windows and long-running resource bounds remain
+open. Qualification: `benchmarks/native-window-qualification-2026-11-02.json`.
+
+## Retained-document error recovery — 2026-11-02
+
+A negative regression proved that state-dependent template errors made native
+sync unrecoverable: the next sync rendered the invalid model before reading
+corrective editor input. Runtime now retains the last committed scene's binding
+map and uses it when preflight rendering fails. Pending render work survives;
+a successful rebuild replaces the cache and acknowledges the graph. Toggle
+reads use the current model rather than the old scene snapshot. Ordinary
+Document callers retain the existing render-and-sync entry point.
+
+Native Studio keeps binding errors separately from presentation errors, so a
+successful GPU redraw of the old frame does not hide a failed template. A live
+window test typed seed1 to trigger Expected scalar text, then seed123 to recover
+both editor and dependent summary without restart; the error title cleared.
+The full native library suite passes120 tests. Recovery runs in legacy and Svet
+modes and across both pending backend switches; repeated toggles, graph bounds
+and restored scopes are asserted. Locked native build, wasm32 check and three
+physical Metal GPU tests pass. Collection reordering, malformed binding metadata,
+partial-write transactions and the wider failure matrix remain open.
+Evidence: `benchmarks/native-binding-recovery-qualification-2026-11-02.json`.
+
+## Atomic native binding updates — 2026-11-02
+
+The negative control proved a partial model write: the first editor committed
+its value before malformed metadata in the second binding returned an error.
+Binding synchronization now stages the root scope and commits only after all
+bindings succeed. Successful sequential/alias semantics are preserved; errors
+leave all scopes unchanged, including an initially empty states vector.
+Runtime restores an uncommitted activation after binding failure, allowing one
+activation to retry after metadata repair without replay after successful commit.
+
+Rendering and recovery share bounded source annotation. Depth64/node16384
+limits are checked before recursively cloning children, avoiding clone-before-
+validation for the structural scene tree. This does not qualify nested Value
+payload depth. Regression cases cover public/cached binding maps, empty states,
+repair/retry, both structural limits and legacy/Svet activation retry through
+two failures. Full library suite123/123, native binary check and wasm32 check
+pass. Source hashes and logs are in
+`benchmarks/native-binding-transaction-qualification-2026-11-02.json`.
+
+Large-model staging cost, multiple newly arriving activations during failure,
+collection identity/reordering, and the full malformed-input matrix remain open.
+No additional window/GPU qualification is inferred from these headless checks.
+
+## Ordered retained-document activations — 2026-11-02
+
+The previous single last-event slot lost all but the last activation while
+binding metadata was invalid. The negative control queued two toggles and
+observed true instead of false after repair. Retained Runtime now records
+keyboard, pointer and direct activations in one ordered queue. A binding batch
+samples current widget values once, then replays activations against staged
+state in capture order. Errors retain the queue; acceptance consumes it once.
+A later render error does not replay already committed activations.
+
+The queue admits4096 activations per runtime. Overflow poisons synchronization
+with an explicit error while leaving the model unchanged; it never commits an
+unknown partial prefix. Hosts can inspect `pending_ui_binding_activations()`
+and explicitly discard buffered events using `cancel_ui_binding_activations()`;
+document replacement also resets interaction state. These host APIs compile
+through wasm-bindgen; no new browser runtime qualification is claimed.
+
+Full library126/126, native binary check and wasm32 check pass. Regressions
+cover1–3 toggles, selected/toggle ordering on shared state, repeated refusals,
+all three activation sources, overflow/cancel/recovery and Svet's no-render
+case when even toggles leave final state unchanged. Snapshot-value semantics,
+collection reorder/reload migration, admission-limit latency and IME/clipboard
+remain open. Evidence:
+`benchmarks/native-activation-queue-qualification-2026-11-02.json`.
+
+## Stable collection binding identity — 2026-11-02
+
+A negative regression proved wrong-recipient mutation: a captured activation
+on item a at runtime index0 updated b after model reorder. Binding routing now
+associates expanded controls with actual widgets by stable control key. New
+controls have no old widget to read; removed controls cannot inherit events.
+
+For cached-scene recovery, For expansion retains the observed item key, its
+expression and evaluation scope. Writes resolve the current index in a root-
+backed collection by that key. Duplicate keys fail before atomic commit. Toggle
+reads use the current item object directly: raw Value::Expr does not parse the
+constructed bracket syntax previously used by the unqualified collection path.
+
+Library130/130, native binary check and wasm32 check pass. Tests cover fresh
+and cached maps, reorder/remove/insert, editor values, repeated activations,
+key ambiguity and native .ui compilation into retained Runtime. The integration
+case reorders items during a failing template, accepts the original activation
+once, then recovers in legacy/Svet modes using a props-dependent key expression.
+Fixture corrections during development added the required Rectangle template
+root and used the supported `for item in ... key ...` source syntax.
+
+Root-backed paths are covered. Nested/derived collections, cross-document event
+migration, component replacement with reused keys, model/widget conflict policy
+and large-model key-search/snapshot costs remain open. This is headless native
+evidence, not an additional window/GPU qualification. Receipt:
+`benchmarks/native-binding-key-qualification-2026-11-02.json`.
+
+## Model/widget value arbitration — 2026-11-02
+
+The negative control showed two writes for one actual widget change: an
+untouched editor overwrote a newer model value. Runtime now retains a last-
+accepted text/range value snapshot. Existing model values are preserved when
+the widget is unchanged; pending widget changes win their binding. Missing
+model paths can still initialize from the widget. Baselines acknowledge only
+a successful atomic binding commit, so metadata refusal preserves input for
+retry and a later rendering failure does not replay an accepted value.
+Acknowledgement reuses stored strings/map entries when possible.
+
+Library132/132 plus five existing runtime allocation tests pass, as do native
+binary and wasm32 checks. Regressions cover text/range, same-field concurrent
+model change, later model updates after acknowledgement, untouched collection
+items across reorder/insertion, and render-error recovery corrected from the
+model in legacy/Svet and pending-switch cases. Those allocation tests do not
+prove zero allocations for document sync. Receipt:
+`benchmarks/native-widget-conflict-qualification-2026-11-02.json`.
+
+This is value-snapshot arbitration, not a revision journal: net edits returning
+to baseline count as unchanged. Multi-owner Documents sharing one Runtime,
+large-model time/peak memory and the full conflict matrix remain open.
+
+## Binding allocation experiment — 2026-11-02
+
+Added `vector-ui/examples/binding_sync_bench.rs`: public Document sync on
+8/32/96 keyed text editors with seven alternating noop/one-edit samples. An
+initial transaction-local key-index cache failed to demonstrate a stable speed
+win and regressed small cases; it was removed. Those A/B/A/B raw results remain
+in `native-binding-sync-analysis-2026-11-02.json`.
+
+The retained change borrows collection data for inspection rather than cloning
+whole lists; a synthetic-member fallback preserves unchanged-field behavior.
+Resolver collections above16384 items are refused before building key context.
+Two isolated source trees built the clone reference and retained variant with
+the same thread-local counting allocator/harness. Repeated counters matched:
+96-editor noop allocations920721→874257; requested bytes116833294→110253175.
+One-edit counts920241→874259 and bytes116767846→110253187. This is about5% fewer
+allocation calls and5.6% fewer requested bytes, not a live/peak/RSS reduction.
+
+Time did not reliably improve. Latest96-editor one-edit median ratios were
+1.004 and1.076; possible latency regression remains open. Instrumentation adds
+overhead, and the existing HTTP soak/host activity continued. No app frame-time
+or GPU/graph throughput result follows. The remaining≈110 MB requested per sync
+is excessive; profile preflight/render vs binding work and redesign shared
+state/scope representation before claiming large-model readiness.
+
+135 library tests and five existing allocation-budget tests pass, along with
+native binary and wasm32 checks. New regressions cover key-changing writes,
+distinct outer local scopes, oversized collection refusal and unchanged virtual
+member preservation. Source archive, hashes, raw data and build logs:
+`benchmarks/native-binding-copy-qualification-2026-11-02.json`.
+
+Reproduce the retained workload from the repository root:
+
+```sh
+CARGO_TARGET_DIR=/tmp/forma-binding-bench cargo run --locked --release --manifest-path vector-ui/Cargo.toml --example binding_sync_bench
+```
+
+Use a quiet host for timing qualification; allocation counters are calling-
+thread cumulative requests and include realloc's requested new size.
+
+## Render-phase allocation attribution — 2026-11-02
+
+The public benchmark now measures render_scene separately before each noop/edit
+pair, using the same thread-local allocator counter. Rendering accounted for
+88–93% of requested bytes on8/32/96-editor Column scenes. Inspection found
+discarded copies: scene expansion cloned props/children before replacing them,
+layout visualization cloned the old children before constructing new ones,
+and root measurement always cloned even without a kind conversion.
+
+Expanded/visual Nodes now construct their final fields directly. Measuring
+borrows the root unless legacy Frame→Column adaptation needs an owned copy.
+State/scope values, public ownership and scene semantics remain the same.
+Native library135/135, allocation5/5 and three physical Metal GPU tests pass,
+plus native binary and wasm32 checks.
+
+Repeated A1/B1/A2/B2 counters agree. On96 editors, render requested bytes
+97090226→83777999 (-13.7%); full noop sync110253175→96940948 (-12.1%) and
+allocation calls874257→774668 (-11.4%). One-edit counters show the same
+reduction. These are cumulative calling-thread requests, not retained/peak
+memory. Time remains inconclusive: one-edit ratios0.741/1.077 and render
+0.607/1.046 under existing host activity; no FPS or stable speed claim follows.
+
+The remaining≈97 MB per sync is excessive. Shared state/scope representation,
+preflight scheduling and larger/Frame-root application workloads remain open.
+Raw data, source archive, hashes and build/test logs:
+`benchmarks/native-render-phases-qualification-2026-11-02.json`.
+
+## Instance override copying and final HTTP audit — 2026-11-02
+
+Instantiation previously cloned all supplied props twice: before group selection
+and again to restore explicit precedence. Only selected keys can have been
+overwritten. The second step now restores that intersection, keeping metadata
+visible without copying unrelated __state snapshots again. Existing snapshot
+selection coverage now also asserts explicit flag/text precedence and an
+expression reading props.__state.caption. Library135/135, allocation5/5, three
+physical Metal GPU tests, native and wasm32 checks pass.
+
+A1/B1/A2/B2 release counts repeat exactly. At96 editors, sync requested bytes
+96940948→90393124 (-6.8%) and calls774668→725708 (-6.3%); render bytes
+83777999→77230175 (-7.8%). One-edit timing ratios0.980/0.899 are local observed
+results under the instrumented workload, not application FPS/p95 qualification.
+The remaining≈90 MB per sync still needs architectural state/scope work.
+Source archive and evidence: native-instance-overrides-qualification-2026-11-02.json.
+
+The LPJBKt frozen HTTP report was already final despite a live-looking legacy
+exec handle. Independent manifest/file hashing and final-report analysis passed:
+918440 requests,7200008ms, zero request/cleanup failures, forcedGC0 and graph0.
+All four caller memory budgets passed; external peak-envelope growth63344093
+bytes is close to the67108864 budget, so no universal plateau claim follows.
+Receipt: http-natural-current-2h-qualification-2026-11-02.json.
+
+Correction to earlier benchmark context: final HTTP measurements ended at
+2026-11-02T00:31:24.645Z. Later copy/render benchmark artifacts were written
+after that completion; the old session handle did not establish active HTTP
+request churn. Do not attribute those timing variations to that soak. Raw
+samples and no-general-speedup conclusions stand. Details are in
+native-benchmark-http-overlap-correction-2026-11-02.json. Historical receipts
+remain intact; this correction supersedes their concurrent-HTTP assumption.
+
+Latest dist differs from LPJBKt in advanced.js, forma.js, svet-core.wasm and
+wasm-binary.js. A fresh2h natural soak now uses frozen harness snapshot-JCOGcm
+and installed09qhPH; all20 artifacts matched latest dist at launch. Its process
+was observed live (pid99442), checkpoint only. Run metadata:
+http-natural-latest-run-2026-11-02.json. Do not qualify it until a final report.
+
+## Borrowed inherited scene scopes — 2026-11-02
+
+Scene expansion now uses Cow for inherited state/props and container child state.
+Read-only traversal borrows; nonempty node-local overlays, scope resolution and
+Let writes detach. Writable For/Let locals and returned __state/key-scope
+snapshots still materialize owned maps. Public Node/Properties/SceneControl
+representation is unchanged.
+
+A new regression renders parent/node/later/inner/later across five controls,
+asserting that node-local and nested Let writes stay local and old returned
+snapshots remain unchanged after model mutation. Native library136/136, five
+existing allocation budgets, three physical Metal GPU tests, native binary
+check and wasm32 check pass.
+
+A1/B1/A2/B2 counters agree exactly. On96 editors, full noop sync requested
+bytes90393124→83842125 (-7.2%) and allocation calls725708→677030 (-6.7%).
+Render bytes77230175→70679176 (-8.5%). These are cumulative calling-thread
+requests, not retained/peak memory or RSS. Timing is volatile/inconclusive;
+latest HTTP checkpoints confirm live request churn during this experiment
+(70472→71648 requests). No app FPS/p95 or quiet-host qualification is claimed.
+
+Owned output snapshots and writable For locals still copy root model data;
+≈84 MB per96-editor sync remains excessive. Further sharing, preflight
+scheduling and large-model memory/latency qualification remain open.
+Evidence: `benchmarks/native-scope-cow-qualification-2026-11-02.json`.
+
+### Native output snapshot transfer — 2026-11-02
+
+`render_scene` consumes positioned instances and moves their owned `__state`
+into `SceneControl` after all template evaluation, including Slider endpoints.
+The metadata remains available to `props.__state` until its last use; returned
+snapshots retain ownership and isolation. No public types changed.
+
+Lib136/136, allocation5/5, native-bin/wasm32 checks passed. Release harness
+A1/B1/A2/B2 on8/32/96 editors produced repeat-identical allocation arrays.
+For96 editors, final-sample public sync requested bytes83,842,125→77,423,306
+(−7.66%), calls677,030→629,318 (−7.05%); render requested bytes
+70,679,176→64,260,357 (−9.08%). These are cumulative allocator requests,
+not peak/live memory. HTTP soak PID99442 was observed live; noisy timings
+do not qualify latency or FPS. Large-model state/For sharing remains open.
+No physical GPU rerun for this ownership-only change.
+[Receipt, raw samples and source archive](benchmarks/native-snapshot-move-qualification-2026-11-02.json).
+
+### Native precomputed visual ownership — 2026-11-02
+
+Consumed precomputed visual nodes now transfer their props through `mem::take`
+instead of cloning both props and the complete node. Serialization rectangles
+are constructed with empty children directly instead of cloning/discarding them.
+Layout, metadata and public snapshot types are unchanged.
+
+Lib136/136, allocation5/5, native-bin/wasm32 checks and physical Metal GPU3/3
+passed. Release A1/B1/A2/B2 allocation arrays match across repeats. On96 editors,
+public noop sync requested bytes77,423,306→76,702,708 (−0.93%), allocation
+calls629,318→621,158; render bytes64,260,357→63,539,759 (−1.12%).
+Requested bytes are cumulative, not RSS/peak. Active HTTP soak and other host
+compilers were observed; no latency/FPS qualification. Shared scopes/For locals
+and redundant preflight remain open.
+[Receipt and raw evidence](benchmarks/native-visual-move-qualification-2026-11-02.json).
+
+### Native dimension measurement without tree copy — 2026-11-02
+
+Dimension measurement temporarily swaps resolved properties into the existing
+visual node, then restores rectangle properties before flattening/serialization.
+Natural dimensions still inspect the complete children; errors return without
+publishing a scene. No dimension-node or resolved-properties clone is needed.
+Lib136/136, allocation5/5, native/wasm32 checks and physical GPU3/3 passed.
+Release A1/B1/A2/B2 allocation arrays repeat identically: on96 editors,
+noop sync requested bytes76,702,708→76,342,937; calls621,158→616,934.
+Render bytes63,539,759→63,179,988. These are cumulative requests, not RSS/peak.
+HTTP soak remains active; no latency/FPS claim. Next candidate is the full
+root-state clone per For iteration, followed by shared scope/preflight work.
+[Receipt and raw evidence](benchmarks/native-dimension-move-qualification-2026-11-02.json).
+
+### Native For local-state reuse — 2026-11-02
+
+For now clones inherited state lazily once, then reuses its local map across
+iterations. Item/index are overwritten; inherited binding key/expression/scope
+metadata are restored before each key evaluation, preventing prior-iteration
+metadata from leaking and preserving nested loops shadowing the same item name.
+Child expansion receives a borrowed map and returned snapshots remain owned.
+New regression checks nested shadowing, outer item restoration, keys, no root
+mutation and old snapshots surviving a subsequent model change/render.
+
+Lib137/137, allocation5/5 and native/wasm32 checks passed. Release A1/B1/A2/B2
+allocation arrays repeat identically. On96 editors, noop sync requested bytes
+76,342,937→70,064,493 (−8.22%), calls616,934→571,052; render requested
+bytes63,179,988→56,901,544 (−9.94%). These are cumulative requests, not
+RSS/peak. Active HTTP soak observed; no latency/FPS claim or new hardware GPU
+qualification this turn. Public snapshot cloning/shared scopes/preflight remain open.
+[Receipt and source archive](benchmarks/native-for-scope-qualification-2026-11-02.json).
+
+### Retained Runtime skips unchanged render preflight — 2026-11-02
+
+Runtime keeps one owned snapshot of displayed document states. When those states
+are unchanged, binding sync borrows the committed scene mapping directly instead
+of rendering templates or cloning the fallback map. Changed states still evaluate
+a fresh map for identity reconciliation; failures use the displayed map and retain
+pending retry. Snapshot advances only after successful Runtime creation. Source
+replacement installs a new Runtime/snapshot. Public Document sync is unchanged.
+
+Model-only changes now request a rebuild in both legacy and Svet, even without
+widget writes. New regression checks actual editor value and subsequent idle.
+Lib138/138, allocation6/6, hardware Metal GPU3/3 and native/wasm32 checks passed.
+96-editor retained idle sync observed141761 allocations (budget<200000); an edit
+rebuilds successfully. This is still substantial; state staging/key resolution
+remain open. One extra model snapshot is retained; peak memory and latency are
+not qualified, and no cross-API speed comparison is claimed.
+[Receipt and sources](benchmarks/native-runtime-preflight-qualification-2026-11-02.json).
+
+### Lazy binding transaction staging — 2026-11-02
+
+Binding transactions borrow root state until the first attempted write, then
+clone once into the private staging map. Only successful complete transactions
+commit the owned map; a read-only sync preserves the original root. Empty-state
+initialization behavior is preserved. Direct unchanged-field presence checks
+borrow actual fields first and retain fallback lookup for synthetic members.
+
+Lib138/138, allocation7/7, native-bin/wasm32 checks passed. New allocation
+regression with one scalar editor and1024 unrelated records observed23 allocations
+(budget<256), then verifies an edit and preserved payload. Retained idle96 editors
+observed141278 allocations: collection-key resolution is still the main open
+allocation path. Existing transaction refusal/error/reorder/conflict tests pass.
+No new GPU or release timing qualification; no peak-memory/latency claim.
+[Receipt and sources](benchmarks/native-lazy-staging-qualification-2026-11-02.json).
+
+### Borrowed scalar collection keys — 2026-11-02
+
+Plain item-member scalar keys now read actual item fields by reference. Full
+evaluator context is created lazily for computed/missing/synthetic keys. Exact
+dotted root/local fields, enum precedence and reserved namespaces disable direct
+lookup; duplicate-key validation and collection limit remain. No index cache.
+New regression mixes direct/computed ids, reverses collection order, and checks
+exact dotted-field precedence still refuses duplicate keys. Existing scoped key
+expressions and key-changing write regressions pass.
+
+Lib139/139, allocation7/7 and native/wasm32 checks passed. The same retained
+idle96-editor workload decreased141278→30494 allocation calls (−78.4%); budget
+tightened to<40000 and passed. Scalar+1024 unrelated records remains23 calls.
+These are debug allocation counters, not release latency/peak memory; scanning
+remains quadratic across controls and complex expressions still clone contexts.
+No new physical GPU qualification this turn.
+[Receipt and sources](benchmarks/native-key-borrow-qualification-2026-11-02.json).
+
+### Collection key string ownership — 2026-11-02
+
+Key encoding borrows text instead of cloning it; duplicate validation consumes
+the encoded key after target comparison. Complete scanning/refusal behavior
+remains. New key-format regression covers UTF8 byte lengths, empty strings,
+typed string/number distinction, negatives and invalid/nonfinite values.
+Lib140/140, allocation7/7 and native/wasm32 checks passed. Same96-editor idle
+allocation workload30494→12062 calls (−60.4%); budget<16000 passes.
+Scalar+1024 unrelated records remains23 calls. Quadratic duplicate scans remain
+open. No release latency/FPS/peak-memory or new GPU qualification claim.
+[Receipt and sources](benchmarks/native-key-strings-qualification-2026-11-02.json).
+
+### Transaction-local direct-key indexes — 2026-11-02
+
+A transaction now builds an index once for each root collection/member path
+whose keys are all direct scalar reads. Full duplicate validation completes
+before publishing the index. Computed keys and scope-dependent expressions do
+not populate it. Every successful model write clears all indexes, preserving
+sequential bindings and immediate key-change validation; no cross-sync cache.
+This differs from the previously rejected general scope cache: no cloned
+contexts or retained invalidation state.
+
+Lib140/140, allocation7/7, native/wasm32 checks passed. Existing key-changing
+write regression confirms new duplicates refuse and roll back; outer local
+scopes, mixed computed keys, reorder and recovery tests pass. Same96-editor
+idle workload12062→1331 allocation calls (−89.0%); tightened budget<2000
+passes. This supports the allocation change, not release latency/FPS or peak
+memory. Complex keys/frequent writes can still rescan quadratically. No new
+physical GPU run this turn.
+[Receipt and sources](benchmarks/native-transaction-index-qualification-2026-11-02.json).
+
+### Release retained Runtime workload — 2026-11-02
+
+`binding_sync_bench --retained` now measures real retained Runtime idle sync
+and an edit including scene rendering and Runtime replacement, separately for
+legacy/Svet and8/32/96/256 editors. Seven samples per case, two sequential
+processes. Each sample validates model/widget values and item count; Svet
+tracking/batch depths return to zero. All allocation arrays repeat identically.
+
+Svet96 steady idle:1816 calls/108377 requested bytes; edit434262/57463805.
+Svet256: idle4771/278501; edit2796021/377214957. Per-run median edit times
+were93.45/95.47ms for256, idle0.403/0.397ms. Legacy256 edit medians
+109.84/94.58ms; these do not establish relative backend performance. HTTP
+PID99442 was observed active. Timing includes allocator instrumentation and
+excludes paint/presentation; no p95/FPS/peak-memory or isolated-host claim.
+
+The results move priority from idle key scanning to owned per-control model
+snapshots and full edit-time scene reconstruction. Interactive readiness at
+256 editors remains open.
+[Receipt, raw results and source archive](benchmarks/native-retained-runtime-qualification-2026-11-02.json).
+
+### Owned layout normalization — 2026-11-02
+
+`normalize_layout_owned` consumes intermediate scene/layout trees instead of
+cloning them again. The borrowed normalization wrapper preserves existing callers;
+scene_visual and position_scene now pass ownership where already available.
+Lib140/140, allocation7/7, native/wasm32 checks and hardware GPU3/3 passed.
+Release retained A1/B1/A2/B2 allocation counters match across repeats. Svet256
+edit requested bytes377,214,957→330,374,486 (−12.4%), calls2,796,021→2,447,329
+(−12.5%); idle unchanged. Timing is highly variable: before117.85/147.87ms,
+after80.62/187.45ms. No speed/FPS/peak-memory claim. Full model snapshots and
+remaining tree copies still prevent large-model readiness.
+[Receipt and raw evidence](benchmarks/native-owned-layout-qualification-2026-11-02.json).
+
+### Owned scene positioning — 2026-11-02
+
+Positioning now consumes expanded Node children recursively. A root/Scroll shell
+retains serialization properties while children move into the positioning pass;
+leaf nodes enter the instance list directly. This removes repeated subtree and
+per-control state snapshot clones without changing public snapshot types.
+Lib140/140, allocation7/7, native/wasm32 and physical GPU3/3 passed. Release
+A1/B1/A2/B2 counters repeat identically for both schedulers at8/32/96/256.
+Svet256 edit requested bytes330,374,486→239,390,366 (−27.5%), allocation
+calls2,447,329→1,775,584 (−27.4%); idle unchanged. Edit median before
+88.47/76.56ms, after57.74/57.39ms in this run. Host non-isolated with active
+HTTP soak: no FPS/p95/peak-memory qualification. Even57ms excludes painting;
+large-model interactive readiness remains open. Precomputed visual and owned
+public snapshot copies remain targets.
+[Receipt and raw evidence](benchmarks/native-owned-position-qualification-2026-11-02.json).
+
+### Precomputed visual ownership through positioning — 2026-11-02
+
+Positioning consumes precomputed visual trees and transfers each leaf to the
+instance list; simple layouts consume visual children too. Measurement still
+reads the same complete visual before moving its children.
+Lib140/140, allocation7/7, native/wasm32 and physical GPU3/3 passed. Retained
+release A1/B1/A2/B2 allocation arrays repeat identically. Svet256 edit bytes
+239,390,366→238,427,731 (−0.40%), calls1,775,584→1,764,576 (−0.62%); idle
+unchanged. Timing before195.28/120.17ms, after153.83/129.59ms is inconsistent
+on the non-isolated host; no speed/FPS/peak-memory claim. Small visual-copy
+benefit confirms per-control state snapshot copies remain the larger target.
+[Receipt and sources](benchmarks/native-owned-visual-qualification-2026-11-02.json).
+
+### Unchanged native scheduler state — 2026-11-02
+
+DocumentGraph reconciliation returns its existing pending flag when model
+states compare equal, avoiding graph re-tracking and another owned snapshot
+on every idle sync. Failed renders still retry until acknowledged. Also fixed
+topology notifications for adding/removing empty scopes: scope-count changes
+now notify even when there are no property signals to add or retire.
+New regression covers empty scope creation/removal, retry and final graph edges.
+Lib141/141, allocation7/7 and native-bin check passed.96-editor allocation
+regression now enables Svet and asserts its idle allocation count equals legacy:
+1331 calls each (previous Svet1816). No new release timing/peak memory or GPU
+claim; native-only module. State equality traversal and edit-time snapshots
+remain open.
+[Receipt and sources](benchmarks/native-idle-graph-qualification-2026-11-02.json).
+
+### Recursive model paths through lists — 2026-11-02
+
+Model reads, borrowed presence checks and mutable collection lookup now traverse
+list indices recursively, preserving exact dotted-object field priority on reads.
+State writes descend into existing lists instead of replacing them with objects.
+Nested synthetic length remains readable but is not a mutable collection target.
+Out-of-range/non-numeric indices do not grow or replace lists.
+
+Lib143/143, allocation7/7 and native/wasm32 checks passed. New regressions cover
+nested reads/writes and unchanged state after invalid list writes. A real Runtime
+built from an IR Document binds to `state.groups.0.items`; after reorder,
+corrective input follows the original item key and preserves the other item.
+This does not qualify compiler syntax/browser/AOT nor nested For collections
+expressed via parent locals (`outer.children`); parent identity resolution stays
+open. No GPU or performance claim.
+[Receipt and source](benchmarks/native-nested-paths-qualification-2026-11-02.json).
+
+### Stable parent identity for nested For bindings — 2026-11-02
+
+Collection paths via parent locals (e.g. `outer.items`) resolve recursively
+through retained parent stable keys into the current root-backed model path.
+Fallback key evaluation receives current ancestor values; direct-key indexes
+remain scoped to the resulting collection path and clear after writes.
+Parent recursion is capped at64 for cyclic/malformed metadata.
+
+Lib145/145, allocation7/7 and native/wasm32 checks passed. Real `.ui` regression
+uses groups with repeated child ids across groups: fresh/cached maps route edits
+correctly after parent+child reorder, ignore removed parents, and refuse duplicate
+parent keys atomically. Cyclic parent metadata regression refuses boundedly.
+This does not qualify shadowed parent names (outer metadata lost, depth refusal),
+derived collections, deep computed-key matrices, browser/AOT or performance.
+[Receipt and source](benchmarks/native-nested-for-qualification-2026-11-02.json).
+
+### Direct parent item-name shadowing — 2026-11-02
+
+When a nested For uses `for item in item.items`, expansion captures the inherited
+lexical parent binding context before replacing item metadata. The resolver
+traverses that context by reference to find the current parent identity instead
+of recursing into the inner item again. Distinct-name loops keep their old path.
+Lib146/146, allocation7/7 and native/wasm32 checks passed. Real `.ui` parent/child
+reorder/removal/duplicate cases now run fresh/cached maps with distinct and equal
+item names (12 cases); a separate three-consecutive-item-level regression edits
+the deepest leaf. Malformed parent cycles still refuse boundedly.
+Owned parent snapshots add copies in shadowing cases: performance not qualified.
+Nonadjacent shadowing/arbitrary lexical chains and computed/derived collection
+matrix remain open. No new GPU/browser/AOT qualification.
+[Receipt and source](benchmarks/native-shadow-parent-qualification-2026-11-02.json).
+
+### Nonadjacent item-name shadowing — 2026-11-02
+
+A new For variable that shadows any inherited item now captures the pre-shadow
+context, even if its immediate collection parent has another name. Parent path
+resolution uses that lexical context for the collection rather than requiring
+the immediate parent name to equal the new item name.
+Lib146/146, allocation7/7, native/wasm32 checks passed. Three-level real `.ui`
+regression covers item/item/item and item/branch/item with reordered root groups
+and repeated mid/leaf ids, both fresh/cached binding maps. Earlier removal,
+duplicate and malformed-cycle tests remain green.
+This is not a complete lexical environment model: later references to earlier
+locals through several shadowings and computed keys require a full scope-chain
+representation/matrix. Parent context copying, derived collections and browser/
+AOT qualification remain open. No performance/GPU claim.
+[Receipt and source](benchmarks/native-nonadjacent-shadow-qualification-2026-11-02.json).
+
+### Flat lexical binding frames — 2026-11-02
+
+Expansion now emits a flat list of lexical binding frames plus active-name
+indexes. Each frame records visible parent indexes at declaration time, its
+collection/key/scope and inherited non-root locals. This replaces recursively
+copied whole-state parent snapshots for new scenes. Parent resolution uses
+the declaration context even when a later variable shadows an earlier name.
+Per-resolution memoization avoids resolving the same ancestor repeatedly;
+parents must point to earlier frames and depth stays bounded. Root-level
+bindings retain their direct-key fast path.
+
+Lib148/148, allocation7/7 and native/wasm32 checks passed. Real `.ui` regression
+accesses earlier `branch.items` after an unrelated `item` shadow and uses
+`item.id + leaf.id` as key; fresh/cached maps preserve identity after group
+reorder. Adjacent/nonadjacent shadow, removal/duplicate and idle budgets pass.
+New malformed-parent-frame regression refuses forward/self references.
+
+This is not final scope qualification: Let/root-name shadowing needs explicit
+lexical tracking, frame locals/public snapshots still copy data, and derived
+collections/deep failure/browser/AOT/performance matrices remain open.
+[Receipt and source](benchmarks/native-lexical-frames-qualification-2026-11-02.json).
+
+### Explicit evaluated Let binding scopes — 2026-11-02
+
+Let writes now retain evaluated lexical values separately from model fields.
+Frames apply them after live ancestor resolution, before inserting their own
+item. Let hides stale same-name For binding metadata; a new For hides same-name
+Let metadata for descendants. Root-level frames with lexical values use the
+lexical resolver too, so root model keys cannot overwrite Let locals.
+Lib149/149, allocation7/7 and native/wasm32 checks passed. IR regression uses
+Let prefix over a root prefix and a compound key; fresh/cached maps keep the
+original target after root prefix changes and item reorder without overwriting
+the new model prefix. Dynamic Let expression reevaluation, Let-derived aliases,
+compiler/browser/AOT and performance matrices remain open. Values here are
+evaluated lexical snapshots, not a completed reactive Let contract.
+[Receipt and source](benchmarks/native-let-scopes-qualification-2026-11-02.json).
+
+### Ordered dynamic Let replay for binding keys — 2026-11-02
+
+Let metadata now records ordered expressions, captured prop scopes and visible
+For parent frame indexes. Binding frame evaluation replays these steps using
+current model state, prior Let results and each step's declaration-time parents.
+Only still-visible lexical values overlay the key evaluation context. Replay
+limits16384 steps and validates parent frames before recursive resolution.
+
+Lib149/149, allocation7/7, native/wasm32 checks passed. Extended IR regression
+covers constant/dynamic prefix followed by dependent suffix, changed model
+prefix and reordered items, fresh/cached maps. Constant Let keeps identity;
+changed dynamic Let changes key, so old input cannot migrate to a new identity.
+Replay currently clones model state per step: no performance/peak-memory claim.
+Let-derived aliases, full error/deep/compiler/browser/AOT matrix remain open.
+[Receipt and source](benchmarks/native-dynamic-let-qualification-2026-11-02.json).
+
+### Let replay transactional retry proof — 2026-11-02
+
+Added a regression with a direct editor preceding a collection editor whose key
+depends on Let replay. Removing the Let model dependency causes repeated refusal;
+the earlier staged editor write does not commit. Restoring the dependency accepts
+both retained edits once, subsequent sync writes zero, and a newer model query
+is not overwritten by an unchanged widget. Fresh/cached mapping paths pass.
+Lib150/150 and allocation7/7 passed; diff check clean. Test-only change, no new
+production behavior or GPU/wasm/performance qualification. IR/native Runtime
+proof only; full compiler/live-window/browser and alias/deep matrices stay open.
+[Receipt](benchmarks/native-let-retry-qualification-2026-11-02.json).
+
+### Reuse Let replay working environment — 2026-11-02
+
+A binding frame now lazily clones its model environment once and reuses it
+across ordered Let replay. Before each step, previous overlay fields restore
+the current model value (or disappear when absent), then prior lexical results
+and that step's live parents overlay it. This preserves step isolation without
+a full model clone for every declaration.
+Lib150/150, allocation7/7, native/wasm32 passed, including sequential dynamic/
+constant keys, nested scopes and failure/retry rollback regressions. No measured
+latency/bytes improvement claimed; one model copy per replayed frame and cloned
+lexical values remain. Derived aliases/deep/compiler/browser matrix stays open.
+[Receipt](benchmarks/native-let-replay-reuse-qualification-2026-11-02.json).
+
+### Validate lexical frame routing headers — 2026-11-02
+
+Binding resolution validates frame count≤64, active index type/finite integer/
+nonnegative/range, matching item name and parent-map type before choosing a
+frame. Partial/malformed lexical metadata now refuses rather than silently
+using legacy flat routing. Maps with neither lexical field remain supported.
+Lib150/150, allocation7/7 and native/wasm32 checks passed. Extended transaction
+regression corrupts cached scene item index to−1 after an earlier editor write
+would stage: whole model remains unchanged. Restoring the original map accepts
+both retained edits once. This proves that failure path, not every malformed
+metadata or external/backend matrix. No performance/GPU claim.
+[Receipt](benchmarks/native-frame-validation-qualification-2026-11-02.json).
+
+### Symbolic origin for direct Let collection aliases — 2026-11-02
+
+Ordered Let replay tracks symbolic model paths for direct member references and
+alias chains. Collection paths resolve via current lexical/parent context, so
+a Let alias that shadows a root field routes to its real model origin. Computed
+values do not gain a writable origin from matching list contents.
+Lib151/151, allocation7/7 and native/wasm32 passed. IR regression covers
+rows=state.items→chosen=rows; For chosen/state.chosen; conflicting root chosen
+field; reordered items; fresh/cached maps. Original item receives the edit and
+root chosen stays unchanged. A literal copied list with identical values has
+no writable origin and leaves model data unchanged. Arbitrary computed/filter/
+map collections, parent-member alias-specific matrix, compiler/browser/AOT/
+window and performance qualification remain open.
+[Receipt](benchmarks/native-let-alias-qualification-2026-11-02.json).
+
+### Parent-member Let alias regression matrix — 2026-11-02
+
+Extended the nested For matrix with Let rows=parent.items, including identical
+parent/child item names.24 cases now cover direct/alias collection, distinct/
+shadowed names, fresh/cached maps, reorder/removal/duplicate parent scenarios.
+The alias resolves the live parent path after reorder, does not target a neighbor
+after removal, and duplicate keys refuse without committing model writes.
+Lib151/151 and allocation7/7 passed; diff check clean. Test-only change.
+The project compiles from `.ui`, then the Let wrapper is inserted into IR: this
+is not source-syntax/AOT/browser or performance qualification.
+[Receipt](benchmarks/native-parent-alias-qualification-2026-11-02.json).
+
+### Source Let siblings inside For — 2026-11-02
+
+Parser syntax is `let rows = outer.items;`. Source fixtures exposed that For
+expansion did not propagate Let to subsequent siblings. Expansion now applies
+Let sequentially, retains composition depth/node charges, and starts a fresh
+inherited scope per iteration when Let siblings mutate it. Non-Let For loops
+retain scope reuse.
+All24 parent binding direct/alias cases now compile directly from `.ui`; no
+IR wrapper injection. A new source regression checks sibling visibility,
+iteration-local values, outside/root isolation and stable keys after reorder.
+Lib152/152, allocation7/7 and native/wasm32 checks passed. Let-bearing For
+performance remains unqualified because inherited state is copied per iteration;
+browser/AOT/live-window and general computed/filter/map origins remain open.
+[Receipt](benchmarks/native-source-let-qualification-2026-11-02.json).
+
+### Shared sequential lexical scene expansion — 2026-11-02
+
+Containers, For, If, selected Match and nested Let now use one sequential child
+expansion helper. Cow-local state propagates Let to later siblings and drops
+at sequence exit. For no longer mutates its inherited iteration map via sibling
+Let; If borrows selected children instead of clone-then-traverse. Let nodes
+retain composition depth/node checks.
+Lib153/153, allocation7/7, native/wasm32 and hardware GPU3/3 passed. New `.ui`
+If/else test uses two dependent Lets and true→false→true transitions, validates
+Runtime construction, branch visibility, outside isolation and unchanged root
+model. Source alias24-case/For iteration/key/error/retry tests remain green.
+No release timing/peak-memory claim; Match-specific complex/deep scenarios,
+derived collections and browser/AOT/window matrices remain open.
+[Receipt](benchmarks/native-sequence-scopes-qualification-2026-11-02.json).
+
+### Source Match scope and binding identity regression — 2026-11-02
+
+Added source `.ui` Match with guarded branch Let prefix/collection alias and
+fallback dependent Lets plus a separate bound model field. Changing the guard
+while an old widget has input makes fresh mapping sync write zero; both model
+fields survive. A new fallback Runtime accepts its edit, then restoring guard
+ignores obsolete fallback widgets and restores original branch keys. Branch
+locals remain absent outside and root prefix is unchanged.
+Lib154/154, allocation7/7 and diff check passed. Test-only change; no new
+GPU/wasm/performance qualification. Cached branch-switch plus render-error and
+full deep/async/browser/AOT matrices stay open.
+[Receipt](benchmarks/native-match-scopes-qualification-2026-11-02.json).
+
+### Current branch identity during failed visual render — 2026-11-02
+
+Reproduced a retained Runtime bug: switching Match while the new branch visual
+fails let the old cached map commit obsolete editor input to the old branch.
+`binding_scene_controls` now expands current branches/keys/state without visual
+instantiation, layout or serialization. Render-error recovery uses this map,
+so live widget keys only match still-selected controls. Structural expansion
+errors refuse and retain document/input instead of authorizing stale-map writes.
+Lib155/155, allocation7/7, native/wasm32 and hardware GPU3/3 passed. New `.ui`
+retained Runtime regression fails before the change, passes in legacy/Svet,
+and checks both models plus the displayed value after repair. Existing corrective
+input/queue/reorder/error tests pass. No release timing/peak-memory/live-window
+qualification; full selection/error/backend matrix remains open.
+[Receipt and failing baseline log](benchmarks/native-branch-recovery-qualification-2026-11-02.json).
+
+### Structural-only changed-model binding preflight — 2026-11-02
+
+Retained Runtime now calls current structural binding expansion directly when
+model state differs from the displayed snapshot. It no longer builds visuals
+as preflight and then rebuilds them after bindings. Visual rendering occurs
+after accepted input; unchanged-model cached mapping is preserved.
+Lib155/155, allocation8/8, native/wasm32 and hardware GPU3/3 passed. New
+allocation regression has96 collection editors plus query editor and Text
+(98 controls): query bad causes a visual error; query ok repairs and rebuilds
+with353598 allocations (budget<450000); next idle avoids rebuild. Existing
+Match/error/key/queue recovery remains green. No measured before/after release
+speed/bytes or peak-memory claim; structural snapshots remain expensive.
+[Receipt and source archive](benchmarks/native-structural-preflight-qualification-2026-11-02.json).
+
+### Binding-map parity and compatible Scroll visuals — 2026-11-02
+
+New18-case parity regression compares structural and rendered map counts/order,
+node ids, keys, full state and event args across Frame/Column/Row/Grid/Stack and
+Column→Scroll→Column, true/false/true branch transitions and reordered items.
+Every generated scene constructs an actual Runtime. Event args are annotated
+in IR after source compilation.
+The test exposed negative y in tall Scroll content: positioning normalized a
+legacy Scroll to Frame but reused a precomputed Scroll visual based only on child
+count. It now also requires matching normalized kind, otherwise recomputes.
+Lib156/156, allocation8/8, native/wasm32 and physical GPU3/3 passed.
+A separate discovered issue remains: explicit width/height on Scroll serialize
+as properties inside Scroll, while the pinned runtime grammar accepts only
+Button children there. Original failure log retained; supported parity fixture
+uses a property-free Scroll. This does not qualify Scroll viewport properties,
+live-window behavior or performance.
+[Receipt and failure log](benchmarks/native-binding-map-parity-qualification-2026-11-02.json).
+
+### Root Scroll viewport lowering — 2026-11-02
+
+Fixed explicit width/height serialization for a sole root Scroll without changing
+the pinned parser. Runtime already expresses one viewport through Frame padding:
+compiler preserves outer Frame dimensions, lowers the centered viewport into
+padding, positions Scroll content in that rect and serializes only controls
+inside Scroll. Root padding participates in available viewport dimensions.
+Viewport extents must fit the content area; unsupported Scroll styling/actions
+refuse rather than silently disappearing. Root Scroll always uses positioning.
+
+Lib157/157, allocation8/8, native/wasm32 and hardware GPU3/3 passed. Source tests
+cover numeric/percentage extents, root padding, unchanged outer size, exact
+scroll clamp for16 rows, hit testing just above/inside viewport and oversized
+refusal. The18-case binding-map parity fixture now uses explicit Scroll extents
+and constructs Runtime successfully. General nested/multiple viewports, empty
+content extent, resize/complex layouts and viewport-specific pixel/live-window
+qualification remain open; no performance claim.
+[Receipt](benchmarks/native-scroll-viewport-qualification-2026-11-02.json).
+
+### Scroll-only layout revision and empty collection — 2026-11-02
+
+Reproduced a layout revision bug: centered viewport width changed while all
+control bounds and outer dimensions stayed equal, leaving layout_revision
+unchanged. Interaction preservation now includes viewport rect and scroll mode
+in layout-change detection.
+Lib158/158, allocation8/8, native/wasm32 and hardware GPU3/3 passed. Retained
+`.ui` regression in legacy/Svet checks width-only resize with stable control
+bounds and advanced revision, offset preservation, clamp212→112 on taller
+viewport, then zero controls/offset after clearing items and idle no-rebuild.
+This qualifies model-driven viewport updates, not OS-window/multi-monitor resize
+or viewport-specific physical pixels. Blank logical content extents and
+multiple/nested viewports remain open.
+[Receipt and failing baseline](benchmarks/native-scroll-resize-qualification-2026-11-02.json).
+
+### Physical GPU Scroll crop reference — 2026-11-02
+
+Added retained `.ui` fixture and independent pixel reference for centered root
+Scroll viewport. On Apple M4 Max/Metal, DPI1/1.25/2 × offsets0/32/64 produced
+9 frames with exact RGBA agreement over96.875% of each frame. Only the scrollbar
+strip inside the viewport is excluded; every outside pixel is checked. Reference
+uses background and two colored rectangle rows with independent crop arithmetic.
+All4 hardware GPU tests passed. Saved9 lossless PNGs; DPI2/offset32 inspected
+visually, confirming red/green crop and no outside leakage. Test-only change;
+other native suites were not rerun. No cross-backend, live-window/resize,
+scrollbar or rounded/fractional-edge mask qualification, and no timing claim.
+[Receipt and PNG hashes](benchmarks/native-scroll-pixels-qualification-2026-11-02.json).
+
+### Fractional-position Scroll center-clip proof — 2026-11-02
+
+New source fixture63×61 yields viewport[32.5,33.5,63,61]. Physical Apple M4 Max/
+Metal reference tests DPI1/1.25/2 and offsets0/32/67. All9 frames match exact
+RGBA on checked pixels (observed≥96.2% per frame); all outside viewport pixels
+are checked. The reference uses physical pixel-center inclusion, matching the
+explicit hard viewport clip contract. Scrollbar and primitive AA edge/seam bands
+are excluded only inside the viewport; no fractional area-coverage/AA blend
+claim. All5 GPU tests pass. Test-only change; other backends/window resize,
+rounded masks and performance remain open.
+[Receipt and per-frame counts](benchmarks/native-fractional-scroll-qualification-2026-11-02.json).
+
+### CPU/GPU fractional AA parity defect reproduced — 2026-11-02
+
+New strict parity test compares complete CPU/GPU frames, including previously
+excluded scrollbar and AA edges/seams. Apple M4 Max/Metal:15/18 cases pass,
+3 fractional cases fail max≤4/255 (max59/53/58); all9 integer cases are exact.
+At logical pixel(32,33), CPU[77,25,38,255] vs GPU[136,17,26,255].
+CPU coarse multisampling and GPU SDF AA produce different corner/seam coverage.
+Current full hardware suite:5 passed,1 failed. Test remains failing to expose
+the defect; no production renderer change or completion claim. Next priority
+is a shared precise rectangle coverage/compositing contract with independent
+area reference, preserving GPU quality rather than quantizing it to CPU samples.
+[Failing receipt and18-case data](benchmarks/native-scroll-renderer-parity-qualification-2026-11-02.json).
+
+### Exact borderless rectangle coverage on CPU/GPU — 2026-11-02
+
+Fixed the reproduced fractional AA discrepancy for zero-radius borderless
+rectangles. Both renderers now integrate exact pixel/rectangle intersection
+area. CPU cache retains fractional boundary values sparsely by original canvas
+index; solid interiors keep palette paint. Rounded/bordered paths are unchanged.
+Test-only uncached CPU reference follows the precise rectangle contract too.
+Independent closed-form GPU/CPU assertions cover a quarter-covered corner and
+7/8 red→1/8 green source-over seam (≤1/255 error).
+Lib158/158, allocation8/8, native/wasm32 and hardware GPU6/6 passed. All18
+complete CPU/GPU frame comparisons pass, max1/255 instead of59/255. The failing
+receipt remains as before evidence. Rounded/bordered AA, fractional frame masks,
+other backends/window matrices and performance/edge-storage cost remain open.
+[Receipt,18-case metrics and before/after sources](benchmarks/native-exact-rect-qualification-2026-11-02.json).
+
+### Translucent rectangle source-over parity — 2026-11-02
+
+Extended complete-frame CPU/GPU matrix with alpha128/255 red/green fills.
+All18 translucent frames match exactly; combined36/36 frames pass, max1/255.
+Independent closed-form references check quarter-covered alpha corner and
+7/8→1/8 alpha seam. All6 hardware tests passed on Apple M4 Max/Metal.
+Test-only change; rounded/bordered shapes, frame-mask translucency and other
+backends/window/performance matrices remain open.
+Latest natural HTTP soak PID99442 separately confirmed live; progress checkpoint
+updated at≈107.7min/1156288 requests. No final report or memory qualification
+is claimed from this checkpoint.
+[Receipt and36-case metrics](benchmarks/native-alpha-parity-qualification-2026-11-02.json).
+
+### Exact square rectangle border coverage — 2026-11-02
+
+Extended precise area coverage to square borders: stroke band is outer rectangle
+area minus inset area. CPU/GPU use the same source-over contract for translucent
+stroke over fill; collapsed inset yields a fully stroked shape. Sparse partial
+edge data keeps solid fill/stroke on palette paths. Rounded shapes unchanged.
+New1.25 border fixtures reproduced CPU/GPU errors up to32/255. After the fix,
+all72 complete-frame comparisons pass max1/255, including alpha128 blue stroke
+and border40 fully covering the shape. Independent quarter-corner reference
+[45,26,70,255] passes for thin/wide borders. Lib158/158, allocation8/8,
+native/wasm32 and hardware GPU6/6 passed. Rounded border AA, sparse-edge cost,
+other hardware/backends/window matrices remain open.
+[Receipt, before log and source archive](benchmarks/native-exact-border-qualification-2026-11-02.json).
+
+### Fresh cross-core tracking and nested observer attribution — 2026-11-02
+
+Built two independent current Vite engines and verified every snapshot source
+hash against the worktree. Current tracking probe11/13 passes. Original foreign
+signal invalidation still fails; new nested regression shows a distinct defect:
+source-core outer observer gets the read while foreign inner observer does not
+(actual runs[2,1], expected[1,2]). Frozen artifact hashes and teardown frame
+registries pass. Engine unchanged this turn; no bridge/readiness claim.
+
+Next implementation must select the active domain frame, bridge via native
+proxy source/observer nodes in the two Rust graphs, and bind lifecycle to
+core/generation/node lifetime. Dynamic deps, reset/dispose/owner retirement,
+computed equality/laziness, batching and cycles need qualification together.
+[Fresh report and source verification](benchmarks/cross-core-current-qualification-2026-11-02.json).
+
+### Active-domain read attribution; cross-core bridge still open — 2026-11-02
+
+Signal/getter and generic tracking now require the active domain frame to match
+the source context. Computed foreign evaluation suspends a paused source-core
+observer even when ambient selection alone is insufficient. This removes the
+wrong outer dependency; target-core invalidation is not implemented yet.
+17 focused tests,1301 JS tests/99 files, TypeScript, package build and installed
+consumer/GC gate passed. Four new regressions cover signal/computed reads and
+throw restoration with graph-zero teardown. Fresh independent-copy probe stays
+11/13: nested actual runs improve[2,1]→[1,1], required full result[1,2] still
+needs native proxy nodes/lifecycle. No latency or complete cross-core claim.
+[Receipt](benchmarks/cross-core-domain-routing-qualification-2026-11-02.json).
+
+### Frozen2h natural HTTP final: external budget failure — 2026-11-02
+
+JCOGcm/09qhPH completed7200021ms with1289120 requests (859413 complete,
+429707 disconnected), request/cleanup failures0, graph after finish0, forcedGC0.
+Harness/fixture and20 installed runtime file hashes independently match launch,
+final and actual frozen bytes. Heap/RSS/ArrayBuffers budgets pass. External
+post-warmup peak growth72409329 bytes exceeds67108864 (64MiB); trough growth
+is3383 bytes. Status needs-investigation, not leak diagnosis or plateau proof.
+This frozen runtime predates the domain-routing fix: current dist differs in
+reactivity.js. No restart or qualification of the new dist was inferred. Need
+external/ArrayBuffers/native allocation correlation and queue/socket lifecycle
+investigation under the unchanged budget.
+[Final qualification](benchmarks/http-natural-latest-2h-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Native cross-core proxy bridge; batching still partial
+
+Compatible copies now forward source changes through a source-core effect and
+an observer-core signal proxy. Both dependency edges remain in native graphs;
+JavaScript transports notifications. Bridge maps are shared weakly across module
+copies; dependencies retire on branch changes, source/observer disposal and
+both-core resets. Source forwarding ownership is detached from suspended owners.
+Computed value versions preserve custom equality, including same-reference
+`equals: () => false` updates. Construction-cycle failure releases bridge nodes.
+
+Independent-copy probe: 13/13 (previously 11/13). Full JS: 1312 passed and one
+explicit expected failure, 100 files. Types, package build and installed consumer/
+GC gate pass. The known expected failure is multi-source cross-core batch
+coalescing: target receives redundant notifications. Dedicated bridge weak-GC,
+browser, mixed-core stabilization and performance qualification remain open.
+Existing installed GC gate is not evidence for every new bridge retention path.
+No new HTTP soak ran; the external-memory budget failure remains unresolved.
+
+Evidence: [qualification](benchmarks/cross-core-bridge-qualification-2026-11-02.json)
+and [independent-copy probe](benchmarks/cross-core-bridge-probe-2026-11-02.json).
+
+
+## 2026-11-02 — Cross-core native batch delivery and in-batch computed freshness
+
+The shared synchronous batch boundary now holds native batches in written foreign
+cores. Proxy writes update native dirty state immediately while target effects
+wait for the outer boundary. Nested compatible-copy batches share this transport.
+Held generations are checked before release and replacement writes; errors drain
+other targets while preserving the primary body/delivery error. Active effect
+flushes retain their own stabilization handling instead of reopening a native batch.
+Cross-core transport feedback has a bounded delivery limit and recovery coverage.
+
+An explicit target-computed read inside a source batch previously returned stale
+cached data. Before trusting its native clock, computed reads now refresh foreign
+boundaries, including boundaries below local computed chains. Signal revisions
+and computed value versions suppress duplicate forwarding after this refresh while
+preserving custom equality. Outside batch, this refresh returns immediately.
+
+Full JS: 1321 passed / 100 files, no expected failures; types, package build
+and installed consumer/GC gate pass. Independent-copy probe expanded to 15/15 with mixed-core nested writes and
+in-batch computed-chain reads. Dedicated bridge weak-GC, arbitrary cross-core
+scheduling/diamonds, real browser qualification and performance remain open.
+No new natural-GC HTTP soak; existing external-memory failure remains open.
+
+Evidence: [qualification](benchmarks/cross-core-batch-qualification-2026-11-02.json),
+[probe](benchmarks/cross-core-batch-probe-2026-11-02.json).
+
+
+## 2026-11-02 — Dedicated cross-core explicit-teardown retention gate
+
+Added `scripts/check-cross-core-retention.mjs` and integrated it into packed
+installed-copy package verification. Two independent compatible copies exercise
+8 iterations of dispose, dynamic branch removal, source reset, target reset,
+throwing batch, and target teardown while a persistent source core stays live.
+All 272 weakly observed teardown targets (cores, WASM memories, payloads and
+buffers) collect. Four generic controls and three active-subscription controls
+remain alive before explicit release, then all collect. Graph counts and a live
+persistent source verify functional teardown rather than GC-only disappearance.
+
+Both standalone frozen-copy and integrated installed-package gates pass. Script
+syntax and scoped diff check pass. No engine source changed in this milestone.
+This is explicit teardown plus forced-GC reachability evidence. It does not prove
+natural-GC memory plateaus, browser collection, abandoned live subscriptions or
+retained public-handle behavior. Both copies' hot context caches are deliberately
+replaced with the live control core before collection. Prior SSR external-memory
+budget failure and browser qualification remain open.
+
+Evidence: [GC report](benchmarks/cross-core-retention-2026-11-02.json),
+[qualification](benchmarks/cross-core-retention-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Three-core diamond delivery in both dependency orders
+
+A three-core fan-out/fan-in regression reproduced duplicate terminal delivery:
+[5,10,10] rather than [5,10]. An implicit shared batch for source-core writes
+with active foreign forwarders fixed one traversal order. Reversing dependency
+read order still reproduced duplication, including explicit batches. Before
+releasing a held native batch, the transport now refreshes its live observers'
+foreign dependency boundaries while native delivery remains suppressed. This
+prevents a terminal observer from invalidating itself during upstream refresh.
+Forwarder counts retire with their bridges; purely local cores retain their
+existing setter path. Writes already inside active effect flushes retain native
+stabilization handling.
+
+Full JS: 1326 passed / 100 files. Focused batch/stabilization matrix: 51 passed.
+Independent-copy probe: 19/19, including explicit/implicit batch × both diamond
+read orders. Types, package build and installed package/dedicated bridge GC gate pass. Dedicated updated-runtime retention
+probe collects all 272 teardown targets with positive controls. Both explicit
+and implicit cross-core feedback limits and recovery have regressions.
+
+Arbitrary scheduling topologies, active-effect fan-out, browser qualification and
+transport overhead remain open. Observer-boundary refresh scans live effect
+registry entries; no throughput or latency improvement is claimed. No natural-GC
+HTTP rerun; existing external-memory budget failure remains open.
+
+Evidence: [qualification](benchmarks/cross-core-diamond-qualification-2026-11-02.json),
+[copy probe](benchmarks/cross-core-diamond-probe-2026-11-02.json),
+[retention](benchmarks/cross-core-diamond-retention-2026-11-02.json).
+
+
+## 2026-11-02 — Initial effect flush preserves cross-core diamond coherence
+
+A source write from an effect rerun passed the three-core diamond regression,
+but effect initialization reproduced a visible intermediate snapshot [5,7,10]
+instead of [5,10]. The initial callback queues native writes without passing an
+external setter delivery boundary. `flushEffects` now opens a shared transport
+boundary when a core has foreign forwarders and no transport is active. All
+source native queue rounds finish before held foreign batches deliver. Source
+flush failures remain primary while held targets are drained in finally.
+Local-only cores retain the existing flush path.
+
+Full JS: 1328 passed / 100 files. Focused cross-core, batch-error and stabilization
+matrix: 53 passed. Independently compiled copies: 20/20, including initial-effect
+three-core fan-out/fan-in. Types, package build, installed package/bridge GC
+gate and updated-runtime explicit-GC probe pass (272 teardown targets collected with positive controls).
+Arbitrary active-effect scheduling, topology combinations, browser qualification
+and transport throughput/latency remain open. No new HTTP natural-GC soak;
+external-memory budget failure remains unresolved.
+
+Evidence: [qualification](benchmarks/cross-core-effect-flush-qualification-2026-11-02.json),
+[probe](benchmarks/cross-core-effect-flush-probe-2026-11-02.json),
+[retention](benchmarks/cross-core-effect-flush-retention-2026-11-02.json).
+
+
+## 2026-11-02 — HTTP external-memory correlation diagnostics
+
+The HTTP soak now records bounded simultaneous diagnostics on memory samples and
+external-memory extrema: active/opened/closed server sockets, readable/writable
+queue bytes, lifecycle traffic totals, active/peak responses, active resource
+kinds, V8 external/malloced/physical allocation and main-core WASM buffer bytes.
+Global and four window peak observations persist even when the 32-row ring wraps.
+Shutdown waits for tracked socket close events before the final diagnostic snapshot.
+Request scheduling, concurrency, GC mode and memory investigation budgets remain
+unchanged; instrumentation overhead is not measured.
+
+Natural 10s smoke: 1512 requests, no failures, zero forced GC. Forced 1s smoke:
+96 requests / 12 GCs. Controlled stats-and-forget failure remains failed, with
+request and cleanup evidence. All three runs verify source/runtime identity and
+finish with zero tracked server sockets/responses and opened==closed. The natural
+smoke's peak external sample had empty server queues; this does not identify the
+allocator or rule out client/native retention. Final package/installed GC gate
+passed and its consumer is preserved. Frozen snapshot-a31cGx runs a 30-minute
+natural-GC diagnostic across the former ~24-minute failure region. No final result
+or two-hour budget qualification is claimed while it is running.
+
+Evidence: [instrumentation qualification](benchmarks/http-diagnostics-qualification-2026-11-02.json),
+[30m manifest](benchmarks/http-diagnostics-30m-manifest-2026-11-02.json),
+[run metadata](benchmarks/http-diagnostics-30m-run-2026-11-02.json).
+
+
+## 2026-11-02 — HTTP diagnostic reports fail closed on accounting/shutdown errors
+
+The soak analyzer now validates v1 socket, response, resource, V8 and main-WASM
+counters, per-window external peak attribution and completed shutdown snapshots.
+Nonzero final server sockets/responses, mismatched open/close counts, malformed
+or negative counters, unsupported diagnostic versions and recorded request/cleanup
+failures refuse qualification. Historical reports without v1 fields retain their
+original duration/budget checks. Running reports never qualify.
+
+Six unittest methods cover successful qualification, five corrupt diagnostic
+variants, both failure arrays, running status, external budget failure and legacy
+duration refusal. Tests pass and their command is added to existing Svet CI;
+remote CI has not run. Current 10-second smoke is refused solely for qualification
+minimum duration. Historical 2h report still fails the unchanged external growth
+budget. Live frozen snapshot-a31cGx remains incomplete, with its process observed
+running; no restart or completed memory claim.
+
+Evidence: [analyzer qualification](benchmarks/http-diagnostics-analyzer-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Malformed HTTP report schema and truncated JSON refusal
+
+Analyzer schema validation now rejects non-object reports, invalid request/count/
+time/array/window types and nonfinite durations before arithmetic. Nested null,
+list or string diagnostic maps return structured investigation issues rather than
+raising AttributeError. Boolean numeric counters and diagnostics versions are not
+accepted as integers. Invalid UTF-8/truncated JSON yields machine-readable
+needs-investigation with exit 2, source/report hashes and no traceback.
+
+Nine unittest methods pass, including malformed nested/top-level values and a real
+CLI truncated-file subprocess. Live frozen progress still analyzes as incomplete;
+the historical 2h report still fails the unchanged external growth budget. Existing
+CI regression command includes these tests. No engine source or frozen live-soak
+artifact changed, and no memory-cause/completion claim is made.
+
+Evidence: [qualification](benchmarks/http-analyzer-schema-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Retained root Scroll preserves empty logical layout extent
+
+Runtime content extents previously came only from control leaves, dropping an
+explicit-height empty layout. Positioning now collects logical layout end bounds
+and passes optional root-Scroll metadata through the internal retained Document
+render path. Runtime load/rebuild applies it before preserving interaction and
+clamping offsets. Logical content-size changes also increment layout revision,
+including when controls and viewport stay identical. No fake controls are added;
+legacy scene grammar remains unchanged.
+
+159 lib tests and 10 allocation-budget tests pass; native-bin and wasm32 library
+checks pass. All6 explicit hardware GPU tests pass, including existing full-frame
+rectangle/border parity. New regression covers empty512/900/200-high layouts;
+retained legacy/Svet regression now preserves fixed-height content after controls
+are removed, then clamps offset to0 when the model shrinks that height.
+
+Scope is retained `.ui` loading/rebuild with sole-root Scroll. Public legacy
+render_scene tuple/raw scene transport does not carry the optional metadata;
+nested/multiple viewports, horizontal/general empty-layout matrix and OS-window
+qualification remain open. No throughput claim. Frozen HTTP diagnostic continues
+on its independently captured files, not these native sources.
+
+Evidence: [qualification](benchmarks/native-logical-scroll-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Public Rust scene artifact and Form logical bounds transport
+
+Added owned `SceneArtifact` (source, templates, control mappings and optional
+logical content end), `Document::render_scene_artifact` and
+`Runtime::from_scene_artifact`. The constructor validates finite nonnegative
+extents and refuses metadata on a non-Scroll scene. Form::sync now uses this
+artifact, closing its separate loss of empty-layout bounds on rebuild.
+
+159 lib, 10 allocation and 2 external/public API integration tests pass. Native
+binary and wasm32 library checks pass. Public API tests cover empty Scroll extent
+roundtrip, zero phantom controls, ordinary scenes, invalid metadata and both
+legacy/Svet Form sync. Existing typed retained Runtime path remains supported.
+No renderer code changed or hardware GPU/performance qualification claimed here.
+The artifact is Rust-native; raw text tuple/scene strings and JSON/JavaScript wire
+transport still lack this metadata. Nested/multiple viewports and general layout
+matrix remain open. Frozen HTTP diagnostic is not modified by these source edits.
+
+Evidence: [qualification](benchmarks/native-scene-artifact-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Versioned scene JSON and executed WASM compile/load boundary
+
+SceneArtifact now supports protocol `forma-scene-artifact/1` JSON with source,
+templates, typed control mappings and required optional logical-content bounds.
+Serde tags preserve Text versus Expr, AST/interpolation/node variants, internal
+binding metadata and event arguments rather than using the older lossy state-JSON
+helper. Nonfinite Value::Number cannot serialize silently as null. Unknown top-level
+fields, unsupported protocols, missing/malformed/negative bounds refuse decoding.
+
+Rust `load_scene_artifact_native` and WASM `load_scene_artifact` construct the next
+runtime before swapping, preserving current state/offset/revisions on refusal.
+Successful load advances cache revisions. WASM static `compile_ui_scene_artifact`
+compiles UI source and generates the complete transport in Rust. Added serde derive
+dependency and refreshed both example lockfiles using offline metadata.
+
+159 lib, 10 allocation and 5 public integration tests pass; native-bin and wasm32
+checks pass. Built actual wasm32 module, generated NodeJS ABI with wasm-bindgen
+0.2.125 and executed the committed `tests/check-scene-artifact-wasm.cjs` gate.
+JavaScript→Rust compilation→JSON→WASM load preserves empty512-height content and
+212 scroll offset; malformed/version/negative extent refusal preserves the old
+runtime, and valid reload increments layout revision. This is real NodeJS WASM
+execution, not browser/DOM/window qualification. Legacy raw markup still needs the
+artifact channel for metadata; nested/multiple viewports remain open. No new GPU
+or performance claim. Frozen HTTP diagnostic is independent and remains running.
+
+Evidence: [qualification](benchmarks/native-scene-json-qualification-2026-11-02.json),
+[actual WASM result](benchmarks/native-scene-json-wasm-runtime-2026-11-02.json).
+
+
+## 2026-11-02 — Actual browser scene-artifact WASM qualification
+
+Generated browser ESM/WASM bindings and ran the committed
+`tests/scene-artifact-browser.html` in the in-app Chromium browser (UA Chrome156).
+All5 cases pass: Rust compile→JSON→browser load, empty-layout212 offset/viewport,
+atomic bad version/JSON/extent refusal, CPU frame sizes at1/1.25/2 scales, and
+valid shrink/reload cache revision. Scrollbar movement changes3720 byte channels,
+with zero changes outside the viewport. The Canvas2D frame and page's passed
+report were visually inspected; the browser posted its result to loopback host.
+`tests/serve-scene-artifact-browser.mjs` binds fixture/module/WASM hashes at launch
+and refuses changed served artifacts. Saved result hashes independently match all
+three served files and the committed fixture. No Rust/runtime code changed here.
+
+Scope: actual Chromium browser ESM/WASM plus CPU raster/Canvas2D. Other browser
+engines, browser GPU, HMR, IME and OS-native windows remain open. QA tab and both
+owned temporary servers closed. Frozen30m natural-GC HTTP diagnostic is left
+running on its independent artifacts; no completed memory result is claimed.
+
+Evidence: [browser report](benchmarks/native-scene-browser-2026-11-02.json),
+[qualification](benchmarks/native-scene-browser-qualification-2026-11-02.json).
+Reproduce after wasm-bindgen --target web: copy tests/scene-artifact-browser.html
+as index.html in generated directory, run tests/serve-scene-artifact-browser.mjs
+with that directory and output JSON path, then open its printed localhost URL.
+
+
+## 2026-11-02 — Scene mapping/rendered-control consistency gate
+
+Runtime::from_scene_artifact previously accepted control mappings that disagreed
+with the actual scene leaves, including a synthetic mapping on an empty scene.
+The constructor now checks mapping count and every key in order against the
+parsed/linked runtime controls before any swap. Missing, extra, reordered or
+renamed mappings refuse; load_scene_artifact_native preserves the old runtime.
+The typed-value serialization test is explicitly separated from authorization to
+load a nonexistent control, rather than treating that mismatched fixture as valid.
+
+159 lib, 6 public integration and 10 allocation tests pass. Native check and wasm32
+build pass. Regenerated Node WASM ABI and reran the committed JS gate: ghost
+mapping refusal preserves live viewport/offset/cache revision. No render code
+changed; the previous Chromium report predates this validation-only change.
+Node/state metadata is not authenticated source provenance, and duplicate equal
+keys remain governed by separate binding ambiguity checks, not this constructor.
+Frozen HTTP diagnostic remains independent and running.
+
+Evidence: [qualification](benchmarks/native-scene-mapping-qualification-2026-11-02.json),
+[actual WASM](benchmarks/native-scene-mapping-wasm-2026-11-02.json).
+
+
+## 2026-11-02 — Remove discarded square coverage and restore no-reveal interior bypass
+
+RasterCache previously computed four rounded-distance samples for radius0 and
+then overwrote their coverage with exact rectangle area. The supersampling is
+now only in the rounded branch. Reveal processing still follows either branch.
+Also, the no-reveal case was treated as non-default reveal bounds, setting
+safe_inset to f32::MAX and disabling the uniform interior fast path. Absence of
+reveal now allows the safe interior bypass; custom reveal bounds keep their
+previous conservative path.
+
+159 lib and 10 allocation tests pass, as do all6 explicitly run hardware GPU
+tests, including the existing72-case full-frame rectangle/border comparison and
+independent crop/fractional viewport/glyph references. Native binary and wasm32
+library checks pass. This establishes tested raster correctness after removing
+work; it does not establish FPS, release latency or peak-memory improvement.
+Live HTTP churn is still running, so no quiet-host benchmark is claimed.
+Rounded-border AA and other backend qualification remain open.
+
+Evidence: [qualification](benchmarks/native-square-cache-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Opt-in request core and WASM-memory finalization accounting
+
+Added an optional fixture onCore observer and `SVET_SOAK_CORE_LIFETIMES=1` harness
+mode. A FinalizationRegistry registers each request core and its WASM memory,
+retaining only kind/initial-byte-count tokens. Diagnostics expose created/finalized,
+pending memory counts and registered-byte totals/high-water counts without WeakRef
+polling or forced GC. Default0 leaves lifetime tracing disabled. Registered bytes
+exclude subsequent memory growth, and pending includes callback scheduling lag.
+
+Natural10s smoke:1936 requests,0 forced GC. Peak external125093210 bytes co-occurred
+with96 unfinalized memory callbacks /106954752 registered bytes; final pending
+count8 after1928 finalizations. Forced1s smoke:168 requests,21 GCs, all168 cores/
+memories finalized by shutdown. Disabled natural smoke:200 requests, no lifetime
+fields. Identity and gzip HTTP compatibility gates pass, as do source/runtime
+identity and zero tracked server sockets/responses at shutdown. No retained-target
+or stationary-memory claim follows from this short diagnostic. Tracer overhead
+is unmeasured. Main frozen snapshot-a31cGx was not modified/restarted and has
+passed the old24-minute region without an observed request failure; final pending.
+
+Evidence: [qualification](benchmarks/http-core-lifetimes-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Frozen30m HTTP diagnostic completed; two-hour admission still open
+
+snapshot-a31cGx completed359048 requests in1800017.990417ms with0 forced GC,
+request/cleanup failures and post-request graph nodes. All119699 server connections
+closed, final tracked sockets/responses0. Harness/fixture/final identities and all20
+installed runtime file hashes independently match manifest and actual bytes.
+Post-warmup peak growth:heap1289736,RSS132416,external22798185,ArrayBuffers1524028
+bytes, within unchanged16/64/64/16MiB budgets. Analyzer correctly returns
+needs-investigation solely for the unchanged7200000ms qualification minimum.
+Former~24-minute failure did not reproduce. This is30-minute diagnostic evidence,
+not two-hour qualification, stationary memory or a fix for historical external
+budget failure. The process is terminal; do not restart from a stale tool handle.
+Next allocation investigation needs frozen lifecycle tracing; current short-run
+finalizer correlation is only a hypothesis.
+
+Evidence: [final qualification](benchmarks/http-diagnostics-30m-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Frozen traced2h natural-GC run launched with accounting guards
+
+Started snapshot-Nv0ST2 against preserved installed package, natural GC,
+SVET_SOAK_CORE_LIFETIMES=1 and7200000ms requested duration. Manifest sources and
+all20 runtime files independently match frozen, installed and current dist bytes.
+Process58568/session76033 observed live with running progress and0 forced GC.
+Final report is pending; do not treat progress as qualification or restart from a
+transient tool observation failure. Tracing overhead has not been measured.
+
+Analyzer now checks optional lifetime-counter types and created/finalized/pending,
+registered/finalized/pending bytes, peak pending and successful request allocation
+accounting. Ten unittest methods pass; eight corrupt counter/missing/count
+variants refuse qualification. Real short traced smoke refuses only for duration;
+live traced report remains incomplete. Existing CI command includes these tests.
+Budgets16/64/64/16MiB and two-hour minimum remain unchanged. Historical external
+budget failure is still unresolved.
+
+Evidence: [run](benchmarks/http-core-traced-2h-run-2026-11-02.json),
+[accounting qualification](benchmarks/http-core-traced-accounting-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Oversized Scroll content remains reachable from its leading edge
+
+A512-wide empty Row inside a320-wide Scroll was centered at a negative origin;
+only96 horizontal units were scrollable instead of192, making its leading half
+unreachable. Scroll positioning now clamps negative centering offsets to0 for
+both nested layout containers and leaf controls. Smaller content remains centered;
+non-Scroll positioning keeps its prior alignment. Logical bounds then capture the
+complete positive overflow rather than only the visible-side half.
+
+159 lib, 8 public integration and10 allocation tests pass. Empty Row/Column/Stack/
+Frame/Grid512x600 fixtures reach192x300 offsets and return0. A wide TextInput
+starts at20,50 viewport origin and retains full reachable extents. All6 explicit
+hardware GPU tests pass, including existing full-frame/crop/fractional references.
+Native and wasm32 checks pass. Rebuilt actual WASM/Node ABI and executed oversized
+compile→JSON→load, both-axis max offsets and return-to-origin checks.
+
+Nested/multiple Scroll viewports, arbitrary overflow/direction matrices and browser
+interaction remain open. No timing claim; browser artifact report predates this
+positioning change. Frozen2h traced HTTP process remains independent and running.
+
+Evidence: [qualification](benchmarks/native-scroll-horizontal-qualification-2026-11-02.json),
+[actual WASM](benchmarks/native-scroll-horizontal-wasm-runtime-2026-11-02.json).
+
+
+## 2026-11-02 — Cross-core computed failures retain subscriptions and recover
+
+Forwarding effects previously threw before a target could handle a foreign
+computed failure. Initial failure also closed the bridge, permanently losing
+notifications for a target that caught the error. Forwarding evaluation now
+retains native dependency tracking through failures, records failure epochs and
+invalidates target proxies for error/recovery transitions. Target getters still
+throw the original computation error for user handling. Same-epoch failed refresh
+avoids duplicate notifications; recovery invalidates even if the prior successful
+computed value is unchanged. No exception object is retained as transport state.
+
+Full JS1332/100 files pass, independently compiled copies22/22 pass, types/package
+build and installed consumer/bridge GC gates pass. Tests cover initial/later errors,
+same-value recovery, target computed chains, uncaught error propagation/recovery,
+caller tracking and empty graph teardown. An old failure-path isolation expectation
+was updated to the cross-core dependency contract; its local tracking restoration
+assertion remains.
+
+Frozen2h snapshot-Nv0ST2 remains live on previous runtime. Its installed bytes were
+not modified; current dist differs by reactivity.js only. That allocation diagnostic
+cannot qualify this new runtime revision. Browser/mixed failure topology and
+performance qualification remain open; no external-memory fix is claimed.
+
+Evidence: [qualification](benchmarks/cross-core-error-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Bridge failure-path explicit-teardown GC coverage
+
+Expanded independent-copy retention probe from6 to9 scenarios: foreign computed
+failure after success, initial failure handled by target, and uncaught initial
+target-effect construction failure that returns no handle. Exceptions capture the
+tracked payload and are themselves weakly observed. Recovery is exercised before
+teardown where a handle exists; the constructor failure must leave no observer
+running when the source recovers.
+
+Standalone frozen-copy forced-GC proof collects440 teardown targets (previous272),
+including24 exception objects from the new scenarios. Four generic controls and
+three active-subscription controls survive while held, then collect on release.
+Both graphs are empty after each tested teardown. Installed package gate now
+requires9 cases and440 collected targets; the complete installed package gate passed. This remains explicit teardown plus
+forced-GC reachability, not natural-GC plateau, retained-user-handle or browser-GC
+qualification. No runtime source changed; the two-hour natural-GC diagnostic keeps
+running on its prior independent snapshot.
+
+Evidence: [retention report](benchmarks/cross-core-error-retention-2026-11-02.json),
+[qualification](benchmarks/cross-core-error-retention-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Cross-core error/recovery in actual Chromium DOM
+
+Added cross-core-errors browser fixture and snapshot-builder option. It exercises
+two independently compiled modules/native cores and observable DOM values after
+later/initial computed failure and same-value recovery. A three-core error diamond
+produces0/error/10 once; root teardown retires its bridge and a retained DOM button
+callback. Both main graphs and the third core are empty after tested teardown.
+
+Actual in-app Chromium156 passes5/5 from current sources and5/5 from two copies
+of a freshly packed/installed tarball. Full installed package/GC gate passed.
+Browser raw-results JSON was read via DOM after observing passed status and
+recovered value7 panels. All build artifact hashes independently verified; installed
+runtime files match current dist byte-for-byte. Preserved consumer HBE6XC is kept.
+No runtime code changed in this milestone. QA tab and both owned preview servers
+closed; frozen2h HTTP allocation diagnostic remains live on its older runtime.
+Other browser engines, HMR, browser-GC, arbitrary topology and deployed providers
+remain open. This is browser DOM behavior evidence, not a throughput qualification.
+
+Evidence: [qualification](benchmarks/cross-core-error-browser-qualification-2026-11-02.json),
+[source report](benchmarks/cross-core-error-browser-source-2026-11-02.json),
+[installed report](benchmarks/cross-core-error-browser-installed-2026-11-02.json).
+
+
+## 2026-11-02 — Real installed-package Vite HMR exposed stale Forma listeners
+
+Added isolated real Vite server/file-write runner using the installed compiler
+plugin and two mounts of one.ui instance. Initial run failed after the first true
+HMR update: a retained old button still incremented state7→8. Forma registered
+click and two-way input listeners directly without removing them on view teardown.
+Named handlers now unregister through owner onCleanup. Direct listeners preserve
+existing detached-container interaction semantics.
+
+New jsdom regression covers stale click/input after hotReload, idempotent partial
+unmount and live sibling interactions. Full JS1333/101 files, types, build and
+fresh installed consumer/GC gate pass. Actual Chromium Vite HMR now passes5/5:
+precompiled UI AST,4 real file changes/afterUpdate events, state7 preservation,
+constant11 graph nodes through two-view updates, stale callbacks retired, partial
+unmount preserving the other view, final graph0, post-dispose update cannot revive
+it. The failed-before browser report remains preserved. QA tab and both isolated
+Vite servers closed; fresh consumer NMaqTq retained.
+
+This is real dev HMR, not a mocked hot context. ProductionAOT async/error recovery,
+other browser engines and direct instance.dispose with still-mounted views remain
+open. No HMR latency claim. Frozen2h HTTP snapshot remains independent on older
+reactivity.js/forma.js and cannot qualify current dist.
+
+Evidence: [qualification](benchmarks/forma-real-hmr-qualification-2026-11-02.json),
+[browser result](benchmarks/forma-real-hmr-2026-11-02.json),
+[failed baseline](benchmarks/forma-real-hmr-before-2026-11-02.json).
+
+
+## 2026-11-02 — Direct Forma instance disposal retires active views
+
+Regression reproduced10 native nodes after instance.dispose where only1 external
+ViewModel signal should remain. Instance now tracks rendered-view effects/roots
+and mounted-view handles, retiring them before owned state. Render cleanup removes
+its nodes and anchor; mount unmount is idempotent and no longer clears arbitrary
+replacement content. Instance disposal is idempotent. New mount/render/HMR,
+snapshot restoration and event registration refuse a disposed instance; external
+caller-owned model signals remain live. Direct render outside a mount is tracked.
+
+1334 JS tests/101 files, types/build and fresh installed consumer/GC gate pass.
+Unit regression exercises2 mounts plus1 direct render, stale events, external
+signal ownership and late handle behavior. Installed AOT gate now checks graph0
+before handles unmount. Actual Chromium Vite HMR passes5/5 with4 file updates:
+state7/graph11 remain stable across replacements; direct dispose clears mounted
+DOM/graph, late unmount preserves replacement text, and post-dispose HMR cannot
+revive the instance. Fresh consumer ZRGNEB matches current runtime bytes. QA tab
+and owned Vite server closed; two-hour traced HTTP process remains independent.
+
+Reentrant disposal during render, failing initialization, pending async/error HMR
+and other browser engines remain open. No public-handle GC or latency claim.
+Frozen HTTP run predates current forma.js/reactivity.js and cannot qualify them.
+
+Evidence: [qualification](benchmarks/forma-direct-dispose-qualification-2026-11-02.json),
+[actual HMR](benchmarks/forma-direct-dispose-hmr-2026-11-02.json).
+
+
+## 2026-11-02 — Failed child view creation retires state and restores live key maps
+
+Failed child mount/render reproduced8 nodes against parent baseline5: child cleanup
+was registered only after rendering. Registration now occurs immediately after the
+factory returns, before synchronization/event wiring/rendering. Per-view key maps
+publish on successful creation; failed extra views restore the prior live map, and
+unmount restores a remaining sibling map instead of exposing retired DOM entries.
+
+Regression covers failed mount/render, empty partial-key lookup, successful retry,
+valid sibling DOM/key preservation and final graph0. Full JS1337/101 files passes
+with maxWorkers2. Initial default-concurrency run had a benchmark5000ms timeout;
+the deadline was not changed. Types/build and installed package/GC gate pass.
+Actual Chromium installed-package Vite gate passes7/7 with4 real file updates,
+including both child-failure retry paths and prior HMR/direct-dispose cases.
+Whitespace-only final cleanup rebuild emits runtime bytes equal to the tested
+installed consumer xzJ18u. QA tab and isolated server closed.
+
+This does not provide rollback of an already-mounted view on HMR render errors.
+Factories throwing before returning an instance, reentrant disposal, async errors,
+other browser engines and performance remain open. Frozen2h HTTP run continues
+independently on older runtime bytes; no current-runtime soak claim.
+
+Evidence: [qualification](benchmarks/forma-child-failure-qualification-2026-11-02.json),
+[browser](benchmarks/forma-child-failure-browser-2026-11-02.json).
+
+
+## 2026-11-02 — Reentrant parent disposal refuses unfinished initial mounts
+
+Regressions showed mount returning successfully after parent.dispose inside a
+child factory or child.render. Live-instance guards now stop AST/child construction
+after disposal. Mount retirement is registered before DOM insertion, and insertion
+plus final liveness check retire an unfinished mount on failure. This also handles
+a custom element connectedCallback synchronously disposing the parent.
+
+1340 JS tests/101 files pass with maxWorkers2; types/build and fresh installed
+package/GC gate pass. Actual installed-package Chromium Vite fixture passes10/10
+with4 updates. The3 new initial-creation disposal paths refuse mount and leave
+empty DOM/graph0; prior failure/retry, sibling view, state-preserving HMR and
+post-dispose cases remain green. Tested installed consumer1g5Ox0 matches current
+runtime bytes. QA tab and isolated Vite server closed; frozen2h HTTP process stays
+live on independent previous runtime.
+
+Reentrant disposal while replacing an already-mounted HMR view needs separate
+coverage. Factories throwing before returning a handle, atomic bad-HMR rollback,
+async/pending errors and other browser engines remain open. No throughput or
+current-runtime soak qualification follows from this milestone.
+
+Evidence: [qualification](benchmarks/forma-reentrant-qualification-2026-11-02.json),
+[browser](benchmarks/forma-reentrant-browser-2026-11-02.json).
+
+
+## 2026-11-02 — Retired mounted-view owner releases late-returned child
+
+A mounted view updating through hotReload could dispose its parent inside the
+child factory, closing the current view scope before the factory returned. Late
+onCleanup registration was ignored and3 child signals remained. The renderer now
+captures the creation owner and explicitly disposes the returned child when that
+owner or parent is retired before cleanup registration. The same rule handles
+unmount without terminalizing the parent instance; a later mount succeeds.
+
+1342 JS tests/101 files pass with maxWorkers2 after build finished. An earlier run
+was invalid: build-package removed dist while node-server-entry imported index.js.
+That orchestration race is preserved; valid rerun changed no deadline/test contract.
+Types/build and fresh installed package/GC gate pass. Actual Chromium fixture
+passes12/12:2 new public hotReload API disposal/unmount cases plus prior creation,
+retry/dispose and4 real Vite happy-path file updates. Installed consumer e2Zh3P
+matches current runtime bytes. QA tab and isolated Vite server closed.
+
+Factories throwing before return, arbitrary getter/reset/reentrant callbacks,
+atomic failed-HMR rollback and cross-instance accept-error isolation remain open.
+No other-browser/performance or current-runtime natural-GC qualification. Frozen2h
+HTTP diagnostic stays live on its independent prior bytes.
+
+Evidence: [qualification](benchmarks/forma-retired-owner-qualification-2026-11-02.json),
+[browser](benchmarks/forma-retired-owner-browser-2026-11-02.json).
+
+
+## 2026-11-02 — Cached HMR factory AST and cross-instance error isolation
+
+Generated module tests exposed two failures: an importer retaining createView
+created the original AST after a no-owner update, and one instance hotReload
+exception aborted the accept loop before healthy instances updated. Generated
+HMR modules now share currentAst through hot.data even with no mounted instances.
+Production keeps the explicit compileFormaAst(uiAst,options) branch. Accept takes
+a registration snapshot, updates shared AST first, skips retired entries and
+rethows the first error after draining remaining instances. Newcomers created
+inside a callback initialize from latest AST and are deferred from that traversal.
+
+1342 JS tests/101 files pass (maxWorkers2), as do types/build and fresh installed
+package/GC gate. Generated-module lifecycle gate expanded3→5 cases, preserving
+production core/Memory GC proof. Actual Chromium installed-package fixture passes
+14/14: cached old importer createsv5:1 after no-owner update; a controlled failing
+instance leaves its ownv5 while healthy reachesv6; restoring its callback and real
+file update7 brings both tov7. Six file changes produce5 successful afterUpdate
+events and1 intentionally forwarded/logged Vite rejection. Final graphs0. Tested
+consumer Rq18ka matches current runtime bytes; QA tab/server closed.
+
+No atomic rollback for arbitrary partial render failure is established. Invalid
+semantic modules, async work, other browsers and performance remain open. Frozen
+2h HTTP diagnostic is independent and predates current runtime changes.
+
+Evidence: [qualification](benchmarks/forma-hmr-factory-qualification-2026-11-02.json),
+[browser](benchmarks/forma-hmr-factory-browser-2026-11-02.json),
+[before](benchmarks/forma-hmr-factory-before-2026-11-02.json).
+
+
+## 2026-11-02 — Semantic-invalid HMR admission and inline contracts
+
+Inline annotations were ignored by line-based parsing/validation; baseline failed
+its validation assertion before HMR acceptance. Shared quote-aware token reading
+handles inline contracts and quoted closing brackets, ignores text/comments in
+validation, and refuses unclosed tokens. Generated HMR rejects invalid validation
+before shared AST or instance mutation.
+
+Contract4/4, full JS1346/102 files(maxWorkers2), types/build, installed package/GC,
+generated lifecycle6/6 and actual installed Chromium Vite15/15 pass. Update8
+preserves exact button/state/graph/cached factory; valid update9 reaches v9:10.
+Eight file changes yield6 successful afterUpdate events and2 deliberate rejections.
+Installed consumer yDwVPb package runtime bytes equal dist/package. QA tab/server
+closed. Arbitrary partial-render rollback, malformed grammar, async lifecycle,
+other browsers and performance remain open. Frozen2h HTTP diagnostic is separate
+and predates these runtime changes.
+
+Evidence: [qualification](benchmarks/forma-hmr-validation-qualification-2026-11-02.json),
+[browser](benchmarks/forma-hmr-validation-browser-2026-11-02.json).
+
+
+## 2026-11-02 — Refuse malformed known contract arguments
+
+Five regressions reproduced silent acceptance of range missing/extra/nonnumeric
+arguments and pattern non-string arguments (including unquoted brackets).
+Parser and validator now share a complete known-annotation grammar check and
+refuse those forms. Unknown annotation policy and general grammar remain open.
+
+Contract9/9 and full JS1351/102 files(maxWorkers2), tsc and serialized package
+build pass. This source change has no fresh installed-package/browser qualification;
+previous browser15/15 report qualifies its previous snapshot. No atomic HMR
+partial-render rollback or performance claim.
+
+
+## 2026-11-02 — Pattern parsing parity on fresh installed package
+
+A multiline quoted pattern passed validation but disappeared from parsed AST,
+leaving an invalid prop unconstrained. Regression reproduced1 failed/9 passed.
+Parser, validator and syntax check now share one quoted-pattern matcher.
+Contract10/10 and full JS1352/102 files(maxWorkers2), types and package build pass.
+Installed-package gate now asserts all5 malformed-argument refusals and actual
+AOT import/runtime multiline constraint refusal plus valid-value recovery.
+Fresh consumer6KPnxG passes installed/GC gates and actual Chromium HMR15/15;
+all20 package runtime JS/WASM files equal dist/package. Browser fixture validates
+HMR lifecycle; multiline pattern runtime proof is in the Node installed gate.
+General grammar, unknown annotation policy, arbitrary partial-render rollback,
+other browsers/async and performance remain open.
+
+Evidence: [qualification](benchmarks/forma-pattern-parity-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Stage HMR view before retiring previous DOM/resources
+
+Regression reproduced old DOM loss after child-render refusal. Each view now
+builds a candidate under separate root/disposer and key map, inserts candidate
+nodes before retiring old nodes, and discards candidate resources/nodes on failure.
+Pending disposer plus view-liveness guards preserve reentrant dispose/unmount
+cleanup. Old callback/key lookup and exact button identity survive child-render
+and partial insertion failure; successful retry retires old callbacks.
+
+Full JS1354/102 files(maxWorkers2), types/build and fresh installed package/GC gate
+pass. Actual installed Chromium fixture17/17 includes both new failure/retry paths
+and prior15 HMR/lifecycle cases. Consumer9T7CrE matches all20 dist/package runtime
+files. This is per-view preservation: AST/state/lets update before render, multiple
+views can commit independently, cleanup exceptions and arbitrary commit callbacks
+remain open. Connected callbacks can observe candidate and old DOM simultaneously.
+No full transaction, other-browser, async or performance qualification is claimed.
+
+Evidence: [qualification](benchmarks/forma-hmr-staging-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Prepare all mounted views before retirement
+
+Regression reproduced partial HMR: first view committed before second child render
+refused. hotReload now prepares a snapshot of live view participants, aborting
+candidates in reverse order on preparation failure, and retires old views only
+after all preparations succeed. Per-view revision effects are replaced by explicit
+participants; disposal unregisters participation and drains pending candidates.
+
+Full JS1355/102 files(maxWorkers2), types/build and installed package/GC pass.
+Actual installed Chromium18/18 includes second-view failure preserving both exact
+old buttons/text/graph and successful retry, plus prior17 cases. Consumer m5w29X
+matches all20 package runtime JS/WASM files. AST/state/lets still apply before
+preparation, cleanup/commit exceptions cannot yet roll back, connection callbacks
+can observe candidates alongside old nodes, and arbitrary reentrant HMR remains
+open. This does not establish whole-instance transaction or other-browser/async/
+performance/current-runtime soak qualification.
+
+Evidence: [qualification](benchmarks/forma-hmr-multiview-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Restore document data after preparation failure
+
+Regression reproduced replaced original computed handles and candidate props/state
+remaining after refused rendering. hotReload now retains previous lets until commit,
+snapshots document metadata and signal values, and restores them on preparation
+failure while disposing/removing candidate signals and lets. Revision invalidation
+makes original computed handles and old DOM reactive again. Reentrant nested
+hotReload is refused while an update is active. Terminal disposal releases both
+old retained and candidate lets instead of restoring a disposed instance.
+
+Full JS1357/102 files(maxWorkers2), types/build, installed package/GC and actual
+installed Chromium19/19 pass. Browser checks original let identity, constraint
+restoration, candidate signal removal, old DOM reactive update and successful
+retry, plus prior18 cases. Consumer0auVyW matches all20 runtime files.
+
+Rollback ends when commit starts; cleanup/commit exceptions remain open. Signal
+snapshots preserve value references and cannot reverse arbitrary in-place mutations
+or external factory side effects. Candidate connection callbacks can observe
+tentative metadata/nodes. Other-browser/async/performance and current-runtime
+natural-GC qualification remain open.
+
+Evidence: [qualification](benchmarks/forma-hmr-document-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Cleanup-triggered retirement during commit drains candidate
+
+Two regressions reproduced publishing candidate resources after old child.dispose
+synchronously disposed/unmounted the parent. Old view disposer is now detached
+before invocation, avoiding reentrant teardown of the same handle. Candidate abort
+ownership remains registered through old-view retirement, and commit rechecks
+view liveness before publishing the candidate. Terminal dispose leaves graph0;
+unmount leaves only instance resources and supports a fresh mount.
+
+Full JS1359/102 files(maxWorkers2), types/build, fresh installed package/GC and
+actual installed Chromium21/21 pass, including both new commit-retirement paths.
+Consumer my49hy matches all20 package runtime files. General cleanup/commit
+exceptions, full post-commit rollback, external/in-place side effects, arbitrary
+connection callbacks, other browsers/async and performance remain open.
+
+Evidence: [qualification](benchmarks/forma-hmr-commit-retire-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Factory errors release completed constructions before return
+
+Regression reproduced child signals retained when a custom factory compiled a
+Forma child then threw before returning its handle. Synchronous factory calls now
+track completed same-copy Forma constructions. On failure they drain in reverse
+order while retaining the original exception; on success the returned handle uses
+the existing renderer transfer and nonreturned helpers belong to view cleanup.
+Reentrant cleanup clears the construction set before disposal.
+
+Full JS1360/102 files(maxWorkers2), types/build, installed package/GC and actual
+installed Chromium22/22 pass. Browser creates two instances before throwing,
+checks graph returns to baseline, retries and checks nonreturned helper released
+at final teardown(graph0). Consumer6hRRU0 matches all20 package runtime files.
+
+Exceptions inside constructor before completed instance registration, independent
+package-copy construction, arbitrary non-Forma resources, external side effects,
+general post-commit rollback and async/other-browser/performance remain open.
+
+Evidence: [qualification](benchmarks/forma-factory-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Constructor errors release owned reactive allocations
+
+Three regressions reproduced leaks after props getter, locale getter and AST let
+metadata threw before a completed instance existed. Constructor-owned signal and
+computed creation is journaled until success; failure drains allocations in reverse
+order while preserving the original exception. External ViewModel signals are
+excluded and stay usable. Successful construction clears the journal and later
+HMR/runtime allocations keep existing lifecycle handling.
+
+Full JS1363/102 files(maxWorkers2), types/build, fresh installed package/GC and
+actual installed Chromium25/25 pass. Three browser constructor-error cases return
+graph to baseline; JS regressions also verify external signal survives. Consumer
+LnvJXs matches all20 package runtime files. Logs are preserved beside qualification.
+Independent-copy factory construction tracking, arbitrary external/in-place side
+effects, general post-commit rollback, async/other-browser and performance remain
+open. No current-runtime natural-GC qualification.
+
+Evidence: [qualification](benchmarks/forma-constructor-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Construction ownership across independent copies
+
+A-parent/B-child and B-parent/A-child probes both reproduced retained foreign
+nodes after factory error. Compatible copies now share a versioned synchronous
+construction domain in one JS realm. Installed gate includes both directions,
+refusal after two instances, retry and nonreturned helper teardown(graphs0).
+Full JS1363/102 files(maxWorkers2), types/build and expanded installed package/GC
+pass. Node2/2 report is preserved. Consumer6fmUiE and physical browser peer match
+all20 package runtime files each; distinct WASM cores asserted.
+
+Initial peer browser load lacked Babel dependencies; temporary root now links
+consumer dependencies. Unpaced browser run passed both new copy cases but stalled
+on update5 with no watcher event; failed report is preserved. Explicitly paced
+250ms file writes pass27/27 lifecycle scenarios on unchanged runtime bytes. This
+paced pass does not resolve high-rate watcher delivery. Other realms/workers,
+incompatible versions, async factories, external effects, post-commit rollback,
+other browsers and performance remain open.
+
+Evidence: [qualification](benchmarks/forma-construction-copies-qualification-2026-11-02.json),
+[unpaced failure](benchmarks/forma-construction-copies-browser-watch-failure-2026-11-02.json).
+
+
+## 2026-11-02 — Trace watcher pipeline and qualify a bounded unpaced burst
+
+Added bounded raw/watcher/hot-hook/transform/websocket/write traces to the real
+Vite probe, explicit configurable write interval, server Node version and separate
+burst fixture. Isolated Vite transform-cache diagnostic delivers final source6/6
+with/without write stability; this does not establish a throttle root cause.
+Unpaced traced Chromium lifecycle27/27 delivers all8 changes with watcher/hooks.
+Three unpaced32-write bursts(96 writes total) deliver final versions41/73/105,
+preserve state/graph, retire old callbacks and end graph0. Four watcher events
+coalesce intermediate changes. Runtime bytes remain unchanged(consumer6fmUiE,
+20 files equal). Scripts syntax/diff and actual browser checks pass.
+
+Historical unpaced update5 failure remains preserved and unexplained. Passing
+runs do not close it or guarantee every intermediate write delivery. Other
+browsers/filesystems/write patterns and performance remain open. Timings are
+host diagnostics only; no runtime source change or full-suite rerun needed.
+
+Evidence: [investigation](benchmarks/forma-watcher-investigation-2026-11-02.json).
+
+
+## 2026-11-02 — Watcher write-pattern matrix
+
+Added shared temporary-file writer for direct write, atomic rename and split write
+with20ms incomplete-file interval. Isolated Vite Node18/18 cases(3 modes ×2 write
+stability settings ×3 repeats) deliver final module with valid uiValidation.
+Actual Chromium atomic and chunked modes each pass3×32 writes, preserving state,
+graph and retiring stale callbacks, ending graph0. With prior direct burst this
+is288 browser writes across9 bursts. All20 installed runtime files remain equal;
+no production runtime changes or full-suite rerun claimed. Probe syntax/diff and
+actual browser checks pass. Timings are diagnostic on a loaded host.
+
+Historical update5 loss remains preserved/unexplained. This matrix does not prove
+all filesystem/editor patterns or every intermediate delivery. Trace is bounded512
+entries; qualification records whether a trace may be truncated. Other systems,
+browsers and pathological write patterns remain open.
+
+Evidence: [qualification](benchmarks/forma-watcher-write-matrix-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Reject scope-copy optimization without measured allocation gain
+
+Fresh release retained Runtime baseline covers legacy/Svet8/32/96/256 controls,
+7 alternating idle/edit samples. Svet256 edit requests240822218 allocator bytes
+(excluding paint/presentation), not live memory. Tested Cow scope borrowing and
+then skipping identical metadata overlays; both experiments produce exactly the
+same idle/edit allocation counts/requested bytes for every sample. Therefore the
+runtime source was restored byte-for-byte, not retained as an unmeasured gain.
+Experimental implementation passed159 library tests. Baseline and both experiment
+reports are preserved. Timings on this loaded host are not a performance claim.
+
+Next target remains measuring deep __state/model clone callsites in instantiation
+and expansion, then reducing per-control snapshots without losing props.__state,
+lexical frames or owned public SceneControl snapshots. No large-form readiness.
+
+Evidence: [experiment](benchmarks/native-scope-experiment-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Frozen lifecycle-traced HTTP 2h diagnostic completed
+
+Natural-GC frozen snapshot-Nv0ST2 completed1144736 requests/7200025.895ms with0
+request/cleanup failures,0 forcedGC and graph cleanup. All381595 server sockets
+closed. Analyzer passes original budgets(heap16MiB,RSS64MiB,external64MiB,
+ArrayBuffers16MiB); external post-warmup peak growth49686991 bytes. All20 runtime
+and2 harness hashes match frozen manifest; artifactsUnchanged=true.
+
+Global external peak200920161 bytes co-occurs with160 pending memory-finalization
+callbacks/178257920 registered bytes; after shutdown8 pending remain. These are
+callback-lag counters, not exact live allocations. This supports investigation of
+GC/native allocation pacing but does not prove the historical72409329-byte growth
+failure cause. Frozen runtime predates current reactivity/Forma changes and cannot
+qualify current package. New source-bound current-runtime2h soak remains open.
+
+Evidence: [qualification](benchmarks/http-core-traced-2h-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Borrow visual expansion state until lexical writes
+
+Opt-in benchmark allocation stack sampling records546 bounded samples(no truncation)
+and preserves baseline allocation counters exactly; profiling costs are excluded
+from counters and instrumented timings are not benchmark evidence. Clone frames
+identify expand_sequence as a concrete repeated deep-state copy site. Visual
+sequences now borrow inherited state until Let writes; For retains an owned local
+copy per iteration. Regression checks lexical shadowing, caller-state preservation
+and independent returned visual values.
+
+Svet256 edit requested bytes240822218→104300015(-56.69%); allocations1790945→781793.
+Legacy256 also improves;8/32/96 improve. Two candidate release runs repeat all
+allocation counters exactly. This excludes painting/presentation and is cumulative
+requested allocator bytes, not live memory or validated frame latency. Remaining
+__state/model clones in instantiation/scene expansion remain open.
+
+160 library,10 allocation and8 scene-artifact tests pass. Fresh wasm32 release
+build and actual generated Node WASM artifact/scroll/refusal gate pass. No fresh
+browser/window/GPU qualification or performance timing claim. Profiling is disabled
+by default and enabled only by FORMA_ALLOC_TRACE_OUTPUT in the benchmark example.
+
+Evidence: [qualification](benchmarks/native-state-cow-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Avoid discarded visual AST clones and borrow definitions
+
+expand previously cloned the source subtree before replacing both props/children.
+It now creates the expanded shell directly. instantiate borrows definition nodes
+until supplied ContentPresenter content needs mutation. Regression verifies two
+distinct supplied contents and a no-content instance leave shared definition
+unchanged and returned nodes independent.
+
+Svet256 edit requested bytes104300015→103139311(-1.11%); allocations781793→770785.
+Svet8 improves6.46%;32/96 and legacy improve. Two release runs repeat all allocation
+counters exactly.161 library,10 allocation,8 scene-artifact tests, fresh wasm32
+release build and actual generated Node WASM artifact gate pass. No controlled
+latency/FPS/live-memory or current browser/window/GPU qualification follows.
+Per-control snapshots and large-form readiness remain open. Current-runtime HTTP
+snapshot-RKk0T4 remains independent and running.
+
+Evidence: [qualification](benchmarks/native-visual-shell-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Transfer scene state snapshot through visual instantiation
+
+Refreshed stack samples identify instantiate/scene_expand clone sites. Measuring a
+scene leaf now transfers its owned __state into evaluation props and returns the
+snapshot on Result success/error; props.__state and caller state retain prior
+semantics. Root Frame measurement changes only its kind temporarily instead of
+cloning the whole expanded tree. Public SceneControl snapshots remain owned.
+Regression compares legacy/transferred results, error restoration and missing
+snapshot/default metadata isolation.
+
+Svet256 edit requested bytes103139311→57633702(-44.12%); allocations770785→434657.
+8/32/96 and legacy improve. Two final-source release runs repeat all allocation
+counters exactly.162 library,10 allocation,8 scene-artifact tests pass. Fresh
+wasm32 release and generated Node artifact gate pass; two additional actual WASM
+cases verify custom props.__state.caption and For root/item snapshots. Node ABI
+gates added to studio CI; remote CI has not been run.
+
+This is cumulative requested bytes excluding paint/presentation, not live memory
+or validated latency. Non-precomputed instantiation and other remaining model
+clones, fresh browser/window/GPU and full large-form readiness remain open. Current
+JS runtime HTTP snapshot-RKk0T4 runs independently and unchanged.
+
+Evidence: [qualification](benchmarks/native-snapshot-transfer-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Flat Frame transfers expanded nodes instead of cloning snapshots
+
+Flat-root control collection now moves expanded children just as positioned
+layout does. Fallback without precomputed visual uses snapshot-transfer instantiation.
+Benchmark --frame covers this path separately. Regression replaces document model
+after an artifact is returned and verifies old root/item snapshots remain intact;
+both artifacts load with expected control count/text.
+
+Frame Svet256 edit requested bytes103231190→57377128(-44.42%); allocations770997→431029.
+All sizes and legacy improve. Two Frame runs repeat allocation counters exactly;
+Column counters equal the preceding candidate.163 library,10 allocation and8
+scene-artifact tests pass. Fresh wasm32 release plus actual generated Node artifact
+and snapshot3/3 gates pass; snapshot gate now covers both Column and Frame. Remote
+CI not run. No latency/FPS/live-memory/current browser/window/GPU claim.
+
+Remaining model snapshots, scene expansion and large-form readiness remain open.
+Current JS HTTP snapshot-RKk0T4 runs independently on unchanged installed bytes.
+
+Evidence: [qualification](benchmarks/native-flat-transfer-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Borrow lexical frame with separate resolved collection path
+
+Dropping key scope was rejected: even item.id can evaluate a Value::Expr reading
+captured props. A Cow experiment has no allocation effect on the ordinary fast
+path and is not retained. New benchmark --lexical exercises a real Let collection
+alias; baseline Svet256 requests599367759 bytes/edit. Recovery now passes resolved
+collection path separately instead of deep-cloning/mutating the retained frame.
+Full key scope and snapshots remain unchanged.
+
+Lexical Svet256 edit599367759→509108669 requested bytes(-15.06%); allocations
+4399128→3736088. All measured sizes/legacy improve. Two final-source runs repeat
+counters exactly; ordinary Column counters unchanged.164 library,10 allocation,
+8 scene-artifact tests, fresh wasm32 and actual generated Node artifact gate pass.
+Node snapshot gate4/4 includes live text input through retained Let alias and
+no-op second sync. Rust regression forces computed item.id via props through a
+Let alias after reorder and verifies immutable retained frames. CI gate includes
+new Node case; remote CI not executed.
+
+509MB/edit remains expensive: large lexical forms are not qualified. Cumulative
+requested bytes are not live memory; no latency/FPS claim. Remaining Let replay/
+model copies and environment qualification stay open. Current JS HTTP snapshot
+runs independently on unchanged installed runtime.
+
+Evidence: [qualification](benchmarks/native-lexical-frame-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Borrow initial Let replay state and move evaluated locals
+
+First root Let now reads borrowed state until prior locals or parents require an
+overlay. Final evaluated Let values move into locals instead of being cloned again.
+Caller root state and captured lexical frames remain unchanged. Computed-key
+regression now forces a two-stage Let alias after reorder; previous shadowing and
+failed-replay rollback/retry regressions remain green.
+
+Lexical Svet256 edit requested bytes509108669→419404479(-17.62%); allocations
+3736088→3079704. All sizes and legacy improve. Two candidate runs repeat allocation
+counters exactly; ordinary Column counters unchanged.164 library,10 allocation,
+8 scene-artifact tests, fresh wasm32 and generated Node artifact gate pass. Actual
+Node snapshot/alias5/5 includes single and chained alias input commit plus no-op
+repeat. Existing studio CI gate includes the added case; remote CI not executed.
+
+419MB requested/edit remains high and is not live memory. Latency/FPS, remaining
+replay/model copies, large-form readiness and other environments remain open.
+Current JS HTTP snapshot-RKk0T4 continues independently on unchanged bytes.
+
+Evidence: [qualification](benchmarks/native-let-replay-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Do not clone locals replaced by lexical replay
+
+Recovery now omits captured local/parent values whose names are replaced by
+replayed lexicals before key resolution. Validation and parent-path resolution
+still execute; final lexical values retain prior precedence. Frames without
+lexicals use the original clone path. No captured metadata is mutated.
+
+Lexical Svet256 edit requested bytes419404479→374632383(-10.68%); allocations
+3079704→2751512. All sizes and legacy improve. Two final-source release runs repeat
+counters exactly; ordinary Column counters unchanged.164 library,10 allocation,
+8 scene-artifact tests, fresh wasm32 plus generated Node artifact and snapshot/
+single/chained alias5/5 pass. Existing nested shadowing,computed key and rollback
+regressions remain green. Remote CI not run.
+
+374MB requested/edit is still high and not live memory. Large-form readiness,
+controlled latency/FPS and remaining replay/model copies remain open. Current JS
+runtime natural2h soak continues independently; no terminal qualification yet.
+
+Evidence: [qualification](benchmarks/native-local-overlay-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Omit duplicate private lexical frame locals
+
+Refreshed lexical stack profile840 samples(no truncation) identifies scene_expand
+as remaining copy site. Generator no longer duplicates lexical values in frame
+__locals because they are retained in __lexicals and overwrite locals on replay.
+Full model/item/alias values remain in owned public control snapshots. Regression
+reintroduces legacy duplicate fields and compares commits on independent Runtime
+instances(sync acknowledges edits), proving identical resulting model state.
+
+Lexical Svet256 edit requested bytes374632383→284706751(-24.00%); allocations
+2751512→2094360. Two release runs repeat counters exactly; ordinary Column counters
+unchanged.165 library,10 allocation,8 scene-artifact tests, fresh wasm32 and actual
+Node artifact/snapshot/alias5/5 pass. Old/new WASM artifact comparison4/4 at8/32/96/
+256 controls proves source/templates equal and only duplicate private locals differ.
+Preceding local WASM reader accepts new artifacts.256-control JSON35653311→28622783
+bytes. This is not a blanket compatibility proof for historical releases.
+
+284MB cumulative requested/edit still needs reduction; live memory, controlled
+latency/FPS, large-form readiness and other environments remain open. Remote CI
+not run. Current JS HTTP snapshot-RKk0T4 continues independently on unchanged bytes.
+
+Evidence: [qualification](benchmarks/native-frame-dedup-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Compact final replay metadata and measure owned artifact retention
+
+Final control transport omits root __binding_lexicals/__binding_let_steps only when
+an exact typed copy exists in retained frames. Rendering evaluates the full scope
+before compaction; user model/item/alias fields remain. Missing or later unmatched
+Let scope keeps original metadata. Both full and structural control maps use this
+boundary. Legacy duplicate-map recovery and later-Let guard regressions pass.
+
+Edit requested-byte counters do not improve: allocation happens before transport.
+New opt-in --artifact-retention benchmark measures warmed net GlobalAlloc Layout
+bytes while owned artifact is alive and asserts zero delta after Drop. Same-source
+baseline bypasses only two compaction calls; candidate restored byte-for-byte.
+256-control artifact retained bytes181092378→135619610(-25.11%); all sizes improve.
+Two candidate runs repeat counters exactly; all baseline/candidate Drop deltas0.
+This excludes Document,allocator overhead,RSS,GPU and is not peak/full Runtime memory.
+
+166 library,10 allocation,8 scene-artifact tests, fresh wasm32 and actual Node
+snapshot/alias5/5 pass. Old/new WASM comparison4/4 proves source/templates/all other
+fields equal after only proven duplicate normalization; preceding local reader
+accepts new artifacts.256-control JSON28622783→21516991 bytes. No edit-speed,
+controlled latency/FPS or broad historical-reader compatibility claim. Remaining
+model copies/large-form readiness remain open; remote CI not run.
+
+Evidence: [qualification](benchmarks/native-replay-transport-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Current native WASM browser compile/input/raster qualification
+
+Fresh Cargo wasm32 build plus wasm-bindgen web output served with immutable JS/
+WASM/fixture hashes. Current Rust form_document source matches latest ownership/
+transport candidate. Actual Chromium1568/8 passes: compile/load,empty scroll extent,
+clipping,atomic malformed/refusal recovery,explicit CPU scales1/1.25/2,shrink/cache
+revision,single/chained Let alias Unicode input and custom props.__state visible
+update. Both alias cases commit Alpha—правка to correct item,leave Beta unchanged,
+second sync no-op,and change1197 RGBA bytes within edited control bounds. Actual
+canvas inspected for readable text. Owned before-pixel copies avoid stale WASM
+views during rebuild/free. Runtime objects freed in finally.
+
+CPU Canvas2D slice only: not OS DPI/window/IME,other browser engines,hardware GPU,
+device-loss,full golden parity,browser GC plateau or performance qualification.
+Full source-bound candidate/environment matrix remains open.
+
+Evidence: [qualification](benchmarks/native-current-browser-qualification-2026-11-02.json).

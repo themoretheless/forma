@@ -1,0 +1,11 @@
+{
+  "startedAt": "2026-11-01T15:59:34.906Z",
+  "node": "v22.23.4",
+  "carrierQualified": true,
+  "stackRejected": true,
+  "concurrentRequests": 8,
+  "status": "passed",
+  "completedAt": "2026-11-01T15:59:34.914Z",
+  "runtimeSha256": "5173395f3864d2d057720dfd2c762bdd68a150ab38461b107f2989976d989ac1",
+  "scope": "Installed public server-runtime export, native Node ALS injected through host contract, stack-carrier rejection and 8 concurrent async renders. No actual Edge/browser carrier qualification."
+}

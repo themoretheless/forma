@@ -1,0 +1,118 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/async-components.test.ts --maxWorkers=1
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/async-components.test.ts (3 tests | 2 failed) 11ms
+   × awaits sibling and nested h components while preserving provider scopes after await 7ms
+   × rejects a component failure and releases successful sibling resources 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/async-components.test.ts > awaits sibling and nested h components while preserving provider scopes after await
+AssertionError: expected '<main>[object Promise][object Promise…' to be '<main><p><b>left</b></p><p><b>right</…' // Object.is equality
+
+Expected: "<main><p><b>left</b></p><p><b>right</b></p></main>"
+Received: "<main>[object Promise][object Promise]</main>"
+
+ ❯ tests/async-components.test.ts:20:22
+     18|   h(context.Provider,{value:'right',children:()=>h(Child as any,{wait:…
+     19|  right.release();left.release();const result=await rendering;
+     20|  expect(result.html).toBe('<main><p><b>left</b></p><p><b>right</b></p>…
+       |                      ^
+     21|  expect(owners[0]).not.toBe(owners[1]);expect(cleanups.sort()).toEqual…
+     22| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/async-components.test.ts > rejects a component failure and releases successful sibling resources
+AssertionError: promise resolved "{ …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "html": "<main>[object Promise][object Promise]</main>",
++   "stateJson": "{}",
+  }
+
+ ❯ tests/async-components.test.ts:27:66
+     25|  await expect(renderToStringAsync(()=>{core=getWasmCore();return {node…
+     26|   h(async()=>{const s=signal(1);onCleanup(()=>{cleaned++;s.dispose();}…
+     27|   h(async()=>{await Promise.resolve();throw failure;},null))};})).reje…
+       |                                                                  ^
+     28|  expect(cleaned).toBe(1);expect(core.svet_get_node_count()).toBe(0);
+     29| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 3 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+AssertionError: expected { disposables: [], …(3) } to be { disposables: [], …(4) } // Object.is equality
+ ❯ Child tests/async-components.test.ts:11:89
+      9|  let core!:ReturnType<typeof getWasmCore>;
+     10|  const Child=async({wait}:{wait:Promise<void>})=>{
+     11|   const owner=getCurrentOwner();owners.push(owner);await wait;expect(g…
+       |                                                                                         ^
+     12|   const name=useContext(context);onCleanup(()=>cleanups.push(name));
+     13|   const value=signal(name);onCleanup(value.dispose);effect(()=>value()…
+ ❯ process.processTicksAndRejections node:internal/process/task_queues:103:5
+
+This error originated in "tests/async-components.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+AssertionError: expected { disposables: [], …(3) } to be { disposables: [], …(4) } // Object.is equality
+ ❯ Child tests/async-components.test.ts:11:89
+      9|  let core!:ReturnType<typeof getWasmCore>;
+     10|  const Child=async({wait}:{wait:Promise<void>})=>{
+     11|   const owner=getCurrentOwner();owners.push(owner);await wait;expect(g…
+       |                                                                                         ^
+     12|   const name=useContext(context);onCleanup(()=>cleanups.push(name));
+     13|   const value=signal(name);onCleanup(value.dispose);effect(()=>value()…
+ ❯ process.processTicksAndRejections node:internal/process/task_queues:103:5
+
+This error originated in "tests/async-components.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+Error: async component failed
+ ❯ tests/async-components.test.ts:24:16
+     22| });
+     23| it('rejects a component failure and releases successful sibling resour…
+     24|  const failure=Error('async component failed');let cleaned=0,core!:Ret…
+       |                ^
+     25|  await expect(renderToStringAsync(()=>{core=getWasmCore();return {node…
+     26|   h(async()=>{const s=signal(1);onCleanup(()=>{cleaned++;s.dispose();}…
+ ❯ node_modules/vitest/dist/chunks/run.BPv-BBRv.js:1632:35
+ ❯ node_modules/vitest/dist/chunks/run.BPv-BBRv.js:2801:26
+ ❯ node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3338:20
+ ❯ runWithCancel node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3333:10
+ ❯ node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3318:20
+ ❯ runWithTimeout node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3276:10
+ ❯ node_modules/vitest/dist/chunks/run.BPv-BBRv.js:3904:64
+
+This error originated in "tests/async-components.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+     Errors  3 errors
+   Start at  17:01:35
+   Duration  392ms (environment 78%, transform 10%, import 8%, tests 3%, worker 1%)
+

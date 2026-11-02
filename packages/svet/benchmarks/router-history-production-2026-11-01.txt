@@ -1,0 +1,15 @@
+PASS denied Back returns to the accepted entry without adding history or guarding compensation
+PASS denied Forward returns to the accepted entry and retains the forward stack
+PASS denied multi-entry traversal restores the full distance, query and hash
+PASS popstate redirect replaces the visited slot and publishes the same full URL
+PASS the replacement survives Forward then Back
+PASS initial host state and full URL survive tracked round trips
+PASS a nested successful navigation supersedes the outer rejected traversal
+PASS burst [-1,-1] settles at the accepted middle entry and releases navigation
+PASS burst [-1,-2] settles at the accepted middle entry and releases navigation
+PASS burst [-2,-1] settles at the accepted middle entry and releases navigation
+PASS burst [-1,1] settles at the accepted middle entry and releases navigation
+PASS burst [-2,1,-1] settles at the accepted middle entry and releases navigation
+PASS burst [-1,-1,1,1] settles at the accepted middle entry and releases navigation
+PASS router disposal retires all reactive graph nodes
+14/14 passed

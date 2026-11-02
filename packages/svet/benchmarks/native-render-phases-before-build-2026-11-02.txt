@@ -1,0 +1,3 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `release` profile [optimized] target(s) in 33.83s
+     Running `/tmp/forma-svet-native-binding-validation/release/examples/binding_sync_bench`

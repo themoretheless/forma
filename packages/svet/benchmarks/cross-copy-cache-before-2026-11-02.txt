@@ -1,0 +1,1 @@
+{"status":"retained-in-foreign-cache","beforeForeignCacheEviction":2,"afterForeignCacheEviction":0}

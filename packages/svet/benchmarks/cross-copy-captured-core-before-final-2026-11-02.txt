@@ -1,0 +1,39 @@
+{
+  "status": "failed",
+  "cases": [
+    {
+      "name": "foreign owner and context after await match the active child",
+      "status": "passed"
+    },
+    {
+      "name": "failed child tears down foreign computed before parent ends",
+      "status": "passed"
+    },
+    {
+      "name": "late foreign reentry refuses a closed child without poisoning its parent",
+      "status": "passed"
+    },
+    {
+      "name": "captured root and unrelated core retain their explicit ownership",
+      "status": "passed"
+    },
+    {
+      "name": "nested explicit cores restore both copies after a throw",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Values have same structure but are not reference-equal:\n\n... Skipped lines\n[Object: null prototype] {\n  memory: Memory [WebAssembly.Memory] {},\n  svet_alloc_u32: [Function: 107],\n  svet_batch_end: [Function: 108],\n  svet_batch_start: [Function: 109],\n  svet_begin_tracking: [Function: 110],\n  svet_compute_lis: [Function: 111],\n  svet_compute_lis_buffered: [Function: 112],\n  svet_create_node: [Function: 113],\n  svet_depends_on: [Function: 114],\n  svet_dispose_node: [Function: 115],\n  svet_end_tracking: [Function: 116],\n  svet_free_u32: [Function: 117],\n  svet_get_capacity: [Function: 118],\n  svet_get_edge_count: [Function: 119],\n  svet_get_flush_ptr: [Function: 120],\n  svet_get_lis_ptr: [Function: 121],\n  svet_get_node_count: [Function: 122],\n  svet_get_state: [Function: 123],\n  svet_get_states_ptr: [Function: 124],\n  svet_gpu_alloc_f32: [Function: 125],\n  svet_gpu_clear_dirty: [Function: 126],\n  svet_gpu_clip_output_ptr: [Function: 127],\n  svet_gpu_clip_primitive_3d: [Function: 128],\n  svet_gpu_collect_dirty_spans: [Function: 129],\n  svet_gpu_free_f32: [Function: 130],\n  svet_gpu_get_arena_len: [Function: 131],\n  svet_gpu_get_arena_limit_f32: [Function: 132],\n  svet_gpu_get_arena_ptr: [Function: 133],\n  svet_gpu_get_dirty_max: [Function: 134],\n  svet_gpu_get_dirty_min: [Function: 135],\n  svet_gpu_mark_dirty: [Function: 136],\n  svet_gpu_mat4_compose_trs: [Function: 137],\n  svet_gpu_mat4_mul: [Function: 138],\n  svet_gpu_mat4_perspective: [Function: 139],\n  svet_gpu_pick_nearest_vertex_3d: [Function: 140],\n  svet_gpu_pick_snapshot_3d: [Function: 141],\n  svet_gpu_pick_visible_vertex_3d: [Function: 142],\n  svet_gpu_transform_positions_vec4: [Function: 143],\n  svet_gpu_valid_perspective: [Function: 144],\n  svet_gpu_vector_fma: [Function: 145],\n  svet_is_tracking: [Function: 146],\n  svet_link_1: [Function: 147],\n  svet_link_2: [Function: 148],\n  svet_pause_tracking: [Function: 149],\n  svet_pending_effect_count: [Function: 150],\n  svet_pending_effect_entry_count: [Function: 151],\n  svet_prepare_flush: [Function: 152],\n  svet_prepare_gpu_pick_indices: [Function: 153],\n  svet_prepare_gpu_pick_vertices: [Function: 154],\n...}\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-async-owner.mjs:40:35\n    at Module.withWasmCore (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/wasm-bridge.js:84:16)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-async-owner.mjs:40:4\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-async-owner.mjs:11:43)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-async-owner.mjs:38:7"
+    },
+    {
+      "name": "foreign captured child can update and allocate in its original core after carrier close",
+      "status": "failed",
+      "error": "Error: Svet SSR owner scope has already completed\n    at assertOwnerCurrent (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/ssr-runtime.js:66:19)\n    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/ssr-runtime.js:90:13\n    at getWasmCore (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/wasm-bridge.js:69:44)\n    at getter.set (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/reactivity.js:1043:13)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-async-owner.mjs:50:29\n    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:620:20\n    at withWasmCore (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/wasm-bridge.js:84:16)\n    at runWithCapturedOwner (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:613:12)\n    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:605:24\n    at untrack (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:1773:16)"
+    },
+    {
+      "name": "concurrent child owners remain request-local across copies",
+      "status": "passed"
+    },
+    {
+      "name": "weak owner resolvers release completed request cores",
+      "status": "passed"
+    }
+  ]
+}

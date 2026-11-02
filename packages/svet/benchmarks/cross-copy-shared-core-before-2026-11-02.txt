@@ -1,0 +1,53 @@
+{
+  "status": "requirements-open",
+  "cases": [
+    {
+      "name": "foreign untrack pauses an existing observer",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack permits newly-created observers to track",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack restores collection after throw",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack does not restore retired generation frames",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack preserves invalidation of a dependency already read",
+      "status": "passed"
+    },
+    {
+      "name": "nested observers in both copies suppress incidental reads",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core copies use native computed dependencies and one batch",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n    4,\n-   11\n  ]\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:38:75\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:11:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:34:1"
+    },
+    {
+      "name": "reset in a shared-core copy invalidates foreign stale handles",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n99 !== 1\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:43:70\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:11:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:41:1"
+    },
+    {
+      "name": "shared-core owner teardown cleans foreign computeds",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 0\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:48:16\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:11:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:45:1"
+    },
+    {
+      "name": "foreign signal invalidates an observer in another copy",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 2\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:51:107\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:11:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:50:1"
+    },
+    {
+      "name": "separate cores retain graph isolation after teardown",
+      "status": "passed"
+    }
+  ]
+}

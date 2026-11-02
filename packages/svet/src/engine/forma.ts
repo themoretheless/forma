@@ -38,6 +38,8 @@ import {
   computed,
   createRoot,
   effect,
+  getCurrentOwner,
+  isOwnerScopeDisposed,
   onCleanup,
   type ReadonlySignal,
   signal,
@@ -1399,6 +1401,33 @@ export function registerFormaComponent(name: string, uiSource: string): void {
   _formaComponentRegistry.set(name, uiSource);
 }
 
+/** Read one contract token, including inline forms and quoted closing brackets. */
+function readFormaContract(source: string, start: number): { content: string; end: number } | null {
+  let quote: string | null = null;
+  for (let i = start + 2; i < source.length; i++) {
+    const ch = source[i];
+    if (quote) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === quote) quote = null;
+    } else if (ch === "'" || ch === '"') quote = ch;
+    else if (ch === ']') return { content: source.slice(start + 2, i).trim(), end: i + 1 };
+  }
+  return null;
+}
+
+const FORMA_PATTERN_CONTRACT = /^pattern\(\s*(['"])((?:\\[\s\S]|(?!\1)[^\\])+)\1\s*\)$/;
+
+/** Known contracts must have the same complete grammar in parser and validator. */
+function formaContractSyntaxError(content: string): string | undefined {
+  if (/^range\b/.test(content) && !/^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/.test(content)) {
+    return 'Malformed Forma contract annotation: expected range(min, max)';
+  }
+  if (/^pattern\b/.test(content) && !FORMA_PATTERN_CONTRACT.test(content)) {
+    return 'Malformed Forma contract annotation: expected pattern(quoted regex)';
+  }
+  return undefined;
+}
+
 /**
  * Pre-parses a Forma `.ui` source string into a serializable `FormaDocumentAst` at build time (AOT)
  * so the browser can instantiate `compileFormaAst(ast, options)` with 0ms of runtime source parsing!
@@ -1436,29 +1465,19 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
 
     // Attribute annotations: `#[range(min, max)]` or `#[pattern('regex')]`
     if (src.startsWith('#[', i)) {
-      const nl = src.indexOf('\n', i + 2);
-      const lineEnd = nl === -1 ? n : nl;
-      const lineStr = src.slice(i, lineEnd).trim();
-      if (lineStr.endsWith(']')) {
-        const attrContent = lineStr.slice(2, -1).trim();
-        const rangeMatch = attrContent.match(
-          /^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/
-        );
-        if (rangeMatch) {
-          pendingRange = [Number(rangeMatch[1]), Number(rangeMatch[2])];
-        }
-        const patternMatch = attrContent.match(/^pattern\(\s*['"](.+?)['"]\s*\)$/);
-        if (patternMatch && isSafePatternRegex(patternMatch[1])) {
-          try {
-            new RegExp(patternMatch[1]);
-            pendingPatternSource = patternMatch[1];
-          } catch {
-            pendingPatternSource = undefined;
-          }
-        }
-        i = lineEnd;
-        continue;
+      const token = readFormaContract(src, i);
+      if (!token) throw new Error('Unclosed Forma contract annotation');
+      const syntaxError = formaContractSyntaxError(token.content);
+      if (syntaxError) throw new Error(syntaxError);
+      const rangeMatch = token.content.match(/^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/);
+      if (rangeMatch) pendingRange = [Number(rangeMatch[1]), Number(rangeMatch[2])];
+      const patternMatch = token.content.match(FORMA_PATTERN_CONTRACT);
+      if (patternMatch && isSafePatternRegex(patternMatch[2])) {
+        try { new RegExp(patternMatch[2]); pendingPatternSource = patternMatch[2]; }
+        catch { pendingPatternSource = undefined; }
       }
+      i = token.end;
+      continue;
     }
 
     // `tokens { ... }`
@@ -1614,6 +1633,38 @@ export function compileFormaAst(
   return compileFormaComponent(astOrSource, options);
 }
 
+// Synchronous factory construction owns every completed Forma instance it creates,
+// including instances whose handle is lost when the factory throws.
+type FormaConstructionDomain = { active: Set<FormaRuntimeInstance> | null };
+const formaConstructionHost = globalThis as unknown as Record<symbol, FormaConstructionDomain | undefined>;
+const formaConstructionDomain = formaConstructionHost[Symbol.for('svet.forma.construction.v1')] ??= { active: null };
+function constructFormaChild(factory: () => FormaRuntimeInstance): FormaRuntimeInstance {
+  const previous = formaConstructionDomain.active;
+  const created = new Set<FormaRuntimeInstance>();
+  const owner = getCurrentOwner();
+  formaConstructionDomain.active = created;
+  const release = () => {
+    const instances = [...created].reverse();
+    created.clear();
+    for (const instance of instances) {
+      try { instance.dispose(); } catch { /* Drain siblings after a cleanup failure. */ }
+    }
+  };
+  try {
+    const child = factory();
+    // The renderer transfers the returned handle separately; avoid duplicate disposal.
+    created.delete(child);
+    if (created.size) {
+      if (isOwnerScopeDisposed(owner)) release();
+      else onCleanup(release);
+    }
+    return child;
+  } catch (error) {
+    release();
+    throw error;
+  } finally { formaConstructionDomain.active = previous; }
+}
+
 /**
  * Compiles a Forma `.ui` source file or pre-parsed `FormaDocumentAst` into a live, reactive **Svet + WASM** `FormaRuntimeInstance`.
  */
@@ -1627,6 +1678,15 @@ export function compileFormaComponent(
     components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
   }
 ): FormaRuntimeInstance {
+  let constructing = true;
+  const constructionDisposers: Array<() => void> = [];
+  const trackConstruction = <T extends { dispose(): void }>(value: T): T => {
+    if (constructing) constructionDisposers.push(() => value.dispose());
+    return value;
+  };
+  const ownSignal = <T>(value: T): Signal<T> => trackConstruction(signal(value));
+  const ownComputed = <T>(fn: () => T): ReadonlySignal<T> => trackConstruction(computed(fn));
+  try {
   const initialAst =
     typeof uiSourceOrAst === 'string' ? parseFormaSource(uiSourceOrAst) : uiSourceOrAst;
   const componentName = initialAst.componentName;
@@ -1641,7 +1701,14 @@ export function compileFormaComponent(
   const letExpressions: Array<{ name: string; expr: string }> = [];
   const shortcuts: Array<{ combo: string; action: string }> = [];
   const rootAstNodes: FormaAstNode[] = [];
-  const hmrRevision = signal(0);
+  const hmrRevision = ownSignal(0);
+  let disposed = false;
+  let updatingDocument = false;
+  type PreparedView = { commit(): void; abort(): void };
+  const prepareViews = new Set<() => PreparedView>();
+  const renderDisposers = new Set<() => void>();
+  const mountDisposers = new Set<() => void>();
+  const assertLive = () => { if (disposed) throw new Error('Forma instance is disposed'); };
 
   // Bind external Rust/TS ViewModel properties if provided
   if (options?.viewModel) {
@@ -1686,7 +1753,7 @@ export function compileFormaComponent(
         compiledPattern,
       });
       if (!propSignals[c.name]) {
-        propSignals[c.name] = signal(defVal);
+        propSignals[c.name] = ownSignal(defVal);
       }
     }
 
@@ -1695,7 +1762,7 @@ export function compileFormaComponent(
         initialStateValues[name] = structuredCloneIfObject(initVal);
       }
       if (!stateSignals[name]) {
-        stateSignals[name] = signal(structuredCloneIfObject(initVal));
+        stateSignals[name] = ownSignal(structuredCloneIfObject(initVal));
       }
     }
 
@@ -1711,14 +1778,14 @@ export function compileFormaComponent(
 
   applyDocumentAst(initialAst, false);
 
-  const locale = signal(options?.locale ?? Object.keys(i18nDictionaries)[0] ?? 'ru');
-  const activeI18n = computed(() => {
+  const locale = ownSignal(options?.locale ?? Object.keys(i18nDictionaries)[0] ?? 'ru');
+  const activeI18n = ownComputed(() => {
     hmrRevision();
     return i18nDictionaries[locale()] ?? {};
   });
 
   // Reactive `isValid` computed signal checking all `#[range]` and `#[pattern]` constraints!
-  const isValid = computed(() => {
+  const isValid = ownComputed(() => {
     hmrRevision();
     for (const c of propConstraints) {
       const val = propSignals[c.name]?.();
@@ -1745,13 +1812,13 @@ export function compileFormaComponent(
     isValid,
   };
 
-  const rebuildComputedLets = () => {
-    for (const oldComp of Object.values(computedLets)) {
+  const rebuildComputedLets = (retirePrevious = true) => {
+    if (retirePrevious) for (const oldComp of Object.values(computedLets)) {
       oldComp?.dispose?.();
     }
     for (const k of Object.keys(computedLets)) delete computedLets[k];
     for (const l of letExpressions) {
-      computedLets[l.name] = computed(() => {
+      computedLets[l.name] = ownComputed(() => {
         hmrRevision();
         return evaluateFormaExpression(l.expr, evalScope);
       });
@@ -1805,9 +1872,11 @@ export function compileFormaComponent(
   };
 
   const eventListeners = new Map<string, Set<(...args: any[]) => void>>();
-  const keyedElements = new Map<string, HTMLElement>();
+  let keyedElements = new Map<string, HTMLElement>();
+  const viewKeyMaps = new Set<Map<string, HTMLElement>>();
 
   const emitEvent = (eventName: string, ...args: any[]) => {
+    if (disposed) return;
     const set = eventListeners.get(eventName);
     if (set) {
       for (const fn of set) {
@@ -1844,6 +1913,7 @@ export function compileFormaComponent(
   };
 
   const renderAstNode = (ast: FormaAstNode, locals?: Record<string, any>): Node => {
+    assertLive();
     const localScope = { ...evalScope, locals };
 
     if (ast.kind === 'slot') {
@@ -2078,7 +2148,8 @@ export function compileFormaComponent(
         initialChildProps[pKey] = untrack(() => evaluateFormaExpression(pExpr, localScope));
       }
 
-      const childInst =
+      const childOwner = getCurrentOwner();
+      const childInst = constructFormaChild(() =>
         typeof customCompDef === 'function'
           ? customCompDef({
               props: initialChildProps,
@@ -2089,7 +2160,18 @@ export function compileFormaComponent(
               props: initialChildProps,
               locale: locale.peek(),
               components: options?.components,
-            });
+            }));
+
+      // A callback may retire this view before returning its newly created child.
+      // A closed owner cannot register cleanup, so release that child immediately.
+      if (disposed || isOwnerScopeDisposed(childOwner)) {
+        try { childInst.dispose(); }
+        finally { assertLive(); }
+        throw new Error('Forma view owner is disposed');
+      }
+      // The child already owns signals even if synchronization or rendering fails.
+      onCleanup(() => childInst.dispose());
+      assertLive();
 
       // Keep child `locale` and `props` reactively synchronized with parent signals!
       effect(() => {
@@ -2119,8 +2201,9 @@ export function compileFormaComponent(
         wrapperEl.setAttribute('data-forma-key', keyVal);
         keyedElements.set(keyVal, wrapperEl);
       }
-      wrapperEl.appendChild(childInst.render());
-      onCleanup(() => childInst.dispose());
+      const childView = childInst.render();
+      assertLive();
+      wrapperEl.appendChild(childView);
       return wrapperEl;
     }
 
@@ -2244,23 +2327,27 @@ export function compileFormaComponent(
             inputEl.value = nextStr;
           }
         });
-        inputEl.addEventListener('input', () => {
+        const onInput = () => {
           targetSig.set(inputEl.value);
           if (ast.eventHandlers.changed) {
             executeFormaAction(ast.eventHandlers.changed, locals);
           }
-        });
+        };
+        inputEl.addEventListener('input', onInput);
+        onCleanup(() => inputEl.removeEventListener('input', onInput));
       }
     }
 
     // Event handlers: `clicked -> ...`
     for (const [evtName, actionExpr] of Object.entries(ast.eventHandlers)) {
       if (evtName === 'clicked') {
-        el.addEventListener('click', () => {
+        const onClick = () => {
           if (!(el as HTMLButtonElement).disabled) {
             executeFormaAction(actionExpr, locals);
           }
-        });
+        };
+        el.addEventListener('click', onClick);
+        onCleanup(() => el.removeEventListener('click', onClick));
       }
     }
 
@@ -2293,7 +2380,7 @@ export function compileFormaComponent(
     return el;
   };
 
-  return {
+  const instance: FormaRuntimeInstance = {
     componentName,
     state: stateSignals,
     props: propSignals,
@@ -2302,6 +2389,7 @@ export function compileFormaComponent(
     isValid,
     actions,
     onEvent(eventName: string, handler: (...args: any[]) => void) {
+      assertLive();
       let set = eventListeners.get(eventName);
       if (!set) {
         set = new Set();
@@ -2331,6 +2419,7 @@ export function compileFormaComponent(
       };
     },
     restoreHmrSnapshot(snapshot: FormaHmrSnapshot) {
+      assertLive();
       batch(() => {
         if (snapshot.locale) {
           locale.set(snapshot.locale);
@@ -2352,86 +2441,180 @@ export function compileFormaComponent(
       });
     },
     hotReload(nextUiSourceOrAst: string | FormaDocumentAst) {
-      batch(() => {
-        const nextAst =
-          typeof nextUiSourceOrAst === 'string'
-            ? parseFormaSource(nextUiSourceOrAst)
-            : nextUiSourceOrAst;
-        applyDocumentAst(nextAst, true);
-        rebuildComputedLets();
-        hmrRevision.update((r) => r + 1);
-      });
+      assertLive();
+      if (updatingDocument) throw new Error('Forma document update is already in progress');
+      const nextAst = typeof nextUiSourceOrAst === 'string' ? parseFormaSource(nextUiSourceOrAst) : nextUiSourceOrAst;
+      const previousAst: FormaDocumentAst = {
+        componentName, tokens: { ...tokens }, i18nDictionaries: { ...i18nDictionaries }, styles: { ...styles },
+        propConstraints: [...propConstraints], initialStateValues: { ...initialStateValues },
+        letExpressions: [...letExpressions], shortcuts: [...shortcuts], rootAstNodes: [...rootAstNodes],
+      };
+      const previousLets = { ...computedLets };
+      const previousState = Object.fromEntries(Object.entries(stateSignals).map(([key, sig]) => [key, sig.peek()]));
+      const previousProps = Object.fromEntries(Object.entries(propSignals).map(([key, sig]) => [key, sig.peek()]));
+      const previousLocale = locale.peek();
+      const prepared: PreparedView[] = [];
+      let committing = false;
+      updatingDocument = true;
+      try {
+        batch(() => {
+          try {
+            applyDocumentAst(nextAst, true);
+            rebuildComputedLets(false);
+            hmrRevision.update((r) => r + 1);
+            for (const prepare of [...prepareViews]) {
+              if (prepareViews.has(prepare)) prepared.push(prepare());
+            }
+            committing = true;
+            for (const view of prepared) view.commit();
+          } catch (error) {
+            for (const view of prepared.reverse()) view.abort();
+            if (!committing && !disposed) {
+              for (const [key, sig] of Object.entries(stateSignals)) {
+                if (!(key in previousState)) { sig.dispose(); delete stateSignals[key]; }
+                else sig.set(previousState[key]);
+              }
+              for (const [key, sig] of Object.entries(propSignals)) {
+                if (!(key in previousProps)) { sig.dispose(); delete propSignals[key]; }
+                else sig.set(previousProps[key]);
+              }
+              for (const comp of Object.values(computedLets)) {
+                if (!Object.values(previousLets).includes(comp)) comp.dispose();
+              }
+              for (const key of Object.keys(computedLets)) delete computedLets[key];
+              Object.assign(computedLets, previousLets);
+              for (const key of Object.keys(initialStateValues)) delete initialStateValues[key];
+              applyDocumentAst(previousAst, true);
+              locale.set(previousLocale);
+              hmrRevision.update((r) => r + 1);
+            }
+            throw error;
+          }
+        });
+      } finally {
+        if (committing || disposed) for (const comp of Object.values(previousLets)) comp.dispose();
+        updatingDocument = false;
+      }
     },
     render() {
+      assertLive();
       const frag = document.createDocumentFragment();
       const anchor = document.createComment(`svet-forma-hmr:${componentName}`);
       frag.appendChild(anchor);
 
       let currentNodes: Node[] = [];
       let disposeView: (() => void) | null = null;
+      let currentViewKeys: Map<string, HTMLElement> | null = null;
+      let renderRetired = false;
+      let pendingViewDispose: (() => void) | null = null;
+      let abortPrepared: (() => void) | null = null;
+      const assertViewLive = () => {
+        assertLive();
+        if (renderRetired) throw new Error('Forma view is disposed');
+      };
 
       const clearCurrentView = () => {
         if (disposeView) {
-          disposeView();
+          const stop = disposeView;
           disposeView = null;
+          stop();
         }
         for (const n of currentNodes) {
           if (n.parentNode) n.parentNode.removeChild(n);
         }
         currentNodes = [];
+        if (currentViewKeys) {
+          viewKeyMaps.delete(currentViewKeys);
+          if (keyedElements === currentViewKeys) {
+            keyedElements = new Map();
+            for (const remaining of viewKeyMaps) keyedElements = remaining;
+          }
+          currentViewKeys = null;
+        }
       };
 
       const mountCurrentView = () => {
-        clearCurrentView();
-        keyedElements.clear();
-        createRoot((dispose) => {
-          disposeView = dispose;
-          const temp = document.createDocumentFragment();
-          for (const nodeAst of rootAstNodes) {
-            insertChild(temp, untrack(() => renderAstNode(nodeAst)));
-          }
-          if (shortcuts.length > 0 && typeof window !== 'undefined') {
-            const onKeyDown = (e: KeyboardEvent) => {
-              for (const sc of shortcuts) {
-                const parts = sc.combo.split('+');
-                const keyPart = parts[parts.length - 1];
-                const needsMod = parts.includes('Mod') || parts.includes('Ctrl') || parts.includes('Meta');
-                const modPressed = e.metaKey || e.ctrlKey;
-                if (needsMod && !modPressed) continue;
-                if (e.key.toLowerCase() === keyPart.toLowerCase()) {
-                  e.preventDefault();
-                  executeFormaAction(sc.action);
+        const stage: { dispose: (() => void) | null } = { dispose: null };
+        let stagedNodes: Node[] = [];
+        const previousKeys = keyedElements, nextKeys = new Map<string, HTMLElement>();
+        keyedElements = nextKeys;
+        try {
+          createRoot((dispose) => {
+            stage.dispose = dispose; pendingViewDispose = dispose;
+            const temp = document.createDocumentFragment();
+            for (const nodeAst of rootAstNodes) {
+              insertChild(temp, untrack(() => renderAstNode(nodeAst)));
+              assertViewLive();
+            }
+            if (shortcuts.length > 0 && typeof window !== 'undefined') {
+              const onKeyDown = (e: KeyboardEvent) => {
+                for (const sc of shortcuts) {
+                  const parts = sc.combo.split('+');
+                  const keyPart = parts[parts.length - 1];
+                  const needsMod = parts.includes('Mod') || parts.includes('Ctrl') || parts.includes('Meta');
+                  const modPressed = e.metaKey || e.ctrlKey;
+                  if (needsMod && !modPressed) continue;
+                  if (e.key.toLowerCase() === keyPart.toLowerCase()) {
+                    e.preventDefault();
+                    executeFormaAction(sc.action);
+                  }
                 }
-              }
-            };
-            window.addEventListener('keydown', onKeyDown);
-            onCleanup(() => window.removeEventListener('keydown', onKeyDown));
-          }
-          const list = Array.from(temp.childNodes);
-          const parent = anchor.parentNode ?? frag;
-          for (const n of list) {
-            parent.insertBefore(n, anchor);
-          }
-          currentNodes = list;
-        });
+              };
+              window.addEventListener('keydown', onKeyDown);
+              onCleanup(() => window.removeEventListener('keydown', onKeyDown));
+            }
+            stagedNodes = Array.from(temp.childNodes);
+            const parent = anchor.parentNode ?? frag;
+            for (const n of stagedNodes) {
+              parent.insertBefore(n, anchor);
+              assertViewLive();
+            }
+          });
+          let settled = false;
+          const prepared = {
+            commit() {
+              if (settled) return;
+              assertViewLive();
+              clearCurrentView();
+              assertViewLive();
+              settled = true; abortPrepared = null;
+              disposeView = stage.dispose;
+              currentNodes = stagedNodes;
+              keyedElements = nextKeys;
+              currentViewKeys = nextKeys; viewKeyMaps.add(nextKeys);
+            },
+            abort() {
+              if (settled) return;
+              settled = true; abortPrepared = null; stage.dispose?.();
+              for (const node of stagedNodes) node.parentNode?.removeChild(node);
+              if (!renderRetired) keyedElements = previousKeys;
+            },
+          };
+          abortPrepared = prepared.abort;
+          return prepared;
+        } catch (error) {
+          stage.dispose?.();
+          for (const node of stagedNodes) node.parentNode?.removeChild(node);
+          if (!renderRetired) keyedElements = previousKeys;
+          throw error;
+        } finally { pendingViewDispose = null; }
       };
 
-      mountCurrentView();
+      mountCurrentView().commit();
+      prepareViews.add(mountCurrentView);
 
-      let firstRun = true;
-      effect(() => {
-        hmrRevision();
-        if (firstRun) {
-          firstRun = false;
-          return;
-        }
-        mountCurrentView();
-      });
-
-      onCleanup(() => clearCurrentView());
+      const retireRender = () => {
+        if (renderRetired) return;
+        renderRetired = true; renderDisposers.delete(retireRender);
+        prepareViews.delete(mountCurrentView);
+        abortPrepared?.(); pendingViewDispose?.(); clearCurrentView(); anchor.remove();
+      };
+      renderDisposers.add(retireRender);
+      onCleanup(retireRender);
       return frag;
     },
     mount(container: HTMLElement) {
+      assertLive();
       container.innerHTML = '';
       let disposeRoot!: () => void;
       const rootFrag = createRoot((dispose) => {
@@ -2439,15 +2622,22 @@ export function compileFormaComponent(
         return this.render();
       });
 
-      container.appendChild(rootFrag);
-      return {
-        unmount() {
-          disposeRoot();
-          container.innerHTML = '';
-        },
+      let unmounted = false;
+      const unmount = () => {
+        if (unmounted) return;
+        unmounted = true; mountDisposers.delete(unmount);
+        disposeRoot();
       };
+      mountDisposers.add(unmount);
+      try { container.appendChild(rootFrag); assertLive(); }
+      catch (error) { unmount(); throw error; }
+      return { unmount };
     },
     dispose() {
+      if (disposed) return;
+      disposed = true;
+      for (const stop of [...mountDisposers]) stop();
+      for (const stop of [...renderDisposers]) stop();
       const externalVmKeys = new Set(Object.keys(options?.viewModel ?? {}));
       for (const [k, sig] of Object.entries(stateSignals)) {
         if (!externalVmKeys.has(k)) {
@@ -2468,6 +2658,17 @@ export function compileFormaComponent(
       keyedElements.clear();
     },
   };
+  formaConstructionDomain.active?.add(instance);
+  constructing = false; constructionDisposers.length = 0;
+  return instance;
+  } catch (error) {
+    constructing = false;
+    for (const stop of constructionDisposers.reverse()) {
+      try { stop(); } catch { /* Preserve the constructor error while draining allocations. */ }
+    }
+    constructionDisposers.length = 0;
+    throw error;
+  }
 }
 
 function parseLiteralValue(raw: string): any {
@@ -2535,6 +2736,7 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
     });
   }
 
+  const contracts: Array<{ text: string; line: number }> = [];
   // Verify balanced braces `{` and `}` ignoring string literals
   let depth = 0;
   let inQuote: string | null = null;
@@ -2561,6 +2763,15 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
       i = nl;
       continue;
     }
+    if (ch === '#' && uiSource[i + 1] === '[') {
+      const token = readFormaContract(uiSource, i);
+      if (!token) { contracts.push({ text: uiSource.slice(i), line: lineNum }); break; }
+      const text = uiSource.slice(i, token.end);
+      contracts.push({ text, line: lineNum });
+      lineNum += (text.match(/\n/g) ?? []).length;
+      i = token.end - 1;
+      continue;
+    }
     if (ch === '{') depth++;
     else if (ch === '}') {
       depth--;
@@ -2584,9 +2795,8 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
   }
 
   // Validate `#[range(min, max)]` and `#[pattern('...')]` attributes
-  const lines = uiSource.split('\n');
-  lines.forEach((ln, idx) => {
-    const s = ln.trim();
+  contracts.forEach(({ text: s, line }) => {
+    const idx = line - 1;
     if (s.startsWith('#[')) {
       if (!s.endsWith(']')) {
         diagnostics.push({
@@ -2596,6 +2806,8 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
         });
       } else {
         const inner = s.slice(2, -1).trim();
+        const syntaxError = formaContractSyntaxError(inner);
+        if (syntaxError) { diagnostics.push({ severity: 'error', message: syntaxError, line }); return; }
         const rMatch = inner.match(/^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/);
         if (rMatch && Number(rMatch[1]) > Number(rMatch[2])) {
           diagnostics.push({
@@ -2604,21 +2816,21 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
             line: idx + 1,
           });
         }
-        const pMatch = inner.match(/^pattern\(\s*['"](.+?)['"]\s*\)$/);
+        const pMatch = inner.match(FORMA_PATTERN_CONTRACT);
         if (pMatch) {
-          if (!isSafePatternRegex(pMatch[1])) {
+          if (!isSafePatternRegex(pMatch[2])) {
             diagnostics.push({
               severity: 'error',
-              message: `Небезопасное регулярное выражение в #[pattern] (возможен ReDoS): ${pMatch[1]}`,
+              message: `Небезопасное регулярное выражение в #[pattern] (возможен ReDoS): ${pMatch[2]}`,
               line: idx + 1,
             });
           } else {
             try {
-              new RegExp(pMatch[1]);
+              new RegExp(pMatch[2]);
             } catch (e: any) {
               diagnostics.push({
                 severity: 'error',
-                message: `Ошибка регулярного выражения в #[pattern]: ${e?.message ?? pMatch[1]}`,
+                message: `Ошибка регулярного выражения в #[pattern]: ${e?.message ?? pMatch[2]}`,
                 line: idx + 1,
               });
             }
@@ -2653,22 +2865,34 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
 export function compileFormaToJsModule(uiSource: string, importSource = 'svet-engine'): string {
   const report = validateFormaSource(uiSource);
   const precompiledAst = parseFormaSource(uiSource);
-  return `import { compileFormaAst } from ${JSON.stringify(importSource)};
+  return `import { compileFormaAst, parseFormaSource } from ${JSON.stringify(importSource)};
 export const uiSource = ${JSON.stringify(uiSource)};
 export const uiAst = ${JSON.stringify(precompiledAst)};
 export const uiValidation = ${JSON.stringify(report)};
-const _activeInstances = import.meta.hot ? (import.meta.hot.data.instances ??= new Set()) : new Set();
+const _activeInstances = import.meta.hot ? (import.meta.hot.data.instances ??= new Set()) : null;
+const _hmrAst = import.meta.hot ? (import.meta.hot.data.currentAst ??= { value: uiAst }) : null;
 export default function createFormaView(options) {
-  const inst = compileFormaAst(uiAst, options);
-  _activeInstances.add(inst);
+  const inst = _hmrAst ? compileFormaAst(_hmrAst.value, options) : compileFormaAst(uiAst, options);
+  let mountedViews = 0;
   const origMount = inst.mount.bind(inst);
+  const origDispose = inst.dispose.bind(inst);
+  inst.dispose = () => {
+    _activeInstances?.delete(inst);
+    origDispose();
+  };
   inst.mount = (container) => {
-    _activeInstances.add(inst);
     const handle = origMount(container);
+    mountedViews++;
+    _activeInstances?.add(inst);
+    let unmounted = false;
     return {
       unmount() {
-        _activeInstances.delete(inst);
-        handle.unmount();
+        if (unmounted) return;
+        unmounted = true;
+        try { handle.unmount(); }
+        finally {
+          if (--mountedViews === 0) _activeInstances?.delete(inst);
+        }
       },
     };
   };
@@ -2676,10 +2900,21 @@ export default function createFormaView(options) {
 }
 if (import.meta.hot) {
   import.meta.hot.accept((newMod) => {
-    if (newMod && _activeInstances.size > 0) {
-      for (const inst of _activeInstances) {
-        inst.hotReload(newMod.uiAst ?? newMod.uiSource);
+    if (newMod) {
+      if (newMod.uiValidation?.valid === false) {
+        const messages = (newMod.uiValidation.diagnostics ?? []).map((item) => item.message).join('; ');
+        throw new Error('Invalid Forma HMR module: ' + messages);
       }
+      const nextAst = newMod.uiAst ?? parseFormaSource(newMod.uiSource);
+      const instances = [..._activeInstances];
+      _hmrAst.value = nextAst;
+      let failed = false, failure;
+      for (const inst of instances) {
+        if (!_activeInstances.has(inst)) continue;
+        try { inst.hotReload(nextAst); }
+        catch (error) { if (!failed) failure = error; failed = true; }
+      }
+      if (failed) throw failure;
     }
   });
 }

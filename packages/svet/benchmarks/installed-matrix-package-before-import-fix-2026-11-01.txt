@@ -1,0 +1,24 @@
+
+> svet-engine@1.0.0 test:package
+> npm run build:package && node scripts/check-package.mjs --keep
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+Consumer verification evidence retained at /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-zZTf9C
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: workspace runtime import in installed fixture
+    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-package.mjs:974:5 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.4

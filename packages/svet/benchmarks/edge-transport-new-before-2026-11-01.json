@@ -1,0 +1,157 @@
+{
+  "startedAt": "2026-11-01T19:39:33.478Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-BtrdDA",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "workerdBinaryOverride": "/private/tmp/svet-workerd-20261101/node_modules/@cloudflare/workerd-darwin-arm64/bin/workerd",
+  "workerdBinaryVersion": "workerd 2026-11-01",
+  "responses": [
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>0</p>",
+          "<p>1</p>",
+          "<p>2</p>",
+          "<p>3</p>",
+          "<p>4</p>",
+          "<p>5</p>",
+          "<p>6</p>",
+          "<p>7</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "timeoutTransport": "readable",
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    },
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>100</p>",
+          "<p>101</p>",
+          "<p>102</p>",
+          "<p>103</p>",
+          "<p>104</p>",
+          "<p>105</p>",
+          "<p>106</p>",
+          "<p>107</p>"
+        ],
+        "cleaned": 8,
+        "timeoutQualified": true,
+        "timeoutTransport": "readable",
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        },
+        "domMatrix": {
+          "cycles": 16,
+          "keyedMoves": 32,
+          "removedRows": 16,
+          "cleanedRoots": 16,
+          "cleanedRows": 64,
+          "eventTeardowns": 16
+        },
+        "forms": {
+          "controls": 8,
+          "multiple": true,
+          "lateOptions": true,
+          "cleaned": 1,
+          "nodes": 0
+        },
+        "gcCapabilities": {
+          "weakRef": true,
+          "finalizationRegistry": true
+        }
+      }
+    }
+  ],
+  "gcCapabilities": {
+    "weakRef": true,
+    "finalizationRegistry": true
+  },
+  "churn": {
+    "requestedMs": 1000,
+    "timeoutTransport": "readable",
+    "directSocket": false,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 96,
+    "domCycles": 1536,
+    "streams": 768,
+    "stringRenders": 768,
+    "timeouts": 96,
+    "elapsedMs": 1089.4605000000001,
+    "status": "passed"
+  },
+  "responseTransport": "direct-loopback-workerd",
+  "transports": [
+    {
+      "codec": "identity",
+      "mode": "complete",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    }
+  ],
+  "status": "failed",
+  "error": "TypeError: fetch failed\n    at node:internal/deps/undici/undici:15456:13\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:79:69\n    at async bounded (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:77:55)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:78:101",
+  "completedAt": "2026-11-01T19:39:35.310Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+  "driverSourceSha256": "039f60f926c0119f898f00c744a9cbfa571efb767b176628af5db8781829e807",
+  "inspectorSourceSha256": "60a1d9fe15df70504241bcc3876b177750c1dde850738b485200136441176cad",
+  "retentionSourceSha256": "2fbeb87297173e13e9033186ff9bb221cf08847b93355331e306c570f789eacd",
+  "workerSourceSha256": "281886c6432504d5d490ac0a5c70e930eafe1a9ba37180ae0f211a999c36c160",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "1e7f85b8d71518d08d07c1b6397c7ed25004ffdb5523bb89f07de9f8247114e5"
+}

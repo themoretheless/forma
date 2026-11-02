@@ -1,0 +1,12 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+
+ Test Files  2 passed (2)
+      Tests  25 passed (25)
+   Start at  00:14:35
+   Duration  9.26s (environment 83%, import 8%, tests 6%, transform 3%)
+
+    Isolate  2 workers spawned · ~3.84s startup each (spawn + environment, per file)
+             at least ~3.84s faster with isolate: false — reuses workers across files instead of one per file
+

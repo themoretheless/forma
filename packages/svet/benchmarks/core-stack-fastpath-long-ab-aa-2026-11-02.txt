@@ -1,0 +1,42 @@
+[
+  {
+    "depth": 1,
+    "baselineMedianMs": 104.07337499999994,
+    "candidateMedianMs": 36.20645899999997,
+    "candidateOverBaseline": 0.3478935798901495,
+    "aaRatios": [
+      0.9415498845767539,
+      0.9880227361712678
+    ]
+  },
+  {
+    "depth": 32,
+    "baselineMedianMs": 103.61533299999996,
+    "candidateMedianMs": 37.005499999999984,
+    "candidateOverBaseline": 0.3571430880794447,
+    "aaRatios": [
+      0.6865767154185333,
+      1.1382232466369302
+    ]
+  },
+  {
+    "depth": 128,
+    "baselineMedianMs": 113.74070900000015,
+    "candidateMedianMs": 48.563249999999925,
+    "candidateOverBaseline": 0.4269645444183037,
+    "aaRatios": [
+      0.9733642794590663,
+      1.0310512288200262
+    ]
+  },
+  {
+    "depth": 256,
+    "baselineMedianMs": 162.7973750000001,
+    "candidateMedianMs": 47.425457999999935,
+    "candidateOverBaseline": 0.29131586427606654,
+    "aaRatios": [
+      0.8012648609040207,
+      1.1217438822042967
+    ]
+  }
+]

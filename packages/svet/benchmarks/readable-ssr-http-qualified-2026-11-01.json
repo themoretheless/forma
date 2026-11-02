@@ -1,0 +1,66 @@
+{
+  "startedAt": "2026-11-01T15:39:34.394Z",
+  "node": "v22.23.4",
+  "checks": [
+    {
+      "codec": "identity",
+      "cancel": false,
+      "before": {
+        "settled": false,
+        "nodes": 1,
+        "cleaned": 0
+      },
+      "after": {
+        "settled": true,
+        "nodes": 0,
+        "cleaned": 1
+      }
+    },
+    {
+      "codec": "identity",
+      "cancel": true,
+      "before": {
+        "settled": false,
+        "nodes": 1,
+        "cleaned": 0
+      },
+      "after": {
+        "settled": true,
+        "nodes": 0,
+        "cleaned": 1
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "cancel": false,
+      "before": {
+        "settled": false,
+        "nodes": 1,
+        "cleaned": 0
+      },
+      "after": {
+        "settled": true,
+        "nodes": 0,
+        "cleaned": 1
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "cancel": true,
+      "before": {
+        "settled": false,
+        "nodes": 1,
+        "cleaned": 0
+      },
+      "after": {
+        "settled": true,
+        "nodes": 0,
+        "cleaned": 1
+      }
+    }
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-01T15:39:34.445Z",
+  "sourceSha256": "28e8e12bf4d0f40ab2f44e64d7cea4fbf77800bad5ed15336fb6f42d12118825",
+  "serverRuntimeSha256": "b116caee6922af9a5b8d865893f7c98acf48fd5ef0f298ea05f2f2aad38b04cf"
+}

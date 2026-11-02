@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-02",
+  "change": "On visual render failure, resolve current binding identity from annotated scene expansion without visual/layout/serialization; refuse if structural expansion fails, retaining document/input instead of routing through obsolete branch map.",
+  "before": "Regression failed: obsolete editor changed old query to Obsolete input after Match switched and new branch visual failed.",
+  "checks": {
+    "lib": 155,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3
+  },
+  "regressions": [
+    "Actual retained Runtime from .ui in legacy and Svet, Match switch+new branch render failure, old edited widget cannot update either branch model; repair displays new branch value.",
+    "Existing corrective-input render recovery, activation queue, transactions and key reorder tests pass."
+  ],
+  "source_sha256": {
+    "vector-ui/src/runtime.rs": "85ed6f73c619b41baf4bae7661fc9245e8de371012f2eeb89c600c7e01fe1c8e",
+    "vector-ui/src/form_document.rs": "407ff6e59d670bddda8bf5c1d64a120426fc10593372023a7ba505530a09ff94"
+  },
+  "limitations": [
+    "Structural expansion errors refuse binding sync until repaired; no stale-map fallback.",
+    "No release timing/peak-memory or live-window qualification this turn.",
+    "Full selection/error/renderer/browser matrix remains open."
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "status": "passed",
+  "scope": "Empty shared-core override stack lookup; correctness qualified, synthetic performance measured under host contention",
+  "onlyChangedRuntimeFile": [
+    "wasm-bridge.js"
+  ],
+  "sourceSha256": "f268a89e57a4290e58503417d586faddce2f8ccd139fd3422fe893237349f481",
+  "installedConsumer": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-Vv8ckn/consumer",
+  "ratios": [
+    {
+      "depth": 1,
+      "candidateOverBaseline": 0.3478935798901495,
+      "aaRatios": [
+        0.9415498845767539,
+        0.9880227361712678
+      ]
+    },
+    {
+      "depth": 32,
+      "candidateOverBaseline": 0.3571430880794447,
+      "aaRatios": [
+        0.6865767154185333,
+        1.1382232466369302
+      ]
+    },
+    {
+      "depth": 128,
+      "candidateOverBaseline": 0.4269645444183037,
+      "aaRatios": [
+        0.9733642794590663,
+        1.0310512288200262
+      ]
+    },
+    {
+      "depth": 256,
+      "candidateOverBaseline": 0.29131586427606654,
+      "aaRatios": [
+        0.8012648609040207,
+        1.1217438822042967
+      ]
+    }
+  ],
+  "checks": {
+    "JS": "1295/99 passed",
+    "typescript": "passed",
+    "installedPackageEdgeGC": "passed",
+    "HTTPActions": "4/4"
+  },
+  "evidence": [
+    "core-stack-fastpath-long-ab-aa-2026-11-02.json",
+    "core-stack-fastpath-suite-2026-11-02.txt",
+    "core-stack-fastpath-types-2026-11-02.txt",
+    "core-stack-fastpath-package-2026-11-02.txt",
+    "core-stack-fastpath-actions-2026-11-02.txt"
+  ],
+  "limitations": [
+    "No uncontended qualification; HTTP soak and source checks overlapped benchmark",
+    "Single-copy synthetic hotpath, not multi-copy/application throughput",
+    "Separate-core automatic dependencies and continuous history stress remain open"
+  ]
+}

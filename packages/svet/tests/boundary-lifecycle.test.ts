@@ -55,3 +55,15 @@ it('a retained reset callback cannot remount an unmounted boundary', () => {
   const app = mount(() => ErrorBoundary({children: () => { mounts++; throw new Error('failed'); }, fallback: (_, retry) => { reset = retry; return document.createTextNode('error'); }}),document.body);
   app.unmount(); reset(); expect(mounts).toBe(1); expect(getGraphTelemetry().nodes).toBe(0); expect(document.body.childNodes).toHaveLength(0);
 });
+
+it('retry batches in the boundary core when called under another ambient core', async () => {
+  const {createWasmCoreInstance, withWasmCore} = await import('../src/engine');
+  const core = createWasmCoreInstance(); let retry!: () => void, mounts = 0;
+  const app = withWasmCore(core, () => mount(() => ErrorBoundary({children: () => {
+    mounts++; if (mounts === 1) throw new Error('first attempt');
+    return document.createTextNode('ready');
+  }, fallback: (_, reset) => { retry = reset; return document.createTextNode('error'); }}), document.body));
+  try { retry(); expect(mounts).toBe(2); expect(document.body.textContent).toBe('ready'); }
+  finally { app.unmount(); }
+  expect(core.svet_get_node_count()).toBe(0);
+});

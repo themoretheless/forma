@@ -1,0 +1,38 @@
+
+> svet-engine@1.0.0 test:package
+> npm run build:package && node scripts/check-package.mjs --keep
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 101ec171b 101c60fa3 101c589e4 101c5959b 103a69d67 101a762a7 101a76233 101a76fb3 100fe2b9f 10394a3c3 10394b0cf 10394ba2b 10391b9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 101ec171b 101c60fa3 101c589e4 101c5959b 103a69d67 101a762a7 101a76233 101a76fb3 100fe2b9f 10394a3c3 10394b0cf 10394ba2b 10391b9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 101ec171b 101c60fa3 101c589e4 101c5959b 103a69d67 101a762a7 101a76233 101a76fb3 101b15d2b 100f4c6ac 103937def 103a69d67 101753518 100f4c6ac 101c58d80 101c5912b 103a69d67 101a76247 101a76ae3 101a76fb3 100fe2b9f 10394a3c3 10394b0cf 10394ba2b 10391b9a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 101ec171b 101c60fa3 101c589e4 101c5959b 103a69d67 101a762a7 101a76233 101a76fb3 101b15d2b 100f4c6ac 103937def 103a69d67 101753518 100f4c6ac 101c58d80 101c5912b 103a69d67 101a76247 101a76ae3 101a76fb3 100fe2b9f 10394a3c3 10394b0cf 10394ba2b 10391b9a4
+{
+  "edgeHostQualification": true,
+  "node": "v22.23.4",
+  "platform": "darwin",
+  "arch": "arm64",
+  "completedAt": "2026-11-01T20:28:00.022Z",
+  "packageFiles": 62,
+  "unpackedBytes": 2421040,
+  "consumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-inkmFu/consumer",
+  "checks": [
+    "archive allowlist",
+    "isolated installation",
+    "native Node ESM exports",
+    "concurrent SSR",
+    "sync and async compute fallback",
+    "compiled Forma import",
+    "strict JSX declarations without Vite",
+    "negative type fixture",
+    "external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build"
+  ]
+}
+Consumer verification evidence retained at /var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-inkmFu

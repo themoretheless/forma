@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "name": "production factory releases never-mounted disposed instances",
+      "status": "passed"
+    },
+    {
+      "name": "HMR tracks mounted instances and preserves registration until last unmount",
+      "status": "passed"
+    },
+    {
+      "name": "HMR explicit disposal retires live views before handles unmount",
+      "status": "passed"
+    },
+    {
+      "name": "cached factory uses the newest AST even when no instance was mounted during update",
+      "status": "passed"
+    },
+    {
+      "name": "HMR drains healthy instances after one failure and defers newly mounted instances",
+      "status": "passed"
+    },
+    {
+      "name": "invalid semantic HMR preserves live state and factory AST until a valid update",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\ntrue !== false\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:69:63\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:64:1"
+    }
+  ],
+  "node": "v22.23.4",
+  "generatedSha256": "c5a50bb63b4ebd61ab5d13b32208155f4288617a3595953fb8c188468a2bcefd",
+  "retainedTargets": 0,
+  "gc": {
+    "targets": 8,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "status": "failed",
+  "probeSha256": "33ec43055bacdc48e54fba6664c0cae132458a00531d4e7a3a6b02dd9848e06b",
+  "compilerSha256": "ae2c4fa4e4efe43089f9c7fdeaee4b28058b9d6e5a88ddec00b329a4fd1001ad"
+}

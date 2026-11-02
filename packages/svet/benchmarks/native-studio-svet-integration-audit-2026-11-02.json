@@ -1,0 +1,17 @@
+{
+  "status": "integration-gap-confirmed",
+  "scope": "Native Studio backend routing source audit, not runtime/native UI qualification",
+  "findings": [
+    "studio-native --svet passes backend flag to vector runner",
+    "vector runner launches vector-ui forma native binary",
+    "native window both backend selections share runtime.paint_native; Egui adds frame accent",
+    "vector-ui Cargo dependencies do not include packages/svet/crates/svet-wasm or another Svet adapter"
+  ],
+  "remaining": "Implement and qualify a real native Svet graph/renderer/lifetime adapter before claiming packages/svet native Studio integration",
+  "sourceSha256": {
+    "scripts/studio-native.mjs": "66eb690483be727c1173d70edccf964d32c382d4e006f23b9325b64cd370a608",
+    "vector-runner.js": "55368c6629fdfc76602b41de4b059bc0d3ce2fa93f2c2b736759188a79779764",
+    "vector-ui/src/native_window.rs": "288bc8b718bcbb9df6ec1f8f6aec79768d654860fa58ac6feb3f33be89cfa382",
+    "vector-ui/Cargo.toml": "019c89f6609ae8669ac7a64dc0de8d9dc0c075a8ed2fcb30d517d35f53177b8f"
+  }
+}

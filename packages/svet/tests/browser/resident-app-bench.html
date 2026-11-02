@@ -1,0 +1,198 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Svet deformation app measurements</title>
+<style>body{font:15px system-ui;max-width:1050px;margin:24px auto;padding:16px}button,input{padding:8px}table{border-collapse:collapse;width:100%;margin:16px 0}td,th{padding:8px;border:1px solid #ccd;text-align:left}pre{white-space:pre-wrap;background:#eff6ff;padding:14px}#preview{display:flex;gap:20px;align-items:start}</style>
+<h1>Deformation app: mapped vs resident</h1>
+<p>One production engine, identical WGSL, topology and parameters. Real compute → render updates paced by requestAnimationFrame. No other framework is simulated.</p>
+<label>Measured frames <input id="frames" type="number" min="60" max="600" value="120"></label>
+<label>Paired rounds <input id="rounds" type="number" min="3" max="9" value="5"></label>
+<label><input id="control" type="checkbox" checked> resident/resident A/A control</label>
+<button id="run">Run app measurements</button>
+<pre id="status" role="status">Not run</pre>
+<table><thead><tr><th>Workload</th><th>Path</th><th>Median update ms</th><th>Median p95 ms</th><th>Host upload/frame</th><th>Readback/frame</th></tr></thead><tbody id="summary"></tbody></table>
+<p>Update latency ends after compute, rendering, queue completion and validation. RAF intervals measure cadence, not compositor-confirmed presentation. Pixel snapshots and final data checks run outside measured frames. Heap samples are optional browser observations, not RSS or a memory-plateau proof.</p>
+<div id="preview"></div><script id="raw-results" type="application/json"></script>
+<script type="module">
+import {captureReactiveContext,configureGpuSubsystem,createGpuTensor,createMesh3D,createRoot,createTransform3D,
+ createWasmCoreInstance,dispatchGpuComputeKernelAsync,dispatchGpuComputeResident,getGraphTelemetry,getGpuTelemetry,
+ getCurrentOwner,onCleanup,readGpuResidentSnapshot,resetReactiveSystem,signal,Viewport3D,withWasmCore} from '/src/engine/index.ts';
+const status=document.querySelector('#status'),raw=document.querySelector('#raw-results'),summary=document.querySelector('#summary'),preview=document.querySelector('#preview');
+const deformation=`
+@group(0) @binding(0) var<storage, read> base: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read> params: array<f32>;
+@group(0) @binding(2) var<storage, read_write> output: array<vec4<f32>>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+ if(id.x < arrayLength(&output)) { output[id.x] = base[id.x] + vec4<f32>(sin(params[0] + f32(id.x)*0.01)*0.02,0.0,0.0,0.0); }
+}`;
+const identity=`
+@group(0) @binding(0) var<storage, read> input: array<vec4<f32>>;
+@group(0) @binding(1) var<storage, read_write> output: array<vec4<f32>>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+ if(id.x < arrayLength(&output)) { output[id.x] = input[id.x]; }
+}`;
+const assert=(value,message)=>{if(!value)throw Error(message);};
+const raf=()=>new Promise(requestAnimationFrame);
+function quantile(values,p){assert(values.length,'Empty timing sample');const sorted=[...values].sort((a,b)=>a-b),index=(sorted.length-1)*p,lo=Math.floor(index);return sorted[lo]+(sorted[Math.ceil(index)]-sorted[lo])*(index-lo);}
+const stats=values=>({p50:quantile(values,.5),p95:quantile(values,.95),p99:quantile(values,.99),min:Math.min(...values),max:Math.max(...values)});
+const heap=()=>{const memory=performance.memory;return memory?{usedJSHeapSize:memory.usedJSHeapSize,totalJSHeapSize:memory.totalJSHeapSize,jsHeapSizeLimit:memory.jsHeapSizeLimit}:null;};
+const sha=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),value=>value.toString(16).padStart(2,'0')).join('');
+function grid(side){
+ const count=side*side*6,positions=new Float32Array(count*3),clip=new Float32Array(count*4),indices=new Uint32Array(count);let v=0;
+ for(let y=0;y<side;y++)for(let x=0;x<side;x++)for(const [dx,dy] of [[0,0],[1,0],[0,1],[1,0],[1,1],[0,1]]){
+  const px=-.85+1.7*(x+dx)/side,py=-.85+1.7*(y+dy)/side;
+  positions.set([px,py,.35],v*3);clip.set([px,py,.35,1],v*4);indices[v]=v;v++;
+ }
+ return {side,count,positions,clip,indices,bytes:clip.byteLength};
+}
+function tracker(device){
+ const counters={uploadedBytes:0,mapCalls:0,readbackBytes:0,submits:0,buffersCreated:0,bufferBytesCreated:0,buffersDestroyed:0,bufferBytesDestroyed:0};
+ const live=new Set(),textures=new Set();let peakBufferBytes=0;
+ const create=device.createBuffer.bind(device),texture=device.createTexture.bind(device),write=device.queue.writeBuffer.bind(device.queue),submit=device.queue.submit.bind(device.queue);
+ device.createBuffer=descriptor=>{
+  const buffer=create(descriptor),entry={bytes:descriptor.size};live.add(entry);counters.buffersCreated++;counters.bufferBytesCreated+=entry.bytes;
+  peakBufferBytes=Math.max(peakBufferBytes,Array.from(live).reduce((sum,item)=>sum+item.bytes,0));
+  const destroy=buffer.destroy.bind(buffer),map=buffer.mapAsync.bind(buffer);let destroyed=false;
+  buffer.destroy=()=>{if(!destroyed){destroyed=true;live.delete(entry);counters.buffersDestroyed++;counters.bufferBytesDestroyed+=entry.bytes;}return destroy();};
+  buffer.mapAsync=(mode,offset=0,size=descriptor.size-offset)=>{counters.mapCalls++;counters.readbackBytes+=size;return map(mode,offset,size);};return buffer;
+ };
+ device.createTexture=descriptor=>{const output=texture(descriptor),entry={};textures.add(entry);const destroy=output.destroy.bind(output);output.destroy=()=>{textures.delete(entry);return destroy();};return output;};
+ device.queue.writeBuffer=(buffer,offset,data,start=0,size)=>{counters.uploadedBytes+=size??data.byteLength-start;return write(buffer,offset,data,start,size);};
+ device.queue.submit=batches=>{counters.submits++;return submit(batches);};
+ return {read:()=>({...counters}),live:()=>({buffers:live.size,bufferBytes:Array.from(live).reduce((sum,item)=>sum+item.bytes,0),textures:textures.size}),
+  resetPeak(){peakBufferBytes=Array.from(live).reduce((sum,item)=>sum+item.bytes,0);},get peakBufferBytes(){return peakBufferBytes;}};
+}
+const difference=(end,start)=>Object.fromEntries(Object.keys(end).map(key=>[key,end[key]-start[key]]));
+function renderValidated(canvas){
+ const check=()=>{if(canvas.dataset.renderBackend!=='webgpu-depth24plus'||canvas.dataset.renderValidation==='failed')throw Error(canvas.dataset.renderError??'WebGPU renderer unavailable');return canvas.dataset.renderValidation==='passed';};
+ if(check())return Promise.resolve();
+ return new Promise((resolve,reject)=>{let timer;const observer=new MutationObserver(()=>{try{if(check()){observer.disconnect();clearTimeout(timer);resolve();}}catch(error){observer.disconnect();clearTimeout(timer);reject(error);}});
+  observer.observe(canvas,{attributes:true,attributeFilter:['data-render-validation','data-render-backend']});timer=setTimeout(()=>{observer.disconnect();reject(Error('Render validation timeout'));},5000);
+  try{if(check()){observer.disconnect();clearTimeout(timer);resolve();}}catch(error){observer.disconnect();clearTimeout(timer);reject(error);}
+ });
+}
+function capture(canvas){const copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;const ctx=copy.getContext('2d');ctx.drawImage(canvas,0,0);return {canvas:copy,pixels:ctx.getImageData(0,0,copy.width,copy.height).data};}
+const shaderHash=await sha(new TextEncoder().encode(deformation));
+document.querySelector('#run').onclick=async()=>{
+ const button=document.querySelector('#run');button.disabled=true;summary.replaceChildren();preview.replaceChildren();raw.textContent='';
+ const frames=Number(document.querySelector('#frames').value),rounds=Number(document.querySelector('#rounds').value),control=document.querySelector('#control').checked,warmup=30;
+ const report={protocol:'interleaved-controls-v2',calibration:[],startedAt:new Date().toISOString(),frames,rounds,warmup,workloads:[],controls:[],failedRuns:[],longTasks:[],droppedLongTasks:0,heapApiAvailable:!!performance.memory,shaderSha256:shaderHash,
+  timingScope:'Per-frame update latency includes parameter write, compute, renderer submission, queue completion and validation. RAF intervals are cadence only. Setup, warmup and quality snapshots are separate. No general app/FPS/driver memory claim.'};
+ let device,audit,tracking,observer,phase=null,lastCapture;
+ try{
+  assert(Number.isInteger(frames)&&frames>=60&&frames<=600&&Number.isInteger(rounds)&&rounds>=3&&rounds<=9,'Invalid frames or rounds');
+  report.build=await fetch('/metadata.json').then(response=>{assert(response.ok,'Prepare the frozen production benchmark first');return response.json();});
+  const adapter=await navigator.gpu?.requestAdapter();assert(adapter,'No WebGPU adapter');const info=adapter.info??{};
+  report.adapter={vendor:info.vendor,architecture:info.architecture,device:info.device,description:info.description,isFallbackAdapter:info.isFallbackAdapter??adapter.isFallbackAdapter??null};
+  report.environment={userAgent:navigator.userAgent,hardwareConcurrency:navigator.hardwareConcurrency,deviceMemory:navigator.deviceMemory??null,devicePixelRatio,visibilityState:document.visibilityState};
+  device=await adapter.requestDevice();tracking=tracker(device);audit=createWasmCoreInstance();withWasmCore(audit,()=>configureGpuSubsystem({device}));
+  report.uncapturedErrors=[];device.addEventListener('uncapturederror',event=>{if(report.uncapturedErrors.length<32)report.uncapturedErrors.push(event.error.message);});
+  if(PerformanceObserver.supportedEntryTypes?.includes('longtask')){
+   observer=new PerformanceObserver(list=>{for(const entry of list.getEntries()){if(report.longTasks.length<10000)report.longTasks.push({startTime:entry.startTime,duration:entry.duration});else report.droppedLongTasks++;}});observer.observe({type:'longtask'});
+  }
+  report.longTaskObserverAvailable=!!observer;
+  async function run(data,mode,tag,sampleCount=frames){
+   phase=tag;report.lastScenario=tag;const setupStart=performance.now(),core=createWasmCoreInstance();let stop,owned,mesh,params,source,selected,base,current,view;
+   const row={tag,mode,side:data.side,vertices:data.count,bytes:data.bytes,sampleCount,frames:[],setupStart};
+   try{
+    withWasmCore(core,()=>createRoot(dispose=>{
+     stop=dispose;configureGpuSubsystem({device});owned=captureReactiveContext();
+     const transform=createTransform3D();mesh=createMesh3D({positions:data.positions,indices:data.indices,indexFormat:'uint32',transform});
+     params=createGpuTensor([0,0,0,0]);source=createGpuTensor(data.clip);
+     if(mode==='resident'){selected=signal(null);onCleanup(()=>selected.dispose());}
+    }));
+    if(mode==='resident'){
+     base=await owned.run(()=>dispatchGpuComputeResident({wgsl:identity,inputs:[source],outputLength:data.clip.length,workgroups:[Math.ceil(data.count/64)]}));
+     owned.run(()=>{source.dispose();selected.set(base);});
+    }
+    view=owned.run(()=>Viewport3D({mesh,...(mode==='resident'?{gpuVertices:selected}:{}),width:320,height:240,renderMode:'sync',showVertices:false}));preview.replaceChildren(view);
+    const canvas=view.children[0];await device.queue.onSubmittedWorkDone();await renderValidated(canvas);
+    row.setupMs=performance.now()-setupStart;row.heapAfterSetup=heap();
+    async function update(time,picture=false){
+     owned.run(()=>params.setAt(0,time));let captured;
+     if(mode==='resident'){
+      const next=await owned.run(()=>dispatchGpuComputeResident({wgsl:deformation,inputs:[base,params],outputLength:data.clip.length,workgroups:[Math.ceil(data.count/64)]}));
+      owned.run(()=>selected.set(next));if(current)current.dispose();current=next;
+     }else await owned.run(()=>dispatchGpuComputeKernelAsync({wgsl:deformation,inputs:[source,params],output:mesh.transformedVertices,workgroups:[Math.ceil(data.count/64)]}));
+     if(picture)captured=capture(canvas);
+     await device.queue.onSubmittedWorkDone();await renderValidated(canvas);return captured;
+    }
+    for(let i=0;i<warmup;i++){await raf();await update((i-warmup)/32);}
+    row.steadyGraph=owned.run(()=>getGraphTelemetry());row.steadyGpu=owned.run(()=>getGpuTelemetry());row.heapAfterWarmup=heap();
+    const before=tracking.read();tracking.resetPeak();let previous;
+    row.measuredStart=performance.now();
+    for(let frame=0;frame<sampleCount;frame++){
+     const timestamp=await raf(),start=performance.now();await update(frame/32);const end=performance.now();
+     const graph=owned.run(()=>getGraphTelemetry()),gpu=owned.run(()=>getGpuTelemetry());
+     for(const key of ['nodes','capacity','edges','wasmMemoryBytes'])assert(graph[key]===row.steadyGraph[key],`${tag}: native ${key} grew during updates`);
+     assert(!graph.pendingEffectCount&&!graph.pendingEffectEntryCount&&!gpu.pendingComputeCount&&!gpu.pendingComputeSnapshotBytes,`${tag}: frame did not settle`);
+     assert(gpu.residentComputeBytes===(mode==='resident'?2*data.bytes:0),`${tag}: persistent output retention grew`);
+     row.frames.push({frame,rafTimestamp:timestamp,updateMs:end-start,rafIntervalMs:previous===undefined?null:timestamp-previous});previous=timestamp;
+     if(frame%20===0)status.textContent=`Running ${tag}: ${data.count} vertices, ${frame+1}/${sampleCount} measured frames`;
+    }
+    row.measuredEnd=performance.now();row.counters=difference(tracking.read(),before);row.peakBufferBytes=tracking.peakBufferBytes;row.liveAfterMeasure=tracking.live();row.heapAfterMeasure=heap();
+    const expectedUpload=mode==='resident'?16:data.bytes*3+16;
+    assert(row.counters.uploadedBytes===sampleCount*expectedUpload,`${tag}: unexpected measured uploads`);
+    assert(row.counters.mapCalls===(mode==='resident'?0:sampleCount)&&row.counters.readbackBytes===(mode==='resident'?0:sampleCount*data.bytes),`${tag}: unexpected measured readback`);
+    assert(row.counters.submits===sampleCount*2,`${tag}: submission mismatch`);
+    row.update=stats(row.frames.map(frame=>frame.updateMs));row.rafIntervals=stats(row.frames.slice(1).map(frame=>frame.rafIntervalMs));
+    const qualityFrame=await update(1.5,true);lastCapture=qualityFrame.canvas;
+    const values=mode==='resident'?await owned.run(()=>readGpuResidentSnapshot(current)):owned.run(()=>mesh.transformedVertices.peek().slice());
+    let maxError=0;
+    for(let sample=0;sample<20;sample++){
+     const i=Math.floor(sample*(data.count-1)/19),baseIndex=i*4;
+     maxError=Math.max(maxError,Math.abs(values[baseIndex]-(data.clip[baseIndex]+Math.sin(Math.fround(1.5)+i*Math.fround(.01))*.02)));
+     for(let lane=1;lane<4;lane++)assert(values[baseIndex+lane]===data.clip[baseIndex+lane],`${tag}: non-X data changed`);
+    }
+    assert(maxError<.00002,`${tag}: deformation reference mismatch ${maxError}`);
+    assert(qualityFrame.pixels.some((value,index)=>index%4===2&&value>150),'Rendered mesh has no foreground pixels');
+    row.quality={geometrySha256:await sha(values.buffer),pixelSha256:await sha(qualityFrame.pixels.buffer),referenceMaxAbsError:maxError};
+    return {row,values,pixels:qualityFrame.pixels};
+   }catch(error){row.failure=String(error.stack??error);report.failedRuns.push(row);throw error;}
+   finally{
+    try{
+     stop?.();withWasmCore(core,()=>resetReactiveSystem());
+     assert(core.svet_get_node_count()===0,`${tag}: reactive graph retained nodes`);
+     const pending=withWasmCore(audit,()=>getGpuTelemetry());assert(!pending.pendingComputeCount&&!pending.residentComputeBytes,`${tag}: device reservations retained`);
+     assert(tracking.live().buffers===0&&tracking.live().textures===0,`${tag}: GPU allocations retained after teardown`);
+    }catch(error){row.cleanupFailure=String(error.stack??error);if(!row.failure){report.failedRuns.push(row);throw error;}}
+    finally{row.teardownAt=performance.now();row.heapAfterTeardown=heap();phase=null;}
+   }
+  }
+  const grids=[grid(20),grid(80)];
+  const clockSteps=[];let clock=performance.now();const probeStart=clock;
+  while(clockSteps.length<16&&performance.now()-probeStart<1000){const now=performance.now();if(now>clock){clockSteps.push(now-clock);clock=now;}}
+  report.timerResolutionProbe={positiveStepsMs:clockSteps,minimumObservedStepMs:Math.min(...clockSteps),scope:'Observed increments, not guaranteed clock accuracy.'};
+  for(const mode of ['mapped','resident'])report.calibration.push((await run(grids[1],mode,`calibration/${mode}`,60)).row);
+
+  const compare=(a,b)=>{
+   assert(a.row.quality.geometrySha256===b.row.quality.geometrySha256,'Paired GPU geometry differs');
+   assert(a.row.quality.pixelSha256===b.row.quality.pixelSha256,'Paired final canvas pixels differ');
+   return {geometryIdentical:true,pixelsIdentical:true,p50ChangePercent:100*(b.row.update.p50/a.row.update.p50-1),p95ChangePercent:100*(b.row.update.p95/a.row.update.p95-1)};
+  };
+  async function runControl(round,afterPair){
+   const order=round%2?['a2','a1']:['a1','a2'],completed={};
+   for(const name of order)completed[name]=await run(grids[1],'resident',`control-${round}/${name}`);
+   const pair={round,afterPair,order,a1:completed.a1.row,a2:completed.a2.row};report.controls.push(pair);pair.comparison=compare(completed.a1,completed.a2);
+  }
+  for(const data of grids)for(let round=0;round<rounds;round++){
+   const order=round%2?['resident','mapped']:['mapped','resident'],completed={};
+   for(const mode of order)completed[mode]=await run(data,mode,`${data.count}/pair-${round}/${mode}`);
+   const pair={vertices:data.count,round,order,mapped:completed.mapped.row,resident:completed.resident.row};report.workloads.push(pair);pair.comparison=compare(completed.mapped,completed.resident);
+   if(control&&data===grids[1]&&round%2===0)await runControl(report.controls.length,round);
+  }
+  assert(report.uncapturedErrors.length===0,'Uncaptured GPU errors');
+  for(const data of grids)for(const mode of ['mapped','resident']){
+   const rows=report.workloads.filter(row=>row.vertices===data.count).map(row=>row[mode]),tr=document.createElement('tr');
+   for(const value of [data.count,mode,quantile(rows.map(row=>row.update.p50),.5).toFixed(3),quantile(rows.map(row=>row.update.p95),.5).toFixed(3),rows[0].counters.uploadedBytes/frames,rows[0].counters.readbackBytes/frames]){const td=document.createElement('td');td.textContent=value;tr.append(td);}summary.append(tr);
+  }
+  report.status='passed';status.textContent=`PASS: ${report.workloads.length} paired app runs, ${report.controls.length} A/A controls. Identical final GPU data and pixels; all graphs and buffer reservations torn down. Raw timings retain order and per-frame samples.`;
+  if(report.controls.length){const p50=report.controls.map(row=>row.comparison.p50ChangePercent),p95=report.controls.map(row=>row.comparison.p95ChangePercent);status.textContent+=`\nA/A p50 range ${Math.min(...p50).toFixed(1)}…${Math.max(...p50).toFixed(1)}%; p95 range ${Math.min(...p95).toFixed(1)}…${Math.max(...p95).toFixed(1)}%. Controls are interleaved with large-mesh pairs.`;}
+ }catch(error){report.status='failed';report.error=String(error.stack??error);report.failedPhase=phase??report.lastScenario;status.textContent='FAIL: '+error.message;}
+ finally{
+  if(observer){for(const entry of observer.takeRecords()){if(report.longTasks.length<10000)report.longTasks.push({startTime:entry.startTime,duration:entry.duration});else report.droppedLongTasks++;}observer.disconnect();}
+  if(audit)withWasmCore(audit,()=>{configureGpuSubsystem({device:null});resetReactiveSystem();});device?.destroy();
+  if(lastCapture){const figure=document.createElement('figure'),caption=document.createElement('figcaption');caption.textContent='Final validated frame — quality snapshot outside measured updates';figure.append(lastCapture,caption);preview.replaceChildren(figure);}
+  report.completedAt=new Date().toISOString();raw.textContent=JSON.stringify(report);button.disabled=false;
+ }
+};
+</script>

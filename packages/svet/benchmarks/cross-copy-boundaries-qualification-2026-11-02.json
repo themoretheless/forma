@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "scope": "Built-in Suspense/ErrorBoundary protocols across compatible independent copies on one explicit native core",
+  "beforeFailures": 4,
+  "afterPasses": 4,
+  "sameProbeBeforeAfter": true,
+  "probeSha256": "d156f66fa5b24a46d8a0d9487380181abefc696ecfe5d9cd0b57b43f0f922258",
+  "sourceSha256": {
+    "packages/svet/src/engine/advanced.ts": "6c44c44c5416ad9eb185745df1e0e2289d7fed12f59a549ad0c1b33e44e298ed",
+    "packages/svet/scripts/check-cross-copy-boundaries.mjs": "d156f66fa5b24a46d8a0d9487380181abefc696ecfe5d9cd0b57b43f0f922258",
+    "packages/svet/scripts/check-package.mjs": "6420c0ca5e474c48c4e24fabc981827d6b3cc9c9f748ba5a59c36298fd4eb956"
+  },
+  "checks": {
+    "fullJS": "1293 tests /98 files passed",
+    "typescript": "passed",
+    "installedPackageEdgeGC": "passed",
+    "HTTPActions": "4/4"
+  },
+  "evidence": [
+    "cross-copy-boundaries-before-2026-11-02.json",
+    "cross-copy-boundaries-after-2026-11-02.json",
+    "cross-copy-boundaries-installed-2026-11-02.json",
+    "cross-copy-boundaries-suite-2026-11-02.txt",
+    "cross-copy-boundaries-types-2026-11-02.txt",
+    "cross-copy-boundaries-package-2026-11-02.txt",
+    "cross-copy-boundaries-actions-2026-11-02.txt"
+  ],
+  "limitations": [
+    "JSDOM shared-core proof; native browser boundary fixture remains open",
+    "Mixed versions/realms and separate-core automatic dependencies remain open",
+    "Frozen natural soak uses earlier artifact"
+  ]
+}

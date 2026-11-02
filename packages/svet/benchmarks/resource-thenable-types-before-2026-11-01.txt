@@ -1,0 +1,6 @@
+packages/svet/tests/resource-thenables.test.ts(8,44): error TS2322: Type 'PromiseLike<string>' is not assignable to type 'true | Promise<string>'.
+  Type 'PromiseLike<string>' is missing the following properties from type 'Promise<string>': catch, finally, [Symbol.toStringTag]
+packages/svet/tests/resource-thenables.test.ts(22,44): error TS2322: Type 'PromiseLike<string>' is not assignable to type 'true | Promise<string>'.
+  Type 'PromiseLike<string>' is missing the following properties from type 'Promise<string>': catch, finally, [Symbol.toStringTag]
+packages/svet/tests/resource-thenables.test.ts(28,44): error TS2322: Type 'PromiseLike<string>' is not assignable to type 'true | Promise<string>'.
+  Type 'PromiseLike<string>' is missing the following properties from type 'Promise<string>': catch, finally, [Symbol.toStringTag]

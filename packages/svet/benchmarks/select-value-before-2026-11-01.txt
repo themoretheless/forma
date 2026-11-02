@@ -1,0 +1,59 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/select-value.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/select-value.test.ts (2 tests | 2 failed) 11ms
+   × applies static select value after constructing its options 9ms
+   × initializes and updates one-way select values without publishing DOM changes 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/select-value.test.ts > applies static select value after constructing its options
+AssertionError: expected 'a' to be 'b' // Object.is equality
+
+Expected: "b"
+Received: "a"
+
+ ❯ tests/select-value.test.ts:8:50
+      6| it('applies static select value after constructing its options',()=>{
+      7|  const app=mount(()=>h('select',{value:'b'},options()),document.body);
+      8|  expect(document.querySelector('select')!.value).toBe('b');app.unmount…
+       |                                                  ^
+      9| });
+     10| it('initializes and updates one-way select values without publishing D…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/select-value.test.ts > initializes and updates one-way select values without publishing DOM changes
+AssertionError: expected 'a' to be 'b' // Object.is equality
+
+Expected: "b"
+Received: "a"
+
+ ❯ tests/select-value.test.ts:12:23
+     10| it('initializes and updates one-way select values without publishing D…
+     11|  const value=signal('b'),app=mount(()=>h('select',{value},options()),d…
+     12|  expect(select.value).toBe('b');value.set('a');expect(select.value).to…
+       |                       ^
+     13|  select.value='b';select.dispatchEvent(new Event('change'));expect(val…
+     14|  value.set('missing');expect(select.selectedIndex).toBe(-1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  21:36:43
+   Duration  512ms (environment 84%, transform 7%, import 6%, tests 3%)
+

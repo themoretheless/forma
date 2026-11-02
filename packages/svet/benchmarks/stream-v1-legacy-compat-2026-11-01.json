@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "environment": "Node/JSDOM",
+  "legacyRuntimeDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-SVKj1B/consumer/node_modules/svet-engine/dist/package/",
+  "legacyStreamSha256": "447de363ba085dcc0147cb4b02a4a20b955ede2ce2d75ed2af010c0a86fe3b06",
+  "incomingVersion": 1,
+  "legacyRejectsV1": "TypeError: Invalid SSR stream chunk",
+  "v1RejectsLegacy": "Error: Unsupported SSR stream version",
+  "scope": "Two actual compiled receiver versions; not a real-browser old/new bundle matrix."
+}

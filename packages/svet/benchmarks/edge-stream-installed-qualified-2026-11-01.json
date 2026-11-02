@@ -1,0 +1,157 @@
+{
+  "startedAt": "2026-11-01T16:47:22.468Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-72uSvE",
+  "packageRoot": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-w4UW6y/consumer/node_modules/svet-engine",
+  "responses": [
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>0</p>",
+          "<p>1</p>",
+          "<p>2</p>",
+          "<p>3</p>",
+          "<p>4</p>",
+          "<p>5</p>",
+          "<p>6</p>",
+          "<p>7</p>"
+        ],
+        "cleaned": 8,
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        }
+      }
+    },
+    {
+      "httpStatus": 200,
+      "result": {
+        "status": "passed",
+        "carrier": true,
+        "requests": 8,
+        "html": [
+          "<p>100</p>",
+          "<p>101</p>",
+          "<p>102</p>",
+          "<p>103</p>",
+          "<p>104</p>",
+          "<p>105</p>",
+          "<p>106</p>",
+          "<p>107</p>"
+        ],
+        "cleaned": 8,
+        "streamMatrix": {
+          "streams": 8,
+          "complete": 2,
+          "cancel": 2,
+          "abort": 2,
+          "error": 2,
+          "lateRefusals": 4
+        }
+      }
+    }
+  ],
+  "responseTransport": "direct-loopback-workerd",
+  "transports": [
+    {
+      "codec": "identity",
+      "mode": "complete",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "identity",
+      "mode": "error-observation",
+      "transport": "clean-eof-without-complete",
+      "eofRejected": true
+    },
+    {
+      "codec": "identity",
+      "mode": "error",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "identity",
+      "mode": "cancel",
+      "state": {
+        "signalAborted": true,
+        "phase": "component-pending",
+        "retiredPhase": "component-pending",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "complete",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "error-observation",
+      "transport": "clean-eof-without-complete",
+      "eofRejected": true
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "error",
+      "state": {
+        "signalAborted": false,
+        "phase": "component-ready",
+        "retiredPhase": "component-ready",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    },
+    {
+      "codec": "svet-html-ref-v1",
+      "mode": "cancel",
+      "state": {
+        "signalAborted": true,
+        "phase": "component-pending",
+        "retiredPhase": "component-pending",
+        "cleaned": 1,
+        "nodes": 0
+      }
+    }
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-01T16:47:22.778Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "workerSourceSha256": "2bc46257f58b9c661d8fe65765022fb5b99a63aa83f38189e696ca7843f3ac41",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "bc2ff619637657046d510bfce2efeb2adae9a9362b13f96d1811ae6bcaa9f2ff"
+}

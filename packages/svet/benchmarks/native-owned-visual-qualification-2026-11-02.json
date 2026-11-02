@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-02",
+  "change": "Move precomputed visual trees through positioning and simple-scene collection, rather than cloning leaf visuals.",
+  "checks": {
+    "lib": 140,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3,
+    "release": "retained A1/B1/A2/B2, both schedulers 8/32/96/256; repeat counters equal"
+  },
+  "source_sha256": {
+    "before/form_document.rs": "ad31d3cb3d68bd1d15cf94bd0bfe6978125ccc4c4c7bd8afec7e9f5337bccc70",
+    "after/form_document.rs": "24f2aac46b4c078bf34c842f1da770b4ed26a697a1b3431654bbd776501628ea",
+    "shared/harness.rs": "1a783546f9c1d11bb2e147490c326c510c27988579e9823056af49c83248f743"
+  },
+  "analysis": "native-owned-visual-analysis-2026-11-02.json",
+  "svet256_edit": {
+    "before_requested_bytes": 239390366,
+    "after_requested_bytes": 238427731,
+    "before_allocations": 1775584,
+    "after_allocations": 1764576,
+    "before_ms": [
+      195.280667,
+      120.16825
+    ],
+    "after_ms": [
+      153.829042,
+      129.585625
+    ]
+  },
+  "limitations": [
+    "Small allocation improvement; timing inconsistent, no speed/FPS claim.",
+    "Requested bytes cumulative, not RSS/peak.",
+    "Host non-isolated with active HTTP soak.",
+    "Full per-control model snapshots remain major cost; interactive readiness not proven."
+  ]
+}

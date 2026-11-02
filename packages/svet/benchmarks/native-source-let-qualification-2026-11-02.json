@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-02",
+  "change": "For expansion applies sibling Let declarations sequentially to later children; fresh inherited scope per iteration when Lets mutate it; composition limits retained. Alias matrix now compiles Let source syntax rather than injecting IR.",
+  "checks": {
+    "lib": 152,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": [
+    "24 direct/alias parent binding cases now run entirely from .ui source, let rows=parent.items; syntax.",
+    "New source test confirms sibling visibility, different Let values per iteration, no outside/root model leak and stable keys after reorder."
+  ],
+  "source_sha256": "aac4b058fdf6897899563c832d6ee1f305a9c52eb765d9f59d6a08ed1db8695f",
+  "limitations": [
+    "For loops with Let siblings currently copy inherited state per iteration; performance unqualified.",
+    "Compiler/native source proof, not browser/AOT/live-window full matrix.",
+    "General computed/filter/map collection origins remain unsupported."
+  ]
+}

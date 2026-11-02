@@ -45,6 +45,77 @@ const EDITOR: &str = "component Button { Rectangle { ContentInput { width:100; h
 const RANGE: &str = "component Button { Rectangle { RangeInput { value:0.5; Minimum { ContentShape { points:'0 0 10 0 10 10'; color:#ffffff; } } Maximum { ContentShape { points:'0 0 80 0 80 10'; color:#ffffff; } } } PointerArea { clicked -> events.clicked(); } } }";
 
 #[test]
+fn retained_large_form_can_repair_a_pending_visual_error() {
+    use forma::form_document::{Properties, Value};
+    let files = std::collections::BTreeMap::from([("App.ui".into(),
+        "component App { state query: String = 'ok'; state items: List = []; Column { width:260; height:8000; TextInput { width:200; height:32; value <-> state.query; } for item in state.items key item.id { TextInput { width:200; height:32; value <-> item.title; } } Text { text:state.query == 'bad' ? [1] : 'ok'; } } }".into())]);
+    let items = (0..96).map(|i| Value::Object(Properties::from([
+        ("id".into(), Value::Text(format!("id{i}"))),
+        ("title".into(), Value::Text(format!("title{i}"))),
+    ]))).collect();
+    let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Properties::from([("items".into(), Value::List(items))])).unwrap();
+    runtime.set_binding_value(0, "bad", true).unwrap();
+    assert!(runtime.sync_ui_bindings_native().is_err());
+    runtime.set_binding_value(0, "ok", true).unwrap();
+    let (rebuilt, allocations) = measured(|| runtime.sync_ui_bindings_native().unwrap());
+    assert!(rebuilt);
+    eprintln!("96-editor pending visual repair: {allocations} allocations");
+    assert!(allocations < 450_000, "pending visual repair allocation regression: {allocations}");
+    assert_eq!(runtime.text_value(0), "ok");
+    assert_eq!(runtime.control_count(), 98);
+    assert!(!runtime.sync_ui_bindings_native().unwrap());
+}
+
+#[test]
+fn idle_scalar_binding_does_not_copy_unrelated_model_payload() {
+    use forma::form_document::{Properties, Value};
+    let files = std::collections::BTreeMap::from([("App.ui".into(),
+        "component App { state query: String = 'seed'; Column { width:260; height:100; TextInput { width:200; height:32; value <-> state.query; } } }".into())]);
+    let payload = Value::List((0..1024).map(|i| Value::Object(Properties::from([
+        ("data".into(), Value::Text(format!("unrelated-{i}"))),
+    ]))).collect());
+    let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Properties::from([("payload".into(), payload)])).unwrap();
+    assert!(!runtime.sync_ui_bindings_native().unwrap());
+    let (rebuilt, allocations) = measured(|| runtime.sync_ui_bindings_native().unwrap());
+    assert!(!rebuilt);
+    eprintln!("idle scalar with 1024 unrelated records: {allocations} allocations");
+    assert!(allocations < 256, "idle binding copied unrelated state: {allocations}");
+    runtime.set_binding_value(0, "edited", true).unwrap();
+    assert!(runtime.sync_ui_bindings_native().unwrap());
+    let state = runtime.ui_state_properties();
+    assert_eq!(state["query"], Value::Text("edited".into()));
+    let Value::List(payload) = &state["payload"] else { panic!("payload") };
+    assert_eq!(payload.len(), 1024);
+}
+
+#[test]
+fn retained_idle_bindings_reuse_the_displayed_scene() {
+    use forma::form_document::{Properties, Value};
+    let files = std::collections::BTreeMap::from([("App.ui".into(),
+        "component App { state items: List = []; Column { width:260; height:4096; for item in state.items key item.id { TextInput { width:200; height:32; value <-> item.title; } } } }".into())]);
+    let items = (0..96).map(|i| Value::Object(Properties::from([
+        ("id".into(), Value::Text(format!("id{i}"))),
+        ("title".into(), Value::Text(format!("title{i}"))),
+    ]))).collect();
+    let state = Properties::from([("items".into(), Value::List(items))]);
+    let mut runtime = Runtime::from_ui_files(&files, "App.ui", &state).unwrap();
+    assert!(!runtime.sync_ui_bindings_native().unwrap());
+    let (rebuilt, allocations) = measured(|| runtime.sync_ui_bindings_native().unwrap());
+    assert!(!rebuilt);
+    eprintln!("retained idle 96 editors: {allocations} allocations");
+    assert!(allocations < 2_000, "idle bindings rescanned key collections or rebuilt a scene: {allocations}");
+    runtime.set_svet_document_scheduling(true);
+    assert!(!runtime.sync_ui_bindings_native().unwrap());
+    let (rebuilt, svet_allocations) = measured(|| runtime.sync_ui_bindings_native().unwrap());
+    assert!(!rebuilt);
+    assert_eq!(svet_allocations, allocations, "idle scheduler copied model state or retracked the graph");
+    runtime.set_binding_value(0, "edited", true).unwrap();
+    assert!(runtime.sync_ui_bindings_native().unwrap());
+    assert_eq!(runtime.text_value(0), "edited");
+    assert!(!runtime.sync_ui_bindings_native().unwrap());
+}
+
+#[test]
 fn warmed_pointer_tick_and_paint_buffers_do_not_allocate() {
     let mut runtime = Runtime::from_sources(&source(32), VISUAL).unwrap();
     let mut params = Vec::new();

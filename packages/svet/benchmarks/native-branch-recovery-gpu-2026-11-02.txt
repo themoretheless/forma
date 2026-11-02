@@ -1,0 +1,18 @@
+    Blocking waiting for file lock on build directory
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.72s
+     Running tests/runtime_gpu.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_gpu-c6d260de0c042485)
+
+running 3 tests
+DPI 1: localized upload 12 vs full paint 64 bytes
+test retained_ui_editor_and_summary_render_at_their_scene_bounds ... ok
+DPI 1.25: localized upload 12 vs full paint 64 bytes
+DPI 2: localized upload 12 vs full paint 64 bytes
+test animations_change_only_their_own_pixels_at_integer_and_fractional_dpi ... ok
+scale 1: covered=1999 mean=0.0027/255 max=2 channels>4=0
+scale 1.25: covered=3035 mean=0.0024/255 max=2 channels>4=0
+scale 2: covered=7045 mean=0.0013/255 max=2 channels>4=0
+test analytic_text_coverage_matches_supersampled_reference ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+

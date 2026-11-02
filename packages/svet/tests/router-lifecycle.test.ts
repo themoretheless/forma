@@ -104,3 +104,31 @@ it.each(['root stop', 'effect rerun'] as const)('retiring router ignores navigat
   expect(router.path()).toBe('/a'); expect(window.location.pathname).toBe('/b');
   stop(); trigger.dispose(); expect(getGraphTelemetry().nodes).toBe(0);
 });
+
+it('retired router methods and readers preserve terminal values without reopening navigation', () => {
+  let router!: ReturnType<typeof createRouter>, stop!: () => void, remove!: () => void, calls = 0;
+  createRoot(dispose => { stop = dispose; router = createRouter({routes, initialPath:'/a'}); remove = router.beforeEach(() => { calls++; }); });
+  router.navigate('/b?q=last#done');
+  const path = router.path, query = router.query, navigate = router.navigate, match = router.match;
+  stop(); remove(); remove(); router.dispose(); path.dispose();
+  expect(navigate('/a')).toBe(false); expect(calls).toBe(1);
+  expect(path()).toBe('/b'); expect(path.peek()).toBe('/b');
+  expect(query().q).toBe('last'); expect(router.hash()).toBe('done');
+  expect(match('/a?q=x#h').query.q).toBe('x');
+  expect(getGraphTelemetry().nodes).toBe(0);
+});
+
+it('live match observes replacement routes and retired match uses the last observed table', () => {
+  const first = {path:'/a',component:()=>document.createTextNode('A')};
+  const second = {path:'/b/:id',component:()=>document.createTextNode('B')};
+  const options = {routes:[first],initialPath:'/a'};
+  const router = createRouter(options);
+  try {
+    options.routes = [second];
+    expect(router.match('/b/7').route).toBe(second);
+    router.navigate('/b/7'); expect(router.params().id).toBe('7');
+    router.dispose();
+    Object.defineProperty(options,'routes',{get(){throw new Error('retired config accessed');}});
+    expect(router.match('/b/8').params.id).toBe('8');
+  } finally { router.dispose(); }
+});

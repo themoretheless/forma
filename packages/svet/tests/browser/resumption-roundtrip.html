@@ -1,17 +1,17 @@
 <!doctype html><meta charset="utf-8"><title>Svet Node SSR resumption roundtrip</title>
 <style>body{font:17px system-ui;max-width:1060px;margin:40px auto;color:#18232d}button{font:inherit;padding:8px 16px}pre{background:#eef6f1;padding:20px;line-height:1.7;white-space:pre-wrap}#preview>section{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}input:not([type=checkbox]):not([type=radio]){max-width:130px}</style>
 <h1>Svet Node SSR resumption roundtrip</h1><p>Node renders the HTML/snapshot; this browser parses, resumes and interacts with the existing form.</p>
-<button id="run">Run SSR roundtrip checks</button><pre id="result">Not run</pre><div id="preview"></div>
+<button id="run">Run SSR roundtrip checks</button><pre id="result">Not run</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
 <script type="module">
 import {disposeResumedContainer,getGraphTelemetry,resetReactiveSystem,resumeContainer} from '/src/engine/index.ts';
 const run=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview');
 run.onclick=async()=>{
- run.disabled=true;disposeResumedContainer(preview);resetReactiveSystem();const lines=[];let current;
+ run.disabled=true;disposeResumedContainer(preview);resetReactiveSystem();const lines=[];let current;const report={protocol:'node-ssr-roundtrip-v1',startedAt:new Date().toISOString(),userAgent:navigator.userAgent};
  const check=(condition,label)=>{if(!condition)throw Error(label);lines.push('PASS '+label);result.textContent=lines.join('\n');};
  try{
   const response=await fetch('/__svet_resumption_fixture',{cache:'no-store',signal:AbortSignal.timeout(5000)});
   if(!response.ok)throw Error('Run npm run dev:resume for the Node SSR fixture');
-  const fixture=await response.json();preview.innerHTML=fixture.html;
+  const fixture=await response.json();report.fixture=fixture;preview.innerHTML=fixture.html;
   const before=Array.from(preview.querySelectorAll('input,select,button')),field=id=>preview.querySelector('#'+id);
   current=resumeContainer(preview,fixture.stateJson);const baseline=getGraphTelemetry().nodes;
   const chosen=()=>Array.from(field('many').selectedOptions,option=>option.value).join(',');
@@ -29,8 +29,8 @@ run.onclick=async()=>{
   check(current.checked()===true&&field('checked').checked&&chosen()==='a,c'&&getGraphTelemetry().nodes===baseline,'re-resumption replaces scopes without stale writes or graph growth');
   const late=document.createElement('option');late.value='late';field('many').append(late);disposeResumedContainer(preview);field('checked').click();await Promise.resolve();await Promise.resolve();
   check(current.checked()===true&&getGraphTelemetry().nodes===0,'disposal removes form listeners and queued option observers');
-  result.textContent=lines.join('\n')+'\n8/8 passed';
- }catch(error){result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
- finally{disposeResumedContainer(preview);run.disabled=false;}
+  report.status='passed';result.textContent=lines.join('\n')+'\n8/8 passed';
+ }catch(error){report.status='failed';report.error=String(error.stack??error);result.textContent=lines.join('\n')+'\nFAIL '+(error.stack??error);}
+ finally{disposeResumedContainer(preview);report.output=result.textContent;report.completedAt=new Date().toISOString();document.querySelector('#raw-results').textContent=JSON.stringify(report);run.disabled=false;}
 };
 </script>

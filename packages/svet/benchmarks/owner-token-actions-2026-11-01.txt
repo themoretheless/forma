@@ -1,0 +1,42 @@
+
+> svet-engine@1.0.0 test:actions
+> npm run build:package && node --test scripts/check-action-http.mjs
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+TAP version 13
+# Subtest: dispose aborts native fetch before response headers and closes the HTTP response
+ok 1 - dispose aborts native fetch before response headers and closes the HTTP response
+  ---
+  duration_ms: 15.498167
+  type: 'test'
+  ...
+# Subtest: reset aborts native fetch before response headers and closes the HTTP response
+ok 2 - reset aborts native fetch before response headers and closes the HTTP response
+  ---
+  duration_ms: 3.046541
+  type: 'test'
+  ...
+# Subtest: owner teardown aborts fetch while its JSON response body is still streaming
+ok 3 - owner teardown aborts fetch while its JSON response body is still streaming
+  ---
+  duration_ms: 5.165417
+  type: 'test'
+  ...
+# Subtest: overlapping native HTTP requests keep pending active until both response bodies finish
+ok 4 - overlapping native HTTP requests keep pending active until both response bodies finish
+  ---
+  duration_ms: 3.384667
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 158.481292

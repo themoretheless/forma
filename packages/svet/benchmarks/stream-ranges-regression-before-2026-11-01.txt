@@ -1,0 +1,45 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/stream-protocol.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/stream-protocol.test.ts (7 tests | 1 failed) 18ms
+   × rejects crossing or noncanonical boundary markers before replacing an existing shell 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/stream-protocol.test.ts > rejects crossing or noncanonical boundary markers before replacing an existing shell
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/stream-protocol.test.ts:42:96
+     40|  ]){
+     41|   const host=document.createElement('div');host.innerHTML='<input valu…
+     42|   expect(()=>receiver.apply({version:1,sequence:0,streamId:'v1',payloa…
+       |                                                                                                ^
+     43|   expect(host.firstChild).toBe(original);expect(receiver.active).toBe(…
+     44|  }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  19:14:13
+   Duration  545ms (environment 67%, transform 23%, import 5%, tests 4%)
+

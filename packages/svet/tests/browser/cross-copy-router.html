@@ -1,0 +1,83 @@
+<!doctype html><meta charset="utf-8"><title>Svet cross-copy router</title><style>body{font:16px system-ui;max-width:1100px;margin:32px auto}pre{white-space:pre-wrap;background:#eef6f1;padding:20px}</style>
+<h1>Independent-copy router</h1><button id="run" disabled>Run router checks</button><pre id="result">Ready</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
+<script type="module">
+const metadata=await(await fetch('/metadata.json')).json();const [a,b]=await Promise.all(['/first/index.js','/second/index.js'].map(url=>import(/* @vite-ignore */ url)));
+const assert={equal(actual,expected){if(actual!==expected)throw Error(JSON.stringify({actual,expected}));},deepEqual(actual,expected){if(JSON.stringify(actual)!==JSON.stringify(expected))throw Error(JSON.stringify({actual,expected}));}};
+const run=document.querySelector('#run'),container=document.querySelector('#preview');run.disabled=false;run.onclick=async()=>{
+run.disabled=true;const originalUrl=location.href,originalState=history.state;const report={cases:[],build:metadata,userAgent:navigator.userAgent,startedAt:new Date().toISOString()};
+let activeRouter=null,activeCase='';const timeline=[];
+const record=(kind,args=[])=>{timeline.push({ms:performance.now(),kind,args,case:activeCase,url:location.pathname+location.search+location.hash,state:history.state,route:activeRouter?{path:activeRouter.path(),query:activeRouter.query(),hash:activeRouter.hash()}:null});if(timeline.length>1000)timeline.shift();};
+const originals={};for(const key of ['go','back','forward','pushState','replaceState']){originals[key]=history[key];history[key]=function(...args){record(key,args);return originals[key].apply(this,args);};}
+const nativePop=()=>{record('popstate');queueMicrotask(()=>record('after-popstate'));};window.addEventListener('popstate',nativePop);
+async function check(name,body){if(new URL(originalUrl).searchParams.has('paced')){const recent=timeline.filter(row=>performance.now()-row.ms<10000&&['go','back','forward','pushState','replaceState'].includes(row.kind)).length;if(recent>120){record('case-pacing',[10000,recent]);await new Promise(resolve=>setTimeout(resolve,10000));}}activeCase=name;record('case-start');try{await body();report.cases.push({name,status:'passed'});}catch(error){report.cases.push({name,status:'failed',error:String(error.stack??error)});}finally{record('case-end');activeRouter=null;a.resetReactiveSystem();b.resetReactiveSystem();container.replaceChildren();}}
+for(const [label,host,foreign] of [['A→B',a,b],['B→A',b,a]]){
+ await check(label+' RouterView exposes router to foreign useRouter and Link',()=>{
+  const core=host.getWasmCore();let router,link,cleaned=0,mounts=0;
+  const app=host.mount(()=>{
+   activeRouter=router=host.createRouter({initialPath:'/start',routes:[
+    {path:'/start',component:()=>{mounts++;return foreign.withWasmCore(core,()=>{assert.equal(foreign.useRouter(),router);foreign.onCleanup(()=>cleaned++);link=foreign.Link({to:'/next/7?q=value#hash',children:'next'});return link;});}},
+    {path:'/next/:id',component:params=>foreign.withWasmCore(core,()=>{mounts++;assert.equal(foreign.useRouter(),router);assert.equal(params.id,'7');return document.createTextNode('next '+params.id);})},
+   ]});return host.RouterView({router});
+  },container);
+  try{
+   const event=new MouseEvent('click',{bubbles:true,cancelable:true,button:0});link.dispatchEvent(event);assert.equal(event.defaultPrevented,true);assert.equal(router.path(),'/next/7');assert.equal(router.query().q,'value');assert.equal(router.hash(),'hash');assert.equal(container.textContent,'next 7');assert.equal(cleaned,1);assert.equal(mounts,2);
+   app.unmount();assert.equal(host.getGraphTelemetry().nodes,0);const late=new MouseEvent('click',{bubbles:true,cancelable:true,button:0});let intercepted;link.addEventListener('click',event=>{intercepted=event.defaultPrevented;event.preventDefault();},{once:true});link.dispatchEvent(late);assert.equal(intercepted,false);
+  }finally{app.unmount();router?.dispose();}
+ });
+}
+await check('navigate batches URL publication in a non-ambient core',()=>{
+ const core=a.createWasmCoreInstance();let router,stop;const seen=[];
+ a.withWasmCore(core,()=>a.createRoot(dispose=>{stop=dispose;router=a.createRouter({routes:[],initialPath:'/start'});a.effect(()=>seen.push([router.path(),router.query().q,router.hash()]));}));
+ try{router.navigate('/next?q=value#hash');assert.deepEqual(seen,[['/start',undefined,''],['/next','value','hash']]);}finally{stop();}assert.equal(core.svet_get_node_count(),0);
+});
+
+for(const [label,host,foreign] of [['A→B',a,b],['B→A',b,a]])await check(label+' live table replacement renders through foreign RouterView',()=>{
+ const core=host.getWasmCore();let router,initialCleanups=0;
+ const first={path:'/table/start',component:()=>{foreign.onCleanup(()=>initialCleanups++);return document.createTextNode('initial');}};
+ const next={path:'/table/next/:id',component:params=>{assert.equal(foreign.useRouter(),router);return document.createTextNode('replacement '+params.id);}};
+ const options={routes:[first],initialPath:'/table/start'};
+ const app=host.mount(()=>{activeRouter=router=host.createRouter(options);return foreign.withWasmCore(core,()=>foreign.RouterView({router}));},container);
+ try{
+  assert.equal(container.textContent,'initial');options.routes=[next];assert.equal(router.match('/table/next/7').route,next);
+  router.navigate('/table/next/7?q=last#done');assert.equal(container.textContent,'replacement 7');assert.equal(router.params().id,'7');assert.equal(initialCleanups,1);
+  app.unmount();Object.defineProperty(options,'routes',{get(){throw Error('Retired browser config accessed');}});
+  assert.equal(router.match('/table/next/8').params.id,'8');assert.equal(router.path(),'/table/next/7');assert.equal(router.navigate('/late'),false);assert.equal(host.getGraphTelemetry().nodes,0);
+ }finally{app.unmount();router?.dispose();}
+});
+const fullUrl=()=>location.pathname+location.search+location.hash;
+const wait=async(predicate)=>{const deadline=performance.now()+3000;while(!predicate()){if(performance.now()>deadline)throw Error('History did not settle '+fullUrl());await new Promise(resolve=>setTimeout(resolve,10));}};
+for(const [label,host,foreign] of [['A→B',a,b],['B→A',b,a]])await check(label+' native back/forward and denied traversal retain foreign observers',async()=>{
+ history.replaceState({host:'preserved'},'', '/svet-copy-history/start?q=one#top');
+ const core=host.getWasmCore();let router,stop,guardCalls=0;const seen=[];
+ host.createRoot(dispose=>{stop=dispose;activeRouter=router=host.createRouter({routes:[]});foreign.withWasmCore(core,()=>foreign.effect(()=>{seen.push([router.path(),router.query().q??router.query().next,router.hash()]);}));});
+ try{
+  router.navigate('/svet-copy-history/middle');router.navigate('/svet-copy-history/end?q=two#last');const count=history.length;
+  let remove=router.beforeEach(()=>{guardCalls++;return false;});history.back();await wait(()=>guardCalls===1&&fullUrl()==='/svet-copy-history/end?q=two#last');
+  assert.equal(router.path(),'/svet-copy-history/end');assert.equal(history.length,count);assert.equal(guardCalls,1);
+  remove();history.back();await wait(()=>router.path()==='/svet-copy-history/middle');history.forward();await wait(()=>router.path()==='/svet-copy-history/end');
+  remove=router.beforeEach(to=>to.path==='/svet-copy-history/middle'?'/svet-copy-history/login?next=middle#gate':undefined);
+  history.back();await wait(()=>router.path()==='/svet-copy-history/login');assert.equal(fullUrl(),'/svet-copy-history/login?next=middle#gate');assert.equal(history.length,count);remove();
+  history.forward();await wait(()=>router.path()==='/svet-copy-history/end');history.back();await wait(()=>router.path()==='/svet-copy-history/login');history.back();await wait(()=>router.path()==='/svet-copy-history/start');assert.equal(history.state.host,'preserved');
+  assert.deepEqual(seen,[['/svet-copy-history/start','one','top'],['/svet-copy-history/middle',undefined,''],['/svet-copy-history/end','two','last'],['/svet-copy-history/middle',undefined,''],['/svet-copy-history/end','two','last'],['/svet-copy-history/login','middle','gate'],['/svet-copy-history/end','two','last'],['/svet-copy-history/login','middle','gate'],['/svet-copy-history/start','one','top']]);
+ }finally{stop();}assert.equal(host.getGraphTelemetry().nodes,0);
+});
+const settleHistory=action=>new Promise((resolve,reject)=>{
+ let quiet;const cleanup=()=>{clearTimeout(quiet);clearTimeout(limit);window.removeEventListener('popstate',changed);};
+ const changed=()=>{clearTimeout(quiet);quiet=setTimeout(()=>{cleanup();resolve();},80);};
+ const limit=setTimeout(()=>{cleanup();reject(Error('History burst did not settle'));},3000);
+ window.addEventListener('popstate',changed);changed();action();
+});
+const burstDirection=new URL(originalUrl).searchParams.get('burst');
+for(const [label,host,foreign] of [['A→B',a,b],['B→A',b,a]].filter(([label])=>!burstDirection||label===burstDirection))for(const deltas of [[-1,-1],[-1,-2],[-2,-1],[-1,1],[-2,1,-1],[-1,-1,1,1]])await check(label+' denied traversal burst '+JSON.stringify(deltas),async()=>{
+ history.replaceState({},'', '/svet-copy-burst/start');const core=host.getWasmCore();let router,stop;const seen=[];
+ host.createRoot(dispose=>{stop=dispose;activeRouter=router=host.createRouter({routes:[]});foreign.withWasmCore(core,()=>foreign.effect(()=>{seen.push([router.path(),router.query().q,router.hash()]);}));});
+ try{
+  for(let i=1;i<=5;i++)router.navigate('/svet-copy-burst/'+i+'?q='+i+'#h'+i);
+  history.go(-2);await wait(()=>router.path()==='/svet-copy-burst/3');const count=history.length,before=seen.length,remove=router.beforeEach(()=>false);
+  await settleHistory(()=>{for(const delta of deltas)history.go(delta);});
+  assert.equal(fullUrl(),'/svet-copy-burst/3?q=3#h3');assert.equal(router.path(),'/svet-copy-burst/3');assert.equal(history.length,count);assert.equal(seen.length,before);
+  remove();assert.equal(router.navigate('/svet-copy-burst/ready?q=ok#done'),true);assert.deepEqual(seen.at(-1),['/svet-copy-burst/ready','ok','done']);assert.equal(seen.length,before+1);
+ }finally{stop();}assert.equal(host.getGraphTelemetry().nodes,0);
+});
+record('run-end');window.removeEventListener('popstate',nativePop);for(const [key,method] of Object.entries(originals))history[key]=method;report.timeline=timeline;history.replaceState(originalState,'',originalUrl);report.status=report.cases.every(row=>row.status==='passed')?'passed':'failed';report.completedAt=new Date().toISOString();document.querySelector('#result').textContent=JSON.stringify({status:report.status,cases:report.cases},null,2);document.querySelector('#raw-results').textContent=JSON.stringify(report);run.disabled=false;};
+</script>

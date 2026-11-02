@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "scope": "Chrome156 installed independent copies; dynamic route-table replacement through foreign RouterView in both directions",
+  "before": "17 passed/2 replacement cases failed",
+  "after": "19/19 passed",
+  "sameFixtureBeforeAfter": true,
+  "interCasePacing": true,
+  "evidence": [
+    "router-table-browser-before-2026-11-02.json",
+    "router-table-browser-after-2026-11-02.json",
+    "router-table-browser-after-2026-11-02.png"
+  ],
+  "limitations": [
+    "Explicit same-core compatible copies, not mixed realms/versions",
+    "Inter-case pacing retained; continuous unpaced history stress remains open",
+    "Frozen LPJBKt2h run is earlier advanced.js revision"
+  ]
+}

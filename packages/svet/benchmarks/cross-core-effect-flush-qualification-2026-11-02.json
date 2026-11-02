@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-02",
+  "status": "partial; initial-effect native flush diamond coherence fixed",
+  "before": "effect initialization produced [5,7,10] rather than [5,10]",
+  "after": "initial and rerun writes deliver [5,10] in tested three-core graph",
+  "checks": {
+    "full_js": {
+      "passed": 1328,
+      "files": 100
+    },
+    "focused": 53,
+    "independent_copy_probe": "20/20",
+    "typescript": "passed",
+    "package_build": "passed",
+    "installed_package_with_bridge_gc": "passed",
+    "updated_runtime_gc": "272 teardown targets collected; positive controls passed",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "src/engine/reactivity.ts": "b4cfbb27ea30561da1f47818ecf22ea463f765172cc3609c40ea67aaed948128",
+    "tests/cross-core-dependencies.test.ts": "70d9b8915dc2f708f9a650f0925ea1e817eca6914ec86da1af87d6ed02568f29",
+    "scripts/check-cross-copy-tracking.mjs": "bdbaecce942f58d496b6d15f33a9fe5edad9993a55217e8315710dbe36049717"
+  },
+  "open": [
+    "Arbitrary active-effect scheduling and topology combinations",
+    "Browser production/HMR/GC qualification",
+    "Hot-path/transport throughput and latency measurements",
+    "HTTP natural-GC external-memory failure remains unresolved"
+  ]
+}

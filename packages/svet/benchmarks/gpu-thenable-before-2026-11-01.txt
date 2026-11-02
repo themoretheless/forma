@@ -1,0 +1,33 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/gpu-compute.test.ts (123 tests | 1 failed) 51ms
+   × reads a synchronous fallback then getter once while refusing async publication 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/gpu-compute.test.ts > reads a synchronous fallback then getter once while refusing async publication
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/gpu-compute.test.ts:1106:60
+    1104|  const result={get then(){reads++;return function(this:unknown,_resolv…
+    1105|  expect(()=>dispatchGpuComputeKernel({wgsl:'',inputs:[input],output,fa…
+    1106|  for(let i=0;i<8;i++)await Promise.resolve();expect(reads).toBe(1);exp…
+       |                                                            ^
+    1107|  input.dispose();output.dispose();expect(getGraphTelemetry().nodes).to…
+    1108| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 122 passed (123)
+   Start at  23:54:12
+   Duration  212ms (tests 40%, transform 32%, import 26%, worker 1%)
+

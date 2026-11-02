@@ -1,0 +1,21 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/readable-ssr.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  19:42:26
+   Duration  523ms (environment 79%, transform 12%, import 6%, tests 2%, worker 1%)
+

@@ -1,0 +1,1190 @@
+{
+  "startedAt": "2026-11-01T12:20:46.988Z",
+  "node": "v22.23.4",
+  "execArgv": [
+    "--expose-gc",
+    "--no-concurrent-recompilation"
+  ],
+  "platform": "darwin",
+  "arch": "arm64",
+  "cpu": "Apple M4 Max",
+  "batches": 100000,
+  "liveRoots": 64,
+  "replacedPerBatch": 16,
+  "samples": [
+    {
+      "batch": 99250,
+      "elapsedMs": 72876.86391700001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8132480,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99275,
+      "elapsedMs": 72898.341125,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8146448,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99300,
+      "elapsedMs": 72908.878333,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8128288,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99325,
+      "elapsedMs": 72921.953542,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8142728,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99350,
+      "elapsedMs": 72941.485,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8135104,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99375,
+      "elapsedMs": 72954.515083,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8145160,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99400,
+      "elapsedMs": 72965.591792,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8132480,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99425,
+      "elapsedMs": 72986.773667,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8147832,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99450,
+      "elapsedMs": 72997.3575,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8128288,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99475,
+      "elapsedMs": 73010.979917,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8138376,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99500,
+      "elapsedMs": 73029.643083,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8135184,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99525,
+      "elapsedMs": 73044.109042,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8145080,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99550,
+      "elapsedMs": 73054.18000000001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8132480,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99575,
+      "elapsedMs": 73074.50329200001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8146448,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99600,
+      "elapsedMs": 73086.702292,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8128288,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99625,
+      "elapsedMs": 73098.598333,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8138296,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99650,
+      "elapsedMs": 73118.77675,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8135104,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99675,
+      "elapsedMs": 73131.81454200001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8145080,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99700,
+      "elapsedMs": 73143.076667,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8136912,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99725,
+      "elapsedMs": 73164.238125,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8146448,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99750,
+      "elapsedMs": 73174.56570800001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8128288,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99775,
+      "elapsedMs": 73187.40875,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8138376,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99800,
+      "elapsedMs": 73206.73887500001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8136488,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99825,
+      "elapsedMs": 73220.10975,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8145080,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99850,
+      "elapsedMs": 73232.411458,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8132480,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99875,
+      "elapsedMs": 73253.151,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8146448,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99900,
+      "elapsedMs": 73265.06979200001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8128288,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99925,
+      "elapsedMs": 73277.148042,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8138376,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99950,
+      "elapsedMs": 73295.992542,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8135104,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 99975,
+      "elapsedMs": 73310.93862500001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8145080,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 100000,
+      "elapsedMs": 73320.896917,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 8132480,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 192,
+          "capacity": 198,
+          "edges": 32,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 1600,
+      "remaining": 0
+    },
+    {
+      "batch": 100001,
+      "elapsedMs": 73331.73545800001,
+      "rss": 43950552,
+      "heapTotal": 43433984,
+      "heapUsed": 7497624,
+      "external": 4470159,
+      "arrayBuffers": 33315,
+      "cores": [
+        {
+          "nodes": 0,
+          "capacity": 198,
+          "edges": 0,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        },
+        {
+          "nodes": 0,
+          "capacity": 198,
+          "edges": 0,
+          "wasmMemoryBytes": 1179648,
+          "pendingEffectCount": 0,
+          "pendingEffectEntryCount": 0,
+          "arenaFloats": 0
+        }
+      ],
+      "pendingWeakRefs": 256,
+      "remaining": 0
+    }
+  ],
+  "windows": [
+    {
+      "count": 1000,
+      "memory": {
+        "rss": {
+          "min": 35427920,
+          "max": 46457304,
+          "mean": 45929467.28799999,
+          "first": 35427920,
+          "last": 46457304
+        },
+        "heapUsed": {
+          "min": 7655288,
+          "max": 8057600,
+          "mean": 8044374.863999995,
+          "first": 7655288,
+          "last": 8042104
+        },
+        "external": {
+          "min": 4470159,
+          "max": 4470159,
+          "mean": 4470159,
+          "first": 4470159,
+          "last": 4470159
+        },
+        "arrayBuffers": {
+          "min": 33315,
+          "max": 33315,
+          "mean": 33315,
+          "first": 33315,
+          "last": 33315
+        }
+      }
+    },
+    {
+      "count": 1000,
+      "memory": {
+        "rss": {
+          "min": 46457304,
+          "max": 48177624,
+          "mean": 47186490.30400003,
+          "first": 46457304,
+          "last": 47948248
+        },
+        "heapUsed": {
+          "min": 8038600,
+          "max": 8119672,
+          "mean": 8060702.576000012,
+          "first": 8056216,
+          "last": 8071520
+        },
+        "external": {
+          "min": 4470159,
+          "max": 4470159,
+          "mean": 4470159,
+          "first": 4470159,
+          "last": 4470159
+        },
+        "arrayBuffers": {
+          "min": 33315,
+          "max": 33315,
+          "mean": 33315,
+          "first": 33315,
+          "last": 33315
+        }
+      }
+    },
+    {
+      "count": 1000,
+      "memory": {
+        "rss": {
+          "min": 45375960,
+          "max": 47948248,
+          "mean": 45527823.296000056,
+          "first": 47948248,
+          "last": 45392344
+        },
+        "heapUsed": {
+          "min": 8065200,
+          "max": 8086880,
+          "mean": 8075402.424000006,
+          "first": 8081496,
+          "last": 8066296
+        },
+        "external": {
+          "min": 4470159,
+          "max": 4470159,
+          "mean": 4470159,
+          "first": 4470159,
+          "last": 4470159
+        },
+        "arrayBuffers": {
+          "min": 33315,
+          "max": 33315,
+          "mean": 33315,
+          "first": 33315,
+          "last": 33315
+        }
+      }
+    },
+    {
+      "count": 1000,
+      "memory": {
+        "rss": {
+          "min": 43885016,
+          "max": 45408728,
+          "mean": 44099744.70399991,
+          "first": 45392344,
+          "last": 43950552
+        },
+        "heapUsed": {
+          "min": 8067664,
+          "max": 8147912,
+          "mean": 8125743.023999999,
+          "first": 8076384,
+          "last": 8132480
+        },
+        "external": {
+          "min": 4470159,
+          "max": 4470159,
+          "mean": 4470159,
+          "first": 4470159,
+          "last": 4470159
+        },
+        "arrayBuffers": {
+          "min": 33315,
+          "max": 33315,
+          "mean": 33315,
+          "first": 33315,
+          "last": 33315
+        }
+      }
+    }
+  ],
+  "recording": {
+    "ringSamples": 32,
+    "baselineSamples": 1,
+    "maxPendingWeakRefs": 1600
+  },
+  "scope": "Node isolated process, two cores, 64 simultaneously live roots; rolling replacement, no reset. Post-forced-GC observations, not DOM/GPU memory or a general RSS bound.",
+  "baseline": {
+    "batch": 0,
+    "elapsedMs": 6.187249999999992,
+    "rss": 27053872,
+    "heapTotal": 17219584,
+    "heapUsed": 7458784,
+    "external": 4470119,
+    "arrayBuffers": 33315,
+    "cores": [
+      {
+        "nodes": 192,
+        "capacity": 198,
+        "edges": 32,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0,
+        "arenaFloats": 0
+      },
+      {
+        "nodes": 192,
+        "capacity": 198,
+        "edges": 32,
+        "wasmMemoryBytes": 1179648,
+        "pendingEffectCount": 0,
+        "pendingEffectEntryCount": 0,
+        "arenaFloats": 0
+      }
+    ],
+    "pendingWeakRefs": 64,
+    "remaining": 0
+  },
+  "status": "passed",
+  "completedAt": "2026-11-01T12:22:00.322Z",
+  "sampleCount": 4002,
+  "retainedSamples": 32,
+  "createdRoots": 1600080,
+  "cleanups": 1600080,
+  "aborts": 1600080,
+  "checkedObjects": 6400320,
+  "maxGcRounds": 1,
+  "sourceSha256": "b0eef1412b12026e3afec71f9b0cb95c23d5da21c543a255ad2b064dc6172fd2",
+  "runtimeSha256": "f113354fe8442141b38711321a770f9c5b3509f12064c7c7a799ab5cfe707e2c"
+}

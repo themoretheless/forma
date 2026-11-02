@@ -1,0 +1,59 @@
+{
+  "codec": "svet-html-ref-v1",
+  "startedAt": "2026-11-01T15:22:15.204Z",
+  "node": "v22.23.4",
+  "checks": [
+    "native HTTP body disconnect cancels pending next and releases request graph",
+    "identity client rejects encoded response headers before reading frames",
+    "fresh progressive stream succeeds with real writer drain after a cancelled request",
+    "unsupported codec rejected before request state or SSR creation"
+  ],
+  "pending": {
+    "started": true,
+    "finished": false,
+    "nodes": 1,
+    "drains": 0,
+    "cleaned": 0,
+    "payloadSize": 132096
+  },
+  "cancelled": {
+    "started": true,
+    "finished": true,
+    "nodes": 0,
+    "drains": 0,
+    "cleaned": 1,
+    "payloadSize": 132096
+  },
+  "encodedBytes": [
+    248,
+    132403,
+    301
+  ],
+  "completed": {
+    "started": true,
+    "finished": true,
+    "nodes": 0,
+    "drains": 1,
+    "cleaned": 1,
+    "payloadSize": 132096
+  },
+  "chunkTypes": [
+    "shell",
+    "patch",
+    "complete"
+  ],
+  "chunkBytes": [
+    248,
+    132403,
+    132494
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-01T15:22:15.248Z",
+  "sourceSha256": "719e15f2ca4bc5859a66d60c5aac71b77037f5213b205d2a36a7861f8b72952a",
+  "runtimeSha256": {
+    "server.js": "cf7bf5fe6955ab1efed4d309220b68fc56219771c845e1e9c84794fb396a86c9",
+    "stream.js": "192f56c7c370e913312cf579a7dd0d426d0b5bbd93f2de049a5d8f58750bce41",
+    "dom.js": "b80eaaeb631e04c0e3b0ac9d486d1d64299538630d9285a1316d0ea5aaac9d55",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  }
+}

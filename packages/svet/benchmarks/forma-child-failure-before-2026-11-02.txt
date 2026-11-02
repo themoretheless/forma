@@ -1,0 +1,35 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-events.test.ts (4 tests | 2 failed) 106ms
+   × failed child mount creation retires child signals and allows a retry 6ms
+   × failed child render creation retires child signals and allows a retry 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > failed child mount creation retires child signals and allows a retry
+ FAIL  tests/forma-hmr-events.test.ts > failed child render creation retires child signals and allows a retry
+AssertionError: expected 8 to be 5 // Object.is equality
+
+- Expected
++ Received
+
+- 5
++ 8
+
+ ❯ tests/forma-hmr-events.test.ts:68:39
+     66|   try {
+     67|     expect(() => mode === 'mount' ? inst.mount(container) : inst.rende…
+     68|     expect(getGraphTelemetry().nodes).toBe(baseline);
+       |                                       ^
+     69|     expect(container.childNodes.length).toBe(0);
+     70|     fail = false; handle = inst.mount(container); expect(container.tex…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  08:37:23
+   Duration  1.39s (environment 78%, tests 9%, transform 9%, import 4%)
+

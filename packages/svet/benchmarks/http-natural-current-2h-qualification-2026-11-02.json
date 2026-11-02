@@ -1,0 +1,34 @@
+{
+  "status": "passed-for-frozen-artifact",
+  "requests": 918440,
+  "completed": 612293,
+  "disconnected": 306147,
+  "elapsedMs": 7200008.002042,
+  "forcedGCs": 0,
+  "graphNodesAfterFinish": 0,
+  "requestFailures": [],
+  "cleanupFailures": [],
+  "manifestAndCurrentFrozenFilesVerified": true,
+  "memoryBudgetsMiB": {
+    "heap": 16,
+    "rss": 64,
+    "external": 64,
+    "arrayBuffers": 16
+  },
+  "analysis": "http-natural-current-2h-analysis-2026-11-02.json",
+  "manifest": "http-natural-current-manifest-2026-11-02.json",
+  "raw": "http-natural-current-2h-2026-11-02.json",
+  "reportCompletedAt": "2026-11-02T00:31:24.645Z",
+  "latestDistDiffersIn": [
+    "advanced.js",
+    "forma.js",
+    "svet-core.wasm",
+    "wasm-binary.js"
+  ],
+  "limitations": [
+    "LPJBKt artifact only; latest dist requires another qualification",
+    "external post-warmup peak growth63344093 bytes is close to67108864 budget; not universal plateau proof",
+    "loopback/one fixture; gzip/both-codec/proxy/saturation/deployed provider matrix open",
+    "old launch metadata still says running; final report and OS process observation supersede launch state"
+  ]
+}

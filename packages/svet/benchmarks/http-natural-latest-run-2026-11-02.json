@@ -1,0 +1,33 @@
+{
+  "status": "completed-needs-investigation",
+  "execSessionId": 20187,
+  "launchRecordedAt": "2026-11-02T01:03:47.205566+00:00",
+  "manifest": "http-natural-latest-manifest-2026-11-02.json",
+  "report": "http-natural-latest-2h-2026-11-02.json",
+  "log": "http-natural-latest-2h-2026-11-02.txt",
+  "durationMs": 7200000,
+  "gcMode": "natural",
+  "budgetsMiB": {
+    "heap": 16,
+    "rss": 64,
+    "external": 64,
+    "arrayBuffers": 16
+  },
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-09qhPH/consumer/node_modules/svet-engine",
+  "scope": "All20 JS/WASM files matched latest workspace dist at launch. Frozen harness. No final qualification until completed report is analyzed.",
+  "observedPid": 99442,
+  "observedProgress": {
+    "status": "running",
+    "elapsedMs": 6463573.316375,
+    "requests": 1156288,
+    "scope": "checkpoint only; PID99442 confirmed live, no final qualification"
+  },
+  "lastObservedAt": "2026-11-02T02:51:01.538409+00:00",
+  "completedAt": "2026-11-02T03:03:14.986Z",
+  "analyzedAt": "2026-11-02T03:12:00.069964+00:00",
+  "qualification": "http-natural-latest-2h-qualification-2026-11-02.json",
+  "analysis": "http-natural-latest-2h-analysis-2026-11-02.json",
+  "currentDistDifferences": [
+    "reactivity.js"
+  ]
+}

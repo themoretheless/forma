@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-02",
+  "change": "Retained Runtime resolves changed-model binding map through structural expansion directly; visual render happens after binding commit rather than as preflight plus later render. Unchanged-model map reuse preserved.",
+  "checks": {
+    "lib": 155,
+    "allocation_tests": 8,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3
+  },
+  "new_regression": {
+    "fixture": "96 collection editors plus query editor and Text;98 controls",
+    "sequence": "edit query to bad\u2192visual error; corrective query ok\u2192successful rebuild; following idle no rebuild",
+    "allocations_observed": 353598,
+    "budget": 450000
+  },
+  "source_sha256": {
+    "before/runtime.rs": "85ed6f73c619b41baf4bae7661fc9245e8de371012f2eeb89c600c7e01fe1c8e",
+    "after/runtime.rs": "27c12a83c5c07cff8bbe303fb5e51c1c190d51186bd0d43fb4d696f0b654b814",
+    "shared/form_document.rs": "407ff6e59d670bddda8bf5c1d64a120426fc10593372023a7ba505530a09ff94",
+    "after/allocations.rs": "119bcb95400c3cd1a035d8e77c573c95e456b829d712cdc35be3747f1bd77459"
+  },
+  "limitations": [
+    "No measured before/after release speed or memory reduction claim.",
+    "Structural expansion still owns per-control snapshots; peak/RSS unqualified.",
+    "Full error/backend/large-model readiness remains open."
+  ]
+}

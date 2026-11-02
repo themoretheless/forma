@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-02",
+  "result": "covered native window scenario passed; overall native qualification partial",
+  "host": "macOS / Apple M4 Max / Metal UMA / Retina scale 2",
+  "defects_fixed": [
+    "CAMetalLayer contentsScale was unset: initial GPU scene magnified and cropped",
+    "softbuffer sibling CALayer covered later Metal frames after F7: Runtime changed while visible image stayed stale"
+  ],
+  "changes": [
+    "set Metal contentsScale from current window scale",
+    "raise visible Metal layer above softbuffer sibling and hide it on CPU frames",
+    "hide Metal layer before GPU-error CPU fallback"
+  ],
+  "final_binary_sha256": "ccbe9dfb5624206c2424bcd4bddeef97d5ca7ffde4a837371c90262d37db1b5d",
+  "checks": {
+    "native_locked_build": "passed",
+    "hardware_gpu_tests": 3,
+    "final_window_sequence": [
+      "launch --svet",
+      "type 1",
+      "F7 to CPU",
+      "type 2",
+      "F7 to GPU",
+      "type 3",
+      "visible editor and summary both seed123",
+      "hot reload title to Svet verified reload",
+      "type 4",
+      "visible editor and summary both seed1234",
+      "close via native window button",
+      "process absent (pgrep exit 1)"
+    ],
+    "diff_check": "passed"
+  },
+  "evidence": {
+    "initial_gpu_failure": "native-window-gpu-initial-before-2026-11-02.png",
+    "cpu_control": "native-window-cpu-before-2026-11-02.png",
+    "final_switch": "native-window-final-switch-2026-11-02.png",
+    "final_hot_reload": "native-window-final-hot-reload-2026-11-02.png"
+  },
+  "logs": {
+    "build": "packages/svet/benchmarks/native-window-build-2026-11-02.txt",
+    "run": "packages/svet/benchmarks/native-window-run-2026-11-02.txt",
+    "gpu-tests": "packages/svet/benchmarks/native-window-gpu-tests-2026-11-02.txt"
+  },
+  "limitations": [
+    "single physical Mac/Metal/Retina screen",
+    "no injected GPU failure or multi-monitor DPI transition qualification",
+    "no multi-window lifecycle/resource plateau qualification",
+    "native accessibility still exposes window chrome; inspector has virtual control tree",
+    "CUA typeText/paste timed out; direct key input verified; clipboard/IME matrix remains open",
+    "GPU pixel probe covers editor scene bounds; analytic text and animation tests are separate",
+    "new GPU probe first rejected invalid negative layout from default Text width; fixed fixture uses explicit width; strict whole-editor CPU/GPU AA equality failed at fractional DPI and was replaced with blank-interior pixel checks"
+  ],
+  "source_sha256": {
+    "vector-ui/src/main.rs": "d4559707cd17e8c0d80dc48bffbab28067f92810d51aa969b5b73be9adf939bb",
+    "vector-ui/src/metal_resize.rs": "a3b507ce9e8cf12e04596b0b2b105c1e1e66c43693e02e021f122bd604d483cc",
+    "vector-ui/src/runtime.rs": "4e9655b5c134ebc2d260a5e1599b8a88b2977befd4cff25c231feee68a0c3646",
+    "vector-ui/src/native_document_graph.rs": "0b716eb31869c90c2a307855ee2ad7c3971ecb7773ccc557c6db0ab0059def46",
+    "vector-ui/tests/runtime_gpu.rs": "e3eebdaf338c21fa812c5c4a645ad531a9697eec60a3e786ed154c0b4638cf54",
+    "vector-ui/tests/fixtures/svet-native-window/App.ui": "f02fd2fb4620270e91b7b3637606b9546ec42a0fca2cfbaba9f6f81fce043603"
+  }
+}

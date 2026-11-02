@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "scope": "Local Edge DOM bindings in copy B reading live parent signal from copy A after await, explicit shared core. Failed-child teardown before parent completion.",
+  "sourceSha256": {
+    "tests/edge/cross-copy-owner.mjs": "dd33ccfbfc0df33e9faabd04708ba545fe8d8e6aa2c322109dc985824596e00d",
+    "scripts/check-edge-ssr.mjs": "77445a39d74e29b99774e268a6e4ee41c5500f9a6c05f6e3cb95023a536a61eb",
+    "scripts/check-package.mjs": "0219739df3fb0e38a632cb6d6766e37dcfb091b656814dab5a2f3e0b594bc538"
+  },
+  "archiveSha256": "a37efa2cbd2562ef10ace1a451aae2f77459afc24d10988aef39d0d9bb9e6ee4",
+  "sameFixtureBeforeAfter": true,
+  "parentSignalRemainsLiveAfterChildFailure": true,
+  "observations": {
+    "concurrentHostEvents": 2,
+    "foreignButtons": 2,
+    "reactiveAttributeAndTextUpdates": 2,
+    "capturedClickOwnerCoreContext": 2,
+    "eventTeardowns": 2,
+    "nodesAfter": 0
+  },
+  "GC": {
+    "targets": 20,
+    "alive": 0,
+    "kinds": {
+      "core": 8,
+      "memory": 8,
+      "signal": 2,
+      "node": 2
+    }
+  },
+  "legacyGC": {
+    "targetsCollected": 140,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "checks": {
+    "pinnedWorkerd": "passed",
+    "betaControllerNovemberBinaryDate": "passed",
+    "installedPackageWithEdgeGC": "passed; DOM counters and20 target collection required",
+    "runtimeIdentity": "unchanged; byte-equal to prior full1293 package"
+  },
+  "evidence": [
+    "edge-copy-dom-before-2026-11-02.json",
+    "edge-copy-dom-installed-final-2026-11-02.json",
+    "edge-copy-dom-beta-final-2026-11-02.json",
+    "edge-copy-dom-package-final-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Only named local workerd/LinkeDOM profiles; beta experimental.",
+    "Native browser events, successful-child retained handlers after carrier close, deployed hosts and mixed versions require separate qualification.",
+    "Forced GC is not natural GC/RSS plateau."
+  ]
+}

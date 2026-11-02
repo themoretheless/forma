@@ -1,0 +1,27 @@
+{
+  "status": "running",
+  "pid": 74594,
+  "sessionId": 3040,
+  "snapshot": "/Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/.cache/svet-http-soak/snapshot-RKk0T4",
+  "node": "v22.23.4",
+  "durationMs": 7200000,
+  "gcMode": "natural",
+  "coreLifetimeMode": "0",
+  "manifest": "http-current-runtime-natural-2h-manifest-2026-11-02.json",
+  "report": "http-current-runtime-natural-2h-2026-11-02.json",
+  "progress": "http-current-runtime-natural-2h-2026-11-02.json.progress.json",
+  "log": "/tmp/svet-http-current-runtime-natural-2h.txt",
+  "runtimeHashesVerified": 20,
+  "budgetsMiB": {
+    "heap": 16,
+    "rss": 64,
+    "external": 64,
+    "arrayBuffers": 16
+  },
+  "qualification": "pending; minimum7200000ms,no forcedGC; preserve frozen artifacts",
+  "observedProgress": {
+    "elapsedMs": 30094.062707999998,
+    "requests": 7040,
+    "updatedAt": "2026-11-02T06:13:43.844Z"
+  }
+}

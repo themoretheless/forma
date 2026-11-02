@@ -1,0 +1,22 @@
+{
+  "startedAt": "2026-11-01T15:12:06.363Z",
+  "node": "v22.23.4",
+  "checks": [
+    "unsupported offer null",
+    "unsupported offer 2",
+    "unsupported offer 1,foo",
+    "/wrong-version",
+    "/wrong-type",
+    "supported offer 1",
+    "supported offer 2, 1"
+  ],
+  "renderCalls": 2,
+  "status": "passed",
+  "completedAt": "2026-11-01T15:12:06.399Z",
+  "sourceSha256": "72a4dc77dd981fc8a34b5168c221a9517a6e407f65da98bb8f121c8c6d271c14",
+  "runtimeSha256": {
+    "server.js": "cf7bf5fe6955ab1efed4d309220b68fc56219771c845e1e9c84794fb396a86c9",
+    "stream.js": "6fb5738f1a7cd7a2e048630ec75ea81b75c70d8739e08b960fcc31ff91373fbb",
+    "stream-protocol.js": "2e0edaf794b0cb7e210e6440d238d332ff059b5794a978f393907d8fc3f18333"
+  }
+}

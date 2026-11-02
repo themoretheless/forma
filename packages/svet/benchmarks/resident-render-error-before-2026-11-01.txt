@@ -1,0 +1,24 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/gpu-resident-render.test.ts > refuses pipeline resident drawing without a stale 2D substitute
+AssertionError: expected 'Resident vertices require an availabl…' to contain 'render failed'
+
+Expected: "render failed"
+Received: "Resident vertices require an available WebGPU renderer"
+
+ ❯ tests/gpu-resident-render.test.ts:112:57
+    110|   const view=createRoot(dispose=>{stop=dispose;return Viewport3D({mesh…
+    111|   expect(view.dataset.renderBackend).toBe('unavailable');expect(fallba…
+    112|   if(mode==='pipeline')expect(view.dataset.renderError).toContain('ren…
+       |                                                         ^
+    113|   stop();handle.dispose();s.dispose();
+    114| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 13 skipped (14)
+   Start at  15:25:23
+   Duration  413ms (environment 73%, tests 9%, transform 9%, import 8%, worker 1%)
+

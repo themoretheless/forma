@@ -1,0 +1,114 @@
+{
+  "startedAt": "2026-11-01T20:15:22.144Z",
+  "node": "v22.23.4",
+  "durationMs": 1000,
+  "concurrency": 8,
+  "gcMode": "natural",
+  "injectedFailure": "stats-and-forget",
+  "forcedGCs": 0,
+  "cleanupFailures": [
+    {
+      "name": "Error",
+      "message": "HTTP forget failed for soak-0-0",
+      "operation": "forget",
+      "requestId": "soak-0-0",
+      "elapsedMs": 227.0407499999992,
+      "cause": {
+        "name": "AssertionError",
+        "message": "forget 503"
+      },
+      "primary": {
+        "name": "Error",
+        "message": "HTTP stats failed for soak-0-0",
+        "operation": "stats",
+        "requestId": "soak-0-0",
+        "elapsedMs": 261.7876669999996,
+        "cause": {
+          "name": "AssertionError",
+          "message": "stats 503"
+        }
+      }
+    }
+  ],
+  "requestFailures": [
+    {
+      "name": "Error",
+      "message": "HTTP stats failed for soak-0-0",
+      "operation": "stats",
+      "requestId": "soak-0-0",
+      "elapsedMs": 261.7876669999996,
+      "cause": {
+        "name": "AssertionError",
+        "message": "stats 503"
+      }
+    }
+  ],
+  "requests": 7,
+  "completed": 5,
+  "disconnected": 3,
+  "bytesRead": 1326487,
+  "readerPauses": 15,
+  "drains": 10,
+  "maxNodesAfterFinish": 0,
+  "samples": [],
+  "windows": [
+    {
+      "count": 0,
+      "heapMin": null,
+      "heapMax": 0,
+      "rssMin": null,
+      "rssMax": 0
+    },
+    {
+      "count": 0,
+      "heapMin": null,
+      "heapMax": 0,
+      "rssMin": null,
+      "rssMax": 0
+    },
+    {
+      "count": 0,
+      "heapMin": null,
+      "heapMax": 0,
+      "rssMin": null,
+      "rssMax": 0
+    },
+    {
+      "count": 0,
+      "heapMin": null,
+      "heapMax": 0,
+      "rssMin": null,
+      "rssMax": 0
+    }
+  ],
+  "scope": "Loopback Node HTTP/fetch streaming with delayed reader calls, concurrent clients and shell disconnects. Writer drains are observed; no proxy/browser, sustained kernel-buffer saturation or universal RSS bound claim.",
+  "sourceSha256": "3414489679d9e5a19510f407499df8f5c603e0fa0a2903ea9f167af78563aa38",
+  "runtimeSha256": {
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  },
+  "updatedAt": "2026-11-01T20:15:23.039Z",
+  "elapsedMs": 689.3977919999998,
+  "status": "failed",
+  "error": "Error: HTTP stats failed for soak-0-0\n    at request (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-stream-http.mjs:27:35)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async run (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-stream-http.mjs:42:55)\n    at async Promise.allSettled (index 0)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/soak-ssr-stream-http.mjs:59:18",
+  "errorDetails": {
+    "name": "Error",
+    "message": "HTTP stats failed for soak-0-0",
+    "operation": "stats",
+    "requestId": "soak-0-0",
+    "elapsedMs": 261.7876669999996,
+    "cause": {
+      "name": "AssertionError",
+      "message": "stats 503"
+    }
+  },
+  "completedAt": "2026-11-01T20:15:23.034Z",
+  "finalSourceSha256": "3414489679d9e5a19510f407499df8f5c603e0fa0a2903ea9f167af78563aa38",
+  "finalRuntimeSha256": {
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  },
+  "artifactsUnchanged": true
+}

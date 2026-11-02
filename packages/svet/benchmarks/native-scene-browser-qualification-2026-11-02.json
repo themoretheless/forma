@@ -1,0 +1,27 @@
+{
+  "date": "2026-11-02",
+  "status": "passed in observed Chromium browser",
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": 5,
+  "checks": [
+    "Browser WebAssembly initialization and Rust compile API",
+    "Versioned JSON load with empty-layout logical extent and viewport",
+    "3720 changed byte channels from scrollbar movement, zero changes outside viewport",
+    "Invalid version/JSON/extent loads preserve runtime/revision",
+    "CPU raster frame sizes at1/1.25/2 scales",
+    "Valid shrink reload clamps offset and revises geometry cache"
+  ],
+  "servedArtifactSha256": {
+    "index.html": "d15557bd0e41d7f8681b8cbcc9d5666092dc16427cb14ffc061578ad0810f92a",
+    "forma.js": "f5973cd2c2f2182d4ae2ddd79f3367051c450f74b06054c62ea8afda49720c2b",
+    "forma_bg.wasm": "2ab5fbbda0420ed530160d8c1d5fc0c6f7b2e0486ef123a72b9b411848d29d9b"
+  },
+  "fixture_sha256": "d15557bd0e41d7f8681b8cbcc9d5666092dc16427cb14ffc061578ad0810f92a",
+  "server_sha256": "db945e8a37fa0094e7d86f6399b02358d86e1d67583ff2288a898ebde8dde6ff",
+  "scope": [
+    "Actual browser ESM/WASM execution and Canvas2D display",
+    "Source-bound hashed fixture/module/WASM report returned from browser to loopback host",
+    "Not WebGPU rendering, other browser engines, HMR or OS window qualification",
+    "Temporary QA tab and both owned localhost servers closed; HTTP soak left running"
+  ]
+}

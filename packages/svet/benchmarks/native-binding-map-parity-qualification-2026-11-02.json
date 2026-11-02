@@ -1,0 +1,38 @@
+{
+  "date": "2026-11-02",
+  "change": "Add18-case structural/rendered binding map parity regression; require compatible normalized visual kind before reusing precomputed layout.",
+  "checks": {
+    "lib": 156,
+    "allocation_tests": 8,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3
+  },
+  "matrix": {
+    "layouts": [
+      "Frame",
+      "Column",
+      "Row",
+      "Grid",
+      "Stack",
+      "Column/Scroll/Column"
+    ],
+    "transitions": "enabled true/false/true with item reorder",
+    "compared": [
+      "control count/order",
+      "source node id",
+      "key",
+      "entire owned state",
+      "event args"
+    ],
+    "runtime_construction": "passed for each generated scene"
+  },
+  "fixed_bug": "Legacy Scroll positioning used precomputed Scroll visual after node normalized to Frame, producing negative y for tall content; kind mismatch now recomputes visual.",
+  "open_bug": "Explicit viewport properties on Scroll serialize into a grammar that accepts Button children only; original failure log preserved. Supported parity Scroll fixture has no viewport props.",
+  "source_sha256": "dbabdd809cb11c09cbbfce5303f5b502ff29c79860d8291e5fd3a0861e7a4b1a",
+  "limitations": [
+    "Event args annotated in IR after source compilation.",
+    "No release performance/peak-memory or live-window Scroll proof.",
+    "Scroll viewport-property representation remains open."
+  ]
+}

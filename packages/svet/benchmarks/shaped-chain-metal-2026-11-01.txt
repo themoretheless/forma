@@ -1,0 +1,18 @@
+INFO adapter {"vendor":"apple","architecture":"metal-3","device":"","description":"","isFallbackAdapter":false}
+PASS WGSL with two inputs and a 7-element tail
+PASS upload/readback byte counts (84 / 28)
+PASS single reactive publication
+PASS pipeline reuse preserves updated data and changed workgroups
+PASS shader and entry-point cache separation
+PASS three GPU-resident stages with one publication and final readback
+PASS partial-write stages preserve previous GPU values
+PASS 32-stage chain uses five total buffers for two inputs
+PASS 129-to-1-to-7 GPU stages with reduction and zeroed growth tails
+PASS real late-stage binding failure preserves output, frees resources and recovers
+PASS owner cancellation during native readback is atomic, releases resources and recovers
+PASS invalid shader rejects without fallback or output mutation
+PASS injected OOM/internal results reject without output mutation and recover
+PASS native device byte admission rejects before buffer allocation and preserves output
+PASS exact byte-budget boundary executes WGSL and returns queue telemetry to zero
+PASS device loss rejects and replacement computes again
+16/16 passed

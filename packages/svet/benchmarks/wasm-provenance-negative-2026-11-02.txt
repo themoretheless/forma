@@ -1,0 +1,1 @@
+{"status":"failed","bytes":54325,"sha256":"f969dba3fab106f47476ac6fe2054e97c46ec9ed149a2720cee84d87c34061c5","error":"AssertionError [ERR_ASSERTION]: Rebuilt WASM differs from checked-in embedded binary\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-wasm-provenance.mjs:13:2"}

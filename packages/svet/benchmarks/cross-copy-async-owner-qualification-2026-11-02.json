@@ -1,0 +1,46 @@
+{
+  "status": "passed",
+  "scope": "Byte-matched installed copies, Node ALS in A, explicitly selected same core in B. Async child owner/context, rejection cleanup, late refusal, explicit root/core overrides and concurrent isolation.",
+  "sourceSha256": {
+    "src/engine/reactivity.ts": "2035e18b28d87a010b0ff1a99dd9230c81d6b9b5989e7e08836851d520d520c9",
+    "scripts/check-cross-copy-async-owner.mjs": "c7ac6d0caa482606c85ea0201e44c51ee9dde4461f05b257d6c76d6ecf5a3d93",
+    "scripts/check-package.mjs": "7bdb83caa065c52021b7f1e7e3e2837c5f52b3dcbfade983473f28757a2c6029"
+  },
+  "archiveSha256": "4a91dfa8c6ef74f8bb93bc9c6be99a906fd497e4b0f15280a720422d0f0cbc4c",
+  "probeSha256": "c7ac6d0caa482606c85ea0201e44c51ee9dde4461f05b257d6c76d6ecf5a3d93",
+  "before": {
+    "failed": 4,
+    "passed": 2
+  },
+  "after": {
+    "passed": 6,
+    "failed": 0
+  },
+  "GC": {
+    "coresCollected": 8,
+    "memoriesCollected": 8,
+    "retainedPromises": 8,
+    "retainedErrors": 8,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "checks": {
+    "sourceJS": "1293 tests /98 files passed, threads2",
+    "typescript": "passed",
+    "packageWithEdgeInspectorGC": "passed; cross-copy owner probe required"
+  },
+  "evidence": [
+    "cross-copy-async-owner-before-final-2026-11-02.json",
+    "cross-copy-async-owner-after-final-2026-11-02.json",
+    "cross-copy-async-owner-full-suite-2026-11-02.txt",
+    "cross-copy-async-owner-types-2026-11-02.txt",
+    "cross-copy-async-owner-package-final-2026-11-02.txt",
+    "cross-copy-async-owner-edge-2026-11-02.json"
+  ],
+  "limitations": [
+    "Foreign core selection remains explicit; this does not propagate implicit core selection between copies.",
+    "Other hosts and mixed build/version async interoperability are not qualified.",
+    "Separate-core automatic dependencies remain open.",
+    "Forced collection is not natural GC/RSS qualification of this newer runtime."
+  ]
+}

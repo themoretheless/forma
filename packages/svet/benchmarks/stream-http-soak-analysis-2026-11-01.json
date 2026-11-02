@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "rawSha256": "d4ad85734ea1f7edde65fdc86bd301f56c5bf67b4b8ccb48a68ae85a72ff8be9",
+  "requests": 11952,
+  "completed": 7968,
+  "disconnected": 3984,
+  "drains": 15936,
+  "memoryMiBByQuarter": [
+    {
+      "heapMin": 37.748,
+      "heapMax": 42.08,
+      "rssMin": 142.892,
+      "rssMax": 167.173
+    },
+    {
+      "heapMin": 38.549,
+      "heapMax": 38.944,
+      "rssMin": 140.969,
+      "rssMax": 166.844
+    },
+    {
+      "heapMin": 38.767,
+      "heapMax": 38.999,
+      "rssMin": 140.954,
+      "rssMax": 145.11
+    },
+    {
+      "heapMin": 38.851,
+      "heapMax": 39.167,
+      "rssMin": 129.219,
+      "rssMax": 145.61
+    }
+  ],
+  "scope": "Independent aggregate consistency/source hash check. Per-request assertions execute in the workload; no wire replay or external proxy validation."
+}

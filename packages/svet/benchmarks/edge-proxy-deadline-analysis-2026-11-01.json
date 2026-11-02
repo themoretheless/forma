@@ -1,0 +1,8 @@
+{
+  "status": "passed",
+  "rawSha256": "81ca443375ab94b5e0940063cca39dbfb8062ebd5754c7e8766b9d6e34db13b3",
+  "deadlineMs": 500,
+  "boundedProxyRequests": 2,
+  "incomingAbortObserved": false,
+  "scope": "Host deadline retires pending graphs despite missing proxy abort; no claim of proxy cancellation propagation or memory plateau."
+}

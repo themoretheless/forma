@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "sourceSha256": "a22a8b69f1819ced94cf4a512ca0f4d6c6c1e0f15b2c6192f98290d1de9aa2b8",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-6KPnxG/consumer/node_modules/svet-engine",
+  "runtimeFilesEqual": 20,
+  "checks": {
+    "baseline": "multiline pattern lost:1 failed/9 passed",
+    "contracts": "10 passed",
+    "full": "1352 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "packageBuild": "passed",
+    "installedPackageGCAndContractParity": "passed",
+    "browserHmr": "15/15"
+  },
+  "browserReport": "forma-pattern-parity-browser-2026-11-02.json",
+  "limitations": [
+    "Browser fixture covers HMR lifecycle; multiline pattern is Node installed runtime coverage",
+    "General grammar and unknown annotation policy open",
+    "Atomic partial render rollback open",
+    "No performance/current-runtime soak claim"
+  ]
+}

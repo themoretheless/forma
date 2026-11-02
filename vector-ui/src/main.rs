@@ -71,6 +71,7 @@ struct App {
     surface_size: Option<(u32, u32)>,
     secondary_windows: HashMap<WindowId, AuxiliaryWindow>,
     render_error: Option<String>,
+    binding_error: Option<String>,
     surface_state: Presentation,
     button: forma::Runtime,
     pointer: (f32, f32),
@@ -101,6 +102,14 @@ impl App {
                 eprintln!("Ошибка отрисовки: {error}");
             }
             self.render_error = error;
+            self.next_title_update = Instant::now();
+        }
+    }
+
+    fn set_binding_error(&mut self, error: Option<String>) {
+        if self.binding_error != error {
+            if let Some(error) = &error { eprintln!("Ошибка bindings: {error}"); }
+            self.binding_error = error;
             self.next_title_update = Instant::now();
         }
     }
@@ -160,6 +169,7 @@ impl App {
 
     fn select_backend(&mut self, backend: UiBackend) {
         self.ui_backend = Some(backend);
+        self.button.set_svet_document_scheduling(backend == UiBackend::Svet);
         self.chooser = None;
         self.frame_stats = FrameStats::default();
         self.next_title_update = Instant::now();
@@ -221,17 +231,24 @@ impl App {
                 let src = two_buttons_ui_for_viewport(logical_w, logical_h);
                 if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
                     next.preserve_interaction(&self.button);
+                    next.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
                     self.button = next;
                 }
             }
         }
-        let active_runtime = self.chooser.as_ref().unwrap_or(&self.button);
         #[cfg(target_os = "ios")]
         let use_gpu = true;
         #[cfg(not(target_os = "ios"))]
         let use_gpu = self.chooser.is_none()
             && self.ui_backend != Some(UiBackend::Egui)
             && self.platform == TargetPlatform::Desktop;
+        #[cfg(target_os = "macos")]
+        if self.gpu.is_some() {
+            if let Err(error) = metal_resize::set_visible(window, use_gpu) {
+                self.set_render_error(Some(error));
+            }
+        }
+        let active_runtime = self.chooser.as_ref().unwrap_or(&self.button);
         if use_gpu {
             if let Some(gpu) = &mut self.gpu {
                 match gpu.draw(active_runtime, window) {
@@ -242,6 +259,10 @@ impl App {
                     }
                     Err(error) => {
                         eprintln!("GPU остановлен, CPU fallback: {error}");
+                        #[cfg(target_os = "macos")]
+                        if let Err(error) = metal_resize::set_visible(window, false) {
+                            eprintln!("Metal layer fallback: {error}");
+                        }
                         self.gpu = None;
                         self.frame_stats = FrameStats::default(); // Do not mix backend cadences.
                         self.next_title_update = Instant::now();
@@ -346,7 +367,7 @@ impl App {
                 }
             }
         };
-        let rate = if let Some(error) = &self.render_error {
+        let rate = if let Some(error) = self.binding_error.as_ref().or(self.render_error.as_ref()) {
             format!("ошибка: {error}")
         } else if self.surface_state == Presentation::Occluded {
             "occluded".into()
@@ -554,6 +575,7 @@ impl ApplicationHandler for App {
                 let src = two_buttons_ui_for_viewport(logical_w, logical_h);
                 if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
                     next.preserve_interaction(&self.button);
+                    next.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
                     self.button = next;
                 }
             }
@@ -965,7 +987,8 @@ impl ApplicationHandler for App {
         let caret=self.button.text_caret_bounds();
         if caret.len()==4 {window.set_ime_cursor_area(winit::dpi::LogicalPosition::new(caret[0] as f64,caret[1] as f64),LogicalSize::new(caret[2] as f64,caret[3] as f64));}
         if !redraw {
-            let _ = self.button.sync_ui_bindings_native();
+            let binding_error = self.button.sync_ui_bindings_native().err();
+            self.set_binding_error(binding_error);
             let started = !was_animating && self.button.is_animating();
             if started {
                 self.last = Instant::now();
@@ -993,6 +1016,7 @@ impl ApplicationHandler for App {
                 );
                 if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
                     next.preserve_interaction(&self.button);
+                    next.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
                     self.button = next;
                 }
             }
@@ -1019,7 +1043,10 @@ impl ApplicationHandler for App {
                         let prev_state = self.button.ui_state_properties();
                         if let Ok(mut next_rt) = forma::Runtime::from_ui_files(&next_files, entry, &prev_state) {
                             next_rt.preserve_interaction(&self.button);
+                            next_rt.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
                             self.button = next_rt;
+                            self.binding_error = None;
+                            self.next_title_update = Instant::now();
                             self.last_project_files = next_files;
                             self.inspect_report.clear();
                             self.a11y_report.clear();
@@ -1079,7 +1106,10 @@ impl ApplicationHandler for App {
                     let t = next_tpl.unwrap_or_else(|| self.last_template.clone());
                     if let Ok(mut next_rt) = forma::Runtime::from_sources(&s, &t) {
                         next_rt.preserve_interaction(&self.button);
+                        next_rt.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
                         self.button = next_rt;
+                        self.binding_error = None;
+                        self.next_title_update = Instant::now();
                         self.last_source = s;
                         self.last_template = t;
                         self.inspect_report.clear();
@@ -1260,7 +1290,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut source = String::new();
     let mut template = String::new();
 
-    let button = if let (Some(first_arg), None) = (&source_path, &template_path) {
+    let mut button = if let (Some(first_arg), None) = (&source_path, &template_path) {
         let p = std::path::Path::new(first_arg);
         if p.is_dir() {
             let (root, entry) = resolve_ui_project_root_and_entry(p)
@@ -1311,6 +1341,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .unwrap_or(forma::BUTTON_COMPONENT.into());
         forma::Runtime::from_sources(&source, &template).map_err(std::io::Error::other)?
     };
+    button.set_svet_document_scheduling(ui_backend == Some(UiBackend::Svet));
     let chooser = if ui_backend.is_none() {
         Some(build_chooser_runtime().map_err(std::io::Error::other)?)
     } else {
@@ -1347,6 +1378,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         surface_size: None,
         secondary_windows: HashMap::new(),
         render_error: None,
+        binding_error: None,
         surface_state: Presentation::Presented,
         button,
         pointer: (-1., -1.),

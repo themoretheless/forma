@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "scope": "Resource PromiseLike public signatures and native await assimilation lifetime regressions; GPU fallback/cross-copy tracking not covered.",
+  "sourceSha256": {
+    "src/engine/advanced.ts": "63ecddec17f6a7348ffe14bb21d778847df0fc41c5e99782215857a83d32b97b",
+    "tests/resource-thenables.test.ts": "431cc5d4758efee2d494f22d2de3be0e68c941004950b06366180e4149c1bcf2",
+    "scripts/check-package.mjs": "d8d5a187e266abf7acb8a1d5cba01e5835904e52f8c005964adb3630c4ee0857"
+  },
+  "checks": {
+    "focused": "45 tests / 2 files",
+    "fullJS": "1290 tests / 98 files",
+    "typescript": "passed",
+    "installedPackageWithEdge": "passed",
+    "previousSignature": "explicit PromiseLike regression rejected"
+  },
+  "evidence": [
+    "resource-thenable-types-before-2026-11-01.txt",
+    "resource-thenable-types-after-2026-11-01.txt",
+    "resource-thenable-suite-2026-11-01.txt",
+    "resource-thenable-full-suite-2026-11-01.txt",
+    "resource-thenable-package-2026-11-01.txt"
+  ]
+}

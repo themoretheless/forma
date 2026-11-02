@@ -1,0 +1,39 @@
+{
+  "status": "passed",
+  "rawSha256": "7ae24934d4d2a720faeb94e11765f1ad870c82c2fd4e58e5ffe7f7dd53a7259d",
+  "requests": 64720,
+  "objects": 388320,
+  "modeCounts": {
+    "complete": 16180,
+    "cancel": 16180,
+    "abort": 16180,
+    "error": 16180
+  },
+  "memoryMiBByQuarter": [
+    {
+      "heapMin": 38.012,
+      "heapMax": 38.982,
+      "rssMin": 125.75,
+      "rssMax": 131.222
+    },
+    {
+      "heapMin": 38.904,
+      "heapMax": 39.03,
+      "rssMin": 124.802,
+      "rssMax": 132.724
+    },
+    {
+      "heapMin": 37.66,
+      "heapMax": 39.044,
+      "rssMin": 124.787,
+      "rssMax": 126.835
+    },
+    {
+      "heapMin": 34.88,
+      "heapMax": 37.765,
+      "rssMin": 123.663,
+      "rssMax": 126.507
+    }
+  ],
+  "scope": "Independent barrier/mode/collection/sample counts and source/runtime hash verification; does not infer universal memory bound."
+}

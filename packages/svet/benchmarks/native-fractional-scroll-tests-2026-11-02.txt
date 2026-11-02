@@ -1,0 +1,38 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/runtime_gpu.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_gpu-c6d260de0c042485)
+
+running 5 tests
+Fractional Scroll adapter: AdapterInfo { name: "Apple M4 Max", vendor: 4203, device: 1, device_type: IntegratedGpu, device_pci_bus_id: "", driver: "Metal Direct Native Runtime", driver_info: "ASD + UMA + dUMA Accelerated", backend: Metal, subgroup_min_size: 32, subgroup_max_size: 32, transient_saves_memory: true }
+Scroll crop adapter: AdapterInfo { name: "Apple M4 Max", vendor: 4203, device: 1, device_type: IntegratedGpu, device_pci_bus_id: "", driver: "Metal Direct Native Runtime", driver_info: "ASD + UMA + dUMA Accelerated", backend: Metal, subgroup_min_size: 32, subgroup_max_size: 32, transient_saves_memory: true }
+DPI 1: localized upload 12 vs full paint 64 bytes
+Scroll crop DPI1 offset0: 15872 pixels match independent reference
+Fractional Scroll DPI1 offset0: 15781 pixels match center-clip reference
+Scroll crop DPI1 offset32: 15872 pixels match independent reference
+test retained_ui_editor_and_summary_render_at_their_scene_bounds ... ok
+DPI 1.25: localized upload 12 vs full paint 64 bytes
+Fractional Scroll DPI1 offset32: 15781 pixels match center-clip reference
+Fractional Scroll DPI1 offset67: 15835 pixels match center-clip reference
+DPI 2: localized upload 12 vs full paint 64 bytes
+Scroll crop DPI1 offset64: 15872 pixels match independent reference
+test animations_change_only_their_own_pixels_at_integer_and_fractional_dpi ... ok
+Fractional Scroll DPI1.25 offset0: 24697 pixels match center-clip reference
+Scroll crop DPI1.25 offset0: 24800 pixels match independent reference
+Fractional Scroll DPI1.25 offset32: 24630 pixels match center-clip reference
+Scroll crop DPI1.25 offset32: 24800 pixels match independent reference
+Fractional Scroll DPI1.25 offset67: 24697 pixels match center-clip reference
+Scroll crop DPI1.25 offset64: 24800 pixels match independent reference
+Fractional Scroll DPI2 offset0: 63353 pixels match center-clip reference
+Scroll crop DPI2 offset0: 63488 pixels match independent reference
+Fractional Scroll DPI2 offset32: 63244 pixels match center-clip reference
+Scroll crop DPI2 offset32: 63488 pixels match independent reference
+Scroll crop DPI2 offset64: 63488 pixels match independent reference
+Fractional Scroll DPI2 offset67: 63353 pixels match center-clip reference
+test fractional_scroll_viewport_clips_at_physical_pixel_centers ... ok
+test retained_scroll_viewport_matches_independent_rect_crop_reference ... ok
+scale 1: covered=1999 mean=0.0027/255 max=2 channels>4=0
+scale 1.25: covered=3035 mean=0.0024/255 max=2 channels>4=0
+scale 2: covered=7045 mean=0.0013/255 max=2 channels>4=0
+test analytic_text_coverage_matches_supersampled_reference ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.01s
+

@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-02",
+  "change": "Source-level regression for Match guard selection, dependent Lets, collection alias and branch binding identity. Test-only change.",
+  "checks": {
+    "lib": 154,
+    "allocation_tests": 7,
+    "diff_check": "passed"
+  },
+  "scenario": [
+    "Guarded branch Let prefix and alias rows=state.items; fallback branch dependent Lets and different model binding.",
+    "Disable guard with edited old widget: fresh scene sync writes0 and preserves both branch models.",
+    "New fallback Runtime accepts its editor; re-enable guard without rebuilding old widget writes0.",
+    "Original branch key returns; outside root prefix and scope isolation preserved."
+  ],
+  "source_sha256": "04db161db22ab23b4671c52191be301cd72f19ce42ebfcb4bc8d686241197b17",
+  "limitations": [
+    "Fresh mapping proof; cached branch-switch/render-error combination not covered here.",
+    "No new native/wasm/GPU/performance rerun for test-only change.",
+    "Full Match/deep/async/browser/AOT matrix remains open."
+  ]
+}

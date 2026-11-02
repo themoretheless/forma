@@ -1,0 +1,46 @@
+{
+  "date": "2026-11-02",
+  "status": "versioned JSON artifact transport implemented and executed in Node WASM",
+  "protocol": "forma-scene-artifact/1",
+  "api": [
+    "SceneArtifact::to_json/from_json",
+    "Runtime::load_scene_artifact_native",
+    "WASM Runtime.compile_ui_scene_artifact",
+    "WASM Runtime.load_scene_artifact"
+  ],
+  "checks": {
+    "lib_tests": 159,
+    "allocation_tests": 10,
+    "public_integration_tests": 5,
+    "native_bin_check": "passed",
+    "wasm32_lib_check": "passed",
+    "wasm_build": "passed",
+    "wasm_bindgen": "0.2.125",
+    "generated_nodejs_actual_wasm": "passed",
+    "example_lock_metadata": "binding-app and language-app offline metadata passed",
+    "diff_check": "passed"
+  },
+  "covered": [
+    "empty-layout extent/viewport roundtrip",
+    "lossless tagged Text/Expr/AST, internal binding metadata and event arguments",
+    "nonfinite numeric state serialization refuses",
+    "version/unknown-field/required extent/shape validation",
+    "atomic malformed JSON/version/negative extent refusal preserves runtime and revision",
+    "successful load changes layout/geometry revision"
+  ],
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "2f2414f14f96f57b115f0a9af8989cdf8fafc915b5b837ad16254a77283702be",
+    "vector-ui/src/runtime.rs": "826fd1abf71a241496c1a8817db63e31fb0b4e5685514591ae3f7fd69f142ea0",
+    "vector-ui/tests/scene_artifact.rs": "f57b0925730b96c38d8c38cf7794300cf07ad8423f5705fbd684e4872dfb1839",
+    "vector-ui/tests/check-scene-artifact-wasm.cjs": "2a8e2f0ca9a6f10421e00a2074c9fd428717f0260f6a2d8d09cb2e074f4b4742",
+    "vector-ui/Cargo.toml": "142f28940946c4f5ad7a2cedb46fb3c2b218e0c112e9aa6b84b458ea9710378b",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50"
+  },
+  "limits": [
+    "Actual ABI gate ran NodeJS WASM; browser bundling/DOM/window gate remains open",
+    "Raw legacy scene markup tuple cannot carry metadata; callers must choose versioned artifact",
+    "Nested/multiple Scroll viewports and general layout matrix remain open",
+    "No GPU-renderer or throughput claim",
+    "Frozen HTTP diagnostic still running; old external-memory failure unresolved"
+  ]
+}

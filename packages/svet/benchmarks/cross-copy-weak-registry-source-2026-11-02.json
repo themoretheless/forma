@@ -1,0 +1,28 @@
+{
+  "status": "partial",
+  "protocol": "weak observation-copy registry v2",
+  "sourceQualification": "independently compiled same-realm compatible copies; public package gate pending",
+  "crossCopyPassed": 7,
+  "crossCopyOpen": [
+    "automatic foreign-signal dependency"
+  ],
+  "GC": {
+    "coresCollected": 24,
+    "memoriesCollected": 24,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "typescript": "passed",
+  "performance": "inconclusive under host load; weak/local/local controls timed out, last weak passed; full benchmark gate remains open",
+  "evidence": [
+    "cross-copy-weak-registry-cases-2026-11-02.json",
+    "cross-copy-weak-registry-gc-2026-11-02.json",
+    "cross-copy-weak-registry-types-2026-11-02.txt",
+    "cross-copy-weak-bench-abba-2026-11-02.json",
+    "cross-copy-untrack-host-context-2026-11-02.json",
+    "cross-copy-missing-files-2026-11-02.txt"
+  ],
+  "correctnessSuite": "1267 tests /95 files passed; 2 worker startup timeouts prevented completing97 files; benchmark excluded; not a green full gate",
+  "longSoak": "failed after189144 requests/~24.4min; final artifact hashes unchanged; primary/cleanup diagnosis pending",
+  "correctnessMissingFiles": "25/25 passed, threads pool1; combined1292 non-benchmark checks across runs, not full gate"
+}

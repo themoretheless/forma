@@ -1,0 +1,42 @@
+[
+  {
+    "depth": 1,
+    "baselineMedianMs": 4.499833000000024,
+    "candidateMedianMs": 1.4192919999999987,
+    "candidateOverBaseline": 0.31540992743508284,
+    "aaRatios": [
+      1.2835325365205887,
+      0.5801524727910606
+    ]
+  },
+  {
+    "depth": 32,
+    "baselineMedianMs": 5.529875000000004,
+    "candidateMedianMs": 1.6867909999999995,
+    "candidateOverBaseline": 0.3050323922330972,
+    "aaRatios": [
+      1.243640459544214,
+      0.7712970951970088
+    ]
+  },
+  {
+    "depth": 128,
+    "baselineMedianMs": 11.841000000000008,
+    "candidateMedianMs": 1.8447500000000048,
+    "candidateOverBaseline": 0.155793429608986,
+    "aaRatios": [
+      1.9944724761637225,
+      0.4330870996252013
+    ]
+  },
+  {
+    "depth": 256,
+    "baselineMedianMs": 6.209707999999978,
+    "candidateMedianMs": 2.322416000000004,
+    "candidateOverBaseline": 0.37399761792342123,
+    "aaRatios": [
+      1.0385772913816778,
+      1.0469850357643722
+    ]
+  }
+]

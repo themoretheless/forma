@@ -1,0 +1,69 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/async-components.test.ts --maxWorkers=1
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/async-components.test.ts (5 tests | 2 failed) 16ms
+   × preserves immediate DOM access for synchronous components inside async SSR 5ms
+   × settles async components created by the result node getter 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/async-components.test.ts > preserves immediate DOM access for synchronous components inside async SSR
+AssertionError: expected '' to be 'ready' // Object.is equality
+
+- Expected
++ Received
+
+- ready
+
+ ❯ tests/async-components.test.ts:44:28
+     42|  const result=await renderToStringAsync(()=>{
+     43|   const node=h(()=>h('span',null,'ready'),null);
+     44|   expect(node.textContent).toBe('ready');
+       |                            ^
+     45|   return {node};
+     46|  });expect(result.html).toBe('<span>ready</span>');
+ ❯ src/engine/server.ts:211:28
+ ❯ runWithIsolatedContextAsync.signal src/engine/server.ts:209:22
+ ❯ awaitRequest src/engine/server.ts:69:29
+ ❯ src/engine/server.ts:100:84
+ ❯ runWithAsyncRequestScope src/engine/reactivity.ts:817:18
+ ❯ src/engine/server.ts:100:53
+ ❯ withWasmCore src/engine/wasm-bridge.ts:177:12
+ ❯ src/engine/server.ts:100:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/async-components.test.ts > settles async components created by the result node getter
+AssertionError: expected '<main><!--/svet-async--></main>' to be '<main><p>getter</p></main>' // Object.is equality
+
+Expected: "<main><p>getter</p></main>"
+Received: "<main><!--/svet-async--></main>"
+
+ ❯ tests/async-components.test.ts:50:22
+     48| it('settles async components created by the result node getter',async(…
+     49|  const result=await renderToStringAsync(()=>({get node(){return h('mai…
+     50|  expect(result.html).toBe('<main><p>getter</p></main>');
+       |                      ^
+     51| });
+     52|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  17:04:17
+   Duration  555ms (environment 83%, transform 7%, import 6%, tests 3%, worker 1%)
+

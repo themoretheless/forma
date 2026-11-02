@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "scope": "Local macOS Rust1.97.1 native/release rebuild and embedded/installed WASM identity; CI gates configured, remote execution pending",
+  "nativeTests": 53,
+  "bytes": 54320,
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "independentBuildsIdentical": true,
+  "negativeControl": "valid custom-section variant with identical exports rejected",
+  "checks": {
+    "installedPackageEdgeGCAndWasmProvenance": "passed",
+    "checkerSyntax": "passed",
+    "CIYamlParse": "passed via Ruby YAML",
+    "scopedDiff": "passed",
+    "priorFullJS": "1297/99; runtime unchanged"
+  },
+  "sourceSha256": {
+    "packages/svet/crates/svet-wasm/src/lib.rs": "79f354a236c1b789a544f78f24c629a941794b4991bba5c2bcfa33f35953b914",
+    "packages/svet/crates/svet-wasm/Cargo.toml": "3f97ddc2396ab425351c9154d41d39de944484c8647ce41db2cf4a83e8e24099",
+    "packages/svet/crates/svet-wasm/Cargo.lock": "0e0f370a1631035bbc16f9fe824f93abec96bc5fb8857cf947d8016535420070",
+    "rust-toolchain.toml": "9cbeb062ec3a97a5b5b76aacde94f5dcb034ed98f32af151480764de2e03d6f9",
+    ".github/workflows/ci.yml": "aaaf1e859accb8faf957bdbc1eb833b01d51ace8f9662a83d7f0760e03078307",
+    "packages/svet/scripts/check-wasm-provenance.mjs": "f63812a1c48468663f63c643e0d4bf0cb4c42730c43a1f7e59cbea27b04fcb42",
+    "packages/svet/scripts/check-package.mjs": "5b49f06ca1243657139165a4873884488b540f2d78ce7a017883e99729fd87ae"
+  },
+  "evidence": [
+    "rust-native-current-2026-11-02.txt",
+    "rust-toolchain-current-2026-11-02.txt",
+    "rust-wasm-rebuild-a-2026-11-02.txt",
+    "rust-wasm-rebuild-b-2026-11-02.txt",
+    "wasm-provenance-current-2026-11-02.json",
+    "wasm-provenance-negative-2026-11-02.json",
+    "wasm-provenance-installed-2026-11-02.json",
+    "wasm-provenance-package-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Remote Linux CI and cross-host reproducibility not executed",
+    "Verifier compares caller-rebuilt input; CI build step establishes its source provenance",
+    "Broader P1-P4/application/GPU readiness remains open"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "rawSha256": "cc04b29d0f566d4cde068241ec0645d4c709165f0ba2dfc9392dbb92c5c57a7e",
+  "pendingNativeFlushAborts": 12,
+  "freshRecoveries": 12,
+  "codecs": [
+    "identity",
+    "svet-html-ref-v1"
+  ],
+  "scope": "Independent cycle/phase/teardown counts and source hash verification; no memory bound assertion."
+}

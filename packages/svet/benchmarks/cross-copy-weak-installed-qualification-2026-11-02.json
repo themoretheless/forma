@@ -1,0 +1,68 @@
+{
+  "status": "partial",
+  "selectedMilestone": "cross-copy untrack installed qualification passed",
+  "scope": "Compatible same-realm weak-registry v2 copies. Automatic foreign-signal subscriptions and full performance gate remain open.",
+  "archiveSha256": "556c498479c2fbe9fd8f9c93b73aacc3c08657d0f604f4b5be4d482805c8cc83",
+  "reactivitySha256": "2e01430e7b662747493383cc2dc76f8ed9d11c9654c11e1e383eda72666fb509",
+  "sourceSha256": {
+    "src/engine/reactivity.ts": "3a1fb2a6e119b146de58d8bd523a43e0aa07bba8c35f72ebe9d89f6f2643872e",
+    "scripts/soak-ssr-deadlines.mjs": "63a607ab67d5c06560b630515155753ed841819e2b7f95ea7b9831c6bcfb2de2",
+    "scripts/prepare-installed-copy-probe.mjs": "f86484cf26bef4f8c8f4c82c246a09c018295ae866493ebd38090a89d3addd98",
+    "scripts/check-cross-copy-tracking.mjs": "2e1cd036f258c280eafa3ebf9d3c24d9b983518f4116741905d9138fd85bd6b5",
+    "scripts/check-cross-copy-untrack-gc.mjs": "27f45665340570a3a0c8156c4c033835155d5432c5f16c9054286ac81276f4f6"
+  },
+  "installedCases": {
+    "passed": 7,
+    "open": [
+      "automatic foreign-signal dependency"
+    ]
+  },
+  "installedGC": {
+    "coresCollected": 24,
+    "memoriesCollected": 24,
+    "controlsHeld": 4,
+    "controlsReleased": 0,
+    "liveContextRegistry": 0
+  },
+  "hostTokens": {
+    "requests": 17,
+    "renders": 11,
+    "owners": 13,
+    "coresCollected": 17
+  },
+  "edgeGC": {
+    "allocation": {
+      "requests": 24,
+      "objects": 144,
+      "retainedTerminalPairs": 24,
+      "positiveControls": 4,
+      "ownerTokensHeld": 20,
+      "ownerTokensRetired": true
+    },
+    "withHandles": {
+      "liveControl": 4
+    },
+    "afterRelease": {}
+  },
+  "deadlineBarrier": {
+    "requests": 96,
+    "collectedObjects": 576,
+    "earlyTimeoutsAtNeighborCheck": 0
+  },
+  "checks": {
+    "typescript": "passed",
+    "packageWithEdgeInspectorGC": "passed",
+    "sourceCorrectness": "1292 non-benchmark tests passed across runs; not single full gate",
+    "performance": "open; host-load ABBA inconclusive"
+  },
+  "evidence": [
+    "cross-copy-weak-package-2026-11-02.txt",
+    "cross-copy-weak-package-qualified-2026-11-02.txt",
+    "cross-copy-installed-cases-2026-11-02.json",
+    "cross-copy-installed-gc-2026-11-02.json",
+    "cross-copy-weak-installed-edge-2026-11-02.json",
+    "cross-copy-weak-installed-host-2026-11-02.json",
+    "deadline-barrier-installed-2026-11-02.json",
+    "deadline-barrier-delayed-2026-11-02.json"
+  ]
+}

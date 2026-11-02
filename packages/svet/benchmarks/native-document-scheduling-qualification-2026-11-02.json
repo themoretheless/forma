@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-02",
+  "scope": "Owned Svet retained-document scheduling selected by native CLI backend, F7 and hot reload",
+  "result": "local covered checks passed; interactive window/renderer qualification partial",
+  "checks": {
+    "native_library_tests": 119,
+    "native_feature_binary_check": "passed",
+    "wasm32_library_check": "passed",
+    "diff_check": "passed"
+  },
+  "covered": [
+    "real .ui compilation and two-way editor values",
+    "dependent text updates across repeated Runtime rebuilds",
+    "focus preservation",
+    "stable graph nodes/slots",
+    "separate runtime graph ownership",
+    "backend switching",
+    "graph pending retry and field retirement"
+  ],
+  "implementation": [
+    "per-property signals and structural signal feed render effect",
+    "render effect acknowledgement after scene construction",
+    "graph transfers into replacement Runtime",
+    "native CLI/F7/hot reload select scheduler",
+    "native sync errors surfaced"
+  ],
+  "open": [
+    "interactive native window input/redraw/F7/hot reload/close",
+    "auxiliary-window backend policy",
+    "full renderer ownership/lifecycle",
+    "integration failure recovery probes",
+    "GPU/hardware and full native CI qualification"
+  ],
+  "logs": {
+    "native-lib": "packages/svet/benchmarks/native-document-scheduling-native-lib-2026-11-02.txt",
+    "native-bin-check": "packages/svet/benchmarks/native-document-scheduling-native-bin-check-2026-11-02.txt",
+    "wasm-check": "packages/svet/benchmarks/native-document-scheduling-wasm-check-2026-11-02.txt"
+  },
+  "sha256": {
+    "vector-ui/src/native_document_graph.rs": "0b716eb31869c90c2a307855ee2ad7c3971ecb7773ccc557c6db0ab0059def46",
+    "vector-ui/src/runtime.rs": "4e9655b5c134ebc2d260a5e1599b8a88b2977befd4cff25c231feee68a0c3646",
+    "vector-ui/src/main.rs": "1e89ed972e679f774c97cb8bbc9e5d894c33a97b445643ae8b7ceee372ce438f",
+    "vector-ui/src/lib.rs": "4c733e5a2fb4b4f7ffe9a15fbf56a0a412ad8b88477a3cc39ada0d2eaff7bce0",
+    "vector-ui/Cargo.toml": "e6f5d39cf27de1b8802108396708e5dca0eb3f023972ffaa1b08f9350297a0a5",
+    "vector-ui/Cargo.lock": "264e549e0e0844b1953e8864b0329d2ccae6210ed6e5319034693ac024a38f13",
+    "packages/svet/crates/svet-wasm/src/native.rs": "b5e5dc4b7c86a845b91a6fa5ef48e898356ce551b7b758f773b23b299dd5b0f8"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-02",
+  "status": "partial; proxy bridge still required",
+  "change": "Signal and generic tracking only attribute reads to their active domain; computed getter pauses suspended source-core observers before foreign evaluation.",
+  "checks": {
+    "focused_tests": 17,
+    "full_js_tests": 1301,
+    "files": 99,
+    "typescript": "passed",
+    "package_build": "passed",
+    "installed_consumer_gc_gate": "passed",
+    "cross_copy_probe": "11/13; target invalidation still missing"
+  },
+  "positive_regressions": [
+    "Foreign signal/computed reads never subscribe paused outer observer.",
+    "Throwing foreign body restores outer tracking; required local signal still invalidates; both core graphs empty after teardown.",
+    "Independent-copy probe nested runs changed from[2,1] to[1,1]; expected full bridge[1,2] remains open."
+  ],
+  "source_sha256": {
+    "packages/svet/src/engine/reactivity.ts": "4df3ce1a8809673a41b317b857d46055b817303724efccfebf07882078e582e9",
+    "packages/svet/tests/multi-core-untrack.test.ts": "3fde44e977aebcba1376a83ddf1ab32a262f826029177582aabb832edadce932"
+  },
+  "limitations": [
+    "No native proxy bridge implemented, no cross-core reactive dependency completion claim.",
+    "Hot-path performance not measured; full benchmark unit gate passed.",
+    "Frozen HTTP soak predates this reactivity.js and failed external growth budget."
+  ]
+}

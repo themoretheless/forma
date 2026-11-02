@@ -1,0 +1,32 @@
+{
+  "status": "completed-and-analyzed",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-LPJBKt/consumer/node_modules/svet-engine",
+  "frozenHarness": "/Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/.cache/svet-http-soak/snapshot-h26bUb/scripts/soak-ssr-stream-http.mjs",
+  "runtimeFiles": 20,
+  "changedSincePreviousSoak": [
+    "advanced.js",
+    "reactivity.js",
+    "wasm-bridge.js"
+  ],
+  "durationMs": 7200000,
+  "gcMode": "natural",
+  "budgetsMiB": {
+    "heap": 16,
+    "rss": 64,
+    "external": 64,
+    "arrayBuffers": 16
+  },
+  "prerequisites": [
+    "retained-router-qualification-2026-11-02.json",
+    "retired-ui-browser-qualification-2026-11-02.json"
+  ],
+  "scope": "Next full-duration qualification on current installed artifact; readiness is not soak completion",
+  "execSessionId": 86721,
+  "launchRecordedAt": "2026-11-01T22:31:48.833930+00:00",
+  "report": "http-natural-current-2h-2026-11-02.json",
+  "log": "http-natural-current-2h-2026-11-02.txt",
+  "baselineQualification": "http-natural-frozen-2h-qualification-2026-11-02.json",
+  "completedAt": "2026-11-02T00:31:24.645Z",
+  "qualification": "http-natural-current-2h-qualification-2026-11-02.json",
+  "latestDistQualification": "still open; frozen LPJBKt differs in four runtime files"
+}

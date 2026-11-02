@@ -1,0 +1,14 @@
+PASS required and numeric range constraints remain native
+PASS invalid requestSubmit rejects submission and exposes invalid events
+PASS reactive model writes update native validity
+PASS native input publishes model and clears invalid state
+PASS valid native requestSubmit reaches submit handler once
+PASS custom validity remains intact through model binding
+PASS model updates do not erase custom validity
+PASS reactive required=false removes required constraint
+PASS reactive disabled excludes field from validation
+PASS reactive noValidate permits explicit native bypass
+PASS submitter formNoValidate bypass remains native
+PASS teardown refuses queued model reset publication
+PASS all model graph resources released
+13/13 passed

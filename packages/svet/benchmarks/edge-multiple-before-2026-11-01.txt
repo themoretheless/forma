@@ -1,0 +1,37 @@
+{
+  "startedAt": "2026-11-01T17:47:04.273Z",
+  "node": "v22.23.4",
+  "compatibilityDate": "2026-07-30",
+  "compatibilityFlags": [
+    "nodejs_compat",
+    "enable_request_signal"
+  ],
+  "temporary": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s",
+  "packageRoot": "/Users/themoretheless/Documents/Sources/forma/packages/svet",
+  "responses": [
+    {
+      "httpStatus": 500,
+      "result": {
+        "status": "failed",
+        "error": "Error: Edge multiple selection lost\n    at check (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:24107:21)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:24276:5\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23592:34\n    at runWithIsolatedContextAsync.signal (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23590:24)\n    at awaitRequest (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23425:20)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:86\n    at runWithAsyncRequestScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:20408:18)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:55\n    at withWasmCore (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:19917:12)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:22"
+      }
+    },
+    {
+      "httpStatus": 500,
+      "result": {
+        "status": "failed",
+        "error": "Error: Edge multiple selection lost\n    at check (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:24107:21)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:24276:5\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23592:34\n    at runWithIsolatedContextAsync.signal (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23590:24)\n    at awaitRequest (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23425:20)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:86\n    at runWithAsyncRequestScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:20408:18)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:55\n    at withWasmCore (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:19917:12)\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:22"
+      }
+    }
+  ],
+  "status": "failed",
+  "error": "Error: Edge DOM lifecycle matrix failed: {\"httpStatus\":500,\"result\":{\"status\":\"failed\",\"error\":\"Error: Edge multiple selection lost\\n    at check (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:24107:21)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:24276:5\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23592:34\\n    at runWithIsolatedContextAsync.signal (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23590:24)\\n    at awaitRequest (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23425:20)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:86\\n    at runWithAsyncRequestScope (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:20408:18)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:55\\n    at withWasmCore (file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:19917:12)\\n    at file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-edge-probe-Rn9k5s/worker.js:23452:22\"}}\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-edge-ssr.mjs:25:414\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+  "completedAt": "2026-11-01T17:47:04.541Z",
+  "miniflare": "4.20260730.0",
+  "workerd": "1.20260730.1",
+  "dom": "0.18.15",
+  "bundler": "0.28.2",
+  "workerSourceSha256": "f655b86d3d94b8689ea0fb7e3523b4fa8bb5a5a1f448bf97ee8f9081622fedff",
+  "wasmSha256": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+  "bundleSha256": "d17aaa7d6d78226fe04336685a0ab09ffd86557b3d4cda6994c9528efa384fcf"
+}

@@ -1,0 +1,102 @@
+{
+  "startedAt": "2026-11-02T03:20:22.963Z",
+  "node": "v22.23.4",
+  "snapshot": "snapshot-1793589619041",
+  "cases": [
+    {
+      "name": "foreign untrack pauses an existing observer",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack permits newly-created observers to track",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack restores collection after throw",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack does not restore retired generation frames",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack preserves invalidation of a dependency already read",
+      "status": "passed"
+    },
+    {
+      "name": "nested observers in both copies suppress incidental reads",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core copies use native computed dependencies and one batch",
+      "status": "passed"
+    },
+    {
+      "name": "reset in a shared-core copy invalidates foreign stale handles",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core owner teardown cleans foreign computeds",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core reset settles a foreign resource wait",
+      "status": "passed"
+    },
+    {
+      "name": "foreign signal invalidates an observer in another copy",
+      "status": "passed"
+    },
+    {
+      "name": "nested foreign reads belong to the inner observer, not an outer source-core observer",
+      "status": "passed"
+    },
+    {
+      "name": "separate cores retain graph isolation after teardown",
+      "status": "passed"
+    }
+  ],
+  "scope": "Two independently compiled compatible current engines in one Node realm, separate WASM cores. Explicit expected cross-copy semantics; failures remain open requirements.",
+  "status": "passed",
+  "completedAt": "2026-11-02T03:20:22.975Z",
+  "build": {
+    "installedPackage": null,
+    "snapshot": "snapshot-1793589619041",
+    "createdAt": "2026-11-02T03:20:19.456Z",
+    "node": "v22.23.4",
+    "vite": "8.3.5",
+    "sourceSha256": {
+      "src/engine/advanced.ts": "e4f609922866649109d2284c34dfaea9e86003b9ab83e5e94bbb4f68455452d4",
+      "src/engine/compiler.ts": "d124cd9acf34db2f9933c6f9ca5f5762670aaa4ca022b435145e2c3cc2277b8a",
+      "src/engine/devtools.ts": "75cb348a0b43e981b0a0cee5ad47597c2c10a3cae2153c58a19a17bcc298e5e6",
+      "src/engine/dom.ts": "18cec4e44572b76103436eefb00069f153a31284790e2237d9543066cc8a3b6f",
+      "src/engine/forma.ts": "d339b00ca8560ee85d1ac1276fcdfd74bff455eb0b927d7260bed5450208cd7a",
+      "src/engine/gpu-resident-bridge.ts": "fea017239de52e407cb475331082f0104f690eeea09f3fd3522068b470e820e5",
+      "src/engine/gpu-resident.ts": "4c64637ebcc76eb4b976910a1f6ad8e3be18dfdbb8b7060dc9321803341dd62c",
+      "src/engine/gpu.ts": "d568d8b4ed4a5b45edfae3be37ad4fc2186a550f9cbf32b5625be636fda2d252",
+      "src/engine/index.ts": "f3c97fc1b644282ca3ba53e3da9208d892b67762f2802c6632c164bc6f585eac",
+      "src/engine/jsx-runtime.ts": "bcd19dec07b00b60c801e53fb62dc6a92de68442e09fb3ee93e7529b7453aa4d",
+      "src/engine/reactivity.ts": "719c0595c990c3b2ce444a61500447260844000f3572f2a841a452696ce067c9",
+      "src/engine/resumable.ts": "44237719a316eca40bc30ca42415865c9c78d4abfccf0d59d26f25c542a376c1",
+      "src/engine/server.ts": "d14b87de0c89ea259ecf1308802a682607c4cd2669007bc35c560809752e0db4",
+      "src/engine/ssr-runtime.ts": "1fe22d9636da3e7ae99f75d6f8ec9c6afbb02c3d6c3f678966ab03d75e31479a",
+      "src/engine/stream-codec.ts": "e3f6e6706ac64485949f068236fcd50b9d2bd70f3f7f9ee769f171c62bf80dcc",
+      "src/engine/stream-protocol.ts": "12ab2a56b13518ef5b2f3d36abbfa71100807c874d473807bb27f022c9e9959a",
+      "src/engine/stream.ts": "8d641e34ff64079075d6395147122079363b4dd588438ff2ddcee097697d45de",
+      "src/engine/wasm-binary.ts": "de06212e4b0e7b41eb61a812ff665a8ecd7ff4048e80368c63801169903c0b0a",
+      "src/engine/wasm-bridge.ts": "f268a89e57a4290e58503417d586faddce2f8ccd139fd3422fe893237349f481",
+      "tests/browser/cross-copy-boundaries.html": "ffa27c0e94ba027526dac9723ca834f8711b848ab3f4e325f189836b805ddce4",
+      "scripts/prepare-event-instances.mjs": "7944f5758cd5a7008463c301ddb1e644d7155af4cd5a506573f99a8b7bfe3729",
+      "vite.config.ts": "a0efb8699dabacc9a47c6b5b7a7a6f23426d547d648325ff7b32a0bb49970714",
+      "package.json": "199c8da795f564c1b02b2f2d85bdf7259507470422b94d3bc0fe9ba8b1557617"
+    },
+    "artifactSha256": {
+      "assets/cross-copy-boundaries-D-kRxRe7.js": "0b7dde587a07b27dd49ce8e0a747737c0b38370c50882fb3ef335f4026373ba0",
+      "first/index.js": "04d99c88f1a5caf6c287eec58b798ab355829231dedd9fb3ae801c8a1b5dc110",
+      "second/index.js": "04d99c88f1a5caf6c287eec58b798ab355829231dedd9fb3ae801c8a1b5dc110",
+      "tests/browser/cross-copy-boundaries.html": "3a48c54731cb440efbe92f8fb01131e89185342ea79f4792a8a5b2c21b943658"
+    },
+    "scope": "Two independently compiled engines (installedPackage identifies installed archive, otherwise current source) at distinct URLs in one document. Byte-identical source, separate module/WASM state; shared DOM dispatcher qualification."
+  },
+  "probeSha256": "7675ec46e15c686616cd356700907fa0d4f139db17a833f0641c5a26ec3eed29"
+}

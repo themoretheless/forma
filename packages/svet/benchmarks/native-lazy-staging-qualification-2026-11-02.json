@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-02",
+  "change": "Cow-borrow root state until first attempted binding write; commit owned staged map only after complete successful transaction; preserve empty-state initialization. Borrow real fields for unchanged direct binding presence, retaining synthetic lookup fallback.",
+  "checks": {
+    "lib": 138,
+    "allocation_tests": 7,
+    "native_check": "passed",
+    "wasm32_check": "passed"
+  },
+  "observations": {
+    "idle_scalar_with_1024_unrelated_records_allocations": 23,
+    "scalar_budget": 256,
+    "retained_idle_96_editors_allocations": 141278
+  },
+  "regression": "Unrelated payload preserved through subsequent editor write; existing atomic refusal, queue, conflicts and reorder tests passed.",
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "423b9cfc57d6c66bf978d6fcfe4bb3832b5363a44ecadc8b9e68f9cf25c30b08",
+    "vector-ui/tests/runtime_allocations.rs": "1533d33a23b4d788f13fc049a0c4554740e060e5f68654e3b1d5c3f933efe12a"
+  },
+  "limitations": [
+    "No new hardware GPU or release latency qualification; binding data ownership change only.",
+    "Key resolution still allocates heavily for collections.",
+    "Retained state snapshots, actual writes and public fresh-scene rendering still copy data."
+  ]
+}

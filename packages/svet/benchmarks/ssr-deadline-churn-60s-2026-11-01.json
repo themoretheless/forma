@@ -1,0 +1,341 @@
+{
+  "startedAt": "2026-11-01T17:27:24.087Z",
+  "node": "v22.23.4",
+  "durationMs": 60000,
+  "concurrency": 16,
+  "requests": 8336,
+  "collectedObjects": 50016,
+  "modeCounts": {
+    "complete": 2084,
+    "cancel": 2084,
+    "abort": 2084,
+    "timeout": 2084
+  },
+  "samples": [
+    {
+      "elapsedMs": 59113.151625,
+      "requests": 8208,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36673856,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 59234.397334,
+      "requests": 8224,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36627600,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 59352.4625,
+      "requests": 8240,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36643928,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 59464.366834,
+      "requests": 8256,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36630920,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 59575.135375,
+      "requests": 8272,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36627600,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 59689.741042,
+      "requests": 8288,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36656312,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 59810.598167000004,
+      "requests": 8304,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36627272,
+      "external": 5958262,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 59950.230709,
+      "requests": 8320,
+      "rss": 126648040,
+      "heapTotal": 77185024,
+      "heapUsed": 36646640,
+      "external": 5958262,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 60059.585459,
+      "requests": 8336,
+      "rss": 126664424,
+      "heapTotal": 77447168,
+      "heapUsed": 36643632,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 56439.578917,
+      "requests": 7840,
+      "rss": 126598888,
+      "heapTotal": 77447168,
+      "heapUsed": 36631696,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 56551.805875,
+      "requests": 7856,
+      "rss": 127090552,
+      "heapTotal": 77447168,
+      "heapUsed": 36625864,
+      "external": 23682050,
+      "arrayBuffers": 811032
+    },
+    {
+      "elapsedMs": 56665.573209,
+      "requests": 7872,
+      "rss": 126615272,
+      "heapTotal": 77447168,
+      "heapUsed": 36642136,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 56791.126417,
+      "requests": 7888,
+      "rss": 126615272,
+      "heapTotal": 77447168,
+      "heapUsed": 36623432,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 56905.331167000004,
+      "requests": 7904,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36678944,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 57019.407417,
+      "requests": 7920,
+      "rss": 126975816,
+      "heapTotal": 77447168,
+      "heapUsed": 36653232,
+      "external": 23682050,
+      "arrayBuffers": 811032
+    },
+    {
+      "elapsedMs": 57136.492917,
+      "requests": 7936,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36667792,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 57249.284,
+      "requests": 7952,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36661576,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 57368.519875,
+      "requests": 7968,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36644400,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 57479.188209,
+      "requests": 7984,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36659240,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 57595.978042,
+      "requests": 8000,
+      "rss": 127221648,
+      "heapTotal": 77447168,
+      "heapUsed": 36627984,
+      "external": 23682050,
+      "arrayBuffers": 811032
+    },
+    {
+      "elapsedMs": 57711.603209,
+      "requests": 8016,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36627160,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 57826.135084,
+      "requests": 8032,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36630368,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 57942.236334,
+      "requests": 8048,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36652584,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58059.22025,
+      "requests": 8064,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36659592,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58172.632792000004,
+      "requests": 8080,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36626416,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58293.221875,
+      "requests": 8096,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36632104,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58420.303125,
+      "requests": 8112,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36627888,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58536.339959000004,
+      "requests": 8128,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36662104,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58653.884959,
+      "requests": 8144,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36642640,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58768.495667,
+      "requests": 8160,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36637600,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58886.478209,
+      "requests": 8176,
+      "rss": 126648040,
+      "heapTotal": 77447168,
+      "heapUsed": 36643424,
+      "external": 23682050,
+      "arrayBuffers": 781960
+    },
+    {
+      "elapsedMs": 58998.328584,
+      "requests": 8192,
+      "rss": 126729984,
+      "heapTotal": 77447168,
+      "heapUsed": 36647960,
+      "external": 23682050,
+      "arrayBuffers": 811032
+    }
+  ],
+  "windows": [
+    {
+      "count": 128,
+      "heapMin": 35956232,
+      "heapMax": 40219600,
+      "rssMin": 130612704,
+      "rssMax": 133136128
+    },
+    {
+      "count": 125,
+      "heapMin": 36345320,
+      "heapMax": 36582160,
+      "rssMin": 126041592,
+      "rssMax": 132955928
+    },
+    {
+      "count": 139,
+      "heapMin": 36497320,
+      "heapMax": 36646936,
+      "rssMin": 126205480,
+      "rssMax": 127549328
+    },
+    {
+      "count": 129,
+      "heapMin": 36568856,
+      "heapMax": 36694728,
+      "rssMin": 126467744,
+      "rssMax": 127631416
+    }
+  ],
+  "scope": "Concurrent Node deadline churn: 16 live requests, both codecs, complete/cancel/caller abort/timeout. Keep neighbours alive until cancellation has been checked; retain terminal errors/handles during each GC barrier. Samples are observational, not HTTP/Edge/browser or multi-hour memory qualification.",
+  "elapsedMs": 60059.608625,
+  "retainedTerminalHandles": 16,
+  "status": "passed",
+  "completedAt": "2026-11-01T17:28:24.148Z",
+  "sourceSha256": "12700d98df85a1bef8d44350701b938a83ccce97c06e484d0e092bec93e850fb",
+  "serverRuntimeSha256": "564dbc3d4e7db7ef8072ec232b59fb98c5f77b85bec0ec8b77cd16c9ef733396"
+}

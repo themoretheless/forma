@@ -1,0 +1,14 @@
+{
+  "startedAt": "2026-11-01T17:26:21.263Z",
+  "node": "v22.23.4",
+  "requests": 32,
+  "concurrency": 32,
+  "scope": "Retained engine timeout errors and terminal handles across string/chunk/readable/child operations. Native Node object collection; no RSS/Edge/long plateau claim.",
+  "withErrors": {},
+  "afterRelease": {},
+  "objects": 96,
+  "status": "passed",
+  "completedAt": "2026-11-01T17:26:21.410Z",
+  "sourceSha256": "cf49dd9dc5d6e2dd79dc871872a5b75c3ca9f708ee1d0f5c7d0d99991ceaf572",
+  "runtimeSha256": "564dbc3d4e7db7ef8072ec232b59fb98c5f77b85bec0ec8b77cd16c9ef733396"
+}

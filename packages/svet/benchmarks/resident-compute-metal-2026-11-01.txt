@@ -1,0 +1,17 @@
+Browser tab: 2, Title: "Svet resident compute checks", URL: "http://127.0.0.1:4197/tests/browser/gpu-resident.html".
+0 AXWebArea Svet resident compute checks, URL: 127.0.0.1:4197/tests/browser/gpu-resident.html
+	1 heading Svet resident compute checks, Value: 1
+		2 text Svet resident compute checks
+	3 text Hardware WGSL, branching immutable results, explicit readback and lifetime checks.
+	4 button Run resident checks, ID: run
+	5 text INFO {"vendor":"apple","architecture":"metal-3","device":"","description":"","isFallbackAdapter":false}
+PASS branching WGSL graph uses one upload, no intermediate maps and one atomic final publication
+PASS explicit read-only layouts reject input-writing WGSL and preserve resident source data
+PASS GPU-only dispatch works with zero host snapshot budget; resident budget rejects before allocation
+PASS invalid WGSL rolls back; disposing consumed inputs preserves independent results
+PASS owner disposal during native map cancels readback and preserves output
+PASS reset destroys resident buffers and returns persistent credits
+PASS actual device loss retires resident handles
+7/7 passed
+
+The focused UI element is 0 AXWebArea Svet resident compute checks, URL: 127.0.0.1:4197/tests/browser/gpu-resident.html

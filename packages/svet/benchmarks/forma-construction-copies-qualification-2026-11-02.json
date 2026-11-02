@@ -1,0 +1,24 @@
+{
+  "status": "passed-with-open-watch-burst-failure",
+  "scope": "Same-realm compatible-copy synchronous construction ownership",
+  "sourceSha256": "8adcc1f5adeb5c7c5467b6ca5cf49aceb85a563ced76531284ee5990226a6bae",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-6fmUiE/consumer/node_modules/svet-engine",
+  "runtimeFilesEqualPerCopy": 20,
+  "browserReport": "forma-construction-copies-browser-2026-11-02.json",
+  "nodeReport": "forma-construction-copies-node-2026-11-02.json",
+  "checks": {
+    "baseline": "2 failed,both copy directions leaked foreign nodes",
+    "full": "1363 passed/102 files,maxWorkers2",
+    "types": "passed",
+    "build": "passed",
+    "installedPackageGCAndConstruction": "passed",
+    "browser": "27/27,paced250ms,distinct WASM cores asserted"
+  },
+  "openFailure": "Unpaced fifth file write produced no watcher update; failed report preserved; paced pass does not close this failure",
+  "limitations": [
+    "Different realms/workers and incompatible versions unqualified",
+    "Async factories/external effects and post-commit rollback open",
+    "High-rate watcher delivery unresolved",
+    "Other browsers/performance/current-runtime soak open"
+  ]
+}

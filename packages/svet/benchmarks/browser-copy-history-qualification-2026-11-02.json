@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "scope": "Chrome156 installed independent engine copies; actual History API traversal with foreign shared-core observers",
+  "cases": 5,
+  "checks": [
+    "denied Back compensates without duplicate guard call or added history",
+    "admitted Back/Forward publishes one coherent foreign observation",
+    "redirect replaces visited slot and survives Forward/Back",
+    "initial host state and full URL retained",
+    "both copy directions and graph0"
+  ],
+  "evidence": [
+    "browser-copy-history-installed-2026-11-02.json",
+    "browser-copy-history-installed-2026-11-02.png",
+    "browser-copy-history-fixture-error-2026-11-02.json"
+  ],
+  "limitations": [
+    "One active router per history scenario; simultaneous competing routers not qualified",
+    "Rapid traversal bursts across copies remain open",
+    "Other browsers, Edge router, mixed versions remain open"
+  ]
+}

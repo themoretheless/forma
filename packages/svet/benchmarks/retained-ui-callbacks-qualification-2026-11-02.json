@@ -1,0 +1,26 @@
+{
+  "status": "partial",
+  "boundaryFix": "passed;4 formerly retained request cores/memory now collected with retry handles held",
+  "router": "open;4 request cores/memory retained with disposed router objects;1 node after unmount in each request",
+  "sameProbeBeforeAfter": true,
+  "checks": {
+    "fullJS": "1295/99 passed",
+    "typescript": "passed",
+    "installedPackageEdgeGC": "passed;retained boundary retry GC mandatory",
+    "HTTPActions": "4/4"
+  },
+  "sourceSha256": "870a285ddcf67ec6b3bb0dcb6a620b983033c080c92b92cd37f353411abc7d9f",
+  "evidence": [
+    "retained-ui-callbacks-before-final-2026-11-02.json",
+    "retained-ui-callbacks-after-final-2026-11-02.json",
+    "retained-boundary-retry-installed-2026-11-02.json",
+    "retained-ui-callbacks-suite-2026-11-02.txt",
+    "retained-ui-callbacks-types-2026-11-02.txt",
+    "retained-ui-callbacks-package-2026-11-02.txt",
+    "retained-ui-callbacks-actions-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Node ALS+JSDOM forced GC, not native browser/Edge/natural-GC qualification",
+    "Disposed router retention and early unmount node remain open"
+  ]
+}

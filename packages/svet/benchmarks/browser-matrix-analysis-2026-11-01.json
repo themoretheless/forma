@@ -1,0 +1,7 @@
+{
+  "status": "passed",
+  "fixtures": 11,
+  "assertions": 90,
+  "sourceHashesMatchCurrentWorktree": true,
+  "rawSha256": "3c4f6bc184ac12b821d1004fc4fc34b60141020ff171c4396bb52436d645d0f5"
+}

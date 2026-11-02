@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-02",
+  "status": "redundant raster work removed; performance unmeasured",
+  "changes": [
+    "radius0 path no longer computes discarded four-sample rounded distance coverage before exact area coverage",
+    "No-reveal shapes now permit safe interior full-fill fast path; custom reveal bounds retain disabled interior bypass"
+  ],
+  "checks": {
+    "lib_tests": 159,
+    "allocation_tests": 10,
+    "explicit_hardware_gpu_tests": 6,
+    "native_bin_check": "passed",
+    "wasm32_lib_check": "passed",
+    "diff_check": "passed"
+  },
+  "coverage": [
+    "cached/reference CPU raster regressions",
+    "full-frame square rectangle/border CPU/GPU72-case matrix",
+    "fractional viewport/crop references",
+    "integer/fractional DPI animations",
+    "glyph reference coverage"
+  ],
+  "before_source_sha256": "bd1b1ffeda15148e8a3d9b6c68757781aa46daf775c11c93ab14259d97c8c2fc",
+  "after_source_sha256": "4f132321b4a4c8124055c232c054c50d5742c7b0ed747fe9b07f617b3c5843a4",
+  "limits": [
+    "No controlled before/after release timing or peak memory measurement",
+    "Live HTTP churn makes current host unsuitable for quiet-host latency qualification",
+    "Rounded border AA architecture and other GPU backends remain open",
+    "HTTP natural-GC diagnostic remains running; external-memory issue unresolved"
+  ]
+}

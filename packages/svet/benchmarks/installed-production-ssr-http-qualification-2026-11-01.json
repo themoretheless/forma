@@ -1,0 +1,142 @@
+{
+  "status": "passed",
+  "consumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-viuZKm/consumer",
+  "browserSSRAssertions": 8,
+  "browserHTTPAssertions": 7,
+  "metadata": {
+    "protocol": "installed-package-browser-v1",
+    "createdAt": "2026-11-01T12:53:13.301Z",
+    "node": "v22.23.4",
+    "packageSha256": "1bd11a4f374c7783b21d7f744e392d36832f6b19ee44a860a553e603dce5b938",
+    "installedRuntimeSha256": {
+      "advanced.js": "6718ac20790df5967a39d858c81e0ff02b5640dd5af8ee336664e81f470e77d7",
+      "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+      "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+      "dom.js": "9bfd3dc28252d106baeacc406ba3f56ebd8dc26227ef3c36c6edd9175268707c",
+      "forma.js": "af0b0a9916d6e17843af0b8f3b27ad2b0517390cb14c2f17f8348ce05bae03c7",
+      "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+      "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+      "gpu.js": "e310ff0eb51977b39f8626e37c610cbaf86a4ca00536a38ec43d868572a590e4",
+      "index.js": "66c25b11bacaaf55c448c76e2ead294ba28c326939c2de35b6a04151b9708103",
+      "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+      "reactivity.js": "f113354fe8442141b38711321a770f9c5b3509f12064c7c7a799ab5cfe707e2c",
+      "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+      "server.js": "f565f015114c60544b2337ebc678f46a95780e1dcc5b8da9245a8800a76abcc0",
+      "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2",
+      "wasm-bridge.js": "473e2a7b44302540613112158dbb9a01b0973e6b3e16ccc8066b18c176165d32"
+    },
+    "fixtureSha256": {
+      "browser-matrix.html": "c6e1ad7772d5031535e76d2b011647174d7505d32331e9d0fed0bdb352d7108c",
+      "dom-lifecycle.html": "70fbe4f6191e4d68f2824e431acecdfb3b9111c1566c877f846ac0fe8215456f",
+      "dom-realms.html": "a73da61ea6dc06547ae10f6cc699d7bababa62c3522e81e5a3c791c5aee768f6",
+      "event-adoption.html": "94e039550cf6c41383f37be8fdcb648096160ca014042bd2c04b932d1f8737ce",
+      "event-context.html": "5a8287e2f0dedbc0955f0119a1688f74e5010ea6aeee96ccb9820aa032dd25d6",
+      "event-lifetime.html": "64cd506fe1b5d4039daa9be71dfb0afda31a3da9550bfb2d13b9b25ab73111d6",
+      "model-inputs.html": "e4002d27a314eac86d62bab459a97c63014096d4f3b3276bab45ad5337aaa9d8",
+      "model-select.html": "1685da8dedf40bf3a612f2499b8737f062e38d49056d83d4e305cc9877782d83",
+      "model-files.html": "521f48cb41710a2796c0c8fdb60b6dfc913e3e1e4da36605e0711a283e0079c1",
+      "dynamic-children.html": "e64b2cac3dc781d97593d90ff1db9576a372964e970dcac62b96bd63e985d126",
+      "for-fragments.html": "7ea010325818510cc6f31a990ea4dcefe847e6f3f096131b0df42ee44f51a391",
+      "context-provider-lifetime.html": "7ea117521d0697ce1da31f9648d3cc20e10c7da49b934ab073095a12213492a5",
+      "resumption-roundtrip.html": "ec8805703fbfd1ed3b31ec19ee5c0a175f634f2f41e5762f3c96ddbd7d735fa0",
+      "server-action-http.html": "9d7b61a46fab4f03bb37a6ca6b44d6001e4263154c285ae0914c9f26c101c005"
+    },
+    "artifactSha256": {
+      "assets/advanced-gUR8OI_U.js": "e5160acc002ee91af163d5165bddc0a6b594e5c2b9d092882ab6dfd7d202cf86",
+      "assets/browser-matrix-iW5X5kD8.js": "06fd2addf211bc81cd310a8ff2cb3ac0d5f72e65d08656220cea8c62dbb1bbbd",
+      "assets/context-provider-lifetime-B4uDQr3e.js": "af9b34e2f94db879b213f20f0cd12140343eae12bc6ba52a2fea58d6eb8ee5a1",
+      "assets/dom-DdOmt5ia.js": "eab32ed41c2c8f58099b12f1d9cc7a1f58eb9ceba2316c7ab7e573b64a4dcc8d",
+      "assets/dom-lifecycle-CPo-z7nH.js": "65e08e7085d1901df518d92361083fcb54ecf6679bd48a79122f9e8253030b12",
+      "assets/dom-realms-Dbw2h5Fk.js": "fe09228d5a79b4a2c97f996cac0a19ced3591910ec1a87eb4d0ff0f10a8526f5",
+      "assets/dynamic-children-jdXxq0sd.js": "666d5388168d601111017380e4acfe0a129f6748059b0b31c671df4e6eb2fe18",
+      "assets/event-adoption-DcM8mg5K.js": "a9667da99c5d49c23f8c682b32aa8f6dafbbe5a33d3075caf803879010e80ca6",
+      "assets/event-context-CfSltj4p.js": "92909cf093ac26e6a64ba9428f6d3a1e8b3763500517165d2064883e1ca7f24d",
+      "assets/event-lifetime-attVEcob.js": "a01b97df63ea566507ffea2b88dd1d491df5b753690af04bec7c570e8401b477",
+      "assets/for-fragments-CangQsKp.js": "cd8744a11f8e7602649e2cfdadb3b1d66992fe76bac79c6147ed41baa61b534e",
+      "assets/gpu-D1toFXcp.js": "25eea0a1330e2b6a9e8012a44a30c9aec60fd13ef3e8af2e05508bb0bec91502",
+      "assets/gpu-resident-DBgLQRig.js": "e2d555f13b4ab5df94c11f52399cb9d4dd96a546d14a1f02facb21fccf608d81",
+      "assets/index-BLBNc6GZ.js": "48e30a2d0151aeeacb0d9727dc69645da02cad34846ba4d332f2def6d281c854",
+      "assets/model-files-BmnjyNvW.js": "3430ed8f9cac990ca9c0f955e8f1dabee029d40834675ad02e785598631cc5be",
+      "assets/model-inputs-BfV9r6pi.js": "db24e165b5800336f9aadfb7c032a62b492c1415c6760009c1f3773e3ea64025",
+      "assets/model-select-CWlB0VB1.js": "aec551d704228a1dd4384c100fd9b659894cfd39148aa866385b53ed5f3c5dca",
+      "assets/modulepreload-polyfill-P2Xu9kJm.js": "418c206484b89b68ef5f067277831e583fc9193a62aadf4de269acaaeb12a85f",
+      "assets/reactivity-CCUfKyhl.js": "4143332bed55a7272ef07c28fe3ee3c140bf3c0707edef4f1972d8cb3392f36c",
+      "assets/resident-render-w9MuoNt0.js": "aba88caa78c8263736772050f8466175c96891cd25735fb4b9c0f777ccfa0348",
+      "assets/resumable-G2nyW56z.js": "763471db5fa45f56f9283baee54a75bcaa719657793741637224b79cfe009db8",
+      "assets/resumption-roundtrip-BrftK3Bn.js": "289b941c057a275dd89196c80c209f058ef1595bf09654031786c22f085adf22",
+      "assets/server-action-http-Cqxvl_sX.js": "e1e3dc7c8e1d777c084e1123160e7a7043f1accd539efdab35a00cb28c0a8b5b",
+      "assets/shared-gpu-recovery-bWb8Kbwy.js": "b479c9e33a932a85fbed8bccaee30d837dc4c9b5c5f5bd01fe2696e361ad427c",
+      "browser-matrix.html": "4fcf227a0f819f598ed5155bb3cfc0bd52939d9429ff578b7248598090714969",
+      "context-provider-lifetime.html": "19b2472d6508d0995a78ef38745883c9c8872e71e007a4904278e7acac0c8fe7",
+      "dom-lifecycle.html": "625754954ed05b487c068a7ef93f347d4116a0bc06e3031c498d56baa93d728f",
+      "dom-realms.html": "86511dd9619988f7dd72d902f605cdaac92416d7fd4abfbe40b10cbe39403f34",
+      "dynamic-children.html": "7589ea0c1c5e5a565a8dfc46884755bdd0cf70b871217b5d079b5ca5e84b262e",
+      "event-adoption.html": "3d097bee44811e3e9d236841789b024407330ccd9fafec89713e1a7d518aaec6",
+      "event-context.html": "a9952b0221ff81323683d1af1fc51732c3b8d0a334b0ba558370c459f9230336",
+      "event-lifetime.html": "e07f6b856caef0423aca2c7fb84268da971f7ca4ba8e926b99041ef1ec3e4592",
+      "for-fragments.html": "ac0099acf8de7860577c17f606e0c912cc0812a64a4e5487d0f6f135347bd8d8",
+      "index.html": "0aa492cd455b751d234d9e3e08dc709b0e38e182f140f08e9499ecb466e7607f",
+      "model-files.html": "481104fae9ebdf6efe1a0a7532698a7f58589ca6c9f16caa6fc4b58b6278fc1a",
+      "model-inputs.html": "6d3569a4e21569fe9b5444aecd2d6f3381d83e4095787d190531c3db541bac3c",
+      "model-select.html": "f196515948796916799d1ce9a1e5193ba44e66a47e0c73fafa325885305f5778",
+      "resident-render.html": "08770533c2819de585eb07dfbcd7bf053584e1f61ab5497336e1730a10ca8d69",
+      "resumption-roundtrip.html": "04eabd8507a3456d98c042e825a26103094347d9747061673a7c8997e2c81a2f",
+      "server-action-http.html": "def1362775996a8542b50d20ce28311a46ff0cc6bf39594afce6417992748bbf",
+      "shared-gpu-recovery.html": "529e99ef4107c36b26056a06a1a74ba9b1a2c52190232b0ed297c1854bb3d75a"
+    },
+    "scope": "Production browser consumer installed from packed archive; all runtime JS byte-equal to workspace dist/package. Browser execution is a separate gate."
+  },
+  "nodeProvenance": {
+    "packageSha256": "1bd11a4f374c7783b21d7f744e392d36832f6b19ee44a860a553e603dce5b938",
+    "installedRuntimeSha256": {
+      "advanced.js": "6718ac20790df5967a39d858c81e0ff02b5640dd5af8ee336664e81f470e77d7",
+      "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+      "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+      "dom.js": "9bfd3dc28252d106baeacc406ba3f56ebd8dc26227ef3c36c6edd9175268707c",
+      "forma.js": "af0b0a9916d6e17843af0b8f3b27ad2b0517390cb14c2f17f8348ce05bae03c7",
+      "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+      "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+      "gpu.js": "e310ff0eb51977b39f8626e37c610cbaf86a4ca00536a38ec43d868572a590e4",
+      "index.js": "66c25b11bacaaf55c448c76e2ead294ba28c326939c2de35b6a04151b9708103",
+      "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+      "reactivity.js": "f113354fe8442141b38711321a770f9c5b3509f12064c7c7a799ab5cfe707e2c",
+      "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+      "server.js": "f565f015114c60544b2337ebc678f46a95780e1dcc5b8da9245a8800a76abcc0",
+      "wasm-binary.js": "acf6e119938b0121b72b6897f10b024448d8c9a0d4a9505606636806e47f6fa2",
+      "wasm-bridge.js": "473e2a7b44302540613112158dbb9a01b0973e6b3e16ccc8066b18c176165d32"
+    },
+    "endpointSourceSha256": "bccc7869e6369cad3ea311087e9dd65d45bafc2b2abfaf5a00c3f95ec2d92974"
+  },
+  "serverObservedAbortedReplies": [
+    {
+      "operation": "stats",
+      "id": "1793537650459-53fdb82c87f978-headers",
+      "value": {
+        "started": true,
+        "streaming": false,
+        "closed": true,
+        "complete": false,
+        "writableEnded": false
+      }
+    },
+    {
+      "operation": "stats",
+      "id": "1793537650465-74102497e0e4f-body",
+      "value": {
+        "started": true,
+        "streaming": true,
+        "closed": true,
+        "complete": false,
+        "writableEnded": false
+      }
+    }
+  ],
+  "ssrHTMLSha256": "9ea2930facef94685b3cfa217a44a61446b7f6941f7032b9619e8d6d86473358",
+  "ssrSnapshotSha256": "b793a6bbb8450110bec1dd0ec77f540114279aac0113b12f7398364d4310b4d5",
+  "harnessSha256": {
+    "scripts/serve-installed-browser.mjs": "db3e7031748600152b967f296ee7560fed28839f3d5254ba735425d71b2829b5",
+    "scripts/browser-fixture-endpoints.mjs": "bccc7869e6369cad3ea311087e9dd65d45bafc2b2abfaf5a00c3f95ec2d92974",
+    "scripts/check-package.mjs": "db53aafde8ff5495ebef6e37f882869b13169fa26d022b1e253a2f9ecf1adfcd"
+  },
+  "scope": "Installed production browser and installed Node renderer; bounded scenarios, not async component parity, security qualification or load/soak."
+}

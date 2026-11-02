@@ -1,0 +1,33 @@
+{
+  "status": "passed",
+  "scope": "Compatible independent copies, explicit shared native core; router context/link lifecycle and atomic non-ambient navigation",
+  "beforeFailures": 3,
+  "afterPasses": 3,
+  "sameProbeBeforeAfter": true,
+  "sourceSha256": {
+    "packages/svet/src/engine/advanced.ts": "ca860849b5960304ae9f10cd743fd1cbea24629ee610333f90164ba47de90e70",
+    "packages/svet/scripts/check-cross-copy-router.mjs": "a3846d40305a6a40f200991664425134a3ac1aa13874ddae8835c813ef74f900",
+    "packages/svet/scripts/check-package.mjs": "2113c1fccf4deae2d6f5a44ae6eb190aa6dcc8a46177350078cc8aa6b9debc94",
+    "packages/svet/tests/router-foreign-core.test.ts": "86bfccc0ab90fadaaf4ff93e0b3278fbf1d03be535bc6f6054f7cb2114ac20a1"
+  },
+  "checks": {
+    "fullJS": "1295/99 passed",
+    "typescript": "passed after fixing test effect return type",
+    "installedPackageEdgeGC": "passed",
+    "HTTPActions": "4/4"
+  },
+  "evidence": [
+    "cross-copy-router-before-final-2026-11-02.json",
+    "cross-copy-router-installed-2026-11-02.json",
+    "cross-copy-router-suite-2026-11-02.txt",
+    "cross-copy-router-types-final-2026-11-02.txt",
+    "cross-copy-router-package-2026-11-02.txt",
+    "cross-copy-router-actions-2026-11-02.txt",
+    "router-foreign-core-before-2026-11-02.txt",
+    "router-foreign-core-final-2026-11-02.txt"
+  ],
+  "limitations": [
+    "JSDOM evidence; native browser/Edge router matrix remains open",
+    "Mixed versions/realms and separate-core automatic dependencies remain open"
+  ]
+}

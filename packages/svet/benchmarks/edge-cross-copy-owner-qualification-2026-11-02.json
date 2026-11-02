@@ -1,0 +1,69 @@
+{
+  "status": "passed",
+  "scope": "Explicit shared-core owner/context delegation between independently instantiated compatible engine copies on two local workerd profiles. No deployed-provider or browser async qualification.",
+  "sourceSha256": {
+    "scripts/check-edge-ssr.mjs": "d2ce32e8aa6f32d75bc72d245fd300399dca28eff3a6de47a3a3a14897d208d0",
+    "scripts/check-package.mjs": "c28b263088818c7647e279e6431f8d823c2cc11b3de6a73dc0f8c5a2483fe400",
+    "tests/edge/cross-copy-owner.mjs": "77b57c9ccca6702b082e733ab598366bea7a6f1396ee43d5a063a2683185b2f0",
+    "tests/edge/worker.mjs": "bc3423e51490b478515cb631dd2a98ecd5f549fe9c389d0a17b02341bc70e6af"
+  },
+  "archiveSha256": "77189252e5eec22f03c052ca5190dfee17c6c377fc8c55eafe110c02baa3ef38",
+  "reactivitySha256": "449dde72ac75867bf40900305a8e9307732a7282f020d6f978e938284805a579",
+  "sameFixtureBeforeAfter": true,
+  "before": "Foreign child owner lost",
+  "after": {
+    "independentEngineModules": 16,
+    "concurrentHostEvents": 2,
+    "requestCores": 8,
+    "ownerMatches": 8,
+    "contextMatches": 2,
+    "failedChildCleanups": 2,
+    "lateRefusals": 2,
+    "rootOverridesInsideChild": 2,
+    "nodesAfter": 0
+  },
+  "GC": {
+    "copyTargetsCollected": 16,
+    "requestCores": 8,
+    "memories": 8,
+    "legacyTargetsCollected": 140,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "profiles": [
+    {
+      "miniflare": "4.20260730.0",
+      "workerd": "1.20260730.1",
+      "workerdBinaryVersion": null,
+      "compatibilityDate": "2026-07-30",
+      "hostOptionsAdapter": "native-v4"
+    },
+    {
+      "miniflare": "5.20261023.3-beta",
+      "workerd": "1.20261023.1",
+      "workerdBinaryVersion": "workerd 2026-11-01",
+      "compatibilityDate": "2026-11-01",
+      "hostOptionsAdapter": "official-v4-converter"
+    }
+  ],
+  "checks": {
+    "installedPackageWithEdgeGC": "passed",
+    "syntax": "passed",
+    "runtimeJS": "unchanged this milestone; prior full1293 suite applies to same runtime",
+    "HTTPActions": "4/4",
+    "runtimeIdentity": "all runtime files byte-equal to prior full1293 package"
+  },
+  "evidence": [
+    "edge-cross-copy-owner-before-2026-11-02.json",
+    "edge-cross-copy-installed-final-2026-11-02.json",
+    "edge-cross-copy-beta-november-2026-11-02.json",
+    "edge-cross-copy-package-final-2026-11-02.txt",
+    "edge-cross-copy-actions-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Only named local workerd/LinkeDOM profiles; beta remains experimental.",
+    "Explicit core selection required; implicit propagation and mixed-version copies remain open.",
+    "Separate-core automatic dependencies remain open.",
+    "Inspector GC does not prove natural cadence/RSS plateau."
+  ]
+}

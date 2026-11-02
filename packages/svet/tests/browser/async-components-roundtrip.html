@@ -1,0 +1,23 @@
+<!doctype html><meta charset="utf-8"><title>Svet async component roundtrip</title><style>body{font:16px system-ui;max-width:1050px;margin:30px auto}pre{background:#eff6ff;padding:18px;white-space:pre-wrap}button{padding:12px}</style>
+<h1>Svet async component SSR → browser</h1><p>Installed Node async components, isolated providers, nested component work and native form resumption.</p><button id="run">Run async roundtrip</button><pre id="result" role="status">Not run</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
+<script type="module">
+import {resumeContainer,disposeResumedContainer,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const button=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview'),raw=document.querySelector('#raw-results');
+button.onclick=async()=>{
+ button.disabled=true;disposeResumedContainer(preview);resetReactiveSystem();const report={startedAt:new Date().toISOString(),userAgent:navigator.userAgent,checks:[]};
+ const check=(value,name)=>{if(!value)throw Error(name);report.checks.push(name);};
+ try{
+  const response=await fetch('/__svet_async_component_fixture',{cache:'no-store',signal:AbortSignal.timeout(5000)});if(!response.ok)throw Error(await response.text());
+  const fixture=await response.json();report.fixture=fixture;
+  check(fixture.cleaned===2&&fixture.requestNodes===0&&fixture.mainGraphNodes===0,'request teardown releases both async component scopes and graph');
+  preview.innerHTML=fixture.html;
+  check(preview.querySelector('[data-owned=left]').textContent==='left'&&preview.querySelector('[data-owned=right]').textContent==='right'&&!fixture.html.includes('svet-async'),'all components settle with independent provider values and no pending anchors');
+  const original=preview.querySelector('#async-count');const state=resumeContainer(preview,fixture.stateJson);
+  check(original===preview.querySelector('#async-count')&&state.count()===7&&original.value==='7','resumption preserves native DOM identity and state created after await');
+  original.value='19';original.dispatchEvent(new Event('input',{bubbles:true}));check(state.count()===19,'resumed numeric model responds to native input');
+  disposeResumedContainer(preview);original.value='23';original.dispatchEvent(new Event('input',{bubbles:true}));
+  check(state.count()===19&&getGraphTelemetry().nodes===0,'browser disposal removes handlers and reactive graph');report.status='passed';
+ }catch(error){report.status='failed';report.error=String(error.stack??error);}
+ finally{disposeResumedContainer(preview);report.completedAt=new Date().toISOString();raw.textContent=JSON.stringify(report);result.textContent=report.checks.map(x=>'PASS '+x).join('\n')+'\n'+(report.status==='passed'?'5/5 passed':'FAIL '+report.error);button.disabled=false;}
+};
+</script>

@@ -1,0 +1,1 @@
+{"status":"passed","bytes":54320,"sha256":"2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea"}

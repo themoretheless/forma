@@ -1,0 +1,461 @@
+{
+  "node": "v26.13.0",
+  "cases": [
+    {
+      "mode": "direct",
+      "stable": false,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 392.8985
+        },
+        {
+          "at": 493.183834
+        }
+      ],
+      "finalWrite": 398.681875,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "direct",
+      "stable": false,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 884.176334
+        },
+        {
+          "at": 985.261209
+        }
+      ],
+      "finalWrite": 886.923167,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "direct",
+      "stable": false,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 1352.63275
+        },
+        {
+          "at": 1453.701292
+        }
+      ],
+      "finalWrite": 1355.864167,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "direct",
+      "stable": true,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 1782.712875
+        },
+        {
+          "at": 1891.386125
+        }
+      ],
+      "finalWrite": 1785.554542,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "direct",
+      "stable": true,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 2220.587459
+        },
+        {
+          "at": 2313.996125
+        }
+      ],
+      "finalWrite": 2224.948875,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "direct",
+      "stable": true,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 2674.404834
+        },
+        {
+          "at": 2775.75825
+        }
+      ],
+      "finalWrite": 2677.284875,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "atomic",
+      "stable": false,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 3042.982375
+        },
+        {
+          "at": 3143.602917
+        }
+      ],
+      "finalWrite": 3046.134834,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "atomic",
+      "stable": false,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 3518.389334
+        },
+        {
+          "at": 3618.438542
+        }
+      ],
+      "finalWrite": 3520.982292,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "atomic",
+      "stable": false,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 3897.817959
+        },
+        {
+          "at": 3987.127167
+        }
+      ],
+      "finalWrite": 3935.383709,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "atomic",
+      "stable": true,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 4363.161334
+        },
+        {
+          "at": 4466.468667
+        }
+      ],
+      "finalWrite": 4367.976125,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "atomic",
+      "stable": true,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 4796.226834
+        },
+        {
+          "at": 4899.567917
+        }
+      ],
+      "finalWrite": 4798.686084,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "atomic",
+      "stable": true,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 5226.2265
+        },
+        {
+          "at": 5337.785417
+        }
+      ],
+      "finalWrite": 5228.993917,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "chunked",
+      "stable": false,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 5597.451209
+        },
+        {
+          "at": 5698.88
+        }
+      ],
+      "finalWrite": 5619.3475,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "chunked",
+      "stable": false,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 6006.389084
+        },
+        {
+          "at": 6107.199084
+        }
+      ],
+      "finalWrite": 6027.749167,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "chunked",
+      "stable": false,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 6414.28725
+        },
+        {
+          "at": 6514.786625
+        }
+      ],
+      "finalWrite": 6437.038042,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "chunked",
+      "stable": true,
+      "repetition": 0,
+      "events": [
+        {
+          "at": 6999.356084
+        },
+        {
+          "at": 7104.40375
+        }
+      ],
+      "finalWrite": 7005.302875,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "chunked",
+      "stable": true,
+      "repetition": 1,
+      "events": [
+        {
+          "at": 7551.7495
+        },
+        {
+          "at": 7656.294209
+        },
+        {
+          "at": 7755.363584
+        }
+      ],
+      "finalWrite": 7554.341834,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    },
+    {
+      "mode": "chunked",
+      "stable": true,
+      "repetition": 2,
+      "events": [
+        {
+          "at": 8034.158084
+        },
+        {
+          "at": 8116.021417
+        },
+        {
+          "at": 8215.832125
+        }
+      ],
+      "finalWrite": 8036.66425,
+      "diskIsLatest": true,
+      "transformedLatest": true,
+      "validation": {
+        "valid": true,
+        "componentName": "App",
+        "diagnostics": [],
+        "propCount": 0,
+        "stateCount": 0,
+        "letCount": 0,
+        "has3DViewport": false
+      }
+    }
+  ]
+}

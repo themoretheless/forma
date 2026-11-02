@@ -1,0 +1,467 @@
+{
+  "startedAt": "2026-11-01T15:34:38.013Z",
+  "node": "v22.23.4",
+  "cycles": [
+    {
+      "cycle": 0,
+      "codec": "identity",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80196,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 168568,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 0,
+      "codec": "svet-html-ref-v1",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80196,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 84431,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 1,
+      "codec": "identity",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80196,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 168561,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 1,
+      "codec": "svet-html-ref-v1",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80197,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 84432,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 2,
+      "codec": "identity",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80199,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 168566,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 2,
+      "codec": "svet-html-ref-v1",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80196,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 84431,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 3,
+      "codec": "identity",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80196,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 168563,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 3,
+      "codec": "svet-html-ref-v1",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80197,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 84430,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 4,
+      "codec": "identity",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80198,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 168561,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 4,
+      "codec": "svet-html-ref-v1",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80198,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 84430,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 5,
+      "codec": "identity",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80196,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 168558,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "cycle": 5,
+      "codec": "svet-html-ref-v1",
+      "aborted": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 2,
+        "compressedBytes": 80196,
+        "phase": "failed",
+        "flushInjection": {
+          "pending": true,
+          "phase": "flush",
+          "nodes": 3,
+          "flushes": 1
+        },
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      },
+      "recovered": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 1,
+        "gzip": true,
+        "flushes": 3,
+        "compressedBytes": 84429,
+        "phase": "finished",
+        "pipelineSettled": true,
+        "compressorClosed": true,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    }
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-01T15:34:38.214Z",
+  "sourceSha256": "f2ecc7669c427e5bbb612e3ed1b8b39251d8953ed84b2a8eab06c68e97703030",
+  "fixtureSha256": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c",
+  "scope": "Deterministic host abort immediately after real native patch gzip.flush returns, before callback; six abort/recovery cycles per codec over loopback HTTP. Not remotely timed flush race, browser/CDN or long memory plateau."
+}

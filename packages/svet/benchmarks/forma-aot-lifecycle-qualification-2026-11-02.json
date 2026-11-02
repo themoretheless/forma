@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "scope": "Compiled Forma .ui factory production module retention and simulated HMR registry ownership",
+  "before": "3 failures;8 core/Memory targets retained by production module",
+  "after": "3/3 passed;0/8 retained with module held;controls4/0",
+  "sameProbeBeforeAfter": true,
+  "checks": {
+    "JS": "1297/99 passed",
+    "typescript": "passed",
+    "HTTPActions": "4/4",
+    "installedPackageRustProvenanceEdgeGC": "passed"
+  },
+  "sourceSha256": {
+    "packages/svet/src/engine/forma.ts": "d339b00ca8560ee85d1ac1276fcdfd74bff455eb0b927d7260bed5450208cd7a",
+    "packages/svet/scripts/check-forma-aot-lifecycle.mjs": "ace8c763ef1646d2ebf1ef38671f3c51a20a202add2631434bc125392393c853",
+    "packages/svet/scripts/check-package.mjs": "6bc37cb219be4771c45c77f992ccb7af51e41aa2e5c6f7c7b89a0e27bd72eded"
+  },
+  "evidence": [
+    "forma-aot-lifecycle-before-final-2026-11-02.json",
+    "forma-aot-lifecycle-after-final-2026-11-02.json",
+    "forma-aot-lifecycle-installed-2026-11-02.json",
+    "forma-aot-lifecycle-suite-2026-11-02.txt",
+    "forma-aot-lifecycle-types-2026-11-02.txt",
+    "forma-aot-lifecycle-actions-2026-11-02.txt",
+    "forma-aot-lifecycle-package-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Node/JSDOM and simulated import.meta.hot; actual Vite HMR/browser qualification remains open",
+    "Native Studio --svet core integration gap confirmed separately",
+    "Frozen LPJBKt2h run predates later Forma compiler changes"
+  ]
+}

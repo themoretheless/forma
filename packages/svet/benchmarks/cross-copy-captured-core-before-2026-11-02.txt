@@ -1,0 +1,34 @@
+{
+  "status": "failed",
+  "cases": [
+    {
+      "name": "foreign owner and context after await match the active child",
+      "status": "passed"
+    },
+    {
+      "name": "failed child tears down foreign computed before parent ends",
+      "status": "passed"
+    },
+    {
+      "name": "late foreign reentry refuses a closed child without poisoning its parent",
+      "status": "passed"
+    },
+    {
+      "name": "captured root and unrelated core retain their explicit ownership",
+      "status": "passed"
+    },
+    {
+      "name": "foreign captured child can update and allocate in its original core after carrier close",
+      "status": "failed",
+      "error": "Error: Svet SSR owner scope has already completed\n    at assertOwnerCurrent (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/ssr-runtime.js:66:19)\n    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/ssr-runtime.js:90:13\n    at getWasmCore (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/wasm-bridge.js:69:44)\n    at getter.set (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/first/reactivity.js:1043:13)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-async-owner.mjs:45:29\n    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:620:20\n    at withWasmCore (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/wasm-bridge.js:84:16)\n    at runWithCapturedOwner (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:613:12)\n    at file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:605:24\n    at untrack (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-qkHsCX/consumer/svet-installed-copies-0vkVOH/second/reactivity.js:1773:16)"
+    },
+    {
+      "name": "concurrent child owners remain request-local across copies",
+      "status": "passed"
+    },
+    {
+      "name": "weak owner resolvers release completed request cores",
+      "status": "passed"
+    }
+  ]
+}

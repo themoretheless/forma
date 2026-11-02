@@ -1,0 +1,31 @@
+<!doctype html><meta charset="utf-8"><title>Svet progressive SSR stream</title><style>body{font:16px system-ui;max-width:1050px;margin:30px auto}pre{background:#eff6ff;padding:18px;white-space:pre-wrap}button{padding:12px}[data-large]{display:none}</style><h1>Svet progressive SSR → browser</h1><p>Real HTTP NDJSON: early shell, a controlled slow component, data patches, final state and native input. No inline patch scripts.</p><button id="run">Run progressive stream</button><pre id="result" role="status">Not run</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
+<script type="module">
+import {createSsrStreamReceiver,SSR_STREAM_VERSION,assertSsrStreamResponse,SSR_STREAM_CODEC_HEADER,SSR_STREAM_HTML_REFERENCE_CODEC,createSsrStreamTransportDecoder,getGraphTelemetry,resetReactiveSystem} from '/src/engine/index.ts';
+const codec=new URL(location.href).searchParams.get('codec')==='1'?SSR_STREAM_HTML_REFERENCE_CODEC:'identity';
+const gzip=new URL(location.href).searchParams.get('gzip')==='1';
+const button=document.querySelector('#run'),result=document.querySelector('#result'),preview=document.querySelector('#preview'),raw=document.querySelector('#raw-results');
+button.onclick=async()=>{
+ button.disabled=true;resetReactiveSystem();preview.replaceChildren();const report={startedAt:new Date().toISOString(),userAgent:navigator.userAgent,codec,gzip,checks:[],chunks:[],encodedBytes:[]};
+ const id=crypto.randomUUID(),abort=new AbortController(),receiver=createSsrStreamReceiver(preview);let reader;const transportDecoder=codec==='identity'?null:createSsrStreamTransportDecoder();const timer=setTimeout(()=>abort.abort(Error('Stream fixture deadline exceeded')),10000);
+ const request=async operation=>{const r=await fetch(`/__svet_stream/${operation}?id=${id}`,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw Error(await r.text());return r.json();};
+ const check=(value,name)=>{if(!value)throw Error(name);report.checks.push(name);};
+ try{
+  const isolated=document.createElement('div');isolated.innerHTML='<b>keep</b>';const existing=isolated.firstChild,bad=createSsrStreamReceiver(isolated);let read=0,rejected=false;
+  try{bad.apply({version:SSR_STREAM_VERSION+1,sequence:0,streamId:'future',get payload(){read++;throw Error('payload inspected');}});}catch(error){rejected=String(error).includes('Unsupported SSR stream version');}
+  check(rejected&&read===0&&isolated.firstChild===existing&&!bad.active,'unsupported wire versions are rejected before payload access or DOM mutation');
+  report.build=await fetch('/metadata.json').then(r=>r.json());const response=await fetch(`/__svet_stream/open?id=${id}${gzip?'&gzip=1':''}`,{signal:abort.signal,headers:{[SSR_STREAM_CODEC_HEADER]:codec}});assertSsrStreamResponse(response,{codec});if(gzip&&response.headers.get('content-encoding')!=='gzip')throw Error('Missing gzip response');reader=response.body.getReader();let text='',ended=false;const decoder=new TextDecoder();
+  async function next(){while(true){const newline=text.indexOf('\n');if(newline>=0){const frame=JSON.parse(text.slice(0,newline));report.encodedBytes.push(new TextEncoder().encode(text.slice(0,newline)).byteLength);const chunk=transportDecoder?transportDecoder.decode(frame):frame;text=text.slice(newline+1);report.chunks.push(chunk);return chunk;}if(ended){if(text)throw Error('Incomplete stream frame');return null;}const part=await reader.read();ended=part.done;text+=decoder.decode(part.value??new Uint8Array(),{stream:!ended});if(text.length>8*1024*1024)throw Error('Frame exceeds fixture limit');}}
+  const shell=await next();receiver.apply(shell);const before=await request('stats');report.before=before;
+  check(shell.payload.type==='shell'&&preview.querySelector('b')?.textContent==='early shell'&&!preview.querySelector('input')&&!before.finished&&before.nodes>0,'HTTP shell arrives while the slow component and request graph are still pending');
+  await request('release');let original,state;
+  for(let chunk=await next();chunk;chunk=await next()){const restored=receiver.apply(chunk);if(chunk.payload.type==='patch')original=preview.querySelector('input');if(restored)state=restored;}
+  receiver.finish();
+  check(report.chunks.map(c=>c.payload.type).join(',')==='shell,patch,complete'&&report.chunks.every((c,i)=>c.version===SSR_STREAM_VERSION&&c.sequence===i)&&preview.querySelector('[data-large]').textContent.length===report.before.payloadSize,'versioned contiguous boundary patch and final snapshot cross real HTTP frames');
+  check(preview.querySelector('input')===original&&state.count()===7,'final state resumes the already patched input without replacing matching DOM');
+  original.value='12';original.dispatchEvent(new Event('input',{bubbles:true}));check(state.count()===12&&!preview.querySelector('script')&&preview.querySelector('p').textContent==='<script>unsafe text<\/script>','native model input works and streamed text stays escaped without inline scripts');
+  report.after=await request('stats');check(report.after.finished&&report.after.nodes===0&&report.after.cleaned===1&&report.after.drains>0&&(!gzip||report.after.flushes===3),'server observes writer drain and releases component ownership after completion');
+  receiver.dispose();check(!receiver.active&&getGraphTelemetry().nodes===0,'receiver disposal releases resumed graph');report.status='passed';
+ }catch(error){report.status='failed';report.error=String(error.stack??error);}
+ finally{clearTimeout(timer);transportDecoder?.dispose();receiver.dispose();abort.abort();await reader?.cancel().catch(()=>{});await request('forget').catch(()=>{});report.completedAt=new Date().toISOString();raw.textContent=JSON.stringify(report);result.textContent=report.checks.map(c=>'PASS '+c).join('\n')+'\n'+(report.status==='passed'?'7/7 passed':'FAIL '+report.error);button.disabled=false;}
+};
+</script>

@@ -1,0 +1,3 @@
+Browser tab: 3, Title: "Svet resident rendering checks", URL: "http://127.0.0.1:4197/tests/browser/gpu-resident-render.html".
+There has been no change in the accessibility tree.
+The focused UI element is 1 AXWebArea Svet resident rendering checks, URL: 127.0.0.1:4197/tests/browser/gpu-resident-render.html

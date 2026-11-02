@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-02",
+  "status": "analyzer schema and CLI regressions passed",
+  "checks": {
+    "unittest_methods": 9,
+    "nested_malformed_variants": 13,
+    "top_level_and_counter_variants": 11,
+    "truncated_json_cli": "exit2 with structured needs-investigation, no traceback",
+    "live_report": "incomplete",
+    "historical_2h": "same external growth budget refusal"
+  },
+  "source_sha256": {
+    "packages/svet/scripts/analyze-http-soak.py": "7ef239c3fd7ea6a794e659c11dbc6d0ec6dd374d9451a93d4cfc2db0c6222748",
+    "packages/svet/scripts/test_analyze_http_soak.py": "196234d65813aa923dee99e96ac5c140ed0655551394ccf77f28a9f1046be7dc"
+  },
+  "scope": "Report qualification robustness; no runtime allocation fix or completed soak claim."
+}

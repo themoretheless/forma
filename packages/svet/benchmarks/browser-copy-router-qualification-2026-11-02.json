@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "scope": "Chrome156 native DOM/history API, independently bundled installed runtime copies; explicit shared core",
+  "cases": 3,
+  "evidence": [
+    "browser-copy-router-installed-2026-11-02.json",
+    "browser-copy-router-installed-2026-11-02.png"
+  ],
+  "limitations": [
+    "No cross-copy concurrent history traversal/guard rollback qualification yet",
+    "Other browsers, mixed versions and separate-core dependencies remain open"
+  ]
+}

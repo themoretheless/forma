@@ -3,11 +3,12 @@
 use std::collections::BTreeMap;
 
 pub type Properties = BTreeMap<String, Value>;
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", content = "value")]
 pub enum Value {
     Null,
     Bool(bool),
-    Number(f64),
+    Number(#[serde(with = "finite_number")] f64),
     Text(String),
     Expr(String),
     List(Vec<Value>),
@@ -17,7 +18,7 @@ pub enum Value {
     Expression(Box<Expression>),
     Interpolation(Vec<Value>),
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum Expression {
     Unary(String, Value),
     Binary(String, Value, Value),
@@ -25,7 +26,7 @@ pub enum Expression {
     Member(Value, Value, bool),
     Call(String, Vec<Value>),
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Node {
     pub kind: String,
     pub props: Properties,
@@ -53,13 +54,72 @@ pub struct Document {
     /// One state scope for each node in the scene, in preorder (including containers).
     pub states: Vec<Properties>,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SceneControl {
     /// The control template's index in the original scene's preorder traversal.
     pub node: usize,
     pub key: String,
     pub state: Properties,
     pub event_args: BTreeMap<String, Vec<Value>>,
+}
+/// Owned Rust scene transport including layout bounds absent from control-only markup.
+#[derive(Clone, Debug)]
+pub struct SceneArtifact {
+    pub source: String,
+    pub templates: String,
+    pub controls: Vec<SceneControl>,
+    /// Absolute right/bottom layout bounds before root trailing padding.
+    pub logical_content_end: Option<[f64; 2]>,
+}
+mod finite_number {
+    pub fn serialize<S: serde::Serializer>(value: &f64, serializer: S) -> Result<S::Ok, S::Error> {
+        if !value.is_finite() { return Err(serde::ser::Error::custom("Nonfinite scene value")); }
+        serializer.serialize_f64(*value)
+    }
+    pub fn deserialize<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<f64, D::Error> {
+        let value = <f64 as serde::Deserialize>::deserialize(deserializer)?;
+        if !value.is_finite() { return Err(serde::de::Error::custom("Nonfinite scene value")); }
+        Ok(value)
+    }
+}
+const SCENE_ARTIFACT_PROTOCOL: &str = "forma-scene-artifact/1";
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SceneArtifactWire {
+    protocol: String,
+    source: String,
+    templates: String,
+    controls: Vec<SceneControl>,
+    #[serde(deserialize_with = "deserialize_content_end")]
+    logical_content_end: Option<[f64; 2]>,
+}
+fn deserialize_content_end<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Option<[f64; 2]>, D::Error> {
+    serde::Deserialize::deserialize(deserializer)
+}
+impl SceneArtifact {
+    pub fn to_json(&self) -> Result<String, String> {
+        if self.logical_content_end.is_some_and(|end| end.iter().any(|v| !v.is_finite() || *v < 0.)) {
+            return Err("Invalid logical content extent".into());
+        }
+        #[derive(serde::Serialize)]
+        struct Wire<'a> {
+            protocol: &'a str, source: &'a str, templates: &'a str,
+            controls: &'a [SceneControl], logical_content_end: Option<[f64; 2]>,
+        }
+        serde_json::to_string(&Wire { protocol: SCENE_ARTIFACT_PROTOCOL, source: &self.source,
+            templates: &self.templates, controls: &self.controls, logical_content_end: self.logical_content_end })
+            .map_err(|e| e.to_string())
+    }
+    pub fn from_json(json: &str) -> Result<Self, String> {
+        let wire: SceneArtifactWire = serde_json::from_str(json).map_err(|e| e.to_string())?;
+        if wire.protocol != SCENE_ARTIFACT_PROTOCOL { return Err("Unsupported scene artifact protocol".into()); }
+        if wire.logical_content_end.is_some_and(|end| end.iter().any(|v| !v.is_finite() || *v < 0.)) {
+            return Err("Invalid logical content extent".into());
+        }
+        Ok(Self { source: wire.source, templates: wire.templates, controls: wire.controls,
+            logical_content_end: wire.logical_content_end })
+    }
 }
 pub fn props(values: Vec<(&str, Value)>) -> Properties {
     values.into_iter().map(|(k, v)| (k.into(), v)).collect()
@@ -143,17 +203,22 @@ fn lookup(values: &Properties, path: &str) -> Option<Value> {
         return Some(value.clone());
     }
     let (head, tail) = path.split_once('.')?;
-    match values.get(head)? {
-        Value::Object(object) => lookup(object, tail),
-        Value::List(items) if tail == "length" => Some(number(items.len() as f64)),
-        Value::List(items) => tail
-            .parse::<usize>()
-            .ok()
-            .and_then(|i| items.get(i).cloned()),
-        Value::Text(value) if tail == "length" => Some(number(value.encode_utf16().count() as f64)),
+    lookup_value(values.get(head)?, tail)
+}
+fn lookup_value(value: &Value, path: &str) -> Option<Value> {
+    match value {
+        Value::Object(object) => lookup(object, path),
+        Value::List(items) if path == "length" => Some(number(items.len() as f64)),
+        Value::List(items) => {
+            let (index, tail) = path.split_once('.').map_or((path, None), |(index, tail)| (index, Some(tail)));
+            let value = items.get(index.parse::<usize>().ok()?)?;
+            match tail { Some(tail) => lookup_value(value, tail), None => Some(value.clone()) }
+        }
+        Value::Text(value) if path == "length" => Some(number(value.encode_utf16().count() as f64)),
         _ => None,
     }
 }
+
 fn enum_value(path: &str, scope: &Properties) -> Option<Value> {
     let (kind, variant) = path.split_once('.')?;
     let Value::Object(enums) = scope.get("__enums")? else {
@@ -1499,7 +1564,9 @@ fn constraint(n: &Node, axis: usize, value: f64) -> Result<f64, String> {
     Ok(value.clamp(min, max))
 }
 fn normalize_layout(n: &Node) -> Result<Node, String> {
-    let mut n = n.clone();
+    normalize_layout_owned(n.clone())
+}
+fn normalize_layout_owned(mut n: Node) -> Result<Node, String> {
     match n.kind.as_str() {
         "Row" | "Column" => {
             let row = n.kind == "Row";
@@ -2093,10 +2160,48 @@ fn check_contracts(
     }
     Ok(())
 }
+// Retain evaluated Let values separately from mutable model fields. A Let
+// declaration also hides an older For local with the same name.
+fn insert_scene_lexical(state: &mut Properties, name: String, value: Value, expression: &Value, scope: &Properties) {
+    let parents = state.get("__binding_active").cloned().unwrap_or_else(|| Value::Object(Properties::new()));
+    let steps = state.entry("__binding_let_steps".into()).or_insert_with(|| Value::List(Vec::new()));
+    if let Value::List(steps) = steps {
+        steps.push(Value::Object(Properties::from([
+            ("name".into(), Value::Text(name.clone())),
+            ("expression".into(), expression.clone()),
+            ("scope".into(), Value::Object(scope.clone())),
+            ("parents".into(), parents),
+        ])));
+    }
+    let lexicals = state.entry("__binding_lexicals".into()).or_insert_with(|| Value::Object(Properties::new()));
+    if let Value::Object(lexicals) = lexicals { lexicals.insert(name.clone(), value.clone()); }
+    if let Some(Value::Object(active)) = state.get_mut("__binding_active") { active.remove(&name); }
+    for prefix in ["__collection", "__binding_key", "__binding_key_expr", "__binding_key_scope"] {
+        state.remove(&format!("{prefix}.{name}"));
+    }
+    state.insert(name, value);
+}
+
+// A displayed control no longer expands children. Keep replay data once in
+// its retained frames when the root copy is exactly represented there.
+fn compact_scene_control_state(mut state: Properties) -> Properties {
+    let represented = match (state.get("__binding_lexicals"), state.get("__binding_let_steps"), state.get("__binding_frames")) {
+        (Some(lexicals @ Value::Object(_)), Some(steps @ Value::List(_)), Some(Value::List(frames))) => frames.iter().any(|frame| {
+            matches!(frame, Value::Object(frame) if frame.get("__lexicals") == Some(lexicals) && frame.get("__let_steps") == Some(steps))
+        }),
+        _ => false,
+    };
+    if represented {
+        state.remove("__binding_lexicals");
+        state.remove("__binding_let_steps");
+    }
+    state
+}
+
 fn key_part(value: &Value) -> Result<String, String> {
     let (tag, text) = match value {
-        Value::Text(v) => ("s", v.clone()),
-        Value::Number(v) if v.is_finite() => ("n", v.to_string()),
+        Value::Text(v) => ("s", std::borrow::Cow::Borrowed(v.as_str())),
+        Value::Number(v) if v.is_finite() => ("n", std::borrow::Cow::Owned(v.to_string())),
         _ => return Err("Collection key must be a string or finite number".into()),
     };
     Ok(format!("{tag}{}:{text}", text.len()))
@@ -2160,7 +2265,8 @@ impl Document {
             return Err("Visual composition depth exceeded".into());
         }
         let mut result = Vec::new();
-        let mut current_state = state.clone();
+        // Ordinary visual expansion only reads inherited state; lexical writes own a copy.
+        let mut current_state = std::borrow::Cow::Borrowed(state);
         for node in nodes {
             match node.kind.as_str() {
                 "If" => {
@@ -2213,7 +2319,7 @@ impl Document {
                         }
                     }
                     for (index, value) in items.into_iter().enumerate() {
-                        let mut state = current_state.clone();
+                        let mut state = current_state.as_ref().clone();
                         state.insert(item.clone(), value);
                         state.insert(format!("__index.{item}"), number(index as f64));
                         let key = key_part(
@@ -2247,7 +2353,7 @@ impl Document {
                     if !name.is_empty() {
                         if let Some(val_expr) = node.props.get("value") {
                             let val = val_expr.evaluate(props, &current_state)?;
-                            current_state.insert(name, val);
+                            current_state.to_mut().insert(name, val);
                             if !node.children.is_empty() {
                                 result.extend(self.expand_sequence(
                                     &node.children,
@@ -2340,12 +2446,17 @@ impl Document {
                 _ => Err("ContentPresenter requires a node".into()),
             };
         }
-        let mut node = n.clone();
-        node.props = properties(n, props, state)?
-            .into_iter()
-            .map(|(k, v)| Ok((k, self.expand_value(&v, props, state, parents, depth)?)))
-            .collect::<Result<_, String>>()?;
-        node.children = self.expand_sequence(&n.children, props, state, parents, depth + 1)?;
+        // Expanded properties/children replace the source tree; do not clone
+        // the original subtree merely to overwrite both owned fields.
+        let node = Node {
+            kind: n.kind.clone(),
+            props: properties(n, props, state)?
+                .into_iter()
+                .map(|(k, v)| Ok((k, self.expand_value(&v, props, state, parents, depth)?)))
+                .collect::<Result<_, String>>()?,
+            children: self.expand_sequence(&n.children, props, state, parents, depth + 1)?,
+            action: n.action.clone(),
+        };
         // Scene definitions can wrap primitives such as Text and TextInput.
         // Inside their visual templates the same names retain primitive meaning.
         if !is_primitive(&n.kind) && self.definitions.contains_key(&n.kind) {
@@ -2359,6 +2470,20 @@ impl Document {
         top: bool,
         state: &Properties,
         parents: &[String],
+    ) -> Result<(Node, Properties), String> {
+        self.instantiate_scope(instance, top, Some(state), parents, &mut None)
+    }
+    fn instantiate_scene(&self, instance: &mut Node) -> Result<(Node, Properties), String> {
+        let mut snapshot = instance.props.remove("__state");
+        let empty_state = Properties::new();
+        let supplied_state = if snapshot.is_none() { Some(&empty_state) } else { None };
+        let result = self.instantiate_scope(instance, true, supplied_state, &[], &mut snapshot);
+        if let Some(snapshot) = snapshot { instance.props.insert("__state".into(), snapshot); }
+        result
+    }
+    fn instantiate_scope(
+        &self, instance: &Node, top: bool, supplied_state: Option<&Properties>,
+        parents: &[String], owned_snapshot: &mut Option<Value>,
     ) -> Result<(Node, Properties), String> {
         if parents.len() >= 32 || parents.contains(&instance.kind) {
             return Err(format!("Component cycle {}", instance.kind));
@@ -2398,6 +2523,7 @@ impl Document {
             .keys()
             .chain(instance.props.keys())
             .cloned()
+            .chain(owned_snapshot.iter().map(|_| "__state".to_owned()))
             .collect::<std::collections::BTreeSet<_>>();
         let mut props = if top {
             self.fallback.clone()
@@ -2406,14 +2532,32 @@ impl Document {
         };
         props.extend(definition.defaults.clone());
         props.extend(instance.props.clone());
-        let selected = select_groups(definition.defaults.get("__matches"), &props, state)?;
+        let transferred_snapshot = owned_snapshot.is_some();
+        if let Some(snapshot) = owned_snapshot.take() { props.insert("__state".into(), snapshot); }
+        let empty_state = Properties::new();
+        let result = (|| {
+        let state = supplied_state.unwrap_or_else(|| match props.get("__state") {
+            Some(Value::Object(state)) => state, _ => &empty_state,
+        });
+        let mut selected = select_groups(definition.defaults.get("__matches"), &props, state)?;
+        // Explicit scene metadata wins over group defaults without cloning its payload.
+        if transferred_snapshot { selected.remove("__state"); }
+        // Explicit instance values win over selected groups. Only keys actually
+        // overwritten by a group need to be restored; transport snapshots such
+        // as __state must not be cloned a second time on every instantiation.
+        let overrides: Properties = selected.keys().filter_map(|key| {
+            instance.props.get(key).map(|value| (key.clone(), value.clone()))
+        }).collect();
         props.extend(selected);
-        props.extend(instance.props.clone());
+        props.extend(overrides);
         if let Some(value) = instance.props.get("font.size") {
             props.insert("fontSize".into(), value.clone());
         }
         let mut parents = parents.to_vec();
         parents.push(instance.kind.clone());
+        let state = supplied_state.unwrap_or_else(|| match props.get("__state") {
+            Some(Value::Object(state)) => state, _ => &empty_state,
+        });
         let resolved: Properties = props
             .iter()
             .filter(|(k, _)| !k.starts_with("__"))
@@ -2435,7 +2579,7 @@ impl Document {
             definition.defaults.get("__enums"),
             &contract_values,
         )?;
-        let mut nodes = definition.nodes.clone();
+        let mut nodes = std::borrow::Cow::Borrowed(definition.nodes.as_slice());
         if !instance.children.is_empty() {
             fn supply(nodes: &mut [Node], children: &[Node]) -> bool {
                 let mut found = false;
@@ -2458,7 +2602,7 @@ impl Document {
                 }
                 found
             }
-            if !supply(&mut nodes, &instance.children) {
+            if !supply(nodes.to_mut(), &instance.children) {
                 return Err("Child content requires ContentPresenter".into());
             }
         }
@@ -2488,6 +2632,9 @@ impl Document {
             }
         }
         Ok((root, resolved))
+        })();
+        if transferred_snapshot { *owned_snapshot = props.remove("__state"); }
+        result
     }
     fn flatten(&self, n: &Node, bounds: [f64; 4], out: &mut String) -> Result<(), String> {
         let [mut x, mut y, mut w, mut h] = bounds;
@@ -2699,6 +2846,31 @@ impl Document {
         }
         Ok(result)
     }
+    fn scene_expand_sequence<'a>(
+        &self, children: impl IntoIterator<Item = &'a Node>, inherited: &Properties,
+        prefix: &str, scope: &Properties, depth: usize, budget: &mut usize,
+    ) -> Result<Vec<Node>, String> {
+        let mut state = std::borrow::Cow::Borrowed(inherited);
+        let mut out = Vec::new();
+        for child in children {
+            if child.kind == "Let" {
+                if depth > 64 { return Err("Scene composition depth exceeded".into()); }
+                if *budget == 0 { return Err("Scene exceeds 16384 nodes".into()); }
+                *budget -= 1;
+                let name = text(&child.props, "name", "")?;
+                if !name.is_empty() {
+                    if let Some(expression) = child.props.get("value") {
+                        let value = expression.evaluate(scope, &state)?;
+                        insert_scene_lexical(state.to_mut(), name, value, expression, scope);
+                    }
+                }
+                out.extend(self.scene_expand_sequence(&child.children, &state, prefix, scope, depth + 1, budget)?);
+            } else {
+                out.extend(self.scene_expand(child, &state, prefix, scope, depth, budget)?);
+            }
+        }
+        Ok(out)
+    }
     fn scene_expand(
         &self,
         node: &Node,
@@ -2716,15 +2888,15 @@ impl Document {
         }
         *budget -= 1;
         let id = num(&node.props, "__node", 0.)? as usize;
-        let mut state = inherited.clone();
+        let mut state = std::borrow::Cow::Borrowed(inherited);
         if let Some(local) = self.states.get(id) {
-            state.extend(local.clone());
+            if !local.is_empty() { state.to_mut().extend(local.clone()); }
         }
-        let mut scope = inherited_props.clone();
+        let mut scope = std::borrow::Cow::Borrowed(inherited_props);
         if let Some(Value::Object(values)) = node.props.get("__scope") {
-            scope.extend(values.clone());
+            scope.to_mut().extend(values.clone());
             let selected = select_groups(values.get("__matches"), &scope, &state)?;
-            scope.extend(selected);
+            scope.to_mut().extend(selected);
             let resolved = scope
                 .iter()
                 .filter(|(key, _)| !key.starts_with("__"))
@@ -2746,7 +2918,7 @@ impl Document {
                 scope.get("__enums"),
                 &contract_values,
             )?;
-            scope.extend(resolved);
+            scope.to_mut().extend(resolved);
         }
         match node.kind.as_str() {
             "If" => {
@@ -2756,30 +2928,11 @@ impl Document {
                     .ok_or("If requires a condition")?
                     .evaluate(&scope, &state)?
                     .boolean()?;
-                let children = if condition {
-                    node.children
-                        .iter()
-                        .filter(|n| n.kind != "Else")
-                        .cloned()
-                        .collect()
-                } else {
-                    node.children
-                        .iter()
-                        .find(|n| n.kind == "Else")
-                        .map_or(Vec::new(), |n| n.children.clone())
-                };
-                let mut out = Vec::new();
-                for child in children {
-                    out.extend(self.scene_expand(
-                        &child,
-                        &state,
-                        prefix,
-                        &scope,
-                        depth + 1,
-                        budget,
-                    )?);
-                }
-                Ok(out)
+                if condition {
+                    self.scene_expand_sequence(node.children.iter().filter(|n| n.kind != "Else"), &state, prefix, &scope, depth + 1, budget)
+                } else if let Some(branch) = node.children.iter().find(|n| n.kind == "Else") {
+                    self.scene_expand_sequence(&branch.children, &state, prefix, &scope, depth + 1, budget)
+                } else { Ok(Vec::new()) }
             }
             "For" => {
                 let Value::List(items) = node
@@ -2811,9 +2964,26 @@ impl Document {
                         }
                     }
                 }
+                let mut local = std::borrow::Cow::Borrowed(state.as_ref());
+                let binding_metadata = [
+                    format!("__binding_key.{item}"),
+                    format!("__binding_key_expr.{item}"),
+                    format!("__binding_key_scope.{item}"),
+                ];
                 for (index, value) in items.into_iter().enumerate() {
-                    let mut local = state.clone();
+                    let local = local.to_mut();
+                    // Key evaluation sees the inherited metadata, never the
+                    // previous iteration's key (also when nested For shadows item).
+                    for name in &binding_metadata {
+                        match state.get(name) {
+                            Some(value) => { local.insert(name.clone(), value.clone()); }
+                            None => { local.remove(name); }
+                        }
+                    }
                     local.insert(item.clone(), value);
+                    if let Some(Value::Object(lexicals)) = local.get_mut("__binding_lexicals") {
+                        lexicals.remove(&item);
+                    }
                     local.insert(format!("__index.{item}"), number(index as f64));
                     if let Some(col_expr) = &collection_expr {
                         local.insert(format!("__collection.{item}"), Value::Text(col_expr.clone()));
@@ -2828,17 +2998,44 @@ impl Document {
                     if !keys.insert(key.clone()) {
                         return Err("Duplicate collection key".into());
                     }
-                    let prefix = format!("{prefix}@{id}:{key}/");
-                    for child in node.children.iter().filter(|n| n.kind != "Empty") {
-                        out.extend(self.scene_expand(
-                            child,
-                            &local,
-                            &prefix,
-                            &scope,
-                            depth + 1,
-                            budget,
-                        )?);
+                    // Retain key semantics, not just the old positional index,
+                    // so a recovery binding map can resolve the same live item.
+                    local.insert(format!("__binding_key.{item}"), Value::Text(key.clone()));
+                    local.insert(format!("__binding_key_expr.{item}"), node.props["key"].clone());
+                    local.insert(format!("__binding_key_scope.{item}"), Value::Object(scope.as_ref().clone()));
+                    let mut frames = match state.get("__binding_frames") {
+                        Some(Value::List(frames)) => frames.clone(), _ => Vec::new(),
+                    };
+                    let mut active = match state.get("__binding_active") {
+                        Some(Value::Object(active)) => active.clone(), _ => Properties::new(),
+                    };
+                    // Lexicals are retained in __lexicals and replayed over locals.
+                    // Avoid a second owned copy of each lexical collection here.
+                    let locals = state.iter().filter(|(name, _)| {
+                        !name.starts_with("__")
+                            && !self.states.first().is_some_and(|root| root.contains_key(*name))
+                            && !matches!(state.get("__binding_lexicals"), Some(Value::Object(lexicals)) if lexicals.contains_key(*name))
+                    }).map(|(name, value)| (name.clone(), value.clone())).collect();
+                    let mut frame = Properties::from([
+                        ("__item".into(), Value::Text(item.clone())),
+                        ("__parents".into(), Value::Object(active.clone())),
+                        ("__locals".into(), Value::Object(locals)),
+                    ]);
+                    if let Some(Value::Object(lexicals)) = state.get("__binding_lexicals") {
+                        frame.insert("__lexicals".into(), Value::Object(lexicals.clone()));
+                        if let Some(steps) = state.get("__binding_let_steps") {
+                            frame.insert("__let_steps".into(), steps.clone());
+                        }
                     }
+                    for name in [format!("__collection.{item}"), format!("__binding_key.{item}"), format!("__binding_key_expr.{item}"), format!("__binding_key_scope.{item}")] {
+                        if let Some(value) = local.get(&name) { frame.insert(name, value.clone()); }
+                    }
+                    active.insert(item.clone(), number(frames.len() as f64));
+                    frames.push(Value::Object(frame));
+                    local.insert("__binding_frames".into(), Value::List(frames));
+                    local.insert("__binding_active".into(), Value::Object(active));
+                    let prefix = format!("{prefix}@{id}:{key}/");
+                    out.extend(self.scene_expand_sequence(node.children.iter().filter(|n| n.kind != "Empty"), local, &prefix, &scope, depth + 1, budget)?);
                 }
                 Ok(out)
             }
@@ -2849,18 +3046,9 @@ impl Document {
                 if !name.is_empty() {
                     if let Some(val_expr) = node.props.get("value") {
                         let val = val_expr.evaluate(&scope, &state)?;
-                        let mut next_state = state.clone();
-                        next_state.insert(name, val);
-                        for child in &node.children {
-                            out.extend(self.scene_expand(
-                                child,
-                                &next_state,
-                                prefix,
-                                &scope,
-                                depth + 1,
-                                budget,
-                            )?);
-                        }
+                        let mut next_state = state.as_ref().clone();
+                        insert_scene_lexical(&mut next_state, name, val, val_expr, &scope);
+                        out.extend(self.scene_expand_sequence(&node.children, &next_state, prefix, &scope, depth + 1, budget)?);
                     }
                 }
                 Ok(out)
@@ -2886,16 +3074,7 @@ impl Document {
                             None => true,
                         };
                         if guard_ok {
-                            for child in &branch.children {
-                                out.extend(self.scene_expand(
-                                    child,
-                                    &state,
-                                    prefix,
-                                    &scope,
-                                    depth + 1,
-                                    budget,
-                                )?);
-                            }
+                            out.extend(self.scene_expand_sequence(&branch.children, &state, prefix, &scope, depth + 1, budget)?);
                             break;
                         }
                     }
@@ -2903,11 +3082,15 @@ impl Document {
                 Ok(out)
             }
             _ => {
-                let mut output = node.clone();
-                output.props = self.scene_properties(node, &scope, &state)?;
+                let mut output = Node {
+                    kind: node.kind.clone(),
+                    props: self.scene_properties(node, &scope, &state)?,
+                    children: Vec::new(),
+                    action: node.action.clone(),
+                };
                 output
                     .props
-                    .insert("__state".into(), Value::Object(state.clone()));
+                    .insert("__state".into(), Value::Object(state.as_ref().clone()));
                 if self.definitions.contains_key(&node.kind) {
                     let explicit = output
                         .props
@@ -2926,61 +3109,23 @@ impl Document {
                     // Supplied content resolves props in the receiving component's scope.
                     output.children = node.children.clone();
                 } else {
-                    output.children.clear();
-                    let mut child_state = state.clone();
-                    for child in &node.children {
-                        if child.kind == "Let" {
-                            let name = text(&child.props, "name", "")?;
-                            if !name.is_empty() {
-                                if let Some(val_expr) = child.props.get("value") {
-                                    let val = val_expr.evaluate(&scope, &child_state)?;
-                                    child_state.insert(name, val);
-                                }
-                            }
-                            if !child.children.is_empty() {
-                                for sub in &child.children {
-                                    output.children.extend(self.scene_expand(
-                                        sub,
-                                        &child_state,
-                                        prefix,
-                                        &scope,
-                                        depth + 1,
-                                        budget,
-                                    )?);
-                                }
-                            }
-                        } else {
-                            output.children.extend(self.scene_expand(
-                                child,
-                                &child_state,
-                                prefix,
-                                &scope,
-                                depth + 1,
-                                budget,
-                            )?);
-                        }
-                    }
+                    output.children = self.scene_expand_sequence(&node.children, &state, prefix, &scope, depth + 1, budget)?;
                 }
                 Ok(vec![output])
             }
         }
     }
-    fn scene_visual(&self, node: &Node) -> Result<Node, String> {
+    fn scene_visual(&self, node: &mut Node) -> Result<Node, String> {
         if is_layout(&node.kind) {
-            let mut visual = node.clone();
-            visual.children = node
-                .children
-                .iter()
-                .map(|n| self.scene_visual(n))
-                .collect::<Result<_, _>>()?;
-            normalize_layout(&visual)
-        } else {
-            let empty = Properties::new();
-            let state = match node.props.get("__state") {
-                Some(Value::Object(state)) => state,
-                _ => &empty,
+            let visual = Node {
+                kind: node.kind.clone(),
+                props: node.props.clone(),
+                children: node.children.iter_mut().map(|n| self.scene_visual(n)).collect::<Result<_, _>>()?,
+                action: node.action.clone(),
             };
-            self.instantiate(node, true, state, &[])
+            normalize_layout_owned(visual)
+        } else {
+            self.instantiate_scene(node)
                 .map(|(mut root, p)| {
                     let orig = root.props.clone();
                     root.props.extend(p);
@@ -2991,27 +3136,34 @@ impl Document {
     }
     fn position_scene(
         &self,
-        node: &Node,
-        precomputed_visual: Option<&Node>,
+        mut node: Node,
+        precomputed_visual: Option<Node>,
         bounds: [f64; 4],
         instances: &mut Vec<(Node, Option<Node>)>,
         root_legacy: bool,
+        logical_end: &mut [f64; 2],
+        scroll_content: bool,
     ) -> Result<(), String> {
+        // Oversized scroll content must overflow toward positive offsets; centering
+        // it at a negative origin makes the leading half unreachable by scrolling.
+        let align = |available: f64, size: f64| {
+            let offset = (available - size) / 2.;
+            if scroll_content { offset.max(0.) } else { offset }
+        };
+        if is_layout(&node.kind) {
+            logical_end[0] = logical_end[0].max(bounds[0] + bounds[2]);
+            logical_end[1] = logical_end[1].max(bounds[1] + bounds[3]);
+        }
         if !is_layout(&node.kind) {
-            let mut node = node.clone();
-            let owned_visual;
             let visual = match precomputed_visual {
                 Some(v) => v,
-                None => {
-                    owned_visual = self.scene_visual(&node)?;
-                    &owned_visual
-                }
+                None => self.scene_visual(&mut node)?
             };
-            let width = dimension(visual, 0, bounds[2])?;
-            let height = dimension(visual, 1, bounds[3])?;
+            let width = dimension(&visual, 0, bounds[2])?;
+            let height = dimension(&visual, 1, bounds[3])?;
             for (key, value) in [
-                ("x", bounds[0] + (bounds[2] - width) / 2.),
-                ("y", bounds[1] + (bounds[3] - height) / 2.),
+                ("x", bounds[0] + align(bounds[2], width)),
+                ("y", bounds[1] + align(bounds[3], height)),
                 ("width", width),
                 ("height", height),
             ] {
@@ -3020,13 +3172,12 @@ impl Document {
             for key in ["cell", "row", "column"] {
                 node.props.remove(key);
             }
-            instances.push((node, Some(visual.clone())));
+            instances.push((node, Some(visual)));
             return Ok(());
         }
         if !root_legacy && boolean(&node.props, "clip", false)? {
             return Err("Nested scene clipping is unsupported; use the root Frame clip".into());
         }
-        let mut node = node.clone();
         if root_legacy
             && ["Frame", "Scroll"].contains(&node.kind.as_str())
             && !node.props.contains_key("columns")
@@ -3034,14 +3185,10 @@ impl Document {
         {
             node.kind = "Column".into();
         }
-        let node = normalize_layout(&node)?;
-        let owned_visual;
+        let mut node = normalize_layout_owned(node)?;
         let visual = match precomputed_visual {
-            Some(v) if v.children.len() == node.children.len() => v,
-            _ => {
-                owned_visual = self.scene_visual(&node)?;
-                &owned_visual
-            }
+            Some(v) if v.kind == node.kind && v.children.len() == node.children.len() => v,
+            _ => self.scene_visual(&mut node)?
         };
         let [mut x, mut y, mut width, mut height] = bounds;
         // A container consumes its allocated cell; its explicit dimensions are resolved by its parent.
@@ -3050,24 +3197,24 @@ impl Document {
         y += pad[0];
         width = (width - pad[1] - pad[3]).max(0.);
         height = (height - pad[0] - pad[2]).max(0.);
-        let cols = sizes(visual, 0, width)?;
-        let rows = sizes(visual, 1, height)?;
+        let cols = sizes(&visual, 0, width)?;
+        let rows = sizes(&visual, 1, height)?;
         let gap = gaps(&node.props)?;
-        for (child, child_visual) in node.children.iter().zip(&visual.children) {
-            let ci = cell(child, 0, cols.len())?;
-            let ri = cell(child, 1, rows.len())?;
+        for (child, child_visual) in node.children.into_iter().zip(visual.children) {
+            let ci = cell(&child, 0, cols.len())?;
+            let ri = cell(&child, 1, rows.len())?;
             let cw = ci.map_or(width, |i| cols[i]);
             let ch = ri.map_or(height, |i| rows[i]);
             let mut cx = x + ci.map_or(0., |i| cols[..i].iter().sum::<f64>() + i as f64 * gap[1]);
             let mut cy = y + ri.map_or(0., |i| rows[..i].iter().sum::<f64>() + i as f64 * gap[0]);
             if is_layout(&child.kind) {
-                let w = dimension(child_visual, 0, cw)?;
-                let h = dimension(child_visual, 1, ch)?;
-                cx += (cw - w) / 2.;
-                cy += (ch - h) / 2.;
-                self.position_scene(child, Some(child_visual), [cx, cy, w, h], instances, false)?;
+                let w = dimension(&child_visual, 0, cw)?;
+                let h = dimension(&child_visual, 1, ch)?;
+                cx += align(cw, w);
+                cy += align(ch, h);
+                self.position_scene(child, Some(child_visual), [cx, cy, w, h], instances, false, logical_end, scroll_content)?;
             } else {
-                self.position_scene(child, Some(child_visual), [cx, cy, cw, ch], instances, false)?;
+                self.position_scene(child, Some(child_visual), [cx, cy, cw, ch], instances, false, logical_end, scroll_content)?;
             }
         }
         Ok(())
@@ -3077,25 +3224,49 @@ impl Document {
         self.render_scene()
             .map(|(source, templates, _)| (source, templates))
     }
-    pub fn render_scene(&self) -> Result<(String, String, Vec<SceneControl>), String> {
-        fn annotate(node: &mut Node, index: &mut usize, depth: usize) -> Result<(), String> {
-            if depth > 64 {
-                return Err("Scene composition depth exceeded".into());
-            }
-            if *index >= 16_384 {
-                return Err("Scene exceeds 16384 nodes".into());
-            }
-            node.props
-                .entry("__node".into())
-                .or_insert(number(*index as f64));
-            *index += 1;
-            for child in &mut node.children {
-                annotate(child, index, depth + 1)?;
+    /// Current control identity without visual instantiation/layout/serialization.
+    /// A failed visual must not authorize bindings from a branch no longer selected.
+    pub(crate) fn binding_scene_controls(&self) -> Result<Vec<SceneControl>, String> {
+        let program = annotated_scene_source(&self.root, &mut 0, 0)?;
+        let mut expanded = self.scene_expand(&program, &Properties::new(), "", &Properties::new(), 0, &mut 16_384)?;
+        if expanded.len() != 1 || !is_layout(&expanded[0].kind) {
+            return Err("A scene requires one layout root".into());
+        }
+        fn collect(mut node: Node, controls: &mut Vec<SceneControl>) -> Result<(), String> {
+            if is_layout(&node.kind) {
+                for child in node.children { collect(child, controls)?; }
+            } else {
+                let id = num(&node.props, "__node", 0.)? as usize;
+                let key = text(&node.props, "key", "")?;
+                let state = match node.props.remove("__state") {
+                    Some(Value::Object(state)) => state, _ => Properties::new(),
+                };
+                let event_args = match node.props.remove("__event_args") {
+                    Some(Value::Object(events)) => events.into_iter().map(|(name, value)| {
+                        let Value::List(values) = value else { return Err("Event arguments must be a list".to_string()); };
+                        Ok((name, values))
+                    }).collect::<Result<_, String>>()?,
+                    _ => BTreeMap::new(),
+                };
+                controls.push(SceneControl { node: id, key, state: compact_scene_control_state(state), event_args });
             }
             Ok(())
         }
-        let mut program = self.root.clone();
-        annotate(&mut program, &mut 0, 0)?;
+        let mut controls = Vec::new();
+        collect(expanded.remove(0), &mut controls)?;
+        Ok(controls)
+    }
+    pub fn render_scene(&self) -> Result<(String, String, Vec<SceneControl>), String> {
+        self.render_scene_with_extents().map(|(source, templates, controls, _)| (source, templates, controls))
+    }
+    /// Render an owned artifact for `Runtime::from_scene_artifact`, retaining empty layout extents.
+    pub fn render_scene_artifact(&self) -> Result<SceneArtifact, String> {
+        let (source, templates, controls, logical_content_end) = self.render_scene_with_extents()?;
+        Ok(SceneArtifact { source, templates, controls, logical_content_end })
+    }
+    /// Runtime metadata retains logical layout bounds that serialized control leaves cannot express.
+    pub(crate) fn render_scene_with_extents(&self) -> Result<(String, String, Vec<SceneControl>, Option<[f64; 2]>), String> {
+        let program = annotated_scene_source(&self.root, &mut 0, 0)?;
         let mut expanded = self.scene_expand(
             &program,
             &Properties::new(),
@@ -3111,59 +3282,95 @@ impl Document {
         if !is_layout(&root.kind) {
             return Err("A scene requires a layout root".into());
         }
-        let mut measuring = root.clone();
-        if measuring.kind == "Frame"
-            && !measuring.props.contains_key("columns")
-            && !measuring.props.contains_key("rows")
+        let measuring = if root.kind == "Frame"
+            && !root.props.contains_key("columns") && !root.props.contains_key("rows")
         {
-            measuring.kind = "Column".into();
-        }
-        let measuring = self.scene_visual(&measuring)?;
+            let kind = std::mem::replace(&mut root.kind, "Column".into());
+            let measured = self.scene_visual(&mut root);
+            root.kind = kind;
+            measured?
+        } else { self.scene_visual(&mut root)? };
         let root_width = dimension(&measuring, 0, 360.)?;
         let root_height = dimension(&measuring, 1, 220.)?;
         root.props.insert("width".into(), number(root_width));
         root.props.insert("height".into(), number(root_height));
         let scroll = root.children.len() == 1 && root.children[0].kind == "Scroll";
+        let scroll_viewport = if scroll {
+            let layout = &root.children[0];
+            for key in layout.props.keys() {
+                if !key.starts_with("__") && !["key", "width", "height", "minWidth", "maxWidth", "minHeight", "maxHeight", "padding", "gap", "columns", "rows"].contains(&key.as_str()) {
+                    return Err(format!("Unsupported root Scroll property: {key}"));
+                }
+            }
+            if layout.action.is_some() { return Err("Root Scroll actions are unsupported".into()); }
+            let padding = insets(root.props.get("padding"))?;
+            let available = [root_width - padding[1] - padding[3], root_height - padding[0] - padding[2]];
+            let visual = measuring.children.first().ok_or("Missing Scroll visual")?;
+            let width = dimension(visual, 0, available[0])?;
+            let height = dimension(visual, 1, available[1])?;
+            if width < 0. || height < 0. || width > available[0] || height > available[1] {
+                return Err("Root Scroll viewport must fit inside the scene content area".into());
+            }
+            Some([padding[3] + (available[0] - width) / 2., padding[0] + (available[1] - height) / 2., width, height])
+        } else { None };
         let layout = if scroll { &root.children[0] } else { &root };
-        let advanced = layout.props.contains_key("columns")
+        let advanced = scroll || layout.props.contains_key("columns")
             || layout.props.contains_key("rows")
             || !["Frame", "Scroll"].contains(&layout.kind.as_str())
             || layout.children.iter().any(|n| is_layout(&n.kind));
         let mut instances: Vec<(Node, Option<Node>)> = Vec::new();
+        let mut logical_end = [0_f64; 2];
         if advanced {
             let width = num(&root.props, "width", 360.)?;
             let height = num(&root.props, "height", 220.)?;
             let precomputed = if scroll {
-                measuring.children.first()
+                measuring.children.into_iter().next()
             } else {
-                Some(&measuring)
+                Some(measuring)
             };
-            self.position_scene(layout, precomputed, [0., 0., width, height], &mut instances, true)?;
+            let mut positioned = Node {
+                kind: layout.kind.clone(),
+                props: layout.props.clone(),
+                children: Vec::new(),
+                action: layout.action.clone(),
+            };
+            // Retain only the root/Scroll shell for final scene serialization.
+            // Expanded children and their owned snapshots move into positioning.
+            positioned.children = if scroll {
+                std::mem::take(&mut root.children[0].children)
+            } else {
+                std::mem::take(&mut root.children)
+            };
+            self.position_scene(positioned, precomputed, scroll_viewport.unwrap_or([0., 0., width, height]), &mut instances, true, &mut logical_end, scroll)?;
             for key in ["columns", "rows", "padding", "gap"] {
                 root.props.remove(key);
             }
             root.props.insert("padding".into(), number(0.));
             root.props.insert("gap".into(), number(0.));
             if scroll {
+                let [x, y, width, height] = scroll_viewport.unwrap();
+                root.props.insert("padding".into(), Value::List(vec![number(y), number(root_width - x - width), number(root_height - y - height), number(x)]));
                 for key in ["columns", "rows", "padding", "gap"] {
                     root.children[0].props.remove(key);
                 }
             }
         } else {
             let precomputed = if scroll {
-                measuring.children.first()
+                measuring.children.into_iter().next()
             } else {
-                Some(&measuring)
+                Some(measuring)
             };
-            if let Some(vis) = precomputed.filter(|v| v.children.len() == layout.children.len()) {
-                instances = layout
-                    .children
-                    .iter()
-                    .cloned()
-                    .zip(vis.children.iter().cloned().map(Some))
-                    .collect();
+            // The root shell is serialized separately; transfer its expanded
+            // children and their snapshots just as the positioned path does.
+            let children = if scroll {
+                std::mem::take(&mut root.children[0].children)
             } else {
-                instances = layout.children.iter().cloned().map(|n| (n, None)).collect();
+                std::mem::take(&mut root.children)
+            };
+            if let Some(vis) = precomputed.filter(|v| v.children.len() == children.len()) {
+                instances = children.into_iter().zip(vis.children.into_iter().map(Some)).collect();
+            } else {
+                instances = children.into_iter().map(|n| (n, None)).collect();
             }
         }
         root.kind = "Frame".into();
@@ -3172,11 +3379,7 @@ impl Document {
         let mut source_controls = Vec::with_capacity(instances.len());
         let mut templates = String::with_capacity(32 + instances.len() * 256);
         templates.push_str("FORMA-TEMPLATES-1\n");
-        for (instance, precomputed_visual) in &instances {
-            let state = match instance.props.get("__state") {
-                Some(Value::Object(state)) => state,
-                _ => &empty,
-            };
+        for (mut instance, precomputed_visual) in instances {
             let event_args = match instance.props.get("__event_args") {
                 Some(Value::Object(events)) => events
                     .iter()
@@ -3189,15 +3392,11 @@ impl Document {
                     .collect::<Result<_, String>>()?,
                 _ => BTreeMap::new(),
             };
-            mapping.push(SceneControl {
-                node: num(&instance.props, "__node", 0.)? as usize,
-                key: text(&instance.props, "key", "")?,
-                state: state.clone(),
-                event_args,
-            });
-            let (visual, resolved) = match precomputed_visual {
-                Some(vis) => {
-                    let mut resolved = vis.props.clone();
+            let node = num(&instance.props, "__node", 0.)? as usize;
+            let key = text(&instance.props, "key", "")?;
+            let (mut visual, mut resolved) = match precomputed_visual {
+                Some(mut visual) => {
+                    let mut resolved = std::mem::take(&mut visual.props);
                     let rect_props = match resolved.remove("__rect_props") {
                         Some(Value::Object(p)) => p,
                         _ => resolved.clone(),
@@ -3207,21 +3406,26 @@ impl Document {
                             resolved.insert(key.into(), val.clone());
                         }
                     }
-                    let mut visual = vis.clone();
                     visual.props = rect_props;
                     (visual, resolved)
                 }
-                None => self.instantiate(instance, true, state, &[])?,
+                None => self.instantiate_scene(&mut instance)?,
+            };
+            let state = match instance.props.get("__state") {
+                Some(Value::Object(state)) => state,
+                _ => &empty,
             };
             let mut content = String::with_capacity(128);
-            let mut dim_node = visual.clone();
-            dim_node.props = resolved.clone();
+            // Measure the same children with resolved instance properties,
+            // then restore rectangle properties before flattening/serialization.
+            std::mem::swap(&mut visual.props, &mut resolved);
             let bounds = [
                 0.,
                 0.,
-                dimension(&dim_node, 0, 260.)?,
-                dimension(&dim_node, 1, 70.)?,
+                dimension(&visual, 0, 260.)?,
+                dimension(&visual, 1, 70.)?,
             ];
+            std::mem::swap(&mut visual.props, &mut resolved);
             for child in &visual.children {
                 if [
                     "Frame",
@@ -3281,8 +3485,12 @@ impl Document {
                 }
                 content.push_str("} ");
             }
-            let mut rectangle = visual.clone();
-            rectangle.children.clear();
+            let rectangle = Node {
+                kind: visual.kind.clone(),
+                props: visual.props.clone(),
+                children: Vec::new(),
+                action: visual.action.clone(),
+            };
             let mut template = String::with_capacity(64 + content.len());
             template.push_str("component Button { ");
             serialize_into(&rectangle, &mut template)?;
@@ -3310,7 +3518,6 @@ impl Document {
                 "focusBorderColor",
                 "transitionDuration",
             ];
-            let mut resolved = resolved;
             resolved.insert("width".into(), number(bounds[2]));
             resolved.insert("height".into(), number(bounds[3]));
             let props = resolved
@@ -3323,6 +3530,18 @@ impl Document {
                 children: vec![],
                 action: instance.action.clone(),
             });
+            // Templates (including Slider endpoints) may read props.__state.
+            // Transfer its owned snapshot only after their last evaluation.
+            let state = match instance.props.remove("__state") {
+                Some(Value::Object(state)) => state,
+                _ => Properties::new(),
+            };
+            mapping.push(SceneControl {
+                node,
+                key,
+                state: compact_scene_control_state(state),
+                event_args,
+            });
         }
         // Scene keys must survive serialization for interaction reconciliation.
         fn write_scene(n: &Node, out: &mut String) -> Result<(), String> {
@@ -3330,7 +3549,7 @@ impl Document {
             out.push_str(" { ");
             let mut first = true;
             for (k, v) in &n.props {
-                if k.starts_with("__")
+                if n.kind == "Scroll" || k.starts_with("__")
                     || ["minWidth", "maxWidth", "minHeight", "maxHeight"].contains(&k.as_str())
                     || (k.as_str() == "key" && ["Frame", "Scroll"].contains(&n.kind.as_str()))
                 {
@@ -3377,7 +3596,7 @@ impl Document {
         scene_source.push_str(" { ");
         write_scene(&root, &mut scene_source)?;
         scene_source.push_str(" }");
-        Ok((scene_source, templates, mapping))
+        Ok((scene_source, templates, mapping, scroll.then_some(logical_end)))
     }
 
     /// Parses an SVG document (`svg`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`)
@@ -3417,93 +3636,190 @@ impl Document {
 
     /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from a live [`crate::Runtime`]
     /// back into `self.states` (including nested `state.a.b` paths).
-    /// Returns the number of bound properties that changed.
+    /// Returns the number of bound properties that changed. An error leaves
+    /// all state scopes unchanged; successful writes commit as one batch.
     pub fn sync_runtime_bindings(
         &mut self,
         runtime: &crate::Runtime,
         activated_index: Option<usize>,
     ) -> Result<usize, String> {
-        fn annotate(node: &mut Node, index: &mut usize) {
-            node.props
-                .entry("__node".into())
-                .or_insert(number(*index as f64));
-            *index += 1;
-            for child in &mut node.children {
-                annotate(child, index);
+        let (_, _, controls) = self.render_scene()?;
+        self.sync_runtime_bindings_from_scene(runtime, activated_index, &controls)
+    }
+
+    /// Use the last displayed binding map when current state cannot render.
+    /// The host must supply controls belonging to this document's live scene.
+    pub(crate) fn sync_runtime_bindings_from_scene(
+        &mut self,
+        runtime: &crate::Runtime,
+        activated_index: Option<usize>,
+        controls: &[SceneControl],
+    ) -> Result<usize, String> {
+        self.sync_runtime_binding_events(runtime, activated_index.as_slice(), controls)
+    }
+
+    /// Read current widget values once, then replay buffered activations in order.
+    /// All writes share a single atomic state transaction.
+    pub(crate) fn sync_runtime_binding_events(
+        &mut self,
+        runtime: &crate::Runtime,
+        activations: &[usize],
+        controls: &[SceneControl],
+    ) -> Result<usize, String> {
+        let annotated = annotated_scene_source(&self.root, &mut 0, 0)?;
+        // Scene expansion may have reordered/removed controls since the live
+        // widgets captured their events. Match stable keys before using indices.
+        let mut runtime_keys = BTreeMap::new();
+        for index in 0..runtime.control_count() {
+            let key = runtime.control_key(index);
+            if runtime_keys.insert(key.clone(), Some(index)).is_some() {
+                runtime_keys.insert(key, None);
             }
         }
-        let mut annotated = self.root.clone();
-        annotate(&mut annotated, &mut 0);
-        let (_, _, controls) = self.render_scene()?;
-        if self.states.is_empty() {
-            self.states.push(Properties::new());
+        let mut bound_controls = vec![None; runtime.control_count()];
+        let mut scene_keys = std::collections::BTreeSet::new();
+        for control in controls {
+            if !scene_keys.insert(&control.key) {
+                return Err(format!("Ambiguous binding control key: {}", control.key));
+            }
+            match runtime_keys.get(&control.key) {
+                Some(Some(index)) => bound_controls[*index] = Some(control),
+                Some(None) => {
+                    return Err(format!("Ambiguous runtime binding key: {}", control.key))
+                }
+                None => {} // Newly inserted controls do not own a live widget yet.
+            }
         }
+        // Commit one root scope only after every binding has validated. The
+        // staged values also preserve sequential/alias semantics within a batch.
+        let empty_state = Properties::new();
+        let mut state = std::borrow::Cow::Borrowed(self.states.first().unwrap_or(&empty_state));
         let mut changed = 0usize;
-        for (idx, ctrl) in controls.iter().enumerate() {
-            let Some(src_node) = find_annotated_node(&annotated, ctrl.node) else {
-                continue;
-            };
-            let Some(Value::Object(bindings)) = src_node.props.get("__bindings") else {
-                continue;
-            };
-            for (prop_name, path_val) in bindings {
-                let path = path_val.text()?;
-                let new_val = match prop_name.as_str() {
-                    "value" => {
-                        if runtime.control_editable(idx) {
-                            Some(Value::Text(runtime.text_value(idx)))
-                        } else {
-                            let r = runtime.range_value(idx);
-                            if r.is_finite() {
-                                Some(number(r as f64))
-                            } else {
-                                None
-                            }
-                        }
-                    }
-                    "checked" if activated_index == Some(idx) => {
-                        let cur = eval(
-                            &Value::Expr(path.clone()),
-                            &Properties::new(),
-                            &ctrl.state,
-                            &mut Vec::new(),
-                        )
-                        .and_then(|v| v.boolean())
-                        .unwrap_or(false);
-                        Some(Value::Bool(!cur))
-                    }
-                    "selected" if activated_index == Some(idx) => Some(Value::Bool(true)),
-                    _ => None,
-                };
-                let Some(val) = new_val else {
+        let mut key_indexes = BindingKeyIndexes::new();
+        for activated_index in std::iter::once(None).chain(activations.iter().copied().map(Some)) {
+            let start = activated_index.unwrap_or(0);
+            let end = activated_index.map_or(bound_controls.len(), |index| {
+                index.saturating_add(1).min(bound_controls.len())
+            });
+            for idx in start..end {
+                let Some(ctrl) = bound_controls[idx] else {
                     continue;
                 };
-                if let Some(state_path) = path.strip_prefix("state.") {
-                    if write_state_path(&mut self.states[0], state_path, val) {
-                        changed += 1;
+                let Some(src_node) = find_annotated_node(&annotated, ctrl.node) else {
+                    continue;
+                };
+                let Some(Value::Object(bindings)) = src_node.props.get("__bindings") else {
+                    continue;
+                };
+                for (prop_name, path_val) in bindings {
+                    let path = path_val.text()?;
+                    let applies = match prop_name.as_str() {
+                        "value" => activated_index.is_none(),
+                        "checked" | "selected" => activated_index == Some(idx),
+                        _ => false,
+                    };
+                    if !applies {
+                        continue;
                     }
-                } else if let Some((item_var, item_tail)) = path.split_once('.') {
-                    if let (Some(idx_val), Some(col_val)) = (
-                        ctrl.state.get(&format!("__index.{item_var}")),
-                        ctrl.state.get(&format!("__collection.{item_var}")),
-                    ) {
-                        if let (Ok(item_idx), Ok(col_path)) = (idx_val.number(), col_val.text()) {
-                            if let Some(col_state_path) = col_path.strip_prefix("state.") {
-                                if write_collection_item_path(
-                                    &mut self.states[0],
-                                    col_state_path,
-                                    item_idx as usize,
-                                    item_tail,
-                                    val,
-                                ) {
-                                    changed += 1;
+                    let collection_target = if path.starts_with("state.") {
+                        None
+                    } else if let Some((item, tail)) = path.split_once('.') {
+                        let Some((collection, index)) = resolve_binding_item_cached(ctrl, item, &state, &mut key_indexes)?
+                        else {
+                            continue;
+                        };
+                        Some((collection, index, tail.to_owned()))
+                    } else {
+                        None
+                    };
+                    if prop_name == "value" && !runtime.binding_widget_changed(idx) {
+                        let present = if let Some(path) = path.strip_prefix("state.") {
+                            lookup_binding_ref(&state, path).is_some() || lookup(&state, path).is_some()
+                        } else if let Some((collection, index, tail)) = &collection_target {
+                            match lookup_binding_ref(&state, collection) {
+                                Some(Value::List(items)) => match items.get(*index) {
+                                    Some(Value::Object(item)) => lookup_binding_ref(item, tail).is_some() || lookup(item, tail).is_some(),
+                                    _ => false,
+                                },
+                                _ => false,
+                            }
+                        } else {
+                            false
+                        };
+                        if present {
+                            continue;
+                        }
+                    }
+                    let new_val = match prop_name.as_str() {
+                        "value" if activated_index.is_none() => {
+                            if runtime.control_editable(idx) {
+                                Some(Value::Text(runtime.text_value(idx)))
+                            } else {
+                                let r = runtime.range_value(idx);
+                                if r.is_finite() {
+                                    Some(number(r as f64))
+                                } else {
+                                    None
                                 }
                             }
+                        }
+                        "checked" if activated_index == Some(idx) => {
+                            let current =
+                                if let Some((collection, index, tail)) = &collection_target {
+                                    match lookup_binding_ref(&state, collection) {
+                                        Some(Value::List(items)) => match items.get(*index) {
+                                            Some(Value::Object(item)) => lookup_binding_ref(item, tail).cloned(),
+                                            _ => None,
+                                        },
+                                        _ => None,
+                                    }
+                                } else {
+                                    eval(
+                                        &Value::Expr(path.clone()),
+                                        &Properties::new(),
+                                        &state,
+                                        &mut Vec::new(),
+                                    )
+                                    .ok()
+                                };
+                            let checked = current
+                                .and_then(|value| value.boolean().ok())
+                                .unwrap_or(false);
+                            Some(Value::Bool(!checked))
+                        }
+                        "selected" if activated_index == Some(idx) => Some(Value::Bool(true)),
+                        _ => None,
+                    };
+                    let Some(val) = new_val else {
+                        continue;
+                    };
+                    if let Some(state_path) = path.strip_prefix("state.") {
+                        if write_state_path(state.to_mut(), state_path, val) {
+                            changed += 1;
+                            key_indexes.clear();
+                        }
+                    } else if let Some((collection, index, tail)) = collection_target {
+                        if write_collection_item_path(state.to_mut(), &collection, index, &tail, val) {
+                            changed += 1;
+                            key_indexes.clear();
                         }
                     }
                 }
             }
         }
+        match state {
+            std::borrow::Cow::Owned(state) => {
+                if let Some(root) = self.states.first_mut() {
+                    *root = state;
+                } else {
+                    self.states.push(state);
+                }
+            }
+            std::borrow::Cow::Borrowed(_) => {
+                if self.states.is_empty() { self.states.push(Properties::new()); }
+            }
+        }
+        runtime.acknowledge_binding_widgets();
         Ok(changed)
     }
 
@@ -3516,6 +3832,308 @@ impl Document {
     }
 }
 
+// Borrow real model fields instead of cloning a whole collection to inspect a
+// member. Synthetic length properties are intentionally not collection targets.
+fn lookup_binding_ref<'a>(values: &'a Properties, path: &str) -> Option<&'a Value> {
+    if let Some(value) = values.get(path) { return Some(value); }
+    let (head, tail) = path.split_once('.')?;
+    lookup_binding_value_ref(values.get(head)?, tail)
+}
+fn lookup_binding_value_ref<'a>(value: &'a Value, path: &str) -> Option<&'a Value> {
+    match value {
+        Value::Object(object) => lookup_binding_ref(object, path),
+        Value::List(items) => {
+            let (index, tail) = path.split_once('.').map_or((path, None), |(index, tail)| (index, Some(tail)));
+            let value = items.get(index.parse::<usize>().ok()?)?;
+            match tail { Some(tail) => lookup_binding_value_ref(value, tail), None => Some(value) }
+        }
+        _ => None,
+    }
+}
+fn lookup_binding_mut<'a>(values: &'a mut Properties, path: &str) -> Option<&'a mut Value> {
+    if values.contains_key(path) { return values.get_mut(path); }
+    let (head, tail) = path.split_once('.')?;
+    lookup_binding_value_mut(values.get_mut(head)?, tail)
+}
+fn lookup_binding_value_mut<'a>(value: &'a mut Value, path: &str) -> Option<&'a mut Value> {
+    match value {
+        Value::Object(object) => lookup_binding_mut(object, path),
+        Value::List(items) => {
+            let (index, tail) = path.split_once('.').map_or((path, None), |(index, tail)| (index, Some(tail)));
+            let value = items.get_mut(index.parse::<usize>().ok()?)?;
+            match tail { Some(tail) => lookup_binding_value_mut(value, tail), None => Some(value) }
+        }
+        _ => None,
+    }
+}
+
+/// Resolve the retained item's stable key against the current root collection.
+/// Never route a stale positional index into a different object.
+type BindingKeyIndexes = BTreeMap<String, BTreeMap<String, BTreeMap<String, usize>>>;
+
+#[cfg(test)]
+fn resolve_binding_item(
+    control: &SceneControl,
+    item: &str,
+    state: &Properties,
+) -> Result<Option<(String, usize)>, String> {
+    resolve_binding_item_cached(control, item, state, &mut BindingKeyIndexes::new())
+}
+
+fn resolve_binding_item_cached(
+    control: &SceneControl,
+    item: &str,
+    state: &Properties,
+    indexes: &mut BindingKeyIndexes,
+) -> Result<Option<(String, usize)>, String> {
+    match (control.state.get("__binding_frames"), control.state.get("__binding_active")) {
+        (Some(Value::List(frames)), Some(Value::Object(active))) => {
+            if frames.len() > 64 { return Err("Binding frames exceed lexical depth limit".into()); }
+            let Some(index) = active.get(item) else { return Ok(None); };
+            let Value::Number(index) = index else { return Err("Invalid active binding frame".into()); };
+            if !index.is_finite() || *index < 0. || index.fract() != 0. {
+                return Err("Invalid active binding frame".into());
+            }
+            let Some(Value::Object(frame)) = frames.get(*index as usize) else { return Err("Invalid active binding frame".into()); };
+            if !matches!(frame.get("__item"), Some(Value::Text(name)) if name == item) {
+                return Err("Binding frame item mismatch".into());
+            }
+            let Some(Value::Object(parents)) = frame.get("__parents") else { return Err("Invalid binding frame parents".into()); };
+            if !parents.is_empty() || matches!(frame.get("__lexicals"), Some(Value::Object(locals)) if !locals.is_empty()) {
+                return resolve_binding_frame(frames, *index as usize, state, indexes, &mut BTreeMap::new(), 0);
+            }
+        }
+        (None, None) => {} // Legacy maps without lexical frames remain readable.
+        _ => return Err("Invalid lexical binding metadata".into()),
+    }
+    resolve_binding_item_inner(&control.state, item, state, indexes, &mut Properties::new(), 0, None)
+}
+
+// Track only direct model/member aliases. Computed collections do not acquire
+// a writable origin merely because their current values resemble a model list.
+fn binding_model_path(
+    expression: &str, parents: &BTreeMap<String, (String, usize)>,
+    aliases: &BTreeMap<String, Option<String>>, lexical_names: &Properties,
+    state: &Properties,
+) -> Option<String> {
+    let path = expression.strip_prefix("state.").unwrap_or(expression);
+    if path.is_empty() || !path.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')) { return None; }
+    let (head, tail) = path.split_once('.').map_or((path, ""), |(head, tail)| (head, tail));
+    if !expression.starts_with("state.") && ["props", "tokens", "i18n"].contains(&head) { return None; }
+    let append = |base: String| if tail.is_empty() { base } else { format!("{base}.{tail}") };
+    if path.contains('.') && state.contains_key(path) { return Some(path.to_owned()); }
+    if let Some((collection, index)) = parents.get(head) { return Some(append(format!("{collection}.{index}"))); }
+    if let Some(alias) = aliases.get(head) { return alias.as_ref().map(|alias| append(alias.clone())); }
+    if lexical_names.contains_key(head) { return None; }
+    state.contains_key(head).then(|| path.to_owned())
+}
+
+fn resolve_binding_frame(
+    frames: &[Value], index: usize, state: &Properties,
+    indexes: &mut BindingKeyIndexes,
+    resolved: &mut BTreeMap<usize, Option<(String, usize)>>, depth: usize,
+) -> Result<Option<(String, usize)>, String> {
+    if depth >= 64 { return Err("Collection binding lexical depth exceeded".into()); }
+    if let Some(result) = resolved.get(&index) { return Ok(result.clone()); }
+    let Some(Value::Object(frame)) = frames.get(index) else { return Err("Invalid collection binding frame".into()); };
+    let item = frame.get("__item").ok_or("Missing binding frame item")?.text()?;
+    let collection_name = format!("__collection.{item}");
+    let Some(collection) = frame.get(&collection_name) else { return Ok(None); };
+    let collection = collection.text()?;
+    let empty = Properties::new();
+    let parents = match frame.get("__parents") { Some(Value::Object(parents)) => parents, _ => &empty };
+    let lexical_names = match frame.get("__lexicals") { Some(Value::Object(locals)) => locals, _ => &empty };
+    // Replayed lexicals replace these names below. Do not deep-clone captured
+    // values that would only be discarded before key resolution.
+    let mut locals = match frame.get("__locals") {
+        Some(Value::Object(locals)) if lexical_names.is_empty() => locals.clone(),
+        Some(Value::Object(locals)) => locals.iter().filter(|(name, _)| !lexical_names.contains_key(*name))
+            .map(|(name, value)| (name.clone(), value.clone())).collect(),
+        _ => Properties::new(),
+    };
+    let mut parent_paths = BTreeMap::new();
+    for (name, value) in parents {
+        let parent_index = value.number()?;
+        if !parent_index.is_finite() || parent_index < 0. || parent_index.fract() != 0. || parent_index as usize >= index {
+            return Err("Invalid collection binding parent frame".into());
+        }
+        let Some((path, item_index)) = resolve_binding_frame(frames, parent_index as usize, state, indexes, resolved, depth + 1)? else { return Ok(None); };
+        let Some(Value::List(items)) = lookup_binding_ref(state, &path) else { return Err("Binding parent expects a list".into()); };
+        let Some(value) = items.get(item_index) else { return Ok(None); };
+        if !lexical_names.contains_key(name) { locals.insert(name.clone(), value.clone()); }
+        parent_paths.insert(name.clone(), (path, item_index));
+    }
+    let mut aliases = BTreeMap::new();
+    if let Some(Value::Object(lexicals)) = frame.get("__lexicals") {
+        let mut evaluated = Properties::new();
+        if let Some(Value::List(steps)) = frame.get("__let_steps") {
+            if steps.len() > 16_384 { return Err("Binding Let steps exceed 16384".into()); }
+            let mut environment = std::borrow::Cow::Borrowed(state);
+            let mut overlay_names: Vec<String> = Vec::new();
+            for step in steps {
+                let Value::Object(step) = step else { return Err("Invalid binding Let step".into()); };
+                let name = step.get("name").ok_or("Missing binding Let name")?.text()?;
+                let expression = step.get("expression").ok_or("Missing binding Let expression")?;
+                let scope = match step.get("scope") { Some(Value::Object(scope)) => scope, _ => &empty };
+                // The first root Let can evaluate against borrowed state. Own
+                // an environment only when a previous lexical/parent is overlaid.
+                if !overlay_names.is_empty() || !evaluated.is_empty() {
+                    let environment = environment.to_mut();
+                    for name in overlay_names.drain(..) {
+                        match state.get(&name) {
+                            Some(value) => { environment.insert(name, value.clone()); }
+                            None => { environment.remove(&name); }
+                        }
+                    }
+                    environment.extend(evaluated.clone());
+                    overlay_names.extend(evaluated.keys().cloned());
+                }
+                let mut step_parent_paths = BTreeMap::new();
+                if let Some(Value::Object(parents)) = step.get("parents") {
+                    for (name, value) in parents {
+                        let parent_index = value.number()?;
+                        if !parent_index.is_finite() || parent_index < 0. || parent_index.fract() != 0. || parent_index as usize >= index {
+                            return Err("Invalid Let parent frame".into());
+                        }
+                        let Some((path, item_index)) = resolve_binding_frame(frames, parent_index as usize, state, indexes, resolved, depth + 1)? else { return Ok(None); };
+                        let Some(Value::List(items)) = lookup_binding_ref(state, &path) else { return Err("Let parent expects a list".into()); };
+                        let Some(value) = items.get(item_index) else { return Ok(None); };
+                        environment.to_mut().insert(name.clone(), value.clone());
+                        overlay_names.push(name.clone());
+                        step_parent_paths.insert(name.clone(), (path, item_index));
+                    }
+                }
+                let origin = match expression {
+                    Value::Expr(path) => binding_model_path(path, &step_parent_paths, &aliases, &evaluated, state),
+                    _ => None,
+                };
+                let value = expression.evaluate(scope, &environment)?;
+                aliases.insert(name.clone(), origin);
+                evaluated.insert(name, value);
+            }
+        }
+        for (name, value) in lexicals {
+            locals.insert(name.clone(), evaluated.remove(name).unwrap_or_else(|| value.clone()));
+        }
+    }
+    let Some(path) = binding_model_path(&collection, &parent_paths, &aliases, lexical_names, state) else { return Ok(None); };
+    // Override only the resolved collection path; keep the retained lexical
+    // frame and captured props scope borrowed, including computed key values.
+    let resolved_collection = format!("state.{path}");
+    let result = resolve_binding_item_inner(frame, &item, state, indexes, &mut locals, depth + 1, Some(&resolved_collection))?;
+    resolved.insert(index, result.clone());
+    Ok(result)
+}
+
+fn resolve_binding_item_inner(
+    metadata: &Properties,
+    item: &str,
+    state: &Properties,
+    indexes: &mut BindingKeyIndexes,
+    live_locals: &mut Properties,
+    depth: usize,
+    collection_override: Option<&str>,
+) -> Result<Option<(String, usize)>, String> {
+    if depth >= 64 { return Err("Collection binding parent depth exceeded".into()); }
+    let collection = match collection_override {
+        Some(collection) => std::borrow::Cow::Borrowed(collection),
+        None => {
+            let Some(collection) = metadata.get(&format!("__collection.{item}")) else { return Ok(None); };
+            std::borrow::Cow::Owned(collection.text()?)
+        }
+    };
+    let nested_path;
+    let path = if let Some(path) = collection.strip_prefix("state.") {
+        path
+    } else {
+        let Some((parent, tail)) = collection.split_once('.') else { return Ok(None); };
+        let parent_metadata = match metadata.get(&format!("__binding_parent.{item}")) {
+            Some(Value::Object(parent)) => parent,
+            _ => metadata,
+        };
+        let Some((parent_path, parent_index)) = resolve_binding_item_inner(parent_metadata, parent, state, indexes, live_locals, depth + 1, None)? else { return Ok(None); };
+        let Some(Value::List(parents)) = lookup_binding_ref(state, &parent_path) else { return Ok(None); };
+        let Some(parent_value) = parents.get(parent_index) else { return Ok(None); };
+        live_locals.insert(parent.to_owned(), parent_value.clone());
+        nested_path = format!("{parent_path}.{parent_index}.{tail}");
+        &nested_path
+    };
+    let key = metadata
+        .get(&format!("__binding_key.{item}"))
+        .ok_or("Missing stable collection binding key")?
+        .text()?;
+    let key_expression = metadata
+        .get(&format!("__binding_key_expr.{item}"))
+        .ok_or("Missing collection binding key expression")?;
+    let empty_scope = Properties::new();
+    let key_scope = match metadata.get(&format!("__binding_key_scope.{item}")) {
+        Some(Value::Object(scope)) => scope,
+        _ => &empty_scope,
+    };
+    let Some(Value::List(items)) = lookup_binding_ref(state, path) else {
+        return Err("Binding collection expects a list".into());
+    };
+    if items.len() > 16_384 { return Err("Binding collection exceeds 16384 items".into()); }
+    // Plain item-member keys can be read directly. Preserve evaluator precedence
+    // for exact dotted fields, enums, reserved namespaces and computed values.
+    let direct_path = match key_expression {
+        Value::Expr(expression) if !["state", "props", "tokens", "i18n"].contains(&item) => {
+            let prefix = format!("{item}.");
+            expression.strip_prefix(&prefix).filter(|tail| {
+                !tail.is_empty()
+                    && tail.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+                    && !state.contains_key(expression)
+                    && !metadata.contains_key(expression)
+                    && !live_locals.contains_key(expression)
+                    && enum_value(expression, key_scope).is_none()
+            })
+        }
+        _ => None,
+    };
+    if let Some(member) = direct_path {
+        if let Some(keys) = indexes.get(path).and_then(|members| members.get(member)) {
+            return Ok(keys.get(&key).map(|index| (path.to_owned(), *index)));
+        }
+    }
+    let mut local = None;
+    let mut keys = BTreeMap::new();
+    let mut found = None;
+    for (index, value) in items.iter().enumerate() {
+        let direct = direct_path.and_then(|path| match value {
+            Value::Object(object) => lookup_binding_ref(object, path),
+            _ => None,
+        }).filter(|value| matches!(value, Value::Text(_) | Value::Number(_)));
+        let current_key = if let Some(value) = direct {
+            key_part(value)?
+        } else {
+            let local = local.get_or_insert_with(|| {
+                let mut local = state.clone();
+                for (name, value) in metadata {
+                    if name != item && !name.starts_with("__") && !local.contains_key(name) {
+                        local.insert(name.clone(), value.clone());
+                    }
+                }
+                for (name, value) in live_locals.iter() {
+                    local.insert(name.clone(), value.clone());
+                }
+                local
+            });
+            local.insert(item.into(), value.clone());
+            key_part(&key_expression.evaluate(key_scope, local)?)?
+        };
+        if current_key == key { found = Some((path.to_owned(), index)); }
+        if keys.insert(current_key, index).is_some() { return Err("Duplicate collection binding key".into()); }
+    }
+    // Only pure member reads are independent of the retained control's scope.
+    // The transaction discards these indexes after every successful model write.
+    if local.is_none() {
+        if let Some(member) = direct_path {
+            indexes.entry(path.to_owned()).or_default().insert(member.to_owned(), keys);
+        }
+    }
+    Ok(found)
+}
+
 fn write_collection_item_path(
     target: &mut Properties,
     col_path: &str,
@@ -3523,21 +4141,12 @@ fn write_collection_item_path(
     item_tail: &str,
     value: Value,
 ) -> bool {
-    if let Some((head, tail)) = col_path.split_once('.') {
-        match target.get_mut(head) {
-            Some(Value::Object(obj)) => {
-                write_collection_item_path(obj, tail, item_idx, item_tail, value)
-            }
+    match lookup_binding_mut(target, col_path) {
+        Some(Value::List(items)) => match items.get_mut(item_idx) {
+            Some(Value::Object(item_obj)) => write_state_path(item_obj, item_tail, value),
             _ => false,
-        }
-    } else {
-        match target.get_mut(col_path) {
-            Some(Value::List(items)) => match items.get_mut(item_idx) {
-                Some(Value::Object(item_obj)) => write_state_path(item_obj, item_tail, value),
-                _ => false,
-            },
-            _ => false,
-        }
+        },
+        _ => false,
     }
 }
 
@@ -3545,6 +4154,7 @@ fn write_state_path(target: &mut Properties, path: &str, value: Value) -> bool {
     if let Some((head, tail)) = path.split_once('.') {
         match target.get_mut(head) {
             Some(Value::Object(obj)) => write_state_path(obj, tail, value),
+            Some(Value::List(items)) => write_list_path(items, tail, value),
             _ => {
                 let mut nested = Properties::new();
                 write_state_path(&mut nested, tail, value);
@@ -3559,6 +4169,38 @@ fn write_state_path(target: &mut Properties, path: &str, value: Value) -> bool {
         target.insert(path.into(), value);
         true
     }
+}
+
+fn write_list_path(items: &mut [Value], path: &str, value: Value) -> bool {
+    let (index, tail) = path.split_once('.').map_or((path, None), |(index, tail)| (index, Some(tail)));
+    let Some(target) = index.parse::<usize>().ok().and_then(|index| items.get_mut(index)) else { return false; };
+    match tail {
+        None => {
+            if *target == value { return false; }
+            *target = value;
+            true
+        }
+        Some(tail) => match target {
+            Value::Object(object) => write_state_path(object, tail, value),
+            Value::List(items) => write_list_path(items, tail, value),
+            _ => false,
+        },
+    }
+}
+
+// Check each structural level before cloning its children. A clone-then-check
+// approach can overflow the stack on malformed externally supplied trees.
+fn annotated_scene_source(node: &Node, index: &mut usize, depth: usize) -> Result<Node, String> {
+    if depth > 64 { return Err("Scene composition depth exceeded".into()); }
+    if *index >= 16_384 { return Err("Scene exceeds 16384 nodes".into()); }
+    let mut props = node.props.clone();
+    props.entry("__node".into()).or_insert(number(*index as f64));
+    *index += 1;
+    let mut children = Vec::with_capacity(node.children.len().min(16_384 - *index));
+    for child in &node.children {
+        children.push(annotated_scene_source(child, index, depth + 1)?);
+    }
+    Ok(Node { kind: node.kind.clone(), props, children, action: node.action.clone() })
 }
 
 fn find_annotated_node<'a>(node: &'a Node, target_id: usize) -> Option<&'a Node> {
@@ -4953,6 +5595,16 @@ mod tests {
             )
             .unwrap();
         assert_eq!(resolved["text"], string("original"));
+        let (_, explicit) = doc.instantiate(&node("Control", vec![
+            ("flag", Value::Bool(false)), ("text", string("explicit")),
+        ], vec![]), true, &Properties::new(), &[]).unwrap();
+        assert_eq!(explicit["flag"], Value::Bool(false));
+        assert_eq!(explicit["text"], string("explicit"));
+        let (_, metadata) = doc.instantiate(&node("Control", vec![
+            ("flag", Value::Bool(false)), ("text", expr("props.__state.caption")),
+            ("__state", Value::Object(props(vec![("caption", string("snapshot"))]))),
+        ], vec![]), true, &Properties::new(), &[]).unwrap();
+        assert_eq!(metadata["text"], string("snapshot"));
     }
     #[test]
     fn keyed_collection_reorders_focus_and_evaluates_event_arguments() {
@@ -5003,6 +5655,842 @@ mod tests {
             .render_scene()
             .unwrap_err()
             .contains("Duplicate collection key"));
+    }
+    #[test]
+    fn collection_binding_activation_follows_key_after_reorder_or_removal() {
+        for (remove, cached) in [(false, false), (true, false), (false, true), (true, true)] {
+            let mut doc = document(root(vec![node("For", vec![
+                ("item", string("item")), ("collection", expr("state.items")), ("key", expr("item.id")),
+            ], vec![node("Control", vec![
+                ("text", expr("item.title")),
+                ("__bindings", Value::Object(props(vec![("checked", string("item.done"))]))),
+            ], vec![])])]));
+            let item = |id: &str| Value::Object(props(vec![
+                ("id", string(id)), ("title", string(id)), ("done", Value::Bool(false)),
+            ]));
+            doc.states = vec![props(vec![("items", Value::List(vec![item("a"), item("b")]))])];
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            let items = if remove { vec![item("b")] } else { vec![item("b"), item("a")] };
+            doc.states[0].insert("items".into(), Value::List(items));
+            let changed = if cached { doc.sync_runtime_bindings_from_scene(&runtime, Some(0), &controls).unwrap() }
+                else { doc.sync_runtime_bindings(&runtime, Some(0)).unwrap() };
+            assert_eq!(changed, if remove { 0 } else { 1 });
+            let repeated = doc.sync_runtime_binding_events(&runtime, &[0, 0], &controls).unwrap();
+            assert_eq!(repeated, if remove { 0 } else { 2 });
+            let Value::List(items) = &doc.states[0]["items"] else { panic!("items"); };
+            let Value::Object(b) = &items[0] else { panic!("b"); };
+            assert_eq!(b["done"], Value::Bool(false), "the old first index must not target b");
+            if !remove {
+                let Value::Object(a) = &items[1] else { panic!("a"); };
+                assert_eq!(a["done"], Value::Bool(true));
+            }
+        }
+    }
+    #[test]
+    fn collection_editor_values_follow_keys_and_do_not_overwrite_new_items() {
+        for (mode, cached) in (0..4).flat_map(|mode| [(mode, false), (mode, true)]) {
+            let mut doc = document(root(vec![node("For", vec![
+                ("item", string("item")), ("collection", expr("state.items")), ("key", expr("item.id")),
+            ], vec![node("Control", vec![
+                ("value", expr("item.title")),
+                ("__bindings", Value::Object(props(vec![("value", string("item.title"))]))),
+            ], vec![])])]));
+            let definition = doc.definitions.get_mut("Control").unwrap();
+            definition.defaults.insert("value".into(), string(""));
+            definition.nodes = vec![node("Rectangle", vec![], vec![node("TextInput", vec![("value", expr("props.value"))], vec![])])];
+            doc.states = vec![props(vec![("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")]))])];
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            runtime.set_binding_value(0, "edited-a", true).unwrap();
+            let items = match mode {
+                0 => vec![record("b", "Beta"), record("a", "Alpha")],
+                1 => vec![record("b", "Beta")],
+                2 => vec![record("c", "New"), record("b", "model-b"), record("a", "Alpha")],
+                _ => vec![record("b", "Beta"), record("b", "Duplicate")],
+            };
+            doc.states[0].insert("items".into(), Value::List(items));
+            let before = doc.states.clone();
+            let result = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                else { doc.sync_runtime_bindings(&runtime, None) };
+            if mode == 3 {
+                assert!(result.unwrap_err().contains("Duplicate collection"));
+                assert_eq!(doc.states, before);
+                continue;
+            }
+            result.unwrap();
+            let Value::List(items) = &doc.states[0]["items"] else { panic!("items"); };
+            for item in items {
+                let Value::Object(item) = item else { panic!("record"); };
+                let expected = match item["id"].text().unwrap().as_str() { "a" => "edited-a", "b" => if mode == 2 { "model-b" } else { "Beta" }, "c" => "New", _ => unreachable!() };
+                assert_eq!(item["title"], string(expected));
+            }
+        }
+    }
+    #[test]
+    fn ambiguous_scene_and_runtime_binding_keys_refuse_before_writing() {
+        let files = BTreeMap::from([("App.ui".to_string(),
+            "component App { state a: String = 'one'; state b: String = 'two'; Column { width:260; height:100; TextInput { key:'a'; width:200; height:32; value <-> state.a; } TextInput { key:'b'; width:200; height:32; value <-> state.b; } } }".to_string())]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        let (source, templates, controls) = doc.render_scene().unwrap();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "edited", true).unwrap();
+        let before = doc.states.clone();
+        let mut ambiguous = controls.clone();
+        ambiguous[1].key = ambiguous[0].key.clone();
+        assert!(doc.sync_runtime_bindings_from_scene(&runtime, None, &ambiguous).unwrap_err().contains("Ambiguous binding"));
+        assert_eq!(doc.states, before);
+        let source = source.replace("key:'b'", "key:'a'");
+        assert!(crate::Runtime::from_sources(&source, &templates).err().unwrap().contains("Duplicate control key"));
+        assert_eq!(doc.states, before);
+    }
+    #[test]
+    fn unchanged_widgets_do_not_overwrite_newer_model_values() {
+        let files = BTreeMap::from([("App.ui".to_string(),
+            "component App { state a: String = 'one'; state b: String = 'two'; Column { width:260; height:100; TextInput { width:200; height:32; value <-> state.a; } TextInput { width:200; height:32; value <-> state.b; } } }".to_string())]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        let (source, templates, _) = doc.render_scene().unwrap();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "edited", true).unwrap();
+        doc.states[0].insert("a".into(), string("concurrent-model-a"));
+        doc.states[0].insert("b".into(), string("new-model-b"));
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 1);
+        assert_eq!(doc.states[0]["a"], string("edited"));
+        assert_eq!(doc.states[0]["b"], string("new-model-b"));
+        // A committed widget must not replay its value in a later model update.
+        doc.states[0].insert("a".into(), string("new-model-a"));
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 0);
+        assert_eq!(doc.states[0]["a"], string("new-model-a"));
+    }
+    #[test]
+    fn unchanged_range_preserves_model_and_committed_input_does_not_replay() {
+        let mut doc = document(root(vec![node("Control", vec![
+            ("value", expr("state.level")),
+            ("__bindings", Value::Object(props(vec![("value", string("state.level"))]))),
+        ], vec![])]));
+        doc.states = vec![props(vec![("level", number(0.5))])];
+        let definition = doc.definitions.get_mut("Control").unwrap();
+        definition.defaults.insert("value".into(), number(0.5));
+        let range = node("RangeInput", vec![("value", expr("props.value"))], vec![
+            node("Minimum", vec![], vec![node("ContentShape", vec![("points", string("0 0 10 0 10 10")), ("color", string("#ffffff"))], vec![])]),
+            node("Maximum", vec![], vec![node("ContentShape", vec![("points", string("0 0 80 0 80 10")), ("color", string("#ffffff"))], vec![])]),
+        ]);
+        definition.nodes[0].children.remove(0);
+        definition.nodes[0].children.insert(0, range);
+        let (source, templates, _) = doc.render_scene().unwrap();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        doc.states[0].insert("level".into(), number(0.8));
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 0);
+        assert_eq!(doc.states[0]["level"], number(0.8));
+        assert!(runtime.focus_control(0));
+        assert!(runtime.range_key("ArrowRight"));
+        let edited = runtime.range_value(0) as f64;
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 1);
+        assert_eq!(doc.states[0]["level"], number(edited));
+        doc.states[0].insert("level".into(), number(0.7));
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 0);
+        assert_eq!(doc.states[0]["level"], number(0.7));
+    }
+    #[test]
+    fn collection_key_changes_revalidate_following_bindings() {
+        let files = BTreeMap::from([("App.ui".to_string(),
+            "component App { state items: List = []; Column { width:260; height:100; for item in state.items key item.id { TextInput { width:200; height:32; value <-> item.id; } } } }".to_string())]);
+        let state = props(vec![("items", Value::List(vec![
+            Value::Object(props(vec![("id", string("a"))])),
+            Value::Object(props(vec![("id", string("b"))])),
+        ]))]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+        let (source, templates, _) = doc.render_scene().unwrap();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        let before = doc.states.clone();
+        runtime.set_binding_value(0, "b", true).unwrap();
+        assert!(doc.sync_runtime_bindings(&runtime, None).unwrap_err().contains("Duplicate collection"));
+        assert_eq!(doc.states, before, "later lookup must not use the pre-write key index");
+        runtime.set_binding_value(0, "a-new", true).unwrap();
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 1);
+        let Value::List(items) = &doc.states[0]["items"] else { panic!("items"); };
+        let Value::Object(first) = &items[0] else { panic!("item"); };
+        assert_eq!(first["id"], string("a-new"));
+    }
+    #[test]
+    fn collection_indices_handle_distinct_outer_local_scopes() {
+        for groups in [2, 10] {
+        let files = BTreeMap::from([("App.ui".to_string(),
+            "component App { state items: List = []; state groups: List = []; Column { width:260; height:220; for outer in state.groups key outer.id { for item in state.items key outer.id + item.id { TextInput { width:200; height:32; value <-> item.title; } } } } }".to_string())]);
+        let state = props(vec![
+            ("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")])),
+            ("groups", Value::List((0..groups).map(|i| record(&format!("g{i}"), "Group")).collect())),
+        ]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+        let (source, templates, controls) = doc.render_scene().unwrap();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        assert_eq!(runtime.control_count(), groups * 2);
+        runtime.set_binding_value(groups * 2 - 1, "edited-b", true).unwrap();
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 1);
+        let Value::List(items) = &doc.states[0]["items"] else { panic!("items"); };
+        let Value::Object(second) = &items[1] else { panic!("item"); };
+        assert_eq!(second["title"], string("edited-b"));
+        if groups == 2 {
+            doc.states[0].insert("items".into(), Value::List(vec![record("x", "Oversized"); 16_385]));
+            assert!(resolve_binding_item(&controls[0], "item", &doc.states[0]).unwrap_err().contains("16384 items"));
+        }
+        }
+    }
+    #[test]
+    fn unchanged_virtual_collection_member_does_not_become_a_model_write() {
+        let files = BTreeMap::from([("App.ui".to_string(),
+            "component App { state items: List = []; Column { width:260; height:100; for item in state.items key item.id { TextInput { width:200; height:32; value:'5'; } } } }".to_string())]);
+        let state = props(vec![("items", Value::List(vec![record("a", "Alpha")]))]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+        doc.root.children[0].children[0].props.insert("__bindings".into(), Value::Object(props(vec![("value", string("item.title.length"))])));
+        let (source, templates, _) = doc.render_scene().unwrap();
+        let runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        let before = doc.states.clone();
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 0);
+        assert_eq!(doc.states, before);
+    }
+    #[test]
+    fn let_collection_aliases_preserve_origin_and_do_not_infer_it_from_values() {
+        for collection in ["chosen", "state.chosen"] {
+        for derived in [false, true] {
+        for cached in [false, true] {
+            let initial_items = Value::List(vec![record("a", "Alpha"), record("b", "Beta")]);
+            let mut doc = document(root(vec![
+                node("Let", vec![("name", string("rows")), ("value", if derived { initial_items.clone() } else { expr("state.items") })], vec![]),
+                node("Let", vec![("name", string("chosen")), ("value", expr("rows"))], vec![]),
+                node("For", vec![("item", string("item")), ("collection", expr(collection)), ("key", expr("item.id"))], vec![
+                    node("Control", vec![("value", expr("item.title")), ("__bindings", Value::Object(props(vec![("value", string("item.title"))])))], vec![]),
+                ]),
+            ]));
+            let definition = doc.definitions.get_mut("Control").unwrap();
+            definition.defaults.insert("value".into(), string(""));
+            definition.nodes = vec![node("Rectangle", vec![], vec![node("TextInput", vec![("value", expr("props.value"))], vec![])])];
+            doc.states = vec![props(vec![("items", initial_items), ("chosen", Value::List(vec![record("other", "Model shadow")]))])];
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            runtime.set_binding_value(0, "Edited", true).unwrap();
+            let Value::List(items) = doc.states[0].get_mut("items").unwrap() else { panic!("items") };
+            items.reverse();
+            let changed = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                else { doc.sync_runtime_bindings(&runtime, None) };
+            assert_eq!(changed.unwrap(), usize::from(!derived));
+            assert_eq!(lookup(&doc.states[0], "items.1.title"), Some(string(if derived { "Alpha" } else { "Edited" })));
+            assert_eq!(lookup(&doc.states[0], "items.0.title"), Some(string("Beta")));
+            assert_eq!(lookup(&doc.states[0], "chosen.0.title"), Some(string("Model shadow")));
+        }
+        }
+        }
+    }
+    #[test]
+    fn failed_let_replay_rolls_back_earlier_widget_writes_and_retries() {
+        for cached in [false, true] {
+            let editor = |value: Value, path: &str| node("Control", vec![
+                ("value", value), ("__bindings", Value::Object(props(vec![("value", string(path))]))),
+            ], vec![]);
+            let mut doc = document(root(vec![
+                editor(expr("state.query"), "state.query"),
+                node("Let", vec![("name", string("prefix")), ("value", expr("state.prefix"))], vec![]),
+                node("For", vec![("item", string("item")), ("collection", expr("state.items")),
+                    ("key", Value::Expression(Box::new(Expression::Binary("+".into(), expr("prefix"), expr("item.id")))))],
+                    vec![editor(expr("item.title"), "item.title")]),
+            ]));
+            let definition = doc.definitions.get_mut("Control").unwrap();
+            definition.defaults.insert("value".into(), string(""));
+            definition.nodes = vec![node("Rectangle", vec![], vec![node("TextInput", vec![("value", expr("props.value"))], vec![])])];
+            doc.states = vec![props(vec![("query", string("seed")), ("prefix", string("p/")),
+                ("items", Value::List(vec![record("a", "Alpha")]))])];
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            runtime.set_binding_value(0, "Edited query", true).unwrap();
+            runtime.set_binding_value(1, "Edited item", true).unwrap();
+            doc.states[0].remove("prefix");
+            let before = doc.states.clone();
+            for _ in 0..2 {
+                let result = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                    else { doc.sync_runtime_bindings(&runtime, None) };
+                assert!(result.unwrap_err().contains("Missing state.prefix"));
+                assert_eq!(doc.states, before, "earlier editor write must roll back");
+            }
+            doc.states[0].insert("prefix".into(), string("p/"));
+            let mut corrupt = controls.clone();
+            let Some(Value::Object(active)) = corrupt[1].state.get_mut("__binding_active") else { panic!("active frames") };
+            active.insert("item".into(), number(-1.));
+            let before = doc.states.clone();
+            assert!(doc.sync_runtime_bindings_from_scene(&runtime, None, &corrupt).unwrap_err().contains("Invalid active binding frame"));
+            assert_eq!(doc.states, before, "invalid frame must roll back the earlier editor write");
+            assert_eq!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap(), 2);
+            assert_eq!(doc.states[0]["query"], string("Edited query"));
+            assert_eq!(lookup(&doc.states[0], "items.0.title"), Some(string("Edited item")));
+            assert_eq!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap(), 0);
+            doc.states[0].insert("query".into(), string("Model query"));
+            assert_eq!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap(), 0);
+            assert_eq!(doc.states[0]["query"], string("Model query"));
+        }
+    }
+    #[test]
+    fn let_key_local_shadows_root_model_during_binding_recovery() {
+        for dynamic in [false, true] {
+        for cached in [false, true] {
+            let mut doc = document(root(vec![
+                node("Let", vec![("name", string("prefix")), ("value", if dynamic { expr("state.prefix") } else { string("lexical/") })], vec![]),
+                node("Let", vec![("name", string("suffix")), ("value", expr("prefix"))], vec![]),
+                node("For", vec![("item", string("item")), ("collection", expr("state.items")), ("key", Value::Expression(Box::new(Expression::Binary("+".into(), expr("suffix"), expr("item.id")))))], vec![
+                    node("Control", vec![("value", expr("item.title")), ("__bindings", Value::Object(props(vec![("value", string("item.title"))])))], vec![]),
+                ]),
+            ]));
+            let definition = doc.definitions.get_mut("Control").unwrap();
+            definition.defaults.insert("value".into(), string(""));
+            definition.nodes = vec![node("Rectangle", vec![], vec![node("TextInput", vec![("value", expr("props.value"))], vec![])])];
+            doc.states = vec![props(vec![("prefix", string("model/")), ("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")]))])];
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            runtime.set_binding_value(0, "Edited", true).unwrap();
+            doc.states[0].insert("prefix".into(), string("new-model/"));
+            let Value::List(items) = doc.states[0].get_mut("items").unwrap() else { panic!("items") };
+            items.reverse();
+            let changed = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                else { doc.sync_runtime_bindings(&runtime, None) };
+            assert_eq!(changed.unwrap(), usize::from(!dynamic));
+            assert_eq!(lookup(&doc.states[0], "items.1.title"), Some(string(if dynamic { "Alpha" } else { "Edited" })));
+            assert_eq!(doc.states[0]["prefix"], string("new-model/"));
+        }
+        }
+    }
+    #[test]
+    fn lexical_parent_frames_must_point_to_earlier_frames() {
+        let frames = vec![Value::Object(props(vec![
+            ("__item", string("item")),
+            ("__collection.item", string("state.items")),
+            ("__parents", Value::Object(props(vec![("item", number(0.))]))),
+        ]))];
+        assert!(resolve_binding_frame(&frames, 0, &Properties::new(), &mut BindingKeyIndexes::new(), &mut BTreeMap::new(), 0)
+            .unwrap_err().contains("parent frame"));
+    }
+    #[test]
+    fn later_loop_can_use_earlier_local_after_an_unrelated_shadow() {
+        for cached in [false, true] {
+            let files = BTreeMap::from([("App.ui".into(),
+                "component App { state groups: List = []; state other: List = []; Column { width:260; height:400; for item in state.groups key item.id { for branch in item.items key branch.id { for item in state.other key item.id { for leaf in branch.items key item.id + leaf.id { TextInput { width:200; height:32; value <-> leaf.title; } } } } } } }".into())]);
+            let group = |id: &str, children| Value::Object(props(vec![("id", string(id)), ("items", Value::List(children))]));
+            let state = props(vec![
+                ("groups", Value::List(vec![
+                    group("g1", vec![group("branch", vec![record("leaf", "First")])]),
+                    group("g2", vec![group("branch", vec![record("leaf", "Second")])]),
+                ])),
+                ("other", Value::List(vec![record("inner", "Unused")])),
+            ]);
+            let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            runtime.set_binding_value(0, "Edited First", true).unwrap();
+            let Value::List(groups) = doc.states[0].get_mut("groups").unwrap() else { panic!("groups") };
+            groups.reverse();
+            let changed = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                else { doc.sync_runtime_bindings(&runtime, None) };
+            assert_eq!(changed.unwrap(), 1);
+            assert_eq!(lookup(&doc.states[0], "groups.1.items.0.items.0.title"), Some(string("Edited First")));
+            assert_eq!(lookup(&doc.states[0], "groups.0.items.0.items.0.title"), Some(string("Second")));
+        }
+    }
+    #[test]
+    fn three_shadowed_for_levels_preserve_parent_identity() {
+        for middle in ["item", "branch"] {
+        for cached in [false, true] {
+            let source = "component App { state groups: List = []; Column { width:260; height:400; for item in state.groups key item.id { for middle in item.items key middle.id { for item in middle.items key item.id { TextInput { width:200; height:32; value <-> item.title; } } } } } }".replace("middle", middle);
+            let files = BTreeMap::from([("App.ui".into(), source)]);
+            let group = |id: &str, children| Value::Object(props(vec![("id", string(id)), ("items", Value::List(children))]));
+            let state = props(vec![("groups", Value::List(vec![
+                group("root", vec![group("mid", vec![record("leaf", "Before")])]),
+                group("other", vec![group("mid", vec![record("leaf", "Unchanged")])]),
+            ]))]);
+            let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            runtime.set_binding_value(0, "After", true).unwrap();
+            let Value::List(groups) = doc.states[0].get_mut("groups").unwrap() else { panic!("groups") };
+            groups.reverse();
+            let changed = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                else { doc.sync_runtime_bindings(&runtime, None) };
+            assert_eq!(changed.unwrap(), 1);
+            assert_eq!(lookup(&doc.states[0], "groups.1.items.0.items.0.title"), Some(string("After")));
+            assert_eq!(lookup(&doc.states[0], "groups.0.items.0.items.0.title"), Some(string("Unchanged")));
+        }
+        }
+    }
+    #[test]
+    fn cyclic_collection_parent_metadata_refuses_before_recursing_unbounded() {
+        let control = SceneControl {
+            node: 0, key: String::new(), event_args: BTreeMap::new(),
+            state: props(vec![("__collection.item", string("item.items"))]),
+        };
+        assert!(resolve_binding_item(&control, "item", &Properties::new()).unwrap_err().contains("parent depth"));
+    }
+    #[test]
+    fn source_scroll_viewport_extents_preserve_frame_and_clip_input() {
+        for (width, height, padding, expected) in [
+            ("320", "300", "0", [20., 50., 320., 300.]),
+            ("50%", "50%", "0", [90., 100., 180., 200.]),
+            ("50%", "50%", "20", [100., 110., 160., 180.]),
+        ] {
+            let source = format!("component App {{ state items: List = []; Column {{ width:360; height:400; padding:{padding}; Scroll {{ width:{width}; height:{height}; Column {{ width:100; height:512; for item in state.items key item.id {{ TextInput {{ width:100; height:32; value <-> item.title; }} }} }} }} }} }}");
+            let files = BTreeMap::from([("App.ui".into(), source)]);
+            let state = props(vec![("items", Value::List((0..16).map(|i| record(&format!("id{i}"), "Row")).collect()))]);
+            let mut runtime = crate::Runtime::from_ui_files(&files, "App.ui", &state).unwrap();
+            assert!(runtime.scrollable());
+            assert_eq!(runtime.viewport(), expected.map(|v| v as f32).to_vec());
+            assert_eq!(runtime.render_width(), 360.);
+            assert_eq!(runtime.render_height(), 400.);
+            runtime.scroll(0., 10_000.);
+            assert_eq!(runtime.scroll_offset()[1], 512. - expected[3] as f32);
+            runtime.pointer(expected[0] as f32 + expected[2] as f32 / 2., expected[1] as f32 - 1., 0);
+            assert!((0..16).all(|i| !runtime.control_hovered(i)));
+            runtime.pointer(expected[0] as f32 + expected[2] as f32 / 2., expected[1] as f32 + 10., 0);
+            assert!((0..16).any(|i| runtime.control_hovered(i)));
+        }
+        let files = BTreeMap::from([("App.ui".into(),
+            "component App { Column { width:360; height:400; Scroll { width:500; TextInput { width:100; height:32; } } } }".into())]);
+        let doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        assert!(doc.render_scene().unwrap_err().contains("viewport must fit"));
+    }
+    #[test]
+    fn empty_scroll_layout_retains_logical_content_height() {
+        for (content, expected) in [(512, 212.), (900, 600.), (200, 0.)] {
+            let source = format!("component App {{ Column {{ width:360; height:400; Scroll {{ width:320; height:300; Column {{ width:100; height:{content}; }} }} }} }}");
+            let files = BTreeMap::from([("App.ui".into(), source)]);
+            let mut runtime = crate::Runtime::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+            assert_eq!(runtime.control_count(), 0);
+            runtime.scroll(0., 10_000.);
+            assert_eq!(runtime.scroll_offset()[1], expected);
+            assert_eq!(runtime.viewport(), vec![20., 50., 320., 300.]);
+        }
+    }
+
+    #[test]
+    fn structural_binding_maps_match_rendered_maps_across_layouts_and_branches() {
+        let body = "let prefix = 'p/'; if state.enabled { for item in state.items key prefix + item.id { TextInput { width:100; height:32; value <-> item.title; } } } else { TextInput { width:100; height:32; value <-> state.query; } } Text { text:state.marker; }";
+        let mut layouts: Vec<String> = ["Frame", "Column", "Row", "Grid", "Stack"].iter()
+            .map(|kind| format!("{kind} {{ width:360; height:400; {body} }}")).collect();
+        layouts.push(format!("Column {{ width:360; height:400; Scroll {{ width:360; height:300; Column {{ width:320; height:600; {body} }} }} }}"));
+        for layout in layouts {
+            let source = format!("component App {{ state enabled: Bool = true; state query: String = 'seed'; state marker: String = 'snapshot'; state items: List = []; {layout} }}");
+            let files = BTreeMap::from([("App.ui".into(), source)]);
+            let state = props(vec![("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")]))]);
+            let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+            fn annotate_events(node: &mut Node) {
+                if node.kind == "TextInput" {
+                    node.props.insert("__event_args".into(), Value::Object(props(vec![
+                        ("snapshot", Value::List(vec![expr("state.marker")]))
+                    ])));
+                }
+                for child in &mut node.children { annotate_events(child); }
+            }
+            annotate_events(&mut doc.root);
+            for enabled in [true, false, true] {
+                doc.states[0].insert("enabled".into(), Value::Bool(enabled));
+                let Value::List(items) = doc.states[0].get_mut("items").unwrap() else { panic!("items") };
+                items.reverse();
+                let (source, templates, rendered) = doc.render_scene().unwrap();
+                crate::Runtime::from_sources(&source, &templates).unwrap();
+                let structural = doc.binding_scene_controls().unwrap();
+                assert_eq!(structural.len(), rendered.len());
+                for (actual, expected) in structural.iter().zip(&rendered) {
+                    assert_eq!(actual.node, expected.node);
+                    assert_eq!(actual.key, expected.key);
+                    assert_eq!(actual.state, expected.state);
+                    assert_eq!(actual.event_args, expected.event_args);
+                }
+                assert_eq!(structural[0].event_args["snapshot"], vec![string("snapshot")]);
+            }
+        }
+    }
+    #[test]
+    fn source_match_let_aliases_and_guard_switch_preserve_binding_identity() {
+        let files = BTreeMap::from([("App.ui".into(),
+            "component App { state mode: String = 'a'; state enabled: Bool = true; state prefix: String = 'root'; state other: String = 'Other'; state items: List = []; Column { width:260; height:300; match state.mode { 'a' if state.enabled => { let prefix = 'branch/'; let rows = state.items; for item in rows key prefix + item.id { TextInput { width:200; height:32; value <-> item.title; } } } _ => { let prefix = 'fallback'; let suffix = prefix; TextInput { width:200; height:32; value <-> state.other; } } } Text { text:state.prefix; } } }".into())]);
+        let state = props(vec![("items", Value::List(vec![record("a", "Alpha")]))]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+        let (source, templates, first) = doc.render_scene().unwrap();
+        assert_eq!(first[0].state["prefix"], string("branch/"));
+        assert_eq!(first[1].state["prefix"], string("root"));
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "Old branch input", true).unwrap();
+        doc.states[0].insert("enabled".into(), Value::Bool(false));
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 0);
+        assert_eq!(lookup(&doc.states[0], "items.0.title"), Some(string("Alpha")));
+        assert_eq!(doc.states[0]["other"], string("Other"));
+        let (source, templates, fallback) = doc.render_scene().unwrap();
+        assert_ne!(first[0].key, fallback[0].key);
+        assert_eq!(fallback[0].state["suffix"], string("fallback"));
+        assert!(!fallback[1].state.contains_key("suffix"));
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "Edited fallback", true).unwrap();
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 1);
+        assert_eq!(doc.states[0]["other"], string("Edited fallback"));
+        doc.states[0].insert("enabled".into(), Value::Bool(true));
+        assert_eq!(doc.sync_runtime_bindings(&runtime, None).unwrap(), 0);
+        let (_, _, again) = doc.render_scene().unwrap();
+        assert_eq!(again[0].key, first[0].key);
+        assert_eq!(doc.states[0]["prefix"], string("root"));
+    }
+    #[test]
+    fn source_if_let_sequence_is_visible_only_in_selected_branch() {
+        let files = BTreeMap::from([("App.ui".into(),
+            "component App { state prefix: String = 'root'; state enabled: Bool = true; Column { width:260; height:300; if state.enabled { let prefix = 'yes'; let suffix = prefix; Text { text:suffix; } } else { let prefix = 'no'; let suffix = prefix; Text { text:suffix; } } Text { text:state.prefix; } } }".into())]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        for (enabled, expected) in [(true, "yes"), (false, "no"), (true, "yes")] {
+            doc.states[0].insert("enabled".into(), Value::Bool(enabled));
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            crate::Runtime::from_sources(&source, &templates).unwrap();
+            assert_eq!(controls.len(), 2);
+            assert_eq!(controls[0].state["suffix"], string(expected));
+            assert_eq!(controls[1].state["prefix"], string("root"));
+            assert!(!controls[1].state.contains_key("suffix"));
+            assert_eq!(doc.states[0]["prefix"], string("root"));
+        }
+    }
+    #[test]
+    fn source_for_let_siblings_are_visible_and_do_not_leak_between_iterations() {
+        let files = BTreeMap::from([("App.ui".into(),
+            "component App { state prefix: String = 'root/'; state items: List = []; Column { width:260; height:300; for item in state.items key state.prefix + item.id { let prefix = item.id; TextInput { width:200; height:32; value <-> item.title; } } Text { text:state.prefix; } } }".into())]);
+        let state = props(vec![("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")]))]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+        let (_, _, first) = doc.render_scene().unwrap();
+        assert_eq!(first[0].state["prefix"], string("a"));
+        assert_eq!(first[1].state["prefix"], string("b"));
+        assert_eq!(first[2].state["prefix"], string("root/"));
+        let Value::List(items) = doc.states[0].get_mut("items").unwrap() else { panic!("items") };
+        items.reverse();
+        let (_, _, second) = doc.render_scene().unwrap();
+        assert_eq!(first[0].key, second[1].key);
+        assert_eq!(first[1].key, second[0].key);
+        assert_eq!(doc.states[0]["prefix"], string("root/"));
+    }
+    #[test]
+    fn nested_for_bindings_follow_parent_and_child_keys() {
+        for alias in [false, true] {
+        for shadow in [false, true] {
+        for cached in [false, true] {
+            for mode in [0, 1, 2] {
+                let mut files: BTreeMap<String, String> = BTreeMap::from([("App.ui".into(),
+                    "component App { state groups: List = []; Column { width:260; height:400; for outer in state.groups key outer.id { for item in outer.items key item.id { TextInput { width:200; height:32; value <-> item.title; } } } } }".into())]);
+                if shadow {
+                    let source = files.get_mut("App.ui").unwrap();
+                    *source = source.replace("outer", "item");
+                }
+                if alias {
+                    let source = files.get_mut("App.ui").unwrap();
+                    let parent = if shadow { "item" } else { "outer" };
+                    *source = source.replace(&format!("for item in {parent}.items"), &format!("let rows = {parent}.items; for item in rows"));
+                }
+                let group = |id: &str, children| Value::Object(props(vec![("id", string(id)), ("items", Value::List(children))]));
+                let initial = props(vec![("groups", Value::List(vec![
+                    group("g1", vec![record("a", "Alpha"), record("b", "Beta")]),
+                    group("g2", vec![record("a", "Other Alpha")]),
+                ]))]);
+                let mut doc = Document::from_ui_files(&files, "App.ui", &initial).unwrap();
+                let (source, templates, controls) = doc.render_scene().unwrap();
+                let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+                runtime.set_binding_value(0, "edited-g1-a", true).unwrap();
+                let groups = match mode {
+                    0 => vec![group("g2", vec![record("a", "Other Alpha")]), group("g1", vec![record("b", "Beta"), record("a", "Alpha")])],
+                    1 => vec![group("g2", vec![record("a", "Other Alpha")])],
+                    _ => vec![group("g1", vec![record("a", "Alpha")]), group("g1", vec![record("a", "Duplicate")])],
+                };
+                doc.states[0].insert("groups".into(), Value::List(groups));
+                let before = doc.states.clone();
+                let result = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                    else { doc.sync_runtime_bindings(&runtime, None) };
+                if mode == 2 {
+                    assert!(result.unwrap_err().contains("Duplicate collection"));
+                    assert_eq!(doc.states, before);
+                } else {
+                    assert_eq!(result.unwrap(), usize::from(mode == 0));
+                    assert_eq!(lookup(&doc.states[0], "groups.0.items.0.title"), Some(string("Other Alpha")));
+                    if mode == 0 {
+                        assert_eq!(lookup(&doc.states[0], "groups.1.items.1.title"), Some(string("edited-g1-a")));
+                        assert_eq!(lookup(&doc.states[0], "groups.1.items.0.title"), Some(string("Beta")));
+                    }
+                }
+            }
+        }
+        }
+        }
+    }
+    #[test]
+    fn nested_list_paths_read_and_write_without_replacing_lists() {
+        let mut state = props(vec![("groups", Value::List(vec![Value::Object(props(vec![
+            ("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")]))
+        ]))]))]);
+        assert_eq!(lookup(&state, "groups.0.items.1.title"), Some(string("Beta")));
+        assert_eq!(lookup_binding_ref(&state, "groups.0.items.1.title"), Some(&string("Beta")));
+        assert_eq!(lookup(&state, "groups.0.items.length"), Some(number(2.)));
+        assert!(lookup_binding_ref(&state, "groups.0.items.length").is_none());
+        assert!(write_collection_item_path(&mut state, "groups.0.items", 1, "title", string("Edited")));
+        assert_eq!(lookup(&state, "groups.0.items.1.title"), Some(string("Edited")));
+        assert!(write_state_path(&mut state, "groups.0.items.0.title", string("First")));
+        let before = state.clone();
+        for path in ["groups.9.items.0.title", "groups.bad.items", "groups.0.items.length"] {
+            assert!(!write_state_path(&mut state, path, string("invalid")));
+            assert_eq!(state, before);
+        }
+    }
+    #[test]
+    fn bindings_route_root_backed_collections_through_list_indices() {
+        let mut doc = document(root(vec![node("For", vec![
+            ("item", string("item")), ("collection", expr("state.groups.0.items")),
+            ("key", expr("item.id")),
+        ], vec![node("Control", vec![
+            ("value", expr("item.title")),
+            ("__bindings", Value::Object(props(vec![("value", string("item.title"))]))),
+        ], vec![])])]));
+        let definition = doc.definitions.get_mut("Control").unwrap();
+        definition.defaults.insert("value".into(), string(""));
+        definition.nodes = vec![node("Rectangle", vec![], vec![node("TextInput", vec![("value", expr("props.value"))], vec![])])];
+        doc.states = vec![props(vec![("groups", Value::List(vec![Value::Object(props(vec![
+            ("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")]))
+        ]))]))])];
+        let (source, templates, controls) = doc.render_scene().unwrap();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "edited-a", true).unwrap();
+        let Some(Value::List(items)) = lookup_binding_mut(&mut doc.states[0], "groups.0.items") else { panic!("items") };
+        items.reverse();
+        assert_eq!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap(), 1);
+        assert_eq!(lookup(&doc.states[0], "groups.0.items.1.title"), Some(string("edited-a")));
+        assert_eq!(lookup(&doc.states[0], "groups.0.items.0.title"), Some(string("Beta")));
+    }
+    #[test]
+    fn collection_key_encoding_preserves_types_and_utf8_lengths() {
+        for (value, expected) in [
+            (string(""), "s0:"), (string("я🙂"), "s6:я🙂"),
+            (string("12"), "s2:12"), (number(12.), "n2:12"),
+            (number(-1.5), "n4:-1.5"),
+        ] {
+            assert_eq!(key_part(&value).unwrap(), expected);
+        }
+        for value in [number(f64::NAN), number(f64::INFINITY), Value::Bool(true), Value::Null] {
+            assert!(key_part(&value).is_err());
+        }
+    }
+    #[test]
+    fn borrowed_collection_keys_preserve_computed_and_exact_field_semantics() {
+        let item = |id: Value, raw: &str| Value::Object(props(vec![("id", id), ("raw", string(raw))]));
+        let mut state = props(vec![("items", Value::List(vec![
+            item(string("a"), "unused"), item(expr("item.raw"), "b"),
+        ]))]);
+        let control = SceneControl {
+            node: 0, key: String::new(), event_args: BTreeMap::new(),
+            state: props(vec![
+                ("__collection.item", string("state.items")),
+                ("__binding_key.item", string(&key_part(&string("b")).unwrap())),
+                ("__binding_key_expr.item", expr("item.id")),
+            ]),
+        };
+        assert_eq!(resolve_binding_item(&control, "item", &state).unwrap(), Some(("items".into(), 1)));
+        // Exact dotted root fields take precedence over item members, causing
+        // duplicate keys here; the borrowed path must not bypass this refusal.
+        state.insert("item.id".into(), string("override"));
+        assert!(resolve_binding_item(&control, "item", &state).unwrap_err().contains("Duplicate"));
+        state.remove("item.id");
+        let Value::List(items) = state.get_mut("items").unwrap() else { panic!("items") };
+        items.reverse();
+        assert_eq!(resolve_binding_item(&control, "item", &state).unwrap(), Some(("items".into(), 0)));
+    }
+    #[test]
+    fn reused_for_scope_preserves_nested_shadowing_and_owned_snapshots() {
+        let control = || node("Control", vec![("text", expr("item.title"))], vec![]);
+        let loop_node = |collection: &str, children| node("For", vec![
+            ("item", string("item")), ("collection", expr(collection)),
+            ("key", expr("item.id")),
+        ], children);
+        let mut doc = document(root(vec![loop_node("state.items", vec![
+            loop_node("state.inner", vec![control()]), control(),
+        ])]));
+        doc.states = vec![props(vec![
+            ("items", Value::List(vec![record("a", "Alpha"), record("b", "Beta")])),
+            ("inner", Value::List(vec![record("x", "Ex"), record("y", "Why")])),
+        ])];
+        let (_, _, snapshots) = doc.render_scene().unwrap();
+        let titles: Vec<_> = snapshots.iter().map(|c| {
+            let Value::Object(item) = &c.state["item"] else { panic!("item snapshot") };
+            item["title"].text().unwrap()
+        }).collect();
+        assert_eq!(titles, ["Ex", "Why", "Alpha", "Ex", "Why", "Beta"]);
+        for (i, key) in ["x", "y", "a", "x", "y", "b"].iter().enumerate() {
+            assert_eq!(snapshots[i].state["__binding_key.item"], string(&key_part(&string(key)).unwrap()));
+        }
+        doc.states[0].insert("items".into(), Value::List(vec![record("c", "Changed")]));
+        let (_, _, next) = doc.render_scene().unwrap();
+        assert_eq!(next.len(), 3);
+        assert_eq!(snapshots[5].state["__binding_key.item"], string(&key_part(&string("b")).unwrap()));
+        assert!(!doc.states[0].contains_key("item"));
+    }
+    #[test]
+    fn later_let_metadata_is_retained_when_not_represented_in_collection_frame() {
+        let files = BTreeMap::from([("App.ui".into(), "component App { state items: List = []; state suffix: String = 'tail'; Column { let visible = state.items; for item in visible key item.id { let extra = state.suffix; TextInput { width:100; height:30; value <-> item.title; } } } }".into())]);
+        let state = props(vec![("items", Value::List(vec![Value::Object(props(vec![("id", string("a")), ("title", string("Alpha"))]))]))]);
+        let doc = Document::from_ui_files(&files, "App.ui", &state).unwrap();
+        let (_, _, controls) = doc.render_scene().unwrap();
+        assert_eq!(controls.len(), 1);
+        assert_eq!(controls[0].state["extra"], string("tail"));
+        let Value::Object(lexicals) = &controls[0].state["__binding_lexicals"] else { panic!("lexicals") };
+        assert_eq!(lexicals["extra"], string("tail"));
+        assert!(controls[0].state.contains_key("__binding_let_steps"));
+    }
+    #[test]
+    fn compact_lexical_frames_preserve_model_values_and_legacy_map_recovery() {
+        let files = BTreeMap::from([("App.ui".into(), "component App { state items: List = []; Column { let visible = state.items; for item in visible key item.id { TextInput { width:100; height:30; value <-> item.title; } } } }".into())]);
+        let item = |id: &str, title: &str| Value::Object(props(vec![("id", string(id)), ("title", string(title))]));
+        let mut doc = Document::from_ui_files(&files, "App.ui", &props(vec![("items", Value::List(vec![item("a", "Alpha"), item("b", "Beta")]))])).unwrap();
+        let mut legacy_doc = doc.clone();
+        let (source, templates, controls) = doc.render_scene().unwrap();
+        let mut legacy = controls.clone();
+        for control in &mut legacy {
+            let Value::List(frames) = control.state.get_mut("__binding_frames").unwrap() else { panic!("frames") };
+            let Value::Object(frame) = &mut frames[0] else { panic!("frame") };
+            let Value::Object(lexicals) = frame["__lexicals"].clone() else { panic!("lexicals") };
+            let Value::Object(locals) = frame.get_mut("__locals").unwrap() else { panic!("locals") };
+            assert!(!locals.contains_key("visible"));
+            locals.extend(lexicals);
+            let replay_lexicals = frame["__lexicals"].clone();
+            let replay_steps = frame["__let_steps"].clone();
+            control.state.insert("__binding_lexicals".into(), replay_lexicals);
+            control.state.insert("__binding_let_steps".into(), replay_steps);
+        }
+        assert!(!controls[0].state.contains_key("__binding_lexicals"));
+        assert!(!controls[0].state.contains_key("__binding_let_steps"));
+        assert!(matches!(&controls[0].state["visible"], Value::List(items) if items.len() == 2));
+        assert!(matches!(&controls[0].state["items"], Value::List(items) if items.len() == 2));
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "edited", true).unwrap();
+        let mut legacy_runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        legacy_runtime.set_binding_value(0, "edited", true).unwrap();
+        assert_eq!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap(), 1);
+        assert_eq!(legacy_doc.sync_runtime_bindings_from_scene(&legacy_runtime, None, &legacy).unwrap(), 1);
+        assert_eq!(doc.states, legacy_doc.states);
+    }
+    #[test]
+    fn computed_item_member_keys_keep_captured_props_scope_during_recovery() {
+        let files = BTreeMap::from([("App.ui".into(), "component App { prop prefix: String = 'stable'; state items: List = []; Column { let visible = state.items; let chosen = visible; for item in chosen key item.id { TextInput { width:100; height:30; value <-> item.title; } } } }".into())]);
+        let item = |id: Value, title: &str| Value::Object(props(vec![("id", id), ("title", string(title))]));
+        let mut doc = Document::from_ui_files(&files, "App.ui", &props(vec![("items", Value::List(vec![item(expr("props.prefix"), "Alpha"), item(string("other"), "Beta")]))])).unwrap();
+        let (source, templates, controls) = doc.render_scene().unwrap();
+        let frames = controls[0].state["__binding_frames"].clone();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "edited", true).unwrap();
+        let Value::List(items) = doc.states[0].get_mut("items").unwrap() else { panic!("items") };
+        items.swap(0, 1);
+        assert_eq!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap(), 1);
+        let Value::List(items) = &doc.states[0]["items"] else { panic!("items") };
+        let Value::Object(first) = &items[0] else { panic!("first") };
+        let Value::Object(second) = &items[1] else { panic!("second") };
+        assert_eq!(first["title"], string("Beta"));
+        assert_eq!(second["title"], string("edited"));
+        assert_eq!(controls[0].state["__binding_frames"], frames);
+    }
+    #[test]
+    fn flat_frame_owned_control_snapshots_survive_subsequent_model_replacement() {
+        let files = BTreeMap::from([("App.ui".into(), "component App { state items: List = []; Frame { width:260; height:300; for item in state.items key item.id { TextInput { width:200; height:32; value <-> item.title; } } } }".into())]);
+        let item = |id: &str, title: &str| Value::Object(props(vec![("id", string(id)), ("title", string(title))]));
+        let mut doc = Document::from_ui_files(&files, "App.ui", &props(vec![("items", Value::List(vec![item("a", "Alpha"), item("b", "Beta")]))])).unwrap();
+        let first = doc.render_scene_artifact().unwrap();
+        assert_eq!(first.controls.len(), 2);
+        doc.states[0].insert("items".into(), Value::List(vec![item("c", "Changed")]));
+        let second = doc.render_scene_artifact().unwrap();
+        assert_eq!(second.controls.len(), 1);
+        for (control, title) in first.controls.iter().zip(["Alpha", "Beta"]) {
+            let Value::Object(local) = &control.state["item"] else { panic!("item snapshot") };
+            assert_eq!(local["title"], string(title));
+            let Value::List(items) = &control.state["items"] else { panic!("root snapshot") };
+            assert_eq!(items.len(), 2);
+        }
+        let runtime = crate::Runtime::from_scene_artifact(&first).unwrap();
+        assert_eq!(runtime.control_count(), 2);
+        assert_eq!(runtime.text_value(0), "Alpha");
+        let runtime = crate::Runtime::from_scene_artifact(&second).unwrap();
+        assert_eq!(runtime.control_count(), 1);
+        assert_eq!(runtime.text_value(0), "Changed");
+    }
+    #[test]
+    fn scene_snapshot_transfer_matches_borrowed_instantiation_and_restores_on_error() {
+        let mut doc = document(root(vec![]));
+        let state = props(vec![("caption", string("snapshot")), ("items", Value::List(vec![number(1.), number(2.)]))]);
+        let mut instance = node("Control", vec![
+            ("text", expr("props.__state.caption")), ("__state", Value::Object(state.clone())),
+        ], vec![]);
+        let original = instance.clone();
+        let expected = doc.instantiate(&instance, true, &state, &[]).unwrap();
+        let actual = doc.instantiate_scene(&mut instance).unwrap();
+        assert_eq!(actual, expected);
+        assert_eq!(instance, original);
+        doc.definitions.get_mut("Control").unwrap().nodes = vec![node("Text", vec![("text", string("invalid root"))], vec![])];
+        assert!(doc.instantiate_scene(&mut instance).unwrap_err().contains("Rectangle root"));
+        assert_eq!(instance, original, "failed evaluation must return the owned state snapshot");
+        doc.definitions.get_mut("Control").unwrap().nodes = vec![node("Rectangle", vec![], vec![])];
+        doc.definitions.get_mut("Control").unwrap().defaults.insert("__state".into(), Value::Object(state));
+        let mut missing_snapshot = node("Control", vec![("text", expr("state.caption"))], vec![]);
+        assert!(doc.instantiate(&missing_snapshot, true, &Properties::new(), &[]).is_err());
+        assert!(doc.instantiate_scene(&mut missing_snapshot).is_err());
+        assert!(!missing_snapshot.props.contains_key("__state"), "definition defaults must not become the caller state");
+    }
+    #[test]
+    fn borrowed_definition_content_is_instantiated_without_mutating_shared_templates() {
+        let mut doc = document(root(vec![]));
+        doc.definitions.get_mut("Control").unwrap().nodes = vec![node("Rectangle", vec![], vec![
+            node("ContentPresenter", vec![("key", string("content"))], vec![]),
+        ])];
+        let original = doc.definitions["Control"].nodes.clone();
+        let first = doc.instantiate(&node("Control", vec![], vec![
+            node("Text", vec![("text", string("first"))], vec![]),
+        ]), true, &Properties::new(), &[]).unwrap().0;
+        let second = doc.instantiate(&node("Control", vec![], vec![
+            node("Text", vec![("text", string("second"))], vec![]),
+        ]), true, &Properties::new(), &[]).unwrap().0;
+        assert_eq!(first.children[0].children[0].props["text"], string("first"));
+        assert_eq!(second.children[0].children[0].props["text"], string("second"));
+        assert_eq!(doc.definitions["Control"].nodes, original);
+        let empty = doc.instantiate(&node("Control", vec![], vec![]), true, &Properties::new(), &[]).unwrap().0;
+        assert!(empty.children[0].children.is_empty());
+        assert_eq!(doc.definitions["Control"].nodes, original);
+    }
+    #[test]
+    fn visual_sequence_borrowing_preserves_lexical_shadowing_and_owned_results() {
+        let doc = document(root(vec![]));
+        let label = || node("Text", vec![("text", expr("state.local"))], vec![]);
+        let binding = |value: &str| node("Let", vec![("name", string("local")), ("value", string(value))], vec![]);
+        let nodes = vec![label(), binding("later"), label(),
+            node("Frame", vec![], vec![binding("inner"), label()]), label()];
+        let mut state = props(vec![("local", string("parent"))]);
+        let expanded = doc.expand_sequence(&nodes, &Properties::new(), &state, &[], 0).unwrap();
+        assert_eq!(expanded[0].props["text"], string("parent"));
+        assert_eq!(expanded[1].props["text"], string("later"));
+        assert_eq!(expanded[2].children[0].props["text"], string("inner"));
+        assert_eq!(expanded[3].props["text"], string("later"));
+        assert_eq!(state["local"], string("parent"));
+        state.insert("local".into(), string("changed"));
+        assert_eq!(expanded[0].props["text"], string("parent"));
+    }
+    #[test]
+    fn scene_scope_writes_are_local_and_returned_snapshots_remain_owned() {
+        let control = || node("Control", vec![("text", expr("state.local"))], vec![]);
+        let binding = |value: &str| node("Let", vec![("name", string("local")), ("value", string(value))], vec![]);
+        let mut doc = document(root(vec![
+            control(), control(), binding("later"), control(),
+            node("Frame", vec![("width", number(180.)), ("height", number(30.))], vec![binding("inner"), control()]),
+            control(),
+        ]));
+        doc.states = vec![Properties::new(); 9];
+        doc.states[0].insert("local".into(), string("parent"));
+        doc.states[2].insert("local".into(), string("node"));
+        let (_, _, snapshots) = doc.render_scene().unwrap();
+        let values: Vec<_> = snapshots.iter().map(|control| control.state["local"].text().unwrap()).collect();
+        assert_eq!(values, ["parent", "node", "later", "inner", "later"]);
+        assert_eq!(doc.states[0]["local"], string("parent"));
+        doc.states[0].insert("local".into(), string("changed"));
+        let (_, _, next) = doc.render_scene().unwrap();
+        assert_eq!(next[0].state["local"], string("changed"));
+        assert_eq!(snapshots[0].state["local"], string("parent"));
+        assert_eq!(next[1].state["local"], string("node"));
+        assert_eq!(next[4].state["local"], string("later"));
     }
     #[test]
     fn flex_does_not_freeze_conflicting_minimum_and_maximum_together() {
@@ -5167,4 +6655,61 @@ mod tests {
         assert!(next_templates.contains("forma-ui:true"));
         assert!(next_templates.contains("[x] Terms"));
     }
+    #[test]
+    fn binding_sync_rejects_invalid_metadata_without_partial_model_writes() {
+        for (cached, empty) in [(false, false), (true, false), (true, true)] {
+            let files = BTreeMap::from([("App.ui".to_string(),
+                "component App { state first: String = 'one'; state second: String = 'two'; Column { width:260; height:100; TextInput { width:200; height:32; value <-> state.first; } TextInput { width:200; height:32; value <-> state.second; } } }".to_string())]);
+            let mut doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+            let (source, templates, controls) = doc.render_scene().unwrap();
+            let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+            runtime.set_binding_value(0, "edited", true).unwrap();
+            if empty { doc.states.clear(); }
+            let before = doc.states.clone();
+            fn second_binding(node: &mut Node, count: &mut usize, value: Value) -> bool {
+                if let Some(Value::Object(bindings)) = node.props.get_mut("__bindings") {
+                    *count += 1;
+                    if *count == 2 { bindings.insert("value".into(), value); return true; }
+                }
+                node.children.iter_mut().any(|node| second_binding(node, count, value.clone()))
+            }
+            assert!(second_binding(&mut doc.root, &mut 0, Value::List(vec![])));
+            let result = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls) }
+                else { doc.sync_runtime_bindings(&runtime, None) };
+            assert!(result.unwrap_err().contains("Expected scalar text"));
+            assert_eq!(doc.states, before, "a later invalid binding must roll back earlier writes");
+            assert!(second_binding(&mut doc.root, &mut 0, Value::Text("state.second".into())));
+            let changed = if cached { doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap() }
+                else { doc.sync_runtime_bindings(&runtime, None).unwrap() };
+            assert_eq!(changed, if empty { 2 } else { 1 });
+            assert_eq!(doc.states[0]["first"], Value::Text("edited".into()));
+            assert_eq!(doc.states[0]["second"], Value::Text("two".into()));
+        }
+    }
+
+    #[test]
+    fn recovery_binding_map_refuses_excessive_source_depth_before_writing() {
+        let files = BTreeMap::from([("App.ui".to_string(),
+            "component App { state value: String = 'seed'; Column { width:260; height:100; TextInput { width:200; height:32; value <-> state.value; } } }".to_string())]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        let (source, templates, controls) = doc.render_scene().unwrap();
+        let mut runtime = crate::Runtime::from_sources(&source, &templates).unwrap();
+        runtime.set_binding_value(0, "edited", true).unwrap();
+        let before = doc.states.clone();
+        let mut nested = Node { kind: "Frame".into(), props: Properties::new(), children: vec![], action: None };
+        for _ in 0..66 { nested = Node { kind: "Frame".into(), props: Properties::new(), children: vec![nested], action: None }; }
+        doc.root.children.push(nested);
+        let error = doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap_err();
+        assert!(error.contains("depth exceeded"));
+        assert_eq!(doc.states, before);
+        assert!(doc.render_scene().unwrap_err().contains("depth exceeded"));
+        doc.root.children.pop();
+        doc.root.children.extend((0..16_384).map(|_| Node {
+            kind: "Frame".into(), props: Properties::new(), children: vec![], action: None,
+        }));
+        assert!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap_err().contains("16384 nodes"));
+        assert_eq!(doc.states, before);
+        assert!(doc.render_scene().unwrap_err().contains("16384 nodes"));
+    }
+
 }

@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-02",
+  "change": "Shared sequential scene expansion for containers/For/If/selected Match/nested Let; local Cow scope carries Let to later siblings and drops at sequence end. If borrows selected children instead of cloning.",
+  "checks": {
+    "lib": 153,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3
+  },
+  "regressions": [
+    "Source If with two dependent Lets in true/else branches, true/false/true transitions, actual Runtime construction.",
+    "Branch locals visible inside and absent outside, root field unchanged.",
+    "Existing24 source alias scenarios, For iteration isolation, key/error/retry and composition limits pass."
+  ],
+  "source_sha256": "d7505854d26295e02eb4382f13e1d9c020bad5866f116aa086883de177ed4106",
+  "limitations": [
+    "No release timing/peak-memory comparison.",
+    "New focused branch test covers If; Match-specific complex/deep lexical scenarios remain open.",
+    "Derived collections and browser/AOT/window matrices not completed."
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "status": "validated-lexical-local-allocation-reduction",
+  "change": "Skip captured locals/parent values overwritten by replayed lexicals; preserve original clone path when lexical map is empty",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "d81e64f5f2f8840a5e8ed6f733ea7206484ba0020e3577e854902c046608efa9"
+  },
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 919827,
+      "afterEditRequestedBytes": 876251,
+      "reductionPercent": 4.737412578669686,
+      "beforeEditAllocations": 7158,
+      "afterEditAllocations": 6822
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 8331036,
+      "afterEditRequestedBytes": 7633084,
+      "reductionPercent": 8.377733573591573,
+      "beforeEditAllocations": 62459,
+      "afterEditAllocations": 57275
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 62716548,
+      "afterEditRequestedBytes": 56432484,
+      "reductionPercent": 10.019786165526845,
+      "beforeEditAllocations": 463378,
+      "afterEditAllocations": 417106
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 419228808,
+      "afterEditRequestedBytes": 374456712,
+      "reductionPercent": 10.679632493194502,
+      "beforeEditAllocations": 3078417,
+      "afterEditAllocations": 2750225
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 924201,
+      "afterEditRequestedBytes": 880625,
+      "reductionPercent": 4.714991652248813,
+      "beforeEditAllocations": 7194,
+      "afterEditAllocations": 6858
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 8353627,
+      "afterEditRequestedBytes": 7655675,
+      "reductionPercent": 8.355077381357823,
+      "beforeEditAllocations": 62626,
+      "afterEditAllocations": 57442
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 62782787,
+      "afterEditRequestedBytes": 56498723,
+      "reductionPercent": 10.00921478684914,
+      "beforeEditAllocations": 463865,
+      "afterEditAllocations": 417593
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 419404479,
+      "afterEditRequestedBytes": 374632383,
+      "reductionPercent": 10.675159241682774,
+      "beforeEditAllocations": 3079704,
+      "afterEditAllocations": 2751512
+    }
+  ],
+  "repeat": "Two final-source candidate release runs have identical allocation counters",
+  "plainControl": "Ordinary Column counters unchanged",
+  "validation": {
+    "libraryTests": 164,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "actualGeneratedNodeArtifactGate": "passed",
+    "actualGeneratedNodeSnapshotAndAliasCases": 5,
+    "remoteCI": "not run"
+  },
+  "scope": "Existing nested/shadowed Let replay,computed keys,rollback/retry and owned snapshot regressions pass",
+  "limitations": [
+    "374632383 requested bytes/edit at256 lexical controls remains high;not readiness",
+    "Cumulative requested bytes,not live/peak memory",
+    "No controlled latency/FPS/presentation claim",
+    "Other environments and remaining replay/model copies remain open"
+  ]
+}

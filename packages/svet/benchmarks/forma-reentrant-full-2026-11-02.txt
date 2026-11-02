@@ -1,0 +1,19 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  101 passed (101)
+      Tests  1340 passed (1340)
+   Start at  08:46:01
+   Duration  31.73s (environment 66%, tests 18%, import 11%, transform 3%, worker 1%)
+
+    Isolate  101 workers spawned · ~452ms startup each (spawn + environment, per file)
+             at least ~22.37s faster with isolate: false — reuses workers across files instead of one per file
+

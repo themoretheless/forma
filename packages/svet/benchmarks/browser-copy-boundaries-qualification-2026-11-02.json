@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "scope": "Chrome156 native DOM; independent source and installed production bundles; explicit shared native core",
+  "sourceCases": 4,
+  "installedCases": 4,
+  "nativeAsyncCarrier": false,
+  "evidence": [
+    "browser-copy-boundaries-2026-11-02.json",
+    "browser-copy-boundaries-2026-11-02.png",
+    "browser-copy-boundaries-installed-2026-11-02.json",
+    "browser-copy-boundaries-installed-2026-11-02.png"
+  ],
+  "limitations": [
+    "Explicit synchronous core scopes and async resource settlement only; no implicit browser async carrier",
+    "Other browsers, realms and mixed versions remain open",
+    "No browser GC/RSS claim"
+  ]
+}

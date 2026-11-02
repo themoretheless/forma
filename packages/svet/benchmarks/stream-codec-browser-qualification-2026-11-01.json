@@ -1,0 +1,12 @@
+{
+  "status": "passed",
+  "browserChecks": 7,
+  "runtimeFiles": 18,
+  "artifacts": 64,
+  "packageSha256": "f2aff8ba9a61ac1ec7e8c13581b2852f2e2c25771da570824ec9a8d2aad114a9",
+  "encodedBytes": [
+    248,
+    132403,
+    301
+  ]
+}

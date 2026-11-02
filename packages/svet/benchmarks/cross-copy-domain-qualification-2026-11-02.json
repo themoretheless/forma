@@ -1,0 +1,55 @@
+{
+  "status": "partial",
+  "selectedMilestone": "shared-core synchronous native reactive domains and all-copy cache retirement passed",
+  "sourceSha256": {
+    "src/engine/reactivity.ts": "8315b3dff6287077172d0a37c7d3345a0f0008c00df395a0593b00a344b7a276",
+    "scripts/check-cross-copy-tracking.mjs": "0c109bb75c996964649e4844ae5353c99ddb9c3354d8a7ed80036ffb808843ff",
+    "scripts/check-cross-copy-cache-retirement.mjs": "0cc849b1f63353fe87630fad7a7881d51d64ac7ba38a0da385d7f7e4585e34e8",
+    "scripts/check-cross-copy-untrack-gc.mjs": "2e776855afadd2aec91ad5bc48f9adec88530bb5c7e1cce0036beb8fe2bb7604"
+  },
+  "archiveSha256": "daa994e538996feae4f47867760976ac9c6111c0f6262f7ebfe9d11037375dc6",
+  "reactivitySha256": "5df0af8d5692f1354ccc03a35db666c8fb4e109b2e198e7c751559279e428e5d",
+  "cases": {
+    "passed": 11,
+    "total": 12,
+    "open": [
+      "automatic dependency between separate native cores"
+    ]
+  },
+  "cacheRetirement": {
+    "sameProbeHashBeforeAfter": true,
+    "targetsBefore": 2,
+    "targetsAfter": 0,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "sharedCoreGC": {
+    "coresCollected": 24,
+    "memoriesCollected": 24,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "checks": {
+    "fullSourceSuite": "1293 tests /98 files passed, threads2",
+    "typescript": "passed",
+    "packageWithEdgeInspectorGC": "passed"
+  },
+  "evidence": [
+    "cross-copy-shared-core-before-2026-11-02.json",
+    "cross-copy-domain-installed-cases-2026-11-02.json",
+    "cross-copy-domain-full-suite-2026-11-02.txt",
+    "cross-copy-domain-final-types-2026-11-02.txt",
+    "cross-copy-cache-before-2026-11-02.json",
+    "cross-copy-cache-after-2026-11-02.json",
+    "cross-copy-domain-shared-gc-2026-11-02.json",
+    "cross-copy-domain-package-2026-11-02.txt",
+    "cross-copy-domain-edge-2026-11-02.json",
+    "cross-copy-domain-host-2026-11-02.json"
+  ],
+  "limitations": [
+    "Separate-core dependencies remain open.",
+    "Async owner/request carrier propagation across module copies is not qualified.",
+    "Only compatible same-realm domain protocol v1 copies are covered.",
+    "Frozen long soak measures preceding installed v2 runtime, not these new domain changes."
+  ]
+}

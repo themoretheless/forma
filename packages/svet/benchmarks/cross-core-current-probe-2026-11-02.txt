@@ -1,0 +1,59 @@
+{
+  "status": "requirements-open",
+  "cases": [
+    {
+      "name": "foreign untrack pauses an existing observer",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack permits newly-created observers to track",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack restores collection after throw",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack does not restore retired generation frames",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack preserves invalidation of a dependency already read",
+      "status": "passed"
+    },
+    {
+      "name": "nested observers in both copies suppress incidental reads",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core copies use native computed dependencies and one batch",
+      "status": "passed"
+    },
+    {
+      "name": "reset in a shared-core copy invalidates foreign stale handles",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core owner teardown cleans foreign computeds",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core reset settles a foreign resource wait",
+      "status": "passed"
+    },
+    {
+      "name": "foreign signal invalidates an observer in another copy",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 2\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:57:107\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:11:43)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:56:7"
+    },
+    {
+      "name": "nested foreign reads belong to the inner observer, not an outer source-core observer",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:\n+ actual - expected\n\n  [\n+   2,\n    1,\n-   2\n  ]\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:62:23\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:11:43)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:59:7"
+    },
+    {
+      "name": "separate cores retain graph isolation after teardown",
+      "status": "passed"
+    }
+  ]
+}

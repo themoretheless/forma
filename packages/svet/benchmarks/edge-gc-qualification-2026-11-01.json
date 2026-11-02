@@ -1,0 +1,87 @@
+{
+  "status": "passed",
+  "scope": "Generated local workerd with native ALS/LinkeDOM and acknowledged inspector GC. Twenty-four stream requests: complete/cancel/caller-abort/producer-error/component-timeout/view-timeout; both codecs, two repetitions. Request/render closed-token retirement; no all-provider or full-goal completion claim.",
+  "runtimeSha256": "fd6f96927c648fa0f64315ca6a5914df125c9bfa47fe2a884f50f541eb46f4db",
+  "sourceSha256": {
+    "src/engine/ssr-runtime.ts": "d7b1dba9529535442c84aa12c32e391ae03b43db1ea05a38f4be1137bc87b758",
+    "tests/ssr-carrier.test.ts": "3fe88b4a978db3c1e257295d41d85700b3b9c9a994771c2a34f5b2de0daec6fa",
+    "tests/edge/worker.mjs": "f29bc4d3b1ffe386dc69d5268499353f3fa14c12cb80524ea6b84455117e65c0",
+    "tests/edge/retention.mjs": "31b2a00152aa30b1bed826a2004899271816d109f4e8c9be84934c1a1bcbad30",
+    "scripts/check-edge-ssr.mjs": "27cf70ae5a172c7524532794bce96031fa078aea81e54714fa9e89e695cff3de",
+    "scripts/workerd-inspector.mjs": "60a1d9fe15df70504241bcc3876b177750c1dde850738b485200136441176cad",
+    "scripts/check-ssr-runtime-package.mjs": "518016ed5fea735f04f07185cff3e927641aa30a266beccd808d74e2324baae9",
+    "scripts/check-package.mjs": "42fb3511e01795fff5a7593951cd7b152f1283960684ed221f1c562d015da95f",
+    "scripts/inspect-live-root-retainers.py": "5a5a7aee4f39010823ef2748b1da4c83309d4b2fbf235d2bf6a27525e2d967dc"
+  },
+  "edgeGC": {
+    "requests": 24,
+    "retainedTerminalPairs": 24,
+    "targetObjectsCollected": 140,
+    "positiveControls": 4,
+    "withHandles": {
+      "liveControl": 4
+    },
+    "afterRelease": {},
+    "installedGCCommandsAcknowledged": 4
+  },
+  "retainedHostTokens": {
+    "requests": 12,
+    "renders": 11,
+    "coresCollected": 12
+  },
+  "churn": {
+    "requestedMs": 60000,
+    "timeoutTransport": "readable",
+    "directSocket": false,
+    "diagnosticKeepalive": false,
+    "concurrency": 8,
+    "events": 9824,
+    "domCycles": 157184,
+    "streams": 78592,
+    "stringRenders": 78592,
+    "timeouts": 9824,
+    "elapsedMs": 60029.695250000004,
+    "status": "passed"
+  },
+  "snapshots": [
+    {
+      "stage": "before",
+      "path": "/tmp/svet-edge-complete-retainers.heapsnapshot",
+      "bytes": 60074524,
+      "sha256": "2cf87a5df81ae9f7eef3fedac8aa84856788e4d2e3768ac6c91c01c71657d2d6",
+      "retainerAnalysis": "edge-gc-retainer-before-final-2026-11-01.txt",
+      "retainerAnalysisSha256": "368a8f4b58a7071d0cc1c555b99c7f97551bc8e272532e37ef9022df9301c404"
+    },
+    {
+      "stage": "request-field-cleared",
+      "path": "/tmp/svet-edge-request-cleared.heapsnapshot",
+      "bytes": 14624930,
+      "sha256": "62509511772f96052d004fdb81f40443d1459079f5e05cbaa603f20b022af752",
+      "retainerAnalysis": "edge-gc-retainer-request-cleared-final-2026-11-01.txt",
+      "retainerAnalysisSha256": "324dafc7d53a9fcd406d4dfa674bb9e4783d86ee02d9b729e8ed14dbcfa08ae3"
+    }
+  ],
+  "evidence": [
+    "edge-gc-qualified-installed-2026-11-01.json",
+    "edge-gc-qualified-host-tokens-2026-11-01.json",
+    "edge-gc-qualified-60s-2026-11-01.json",
+    "edge-gc-final-suite-2026-11-01.txt",
+    "edge-gc-qualified-package-2026-11-01.txt",
+    "edge-gc-final-actions-2026-11-01.txt",
+    "edge-gc-unsettled-token-before-2026-11-01.txt"
+  ],
+  "checks": {
+    "JS": "1286 tests / 97 files passed",
+    "typescript": "passed",
+    "installedPackageWithEdgeGC": "passed",
+    "HTTPActions": "4/4",
+    "controlledSnapshotRoots": "closed request.core, then closed renderSession.stream.publish \u2192 lifetime closure \u2192 core"
+  },
+  "limitations": [
+    "Explicitly retained owner-channel tokens are not part of this retained-host-token probe.",
+    "Inspector collection is not evidence of natural GC cadence, bounded RSS, GPU memory or multi-hour memory plateau.",
+    "Only pinned local workerd/LinkeDOM is qualified here; deployed/other providers and native browser async carrier remain open.",
+    "Long-run raw scope text predates the GC wording clarification; its command records explicitly show acknowledgements.",
+    "Snapshot creation changes GC/VM state; retainer paths are observed roots, not proof of the exact earlier GC schedule."
+  ]
+}

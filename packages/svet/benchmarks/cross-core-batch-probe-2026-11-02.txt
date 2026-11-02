@@ -1,0 +1,65 @@
+{
+  "status": "passed",
+  "cases": [
+    {
+      "name": "foreign untrack pauses an existing observer",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack permits newly-created observers to track",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack restores collection after throw",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack does not restore retired generation frames",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack preserves invalidation of a dependency already read",
+      "status": "passed"
+    },
+    {
+      "name": "nested observers in both copies suppress incidental reads",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core copies use native computed dependencies and one batch",
+      "status": "passed"
+    },
+    {
+      "name": "reset in a shared-core copy invalidates foreign stale handles",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core owner teardown cleans foreign computeds",
+      "status": "passed"
+    },
+    {
+      "name": "shared-core reset settles a foreign resource wait",
+      "status": "passed"
+    },
+    {
+      "name": "foreign signal invalidates an observer in another copy",
+      "status": "passed"
+    },
+    {
+      "name": "nested foreign reads belong to the inner observer, not an outer source-core observer",
+      "status": "passed"
+    },
+    {
+      "name": "independent copies coalesce mixed-core nested batch writes",
+      "status": "passed"
+    },
+    {
+      "name": "independent-copy computed chains read current data inside a source batch",
+      "status": "passed"
+    },
+    {
+      "name": "separate cores retain graph isolation after teardown",
+      "status": "passed"
+    }
+  ]
+}

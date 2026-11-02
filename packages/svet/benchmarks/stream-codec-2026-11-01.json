@@ -1,0 +1,44 @@
+{
+  "startedAt": "2026-11-01T15:18:04.613Z",
+  "node": "v22.23.4",
+  "plainChunkBytes": [
+    242,
+    260215,
+    260300
+  ],
+  "encodedChunkBytes": [
+    242,
+    260215,
+    295
+  ],
+  "plainBytes": 520757,
+  "encodedBytes": 260752,
+  "codecRoundtripMs": [
+    4.7758832999999985,
+    4.5423,
+    4.548287499999998,
+    4.523295899999999,
+    4.590145799999999,
+    4.5887500000000045,
+    4.622029199999997,
+    4.5589166999999975,
+    4.520083299999999,
+    4.475983300000007
+  ],
+  "memoryAfter": {
+    "rss": 183757488,
+    "heapTotal": 122945536,
+    "heapUsed": 70126400,
+    "external": 13193333,
+    "arrayBuffers": 7938875
+  },
+  "status": "passed",
+  "completedAt": "2026-11-01T15:18:05.117Z",
+  "scope": "One Node async render, lossless JSON transport framing and two JSDOM resume/input identity checks; 100 codec roundtrips. Timings are unpaired diagnostics, not acceleration proof; memory is one process sample, not plateau.",
+  "sourceSha256": "90ad9c05126f9b23fdfbced4e983dcc2dd2c9a68be7c4b924b7bf7376c25c0de",
+  "runtimeSha256": {
+    "stream-codec.js": "7bc897d50e38c2cab93ebbfabc960a857164b2ae26fbfc78c6de7354049705ed",
+    "server.js": "cf7bf5fe6955ab1efed4d309220b68fc56219771c845e1e9c84794fb396a86c9",
+    "stream.js": "192f56c7c370e913312cf579a7dd0d426d0b5bbd93f2de049a5d8f58750bce41"
+  }
+}

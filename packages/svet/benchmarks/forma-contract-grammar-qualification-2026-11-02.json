@@ -1,0 +1,20 @@
+{
+  "status": "source-tests-passed",
+  "sourceSha256": "712e239946d6b19a8e982ac2df9588d5584de6efe1becac2f05046216737042b",
+  "baseline": "5 failed,4 passed",
+  "after": "9 passed; full1351 passed/102 files",
+  "types": "passed",
+  "build": "passed",
+  "logs": [
+    "/tmp/svet-contract-grammar-before.txt",
+    "/tmp/svet-contract-grammar-after.txt",
+    "/tmp/svet-contract-grammar-full.txt",
+    "/tmp/svet-contract-grammar-types.txt",
+    "/tmp/svet-contract-grammar-build.txt"
+  ],
+  "limitations": [
+    "No fresh installed/browser qualification",
+    "General annotation grammar and unknown annotation policy open",
+    "Partial render rollback open"
+  ]
+}

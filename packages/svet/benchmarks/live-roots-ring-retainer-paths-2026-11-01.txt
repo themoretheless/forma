@@ -1,0 +1,4 @@
+owner targets 1
+TARGET {'index': 19025, 'type': 'object', 'name': 'Object', 'heapId': 38051}
+INBOUND [({'index': 865, 'type': 'array', 'name': '', 'heapId': 1731}, 'internal', '5'), ({'index': 60926, 'type': 'object', 'name': 'system / Context', 'heapId': 121853}, 'context', 'owner'), ({'index': 60928, 'type': 'object', 'name': 'system / Context', 'heapId': 121857}, 'context', 'scope'), ({'index': 60942, 'type': 'object', 'name': 'system / Context', 'heapId': 121885}, 'context', 'owner'), ({'index': 60982, 'type': 'object', 'name': 'system / Context', 'heapId': 121965}, 'context', 'parentOwner')]
+ROOTPATH [{"index": 23, "type": "synthetic", "name": "(Strong root list)", "heapId": 47}, {"edge": "weak_refs_keep_during_job", "edgeType": "internal", "index": 865, "type": "array", "name": "", "heapId": 1731}, {"edge": "5", "edgeType": "internal", "index": 19025, "type": "object", "name": "Object", "heapId": 38051}]

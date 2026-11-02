@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "cases": [
+    {
+      "name": "foreign owner after await equals the active child",
+      "status": "passed"
+    },
+    {
+      "name": "failed child tears down foreign computed before parent ends",
+      "status": "passed"
+    },
+    {
+      "name": "late foreign reentry refuses a closed child without poisoning its parent",
+      "status": "passed"
+    },
+    {
+      "name": "captured root and unrelated core retain their explicit ownership",
+      "status": "passed"
+    },
+    {
+      "name": "concurrent child owners remain request-local across copies",
+      "status": "passed"
+    },
+    {
+      "name": "weak owner resolvers release completed request cores",
+      "status": "passed"
+    }
+  ]
+}

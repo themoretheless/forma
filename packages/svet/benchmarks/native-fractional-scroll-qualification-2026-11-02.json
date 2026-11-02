@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-02",
+  "change": "Physical GPU fractional-position Scroll viewport reference,63x61 centered at32.5/33.5. Test/fixture only.",
+  "checks": {
+    "hardware_gpu_suite": 5,
+    "frames": 9,
+    "adapter": "Apple M4 Max / Metal",
+    "diff_check": "passed"
+  },
+  "results": [
+    {
+      "dpi": 1.0,
+      "offset": 0.0,
+      "compared_pixels": 15781,
+      "compared_fraction": 0.96319580078125
+    },
+    {
+      "dpi": 1.0,
+      "offset": 32.0,
+      "compared_pixels": 15781,
+      "compared_fraction": 0.96319580078125
+    },
+    {
+      "dpi": 1.0,
+      "offset": 67.0,
+      "compared_pixels": 15835,
+      "compared_fraction": 0.96649169921875
+    },
+    {
+      "dpi": 1.25,
+      "offset": 0.0,
+      "compared_pixels": 24697,
+      "compared_fraction": 0.9647265625
+    },
+    {
+      "dpi": 1.25,
+      "offset": 32.0,
+      "compared_pixels": 24630,
+      "compared_fraction": 0.962109375
+    },
+    {
+      "dpi": 1.25,
+      "offset": 67.0,
+      "compared_pixels": 24697,
+      "compared_fraction": 0.9647265625
+    },
+    {
+      "dpi": 2.0,
+      "offset": 0.0,
+      "compared_pixels": 63353,
+      "compared_fraction": 0.9666900634765625
+    },
+    {
+      "dpi": 2.0,
+      "offset": 32.0,
+      "compared_pixels": 63244,
+      "compared_fraction": 0.96502685546875
+    },
+    {
+      "dpi": 2.0,
+      "offset": 67.0,
+      "compared_pixels": 63353,
+      "compared_fraction": 0.9666900634765625
+    }
+  ],
+  "reference": "Independent physical pixel-center inclusion in viewport, known red/green rows and background. Every outside pixel checked exactly.",
+  "exclusions": "Scrollbar strip and primitive AA edge/seam bands only inside viewport; not an area-coverage/AA-blending proof.",
+  "source_sha256": {
+    "vector-ui/tests/runtime_gpu.rs": "07ac856efb88060a06f7c67ab58e1e287b55165110878da809ca2507dc0dd597",
+    "vector-ui/tests/fixtures/svet-scroll-viewport/Fractional.ui": "a2ae68bae4f43c9da42c6a64401bf56e0ebf137922b48c1d599bccdc4fdfa726"
+  },
+  "limitations": [
+    "One hardware/backend; no other GPU/window resize qualification.",
+    "Rounded masks and fractional primitive AA compositing remain separate.",
+    "No production change or performance claim."
+  ]
+}

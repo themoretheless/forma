@@ -22,6 +22,9 @@ pub(crate) struct Cache {
     key: GeometryKey,
     // Four original coverage samples: fill_count * 5 + border_count.
     coverage: Vec<u8>,
+    // Precise outer/border boundary coverage for square rectangles. Canvas
+    // indices survive sparse packing; solid interiors use the usual palette.
+    rect_edges: Vec<(usize, f32, f32)>,
     // Sparse, stable border coverage; pointer motion only changes its paint.
     reveal_pixels: Vec<(usize, f32)>,
     // Low five bits: 0..16 frame coverage. Upper bits: 0 clipped,
@@ -68,6 +71,7 @@ impl Cache {
         let mut cache = Self {
             key,
             coverage: vec![0; len],
+            rect_edges: Vec::new(),
             reveal_pixels: Vec::new(),
             frame: if key.sparse { Vec::new() } else { vec![0; len] },
             content: vec![0; len * 4],
@@ -100,7 +104,7 @@ impl Cache {
             .as_ref()
             .map_or(r, |rev| rev.target_radius.unwrap_or(r));
         let reveal_w = model.template.reveal.as_ref().map_or(0., |rev| rev.width);
-        let default_reveal_bounds = model.template.reveal.as_ref().is_some_and(|rev| {
+        let default_reveal_bounds = model.template.reveal.as_ref().map_or(true, |rev| {
             rev.target_x.is_none()
                 && rev.target_y.is_none()
                 && rev.target_width.is_none()
@@ -127,24 +131,35 @@ impl Cache {
                     cache.coverage[(y * width + x) as usize] = 20;
                     continue;
                 }
-                let mut fill = 0;
-                let mut border = 0;
-                for (sx, sy) in [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
-                    let dx = ((x as f32 + sx) / scale - center_x).abs() - corner_w;
-                    let dy = ((y as f32 + sy) / scale - center_y).abs() - corner_h;
-                    let distance = if dx <= 0. && dy <= 0. {
-                        dx.max(dy) - r
-                    } else {
-                        dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r
-                    };
-                    if distance <= 0. {
-                        fill += 1;
-                        if bw > 0. && distance >= -bw {
-                            border += 1;
+                if r == 0. {
+                    let area = crate::rect_area_coverage(x, y, scale, [bx, by, b.width, b.height]);
+                    let inner = crate::rect_area_coverage(x, y, scale, [bx + bw, by + bw, b.width - 2. * bw, b.height - 2. * bw]);
+                    let band = (area - inner).max(0.);
+                    let index = (y * width + x) as usize;
+                    cache.coverage[index] = if area == 0. { 0 } else if area == 1. && band == 1. { 24 } else { 20 };
+                    if area > 0. && (area < 1. || (band > 0. && band < 1.)) {
+                        cache.rect_edges.push((index, area, band));
+                    }
+                } else {
+                    let mut fill = 0;
+                    let mut border = 0;
+                    for (sx, sy) in [(0.25, 0.25), (0.75, 0.25), (0.25, 0.75), (0.75, 0.75)] {
+                        let dx = ((x as f32 + sx) / scale - center_x).abs() - corner_w;
+                        let dy = ((y as f32 + sy) / scale - center_y).abs() - corner_h;
+                        let distance = if dx <= 0. && dy <= 0. {
+                            dx.max(dy) - r
+                        } else {
+                            dx.max(0.).hypot(dy.max(0.)) + dx.max(dy).min(0.) - r
+                        };
+                        if distance <= 0. {
+                            fill += 1;
+                            if bw > 0. && distance >= -bw {
+                                border += 1;
+                            }
                         }
                     }
+                    cache.coverage[(y * width + x) as usize] = fill * 5 + border;
                 }
-                cache.coverage[(y * width + x) as usize] = fill * 5 + border;
                 if let Some(r_bounds) = reveal_bounds {
                     let band = crate::reveal::band_coverage(
                         [(x as f32 + 0.5) / scale, (y as f32 + 0.5) / scale],
@@ -361,6 +376,7 @@ impl Cache {
             }
         }
         let mut reveal_pixels = self.reveal_pixels.iter().peekable();
+        let mut rect_edges = self.rect_edges.iter().peekable();
         let mut content_spans = self.content_spans.iter();
         let mut content_span = content_spans.next();
         let mut content_pixels = self.content.chunks_exact(4);
@@ -368,6 +384,12 @@ impl Cache {
             let indices = self.spans.iter().flat_map(|span| span.clone());
             for ((i, dst), packed) in indices.zip(self.pixels.chunks_exact_mut(4)).zip(0..) {
                 dst.copy_from_slice(&palette[self.coverage[packed] as usize]);
+                if let Some(&&(index, area, band)) = rect_edges.peek() {
+                    if index == i {
+                        dst.copy_from_slice(&crate::rect_area_paint(key.fill, key.border, area, band));
+                        rect_edges.next();
+                    }
+                }
                 if let Some(span) = content_span {
                     if i >= span.start {
                         over(dst, content_pixels.next().unwrap());
@@ -392,6 +414,12 @@ impl Cache {
             // branch must not add work to every pixel of a single control.
             for (i, dst) in self.pixels.chunks_exact_mut(4).enumerate() {
                 dst.copy_from_slice(&palette[self.coverage[i] as usize]);
+                if let Some(&&(index, area, band)) = rect_edges.peek() {
+                    if index == i {
+                        dst.copy_from_slice(&crate::rect_area_paint(key.fill, key.border, area, band));
+                        rect_edges.next();
+                    }
+                }
                 if let Some(span) = content_span {
                     if i >= span.start {
                         over(dst, content_pixels.next().unwrap());

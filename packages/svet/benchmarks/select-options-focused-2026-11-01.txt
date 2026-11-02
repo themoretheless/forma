@@ -1,0 +1,45 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/select-value.test.ts
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/select-value.test.ts (5 tests | 1 failed) 19ms
+   × refreshes implicit text and explicit option values without reevaluating the binding 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/select-value.test.ts > refreshes implicit text and explicit option values without reevaluating the binding
+AssertionError: expected 1 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 1
+
+ ❯ tests/select-value.test.ts:33:115
+     31|  const select=document.querySelector('select')!;
+     32|  label.set('target');await mutations();expect(select.selectedIndex).to…
+     33|  label.set('gone');optionValue.set('target');await mutations();expect(…
+       |                                                                                                                   ^
+     34|  app.unmount();label.dispose();optionValue.dispose();expect(getGraphTe…
+     35| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  21:39:55
+   Duration  679ms (environment 68%, transform 24%, import 5%, tests 3%)
+

@@ -1,0 +1,115 @@
+{
+  "status": "needs-investigation",
+  "probeCompleted": true,
+  "issues": [
+    "qualification minimum duration not reached"
+  ],
+  "elapsedMs": 10078.41575,
+  "requests": 1512,
+  "minimumDurationMs": 7200000,
+  "metrics": {
+    "heap": {
+      "windowRangesBytes": [
+        [
+          51343112,
+          78712664
+        ],
+        [
+          46564792,
+          72681040
+        ],
+        [
+          49402568,
+          73999576
+        ],
+        [
+          47854312,
+          73741200
+        ]
+      ],
+      "postWarmupTroughGrowthBytes": 2837776,
+      "postWarmupPeakGrowthBytes": 1318536,
+      "growthBudgetBytes": 16777216.0,
+      "withinBudget": true
+    },
+    "rss": {
+      "windowRangesBytes": [
+        [
+          161533296,
+          208522424
+        ],
+        [
+          183829864,
+          207606960
+        ],
+        [
+          185697856,
+          208917704
+        ],
+        [
+          185173400,
+          209097928
+        ]
+      ],
+      "postWarmupTroughGrowthBytes": 1867992,
+      "postWarmupPeakGrowthBytes": 1490968,
+      "growthBudgetBytes": 67108864.0,
+      "withinBudget": true
+    },
+    "external": {
+      "windowRangesBytes": [
+        [
+          20760034,
+          92126886
+        ],
+        [
+          14969024,
+          83298928
+        ],
+        [
+          19699673,
+          81299105
+        ],
+        [
+          15233832,
+          80519433
+        ]
+      ],
+      "postWarmupTroughGrowthBytes": 4730649,
+      "postWarmupPeakGrowthBytes": 0,
+      "growthBudgetBytes": 67108864.0,
+      "withinBudget": true
+    },
+    "arrayBuffers": {
+      "windowRangesBytes": [
+        [
+          2766677,
+          13280254
+        ],
+        [
+          2767538,
+          12582458
+        ],
+        [
+          2758681,
+          12586062
+        ],
+        [
+          2689952,
+          12582458
+        ]
+      ],
+      "postWarmupTroughGrowthBytes": 0,
+      "postWarmupPeakGrowthBytes": 3604,
+      "growthBudgetBytes": 16777216.0,
+      "withinBudget": true
+    }
+  },
+  "limitations": [
+    "Window extrema do not establish a stationary distribution or absence of slow leaks.",
+    "Budgets are caller-specified investigation thresholds, not universal RSS bounds.",
+    "Loopback fixture does not qualify gzip, both codecs, proxy or kernel saturation."
+  ],
+  "rawSha256": "89633dbff7c724fee1226bbf1fbd77a9c9a93be3e57740a63f26aa7d8427529b",
+  "analyzerSha256": "36c4cf73d63c0fa5987328d16fedd9b7f8203f8a1e54fbdd151114b36e0561e1"
+}

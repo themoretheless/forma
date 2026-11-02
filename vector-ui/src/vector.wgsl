@@ -35,6 +35,13 @@ fn distance(p:vec2f,b:vec4f,radius:f32)->f32 {
 fn edge_coverage(d:f32)->f32 {
     return clamp(0.5-d*params.viewport.z,0.,1.);
 }
+fn rect_area_coverage(pixel:vec2f,b:vec4f)->f32 {
+    if any(b.zw<=vec2f(0.)){return 0.;}
+    let lo=b.xy*params.viewport.z;
+    let hi=(b.xy+b.zw)*params.viewport.z;
+    let span=clamp(min(pixel+vec2f(1.),hi)-max(pixel,lo),vec2f(0.),vec2f(1.));
+    return span.x*span.y;
+}
 fn clip_coverage(pixel:vec2f,c:Command,b:vec4f)->f32 {
     if any(b.zw<=vec2f(0.)){return 0.;}
     let scale=params.viewport.z;
@@ -90,7 +97,10 @@ fn coverage(pixel:vec2f,c:Command,b:vec4f)->vec4f {
     if c.info.x!=1.{
         let p=(pixel+0.5)/params.viewport.z;
         let d=distance(p,b,c.extra.x);
-        let outer=edge_coverage(d);
+        var outer=edge_coverage(d);
+        if c.extra.x==0.&&(c.info.x==0.||c.info.x==4.){
+            outer=rect_area_coverage(pixel,b);
+        }
         if c.info.x==6.{
             let data=paints[u32(c.extra.z)];
             let color=paints[u32(c.extra.z)+1u];
@@ -101,7 +111,10 @@ fn coverage(pixel:vec2f,c:Command,b:vec4f)->vec4f {
         if c.info.x==4.{
             var result=premul(paints[u32(c.extra.z)])*outer;
             if c.extra.y>0.&&outer>0.{
-                let inner=edge_coverage(d+c.extra.y);
+                var inner=edge_coverage(d+c.extra.y);
+                if c.extra.x==0.{
+                    inner=rect_area_coverage(pixel,vec4f(b.xy+vec2f(c.extra.y),b.zw-vec2f(2.*c.extra.y)));
+                }
                 let band=max(outer-inner,0.);
                 // Composite the border over the fill within the same shape;
                 // do not multiply outer-edge coverage twice.

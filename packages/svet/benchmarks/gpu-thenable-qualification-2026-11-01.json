@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "scope": "Host fallback thenable assimilation; no new hardware or cross-copy qualification.",
+  "sourceSha256": {
+    "src/engine/gpu.ts": "d568d8b4ed4a5b45edfae3be37ad4fc2186a550f9cbf32b5625be636fda2d252",
+    "tests/gpu-compute.test.ts": "11ca9a341b21f97e3d626d5c883a01ddd4341bb96f9a2bb796581daea752dc80",
+    "scripts/check-package.mjs": "015c960163b511d26f5c3fa5a2b4264629f83aa6209942b2cdf27d383d1245e4"
+  },
+  "checks": {
+    "regressionBefore": "then getter read twice; expected once",
+    "GPUFocused": "123 passed",
+    "JS": "1293 tests / 98 files",
+    "typescript": "passed",
+    "installedPackageWithEdge": "passed"
+  },
+  "evidence": [
+    "gpu-thenable-before-2026-11-01.txt",
+    "gpu-thenable-after-2026-11-01.txt",
+    "gpu-thenable-full-suite-2026-11-01.txt",
+    "gpu-thenable-types-2026-11-01.txt",
+    "gpu-thenable-package-2026-11-01.txt"
+  ]
+}

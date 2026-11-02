@@ -1,0 +1,96 @@
+<!doctype html><meta charset="utf-8"><title>Svet shared GPU recovery</title><style>body{font:16px system-ui;max-width:1000px;margin:30px auto}pre{background:#eff6ff;padding:16px;white-space:pre-wrap}#preview{display:flex;gap:20px}button{padding:12px}</style>
+<h1>Svet shared GPU recovery</h1><p>Real picking readback interrupted by core reset and explicit device destruction, followed by a fresh-device render.</p>
+<button id="run">Run shared-device recovery</button><pre id="status" role="status">Not run</pre><div id="preview"></div><script id="raw-results" type="application/json"></script>
+<script type="module">
+import {captureReactiveContext,configureGpuSubsystem,createGpuTensor,createMesh3D,createRoot,createTransform3D,createWasmCoreInstance,dispatchGpuComputeResident,getGraphTelemetry,getGpuTelemetry,onCleanup,readGpuResidentSnapshot,resetReactiveSystem,signal,Viewport3D,withWasmCore} from '/src/engine/index.ts';
+const assert=(v,m)=>{if(!v)throw Error(m);},preview=document.querySelector('#preview'),status=document.querySelector('#status'),raw=document.querySelector('#raw-results');
+const until=async(fn,message)=>{const end=performance.now()+5000;while(!fn()){if(performance.now()>end)throw Error(message);await new Promise(requestAnimationFrame);}};
+const shader=`@group(0) @binding(0) var<storage,read> input:array<vec4<f32>>;@group(0) @binding(1) var<storage,read_write> output:array<vec4<f32>>;@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id:vec3<u32>){if(id.x<arrayLength(&output)){output[id.x]=input[id.x];}}`;
+function tracker(device){
+ const counters={uploadedBytes:0,mapCalls:0,readbackBytes:0,submits:0,buffersCreated:0,bufferBytesCreated:0,buffersDestroyed:0,bufferBytesDestroyed:0};
+ const live=new Set(),textures=new Set();let peakBufferBytes=0;
+ const create=device.createBuffer.bind(device),texture=device.createTexture.bind(device),write=device.queue.writeBuffer.bind(device.queue),submit=device.queue.submit.bind(device.queue);
+ device.createBuffer=descriptor=>{
+  const buffer=create(descriptor),entry={bytes:descriptor.size};live.add(entry);counters.buffersCreated++;counters.bufferBytesCreated+=entry.bytes;
+  peakBufferBytes=Math.max(peakBufferBytes,Array.from(live).reduce((sum,item)=>sum+item.bytes,0));
+  const destroy=buffer.destroy.bind(buffer),map=buffer.mapAsync.bind(buffer);let destroyed=false;
+  buffer.destroy=()=>{if(!destroyed){destroyed=true;live.delete(entry);counters.buffersDestroyed++;counters.bufferBytesDestroyed+=entry.bytes;}return destroy();};
+  buffer.mapAsync=(mode,offset=0,size=descriptor.size-offset)=>{counters.mapCalls++;counters.readbackBytes+=size;return map(mode,offset,size);};return buffer;
+ };
+ device.createTexture=descriptor=>{const output=texture(descriptor),entry={};textures.add(entry);const destroy=output.destroy.bind(output);output.destroy=()=>{textures.delete(entry);return destroy();};return output;};
+ device.queue.writeBuffer=(buffer,offset,data,start=0,size)=>{counters.uploadedBytes+=size??data.byteLength-start;return write(buffer,offset,data,start,size);};
+ device.queue.submit=batches=>{counters.submits++;return submit(batches);};
+ return {read:()=>({...counters}),live:()=>({buffers:live.size,bufferBytes:Array.from(live).reduce((sum,item)=>sum+item.bytes,0),textures:textures.size}),
+  resetPeak(){peakBufferBytes=Array.from(live).reduce((sum,item)=>sum+item.bytes,0);},get peakBufferBytes(){return peakBufferBytes;}};
+}
+function renderValidated(canvas){
+ const check=()=>{if(canvas.dataset.renderBackend!=='webgpu-depth24plus'||canvas.dataset.renderValidation==='failed')throw Error(canvas.dataset.renderError??'WebGPU renderer unavailable');return canvas.dataset.renderValidation==='passed';};
+ if(check())return Promise.resolve();
+ return new Promise((resolve,reject)=>{let timer;const observer=new MutationObserver(()=>{try{if(check()){observer.disconnect();clearTimeout(timer);resolve();}}catch(error){observer.disconnect();clearTimeout(timer);reject(error);}});
+  observer.observe(canvas,{attributes:true,attributeFilter:['data-render-validation','data-render-backend']});timer=setTimeout(()=>{observer.disconnect();reject(Error('Render validation timeout'));},5000);
+  try{if(check()){observer.disconnect();clearTimeout(timer);resolve();}}catch(error){observer.disconnect();clearTimeout(timer);reject(error);}
+ });
+}
+
+document.querySelector('#run').onclick=async()=>{
+ const button=document.querySelector('#run');button.disabled=true;preview.replaceChildren();const report={protocol:'shared-gpu-recovery-v1',startedAt:new Date().toISOString(),checks:[],uncapturedErrors:[],devices:[]};
+ const cores=[createWasmCoreInstance(),createWasmCoreInstance()],audit=createWasmCoreInstance(),entries=[],devices=[],gates=[];let device,tracking,holdMap,lastPicture;
+ function gate(){let reached,release;const reachedPromise=new Promise(r=>reached=r),wait=new Promise(r=>release=r);const g={reached,reachedPromise,release,wait};gates.push(g);return g;}
+ async function attach(adapter){
+  device=await adapter.requestDevice();devices.push(device);tracking=tracker(device);const tracked=tracking;report.devices.push({});
+  const create=device.createBuffer.bind(device);device.createBuffer=descriptor=>{const buffer=create(descriptor),map=buffer.mapAsync.bind(buffer);buffer.mapAsync=(...args)=>{const operation=map(...args),g=holdMap;if(!g)return operation;holdMap=undefined;g.reached();return Promise.all([operation,g.wait]).then(()=>undefined);};return buffer;};
+  device.addEventListener('uncapturederror',event=>report.uncapturedErrors.push(event.error.message));
+  withWasmCore(audit,()=>configureGpuSubsystem({device}));return tracked;
+ }
+ async function scene(core){let stop,context,selected,input,mesh,view,picks=0;
+  withWasmCore(core,()=>createRoot(dispose=>{stop=dispose;configureGpuSubsystem({device});context=captureReactiveContext();selected=signal(null);onCleanup(()=>selected.dispose());input=createGpuTensor([0,0,.4,1,-.8,-.6,.4,1,.8,-.6,.4,1]);mesh=createMesh3D({transform:createTransform3D(),positions:[0,0,.4,-.8,-.6,.4,.8,-.6,.4],indices:[0,1,2]});}));
+  const entry={core,stop,context,get picks(){return picks;}};entries.push(entry);
+  entry.handle=await context.run(()=>dispatchGpuComputeResident({wgsl:shader,inputs:[input],outputLength:12}));
+  context.run(()=>{input.dispose();selected.set(entry.handle);view=Viewport3D({mesh,gpuVertices:selected,width:200,height:160,renderMode:'sync',onVertexPick:()=>picks++});});entry.view=view;preview.append(view);
+  const canvas=view.children[0],copy=document.createElement('canvas');copy.width=canvas.width;copy.height=canvas.height;const ctx=copy.getContext('2d');ctx.drawImage(canvas,0,0);assert(ctx.getImageData(100,110,1,1).data[2]>150,'GPU triangle pixels absent');lastPicture=copy;
+  await device.queue.onSubmittedWorkDone();await renderValidated(canvas);return entry;
+ }
+ function click(entry){const r=entry.view.children[0].getBoundingClientRect();entry.view.dispatchEvent(new MouseEvent('click',{clientX:r.left+r.width/2,clientY:r.top+r.height/2,bubbles:true}));}
+ function record(name,data={}){report.checks.push({name,...data});status.textContent=report.checks.map(c=>'PASS '+c.name).join('\n');}
+ try{
+  report.build=await fetch('/metadata.json').then(r=>{assert(r.ok,'Missing frozen metadata');return r.json();});
+  const adapter=await navigator.gpu?.requestAdapter();assert(adapter,'No adapter');const info=adapter.info??{};report.adapter={vendor:info.vendor,architecture:info.architecture,isFallbackAdapter:info.isFallbackAdapter??adapter.isFallbackAdapter??null};
+  const firstTracking=await attach(adapter),a=await scene(cores[0]),b=await scene(cores[1]);
+  const firstGate=gate();holdMap=firstGate;click(a);await firstGate.reachedPromise;
+  withWasmCore(cores[0],()=>resetReactiveSystem());
+  assert(!a.handle.active&&!a.context.active,'Reset core retained owner/source');assert(b.handle.active&&b.context.active,'Reset crossed into sibling core');
+  firstGate.release();await until(()=>withWasmCore(audit,()=>getGpuTelemetry().pendingComputeCount)===0,'Reset map did not drain');
+  assert(a.picks===0,'Reset published stale pick');const copied=await b.context.run(()=>readGpuResidentSnapshot(b.handle));assert(copied.length===12&&Math.abs(copied[2]-.4)<1e-6,'Sibling output changed');
+  await renderValidated(b.view.children[0]);record('core reset cancels real pending pick and preserves sibling scene');
+  a.stop();a.view.remove();
+  const recoveredA=await scene(cores[0]);record('reset core creates a fresh owner and renders on the shared device');
+  const lostGate=gate();holdMap=lostGate;click(b);await lostGate.reachedPromise;
+  const lost=device.lost;device.destroy();await lost;lostGate.release();
+  await until(()=>!b.handle.active&&!recoveredA.handle.active,'Device loss did not invalidate both cores');
+  await until(()=>withWasmCore(audit,()=>getGpuTelemetry().pendingComputeCount)===0,'Lost-device map did not drain');
+  assert(b.picks===0,'Device loss published stale pick');
+  b.stop();recoveredA.stop();b.view.remove();recoveredA.view.remove();
+  report.afterLossImmediate={allocations:firstTracking.live(),counters:firstTracking.read()};
+  await until(()=>firstTracking.live().buffers===0&&firstTracking.live().textures===0,'Destroyed-device resources retained');
+  report.devices[0]={counters:firstTracking.read(),finalAllocations:firstTracking.live()};record('explicit device destruction cancels picking across cores and releases allocations');
+  for(const core of cores)withWasmCore(core,()=>resetReactiveSystem());
+  const freshAdapter=await navigator.gpu.requestAdapter();assert(freshAdapter,'Recovery adapter unavailable');
+  const secondTracking=await attach(freshAdapter),freshA=await scene(cores[0]),freshB=await scene(cores[1]);
+  click(freshA);await until(()=>freshA.view.dataset.pickReadback==='passed','Fresh-device pick failed');assert(freshA.picks===1,'Fresh-device pick callback missing');
+  record('fresh device renders both cores and picking delivers exactly one callback');
+  freshA.stop();freshB.stop();freshA.view.remove();freshB.view.remove();
+  assert(secondTracking.live().buffers===0&&secondTracking.live().textures===0,'Fresh-device resources retained');report.devices[1]={counters:secondTracking.read(),finalAllocations:secondTracking.live()};
+  assert(report.uncapturedErrors.length===0,'Uncaptured errors');report.status='passed';
+ }catch(error){report.status='failed';report.error=String(error.stack??error);if(tracking)report.failureAllocations={allocations:tracking.live(),counters:tracking.read()};}
+ finally{
+  gates.forEach(g=>g.release());holdMap=undefined;
+  for(const entry of entries){try{entry.stop();entry.view?.remove();}catch(error){report.cleanupError=String(error);report.status='failed';}}
+  report.finalGraphs=cores.map(core=>withWasmCore(core,()=>getGraphTelemetry()));
+  report.finalGpu=withWasmCore(audit,()=>getGpuTelemetry());
+  if(report.finalGraphs.some(g=>g.nodes||g.edges||g.pendingEffectCount)||report.finalGpu.pendingComputeCount||report.finalGpu.residentComputeBytes){report.status='failed';report.cleanupError='Final graph or device credits retained';}
+  for(const core of [...cores,audit])withWasmCore(core,()=>{configureGpuSubsystem({device:null});resetReactiveSystem();});devices.forEach(d=>d.destroy());
+  report.completedAt=new Date().toISOString();raw.textContent=JSON.stringify(report);status.textContent=report.checks.map(c=>'PASS '+c.name).join('\n')+'\n'+(report.status==='passed'?'4/4 passed':`FAIL: ${report.error??report.cleanupError}`);
+  if(lastPicture)preview.append(lastPicture);button.disabled=false;
+ }
+};
+</script>

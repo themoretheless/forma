@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "packageSha256": "22d0063aec00d94d980415a1fab9ed888384ac52e8935cd74bb9f57583db578f",
+  "runtimeFiles": 19,
+  "inEventStreams": 16,
+  "lateRefusals": 8,
+  "directResponseCases": 6,
+  "truncatedEofRejections": 2,
+  "responseTransport": "direct-loopback-workerd",
+  "open": "Miniflare proxy reader cancellation, normal FIN behaviour, deployed Cloudflare, browser EOF matrix and long churn not qualified"
+}

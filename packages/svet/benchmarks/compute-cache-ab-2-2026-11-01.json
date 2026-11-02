@@ -1,0 +1,391 @@
+{
+  "measuredAt": "2026-10-31T21:24:45.047Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "adapter": {
+    "vendor": "apple",
+    "architecture": "metal-3",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": false
+  },
+  "metadata": {
+    "snapshot": "snapshot-1793481870444",
+    "createdAt": "2026-10-31T21:24:30.444Z",
+    "baselineRevision": "48a8c5954d4b81daee605e87578e5fd028e4a94a",
+    "node": "v22.23.4",
+    "typescript": "5.9.3",
+    "fixtureSha256": "8a58d043ee18f3bf81379e59ab2af7abfab973c867040e8dc9ba49acf2fd0448",
+    "variants": {
+      "baseline": {
+        "advanced.ts": {
+          "source": "1c215e667adc96f75d9a155411be6ec89611ad2d1b08218c9f77530cb4f7d751",
+          "javascript": "f3206611680073a9d55cc72ffab29e9b1609c677f80f0581ad0a49acd7e22899"
+        },
+        "compiler.ts": {
+          "source": "d124cd9acf34db2f9933c6f9ca5f5762670aaa4ca022b435145e2c3cc2277b8a",
+          "javascript": "18fe7e52b3220e421397fee2aa082d3c8f59a481da686c83fcd72864343f447a"
+        },
+        "devtools.ts": {
+          "source": "75cb348a0b43e981b0a0cee5ad47597c2c10a3cae2153c58a19a17bcc298e5e6",
+          "javascript": "7c0d5c6a566344aeca0cae6d2676b1510883fe653b1f002c751b195a3b7e67cf"
+        },
+        "dom.ts": {
+          "source": "7615266dfad73d76bdb5b5df212aaebb9478276eead2e8e539afc36e9e56a4d5",
+          "javascript": "cbbdbb131f41e647eece811a81699ae16cae905858424d93ae30cc004c0a093e"
+        },
+        "forma.ts": {
+          "source": "c93c5375ea2c1951982d3bc6e64f869ca7523c901c6114c0d8a773c7f0b783d3",
+          "javascript": "e63bf36329daed8d69eed13bf6f1e34618e529e7433af09fdd52d487e193031a"
+        },
+        "gpu.ts": {
+          "source": "355f01b8ee69c4e5d6d871eef6c06cfc9d91e05f08f7f16251c2489e590c36cb",
+          "javascript": "cad8ad9e227a86bffa4208f8b69fdd0bef0b196fdd7d794710d319d2a87678b5"
+        },
+        "index.ts": {
+          "source": "17ca7d44ac011559c46db4a21f8a89f775f8cbf792f883b3e9b753e83d3485f5",
+          "javascript": "5985d56e68fa122fda887abdfeb2b2f0f61187489382cfb0c78fa1e19d2ede86"
+        },
+        "jsx-runtime.ts": {
+          "source": "858bac73965300c8e3e0cbc5d324110aa833b281cc905402d221f96de8e421ad",
+          "javascript": "c7f7b3128a103e725bc192103cb9c160993bb8e119587e708b5c1ac335a0331c"
+        },
+        "reactivity.ts": {
+          "source": "a48d58914494ef25cd5eab67fe89904c583873fd6e0d3c479392e9b2cdbfe59d",
+          "javascript": "45a8eb49f05e4b552ce7552c1f2e2c73230e5e2aa511dc66826ebc7ef5b7f5e9"
+        },
+        "resumable.ts": {
+          "source": "44237719a316eca40bc30ca42415865c9c78d4abfccf0d59d26f25c542a376c1",
+          "javascript": "e77119d4abbc4dd0214a6496c9d56136eebd67a9a46f27f145f890be95e736f0"
+        },
+        "server.ts": {
+          "source": "e813af7266e89f1d60b1c00c42347e0931388a608284f4c2c9d1452fb4811679",
+          "javascript": "3c6913ebf28ddb660091c769fba98a2a3eac904b3765983fba939368952bfb37"
+        },
+        "wasm-binary.ts": {
+          "source": "5ad921d4b11a8e062e22798f187f254d64a6013baba4490b9fa494e67d591963",
+          "javascript": "7641ab5520aaaf47799a27c27920bf01649e323a2b9b9fe8e300551d5b5c837a"
+        },
+        "wasm-bridge.ts": {
+          "source": "295a35ae3c1488110f091d87ebfbe75b81e6526c9211756800b75b98d41189ff",
+          "javascript": "673372f96874e90fc27c6750320bffab41ca1f2543a0557fd068aa5761415ce7"
+        }
+      },
+      "candidate": {
+        "advanced.ts": {
+          "source": "1c215e667adc96f75d9a155411be6ec89611ad2d1b08218c9f77530cb4f7d751",
+          "javascript": "f3206611680073a9d55cc72ffab29e9b1609c677f80f0581ad0a49acd7e22899"
+        },
+        "compiler.ts": {
+          "source": "d124cd9acf34db2f9933c6f9ca5f5762670aaa4ca022b435145e2c3cc2277b8a",
+          "javascript": "18fe7e52b3220e421397fee2aa082d3c8f59a481da686c83fcd72864343f447a"
+        },
+        "devtools.ts": {
+          "source": "75cb348a0b43e981b0a0cee5ad47597c2c10a3cae2153c58a19a17bcc298e5e6",
+          "javascript": "7c0d5c6a566344aeca0cae6d2676b1510883fe653b1f002c751b195a3b7e67cf"
+        },
+        "dom.ts": {
+          "source": "7615266dfad73d76bdb5b5df212aaebb9478276eead2e8e539afc36e9e56a4d5",
+          "javascript": "cbbdbb131f41e647eece811a81699ae16cae905858424d93ae30cc004c0a093e"
+        },
+        "forma.ts": {
+          "source": "c93c5375ea2c1951982d3bc6e64f869ca7523c901c6114c0d8a773c7f0b783d3",
+          "javascript": "e63bf36329daed8d69eed13bf6f1e34618e529e7433af09fdd52d487e193031a"
+        },
+        "gpu.ts": {
+          "source": "d6ffb572f99e235dbfeaa8eb61f0f5c5773cac9b33bec3cc934c50b422a6c25b",
+          "javascript": "91004744fde128a0cce251e0c84a017d2a5cfcacc93e9ac6898c262d507b5572"
+        },
+        "index.ts": {
+          "source": "17ca7d44ac011559c46db4a21f8a89f775f8cbf792f883b3e9b753e83d3485f5",
+          "javascript": "5985d56e68fa122fda887abdfeb2b2f0f61187489382cfb0c78fa1e19d2ede86"
+        },
+        "jsx-runtime.ts": {
+          "source": "858bac73965300c8e3e0cbc5d324110aa833b281cc905402d221f96de8e421ad",
+          "javascript": "c7f7b3128a103e725bc192103cb9c160993bb8e119587e708b5c1ac335a0331c"
+        },
+        "reactivity.ts": {
+          "source": "a48d58914494ef25cd5eab67fe89904c583873fd6e0d3c479392e9b2cdbfe59d",
+          "javascript": "45a8eb49f05e4b552ce7552c1f2e2c73230e5e2aa511dc66826ebc7ef5b7f5e9"
+        },
+        "resumable.ts": {
+          "source": "44237719a316eca40bc30ca42415865c9c78d4abfccf0d59d26f25c542a376c1",
+          "javascript": "e77119d4abbc4dd0214a6496c9d56136eebd67a9a46f27f145f890be95e736f0"
+        },
+        "server.ts": {
+          "source": "e813af7266e89f1d60b1c00c42347e0931388a608284f4c2c9d1452fb4811679",
+          "javascript": "3c6913ebf28ddb660091c769fba98a2a3eac904b3765983fba939368952bfb37"
+        },
+        "wasm-binary.ts": {
+          "source": "5ad921d4b11a8e062e22798f187f254d64a6013baba4490b9fa494e67d591963",
+          "javascript": "7641ab5520aaaf47799a27c27920bf01649e323a2b9b9fe8e300551d5b5c837a"
+        },
+        "wasm-bridge.ts": {
+          "source": "295a35ae3c1488110f091d87ebfbe75b81e6526c9211756800b75b98d41189ff",
+          "javascript": "673372f96874e90fc27c6750320bffab41ca1f2543a0557fd068aa5761415ce7"
+        }
+      }
+    },
+    "scope": "Only gpu.ts differs; all other current engine sources and embedded WASM are identical."
+  },
+  "workloads": [
+    {
+      "length": 7,
+      "warmupCallsPerVariant": 10,
+      "callsPerBatch": 40,
+      "baselineMedianBatchMs": 29.800000000745058,
+      "candidateMedianBatchMs": 19.299999998882413,
+      "candidateChangePercent": -35.23489933422861,
+      "rounds": [
+        {
+          "round": 0,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 28.200000001117587,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 18.699999999254942,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        },
+        {
+          "round": 1,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": {
+            "milliseconds": 18.799999998882413,
+            "shaders": 0,
+            "pipelines": 0
+          },
+          "baseline": {
+            "milliseconds": 30.90000000037253,
+            "shaders": 40,
+            "pipelines": 40
+          }
+        },
+        {
+          "round": 2,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 32.80000000074506,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 19.5,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        },
+        {
+          "round": 3,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": {
+            "milliseconds": 19.299999998882413,
+            "shaders": 0,
+            "pipelines": 0
+          },
+          "baseline": {
+            "milliseconds": 28,
+            "shaders": 40,
+            "pipelines": 40
+          }
+        },
+        {
+          "round": 4,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 31,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 18,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        },
+        {
+          "round": 5,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": {
+            "milliseconds": 22.799999998882413,
+            "shaders": 0,
+            "pipelines": 0
+          },
+          "baseline": {
+            "milliseconds": 29.800000000745058,
+            "shaders": 40,
+            "pipelines": 40
+          }
+        },
+        {
+          "round": 6,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 26.40000000037253,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 21.799999998882413,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        }
+      ]
+    },
+    {
+      "length": 65536,
+      "warmupCallsPerVariant": 10,
+      "callsPerBatch": 40,
+      "baselineMedianBatchMs": 56.59999999962747,
+      "candidateMedianBatchMs": 44.09999999962747,
+      "candidateChangePercent": -22.08480565385561,
+      "rounds": [
+        {
+          "round": 0,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 51.90000000037253,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 44.09999999962747,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        },
+        {
+          "round": 1,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": {
+            "milliseconds": 43.19999999925494,
+            "shaders": 0,
+            "pipelines": 0
+          },
+          "baseline": {
+            "milliseconds": 56.29999999888241,
+            "shaders": 40,
+            "pipelines": 40
+          }
+        },
+        {
+          "round": 2,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 56.59999999962747,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 46.5,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        },
+        {
+          "round": 3,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": {
+            "milliseconds": 42.79999999888241,
+            "shaders": 0,
+            "pipelines": 0
+          },
+          "baseline": {
+            "milliseconds": 60.09999999962747,
+            "shaders": 40,
+            "pipelines": 40
+          }
+        },
+        {
+          "round": 4,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 59,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 41.69999999925494,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        },
+        {
+          "round": 5,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "candidate": {
+            "milliseconds": 47.19999999925494,
+            "shaders": 0,
+            "pipelines": 0
+          },
+          "baseline": {
+            "milliseconds": 55.90000000037253,
+            "shaders": 40,
+            "pipelines": 40
+          }
+        },
+        {
+          "round": 6,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "baseline": {
+            "milliseconds": 59.19999999925494,
+            "shaders": 40,
+            "pipelines": 40
+          },
+          "candidate": {
+            "milliseconds": 45.600000001490116,
+            "shaders": 0,
+            "pipelines": 0
+          }
+        }
+      ]
+    }
+  ],
+  "scope": "Sequential dispatch/readback latency on one adapter. JS snapshots, validation, buffers, publication and result checks included. No GPU timestamp isolation, application-frame or peer-framework performance claim."
+}

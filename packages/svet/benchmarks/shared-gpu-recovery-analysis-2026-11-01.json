@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "rawSha256": "9a9cc2f45180a4b388cd6d2303adb0d8e4bcc347b8c6dea1a37c386ff78a3f66",
+  "checks": 4,
+  "deviceAccounting": [
+    {
+      "counters": {
+        "uploadedBytes": 168,
+        "mapCalls": 3,
+        "readbackBytes": 144,
+        "submits": 9,
+        "buffersCreated": 12,
+        "bufferBytesCreated": 480,
+        "buffersDestroyed": 12,
+        "bufferBytesDestroyed": 480
+      },
+      "finalAllocations": {
+        "buffers": 0,
+        "bufferBytes": 0,
+        "textures": 0
+      }
+    },
+    {
+      "counters": {
+        "uploadedBytes": 112,
+        "mapCalls": 1,
+        "readbackBytes": 48,
+        "submits": 5,
+        "buffersCreated": 7,
+        "bufferBytesCreated": 272,
+        "buffersDestroyed": 7,
+        "bufferBytesDestroyed": 272
+      },
+      "finalAllocations": {
+        "buffers": 0,
+        "bufferBytes": 0,
+        "textures": 0
+      }
+    }
+  ],
+  "scope": "Independent retained-report accounting; explicit device.destroy(), not spontaneous hardware failure."
+}

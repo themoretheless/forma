@@ -1,0 +1,84 @@
+{
+  "status": "passed",
+  "scope": "Short local controller/binary/compatibility-date matrix; beta is experimental.",
+  "driverSourceSha256": "fc1f9633f1459e9238867d8c3e6ce57ec887676e3a63a2b70a28a13fc2c664f1",
+  "variants": [
+    {
+      "miniflare": "4.20260730.0",
+      "workerd": "1.20260730.1",
+      "workerdBinaryVersion": null,
+      "compatibilityDate": "2026-07-30",
+      "hostOptionsAdapter": "native-v4",
+      "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+      "churn": {
+        "requestedMs": 1000,
+        "timeoutTransport": "readable",
+        "directSocket": false,
+        "diagnosticKeepalive": false,
+        "concurrency": 8,
+        "events": 160,
+        "domCycles": 2560,
+        "streams": 1280,
+        "stringRenders": 1280,
+        "timeouts": 160,
+        "elapsedMs": 1041.214166,
+        "status": "passed"
+      },
+      "evidence": "edge-host-adapter-pinned-2026-11-01.json",
+      "GC": "140 targets collected; controls 4 held/0 released; 20 owner tokens held"
+    },
+    {
+      "miniflare": "5.20261023.3-beta",
+      "workerd": "1.20261023.1",
+      "workerdBinaryVersion": null,
+      "compatibilityDate": "2026-10-23",
+      "hostOptionsAdapter": "official-v4-converter",
+      "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+      "churn": {
+        "requestedMs": 1000,
+        "timeoutTransport": "readable",
+        "directSocket": false,
+        "diagnosticKeepalive": false,
+        "concurrency": 8,
+        "events": 128,
+        "domCycles": 2048,
+        "streams": 1024,
+        "stringRenders": 1024,
+        "timeouts": 128,
+        "elapsedMs": 1058.799708,
+        "status": "passed"
+      },
+      "evidence": "edge-beta-matched-after-2026-11-01.json",
+      "GC": "140 targets collected; controls 4 held/0 released; 20 owner tokens held"
+    },
+    {
+      "miniflare": "5.20261023.3-beta",
+      "workerd": "1.20261023.1",
+      "workerdBinaryVersion": "workerd 2026-11-01",
+      "compatibilityDate": "2026-11-01",
+      "hostOptionsAdapter": "official-v4-converter",
+      "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+      "churn": {
+        "requestedMs": 1000,
+        "timeoutTransport": "readable",
+        "directSocket": false,
+        "diagnosticKeepalive": false,
+        "concurrency": 8,
+        "events": 112,
+        "domCycles": 1792,
+        "streams": 896,
+        "stringRenders": 896,
+        "timeouts": 112,
+        "elapsedMs": 1004.686417,
+        "status": "passed"
+      },
+      "evidence": "edge-beta-november-2026-11-01.json",
+      "GC": "140 targets collected; controls 4 held/0 released; 20 owner tokens held"
+    }
+  ],
+  "limitations": [
+    "No deployed-provider qualification.",
+    "No multi-hour RSS or natural-GC bound.",
+    "Installed archive repeat predates this options adapter; final probes use current built package."
+  ]
+}

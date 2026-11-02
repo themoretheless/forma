@@ -1,0 +1,73 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "AOT UI mounts twice and preserves shared state",
+      "status": "passed"
+    },
+    {
+      "name": "Two real file/HMR updates preserve state and graph size; stale callback retired",
+      "status": "passed"
+    },
+    {
+      "name": "One unmount preserves other mounted view across real HMR",
+      "status": "passed"
+    },
+    {
+      "name": "Final unmount/dispose retires graph and callback",
+      "status": "passed"
+    },
+    {
+      "name": "Post-dispose HMR does not revive disposed instance",
+      "status": "passed"
+    }
+  ],
+  "hmrUpdates": 4,
+  "trace": [
+    {
+      "step": "baseline",
+      "nodes": 11,
+      "count": 7
+    },
+    {
+      "step": "update2",
+      "nodes": 11,
+      "count": 7
+    },
+    {
+      "step": "stale-click2",
+      "count": 7
+    },
+    {
+      "step": "update3",
+      "nodes": 11,
+      "count": 7
+    },
+    {
+      "step": "stale-click3",
+      "count": 7
+    }
+  ],
+  "status": "passed",
+  "completedAt": "2026-11-02T04:29:33.242Z",
+  "fileChanges": [
+    {
+      "version": 2,
+      "at": "2026-11-02T04:29:32.916Z"
+    },
+    {
+      "version": 3,
+      "at": "2026-11-02T04:29:32.941Z"
+    },
+    {
+      "version": 4,
+      "at": "2026-11-02T04:29:33.050Z"
+    },
+    {
+      "version": 5,
+      "at": "2026-11-02T04:29:33.136Z"
+    }
+  ],
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-NMaqTq/consumer/node_modules/svet-engine",
+  "fixtureSha256": "6fb5dfa3e4377f71f4de5e9a70309bbf6ef63ee9d7dbc4cd28cd7a93adb77fc7"
+}

@@ -1,0 +1,1 @@
+{"status":"passed","coresCollected":24,"memoriesCollected":24}

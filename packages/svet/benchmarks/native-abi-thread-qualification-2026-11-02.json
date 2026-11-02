@@ -1,0 +1,41 @@
+{
+  "status": "passed",
+  "scope": "Native C-ABI per-thread graph isolation; owned ReactiveGraph remains native per-window integration basis",
+  "before": "Serialized child thread observed parent graph count1 instead of0; deterministic failure without concurrent mutation",
+  "nativeTests": 55,
+  "concurrency": "8 threads \u00d7256 native write/flush/pointer-read cycles; graph2 live then0 on each thread",
+  "wasm": {
+    "bytes": 54320,
+    "sha256": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+    "independentBuildsIdentical": true,
+    "exportsUnchanged": true
+  },
+  "checks": {
+    "JS": "1297/99 passed",
+    "typescript": "passed",
+    "HTTPActions": "4/4",
+    "installedPackageRustProvenanceEdgeGC": "passed"
+  },
+  "sourceSha256": {
+    "packages/svet/crates/svet-wasm/src/lib.rs": "534795017c2e5436368cd63687d64b01e9ac25bf36f1ce0faba4f0e717173986",
+    "packages/svet/src/engine/wasm-binary.ts": "de06212e4b0e7b41eb61a812ff665a8ecd7ff4048e80368c63801169903c0b0a"
+  },
+  "evidence": [
+    "native-abi-thread-before-2026-11-02.txt",
+    "native-abi-thread-final-2026-11-02.txt",
+    "native-abi-wasm-final-build-2026-11-02.txt",
+    "native-abi-wasm-rebuild-b-2026-11-02.txt",
+    "native-abi-wasm-provenance-2026-11-02.json",
+    "native-abi-wasm-installed-provenance-2026-11-02.json",
+    "native-abi-wasm-suite-2026-11-02.txt",
+    "native-abi-wasm-types-2026-11-02.txt",
+    "native-abi-wasm-actions-2026-11-02.txt",
+    "native-abi-package-2026-11-02.txt"
+  ],
+  "limitations": [
+    "Native Studio graph/renderer/lifetime adapter not implemented by this change",
+    "Native IDs and graph-owned pointers are caller-thread scoped; raw pointer lifetime remains caller responsibility",
+    "WASM qualification is shipped single-threaded wasm32, not shared-memory atomics",
+    "Running frozen LPJBKt2h run predates this core revision"
+  ]
+}

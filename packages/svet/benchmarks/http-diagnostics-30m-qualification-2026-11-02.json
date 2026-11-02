@@ -1,0 +1,130 @@
+{
+  "date": "2026-11-02",
+  "status": "completed diagnostic; insufficient duration for2h qualification",
+  "requests": 359048,
+  "elapsedMs": 1800017.990417,
+  "forcedGCs": 0,
+  "requestFailures": [],
+  "cleanupFailures": [],
+  "maxNodesAfterFinish": 0,
+  "runtime_file_hashes_independently_verified": 20,
+  "serverSocketsAfterShutdown": 0,
+  "serverConnectionsOpenedAndClosed": 119699,
+  "analysis": {
+    "status": "needs-investigation",
+    "probeCompleted": true,
+    "issues": [
+      "qualification minimum duration not reached"
+    ],
+    "elapsedMs": 1800017.990417,
+    "requests": 359048,
+    "minimumDurationMs": 7200000,
+    "metrics": {
+      "heap": {
+        "windowRangesBytes": [
+          [
+            45928872,
+            79943384
+          ],
+          [
+            45917088,
+            78844432
+          ],
+          [
+            46003600,
+            80134168
+          ],
+          [
+            44608408,
+            78639408
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 86512,
+        "postWarmupPeakGrowthBytes": 1289736,
+        "growthBudgetBytes": 16777216.0,
+        "withinBudget": true
+      },
+      "rss": {
+        "windowRangesBytes": [
+          [
+            144197136,
+            224400680
+          ],
+          [
+            138068920,
+            170890584
+          ],
+          [
+            136987648,
+            171023000
+          ],
+          [
+            136151920,
+            170220136
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 0,
+        "postWarmupPeakGrowthBytes": 132416,
+        "growthBudgetBytes": 67108864.0,
+        "withinBudget": true
+      },
+      "external": {
+        "windowRangesBytes": [
+          [
+            7863704,
+            184653806
+          ],
+          [
+            7463814,
+            147770544
+          ],
+          [
+            7461932,
+            170568729
+          ],
+          [
+            7194164,
+            156366290
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 0,
+        "postWarmupPeakGrowthBytes": 22798185,
+        "growthBudgetBytes": 67108864.0,
+        "withinBudget": true
+      },
+      "arrayBuffers": {
+        "windowRangesBytes": [
+          [
+            889694,
+            13486441
+          ],
+          [
+            888500,
+            14271890
+          ],
+          [
+            887711,
+            15795918
+          ],
+          [
+            889169,
+            13884306
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 669,
+        "postWarmupPeakGrowthBytes": 1524028,
+        "growthBudgetBytes": 16777216.0,
+        "withinBudget": true
+      }
+    },
+    "limitations": [
+      "Window extrema do not establish a stationary distribution or absence of slow leaks.",
+      "Budgets are caller-specified investigation thresholds, not universal RSS bounds.",
+      "Loopback fixture does not qualify gzip, both codecs, proxy or kernel saturation."
+    ],
+    "rawSha256": "85a8f6e795683c77d0806b1873f2aa61dc311db72cc3f35f1367560e1235bcab",
+    "analyzerSha256": "7ef239c3fd7ea6a794e659c11dbc6d0ec6dd374d9451a93d4cfc2db0c6222748"
+  },
+  "finding": "Former24-minute request failure not reproduced;30-minute memory envelopes within existing budgets. Does not resolve historical2h external-budget failure or prove stationary memory.",
+  "next": "Frozen lifecycle-tracing diagnostic to correlate request memory callback lag with external peaks; retain unchanged2h admission minimum."
+}

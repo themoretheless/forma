@@ -1,0 +1,23 @@
+
+> svet-engine@1.0.0 build
+> npm run build:wasm && tsc --noEmit && npm run build:package && vite build
+
+
+> svet-engine@1.0.0 build:wasm
+> cd crates/svet-wasm && RUSTFLAGS="-C target-feature=+simd128" cargo build --target wasm32-unknown-unknown --release && node ../../scripts/embed-wasm.mjs
+
+    Finished `release` profile [optimized] target(s) in 0.03s
+[svet] Embedded WASM binary (54320 bytes) -> src/engine/wasm-binary.ts
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+vite v8.3.5 building client environment for production...
+transforming...
+✓ 25 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/demo/index.html                  1.89 kB │ gzip:  1.00 kB
+dist/demo/assets/index-BLQ7K6u4.js  192.00 kB │ gzip: 70.31 kB
+
+✓ built in 146ms

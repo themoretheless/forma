@@ -1,0 +1,35 @@
+{
+  "status": "validated-current-native-chromium-cpu-slice",
+  "report": "native-current-browser-2026-11-02.json",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "3fc138d28581d7bf9c203a2c6779c1860f4e2c6b75ae75979b6dc51330ae62e0",
+    "vector-ui/src/runtime.rs": "de369634247bd4da9f2d77fd101d48aaaca7f2d87ab671a7e733d651149953bb",
+    "vector-ui/tests/scene-artifact-browser.html": "a1fd05f3c4fd707d67e9175c222e355a1c1741da4a50eec2a5c20726e4cf691c",
+    "vector-ui/tests/serve-scene-artifact-browser.mjs": "db945e8a37fa0094e7d86f6399b02358d86e1d67583ff2288a898ebde8dde6ff"
+  },
+  "inputRustWasmSha256": "b57c3c49f429d3428cb9510db11da2bd735d684fe5e5a0014409c4cec2390cc0",
+  "servedArtifactSha256": {
+    "index.html": "a1fd05f3c4fd707d67e9175c222e355a1c1741da4a50eec2a5c20726e4cf691c",
+    "forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "forma_bg.wasm": "5f2bd19d273be2805090ac680d53ae228bb726a2dd80c64c6ddb97f5e0fb56c8"
+  },
+  "checks": {
+    "browserCases": 8,
+    "aliasCases": 2,
+    "explicitCpuRasterScales": [
+      1,
+      1.25,
+      2
+    ],
+    "unicodeInput": "passed",
+    "customPropsStateVisibleUpdate": "passed",
+    "visualInspection": "Single/chained Alpha\u2014\u043f\u0440\u0430\u0432\u043a\u0430 and unchanged Beta observed in actual browser canvas"
+  },
+  "limitations": [
+    "Chromium156/macOS,IAB,CPU raster through Canvas2D only",
+    "Explicit raster scale tests do not qualify real OS multi-monitor/DPI behavior",
+    "Pixel-change assertions are not complete golden/native/browser visual parity",
+    "Other browsers,hardware GPU,device loss and performance remain open",
+    "No browser GC/natural-memory plateau claim"
+  ]
+}

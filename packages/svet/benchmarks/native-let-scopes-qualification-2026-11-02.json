@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-02",
+  "change": "Track evaluated Let values explicitly; binding frames apply lexical values after resolving ancestors and before own item. Let hides old For binding metadata; a new For hides same-name Let metadata.",
+  "checks": {
+    "lib": 149,
+    "allocation_tests": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regression": "IR Let prefix shadows root prefix; compound key uses lexical value after model prefix changes and collection reorders; fresh/cached maps edit original item and preserve current model prefix.",
+  "source_sha256": "1ef1291c24aa21669f0e21974e4c28e84f9527e7bda68dd055e5854af520de57",
+  "limitations": [
+    "Evaluated Let snapshots only; dynamic expression reevaluation against changed model remains unqualified.",
+    "Let-derived collection aliases not supported by stable parent resolution.",
+    "IR proof, not complete compiler/browser/AOT qualification.",
+    "No performance/GPU qualification."
+  ]
+}

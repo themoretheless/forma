@@ -1,0 +1,17 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.43s
+     Running tests/runtime_allocations.rs (/tmp/forma-svet-native-binding-validation/debug/deps/runtime_allocations-9566d11f114edd74)
+
+running 7 tests
+test document_markup_parse_pays_only_for_owned_property_values ... ok
+test scene_construction_allocations_scale_with_control_count ... ok
+test warmed_pointer_tick_and_paint_buffers_do_not_allocate ... ok
+test idle_editors_and_ranges_do_not_recompose_each_tick ... ok
+idle scalar with 1024 unrelated records: 23 allocations
+test idle_scalar_binding_does_not_copy_unrelated_model_payload ... ok
+retained idle 96 editors: 30494 allocations
+test retained_idle_bindings_reuse_the_displayed_scene ... ok
+test transport_sizes_control_buffers_instead_of_growing_them ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+

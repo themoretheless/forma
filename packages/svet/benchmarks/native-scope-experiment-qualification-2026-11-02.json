@@ -1,0 +1,18 @@
+{
+  "status": "rejected-no-allocation-improvement",
+  "sourceRestoredSha256": "e9503d7d07bf73bed094a0f4b0f09bd5ed3e891e6d38025d6e29e4a1613ceb82",
+  "workload": "retained Runtime sync,legacy/Svet,8/32/96/256 controls,7 idle/edit samples;excludes painting/presentation",
+  "experiments": [
+    "Cow scope only",
+    "Cow scope plus unchanged metadata merge elision"
+  ],
+  "evidence": "All idle/edit allocation counts and requested-byte counters match baseline exactly across both experiments",
+  "svet256EditRequestedBytes": 240822218,
+  "validation": "159 library tests passed on experimental implementation; source restored byte-for-byte to original",
+  "limitations": [
+    "No latency/performance improvement claim",
+    "Cumulative requested bytes are not live memory",
+    "Loaded host; no controlled timing baseline",
+    "Per-control model snapshots remain open"
+  ]
+}

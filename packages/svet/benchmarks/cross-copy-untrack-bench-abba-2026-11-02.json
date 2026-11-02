@@ -1,0 +1,53 @@
+{
+  "runs": [
+    {
+      "variant": "shared",
+      "sourceSha256": "c4dd8d7f626edb2201092b4c824ddb716e2bbaa24e758131fd16164ec6a35f61",
+      "exitCode": 1,
+      "elapsedSeconds": 13.614802417003375,
+      "loadAverageBefore": [
+        18.744140625,
+        17.7041015625,
+        16.52978515625
+      ],
+      "log": "cross-copy-untrack-bench-abba-1-shared-2026-11-02.txt"
+    },
+    {
+      "variant": "local",
+      "sourceSha256": "64be0b4a8fad1f5ef2deb67ed51f8a7e67a0cb08e9ad7d0cad37c061caa81c13",
+      "exitCode": 0,
+      "elapsedSeconds": 12.531510958004219,
+      "loadAverageBefore": [
+        20.00732421875,
+        18.0419921875,
+        16.6708984375
+      ],
+      "log": "cross-copy-untrack-bench-abba-2-local-2026-11-02.txt"
+    },
+    {
+      "variant": "local",
+      "sourceSha256": "64be0b4a8fad1f5ef2deb67ed51f8a7e67a0cb08e9ad7d0cad37c061caa81c13",
+      "exitCode": 0,
+      "elapsedSeconds": 7.475909792003222,
+      "loadAverageBefore": [
+        20.146484375,
+        18.13818359375,
+        16.720703125
+      ],
+      "log": "cross-copy-untrack-bench-abba-3-local-2026-11-02.txt"
+    },
+    {
+      "variant": "shared",
+      "sourceSha256": "c4dd8d7f626edb2201092b4c824ddb716e2bbaa24e758131fd16164ec6a35f61",
+      "exitCode": 1,
+      "elapsedSeconds": 9.516013415995985,
+      "loadAverageBefore": [
+        19.021484375,
+        17.96728515625,
+        16.6767578125
+      ],
+      "log": "cross-copy-untrack-bench-abba-4-shared-2026-11-02.txt"
+    }
+  ],
+  "scope": "Sequential ABBA single-worker benchmark with unchanged5000ms timeout, live HTTP soak and other host workloads. Diagnostic, not isolated-host performance qualification."
+}

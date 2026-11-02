@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "fixtures": 20,
+  "assertions": 176,
+  "consumerDirectory": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-k7ho2O/consumer",
+  "packageSha256": "13d64c3f8815b112f40187db206ad617cd50a364ec5f14d227df6f93ba4f5e82",
+  "runtimeFiles": 15,
+  "assets": 60,
+  "rawSha256": "3d8f436dbfe42fba98f8fe791b493209c050db2f5f0b7c34b558a1257cd51836",
+  "scope": "Installed production DOM lifecycle scenarios, Chrome156; programmatic events, not other browsers or automatic async SSR qualification."
+}

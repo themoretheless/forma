@@ -1,0 +1,26 @@
+<!doctype html><meta charset="utf-8"><title>Svet HMR burst</title>
+<h1>Forma HMR burst</h1><p id="status">Running…</p><section id="view"></section><pre id="result"></pre>
+<script type="module">
+import createView from './View.ui';
+import {getGraphTelemetry} from __RUNTIME_IMPORT__;
+const report={userAgent:navigator.userAgent,cases:[],hmrUpdates:0};
+const same=(a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);};
+const until=async fn=>{const deadline=performance.now()+10000;while(!fn()){if(performance.now()>deadline)throw Error('HMR burst deadline');await new Promise(resolve=>setTimeout(resolve,10));}};
+let view,handle;
+try{
+ if(!import.meta.hot)throw Error('Missing real HMR');import.meta.hot.on('vite:afterUpdate',()=>{report.hmrUpdates++;});
+ const container=document.querySelector('#view');view=createView();handle=view.mount(container);view.state.count.set(7);const baseline=getGraphTelemetry().nodes;
+ for(let cycle=0;cycle<3;cycle++){
+  const oldButton=container.querySelector('button'),first=10+32*cycle,last=first+31,start=performance.now();
+  for(let version=first;version<=last;version++){const response=await fetch('/__probe/update',{method:'POST',body:String(version)});if(!response.ok)throw Error('Write refused');}
+  const writtenAt=performance.now();await until(()=>container.textContent.includes(`v${last}:7`));
+  same(view.state.count(),7);same(getGraphTelemetry().nodes,baseline);oldButton.click();same(view.state.count(),7);
+  report.cases.push({name:`Burst ${cycle+1}:32 writes reach v${last},state/graph preserved,old callback retired`,status:'passed',writeMs:writtenAt-start,deliveryAfterLastAckMs:performance.now()-writtenAt});
+ }
+ report.status='passed';
+}catch(error){report.status='failed';report.error=String(error.stack??error);}
+finally{handle?.unmount();view?.dispose();report.nodesAfter=getGraphTelemetry().nodes;}
+if(report.nodesAfter!==0){report.status='failed';report.error='Graph remains after teardown';}
+report.completedAt=new Date().toISOString();document.querySelector('#status').textContent=report.status;document.querySelector('#result').textContent=JSON.stringify(report,null,2);
+await fetch('/__probe/result',{method:'POST',body:JSON.stringify(report)});
+</script>

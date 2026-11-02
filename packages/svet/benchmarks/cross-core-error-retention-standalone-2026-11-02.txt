@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "cases": [
+    {
+      "mode": "dispose",
+      "targets": 48
+    },
+    {
+      "mode": "branch-switch",
+      "targets": 48
+    },
+    {
+      "mode": "source-reset",
+      "targets": 48
+    },
+    {
+      "mode": "target-reset",
+      "targets": 48
+    },
+    {
+      "mode": "throwing-batch",
+      "targets": 48
+    },
+    {
+      "mode": "long-lived-source",
+      "targets": 32
+    },
+    {
+      "mode": "computed-error",
+      "targets": 56
+    },
+    {
+      "mode": "initial-computed-error",
+      "targets": 56
+    },
+    {
+      "mode": "uncaught-initial-computed-error",
+      "targets": 56
+    }
+  ],
+  "retention": {
+    "targets": 440,
+    "alive": [],
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  }
+}

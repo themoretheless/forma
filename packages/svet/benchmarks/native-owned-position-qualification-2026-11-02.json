@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-02",
+  "change": "Positioning consumes expanded children recursively; root/Scroll serialization shell retained separately. Removes whole-subtree clones at positioning entry and leaf output.",
+  "checks": {
+    "lib": 140,
+    "allocations": 7,
+    "native": "passed",
+    "wasm32": "passed",
+    "physical_gpu": 3,
+    "release": "A1/B1/A2/B2 retained workload both schedulers 8/32/96/256; allocation counters repeat-identical"
+  },
+  "analysis": "native-owned-position-analysis-2026-11-02.json",
+  "source_sha256": {
+    "before/form_document.rs": "595a03812b55539df99663db59e7779be2a3ec275f035ac808bada8c206eedab",
+    "after/form_document.rs": "ad31d3cb3d68bd1d15cf94bd0bfe6978125ccc4c4c7bd8afec7e9f5337bccc70",
+    "shared/harness.rs": "1a783546f9c1d11bb2e147490c326c510c27988579e9823056af49c83248f743"
+  },
+  "baseline": "Source hash matches prior owned-layout after source",
+  "svet256_edit": {
+    "before_requested_bytes": 330374486,
+    "after_requested_bytes": 239390366,
+    "before_allocations": 2447329,
+    "after_allocations": 1775584,
+    "before_median_ms": [
+      88.469125,
+      76.555833
+    ],
+    "after_median_ms": [
+      57.738583,
+      57.386375
+    ]
+  },
+  "limitations": [
+    "Cumulative requests, not RSS/peak.",
+    "Host non-isolated; HTTP PID99442 observed active. Descriptive timing, no FPS/p95 readiness claim.",
+    "Owned snapshots and precomputed visual clones remain.",
+    "256-editor edit still exceeds an interactive frame budget before painting."
+  ]
+}

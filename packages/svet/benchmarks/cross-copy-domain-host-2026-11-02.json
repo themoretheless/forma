@@ -1,0 +1,17 @@
+{
+  "startedAt": "2026-11-01T20:42:04.637Z",
+  "node": "v22.23.4",
+  "carrierQualified": true,
+  "stackRejected": true,
+  "concurrentRequests": 8,
+  "retainedHostTokens": {
+    "requests": 17,
+    "renders": 11,
+    "owners": 13,
+    "coresCollected": 17
+  },
+  "status": "passed",
+  "completedAt": "2026-11-01T20:42:04.725Z",
+  "runtimeSha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+  "scope": "Installed public server-runtime export, native Node ALS injected through host contract, stack-carrier rejection, 8 concurrent async renders and retained request/render/owner tokens across completion, cancellation, timeout, rejection and setup failure. Core collection under retained host tokens; no actual Edge/browser carrier qualification."
+}

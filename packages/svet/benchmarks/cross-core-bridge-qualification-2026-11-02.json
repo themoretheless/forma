@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-02",
+  "status": "partial; native proxy bridge implemented, multi-source batch coalescing open",
+  "architecture": "Source-core forwarding effect reads the native source; observer-core native signal proxy invalidates target native graph. Host forwards notifications only. Shared weak maps connect compatible module copies.",
+  "checks": {
+    "full_js": {
+      "files": 100,
+      "passed": 1312,
+      "expected_failures": 1
+    },
+    "typescript": "passed",
+    "package_build": "passed",
+    "installed_consumer_gc_gate": "passed",
+    "independent_copy_probe": "13/13 passed"
+  },
+  "covered": [
+    "foreign signal/computed invalidation",
+    "dynamic dependency retirement",
+    "source and target reset with reused slots",
+    "source disposal",
+    "pooled observer stale handles",
+    "source single-signal batching",
+    "untrack",
+    "computed equality and explicit equals:false for same-reference values",
+    "cross-core computed cycle construction rollback",
+    "graphs empty after tested teardown paths"
+  ],
+  "open": [
+    "two independent foreign sources in one batch still notify target twice; desired single-delivery regression is explicitly it.fails",
+    "cross-core scheduling cycles/stabilization and broad mixed-core batching matrix",
+    "dedicated bridge weak-GC retention qualification",
+    "real browser production/HMR qualification",
+    "hot-path throughput and bridge memory overhead"
+  ],
+  "source_sha256": {
+    "src/engine/reactivity.ts": "719c0595c990c3b2ce444a61500447260844000f3572f2a841a452696ce067c9",
+    "tests/cross-core-dependencies.test.ts": "f29fd867dd17fdd9e2b6992b0eb8bf850fdc4624f5393b3442b055a92adf4d3f",
+    "tests/reactive-core-context.test.ts": "1471e70a5e31cf6bee34210d643c9b87dfed6a8b6e9990313ae214dad170d951"
+  },
+  "soak": "No new natural-GC HTTP soak; prior external memory budget failure remains unresolved."
+}

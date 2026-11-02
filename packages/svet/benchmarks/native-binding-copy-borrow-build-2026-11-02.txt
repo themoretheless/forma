@@ -1,0 +1,2 @@
+   Compiling forma v0.2.0 (/tmp/svet-binding-sync-isolated/borrow/vector-ui)
+    Finished `release` profile [optimized] target(s) in 23.81s

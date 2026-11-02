@@ -1,0 +1,22 @@
+
++ Received:
+undefined
+
+ ❯ tests/owner-scope-construction.test.ts:36:61
+     34|     const entry: [symbol, unknown] = [Symbol(), 1];
+     35|     Object.defineProperty(entry, '1', {get() { dispose(); return 1; }}…
+     36|     expect(() => runWithOwnerScope([entry], () => calls++)).toThrow('d…
+       |                                                             ^
+     37|   });
+     38|   expect(calls).toBe(0); expect(getGraphTelemetry().nodes).toBe(0);
+ ❯ createRoot src/engine/reactivity.ts:503:12
+ ❯ tests/owner-scope-construction.test.ts:33:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 1 passed (4)
+   Start at  03:23:47
+   Duration  831ms (transform 69%, import 23%, tests 6%, worker 1%)
+

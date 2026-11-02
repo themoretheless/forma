@@ -1,0 +1,30 @@
+{
+  "status": "requirements-open",
+  "cases": [
+    {
+      "name": "foreign untrack pauses an existing observer",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack permits newly-created observers to track",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack restores collection after throw",
+      "status": "passed"
+    },
+    {
+      "name": "foreign untrack does not restore retired generation frames",
+      "status": "passed"
+    },
+    {
+      "name": "foreign signal invalidates an observer in another copy",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n1 !== 2\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:25:107\n    at check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:9:31)\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-cross-copy-tracking.mjs:24:1"
+    },
+    {
+      "name": "separate cores retain graph isolation after teardown",
+      "status": "passed"
+    }
+  ]
+}

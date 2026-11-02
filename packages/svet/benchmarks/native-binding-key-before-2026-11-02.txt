@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.27s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 1 test
+test form_document::tests::collection_binding_activation_follows_key_after_reorder_or_removal ... FAILED
+
+failures:
+
+---- form_document::tests::collection_binding_activation_follows_key_after_reorder_or_removal stdout ----
+
+thread 'form_document::tests::collection_binding_activation_follows_key_after_reorder_or_removal' (5737736) panicked at src/form_document.rs:5076:13:
+assertion `left == right` failed: the old first index must not target b
+  left: Bool(true)
+ right: Bool(false)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    form_document::tests::collection_binding_activation_follows_key_after_reorder_or_removal
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 126 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

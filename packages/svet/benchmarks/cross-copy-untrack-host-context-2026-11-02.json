@@ -1,0 +1,26 @@
+{
+  "at": "2026-11-01T20:02:53.354971+00:00",
+  "loadAverage": [
+    20.00732421875,
+    18.0419921875,
+    16.6708984375
+  ],
+  "cpuCount": 16,
+  "topCPU": [
+    "38052 311.4 /Users/themoretheless/.rustup/toolchains/nightly-2026-09-16-aarch64-apple-darwin/bin/rustc",
+    "28344  95.5 /Applications/BambuSuite.app/Contents/MacOS/BambuSuite",
+    "38110  69.3 /Users/themoretheless/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/rustc",
+    "38822  56.9 /opt/homebrew/Cellar/node@22/22.23.4_2/bin/node",
+    "27388  52.6 node",
+    "38783  36.0 /Users/themoretheless/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/rustc",
+    "38616  34.2 /Users/themoretheless/.rustup/toolchains/nightly-2026-09-16-aarch64-apple-darwin/bin/rustc",
+    "38782  33.9 /Users/themoretheless/.rustup/toolchains/1.98.1-aarch64-apple-darwin/bin/rustc"
+  ],
+  "httpSoak": {
+    "status": "running",
+    "elapsedMs": 1168765.898209,
+    "requests": 175352,
+    "forcedGCs": 0
+  },
+  "scope": "Read-only host snapshot during ABBA; unrelated workloads left untouched."
+}

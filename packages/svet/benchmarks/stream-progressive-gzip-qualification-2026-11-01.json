@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "packageSha256": "9b6882b88426aaac47afe496c7c6d1f317cc8b80050d267975fc98212aa0853c",
+  "runtimeFiles": 18,
+  "assets": 64,
+  "browserChecks": 7,
+  "compressedBytes": 715,
+  "flushes": 3
+}

@@ -1,0 +1,1541 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "Burst 1:32 writes reach v41,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 65.90000000596046,
+      "deliveryAfterLastAckMs": 46.29999999701977
+    },
+    {
+      "name": "Burst 2:32 writes reach v73,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 59.5,
+      "deliveryAfterLastAckMs": 46
+    },
+    {
+      "name": "Burst 3:32 writes reach v105,state/graph preserved,old callback retired",
+      "status": "passed",
+      "writeMs": 79.20000000298023,
+      "deliveryAfterLastAckMs": 24.099999994039536
+    }
+  ],
+  "hmrUpdates": 4,
+  "status": "passed",
+  "nodesAfter": 0,
+  "completedAt": "2026-11-02T05:54:46.701Z",
+  "fileChanges": [
+    {
+      "version": 10,
+      "at": "2026-11-02T05:54:46.382Z"
+    },
+    {
+      "version": 11,
+      "at": "2026-11-02T05:54:46.393Z"
+    },
+    {
+      "version": 12,
+      "at": "2026-11-02T05:54:46.398Z"
+    },
+    {
+      "version": 13,
+      "at": "2026-11-02T05:54:46.401Z"
+    },
+    {
+      "version": 14,
+      "at": "2026-11-02T05:54:46.402Z"
+    },
+    {
+      "version": 15,
+      "at": "2026-11-02T05:54:46.404Z"
+    },
+    {
+      "version": 16,
+      "at": "2026-11-02T05:54:46.405Z"
+    },
+    {
+      "version": 17,
+      "at": "2026-11-02T05:54:46.408Z"
+    },
+    {
+      "version": 18,
+      "at": "2026-11-02T05:54:46.410Z"
+    },
+    {
+      "version": 19,
+      "at": "2026-11-02T05:54:46.411Z"
+    },
+    {
+      "version": 20,
+      "at": "2026-11-02T05:54:46.412Z"
+    },
+    {
+      "version": 21,
+      "at": "2026-11-02T05:54:46.414Z"
+    },
+    {
+      "version": 22,
+      "at": "2026-11-02T05:54:46.415Z"
+    },
+    {
+      "version": 23,
+      "at": "2026-11-02T05:54:46.420Z"
+    },
+    {
+      "version": 24,
+      "at": "2026-11-02T05:54:46.421Z"
+    },
+    {
+      "version": 25,
+      "at": "2026-11-02T05:54:46.423Z"
+    },
+    {
+      "version": 26,
+      "at": "2026-11-02T05:54:46.425Z"
+    },
+    {
+      "version": 27,
+      "at": "2026-11-02T05:54:46.427Z"
+    },
+    {
+      "version": 28,
+      "at": "2026-11-02T05:54:46.428Z"
+    },
+    {
+      "version": 29,
+      "at": "2026-11-02T05:54:46.429Z"
+    },
+    {
+      "version": 30,
+      "at": "2026-11-02T05:54:46.430Z"
+    },
+    {
+      "version": 31,
+      "at": "2026-11-02T05:54:46.431Z"
+    },
+    {
+      "version": 32,
+      "at": "2026-11-02T05:54:46.433Z"
+    },
+    {
+      "version": 33,
+      "at": "2026-11-02T05:54:46.434Z"
+    },
+    {
+      "version": 34,
+      "at": "2026-11-02T05:54:46.436Z"
+    },
+    {
+      "version": 35,
+      "at": "2026-11-02T05:54:46.438Z"
+    },
+    {
+      "version": 36,
+      "at": "2026-11-02T05:54:46.439Z"
+    },
+    {
+      "version": 37,
+      "at": "2026-11-02T05:54:46.440Z"
+    },
+    {
+      "version": 38,
+      "at": "2026-11-02T05:54:46.441Z"
+    },
+    {
+      "version": 39,
+      "at": "2026-11-02T05:54:46.442Z"
+    },
+    {
+      "version": 40,
+      "at": "2026-11-02T05:54:46.443Z"
+    },
+    {
+      "version": 41,
+      "at": "2026-11-02T05:54:46.445Z"
+    },
+    {
+      "version": 42,
+      "at": "2026-11-02T05:54:46.493Z"
+    },
+    {
+      "version": 43,
+      "at": "2026-11-02T05:54:46.496Z"
+    },
+    {
+      "version": 44,
+      "at": "2026-11-02T05:54:46.501Z"
+    },
+    {
+      "version": 45,
+      "at": "2026-11-02T05:54:46.502Z"
+    },
+    {
+      "version": 46,
+      "at": "2026-11-02T05:54:46.505Z"
+    },
+    {
+      "version": 47,
+      "at": "2026-11-02T05:54:46.506Z"
+    },
+    {
+      "version": 48,
+      "at": "2026-11-02T05:54:46.508Z"
+    },
+    {
+      "version": 49,
+      "at": "2026-11-02T05:54:46.509Z"
+    },
+    {
+      "version": 50,
+      "at": "2026-11-02T05:54:46.511Z"
+    },
+    {
+      "version": 51,
+      "at": "2026-11-02T05:54:46.512Z"
+    },
+    {
+      "version": 52,
+      "at": "2026-11-02T05:54:46.514Z"
+    },
+    {
+      "version": 53,
+      "at": "2026-11-02T05:54:46.516Z"
+    },
+    {
+      "version": 54,
+      "at": "2026-11-02T05:54:46.517Z"
+    },
+    {
+      "version": 55,
+      "at": "2026-11-02T05:54:46.518Z"
+    },
+    {
+      "version": 56,
+      "at": "2026-11-02T05:54:46.519Z"
+    },
+    {
+      "version": 57,
+      "at": "2026-11-02T05:54:46.520Z"
+    },
+    {
+      "version": 58,
+      "at": "2026-11-02T05:54:46.521Z"
+    },
+    {
+      "version": 59,
+      "at": "2026-11-02T05:54:46.522Z"
+    },
+    {
+      "version": 60,
+      "at": "2026-11-02T05:54:46.523Z"
+    },
+    {
+      "version": 61,
+      "at": "2026-11-02T05:54:46.525Z"
+    },
+    {
+      "version": 62,
+      "at": "2026-11-02T05:54:46.526Z"
+    },
+    {
+      "version": 63,
+      "at": "2026-11-02T05:54:46.529Z"
+    },
+    {
+      "version": 64,
+      "at": "2026-11-02T05:54:46.533Z"
+    },
+    {
+      "version": 65,
+      "at": "2026-11-02T05:54:46.534Z"
+    },
+    {
+      "version": 66,
+      "at": "2026-11-02T05:54:46.536Z"
+    },
+    {
+      "version": 67,
+      "at": "2026-11-02T05:54:46.537Z"
+    },
+    {
+      "version": 68,
+      "at": "2026-11-02T05:54:46.539Z"
+    },
+    {
+      "version": 69,
+      "at": "2026-11-02T05:54:46.545Z"
+    },
+    {
+      "version": 70,
+      "at": "2026-11-02T05:54:46.547Z"
+    },
+    {
+      "version": 71,
+      "at": "2026-11-02T05:54:46.548Z"
+    },
+    {
+      "version": 72,
+      "at": "2026-11-02T05:54:46.550Z"
+    },
+    {
+      "version": 73,
+      "at": "2026-11-02T05:54:46.551Z"
+    },
+    {
+      "version": 74,
+      "at": "2026-11-02T05:54:46.599Z"
+    },
+    {
+      "version": 75,
+      "at": "2026-11-02T05:54:46.627Z"
+    },
+    {
+      "version": 76,
+      "at": "2026-11-02T05:54:46.630Z"
+    },
+    {
+      "version": 77,
+      "at": "2026-11-02T05:54:46.632Z"
+    },
+    {
+      "version": 78,
+      "at": "2026-11-02T05:54:46.634Z"
+    },
+    {
+      "version": 79,
+      "at": "2026-11-02T05:54:46.637Z"
+    },
+    {
+      "version": 80,
+      "at": "2026-11-02T05:54:46.639Z"
+    },
+    {
+      "version": 81,
+      "at": "2026-11-02T05:54:46.641Z"
+    },
+    {
+      "version": 82,
+      "at": "2026-11-02T05:54:46.642Z"
+    },
+    {
+      "version": 83,
+      "at": "2026-11-02T05:54:46.643Z"
+    },
+    {
+      "version": 84,
+      "at": "2026-11-02T05:54:46.644Z"
+    },
+    {
+      "version": 85,
+      "at": "2026-11-02T05:54:46.645Z"
+    },
+    {
+      "version": 86,
+      "at": "2026-11-02T05:54:46.646Z"
+    },
+    {
+      "version": 87,
+      "at": "2026-11-02T05:54:46.647Z"
+    },
+    {
+      "version": 88,
+      "at": "2026-11-02T05:54:46.648Z"
+    },
+    {
+      "version": 89,
+      "at": "2026-11-02T05:54:46.650Z"
+    },
+    {
+      "version": 90,
+      "at": "2026-11-02T05:54:46.651Z"
+    },
+    {
+      "version": 91,
+      "at": "2026-11-02T05:54:46.654Z"
+    },
+    {
+      "version": 92,
+      "at": "2026-11-02T05:54:46.657Z"
+    },
+    {
+      "version": 93,
+      "at": "2026-11-02T05:54:46.659Z"
+    },
+    {
+      "version": 94,
+      "at": "2026-11-02T05:54:46.661Z"
+    },
+    {
+      "version": 95,
+      "at": "2026-11-02T05:54:46.662Z"
+    },
+    {
+      "version": 96,
+      "at": "2026-11-02T05:54:46.663Z"
+    },
+    {
+      "version": 97,
+      "at": "2026-11-02T05:54:46.664Z"
+    },
+    {
+      "version": 98,
+      "at": "2026-11-02T05:54:46.665Z"
+    },
+    {
+      "version": 99,
+      "at": "2026-11-02T05:54:46.667Z"
+    },
+    {
+      "version": 100,
+      "at": "2026-11-02T05:54:46.668Z"
+    },
+    {
+      "version": 101,
+      "at": "2026-11-02T05:54:46.670Z"
+    },
+    {
+      "version": 102,
+      "at": "2026-11-02T05:54:46.672Z"
+    },
+    {
+      "version": 103,
+      "at": "2026-11-02T05:54:46.673Z"
+    },
+    {
+      "version": 104,
+      "at": "2026-11-02T05:54:46.674Z"
+    },
+    {
+      "version": 105,
+      "at": "2026-11-02T05:54:46.676Z"
+    }
+  ],
+  "updateMinIntervalMs": 0,
+  "watchTrace": [
+    {
+      "kind": "transform",
+      "at": 1793598886103,
+      "sha256": "af2bfda4e6942d92948b6c4bf5d8bd78e346111e6813ff78a15cfa003ac5b677"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886381,
+      "version": 10
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886382,
+      "version": 10
+    },
+    {
+      "kind": "watcher",
+      "at": 1793598886384,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793598886384,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793598886384,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793598886385,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793598886385,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886393,
+      "version": 11
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886393,
+      "version": 11
+    },
+    {
+      "kind": "transform",
+      "at": 1793598886395,
+      "sha256": "35e81fd209c45a228dc15bc7828f8c403ac91ba7b93fc05dac9ee047ff691790"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886398,
+      "version": 12
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886398,
+      "version": 12
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886401,
+      "version": 13
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886401,
+      "version": 13
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886402,
+      "version": 14
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886402,
+      "version": 14
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886403,
+      "version": 15
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886404,
+      "version": 15
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886405,
+      "version": 16
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886405,
+      "version": 16
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886408,
+      "version": 17
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886408,
+      "version": 17
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886409,
+      "version": 18
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886410,
+      "version": 18
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886411,
+      "version": 19
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886411,
+      "version": 19
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886412,
+      "version": 20
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886412,
+      "version": 20
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886414,
+      "version": 21
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886414,
+      "version": 21
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886415,
+      "version": 22
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886415,
+      "version": 22
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886420,
+      "version": 23
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886420,
+      "version": 23
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886421,
+      "version": 24
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886421,
+      "version": 24
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886423,
+      "version": 25
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886423,
+      "version": 25
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886424,
+      "version": 26
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886425,
+      "version": 26
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886426,
+      "version": 27
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886427,
+      "version": 27
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886427,
+      "version": 28
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886428,
+      "version": 28
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886429,
+      "version": 29
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886429,
+      "version": 29
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886430,
+      "version": 30
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886430,
+      "version": 30
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886431,
+      "version": 31
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886431,
+      "version": 31
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886432,
+      "version": 32
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886433,
+      "version": 32
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886434,
+      "version": 33
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886434,
+      "version": 33
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886436,
+      "version": 34
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886436,
+      "version": 34
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886437,
+      "version": 35
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886438,
+      "version": 35
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886438,
+      "version": 36
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886439,
+      "version": 36
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886439,
+      "version": 37
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886440,
+      "version": 37
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886441,
+      "version": 38
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886441,
+      "version": 38
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886442,
+      "version": 39
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886442,
+      "version": 39
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886443,
+      "version": 40
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886443,
+      "version": 40
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886445,
+      "version": 41
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886445,
+      "version": 41
+    },
+    {
+      "kind": "watcher",
+      "at": 1793598886484,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793598886484,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793598886484,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793598886484,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793598886485,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793598886486,
+      "sha256": "db795c7efe8b4215209906535d3f6b94d86f0e155e378dfa024b879ce313a9bd"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886493,
+      "version": 42
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886493,
+      "version": 42
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886496,
+      "version": 43
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886496,
+      "version": 43
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886501,
+      "version": 44
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886501,
+      "version": 44
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886502,
+      "version": 45
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886502,
+      "version": 45
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886504,
+      "version": 46
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886505,
+      "version": 46
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886506,
+      "version": 47
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886506,
+      "version": 47
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886508,
+      "version": 48
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886508,
+      "version": 48
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886509,
+      "version": 49
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886509,
+      "version": 49
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886510,
+      "version": 50
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886511,
+      "version": 50
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886512,
+      "version": 51
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886512,
+      "version": 51
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886514,
+      "version": 52
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886514,
+      "version": 52
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886515,
+      "version": 53
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886516,
+      "version": 53
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886517,
+      "version": 54
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886517,
+      "version": 54
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886518,
+      "version": 55
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886518,
+      "version": 55
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886519,
+      "version": 56
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886519,
+      "version": 56
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886520,
+      "version": 57
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886520,
+      "version": 57
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886521,
+      "version": 58
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886521,
+      "version": 58
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886522,
+      "version": 59
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886522,
+      "version": 59
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886523,
+      "version": 60
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886523,
+      "version": 60
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886524,
+      "version": 61
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886525,
+      "version": 61
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886525,
+      "version": 62
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886526,
+      "version": 62
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886528,
+      "version": 63
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886529,
+      "version": 63
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886533,
+      "version": 64
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886533,
+      "version": 64
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886534,
+      "version": 65
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886534,
+      "version": 65
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886536,
+      "version": 66
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886536,
+      "version": 66
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886537,
+      "version": 67
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886537,
+      "version": 67
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886539,
+      "version": 68
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886539,
+      "version": 68
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886544,
+      "version": 69
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886545,
+      "version": 69
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886546,
+      "version": 70
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886547,
+      "version": 70
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886548,
+      "version": 71
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886548,
+      "version": 71
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886549,
+      "version": 72
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886550,
+      "version": 72
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886550,
+      "version": 73
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886551,
+      "version": 73
+    },
+    {
+      "kind": "watcher",
+      "at": 1793598886585,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793598886585,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793598886586,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793598886586,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793598886587,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793598886590,
+      "sha256": "8f7e88eef535d1d04a26d6a792f81f6e6b719d9439ad5c07f102878daa1cdd75"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886598,
+      "version": 74
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886599,
+      "version": 74
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886627,
+      "version": 75
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886627,
+      "version": 75
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886629,
+      "version": 76
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886630,
+      "version": 76
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886632,
+      "version": 77
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886632,
+      "version": 77
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886634,
+      "version": 78
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886634,
+      "version": 78
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886636,
+      "version": 79
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886637,
+      "version": 79
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886639,
+      "version": 80
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886639,
+      "version": 80
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886640,
+      "version": 81
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886641,
+      "version": 81
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886641,
+      "version": 82
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886642,
+      "version": 82
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886642,
+      "version": 83
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886643,
+      "version": 83
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886644,
+      "version": 84
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886644,
+      "version": 84
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886645,
+      "version": 85
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886645,
+      "version": 85
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886646,
+      "version": 86
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886646,
+      "version": 86
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886647,
+      "version": 87
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886647,
+      "version": 87
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886648,
+      "version": 88
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886648,
+      "version": 88
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886649,
+      "version": 89
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886650,
+      "version": 89
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886650,
+      "version": 90
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886651,
+      "version": 90
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886653,
+      "version": 91
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886654,
+      "version": 91
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886657,
+      "version": 92
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886657,
+      "version": 92
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886658,
+      "version": 93
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886659,
+      "version": 93
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886660,
+      "version": 94
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886661,
+      "version": 94
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886662,
+      "version": 95
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886662,
+      "version": 95
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886663,
+      "version": 96
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886663,
+      "version": 96
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886664,
+      "version": 97
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886664,
+      "version": 97
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886665,
+      "version": 98
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886665,
+      "version": 98
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886666,
+      "version": 99
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886667,
+      "version": 99
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886668,
+      "version": 100
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886668,
+      "version": 100
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886669,
+      "version": 101
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886670,
+      "version": 101
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886672,
+      "version": 102
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886672,
+      "version": 102
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886673,
+      "version": 103
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886673,
+      "version": 103
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886674,
+      "version": 104
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886674,
+      "version": 104
+    },
+    {
+      "kind": "write-start",
+      "at": 1793598886675,
+      "version": 105
+    },
+    {
+      "kind": "write-end",
+      "at": 1793598886676,
+      "version": 105
+    },
+    {
+      "kind": "watcher",
+      "at": 1793598886686,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793598886686,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793598886687,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793598886687,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793598886687,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793598886689,
+      "sha256": "adae5474554c0f1d027963ce5074f5b54797e793c3b32e2997073436c9bce7cf"
+    }
+  ],
+  "serverNode": "v22.23.4",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-6fmUiE/consumer/node_modules/svet-engine",
+  "peerRuntime": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-GjUI23/peer",
+  "fixtureSha256": "0e872953a1d108a1bcc658e854d056f53325fb6583e0be0d5658b90c187cf0aa"
+}

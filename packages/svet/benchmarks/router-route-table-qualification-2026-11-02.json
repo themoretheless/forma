@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "scope": "Live options.routes replacement and terminal matcher config retirement",
+  "before": "3 passed/1 failed installed cases; source regression failed",
+  "after": "4/4 installed cases passed",
+  "sameProbeBeforeAfter": true,
+  "sourceSha256": {
+    "packages/svet/src/engine/advanced.ts": "e4f609922866649109d2284c34dfaea9e86003b9ab83e5e94bbb4f68455452d4",
+    "packages/svet/tests/router-lifecycle.test.ts": "56c7a10f5c1426d9ce32f3a773ff7546d711753a66dd7d89c44e0a3608e8a01e",
+    "packages/svet/scripts/check-cross-copy-router.mjs": "d87a4b517fc1cad3fc77af3571fa08cc1f70065c074b5a0b8715f9a742cdd158",
+    "packages/svet/scripts/check-package.mjs": "c6d7e6f77cbc31c6bf57e7bd2cb393ac856ba1d7b96fdaa0cfb0cb2e3cdc3b6e"
+  },
+  "checks": {
+    "fullJS": "1297/99 passed with one worker; original two-worker benchmark timeout preserved",
+    "typescript": "passed",
+    "HTTPActions": "4/4",
+    "installedPackageEdgeGC": "passed",
+    "NodeRetainedUI": "0/8 pairs with12 retained references",
+    "EdgeRetainedUI": "0/32 targets with40 references"
+  },
+  "evidence": [
+    "router-route-table-before-2026-11-02.txt",
+    "router-route-table-after-2026-11-02.txt",
+    "router-route-table-installed-before-2026-11-02.json",
+    "router-route-table-installed-after-2026-11-02.json",
+    "router-route-table-suite-2026-11-02.txt",
+    "router-route-table-final-suite-2026-11-02.txt",
+    "router-route-table-types-2026-11-02.txt",
+    "router-route-table-package-final-2026-11-02.txt",
+    "router-route-table-gc-2026-11-02.json",
+    "router-route-table-actions-2026-11-02.txt"
+  ],
+  "limitations": [
+    "No native browser requalification of this later matcher revision yet",
+    "Running frozen LPJBKt2h soak does not include this later advanced.js change"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-02",
+  "change": "Resolve parent-local collection paths recursively by retained stable parent keys to current root-backed list path; provide live ancestor values to fallback key evaluator; cap parent recursion at64.",
+  "checks": {
+    "lib": 145,
+    "allocations": 7,
+    "native": "passed",
+    "wasm32": "passed"
+  },
+  "regressions": [
+    "Real .ui nested For outer in state.groups, item in outer.items.",
+    "Both fresh and cached scene maps: reorder parents/children routes editor to original child.",
+    "Repeated child id across different groups remains isolated.",
+    "Removed parent drops target; duplicate parent key refuses with model unchanged.",
+    "Cyclic parent metadata refuses at depth limit."
+  ],
+  "source_sha256": "83051ce7332fb14c1c2bb8c21f9ce67e4486a4d35666c0b17dde27d7ef7156fb",
+  "limitations": [
+    "Shadowing same parent item name loses outer metadata and is refused by depth guard; not supported binding migration.",
+    "Derived/filter/map collections not qualified.",
+    "No browser/AOT, physical GPU or performance qualification this turn.",
+    "Deep nesting/computed parent-scope changes require broader matrix."
+  ]
+}

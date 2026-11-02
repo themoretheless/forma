@@ -1,0 +1,409 @@
+{
+  "runtimePackageBase": "file:///var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-LPJBKt/consumer/node_modules/svet-engine/dist/package/",
+  "runtimeFileCount": 20,
+  "startedAt": "2026-11-01T22:31:24.517Z",
+  "node": "v22.23.4",
+  "durationMs": 7200000,
+  "concurrency": 8,
+  "gcMode": "natural",
+  "forcedGCs": 0,
+  "cleanupFailures": [],
+  "requestFailures": [],
+  "requests": 918440,
+  "completed": 612293,
+  "disconnected": 306147,
+  "bytesRead": 162424494967,
+  "readerPauses": 1836879,
+  "drains": 1224586,
+  "maxNodesAfterFinish": 0,
+  "samples": [
+    {
+      "elapsedMs": 7199278.440958,
+      "requests": 918280,
+      "rss": 161747784,
+      "heapTotal": 110051328,
+      "heapUsed": 71889768,
+      "external": 71643528,
+      "arrayBuffers": 9912729
+    },
+    {
+      "elapsedMs": 7199311.163333,
+      "requests": 918288,
+      "rss": 156209392,
+      "heapTotal": 104398848,
+      "heapUsed": 66511192,
+      "external": 78698418,
+      "arrayBuffers": 7530435
+    },
+    {
+      "elapsedMs": 7199355.914167,
+      "requests": 918296,
+      "rss": 145885384,
+      "heapTotal": 99696640,
+      "heapUsed": 55464744,
+      "external": 20743831,
+      "arrayBuffers": 6198952
+    },
+    {
+      "elapsedMs": 7199393.4935,
+      "requests": 918304,
+      "rss": 143230960,
+      "heapTotal": 96665600,
+      "heapUsed": 52586288,
+      "external": 26746846,
+      "arrayBuffers": 2764783
+    },
+    {
+      "elapsedMs": 7199425.460167,
+      "requests": 918312,
+      "rss": 155995944,
+      "heapTotal": 107642880,
+      "heapUsed": 66297016,
+      "external": 41499314,
+      "arrayBuffers": 8080067
+    },
+    {
+      "elapsedMs": 7199460.044542,
+      "requests": 918320,
+      "rss": 156045240,
+      "heapTotal": 107069440,
+      "heapUsed": 66130512,
+      "external": 50945561,
+      "arrayBuffers": 8089130
+    },
+    {
+      "elapsedMs": 7199503.7253330005,
+      "requests": 918328,
+      "rss": 151014320,
+      "heapTotal": 102940672,
+      "heapUsed": 60108688,
+      "external": 22995063,
+      "arrayBuffers": 7270536
+    },
+    {
+      "elapsedMs": 7199540.078458,
+      "requests": 918336,
+      "rss": 147278336,
+      "heapTotal": 98975744,
+      "heapUsed": 56680856,
+      "external": 30323579,
+      "arrayBuffers": 5161868
+    },
+    {
+      "elapsedMs": 7199571.1305,
+      "requests": 918344,
+      "rss": 160059728,
+      "heapTotal": 109953024,
+      "heapUsed": 70374120,
+      "external": 45076047,
+      "arrayBuffers": 10477152
+    },
+    {
+      "elapsedMs": 7199609.1436250005,
+      "requests": 918352,
+      "rss": 156913712,
+      "heapTotal": 106479616,
+      "heapUsed": 66742152,
+      "external": 51342865,
+      "arrayBuffers": 7306786
+    },
+    {
+      "elapsedMs": 7199645.466208,
+      "requests": 918360,
+      "rss": 155144096,
+      "heapTotal": 104284160,
+      "heapUsed": 65260592,
+      "external": 59738877,
+      "arrayBuffers": 6265614
+    },
+    {
+      "elapsedMs": 7199679.106542001,
+      "requests": 918368,
+      "rss": 148425768,
+      "heapTotal": 97648640,
+      "heapUsed": 58163432,
+      "external": 65217423,
+      "arrayBuffers": 2306976
+    },
+    {
+      "elapsedMs": 7199718.454958,
+      "requests": 918376,
+      "rss": 146999640,
+      "heapTotal": 99926016,
+      "heapUsed": 56207456,
+      "external": 21801076,
+      "arrayBuffers": 7256197
+    },
+    {
+      "elapsedMs": 7199755.412292,
+      "requests": 918384,
+      "rss": 159781032,
+      "heapTotal": 110903296,
+      "heapUsed": 69970640,
+      "external": 36562327,
+      "arrayBuffers": 12580264
+    },
+    {
+      "elapsedMs": 7199789.9555,
+      "requests": 918392,
+      "rss": 154734232,
+      "heapTotal": 105693184,
+      "heapUsed": 64116776,
+      "external": 42019242,
+      "arrayBuffers": 8599995
+    },
+    {
+      "elapsedMs": 7199831.556375,
+      "requests": 918400,
+      "rss": 158306544,
+      "heapTotal": 108331008,
+      "heapUsed": 67411696,
+      "external": 52526509,
+      "arrayBuffers": 9670078
+    },
+    {
+      "elapsedMs": 7199865.796292,
+      "requests": 918408,
+      "rss": 151784872,
+      "heapTotal": 101859328,
+      "heapUsed": 60855464,
+      "external": 56946315,
+      "arrayBuffers": 4652700
+    },
+    {
+      "elapsedMs": 7199896.221333,
+      "requests": 918416,
+      "rss": 164566264,
+      "heapTotal": 112836608,
+      "heapUsed": 74551864,
+      "external": 71706975,
+      "arrayBuffers": 9976176
+    },
+    {
+      "elapsedMs": 7199934.662875,
+      "requests": 918424,
+      "rss": 164025664,
+      "heapTotal": 111722496,
+      "heapUsed": 73492008,
+      "external": 81279255,
+      "arrayBuffers": 10111272
+    },
+    {
+      "elapsedMs": 7199974.498792,
+      "requests": 918432,
+      "rss": 145229928,
+      "heapTotal": 100417536,
+      "heapUsed": 54880632,
+      "external": 20743240,
+      "arrayBuffers": 6198361
+    },
+    {
+      "elapsedMs": 7200007.97325,
+      "requests": 918440,
+      "rss": 158011320,
+      "heapTotal": 111394816,
+      "heapUsed": 68652112,
+      "external": 35504491,
+      "arrayBuffers": 11522428
+    },
+    {
+      "elapsedMs": 7198882.622167001,
+      "requests": 918192,
+      "rss": 153734448,
+      "heapTotal": 105594880,
+      "heapUsed": 63245264,
+      "external": 29038406,
+      "arrayBuffers": 7415639
+    },
+    {
+      "elapsedMs": 7198918.396292,
+      "requests": 918200,
+      "rss": 148163168,
+      "heapTotal": 99991552,
+      "heapUsed": 57069648,
+      "external": 36498380,
+      "arrayBuffers": 5438429
+    },
+    {
+      "elapsedMs": 7198956.002125,
+      "requests": 918208,
+      "rss": 152063208,
+      "heapTotal": 102924288,
+      "heapUsed": 60796128,
+      "external": 47798194,
+      "arrayBuffers": 7301059
+    },
+    {
+      "elapsedMs": 7198991.220292,
+      "requests": 918216,
+      "rss": 164844600,
+      "heapTotal": 113901568,
+      "heapUsed": 74580840,
+      "external": 62551253,
+      "arrayBuffers": 12616934
+    },
+    {
+      "elapsedMs": 7199023.8936250005,
+      "requests": 918224,
+      "rss": 157995296,
+      "heapTotal": 107069440,
+      "heapUsed": 67558360,
+      "external": 66839819,
+      "arrayBuffers": 7468316
+    },
+    {
+      "elapsedMs": 7199059.271792,
+      "requests": 918232,
+      "rss": 161076016,
+      "heapTotal": 109264896,
+      "heapUsed": 70334936,
+      "external": 77346685,
+      "arrayBuffers": 8537998
+    },
+    {
+      "elapsedMs": 7199101.405,
+      "requests": 918240,
+      "rss": 141952648,
+      "heapTotal": 95109120,
+      "heapUsed": 51438104,
+      "external": 19681412,
+      "arrayBuffers": 5136533
+    },
+    {
+      "elapsedMs": 7199135.179583,
+      "requests": 918248,
+      "rss": 154734040,
+      "heapTotal": 106086400,
+      "heapUsed": 65180328,
+      "external": 34442072,
+      "arrayBuffers": 10460009
+    },
+    {
+      "elapsedMs": 7199174.724958,
+      "requests": 918256,
+      "rss": 151588024,
+      "heapTotal": 102612992,
+      "heapUsed": 60980424,
+      "external": 41291663,
+      "arrayBuffers": 7872416
+    },
+    {
+      "elapsedMs": 7199206.162792,
+      "requests": 918264,
+      "rss": 153243144,
+      "heapTotal": 103514112,
+      "heapUsed": 63090200,
+      "external": 50344664,
+      "arrayBuffers": 7488233
+    },
+    {
+      "elapsedMs": 7199238.834833,
+      "requests": 918272,
+      "rss": 146541224,
+      "heapTotal": 96878592,
+      "heapUsed": 56041576,
+      "external": 55831797,
+      "arrayBuffers": 3538182
+    }
+  ],
+  "windows": [
+    {
+      "count": 19939,
+      "heapMin": 42700488,
+      "heapMax": 80126288,
+      "rssMin": 135316336,
+      "rssMax": 213129016,
+      "externalMin": 7174457,
+      "externalMax": 153726366,
+      "arrayBuffersMin": 887114,
+      "arrayBuffersMax": 14615475
+    },
+    {
+      "count": 28034,
+      "heapMin": 44780144,
+      "heapMax": 80683808,
+      "rssMin": 135267064,
+      "rssMax": 172694072,
+      "externalMin": 7178202,
+      "externalMax": 149597821,
+      "arrayBuffersMin": 886247,
+      "arrayBuffersMax": 16322693
+    },
+    {
+      "count": 29600,
+      "heapMin": 44049640,
+      "heapMax": 79899832,
+      "rssMin": 135135992,
+      "rssMax": 170940960,
+      "externalMin": 7173241,
+      "externalMax": 209543463,
+      "arrayBuffersMin": 885898,
+      "arrayBuffersMax": 16452798
+    },
+    {
+      "count": 37232,
+      "heapMin": 44910384,
+      "heapMax": 82016184,
+      "rssMin": 135529232,
+      "rssMax": 173923256,
+      "externalMin": 7177370,
+      "externalMax": 212941914,
+      "arrayBuffersMin": 887010,
+      "arrayBuffersMax": 15661302
+    }
+  ],
+  "scope": "Loopback Node HTTP/fetch streaming with delayed reader calls, concurrent clients and shell disconnects. Writer drains are observed; no proxy/browser, sustained kernel-buffer saturation or universal RSS bound claim.",
+  "sourceSha256": "fe24e0130bc3d9df207155f1a25786ca8ef646a774c74cb81fc89f9b561cd9fa",
+  "fixtureSha256": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c",
+  "runtimeSha256": {
+    "advanced.js": "6b43f1d3eaa6a072feb15a92a850eb8cc7910bc166cfa7ede19ee13f857bda3c",
+    "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+    "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "forma.js": "af0b0a9916d6e17843af0b8f3b27ad2b0517390cb14c2f17f8348ce05bae03c7",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu.js": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+    "index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+    "reactivity.js": "449dde72ac75867bf40900305a8e9307732a7282f020d6f978e938284805a579",
+    "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "ssr-runtime.js": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+    "stream-codec.js": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+    "stream-protocol.js": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "svet-core.wasm": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+    "wasm-binary.js": "d6d8d07138958cfb2e879d930d1dccb6a907cac8baf3796379bf1f6dffdf7163",
+    "wasm-bridge.js": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+  },
+  "updatedAt": "2026-11-02T00:31:24.650Z",
+  "elapsedMs": 7200008.002042,
+  "status": "passed",
+  "completedAt": "2026-11-02T00:31:24.645Z",
+  "finalSourceSha256": "fe24e0130bc3d9df207155f1a25786ca8ef646a774c74cb81fc89f9b561cd9fa",
+  "finalFixtureSha256": "4af131b2af9781915a56e1301eb4a00df2d116b92ad2d9210e379eeb156bed9c",
+  "finalRuntimeSha256": {
+    "advanced.js": "6b43f1d3eaa6a072feb15a92a850eb8cc7910bc166cfa7ede19ee13f857bda3c",
+    "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+    "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "forma.js": "af0b0a9916d6e17843af0b8f3b27ad2b0517390cb14c2f17f8348ce05bae03c7",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu.js": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+    "index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+    "reactivity.js": "449dde72ac75867bf40900305a8e9307732a7282f020d6f978e938284805a579",
+    "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "ssr-runtime.js": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+    "stream-codec.js": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+    "stream-protocol.js": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "svet-core.wasm": "9aba5a7f785fff76022772c6a357dfb3d38cc479960bd2f52db6631b9da07340",
+    "wasm-binary.js": "d6d8d07138958cfb2e879d930d1dccb6a907cac8baf3796379bf1f6dffdf7163",
+    "wasm-bridge.js": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+  },
+  "artifactsUnchanged": true
+}

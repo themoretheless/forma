@@ -1,0 +1,11 @@
+
+> svet-engine@1.0.0 build
+> npm run build:wasm && tsc --noEmit && npm run build:package && vite build
+
+
+> svet-engine@1.0.0 build:wasm
+> cd crates/svet-wasm && RUSTFLAGS="-C target-feature=+simd128" cargo build --target wasm32-unknown-unknown --release && node ../../scripts/embed-wasm.mjs
+
+    Finished `release` profile [optimized] target(s) in 0.03s
+[svet] Embedded WASM binary (54320 bytes) -> src/engine/wasm-binary.ts
+tests/streaming-ssr.test.ts(63,261): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'SsrStreamChunk'.

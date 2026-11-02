@@ -1,0 +1,108 @@
+{
+  "status": "validated-native-allocation-reduction",
+  "change": "Temporarily transfer scene __state into instantiation scope and restore on Result success/error; measure root Frame without deep-cloning whole tree",
+  "sourceSha256": {
+    "vector-ui/src/form_document.rs": "266e0f11472b37f4fda5661fa7e66c5ff54ae6ba1499cfc794b64950eab22e80",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "cc7dddeafbb224dac91906e52cf3eae1c031ada4744a7729100178101f762c81",
+    ".github/workflows/ci.yml": "e86914df99c0b12e5361971832265d0e925701a6a563c87da8b3c56086dd6fd1"
+  },
+  "beforeSourceSha256": "6971013331f158fcf0999869400234f02f6b47fe38c15208ed5870fc2b59370a",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "beforeEditRequestedBytes": 520423,
+      "afterEditRequestedBytes": 453974,
+      "reductionPercent": 12.768267351750406,
+      "beforeEditAllocations": 4391,
+      "afterEditAllocations": 3807
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "beforeEditRequestedBytes": 3083412,
+      "afterEditRequestedBytes": 2293883,
+      "reductionPercent": 25.605692654760382,
+      "beforeEditAllocations": 24676,
+      "afterEditAllocations": 18500
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "beforeEditRequestedBytes": 17652540,
+      "afterEditRequestedBytes": 11093667,
+      "reductionPercent": 37.15540653073155,
+      "beforeEditAllocations": 135099,
+      "afterEditAllocations": 85851
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "beforeEditRequestedBytes": 102963640,
+      "afterEditRequestedBytes": 57458031,
+      "reductionPercent": 44.195804460681465,
+      "beforeEditAllocations": 769498,
+      "afterEditAllocations": 433370
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "beforeEditRequestedBytes": 524797,
+      "afterEditRequestedBytes": 458348,
+      "reductionPercent": 12.661848295626687,
+      "beforeEditAllocations": 4427,
+      "afterEditAllocations": 3843
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "beforeEditRequestedBytes": 3106003,
+      "afterEditRequestedBytes": 2316474,
+      "reductionPercent": 25.419453876895805,
+      "beforeEditAllocations": 24843,
+      "afterEditAllocations": 18667
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "beforeEditRequestedBytes": 17718779,
+      "afterEditRequestedBytes": 11159906,
+      "reductionPercent": 37.016506611431865,
+      "beforeEditAllocations": 135586,
+      "afterEditAllocations": 86338
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "beforeEditRequestedBytes": 103139311,
+      "afterEditRequestedBytes": 57633702,
+      "reductionPercent": 44.120528398720836,
+      "beforeEditAllocations": 770785,
+      "afterEditAllocations": 434657
+    }
+  ],
+  "repeat": "Two final-source candidate runs have identical allocation counters for every sample",
+  "validation": {
+    "libraryTests": 162,
+    "allocationTests": 10,
+    "sceneArtifactTests": 8,
+    "wasm32ReleaseBuild": "passed",
+    "actualGeneratedNodeArtifactGate": "passed",
+    "actualGeneratedNodeSnapshotCases": 2,
+    "remoteCI": "not run; new Node ABI gates wired into studio job"
+  },
+  "regressions": [
+    "Original and transferred instantiation produce equal props.__state results",
+    "Snapshot restored after invalid visual root Result error",
+    "Missing snapshot does not inherit definition metadata as caller state",
+    "Actual WASM custom template reads props.__state.caption",
+    "Actual WASM For preserves root list and distinct item snapshots"
+  ],
+  "limitations": [
+    "Cumulative requested bytes are not live/peak memory",
+    "No latency/FPS/presentation claim",
+    "Non-precomputed render path and remaining model clones stay open",
+    "No new browser/window/GPU qualification",
+    "HTTP qualification runs independently on unchanged JS runtime"
+  ]
+}

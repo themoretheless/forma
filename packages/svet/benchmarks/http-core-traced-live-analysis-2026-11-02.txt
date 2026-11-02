@@ -1,0 +1,16 @@
+{
+  "status": "incomplete",
+  "probeCompleted": false,
+  "issues": [],
+  "elapsedMs": 50186.628375,
+  "requests": 10968,
+  "minimumDurationMs": 7200000,
+  "metrics": {},
+  "limitations": [
+    "Window extrema do not establish a stationary distribution or absence of slow leaks.",
+    "Budgets are caller-specified investigation thresholds, not universal RSS bounds.",
+    "Loopback fixture does not qualify gzip, both codecs, proxy or kernel saturation."
+  ],
+  "rawSha256": "6f252bb80211e46cfc430b7e0eacac568caf914e74b959f596fd65339917f3a5",
+  "analyzerSha256": "a9b5082c5996cddf7e354cf3b92a86e1c3b99b6807ae5233ff14120c2bced14b"
+}

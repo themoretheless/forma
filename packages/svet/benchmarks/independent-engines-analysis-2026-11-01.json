@@ -1,0 +1,11 @@
+{
+  "status": "passed",
+  "assertions": 9,
+  "bothBundlesSha256": "ad38e154d0c8470c55b14c6a5524e88b41d853097792fa0bfc36c90a732b9ff2",
+  "independentURLs": [
+    "/first/index.js",
+    "/second/index.js"
+  ],
+  "sourceAndArtifactHashesMatch": true,
+  "scope": "Native dispatcher and graph reset isolation; does not establish cross-module signal tracking, untrack or async context propagation."
+}

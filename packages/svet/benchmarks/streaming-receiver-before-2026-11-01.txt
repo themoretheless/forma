@@ -1,0 +1,65 @@
+
+> svet-engine@1.0.0 pretest
+> npm run build:package
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+
+> svet-engine@1.0.0 test
+> vitest run tests/streaming-ssr.test.ts tests/async-components.test.ts --maxWorkers=1
+
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/streaming-ssr.test.ts (7 tests | 2 failed) 30ms
+   × orders nested patches and reconciles cross-boundary reactive writes in the final snapshot 7ms
+   × preserves SVG namespace for contextual patches and receiver parent teardown 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/streaming-ssr.test.ts > orders nested patches and reconciles cross-boundary reactive writes in the final snapshot
+TypeError: Invalid Svet snapshot: signals must be an object
+ ❯ resumeContainer src/engine/resumable.ts:210:11
+    208|   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) ||
+    209|       !parsed.signals || typeof parsed.signals !== 'object' || Array.i…
+    210|     throw new TypeError('Invalid Svet snapshot: signals must be an obj…
+       |           ^
+    211|   }
+    212|   if (parsed.bindings !== undefined && (!Array.isArray(parsed.bindings…
+ ❯ src/engine/stream.ts:78:21
+ ❯ src/engine/reactivity.ts:654:18
+ ❯ withWasmCore src/engine/wasm-bridge.ts:177:12
+ ❯ runWithCapturedOwner src/engine/reactivity.ts:650:10
+ ❯ src/engine/reactivity.ts:641:16
+ ❯ untrack src/engine/reactivity.ts:1683:12
+ ❯ src/engine/reactivity.ts:992:35
+ ❯ withWasmCore src/engine/wasm-bridge.ts:177:12
+ ❯ runUntrackedInCore src/engine/reactivity.ts:992:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/streaming-ssr.test.ts > preserves SVG namespace for contextual patches and receiver parent teardown
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/streaming-ssr.test.ts:50:207
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  2 failed | 13 passed (15)
+   Start at  17:52:54
+   Duration  1.42s (environment 82%, import 7%, transform 5%, tests 5%, worker 1%)
+
+    Isolate  2 workers spawned · ~596ms startup each (spawn + environment, per file)
+             at least ~596ms faster with isolate: false — reuses workers across files instead of one per file
+

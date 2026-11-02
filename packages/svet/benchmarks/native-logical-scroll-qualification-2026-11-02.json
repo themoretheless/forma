@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-02",
+  "status": "partial; retained .ui sole-root Scroll empty-layout extents fixed",
+  "behavior": [
+    "Empty explicit-height layout contributes logical scroll extent even with zero controls",
+    "Metadata is carried from Document positioning to retained Runtime without fake controls",
+    "Retained rebuild applies logical extents before restoring/clamping scroll",
+    "Content-size-only changes invalidate layout revision"
+  ],
+  "checks": {
+    "lib_tests": 159,
+    "allocation_tests": 10,
+    "native_bin_check": "passed",
+    "wasm32_lib_check": "passed",
+    "explicit_ignored_hardware_gpu_tests": 6,
+    "diff_check": "passed"
+  },
+  "regressions": [
+    "Empty content heights512/900/200 map to offsets212/600/0 in 300-high viewport",
+    "Removing controls preserves explicit512-high content and112 offset in400-high viewport",
+    "Shrinking model content height to200 clamps offset0 with layout revision update under legacy and Svet scheduling"
+  ],
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "b6492af09703fa380c80031d8ba8cfce72899b350ab5c57851c00a5b6c0b3b41",
+    "vector-ui/src/runtime.rs": "109719e95ee99506a0569408474e340daea330f6a42cc2f9d17c887653c958d7"
+  },
+  "limits": [
+    "Logical metadata is internal to retained .ui Runtime loading/rebuild; legacy render_scene tuple and raw scene transport do not carry it",
+    "Nested/multiple Scroll viewports and general empty/horizontal layout matrix remain open",
+    "No OS-window/IME/device-loss qualification in this milestone",
+    "No performance claim; HTTP frozen diagnostic continues independently"
+  ]
+}

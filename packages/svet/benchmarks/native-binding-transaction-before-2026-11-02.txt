@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.13s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 1 test
+test form_document::tests::binding_sync_rejects_invalid_metadata_without_partial_model_writes ... FAILED
+
+failures:
+
+---- form_document::tests::binding_sync_rejects_invalid_metadata_without_partial_model_writes stdout ----
+
+thread 'form_document::tests::binding_sync_rejects_invalid_metadata_without_partial_model_writes' (5623704) panicked at src/form_document.rs:5218:13:
+assertion `left == right` failed: a later invalid binding must roll back earlier writes
+  left: [{"first": Text("edited"), "second": Text("two")}]
+ right: [{"first": Text("one"), "second": Text("two")}]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    form_document::tests::binding_sync_rejects_invalid_metadata_without_partial_model_writes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 120 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

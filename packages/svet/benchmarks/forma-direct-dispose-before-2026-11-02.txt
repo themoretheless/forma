@@ -1,0 +1,33 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-events.test.ts (2 tests | 1 failed) 115ms
+   × direct instance disposal retires mounted/rendered views and preserves external signals 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > direct instance disposal retires mounted/rendered views and preserves external signals
+AssertionError: expected 10 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 10
+
+ ❯ tests/forma-hmr-events.test.ts:43:39
+     41|   try {
+     42|     inst.dispose(); inst.dispose();
+     43|     expect(getGraphTelemetry().nodes).toBe(1);
+       |                                       ^
+     44|     for (const button of buttons) button.click();
+     45|     expect(external()).toBe(0); expect(a.childNodes.length + b.childNo…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  08:32:19
+   Duration  2.29s (environment 83%, transform 8%, tests 6%, import 3%)
+

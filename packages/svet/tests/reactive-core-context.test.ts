@@ -46,10 +46,10 @@ it('foreign updater reads do not subscribe its calling effect',()=>{
  withWasmCore(caller,()=>{const gate=signal(0),foreignRead=signal(4);let runs=0;const observer=effect(()=>{gate();runs++;target.set(()=>foreignRead());});foreignRead.set(5);expect(runs).toBe(1);gate.set(1);expect(runs).toBe(2);expect(target()).toBe(5);observer.dispose();gate.dispose();foreignRead.dispose();});target.dispose();
 });
 
-it('foreign computed reads isolate the caller while tracking owned dependencies',()=>{
+it('foreign computed reads track dependencies across cores without leaking ambient collection',()=>{
  const owned=createWasmCoreInstance(),caller=createWasmCoreInstance();let anchor!:Signal<number>,value!:ReadonlySignal<number>,foreign!:Signal<number>;
  withWasmCore(caller,()=>{foreign=signal(4);});withWasmCore(owned,()=>{anchor=signal(0);value=computed(()=>{anchor();return foreign();});});
- withWasmCore(caller,()=>{const gate=signal(0),values:number[]=[];const observer=effect(()=>{gate();values.push(value());});foreign.set(5);expect(values).toEqual([4]);anchor.set(1);gate.set(1);expect(values).toEqual([4,5]);observer.dispose();gate.dispose();foreign.dispose();});value.dispose();anchor.dispose();
+ withWasmCore(caller,()=>{const gate=signal(0),values:number[]=[];const observer=effect(()=>{gate();values.push(value());});foreign.set(5);expect(values).toEqual([4,5]);anchor.set(1);gate.set(1);expect(values).toEqual([4,5,5]);observer.dispose();gate.dispose();foreign.dispose();});value.dispose();anchor.dispose();
 });
 
 it('foreign callback failures restore caller tracking after the operation',()=>{
@@ -69,8 +69,8 @@ it('foreign callbacks still invalidate a dependency already read by their callin
  withWasmCore(caller,()=>{const source=signal(0),values:number[]=[];const observer=effect(()=>{values.push(source());target.set(()=>{if(source.peek()===0)source.set(1);return 0;});});expect(values).toEqual([0,1]);observer.dispose();source.dispose();});target.dispose();
 });
 
-it('foreign computed failures restore caller tracking without collecting callback reads',()=>{
+it('foreign computed failures retain dependency invalidation and restore caller tracking',()=>{
  const owned=createWasmCoreInstance(),caller=createWasmCoreInstance(),failure=Error('compute failed');let value!:ReadonlySignal<number>,hidden!:Signal<number>;
  withWasmCore(caller,()=>{hidden=signal(0);});withWasmCore(owned,()=>{value=computed(()=>{hidden();throw failure;});});
- withWasmCore(caller,()=>{const after=signal(0);let runs=0;const observer=effect(()=>{runs++;expect(value).toThrow(failure);after();expect(getWasmCore()).toBe(caller);});hidden.set(1);expect(runs).toBe(1);after.set(1);expect(runs).toBe(2);observer.dispose();after.dispose();hidden.dispose();});value.dispose();
+ withWasmCore(caller,()=>{const after=signal(0);let runs=0;const observer=effect(()=>{runs++;expect(value).toThrow(failure);after();expect(getWasmCore()).toBe(caller);});hidden.set(1);expect(runs).toBe(2);after.set(1);expect(runs).toBe(3);observer.dispose();after.dispose();hidden.dispose();});value.dispose();
 });

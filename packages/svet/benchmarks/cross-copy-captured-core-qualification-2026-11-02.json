@@ -1,0 +1,51 @@
+{
+  "status": "passed",
+  "scope": "Realm-local explicit synchronous core selection across byte-matched copies; captured live child scope after carrier completion. Implicit async selection remains host-local.",
+  "sourceSha256": {
+    "src/engine/wasm-bridge.ts": "d1d82bf76f183df78292a92f31032166c14b45ac8711545605bb4355b2ef1ab2",
+    "scripts/check-cross-copy-async-owner.mjs": "d6bd5e46dccf63caad6f9f7164cdcb6a41cc4f9b0a771fed6984abec778abb6a",
+    "scripts/check-package.mjs": "a4c5559056e2a3dada575e2c7ffc0004f756d50f915d57ef5880013f64ed97f6"
+  },
+  "compiledBridgeSha256": "fcb1236341553e5e97e04c73895d65b1a33c4b55c446f5d3b0906980db1d1aec",
+  "archiveSha256": "4861c6d429ab3f64330e7aa1f900f76e82936c162729f5a22a480d7ef631edb7",
+  "sameProbeBeforeAfter": true,
+  "before": {
+    "failed": 2,
+    "passed": 6
+  },
+  "after": {
+    "passed": 8,
+    "failed": 0
+  },
+  "GC": {
+    "coresCollected": 8,
+    "memoriesCollected": 8,
+    "retainedPromises": 8,
+    "retainedErrors": 8,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "checks": {
+    "fullJS": "1293 tests /98 files passed, threads2",
+    "typescript": "passed",
+    "installedPackageEdgeInspectorGC": "passed;8-case copy probe required",
+    "HTTPActions": "4/4",
+    "browserIndependentEngines": "9/9 production source-bundle checks"
+  },
+  "evidence": [
+    "cross-copy-captured-core-before-final-2026-11-02.json",
+    "cross-copy-captured-core-after-2026-11-02.json",
+    "cross-copy-captured-core-full-suite-2026-11-02.txt",
+    "cross-copy-captured-core-types-final-2026-11-02.txt",
+    "cross-copy-captured-core-package-2026-11-02.txt",
+    "cross-copy-captured-core-actions-2026-11-02.txt",
+    "cross-copy-captured-core-browser-2026-11-02.json",
+    "cross-copy-captured-core-browser-2026-11-02.png"
+  ],
+  "limitations": [
+    "Other realms and mixed versions are not qualified.",
+    "withWasmCore scope ends when its synchronous callback returns, including Promise return.",
+    "Separate-core automatic dependencies and implicit cross-copy core selection after await remain open.",
+    "Frozen natural soak measures its previous installed baseline, not this change."
+  ]
+}

@@ -1,0 +1,35 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-events.test.ts (7 tests | 2 failed) 37ms
+   × parent disposal during factory refuses the unfinished view and drains child resources 3ms
+   × parent disposal during child-render refuses the unfinished view and drains child resources 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > parent disposal during factory refuses the unfinished view and drains child resources
+ FAIL  tests/forma-hmr-events.test.ts > parent disposal during child-render refuses the unfinished view and drains child resources
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-hmr-events.test.ts:107:39
+    105|   });
+    106|   const container = document.createElement('div');
+    107|   expect(() => inst.mount(container)).toThrow(/disposed/i);
+       |                                       ^
+    108|   expect(container.childNodes.length).toBe(0);
+    109|   expect(getGraphTelemetry().nodes).toBe(0);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  08:44:10
+   Duration  855ms (environment 57%, transform 31%, import 6%, tests 6%)
+

@@ -1,0 +1,138 @@
+{
+  "source": "packages/svet/benchmarks/resident-app-interleaved-metal-2026-11-01.json",
+  "validatedRows": 28,
+  "measuredFrames": 3240,
+  "workloads": [
+    {
+      "vertices": 2400,
+      "pairChanges": [
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -6.666666641831398,
+          "p95ChangePercent": -5.588235171660017
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -1.330460852599913e-07,
+          "p95ChangePercent": -5.820766091346741e-09
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -6.666666766007745,
+          "p95ChangePercent": -6.249999983629095
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": 0,
+          "p95ChangePercent": -5.937499973442762
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -8.33333344974866,
+          "p95ChangePercent": -12.999999951571251
+        }
+      ],
+      "mapped": {
+        "medianP50Ms": 1.400000000372529,
+        "medianP95Ms": 1.5999999997206031,
+        "liveAfterMeasure": {
+          "buffers": 2,
+          "bufferBytes": 48000,
+          "textures": 1
+        },
+        "peakBufferBytes": 163216
+      },
+      "resident": {
+        "medianP50Ms": 1.3999999985098839,
+        "medianP95Ms": 1.5050000000745056,
+        "liveAfterMeasure": {
+          "buffers": 3,
+          "bufferBytes": 86400,
+          "textures": 1
+        },
+        "peakBufferBytes": 124816
+      }
+    },
+    {
+      "vertices": 38400,
+      "pairChanges": [
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -45.00000001862645,
+          "p95ChangePercent": -39.26247296882137
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -41.666666701160096,
+          "p95ChangePercent": -33.333333303767546
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -44.44444440995101,
+          "p95ChangePercent": -35.000000055879354
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -38.88888893488013,
+          "p95ChangePercent": -34.92407811161527
+        },
+        {
+          "geometryIdentical": true,
+          "pixelsIdentical": true,
+          "p50ChangePercent": -38.88888893488013,
+          "p95ChangePercent": -37.42203743202045
+        }
+      ],
+      "mapped": {
+        "medianP50Ms": 1.800000000745058,
+        "medianP95Ms": 2.3050000007264315,
+        "liveAfterMeasure": {
+          "buffers": 2,
+          "bufferBytes": 768000,
+          "textures": 1
+        },
+        "peakBufferBytes": 2611216
+      },
+      "resident": {
+        "medianP50Ms": 1.099999999627471,
+        "medianP95Ms": 1.400000000372529,
+        "liveAfterMeasure": {
+          "buffers": 3,
+          "bufferBytes": 1382400,
+          "textures": 1
+        },
+        "peakBufferBytes": 1996816
+      }
+    }
+  ],
+  "controls": [
+    {
+      "geometryIdentical": true,
+      "pixelsIdentical": true,
+      "p50ChangePercent": 0,
+      "p95ChangePercent": 0
+    },
+    {
+      "geometryIdentical": true,
+      "pixelsIdentical": true,
+      "p50ChangePercent": -9.090909060121566,
+      "p95ChangePercent": -19.999999925494194
+    },
+    {
+      "geometryIdentical": true,
+      "pixelsIdentical": true,
+      "p50ChangePercent": 3.9999999850988344,
+      "p95ChangePercent": -9.090909060121566
+    }
+  ],
+  "longTasks": 0
+}

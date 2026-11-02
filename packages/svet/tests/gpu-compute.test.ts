@@ -4,19 +4,19 @@ import { configureGpuSubsystem, GpuComputeCapacityError, createTransform3D, crea
 
 const wgsl = '@group(0) @binding(0) var<storage, read> input: array<f32>; @group(0) @binding(1) var<storage, read_write> output: array<f32>; @compute @workgroup_size(64) fn main(@builtin(global_invocation_id) id: vec3<u32>) { if (id.x < arrayLength(&output)) { output[id.x] = input[id.x] * 2.0 + 1.0; } }';
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(yes => { resolve = yes; }); return { promise, resolve }; }
-function gpu(options: { pauseMap?: boolean; pipelineError?: boolean; validationError?: boolean; allocationError?: boolean; scopeError?: string } = {}) {
+function gpu(options: { pauseMap?: boolean; pipelineError?: boolean; validationError?: boolean; allocationError?: boolean; scopeError?: string; partialWrites?: boolean } = {}) {
   const lost = deferred<{ message: string }>(), mapping = deferred<void>(), release = deferred<void>();
   const filters: string[] = [];
-  const buffers: any[] = []; let scopes = 0, maxScopes = 0, shader = '', groups: number[] = [];
+  const buffers: any[] = [], dispatches: number[][] = []; let scopes = 0, maxScopes = 0, shader = '', groups: number[] = [];
   const device = {
-    buffers, lost: lost.promise, lose: () => lost.resolve({ message: 'test loss' }), mapping: mapping.promise, release: () => release.resolve(),
+    buffers, dispatches, lost: lost.promise, lose: () => lost.resolve({ message: 'test loss' }), mapping: mapping.promise, release: () => release.resolve(),
     get scopes() { return scopes; }, get maxScopes() { return maxScopes; }, get shader() { return shader; }, get groups() { return groups; },
     pushErrorScope(filter: string) { filters.push(filter); scopes++; maxScopes = Math.max(scopes, maxScopes); },
     async popErrorScope() { scopes--; const filter = filters.pop(); return (options.validationError && filter === 'validation') || options.scopeError === filter ? { message: 'invalid binding' } : null; },
     createBuffer({ size }: { size: number }) {
       if (options.allocationError && buffers.length === 1) throw new Error('allocation failed');
-      const buffer = { bytes: new Uint8Array(size), destroyed: false, mapped: false,
-        async mapAsync() { mapping.resolve(); if (options.pauseMap) await release.promise; if (this.destroyed) throw new Error('buffer destroyed'); this.mapped = true; },
+      const buffer = { bytes: new Uint8Array(size), destroyed: false, mapped: false, mapCalls: 0,
+        async mapAsync() { this.mapCalls++; mapping.resolve(); if (options.pauseMap) await release.promise; if (this.destroyed) throw new Error('buffer destroyed'); this.mapped = true; },
         getMappedRange() { if (this.destroyed || !this.mapped) throw new Error('invalid map'); return this.bytes.buffer; },
         unmap() { this.mapped = false; }, destroy() { this.destroyed = true; this.mapped = false; },
       }; buffers.push(buffer); return buffer;
@@ -28,13 +28,15 @@ function gpu(options: { pauseMap?: boolean; pipelineError?: boolean; validationE
       const commands: Array<() => void> = []; let bindings: any;
       return {
         beginComputePass() { return { setPipeline() {}, setBindGroup(_index: number, group: any) { bindings = group; },
-          dispatchWorkgroups(...sizes: number[]) { groups = sizes; commands.push(() => {
-            const input = new Float32Array(bindings[0].resource.buffer.bytes.buffer);
-            const output = new Float32Array(bindings.at(-1).resource.buffer.bytes.buffer);
-            for (let i = 0; i < output.length; i++) output[i] = input[i] * 2 + 1;
+          dispatchWorkgroups(...sizes: number[]) { groups = sizes; dispatches.push(sizes); const dispatchedBindings = bindings; commands.push(() => {
+            const input = new Float32Array(dispatchedBindings[0].resource.buffer.bytes.buffer, 0, dispatchedBindings[0].resource.size / 4);
+            const outputBinding = dispatchedBindings.at(-1).resource;
+            const output = new Float32Array(outputBinding.buffer.bytes.buffer, 0, outputBinding.size / 4);
+            for (let i = 0; i < (options.partialWrites ? 1 : output.length); i++) output[i] = input[i] * 2 + 1;
           }); }, end() {},
         }; },
         copyBufferToBuffer(source: any, offset: number, target: any, targetOffset: number, length: number) { commands.push(() => target.bytes.set(source.bytes.subarray(offset, offset + length), targetOffset)); },
+        clearBuffer(buffer: any, offset: number, size: number) { commands.push(() => buffer.bytes.fill(0, offset, offset + size)); },
         finish() { return commands; },
       };
     },
@@ -46,6 +48,355 @@ function gpu(options: { pauseMap?: boolean; pipelineError?: boolean; validationE
 }
 beforeEach(() => { resetReactiveSystem(); configureGpuSubsystem({ device: null }); });
 afterEach(() => vi.unstubAllGlobals());
+
+it('resizes GPU intermediate bindings and clears stale tails when a result grows again', async () => {
+  const device = gpu({ partialWrites: true }); configureGpuSubsystem({ device });
+  const bindings = vi.spyOn(device, 'createBindGroup');
+  const input = createGpuTensor([1,2,3,4]), output = createGpuTensor([99,99]);
+  const result = await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, outputLength: 4,
+    chain: [{ wgsl, outputLength: 1 }, { wgsl }] });
+  expect(Array.from(output())).toEqual([15,0]);
+  expect(bindings.mock.calls.map(([descriptor]) => descriptor.entries.map((entry: any) => entry.resource.size)))
+    .toEqual([[16,16], [16,4], [4,8]]);
+  expect(result.uploadedBytes).toBe(24); expect(result.readbackBytes).toBe(8);
+  expect(device.buffers).toHaveLength(4); expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
+});
+
+it('derives default workgroups independently from every private output length', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const input = createGpuTensor(new Float32Array(129).fill(1)), output = createGpuTensor([0]);
+  await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, outputLength: 129,
+    chain: [{ wgsl, outputLength: 65 }, { wgsl }] });
+  expect(device.dispatches).toEqual([[3,1,1], [2,1,1], [1,1,1]]);
+  expect(Array.from(output())).toEqual([15]);
+});
+
+it('accounts only the uploaded prefix when the first GPU result is shorter than the host output', async () => {
+  const device = gpu({ partialWrites: true }); configureGpuSubsystem({ device });
+  const writes = vi.spyOn(device.queue, 'writeBuffer');
+  const input = createGpuTensor([1,2,3,4]), output = createGpuTensor([99,98,97,96]);
+  const result = await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, outputLength: 1,
+    chain: [{ wgsl }] });
+  expect(Array.from(output())).toEqual([7,0,0,0]);
+  expect(writes.mock.calls.map(args => args[4])).toEqual([16,4]);
+  expect(result.uploadedBytes).toBe(20); expect(result.readbackBytes).toBe(16);
+});
+
+it.each([-1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER])('rejects private GPU output length %s before GPU allocation', outputLength => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  return expect(dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, outputLength,
+    chain: [{ wgsl }] })).rejects.toThrow(/outputLength/).then(() => {
+      expect(device.buffers).toHaveLength(0); expect(Array.from(output())).toEqual([17]);
+      expect(getGpuTelemetry().pendingComputeCount).toBe(0);
+    });
+});
+
+it('rejects a mismatched final shape without superseding earlier accepted work', async () => {
+  const device = gpu({ pauseMap: true }); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  const accepted = dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  await device.mapping;
+  await expect(dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: [{ wgsl, outputLength: 2 }] })).rejects.toThrow(/must match/);
+  device.release(); await accepted; expect(Array.from(output())).toEqual([3]);
+});
+
+it('checks device limits against intermediate shapes before compiling or allocating', async () => {
+  const device = Object.assign(gpu(), { limits: { maxBufferSize: 12, maxStorageBufferBindingSize: 12 } });
+  configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  await expect(dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, outputLength: 4,
+    chain: [{ wgsl }] })).rejects.toThrow(/binding size/);
+  expect(pipelines).not.toHaveBeenCalled(); expect(device.buffers).toHaveLength(0);
+});
+
+it('captures private stage lengths before asynchronous execution', async () => {
+  const device = gpu({ partialWrites: true }); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1,2,3,4]), output = createGpuTensor([99,99]);
+  const chain = [{ wgsl, outputLength: 1 }, { wgsl }];
+  const options = { wgsl, inputs: [input], output, outputLength: 4, chain };
+  const pending = dispatchGpuComputeKernelAsync(options);
+  options.outputLength = 999; chain[0].outputLength = 999; chain.length = 0;
+  await pending; expect(Array.from(output())).toEqual([15,0]);
+});
+
+it('rejects nonnumeric private stage lengths without running their coercion hooks', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]); let coercions = 0;
+  const outputLength = { valueOf() { coercions++; return 1; } } as unknown as number;
+  await expect(dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: [{ wgsl, outputLength }] })).rejects.toThrow(/outputLength/);
+  expect(coercions).toBe(0); expect(device.buffers).toHaveLength(0);
+});
+
+it('allows GPU-only shapes above the host arena bound when device limits permit them', async () => {
+  const device = Object.assign(gpu(), { limits: { maxBufferSize: 1024 ** 3, maxStorageBufferBindingSize: 1024 ** 3 } });
+  configureGpuSubsystem({ device });
+  const create = device.createBuffer.bind(device); let attemptedBytes = 0;
+  vi.spyOn(device, 'createBuffer').mockImplementation(descriptor => {
+    if (descriptor.size > 1_000_000) { attemptedBytes = descriptor.size; throw Error('controlled large GPU allocation'); }
+    return create(descriptor);
+  });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  const outputLength = getWasmCore().svet_gpu_get_arena_limit_f32() + 1;
+  await expect(dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, outputLength, workgroups: [1],
+    chain: [{ wgsl }] })).rejects.toThrow('controlled large GPU allocation');
+  expect(attemptedBytes).toBe(outputLength * 4);
+  expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
+  expect(getGpuTelemetry().pendingComputeCount).toBe(0);
+});
+
+it('keeps a three-stage chain on GPU with one upload set, submission and readback', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const writes = vi.spyOn(device.queue, 'writeBuffer'), submits = vi.spyOn(device.queue, 'submit');
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1, 2]), output = createGpuTensor([99, 99]);
+  const observed: number[][] = [];
+  const observer = effect(() => { observed.push(Array.from(output())); });
+  const report = await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: [{ wgsl }, { wgsl }] });
+  expect(Array.from(output())).toEqual([15, 23]);
+  expect(observed).toEqual([[99, 99], [15, 23]]);
+  expect(report).toEqual({ backend: 'webgpu', elements: 2, uploadedBytes: 16, readbackBytes: 8 });
+  expect(writes).toHaveBeenCalledTimes(2); expect(submits).toHaveBeenCalledTimes(1);
+  expect(pipelines).toHaveBeenCalledTimes(1);
+  expect(device.buffers).toHaveLength(4);
+  expect(device.buffers.reduce((sum, buffer) => sum + buffer.mapCalls, 0)).toBe(1);
+  expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
+  expect(getGpuTelemetry().pendingComputeCount).toBe(0);
+  observer.dispose();
+});
+
+it('seeds later GPU chain outputs from previous results for partially writing kernels', async () => {
+  const device = gpu({ partialWrites: true }); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1, 2]), output = createGpuTensor([99, 123]);
+  await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, chain: [{ wgsl }, { wgsl }] });
+  expect(Array.from(output())).toEqual([15, 123]);
+});
+
+it('executes the maximum 32 stages with constant intermediate storage', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: Array.from({ length: 31 }, () => ({ wgsl })) });
+  let expected = 1;
+  for (let i = 0; i < 32; i++) expected = Math.fround(expected * 2 + 1);
+  expect(Array.from(output())).toEqual([expected]);
+  expect(device.buffers).toHaveLength(4);
+  expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
+});
+
+it('fails an entire chain before publication and retries all failed transaction pipelines', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const create = device.createComputePipeline.bind(device);
+  let attempts = 0, rejectSecond = true;
+  const pipelines = vi.spyOn(device, 'createComputePipeline').mockImplementation(() => {
+    if (++attempts === 2 && rejectSecond) throw Error('second stage failed');
+    return create();
+  });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  const run = () => dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: [{ wgsl: wgsl + '\n// second stage' }] });
+  await expect(run()).rejects.toThrow('second stage failed');
+  expect(Array.from(output())).toEqual([17]);
+  expect(device.buffers).toHaveLength(0);
+  rejectSecond = false;
+  await run(); await run();
+  expect(Array.from(output())).toEqual([7]);
+  expect(pipelines).toHaveBeenCalledTimes(4);
+});
+
+it('cancels owned chains during readback without publishing intermediate results', async () => {
+  const device = gpu({ pauseMap: true }); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  let stop!: () => void;
+  const pending = createRoot(dispose => { stop = dispose; return dispatchGpuComputeKernelAsync({
+    wgsl, inputs: [input], output, chain: [{ wgsl }, { wgsl }],
+  }); });
+  await device.mapping; stop();
+  await expect(pending).rejects.toThrow('owner disposed');
+  expect(Array.from(output())).toEqual([17]);
+  expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
+  expect(getGpuTelemetry().pendingComputeCount).toBe(0);
+  device.release();
+});
+
+it('snapshots chain shaders and workgroup arrays before asynchronous execution', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  const groups: [number] = [1], chain = [{ wgsl, workgroups: groups }];
+  const pending = dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, chain });
+  chain[0].wgsl = 'bad shader'; groups[0] = 0; chain.length = 0;
+  await pending;
+  expect(Array.from(output())).toEqual([7]);
+  expect(device.groups).toEqual([1, 1, 1]);
+});
+
+it('stops chain metadata reads immediately when a getter disposes the owner', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  let laterReads = 0;
+  const pending = createRoot(dispose => dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: [{ get wgsl() { dispose(); return wgsl; }, get entryPoint() { laterReads++; return 'main'; } }],
+  }));
+  await expect(pending).rejects.toThrow('owner disposed');
+  expect(laterReads).toBe(0); expect(device.buffers).toHaveLength(0);
+  expect(Array.from(output())).toEqual([17]);
+});
+
+it('rejects oversized chains before tensor snapshots or GPU allocation', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  const peek = vi.spyOn(output, 'peek');
+  await expect(dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: Array.from({ length: 32 }, () => ({ wgsl })),
+  })).rejects.toThrow('at most 31');
+  expect(peek).not.toHaveBeenCalled(); expect(device.buffers).toHaveLength(0);
+});
+
+it('validates every stage before reserving the output revision', async () => {
+  const device = gpu({ pauseMap: true }); configureGpuSubsystem({ device });
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  const pending = dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  await device.mapping;
+  await expect(dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: [{ wgsl, workgroups: [0] }],
+  })).rejects.toThrow('workgroup count');
+  device.release(); await pending;
+  expect(Array.from(output())).toEqual([3]);
+});
+
+it('uses the explicit host fallback once for the whole chain when hardware is absent', async () => {
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  const fallback = vi.fn((inputs: Float32Array[], values: Float32Array) => { values[0] = inputs[0][0] * 4 + 3; });
+  const result = await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output,
+    chain: [{ wgsl }], fallbackKernel: fallback });
+  expect(Array.from(output())).toEqual([7]); expect(fallback).toHaveBeenCalledTimes(1);
+  expect(result.backend).toBe('fallback'); expect(result.readbackBytes).toBe(0);
+});
+
+it('reuses validated compute pipelines while updating inputs and workgroups', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const shaders = vi.spyOn(device, 'createShaderModule');
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  input.write([4]);
+  await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output, workgroups: [2] });
+  expect(Array.from(output())).toEqual([9]);
+  expect(device.groups).toEqual([2, 1, 1]);
+  expect(shaders).toHaveBeenCalledTimes(1);
+  expect(pipelines).toHaveBeenCalledTimes(1);
+  expect(device.buffers.every(buffer => buffer.destroyed)).toBe(true);
+});
+
+it('separates compute pipeline keys by shader and entry point', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  for (const [code, entryPoint] of [[wgsl, undefined], [wgsl, 'main'],
+    [wgsl, 'other'], [wgsl + '\n// variant', 'main'], [wgsl, 'other']] as const) {
+    await dispatchGpuComputeKernelAsync({ wgsl: code, entryPoint, inputs: [input], output });
+  }
+  expect(pipelines).toHaveBeenCalledTimes(3);
+});
+
+it('retains external-device pipelines across detach but never shares with another device', async () => {
+  const first = gpu(), second = gpu();
+  const a = vi.spyOn(first, 'createComputePipeline'), b = vi.spyOn(second, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  for (const device of [first, second, first]) {
+    configureGpuSubsystem({ device });
+    await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  }
+  expect(a).toHaveBeenCalledTimes(1); expect(b).toHaveBeenCalledTimes(1);
+});
+
+it('only retains successful compute validation and evicts a failing cached pipeline', async () => {
+  const options = { validationError: true }, device = gpu(options);
+  configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([17]);
+  const run = () => dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  await expect(run()).rejects.toThrow('invalid binding');
+  expect(Array.from(output())).toEqual([17]);
+  options.validationError = false;
+  await run(); await run();
+  expect(pipelines).toHaveBeenCalledTimes(2);
+  options.validationError = true;
+  await expect(run()).rejects.toThrow('invalid binding');
+  options.validationError = false;
+  await run();
+  expect(pipelines).toHaveBeenCalledTimes(3);
+});
+
+it('bounds compute pipeline count and evicts the least recently used entry', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  const run = (id: number) => dispatchGpuComputeKernelAsync({ wgsl: wgsl + `\n// ${id}`, inputs: [input], output });
+  for (let i = 0; i < 32; i++) await run(i);
+  await run(0); await run(32); await run(0);
+  expect(pipelines).toHaveBeenCalledTimes(33);
+  await run(1);
+  expect(pipelines).toHaveBeenCalledTimes(34);
+});
+
+it('bounds retained shader key bytes independently of pipeline count', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  const run = (id: string) => dispatchGpuComputeKernelAsync({
+    wgsl: wgsl + '\n//' + id.repeat(300000), inputs: [input], output });
+  await run('a'); await run('b'); await run('a');
+  expect(pipelines).toHaveBeenCalledTimes(3);
+});
+
+it('executes oversized shaders without retaining them in the pipeline cache', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  const code = wgsl + '\n//' + 'a'.repeat(600000);
+  for (let i = 0; i < 2; i++) await dispatchGpuComputeKernelAsync({ wgsl: code, inputs: [input], output });
+  expect(pipelines).toHaveBeenCalledTimes(2);
+});
+
+it('shares device pipelines across isolated cores without retaining their tensor bindings', async () => {
+  const device = gpu(); configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([2]), output = createGpuTensor([0]);
+  await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  await runWithIsolatedContextAsync(async () => {
+    configureGpuSubsystem({ device });
+    const otherInput = createGpuTensor([9]), otherOutput = createGpuTensor([0]);
+    await dispatchGpuComputeKernelAsync({ wgsl, inputs: [otherInput], output: otherOutput });
+    expect(Array.from(otherOutput())).toEqual([19]);
+  });
+  input.write([3]);
+  await dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  expect(Array.from(output())).toEqual([7]);
+  expect(pipelines).toHaveBeenCalledTimes(1);
+});
+
+it('does not cache shader compilation errors and retries a repaired shader', async () => {
+  const device = gpu(); let invalid = true;
+  const shaders = vi.spyOn(device, 'createShaderModule').mockImplementation(({ code }) => ({
+    code, getCompilationInfo: async () => ({ messages: invalid
+      ? [{ type: 'error', message: 'bad shader', lineNum: 1, linePos: 1 }] : [] }),
+  }));
+  configureGpuSubsystem({ device });
+  const pipelines = vi.spyOn(device, 'createComputePipeline');
+  const input = createGpuTensor([1]), output = createGpuTensor([0]);
+  const run = () => dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], output });
+  await expect(run()).rejects.toThrow('bad shader');
+  expect(pipelines).not.toHaveBeenCalled();
+  invalid = false;
+  await run(); await run();
+  expect(shaders).toHaveBeenCalledTimes(2);
+  expect(pipelines).toHaveBeenCalledTimes(1);
+});
 
 it('submits a shader, publishes readback once, and destroys every temporary buffer', async () => {
   const device = gpu(); configureGpuSubsystem({ device });
@@ -746,4 +1097,22 @@ it('deferred fallback restores its owned core and owner for synchronous resource
   source.set(1); expect(runs).toBe(2); stop(); source.set(2); expect([runs, cleanups]).toEqual([2, 1]);
   input.dispose(); output.dispose(); source.dispose(); expect(withWasmCore(own, () => getGraphTelemetry().nodes)).toBe(0);
   expect(getGraphTelemetry().nodes).toBe(0);
+});
+
+it('reads a synchronous fallback then getter once while refusing async publication', async () => {
+ const input=createGpuTensor([1]),output=createGpuTensor([7]);let reads=0,calls=0,receiver:unknown;
+ const result={get then(){reads++;return function(this:unknown,_resolve:unknown,reject:(error:Error)=>void){receiver=this;calls++;reject(Error('observed late failure'));};}};
+ expect(()=>dispatchGpuComputeKernel({wgsl:'',inputs:[input],output,fallbackKernel(_inputs,values){values[0]=99;return result;}})).toThrow('asynchronous callback');
+ for(let i=0;i<8;i++)await Promise.resolve();expect(reads).toBe(1);expect(calls).toBe(1);expect(receiver).toBe(result);expect(Array.from(output.peek())).toEqual([7]);
+ input.dispose();output.dispose();expect(getGraphTelemetry().nodes).toBe(0);
+});
+it('async fallback honors first settlement of a custom thenable',async()=>{
+ const input=createGpuTensor([1]),output=createGpuTensor([7]);let calls=0;
+ const job=dispatchGpuComputeKernelAsync({wgsl:'',inputs:[input],output,fallbackKernel(_inputs,values){return {then(resolve,reject){calls++;values[0]=42;resolve?.();reject?.(Error('ignored second settlement'));resolve?.();return Promise.resolve(undefined as never);}};}});
+ expect(await job).toMatchObject({backend:'fallback'});expect(calls).toBe(1);expect(Array.from(output.peek())).toEqual([42]);input.dispose();output.dispose();expect(getGraphTelemetry().nodes).toBe(0);
+});
+it('abort settles an uncooperative fallback thenable and refuses late output',async()=>{
+ const input=createGpuTensor([1]),output=createGpuTensor([7]),abort=new AbortController(),entered=deferred<void>();let complete:()=>void=()=>{};
+ const job=dispatchGpuComputeKernelAsync({wgsl:'',inputs:[input],output,signal:abort.signal,fallbackKernel(_inputs,values){return {then(resolve){complete=()=>{values[0]=99;resolve?.();};entered.resolve();return Promise.resolve(undefined as never);}};}});
+ await entered.promise;const reason=Error('thenable abort');abort.abort(reason);await expect(job).rejects.toBe(reason);complete();for(let i=0;i<8;i++)await Promise.resolve();expect(Array.from(output.peek())).toEqual([7]);input.dispose();output.dispose();expect(getGraphTelemetry().nodes).toBe(0);
 });

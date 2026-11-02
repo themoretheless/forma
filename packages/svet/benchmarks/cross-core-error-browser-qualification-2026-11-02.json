@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-02",
+  "status": "passed in observed Chromium browser, source and installed-package copies",
+  "browser": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "source_cases": 5,
+  "installed_package_cases": 5,
+  "checks": [
+    "Independent module URLs and native cores",
+    "DOM later computed error then same-value recovery",
+    "DOM initial computed error then recovery",
+    "Three-core error diamond yields0/error/10 exactly once",
+    "Owner teardown retires bridge and retained DOM event callback",
+    "Graph node counts0 after each case, including third core",
+    "All built artifact hashes independently verified; installed/current runtime bytes equal"
+  ],
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-HBE6XC/consumer/node_modules/svet-engine",
+  "snapshot": "snapshot-1793593327649",
+  "source_sha256": {
+    "tests/browser/cross-core-errors.html": "4715e1222be15ba76d747cbfb0561ef950bf604eb9555d7d8a7889903044eec2",
+    "scripts/prepare-event-instances.mjs": "2de98aa6ca5949fc762bc90bb9a456d1400f23884793135e54b7dc5c8d66e059"
+  },
+  "limits": [
+    "Chromium156 in-app browser only; no other engines, HMR, browser-GC or deployed provider proof",
+    "No throughput claim",
+    "Frozen2h HTTP diagnostic uses prior reactivity.js and remains independent",
+    "Temporary QA tab and both owned preview servers closed; preserved consumer kept"
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "date": "2026-11-02",
+  "scope": "Native Forma public Document binding sync allocation volume, not Svet graph or renderer throughput",
+  "host": {
+    "architecture": "arm64",
+    "cpu": "Apple M4 Max",
+    "rust": "1.97.1 (8bab26f4f 2026-07-14)",
+    "profile": "release, vector-ui profile codegen-units1 / fat LTO"
+  },
+  "retained_change": [
+    "borrow collection data for presence/inspection instead of cloning entire lists",
+    "preserve synthetic member presence fallback",
+    "refuse resolver collections over16384 items before constructing key scan context"
+  ],
+  "rejected_change": "Per-transaction key index cache removed: initial A/B did not show a stable latency gain and small cases regressed",
+  "checks": {
+    "native_library_tests": 135,
+    "runtime_allocation_tests": 5,
+    "native_binary_check": "passed",
+    "wasm32_library_check": "passed",
+    "diff_check": "passed"
+  },
+  "performance": {
+    "workload": "8/32/96 text editors, seven alternating noop/one-edit samples per fresh process",
+    "phase1": "uninstrumented old vs cached; raw native-binding-sync-A*/B* and analysis retained",
+    "phase2": "isolated clone reference vs retained borrowed version, same counting allocator/harness; R1,C1,R2,C2",
+    "controls96_noop": {
+      "allocation_count_before": 920721,
+      "allocation_count_after": 874257,
+      "requested_bytes_before": 116833294,
+      "requested_bytes_after": 110253175
+    },
+    "controls96_one_edit": {
+      "allocation_count_before": 920241,
+      "allocation_count_after": 874259,
+      "requested_bytes_before": 116767846,
+      "requested_bytes_after": 110253187
+    },
+    "latency": "No reliable speedup. Latest instrumented96 one-edit ratios C1/R1=1.004 and C2/R2=1.076; possible latency regression remains open. Counters matched exactly between repeat runs.",
+    "remaining_cost": "About110 MB cumulative allocation requests per96-editor sync remains excessive; shared scope/state representation and preflight work need profiling/redesign."
+  },
+  "artifacts": {
+    "copy_analysis": "native-binding-copy-analysis-2026-11-02.json",
+    "rejected_cache_analysis": "native-binding-sync-analysis-2026-11-02.json",
+    "source_manifest": "native-binding-copy-source-manifest-2026-11-02.json",
+    "source_archive": "native-binding-sync-sources-2026-11-02.tar.gz",
+    "source_archive_sha256": "0c9ae1ed291d9c834d51f6310bbb98cb77cc663124fe7c663eaa3df0ec790e83"
+  },
+  "logs": {
+    "tests": "packages/svet/benchmarks/native-binding-copy-tests-2026-11-02.txt",
+    "native": "packages/svet/benchmarks/native-binding-copy-native-2026-11-02.txt",
+    "wasm": "packages/svet/benchmarks/native-binding-copy-wasm-2026-11-02.txt",
+    "clone-build": "packages/svet/benchmarks/native-binding-copy-clone-build-2026-11-02.txt",
+    "borrow-build": "packages/svet/benchmarks/native-binding-copy-borrow-build-2026-11-02.txt"
+  },
+  "limitations": [
+    "counted calling-thread requested bytes, not live/peak memory/RSS",
+    "same allocator instrumentation in both variants; timings include instrumentation overhead",
+    "existing immutable HTTP natural-GC soak and other host activity continued; quiet-host timing qualification remains open",
+    "no application frame-time, GPU, browser or remote-CI performance claim",
+    "root rendering/state/scope copies still scale poorly; this does not close P3"
+  ],
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "238b7dca73afb8dd3aa7ec3919fad56f1c84c110424b3abb58928cf4cde3880b",
+    "vector-ui/src/runtime.rs": "f61561bee29114b6a9650cecbe464fd851200654388544c9d97cf7d66de1ea33",
+    "vector-ui/examples/binding_sync_bench.rs": "2034e023c7c0c6bfcc3280128a6cd4274514fe3a926800244315dac459b8c3db"
+  }
+}

@@ -1,0 +1,163 @@
+{
+  "results": [
+    {
+      "controls": 8,
+      "noop": {
+        "median_ms": {
+          "R1": 0.444791,
+          "C1": 0.42620800000000003,
+          "R2": 0.434125,
+          "C2": 0.435041
+        },
+        "allocation_count": {
+          "R1": 13421,
+          "C1": 13069,
+          "R2": 13421,
+          "C2": 13069
+        },
+        "requested_bytes": {
+          "R1": 1532136,
+          "C1": 1486423,
+          "R2": 1532136,
+          "C2": 1486423
+        },
+        "C1_R1_time": 0.9582208273099052,
+        "C2_R2_time": 1.002109991361935,
+        "requested_byte_ratio": 0.9701638757917052,
+        "allocation_count_ratio": 0.9737724461664555
+      },
+      "one_edit": {
+        "median_ms": {
+          "R1": 0.444083,
+          "C1": 0.42445900000000003,
+          "R2": 0.43074999999999997,
+          "C2": 0.418958
+        },
+        "allocation_count": {
+          "R1": 13381,
+          "C1": 13071,
+          "R2": 13381,
+          "C2": 13071
+        },
+        "requested_bytes": {
+          "R1": 1526700,
+          "C1": 1486435,
+          "R2": 1526700,
+          "C2": 1486435
+        },
+        "C1_R1_time": 0.9558100625333553,
+        "C2_R2_time": 0.9726244921648288,
+        "requested_byte_ratio": 0.9736261217003995,
+        "allocation_count_ratio": 0.9768328226589941
+      }
+    },
+    {
+      "controls": 32,
+      "noop": {
+        "median_ms": {
+          "R1": 3.635708,
+          "C1": 3.551417,
+          "R2": 3.668125,
+          "C2": 3.785334
+        },
+        "allocation_count": {
+          "R1": 122339,
+          "C1": 117091,
+          "R2": 122339,
+          "C2": 117091
+        },
+        "requested_bytes": {
+          "R1": 15034286,
+          "C1": 14303191,
+          "R2": 15034286,
+          "C2": 14303191
+        },
+        "C1_R1_time": 0.9768157948878182,
+        "C2_R2_time": 1.031953382177543,
+        "requested_byte_ratio": 0.9513714851506749,
+        "allocation_count_ratio": 0.9571028045022437
+      },
+      "one_edit": {
+        "median_ms": {
+          "R1": 3.719125,
+          "C1": 3.584459,
+          "R2": 3.688916,
+          "C2": 3.66
+        },
+        "allocation_count": {
+          "R1": 122179,
+          "C1": 117093,
+          "R2": 122179,
+          "C2": 117093
+        },
+        "requested_bytes": {
+          "R1": 15012486,
+          "C1": 14303203,
+          "R2": 15012486,
+          "C2": 14303203
+        },
+        "C1_R1_time": 0.9637909454508788,
+        "C2_R2_time": 0.9921613829103184,
+        "requested_byte_ratio": 0.9527537944082013,
+        "allocation_count_ratio": 0.9583725517478454
+      }
+    },
+    {
+      "controls": 96,
+      "noop": {
+        "median_ms": {
+          "R1": 28.082084000000002,
+          "C1": 27.99025,
+          "R2": 28.343125,
+          "C2": 29.874375
+        },
+        "allocation_count": {
+          "R1": 920721,
+          "C1": 874257,
+          "R2": 920721,
+          "C2": 874257
+        },
+        "requested_bytes": {
+          "R1": 116833294,
+          "C1": 110253175,
+          "R2": 116833294,
+          "C2": 110253175
+        },
+        "C1_R1_time": 0.9967298011073537,
+        "C2_R2_time": 1.0540254470881387,
+        "requested_byte_ratio": 0.9436794189847972,
+        "allocation_count_ratio": 0.9495352012173068
+      },
+      "one_edit": {
+        "median_ms": {
+          "R1": 27.621541999999998,
+          "C1": 27.729708,
+          "R2": 28.207625,
+          "C2": 30.36125
+        },
+        "allocation_count": {
+          "R1": 920241,
+          "C1": 874259,
+          "R2": 920241,
+          "C2": 874259
+        },
+        "requested_bytes": {
+          "R1": 116767846,
+          "C1": 110253187,
+          "R2": 116767846,
+          "C2": 110253187
+        },
+        "C1_R1_time": 1.0039160015034643,
+        "C2_R2_time": 1.0763490368295805,
+        "requested_byte_ratio": 0.9442084510148453,
+        "allocation_count_ratio": 0.9500326544894218
+      }
+    }
+  ],
+  "metric_definition": "calling-thread cumulative alloc/alloc_zeroed/realloc sizes, not live or peak memory",
+  "instrumentation": "same thread-local counting allocator in both binaries; timings include counter overhead",
+  "binaries": {
+    "/tmp/svet-binding-sync-bench-clone-instrumented": "51704e8a8987c94cf4619b1d76f70ccfa9195d76b6790d7da491c7e5485871ef",
+    "/tmp/svet-binding-sync-bench-borrow-instrumented": "d4d8bc0f99006bede8db6d3746d5c2f93fbd4b39f22777c6325072fd0c92348d"
+  }
+}

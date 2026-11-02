@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.53s
+     Running unittests src/lib.rs (/tmp/forma-svet-native-binding-validation/debug/deps/forma-a172ba3e7d3d9a11)
+
+running 1 test
+test runtime::tests::retained_scroll_resize_revises_viewport_and_clamps_offset_when_empty ... FAILED
+
+failures:
+
+---- runtime::tests::retained_scroll_resize_revises_viewport_and_clamps_offset_when_empty stdout ----
+
+thread 'runtime::tests::retained_scroll_resize_revises_viewport_and_clamps_offset_when_empty' (7336141) panicked at src/runtime.rs:1989:13:
+assertion `left != right` failed: viewport-only resize must invalidate layout
+  left: 1
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::tests::retained_scroll_resize_revises_viewport_and_clamps_offset_when_empty
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 157 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`

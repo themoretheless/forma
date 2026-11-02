@@ -1,0 +1,15 @@
+{
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "name": "Custom visual template reads props.__state through transferred snapshot",
+      "status": "passed"
+    },
+    {
+      "name": "For control snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    }
+  ],
+  "wasmSha256": "dd67bef529c1bba92843017c15db9f9a42615a6ccd6d7f8b055819bbd107643a",
+  "status": "passed"
+}

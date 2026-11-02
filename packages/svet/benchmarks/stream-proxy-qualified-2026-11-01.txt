@@ -1,0 +1,75 @@
+{
+  "startedAt": "2026-11-01T15:10:24.239Z",
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "buffered": false,
+      "cancel": false,
+      "earlyShell": true,
+      "bytes": 265148,
+      "origin": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "buffered": false,
+      "cancel": true,
+      "earlyShell": true,
+      "bytes": 249,
+      "origin": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 0,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "buffered": true,
+      "cancel": false,
+      "earlyShell": false,
+      "bytes": 265148,
+      "origin": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 2,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    },
+    {
+      "buffered": true,
+      "cancel": true,
+      "earlyShell": false,
+      "bytes": 0,
+      "origin": {
+        "started": true,
+        "finished": true,
+        "nodes": 0,
+        "drains": 0,
+        "cleaned": 1,
+        "payloadSize": 132096
+      }
+    }
+  ],
+  "maxBufferedBytes": 265148,
+  "relayWrites": 67,
+  "relayDrains": 0,
+  "propagatedDisconnects": 2,
+  "status": "passed",
+  "completedAt": "2026-11-01T15:10:24.569Z",
+  "scope": "Four loopback proxy cases, throttled 4KiB relay and explicitly capped full-response buffering. Not nginx/CDN, TCP saturation, compression, HTTP2/3 or TLS qualification.",
+  "sourceSha256": "7d10f65dc2262564d0baa5022936d11e70b829cebe29ecb03df7d25b803f0b15",
+  "runtimeSha256": {
+    "server.js": "cf7bf5fe6955ab1efed4d309220b68fc56219771c845e1e9c84794fb396a86c9",
+    "stream.js": "6fb5738f1a7cd7a2e048630ec75ea81b75c70d8739e08b960fcc31ff91373fbb",
+    "reactivity.js": "fe8d8ca9f2fa447c72db88609777eaa4da69b3086b3b1a0caaf490c0f9690e6b"
+  }
+}

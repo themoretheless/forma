@@ -1,0 +1,36 @@
+
+> svet-engine@1.0.0 test:package
+> npm run build:package && node scripts/check-package.mjs
+
+
+> svet-engine@1.0.0 build:package
+> node scripts/build-package.mjs
+
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 1014b971b 101258fa3 1012509e4 10125159b 103061d67 10106e2a7 10106e233 10106efb3 1005dab9f 102f423c3 102f430cf 102f43a2b 102f139a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: controlled response body failure
+stack: 1014b971b 101258fa3 1012509e4 10125159b 103061d67 10106e2a7 10106e233 10106efb3 1005dab9f 102f423c3 102f430cf 102f43a2b 102f139a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 1014b971b 101258fa3 1012509e4 10125159b 103061d67 10106e2a7 10106e233 10106efb3 1005446ac 102f2fdef 103061d67 100d4b518 1005446ac 101250d80 10125112b 103061d67 10106e247 10106eae3 10106efb3 1005dab9f 102f423c3 102f430cf 102f43a2b 102f139a4
+workerd/server/server.c++:6231: error: Uncaught exception: workerd/jsg/_virtual_includes/iterator/workerd/jsg/value.h:1477: failed: remote.jsg.Error: Host deadline
+stack: 1014b971b 101258fa3 1012509e4 10125159b 103061d67 10106e2a7 10106e233 10106efb3 1005446ac 102f2fdef 103061d67 100d4b518 1005446ac 101250d80 10125112b 103061d67 10106e247 10106eae3 10106efb3 1005dab9f 102f423c3 102f430cf 102f43a2b 102f139a4
+{
+  "edgeHostQualification": true,
+  "node": "v22.23.4",
+  "platform": "darwin",
+  "arch": "arm64",
+  "completedAt": "2026-11-01T17:00:10.150Z",
+  "packageFiles": 62,
+  "unpackedBytes": 2340587,
+  "checks": [
+    "archive allowlist",
+    "isolated installation",
+    "native Node ESM exports",
+    "concurrent SSR",
+    "sync and async compute fallback",
+    "compiled Forma import",
+    "strict JSX declarations without Vite",
+    "negative type fixture",
+    "external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build"
+  ]
+}

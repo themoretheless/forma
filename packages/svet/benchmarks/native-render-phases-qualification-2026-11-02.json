@@ -1,0 +1,69 @@
+{
+  "date": "2026-11-02",
+  "scope": "Public native Forma Document render/sync phases, not application frame throughput",
+  "host": "Apple M4 Max / arm64 / Rust1.97.1 / release fat-LTO",
+  "changes": [
+    "construct expanded Node without first cloning props/children that will be discarded",
+    "construct layout visual children directly instead of cloning the old subtree before replacing it",
+    "borrow measuring root when its kind needs no legacy Frame-to-Column conversion; preserve owned conversion otherwise"
+  ],
+  "checks": {
+    "native_library_tests": 135,
+    "runtime_allocation_tests": 5,
+    "physical_metal_gpu_tests": 3,
+    "native_binary_check": "passed",
+    "wasm32_library_check": "passed",
+    "diff_check": "passed"
+  },
+  "measurements": {
+    "before_render_share_of_noop_requested_bytes": "88-93% across8/32/96 editors",
+    "controls96_render_requested_bytes": [
+      97090226,
+      83777999
+    ],
+    "controls96_noop_requested_bytes": [
+      110253175,
+      96940948
+    ],
+    "controls96_noop_allocation_count": [
+      874257,
+      774668
+    ],
+    "controls96_one_edit_requested_bytes": [
+      110253187,
+      96940960
+    ],
+    "controls96_one_edit_allocation_count": [
+      874259,
+      774670
+    ],
+    "repetition": "A1/B1/A2/B2; byte counters identical between repeat processes",
+    "latency": "Inconclusive:96-editor one-edit ratios0.741 and1.077; render ratios0.607 and1.046. No stable speed or FPS claim."
+  },
+  "analysis": "native-render-phases-analysis-2026-11-02.json",
+  "source_archive": "native-render-phases-sources-2026-11-02.tar.gz",
+  "source_archive_sha256": "fd1aa31d81e7b9ca31f96622e24f8b5031c91802450c8491ebc15e874e8ff079",
+  "source_sha256": {
+    "before/form_document.rs": "238b7dca73afb8dd3aa7ec3919fad56f1c84c110424b3abb58928cf4cde3880b",
+    "after/form_document.rs": "597d1fc5f18ffa87e4c6019628014795de18b1e38aa9d15a2db9d9ebe9f5a8b5",
+    "shared/runtime.rs": "f61561bee29114b6a9650cecbe464fd851200654388544c9d97cf7d66de1ea33",
+    "shared/binding_sync_bench.rs": "d7eab708619965eaa44d3f33b5b389ca87316fa1bf63003bb2d8c8c195ce263d",
+    "shared/Cargo.toml": "e6f5d39cf27de1b8802108396708e5dca0eb3f023972ffaa1b08f9350297a0a5",
+    "shared/Cargo.lock": "264e549e0e0844b1953e8864b0329d2ccae6210ed6e5319034693ac024a38f13"
+  },
+  "logs": {
+    "tests": "packages/svet/benchmarks/native-render-phases-tests-2026-11-02.txt",
+    "gpu": "packages/svet/benchmarks/native-render-phases-gpu-2026-11-02.txt",
+    "native": "packages/svet/benchmarks/native-render-phases-native-2026-11-02.txt",
+    "wasm": "packages/svet/benchmarks/native-render-phases-wasm-2026-11-02.txt",
+    "before-build": "packages/svet/benchmarks/native-render-phases-before-build-2026-11-02.txt",
+    "after-build": "packages/svet/benchmarks/native-render-phases-after-build-2026-11-02.txt"
+  },
+  "limitations": [
+    "calling-thread cumulative allocation requests, not peak/live memory or RSS",
+    "same counter overhead and existing host/HTTP-soak activity; quiet-host timing qualification open",
+    "Column-based workload; legacy Frame measurement still uses required owned conversion",
+    "remaining97MB requested per96-editor sync is excessive; state/scope representation still copies heavily",
+    "no new interactive-window or deployed/browser performance qualification"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-02",
+  "status": "real installed-package Vite HMR lifecycle passed after stale listener fix",
+  "before": "Retained old Forma button increments state7\u21928 after actual.ui HMR update; failed report preserved",
+  "fix": "Named click and two-way input listeners unregister with view owner cleanup, preserving direct event behavior for detached containers",
+  "checks": {
+    "full_js": {
+      "passed": 1333,
+      "files": 101
+    },
+    "typescript": "passed",
+    "package_build": "passed",
+    "fresh_installed_package_gc_gate": "passed",
+    "real_vite_hmr_browser": "5/5 with4 filesystem-triggered updates",
+    "graph_nodes_during_repeated_two_view_hmr": 11,
+    "final_graph_nodes": 0,
+    "installed_current_runtime_bytes": "equal",
+    "diff_check": "passed"
+  },
+  "source_sha256": {
+    "src/engine/forma.ts": "39d85861ded607cb4ec223de0e0973b436175ced50fb70db370c9febfc901056",
+    "tests/forma-hmr-events.test.ts": "25c3b469ff88f5494ad5d64e1e7b8587ec3362acb6009c7bbe11d50af8f306fa",
+    "tests/browser/forma-hmr-runner.html": "6fb5dfa3e4377f71f4de5e9a70309bbf6ef63ee9d7dbc4cd28cd7a93adb77fc7",
+    "scripts/serve-forma-hmr-probe.mjs": "6988943e46ba6eefbe614efb1d66175bdab374eb8789b7e96dc2f746a26c58ef"
+  },
+  "limits": [
+    "Observed Chromium156 only; productionAOT update/recovery matrix and other engines remain open",
+    "Explicit unmount/dispose sequence tested; direct instance disposal with mounted views needs separate qualification",
+    "No HMR performance claim",
+    "Frozen2h HTTP diagnostic predates both reactivity.js and forma.js changes; does not qualify current dist"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-02",
+  "change": "Independent physical GPU pixel reference for retained .ui root Scroll viewport; fixture and optional RGBA evidence output added.",
+  "checks": {
+    "hardware_gpu_suite": 4,
+    "dpi": [
+      1,
+      1.25,
+      2
+    ],
+    "scroll_offsets": [
+      0,
+      32,
+      64
+    ],
+    "frames": 9,
+    "pixel_comparison": "exact RGBA across >95% of each frame"
+  },
+  "adapter": {
+    "name": "Apple M4 Max",
+    "backend": "Metal",
+    "device_type": "IntegratedGpu",
+    "driver": "Metal Direct Native Runtime"
+  },
+  "reference": "Independent root background and two colored64x64 rows cropped to centered64x64 viewport; pixel-center coordinates, no shared shader/display-list clip computation.",
+  "exclusion": "8-logical-pixel scrollbar strip inside viewport only; all outside pixels checked.",
+  "visual_inspection": "DPI2 offset32 PNG checked: red/green halves stay within viewport, background outside and scrollbar inside.",
+  "source_sha256": {
+    "vector-ui/tests/runtime_gpu.rs": "363df62841189d1134cace0a2d4b256fe9c5d781e9ff7189b48f948c2f7fb788",
+    "vector-ui/tests/fixtures/svet-scroll-viewport/Green.component.ui": "828cfa32a3a121b66bc53780278b8e5d2ff661bc92847c8720118f6a38769201",
+    "vector-ui/tests/fixtures/svet-scroll-viewport/App.ui": "d0c484589d5a69f77059187acb0093130eba80e39d758dc4f2d58ed556d3ecc5",
+    "vector-ui/tests/fixtures/svet-scroll-viewport/Red.component.ui": "eea0f28687ac8f755651779d90294d1911bc13855480053bbb6621c84d51ae71"
+  },
+  "png_sha256": {
+    "native-scroll-pixels-2026-11-02/scroll-dpi-1-offset-0-size-128.png": "8dc37f3ab02b7e07c7bff3d86607ca8393eb3a8bcc33993ea714b9e07514b8fe",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-1-offset-32-size-128.png": "f8cc527e886c2b6220604b0226adbf165de600154c780d0e6c782d52bb691884",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-1-offset-64-size-128.png": "fd668a538948ac9431f69b2208a8b91cf8131c196d94abe2b7b891a956ed1d72",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-1.25-offset-0-size-160.png": "b04b41a1cfeab36c811806ccaebe5fff0ae14d54c7ff9cc64b598019d5f9074a",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-1.25-offset-32-size-160.png": "cd3dcb7e6b4a43208a82e9d0c8a901f491675ee27e4277fa1a7431a75474fe65",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-1.25-offset-64-size-160.png": "f11e9a822c6fd17b28c7f38622315b55dbd872308ae15db3431a0aa51c06af4d",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-2-offset-0-size-256.png": "8238a3fc07fdc6114236092d62919a273852d0721c8e8c249f455e17327ccc31",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-2-offset-32-size-256.png": "b2b68c848ee69c2ca69975129edec2285ae8b0cbfb17a42925ab0be4317f3e3f",
+    "native-scroll-pixels-2026-11-02/scroll-dpi-2-offset-64-size-256.png": "7d596c9b9cb0160f828d29d0637e96294e0bbd858913da469f8ddbcfa88fcbf9"
+  },
+  "limitations": [
+    "No production code changed; only GPU suite rerun this turn.",
+    "One physical Metal adapter; no cross-backend/OS-window resize qualification.",
+    "Scrollbar rendering, rounded/fractional-edge masks, nested/multiple viewports remain separate.",
+    "No performance or memory claim."
+  ]
+}
