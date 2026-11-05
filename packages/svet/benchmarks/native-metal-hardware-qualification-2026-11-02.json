@@ -1,0 +1,68 @@
+{
+  "status": "partial",
+  "scope": "Offscreen native Metal execution of two explicitly ignored hardware tests; serial debug/test profile, no OS presentation",
+  "adapters": [
+    {
+      "test": "profiled-renderer",
+      "name": "Apple M4 Max",
+      "vendor": 4203,
+      "device": 1,
+      "device_type": "IntegratedGpu",
+      "backend": "Metal",
+      "driver": "Metal Direct Native Runtime",
+      "driver_info": "ASD + UMA + dUMA Accelerated"
+    },
+    {
+      "test": "reveal-agreement",
+      "name": "Apple M4 Max",
+      "vendor": 4203,
+      "device": 1,
+      "device_type": "IntegratedGpu",
+      "backend": "Metal",
+      "driver": "Metal Direct Native Runtime",
+      "driver_info": "ASD + UMA + dUMA Accelerated"
+    }
+  ],
+  "reveal": {
+    "comparisons": 126,
+    "max_channel_error": 1,
+    "channel_error_budget": 2,
+    "scale_factors": [
+      1.0,
+      1.25,
+      2.0
+    ]
+  },
+  "rendererResourceStats": {
+    "buffer_count": 7,
+    "buffer_bytes": 10496,
+    "buffer_allocations_total": 7,
+    "uploaded_bytes_total": 7048,
+    "geometry_uploads_total": 1,
+    "tile_uploads_total": 1,
+    "bind_group_creations_total": 1,
+    "cpu_geometry_cache_bytes": 0,
+    "uma_shared_pool_bytes": 18992
+  },
+  "validation": {
+    "hardwareTestsPassed": 2,
+    "hardwareTestsIgnored": 0,
+    "revealConfigurations": "3 target shapes x2 control counts x3 DPI scales x7 reveal states",
+    "unchangedFrame": "No repeated geometry/tile upload or bind-group creation; CPU raster released on GPU submit",
+    "backendSourceAudit": "Adapter constructed from MTLCreateSystemDefaultDevice; Metal render encoders and command-buffer commit path inspected"
+  },
+  "sourceSha256": {
+    "vector-ui/src/gpu.rs": "31564003be616e87889181ceb0a5bc3ca721910e28251b56aa91de2bd0e851d2",
+    "vector-ui/src/reveal.rs": "2889130c06d19fe752ec7990ef70fe291dcfe5a71f0aebf2c514233a94688e77",
+    "vector-ui/src/native_window.rs": "9260df6ee7dcdd753059e3052049a3913255ab711fbefd94183594e6237fe5a1",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50",
+    "crates/gpu-runtime/src/lib.rs": "d90842a3573142aa13a5187f05deecd6f3ce2baacae46dfa2f2ac1552331e345",
+    "crates/gpu-runtime/src/metal.rs": "0f72533b8686d8ff28310761fd4f2aa55b0340782780f14ceea7cc94c5ea893d"
+  },
+  "limits": [
+    "Not full renderer/application/window/IME/DPI qualification",
+    "No device loss/backend switch or other physical adapters",
+    "No frame latency/p95 or global VRAM/RSS qualification",
+    "Resource byte counters cover renderer-owned capacities and selected host buffers, not total GPU residency"
+  ]
+}

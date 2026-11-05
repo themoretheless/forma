@@ -1,0 +1,1313 @@
+{
+  "scope": "Single-process release CPU tick+retained binding sync+paint_native, 30 frames after10 warmup frames, simulated60Hz dt; no OS present/probe-journal cost; allocator-instrumented timings, not app latency",
+  "rows": [
+    {
+      "scale": 1.0,
+      "focused": false,
+      "width": 640,
+      "height": 360,
+      "samples": [
+        {
+          "ms": 0.011625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011667,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.0115,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011667,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011583000000000001,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011417,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011583000000000001,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.0115,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011583999999999999,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011666,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011542,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011541000000000001,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011458,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011708,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011541000000000001,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011542,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011375,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011417,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011583000000000001,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.0115,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011667,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011459,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011583000000000001,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011583000000000001,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011375,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011833,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011583999999999999,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.011375,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        }
+      ]
+    },
+    {
+      "scale": 1.0,
+      "focused": true,
+      "width": 640,
+      "height": 360,
+      "samples": [
+        {
+          "ms": 1.3864159999999999,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.2711249999999998,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.61375,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.582959,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.575917,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.538625,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.5335,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.535208,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.5355829999999999,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.534417,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.535125,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.5323749999999999,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.617333,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.362625,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.395667,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.9201250000000001,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.668042,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.645583,
+          "allocations": 20,
+          "requested_bytes": 2178109,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.588458,
+          "allocations": 20,
+          "requested_bytes": 2178109,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.9319579999999998,
+          "allocations": 20,
+          "requested_bytes": 2178109,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.3114999999999999,
+          "allocations": 20,
+          "requested_bytes": 2178081,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.3145,
+          "allocations": 20,
+          "requested_bytes": 2178081,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.2495,
+          "allocations": 20,
+          "requested_bytes": 2177757,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.264,
+          "allocations": 20,
+          "requested_bytes": 2178081,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.279625,
+          "allocations": 20,
+          "requested_bytes": 2178081,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.3619999999999999,
+          "allocations": 20,
+          "requested_bytes": 2178109,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.52275,
+          "allocations": 20,
+          "requested_bytes": 2178109,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.293208,
+          "allocations": 20,
+          "requested_bytes": 2178109,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.2657079999999998,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.385541,
+          "allocations": 20,
+          "requested_bytes": 2178117,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        }
+      ]
+    },
+    {
+      "scale": 1.25,
+      "focused": false,
+      "width": 800,
+      "height": 450,
+      "samples": [
+        {
+          "ms": 0.018708000000000002,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018666000000000002,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.019208999999999997,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018708000000000002,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018875000000000003,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018667,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018541000000000002,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018792,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018959,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018583000000000002,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018833000000000003,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.01925,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018666000000000002,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018542,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018834,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018709,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018834,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.01875,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.019292,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018667,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.01875,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018875000000000003,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.01875,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018916,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.01875,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.018542,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        }
+      ]
+    },
+    {
+      "scale": 1.25,
+      "focused": true,
+      "width": 800,
+      "height": 450,
+      "samples": [
+        {
+          "ms": 1.617167,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.5254999999999999,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.9620409999999997,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.86675,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.829917,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.8254999999999999,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.823625,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.823292,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.7273749999999999,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.03125,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 1.4285,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.902334,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.8546250000000001,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.837333,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.823125,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.817583,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.8225,
+          "allocations": 20,
+          "requested_bytes": 3401077,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.8154170000000001,
+          "allocations": 20,
+          "requested_bytes": 3401077,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.818625,
+          "allocations": 20,
+          "requested_bytes": 3401077,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.820917,
+          "allocations": 20,
+          "requested_bytes": 3401069,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.8163330000000001,
+          "allocations": 20,
+          "requested_bytes": 3401069,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.8147500000000001,
+          "allocations": 20,
+          "requested_bytes": 3400957,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.8261670000000001,
+          "allocations": 20,
+          "requested_bytes": 3400533,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.819542,
+          "allocations": 20,
+          "requested_bytes": 3400957,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.816584,
+          "allocations": 20,
+          "requested_bytes": 3401069,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.814041,
+          "allocations": 20,
+          "requested_bytes": 3401069,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.813375,
+          "allocations": 20,
+          "requested_bytes": 3401077,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.812417,
+          "allocations": 20,
+          "requested_bytes": 3401077,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.81275,
+          "allocations": 20,
+          "requested_bytes": 3401077,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 0.81275,
+          "allocations": 20,
+          "requested_bytes": 3401085,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        }
+      ]
+    },
+    {
+      "scale": 2.0,
+      "focused": false,
+      "width": 1280,
+      "height": 720,
+      "samples": [
+        {
+          "ms": 0.047125,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.046958,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047375,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047333,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.048625,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.050791,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.049333999999999996,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.049792,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.051084,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.049499999999999995,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.050207999999999996,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.049166,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.050083,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.048792,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047333,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047666,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.0475,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.048833,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.048291999999999995,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047416999999999994,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047291,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.04725,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.048083,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047458,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047291,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047291,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047084,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047333,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.046875,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        },
+        {
+          "ms": 0.047375,
+          "allocations": 0,
+          "requested_bytes": 0,
+          "leaf_cache_builds": 0,
+          "leaf_cache_paints": 0
+        }
+      ]
+    },
+    {
+      "scale": 2.0,
+      "focused": true,
+      "width": 1280,
+      "height": 720,
+      "samples": [
+        {
+          "ms": 2.058125,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.069458,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.1310000000000002,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.113042,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 3.322458,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 4.779333,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.3206670000000003,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.102667,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 4.702625,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.429625,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.1060839999999996,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.049791,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.031333,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.047542,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.255875,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.1365,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.0881250000000002,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.084083,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.1669169999999998,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.115917,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.535916,
+          "allocations": 22,
+          "requested_bytes": 8704249,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 4.600833000000001,
+          "allocations": 22,
+          "requested_bytes": 8704193,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 4.420375,
+          "allocations": 21,
+          "requested_bytes": 8701909,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 4.239,
+          "allocations": 22,
+          "requested_bytes": 8704193,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 4.835917,
+          "allocations": 22,
+          "requested_bytes": 8704249,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.540375,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.1395,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.081417,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.0691249999999997,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        },
+        {
+          "ms": 2.0529580000000003,
+          "allocations": 22,
+          "requested_bytes": 8704257,
+          "leaf_cache_builds": 1,
+          "leaf_cache_paints": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "status": "partial",
+  "scope": "Native pointer-sensitive callback replacement of focused Runtime at identical key/index",
+  "baseline": "new regression fails with old index-only comparison",
+  "candidate": "regression passes;183 unit +19 integrations passed;2 GPU ignored",
+  "implementation": "Native Runtime instance identity allocated by relaxed AtomicU64; no heap allocation; focus-sensitive input compares instance and index",
+  "hashes": {
+    "vector-ui/src/runtime.rs": "61ee63d9107e3ac5bf337c7b606f5c6e7cc6732200c5cfafe14442c02fd56a60",
+    "vector-ui/src/native_window.rs": "792fa17b32beeec6a89e39acc83cbb26ad885024744d92dc758e5df640551831"
+  },
+  "limits": [
+    "No actual OS IME session",
+    "Mutation after NativeApp update callback returns remains to audit",
+    "Backend transitions and same-editor caret/drag remain open",
+    "Counter uniqueness bounded by u64 lifetime"
+  ]
+}

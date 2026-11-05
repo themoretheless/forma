@@ -1,0 +1,23 @@
+    Updating crates.io index
+     Locking 2 packages to latest compatible versions
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.53s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-cc416d5dfac22531)
+
+running 1 test
+
+thread 'error_delivery_tests::distinct_logical_devices_have_distinct_queues_on_one_adapter' (22420023) panicked at src/lib.rs:748:9:
+assertion `left != right` failed: separate logical devices must not share queue identity
+  left: Queue { name: "Apple M4 Max" }
+ right: Queue { name: "Apple M4 Max" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test error_delivery_tests::distinct_logical_devices_have_distinct_queues_on_one_adapter ... FAILED
+
+failures:
+
+failures:
+    error_delivery_tests::distinct_logical_devices_have_distinct_queues_on_one_adapter
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `--lib`

@@ -24,7 +24,14 @@ pub use gpu_shader;
 #[cfg(feature="gpu")]
 pub use wgpu as gpu_runtime;
 #[cfg(feature="native")]
+#[doc(hidden)]
+pub mod native_gpu;
+#[cfg(feature="native")]
 pub mod native_window;
+#[cfg(feature="native")]
+pub mod native_clipboard;
+#[cfg(feature="native")]
+pub mod native_accessibility;
 
 pub const EXAMPLE: &str = include_str!("../examples/Button.ui");
 pub const TWO_BUTTONS_EXAMPLE: &str = include_str!("../examples/TwoButtons.ui");

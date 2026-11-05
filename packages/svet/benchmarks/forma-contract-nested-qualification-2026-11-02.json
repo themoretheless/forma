@@ -1,0 +1,33 @@
+{
+  "scope": "Source annotations restricted to component prop declarations before visual roots",
+  "before": {
+    "regressionsFailed": 5
+  },
+  "after": {
+    "focusedPassed": 55,
+    "fullSuitePassed": 1387,
+    "fullSuiteFiles": 102,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotCasesPassed": 7
+  },
+  "sha256": {
+    "src/engine/forma.ts": "1ff3b1c54eae78880849dbe641896e90a9170bd99b9c0d2b1d7851e2a019c201",
+    "tests/forma-contract-tokens.test.ts": "fc80e737c1fa3e04bd747bcb061e633517fcf060c2a376157e4f14d846493f33",
+    "tests/forma-hmr-events.test.ts": "680798e16ed84a1db6c0d48abdfea13a8676e0ca427c581f18b4eae3a9fa908c",
+    "scripts/check-forma-aot-lifecycle.mjs": "cdda1d790beec3b3bce49fa75432a64fd0b299b24c2621dd46c9ecd073bc0194",
+    "scripts/check-package.mjs": "8bcf7db850220b629800525ab979a4f3307ef90e448c977d209b19895f1c8e1a"
+  },
+  "checks": [
+    "nested visual/control-flow/token annotations refused",
+    "late root annotations refused",
+    "literal strings/comments preserved",
+    "HMR refusal preserves old DOM identity, graph and callbacks",
+    "valid HMR retry retires old callbacks"
+  ],
+  "limitations": [
+    "Arbitrary caller-provided AST admission remains open.",
+    "No installed browser rerun for this revision.",
+    "This change rejects unsupported annotations rather than implementing contracts for visual properties."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "status": "partial",
+  "scope": "Portability/ABI after owned local scope transfer; Rust-only local-state repeat semantics",
+  "validation": {
+    "node_binding_cases": 11,
+    "node_artifact_checks": 7,
+    "local_state_rust_repeat": "Document.states unchanged; repeated SceneArtifact JSON identical;1105 allocations"
+  },
+  "sources": {
+    "vector-ui/src/form_document.rs": "a68a7fdf0c221e2a696c62e49d05b0cd50d88938b88a7aac226825c0f868c56d",
+    "vector-ui/tests/runtime_allocations.rs": "468e6817a7a7eafb64ef838b8cb96a5b7f911c7efcd175e13872ccc6ab0bb630"
+  },
+  "generated": {
+    "node/forma_bg.wasm": "6001faf069a11f33a9d07ca28af1e33387c5fe4feb9b95238bdedaf82404eea1",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "limits": [
+    "UI file loader creates states vec![root_state]; arbitrary node local states are only covered by native Rust Document API fixture",
+    "No new browser run",
+    "No shared root snapshot optimisation",
+    "No WASM performance claim"
+  ]
+}

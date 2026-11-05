@@ -1,0 +1,27 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-options-reentrancy.test.ts (7 tests | 1 failed) 39ms
+   × restores captured metadata without rereading options getters during rollback 21ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-options-reentrancy.test.ts > restores captured metadata without rereading options getters during rollback
+AssertionError: expected 3 to be 2 // Object.is equality
+
+- Expected
++ Received
+
+- 2
++ 3
+
+ ❯ tests/forma-hmr-options-reentrancy.test.ts:30:125
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  20:44:36
+   Duration  1.05s (environment 78%, transform 11%, import 6%, tests 4%, worker 1%)

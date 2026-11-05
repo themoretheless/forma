@@ -1,0 +1,1 @@
+{"status":"passed","cases":[{"key":"single","rust":false,"aria":"false","status":"passed"},{"key":"multi","rust":true,"aria":"true","status":"passed"},{"key":"single","rust":false,"aria":"false","status":"passed"},{"key":"multi","rust":true,"aria":"true","status":"passed"}]}

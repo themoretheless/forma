@@ -332,9 +332,15 @@ mod tests {
                 .request_adapter(&Default::default())
                 .await
                 .expect("real GPU required");
+            let adapter_info = adapter.get_info();
+            assert_ne!(adapter_info.device_type, wgpu::DeviceType::Cpu, "hardware test cannot qualify a CPU adapter");
+            eprintln!("GPU_TEST_ADAPTER {}", serde_json::json!({"test":"reveal-agreement","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
+                "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info}));
             let mut renderer = crate::gpu::Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)
                 .await
                 .unwrap();
+            let mut comparisons = 0usize;
+            let mut max_observed_error = 0u8;
             for target in ["", "targetX:10; targetWidth:18; targetHeight:18; targetRadius:5;", "targetX:10; targetWidth:18; targetHeight:18; targetRadius:9;"] {
             let template = format!("component Button {{ Rectangle {{ radius:8; Reveal {{ width:2; color:#e6782080; {target} }} PointerArea {{ clicked -> events.clicked(); }} }} }}");
             for multi in [false, true] {
@@ -472,12 +478,15 @@ mod tests {
                             }
                         }
                         assert!(max_error <= 2, "Reveal {state}, multi={multi}, scale={scale}: channel error {max_error}/255");
+                        comparisons += 1;max_observed_error = max_observed_error.max(max_error);
                         drop(mapped);
                         readback.unmap();
                     }
                 }
             }
             }
+            assert_eq!(comparisons,126);
+            eprintln!("GPU_REVEAL_RESULT {}", serde_json::json!({"comparisons":comparisons,"max_channel_error":max_observed_error,"channel_error_budget":2,"scale_factors":[1.,1.25,2.]}));
         });
     }
 }

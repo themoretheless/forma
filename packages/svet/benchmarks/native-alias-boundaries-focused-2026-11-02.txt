@@ -1,0 +1,10 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.44s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-52f10b83e78a176e)
+
+running 2 tests
+test form_document::tests::direct_alias_shortcut_does_not_hide_an_unused_let_replay_error ... ok
+test form_document::tests::direct_alias_replay_preserves_shadowing_and_readonly_origins ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 167 filtered out; finished in 0.01s
+

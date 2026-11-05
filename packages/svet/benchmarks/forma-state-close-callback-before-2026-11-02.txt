@@ -1,0 +1,27 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-dispose-failures.test.ts (7 tests | 1 failed) 18ms
+   × preserves the preparation failure when owned candidate state cleanup closes an instance with props 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-dispose-failures.test.ts > preserves the preparation failure when owned candidate state cleanup closes an instance with props
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/forma-dispose-failures.test.ts:43:220
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  20:28:52
+   Duration  408ms (environment 76%, import 9%, transform 9%, tests 5%, worker 1%)

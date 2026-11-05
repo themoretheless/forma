@@ -1,0 +1,52 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-events.test.ts (28 tests | 2 failed) 46ms
+   × unlocks HMR after a retired computed disposer throws at the final cleanup boundary 4ms
+   × preserves a primary commit failure while draining throwing retired computed cleanup 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > unlocks HMR after a retired computed disposer throws at the final cleanup boundary
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/forma-hmr-events.test.ts:356:77
+    354|  const old=inst.computedLets.doubled,dispose=old.dispose.bind(old);old…
+    355|  try{expect(()=>inst.hotReload(source)).toThrow('retired computed clea…
+    356|  finally{handle.unmount();inst.dispose();}expect(getGraphTelemetry().n…
+       |                                                                             ^
+    357| });
+    358| it('preserves a primary commit failure while draining throwing retired…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > preserves a primary commit failure while draining throwing retired computed cleanup
+AssertionError: expected [Function] to throw error matching /Forma instance is disposed/ but got 'secondary computed cleanup'
+
+- Expected:
+/Forma instance is disposed/
+
++ Received:
+"secondary computed cleanup"
+
+ ❯ tests/forma-hmr-events.test.ts:364:53
+    362|  const container=document.createElement('div'),handle=inst.mount(conta…
+    363|  old.dispose=()=>{dispose();throw Error('secondary computed cleanup');…
+    364|  try{retire=true;expect(()=>inst.hotReload(source)).toThrow(/Forma ins…
+       |                                                     ^
+    365|  finally{retire=false;handle.unmount();inst.dispose();}expect(getGraph…
+    366| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 26 passed (28)
+   Start at  20:13:01
+   Duration  411ms (environment 67%, tests 14%, transform 10%, import 9%, worker 1%)

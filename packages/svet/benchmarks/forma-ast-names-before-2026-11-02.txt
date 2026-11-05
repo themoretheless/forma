@@ -1,0 +1,85 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-names.test.ts (10 tests | 10 failed) 16ms
+   × rejects reserved state name __proto__ before allocation/HMR 7ms
+   × rejects reserved let name __proto__ before allocation/HMR 1ms
+   × rejects reserved state name constructor before allocation/HMR 0ms
+   × rejects reserved let name constructor before allocation/HMR 0ms
+   × rejects reserved state name prototype before allocation/HMR 0ms
+   × rejects reserved let name prototype before allocation/HMR 0ms
+   × rejects duplicate let declarations in AST and source before allocating overwritten handles 0ms
+   × supports valid own state/prop/let name toString with complete teardown 5ms
+   × supports valid own state/prop/let name valueOf with complete teardown 1ms
+   × supports valid own state/prop/let name hasOwnProperty with complete teardown 1ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-names.test.ts > rejects reserved state name __proto__ before allocation/HMR
+ FAIL  tests/forma-ast-names.test.ts > rejects reserved let name __proto__ before allocation/HMR
+ FAIL  tests/forma-ast-names.test.ts > rejects reserved state name constructor before allocation/HMR
+ FAIL  tests/forma-ast-names.test.ts > rejects reserved let name constructor before allocation/HMR
+ FAIL  tests/forma-ast-names.test.ts > rejects reserved state name prototype before allocation/HMR
+ FAIL  tests/forma-ast-names.test.ts > rejects reserved let name prototype before allocation/HMR
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-names.test.ts:10:35
+      8|  if(field==='state') Object.defineProperty(bad.initialStateValues,name…
+      9|  else bad.letExpressions.push({name,expr:'2'});
+     10|  expect(()=>compileFormaAst(bad)).toThrow(/AST.*document/i);expect(get…
+       |                                   ^
+     11|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     12|  try{expect(()=>inst.hotReload(bad)).toThrow(/AST.*document/i);expect(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  tests/forma-ast-names.test.ts > rejects duplicate let declarations in AST and source before allocating overwritten handles
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-names.test.ts:17:40
+     15| it('rejects duplicate let declarations in AST and source before alloca…
+     16|  const invalid=`component App { let value = 1; let value = 2; Column {…
+     17|  expect(()=>parseFormaSource(invalid)).toThrow(/duplicate let/i);expec…
+       |                                        ^
+     18|  const ast=parseFormaSource(source);ast.letExpressions=[{name:'x',expr…
+     19|  expect(()=>compileFormaAst(ast)).toThrow(/duplicate let/i);expect(get…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  tests/forma-ast-names.test.ts > supports valid own state/prop/let name toString with complete teardown
+ FAIL  tests/forma-ast-names.test.ts > supports valid own state/prop/let name valueOf with complete teardown
+ FAIL  tests/forma-ast-names.test.ts > supports valid own state/prop/let name hasOwnProperty with complete teardown
+AssertionError: expected '' to be '1' // Object.is equality
+
+- Expected
++ Received
+
+- 1
+
+ ❯ tests/forma-ast-names.test.ts:24:36
+     22|  const ast=parseFormaSource(`component App { state ${name}: Number = 1…
+     23|  const inst=compileFormaAst(ast),container=document.createElement('div…
+     24|  try{expect(container.textContent).toBe('1');expect(inst.props[name]()…
+       |                                    ^
+     25|  finally{handle.unmount();inst.dispose();}expect(getGraphTelemetry().n…
+     26| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  10 failed (10)
+   Start at  19:42:42
+   Duration  759ms (environment 85%, transform 6%, import 5%, tests 3%)

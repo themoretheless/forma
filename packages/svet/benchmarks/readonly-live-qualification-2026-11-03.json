@@ -1,0 +1,20 @@
+{
+  "status": "passed-scoped",
+  "integrationTests": 11,
+  "schedulerMatrix": [
+    false,
+    true
+  ],
+  "coverage": [
+    "Bound Toggle readOnly transitions",
+    "Committed value and history retained across reconstruction",
+    "Readonly editor remains focusable but native session absent",
+    "Blocked insertion and undo do not change value",
+    "Reenabled undo restores bound state; no preedit/blocked payload"
+  ],
+  "sourceSha256": "21fd1186c279d01fa5dbe6ea2c04a13862208ad4c73d6614fdc42f10aa8a0954",
+  "limits": [
+    "Native Runtime integration, not physical OS IME delivery",
+    "Live readonly browser transition not qualified"
+  ]
+}

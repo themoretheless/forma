@@ -1,0 +1,24 @@
+{
+  "status": "partial",
+  "scope": "Actual macOS reusable NativeHost CPU window after activation focus fix",
+  "passed": [
+    "first physical x produced ч in first field",
+    "pointer click second then physical q produced й only in second",
+    "Shift+Tab then physical z produced я only in first",
+    "pointer reselect second then w/Escape/v produced цм only in second",
+    "visible frame/summary agree with journal",
+    "probe closed; zero owned processes"
+  ],
+  "final_state": {
+    "first": "seed-Aчя",
+    "second": "seed-Bйцм"
+  },
+  "input_source": "Existing Russian keyboard layout; no settings changed",
+  "binary_sha256": "586e934cc6c2479db152d13569998191291e8506adfa128cf7f83646e37db7dc",
+  "source_sha256": "6d6c8e5b0cdd2530965ee789243a36934e64a94b9c9c1f5516d0c243da11d872",
+  "limits": [
+    "Not CJK marked-text IME",
+    "No latency or GPU presentation qualification",
+    "Before run used different input source; target-field comparison only"
+  ]
+}

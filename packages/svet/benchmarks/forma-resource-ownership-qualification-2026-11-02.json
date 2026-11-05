@@ -1,0 +1,34 @@
+{
+  "scope": "Allocated prop/computed ownership independent of public dictionary aliases and replacements",
+  "before": {
+    "regressionsFailed": 6
+  },
+  "after": {
+    "focusedPassed": 153,
+    "fullSuitePassed": 1485,
+    "fullSuiteFiles": 110,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 14
+  },
+  "sha256": {
+    "src/engine/forma.ts": "0fc3609ea665657c7b0f805bf6a0ebe052a836ba4e4b3f423bcd38d2cd1e0e41",
+    "tests/forma-resource-ownership.test.ts": "2e9263ab5dd071920d72b265e34567712a7ae2f054d5ae4ac5c35d198fae180b",
+    "scripts/check-forma-aot-lifecycle.mjs": "9b6e7f6955aa874dd485973c885cff1069f3a7586d95891a2b396d089accc9ea",
+    "scripts/check-package.mjs": "194f2cdc8dfb3291fff10b52d2c5548e8a4c1bb1515f7db657517faa7186b791"
+  },
+  "invariants": [
+    "original allocated prop/computed handles released once despite public aliases",
+    "foreign public replacements are not acquired or disposed",
+    "previous owned computed generation captured separately from publication",
+    "successful HMR retires original owned computed handles even if hidden in public map",
+    "rollback releases original candidate handles and restores prior owned generation",
+    "tested teardown graph empty and foreign values remain live"
+  ],
+  "limitations": [
+    "Direct public map mutation is not qualified as reactive rebinding.",
+    "Arbitrary reentrant options/getter/proxy side effects and post-commit rollback remain open.",
+    "Custom failing disposer self-release is not guaranteed by sibling draining.",
+    "No new browser/native/performance qualification."
+  ]
+}

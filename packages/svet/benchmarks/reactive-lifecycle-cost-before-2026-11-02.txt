@@ -1,0 +1,22 @@
+[
+  {
+    "operation": "signal-writes",
+    "medianAaRatio": 1.0643087247188021,
+    "medianAbRatio": 1.0021938233656504
+  },
+  {
+    "operation": "observed-writes",
+    "medianAaRatio": 1.0189815499130226,
+    "medianAbRatio": 1.019035243834959
+  },
+  {
+    "operation": "effect-churn",
+    "medianAaRatio": 1.007843847265156,
+    "medianAbRatio": 1.0322313635244904
+  },
+  {
+    "operation": "graph-reset",
+    "medianAaRatio": 0.9908972588195551,
+    "medianAbRatio": 5.437590262023452
+  }
+]

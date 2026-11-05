@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "focusedNativeClipboardTests": 6,
+  "scope": "Strict clipboard UTF8 decoding; preserve selection on malformed bytes",
+  "malformedCases": [
+    "invalid lead byte",
+    "truncated sequence",
+    "overlong sequence"
+  ],
+  "sourceSha256": "baab72a21471ba059a7ac93799ce217984be405410cafb2ead65c211e145f010",
+  "limitations": [
+    "Injected reader; no actual OS clipboard proof",
+    "Windows PowerShell explicit UTF8 output source change not executed on Windows",
+    "Previous full native319 run predates this decoder change"
+  ]
+}

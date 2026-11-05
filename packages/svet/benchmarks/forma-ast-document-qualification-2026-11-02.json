@@ -1,0 +1,33 @@
+{
+  "scope": "Required node-kind fields and document metadata shape before allocation or mutation",
+  "before": {
+    "kindRegressionsFailed": 9,
+    "metadataRegressionsFailed": 8
+  },
+  "after": {
+    "focusedPassed": 94,
+    "fullSuitePassed": 1426,
+    "fullSuiteFiles": 105,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 8
+  },
+  "sha256": {
+    "src/engine/forma.ts": "2c3ae71f6faf4b58ce48e47f402d4771826a215e92e6d3a6140ccfc602eeba6a",
+    "tests/forma-ast-tree.test.ts": "96180769eb8a0a6b7ad6a8b3bae225556826896493d6945f32b4f5b1a6ac2cec",
+    "tests/forma-ast-metadata.test.ts": "5be5a12da6c88b33ca7a1849a8778adeb63a1852ca3e80547a21fdd66c3b9e6e",
+    "scripts/check-forma-aot-lifecycle.mjs": "c2f627e5959877d49a9312af90c3cdea0ae494913544a561055118ac52941142"
+  },
+  "invariants": [
+    "kind-specific required nonempty string fields",
+    "match nodes require arms",
+    "explicit key expressions nonempty",
+    "metadata container and declaration shape checked",
+    "HMR refusal preserves live DOM identity, graph baseline and reactive state"
+  ],
+  "limitations": [
+    "Expression and reserved-name semantic admission remains open.",
+    "Accessor/proxy side effects and post-admission mutation remain open.",
+    "No installed browser rerun for this revision."
+  ]
+}

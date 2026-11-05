@@ -78,8 +78,10 @@ jobs:
         run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests -- --ignored
       - name: Design runner execution, cleanup and result limits
         run: node --test test/design-data-runner.test.js
-      - name: Native Forma window compiles
-        run: cargo check --locked --manifest-path vector-ui/Cargo.toml --features native --bin forma
+      # NativeHost/standalone IME and modifier regressions do not create OS windows.
+      # --features gpu above does not compile native_window.rs or the binary tests.
+      - name: Native host input and standalone regressions
+        run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features native --lib --bin forma
       - name: Generated forms and native binding example
         run: cargo test --locked --manifest-path vector-ui/examples/binding-app/Cargo.toml --features native
       - name: Studio legacy WebView host compiles on macOS

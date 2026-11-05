@@ -1,0 +1,81 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ tests/gpu-compute.test.ts (123 tests | 2 failed) 75ms
+   × removes completed operation cleanup registrations from their owner 7ms
+   × reconfiguring a device keeps only the current owner cleanup registration 1ms
+ ❯ tests/captured-context.test.ts (27 tests | 1 failed) 14ms
+   × shared cleanup survives earlier hook removal and capture additions after partial release 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/captured-context.test.ts > shared cleanup survives earlier hook removal and capture additions after partial release
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/captured-context.test.ts:83:360
+
+ ❯ createRoot src/engine/reactivity.ts:734:12
+ ❯ tests/captured-context.test.ts:83:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/gpu-compute.test.ts > removes completed operation cleanup registrations from their owner
+AssertionError: expected [ [Function] ] to have a length of +0 but got 1
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/gpu-compute.test.ts:576:40
+    574|     return dispatchGpuComputeKernelAsync({ wgsl, inputs: [input], outp…
+    575|   });
+    576|   await job; expect(owner.disposables).toHaveLength(0);
+       |                                        ^
+    577| });
+    578|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/gpu-compute.test.ts > reconfiguring a device keeps only the current owner cleanup registration
+AssertionError: expected [ [Function], [Function callback] ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/gpu-compute.test.ts:642:29
+    640|     for (let i = 0; i < 100; i++) configureGpuSubsystem({ device, arch…
+    641|   });
+    642|   expect(owner.disposables).toHaveLength(1); stop(); expect(getGpuTele…
+       |                             ^
+    643| });
+    644|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 111 passed (113)
+      Tests  3 failed | 1499 passed (1502)
+   Start at  21:45:33
+   Duration  39.81s (environment 60%, tests 26%, import 11%, transform 3%, worker 1%)
+
+    Isolate  113 workers spawned · ~238ms startup each (spawn + environment, per file)
+             at least ~26.62s faster with isolate: false — reuses workers across files instead of one per file
+

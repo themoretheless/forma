@@ -321,6 +321,8 @@ impl SeenFields {
             "borderColor" => 38,
             "focusBorderColor" => 39,
             "transitionDuration" => 40,
+            "label" => 41,
+            "readOnly" => 42,
             _ => return None,
         };
         Some(1u64 << index)
@@ -700,10 +702,12 @@ impl<'a> Parser<'a> {
                 "width"=>input.bounds[2]=self.scalar("width",false)?,
                 "height"=>input.bounds[3]=self.scalar("height",false)?,
                 "value"=>input.value=self.text_value()?.into_owned(),
+                "label"=>input.label=self.text_value()?.into_owned(),
                 "placeholder"=>input.placeholder=self.text_value()?.into_owned(),
                 "color"=>input.color=self.color("color")?,
                 "placeholderColor"=>input.placeholder_color=self.color("placeholderColor")?,
                 "fontSize"=>input.font_size=self.scalar("fontSize",true)?,
+                "readOnly"=>{let value=self.ident()?;input.read_only=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
                 "multiline"=>{let value=self.ident()?; input.multiline=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
                 _=>return Err(self.error("Unknown ContentInput property")),
             }

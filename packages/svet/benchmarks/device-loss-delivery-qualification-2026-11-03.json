@@ -1,0 +1,35 @@
+{
+  "status": "partial",
+  "implemented": [
+    "Device-loss callbacks stored per logical device, first loss latched, delivered once outside lock",
+    "Late registration and reentry supported",
+    "Metal tracks asynchronous command buffers until completed, reaps on poll/submit/wait",
+    "AccessRevoked4 and DeviceRemoved11 completion errors latch backend device loss",
+    "Synchronous internal command completion paths check loss too",
+    "Device.poll delivers notifications; renderer polls health before native acquisition and rejects setup if already lost"
+  ],
+  "tests": {
+    "runtime_passed": 5,
+    "runtime_ignored_metal_probe": 1,
+    "explicit_metal_poll_injection": "passed",
+    "native_passed": 245,
+    "native_ignored": 3,
+    "hardware_renderer": "passed",
+    "hardware_reveal": "passed",
+    "all_targets": "passed"
+  },
+  "sdk_classification": {
+    "path": "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks/Metal.framework/Headers/MTLCommandBuffer.h",
+    "sha256": "d84dda866f07ffc37ce68e3c635177373cdefa419fc1f64c766442ed81966895",
+    "loss_codes": {
+      "4": "MTLCommandBufferErrorAccessRevoked",
+      "11": "MTLCommandBufferErrorDeviceRemoved"
+    }
+  },
+  "limits": [
+    "Physical GPU removal/reset was not performed; integration injects backend state on a real Metal Device",
+    "Idle macOS device-removal notification subscription not implemented",
+    "Other Metal command errors are not automatically device loss and need separate uncaptured reporting",
+    "OS window CPU fallback under injected loss and other backends remain open"
+  ]
+}

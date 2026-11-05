@@ -1,0 +1,13 @@
+Window: "Svet readonly qualification [svet/GPU] · F6: платформа · F7: бэкенд", App: SvetAccessKitValueProbe.
+0 standard window Svet readonly qualification [svet/GPU] · F6: платформа · F7: бэкенд, Secondary Actions: Raise
+	1 container
+		2 text field (settable) Reference, Value: Readonly — 你好 мир🙂
+		3 text field (settable) Query, Value: Editable
+	4 close button
+	5 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	6 minimize button
+	7 text Svet readonly qualification [svet/GPU] · F6: платформа · F7: бэкенд
+8 menu bar
+	9 SvetAccessKitValueProbe
+
+The focused UI element is 2 text field (settable) Reference, Value: Readonly — 你好 мир🙂

@@ -1,0 +1,50 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ tests/resumption-construction.test.ts (8 tests | 1 failed) 19ms
+   × runtime attribute writes reject graph reset without corrupting new slots 3ms
+ ❯ tests/source-lifetime.test.ts (9 tests | 1 failed) 15ms
+   × a fresh source reread by the same observer remains subscribed 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/resumption-construction.test.ts > runtime attribute writes reject graph reset without corrupting new slots
+AssertionError: expected [Function] to throw error including 'reset' but got 'Cannot set properties of null (settin…'
+
+Expected: "reset"
+Received: "Cannot set properties of null (setting 'isRunningEffect')"
+
+ ❯ tests/resumption-construction.test.ts:43:38
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/source-lifetime.test.ts > a fresh source reread by the same observer remains subscribed
+TypeError: Cannot set properties of null (setting 'isRunningEffect')
+ ❯ getter.set src/engine/reactivity.ts:1336:17
+    1334|             singleSubEffect.run();
+    1335|           } finally {
+    1336|             ctx.isRunningEffect = false;
+       |                 ^
+    1337|           }
+    1338|           if (ctx.cascadedDuringEffect) {
+ ❯ tests/source-lifetime.test.ts:72:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  2 failed | 111 passed (113)
+      Tests  2 failed | 1498 passed (1500)
+   Start at  21:41:26
+   Duration  42.57s (environment 67%, tests 16%, import 13%, transform 3%, worker 1%)
+
+    Isolate  113 workers spawned · ~275ms startup each (spawn + environment, per file)
+             at least ~30.84s faster with isolate: false — reuses workers across files instead of one per file
+

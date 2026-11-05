@@ -1,0 +1,38 @@
+{
+  "status": "partial",
+  "scope": "Portable multi-face simple text renderer; primary Ubuntu then NotoSansSC then monochrome NotoEmoji",
+  "implementation": [
+    "cached primary coverage fast path",
+    "per-face glyph identifiers",
+    "advance normalization to primary UPEM",
+    "per-face outline scale with shared primary baseline",
+    "shared measure/hit/CPU/vector resolver"
+  ],
+  "validation": {
+    "rust_passed": 238,
+    "gpu_ignored": 2,
+    "wasm32_check": "passed",
+    "actual_native_frame": "你好 мир🙂 rendered with real CJK/monochrome emoji outlines; model exact",
+    "checks": [
+      "actual face/glyph id",
+      "positive normalized advance",
+      "CPU glyph differs from question fallback",
+      "vector paths nonempty",
+      "mixed-font UTF8 caret/prefix metrics",
+      "mixed-font streamed/collected vector parity"
+    ]
+  },
+  "source_sha256": "810a0d1722f65b33005fda5aa7d94fc47c81acbbded1acf33ec53dc344fd6542",
+  "binary": {
+    "bytes": 32743040,
+    "sha256": "8dbeb2e51810e1ec036a0d7fa288f6bda2efc132a3a66aa25a460200ec85fc5c"
+  },
+  "font_provenance": "vector-ui/assets/fallback/PROVENANCE.json",
+  "limits": [
+    "Shaped API still primary-face-only; integration open",
+    "No full CJK language/emoji sequence/ZWJ/colour-font qualification",
+    "Fresh release WASM/browser execution after multi-face change pending",
+    "Embedded font data adds19754896bytes before compression; package/startup/performance qualification open",
+    "Native GPU presentation not exercised"
+  ]
+}

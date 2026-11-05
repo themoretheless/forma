@@ -1,0 +1,10 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-cc416d5dfac22531)
+
+running 1 test
+QUEUE_IDENTITY_RESULT logical_devices=2 shared_adapter=true isolated_errors=true clone_stable=true
+test error_delivery_tests::distinct_logical_devices_have_distinct_queues_on_one_adapter ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.09s
+

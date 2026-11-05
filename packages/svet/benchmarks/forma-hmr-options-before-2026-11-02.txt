@@ -1,0 +1,31 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-options-reentrancy.test.ts (3 tests | 3 failed) 18ms
+   × stops HMR allocations after an options getter closes the instance: new-prop 15ms
+   × stops HMR allocations after an options getter closes the instance: existing-prop 1ms
+   × stops HMR allocations after an options getter closes the instance: existing-prop-no-lets 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-options-reentrancy.test.ts > stops HMR allocations after an options getter closes the instance: new-prop
+ FAIL  tests/forma-hmr-options-reentrancy.test.ts > stops HMR allocations after an options getter closes the instance: existing-prop
+ FAIL  tests/forma-hmr-options-reentrancy.test.ts > stops HMR allocations after an options getter closes the instance: existing-prop-no-lets
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-hmr-options-reentrancy.test.ts:13:50
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  20:39:39
+   Duration  715ms (environment 80%, transform 9%, import 7%, tests 3%)

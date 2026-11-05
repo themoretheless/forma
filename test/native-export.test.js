@@ -128,6 +128,8 @@ test('buildNativeRustExport generates typed bindings and preserves the applicati
   assert.ok(!bundle.files['src/ui_bundle.rs']);
   assert.ok(bundle.files['src/forma_generated.rs'].includes('pub struct Counter'));
   assert.ok(bundle.files['src/forma_generated.rs'].includes('impl ::forma::native_window::NativeApp for Counter'));
+  assert.ok(bundle.files['src/forma_generated.rs'].includes('Self::with_properties(value, ::forma::form_document::Properties::new())'));
+  assert.ok(bundle.files['src/forma_generated.rs'].includes('fn inspect(&self, observer:'));
   assert.ok(bundle.files['src/forma_generated.rs'].includes('Counter::on_dirty(self, callback)'));
   assert.ok(bundle.files['src/main.rs'].includes('pub use app::*;'));
   assert.ok(bundle.files['src/main.rs'].includes('let mut form = app::create_form()?;'));

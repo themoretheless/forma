@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "adapterTests": 49,
+  "scope": "Clipboard mutations invalidate pending composition owner before late compositionend",
+  "cases": [
+    "paste then late commit ignored",
+    "cut then late commit ignored",
+    "copy/refused paste retains composition"
+  ],
+  "sha256": {
+    "src/vector-preview.js": "7786ba5cae691b74e2aa4ca1b373bea325d43fd5a2b7098fd76bb375486b4d1f",
+    "test/vector-preview.test.js": "0571abb02bde4986ad72a0abcae76acfa983e42f85aa37623f599ed15af607b9"
+  },
+  "limitations": [
+    "Adapter event harness; real browser/OS IME sequence remains unqualified"
+  ]
+}

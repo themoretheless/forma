@@ -1,0 +1,13 @@
+{
+  "status": "incomplete",
+  "scope": "macOS emoji-picker attempt with current cancellation barrier",
+  "observation": "ctrl+super+space did not expose picker; no emoji insertion observed",
+  "outcome": "Do not qualify emoji/direct-commit behavior",
+  "cleanup": "probe closed; owned processes0",
+  "next": "Optional NativeApp.on_ime_event hook and probe trace.ime.jsonl implemented; actual OS trace on rebuilt binary still pending",
+  "validation": {
+    "rust_passed": 211,
+    "gpu_ignored": 2,
+    "example_check": "passed"
+  }
+}

@@ -1,0 +1,5088 @@
+{
+  "status": "partial",
+  "production_tolerance_unchanged": 0.15,
+  "summary": {
+    "max_alpha_error": 3,
+    "max_relative_l1_error": 0.0025614754098360654,
+    "worst": {
+      "size": 96.0,
+      "offset": 0.0,
+      "original_edges": 356,
+      "candidate_edges": 359,
+      "character": "好",
+      "codepoint": "U+597D",
+      "max_alpha_error": 3,
+      "changed_pixels": 401,
+      "total_alpha_error": 462,
+      "original_alpha_sum": 641642,
+      "relative_l1_error": 0.0007200276789861013,
+      "worst_pixel": {
+        "x": 18,
+        "y": 92,
+        "original_alpha": 102,
+        "candidate_alpha": 99
+      }
+    }
+  },
+  "raster": {
+    "curve_tolerance_px": 0.009999999776482582,
+    "scope": "Selected glyphs, five pixel sizes and four subpixel offsets through production CPU rasterizer; no full coverage or OS presentation claim",
+    "rows": [
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 9.0,
+        "offset": 0.0,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 35,
+        "total_alpha_error": 35,
+        "per_glyph": [
+          {
+            "original_edges": 127,
+            "candidate_edges": 127,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 5748,
+            "relative_l1_error": 0.0005219206680584551,
+            "worst_pixel": {
+              "x": 18,
+              "y": 115,
+              "original_alpha": 45,
+              "candidate_alpha": 44
+            }
+          },
+          {
+            "original_edges": 136,
+            "candidate_edges": 136,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 5905,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 5910,
+            "relative_l1_error": 0.0005076142131979696,
+            "worst_pixel": {
+              "x": 18,
+              "y": 112,
+              "original_alpha": 53,
+              "candidate_alpha": 52
+            }
+          },
+          {
+            "original_edges": 101,
+            "candidate_edges": 101,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 6275,
+            "relative_l1_error": 0.00047808764940239046,
+            "worst_pixel": {
+              "x": 13,
+              "y": 112,
+              "original_alpha": 41,
+              "candidate_alpha": 40
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 11,
+            "total_alpha_error": 11,
+            "original_alpha_sum": 4851,
+            "relative_l1_error": 0.0022675736961451248,
+            "worst_pixel": {
+              "x": 14,
+              "y": 114,
+              "original_alpha": 169,
+              "candidate_alpha": 168
+            }
+          },
+          {
+            "original_edges": 116,
+            "candidate_edges": 116,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 4,
+            "total_alpha_error": 4,
+            "original_alpha_sum": 4807,
+            "relative_l1_error": 0.0008321198252548367,
+            "worst_pixel": {
+              "x": 14,
+              "y": 114,
+              "original_alpha": 250,
+              "candidate_alpha": 249
+            }
+          },
+          {
+            "original_edges": 132,
+            "candidate_edges": 132,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 4,
+            "total_alpha_error": 4,
+            "original_alpha_sum": 7300,
+            "relative_l1_error": 0.000547945205479452,
+            "worst_pixel": {
+              "x": 18,
+              "y": 112,
+              "original_alpha": 88,
+              "candidate_alpha": 87
+            }
+          },
+          {
+            "original_edges": 61,
+            "candidate_edges": 61,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 5124,
+            "relative_l1_error": 0.000585480093676815,
+            "worst_pixel": {
+              "x": 15,
+              "y": 115,
+              "original_alpha": 161,
+              "candidate_alpha": 162
+            }
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 106,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 1,
+            "total_alpha_error": 1,
+            "original_alpha_sum": 6134,
+            "relative_l1_error": 0.00016302575806977502,
+            "worst_pixel": {
+              "x": 17,
+              "y": 119,
+              "original_alpha": 91,
+              "candidate_alpha": 90
+            }
+          },
+          {
+            "original_edges": 122,
+            "candidate_edges": 122,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 5807,
+            "relative_l1_error": 0.0005166178749784743,
+            "worst_pixel": {
+              "x": 18,
+              "y": 115,
+              "original_alpha": 170,
+              "candidate_alpha": 171
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 9.0,
+        "offset": 0.25,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 26,
+        "total_alpha_error": 26,
+        "per_glyph": [
+          {
+            "original_edges": 127,
+            "candidate_edges": 127,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 5750,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 136,
+            "candidate_edges": 136,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 2,
+            "total_alpha_error": 2,
+            "original_alpha_sum": 6039,
+            "relative_l1_error": 0.0003311806590495115,
+            "worst_pixel": {
+              "x": 19,
+              "y": 114,
+              "original_alpha": 181,
+              "candidate_alpha": 182
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 5759,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 101,
+            "candidate_edges": 101,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 6297,
+            "relative_l1_error": 0.0004764173415912339,
+            "worst_pixel": {
+              "x": 16,
+              "y": 113,
+              "original_alpha": 251,
+              "candidate_alpha": 252
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 4,
+            "total_alpha_error": 4,
+            "original_alpha_sum": 4931,
+            "relative_l1_error": 0.0008111944838775097,
+            "worst_pixel": {
+              "x": 14,
+              "y": 114,
+              "original_alpha": 169,
+              "candidate_alpha": 168
+            }
+          },
+          {
+            "original_edges": 116,
+            "candidate_edges": 116,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 4802,
+            "relative_l1_error": 0.0006247396917950854,
+            "worst_pixel": {
+              "x": 20,
+              "y": 114,
+              "original_alpha": 141,
+              "candidate_alpha": 140
+            }
+          },
+          {
+            "original_edges": 132,
+            "candidate_edges": 132,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 1,
+            "total_alpha_error": 1,
+            "original_alpha_sum": 7509,
+            "relative_l1_error": 0.00013317352510320947,
+            "worst_pixel": {
+              "x": 16,
+              "y": 116,
+              "original_alpha": 95,
+              "candidate_alpha": 94
+            }
+          },
+          {
+            "original_edges": 61,
+            "candidate_edges": 61,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 5187,
+            "relative_l1_error": 0.000578368999421631,
+            "worst_pixel": {
+              "x": 20,
+              "y": 114,
+              "original_alpha": 134,
+              "candidate_alpha": 135
+            }
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 106,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 5,
+            "total_alpha_error": 5,
+            "original_alpha_sum": 6139,
+            "relative_l1_error": 0.0008144648965629581,
+            "worst_pixel": {
+              "x": 16,
+              "y": 113,
+              "original_alpha": 132,
+              "candidate_alpha": 133
+            }
+          },
+          {
+            "original_edges": 122,
+            "candidate_edges": 122,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 5,
+            "total_alpha_error": 5,
+            "original_alpha_sum": 5842,
+            "relative_l1_error": 0.0008558712769599452,
+            "worst_pixel": {
+              "x": 13,
+              "y": 116,
+              "original_alpha": 56,
+              "candidate_alpha": 55
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 9.0,
+        "offset": 0.5,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 26,
+        "total_alpha_error": 26,
+        "per_glyph": [
+          {
+            "original_edges": 127,
+            "candidate_edges": 127,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 1,
+            "total_alpha_error": 1,
+            "original_alpha_sum": 5764,
+            "relative_l1_error": 0.00017349063150589867,
+            "worst_pixel": {
+              "x": 20,
+              "y": 115,
+              "original_alpha": 210,
+              "candidate_alpha": 211
+            }
+          },
+          {
+            "original_edges": 136,
+            "candidate_edges": 136,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 6177,
+            "relative_l1_error": 0.00048567265662943174,
+            "worst_pixel": {
+              "x": 18,
+              "y": 115,
+              "original_alpha": 102,
+              "candidate_alpha": 101
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 2,
+            "total_alpha_error": 2,
+            "original_alpha_sum": 5726,
+            "relative_l1_error": 0.00034928396786587494,
+            "worst_pixel": {
+              "x": 16,
+              "y": 118,
+              "original_alpha": 69,
+              "candidate_alpha": 68
+            }
+          },
+          {
+            "original_edges": 101,
+            "candidate_edges": 101,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 5,
+            "total_alpha_error": 5,
+            "original_alpha_sum": 6326,
+            "relative_l1_error": 0.0007903888713246917,
+            "worst_pixel": {
+              "x": 17,
+              "y": 115,
+              "original_alpha": 160,
+              "candidate_alpha": 159
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 1,
+            "total_alpha_error": 1,
+            "original_alpha_sum": 5076,
+            "relative_l1_error": 0.00019700551615445234,
+            "worst_pixel": {
+              "x": 16,
+              "y": 117,
+              "original_alpha": 197,
+              "candidate_alpha": 196
+            }
+          },
+          {
+            "original_edges": 116,
+            "candidate_edges": 116,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 6,
+            "total_alpha_error": 6,
+            "original_alpha_sum": 4876,
+            "relative_l1_error": 0.0012305168170631665,
+            "worst_pixel": {
+              "x": 17,
+              "y": 114,
+              "original_alpha": 187,
+              "candidate_alpha": 186
+            }
+          },
+          {
+            "original_edges": 132,
+            "candidate_edges": 132,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 4,
+            "total_alpha_error": 4,
+            "original_alpha_sum": 7467,
+            "relative_l1_error": 0.0005356903709655819,
+            "worst_pixel": {
+              "x": 16,
+              "y": 113,
+              "original_alpha": 215,
+              "candidate_alpha": 216
+            }
+          },
+          {
+            "original_edges": 61,
+            "candidate_edges": 61,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 5234,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 106,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 1,
+            "total_alpha_error": 1,
+            "original_alpha_sum": 6130,
+            "relative_l1_error": 0.0001631321370309951,
+            "worst_pixel": {
+              "x": 16,
+              "y": 113,
+              "original_alpha": 132,
+              "candidate_alpha": 133
+            }
+          },
+          {
+            "original_edges": 122,
+            "candidate_edges": 122,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 5870,
+            "relative_l1_error": 0.0005110732538330494,
+            "worst_pixel": {
+              "x": 21,
+              "y": 115,
+              "original_alpha": 16,
+              "candidate_alpha": 15
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 9.0,
+        "offset": 0.75,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 35,
+        "total_alpha_error": 35,
+        "per_glyph": [
+          {
+            "original_edges": 127,
+            "candidate_edges": 127,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 4,
+            "total_alpha_error": 4,
+            "original_alpha_sum": 5693,
+            "relative_l1_error": 0.0007026172492534692,
+            "worst_pixel": {
+              "x": 17,
+              "y": 115,
+              "original_alpha": 145,
+              "candidate_alpha": 146
+            }
+          },
+          {
+            "original_edges": 136,
+            "candidate_edges": 136,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 2,
+            "total_alpha_error": 2,
+            "original_alpha_sum": 6071,
+            "relative_l1_error": 0.00032943501894251357,
+            "worst_pixel": {
+              "x": 18,
+              "y": 114,
+              "original_alpha": 121,
+              "candidate_alpha": 120
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 5,
+            "total_alpha_error": 5,
+            "original_alpha_sum": 5817,
+            "relative_l1_error": 0.0008595495960116899,
+            "worst_pixel": {
+              "x": 17,
+              "y": 114,
+              "original_alpha": 136,
+              "candidate_alpha": 137
+            }
+          },
+          {
+            "original_edges": 101,
+            "candidate_edges": 101,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 2,
+            "total_alpha_error": 2,
+            "original_alpha_sum": 6299,
+            "relative_l1_error": 0.00031751071598666456,
+            "worst_pixel": {
+              "x": 18,
+              "y": 117,
+              "original_alpha": 193,
+              "candidate_alpha": 194
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 3,
+            "total_alpha_error": 3,
+            "original_alpha_sum": 5048,
+            "relative_l1_error": 0.0005942947702060222,
+            "worst_pixel": {
+              "x": 13,
+              "y": 115,
+              "original_alpha": 97,
+              "candidate_alpha": 98
+            }
+          },
+          {
+            "original_edges": 116,
+            "candidate_edges": 116,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 8,
+            "total_alpha_error": 8,
+            "original_alpha_sum": 4867,
+            "relative_l1_error": 0.0016437230326689953,
+            "worst_pixel": {
+              "x": 14,
+              "y": 114,
+              "original_alpha": 57,
+              "candidate_alpha": 56
+            }
+          },
+          {
+            "original_edges": 132,
+            "candidate_edges": 132,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 6,
+            "total_alpha_error": 6,
+            "original_alpha_sum": 7409,
+            "relative_l1_error": 0.0008098258874342017,
+            "worst_pixel": {
+              "x": 17,
+              "y": 115,
+              "original_alpha": 152,
+              "candidate_alpha": 151
+            }
+          },
+          {
+            "original_edges": 61,
+            "candidate_edges": 61,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 2,
+            "total_alpha_error": 2,
+            "original_alpha_sum": 5175,
+            "relative_l1_error": 0.0003864734299516908,
+            "worst_pixel": {
+              "x": 14,
+              "y": 114,
+              "original_alpha": 172,
+              "candidate_alpha": 173
+            }
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 106,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 2,
+            "total_alpha_error": 2,
+            "original_alpha_sum": 6137,
+            "relative_l1_error": 0.00032589212970506764,
+            "worst_pixel": {
+              "x": 18,
+              "y": 113,
+              "original_alpha": 43,
+              "candidate_alpha": 44
+            }
+          },
+          {
+            "original_edges": 122,
+            "candidate_edges": 122,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 1,
+            "total_alpha_error": 1,
+            "original_alpha_sum": 5794,
+            "relative_l1_error": 0.00017259233690024162,
+            "worst_pixel": {
+              "x": 15,
+              "y": 119,
+              "original_alpha": 104,
+              "candidate_alpha": 103
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 14.0,
+        "offset": 0.0,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 91,
+        "total_alpha_error": 91,
+        "per_glyph": [
+          {
+            "original_edges": 148,
+            "candidate_edges": 148,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 14,
+            "total_alpha_error": 14,
+            "original_alpha_sum": 13473,
+            "relative_l1_error": 0.0010391152675721814,
+            "worst_pixel": {
+              "x": 19,
+              "y": 108,
+              "original_alpha": 68,
+              "candidate_alpha": 67
+            }
+          },
+          {
+            "original_edges": 154,
+            "candidate_edges": 154,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 13,
+            "total_alpha_error": 13,
+            "original_alpha_sum": 14212,
+            "relative_l1_error": 0.000914719954967633,
+            "worst_pixel": {
+              "x": 18,
+              "y": 109,
+              "original_alpha": 67,
+              "candidate_alpha": 68
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 5,
+            "total_alpha_error": 5,
+            "original_alpha_sum": 13776,
+            "relative_l1_error": 0.0003629500580720093,
+            "worst_pixel": {
+              "x": 19,
+              "y": 108,
+              "original_alpha": 78,
+              "candidate_alpha": 79
+            }
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 108,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 7,
+            "total_alpha_error": 7,
+            "original_alpha_sum": 14982,
+            "relative_l1_error": 0.0004672273394740355,
+            "worst_pixel": {
+              "x": 15,
+              "y": 114,
+              "original_alpha": 80,
+              "candidate_alpha": 81
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 9,
+            "total_alpha_error": 9,
+            "original_alpha_sum": 12061,
+            "relative_l1_error": 0.0007462067821905314,
+            "worst_pixel": {
+              "x": 24,
+              "y": 111,
+              "original_alpha": 160,
+              "candidate_alpha": 161
+            }
+          },
+          {
+            "original_edges": 120,
+            "candidate_edges": 120,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 7,
+            "total_alpha_error": 7,
+            "original_alpha_sum": 11400,
+            "relative_l1_error": 0.0006140350877192983,
+            "worst_pixel": {
+              "x": 19,
+              "y": 109,
+              "original_alpha": 196,
+              "candidate_alpha": 197
+            }
+          },
+          {
+            "original_edges": 139,
+            "candidate_edges": 139,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 7,
+            "total_alpha_error": 7,
+            "original_alpha_sum": 17237,
+            "relative_l1_error": 0.0004061031502001508,
+            "worst_pixel": {
+              "x": 22,
+              "y": 108,
+              "original_alpha": 198,
+              "candidate_alpha": 197
+            }
+          },
+          {
+            "original_edges": 84,
+            "candidate_edges": 85,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 8,
+            "total_alpha_error": 8,
+            "original_alpha_sum": 12428,
+            "relative_l1_error": 0.000643707756678468,
+            "worst_pixel": {
+              "x": 19,
+              "y": 110,
+              "original_alpha": 193,
+              "candidate_alpha": 194
+            }
+          },
+          {
+            "original_edges": 128,
+            "candidate_edges": 127,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 14,
+            "total_alpha_error": 14,
+            "original_alpha_sum": 14829,
+            "relative_l1_error": 0.0009440960280531391,
+            "worst_pixel": {
+              "x": 13,
+              "y": 109,
+              "original_alpha": 84,
+              "candidate_alpha": 85
+            }
+          },
+          {
+            "original_edges": 155,
+            "candidate_edges": 157,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 7,
+            "total_alpha_error": 7,
+            "original_alpha_sum": 13867,
+            "relative_l1_error": 0.0005047955577990914,
+            "worst_pixel": {
+              "x": 22,
+              "y": 108,
+              "original_alpha": 84,
+              "candidate_alpha": 83
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 14.0,
+        "offset": 0.25,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 122,
+        "total_alpha_error": 122,
+        "per_glyph": [
+          {
+            "original_edges": 148,
+            "candidate_edges": 148,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 5,
+            "total_alpha_error": 5,
+            "original_alpha_sum": 13684,
+            "relative_l1_error": 0.00036539023677287344,
+            "worst_pixel": {
+              "x": 15,
+              "y": 109,
+              "original_alpha": 113,
+              "candidate_alpha": 114
+            }
+          },
+          {
+            "original_edges": 154,
+            "candidate_edges": 154,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 6,
+            "total_alpha_error": 6,
+            "original_alpha_sum": 14536,
+            "relative_l1_error": 0.0004127682993946065,
+            "worst_pixel": {
+              "x": 15,
+              "y": 110,
+              "original_alpha": 130,
+              "candidate_alpha": 129
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 13,
+            "total_alpha_error": 13,
+            "original_alpha_sum": 13490,
+            "relative_l1_error": 0.0009636767976278725,
+            "worst_pixel": {
+              "x": 15,
+              "y": 108,
+              "original_alpha": 34,
+              "candidate_alpha": 33
+            }
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 108,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 8,
+            "total_alpha_error": 8,
+            "original_alpha_sum": 14973,
+            "relative_l1_error": 0.0005342950644493422,
+            "worst_pixel": {
+              "x": 22,
+              "y": 112,
+              "original_alpha": 41,
+              "candidate_alpha": 42
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 30,
+            "total_alpha_error": 30,
+            "original_alpha_sum": 11712,
+            "relative_l1_error": 0.0025614754098360654,
+            "worst_pixel": {
+              "x": 19,
+              "y": 109,
+              "original_alpha": 194,
+              "candidate_alpha": 195
+            }
+          },
+          {
+            "original_edges": 120,
+            "candidate_edges": 120,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 7,
+            "total_alpha_error": 7,
+            "original_alpha_sum": 11410,
+            "relative_l1_error": 0.0006134969325153375,
+            "worst_pixel": {
+              "x": 18,
+              "y": 109,
+              "original_alpha": 103,
+              "candidate_alpha": 102
+            }
+          },
+          {
+            "original_edges": 139,
+            "candidate_edges": 139,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 22,
+            "total_alpha_error": 22,
+            "original_alpha_sum": 17676,
+            "relative_l1_error": 0.0012446254808780267,
+            "worst_pixel": {
+              "x": 17,
+              "y": 110,
+              "original_alpha": 91,
+              "candidate_alpha": 92
+            }
+          },
+          {
+            "original_edges": 84,
+            "candidate_edges": 85,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 13,
+            "total_alpha_error": 13,
+            "original_alpha_sum": 12213,
+            "relative_l1_error": 0.001064439531646606,
+            "worst_pixel": {
+              "x": 24,
+              "y": 111,
+              "original_alpha": 243,
+              "candidate_alpha": 244
+            }
+          },
+          {
+            "original_edges": 128,
+            "candidate_edges": 127,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 12,
+            "total_alpha_error": 12,
+            "original_alpha_sum": 14834,
+            "relative_l1_error": 0.0008089524066334097,
+            "worst_pixel": {
+              "x": 17,
+              "y": 109,
+              "original_alpha": 177,
+              "candidate_alpha": 178
+            }
+          },
+          {
+            "original_edges": 155,
+            "candidate_edges": 157,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 6,
+            "total_alpha_error": 6,
+            "original_alpha_sum": 13684,
+            "relative_l1_error": 0.0004384682841274481,
+            "worst_pixel": {
+              "x": 23,
+              "y": 108,
+              "original_alpha": 34,
+              "candidate_alpha": 33
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 14.0,
+        "offset": 0.5,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 105,
+        "total_alpha_error": 105,
+        "per_glyph": [
+          {
+            "original_edges": 148,
+            "candidate_edges": 148,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 6,
+            "total_alpha_error": 6,
+            "original_alpha_sum": 13736,
+            "relative_l1_error": 0.00043680838672102506,
+            "worst_pixel": {
+              "x": 16,
+              "y": 108,
+              "original_alpha": 20,
+              "candidate_alpha": 21
+            }
+          },
+          {
+            "original_edges": 154,
+            "candidate_edges": 154,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 16,
+            "total_alpha_error": 16,
+            "original_alpha_sum": 14246,
+            "relative_l1_error": 0.0011231222799382282,
+            "worst_pixel": {
+              "x": 15,
+              "y": 108,
+              "original_alpha": 57,
+              "candidate_alpha": 56
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 4,
+            "total_alpha_error": 4,
+            "original_alpha_sum": 13773,
+            "relative_l1_error": 0.0002904232919480142,
+            "worst_pixel": {
+              "x": 23,
+              "y": 108,
+              "original_alpha": 8,
+              "candidate_alpha": 7
+            }
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 108,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 8,
+            "total_alpha_error": 8,
+            "original_alpha_sum": 14772,
+            "relative_l1_error": 0.0005415651232060655,
+            "worst_pixel": {
+              "x": 16,
+              "y": 110,
+              "original_alpha": 20,
+              "candidate_alpha": 21
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 5,
+            "total_alpha_error": 5,
+            "original_alpha_sum": 11449,
+            "relative_l1_error": 0.0004367193641366058,
+            "worst_pixel": {
+              "x": 14,
+              "y": 115,
+              "original_alpha": 229,
+              "candidate_alpha": 228
+            }
+          },
+          {
+            "original_edges": 120,
+            "candidate_edges": 120,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 11,
+            "total_alpha_error": 11,
+            "original_alpha_sum": 11612,
+            "relative_l1_error": 0.0009472959007922839,
+            "worst_pixel": {
+              "x": 18,
+              "y": 109,
+              "original_alpha": 73,
+              "candidate_alpha": 72
+            }
+          },
+          {
+            "original_edges": 139,
+            "candidate_edges": 139,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 12,
+            "total_alpha_error": 12,
+            "original_alpha_sum": 17609,
+            "relative_l1_error": 0.0006814697029927878,
+            "worst_pixel": {
+              "x": 18,
+              "y": 109,
+              "original_alpha": 108,
+              "candidate_alpha": 109
+            }
+          },
+          {
+            "original_edges": 84,
+            "candidate_edges": 85,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 7,
+            "total_alpha_error": 7,
+            "original_alpha_sum": 12174,
+            "relative_l1_error": 0.0005749958928864794,
+            "worst_pixel": {
+              "x": 25,
+              "y": 110,
+              "original_alpha": 76,
+              "candidate_alpha": 77
+            }
+          },
+          {
+            "original_edges": 128,
+            "candidate_edges": 127,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 26,
+            "total_alpha_error": 26,
+            "original_alpha_sum": 14856,
+            "relative_l1_error": 0.0017501346257404416,
+            "worst_pixel": {
+              "x": 24,
+              "y": 109,
+              "original_alpha": 93,
+              "candidate_alpha": 92
+            }
+          },
+          {
+            "original_edges": 155,
+            "candidate_edges": 157,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 10,
+            "total_alpha_error": 10,
+            "original_alpha_sum": 13595,
+            "relative_l1_error": 0.000735564545788893,
+            "worst_pixel": {
+              "x": 24,
+              "y": 108,
+              "original_alpha": 3,
+              "candidate_alpha": 2
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 14.0,
+        "offset": 0.75,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 93,
+        "total_alpha_error": 93,
+        "per_glyph": [
+          {
+            "original_edges": 148,
+            "candidate_edges": 148,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 9,
+            "total_alpha_error": 9,
+            "original_alpha_sum": 13574,
+            "relative_l1_error": 0.0006630322675703551,
+            "worst_pixel": {
+              "x": 15,
+              "y": 114,
+              "original_alpha": 255,
+              "candidate_alpha": 254
+            }
+          },
+          {
+            "original_edges": 154,
+            "candidate_edges": 154,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 12,
+            "total_alpha_error": 12,
+            "original_alpha_sum": 13879,
+            "relative_l1_error": 0.0008646156063116939,
+            "worst_pixel": {
+              "x": 20,
+              "y": 110,
+              "original_alpha": 246,
+              "candidate_alpha": 245
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 21,
+            "total_alpha_error": 21,
+            "original_alpha_sum": 13830,
+            "relative_l1_error": 0.0015184381778741865,
+            "worst_pixel": {
+              "x": 23,
+              "y": 109,
+              "original_alpha": 194,
+              "candidate_alpha": 193
+            }
+          },
+          {
+            "original_edges": 107,
+            "candidate_edges": 108,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 14,
+            "total_alpha_error": 14,
+            "original_alpha_sum": 14972,
+            "relative_l1_error": 0.0009350788137857333,
+            "worst_pixel": {
+              "x": 15,
+              "y": 109,
+              "original_alpha": 143,
+              "candidate_alpha": 142
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 11784,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 120,
+            "candidate_edges": 120,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 10,
+            "total_alpha_error": 10,
+            "original_alpha_sum": 11484,
+            "relative_l1_error": 0.0008707767328456984,
+            "worst_pixel": {
+              "x": 14,
+              "y": 111,
+              "original_alpha": 138,
+              "candidate_alpha": 137
+            }
+          },
+          {
+            "original_edges": 139,
+            "candidate_edges": 140,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 9,
+            "total_alpha_error": 9,
+            "original_alpha_sum": 17223,
+            "relative_l1_error": 0.0005225570458108344,
+            "worst_pixel": {
+              "x": 20,
+              "y": 112,
+              "original_alpha": 162,
+              "candidate_alpha": 161
+            }
+          },
+          {
+            "original_edges": 84,
+            "candidate_edges": 85,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 2,
+            "total_alpha_error": 2,
+            "original_alpha_sum": 12349,
+            "relative_l1_error": 0.00016195643371932951,
+            "worst_pixel": {
+              "x": 16,
+              "y": 113,
+              "original_alpha": 241,
+              "candidate_alpha": 242
+            }
+          },
+          {
+            "original_edges": 128,
+            "candidate_edges": 127,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 6,
+            "total_alpha_error": 6,
+            "original_alpha_sum": 14853,
+            "relative_l1_error": 0.0004039587962027873,
+            "worst_pixel": {
+              "x": 25,
+              "y": 109,
+              "original_alpha": 159,
+              "candidate_alpha": 160
+            }
+          },
+          {
+            "original_edges": 155,
+            "candidate_edges": 157,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 10,
+            "total_alpha_error": 10,
+            "original_alpha_sum": 13712,
+            "relative_l1_error": 0.0007292882147024504,
+            "worst_pixel": {
+              "x": 22,
+              "y": 111,
+              "original_alpha": 225,
+              "candidate_alpha": 226
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 24.0,
+        "offset": 0.0,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 272,
+        "total_alpha_error": 272,
+        "per_glyph": [
+          {
+            "original_edges": 182,
+            "candidate_edges": 182,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 30,
+            "total_alpha_error": 30,
+            "original_alpha_sum": 39488,
+            "relative_l1_error": 0.0007597244732576986,
+            "worst_pixel": {
+              "x": 19,
+              "y": 100,
+              "original_alpha": 173,
+              "candidate_alpha": 174
+            }
+          },
+          {
+            "original_edges": 187,
+            "candidate_edges": 188,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 21,
+            "total_alpha_error": 21,
+            "original_alpha_sum": 40694,
+            "relative_l1_error": 0.0005160465916351305,
+            "worst_pixel": {
+              "x": 16,
+              "y": 101,
+              "original_alpha": 226,
+              "candidate_alpha": 225
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 15,
+            "total_alpha_error": 15,
+            "original_alpha_sum": 39869,
+            "relative_l1_error": 0.0003762321603250646,
+            "worst_pixel": {
+              "x": 22,
+              "y": 105,
+              "original_alpha": 45,
+              "candidate_alpha": 44
+            }
+          },
+          {
+            "original_edges": 168,
+            "candidate_edges": 168,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 39,
+            "total_alpha_error": 39,
+            "original_alpha_sum": 43177,
+            "relative_l1_error": 0.0009032586793894898,
+            "worst_pixel": {
+              "x": 16,
+              "y": 100,
+              "original_alpha": 99,
+              "candidate_alpha": 98
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 30,
+            "total_alpha_error": 30,
+            "original_alpha_sum": 33663,
+            "relative_l1_error": 0.0008911861687906604,
+            "worst_pixel": {
+              "x": 22,
+              "y": 104,
+              "original_alpha": 224,
+              "candidate_alpha": 223
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 184,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 26,
+            "total_alpha_error": 26,
+            "original_alpha_sum": 33402,
+            "relative_l1_error": 0.000778396503203401,
+            "worst_pixel": {
+              "x": 23,
+              "y": 103,
+              "original_alpha": 61,
+              "candidate_alpha": 62
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 185,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 59,
+            "total_alpha_error": 59,
+            "original_alpha_sum": 49954,
+            "relative_l1_error": 0.001181086599671698,
+            "worst_pixel": {
+              "x": 30,
+              "y": 99,
+              "original_alpha": 47,
+              "candidate_alpha": 46
+            }
+          },
+          {
+            "original_edges": 96,
+            "candidate_edges": 96,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 8,
+            "total_alpha_error": 8,
+            "original_alpha_sum": 35553,
+            "relative_l1_error": 0.00022501617303743706,
+            "worst_pixel": {
+              "x": 22,
+              "y": 99,
+              "original_alpha": 1,
+              "candidate_alpha": 0
+            }
+          },
+          {
+            "original_edges": 166,
+            "candidate_edges": 166,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 24,
+            "total_alpha_error": 24,
+            "original_alpha_sum": 43635,
+            "relative_l1_error": 0.0005500171880371262,
+            "worst_pixel": {
+              "x": 14,
+              "y": 100,
+              "original_alpha": 81,
+              "candidate_alpha": 82
+            }
+          },
+          {
+            "original_edges": 183,
+            "candidate_edges": 183,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 20,
+            "total_alpha_error": 20,
+            "original_alpha_sum": 39602,
+            "relative_l1_error": 0.0005050249987374376,
+            "worst_pixel": {
+              "x": 16,
+              "y": 103,
+              "original_alpha": 21,
+              "candidate_alpha": 20
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 24.0,
+        "offset": 0.25,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 368,
+        "total_alpha_error": 368,
+        "per_glyph": [
+          {
+            "original_edges": 182,
+            "candidate_edges": 182,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 19,
+            "total_alpha_error": 19,
+            "original_alpha_sum": 39436,
+            "relative_l1_error": 0.00048179328532305506,
+            "worst_pixel": {
+              "x": 20,
+              "y": 100,
+              "original_alpha": 21,
+              "candidate_alpha": 22
+            }
+          },
+          {
+            "original_edges": 187,
+            "candidate_edges": 188,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 39,
+            "total_alpha_error": 39,
+            "original_alpha_sum": 40592,
+            "relative_l1_error": 0.0009607804493496255,
+            "worst_pixel": {
+              "x": 16,
+              "y": 100,
+              "original_alpha": 108,
+              "candidate_alpha": 107
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 79,
+            "total_alpha_error": 79,
+            "original_alpha_sum": 39723,
+            "relative_l1_error": 0.0019887722478161268,
+            "worst_pixel": {
+              "x": 29,
+              "y": 100,
+              "original_alpha": 54,
+              "candidate_alpha": 53
+            }
+          },
+          {
+            "original_edges": 168,
+            "candidate_edges": 168,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 42,
+            "total_alpha_error": 42,
+            "original_alpha_sum": 43134,
+            "relative_l1_error": 0.0009737098344693282,
+            "worst_pixel": {
+              "x": 30,
+              "y": 102,
+              "original_alpha": 149,
+              "candidate_alpha": 150
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 19,
+            "total_alpha_error": 19,
+            "original_alpha_sum": 33866,
+            "relative_l1_error": 0.000561034666036733,
+            "worst_pixel": {
+              "x": 16,
+              "y": 107,
+              "original_alpha": 91,
+              "candidate_alpha": 90
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 184,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 18,
+            "total_alpha_error": 18,
+            "original_alpha_sum": 33303,
+            "relative_l1_error": 0.000540491847581299,
+            "worst_pixel": {
+              "x": 22,
+              "y": 101,
+              "original_alpha": 21,
+              "candidate_alpha": 20
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 185,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 42,
+            "total_alpha_error": 42,
+            "original_alpha_sum": 49945,
+            "relative_l1_error": 0.0008409250175192712,
+            "worst_pixel": {
+              "x": 15,
+              "y": 100,
+              "original_alpha": 132,
+              "candidate_alpha": 131
+            }
+          },
+          {
+            "original_edges": 96,
+            "candidate_edges": 96,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 33,
+            "total_alpha_error": 33,
+            "original_alpha_sum": 35643,
+            "relative_l1_error": 0.0009258479925932161,
+            "worst_pixel": {
+              "x": 23,
+              "y": 100,
+              "original_alpha": 221,
+              "candidate_alpha": 220
+            }
+          },
+          {
+            "original_edges": 166,
+            "candidate_edges": 166,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 48,
+            "total_alpha_error": 48,
+            "original_alpha_sum": 43636,
+            "relative_l1_error": 0.001100009166743056,
+            "worst_pixel": {
+              "x": 33,
+              "y": 101,
+              "original_alpha": 241,
+              "candidate_alpha": 240
+            }
+          },
+          {
+            "original_edges": 183,
+            "candidate_edges": 183,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 29,
+            "total_alpha_error": 29,
+            "original_alpha_sum": 39555,
+            "relative_l1_error": 0.000733156364555682,
+            "worst_pixel": {
+              "x": 16,
+              "y": 100,
+              "original_alpha": 55,
+              "candidate_alpha": 56
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 24.0,
+        "offset": 0.5,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 299,
+        "total_alpha_error": 299,
+        "per_glyph": [
+          {
+            "original_edges": 182,
+            "candidate_edges": 182,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 19,
+            "total_alpha_error": 19,
+            "original_alpha_sum": 39335,
+            "relative_l1_error": 0.0004830303800686412,
+            "worst_pixel": {
+              "x": 17,
+              "y": 103,
+              "original_alpha": 130,
+              "candidate_alpha": 131
+            }
+          },
+          {
+            "original_edges": 187,
+            "candidate_edges": 188,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 25,
+            "total_alpha_error": 25,
+            "original_alpha_sum": 40621,
+            "relative_l1_error": 0.0006154452130671328,
+            "worst_pixel": {
+              "x": 18,
+              "y": 100,
+              "original_alpha": 82,
+              "candidate_alpha": 81
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 44,
+            "total_alpha_error": 44,
+            "original_alpha_sum": 39833,
+            "relative_l1_error": 0.0011046117540732558,
+            "worst_pixel": {
+              "x": 23,
+              "y": 100,
+              "original_alpha": 73,
+              "candidate_alpha": 72
+            }
+          },
+          {
+            "original_edges": 168,
+            "candidate_edges": 168,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 27,
+            "total_alpha_error": 27,
+            "original_alpha_sum": 43440,
+            "relative_l1_error": 0.0006215469613259668,
+            "worst_pixel": {
+              "x": 30,
+              "y": 102,
+              "original_alpha": 169,
+              "candidate_alpha": 170
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 41,
+            "total_alpha_error": 41,
+            "original_alpha_sum": 34000,
+            "relative_l1_error": 0.0012058823529411764,
+            "worst_pixel": {
+              "x": 25,
+              "y": 100,
+              "original_alpha": 64,
+              "candidate_alpha": 65
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 184,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 23,
+            "total_alpha_error": 23,
+            "original_alpha_sum": 33432,
+            "relative_l1_error": 0.0006879636276621201,
+            "worst_pixel": {
+              "x": 23,
+              "y": 101,
+              "original_alpha": 225,
+              "candidate_alpha": 224
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 185,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 51,
+            "total_alpha_error": 51,
+            "original_alpha_sum": 50030,
+            "relative_l1_error": 0.0010193883669798122,
+            "worst_pixel": {
+              "x": 29,
+              "y": 100,
+              "original_alpha": 74,
+              "candidate_alpha": 73
+            }
+          },
+          {
+            "original_edges": 96,
+            "candidate_edges": 96,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 20,
+            "total_alpha_error": 20,
+            "original_alpha_sum": 35710,
+            "relative_l1_error": 0.0005600672080649678,
+            "worst_pixel": {
+              "x": 23,
+              "y": 100,
+              "original_alpha": 137,
+              "candidate_alpha": 136
+            }
+          },
+          {
+            "original_edges": 166,
+            "candidate_edges": 166,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 37,
+            "total_alpha_error": 37,
+            "original_alpha_sum": 43610,
+            "relative_l1_error": 0.0008484292593441871,
+            "worst_pixel": {
+              "x": 33,
+              "y": 100,
+              "original_alpha": 63,
+              "candidate_alpha": 62
+            }
+          },
+          {
+            "original_edges": 183,
+            "candidate_edges": 183,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 12,
+            "total_alpha_error": 12,
+            "original_alpha_sum": 39467,
+            "relative_l1_error": 0.00030405148605163807,
+            "worst_pixel": {
+              "x": 33,
+              "y": 101,
+              "original_alpha": 58,
+              "candidate_alpha": 59
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 24.0,
+        "offset": 0.75,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 310,
+        "total_alpha_error": 310,
+        "per_glyph": [
+          {
+            "original_edges": 182,
+            "candidate_edges": 182,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 12,
+            "total_alpha_error": 12,
+            "original_alpha_sum": 39532,
+            "relative_l1_error": 0.00030355155317211374,
+            "worst_pixel": {
+              "x": 19,
+              "y": 100,
+              "original_alpha": 47,
+              "candidate_alpha": 48
+            }
+          },
+          {
+            "original_edges": 187,
+            "candidate_edges": 188,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 27,
+            "total_alpha_error": 27,
+            "original_alpha_sum": 40841,
+            "relative_l1_error": 0.0006611003648294606,
+            "worst_pixel": {
+              "x": 18,
+              "y": 101,
+              "original_alpha": 193,
+              "candidate_alpha": 192
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 13,
+            "total_alpha_error": 13,
+            "original_alpha_sum": 39951,
+            "relative_l1_error": 0.0003253986133012941,
+            "worst_pixel": {
+              "x": 25,
+              "y": 101,
+              "original_alpha": 130,
+              "candidate_alpha": 131
+            }
+          },
+          {
+            "original_edges": 168,
+            "candidate_edges": 168,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 45,
+            "total_alpha_error": 45,
+            "original_alpha_sum": 43094,
+            "relative_l1_error": 0.0010442288949737782,
+            "worst_pixel": {
+              "x": 16,
+              "y": 102,
+              "original_alpha": 123,
+              "candidate_alpha": 124
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 32,
+            "total_alpha_error": 32,
+            "original_alpha_sum": 33771,
+            "relative_l1_error": 0.00094755855615765,
+            "worst_pixel": {
+              "x": 23,
+              "y": 101,
+              "original_alpha": 65,
+              "candidate_alpha": 64
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 184,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 50,
+            "total_alpha_error": 50,
+            "original_alpha_sum": 33458,
+            "relative_l1_error": 0.00149441090322195,
+            "worst_pixel": {
+              "x": 23,
+              "y": 102,
+              "original_alpha": 69,
+              "candidate_alpha": 68
+            }
+          },
+          {
+            "original_edges": 185,
+            "candidate_edges": 185,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 27,
+            "total_alpha_error": 27,
+            "original_alpha_sum": 50162,
+            "relative_l1_error": 0.0005382560503967147,
+            "worst_pixel": {
+              "x": 24,
+              "y": 100,
+              "original_alpha": 122,
+              "candidate_alpha": 121
+            }
+          },
+          {
+            "original_edges": 96,
+            "candidate_edges": 96,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 9,
+            "total_alpha_error": 9,
+            "original_alpha_sum": 35626,
+            "relative_l1_error": 0.0002526244877336777,
+            "worst_pixel": {
+              "x": 34,
+              "y": 103,
+              "original_alpha": 189,
+              "candidate_alpha": 190
+            }
+          },
+          {
+            "original_edges": 166,
+            "candidate_edges": 166,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 57,
+            "total_alpha_error": 57,
+            "original_alpha_sum": 43637,
+            "relative_l1_error": 0.0013062309507986343,
+            "worst_pixel": {
+              "x": 15,
+              "y": 100,
+              "original_alpha": 7,
+              "candidate_alpha": 8
+            }
+          },
+          {
+            "original_edges": 183,
+            "candidate_edges": 183,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 38,
+            "total_alpha_error": 38,
+            "original_alpha_sum": 39546,
+            "relative_l1_error": 0.0009609062863500733,
+            "worst_pixel": {
+              "x": 30,
+              "y": 100,
+              "original_alpha": 50,
+              "candidate_alpha": 49
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 48.0,
+        "offset": 0.0,
+        "glyphs": 10,
+        "max_alpha_error": 2,
+        "changed_pixels": 1392,
+        "total_alpha_error": 1395,
+        "per_glyph": [
+          {
+            "original_edges": 269,
+            "candidate_edges": 268,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 74,
+            "total_alpha_error": 74,
+            "original_alpha_sum": 156941,
+            "relative_l1_error": 0.0004715147730675859,
+            "worst_pixel": {
+              "x": 24,
+              "y": 80,
+              "original_alpha": 145,
+              "candidate_alpha": 144
+            }
+          },
+          {
+            "original_edges": 278,
+            "candidate_edges": 279,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 2,
+            "changed_pixels": 109,
+            "total_alpha_error": 111,
+            "original_alpha_sum": 161011,
+            "relative_l1_error": 0.0006893938923427592,
+            "worst_pixel": {
+              "x": 15,
+              "y": 106,
+              "original_alpha": 118,
+              "candidate_alpha": 116
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 191,
+            "total_alpha_error": 191,
+            "original_alpha_sum": 158649,
+            "relative_l1_error": 0.0012039155620268643,
+            "worst_pixel": {
+              "x": 21,
+              "y": 80,
+              "original_alpha": 4,
+              "candidate_alpha": 3
+            }
+          },
+          {
+            "original_edges": 196,
+            "candidate_edges": 195,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 169,
+            "total_alpha_error": 169,
+            "original_alpha_sum": 171898,
+            "relative_l1_error": 0.0009831411651095418,
+            "worst_pixel": {
+              "x": 19,
+              "y": 81,
+              "original_alpha": 92,
+              "candidate_alpha": 93
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 2,
+            "changed_pixels": 118,
+            "total_alpha_error": 119,
+            "original_alpha_sum": 134409,
+            "relative_l1_error": 0.0008853573793421571,
+            "worst_pixel": {
+              "x": 20,
+              "y": 108,
+              "original_alpha": 76,
+              "candidate_alpha": 74
+            }
+          },
+          {
+            "original_edges": 231,
+            "candidate_edges": 231,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 140,
+            "total_alpha_error": 140,
+            "original_alpha_sum": 133086,
+            "relative_l1_error": 0.0010519513697909621,
+            "worst_pixel": {
+              "x": 36,
+              "y": 80,
+              "original_alpha": 193,
+              "candidate_alpha": 192
+            }
+          },
+          {
+            "original_edges": 248,
+            "candidate_edges": 248,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 148,
+            "total_alpha_error": 148,
+            "original_alpha_sum": 198090,
+            "relative_l1_error": 0.0007471351405926599,
+            "worst_pixel": {
+              "x": 34,
+              "y": 79,
+              "original_alpha": 116,
+              "candidate_alpha": 115
+            }
+          },
+          {
+            "original_edges": 126,
+            "candidate_edges": 127,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 81,
+            "total_alpha_error": 81,
+            "original_alpha_sum": 141752,
+            "relative_l1_error": 0.0005714205090580733,
+            "worst_pixel": {
+              "x": 36,
+              "y": 80,
+              "original_alpha": 177,
+              "candidate_alpha": 178
+            }
+          },
+          {
+            "original_edges": 221,
+            "candidate_edges": 222,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 224,
+            "total_alpha_error": 224,
+            "original_alpha_sum": 174547,
+            "relative_l1_error": 0.0012833219705867187,
+            "worst_pixel": {
+              "x": 17,
+              "y": 80,
+              "original_alpha": 59,
+              "candidate_alpha": 60
+            }
+          },
+          {
+            "original_edges": 263,
+            "candidate_edges": 265,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 138,
+            "total_alpha_error": 138,
+            "original_alpha_sum": 156877,
+            "relative_l1_error": 0.000879670059983299,
+            "worst_pixel": {
+              "x": 45,
+              "y": 79,
+              "original_alpha": 21,
+              "candidate_alpha": 20
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 48.0,
+        "offset": 0.25,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 1446,
+        "total_alpha_error": 1446,
+        "per_glyph": [
+          {
+            "original_edges": 269,
+            "candidate_edges": 268,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 111,
+            "total_alpha_error": 111,
+            "original_alpha_sum": 157171,
+            "relative_l1_error": 0.0007062371557093865,
+            "worst_pixel": {
+              "x": 26,
+              "y": 80,
+              "original_alpha": 106,
+              "candidate_alpha": 107
+            }
+          },
+          {
+            "original_edges": 278,
+            "candidate_edges": 279,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 128,
+            "total_alpha_error": 128,
+            "original_alpha_sum": 160962,
+            "relative_l1_error": 0.0007952187472819672,
+            "worst_pixel": {
+              "x": 21,
+              "y": 79,
+              "original_alpha": 6,
+              "candidate_alpha": 5
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 133,
+            "total_alpha_error": 133,
+            "original_alpha_sum": 158601,
+            "relative_l1_error": 0.0008385823544618256,
+            "worst_pixel": {
+              "x": 37,
+              "y": 80,
+              "original_alpha": 165,
+              "candidate_alpha": 166
+            }
+          },
+          {
+            "original_edges": 196,
+            "candidate_edges": 195,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 150,
+            "total_alpha_error": 150,
+            "original_alpha_sum": 171881,
+            "relative_l1_error": 0.0008726968076750775,
+            "worst_pixel": {
+              "x": 20,
+              "y": 81,
+              "original_alpha": 134,
+              "candidate_alpha": 133
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 223,
+            "total_alpha_error": 223,
+            "original_alpha_sum": 134409,
+            "relative_l1_error": 0.0016591150890193365,
+            "worst_pixel": {
+              "x": 34,
+              "y": 80,
+              "original_alpha": 193,
+              "candidate_alpha": 192
+            }
+          },
+          {
+            "original_edges": 231,
+            "candidate_edges": 231,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 114,
+            "total_alpha_error": 114,
+            "original_alpha_sum": 132941,
+            "relative_l1_error": 0.0008575232621990206,
+            "worst_pixel": {
+              "x": 32,
+              "y": 81,
+              "original_alpha": 18,
+              "candidate_alpha": 17
+            }
+          },
+          {
+            "original_edges": 248,
+            "candidate_edges": 248,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 150,
+            "total_alpha_error": 150,
+            "original_alpha_sum": 198242,
+            "relative_l1_error": 0.0007566509619555896,
+            "worst_pixel": {
+              "x": 37,
+              "y": 79,
+              "original_alpha": 7,
+              "candidate_alpha": 6
+            }
+          },
+          {
+            "original_edges": 126,
+            "candidate_edges": 127,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 90,
+            "total_alpha_error": 90,
+            "original_alpha_sum": 141742,
+            "relative_l1_error": 0.0006349564702064314,
+            "worst_pixel": {
+              "x": 34,
+              "y": 79,
+              "original_alpha": 2,
+              "candidate_alpha": 1
+            }
+          },
+          {
+            "original_edges": 221,
+            "candidate_edges": 222,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 228,
+            "total_alpha_error": 228,
+            "original_alpha_sum": 174547,
+            "relative_l1_error": 0.001306238434347196,
+            "worst_pixel": {
+              "x": 17,
+              "y": 81,
+              "original_alpha": 149,
+              "candidate_alpha": 150
+            }
+          },
+          {
+            "original_edges": 263,
+            "candidate_edges": 265,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 119,
+            "total_alpha_error": 119,
+            "original_alpha_sum": 156754,
+            "relative_l1_error": 0.0007591512816259872,
+            "worst_pixel": {
+              "x": 48,
+              "y": 80,
+              "original_alpha": 19,
+              "candidate_alpha": 18
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 48.0,
+        "offset": 0.5,
+        "glyphs": 10,
+        "max_alpha_error": 1,
+        "changed_pixels": 1231,
+        "total_alpha_error": 1231,
+        "per_glyph": [
+          {
+            "original_edges": 269,
+            "candidate_edges": 268,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 1,
+            "changed_pixels": 124,
+            "total_alpha_error": 124,
+            "original_alpha_sum": 157116,
+            "relative_l1_error": 0.0007892257949540467,
+            "worst_pixel": {
+              "x": 27,
+              "y": 80,
+              "original_alpha": 3,
+              "candidate_alpha": 4
+            }
+          },
+          {
+            "original_edges": 278,
+            "candidate_edges": 279,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 103,
+            "total_alpha_error": 103,
+            "original_alpha_sum": 160726,
+            "relative_l1_error": 0.0006408421786145365,
+            "worst_pixel": {
+              "x": 21,
+              "y": 80,
+              "original_alpha": 177,
+              "candidate_alpha": 176
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 117,
+            "total_alpha_error": 117,
+            "original_alpha_sum": 158545,
+            "relative_l1_error": 0.0007379608313097228,
+            "worst_pixel": {
+              "x": 38,
+              "y": 80,
+              "original_alpha": 3,
+              "candidate_alpha": 4
+            }
+          },
+          {
+            "original_edges": 196,
+            "candidate_edges": 195,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 154,
+            "total_alpha_error": 154,
+            "original_alpha_sum": 171724,
+            "relative_l1_error": 0.0008967878689059188,
+            "worst_pixel": {
+              "x": 20,
+              "y": 81,
+              "original_alpha": 68,
+              "candidate_alpha": 67
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 143,
+            "total_alpha_error": 143,
+            "original_alpha_sum": 134446,
+            "relative_l1_error": 0.0010636240572423129,
+            "worst_pixel": {
+              "x": 38,
+              "y": 81,
+              "original_alpha": 65,
+              "candidate_alpha": 66
+            }
+          },
+          {
+            "original_edges": 231,
+            "candidate_edges": 231,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 82,
+            "total_alpha_error": 82,
+            "original_alpha_sum": 133076,
+            "relative_l1_error": 0.0006161892452433196,
+            "worst_pixel": {
+              "x": 37,
+              "y": 81,
+              "original_alpha": 142,
+              "candidate_alpha": 141
+            }
+          },
+          {
+            "original_edges": 248,
+            "candidate_edges": 248,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 230,
+            "total_alpha_error": 230,
+            "original_alpha_sum": 198427,
+            "relative_l1_error": 0.00115911645088622,
+            "worst_pixel": {
+              "x": 18,
+              "y": 80,
+              "original_alpha": 33,
+              "candidate_alpha": 32
+            }
+          },
+          {
+            "original_edges": 126,
+            "candidate_edges": 127,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 71,
+            "total_alpha_error": 71,
+            "original_alpha_sum": 141702,
+            "relative_l1_error": 0.000501051502448801,
+            "worst_pixel": {
+              "x": 34,
+              "y": 80,
+              "original_alpha": 146,
+              "candidate_alpha": 145
+            }
+          },
+          {
+            "original_edges": 221,
+            "candidate_edges": 222,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 129,
+            "total_alpha_error": 129,
+            "original_alpha_sum": 174491,
+            "relative_l1_error": 0.000739293144059006,
+            "worst_pixel": {
+              "x": 54,
+              "y": 81,
+              "original_alpha": 226,
+              "candidate_alpha": 225
+            }
+          },
+          {
+            "original_edges": 263,
+            "candidate_edges": 265,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 1,
+            "changed_pixels": 78,
+            "total_alpha_error": 78,
+            "original_alpha_sum": 156902,
+            "relative_l1_error": 0.0004971255943200214,
+            "worst_pixel": {
+              "x": 20,
+              "y": 81,
+              "original_alpha": 163,
+              "candidate_alpha": 164
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 48.0,
+        "offset": 0.75,
+        "glyphs": 10,
+        "max_alpha_error": 2,
+        "changed_pixels": 1109,
+        "total_alpha_error": 1111,
+        "per_glyph": [
+          {
+            "original_edges": 269,
+            "candidate_edges": 268,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 2,
+            "changed_pixels": 122,
+            "total_alpha_error": 123,
+            "original_alpha_sum": 156967,
+            "relative_l1_error": 0.0007836041970605286,
+            "worst_pixel": {
+              "x": 54,
+              "y": 93,
+              "original_alpha": 87,
+              "candidate_alpha": 89
+            }
+          },
+          {
+            "original_edges": 278,
+            "candidate_edges": 279,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 1,
+            "changed_pixels": 104,
+            "total_alpha_error": 104,
+            "original_alpha_sum": 160885,
+            "relative_l1_error": 0.0006464244646797402,
+            "worst_pixel": {
+              "x": 22,
+              "y": 80,
+              "original_alpha": 124,
+              "candidate_alpha": 123
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 1,
+            "changed_pixels": 103,
+            "total_alpha_error": 103,
+            "original_alpha_sum": 158583,
+            "relative_l1_error": 0.0006495021534464602,
+            "worst_pixel": {
+              "x": 34,
+              "y": 81,
+              "original_alpha": 75,
+              "candidate_alpha": 74
+            }
+          },
+          {
+            "original_edges": 196,
+            "candidate_edges": 195,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 1,
+            "changed_pixels": 115,
+            "total_alpha_error": 115,
+            "original_alpha_sum": 171750,
+            "relative_l1_error": 0.0006695778748180495,
+            "worst_pixel": {
+              "x": 20,
+              "y": 82,
+              "original_alpha": 183,
+              "candidate_alpha": 184
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 140,
+            "total_alpha_error": 140,
+            "original_alpha_sum": 134511,
+            "relative_l1_error": 0.0010408070715406175,
+            "worst_pixel": {
+              "x": 38,
+              "y": 81,
+              "original_alpha": 129,
+              "candidate_alpha": 130
+            }
+          },
+          {
+            "original_edges": 231,
+            "candidate_edges": 231,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 1,
+            "changed_pixels": 117,
+            "total_alpha_error": 117,
+            "original_alpha_sum": 133106,
+            "relative_l1_error": 0.0008789986927711748,
+            "worst_pixel": {
+              "x": 33,
+              "y": 81,
+              "original_alpha": 173,
+              "candidate_alpha": 172
+            }
+          },
+          {
+            "original_edges": 248,
+            "candidate_edges": 248,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 1,
+            "changed_pixels": 172,
+            "total_alpha_error": 172,
+            "original_alpha_sum": 198050,
+            "relative_l1_error": 0.0008684675586972986,
+            "worst_pixel": {
+              "x": 35,
+              "y": 80,
+              "original_alpha": 180,
+              "candidate_alpha": 179
+            }
+          },
+          {
+            "original_edges": 126,
+            "candidate_edges": 127,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 1,
+            "changed_pixels": 53,
+            "total_alpha_error": 53,
+            "original_alpha_sum": 141783,
+            "relative_l1_error": 0.00037381068252188203,
+            "worst_pixel": {
+              "x": 34,
+              "y": 80,
+              "original_alpha": 62,
+              "candidate_alpha": 61
+            }
+          },
+          {
+            "original_edges": 221,
+            "candidate_edges": 222,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 1,
+            "changed_pixels": 69,
+            "total_alpha_error": 69,
+            "original_alpha_sum": 174488,
+            "relative_l1_error": 0.0003954426665444042,
+            "worst_pixel": {
+              "x": 18,
+              "y": 81,
+              "original_alpha": 167,
+              "candidate_alpha": 168
+            }
+          },
+          {
+            "original_edges": 263,
+            "candidate_edges": 265,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 2,
+            "changed_pixels": 114,
+            "total_alpha_error": 115,
+            "original_alpha_sum": 156855,
+            "relative_l1_error": 0.0007331611998342418,
+            "worst_pixel": {
+              "x": 15,
+              "y": 98,
+              "original_alpha": 206,
+              "candidate_alpha": 204
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 96.0,
+        "offset": 0.0,
+        "glyphs": 10,
+        "max_alpha_error": 3,
+        "changed_pixels": 4478,
+        "total_alpha_error": 5085,
+        "per_glyph": [
+          {
+            "original_edges": 345,
+            "candidate_edges": 347,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 2,
+            "changed_pixels": 398,
+            "total_alpha_error": 458,
+            "original_alpha_sum": 627394,
+            "relative_l1_error": 0.0007300037934694944,
+            "worst_pixel": {
+              "x": 32,
+              "y": 50,
+              "original_alpha": 69,
+              "candidate_alpha": 71
+            }
+          },
+          {
+            "original_edges": 356,
+            "candidate_edges": 359,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 3,
+            "changed_pixels": 401,
+            "total_alpha_error": 462,
+            "original_alpha_sum": 641642,
+            "relative_l1_error": 0.0007200276789861013,
+            "worst_pixel": {
+              "x": 18,
+              "y": 92,
+              "original_alpha": 102,
+              "candidate_alpha": 99
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 3,
+            "changed_pixels": 344,
+            "total_alpha_error": 407,
+            "original_alpha_sum": 633721,
+            "relative_l1_error": 0.00064223846140494,
+            "worst_pixel": {
+              "x": 30,
+              "y": 70,
+              "original_alpha": 125,
+              "candidate_alpha": 122
+            }
+          },
+          {
+            "original_edges": 322,
+            "candidate_edges": 323,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 2,
+            "changed_pixels": 489,
+            "total_alpha_error": 530,
+            "original_alpha_sum": 686510,
+            "relative_l1_error": 0.0007720208008623327,
+            "worst_pixel": {
+              "x": 63,
+              "y": 49,
+              "original_alpha": 121,
+              "candidate_alpha": 119
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 3,
+            "changed_pixels": 540,
+            "total_alpha_error": 737,
+            "original_alpha_sum": 537132,
+            "relative_l1_error": 0.0013721022020657865,
+            "worst_pixel": {
+              "x": 55,
+              "y": 89,
+              "original_alpha": 228,
+              "candidate_alpha": 225
+            }
+          },
+          {
+            "original_edges": 361,
+            "candidate_edges": 360,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 2,
+            "changed_pixels": 346,
+            "total_alpha_error": 461,
+            "original_alpha_sum": 531678,
+            "relative_l1_error": 0.0008670661565834961,
+            "worst_pixel": {
+              "x": 53,
+              "y": 42,
+              "original_alpha": 123,
+              "candidate_alpha": 121
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 346,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 2,
+            "changed_pixels": 634,
+            "total_alpha_error": 669,
+            "original_alpha_sum": 791132,
+            "relative_l1_error": 0.0008456237391484606,
+            "worst_pixel": {
+              "x": 61,
+              "y": 39,
+              "original_alpha": 175,
+              "candidate_alpha": 173
+            }
+          },
+          {
+            "original_edges": 176,
+            "candidate_edges": 176,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 2,
+            "changed_pixels": 273,
+            "total_alpha_error": 283,
+            "original_alpha_sum": 566069,
+            "relative_l1_error": 0.0004999390533662857,
+            "worst_pixel": {
+              "x": 34,
+              "y": 73,
+              "original_alpha": 138,
+              "candidate_alpha": 140
+            }
+          },
+          {
+            "original_edges": 308,
+            "candidate_edges": 309,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 3,
+            "changed_pixels": 617,
+            "total_alpha_error": 627,
+            "original_alpha_sum": 698053,
+            "relative_l1_error": 0.0008982125999028727,
+            "worst_pixel": {
+              "x": 82,
+              "y": 48,
+              "original_alpha": 232,
+              "candidate_alpha": 229
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 345,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 2,
+            "changed_pixels": 436,
+            "total_alpha_error": 451,
+            "original_alpha_sum": 626225,
+            "relative_l1_error": 0.0007201884306758752,
+            "worst_pixel": {
+              "x": 98,
+              "y": 48,
+              "original_alpha": 137,
+              "candidate_alpha": 139
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 96.0,
+        "offset": 0.25,
+        "glyphs": 10,
+        "max_alpha_error": 2,
+        "changed_pixels": 4251,
+        "total_alpha_error": 4845,
+        "per_glyph": [
+          {
+            "original_edges": 345,
+            "candidate_edges": 347,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 2,
+            "changed_pixels": 291,
+            "total_alpha_error": 378,
+            "original_alpha_sum": 627286,
+            "relative_l1_error": 0.0006025959450713072,
+            "worst_pixel": {
+              "x": 56,
+              "y": 40,
+              "original_alpha": 41,
+              "candidate_alpha": 39
+            }
+          },
+          {
+            "original_edges": 356,
+            "candidate_edges": 359,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 2,
+            "changed_pixels": 400,
+            "total_alpha_error": 424,
+            "original_alpha_sum": 641752,
+            "relative_l1_error": 0.0006606913574090926,
+            "worst_pixel": {
+              "x": 33,
+              "y": 39,
+              "original_alpha": 26,
+              "candidate_alpha": 24
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 2,
+            "changed_pixels": 351,
+            "total_alpha_error": 370,
+            "original_alpha_sum": 633907,
+            "relative_l1_error": 0.0005836818334550652,
+            "worst_pixel": {
+              "x": 63,
+              "y": 63,
+              "original_alpha": 167,
+              "candidate_alpha": 169
+            }
+          },
+          {
+            "original_edges": 322,
+            "candidate_edges": 323,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 2,
+            "changed_pixels": 557,
+            "total_alpha_error": 655,
+            "original_alpha_sum": 686443,
+            "relative_l1_error": 0.0009541943030958142,
+            "worst_pixel": {
+              "x": 28,
+              "y": 81,
+              "original_alpha": 68,
+              "candidate_alpha": 70
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 1,
+            "changed_pixels": 493,
+            "total_alpha_error": 493,
+            "original_alpha_sum": 537247,
+            "relative_l1_error": 0.0009176412339203384,
+            "worst_pixel": {
+              "x": 57,
+              "y": 39,
+              "original_alpha": 108,
+              "candidate_alpha": 109
+            }
+          },
+          {
+            "original_edges": 361,
+            "candidate_edges": 360,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 2,
+            "changed_pixels": 414,
+            "total_alpha_error": 439,
+            "original_alpha_sum": 531735,
+            "relative_l1_error": 0.000825599217655411,
+            "worst_pixel": {
+              "x": 53,
+              "y": 42,
+              "original_alpha": 96,
+              "candidate_alpha": 94
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 346,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 2,
+            "changed_pixels": 530,
+            "total_alpha_error": 652,
+            "original_alpha_sum": 791112,
+            "relative_l1_error": 0.000824156377352385,
+            "worst_pixel": {
+              "x": 80,
+              "y": 39,
+              "original_alpha": 58,
+              "candidate_alpha": 56
+            }
+          },
+          {
+            "original_edges": 176,
+            "candidate_edges": 176,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 2,
+            "changed_pixels": 244,
+            "total_alpha_error": 246,
+            "original_alpha_sum": 566251,
+            "relative_l1_error": 0.00043443631887625804,
+            "worst_pixel": {
+              "x": 50,
+              "y": 120,
+              "original_alpha": 46,
+              "candidate_alpha": 48
+            }
+          },
+          {
+            "original_edges": 308,
+            "candidate_edges": 309,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 2,
+            "changed_pixels": 603,
+            "total_alpha_error": 805,
+            "original_alpha_sum": 698013,
+            "relative_l1_error": 0.0011532736496311672,
+            "worst_pixel": {
+              "x": 23,
+              "y": 41,
+              "original_alpha": 94,
+              "candidate_alpha": 96
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 345,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 2,
+            "changed_pixels": 368,
+            "total_alpha_error": 383,
+            "original_alpha_sum": 626028,
+            "relative_l1_error": 0.0006117937216865699,
+            "worst_pixel": {
+              "x": 97,
+              "y": 47,
+              "original_alpha": 196,
+              "candidate_alpha": 198
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 96.0,
+        "offset": 0.5,
+        "glyphs": 10,
+        "max_alpha_error": 3,
+        "changed_pixels": 4680,
+        "total_alpha_error": 5381,
+        "per_glyph": [
+          {
+            "original_edges": 345,
+            "candidate_edges": 347,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 2,
+            "changed_pixels": 340,
+            "total_alpha_error": 378,
+            "original_alpha_sum": 627405,
+            "relative_l1_error": 0.0006024816506084587,
+            "worst_pixel": {
+              "x": 30,
+              "y": 56,
+              "original_alpha": 170,
+              "candidate_alpha": 172
+            }
+          },
+          {
+            "original_edges": 356,
+            "candidate_edges": 359,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 3,
+            "changed_pixels": 392,
+            "total_alpha_error": 435,
+            "original_alpha_sum": 641763,
+            "relative_l1_error": 0.0006778203168459385,
+            "worst_pixel": {
+              "x": 43,
+              "y": 102,
+              "original_alpha": 190,
+              "candidate_alpha": 187
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 2,
+            "changed_pixels": 507,
+            "total_alpha_error": 632,
+            "original_alpha_sum": 633706,
+            "relative_l1_error": 0.0009973078998778613,
+            "worst_pixel": {
+              "x": 63,
+              "y": 40,
+              "original_alpha": 94,
+              "candidate_alpha": 96
+            }
+          },
+          {
+            "original_edges": 322,
+            "candidate_edges": 323,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 2,
+            "changed_pixels": 578,
+            "total_alpha_error": 677,
+            "original_alpha_sum": 686434,
+            "relative_l1_error": 0.0009862565082731916,
+            "worst_pixel": {
+              "x": 56,
+              "y": 49,
+              "original_alpha": 86,
+              "candidate_alpha": 88
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 3,
+            "changed_pixels": 517,
+            "total_alpha_error": 522,
+            "original_alpha_sum": 537069,
+            "relative_l1_error": 0.0009719421526842919,
+            "worst_pixel": {
+              "x": 56,
+              "y": 89,
+              "original_alpha": 228,
+              "candidate_alpha": 225
+            }
+          },
+          {
+            "original_edges": 361,
+            "candidate_edges": 360,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 2,
+            "changed_pixels": 416,
+            "total_alpha_error": 439,
+            "original_alpha_sum": 531737,
+            "relative_l1_error": 0.0008255961123638189,
+            "worst_pixel": {
+              "x": 53,
+              "y": 42,
+              "original_alpha": 70,
+              "candidate_alpha": 68
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 346,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 2,
+            "changed_pixels": 673,
+            "total_alpha_error": 796,
+            "original_alpha_sum": 791223,
+            "relative_l1_error": 0.0010060374887989859,
+            "worst_pixel": {
+              "x": 80,
+              "y": 40,
+              "original_alpha": 24,
+              "candidate_alpha": 22
+            }
+          },
+          {
+            "original_edges": 176,
+            "candidate_edges": 176,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 2,
+            "changed_pixels": 283,
+            "total_alpha_error": 316,
+            "original_alpha_sum": 566206,
+            "relative_l1_error": 0.0005581007619135085,
+            "worst_pixel": {
+              "x": 27,
+              "y": 57,
+              "original_alpha": 77,
+              "candidate_alpha": 79
+            }
+          },
+          {
+            "original_edges": 308,
+            "candidate_edges": 309,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 2,
+            "changed_pixels": 531,
+            "total_alpha_error": 721,
+            "original_alpha_sum": 698066,
+            "relative_l1_error": 0.0010328536270209406,
+            "worst_pixel": {
+              "x": 23,
+              "y": 42,
+              "original_alpha": 186,
+              "candidate_alpha": 188
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 345,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 2,
+            "changed_pixels": 443,
+            "total_alpha_error": 465,
+            "original_alpha_sum": 625814,
+            "relative_l1_error": 0.0007430322747653456,
+            "worst_pixel": {
+              "x": 91,
+              "y": 41,
+              "original_alpha": 163,
+              "candidate_alpha": 161
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaCJK-Regular.ttf",
+        "units_per_em": 8000,
+        "size_px": 96.0,
+        "offset": 0.75,
+        "glyphs": 10,
+        "max_alpha_error": 3,
+        "changed_pixels": 4422,
+        "total_alpha_error": 4900,
+        "per_glyph": [
+          {
+            "original_edges": 345,
+            "candidate_edges": 347,
+            "character": "你",
+            "codepoint": "U+4F60",
+            "max_alpha_error": 3,
+            "changed_pixels": 374,
+            "total_alpha_error": 383,
+            "original_alpha_sum": 627529,
+            "relative_l1_error": 0.0006103303592343939,
+            "worst_pixel": {
+              "x": 96,
+              "y": 65,
+              "original_alpha": 145,
+              "candidate_alpha": 148
+            }
+          },
+          {
+            "original_edges": 356,
+            "candidate_edges": 359,
+            "character": "好",
+            "codepoint": "U+597D",
+            "max_alpha_error": 3,
+            "changed_pixels": 449,
+            "total_alpha_error": 496,
+            "original_alpha_sum": 641759,
+            "relative_l1_error": 0.0007728757991707167,
+            "worst_pixel": {
+              "x": 76,
+              "y": 69,
+              "original_alpha": 131,
+              "candidate_alpha": 128
+            }
+          },
+          {
+            "original_edges": 9,
+            "candidate_edges": 9,
+            "character": "世",
+            "codepoint": "U+4E16",
+            "max_alpha_error": 3,
+            "changed_pixels": 507,
+            "total_alpha_error": 577,
+            "original_alpha_sum": 633587,
+            "relative_l1_error": 0.0009106878771186909,
+            "worst_pixel": {
+              "x": 31,
+              "y": 71,
+              "original_alpha": 125,
+              "candidate_alpha": 122
+            }
+          },
+          {
+            "original_edges": 322,
+            "candidate_edges": 323,
+            "character": "界",
+            "codepoint": "U+754C",
+            "max_alpha_error": 2,
+            "changed_pixels": 476,
+            "total_alpha_error": 567,
+            "original_alpha_sum": 686483,
+            "relative_l1_error": 0.0008259490766705075,
+            "worst_pixel": {
+              "x": 28,
+              "y": 43,
+              "original_alpha": 204,
+              "candidate_alpha": 202
+            }
+          },
+          {
+            "original_edges": 8,
+            "candidate_edges": 8,
+            "character": "中",
+            "codepoint": "U+4E2D",
+            "max_alpha_error": 3,
+            "changed_pixels": 514,
+            "total_alpha_error": 617,
+            "original_alpha_sum": 537105,
+            "relative_l1_error": 0.0011487511752823005,
+            "worst_pixel": {
+              "x": 29,
+              "y": 89,
+              "original_alpha": 77,
+              "candidate_alpha": 74
+            }
+          },
+          {
+            "original_edges": 361,
+            "candidate_edges": 360,
+            "character": "文",
+            "codepoint": "U+6587",
+            "max_alpha_error": 2,
+            "changed_pixels": 347,
+            "total_alpha_error": 370,
+            "original_alpha_sum": 531648,
+            "relative_l1_error": 0.0006959491994703263,
+            "worst_pixel": {
+              "x": 53,
+              "y": 42,
+              "original_alpha": 47,
+              "candidate_alpha": 45
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 346,
+            "character": "漢",
+            "codepoint": "U+6F22",
+            "max_alpha_error": 2,
+            "changed_pixels": 580,
+            "total_alpha_error": 607,
+            "original_alpha_sum": 791042,
+            "relative_l1_error": 0.0007673423155786924,
+            "worst_pixel": {
+              "x": 57,
+              "y": 39,
+              "original_alpha": 41,
+              "candidate_alpha": 39
+            }
+          },
+          {
+            "original_edges": 176,
+            "candidate_edges": 176,
+            "character": "字",
+            "codepoint": "U+5B57",
+            "max_alpha_error": 2,
+            "changed_pixels": 260,
+            "total_alpha_error": 278,
+            "original_alpha_sum": 566061,
+            "relative_l1_error": 0.0004911131485829266,
+            "worst_pixel": {
+              "x": 27,
+              "y": 57,
+              "original_alpha": 144,
+              "candidate_alpha": 146
+            }
+          },
+          {
+            "original_edges": 308,
+            "candidate_edges": 309,
+            "character": "测",
+            "codepoint": "U+6D4B",
+            "max_alpha_error": 2,
+            "changed_pixels": 521,
+            "total_alpha_error": 587,
+            "original_alpha_sum": 698041,
+            "relative_l1_error": 0.0008409248167371258,
+            "worst_pixel": {
+              "x": 82,
+              "y": 49,
+              "original_alpha": 45,
+              "candidate_alpha": 43
+            }
+          },
+          {
+            "original_edges": 345,
+            "candidate_edges": 345,
+            "character": "试",
+            "codepoint": "U+8BD5",
+            "max_alpha_error": 2,
+            "changed_pixels": 394,
+            "total_alpha_error": 418,
+            "original_alpha_sum": 625985,
+            "relative_l1_error": 0.0006677476297355368,
+            "worst_pixel": {
+              "x": 98,
+              "y": 48,
+              "original_alpha": 176,
+              "candidate_alpha": 178
+            }
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 9.0,
+        "offset": 0.0,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 322,
+            "candidate_edges": 322,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 3439,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 400,
+            "candidate_edges": 400,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4900,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 208,
+            "candidate_edges": 208,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 6693,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 330,
+            "candidate_edges": 330,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4504,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 836,
+            "candidate_edges": 836,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8917,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 9.0,
+        "offset": 0.25,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 322,
+            "candidate_edges": 322,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 3438,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 400,
+            "candidate_edges": 400,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4899,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 208,
+            "candidate_edges": 208,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 6695,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 330,
+            "candidate_edges": 330,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4516,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 836,
+            "candidate_edges": 836,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8918,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 9.0,
+        "offset": 0.5,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 322,
+            "candidate_edges": 322,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 3442,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 400,
+            "candidate_edges": 400,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4900,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 208,
+            "candidate_edges": 208,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 6697,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 330,
+            "candidate_edges": 330,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4513,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 836,
+            "candidate_edges": 836,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8917,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 9.0,
+        "offset": 0.75,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 322,
+            "candidate_edges": 322,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 3438,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 400,
+            "candidate_edges": 400,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4907,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 208,
+            "candidate_edges": 208,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 6695,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 330,
+            "candidate_edges": 330,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 4502,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 836,
+            "candidate_edges": 836,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8915,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 14.0,
+        "offset": 0.0,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 354,
+            "candidate_edges": 354,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8309,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 468,
+            "candidate_edges": 468,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 11837,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 281,
+            "candidate_edges": 281,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 16201,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 402,
+            "candidate_edges": 402,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 10825,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1004,
+            "candidate_edges": 1004,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 21572,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 14.0,
+        "offset": 0.25,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 354,
+            "candidate_edges": 354,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8308,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 468,
+            "candidate_edges": 468,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 11830,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 281,
+            "candidate_edges": 281,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 16195,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 402,
+            "candidate_edges": 402,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 10896,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1004,
+            "candidate_edges": 1004,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 21574,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 14.0,
+        "offset": 0.5,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 354,
+            "candidate_edges": 354,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8316,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 468,
+            "candidate_edges": 468,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 11832,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 281,
+            "candidate_edges": 281,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 16136,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 402,
+            "candidate_edges": 402,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 10888,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1004,
+            "candidate_edges": 1004,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 21578,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 14.0,
+        "offset": 0.75,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 354,
+            "candidate_edges": 354,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 8310,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 468,
+            "candidate_edges": 468,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 11835,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 281,
+            "candidate_edges": 281,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 16145,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 402,
+            "candidate_edges": 402,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 10819,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1004,
+            "candidate_edges": 1004,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 21577,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 24.0,
+        "offset": 0.0,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 450,
+            "candidate_edges": 450,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 24428,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 581,
+            "candidate_edges": 581,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 34809,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 336,
+            "candidate_edges": 336,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 46490,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 529,
+            "candidate_edges": 529,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 31371,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1250,
+            "candidate_edges": 1250,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 63382,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 24.0,
+        "offset": 0.25,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 450,
+            "candidate_edges": 450,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 24432,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 581,
+            "candidate_edges": 581,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 34810,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 336,
+            "candidate_edges": 336,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 46126,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 529,
+            "candidate_edges": 529,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 31639,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1250,
+            "candidate_edges": 1250,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 63387,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 24.0,
+        "offset": 0.5,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 450,
+            "candidate_edges": 450,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 24427,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 581,
+            "candidate_edges": 581,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 34812,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 336,
+            "candidate_edges": 336,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 46635,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 529,
+            "candidate_edges": 529,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 31595,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1250,
+            "candidate_edges": 1250,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 63393,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 24.0,
+        "offset": 0.75,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 450,
+            "candidate_edges": 450,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 24438,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 581,
+            "candidate_edges": 581,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 34798,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 336,
+            "candidate_edges": 336,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 46852,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 529,
+            "candidate_edges": 529,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 31407,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1250,
+            "candidate_edges": 1250,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 63396,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 48.0,
+        "offset": 0.0,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 706,
+            "candidate_edges": 706,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 97728,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 900,
+            "candidate_edges": 900,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 139237,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 470,
+            "candidate_edges": 470,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 183068,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 695,
+            "candidate_edges": 695,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 124595,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1869,
+            "candidate_edges": 1869,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 253704,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 48.0,
+        "offset": 0.25,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 706,
+            "candidate_edges": 706,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 97747,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 900,
+            "candidate_edges": 900,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 139231,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 470,
+            "candidate_edges": 470,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 182929,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 695,
+            "candidate_edges": 695,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 124730,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1869,
+            "candidate_edges": 1869,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 253692,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 48.0,
+        "offset": 0.5,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 706,
+            "candidate_edges": 706,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 97750,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 900,
+            "candidate_edges": 900,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 139233,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 470,
+            "candidate_edges": 470,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 182789,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 695,
+            "candidate_edges": 695,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 124629,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1869,
+            "candidate_edges": 1869,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 253688,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 48.0,
+        "offset": 0.75,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 706,
+            "candidate_edges": 706,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 97732,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 900,
+            "candidate_edges": 900,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 139233,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 470,
+            "candidate_edges": 470,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 182952,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 695,
+            "candidate_edges": 695,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 124529,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1869,
+            "candidate_edges": 1869,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 253692,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 96.0,
+        "offset": 0.0,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 898,
+            "candidate_edges": 898,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 391048,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1160,
+            "candidate_edges": 1160,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 557036,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 650,
+            "candidate_edges": 650,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 728970,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1027,
+            "candidate_edges": 1027,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 497516,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 2483,
+            "candidate_edges": 2483,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 1014684,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 96.0,
+        "offset": 0.25,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 898,
+            "candidate_edges": 898,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 391034,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1160,
+            "candidate_edges": 1160,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 557025,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 650,
+            "candidate_edges": 650,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 729217,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1027,
+            "candidate_edges": 1027,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 497589,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 2483,
+            "candidate_edges": 2483,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 1014693,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 96.0,
+        "offset": 0.5,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 898,
+            "candidate_edges": 898,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 391048,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1160,
+            "candidate_edges": 1160,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 557038,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 650,
+            "candidate_edges": 650,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 729231,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1027,
+            "candidate_edges": 1027,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 497481,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 2483,
+            "candidate_edges": 2483,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 1014682,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      },
+      {
+        "font": "FormaEmoji-Regular.ttf",
+        "units_per_em": 2048,
+        "size_px": 96.0,
+        "offset": 0.75,
+        "glyphs": 5,
+        "max_alpha_error": 0,
+        "changed_pixels": 0,
+        "total_alpha_error": 0,
+        "per_glyph": [
+          {
+            "original_edges": 898,
+            "candidate_edges": 898,
+            "character": "🙂",
+            "codepoint": "U+1F642",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 391035,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1160,
+            "candidate_edges": 1160,
+            "character": "😀",
+            "codepoint": "U+1F600",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 557052,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 650,
+            "candidate_edges": 650,
+            "character": "❤",
+            "codepoint": "U+2764",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 729083,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 1027,
+            "candidate_edges": 1027,
+            "character": "🚀",
+            "codepoint": "U+1F680",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 497407,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          },
+          {
+            "original_edges": 2483,
+            "candidate_edges": 2483,
+            "character": "🌍",
+            "codepoint": "U+1F30D",
+            "max_alpha_error": 0,
+            "changed_pixels": 0,
+            "total_alpha_error": 0,
+            "original_alpha_sum": 1014672,
+            "relative_l1_error": 0.0,
+            "worst_pixel": null
+          }
+        ]
+      }
+    ]
+  }
+}

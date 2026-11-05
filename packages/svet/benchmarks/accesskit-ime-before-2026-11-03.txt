@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.87s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-f7e368aeef0dd407)
+
+running 1 test
+test native_window::tests::accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it ... FAILED
+
+failures:
+
+---- native_window::tests::accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it stdout ----
+
+thread 'native_window::tests::accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it' (25705505) panicked at src/native_window.rs:1564:17:
+assertion `left == right` failed: SetTextSelection, empty=false: stale commit
+  left: "slated"
+ right: "seed"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_window::tests::accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

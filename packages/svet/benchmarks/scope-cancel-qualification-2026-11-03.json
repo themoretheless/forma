@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "change": "Dropping a pending scope-pop future clears its waiter flag and releases its executor waker outside scope locks. Shared completion service removes cancelled registrations independently of live submitted leases. Captured error state survives until completion",
+  "gates": {
+    "runtime_unit_passed": 11,
+    "runtime_ignored": 4,
+    "explicit_metal_passed": 4,
+    "native_lib_passed": 218,
+    "native_ignored": 3,
+    "metal_renderer_smoke": "passed",
+    "regression": [
+      "Waker resource released before live submission lease",
+      "Task destructor reenters scope state without deadlock",
+      "Late completion error remains in captured state and does not wake cancelled task",
+      "64 cancelled futures allow service retirement with64 synthetic submission leases still held"
+    ],
+    "native_all_targets": "passed"
+  },
+  "source_sha256": {
+    "crates/gpu-runtime/src/types.rs": "6c626e89baf540c8a26862a615ad2d7253e74599fa37ce57b81a780718f4cc62",
+    "crates/gpu-runtime/src/lib.rs": "48bfa9d9711d502d978ebac2009b59005fb4d2edcfe6938e954c83d8ce733061"
+  },
+  "limits": [
+    "Retirement test uses synthetic leases on a real adapter, not a hung native GPU command",
+    "An already-entered backend wait_idle remains uncancellable; no prompt worker-exit claim for a hung driver wait",
+    "No performance/RSS/OS thread/energy qualification; earlier performance gates remain inconclusive",
+    "No physical device removal/OOM or non-Metal runtime proof"
+  ]
+}

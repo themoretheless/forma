@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-ab83b96525f28f30)
+
+running 1 test
+uniform1600x1200 frame: 24000 scalar samples instead of1,920,000
+scalar reference frame: 1920000 samples
+uniform1600x1200 frame: 24000 scalar samples instead of1,920,000
+test raster_cache::tests::uniform_frame_storage_is_constant_size_even_with_offscreen_geometry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 216 filtered out; finished in 0.14s
+

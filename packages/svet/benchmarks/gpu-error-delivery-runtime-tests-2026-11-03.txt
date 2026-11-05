@@ -1,0 +1,10 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.96s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-cc416d5dfac22531)
+
+running 2 tests
+test error_delivery_tests::matching_innermost_scope_captures_first_without_uncaptured_delivery ... ok
+test error_delivery_tests::uncaptured_handler_can_replace_itself_and_reenter_error_scopes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

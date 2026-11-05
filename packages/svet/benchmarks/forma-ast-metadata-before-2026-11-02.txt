@@ -1,0 +1,82 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-metadata.test.ts (8 tests | 8 failed) 9ms
+   × refuses malformed AST component name without graph or document mutation 6ms
+   × refuses malformed AST tokens without graph or document mutation 1ms
+   × refuses malformed AST state map without graph or document mutation 1ms
+   × refuses malformed AST styles without graph or document mutation 0ms
+   × refuses malformed AST i18n without graph or document mutation 0ms
+   × refuses malformed AST lets without graph or document mutation 0ms
+   × refuses malformed AST sparse lets without graph or document mutation 0ms
+   × refuses malformed AST shortcuts without graph or document mutation 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST component name without graph or document mutation
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST tokens without graph or document mutation
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST styles without graph or document mutation
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST i18n without graph or document mutation
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST lets without graph or document mutation
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST shortcuts without graph or document mutation
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-metadata.test.ts:16:82
+     14|  ['shortcuts',(a:any)=>a.shortcuts=[{combo:'Mod+X',action:12}]],
+     15| ] as const) it(`refuses malformed AST ${name} without graph or documen…
+     16|  const bad=parseFormaSource(source);change(bad);expect(()=>compileForm…
+       |                                                                                  ^
+     17|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     18|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST state map without graph or document mutation
+AssertionError: expected [Function] to throw error matching /AST.*document/i but got 'Cannot convert undefined or null to o…'
+
+- Expected:
+/AST.*document/i
+
++ Received:
+"Cannot convert undefined or null to object"
+
+ ❯ tests/forma-ast-metadata.test.ts:16:82
+     14|  ['shortcuts',(a:any)=>a.shortcuts=[{combo:'Mod+X',action:12}]],
+     15| ] as const) it(`refuses malformed AST ${name} without graph or documen…
+     16|  const bad=parseFormaSource(source);change(bad);expect(()=>compileForm…
+       |                                                                                  ^
+     17|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     18|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/forma-ast-metadata.test.ts > refuses malformed AST sparse lets without graph or document mutation
+AssertionError: expected [Function] to throw error matching /AST.*document/i but got 'Cannot read properties of undefined (…'
+
+- Expected:
+/AST.*document/i
+
++ Received:
+"Cannot read properties of undefined (reading 'name')"
+
+ ❯ tests/forma-ast-metadata.test.ts:16:82
+     14|  ['shortcuts',(a:any)=>a.shortcuts=[{combo:'Mod+X',action:12}]],
+     15| ] as const) it(`refuses malformed AST ${name} without graph or documen…
+     16|  const bad=parseFormaSource(source);change(bad);expect(()=>compileForm…
+       |                                                                                  ^
+     17|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     18|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed (8)
+   Start at  19:39:21
+   Duration  1.47s (environment 83%, transform 13%, import 3%, tests 1%)

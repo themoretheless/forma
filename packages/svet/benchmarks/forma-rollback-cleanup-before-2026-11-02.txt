@@ -1,0 +1,20 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-events.test.ts (29 tests | 1 failed) 48ms
+   × restores old computed handles and primary error when candidate cleanup throws during rollback 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > restores old computed handles and primary error when candidate cleanup throws during rollback
+Error: candidate cleanup refused
+ ❯ tests/forma-hmr-events.test.ts:368:77
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 passed (29)
+   Start at  20:17:26
+   Duration  494ms (environment 69%, tests 12%, transform 10%, import 9%, worker 1%)

@@ -1,0 +1,37 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+warning: function `rasterize` is never used
+   --> src/text.rs:798:15
+    |
+798 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.57s
+     Running tests/line_edit.rs (/tmp/svet-native-development/debug/deps/line_edit-84ba447f6a79a090)
+
+running 1 test
+test accessibility_snapshot_roundtrips_control_characters_as_valid_json ... FAILED
+
+failures:
+
+---- accessibility_snapshot_roundtrips_control_characters_as_valid_json stdout ----
+
+thread 'accessibility_snapshot_roundtrips_control_characters_as_valid_json' (23530353) panicked at tests/line_edit.rs:82:84:
+JSON escaping must not use Rust debug escapes: Error("invalid escape", line: 1, column: 354)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    accessibility_snapshot_roundtrips_control_characters_as_valid_json
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--test line_edit`

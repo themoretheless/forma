@@ -1,0 +1,20 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 37,
+  "coverage": [
+    "Direct serializer execution",
+    "JS fractional bounds equal original f32 widened to f64",
+    "Field schema compatibility",
+    "All C0 controls/Unicode label-value roundtrip",
+    "Prior readonly/selection/editor regressions"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "cb6761eb7cffd724b5dbc088d055a4d99e60e7a212a94982f9c0cbc0928963df",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "b54b4d00f9124e2393a11e9f5a69ac5127e2934784e14877c5f5cef3906158bb",
+    "/tmp/svet-direct-a11y-wasm/node/forma_bg.wasm": "325bc515406a8d8f2a2d8ab4deb2bb06f84f96ea4504e51748770d455110cbaa"
+  },
+  "limits": [
+    "Node WASM only; no new browser/screen-reader evidence",
+    "No serialization timing/RSS/energy qualification"
+  ]
+}

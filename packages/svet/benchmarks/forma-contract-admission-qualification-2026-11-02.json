@@ -1,0 +1,28 @@
+{
+  "scope": "Source contract admission shared by parser and validator; explicit rejection of unknown annotations",
+  "before": {
+    "newRegressionFailures": 6
+  },
+  "after": {
+    "focusedPassed": 40,
+    "typesPassed": true,
+    "packageGatePassed": true,
+    "fullSuite": {
+      "passed": 1371,
+      "failed": 1,
+      "reason": "synthetic benchmark exceeded unchanged 5000ms timeout"
+    },
+    "isolatedBenchmarkRepeatPassed": true
+  },
+  "sha256": {
+    "src/engine/forma.ts": "aec12487815f1779cb108382149b0c4eb8e309b578349a0f91401dcda42278a9",
+    "tests/forma-contract-tokens.test.ts": "3d179f699bc55052fbb2feb90ac262698eaf05f810dfe6ce3afde9c8d3477a90",
+    "scripts/check-forma-aot-lifecycle.mjs": "36dfdfaa0b79329d8e4bff27c1e94bea1c64ddfe368c851de7c7862a7c46dd9c"
+  },
+  "limitations": [
+    "No all-green full suite claim for this run.",
+    "Placement, duplicate and dangling annotation policy remains open.",
+    "Arbitrary caller-provided AST admission remains open.",
+    "No installed browser rerun for this change."
+  ]
+}

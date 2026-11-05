@@ -987,6 +987,8 @@ function parseFormaUiBody(bodyStr: string): FormaAstNode[] {
       continue;
     }
 
+    if (src.startsWith('#[', i)) throw new Error('Forma contract annotation cannot follow visual declarations');
+
     // 1. `if <cond> { ... } else { ... }`
     if (src.startsWith('if ', i) || src.startsWith('if(', i)) {
       const braceIdx = src.indexOf('{', i + 2);
@@ -1415,6 +1417,31 @@ function readFormaContract(source: string, start: number): { content: string; en
   return null;
 }
 
+/** Contracts belong to component declarations, never nested metadata or UI bodies. */
+function assertFormaContractDepth(source: string): void {
+  let depth = 0;
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === "'" || ch === '"') {
+      const quote = ch;
+      for (i++; i < source.length; i++) {
+        if (source[i] === '\\') i++;
+        else if (source[i] === quote) break;
+      }
+    } else if (source.startsWith('//', i)) {
+      const end = source.indexOf('\n', i + 2);
+      if (end === -1) break;
+      i = end;
+    } else if (source.startsWith('#[', i)) {
+      if (depth !== 0) throw new Error('Forma contract annotation is unsupported inside nested blocks');
+      const token = readFormaContract(source, i);
+      if (!token) throw new Error('Unclosed Forma contract annotation');
+      i = token.end - 1;
+    } else if (ch === '{') depth++;
+    else if (ch === '}') depth--;
+  }
+}
+
 const FORMA_PATTERN_CONTRACT = /^pattern\(\s*(['"])((?:\\[\s\S]|(?!\1)[^\\])+)\1\s*\)$/;
 
 /** Known contracts must have the same complete grammar in parser and validator. */
@@ -1425,7 +1452,179 @@ function formaContractSyntaxError(content: string): string | undefined {
   if (/^pattern\b/.test(content) && !FORMA_PATTERN_CONTRACT.test(content)) {
     return 'Malformed Forma contract annotation: expected pattern(quoted regex)';
   }
+  const range = content.match(/^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/);
+  const pattern = content.match(FORMA_PATTERN_CONTRACT);
+  if (!range && !pattern) return 'Unsupported Forma contract annotation: ' + content;
+  if (range) {
+    const min = Number(range[1]), max = Number(range[2]);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+      return 'Invalid Forma contract annotation: range requires finite ordered bounds';
+    }
+  }
+  if (pattern) {
+    if (!isSafePatternRegex(pattern[2])) return 'Unsafe Forma pattern contract annotation';
+    try { new RegExp(pattern[2]); }
+    catch { return 'Invalid regular expression in Forma pattern contract annotation'; }
+  }
   return undefined;
+}
+
+const FORMA_AST_EXIT = Symbol('forma-ast-exit');
+const FORMA_AST_STRINGS = ['tag','slotName','conditionExpr','itemVar','listExpr','keyExpr','matchExpr'] as const;
+const FORMA_AST_REQUIRED: Partial<Record<FormaAstNode['kind'], Array<keyof FormaAstNode>>> = {
+  element: ['tag'], if: ['conditionExpr'], for: ['itemVar', 'listExpr'],
+  match: ['matchExpr'], slot: ['slotName'],
+};
+/** Iterative DFS distinguishes cycles from reusable acyclic node references. */
+function assertFormaAstTree(ast: FormaDocumentAst): void {
+  const fail = (reason: string): never => { throw new Error('Invalid Forma AST tree: ' + reason); };
+  const stringMap = (value: unknown): boolean => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    for (const key in value) if (Object.hasOwn(value, key) && typeof (value as Record<string, unknown>)[key] !== 'string') return false;
+    return true;
+  };
+  const strings = (value: unknown): boolean => {
+    if (!Array.isArray(value)) return false;
+    for (const entry of value) if (typeof entry !== 'string') return false;
+    return true;
+  };
+  if (!Array.isArray(ast.rootAstNodes)) fail('expected rootAstNodes array');
+  const active = new Set<FormaAstNode>(), done = new Set<FormaAstNode>();
+  const stack: Array<FormaAstNode | typeof FORMA_AST_EXIT> = Array.from(ast.rootAstNodes);
+  const pushBranch = (branch: FormaAstNode[] | undefined) => {
+    if (branch === undefined) return;
+    if (!Array.isArray(branch)) fail('expected branch array');
+    for (const child of branch) stack.push(child);
+  };
+  while (stack.length) {
+    const node = stack.pop()!;
+    if (node === FORMA_AST_EXIT) {
+      const finished = stack.pop() as FormaAstNode;
+      active.delete(finished); done.add(finished); continue;
+    }
+    if (!node || typeof node !== 'object') fail('expected node object');
+    if (active.has(node)) fail('cyclic node reference');
+    if (done.has(node)) continue;
+    switch (node.kind) {
+      case 'element': case 'if': case 'for': case 'match': case 'slot': case 'contentPresenter': break;
+      default: fail('unknown node kind');
+    }
+    if (!stringMap(node.properties) || !stringMap(node.twoWayBindings) || !stringMap(node.eventHandlers)) fail('expected expression maps');
+    if (!strings(node.appliedStyles) || !strings(node.forwardedProps)) fail('expected style/forward arrays');
+    if (!Array.isArray(node.children)) fail('expected children array');
+    if (node.transition !== undefined && !stringMap(node.transition)) fail('invalid transition map');
+    for (const key of FORMA_AST_STRINGS) {
+      if (node[key] !== undefined && typeof node[key] !== 'string') fail('invalid ' + key);
+    }
+    for (const key of FORMA_AST_REQUIRED[node.kind] ?? []) {
+      const value = node[key];
+      if (typeof value !== 'string' || !value.trim()) fail('missing ' + node.kind + '.' + key);
+    }
+    if (node.keyExpr !== undefined && !node.keyExpr.trim()) fail('empty key expression');
+    if (node.kind === 'match' && !Array.isArray(node.matchArms)) fail('missing match arms');
+    active.add(node); stack.push(node, FORMA_AST_EXIT);
+    pushBranch(node.children); pushBranch(node.elseChildren); pushBranch(node.emptyChildren);
+    if (node.matchArms !== undefined) {
+      if (!Array.isArray(node.matchArms)) fail('expected match arms array');
+      for (const arm of node.matchArms) {
+        if (!arm || typeof arm.pattern !== 'string' || !stringMap(arm.propertyAssignments) || !Array.isArray(arm.childNodes)) fail('invalid match arm');
+        pushBranch(arm.childNodes);
+      }
+    }
+  }
+}
+
+function assertFormaAstMetadata(ast: FormaDocumentAst): void {
+  const fail = (reason: string): never => { throw new Error('Invalid Forma AST document: ' + reason); };
+  const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
+  if (typeof ast.componentName !== 'string' || !ast.componentName.trim()) fail('missing component name');
+  if (!record(ast.tokens) || !record(ast.initialStateValues)) fail('expected token/state maps');
+  for (const map of [ast.styles, ast.i18nDictionaries]) {
+    if (!record(map)) fail('expected style/i18n maps');
+    for (const entry of Object.values(map)) {
+      if (!record(entry) || Object.values(entry).some(value => typeof value !== 'string')) fail('expected style/i18n string maps');
+    }
+  }
+  if (!Array.isArray(ast.letExpressions) || !Array.isArray(ast.shortcuts)) fail('expected let/shortcut arrays');
+  for (const name of Object.keys(ast.initialStateValues)) {
+    if (!/^[A-Za-z0-9_]+$/.test(name) || FORBIDDEN_MEMBER_KEYS.has(name)) fail('invalid state name');
+  }
+  const letNames = new Set<string>();
+  for (const entry of ast.letExpressions) {
+    if (!entry || typeof entry.name !== 'string' || !/^[A-Za-z0-9_]+$/.test(entry.name) || FORBIDDEN_MEMBER_KEYS.has(entry.name) || typeof entry.expr !== 'string' || !entry.expr.trim()) fail('invalid let declaration');
+    if (letNames.has(entry.name)) fail('duplicate let ' + entry.name);
+    letNames.add(entry.name);
+  }
+  for (const entry of ast.shortcuts) {
+    if (!entry || typeof entry.combo !== 'string' || !entry.combo.trim() || typeof entry.action !== 'string' || !entry.action.trim()) fail('invalid shortcut declaration');
+  }
+}
+
+/** Validate AST contract data before construction or document mutation. */
+function assertFormaAstContracts(ast: FormaDocumentAst): void {
+  const fail = (reason: string): never => { throw new Error('Invalid Forma AST contract: ' + reason); };
+  if (!ast || !Array.isArray(ast.propConstraints)) fail('expected propConstraints array');
+  const names = new Set<string>();
+  for (const c of ast.propConstraints) {
+    if (!c || typeof c.name !== 'string' || !/^[A-Za-z0-9_]+$/.test(c.name) || FORBIDDEN_MEMBER_KEYS.has(c.name)) fail('invalid prop name');
+    if (names.has(c.name)) fail('duplicate prop ' + c.name);
+    names.add(c.name);
+    if (typeof c.type !== 'string' || !c.type.trim() || typeof c.required !== 'boolean') fail('invalid prop metadata');
+    if (c.range !== undefined) {
+      if (!Array.isArray(c.range) || c.range.length !== 2 ||
+          typeof c.range[0] !== 'number' || !Number.isFinite(c.range[0]) ||
+          typeof c.range[1] !== 'number' || !Number.isFinite(c.range[1]) || c.range[0] > c.range[1]) {
+        fail('range requires two finite ordered bounds');
+      }
+    }
+    if (c.patternSource !== undefined) {
+      if (typeof c.patternSource !== 'string' || !c.patternSource.length || !isSafePatternRegex(c.patternSource)) fail('invalid or unsafe pattern');
+      try { new RegExp(c.patternSource); } catch { fail('invalid pattern regex'); }
+    }
+  }
+  assertFormaAstMetadata(ast);
+  assertFormaAstTree(ast);
+}
+
+/** Own the admitted document; caller edits cannot change mounted/future views. */
+function snapshotFormaAst(ast: FormaDocumentAst): FormaDocumentAst {
+  assertFormaAstContracts(ast);
+  const copies = new Map<FormaAstNode, FormaAstNode>();
+  const pending: FormaAstNode[] = [];
+  const copy = (node: FormaAstNode): FormaAstNode => {
+    let result = copies.get(node);
+    if (!result) {
+      result = { kind: node.kind, tag: node.tag, slotName: node.slotName,
+        conditionExpr: node.conditionExpr, itemVar: node.itemVar, listExpr: node.listExpr,
+        keyExpr: node.keyExpr, matchExpr: node.matchExpr, properties: { ...node.properties }, twoWayBindings: { ...node.twoWayBindings },
+        eventHandlers: { ...node.eventHandlers }, appliedStyles: [...node.appliedStyles],
+        forwardedProps: [...node.forwardedProps], children: [],
+        transition: node.transition === undefined ? undefined : { ...node.transition } };
+      copies.set(node, result); pending.push(node);
+    }
+    return result;
+  };
+  const rootAstNodes = ast.rootAstNodes.map(copy);
+  while (pending.length) {
+    const node = pending.pop()!, result = copies.get(node)!;
+    result.children = node.children.map(copy);
+    result.elseChildren = node.elseChildren?.map(copy);
+    result.emptyChildren = node.emptyChildren?.map(copy);
+    result.matchArms = node.matchArms?.map(arm => ({ pattern: arm.pattern,
+      propertyAssignments: { ...arm.propertyAssignments }, childNodes: arm.childNodes.map(copy) }));
+  }
+  const snapshot: FormaDocumentAst = { componentName: ast.componentName, rootAstNodes,
+    tokens: structuredCloneIfObject(ast.tokens), styles: structuredCloneIfObject(ast.styles),
+    i18nDictionaries: structuredCloneIfObject(ast.i18nDictionaries),
+    initialStateValues: Object.fromEntries(Object.entries(ast.initialStateValues).map(([key, value]) => [key, structuredCloneIfObject(value)])),
+    propConstraints: ast.propConstraints.map(c => ({ name: c.name, type: c.type, required: c.required, patternSource: c.patternSource,
+      range: c.range === undefined ? undefined : [c.range[0], c.range[1]],
+      defaultValue: structuredCloneIfObject(c.defaultValue) })),
+    letExpressions: ast.letExpressions.map(entry => ({ name: entry.name, expr: entry.expr })),
+    shortcuts: ast.shortcuts.map(entry => ({ combo: entry.combo, action: entry.action })),
+  };
+  assertFormaAstContracts(snapshot);
+  return snapshot;
 }
 
 /**
@@ -1437,12 +1636,13 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
   const componentName = cMatch ? cMatch[1] : 'AnonymousFormaComponent';
   const cBraceIdx = cMatch ? rawUiSource.indexOf('{', cMatch.index!) : -1;
   const compBody = cBraceIdx !== -1 ? extractBraceBlock(rawUiSource, cBraceIdx).body : rawUiSource;
+  assertFormaContractDepth(compBody);
 
   const tokens: Record<string, any> = {};
   const i18nDictionaries: Record<string, Record<string, string>> = {};
   const styles: Record<string, Record<string, string>> = {};
   const propConstraints: FormaPropConstraint[] = [];
-  const initialStateValues: Record<string, any> = {};
+  const initialStateValues: Record<string, any> = Object.create(null);
   const letExpressions: Array<{ name: string; expr: string }> = [];
   const shortcuts: Array<{ combo: string; action: string }> = [];
   const rootAstNodes: FormaAstNode[] = [];
@@ -1470,14 +1670,22 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
       const syntaxError = formaContractSyntaxError(token.content);
       if (syntaxError) throw new Error(syntaxError);
       const rangeMatch = token.content.match(/^range\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)$/);
-      if (rangeMatch) pendingRange = [Number(rangeMatch[1]), Number(rangeMatch[2])];
+      if (rangeMatch) {
+        if (pendingRange !== undefined) throw new Error('Duplicate Forma range contract annotation');
+        pendingRange = [Number(rangeMatch[1]), Number(rangeMatch[2])];
+      }
       const patternMatch = token.content.match(FORMA_PATTERN_CONTRACT);
+      if (patternMatch && pendingPatternSource !== undefined) throw new Error('Duplicate Forma pattern contract annotation');
       if (patternMatch && isSafePatternRegex(patternMatch[2])) {
         try { new RegExp(patternMatch[2]); pendingPatternSource = patternMatch[2]; }
         catch { pendingPatternSource = undefined; }
       }
       i = token.end;
       continue;
+    }
+
+    if ((pendingRange !== undefined || pendingPatternSource !== undefined) && !/^(?:required\s+)?prop\s+/.test(src.slice(i))) {
+      throw new Error('Forma contract annotation must immediately precede a prop declaration');
     }
 
     // `tokens { ... }`
@@ -1558,7 +1766,7 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
     if (propMatch) {
       const required = Boolean(propMatch[1]);
       const name = propMatch[2].trim();
-      if (FORBIDDEN_MEMBER_KEYS.has(name)) continue;
+      if (FORBIDDEN_MEMBER_KEYS.has(name)) throw new Error('Invalid Forma AST document: reserved declaration name');
       const type = propMatch[3].trim();
       const defRaw = propMatch[4]?.trim();
       const defVal = defRaw !== undefined ? parseLiteralValue(defRaw) : null;
@@ -1580,7 +1788,7 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
     const stateMatch = stmt.match(/^state\s+([a-zA-Z0-9_]+)\s*:\s*([^=]+?)\s*=\s*(.+)$/);
     if (stateMatch) {
       const name = stateMatch[1].trim();
-      if (FORBIDDEN_MEMBER_KEYS.has(name)) continue;
+      if (FORBIDDEN_MEMBER_KEYS.has(name)) throw new Error('Invalid Forma AST document: reserved declaration name');
       const initVal = parseLiteralValue(stateMatch[3].trim());
       initialStateValues[name] = structuredCloneIfObject(initVal);
       continue;
@@ -1590,7 +1798,7 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
     const letMatch = stmt.match(/^let\s+([a-zA-Z0-9_]+)\s*=\s*(.+)$/);
     if (letMatch) {
       const letName = letMatch[1].trim();
-      if (FORBIDDEN_MEMBER_KEYS.has(letName)) continue;
+      if (FORBIDDEN_MEMBER_KEYS.has(letName)) throw new Error('Invalid Forma AST document: reserved let name');
       letExpressions.push({ name: letName, expr: letMatch[2].trim() });
       continue;
     }
@@ -1603,7 +1811,11 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
     }
   }
 
-  return {
+  if (pendingRange !== undefined || pendingPatternSource !== undefined) {
+    throw new Error('Dangling Forma contract annotation: expected prop declaration');
+  }
+
+  const ast: FormaDocumentAst = {
     componentName,
     tokens,
     i18nDictionaries,
@@ -1614,6 +1826,8 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
     shortcuts,
     rootAstNodes,
   };
+  assertFormaAstContracts(ast);
+  return ast;
 }
 
 /**
@@ -1665,6 +1879,105 @@ function constructFormaChild(factory: () => FormaRuntimeInstance): FormaRuntimeI
   } finally { formaConstructionDomain.active = previous; }
 }
 
+/** A retained terminal public handle must not retain the compiler's native context. */
+function createFormaPublicHandle(implementation: FormaRuntimeInstance): FormaRuntimeInstance {
+  const cell: { current: FormaRuntimeInstance | null; closing: boolean; closed: any; leases: Set<{ stop: (() => void) | null }> } = {
+    current: implementation, closing: false, closed: null, leases: new Set(),
+  };
+  const componentName = implementation.componentName;
+  implementation = null!;
+  const handle = {} as FormaRuntimeInstance;
+  const live = () => { if (!cell.current || cell.closing) throw new Error('Forma instance is disposed'); return cell.current; };
+  const actions = {} as FormaStateMutator;
+  const actionSlots: Array<{ original: Function | null; override: Function | null }> = [];
+  for (const key of ['toggle','set','increment','decrement','push','remove','reset'] as const) {
+    const slot = { original: cell.current!.actions[key] as Function | null, override: null as Function | null };
+    actionSlots.push(slot);
+    const original = (...args: any[]) => {
+      if (!cell.current || cell.closing) return;
+      return slot.original?.apply(cell.current.actions, args);
+    };
+    Object.defineProperty(actions, key, {
+      enumerable: true,
+      get: () => slot.override ?? original,
+      set: (replacement: Function) => {
+        if (!cell.current || cell.closing) return;
+        slot.override = replacement === original ? null : replacement;
+        (cell.current.actions as any)[key] = slot.override ?? slot.original;
+      },
+    });
+  }
+  Object.defineProperty(handle,'componentName',{enumerable:true,value:componentName});
+  Object.defineProperty(handle,'actions',{enumerable:true,value:actions});
+  for (const key of ['state','props','computedLets','locale','isValid'] as const) {
+    Object.defineProperty(handle,key,{enumerable:true,get:() => cell.current ? cell.current[key] : cell.closed[key]});
+  }
+  for (const key of ['emitEvent','restoreHmrSnapshot','hotReload','render'] as const) {
+    (handle as any)[key] = (...args: any[]) => (live()[key] as Function).apply(handle,args);
+  }
+  handle.getElementByKey = key => cell.current?.getElementByKey(key);
+  handle.exportHmrSnapshot = () => {
+    if (cell.current) return cell.current.exportHmrSnapshot();
+    return { componentName, locale: cell.closed.locale.peek(),
+      state: Object.fromEntries(Object.entries(cell.closed.state).map(([key,value]) => [key, structuredCloneIfObject((value as Signal<any>).peek())])),
+      props: Object.fromEntries(Object.entries(cell.closed.props).map(([key,value]) => [key, structuredCloneIfObject((value as Signal<any>).peek())])) };
+  };
+  handle.mount = container => {
+    const mounted = live().mount.call(handle,container);
+    return { unmount: leaseFormaCleanup(mounted.unmount,cell.leases) };
+  };
+  handle.onEvent = (name,callback) => leaseFormaCleanup(live().onEvent(name,callback),cell.leases);
+  handle.dispose = () => {
+    if (!cell.current || cell.closing) return;
+    cell.closing = true;
+    const current = cell.current;
+    let failed = false, failure: unknown;
+    try { current.dispose.call(handle); } catch (error) { failed = true; failure = error; }
+    try { cell.closed = snapshotClosedForma(current); }
+    catch (error) {
+      cell.closed = { state: Object.create(null), props: Object.create(null), computedLets: Object.create(null), locale: cachedFormaValue(''), isValid: cachedFormaValue(undefined) };
+      if (!failed) { failed = true; failure = error; }
+    } finally {
+      cell.current = null; cell.closing = false;
+      for (const slot of actionSlots) { slot.original = null; slot.override = null; }
+      for (const lease of cell.leases) lease.stop = null;
+      cell.leases.clear();
+    }
+    if (failed) throw failure;
+  };
+  return handle;
+}
+function leaseFormaCleanup(stop: () => void, leases: Set<{ stop: (() => void) | null }>): () => void {
+  const lease = { stop: stop as (() => void) | null }; leases.add(lease); stop = null!;
+  return () => { const current = lease.stop; if (!current) return; lease.stop = null; leases.delete(lease); current(); };
+}
+function cachedFormaValue(value: any): Signal<any> {
+  const getter = (() => value) as Signal<any>;
+  Object.assign(getter,{id:-1,__svet_sig:true,peek:() => value,set:() => {},update:() => {},dispose:() => {}});
+  return getter;
+}
+function snapshotClosedForma(instance: FormaRuntimeInstance) {
+  const copies = new WeakMap<object,Signal<any>>();
+  const copy = (resource: any, allowSignalPeek: boolean) => {
+    let result = copies.get(resource);
+    if (!result) {
+      // Signal.peek is a cached read. Computed.peek can execute user code and
+      // must never be used as a fallback while closing an instance.
+      const value = typeof resource.__svet_cached_value === 'function'
+        ? resource.__svet_cached_value()
+        : allowSignalPeek ? resource.peek() : undefined;
+      result = cachedFormaValue(value);
+      copies.set(resource,result);
+    }
+    return result;
+  };
+  const map = (values: Record<string, any>, allowSignalPeek: boolean) =>
+    Object.fromEntries(Object.entries(values).map(([key,value]) => [key,copy(value,allowSignalPeek)]));
+  return { state:map(instance.state,true), props:map(instance.props,true),
+    computedLets:map(instance.computedLets,false), locale:copy(instance.locale,true),
+    isValid:copy(instance.isValid,false) };
+}
+
 /**
  * Compiles a Forma `.ui` source file or pre-parsed `FormaDocumentAst` into a live, reactive **Svet + WASM** `FormaRuntimeInstance`.
  */
@@ -1678,31 +1991,41 @@ export function compileFormaComponent(
     components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
   }
 ): FormaRuntimeInstance {
-  let constructing = true;
+  let constructing = true, disposed = false;
   const constructionDisposers: Array<() => void> = [];
   const trackConstruction = <T extends { dispose(): void }>(value: T): T => {
+    if (disposed) {
+      try { value.dispose(); } finally { throw new Error('Forma instance is disposed'); }
+    }
     if (constructing) constructionDisposers.push(() => value.dispose());
     return value;
   };
-  const ownSignal = <T>(value: T): Signal<T> => trackConstruction(signal(value));
-  const ownComputed = <T>(fn: () => T): ReadonlySignal<T> => trackConstruction(computed(fn));
+  const ownSignal = <T>(value: T): Signal<T> => {
+    if (disposed) throw new Error('Forma instance is disposed');
+    return trackConstruction(signal(value));
+  };
+  const ownComputed = <T>(fn: () => T): ReadonlySignal<T> => {
+    if (disposed) throw new Error('Forma instance is disposed');
+    return trackConstruction(computed(fn));
+  };
   try {
-  const initialAst =
-    typeof uiSourceOrAst === 'string' ? parseFormaSource(uiSourceOrAst) : uiSourceOrAst;
+  const initialAst = typeof uiSourceOrAst === 'string'
+    ? parseFormaSource(uiSourceOrAst) : snapshotFormaAst(uiSourceOrAst);
   const componentName = initialAst.componentName;
 
   const tokens: Record<string, any> = {};
   const i18nDictionaries: Record<string, Record<string, string>> = {};
   const styles: Record<string, Record<string, string>> = {};
   const propConstraints: Array<FormaPropConstraint & { compiledPattern?: RegExp }> = [];
-  const initialStateValues: Record<string, any> = {};
-  const stateSignals: Record<string, Signal<any>> = {};
-  const propSignals: Record<string, Signal<any>> = {};
+  const initialStateValues: Record<string, any> = Object.create(null);
+  const stateSignals: Record<string, Signal<any>> = Object.create(null);
+  const propSignals: Record<string, Signal<any>> = Object.create(null);
+  const ownedStateSignals = new Map<string, Signal<any>>();
+  const ownedPropSignals = new Map<string, Signal<any>>();
   const letExpressions: Array<{ name: string; expr: string }> = [];
   const shortcuts: Array<{ combo: string; action: string }> = [];
   const rootAstNodes: FormaAstNode[] = [];
   const hmrRevision = ownSignal(0);
-  let disposed = false;
   let updatingDocument = false;
   type PreparedView = { commit(): void; abort(): void };
   const prepareViews = new Set<() => PreparedView>();
@@ -1723,7 +2046,7 @@ export function compileFormaComponent(
     }
   }
 
-  const applyDocumentAst = (docAst: FormaDocumentAst, isHotReload = false) => {
+  const applyDocumentAst = (docAst: FormaDocumentAst, isHotReload = false, readOptionProps = true) => {
     for (const k of Object.keys(tokens)) delete tokens[k];
     Object.assign(tokens, structuredCloneIfObject(docAst.tokens));
 
@@ -1736,7 +2059,7 @@ export function compileFormaComponent(
     propConstraints.length = 0;
     for (const c of docAst.propConstraints) {
       const defVal =
-        options?.props && Object.prototype.hasOwnProperty.call(options.props, c.name)
+        readOptionProps && options?.props && Object.prototype.hasOwnProperty.call(options.props, c.name)
           ? options.props[c.name]
           : c.defaultValue;
       let compiledPattern: RegExp | undefined;
@@ -1753,7 +2076,9 @@ export function compileFormaComponent(
         compiledPattern,
       });
       if (!propSignals[c.name]) {
-        propSignals[c.name] = ownSignal(defVal);
+        const sig = ownSignal(defVal);
+        ownedPropSignals.set(c.name, sig);
+        propSignals[c.name] = sig;
       }
     }
 
@@ -1762,7 +2087,9 @@ export function compileFormaComponent(
         initialStateValues[name] = structuredCloneIfObject(initVal);
       }
       if (!stateSignals[name]) {
-        stateSignals[name] = ownSignal(structuredCloneIfObject(initVal));
+        const sig = ownSignal(structuredCloneIfObject(initVal));
+        ownedStateSignals.set(name, sig);
+        stateSignals[name] = sig;
       }
     }
 
@@ -1802,7 +2129,8 @@ export function compileFormaComponent(
     return true;
   });
 
-  const computedLets: Record<string, ReadonlySignal<any>> = {};
+  const computedLets: Record<string, ReadonlySignal<any>> = Object.create(null);
+  const ownedComputedLets = new Set<ReadonlySignal<any>>();
   const evalScope = {
     state: stateSignals,
     props: propSignals,
@@ -1813,15 +2141,18 @@ export function compileFormaComponent(
   };
 
   const rebuildComputedLets = (retirePrevious = true) => {
-    if (retirePrevious) for (const oldComp of Object.values(computedLets)) {
+    if (retirePrevious) for (const oldComp of ownedComputedLets) {
       oldComp?.dispose?.();
     }
+    ownedComputedLets.clear();
     for (const k of Object.keys(computedLets)) delete computedLets[k];
     for (const l of letExpressions) {
-      computedLets[l.name] = ownComputed(() => {
+      const comp = ownComputed(() => {
         hmrRevision();
         return evaluateFormaExpression(l.expr, evalScope);
       });
+      ownedComputedLets.add(comp);
+      computedLets[l.name] = comp;
     }
   };
   rebuildComputedLets();
@@ -2443,56 +2774,97 @@ export function compileFormaComponent(
     hotReload(nextUiSourceOrAst: string | FormaDocumentAst) {
       assertLive();
       if (updatingDocument) throw new Error('Forma document update is already in progress');
-      const nextAst = typeof nextUiSourceOrAst === 'string' ? parseFormaSource(nextUiSourceOrAst) : nextUiSourceOrAst;
-      const previousAst: FormaDocumentAst = {
-        componentName, tokens: { ...tokens }, i18nDictionaries: { ...i18nDictionaries }, styles: { ...styles },
-        propConstraints: [...propConstraints], initialStateValues: { ...initialStateValues },
-        letExpressions: [...letExpressions], shortcuts: [...shortcuts], rootAstNodes: [...rootAstNodes],
-      };
-      const previousLets = { ...computedLets };
-      const previousState = Object.fromEntries(Object.entries(stateSignals).map(([key, sig]) => [key, sig.peek()]));
-      const previousProps = Object.fromEntries(Object.entries(propSignals).map(([key, sig]) => [key, sig.peek()]));
-      const previousLocale = locale.peek();
-      const prepared: PreparedView[] = [];
-      let committing = false;
       updatingDocument = true;
       try {
-        batch(() => {
-          try {
-            applyDocumentAst(nextAst, true);
-            rebuildComputedLets(false);
-            hmrRevision.update((r) => r + 1);
-            for (const prepare of [...prepareViews]) {
-              if (prepareViews.has(prepare)) prepared.push(prepare());
-            }
-            committing = true;
-            for (const view of prepared) view.commit();
-          } catch (error) {
-            for (const view of prepared.reverse()) view.abort();
-            if (!committing && !disposed) {
-              for (const [key, sig] of Object.entries(stateSignals)) {
-                if (!(key in previousState)) { sig.dispose(); delete stateSignals[key]; }
-                else sig.set(previousState[key]);
-              }
-              for (const [key, sig] of Object.entries(propSignals)) {
-                if (!(key in previousProps)) { sig.dispose(); delete propSignals[key]; }
-                else sig.set(previousProps[key]);
-              }
-              for (const comp of Object.values(computedLets)) {
-                if (!Object.values(previousLets).includes(comp)) comp.dispose();
-              }
-              for (const key of Object.keys(computedLets)) delete computedLets[key];
-              Object.assign(computedLets, previousLets);
-              for (const key of Object.keys(initialStateValues)) delete initialStateValues[key];
-              applyDocumentAst(previousAst, true);
-              locale.set(previousLocale);
+        const nextAst = typeof nextUiSourceOrAst === 'string'
+          ? parseFormaSource(nextUiSourceOrAst) : snapshotFormaAst(nextUiSourceOrAst);
+        assertLive();
+        const previousAst: FormaDocumentAst = {
+          componentName, tokens: { ...tokens }, i18nDictionaries: { ...i18nDictionaries }, styles: { ...styles },
+          propConstraints: [...propConstraints], initialStateValues: { ...initialStateValues },
+          letExpressions: [...letExpressions], shortcuts: [...shortcuts], rootAstNodes: [...rootAstNodes],
+        };
+        const previousLets = { ...computedLets };
+        const previousOwnedLets = new Set(ownedComputedLets);
+        const previousState = Object.fromEntries(Object.entries(stateSignals).map(([key, sig]) => [key, sig.peek()]));
+        const previousProps = Object.fromEntries(Object.entries(propSignals).map(([key, sig]) => [key, sig.peek()]));
+        const previousLocale = locale.peek();
+        const prepared: PreparedView[] = [];
+        let committing = false, updateFailed = false, previousLetsDetached = false;
+        try {
+          assertLive();
+          batch(() => {
+            try {
+              applyDocumentAst(nextAst, true);
+              assertLive();
+              previousLetsDetached = true;
+              rebuildComputedLets(false);
+              assertLive();
               hmrRevision.update((r) => r + 1);
+              for (const prepare of [...prepareViews]) {
+                if (prepareViews.has(prepare)) prepared.push(prepare());
+              }
+              committing = true;
+              for (const view of prepared) view.commit();
+            } catch (error) {
+              for (const view of prepared.reverse()) view.abort();
+              if (!committing && !disposed) {
+                for (const [key, sig] of Object.entries(stateSignals)) {
+                  if (disposed) throw error;
+                  if (!(key in previousState)) {
+                    const owned = ownedStateSignals.get(key);
+                    ownedStateSignals.delete(key);
+                    try { owned?.dispose(); } catch { /* Keep the preparation failure while draining owned candidates. */ }
+                    delete stateSignals[key];
+                  } else sig.set(previousState[key]);
+                }
+                for (const [key, sig] of Object.entries(propSignals)) {
+                  if (disposed) throw error;
+                  if (!(key in previousProps)) {
+                    const owned = ownedPropSignals.get(key);
+                    ownedPropSignals.delete(key);
+                    try { owned?.dispose(); } catch { /* Drain owned props without replacing the preparation failure. */ }
+                    delete propSignals[key];
+                  } else sig.set(previousProps[key]);
+                }
+                if (disposed) throw error;
+                for (const comp of ownedComputedLets) {
+                  if (!previousOwnedLets.has(comp)) {
+                    try { comp.dispose(); } catch { /* Preserve the preparation failure and drain siblings. */ }
+                  }
+                }
+                if (disposed) throw error;
+                ownedComputedLets.clear();
+                for (const comp of previousOwnedLets) ownedComputedLets.add(comp);
+                previousLetsDetached = false;
+                for (const key of Object.keys(computedLets)) delete computedLets[key];
+                Object.assign(computedLets, previousLets);
+                if (disposed) throw error;
+                for (const key of Object.keys(initialStateValues)) delete initialStateValues[key];
+                // Previous constraints already contain resolved defaults; do not rerun caller getters.
+                applyDocumentAst(previousAst, true, false);
+                if (disposed) throw error;
+                locale.set(previousLocale);
+                if (disposed) throw error;
+                hmrRevision.update((r) => r + 1);
+              }
+              throw error;
             }
-            throw error;
+          });
+        } catch (error) {
+          updateFailed = true;
+          throw error;
+        } finally {
+          if ((committing || disposed) && previousLetsDetached) {
+            let cleanupFailed = false, cleanupError: unknown;
+            for (const comp of previousOwnedLets) {
+              try { comp.dispose(); }
+              catch (error) { if (!cleanupFailed) cleanupError = error; cleanupFailed = true; }
+            }
+            if (cleanupFailed && !updateFailed) throw cleanupError;
           }
-        });
+        }
       } finally {
-        if (committing || disposed) for (const comp of Object.values(previousLets)) comp.dispose();
         updatingDocument = false;
       }
     },
@@ -2636,31 +3008,29 @@ export function compileFormaComponent(
     dispose() {
       if (disposed) return;
       disposed = true;
-      for (const stop of [...mountDisposers]) stop();
-      for (const stop of [...renderDisposers]) stop();
-      const externalVmKeys = new Set(Object.keys(options?.viewModel ?? {}));
-      for (const [k, sig] of Object.entries(stateSignals)) {
-        if (!externalVmKeys.has(k)) {
-          sig.dispose();
-        }
-      }
-      for (const sig of Object.values(propSignals)) {
-        sig.dispose();
-      }
-      for (const comp of Object.values(computedLets)) {
-        comp.dispose();
-      }
-      activeI18n.dispose();
-      isValid.dispose();
-      locale.dispose();
-      hmrRevision.dispose();
-      eventListeners.clear();
-      keyedElements.clear();
+      let failed = false, firstError: unknown;
+      const recordFailure = (error: unknown) => { if (!failed) firstError = error; failed = true; };
+      const release = (resource: { dispose(): void }) => {
+        try { resource.dispose(); } catch (error) { recordFailure(error); }
+      };
+      for (const stop of [...mountDisposers]) { try { stop(); } catch (error) { recordFailure(error); } }
+      for (const stop of [...renderDisposers]) { try { stop(); } catch (error) { recordFailure(error); } }
+      for (const sig of ownedStateSignals.values()) release(sig);
+      ownedStateSignals.clear();
+      for (const sig of ownedPropSignals.values()) release(sig);
+      ownedPropSignals.clear();
+      for (const comp of ownedComputedLets) release(comp);
+      ownedComputedLets.clear();
+      release(activeI18n); release(isValid); release(locale); release(hmrRevision);
+      eventListeners.clear(); keyedElements.clear(); viewKeyMaps.clear();
+      mountDisposers.clear(); renderDisposers.clear(); prepareViews.clear();
+      if (failed) throw firstError;
     },
   };
-  formaConstructionDomain.active?.add(instance);
+  const publicInstance = createFormaPublicHandle(instance);
+  formaConstructionDomain.active?.add(publicInstance);
   constructing = false; constructionDisposers.length = 0;
-  return instance;
+  return publicInstance;
   } catch (error) {
     constructing = false;
     for (const stop of constructionDisposers.reverse()) {
@@ -2839,6 +3209,13 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
       }
     }
   });
+
+  if (!diagnostics.some(d => d.severity === 'error')) {
+    try { parseFormaSource(uiSource); }
+    catch (error) {
+      diagnostics.push({ severity: 'error', message: error instanceof Error ? error.message : String(error), line: contracts[0]?.line ?? 1 });
+    }
+  }
 
   const propCount = (uiSource.match(/(?:^|\s)(?:required\s+)?prop\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;
   const stateCount = (uiSource.match(/(?:^|\s)state\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;

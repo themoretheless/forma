@@ -1,0 +1,647 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "Browser source/AST admission refuses unknown, nested and cyclic contracts",
+      "status": "passed"
+    },
+    {
+      "name": "Caller AST edits cannot change owned tree/let/range snapshots",
+      "status": "passed"
+    },
+    {
+      "name": "Browser props ownership ignores public aliases/foreign replacements",
+      "status": "passed"
+    },
+    {
+      "name": "Browser computedLets ownership ignores public aliases/foreign replacements",
+      "status": "passed"
+    },
+    {
+      "name": "Browser rollback drains candidate cleanup and restores old reactive handles",
+      "status": "passed"
+    },
+    {
+      "name": "Browser closing options getter prevents late owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Browser schema snapshot does not read unknown extension getters",
+      "status": "passed"
+    },
+    {
+      "name": "Browser admission getter cannot reenter HMR and valid retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Failed child mount releases graph and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Failed child render releases graph and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during factory refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during child-render refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during connection refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Mounted-view update dispose retires late returned child",
+      "status": "passed"
+    },
+    {
+      "name": "Mounted-view update unmount retires late returned child",
+      "status": "passed"
+    },
+    {
+      "name": "Failed HMR child-render preserves prior view and retries",
+      "status": "passed"
+    },
+    {
+      "name": "Failed HMR insertion preserves prior view and retries",
+      "status": "passed"
+    },
+    {
+      "name": "All views prepare before any previous view retires; second-view failure preserves both",
+      "status": "passed"
+    },
+    {
+      "name": "Preparation failure restores document constraints/signals and original reactive computed handles",
+      "status": "passed"
+    },
+    {
+      "name": "Old child cleanup dispose during commit drains candidate without publishing it",
+      "status": "passed"
+    },
+    {
+      "name": "Old child cleanup unmount during commit drains candidate without publishing it",
+      "status": "passed"
+    },
+    {
+      "name": "Factory throwing before return releases completed child instance and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Constructor props refusal drains owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Constructor locale refusal drains owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Constructor lets refusal drains owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Cross-copy factory local-to-peer failure drains both cores and retries",
+      "status": "passed"
+    },
+    {
+      "name": "Cross-copy factory peer-to-local failure drains both cores and retries",
+      "status": "passed"
+    },
+    {
+      "name": "AOT UI mounts twice and preserves shared state",
+      "status": "passed"
+    },
+    {
+      "name": "Two real file/HMR updates preserve state and graph size; stale callback retired",
+      "status": "passed"
+    },
+    {
+      "name": "One unmount preserves other mounted view across real HMR",
+      "status": "passed"
+    },
+    {
+      "name": "Direct instance disposal retires mounted graph; late unmount preserves replacement",
+      "status": "passed"
+    },
+    {
+      "name": "Post-dispose HMR does not revive disposed instance",
+      "status": "passed"
+    },
+    {
+      "name": "Cached importer factory creates new instance from latest AST after no-owner update",
+      "status": "passed"
+    },
+    {
+      "name": "One failed real HMR instance does not block healthy view; next update recovers both",
+      "status": "passed"
+    },
+    {
+      "name": "Semantic-invalid HMR preserves DOM/state/graph and cached AST until valid recovery",
+      "status": "passed"
+    },
+    {
+      "name": "Trusted browser click updates current AOT DOM/state",
+      "status": "passed"
+    },
+    {
+      "name": "Trusted cleanup drains final mounted instance to graph zero",
+      "status": "passed"
+    }
+  ],
+  "hmrUpdates": 7,
+  "trace": [
+    {
+      "step": "baseline",
+      "nodes": 9,
+      "count": 7
+    },
+    {
+      "step": "update2",
+      "nodes": 9,
+      "count": 7
+    },
+    {
+      "step": "stale-click2",
+      "count": 7
+    },
+    {
+      "step": "update3",
+      "nodes": 9,
+      "count": 7
+    },
+    {
+      "step": "stale-click3",
+      "count": 7
+    }
+  ],
+  "hmrReadiness": "acknowledged",
+  "expectedHmrFailures": 1,
+  "semanticHmrFailures": 0,
+  "compilerHmrFailures": 1,
+  "compilerErrors": [
+    "Invalid Forma contract annotation: range requires finite ordered bounds"
+  ],
+  "status": "passed",
+  "automatedCases": 35,
+  "automatedFinalNodes": 0,
+  "completedAt": "2026-11-02T16:57:36.650Z",
+  "nativeClickTrusted": true,
+  "nativeClickCount": 1,
+  "cleanupClickTrusted": true,
+  "finalGraphNodes": 0,
+  "fileChanges": [
+    {
+      "version": 2,
+      "at": "2026-11-02T16:57:05.910Z"
+    },
+    {
+      "version": 3,
+      "at": "2026-11-02T16:57:06.163Z"
+    },
+    {
+      "version": 4,
+      "at": "2026-11-02T16:57:06.416Z"
+    },
+    {
+      "version": 5,
+      "at": "2026-11-02T16:57:06.670Z"
+    },
+    {
+      "version": 6,
+      "at": "2026-11-02T16:57:06.923Z"
+    },
+    {
+      "version": 7,
+      "at": "2026-11-02T16:57:07.177Z"
+    },
+    {
+      "version": 8,
+      "at": "2026-11-02T16:57:07.430Z"
+    },
+    {
+      "version": 9,
+      "at": "2026-11-02T16:57:07.682Z"
+    }
+  ],
+  "updateMinIntervalMs": 250,
+  "watchTrace": [
+    {
+      "kind": "transform",
+      "at": 1793638625427,
+      "sha256": "0e185e7be5b14619a0acdacda58183fdf612d285ceb2dc37903d371ed6844b36"
+    },
+    {
+      "kind": "client-ready",
+      "at": 1793638625884
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638625906,
+      "version": 2
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638625910,
+      "version": 2
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638625943,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638625943,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638625949,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638625950,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638625948,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793638625969,
+      "sha256": "76d4a5a85e387a46b9ab0c877136db7695c6feab4bd8e62791f18e039a47b434"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638626162,
+      "version": 3
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638626163,
+      "version": 3
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638626248,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638626248,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638626249,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638626250,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638626249,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793638626257,
+      "sha256": "55e45ac7e991bece96bb3ad2099af95f50ce545f59ce5c08faa8998cb26d3653"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638626413,
+      "version": 4
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638626416,
+      "version": 4
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638626425,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638626425,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638626426,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638626428,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638626427,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793638626436,
+      "sha256": "3695995c7cb722b6d9835f3eeea7bb01ed033827cb7f39013fd275d4ba9bf6b8"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638626667,
+      "version": 5
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638626670,
+      "version": 5
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638626727,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638626727,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638626728,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638626728,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638626729,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793638626733,
+      "sha256": "24df51b4e374b9bbbafef8515a1feeb9ca591b049fe6ebb09ec9dc19b5d16e7a"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638626921,
+      "version": 6
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638626923,
+      "version": 6
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638627033,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638627033,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638627033,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638627034,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638627034,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793638627037,
+      "sha256": "13457f434f4b0e829fcc070de8bcc7e82c2724fbef067cf358ba64f58521aa37"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638627174,
+      "version": 7
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638627177,
+      "version": 7
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638627178,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638627178,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638627179,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638627179,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638627180,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793638627186,
+      "sha256": "57c99d4e64ee228f553bf7701924ac1ae7fe1581e0eb23400e4c8478f6eace28"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638627428,
+      "version": 8
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638627430,
+      "version": 8
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638627500,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638627500,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638627500,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638627501,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638627501,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "ws",
+      "at": 1793638627508,
+      "payload": {
+        "type": "error",
+        "err": {
+          "message": "Invalid Forma contract annotation: range requires finite ordered bounds",
+          "stack": "    at parseFormaSource (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-UcTiu6/consumer/node_modules/svet-engine/dist/package/forma.js:1489:23)\n    at compileFormaToJsModule (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-UcTiu6/consumer/node_modules/svet-engine/dist/package/forma.js:3036:28)\n    at TransformPluginContext.transform (file:///private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-UcTiu6/consumer/node_modules/svet-engine/dist/package/compiler.js:149:27)\n    at EnvironmentPluginContainer.transform (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vite/dist/node/chunks/node.js:8582:51)\n    at loadAndTransform (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vite/dist/node/chunks/node.js:20155:48)\n    at async viteTransformMiddleware (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/node_modules/vite/dist/node/chunks/node.js:20375:20)",
+          "id": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui",
+          "frame": "",
+          "plugin": "vite-plugin-svet-jsx",
+          "pluginCode": "component HmrCard { #[range(100,10)] prop invalid: Number = 5; state count: Number = 1; Column { Text { key:'label'; text:'v8:${state.count}'; } Button { key:'increment'; text:'add'; clicked -> state.increment('count',1); } } }"
+        }
+      }
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638627680,
+      "version": 9
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638627682,
+      "version": 9
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638627692,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638627692,
+      "event": "modified",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638627692,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638627693,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638627693,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    },
+    {
+      "kind": "transform",
+      "at": 1793638627697,
+      "sha256": "dfe720515968aec06863917e0048e2a8939f3c87cfba6dcb3c0855f0063adbdc"
+    }
+  ],
+  "serverNode": "v22.23.4",
+  "writeMode": "direct",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-UcTiu6/consumer/node_modules/svet-engine",
+  "peerRuntime": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-6nLkog/peer",
+  "fixtureSha256": "2084ef2d4445e17ae86872d8b6abac794a9f0157d31c1397e7e855a492b7a4db"
+}

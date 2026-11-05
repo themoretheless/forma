@@ -1,0 +1,34 @@
+{
+  "scope": "Reserved declaration names, duplicate let leak and inherited-name runtime/HMR behavior",
+  "before": {
+    "nameTestsFailed": 10,
+    "hmrDefaultTestsFailed": 3,
+    "priorBuiltPackageDuplicateLetNodesAfterDispose": 1,
+    "baselineLimitation": "Raw diagnostic captured before mutation; no separate baseline runtime hash captured by that command."
+  },
+  "after": {
+    "focusedPassed": 107,
+    "fullSuitePassed": 1439,
+    "fullSuiteFiles": 106,
+    "typesPassed": true,
+    "installedPackageGatePassed": true
+  },
+  "sha256": {
+    "src/engine/forma.ts": "cbf814b03fd9cd697746de1e22f207f498242f4140ec18544e44e75ad68e93cb",
+    "tests/forma-ast-names.test.ts": "f0ebfb2e6dacf5dabd23578466d2a9f1f970bb293280fe4140f3176eafa3921d",
+    "scripts/check-forma-aot-lifecycle.mjs": "4c59090e688f5cd3de5e04256b9dd436dfdcf59c8bab7b4fda046142d8a39e94"
+  },
+  "invariants": [
+    "reserved AST state/let declarations refused before construction/HMR",
+    "duplicate lets refused before allocating overwritten handles",
+    "source reserved names fail explicitly",
+    "valid own toString/valueOf/hasOwnProperty state/props/lets work",
+    "HMR-added own state resets to declared default",
+    "teardown graph empty"
+  ],
+  "limitations": [
+    "Expression semantic admission and other identifier namespaces remain open.",
+    "Accessor/proxy effects and AST mutation after admission remain open.",
+    "Installed browser rerun not performed."
+  ]
+}

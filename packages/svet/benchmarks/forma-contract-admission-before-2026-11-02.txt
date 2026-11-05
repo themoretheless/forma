@@ -1,0 +1,53 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-contract-tokens.test.ts (17 tests | 6 failed) 21ms
+   × refuses unsupported or semantically invalid annotation ragne(0,10) in parser and validator 6ms
+   × refuses unsupported or semantically invalid annotation required in parser and validator 1ms
+   × refuses unsupported or semantically invalid annotation  in parser and validator 0ms
+   × refuses unsupported or semantically invalid annotation range(10,0) in parser and validator 1ms
+   × refuses unsupported or semantically invalid annotation pattern('[') in parser and validator 0ms
+   × refuses unsupported or semantically invalid annotation pattern('(a+)+$') in parser and validator 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported or semantically invalid annotation ragne(0,10) in parser and validator
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported or semantically invalid annotation required in parser and validator
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported or semantically invalid annotation  in parser and validator
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/forma-contract-tokens.test.ts:48:47
+     46|   it(`refuses unsupported or semantically invalid annotation ${annotat…
+     47|     const source = `component App { #[${annotation}] prop x: String = …
+     48|     expect(validateFormaSource(source).valid).toBe(false);
+       |                                               ^
+     49|     expect(() => parseFormaSource(source)).toThrow();
+     50|     expect(() => compileFormaComponent(source)).toThrow();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported or semantically invalid annotation range(10,0) in parser and validator
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported or semantically invalid annotation pattern('[') in parser and validator
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported or semantically invalid annotation pattern('(a+)+$') in parser and validator
+AssertionError: expected [Function] to throw an error
+ ❯ tests/forma-contract-tokens.test.ts:49:44
+     47|     const source = `component App { #[${annotation}] prop x: String = …
+     48|     expect(validateFormaSource(source).valid).toBe(false);
+     49|     expect(() => parseFormaSource(source)).toThrow();
+       |                                            ^
+     50|     expect(() => compileFormaComponent(source)).toThrow();
+     51|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 11 passed (17)
+   Start at  19:21:01
+   Duration  378ms (transform 50%, import 35%, tests 12%, worker 2%)

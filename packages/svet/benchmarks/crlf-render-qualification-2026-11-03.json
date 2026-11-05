@@ -1,0 +1,12 @@
+{
+  "status": "passed-scoped",
+  "before": "CR rendered as extra glyph/advance in CRLF row",
+  "fix": "Exclude CR before row LF from rendered text; retain raw row byte offset",
+  "oracle": "Exact Content and caret geometry equality against LF, selected/unselected; original bytes retained",
+  "testsPassed": 244,
+  "ignored": 3,
+  "sourceSha256": "39a8f97248ebc0fbefbf6dda4140e7817777de17a3cfb66c4671617d934c1816",
+  "limits": [
+    "Fresh WASM/browser/pixel qualification of render change pending"
+  ]
+}

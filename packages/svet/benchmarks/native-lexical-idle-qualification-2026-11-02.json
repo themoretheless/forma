@@ -1,0 +1,104 @@
+{
+  "status": "partial",
+  "scope": "Native Runtime steady idle binding sync after successful full sync, unchanged model/widgets/events and no pending render; lexical collection alias forms8/32/96/256 editors, both scheduler modes",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "steadyIdleAllocationsBefore": 570,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 570,
+      "diagnosticFirstSampleMsBefore": 0.022,
+      "diagnosticFirstSampleMsAfter": 0.0005
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "steadyIdleAllocationsBefore": 6006,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 6006,
+      "diagnosticFirstSampleMsBefore": 0.173542,
+      "diagnosticFirstSampleMsAfter": 0.001708
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "steadyIdleAllocationsBefore": 48666,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 48666,
+      "diagnosticFirstSampleMsBefore": 1.284541,
+      "diagnosticFirstSampleMsAfter": 0.0050420000000000005
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "steadyIdleAllocationsBefore": 334501,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 334501,
+      "diagnosticFirstSampleMsBefore": 8.28975,
+      "diagnosticFirstSampleMsAfter": 0.028333
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "steadyIdleAllocationsBefore": 570,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 570,
+      "diagnosticFirstSampleMsBefore": 0.02075,
+      "diagnosticFirstSampleMsAfter": 0.000458
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "steadyIdleAllocationsBefore": 6006,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 6006,
+      "diagnosticFirstSampleMsBefore": 0.174708,
+      "diagnosticFirstSampleMsAfter": 0.001625
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "steadyIdleAllocationsBefore": 48666,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 48666,
+      "diagnosticFirstSampleMsBefore": 1.261292,
+      "diagnosticFirstSampleMsAfter": 0.0052499999999999995
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "steadyIdleAllocationsBefore": 334501,
+      "steadyIdleAllocationsAfter": 0,
+      "firstIdleAfterRebuildAllocations": 334501,
+      "diagnosticFirstSampleMsBefore": 8.331042,
+      "diagnosticFirstSampleMsAfter": 0.024292
+    }
+  ],
+  "validation": {
+    "libTests": 166,
+    "retainedAllocationTests": 2,
+    "runtimeAllocationTests": 9,
+    "sceneArtifactTests": 8,
+    "releaseBuild": "passed",
+    "wasm32CompileCheck": "passed"
+  },
+  "provenance": {
+    "baselineCommit": "111d1468a3b2b8b5c8fb5ba191c98bdc7aa53ccc",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "arch": "arm64",
+    "baselineBinarySha256": "67313f7d8861bddab988a4d1c93d91c34e70cd45fad836ac8dda0a984ed2324d",
+    "candidateBinarySha256": "89e5b10ccfeee0a6d061953341e520e4ccedd616bafd4795737858b1def1d181",
+    "baselineRuntimeSourceSha256": "de369634247bd4da9f2d77fd101d48aaaca7f2d87ab671a7e733d651149953bb",
+    "candidateRuntimeSourceSha256": "fcf027df13c6f0ea18a3482378267a36f657073fcce75e16e746b08dd165f32c",
+    "benchmarkSourceSha256": "4e88ce550954e70c91a94a7f225c362421746e1caf577f3b874dc578029e8176",
+    "cargoLockSha256": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50"
+  },
+  "limits": [
+    "First sync and first idle after rebuild still resolve all bindings; edit-time rebuild/Let replay remains open",
+    "CPU still scans model equality and widget values; zero allocations is not constant-time CPU",
+    "Timing samples are unpaired/instrumented, not p95 latency qualification",
+    "No full-frame painting/native window/IME/DPI/GPU qualification",
+    "wasm32 compile check does not qualify newly shipped browser WASM"
+  ]
+}

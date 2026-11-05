@@ -1,0 +1,20 @@
+{
+  "status": "passed-scoped",
+  "nativeLibPassed": 227,
+  "integrationTests": 8,
+  "adapterTests": 42,
+  "ignored": 3,
+  "wasmCompile": "passed",
+  "change": "Explicit TextInput label, placeholder/key fallback; stable accessible name separate from value",
+  "sha256": {
+    "vector-ui/src/text_input.rs": "ac3dfcb3a93daa09d7f511405de5be200b42881c40cb6d52de6cb21a281175e4",
+    "vector-ui/src/template.rs": "63f4d17f6469e8a2ec4c19d973b9b501003965add24de9443ca8e076c280a674",
+    "vector-ui/src/form_document.rs": "431b48e103e90a4e3d56ecce07832256d27627aa0bc665e209a7e04ecfaa3095",
+    "vector-ui/src/runtime.rs": "f23cef490b128d54b2ae4a766f938f2e9136113472cbc6afd915b0058de29200",
+    "src/vector-preview.js": "71bc98597f3645f325bcb032806d0c5858d0f7d84a95c7510e9e2bbb375901b6"
+  },
+  "limits": [
+    "Fresh WASM/browser AX name stability gate pending",
+    "Screen-reader/OS IME qualification open"
+  ]
+}

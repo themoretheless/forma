@@ -1,0 +1,17 @@
+{
+  "status": "passed-scoped",
+  "input": "CUA browser keyboard events, isTrusted=true",
+  "before": "Shift modifier event reset desired x; wrong selection and deletion",
+  "after": "Unknown modifier keys preserve desired x; exact selection/delete/undo passed",
+  "nativeLibPassed": 226,
+  "ignored": 3,
+  "nodeCases": 27,
+  "sha256": {
+    "vector-ui/src/text_input.rs": "ae009cf8909c61841fe01ab006abb8dad3b96fc058ab0f6eb612598d4934470b",
+    "vector-ui/tests/preview-multiline-browser.html": "0ee4fa614f5a442f4e9ec1acf4cf9fb462660d79744ad0c7e8a4a958fc1d248d",
+    "/tmp/svet-multiline-wasm/web/forma_bg.wasm": "3df73f2f436d2dc0407981ab2862ecf875912dfbe2bd1057bbfb7a50819a3948"
+  },
+  "limits": [
+    "Browser-dispatched trusted input is not physical OS keyboard or marked-text IME qualification"
+  ]
+}

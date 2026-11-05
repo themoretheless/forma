@@ -1,0 +1,48 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-dispose-failures.test.ts (6 tests | 3 failed) 16ms
+   × disposes originally allocated state handles once despite aliases in the public state map 2ms
+   × does not acquire an external signal assigned over an owned field after construction 1ms
+   × rollback releases an allocated candidate state replaced by an external alias without disposing the alias 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-dispose-failures.test.ts > disposes originally allocated state handles once despite aliases in the public state map
+AssertionError: expected 3 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ❯ tests/forma-dispose-failures.test.ts:22:66
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/forma-dispose-failures.test.ts > does not acquire an external signal assigned over an owned field after construction
+AssertionError: expected [Function] to throw an error
+ ❯ tests/forma-dispose-failures.test.ts:27:73
+     25|  const external=signal(7),inst=compileFormaComponent(`component App { …
+     26|  inst.state.owned=external;inst.state.alias=external;
+     27|  try{inst.dispose();expect(external()).toBe(7);expect(()=>owned.peek()…
+       |                                                                         ^
+     28|  finally{external.dispose();}expect(getGraphTelemetry().nodes).toBe(0);
+     29| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/forma-dispose-failures.test.ts > rollback releases an allocated candidate state replaced by an external alias without disposing the alias
+AssertionError: expected [Function] to throw an error
+ ❯ tests/forma-dispose-failures.test.ts:35:256
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 3 passed (6)
+   Start at  20:26:32
+   Duration  555ms (environment 83%, transform 7%, import 6%, tests 3%)

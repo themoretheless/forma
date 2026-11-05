@@ -1,0 +1,26 @@
+warning: function `rasterize` is never used
+   --> src/text.rs:798:15
+    |
+798 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.31s
+     Running unittests src/main.rs (/tmp/svet-native-development/debug/deps/forma-5452b6a8ff673d17)
+
+running 3 tests
+test standalone_ime_tests::standalone_navigation_cancellation_survives_empty_preedit_and_late_commits ... ok
+test standalone_ime_tests::standalone_ime_rejects_retired_owner_and_allows_fresh_preedit ... ok
+test standalone_ime_tests::standalone_ime_rejects_replacement_and_disabled_commit ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

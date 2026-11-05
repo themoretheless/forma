@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "focusedIntegrationTests": 3,
+  "fullNativeBeforeAdditionalModalTest": {
+    "passed": 324,
+    "failed": 0,
+    "ignored": 9
+  },
+  "wasmTargetCheck": "passed",
+  "scope": "Semantic snapshot-node selection action; original-value UTF16 and grapheme alignment",
+  "sha256": {
+    "vector-ui/src/runtime.rs": "2b5bbfa7026a326b290039192bc67524c289c7171343a193a81e3d5750c644af",
+    "vector-ui/src/text_input.rs": "a1ee5e696aa28a73b01eec1baabc286b6ce09cec2320804669672aaea17834fd",
+    "vector-ui/tests/accessibility_selection.rs": "63fb448870de0d9f67cba374697ca6f4303ed2a45cd2dd613b442d1be10b4934"
+  },
+  "limitations": [
+    "Runtime semantic API only; OS accessibility bridge not connected",
+    "Snapshot-local IDs must not be reused after source replacement",
+    "Fresh release WASM action execution and screen reader remain open"
+  ]
+}

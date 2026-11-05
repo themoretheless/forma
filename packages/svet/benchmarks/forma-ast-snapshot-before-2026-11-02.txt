@@ -1,0 +1,94 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-snapshot.test.ts (7 tests | 7 failed) 26ms
+   × owns tree snapshot after construction admission 16ms
+   × owns let snapshot after construction admission 2ms
+   × owns range snapshot after construction admission 2ms
+   × owns tree snapshot after HMR admission 1ms
+   × owns let snapshot after HMR admission 1ms
+   × owns range snapshot after HMR admission 1ms
+   × isolates object default values from later caller AST edits 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-snapshot.test.ts > owns tree snapshot after construction admission
+ FAIL  tests/forma-ast-snapshot.test.ts > owns tree snapshot after HMR admission
+AssertionError: expected 'tampered' to be '2' // Object.is equality
+
+Expected: "2"
+Received: "tampered"
+
+ ❯ tests/forma-ast-snapshot.test.ts:13:36
+     11|  if(mutation==='range') ast.propConstraints[0].range![1]=1;
+     12|  const container=document.createElement('div'),handle=inst.mount(conta…
+     13|  try{expect(container.textContent).toBe('2');inst.state.count.set(2);e…
+       |                                    ^
+     14|  finally{handle.unmount();inst.dispose();}expect(getGraphTelemetry().n…
+     15| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/forma-ast-snapshot.test.ts > owns let snapshot after construction admission
+ FAIL  tests/forma-ast-snapshot.test.ts > owns let snapshot after HMR admission
+AssertionError: expected '100' to be '2' // Object.is equality
+
+Expected: "2"
+Received: "100"
+
+ ❯ tests/forma-ast-snapshot.test.ts:13:36
+     11|  if(mutation==='range') ast.propConstraints[0].range![1]=1;
+     12|  const container=document.createElement('div'),handle=inst.mount(conta…
+     13|  try{expect(container.textContent).toBe('2');inst.state.count.set(2);e…
+       |                                    ^
+     14|  finally{handle.unmount();inst.dispose();}expect(getGraphTelemetry().n…
+     15| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/forma-ast-snapshot.test.ts > owns range snapshot after construction admission
+ FAIL  tests/forma-ast-snapshot.test.ts > owns range snapshot after HMR admission
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/forma-ast-snapshot.test.ts:13:157
+     11|  if(mutation==='range') ast.propConstraints[0].range![1]=1;
+     12|  const container=document.createElement('div'),handle=inst.mount(conta…
+     13|  try{expect(container.textContent).toBe('2');inst.state.count.set(2);e…
+       |                                                                                                                                                             ^
+     14|  finally{handle.unmount();inst.dispose();}expect(getGraphTelemetry().n…
+     15| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/forma-ast-snapshot.test.ts > isolates object default values from later caller AST edits
+AssertionError: expected { name: 'tampered' } to deeply equal { name: 'seed' }
+
+- Expected
++ Received
+
+  {
+-   "name": "seed",
++   "name": "tampered",
+  }
+
+ ❯ tests/forma-ast-snapshot.test.ts:19:84
+     17|  const ast=parseFormaSource(`component App { prop data: Any = null; Co…
+     18|  const inst=compileFormaAst(ast);
+     19|  try{ast.propConstraints[0].defaultValue.name='tampered';expect(inst.p…
+       |                                                                                    ^
+     20|  finally{inst.dispose();}expect(getGraphTelemetry().nodes).toBe(0);
+     21| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed (7)
+   Start at  19:47:36
+   Duration  711ms (environment 81%, transform 8%, import 7%, tests 4%, worker 1%)

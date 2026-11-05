@@ -1,0 +1,15 @@
+{
+  "start": {
+    "time": 170628.984303583,
+    "size": 29218,
+    "sha256": "aa18ea47e84ddfa649d028cfa5d9bedf6d091873bbe26c336b873bf9544fc178",
+    "pid": 69305
+  },
+  "observation": {
+    "duration_seconds": 13.404140499973437,
+    "byte_identical": true,
+    "bytes_before": 29218,
+    "bytes_after": 29218,
+    "process_alive": true
+  }
+}

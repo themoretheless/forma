@@ -1,0 +1,35 @@
+{
+  "scope": "Ignore unknown schema fields without getter reads or mounted extension retention",
+  "before": {
+    "getterTestsFailed": 12,
+    "retainedExtensionTargets": 5,
+    "compilerSha256": "e54ab1b0619736e8a7ba83fd7ee34dbdfe4af1a6e3301080b7828aeca18e7f08"
+  },
+  "after": {
+    "focusedPassed": 131,
+    "fullSuitePassed": 1463,
+    "fullSuiteFiles": 108,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "aotLifecycleCases": 10,
+    "extensionGc": {
+      "targets": 6,
+      "retained": 0,
+      "controlsHeld": 2,
+      "controlsReleased": 0
+    },
+    "compilerSha256": "cf15a124704c3f8140440d0cf8d5d5cc983ae4870fac5bb6433e2e6bb8933580"
+  },
+  "sameBaselineCandidateProbeSha256": "34e2efe49178a3912dedb48f33b0cb19f9eee25d77c9c34cdfbeba3dfccf4f1e",
+  "sha256": {
+    "src/engine/forma.ts": "8f93d716863e1a8de4a8b1563c2cfdb4d07e78af32aecaf6a7eeb3e727b1591d",
+    "tests/forma-ast-extensions.test.ts": "978961ece61419480af127db34c1844b68e18077d3aa501504bec5e88a8ca7a9",
+    "scripts/check-forma-aot-lifecycle.mjs": "34e2efe49178a3912dedb48f33b0cb19f9eee25d77c9c34cdfbeba3dfccf4f1e",
+    "scripts/check-package.mjs": "9d2636ae5138d06e87be5538e914eb1078fc50b7b57952012c9f945792482b73"
+  },
+  "limitations": [
+    "Recognized-field accessors/proxies and function/default data follow separate policies.",
+    "GC evidence is Node --expose-gc with held/released controls, not browser GC qualification.",
+    "Snapshot overhead remains unmeasured."
+  ]
+}

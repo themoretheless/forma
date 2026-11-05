@@ -1,0 +1,64 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-tree.test.ts (9 tests | 8 failed) 20ms
+   × rejects unknown kind before construction or live document mutation 9ms
+   × rejects missing children before construction or live document mutation 1ms
+   × rejects non-string property before construction or live document mutation 0ms
+   × rejects non-array roots before construction or live document mutation 1ms
+   × rejects direct cycle before construction or live document mutation 0ms
+   × rejects indirect cycle before construction or live document mutation 0ms
+   × rejects else cycle before construction or live document mutation 0ms
+   × rejects match cycle before construction or live document mutation 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-tree.test.ts > rejects unknown kind before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing children before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects non-string property before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects direct cycle before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects indirect cycle before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects else cycle before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects match cycle before construction or live document mutation
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-tree.test.ts:18:35
+     16| for(const [name,change] of changes) it(`rejects ${name} before constru…
+     17|  const ast=parseFormaSource(source);change(ast);
+     18|  expect(()=>compileFormaAst(ast)).toThrow(/AST.*tree/i);expect(getGrap…
+       |                                   ^
+     19|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     20|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/forma-ast-tree.test.ts > rejects non-array roots before construction or live document mutation
+AssertionError: expected [Function] to throw error matching /AST.*tree/i but got 'Spread syntax requires ...iterable[Sy…'
+
+- Expected:
+/AST.*tree/i
+
++ Received:
+"Spread syntax requires ...iterable[Symbol.iterator] to be a function"
+
+ ❯ tests/forma-ast-tree.test.ts:18:35
+     16| for(const [name,change] of changes) it(`rejects ${name} before constru…
+     17|  const ast=parseFormaSource(source);change(ast);
+     18|  expect(()=>compileFormaAst(ast)).toThrow(/AST.*tree/i);expect(getGrap…
+       |                                   ^
+     19|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     20|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 1 passed (9)
+   Start at  19:34:30
+   Duration  587ms (environment 72%, transform 13%, import 11%, tests 4%, worker 1%)

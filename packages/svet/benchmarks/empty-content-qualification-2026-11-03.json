@@ -1,0 +1,19 @@
+{
+  "status": "partial",
+  "change": "Skip temporary RGBA content storage and scan for geometry-only dense/sparse controls; clip markers alone produce no content",
+  "requested_bytes_before": 6720064,
+  "requested_bytes_after": 4800064,
+  "saved_bytes": 1920000,
+  "fixture": "800x600 content_pixels cold geometry-only control",
+  "passed": 238,
+  "ignored": 1,
+  "pixel_gate": "dense+sparse, four scales, exact equality against transparent-shape layer path",
+  "native_all_targets_check": "passed",
+  "wasm32_check": "passed",
+  "limits": [
+    "No browser or physical-window qualification for this change",
+    "No timing or RSS claim",
+    "Controls with text/shapes still allocate region scratch",
+    "Dense geometry/frame/pixels remain full canvas"
+  ]
+}

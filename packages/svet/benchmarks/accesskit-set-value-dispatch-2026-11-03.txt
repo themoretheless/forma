@@ -1,0 +1,10 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.91s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-f7e368aeef0dd407)
+
+running 2 tests
+test native_accessibility::tests::translates_real_editor_metadata_and_refuses_unadvertised_actions ... ok
+test native_accessibility::tests::set_value_requires_text_payload_and_preserves_readonly ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 235 filtered out; finished in 0.01s
+

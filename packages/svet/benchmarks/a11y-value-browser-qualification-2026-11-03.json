@@ -1,0 +1,18 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 31,
+  "focusTransitions": 4,
+  "trusted": "12 events; every Rust/DOM value equal; reverse UTF16 selection [5,1] mirrors [1,5,backward]",
+  "axValue": "A\ud83d\ude00e\u0301",
+  "sha256": {
+    "vector-ui/src/runtime.rs": "4f111b16f10e704bdb418d95d349196eb010565971e6563731991b2d36620195",
+    "src/vector-preview.js": "27eaf88c83ab51785016fc42d7dc2bc6ae1ac6770cb84d3787c6800331fc1dac",
+    "vector-ui/tests/preview-a11y-browser.html": "7993a9181dae5c3a9c149dd3b7e65ce15232b72d04a104fde18ff72c37ed7c4b",
+    "/tmp/svet-a11y-value-wasm/web/forma_bg.wasm": "36e28bb78c30746dd3f1198f506197d4959d8eed8350af0d343aea3b584eac03"
+  },
+  "limits": [
+    "Screen-reader/platform actions not qualified",
+    "DOM accessibility selection\u2192Rust not implemented",
+    "True OS IME still open"
+  ]
+}

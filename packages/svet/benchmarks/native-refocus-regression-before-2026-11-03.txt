@@ -1,0 +1,36 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+warning: field `blurred_editor` is never read
+   --> src/native_window.rs:513:5
+    |
+499 | struct NativeHost<A: NativeApp + 'static> {
+    |        ---------- field in this struct
+...
+513 |     blurred_editor: Option<String>,
+    |     ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `forma` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.00s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-ab83b96525f28f30)
+
+running 1 test
+test native_window::tests::window_refocus_restores_stable_editor_key_after_reorder ... FAILED
+
+failures:
+
+---- native_window::tests::window_refocus_restores_stable_editor_key_after_reorder stdout ----
+
+thread 'native_window::tests::window_refocus_restores_stable_editor_key_after_reorder' (15865330) panicked at src/native_window.rs:1141:43:
+assertion `left == right` failed
+  left: 0
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_window::tests::window_refocus_restores_stable_editor_key_after_reorder
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 181 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

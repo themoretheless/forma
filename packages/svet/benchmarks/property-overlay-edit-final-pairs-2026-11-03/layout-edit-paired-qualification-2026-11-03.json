@@ -1,0 +1,262 @@
+{
+  "status": "partial",
+  "scope": "Four AB/BA pairs plus baseline A/A; instrumented release CPU binding edit/rebuild, excludes painting/presentation",
+  "nested_depth": 12,
+  "payload_records": 0,
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "baseline": {
+        "edit_ms": 0.18262499999999998,
+        "edit_allocations": 3873.0,
+        "edit_requested_bytes": 405841.0,
+        "idle_allocations": 344.0
+      },
+      "candidate": {
+        "edit_ms": 0.18447950000000002,
+        "edit_allocations": 3838.0,
+        "edit_requested_bytes": 400838.0,
+        "idle_allocations": 344.0
+      },
+      "paired_edit_ms_ratios": [
+        1.0477335495908309,
+        1.017847009735744,
+        1.003822102425876,
+        0.9928209937426229
+      ],
+      "median_ratio": 1.0108345560808099,
+      "aa_edit_ms_ratio": 1.0219337786911407
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "baseline": {
+        "edit_ms": 0.633854,
+        "edit_allocations": 12638.0,
+        "edit_requested_bytes": 1480915.0,
+        "idle_allocations": 1004.0
+      },
+      "candidate": {
+        "edit_ms": 0.6582705,
+        "edit_allocations": 12483.0,
+        "edit_requested_bytes": 1431776.0,
+        "idle_allocations": 1004.0
+      },
+      "paired_edit_ms_ratios": [
+        1.0728793502580087,
+        1.0177085104130916,
+        1.0127321547403543,
+        1.033960190385708
+      ],
+      "median_ratio": 1.0258343503993999,
+      "aa_edit_ms_ratio": 0.9391411629283892
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "baseline": {
+        "edit_ms": 2.141854,
+        "edit_allocations": 36021.0,
+        "edit_requested_bytes": 4936507.0,
+        "idle_allocations": 2768.0
+      },
+      "candidate": {
+        "edit_ms": 1.9353124999999998,
+        "edit_allocations": 35643.0,
+        "edit_requested_bytes": 3763556.0,
+        "idle_allocations": 2768.0
+      },
+      "paired_edit_ms_ratios": [
+        0.9380458152040914,
+        0.8488083939068563,
+        0.8926152128331297,
+        0.9178729766994991
+      ],
+      "median_ratio": 0.9052440947663144,
+      "aa_edit_ms_ratio": 0.9808545081041383
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "baseline": {
+        "edit_ms": 7.363417,
+        "edit_allocations": 94420.0,
+        "edit_requested_bytes": 16869182.0,
+        "idle_allocations": 7163.0
+      },
+      "candidate": {
+        "edit_ms": 6.246625,
+        "edit_allocations": 93918.0,
+        "edit_requested_bytes": 9797438.0,
+        "idle_allocations": 7163.0
+      },
+      "paired_edit_ms_ratios": [
+        0.8443316457451974,
+        0.834123311325546,
+        0.8602235174322358,
+        0.8724867898760501
+      ],
+      "median_ratio": 0.8522775815887166,
+      "aa_edit_ms_ratio": 0.975498253544278
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "baseline": {
+        "edit_ms": 0.175792,
+        "edit_allocations": 3866.0,
+        "edit_requested_bytes": 404115.0,
+        "idle_allocations": 344.0
+      },
+      "candidate": {
+        "edit_ms": 0.184687,
+        "edit_allocations": 3831.0,
+        "edit_requested_bytes": 399120.0,
+        "idle_allocations": 344.0
+      },
+      "paired_edit_ms_ratios": [
+        1.0578614150255288,
+        0.9242046620730098,
+        1.0495176023525603,
+        1.190480058013053
+      ],
+      "median_ratio": 1.0536895086890445,
+      "aa_edit_ms_ratio": 1.0269025169122308
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "baseline": {
+        "edit_ms": 0.606125,
+        "edit_allocations": 12642.0,
+        "edit_requested_bytes": 1481048.0,
+        "idle_allocations": 1004.0
+      },
+      "candidate": {
+        "edit_ms": 0.6350210000000001,
+        "edit_allocations": 12487.0,
+        "edit_requested_bytes": 1431917.0,
+        "idle_allocations": 1004.0
+      },
+      "paired_edit_ms_ratios": [
+        1.0358029022073898,
+        1.0088192013331274,
+        1.0729568701976104,
+        1.0232474784416699
+      ],
+      "median_ratio": 1.02952519032453,
+      "aa_edit_ms_ratio": 1.01671814810345
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "baseline": {
+        "edit_ms": 2.1405205,
+        "edit_allocations": 36025.0,
+        "edit_requested_bytes": 4936640.0,
+        "idle_allocations": 2768.0
+      },
+      "candidate": {
+        "edit_ms": 2.0401249999999997,
+        "edit_allocations": 35647.0,
+        "edit_requested_bytes": 3763697.0,
+        "idle_allocations": 2768.0
+      },
+      "paired_edit_ms_ratios": [
+        0.946607259246422,
+        0.9696425467817623,
+        0.9539906703303727,
+        0.9407188820480337
+      ],
+      "median_ratio": 0.9502989647883973,
+      "aa_edit_ms_ratio": 0.985911025211299
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "baseline": {
+        "edit_ms": 7.5210215,
+        "edit_allocations": 94424.0,
+        "edit_requested_bytes": 16869315.0,
+        "idle_allocations": 7163.0
+      },
+      "candidate": {
+        "edit_ms": 6.374166499999999,
+        "edit_allocations": 93922.0,
+        "edit_requested_bytes": 9797579.0,
+        "idle_allocations": 7163.0
+      },
+      "paired_edit_ms_ratios": [
+        0.8073052518896163,
+        0.8508651967458156,
+        0.8739387213510253,
+        0.8550492875606874
+      ],
+      "median_ratio": 0.8529572421532515,
+      "aa_edit_ms_ratio": 0.9702261651577172
+    }
+  ],
+  "runs": [
+    {
+      "variant": "baseline",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-00-baseline-2026-11-03.json",
+      "elapsed_s": 0.20928096771240234
+    },
+    {
+      "variant": "baseline",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-01-baseline-2026-11-03.json",
+      "elapsed_s": 0.1736130714416504
+    },
+    {
+      "variant": "baseline",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-02-baseline-2026-11-03.json",
+      "elapsed_s": 0.17951416969299316
+    },
+    {
+      "variant": "candidate",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-03-candidate-2026-11-03.json",
+      "elapsed_s": 0.7725138664245605
+    },
+    {
+      "variant": "candidate",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-04-candidate-2026-11-03.json",
+      "elapsed_s": 0.16028332710266113
+    },
+    {
+      "variant": "baseline",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-05-baseline-2026-11-03.json",
+      "elapsed_s": 0.1792161464691162
+    },
+    {
+      "variant": "baseline",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-06-baseline-2026-11-03.json",
+      "elapsed_s": 0.17755603790283203
+    },
+    {
+      "variant": "candidate",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-07-candidate-2026-11-03.json",
+      "elapsed_s": 0.16062521934509277
+    },
+    {
+      "variant": "candidate",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-08-candidate-2026-11-03.json",
+      "elapsed_s": 0.1625978946685791
+    },
+    {
+      "variant": "baseline",
+      "path": "svet-property-overlay-edit-final-pairs/layout-edit-paired-run-09-baseline-2026-11-03.json",
+      "elapsed_s": 0.18146371841430664
+    }
+  ],
+  "binary_sha256": {
+    "baseline": "5406efdcb6a8d24230b3cc2b008901185eafdacee4ecd3c6bbe0e6def786e628",
+    "candidate": "d3aae7693072703e98b53757560fcaea22a3c76f29d29d7a834d6cd3dff8b614"
+  },
+  "limits": [
+    "Allocator instrumentation affects timings",
+    "Not application latency/frame qualification",
+    "No RSS/live/peak accounting",
+    "Only nested lexical list fixture"
+  ]
+}

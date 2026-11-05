@@ -1,0 +1,142 @@
+{
+  "status": "partial",
+  "scope": "A/A+four AB/BA pairs of allocator-instrumented release tick/binding sync/paint_native; no OS presentation/input latency or RSS claim",
+  "rows": [
+    {
+      "scale": 1,
+      "focused": false,
+      "baseline": {
+        "ms": 0.01882275,
+        "allocations": 0.0,
+        "requested_bytes": 0.0
+      },
+      "candidate": {
+        "ms": 0.01904175,
+        "allocations": 0.0,
+        "requested_bytes": 0.0
+      },
+      "paired_time_ratios": [
+        1.0201758241758243,
+        0.43143449877238726,
+        1.0134749343382436,
+        2.327824175824176
+      ],
+      "median_time_ratio": 1.016825379257034,
+      "aa_time_ratio": 0.9745094604064469
+    },
+    {
+      "scale": 1,
+      "focused": true,
+      "baseline": {
+        "ms": 0.52251025,
+        "allocations": 20.0,
+        "requested_bytes": 2178117.0
+      },
+      "candidate": {
+        "ms": 0.46090625,
+        "allocations": 20.0,
+        "requested_bytes": 286713.0
+      },
+      "paired_time_ratios": [
+        0.8887819621012232,
+        0.8801068192656176,
+        0.8748008371299879,
+        0.8811444898865308
+      ],
+      "median_time_ratio": 0.8806256545760742,
+      "aa_time_ratio": 0.9988407652099269
+    },
+    {
+      "scale": 1.25,
+      "focused": false,
+      "baseline": {
+        "ms": 0.017958000000000002,
+        "allocations": 0.0,
+        "requested_bytes": 0.0
+      },
+      "candidate": {
+        "ms": 0.01806225,
+        "allocations": 0.0,
+        "requested_bytes": 0.0
+      },
+      "paired_time_ratios": [
+        1.0486715328467153,
+        1.0034206896551723,
+        0.9863980669508319,
+        1.0047214883930078
+      ],
+      "median_time_ratio": 1.00407108902409,
+      "aa_time_ratio": 0.945578231292517
+    },
+    {
+      "scale": 1.25,
+      "focused": true,
+      "baseline": {
+        "ms": 0.8027295,
+        "allocations": 20.0,
+        "requested_bytes": 3401085.0
+      },
+      "candidate": {
+        "ms": 0.70114575,
+        "allocations": 20.0,
+        "requested_bytes": 442821.0
+      },
+      "paired_time_ratios": [
+        0.8608060028322911,
+        0.876280690239083,
+        0.872850174928495,
+        0.8806908492103106
+      ],
+      "median_time_ratio": 0.874565432583789,
+      "aa_time_ratio": 1.0011148611867176
+    },
+    {
+      "scale": 2,
+      "focused": false,
+      "baseline": {
+        "ms": 0.04771875,
+        "allocations": 0.0,
+        "requested_bytes": 0.0
+      },
+      "candidate": {
+        "ms": 0.047635250000000004,
+        "allocations": 0.0,
+        "requested_bytes": 0.0
+      },
+      "paired_time_ratios": [
+        1.021505376344086,
+        1.040805706064224,
+        0.986229677419355,
+        1.002212765957447
+      ],
+      "median_time_ratio": 1.0118590711507665,
+      "aa_time_ratio": 1.0405681159420292
+    },
+    {
+      "scale": 2,
+      "focused": true,
+      "baseline": {
+        "ms": 2.0112605,
+        "allocations": 22.0,
+        "requested_bytes": 8704257.0
+      },
+      "candidate": {
+        "ms": 1.7456772500000002,
+        "allocations": 22.0,
+        "requested_bytes": 1119813.0
+      },
+      "paired_time_ratios": [
+        0.8742578039959616,
+        0.8618500944611335,
+        0.8618825776898704,
+        0.8745862219568423
+      ],
+      "median_time_ratio": 0.868070190842916,
+      "aa_time_ratio": 0.9870119939117199
+    }
+  ],
+  "binary_sha256": {
+    "baseline": "1841374403f6528972d674fcfb9c9405b02c598512f95cde117684d32f092818",
+    "candidate": "adabf23d2394422a4d4d2814e06eca4b1138d41df4510230966127eef391f83b"
+  }
+}

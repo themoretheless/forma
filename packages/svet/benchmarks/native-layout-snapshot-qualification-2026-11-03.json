@@ -1,0 +1,31 @@
+{
+  "status": "partial",
+  "change": "Do not clone owned state snapshots into layout-only scene nodes; controls retain full snapshots",
+  "scenario": {
+    "nested_columns": 24,
+    "unrelated_records": 256,
+    "controls": 1,
+    "operation": "Document.render_scene_artifact"
+  },
+  "allocations": {
+    "before": 40950,
+    "after": 3024,
+    "reduction_percent": 92.61538461538461,
+    "regression_budget": 10000
+  },
+  "validation": {
+    "passed": 212,
+    "gpu_ignored": 2,
+    "public_control_payload_records": 256,
+    "existing_snapshot_alias_layout_scroll_tests": "passed"
+  },
+  "hashes": {
+    "vector-ui/src/form_document.rs": "dd095e98d8787ea1ee9f34a51ca31f77cdd3ea754cd5734473bec5bf2afd4324",
+    "vector-ui/tests/runtime_allocations.rs": "a5da1c05732b20e50ac90a52952c296e987bb9d677994c4e62a75c705b0c20f1"
+  },
+  "limits": [
+    "Debug allocation count, not paired latency or RSS qualification",
+    "Per-control snapshots still clone root state",
+    "Rebuilt WASM/browser qualification pending"
+  ]
+}

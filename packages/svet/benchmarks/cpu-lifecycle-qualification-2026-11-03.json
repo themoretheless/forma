@@ -1,0 +1,284 @@
+{
+  "status": "partial",
+  "scope": "One warm lifecycle then3 measured lifecycles per scheduler/size,32 alternating first/last edits and CPU RGBA/XRGB frames, cache release every4 edits; exact model, owned pixels and XRGB conversion verified",
+  "accounting": "Single-thread net allocator Layout bytes; includes model/runtime and caller output buffers; diagnostics excluded; not RSS, GPU memory, OS latency or long-duration leak proof",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "samples": [
+        {
+          "late_min_bytes": 2574740,
+          "late_max_bytes": 2574740,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2574740,
+          "peak_bytes": 3054794,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2574740,
+          "late_max_bytes": 2574740,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2574740,
+          "peak_bytes": 3054794,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2574740,
+          "late_max_bytes": 2574740,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2574740,
+          "peak_bytes": 3054794,
+          "after_drop_delta": 0
+        }
+      ]
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "samples": [
+        {
+          "late_min_bytes": 2871785,
+          "late_max_bytes": 2871785,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2871785,
+          "peak_bytes": 3351839,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2871785,
+          "late_max_bytes": 2871785,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2871785,
+          "peak_bytes": 3351839,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2871785,
+          "late_max_bytes": 2871785,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2871785,
+          "peak_bytes": 3351839,
+          "after_drop_delta": 0
+        }
+      ]
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "samples": [
+        {
+          "late_min_bytes": 3203043,
+          "late_max_bytes": 3203043,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 3203043,
+          "peak_bytes": 4087796,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 3203043,
+          "late_max_bytes": 3203043,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 3203043,
+          "peak_bytes": 4087796,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 3203043,
+          "late_max_bytes": 3203043,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 3203043,
+          "peak_bytes": 4087796,
+          "after_drop_delta": 0
+        }
+      ]
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "samples": [
+        {
+          "late_min_bytes": 4131620,
+          "late_max_bytes": 4131620,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 4131620,
+          "peak_bytes": 6468610,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 4131620,
+          "late_max_bytes": 4131620,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 4131620,
+          "peak_bytes": 6468610,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 4131620,
+          "late_max_bytes": 4131620,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 4131620,
+          "peak_bytes": 6468610,
+          "after_drop_delta": 0
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "samples": [
+        {
+          "late_min_bytes": 2576057,
+          "late_max_bytes": 2576057,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2576057,
+          "peak_bytes": 3056111,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2576057,
+          "late_max_bytes": 2576057,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2576057,
+          "peak_bytes": 3056111,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2576057,
+          "late_max_bytes": 2576057,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2576057,
+          "peak_bytes": 3056111,
+          "after_drop_delta": 0
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "samples": [
+        {
+          "late_min_bytes": 2873102,
+          "late_max_bytes": 2873102,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2873102,
+          "peak_bytes": 3353156,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2873102,
+          "late_max_bytes": 2873102,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2873102,
+          "peak_bytes": 3353156,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 2873102,
+          "late_max_bytes": 2873102,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 2873102,
+          "peak_bytes": 3353156,
+          "after_drop_delta": 0
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "samples": [
+        {
+          "late_min_bytes": 3204360,
+          "late_max_bytes": 3204360,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 3204360,
+          "peak_bytes": 4089113,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 3204360,
+          "late_max_bytes": 3204360,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 3204360,
+          "peak_bytes": 4089113,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 3204360,
+          "late_max_bytes": 3204360,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 3204360,
+          "peak_bytes": 4089113,
+          "after_drop_delta": 0
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "samples": [
+        {
+          "late_min_bytes": 4132937,
+          "late_max_bytes": 4132937,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 4132937,
+          "peak_bytes": 6469927,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 4132937,
+          "late_max_bytes": 4132937,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 4132937,
+          "peak_bytes": 6469927,
+          "after_drop_delta": 0
+        },
+        {
+          "late_min_bytes": 4132937,
+          "late_max_bytes": 4132937,
+          "late_spread_bytes": 0,
+          "last_minus_midpoint_bytes": 0,
+          "retained_bytes": 4132937,
+          "peak_bytes": 6469927,
+          "after_drop_delta": 0
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "A bounded synthetic workload; no universal leak-freedom claim",
+    "No process RSS, GPU memory or native presentation measurement",
+    "Exact late-series plateau is gated only for this fixed-width 32-edit workload"
+  ],
+  "source_sha256": {
+    "vector-ui/examples/binding_sync_bench.rs": "872a5f1fb9d66eb45ead0aec0d2ab14044342ed1c007d7119c5a5184790db98f",
+    "vector-ui/scripts/qualify-cpu-lifecycle.py": "c10d9a197de56299dccaee57827fd5e1f546f31e0befd7445ac13f89f63e0ea8",
+    "vector-ui/src/runtime.rs": "9d72aadead3cd2cb7f30f411b4c4146596af45d71e74414bfb45fd0762a9c3f4",
+    "vector-ui/src/raster_cache.rs": "628ce9b700f08263cad80beee3a3a06eacfc090ee43dbeeef67dac972be5ebf7"
+  },
+  "validated_lifecycles": 24,
+  "validated_measured_edit_frames": 768
+}

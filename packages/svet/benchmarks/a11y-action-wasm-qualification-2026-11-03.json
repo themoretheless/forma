@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "wasmNodeTests": 40,
+  "nativeTests": {
+    "passed": 325,
+    "failed": 0,
+    "ignored": 9
+  },
+  "sha256": {
+    "vector-ui/src/runtime.rs": "2b5bbfa7026a326b290039192bc67524c289c7171343a193a81e3d5750c644af",
+    "vector-ui/src/text_input.rs": "a1ee5e696aa28a73b01eec1baabc286b6ce09cec2320804669672aaea17834fd",
+    "vector-ui/tests/accessibility_selection.rs": "63fb448870de0d9f67cba374697ca6f4303ed2a45cd2dd613b442d1be10b4934",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "dfb732a66931fe4c3a274dcdd4b669aab5136427f9ec9bcff57c77dad6f1efad",
+    "/tmp/svet-a11y-action/node/forma_bg.wasm": "f0faa3140bba7aec5e6d12a0ea2f2c471f199c802dda7112cc78b4a9ae8eb032"
+  },
+  "limitations": [
+    "Semantic runtime API only; OS accessibility bridge and screen reader remain open",
+    "Snapshot node IDs valid only for originating loaded scene",
+    "Old WASM negative run tests absent API; not a semantic defect in the old API"
+  ]
+}

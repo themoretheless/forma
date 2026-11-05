@@ -1,0 +1,22 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.42s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-c219d57b926883c5)
+
+running 1 test
+test native_window::tests::cancelled_composition_rejects_late_commits_until_a_new_preedit ... FAILED
+
+failures:
+
+---- native_window::tests::cancelled_composition_rejects_late_commits_until_a_new_preedit stdout ----
+
+thread 'native_window::tests::cancelled_composition_rejects_late_commits_until_a_new_preedit' (23177142) panicked at src/native_window.rs:1512:13:
+pointer
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_window::tests::cancelled_composition_rejects_late_commits_until_a_new_preedit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 223 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `--lib`

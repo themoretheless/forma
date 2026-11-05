@@ -1,0 +1,48 @@
+{
+  "status": "partial",
+  "performance_gate": "inconclusive; pooled and order-stratified confirmation gates failed; no qualified speedup claim",
+  "finding": "Prior explicit-wait control shared Metal backend with async mode, allowing completion worker to consume control command buffers. New workload uses separate backend/queue/buffer per mode",
+  "protocol": "Baseline A/A +4 pairs, AB/BA/AB/BA;64 measured samples/group/process after16 warmups;1MiB exact clear output each operation",
+  "confirmation_checks": {
+    "distinct_recorded_binaries": true,
+    "same_protocol": true,
+    "independent_mode_backends": true,
+    "control_aa_within15pct": false,
+    "async_aa_within20pct": false,
+    "unchanged_control_within15pct": false,
+    "async_no_p50_total_regression_over5pct": true
+  },
+  "confirmation_order_checks": {
+    "all_samples_partitioned": true,
+    "control_aa_within15pct": false,
+    "async_aa_within20pct": false,
+    "unchanged_control_within15pct": false,
+    "async_no_p50_total_regression_over5pct": false
+  },
+  "samples_per_group": 64,
+  "warmups_per_group": 16,
+  "valid_series": 2,
+  "runs_per_valid_series": 10,
+  "exact_clear_checks_per_run": 640,
+  "rejected_series": "Same-target Cargo cache produced identical binaries; series preserved with rejection marker, excluded from comparison",
+  "runner_negative_checks": [
+    "Identical binaries rejected before execution",
+    "Non-independent mode backends disqualify stratified gate"
+  ],
+  "source_sha256": {
+    "vector-ui/examples/gpu_scope_bench.rs": "eb7b73ab094b80f6041447041cbef61214907b9008be9a2a0ab8377f50dee31a",
+    "vector-ui/scripts/qualify-gpu-scopes.py": "19ad1b07b5da3782a838f200c82303d5c1b6ec06211a808534f374fa11171b36"
+  },
+  "harness_lock_equal": true,
+  "binary_sha256": {
+    "/tmp/svet-scope-isolated-baseline-bench": "2ea61d306b3b5dc87aa5640e4ff889ac4f14d28192e2e2bce57c7850033f7cb4",
+    "/tmp/svet-scope-isolated-candidate-bench-final": "3c9f23ae9f981fe7de22788c79ef2be3201a8a84e4f1cfae49d6646250e1eb66"
+  },
+  "limits": [
+    "Fresh confirmation retained all samples and failed frozen thresholds; no retry-until-green acceptance",
+    "Prior control isolation bug and cache reuse both invalidated earlier comparison assumptions",
+    "Order-stratified statistics supplement, not replace, the pooled failed gate",
+    "No OS latency, GPU timestamp, RSS, energy or process-wide thread measurements"
+  ],
+  "repository_gpu_example_check": "passed"
+}

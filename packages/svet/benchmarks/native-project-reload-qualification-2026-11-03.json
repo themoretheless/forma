@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "date": "2026-11-03",
+  "change": "Atomic native UI-project reload with String errors; WASM wrapper delegates",
+  "validation": {
+    "rust_passed": 201,
+    "gpu_ignored": 2,
+    "wasm32_check": "passed",
+    "cases": [
+      "malformed files JSON",
+      "missing entry",
+      "missing component",
+      "malformed initial state",
+      "state/focus/text/versions preserved on refusal",
+      "input works after refusal",
+      "successful replacement bumps all three versions",
+      "Svet scheduling choice preserved on/off"
+    ]
+  },
+  "source_sha256": {
+    "vector-ui/src/runtime.rs": "72a3d5b889f89d93605032f823b78999fb43e4cbed581a03f5d33ea2f6c4ca59",
+    "vector-ui/src/native_window.rs": "d52aac336627d800a7d8d93a5c45d1fc109ff93d0cc754327e9085e88853e751"
+  },
+  "limits": [
+    "WASM runtime error behavior not rerun in browser",
+    "Other JS-facing APIs still require native counterparts when used from native callers",
+    "No OS-window reload exercised"
+  ]
+}

@@ -1,0 +1,17 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+warning: function `rasterize` is never used
+   --> src/text.rs:798:15
+    |
+798 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+    Finished `release` profile [optimized] target(s) in 16.95s

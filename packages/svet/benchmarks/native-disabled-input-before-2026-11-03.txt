@@ -1,0 +1,22 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.70s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-ab83b96525f28f30)
+
+running 1 test
+test runtime::tests::builtin_text_input_disabled_property_controls_input_and_accessibility ... FAILED
+
+failures:
+
+---- runtime::tests::builtin_text_input_disabled_property_controls_input_and_accessibility stdout ----
+
+thread 'runtime::tests::builtin_text_input_disabled_property_controls_input_and_accessibility' (16077616) panicked at src/runtime.rs:1848:85:
+called `Result::unwrap()` on an `Err` value: "Unknown property TextInput.disabled"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    runtime::tests::builtin_text_input_disabled_property_controls_input_and_accessibility
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 188 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

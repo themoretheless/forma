@@ -1,0 +1,27 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-snapshot.test.ts (8 tests | 1 failed) 65ms
+   × preserves an explicit undefined state field while detaching the state default map 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-snapshot.test.ts > preserves an explicit undefined state field while detaching the state default map
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/forma-ast-snapshot.test.ts:25:48
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  19:48:33
+   Duration  788ms (environment 61%, import 18%, transform 10%, tests 10%)

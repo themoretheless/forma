@@ -1,0 +1,83 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+ ❯ tests/forma-ast-tree.test.ts (12 tests | 2 failed) 39ms
+   × rejects sparse roots before construction or live document mutation 3ms
+   × rejects sparse styles before construction or live document mutation 0ms
+ ❯ tests/forma-ast-contracts.test.ts (10 tests | 1 failed) 30ms
+   × refuses sparse range before construction and before HMR mutation 3ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-contracts.test.ts > refuses sparse range before construction and before HMR mutation
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-contracts.test.ts:20:40
+     18|   it(`refuses ${name} before construction and before HMR mutation`, ()…
+     19|     const ast = parseFormaSource(source); change(ast);
+     20|     expect(() => compileFormaAst(ast)).toThrow(/AST.*contract/i);
+       |                                        ^
+     21|     expect(getGraphTelemetry().nodes).toBe(0);
+     22|     const inst = compileFormaAst(parseFormaSource(source)), container …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/forma-ast-tree.test.ts > rejects sparse roots before construction or live document mutation
+AssertionError: expected [Function] to throw error matching /AST.*tree/i but got 'Cannot destructure property \'node\' …'
+
+- Expected:
+/AST.*tree/i
+
++ Received:
+"Cannot destructure property 'node' of 'stack.pop(...)' as it is undefined."
+
+ ❯ tests/forma-ast-tree.test.ts:20:35
+     18| for(const [name,change] of changes) it(`rejects ${name} before constru…
+     19|  const ast=parseFormaSource(source);change(ast);
+     20|  expect(()=>compileFormaAst(ast)).toThrow(/AST.*tree/i);expect(getGrap…
+       |                                   ^
+     21|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     22|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/forma-ast-tree.test.ts > rejects sparse styles before construction or live document mutation
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-tree.test.ts:20:35
+     18| for(const [name,change] of changes) it(`rejects ${name} before constru…
+     19|  const ast=parseFormaSource(source);change(ast);
+     20|  expect(()=>compileFormaAst(ast)).toThrow(/AST.*tree/i);expect(getGrap…
+       |                                   ^
+     21|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     22|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  2 failed | 102 passed (104)
+      Tests  3 failed | 1406 passed (1409)
+   Start at  19:35:41
+   Duration  40.87s (environment 67%, tests 17%, import 12%, transform 3%, worker 1%)
+
+    Isolate  104 workers spawned · ~289ms startup each (spawn + environment, per file)
+             at least ~29.76s faster with isolate: false — reuses workers across files instead of one per file

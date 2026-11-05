@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "scope": "Fresh release Rust WASM Node8 and Chromium11 including atomic project reload/error paths and CPU pixel invariance",
+  "node_cases": 8,
+  "browser_cases": 11,
+  "sources": {
+    "vector-ui/src/runtime.rs": "72a3d5b889f89d93605032f823b78999fb43e4cbed581a03f5d33ea2f6c4ca59",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "cd537f76568418d77138b19e5aa49f6b6706f9292540896ba1f469a2a207c00d",
+    "vector-ui/tests/scene-artifact-browser.html": "f1a164db99361627f34368496422948adbd78e999fe3eb9fa67fa29fcf98cbe4",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50"
+  },
+  "artifacts": {
+    "web/index.html": "f1a164db99361627f34368496422948adbd78e999fe3eb9fa67fa29fcf98cbe4",
+    "web/forma_bg.wasm": "a3c5e2876b4b428bba530353cae4d81b37ff7f56240e1d7ff3b1dd9bd9737d90",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "a3c5e2876b4b428bba530353cae4d81b37ff7f56240e1d7ff3b1dd9bd9737d90",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "limits": [
+    "Programmatic WASM input, not trusted DOM input or OS IME",
+    "Chromium only; no other browser engines",
+    "CPU frames, not hardware GPU presentation",
+    "No release publication"
+  ]
+}

@@ -14,12 +14,37 @@ use winit::{
     window::{Window, WindowId},
 };
 
+/// Presentation path that successfully submitted a native frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NativeRenderer { Cpu, Gpu }
+
 /// Application interface consumed by the native window host.
 pub trait NativeApp {
     fn update(
         &mut self,
         input: &mut dyn FnMut(&mut crate::Runtime),
     ) -> Result<(), String>;
+
+    /// Inspect the current runtime without dispatching input or updating the app.
+    /// Invoke the observer exactly once on the runtime retained after update.
+    fn inspect(&self, observer: &mut dyn FnMut(&crate::Runtime)) -> Result<(), String>;
+
+    /// Optional observer after a frame was actually presented.
+    fn on_frame_presented(&self, _renderer: NativeRenderer) -> Result<(), String> { Ok(()) }
+
+    /// Optional observer after completion health service, without a new frame.
+    /// `idle` means no queue work remains and completion wakeups will stop.
+    fn on_gpu_health_checked(&self, _idle: bool) -> Result<(),String> { Ok(()) }
+
+    /// Optional observer before a failed GPU path falls back to CPU presentation.
+    fn on_gpu_fallback(&self, _error: &str) -> Result<(),String> { Ok(()) }
+
+    /// Optional observer for OS window visibility/occlusion notifications.
+    fn on_occlusion_changed(&self, _occluded: bool) -> Result<(),String> { Ok(()) }
+
+    /// Optional diagnostic observer for IME events before host dispatch.
+    /// Applications should avoid collecting user text unless explicitly needed.
+    fn on_ime_event(&self, _event: &Ime) -> Result<(), String> { Ok(()) }
 
     fn on_dirty(&self, callback: Box<dyn Fn()>) -> Result<(), String> {
         let _ = callback;
@@ -28,6 +53,11 @@ pub trait NativeApp {
 }
 
 impl NativeApp for crate::Runtime {
+    fn inspect(&self, observer: &mut dyn FnMut(&crate::Runtime)) -> Result<(), String> {
+        observer(self);
+        Ok(())
+    }
+
     fn update(
         &mut self,
         input: &mut dyn FnMut(&mut crate::Runtime),
@@ -37,7 +67,9 @@ impl NativeApp for crate::Runtime {
     }
 }
 
-/// Execution backend for Forma native windows (`egui` immediate-mode vs `svet` reactive GPU/vector).
+/// Native presentation profile. `Egui` currently provides CPU compatibility styling;
+/// `Svet` uses desktop GPU vector presentation with CPU fallback. Application
+/// scheduling is owned separately by NativeApp/Runtime.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum UiBackend {
     Egui,
@@ -54,8 +86,8 @@ impl UiBackend {
 
     pub fn label(self) -> &'static str {
         match self {
-            Self::Egui => "egui (Immediate-Mode UI)",
-            Self::Svet => "svet (Reactive Push-Pull DAG + UMA/DUMA GPU)",
+            Self::Egui => "egui-compatible CPU presentation",
+            Self::Svet => "Svet GPU vector presentation (CPU fallback)",
         }
     }
 
@@ -496,24 +528,81 @@ impl RedrawHandle {
     }
 }
 
+/// Paint the runtime retained after synchronization, without another app update.
+fn paint_app<A: NativeApp>(app: &A, out: &mut [u32], width: u32, height: u32, scale: f32) -> Result<bool, String> {
+    let mut painted = Err("NativeApp.inspect did not observe a runtime".to_owned());
+    app.inspect(&mut |runtime| {
+        painted = runtime.paint_native(out, width, height, scale)
+            .map(|_| runtime.is_animating()).map_err(str::to_owned);
+    })?;
+    painted
+}
+
 struct NativeHost<A: NativeApp + 'static> {
     app: A,
     config: NativeWindowConfig,
     backend: Option<UiBackend>,
     platform: TargetPlatform,
     chooser: Option<crate::Runtime>,
+    accessibility:Option<accesskit_winit::Adapter>,
+    accessibility_proxy:Option<winit::event_loop::EventLoopProxy<accesskit_winit::Event>>,
+    accessibility_active:bool,
+    accessibility_ids:crate::native_accessibility::PublishedTree,
     window: Option<Arc<Window>>,
     surface: Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
+    gpu: Option<crate::native_gpu::GpuWindow>,
+    gpu_attempted: bool,
+    retry_at: Option<Instant>,
+    gpu_health_at: Option<Instant>,
+    #[cfg(feature="native-test-hooks")]
+    idle_loss_for_test: bool,
+    occluded: bool,
+    animation_at: Option<Instant>,
     pointer: (f32, f32),
     touch_last: Option<(f32, f32)>,
+    touch_owner: Option<(winit::event::DeviceId, u64)>,
     shift: bool,
     command: bool,
+    control: bool,
     alt: bool,
     composing: bool,
+    ime_cancelled: bool,
+    composition_owner: Option<(u64, i32)>,
+    blurred_editor: Option<String>,
     last_frame: Instant,
 }
 
 impl<A: NativeApp + 'static> NativeHost<A> {
+    fn accessibility_action(&mut self,request:&accesskit::ActionRequest)->Result<bool,String> {
+        if request.target_tree!=accesskit::TreeId::ROOT{return Ok(false);}
+        let pending_ime=self.composing||self.composition_owner.is_some();
+        let mut accepted=false;
+        let published=std::mem::take(&mut self.accessibility_ids);
+        let result=if let Some(chooser)=&mut self.chooser {
+            accepted=published.apply(chooser,request);Ok(())
+        }else {
+            self.focus_sensitive_input(&mut |runtime|{accepted=published.apply(runtime,request);})
+        };
+        self.accessibility_ids=published;
+        result?;
+        if accepted&&pending_ime&&matches!(request.action,accesskit::Action::SetValue|accesskit::Action::SetTextSelection) {
+            self.composing=false;self.composition_owner=None;self.ime_cancelled=true;
+        }
+        Ok(accepted)
+    }
+
+    fn update_accessibility(&mut self)->Result<(),String> {
+        if !self.accessibility_active{return Ok(());}
+        let scale=self.window.as_ref().map_or(1.,|window|window.scale_factor());
+        let mut update=None;
+        let published=&mut self.accessibility_ids;
+        if let Some(chooser)=&self.chooser {update=Some(published.update_if_changed(chooser,scale));}
+        else {self.app.inspect(&mut |runtime|update=Some(published.update_if_changed(runtime,scale)))?;}
+        let update=update.ok_or_else(||"NativeApp.inspect did not observe accessibility runtime".to_owned())??;
+        if let (Some(adapter),Some(update))=(&mut self.accessibility,update){adapter.update_if_active(||update);}
+        Ok(())
+    }
+
     fn sync_window_title(&self) {
         if let Some(window) = &self.window {
             let plat_suffix = if self.platform != TargetPlatform::Desktop {
@@ -525,7 +614,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 Some(b) => format!(
                     "{} [{}{}] · F6: платформа · F7: бэкенд",
                     self.config.title,
-                    b.as_str(),
+                    if self.gpu.is_some() && b==UiBackend::Svet && self.platform==TargetPlatform::Desktop { "svet/GPU" } else { b.as_str() },
                     plat_suffix
                 ),
                 None => format!(
@@ -554,6 +643,9 @@ impl<A: NativeApp + 'static> NativeHost<A> {
 
     fn select_backend(&mut self, backend: UiBackend) {
         self.backend = Some(backend);
+        self.gpu_attempted = self.gpu.is_some();
+        self.retry_at = None;
+        self.animation_at = None;
         self.chooser = None;
         println!("Активен бэкенд: {} ({})", backend.as_str(), backend.label());
         self.sync_window_title();
@@ -567,9 +659,17 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     }
 
     fn draw(&mut self) -> Result<(), String> {
+        // Input events may request redraws during a surface timeout. Honor the
+        // deadline here as well as in about_to_wait, before updating/acquiring.
+        if self.occluded { return Ok(()); }
+        if let Some(deadline)=self.retry_at {
+            if Instant::now()<deadline { return Ok(()); }
+            self.retry_at=None;
+        }
+        self.animation_at=None;
         let window = self
             .window
-            .as_ref()
+            .as_ref().cloned()
             .ok_or_else(|| "Native window is not initialized".to_owned())?;
         let size = window.inner_size();
         let now = Instant::now();
@@ -582,7 +682,6 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         } else {
             self.app.update(&mut |runtime| {
                 runtime.tick(delta_ms.min(100.));
-                animating = runtime.is_animating();
             })?;
         }
 
@@ -592,6 +691,53 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         ) else {
             return Ok(());
         };
+        let use_gpu = self.backend == Some(UiBackend::Svet)
+            && self.platform == TargetPlatform::Desktop && self.chooser.is_none();
+        if use_gpu && self.gpu.is_none() && !self.gpu_attempted {
+            self.gpu_attempted = true;
+            match pollster::block_on(crate::native_gpu::GpuWindow::new(window.clone())) {
+                Ok(gpu) => { self.gpu=Some(gpu); self.sync_window_title(); }
+                Err(error) => {
+                    self.app.on_gpu_fallback(&error)?;
+                    eprintln!("Native GPU initialization failed; CPU fallback: {error}");
+                    // A failed setup can leave a native layer attached to the view.
+                    // Hide it before returning to the software surface when present.
+                    let _ = crate::native_gpu::set_visible(&window,false);
+                }
+            }
+        }
+        if self.gpu.is_some() { crate::native_gpu::set_visible(&window,use_gpu)?; }
+        if use_gpu {
+            if let Some(gpu) = &mut self.gpu {
+                let mut presentation = Err("NativeApp.inspect did not observe a runtime".to_owned());
+                self.app.inspect(&mut |runtime| {
+                    animating = runtime.is_animating();
+                    presentation = gpu.draw(runtime,&window);
+                })?;
+                match presentation {
+                    Ok(crate::native_gpu::Presentation::Presented) => {
+                        self.app.on_frame_presented(NativeRenderer::Gpu)?;
+                        self.retry_at=None;
+                        self.gpu_health_at=Some(Instant::now()+std::time::Duration::from_millis(16));
+                        if animating { window.request_redraw(); }
+                        return Ok(());
+                    }
+                    Ok(crate::native_gpu::Presentation::Retry) => {
+                        self.retry_at=Some(Instant::now()+std::time::Duration::from_millis(16));
+                        return Ok(());
+                    }
+                    Ok(crate::native_gpu::Presentation::Occluded | crate::native_gpu::Presentation::ZeroSize) => {
+                        self.retry_at=None; return Ok(());
+                    }
+                    Err(error) => {
+                        self.app.on_gpu_fallback(&error)?;
+                        eprintln!("Native GPU stopped; CPU fallback: {error}");
+                        crate::native_gpu::set_visible(&window,false)?;
+                        self.gpu=None;self.retry_at=None;self.gpu_health_at=None;self.sync_window_title();
+                    }
+                }
+            }
+        }
         let surface = self
             .surface
             .as_mut()
@@ -604,24 +750,46 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 .paint_native(&mut buffer, size.width, size.height, scale)
                 .map_err(str::to_owned)?;
         } else {
-            let mut painted = Ok(());
-            self.app.update(&mut |runtime| {
-                painted = runtime
-                    .paint_native(&mut buffer, size.width, size.height, scale)
-                    .map_err(str::to_owned);
-            })?;
-            painted?;
+            animating = paint_app(&self.app, &mut buffer, size.width, size.height, scale)?;
             if self.backend == Some(UiBackend::Egui) {
                 apply_egui_frame_bar(&mut buffer, size.width, size.height);
             }
             apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
         }
         buffer.present().map_err(|e| e.to_string())?;
+        if self.chooser.is_none() { self.app.on_frame_presented(NativeRenderer::Cpu)?; }
 
         if animating {
-            window.request_redraw();
+            // Start-to-start cadence: a costly CPU frame is not delayed again.
+            // Input-triggered redraws may still paint before this deadline.
+            self.animation_at=Some(now+std::time::Duration::from_nanos(16_666_667));
         }
         Ok(())
+    }
+
+    fn scheduled_redraw(&mut self, now:Instant)->(bool,Option<Instant>) {
+        if self.occluded {self.retry_at=None;self.animation_at=None;return (false,self.gpu_health_at);}
+        let mut ready=false;
+        for deadline in [&mut self.retry_at,&mut self.animation_at] {
+            if deadline.is_some_and(|at|at<=now) {*deadline=None;ready=true;}
+        }
+        (ready,[self.retry_at,self.animation_at,self.gpu_health_at].into_iter().flatten().min())
+    }
+
+    /// Observe the retained runtime after application updates have completed.
+    fn ime_presentation(&mut self) -> Result<(bool, Vec<f32>), String> {
+        let owner = self.composition_owner;
+        let mut retired = false;
+        let mut presentation = (false, Vec::new());
+        let result = self.app.inspect(&mut |runtime| {
+            retired = owner.is_some() && runtime.native_editor_session() != owner;
+            presentation = (runtime.text_editing()&&!runtime.control_readonly(runtime.focused_index().max(0) as usize), runtime.text_caret_bounds());
+        });
+        // The old preedit belongs to the retired runtime; never clear text in
+        // its replacement while observing presentation.
+        if retired { self.composing = false; self.ime_cancelled = true; }
+        result?;
+        Ok(presentation)
     }
 
     fn update_ime(&mut self) -> Result<(), String> {
@@ -631,12 +799,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             }
             return Ok(());
         }
-        let mut editing = false;
-        let mut caret = Vec::new();
-        self.app.update(&mut |runtime| {
-            editing = runtime.text_editing();
-            caret = runtime.text_caret_bounds();
-        })?;
+        let (editing, caret) = self.ime_presentation()?;
         let window = self
             .window
             .as_ref()
@@ -651,11 +814,216 @@ impl<A: NativeApp + 'static> NativeHost<A> {
         Ok(())
     }
 
+    fn ime_event(&mut self, event: Ime) -> Result<(), String> {
+        self.app.on_ime_event(&event)?;
+        match event {
+            Ime::Preedit(text, _) => self.preedit_ime(&text),
+            Ime::Commit(text) => self.commit_ime(&text),
+            Ime::Enabled => {
+                self.composing = false;
+                self.ime_cancelled = false;
+                self.composition_owner = None;
+                Ok(())
+            }
+            Ime::Disabled => {
+                self.composing = false;
+                self.ime_cancelled = true;
+                self.composition_owner = None;
+                self.app.update(&mut |runtime| runtime.text_preedit(""))
+            }
+        }
+    }
+
+    fn preedit_ime(&mut self, text: &str) -> Result<(), String> {
+        let previous = self.composition_owner;
+        let mut owner = previous;
+        if !text.is_empty() { self.ime_cancelled = false; }
+        self.composing = !text.is_empty();
+        let result = self.app.update(&mut |runtime| {
+            if !text.is_empty() {
+                owner = runtime.native_editor_session();
+                runtime.text_preedit(text);
+            } else if previous.is_none() || runtime.native_editor_session() == previous {
+                // An empty preedit removes marked pixels, but does not end the
+                // ownership of the commit which commonly follows it.
+                runtime.text_preedit("");
+            }
+        });
+        self.composition_owner = owner;
+        result
+    }
+
+    fn commit_ime(&mut self, text: &str) -> Result<(), String> {
+        let owner = self.composition_owner.take();
+        self.composing = false;
+        if self.ime_cancelled { return Ok(()); }
+        let mut retired=false;
+        let result=self.app.update(&mut |runtime| {
+            // A commit queued for an old editor must not enter a replacement
+            // document or a newly focused field. Direct commits without a
+            // preceding preedit remain supported.
+            if owner.is_none() || runtime.native_editor_session() == owner {
+                if text.is_empty() {runtime.text_preedit("");}
+                else {runtime.text_insert(text);}
+            } else {retired=true;}
+        });
+        if retired {self.ime_cancelled=true;}
+        result
+    }
+
+    fn focus_sensitive_input(&mut self, input: &mut dyn FnMut(&mut crate::Runtime)) -> Result<(), String> {
+        if !self.composing && self.composition_owner.is_none() { return self.app.update(input); }
+        let mut retired = false;
+        let mut owner = self.composition_owner;
+        let result = self.app.update(&mut |runtime| {
+            let previous = runtime.native_editor_session();
+            owner = owner.or(previous);
+            input(runtime);
+            let next = runtime.native_editor_session();
+            if previous.is_none() || previous != next {
+                runtime.text_preedit("");
+                retired = true;
+            }
+        });
+        self.composition_owner = owner;
+        if retired { self.composing = false; self.ime_cancelled = true; self.composition_owner = None; }
+        result
+    }
+
+    fn touch_input(&mut self, device: winit::event::DeviceId, id: u64, phase: TouchPhase, x: f32, y: f32) -> Result<(), String> {
+        let owner = (device, id);
+        if phase == TouchPhase::Started {
+            if self.touch_owner.is_some() { return Ok(()); }
+            self.touch_owner = Some(owner);
+        } else if self.touch_owner != Some(owner) { return Ok(()); }
+        if matches!(phase, TouchPhase::Ended | TouchPhase::Cancelled) { self.touch_owner = None; }
+        self.pointer = (x, y);
+        match phase {
+            TouchPhase::Started => {
+                self.touch_last = Some((x, y));
+                if let Some(chooser) = &mut self.chooser {
+                    chooser.pointer(x, y, 0);
+                    chooser.pointer(x, y, 1);
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| {
+                        runtime.pointer(x, y, 0);
+                        runtime.pointer(x, y, 1);
+                    })?;
+                }
+            }
+            TouchPhase::Moved => {
+                let (dx, dy) = self
+                    .touch_last
+                    .map_or((0., 0.), |(lx, ly)| (lx - x, ly - y));
+                // Keep the last consumed position until enough motion has
+                // accumulated; updating on every subthreshold event loses a
+                // slow drag forever on high-frequency touch devices.
+                if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                    self.touch_last = Some((x, y));
+                }
+                if let Some(chooser) = &mut self.chooser {
+                    chooser.pointer(x, y, 0);
+                    if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                        chooser.scroll(dx, dy);
+                    }
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| {
+                        runtime.pointer(x, y, 0);
+                        if dx.abs() > 0.5 || dy.abs() > 0.5 {
+                            runtime.scroll(dx, dy);
+                        }
+                    })?;
+                }
+            }
+            TouchPhase::Ended => {
+                self.touch_last = None;
+                if let Some(chooser) = &mut self.chooser {
+                    let before_clicks = chooser.clicks();
+                    chooser.pointer(x, y, 2);
+                    if chooser.clicks() != before_clicks {
+                        let chosen = if chooser.key() == "choose_egui" {
+                            UiBackend::Egui
+                        } else {
+                            UiBackend::Svet
+                        };
+                        self.select_backend(chosen);
+                    }
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 2))?;
+                }
+            }
+            TouchPhase::Cancelled => {
+                self.touch_last = None;
+                if let Some(chooser) = &mut self.chooser {
+                    chooser.pointer(-1., -1., 3);
+                } else {
+                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(-1., -1., 3))?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn focus_changed(&mut self, focused: bool) -> Result<(), String> {
+        if !focused {
+            // OS focus loss may omit the matching IME/modifier/touch end events.
+            self.ime_cancelled |= self.composing || self.composition_owner.is_some();
+            self.composing = false;
+            self.shift = false;
+            self.command = false;
+            self.control = false;
+            self.alt = false;
+            self.touch_last = None;
+            self.touch_owner = None;
+        }
+        let mut remembered = self.blurred_editor.take();
+        if let Some(chooser) = &mut self.chooser {
+            chooser.focus(focused);
+            if !focused { chooser.pointer(-1., -1., 3); }
+        } else {
+            let result = self.app.update(&mut |runtime| {
+                if !focused {
+                    if runtime.text_editing() {
+                        remembered = Some(runtime.control_key(runtime.focused_index() as usize));
+                    }
+                    runtime.focus(false);
+                    runtime.pointer(-1., -1., 3);
+                } else {
+                    // An activation click may select an editor before the OS
+                    // Focused(true) event arrives. Its newer choice supersedes
+                    // the editor remembered at blur.
+                    if runtime.focused_index() >= 0 { return; }
+                    // Resolve the stable key again: controls may reorder while the
+                    // window is inactive. Ambiguous/noneditable/disabled targets
+                    // fall back to the runtime's ordinary focus admission.
+                    let restored = remembered.as_ref().is_some_and(|key| {
+                        let target = {
+                            let mut matches = (0..runtime.control_count()).filter(|index| runtime.control_key(*index) == *key);
+                            let first = matches.next();
+                            if matches.next().is_some() { None } else { first }
+                        };
+                        target.is_some_and(|index| runtime.control_editable(index) && runtime.focus_control(index))
+                    });
+                    if !restored { runtime.focus(true); }
+                }
+            });
+            if !focused || result.is_err() { self.blurred_editor = remembered; }
+            result?;
+        }
+        Ok(())
+    }
+
     fn keyboard_input(&mut self, event: winit::event::KeyEvent) -> Result<(), String> {
         let pressed = event.state == ElementState::Pressed;
         if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F6) {
             let next = self.platform.next();
             self.select_platform(next);
+            return Ok(());
+        }
+        #[cfg(feature="native-test-hooks")]
+        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F8) {
+            if let Some(gpu)=&self.gpu {gpu.inject_device_loss_for_testing();}
+            if let Some(window)=&self.window {window.request_redraw();}
             return Ok(());
         }
         if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F7) {
@@ -725,42 +1093,49 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             )
         {
             if pressed && !self.composing {
+                // Ctrl+Option belongs to macOS accessibility, not text editing.
+                if cfg!(target_os="macos") && self.control && self.alt {return Ok(());}
                 let key = match &event.logical_key {
                     Key::Character(text) => text.to_string(),
                     Key::Named(_) => named,
                     _ => String::new(),
                 };
                 let shift = self.shift;
-                // Ctrl+Alt is AltGr for text-producing keys on Windows and Linux,
-                // not an application shortcut such as Undo or Select All.
+                // Ctrl+Alt is AltGr for text-producing keys on Windows and Linux.
                 let alt_gr = cfg!(not(target_os = "macos"))
-                    && self.command
-                    && self.alt
-                    && event.text.is_some();
+                    && self.command && self.alt && event.text.is_some();
                 let command = self.command && !alt_gr;
+                let word_modifier=if cfg!(target_os="macos") {self.alt && !self.command} else {self.command && !self.alt};
+                let key = if command { crate::native_clipboard::command_key(&event.physical_key, &key) } else { &key };
                 self.app.update(&mut |runtime| {
-                    if !runtime.text_key(&key, shift, command) && !command {
+                    let word_handled=word_modifier && runtime.text_word_key(&key,shift);
+                    let clipboard_handled = !word_handled && command && crate::native_clipboard::handle_key(runtime, &key);
+                    if !word_handled && !clipboard_handled && !runtime.text_key(&key, shift, command) && !command {
                         if let Some(text) = &event.text {
-                            if !text.chars().any(char::is_control) {
-                                runtime.text_insert(text);
-                            }
+                            if !text.chars().any(char::is_control) { runtime.text_insert(text); }
                         }
                     }
                 })?;
             }
             return Ok(());
         }
+        self.navigation_key(&event.logical_key, pressed, event.repeat)
+    }
 
-        let key = match &event.logical_key {
+    fn navigation_key(&mut self, logical_key: &Key, pressed: bool, repeat: bool) -> Result<(), String> {
+        let cancel_composition = (self.composing || self.composition_owner.is_some()) && pressed && !repeat
+            && matches!(logical_key, Key::Named(NamedKey::Tab | NamedKey::Escape));
+        if cancel_composition { self.composing = false; self.ime_cancelled = true; }
+        let key = match logical_key {
             Key::Named(NamedKey::Space) => 1,
             Key::Named(NamedKey::Enter) => 2,
             Key::Named(NamedKey::Escape) => 3,
             _ => 0,
         };
         let shift = self.shift;
-        let repeat = event.repeat;
         self.app.update(&mut |runtime| {
-            if event.logical_key == Key::Named(NamedKey::Tab) && pressed && !repeat {
+            if cancel_composition { runtime.text_preedit(""); }
+            if *logical_key == Key::Named(NamedKey::Tab) && pressed && !repeat {
                 if !runtime.focus_next(shift) {
                     runtime.focus(false);
                     runtime.focus_next(shift);
@@ -798,15 +1173,14 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 if let Some(chooser) = &mut self.chooser {
                     chooser.pointer(x, y, 0);
                 } else {
-                    self.app.update(&mut |runtime| runtime.pointer(x, y, 0))?;
+                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))?;
                 }
             }
             WindowEvent::CursorLeft { .. } => {
                 if let Some(chooser) = &mut self.chooser {
                     chooser.pointer(-1., -1., 3);
                 } else {
-                    self.app
-                        .update(&mut |runtime| runtime.pointer(-1., -1., 3))?;
+                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(-1., -1., 3))?;
                 }
             }
             WindowEvent::MouseInput {
@@ -828,8 +1202,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                         self.select_backend(chosen);
                     }
                 } else {
-                    self.app
-                        .update(&mut |runtime| runtime.pointer(x, y, kind))?;
+                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, kind))?;
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -847,11 +1220,11 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 if let Some(chooser) = &mut self.chooser {
                     chooser.scroll(dx, dy);
                 } else {
-                    self.app.update(&mut |runtime| runtime.scroll(dx, dy))?;
+                    self.focus_sensitive_input(&mut |runtime| runtime.scroll(dx, dy))?;
                 }
             }
             WindowEvent::Touch(Touch {
-                phase, location, ..
+                device_id, id, phase, location, ..
             }) => {
                 let scale = self
                     .window
@@ -859,112 +1232,40 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     .ok_or_else(|| "Native window is not initialized".to_owned())?
                     .scale_factor() as f32;
                 let (x, y) = (location.x as f32 / scale, location.y as f32 / scale);
-                self.pointer = (x, y);
-                match phase {
-                    TouchPhase::Started => {
-                        self.touch_last = Some((x, y));
-                        if let Some(chooser) = &mut self.chooser {
-                            chooser.pointer(x, y, 0);
-                            chooser.pointer(x, y, 1);
-                        } else {
-                            self.app.update(&mut |runtime| {
-                                runtime.pointer(x, y, 0);
-                                runtime.pointer(x, y, 1);
-                            })?;
-                        }
-                    }
-                    TouchPhase::Moved => {
-                        let (dx, dy) = self
-                            .touch_last
-                            .map_or((0., 0.), |(lx, ly)| (lx - x, ly - y));
-                        self.touch_last = Some((x, y));
-                        if let Some(chooser) = &mut self.chooser {
-                            chooser.pointer(x, y, 0);
-                            if dx.abs() > 0.5 || dy.abs() > 0.5 {
-                                chooser.scroll(dx, dy);
-                            }
-                        } else {
-                            self.app.update(&mut |runtime| {
-                                runtime.pointer(x, y, 0);
-                                if dx.abs() > 0.5 || dy.abs() > 0.5 {
-                                    runtime.scroll(dx, dy);
-                                }
-                            })?;
-                        }
-                    }
-                    TouchPhase::Ended => {
-                        self.touch_last = None;
-                        if let Some(chooser) = &mut self.chooser {
-                            let before_clicks = chooser.clicks();
-                            chooser.pointer(x, y, 2);
-                            if chooser.clicks() != before_clicks {
-                                let chosen = if chooser.key() == "choose_egui" {
-                                    UiBackend::Egui
-                                } else {
-                                    UiBackend::Svet
-                                };
-                                self.select_backend(chosen);
-                            }
-                        } else {
-                            self.app.update(&mut |runtime| runtime.pointer(x, y, 2))?;
-                        }
-                    }
-                    TouchPhase::Cancelled => {
-                        self.touch_last = None;
-                        if let Some(chooser) = &mut self.chooser {
-                            chooser.pointer(-1., -1., 3);
-                        } else {
-                            self.app
-                                .update(&mut |runtime| runtime.pointer(-1., -1., 3))?;
-                        }
-                    }
-                }
+                self.touch_input(device_id, id, phase, x, y)?;
             }
-            WindowEvent::Focused(focused) => {
-                if let Some(chooser) = &mut self.chooser {
-                    chooser.focus(focused);
-                    if !focused {
-                        chooser.pointer(-1., -1., 3);
-                    }
-                } else {
-                    self.app.update(&mut |runtime| {
-                        runtime.focus(focused);
-                        if !focused {
-                            runtime.pointer(-1., -1., 3);
-                        }
-                    })?;
-                }
-            }
+            WindowEvent::Focused(focused) => self.focus_changed(focused)?,
+
             WindowEvent::ModifiersChanged(modifiers) => {
                 self.shift = modifiers.state().shift_key();
                 self.alt = modifiers.state().alt_key();
+                self.control = modifiers.state().control_key();
                 self.command = if cfg!(target_os = "macos") {
                     modifiers.state().super_key()
                 } else {
                     modifiers.state().control_key()
                 };
             }
-            WindowEvent::Ime(Ime::Preedit(text, _)) => {
-                self.composing = !text.is_empty();
-                self.app
-                    .update(&mut |runtime| runtime.text_preedit(&text))?;
-            }
-            WindowEvent::Ime(Ime::Commit(text)) => {
-                self.composing = false;
-                self.app.update(&mut |runtime| {
-                    runtime.text_insert(&text);
-                })?;
-            }
-            WindowEvent::Ime(Ime::Disabled) => {
-                self.composing = false;
-                self.app
-                    .update(&mut |runtime| runtime.text_preedit(""))?;
+            WindowEvent::Ime(event) => self.ime_event(event)?,
+            #[cfg(feature="native-test-hooks")]
+            WindowEvent::KeyboardInput { event, .. } if event.logical_key==Key::Named(NamedKey::F9) => {
+                if event.state==ElementState::Pressed && !event.repeat {
+                    if let Some(gpu)=&self.gpu {
+                        let _=gpu;
+                        self.idle_loss_for_test=true;
+                    }
+                }
+                // Exercise completion service, bypassing the generic input
+                // redraw for both press and release. Ordinary builds omit this.
+                return Ok(());
             }
             WindowEvent::KeyboardInput { event, .. } => self.keyboard_input(event)?,
-            WindowEvent::Occluded(false) => {
-                if let Some(window) = &self.window {
-                    window.request_redraw();
-                }
+            WindowEvent::Occluded(occluded) => {
+                self.app.on_occlusion_changed(occluded)?;
+                self.occluded=occluded;
+                self.retry_at=None;self.animation_at=None;
+                if occluded { return Ok(()); }
+                if let Some(window) = &self.window { window.request_redraw(); }
             }
             _ => {}
         }
@@ -976,7 +1277,61 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     }
 }
 
-impl<A: NativeApp + 'static> ApplicationHandler for NativeHost<A> {
+impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for NativeHost<A> {
+    fn user_event(&mut self,event_loop:&ActiveEventLoop,event:accesskit_winit::Event) {
+        if !self.window.as_ref().is_some_and(|window|window.id()==event.window_id){return;}
+        let result=match event.window_event {
+            accesskit_winit::WindowEvent::InitialTreeRequested=>{self.accessibility_ids.invalidate();self.accessibility_active=true;self.update_accessibility()},
+            accesskit_winit::WindowEvent::AccessibilityDeactivated=>{self.accessibility_active=false;Ok(())},
+            accesskit_winit::WindowEvent::ActionRequested(request)=>{
+                self.accessibility_action(&request).and_then(|_|self.update_accessibility()).and_then(|_|self.update_ime())
+            }
+        };
+        if let Err(error)=result {eprintln!("Accessibility update failed: {error}");event_loop.exit();return;}
+        if let Some(window)=&self.window{window.request_redraw();}
+    }
+
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let now=Instant::now();
+        #[cfg(feature="native-test-hooks")]
+        if self.idle_loss_for_test {
+            self.idle_loss_for_test=false;
+            if let Some(gpu)=&self.gpu {
+                gpu.inject_device_loss_for_testing();
+                self.gpu_health_at=Some(now);
+            }
+        }
+        if self.gpu_health_at.is_some_and(|at|at<=now) {
+            self.gpu_health_at=None;
+            if let Some(gpu)=&self.gpu {
+                let health=gpu.poll_idle();
+                if let Ok(idle)=&health {
+                    if let Err(error)=self.app.on_gpu_health_checked(*idle) {
+                        eprintln!("GPU health observer failed: {error}");event_loop.exit();return;
+                    }
+                }
+                match health {
+                    Ok(false)=>self.gpu_health_at=Some(now+std::time::Duration::from_millis(16)),
+                    Ok(true)=>{},
+                    Err(error)=>{
+                        let error=format!("Idle GPU completion: {error}");
+                        let fallback=self.app.on_gpu_fallback(&error).and_then(|_| {
+                            if let Some(window)=&self.window {crate::native_gpu::set_visible(window,false)?;}
+                            Ok(())
+                        });
+                        if let Err(error)=fallback {eprintln!("{error}");event_loop.exit();return;}
+                        eprintln!("Native GPU completion failed; CPU fallback: {error}");
+                        self.gpu=None;self.retry_at=None;self.sync_window_title();
+                        if !self.occluded {if let Some(window)=&self.window {window.request_redraw();}}
+                    }
+                }
+            }
+        }
+        let (redraw,deadline)=self.scheduled_redraw(now);
+        if redraw {if let Some(window)=&self.window {window.request_redraw();}}
+        event_loop.set_control_flow(deadline.map_or(ControlFlow::Wait,ControlFlow::WaitUntil));
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -997,6 +1352,7 @@ impl<A: NativeApp + 'static> ApplicationHandler for NativeHost<A> {
                 event_loop
                     .create_window(
                         Window::default_attributes()
+                            .with_visible(false)
                             .with_title(self.config.title.clone())
                             .with_inner_size(LogicalSize::new(init_w, init_h))
                             .with_resizable(self.config.resizable),
@@ -1013,6 +1369,10 @@ impl<A: NativeApp + 'static> ApplicationHandler for NativeHost<A> {
         };
         match setup() {
             Ok((window, surface)) => {
+                if let Some(proxy)=&self.accessibility_proxy {
+                    self.accessibility=Some(accesskit_winit::Adapter::with_event_loop_proxy(event_loop,&window,proxy.clone()));
+                }
+                window.set_visible(true);
                 window.request_redraw();
                 self.window = Some(window);
                 self.surface = Some(surface);
@@ -1054,14 +1414,15 @@ impl<A: NativeApp + 'static> ApplicationHandler for NativeHost<A> {
         {
             return;
         }
-        if let Err(error) = self.event(event, event_loop) {
+        if let (Some(adapter),Some(window))=(&mut self.accessibility,&self.window){adapter.process_event(window,&event);}
+        if let Err(error) = self.event(event, event_loop).and_then(|_|self.update_accessibility()) {
             eprintln!("{error}");
             event_loop.exit();
         }
     }
 }
 
-/// Runs a Forma application in a real native window using the CPU renderer.
+/// Runs a Forma application with desktop Svet GPU presentation and CPU fallback.
 pub fn run<A: NativeApp + 'static>(
     app: A,
     config: NativeWindowConfig,
@@ -1073,7 +1434,8 @@ pub fn run<A: NativeApp + 'static>(
     } else {
         None
     };
-    let event_loop = EventLoop::new().map_err(|e| e.to_string())?;
+    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event().build().map_err(|e| e.to_string())?;
+    let accessibility_proxy=event_loop.create_proxy();
     event_loop.set_control_flow(ControlFlow::Wait);
     event_loop
         .run_app(&mut NativeHost {
@@ -1082,14 +1444,18 @@ pub fn run<A: NativeApp + 'static>(
             backend,
             platform,
             chooser,
+            accessibility:None,accessibility_proxy:Some(accessibility_proxy),accessibility_active:false,accessibility_ids:Default::default(),
             window: None,
-            surface: None,
+            surface: None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,
             pointer: (0., 0.),
             touch_last: None,
+            touch_owner: None,
             shift: false,
-            command: false,
+            command: false, control: false,
             alt: false,
             composing: false,
+            ime_cancelled:false,composition_owner: None,
+            blurred_editor: None,
             last_frame: Instant::now(),
         })
         .map_err(|e| e.to_string())
@@ -1098,6 +1464,428 @@ pub fn run<A: NativeApp + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn touch_scroll_does_not_activate_the_pressed_control_on_release() {
+        for (delta,steps) in [(-20_f32,1),(20.,1),(0.25,1),(-20.,80)] {
+        let runtime=crate::Runtime::from_source("component Demo { Frame { width:200; height:100; Scroll { Button { key:'large'; width:180; height:400; } } } }").unwrap();
+        let b=runtime.control_bounds(0);let (x,y)=(b[0]+20.,b[1]+60.);
+        let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        let device=winit::event::DeviceId::dummy();
+        host.touch_input(device,1,TouchPhase::Started,x,y).unwrap();
+        for step in 1..=steps { host.touch_input(device,1,TouchPhase::Moved,x,y+delta*step as f32/steps as f32).unwrap(); }
+        assert_eq!(host.app.scroll_offset()[1]>0.,delta<0.);
+        if delta<0. { assert!((host.app.scroll_offset()[1]+delta).abs()<=0.5,"only a subthreshold residual may remain"); }
+        host.touch_input(device,1,TouchPhase::Ended,x,y+delta).unwrap();
+        let expected=u32::from(delta.abs()<=0.5);
+        assert_eq!(host.app.control_clicks(0),expected,"pan at an edge must cancel too; subthreshold motion remains a tap");
+        host.touch_input(device,2,TouchPhase::Started,x,y+delta).unwrap();host.touch_input(device,2,TouchPhase::Ended,x,y+delta).unwrap();
+        assert_eq!(host.app.control_clicks(0),expected+1,"new stationary tap still activates");
+        }
+    }
+
+    #[test]
+    fn secondary_touches_cannot_steal_or_end_the_primary_gesture() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-ime/App.ui").into())]);
+        let runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+        let point=|index|{let b=runtime.control_bounds(index);(b[0]+b[2]*0.5,b[1]+b[3]*0.5)};
+        let (ax,ay)=point(1);let (bx,by)=point(2);
+        let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        let device=winit::event::DeviceId::dummy();
+        host.touch_input(device,1,TouchPhase::Started,ax,ay).unwrap();
+        assert_eq!(host.app.focused_index(),1);
+        for phase in [TouchPhase::Started,TouchPhase::Moved,TouchPhase::Ended,TouchPhase::Cancelled] {
+            host.touch_input(device,2,phase,bx,by).unwrap();
+            assert_eq!(host.touch_owner,Some((device,1)));assert_eq!(host.touch_last,Some((ax,ay)));assert_eq!(host.pointer,(ax,ay));assert_eq!(host.app.focused_index(),1);
+        }
+        host.touch_input(device,1,TouchPhase::Ended,ax,ay).unwrap();
+        assert_eq!(host.app.control_clicks(1),1);assert_eq!(host.app.control_clicks(2),0);
+        assert!(host.touch_owner.is_none());assert!(host.touch_last.is_none());
+        host.touch_input(device,2,TouchPhase::Started,bx,by).unwrap();assert_eq!(host.app.focused_index(),2);
+        host.focus_changed(false).unwrap();assert!(host.touch_owner.is_none());assert!(host.touch_last.is_none());
+        for phase in [TouchPhase::Moved,TouchPhase::Ended] {host.touch_input(device,2,phase,bx,by).unwrap();}
+        assert_eq!(host.app.control_clicks(2),0);assert_eq!(host.app.focused_index(),-1);
+        host.focus_changed(true).unwrap();host.touch_input(device,3,TouchPhase::Started,bx,by).unwrap();host.touch_input(device,3,TouchPhase::Cancelled,bx,by).unwrap();
+        assert!(host.touch_owner.is_none());assert!(host.touch_last.is_none());
+        host.touch_input(device,3,TouchPhase::Ended,bx,by).unwrap();assert_eq!(host.app.control_clicks(2),0);
+    }
+
+    #[test]
+    fn activation_focus_does_not_overwrite_new_pointer_selection() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-ime/App.ui").into())]);
+        let mut runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+        assert!(runtime.focus_control(1));
+        let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        host.focus_changed(false).unwrap();
+        let bounds=host.app.control_bounds(2);let (x,y)=(bounds[0]+bounds[2]*0.5,bounds[1]+bounds[3]*0.5);
+        host.focus_sensitive_input(&mut |runtime| {runtime.pointer(x,y,0);runtime.pointer(x,y,1);runtime.pointer(x,y,2);}).unwrap();
+        assert_eq!(host.app.focused_index(),2);
+        host.focus_changed(true).unwrap();
+        assert_eq!(host.app.focused_index(),2,"activation must respect a newer pointer selection");
+        host.focus_changed(true).unwrap();
+        assert_eq!(host.app.focused_index(),2);
+        assert!(host.blurred_editor.is_none());
+        host.app.text_key("End",false,false);host.app.text_insert("-clicked");host.app.sync_ui_bindings_native().unwrap();
+        let state:serde_json::Value=serde_json::from_str(&host.app.ui_state_json()).unwrap();
+        assert_eq!(state["first"],"seed-A");assert_eq!(state["second"],"seed-B-clicked");
+    }
+
+    #[test]
+    fn window_refocus_restores_stable_editor_key_after_reorder() {
+        let source=|reverse:bool| {
+            let a="TextInput { key:'a'; width:180; height:32; value <-> state.a; }";
+            let b="TextInput { key:'b'; width:180; height:32; value <-> state.b; }";
+            std::collections::BTreeMap::from([("App.ui".into(),format!("component App {{ state a: String = 'first'; state b: String = 'second'; Column {{ width:220; height:160; {} {} }} }}",if reverse {b}else{a},if reverse {a}else{b}))])
+        };
+        let mut runtime=crate::Runtime::from_ui_files(&source(false),"App.ui",&Default::default()).unwrap();assert!(runtime.focus_control(1));
+        let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        host.focus_changed(false).unwrap();host.focus_changed(false).unwrap();assert!(!host.app.text_editing());
+        host.focus_changed(true).unwrap();assert_eq!(host.app.focused_index(),1);
+        host.focus_changed(false).unwrap();host.app.load_ui_files_json_native(&serde_json::to_string(&source(true)).unwrap(),"App.ui","{}").unwrap();
+        host.focus_changed(true).unwrap();assert_eq!(host.app.focused_index(),0);assert_eq!(host.app.text_value(0),"second");
+    }
+
+    #[test]
+    fn accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it() {
+        for action in [accesskit::Action::SetValue,accesskit::Action::SetTextSelection] {
+        for empty in [false,true] {for valid in [false,true] {
+            let files=std::collections::BTreeMap::from([("App.ui".into(),"component App { state query: String = 'seed'; Column { TextInput { key:'editor'; value <-> state.query; } } }".into())]);
+            let mut runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();runtime.focus_control(0);
+            let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+                chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+            host.preedit_ime("未確定").unwrap();if empty{host.preedit_ime("").unwrap();}
+            let update=host.accessibility_ids.update(&host.app).unwrap();
+            let (target,parent)=update.nodes.iter().find(|(_,node)|node.role()==accesskit::Role::TextInput).unwrap();
+            let data=if !valid {Some(accesskit::ActionData::NumericValue(0.))}
+            else if action==accesskit::Action::SetValue {Some(accesskit::ActionData::Value("AX".into()))}
+            else {let run=parent.children()[0];Some(accesskit::ActionData::SetTextSelection(accesskit::TextSelection{anchor:accesskit::TextPosition{node:run,character_index:1},focus:accesskit::TextPosition{node:run,character_index:3}}))};
+            let request=accesskit::ActionRequest{action,target_tree:accesskit::TreeId::ROOT,target_node:*target,data};
+            assert_eq!(host.accessibility_action(&request).unwrap(),valid);
+            let after=host.app.text_value(0);host.commit_ime("late").unwrap();
+            if valid {
+                assert_eq!(host.app.text_value(0),after,"{action:?}, empty={empty}: stale commit");
+                host.commit_ime("late-again").unwrap();assert_eq!(host.app.text_value(0),after);
+                host.preedit_ime("fresh").unwrap();host.commit_ime("fresh").unwrap();assert!(host.app.text_value(0).contains("fresh"));
+            }else {assert!(host.app.text_value(0).contains("late"),"refused AX action must retain IME");}
+        }}}
+    }
+
+    #[test]
+    fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-ime/App.ui").into())]);
+        for (cause,empty) in ["escape","tab","blur","pointer"].into_iter().flat_map(|cause|[false,true].map(|empty|(cause,empty))) {
+            let mut runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();runtime.focus_control(1);
+            let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+                chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+            host.preedit_ime("未確定").unwrap();
+            if empty {host.preedit_ime("").unwrap();assert!(!host.composing);}
+            match cause {
+                "escape"=>host.navigation_key(&Key::Named(NamedKey::Escape),true,false).unwrap(),
+                "tab"=>host.navigation_key(&Key::Named(NamedKey::Tab),true,false).unwrap(),
+                "blur"=>{host.focus_changed(false).unwrap();host.focus_changed(true).unwrap();},
+                _=>{host.focus_sensitive_input(&mut |runtime| {runtime.focus_control(2);}).unwrap();},
+            }
+            assert!(host.ime_cancelled,"{cause}");
+            host.preedit_ime("").unwrap();host.ime_presentation().unwrap();
+            host.commit_ime("late").unwrap();host.commit_ime("late-again").unwrap();
+            assert_eq!(host.app.text_value(1),"seed-A","{cause}");assert_eq!(host.app.text_value(2),"seed-B","{cause}");
+            host.app.focus_control(2);host.app.text_key("End",false,false);
+            host.preedit_ime("新").unwrap();assert!(!host.ime_cancelled);host.preedit_ime("").unwrap();host.commit_ime("確定").unwrap();
+            assert_eq!(host.app.text_value(2),"seed-B確定","{cause}: new composition works");
+            host.ime_event(Ime::Disabled).unwrap();host.commit_ime("disabled-late").unwrap();
+            assert_eq!(host.app.text_value(2),"seed-B確定");
+            host.ime_event(Ime::Enabled).unwrap();host.ime_event(Ime::Preedit(String::new(),None)).unwrap();host.ime_event(Ime::Commit("direct".into())).unwrap();
+            assert_eq!(host.app.text_value(2),"seed-B確定direct");
+        }
+    }
+
+    #[test]
+    fn empty_preedit_preserves_commit_address_across_runtime_replacement() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-ime/App.ui").into())]);
+        for replace in [false,true] {
+            let mut runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();runtime.focus_control(1);runtime.text_key("End",false,false);
+            let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+                chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+            let clean=host.app.pixels(640,360,1.);
+            host.preedit_ime("未確定").unwrap();let owner=host.composition_owner;assert!(owner.is_some());
+            host.preedit_ime("").unwrap();assert!(!host.composing);assert_eq!(host.app.pixels(640,360,1.),clean);
+            host.ime_presentation().unwrap();assert_eq!(host.composition_owner,owner);
+            if replace {
+                host.app=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();host.app.focus_control(1);
+                host.ime_presentation().unwrap();
+            }
+            host.commit_ime("確定").unwrap();
+            assert_eq!(host.app.text_value(1),if replace {"seed-A"} else {"seed-A確定"});
+            assert!(host.composition_owner.is_none());
+        }
+    }
+
+    #[test]
+    fn ime_commit_checks_editor_owner_at_dispatch() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-ime/App.ui").into())]);
+        for replacement in [false,true] {
+            let mut runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();assert!(runtime.focus_control(1));
+            runtime.text_preedit("未確定");let owner=runtime.native_editor_session();
+            let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+                chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:true,ime_cancelled:false,composition_owner:owner,blurred_editor:None,last_frame:Instant::now() };
+            if replacement { host.app=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();host.app.focus_control(1); }
+            else { host.app.focus_control(2); }
+            host.commit_ime("stale").unwrap();
+            host.commit_ime("stale-again").unwrap();
+            assert!(!host.composing);assert!(host.composition_owner.is_none());
+            assert_eq!(host.app.text_value(1),"seed-A");assert_eq!(host.app.text_value(2),"seed-B");
+            host.app.focus_control(1);host.app.text_key("End",false,false);
+            host.preedit_ime("pending").unwrap();
+            host.commit_ime("確定").unwrap();assert_eq!(host.app.text_value(1),"seed-A確定");
+            host.commit_ime("direct").unwrap();assert_eq!(host.app.text_value(1),"seed-A確定direct");
+            host.app.text_key("a",false,true);
+            let selected=host.app.text_selected();
+            host.preedit_ime("cancelled").unwrap();
+            host.commit_ime("").unwrap();
+            assert_eq!(host.app.text_value(1),"seed-A確定direct","empty commit must not delete selection");
+            assert_eq!(host.app.text_selected(),selected);
+            host.app.sync_ui_bindings_native().unwrap();assert!(!host.app.ui_state_json().contains("stale"));
+        }
+    }
+
+    #[test]
+    fn presentation_paints_retained_runtime_without_dispatching_update() {
+        use std::cell::Cell;
+        struct App { runtime: crate::Runtime, updates: usize, inspections: Cell<usize>, fail: bool }
+        impl NativeApp for App {
+            fn inspect(&self, observer: &mut dyn FnMut(&crate::Runtime)) -> Result<(), String> {
+                self.inspections.set(self.inspections.get()+1);
+                if self.fail { return Err("inspect refused".into()); }
+                observer(&self.runtime);Ok(())
+            }
+            fn update(&mut self, input: &mut dyn FnMut(&mut crate::Runtime)) -> Result<(), String> {
+                self.updates += 1;input(&mut self.runtime);
+                // Simulate a model update after the input/tick callback.
+                self.runtime = crate::Runtime::from_ui_files(&std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-window/App.ui").into())]),"App.ui",&Default::default())?;
+                Ok(())
+            }
+        }
+        let mut app=App {runtime:crate::Runtime::new(),updates:0,inspections:Cell::new(0),fail:false};
+        app.update(&mut |runtime| {runtime.tick(16.);}).unwrap();
+        let mut expected=vec![0;640*360];app.runtime.paint_native(&mut expected,640,360,1.).unwrap();
+        let mut pixels=vec![0;640*360];
+        assert_eq!(paint_app(&app,&mut pixels,640,360,1.).unwrap(),app.runtime.is_animating());
+        assert_eq!(pixels,expected);assert_eq!(app.updates,1);assert_eq!(app.inspections.get(),1);
+        assert!(paint_app(&app,&mut [],640,360,1.).is_err());
+        app.fail=true;
+        assert_eq!(paint_app(&app,&mut pixels,640,360,1.).unwrap_err(),"inspect refused");
+        assert_eq!(app.updates,1);
+    }
+
+    #[test]
+    fn composition_reconciles_replacement_after_input_callback() {
+        struct ReplacingApp { runtime: crate::Runtime, replace: bool, updates: usize, fail: bool }
+        impl NativeApp for ReplacingApp {
+            fn inspect(&self, observer: &mut dyn FnMut(&crate::Runtime)) -> Result<(), String> {
+                observer(&self.runtime);
+                if self.fail { Err("inspect failed".into()) } else { Ok(()) }
+            }
+            fn update(&mut self, input: &mut dyn FnMut(&mut crate::Runtime)) -> Result<(), String> {
+                self.updates += 1;
+                input(&mut self.runtime);
+                if self.replace {
+                    self.replace = false;
+                    self.runtime = crate::Runtime::from_ui_files(&std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-window/App.ui").into())]), "App.ui", &Default::default())?;
+                    self.runtime.focus_control(1);
+                    self.runtime.text_preedit("新しい");
+                }
+                if self.fail { Err("sync failed".into()) } else { Ok(()) }
+            }
+        }
+        let mut runtime = crate::Runtime::from_ui_files(&std::collections::BTreeMap::from([("App.ui".into(),include_str!("../tests/fixtures/svet-native-window/App.ui").into())]), "App.ui", &Default::default()).unwrap();
+        assert!(runtime.focus_control(1));runtime.text_preedit("未確定");
+        let owner = runtime.native_editor_session();
+        let mut host=NativeHost { app:ReplacingApp {runtime,replace:true,updates:0,fail:false},config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:true,ime_cancelled:false,composition_owner:owner,blurred_editor:None,last_frame:Instant::now() };
+        host.focus_sensitive_input(&mut |_| {}).unwrap();
+        assert_eq!(host.app.updates, 1);
+        let pixels = host.app.runtime.pixels(640,360,1.);
+        let expected_caret = host.app.runtime.text_caret_bounds();
+        let (editing, caret) = host.ime_presentation().unwrap();
+        assert_eq!(host.app.updates, 1, "presentation must not run an application update");
+        assert!(editing);assert_eq!(caret,expected_caret);
+        assert_eq!(host.app.runtime.pixels(640,360,1.),pixels, "inspection preserves replacement preedit pixels");
+        assert!(!host.composing);
+        assert_eq!(host.composition_owner,owner);
+        assert!(!host.app.runtime.ui_state_json().contains("未確定"));
+        host.composing = true;host.composition_owner = owner;host.app.fail = true;
+        assert_eq!(host.ime_presentation().unwrap_err(), "inspect failed");
+        assert!(!host.composing, "retirement survives a later application error");
+        assert_eq!(host.composition_owner,owner);
+        host.app.fail = false;
+        let current = host.app.runtime.native_editor_session();
+        host.composing = true;host.composition_owner = current;
+        host.ime_presentation().unwrap();
+        assert!(host.composing, "unchanged editor preserves composition");
+        host.composing = false;
+        host.ime_presentation().unwrap();
+        assert_eq!(host.composition_owner,current,"pending commit keeps its address after empty preedit");
+    }
+
+    #[test]
+    fn composition_retires_when_callback_replaces_editor_at_same_index() {
+        let source = |value: &str| serde_json::to_string(&std::collections::BTreeMap::from([("App.ui",format!("component App {{ state query: String = '{value}'; Column {{ width:220; height:100; TextInput {{ key:'editor'; width:180; height:32; value <-> state.query; }} }} }}"))])).unwrap();
+        let mut runtime = crate::Runtime::new();
+        runtime.load_ui_files_json_native(&source("old"), "App.ui", "{}").unwrap();
+        assert!(runtime.focus_control(0));runtime.text_preedit("未確定");
+        let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:true,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        host.focus_sensitive_input(&mut |runtime| {
+            runtime.load_ui_files_json_native(&source("new"), "App.ui", "{}").unwrap();
+            assert!(runtime.focus_control(0));
+        }).unwrap();
+        assert!(!host.composing, "same index/key in a replacement scene is a new editor session");
+        assert_eq!(host.app.focused_index(),0);
+        assert_eq!(host.app.text_value(0),"new");
+        host.app.text_insert("!");host.app.sync_ui_bindings_native().unwrap();
+        assert!(!host.app.ui_state_json().contains("未確定"));
+    }
+
+    #[test]
+    fn window_refocus_rejects_retired_or_ineligible_editor_keys() {
+        let files = |body: &str| std::collections::BTreeMap::from([(
+            "App.ui".into(),
+            format!("component App {{ state a: String = 'first'; state b: String = 'second'; Column {{ width:220; height:200; {body} }} }}"),
+        ), ("Button.component.ui".into(), crate::BUTTON_COMPONENT.into())]);
+        let first = "TextInput { key:'a'; width:180; height:32; value <-> state.a; }";
+        let second = "TextInput { key:'b'; width:180; height:32; value <-> state.b; }";
+        let duplicate = crate::Runtime::from_ui_files(&files(&format!("{first} {second} {second}")), "App.ui", &Default::default());
+        assert!(matches!(duplicate, Err(error) if error.contains("Повторный key b")));
+        for (case, replacement) in [
+            ("removed", ""),
+            ("disabled", "TextInput { key:'b'; disabled:true; width:180; height:32; value <-> state.b; }"),
+            ("changed kind", "Button { key:'b'; width:180; height:32; text:'button'; }"),
+        ] {
+            let mut runtime = crate::Runtime::from_ui_files(&files(&format!("{first} {second}")), "App.ui", &Default::default()).unwrap();
+            assert!(runtime.focus_control(1));
+            let mut host = NativeHost { app:runtime, config:NativeWindowConfig::default(), backend:Some(UiBackend::Svet), platform:TargetPlatform::Desktop,
+                chooser:None, accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None, surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None, pointer:(0.,0.), touch_last:None,touch_owner:None, shift:false, command:false,control:false, alt:false, composing:false, ime_cancelled:false,composition_owner:None,blurred_editor:None, last_frame:Instant::now() };
+            host.focus_changed(false).unwrap();
+            host.app = crate::Runtime::from_ui_files(&files(&format!("{first} {replacement}")), "App.ui", &Default::default()).unwrap();
+            host.focus_changed(true).unwrap();
+            assert_eq!(host.app.focused_index(), 0, "{case}: ordinary focus fallback");
+            assert!(host.blurred_editor.is_none(), "{case}: retired key consumed");
+            host.app.text_insert("!");
+            assert!(host.app.text_value(0).contains('!'), "{case}: input reaches fallback editor");
+        }
+    }
+
+    #[test]
+    fn pointer_focus_switch_retires_composition_but_hover_preserves_it() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),"component App { state a: String = 'first'; state b: String = 'second'; Column { width:220; height:160; TextInput { width:180; height:32; value <-> state.a; } TextInput { width:180; height:32; value <-> state.b; } } }".into())]);
+        let mut runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+        assert!(runtime.focus_control(0));runtime.text_preedit("未確定");
+        let bounds=runtime.control_bounds(1);let (x,y)=(bounds[0]+bounds[2]*0.5,bounds[1]+bounds[3]*0.5);
+        let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(x,y),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:true,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        host.focus_sensitive_input(&mut |runtime|runtime.pointer(x,y,0)).unwrap();
+        assert!(host.composing);assert_eq!(host.app.focused_index(),0);
+        host.focus_sensitive_input(&mut |runtime|runtime.pointer(x,y,1)).unwrap();
+        assert_eq!(host.app.focused_index(),1);
+        assert!(!host.composing,"pointer focus switch must retire the old IME owner");
+        host.focus_sensitive_input(&mut |runtime|runtime.pointer(x,y,2)).unwrap();
+        assert_eq!(host.app.text_value(0),"first");assert_eq!(host.app.text_value(1),"second");
+        assert!(host.app.text_insert("-next"));assert!(host.app.sync_ui_bindings_native().unwrap());
+        let state:serde_json::Value=serde_json::from_str(&host.app.ui_state_json()).unwrap();
+        assert_eq!(state["a"],"first");assert!(state["b"].as_str().unwrap().contains("-next"));assert!(!state["b"].as_str().unwrap().contains("未確定"));
+        host.app.text_preedit("pending-again");host.composing=true;
+        host.focus_sensitive_input(&mut |runtime|runtime.pointer(210.,140.,0)).unwrap();
+        assert!(host.composing);assert_eq!(host.app.focused_index(),1);
+        host.focus_sensitive_input(&mut |runtime|runtime.pointer(210.,140.,1)).unwrap();
+        assert!(!host.composing);assert!(!host.app.text_editing());
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&host.app.ui_state_json()).unwrap(),state);
+
+    }
+
+    #[test]
+    fn tab_and_escape_end_composition_without_committing_pending_text() {
+        for key in [NamedKey::Tab,NamedKey::Escape] {
+            let files = std::collections::BTreeMap::from([("App.ui".into(), "component App { state a: String = 'first'; state b: String = 'second'; Column { TextInput { width:180; height:32; value <-> state.a; } TextInput { width:180; height:32; value <-> state.b; } } }".into())]);
+            let mut runtime=crate::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+            assert!(runtime.focus_control(0));let normal_pixels=runtime.pixels(360,120,1.);runtime.text_preedit("未確定");
+            let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+                chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:true,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+            for (pressed,repeat) in [(false,false),(true,true)] {
+                host.navigation_key(&Key::Named(key),pressed,repeat).unwrap();
+                assert!(host.composing,"release/repeat must preserve the current composition");
+                assert_eq!(host.app.focused_index(),0);
+            }
+            host.navigation_key(&Key::Named(key),true,false).unwrap();
+            assert!(!host.composing,"{key:?} must retire the old composition session");
+            if key==NamedKey::Escape { assert_eq!(host.app.pixels(360,120,1.),normal_pixels,"Escape must remove pending preedit pixels"); }
+            assert_eq!(host.app.text_value(0),"first");assert_eq!(host.app.text_value(1),"second");
+            assert_eq!(host.app.focused_index(),if key==NamedKey::Tab {1}else{0});
+            assert!(host.app.text_insert("-next"));assert!(host.app.sync_ui_bindings_native().unwrap());
+            let state:serde_json::Value=serde_json::from_str(&host.app.ui_state_json()).unwrap();
+            let field=if key==NamedKey::Tab {"b"}else{"a"};assert!(state[field].as_str().unwrap().contains("-next"));
+            assert!(!state[field].as_str().unwrap().contains("未確定"));
+            assert_eq!(state[if key==NamedKey::Tab {"a"}else{"b"}],if key==NamedKey::Tab {"first"}else{"second"});
+        }
+    }
+
+    #[test]
+    fn focus_loss_clears_composition_and_modifiers_without_committing_preedit() {
+        let files = std::collections::BTreeMap::from([("App.ui".into(), include_str!("../tests/fixtures/svet-native-window/App.ui").into())]);
+        let mut runtime = crate::Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+        let editor = (0..runtime.control_count()).find(|index| runtime.control_editable(*index)).unwrap();
+        assert!(runtime.focus_control(editor));runtime.text_preedit("未確定");
+        let mut host = NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(10.,10.),touch_last:Some((10.,10.)),touch_owner:None,shift:true,command:true,control:true,alt:true,composing:true,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        host.focus_changed(false).unwrap();
+        assert!(!host.composing,"focus loss must retire the old IME session");
+        assert!(!host.shift && !host.command && !host.control && !host.alt,"stale modifiers must not affect refocused input");
+        assert!(host.touch_last.is_none());assert_eq!(host.app.text_value(editor),"seed");
+        assert_eq!(serde_json::from_str::<serde_json::Value>(&host.app.ui_state_json()).unwrap()["query"],"seed");
+        host.focus_changed(true).unwrap();assert!(!host.composing);assert!(host.app.focus_control(editor));
+        assert!(host.app.text_insert("-after"));assert!(host.app.sync_ui_bindings_native().unwrap());
+        assert!(host.app.text_value(editor).contains("-after"));
+    }
+
+    #[test]
+    fn surface_backoff_and_occlusion_block_acquisition_until_ready() {
+        let runtime=crate::Runtime::new();
+        let mut host=NativeHost { app:runtime,config:NativeWindowConfig::default(),backend:Some(UiBackend::Svet),platform:TargetPlatform::Desktop,
+            chooser:None,accessibility:None,accessibility_proxy:None,accessibility_active:false,accessibility_ids:Default::default(),window:None,surface:None,gpu:None,gpu_attempted:false,retry_at:None,gpu_health_at:None,#[cfg(feature="native-test-hooks")] idle_loss_for_test:false,occluded:false,animation_at:None,pointer:(0.,0.),touch_last:None,touch_owner:None,shift:false,command:false,control:false,alt:false,composing:false,ime_cancelled:false,composition_owner:None,blurred_editor:None,last_frame:Instant::now() };
+        let deadline=Instant::now()+std::time::Duration::from_secs(30);
+        host.retry_at=Some(deadline);
+        // A real draw would fail because no native window exists. Repeated
+        // redraws during backoff must not reach window lookup or acquisition.
+        for _ in 0..10 { assert!(host.draw().is_ok());assert_eq!(host.retry_at,Some(deadline)); }
+        host.retry_at=Some(Instant::now()-std::time::Duration::from_millis(1));
+        assert!(host.draw().unwrap_err().contains("window is not initialized"));
+        assert_eq!(host.retry_at,None,"expired retry must be consumed");
+        host.occluded=true;
+        for _ in 0..10 { assert!(host.draw().is_ok()); }
+        host.occluded=false;
+        assert!(host.draw().unwrap_err().contains("window is not initialized"),"unoccluded draw must resume presentation attempts");
+        let now=Instant::now();let animation=now+std::time::Duration::from_millis(16);let retry=now+std::time::Duration::from_millis(50);
+        host.animation_at=Some(animation);host.retry_at=Some(retry);
+        assert_eq!(host.scheduled_redraw(now),(false,Some(animation)));
+        assert_eq!(host.scheduled_redraw(animation),(true,Some(retry)));
+        assert_eq!(host.scheduled_redraw(retry),(true,None));
+        assert_eq!(host.scheduled_redraw(retry),(false,None),"expired animation must not spin");
+        host.animation_at=Some(animation);
+        assert!(host.draw().unwrap_err().contains("window is not initialized"),"input redraw must bypass animation pacing");
+        host.occluded=true;host.retry_at=Some(retry);host.animation_at=Some(animation);
+        assert_eq!(host.scheduled_redraw(now),(false,None));
+        assert!(host.retry_at.is_none()&&host.animation_at.is_none());
+        // Occlusion suppresses painting, but cannot discard completion service
+        // for already-submitted GPU work.
+        host.gpu_health_at=Some(animation);
+        assert_eq!(host.scheduled_redraw(now),(false,Some(animation)));
+        assert_eq!(host.scheduled_redraw(animation),(false,Some(animation)));
+        host.gpu_health_at=None;
+        assert_eq!(host.scheduled_redraw(animation),(false,None),"completed queue must return to unbounded Wait");
+    }
 
     #[test]
     fn ui_backend_parses_and_toggles_between_egui_and_svet() {

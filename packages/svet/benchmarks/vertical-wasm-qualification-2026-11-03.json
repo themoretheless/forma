@@ -1,0 +1,20 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 27,
+  "browserCases": 16,
+  "coverage": [
+    "LF/CRLF long-short-long desired x equality",
+    "Vertical Shift anchor exact selected bytes",
+    "Delete/undo exact restoration"
+  ],
+  "sha256": {
+    "vector-ui/src/text_input.rs": "754987e28a8003ba3da62daa9ab8d8cf5cb936b3eeec50f9bb3face0e5e7f47e",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "9d162c68fa2902f3e4ecb580679a7122c15d1db110d59e16ad66cf8d7217eab9",
+    "vector-ui/tests/preview-word-browser.html": "00b2f55d72c092c330a790a800fdae586bcb89b6c3fab769cddd83e560e81649",
+    "/tmp/svet-vertical-wasm/web/forma_bg.wasm": "840544cf3ca174de07aabb4d579a2eea54b368c6a7b7ad2de3e9c45b7f8ec69e"
+  },
+  "limits": [
+    "Runtime API inside browser; trusted DOM multiline input not yet qualified",
+    "Actual OS IME and GPU presentation not qualified"
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "scope": "Public owned SceneArtifact duplication for independent controls sharing one root; serialized bytes are not allocator/RSS measurements",
+  "rows": [
+    {
+      "controls": 8,
+      "root_json_bytes": 42414,
+      "artifact_json_bytes": 495291,
+      "controls_json_bytes": 491665,
+      "payload_records_per_root": 256,
+      "retained_payload_records": 2048
+    },
+    {
+      "controls": 32,
+      "root_json_bytes": 42414,
+      "artifact_json_bytes": 1980670,
+      "controls_json_bytes": 1966702,
+      "payload_records_per_root": 256,
+      "retained_payload_records": 8192
+    },
+    {
+      "controls": 96,
+      "root_json_bytes": 42414,
+      "artifact_json_bytes": 5941756,
+      "controls_json_bytes": 5900142,
+      "payload_records_per_root": 256,
+      "retained_payload_records": 24576
+    },
+    {
+      "controls": 256,
+      "root_json_bytes": 42414,
+      "artifact_json_bytes": 15844945,
+      "controls_json_bytes": 15734055,
+      "payload_records_per_root": 256,
+      "retained_payload_records": 65536
+    }
+  ]
+}

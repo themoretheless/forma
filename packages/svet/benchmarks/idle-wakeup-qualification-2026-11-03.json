@@ -1,0 +1,34 @@
+{
+  "status": "partial",
+  "health_checks": 14,
+  "occluded_intervals": [
+    {
+      "duration_ms": 32240.263,
+      "health_checks": 1,
+      "idle_observed": true
+    },
+    {
+      "duration_ms": 618.326,
+      "health_checks": 0,
+      "idle_observed": false
+    }
+  ],
+  "exact_model_unchanged": true,
+  "limits": [
+    "No total event-loop wakeup, power, RSS or latency measurement",
+    "Physical device-removal notifications remain open",
+    "Queue work need not still be executing when OS occlusion occurs; this proves scheduled completion service survives occlusion"
+  ],
+  "stationary_observation_seconds": 13.404140499973437,
+  "build": "debug native without test hooks; probe NO_FOCUS=1",
+  "gates": {
+    "native_lib_passed": 218,
+    "probe_example_passed": 1,
+    "ignored": 3
+  },
+  "source_sha256": {
+    "vector-ui/src/native_window.rs": "bfa83b1acf93f3c15144331d33cd52ade8dd60c0cdea42da462236120820de17",
+    "vector-ui/examples/native_form_probe.rs": "8b19a35370d16e0065d09cbee68103d2cb2289636cebbca44da8978b8e6921b7",
+    "vector-ui/scripts/qualify-idle-wakeup.py": "952a81d273d1ea9bf1bf1b54f44a93981d5bbcecc8046bdfffd68c208140fb90"
+  }
+}

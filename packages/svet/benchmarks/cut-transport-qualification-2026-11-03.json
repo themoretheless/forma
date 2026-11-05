@@ -1,0 +1,18 @@
+{
+  "status": "passed",
+  "adapterTests": 46,
+  "scope": "Prevent cut deletion without clipboard write transport or after thrown write error",
+  "cases": [
+    "missing clipboardData retains selection",
+    "throwing setData retains selection",
+    "successful setData precedes one deletion"
+  ],
+  "limitations": [
+    "DOM adapter harness; actual OS clipboard not newly qualified",
+    "Clipboard API offers no proof of durable external clipboard persistence"
+  ],
+  "sha256": {
+    "src/vector-preview.js": "332a924d9373bf7c261ae0be93a49e5613d036d6fee63deddb6fd221efcf5795",
+    "test/vector-preview.test.js": "b96ff2007363bb604f9c8a50a51a9730fb0e2ebd1feb16e4041a301d78ea7f98"
+  }
+}

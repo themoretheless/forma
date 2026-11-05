@@ -1,0 +1,27 @@
+{
+  "status": "partial",
+  "change": "Required NativeApp.inspect reads retained Runtime immutably without an app update; IME presentation uses it",
+  "validation": {
+    "rust_passed": 203,
+    "ignored_gpu": 2,
+    "native_examples_check": "passed",
+    "cases": [
+      "zero application updates for IME presentation",
+      "post-update replacement has current caret",
+      "replacement preedit CPU pixels unchanged by inspection",
+      "retirement survives inspect error",
+      "unchanged owner remains composing"
+    ]
+  },
+  "sources": {
+    "vector-ui/src/native_window.rs": "7d9aa6d04e9fc06e2300785076778f87eb4617954f73992cb7c2857fce5fa128",
+    "vector-ui/examples/native_input_probe.rs": "7d1c523e73c3bb1b07939ca7596138126e5856c571586e27f84acebbc409bf22"
+  },
+  "compatibility": "Rust NativeApp implementations must now implement inspect; Runtime and in-repo probe updated",
+  "limits": [
+    "No real OS IME validation",
+    "Implementors must honor inspect contract and call observer exactly once",
+    "Native draw still uses update callbacks; broader rendering lifecycle audit open",
+    "Late OS commit cancellation still open"
+  ]
+}

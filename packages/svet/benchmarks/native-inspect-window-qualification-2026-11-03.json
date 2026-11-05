@@ -1,0 +1,36 @@
+{
+  "status": "partial",
+  "scope": "Actual macOS CPU NativeHost window after inspect migration",
+  "passed": [
+    "fresh example builds",
+    "visible first-field ASCII input",
+    "Tab and second-field ASCII input",
+    "updated visible summary/frame"
+  ],
+  "unresolved": [
+    "Later pointer click at screenshot second-field position followed by q inserted into first field",
+    "Shift+Tab then z not observed in model; intervening blur/refocus rows",
+    "Need event-order/coordinate instrumentation before assigning root cause"
+  ],
+  "final_state": {
+    "state": {
+      "first": "seed-A",
+      "second": "seed-B"
+    },
+    "focused_index": -1
+  },
+  "binary_sha256": "5ff0913634f87211fbaafa9fcdc0dfd2a3be71a055a9b082cc2ad10ccf212d3b",
+  "limits": [
+    "Not full pointer/navigation pass",
+    "No CJK/IME session",
+    "No latency claim"
+  ],
+  "observed_input_state": {
+    "state": {
+      "first": "seed-Axwvq",
+      "second": "seed-By"
+    },
+    "focused_index": -1
+  },
+  "cleanup": "Closed via UI; subsequent AX observation relaunched probe; owned relaunched process terminated explicitly"
+}

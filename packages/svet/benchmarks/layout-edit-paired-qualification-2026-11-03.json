@@ -1,0 +1,270 @@
+{
+  "status": "partial",
+  "scope": "Four AB/BA pairs plus baseline A/A; instrumented release CPU binding edit/rebuild, excludes painting/presentation",
+  "nested_depth": 12,
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "baseline": {
+        "edit_ms": 0.29666649999999994,
+        "edit_allocations": 7561.0,
+        "edit_requested_bytes": 938161.0,
+        "idle_allocations": 306.0
+      },
+      "candidate": {
+        "edit_ms": 0.2507915,
+        "edit_allocations": 6373.0,
+        "edit_requested_bytes": 773866.0,
+        "idle_allocations": 306.0
+      },
+      "paired_edit_ms_ratios": [
+        0.8397420793607073,
+        0.8670033377674817,
+        0.749504708983062,
+        0.835332191780822
+      ],
+      "median_ratio": 0.8375371355707646,
+      "aa_edit_ms_ratio": 0.9956226906281493
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "baseline": {
+        "edit_ms": 1.6520415,
+        "edit_allocations": 46446.0,
+        "edit_requested_bytes": 6095196.0,
+        "idle_allocations": 894.0
+      },
+      "candidate": {
+        "edit_ms": 1.4779795,
+        "edit_allocations": 42018.0,
+        "edit_requested_bytes": 5489073.0,
+        "idle_allocations": 894.0
+      },
+      "paired_edit_ms_ratios": [
+        0.9726497830374753,
+        0.8026572633965116,
+        0.8110046096436672,
+        0.9834712867266443
+      ],
+      "median_ratio": 0.8918271963405713,
+      "aa_edit_ms_ratio": 1.0332853389028318
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "baseline": {
+        "edit_ms": 10.6469795,
+        "edit_allocations": 290949.0,
+        "edit_requested_bytes": 39105412.0,
+        "idle_allocations": 2466.0
+      },
+      "candidate": {
+        "edit_ms": 10.168520999999998,
+        "edit_allocations": 277881.0,
+        "edit_requested_bytes": 37320793.0,
+        "idle_allocations": 2466.0
+      },
+      "paired_edit_ms_ratios": [
+        0.894892109012915,
+        0.9438345071678726,
+        0.970932227537748,
+        0.9682861246631768
+      ],
+      "median_ratio": 0.9560603159155248,
+      "aa_edit_ms_ratio": 1.058213338652128
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "baseline": {
+        "edit_ms": 60.2565,
+        "edit_allocations": 1798148.0,
+        "edit_requested_bytes": 244095912.0,
+        "idle_allocations": 6381.0
+      },
+      "candidate": {
+        "edit_ms": 59.598729500000005,
+        "edit_allocations": 1763480.0,
+        "edit_requested_bytes": 239356629.0,
+        "idle_allocations": 6381.0
+      },
+      "paired_edit_ms_ratios": [
+        0.9543289926648431,
+        1.0004082766375968,
+        1.0045713456953893,
+        0.9507747188044005
+      ],
+      "median_ratio": 0.9773686346512199,
+      "aa_edit_ms_ratio": 1.1559722811526576
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "baseline": {
+        "edit_ms": 0.279375,
+        "edit_allocations": 7597.0,
+        "edit_requested_bytes": 942529.0,
+        "idle_allocations": 306.0
+      },
+      "candidate": {
+        "edit_ms": 0.24764599999999998,
+        "edit_allocations": 6409.0,
+        "edit_requested_bytes": 778234.0,
+        "idle_allocations": 306.0
+      },
+      "paired_edit_ms_ratios": [
+        0.9228776448942043,
+        0.8436411149825784,
+        0.9646412371761699,
+        0.8059332509270704
+      ],
+      "median_ratio": 0.8832593799383914,
+      "aa_edit_ms_ratio": 1.2971769872639438
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "baseline": {
+        "edit_ms": 1.6461039999999998,
+        "edit_allocations": 46613.0,
+        "edit_requested_bytes": 6117787.0,
+        "idle_allocations": 894.0
+      },
+      "candidate": {
+        "edit_ms": 1.497875,
+        "edit_allocations": 42185.0,
+        "edit_requested_bytes": 5511664.0,
+        "idle_allocations": 894.0
+      },
+      "paired_edit_ms_ratios": [
+        1.000738188976378,
+        0.8888946175663651,
+        0.9390964240102171,
+        0.7727053639055291
+      ],
+      "median_ratio": 0.913995520788291,
+      "aa_edit_ms_ratio": 1.9790467852257183
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "baseline": {
+        "edit_ms": 10.533562499999999,
+        "edit_allocations": 291436.0,
+        "edit_requested_bytes": 39171651.0,
+        "idle_allocations": 2466.0
+      },
+      "candidate": {
+        "edit_ms": 10.2340415,
+        "edit_allocations": 278368.0,
+        "edit_requested_bytes": 37387032.0,
+        "idle_allocations": 2466.0
+      },
+      "paired_edit_ms_ratios": [
+        0.9635925848487171,
+        0.9729479649499428,
+        0.9730211270904576,
+        0.9702046212936809
+      ],
+      "median_ratio": 0.9715762931218119,
+      "aa_edit_ms_ratio": 2.055913865453421
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "baseline": {
+        "edit_ms": 59.109792,
+        "edit_allocations": 1799435.0,
+        "edit_requested_bytes": 244271583.0,
+        "idle_allocations": 6381.0
+      },
+      "candidate": {
+        "edit_ms": 58.876354,
+        "edit_allocations": 1764767.0,
+        "edit_requested_bytes": 239532300.0,
+        "idle_allocations": 6381.0
+      },
+      "paired_edit_ms_ratios": [
+        0.7829689545743507,
+        0.9862518755339729,
+        1.0059460562218956,
+        1.0217104455394688
+      ],
+      "median_ratio": 0.9960989658779342,
+      "aa_edit_ms_ratio": 1.186815965831659
+    }
+  ],
+  "runs": [
+    {
+      "variant": "baseline",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-00-baseline-2026-11-03.json",
+      "elapsed_s": 1.6015489101409912
+    },
+    {
+      "variant": "baseline",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-01-baseline-2026-11-03.json",
+      "elapsed_s": 1.5729188919067383
+    },
+    {
+      "variant": "baseline",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-02-baseline-2026-11-03.json",
+      "elapsed_s": 1.3330559730529785
+    },
+    {
+      "variant": "candidate",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-03-candidate-2026-11-03.json",
+      "elapsed_s": 1.496514081954956
+    },
+    {
+      "variant": "candidate",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-04-candidate-2026-11-03.json",
+      "elapsed_s": 1.2017619609832764
+    },
+    {
+      "variant": "baseline",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-05-baseline-2026-11-03.json",
+      "elapsed_s": 1.2403132915496826
+    },
+    {
+      "variant": "baseline",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-06-baseline-2026-11-03.json",
+      "elapsed_s": 1.2177119255065918
+    },
+    {
+      "variant": "candidate",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-07-candidate-2026-11-03.json",
+      "elapsed_s": 1.2026000022888184
+    },
+    {
+      "variant": "candidate",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-08-candidate-2026-11-03.json",
+      "elapsed_s": 1.1993508338928223
+    },
+    {
+      "variant": "baseline",
+      "path": "packages/svet/benchmarks/layout-edit-paired-run-09-baseline-2026-11-03.json",
+      "elapsed_s": 1.2118010520935059
+    }
+  ],
+  "binary_sha256": {
+    "baseline": "4446bb5697ded594e023a1ded9a30059bbcb5db2e2b6ee08095fcf1580429560",
+    "candidate": "af6384df82b4d99211bcfeea9547f4bc9067a403a8aabe0d378f22a80c937faa"
+  },
+  "limits": [
+    "Allocator instrumentation affects timings",
+    "Not application latency/frame qualification",
+    "No RSS/live/peak accounting",
+    "Only nested lexical list fixture"
+  ],
+  "timing_conclusion": "inconclusive: baseline A/A ratios reach 2.056; small edit-ms differences cannot qualify latency improvement",
+  "allocation_conclusion": "Deterministic savings in all rows; Svet256 1799435\u21921764767 (-1.93%); per-control snapshots dominate wide forms",
+  "sources": {
+    "vector-ui/src/form_document.rs": "dd095e98d8787ea1ee9f34a51ca31f77cdd3ea754cd5734473bec5bf2afd4324",
+    "vector-ui/src/runtime.rs": "748c85b328f0705244ee94244604c0aca0f8ca22ada4218a4ff2e4edbb3cd218",
+    "vector-ui/examples/binding_sync_bench.rs": "e5ec78797dbb07b8f5202e342a9f234ded585dba961d61ea69e7c558991d115f",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50"
+  },
+  "build_command": "CARGO_TARGET_DIR=/tmp/svet-native-development cargo build --offline --locked --release --manifest-path vector-ui/Cargo.toml --features native --example binding_sync_bench"
+}

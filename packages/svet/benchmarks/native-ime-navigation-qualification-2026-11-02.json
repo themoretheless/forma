@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "scope": "NativeHost navigation-key handler; Tab/Escape while composing, no actual OS window",
+  "reproduced": "Tab moved focus without retiring composing=true; regression failed before fix.",
+  "implementation": "Pressed nonrepeat Tab/Escape retire composing and clear Runtime preedit before navigation/dismissal. Release/repeat leave composition and focus unchanged.",
+  "validation": {
+    "nativeFeatureUnitPassed": 178,
+    "integrationPassed": 19,
+    "gpuTestsIgnoredInThisRun": 2,
+    "keys": [
+      "Tab",
+      "Escape"
+    ],
+    "checks": [
+      "No preedit commit",
+      "Escape pixels match nonpreedit frame",
+      "Tab focus moves to next field",
+      "Subsequent input commits to selected model field",
+      "Other model field unchanged",
+      "Release/repeat do not cancel composition"
+    ]
+  },
+  "sourceSha256": "7efb0d6f46f6269e44fcdfb2d4f47ff994432eccad6bf0c11561ab85f9bd6f1d",
+  "limits": [
+    "No OS IME candidate session or trusted key-event sequence exercised",
+    "Pointer/backend/window switches and reverse navigation matrix remain open",
+    "No input latency/p95 claim"
+  ]
+}

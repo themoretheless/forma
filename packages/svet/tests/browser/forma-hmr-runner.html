@@ -1,21 +1,58 @@
 <!doctype html><meta charset="utf-8"><title>Svet Vite HMR</title>
 <style>body{font:16px system-ui;max-width:950px;margin:30px auto}section,pre{padding:16px;border:1px solid #ccd3dd;margin:12px 0}pre{white-space:pre-wrap}</style>
-<h1>Forma Vite HMR lifecycle</h1><p id="status">Running…</p><section id="left"></section><section id="right"></section><pre id="result"></pre><script id="raw-results" type="application/json"></script>
+<h1>Forma Vite HMR lifecycle</h1><p id="status">Running…</p><section id="left"></section><section id="right"></section><section id="manual" hidden><h2>Trusted browser input</h2><div id="manual-view"></div><button id="manual-cleanup" type="button">Finish browser verification</button><p id="manual-status">Awaiting trusted add click</p></section><pre id="result"></pre><script id="raw-results" type="application/json"></script>
 <script type="module">
 import createView,{uiAst,uiValidation} from './View.ui';
-import {getGraphTelemetry,compileFormaComponent,parseFormaSource,getWasmCore} from __RUNTIME_IMPORT__;
+import {getGraphTelemetry,compileFormaComponent,parseFormaSource,getWasmCore,signal,computed,validateFormaSource} from __RUNTIME_IMPORT__;
 import * as peer from __PEER_RUNTIME_IMPORT__;
-const report={userAgent:navigator.userAgent,cases:[],hmrUpdates:0,trace:[]};
+const report={userAgent:navigator.userAgent,cases:[],hmrUpdates:0,trace:[],browserHmrTrace:[]};
 const same=(a,b)=>{if(JSON.stringify(a)!==JSON.stringify(b))throw Error(`${JSON.stringify(a)} != ${JSON.stringify(b)}`);};
 const until=async fn=>{const deadline=performance.now()+10000;while(!fn()){if(performance.now()>deadline)throw Error('HMR DOM deadline');await new Promise(resolve=>setTimeout(resolve,10));}};
 const update=async version=>{const response=await fetch('/__probe/update',{method:'POST',body:String(version)});if(!response.ok)throw Error('Update refused');};
 const record=name=>report.cases.push({name,status:'passed'});
 let instance,left,right,fresh,freshHandle,faulty,faultyHandle,healthy,healthyHandle,extra,validationInstance,validationHandle,probeView,probeHandle;
-const semanticErrors=[];const onRejection=event=>{const message=String(event.reason?.message??event.reason);if(message.includes('Invalid Forma HMR'))semanticErrors.push(message);};window.addEventListener('unhandledrejection',onRejection);
+const compilerErrors=[];const semanticErrors=[];const onRejection=event=>{const message=String(event.reason?.message??event.reason);if(message.includes('Invalid Forma HMR'))semanticErrors.push(message);};window.addEventListener('unhandledrejection',onRejection);
 try{
  if(!import.meta.hot)throw Error('Real Vite hot context missing');
- import.meta.hot.on('vite:afterUpdate',()=>{report.hmrUpdates++;});
+ const hmrTrace=(event,data={})=>{if(report.browserHmrTrace.length<512)report.browserHmrTrace.push({event,at:performance.now(),...data});};
+ import.meta.hot.on('vite:beforeUpdate',payload=>hmrTrace('beforeUpdate',{updates:payload.updates.map(({path,type,timestamp})=>({path,type,timestamp}))}));
+ import.meta.hot.on('vite:afterUpdate',()=>{report.hmrUpdates++;hmrTrace('afterUpdate',{count:report.hmrUpdates});});
+ import.meta.hot.on('vite:ws:disconnect',()=>hmrTrace('ws-disconnect'));
+ import.meta.hot.on('vite:ws:connect',()=>hmrTrace('ws-connect'));
+ import.meta.hot.on('vite:error',payload=>hmrTrace('error',{message:String(payload.err?.message??'')}));
+ let hmrReady=false;import.meta.hot.on('svet-probe:ready',data=>{hmrReady=data.ready===true;});import.meta.hot.send('svet-probe:ready',{});
+ import.meta.hot.on('vite:error',payload=>{const message=String(payload.err?.message??'');if(message.includes('range requires finite ordered bounds'))compilerErrors.push(message);});
  if(!uiAst||!uiValidation.valid)throw Error('Precompiled UI AST/validation missing');
+ for(const body of ['#[ragne(0,10)] prop x: Number = 1; Column {}','Column { #[range(0,10)] Text {} }']){
+  const text=`component App { ${body} }`;same(validateFormaSource(text).valid,false);let refused=false;try{parseFormaSource(text);}catch{refused=true;}same(refused,true);
+ }
+ const cyclic=parseFormaSource('component App { Column {} }');cyclic.rootAstNodes[0].children.push(cyclic.rootAstNodes[0]);let cycleRefused=false;try{compileFormaComponent(cyclic);}catch(error){cycleRefused=String(error).includes('AST tree');}same(cycleRefused,true);same(getGraphTelemetry().nodes,0);record('Browser source/AST admission refuses unknown, nested and cyclic contracts');
+ {
+  const ast=parseFormaSource("component Snapshot { #[range(0,10)] prop limit: Number = 5; state count: Number = 1; let doubled = state.count * 2; Button { text:doubled; clicked -> state.increment('count',1); } }"),view=compileFormaComponent(ast),container=document.createElement('div');
+  ast.rootAstNodes[0].properties.text="'tampered'";ast.letExpressions[0].expr='state.count * 100';ast.propConstraints[0].range[1]=1;
+  const handle=view.mount(container);try{same(container.textContent,'2');container.querySelector('button').click();same(container.textContent,'4');view.props.limit.set(6);same(view.isValid(),true);}finally{handle.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record('Caller AST edits cannot change owned tree/let/range snapshots');
+ }
+ for(const kind of ['props','computedLets']){
+  const external=signal(7),view=compileFormaComponent('component Own { prop a: Number = 1; prop b: Number = 2; let a = 1; let b = 2; Column {} }'),map=view[kind],a=map.a,b=map.b,da=a.dispose.bind(a),db=b.dispose.bind(b);let ac=0,bc=0;a.dispose=()=>{ac++;da();};b.dispose=()=>{bc++;db();};map.a=external;map.b=a;map.extra=a;
+  try{view.dispose();same(ac,1);same(bc,1);same(external(),7);same(getGraphTelemetry().nodes,1);}finally{external.dispose();}same(getGraphTelemetry().nodes,0);record(`Browser ${kind} ownership ignores public aliases/foreign replacements`);
+ }
+ {
+  const primary=Error('prepare browser refused');let fail=false;
+  const text='component Rollback { state count: Number = 1; let doubled = state.count * 2; let tripled = state.count * 3; Column { Text { text:doubled; } Child {} } }';
+  const view=compileFormaComponent(text,{components:{Child:()=>{const child=compileFormaComponent('component Child { Column {} }');if(fail){const candidate=view.computedLets.doubled,stop=candidate.dispose.bind(candidate);candidate.dispose=()=>{stop();throw Error('secondary cleanup');};child.render=()=>{throw primary;};}return child;}}}),container=document.createElement('div'),handle=view.mount(container),old=view.computedLets.doubled,nodes=getGraphTelemetry().nodes;
+  try{fail=true;let caught;try{view.hotReload(text);}catch(error){caught=error;}same(caught===primary,true);same(view.computedLets.doubled===old,true);same(getGraphTelemetry().nodes,nodes);view.state.count.set(2);same(container.textContent,'4');fail=false;view.hotReload(text);same(container.textContent,'4');}finally{fail=false;handle.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record('Browser rollback drains candidate cleanup and restores old reactive handles');
+ }
+ {
+  let close=false,view;const props={get value(){if(close)view.dispose();return 2;}},text='component Closing { let doubled = 2; Column {} }';view=compileFormaComponent(text,{props});const container=document.createElement('div'),handle=view.mount(container),old=view.computedLets.doubled,stop=old.dispose.bind(old);let calls=0;old.dispose=()=>{calls++;stop();};
+  try{close=true;let refused=false;try{view.hotReload(text.replace('component Closing {','component Closing { prop value: Number = 1;'));}catch(error){refused=String(error).includes('Forma instance is disposed');}same(refused,true);same(calls,1);same(container.childNodes.length,0);same(getGraphTelemetry().nodes,0);}finally{close=false;handle.unmount();view.dispose();}record('Browser closing options getter prevents late owned allocations');
+ }
+ {
+  const ast=parseFormaSource('component Extensions { Text { text:1; } }');let reads=0;Object.defineProperty(ast.rootAstNodes[0],'unused',{enumerable:true,get(){reads++;throw Error('extension getter');}});const view=compileFormaComponent(ast),container=document.createElement('div'),handle=view.mount(container);try{same(container.textContent,'1');same(reads,0);}finally{handle.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record('Browser schema snapshot does not read unknown extension getters');
+ }
+ {
+  const text="component Nested { Text { text:'old'; } }",view=compileFormaComponent(text),container=document.createElement('div'),handle=view.mount(container),old=container.firstChild,ast=parseFormaSource(text);let entered=false;Object.defineProperty(ast,'componentName',{get(){if(!entered){entered=true;view.hotReload(text);}return 'Nested';}});
+  try{let refused=false;try{view.hotReload(ast);}catch(error){refused=String(error).includes('already in progress');}same(refused,true);same(container.firstChild===old,true);view.hotReload(text.replace("'old'","'retry'"));same(container.textContent,'retry');}finally{handle.unmount();view.dispose();}same(getGraphTelemetry().nodes,0);record('Browser admission getter cannot reenter HMR and valid retry succeeds');
+ }
  for(const mode of ['mount','render']){
   let fail=true,handle;const reason=Error('controlled child render failure');
   const parent=compileFormaComponent("component Parent { state count: Number = 1; Column { Text { key:'parent'; text:state.count; } Child {} } }",{components:{Child:()=>{
@@ -122,6 +159,7 @@ try{
  const a=document.querySelector('#left'),b=document.querySelector('#right');instance=createView();left=instance.mount(a);right=instance.mount(b);
  instance.state.count.set(7);same(a.textContent.includes('v1:7'),true);same(b.textContent.includes('v1:7'),true);record('AOT UI mounts twice and preserves shared state');
  const baseline=getGraphTelemetry().nodes,retained=a.querySelector('button');report.trace.push({step:'baseline',nodes:baseline,count:instance.state.count()});
+ report.hmrReadiness='waiting';await until(()=>hmrReady);report.hmrReadiness='acknowledged';
  for(const version of [2,3]){await update(version);await until(()=>a.textContent.includes(`v${version}:7`)&&b.textContent.includes(`v${version}:7`));same(instance.state.count(),7);report.trace.push({step:'update'+version,nodes:getGraphTelemetry().nodes,count:instance.state.count()});same(getGraphTelemetry().nodes,baseline);retained.click();report.trace.push({step:'stale-click'+version,count:instance.state.count()});same(instance.state.count(),7);}
  record('Two real file/HMR updates preserve state and graph size; stale callback retired');
  left.unmount();left.unmount();const remaining=getGraphTelemetry().nodes;
@@ -136,13 +174,23 @@ try{
  faulty.hotReload=originalReload;await update(7);await until(()=>a.textContent.includes('v7:1')&&extra.textContent.includes('v7:1'));
  faulty.dispose();healthy.dispose();same(getGraphTelemetry().nodes,0);record('One failed real HMR instance does not block healthy view; next update recovers both');
  validationInstance=createView();validationHandle=validationInstance.mount(a);validationInstance.state.count.set(9);const validationNodes=getGraphTelemetry().nodes,oldButton=a.querySelector('button');
- await update(8);await until(()=>semanticErrors.length>0);same(a.textContent.includes('v7:9'),true);same(getGraphTelemetry().nodes,validationNodes);same(a.querySelector('button')===oldButton,true);
- probeView=createView();probeHandle=probeView.mount(document.createElement('div'));same(probeView.isValid(),true);probeView.dispose();probeHandle.unmount();
+ await update(8);await until(()=>semanticErrors.length>0||compilerErrors.length>0);same(a.textContent.includes('v7:9'),true);same(getGraphTelemetry().nodes,validationNodes);same(a.querySelector('button')===oldButton,true);
+ probeView=createView();probeHandle=probeView.mount(document.createElement('div'));same(probeView.isValid(),true);same(probeView.state.count(),1);probeView.dispose();probeHandle.unmount();
  oldButton.click();same(validationInstance.state.count(),10);await update(9);await until(()=>a.textContent.includes('v9:10'));same(getGraphTelemetry().nodes,validationNodes);
- validationInstance.dispose();same(getGraphTelemetry().nodes,0);report.semanticHmrFailures=semanticErrors.length;record('Semantic-invalid HMR preserves DOM/state/graph and cached AST until valid recovery');
+ oldButton.click();same(validationInstance.state.count(),10);validationInstance.dispose();same(getGraphTelemetry().nodes,0);report.semanticHmrFailures=semanticErrors.length;report.compilerHmrFailures=compilerErrors.length;report.compilerErrors=compilerErrors;record('Semantic-invalid HMR preserves DOM/state/graph and cached AST until valid recovery');
  report.status='passed';
 }catch(error){report.status='failed';report.error=String(error.stack??error);}
 finally{left?.unmount();right?.unmount();instance?.dispose();freshHandle?.unmount();fresh?.dispose();faultyHandle?.unmount();healthyHandle?.unmount();faulty?.dispose();healthy?.dispose();extra?.remove();validationHandle?.unmount();validationInstance?.dispose();probeHandle?.unmount();probeView?.dispose();window.removeEventListener('unhandledrejection',onRejection);}
-report.completedAt=new Date().toISOString();document.querySelector('#status').textContent=report.status;document.querySelector('#result').textContent=JSON.stringify(report,null,2);document.querySelector('#raw-results').textContent=JSON.stringify(report);
-await fetch('/__probe/result',{method:'POST',body:JSON.stringify(report)});
+const publish=async()=>{report.completedAt=new Date().toISOString();document.querySelector('#status').textContent=`${report.status} — ${report.cases.length} cases; graph ${getGraphTelemetry().nodes}`;document.querySelector('#result').textContent=JSON.stringify(report,null,2);document.querySelector('#raw-results').textContent=JSON.stringify(report);await fetch('/__probe/result',{method:'POST',body:JSON.stringify(report)});};
+if(report.status==='passed'){
+ report.automatedCases=report.cases.length;report.automatedFinalNodes=getGraphTelemetry().nodes;same(report.automatedFinalNodes,0);report.status='awaiting-trusted-input';
+ const manual=document.querySelector('#manual');manual.hidden=false;const view=createView(),handle=view.mount(document.querySelector('#manual-view')),button=manual.querySelector('#manual-view button');
+ button.addEventListener('click',event=>{report.nativeClickTrusted=event.isTrusted;report.nativeClickCount=(report.nativeClickCount??0)+1;document.querySelector('#manual-status').textContent=`add clicked; trusted=${event.isTrusted}; count=${view.state.count()}`;});
+ document.querySelector('#manual-cleanup').addEventListener('click',async event=>{
+  try{same(report.nativeClickTrusted,true);same(report.nativeClickCount,1);same(view.state.count(),2);same(document.querySelector('#manual-view').textContent.includes('v9:2'),true);record('Trusted browser click updates current AOT DOM/state');handle.unmount();view.dispose();same(getGraphTelemetry().nodes,0);report.cleanupClickTrusted=event.isTrusted;same(report.cleanupClickTrusted,true);record('Trusted cleanup drains final mounted instance to graph zero');report.finalGraphNodes=0;report.status='passed';document.querySelector('#manual-status').textContent='Trusted input verified; final graph nodes=0';}
+  catch(error){report.status='failed';report.error=String(error.stack??error);handle.unmount();view.dispose();}
+  document.querySelector('#manual-cleanup').disabled=true;await publish();
+ });
+}
+await publish();
 </script>

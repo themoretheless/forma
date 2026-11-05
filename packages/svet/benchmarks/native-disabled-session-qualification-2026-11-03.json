@@ -1,0 +1,26 @@
+{
+  "status": "partial",
+  "scope": "Direct Runtime disable/enable during pressed editor with preedit; disabled UI source refocus fallback",
+  "validation": {
+    "passed": 208,
+    "ignored_gpu": 2,
+    "cases": [
+      "preedit cleared on disable",
+      "capture/focus/down retired",
+      "blocked insert refused",
+      "idempotent disable",
+      "release after reenable cannot activate retired press",
+      "editing resumes without preedit commit",
+      "host refocus fallback consumes disabled:true from actual .ui instead of runtime setter workaround"
+    ]
+  },
+  "sources": {
+    "vector-ui/src/runtime.rs": "748c85b328f0705244ee94244604c0aca0f8ca22ada4218a4ff2e4edbb3cd218",
+    "vector-ui/src/native_window.rs": "f562fc5199bd46ab62f09b91836273ad731295411f06b0b29393ebe679781e8c"
+  },
+  "limits": [
+    "Deterministic Rust event sequence; no OS IME routing",
+    "Existing implementation passed; added regression coverage",
+    "No arbitrary touch/drag/late commit matrix claim"
+  ]
+}

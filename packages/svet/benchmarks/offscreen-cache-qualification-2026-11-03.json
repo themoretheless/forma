@@ -1,0 +1,55 @@
+{
+  "status": "partial",
+  "change": "Conservative sparse-leaf support culling before full-canvas cache construction; includes overflow shape/text support and one-physical-pixel margin",
+  "before_phases": [
+    {
+      "name": "load",
+      "allocations": 86491,
+      "requested_bytes": 16441251
+    },
+    {
+      "name": "sync",
+      "allocations": 7079,
+      "requested_bytes": 420655
+    },
+    {
+      "name": "frame",
+      "allocations": 1453,
+      "requested_bytes": 278224356
+    }
+  ],
+  "after_phases": [
+    {
+      "name": "load",
+      "allocations": 86491,
+      "requested_bytes": 16441251
+    },
+    {
+      "name": "sync",
+      "allocations": 7079,
+      "requested_bytes": 420655
+    },
+    {
+      "name": "frame",
+      "allocations": 228,
+      "requested_bytes": 13553796
+    }
+  ],
+  "native_tests_passed": 244,
+  "ignored": 3,
+  "runtime_drop_delta_zero": true,
+  "binary_sha256": "acbb1c82ba4d81d7d3416ea6bdfb876cc939a175c30dd8c763db2b9c9b1892b3",
+  "limits": [
+    "Fixed256-control CPU fixture; no app latency claim",
+    "Lifetime allocator peak unchanged; this reduces requested-byte flow",
+    "Invalid/non-finite support is conservatively not culled",
+    "OS-window/GPU qualification pending"
+  ],
+  "wasm": {
+    "node_cases": 14,
+    "chromium_cases": 17,
+    "exact_standard_frames": 90,
+    "exact_overflow_sparse_frames": 60,
+    "exact_artifact_comparisons": 30
+  }
+}

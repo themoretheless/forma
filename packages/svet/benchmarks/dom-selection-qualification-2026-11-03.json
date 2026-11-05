@@ -1,0 +1,23 @@
+{
+  "status": "passed-scoped",
+  "runtimeTests": 7,
+  "adapterTests": 39,
+  "wasmCompile": "passed",
+  "coverage": [
+    "UTF16 surrogate floor/ceil and grapheme expansion",
+    "Direction and CRLF normalization",
+    "Clamp/noop/no history",
+    "Mirror feedback/stale value/composition guards"
+  ],
+  "sha256": {
+    "vector-ui/src/text_input.rs": "31a4b3bcd00a9ef0b896521019bb73f921fdad04e51c3973dab84e8da2c8cd15",
+    "vector-ui/src/runtime.rs": "0cb25793ef65bdf24d91514dcec33b569adc2e0af530ed3338bb3d1f773416d9",
+    "src/vector-preview.js": "891498b28ff0d8bcd68eb0e92bb593c08048ecdf08a75afe488a4af95951ee23",
+    "vector-ui/tests/line_edit.rs": "abbaf5989362a78476020fefc0fbfaa022d28a7e8169dbec438391be7a036af4",
+    "test/vector-preview.test.js": "11cb90e7fb66f4889e7449f841599e72f1f42fddfff33df09832367182eccee1"
+  },
+  "limits": [
+    "Fresh WASM/browser accessibility action qualification pending",
+    "Browser event-order and screen-reader matrix not qualified"
+  ]
+}

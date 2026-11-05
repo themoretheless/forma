@@ -1,0 +1,35 @@
+{
+  "scope": "Allocated state handle ownership independent of public state aliases/replacements",
+  "before": {
+    "ownershipRegressionsFailed": 3,
+    "closedRollbackCallbackRegressionsFailed": 1
+  },
+  "after": {
+    "focusedPassed": 147,
+    "fullSuitePassed": 1479,
+    "fullSuiteFiles": 109,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 13
+  },
+  "sha256": {
+    "src/engine/forma.ts": "1d780fcc97208f1957afed06ebf391fc4819b0ba71fed73b83b265e313fe959b",
+    "tests/forma-dispose-failures.test.ts": "0d376d6a5df0dedcc74d8f1a90a77f19d9fc23282db9082ab7313a6800689e6e",
+    "scripts/check-forma-aot-lifecycle.mjs": "3342653786ea5b41441d979851cbf6e1fcd3c0392d38d556ce6663fe7e3a1226"
+  },
+  "invariants": [
+    "original own state handles disposed once despite public aliases",
+    "external signals assigned into public state remain borrowed",
+    "replaced originally owned state still disposed",
+    "rollback releases actual allocated candidate rather than foreign replacement",
+    "closed instance prevents later rollback setter callbacks",
+    "tested teardown graph empty and external graph count preserved"
+  ],
+  "testOracle": "Disposer call counts plus live external values and graph totals; peek behavior is not treated as proof of disposal.",
+  "limitations": [
+    "Direct state-map assignment is not a qualified reactive rebinding API.",
+    "Replacement semantics for other public resource maps remain open.",
+    "Custom disposer self-release, general accessor/proxy side effects and post-commit rollback are not qualified.",
+    "No new browser/native/performance qualification."
+  ]
+}

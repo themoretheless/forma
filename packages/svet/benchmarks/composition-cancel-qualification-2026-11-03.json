@@ -1,0 +1,18 @@
+{
+  "status": "passed-scoped",
+  "adapterTests": 34,
+  "browserCases": 9,
+  "fixes": [
+    "Empty composition end clears preedit without replacing selection",
+    "Focus cancellation resets composition admission; late update/end ignored"
+  ],
+  "limits": [
+    "Synthetic events only; actual marked-text IME not qualified",
+    "No OS keyboard or platform matrix claim"
+  ],
+  "sha256": {
+    "src/vector-preview.js": "d8b14d737f899806869dd00eb940df34cb4d5cb23467152973022b88913786d6",
+    "test/vector-preview.test.js": "9c0cbc5c8df8c988899b1d6e21bf47687ee53cae0dad760b130462dee0fe3b31",
+    "vector-ui/tests/preview-word-browser.html": "4723f3ebadfb20b871d222196971fb601345d808e5b03f542e20682f27bcfb54"
+  }
+}

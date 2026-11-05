@@ -1,0 +1,44 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-contract-tokens.test.ts (25 tests | 7 failed) 17ms
+   × refuses misplaced or duplicated contract #[range(0,10)] 5ms
+   × refuses misplaced or duplicated contract #[range(0,10)] Column {} 0ms
+   × refuses misplaced or duplicated contract #[range(0,10)] state count: Number = 1; prop later: Number = 2; 0ms
+   × refuses misplaced or duplicated contract #[range(0,10)] let count = 1; prop later: Number = 2; 0ms
+   × refuses misplaced or duplicated contract #[range(0,10)] tokens { color: 1; } prop later: Number = 2; 0ms
+   × refuses misplaced or duplicated contract #[range(0,10)] #[range(0,5)] prop x: Number = 2; 0ms
+   × refuses misplaced or duplicated contract #[pattern('a')] #[pattern('b')] prop x: String = 'a'; 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-contract-tokens.test.ts > refuses misplaced or duplicated contract #[range(0,10)]
+ FAIL  tests/forma-contract-tokens.test.ts > refuses misplaced or duplicated contract #[range(0,10)] Column {}
+ FAIL  tests/forma-contract-tokens.test.ts > refuses misplaced or duplicated contract #[range(0,10)] state count: Number = 1; prop later: Number = 2;
+ FAIL  tests/forma-contract-tokens.test.ts > refuses misplaced or duplicated contract #[range(0,10)] let count = 1; prop later: Number = 2;
+ FAIL  tests/forma-contract-tokens.test.ts > refuses misplaced or duplicated contract #[range(0,10)] tokens { color: 1; } prop later: Number = 2;
+ FAIL  tests/forma-contract-tokens.test.ts > refuses misplaced or duplicated contract #[range(0,10)] #[range(0,5)] prop x: Number = 2;
+ FAIL  tests/forma-contract-tokens.test.ts > refuses misplaced or duplicated contract #[pattern('a')] #[pattern('b')] prop x: String = 'a';
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-contract-tokens.test.ts:65:44
+     63|   it(`refuses misplaced or duplicated contract ${body}`, () => {
+     64|     const source = `component App { ${body} }`;
+     65|     expect(() => parseFormaSource(source)).toThrow(/contract/i);
+       |                                            ^
+     66|     expect(validateFormaSource(source).valid).toBe(false);
+     67|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 18 passed (25)
+   Start at  19:24:43
+   Duration  337ms (transform 51%, import 36%, tests 11%, worker 2%)

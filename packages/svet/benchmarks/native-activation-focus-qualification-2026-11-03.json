@@ -1,0 +1,22 @@
+{
+  "status": "partial",
+  "defect": "Blur remembered editor overwrote pointer selection received before Focused(true)",
+  "baseline": "new regression fails index1 != index2",
+  "fix": "Preserve current focused control on activation; resolve remembered stable editor only when no current focus",
+  "validation": {
+    "passed": 205,
+    "ignored_gpu": 2,
+    "cases": [
+      "blur then pointer selects other editor then activation",
+      "duplicate activation preserves target",
+      "subsequent text commits to selected model field",
+      "existing blur/reorder/fallback tests pass"
+    ]
+  },
+  "source_sha256": "6d6c8e5b0cdd2530965ee789243a36934e64a94b9c9c1f5516d0c243da11d872",
+  "limits": [
+    "Rust event-order reproduction; actual OS candidate rerun pending",
+    "OS trace root cause match requires detailed event logs",
+    "CJK and late commit unqualified"
+  ]
+}

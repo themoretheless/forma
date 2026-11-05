@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 35,
+  "browser": "Trusted select-all works; insert/backspace/command-delete/undo leave Rust/DOM unchanged",
+  "ax": "Focused multiline textbox readonly=true with stable label/value",
+  "sha256": {
+    "vector-ui/src/runtime.rs": "d46d419e8116562096f79d9168d452f7855a9c995e2cfd1b32136cb94beccb05",
+    "vector-ui/src/text_input.rs": "5ac6fdfc2d0d82f3d4091e68f73fd205aecc496234c1896feed8a6fbc2aab10c",
+    "src/vector-preview.js": "5876775bd96f0e946a7cac1f4cad29f29131b00e6b2fc187d069c9af7c171aad",
+    "vector-ui/tests/preview-readonly-browser.html": "734911d3857dda552d680cb1bb9fd0080359ae1807306a03d9ccf50a2174bdfe",
+    "/tmp/svet-readonly-wasm/web/forma_bg.wasm": "30bc0c4e4a0fd22e7d7923acb0adb99e4d09277cf6aebdb993857d4811cb35cc"
+  },
+  "limits": [
+    "Actual native OS-window/IME and screen-reader spoken output unqualified"
+  ]
+}

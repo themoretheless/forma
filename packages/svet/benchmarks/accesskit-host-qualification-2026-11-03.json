@@ -1,0 +1,31 @@
+{
+  "status": "partial",
+  "verified": [
+    "macOS actual AX exposes labeled text fields and values",
+    "AX value updates after native edit to Editable!",
+    "Owned probe process closed",
+    "native all-targets check",
+    "host18 tests"
+  ],
+  "nativeTests": {
+    "passed": 326,
+    "failed": 0,
+    "ignored": 9
+  },
+  "sha256": {
+    "vector-ui/src/native_window.rs": "c50c8c5e80f7678f08c242e130d35b9c290e3975c71d23206105248ae32141e9",
+    "vector-ui/src/native_accessibility.rs": "7465218d235545cc3b75e387bdcc9fd8444564d7b9bc13b059fa9213f4c14e94",
+    "vector-ui/Cargo.toml": "7df3e982a9bdbc2108b18285df074156103056187019ac648421fc493dcfb798",
+    "vector-ui/Cargo.lock": "e4a6d36b8667cbda66dfe41da8a00424b023bb0b65248d21d0c33d7e8c73e2a6",
+    "/tmp/SvetAccessKitProbe.app/Contents/MacOS/native_readonly_probe": "b3ec895ec5dc800dd1028e58a2372f9d879fbd431ba325fcfdc93f12dc062711"
+  },
+  "remaining": [
+    "AccessKit text-position descendants/selection",
+    "SetValue/range actions",
+    "Spoken screen-reader output",
+    "Other OS backends",
+    "Standalone window parity",
+    "Stale snapshot ID behavior across source replacement",
+    "Incremental tree updates and long-run allocation qualification"
+  ]
+}

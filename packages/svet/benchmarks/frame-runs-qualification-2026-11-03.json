@@ -1,0 +1,821 @@
+{
+  "status": "partial",
+  "implementation": "Equal-value Frame runs replace per-pixel byte map; dense paint handles viewport/scrollbar runs then background and rounded clip, skipping unnecessary pixel walks while preserving original arithmetic",
+  "allocation_regression": {
+    "before_requested_bytes": 4355408,
+    "after_requested_bytes": 3875440,
+    "budget_bytes": 4000000,
+    "baseline": "expected failure",
+    "candidate": "passed",
+    "scope": "cold800x600 dense nested content_pixels"
+  },
+  "uniform_frame_regression": {
+    "canvas": [
+      1600,
+      1200
+    ],
+    "map_before_bytes": 1920000,
+    "map_after_runs": 1,
+    "map_after_capacity_budget_bytes": 64,
+    "covers_offscreen_geometry": true
+  },
+  "release_background_pairs": {
+    "status": "partial",
+    "background": true,
+    "scope": "A/A+four AB/BA release dense public Button pixel pairs; background selects pixels vs content_pixels; cold build and tick/repaint/RGBA copy, no allocator instrumentation; one host; no OS presentation, input latency or RSS claim",
+    "rows": [
+      {
+        "scale": 1,
+        "name": "full",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 3.8461670000000003,
+          "p95_ms": 5.820666
+        },
+        "candidate": {
+          "p50_ms": 3.2059375,
+          "p95_ms": 3.386083
+        },
+        "paired_p50_ratios": [
+          0.8674333710889488,
+          0.8735987699712547,
+          0.7878090623932421,
+          0.8119162046904
+        ],
+        "median_p50_ratio": 0.8396747878896744,
+        "aa_p50_ratio": 1.0067538526826574
+      },
+      {
+        "scale": 1,
+        "name": "full",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 1.910604,
+          "p95_ms": 2.764854
+        },
+        "candidate": {
+          "p50_ms": 1.41025,
+          "p95_ms": 1.453104
+        },
+        "paired_p50_ratios": [
+          0.7611013605066999,
+          0.7409700381426177,
+          0.7349929508565792,
+          0.7416587512131997
+        ],
+        "median_p50_ratio": 0.7413143946779087,
+        "aa_p50_ratio": 0.9911628841132757
+      },
+      {
+        "scale": 1,
+        "name": "geometry",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 2.235167,
+          "p95_ms": 2.5245835000000003
+        },
+        "candidate": {
+          "p50_ms": 1.7746045000000001,
+          "p95_ms": 1.9815619999999998
+        },
+        "paired_p50_ratios": [
+          0.8046483906641059,
+          0.8790283235168194,
+          0.7706923060591154,
+          0.7649321531325728
+        ],
+        "median_p50_ratio": 0.7876703483616107,
+        "aa_p50_ratio": 1.0016414096932638
+      },
+      {
+        "scale": 1,
+        "name": "geometry",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 0.6888750000000001,
+          "p95_ms": 1.004354
+        },
+        "candidate": {
+          "p50_ms": 0.324042,
+          "p95_ms": 0.361271
+        },
+        "paired_p50_ratios": [
+          0.48323621265241173,
+          0.4693545470981738,
+          0.46628691320380605,
+          0.47338116918594053
+        ],
+        "median_p50_ratio": 0.4713678581420572,
+        "aa_p50_ratio": 1.073071575407039
+      },
+      {
+        "scale": 1,
+        "name": "mixed",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 2.271104,
+          "p95_ms": 3.4289795
+        },
+        "candidate": {
+          "p50_ms": 1.8330835,
+          "p95_ms": 2.1463954999999997
+        },
+        "paired_p50_ratios": [
+          0.799434522630253,
+          0.8331390388354063,
+          0.7651909722222222,
+          0.8759160715274317
+        ],
+        "median_p50_ratio": 0.8162867807328297,
+        "aa_p50_ratio": 1.0251203581472765
+      },
+      {
+        "scale": 1,
+        "name": "mixed",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 0.6957495,
+          "p95_ms": 0.8731875
+        },
+        "candidate": {
+          "p50_ms": 0.3269795,
+          "p95_ms": 0.3791455
+        },
+        "paired_p50_ratios": [
+          0.4738776117599738,
+          0.47639296677625514,
+          0.45351827818788537,
+          0.4834079008370712
+        ],
+        "median_p50_ratio": 0.47513528926811444,
+        "aa_p50_ratio": 0.9469200477817343
+      },
+      {
+        "scale": 1,
+        "name": "nested",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 2.2829170000000003,
+          "p95_ms": 3.5248125000000003
+        },
+        "candidate": {
+          "p50_ms": 1.7544374999999999,
+          "p95_ms": 2.4313960000000003
+        },
+        "paired_p50_ratios": [
+          0.8085241363400427,
+          0.782506774820255,
+          0.7466084740042387,
+          0.7699568097366579
+        ],
+        "median_p50_ratio": 0.7762317922784565,
+        "aa_p50_ratio": 1.0028256460135507
+      },
+      {
+        "scale": 1,
+        "name": "nested",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 0.6838545,
+          "p95_ms": 1.739312
+        },
+        "candidate": {
+          "p50_ms": 0.3250415,
+          "p95_ms": 0.34852099999999997
+        },
+        "paired_p50_ratios": [
+          0.4890998233055728,
+          0.4989153581003447,
+          0.4469766807356668,
+          0.4632085824163812
+        ],
+        "median_p50_ratio": 0.476154202860977,
+        "aa_p50_ratio": 1.0055267020598608
+      },
+      {
+        "scale": 2,
+        "name": "full",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 16.568083,
+          "p95_ms": 20.745166499999996
+        },
+        "candidate": {
+          "p50_ms": 12.751416500000001,
+          "p95_ms": 14.881708500000002
+        },
+        "paired_p50_ratios": [
+          0.861939529060694,
+          0.7205143168397962,
+          0.8216412072302055,
+          1.2209119012592173
+        ],
+        "median_p50_ratio": 0.8417903681454497,
+        "aa_p50_ratio": 1.0034263085399449
+      },
+      {
+        "scale": 2,
+        "name": "full",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 7.491353999999999,
+          "p95_ms": 10.749832999999999
+        },
+        "candidate": {
+          "p50_ms": 5.648229499999999,
+          "p95_ms": 8.124604000000001
+        },
+        "paired_p50_ratios": [
+          0.7666880272402907,
+          0.7497273648368076,
+          0.7509192267271264,
+          0.7710835388359686
+        ],
+        "median_p50_ratio": 0.7588036269837086,
+        "aa_p50_ratio": 1.0033902202568246
+      },
+      {
+        "scale": 2,
+        "name": "geometry",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 8.840709,
+          "p95_ms": 10.642791500000001
+        },
+        "candidate": {
+          "p50_ms": 7.3650835,
+          "p95_ms": 9.068625500000001
+        },
+        "paired_p50_ratios": [
+          0.8115252659909539,
+          0.8712466551188395,
+          0.7865095704662952,
+          0.8350682564036342
+        ],
+        "median_p50_ratio": 0.8232967611972941,
+        "aa_p50_ratio": 1.0076702144117522
+      },
+      {
+        "scale": 2,
+        "name": "geometry",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 2.795937,
+          "p95_ms": 4.1350415
+        },
+        "candidate": {
+          "p50_ms": 1.292646,
+          "p95_ms": 1.6523754999999998
+        },
+        "paired_p50_ratios": [
+          0.47172106579497286,
+          0.45580707169833345,
+          0.4659431632126115,
+          0.448218806174483
+        ],
+        "median_p50_ratio": 0.4608751174554725,
+        "aa_p50_ratio": 0.988866883902366
+      },
+      {
+        "scale": 2,
+        "name": "mixed",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 9.045271,
+          "p95_ms": 14.623042
+        },
+        "candidate": {
+          "p50_ms": 7.4523755000000005,
+          "p95_ms": 11.1966455
+        },
+        "paired_p50_ratios": [
+          0.796910882613288,
+          0.8264765325856258,
+          0.8018670875993802,
+          0.8994862400064279
+        ],
+        "median_p50_ratio": 0.8141718100925031,
+        "aa_p50_ratio": 1.0108433884179364
+      },
+      {
+        "scale": 2,
+        "name": "mixed",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 2.763666,
+          "p95_ms": 3.8365205
+        },
+        "candidate": {
+          "p50_ms": 1.2925835,
+          "p95_ms": 1.3376665
+        },
+        "paired_p50_ratios": [
+          0.48339362297500166,
+          0.4654836372324336,
+          0.47352381471606453,
+          0.41531462146328246
+        ],
+        "median_p50_ratio": 0.46950372597424905,
+        "aa_p50_ratio": 1.0144862306413036
+      },
+      {
+        "scale": 2,
+        "name": "nested",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 8.9359375,
+          "p95_ms": 10.971146000000001
+        },
+        "candidate": {
+          "p50_ms": 7.152063,
+          "p95_ms": 10.654687500000001
+        },
+        "paired_p50_ratios": [
+          0.8154880586805606,
+          0.7736768286114403,
+          0.8308100197166322,
+          0.9016952213268324
+        ],
+        "median_p50_ratio": 0.8231490391985964,
+        "aa_p50_ratio": 1.0137259668541847
+      },
+      {
+        "scale": 2,
+        "name": "nested",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 2.7006249999999996,
+          "p95_ms": 4.517167000000001
+        },
+        "candidate": {
+          "p50_ms": 1.318896,
+          "p95_ms": 7.062479
+        },
+        "paired_p50_ratios": [
+          0.4817042448904097,
+          0.4951816160118606,
+          0.4921000985758114,
+          0.4512416634436135
+        ],
+        "median_p50_ratio": 0.48690217173311057,
+        "aa_p50_ratio": 0.9702812314718606
+      }
+    ],
+    "binary_sha256": {
+      "baseline": "6d8c95a9f02244139617cc1ca4bbea6eca2b93ab3ca039ebfb9667cb6b277444",
+      "candidate": "06df6e45dfd6cb75da84b25a5832292401cdff32d27173b7eec7ee9106c97f1e"
+    }
+  },
+  "release_content_pairs": {
+    "status": "partial",
+    "background": false,
+    "scope": "A/A+four AB/BA release dense public Button pixel pairs; background selects pixels vs content_pixels; cold build and tick/repaint/RGBA copy, no allocator instrumentation; one host; no OS presentation, input latency or RSS claim",
+    "rows": [
+      {
+        "scale": 1,
+        "name": "full",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 2.3419375000000002,
+          "p95_ms": 2.5116665
+        },
+        "candidate": {
+          "p50_ms": 2.059521,
+          "p95_ms": 4.366396
+        },
+        "paired_p50_ratios": [
+          1.0023453181094752,
+          0.8349200672608124,
+          0.48109270307288615,
+          0.9243746828661432
+        ],
+        "median_p50_ratio": 0.8796473750634778,
+        "aa_p50_ratio": 1.1026525312054425
+      },
+      {
+        "scale": 1,
+        "name": "full",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 0.5015625,
+          "p95_ms": 0.5624374999999999
+        },
+        "candidate": {
+          "p50_ms": 0.19724999999999998,
+          "p95_ms": 0.27725
+        },
+        "paired_p50_ratios": [
+          0.41870088050314463,
+          0.39622255943348506,
+          0.20075001227515996,
+          0.3916049382716049
+        ],
+        "median_p50_ratio": 0.393913748852545,
+        "aa_p50_ratio": 1.0027945748089864
+      },
+      {
+        "scale": 1,
+        "name": "geometry",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 1.837646,
+          "p95_ms": 1.9041044999999999
+        },
+        "candidate": {
+          "p50_ms": 1.584521,
+          "p95_ms": 1.6855625
+        },
+        "paired_p50_ratios": [
+          0.926866877318313,
+          0.8076757180561516,
+          0.4485578084335248,
+          0.9140338983050847
+        ],
+        "median_p50_ratio": 0.8608548081806182,
+        "aa_p50_ratio": 1.1282789362138512
+      },
+      {
+        "scale": 1,
+        "name": "geometry",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 0.3459795,
+          "p95_ms": 0.4149585
+        },
+        "candidate": {
+          "p50_ms": 0.051062500000000004,
+          "p95_ms": 0.056396
+        },
+        "paired_p50_ratios": [
+          0.1780533768247071,
+          0.13897193500738553,
+          0.0814236741214564,
+          0.14713684741546518
+        ],
+        "median_p50_ratio": 0.14305439121142535,
+        "aa_p50_ratio": 1.0732846312887663
+      },
+      {
+        "scale": 1,
+        "name": "mixed",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 2.0333545,
+          "p95_ms": 2.082479
+        },
+        "candidate": {
+          "p50_ms": 1.588959,
+          "p95_ms": 1.6057085
+        },
+        "paired_p50_ratios": [
+          0.7860957301022727,
+          0.800983041020902,
+          0.4518905983152602,
+          0.8989375151996367
+        ],
+        "median_p50_ratio": 0.7935393855615873,
+        "aa_p50_ratio": 1.113306876854809
+      },
+      {
+        "scale": 1,
+        "name": "mixed",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 0.362625,
+          "p95_ms": 0.3986875
+        },
+        "candidate": {
+          "p50_ms": 0.0527085,
+          "p95_ms": 0.059645500000000004
+        },
+        "paired_p50_ratios": [
+          0.15993431855500823,
+          0.14725223248698457,
+          0.07615033862252756,
+          0.1612854552049329
+        ],
+        "median_p50_ratio": 0.1535932755209964,
+        "aa_p50_ratio": 1.061356618931191
+      },
+      {
+        "scale": 1,
+        "name": "nested",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 1.954896,
+          "p95_ms": 2.1412705
+        },
+        "candidate": {
+          "p50_ms": 1.5436040000000002,
+          "p95_ms": 1.598479
+        },
+        "paired_p50_ratios": [
+          0.8228244678202205,
+          0.7990946309420954,
+          0.4481788478073947,
+          0.8687962208989147
+        ],
+        "median_p50_ratio": 0.8109595493811579,
+        "aa_p50_ratio": 1.0839582979134261
+      },
+      {
+        "scale": 1,
+        "name": "nested",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 0.510896,
+          "p95_ms": 0.8150205
+        },
+        "candidate": {
+          "p50_ms": 0.053792,
+          "p95_ms": 0.058937500000000004
+        },
+        "paired_p50_ratios": [
+          0.07517394228177733,
+          0.14796201598430353,
+          0.07336791942779315,
+          0.1659030142039358
+        ],
+        "median_p50_ratio": 0.11156797913304042,
+        "aa_p50_ratio": 1.0771130445693493
+      },
+      {
+        "scale": 2,
+        "name": "full",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 15.8337505,
+          "p95_ms": 34.8459795
+        },
+        "candidate": {
+          "p50_ms": 7.7222919999999995,
+          "p95_ms": 8.4125
+        },
+        "paired_p50_ratios": [
+          0.6436914410237127,
+          0.3940886727152917,
+          0.43945103196695623,
+          0.8439531572402673
+        ],
+        "median_p50_ratio": 0.5415712364953345,
+        "aa_p50_ratio": 0.673148222580667
+      },
+      {
+        "scale": 2,
+        "name": "full",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 3.0760829999999997,
+          "p95_ms": 5.6385005
+        },
+        "candidate": {
+          "p50_ms": 0.7790204999999999,
+          "p95_ms": 0.8665835
+        },
+        "paired_p50_ratios": [
+          0.19954654807129987,
+          0.12822573373781598,
+          0.391410367025951,
+          0.39888883170355116
+        ],
+        "median_p50_ratio": 0.29547845754862545,
+        "aa_p50_ratio": 1.0120310957551828
+      },
+      {
+        "scale": 2,
+        "name": "geometry",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 11.679395499999998,
+          "p95_ms": 19.5663755
+        },
+        "candidate": {
+          "p50_ms": 5.829042,
+          "p95_ms": 6.1447085
+        },
+        "paired_p50_ratios": [
+          0.2068897195767895,
+          0.3588512625362389,
+          0.7897007116162392,
+          0.9039280924115972
+        ],
+        "median_p50_ratio": 0.5742759870762391,
+        "aa_p50_ratio": 0.6695402234330717
+      },
+      {
+        "scale": 2,
+        "name": "geometry",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 2.6774585,
+          "p95_ms": 4.866624999999999
+        },
+        "candidate": {
+          "p50_ms": 0.17643799999999998,
+          "p95_ms": 0.190771
+        },
+        "paired_p50_ratios": [
+          0.04483016091542864,
+          0.03394304565080289,
+          0.1304417144288776,
+          0.12434678414096914
+        ],
+        "median_p50_ratio": 0.0845884725281989,
+        "aa_p50_ratio": 1.2561091485625573
+      },
+      {
+        "scale": 2,
+        "name": "mixed",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 14.3926665,
+          "p95_ms": 20.003896
+        },
+        "candidate": {
+          "p50_ms": 5.866979000000001,
+          "p95_ms": 6.164771
+        },
+        "paired_p50_ratios": [
+          0.1433169610220028,
+          0.2717012825672342,
+          0.7979307853942529,
+          0.8020965898031488
+        ],
+        "median_p50_ratio": 0.5348160339807435,
+        "aa_p50_ratio": 0.9967752172085222
+      },
+      {
+        "scale": 2,
+        "name": "mixed",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 3.529041,
+          "p95_ms": 7.5692705
+        },
+        "candidate": {
+          "p50_ms": 0.17402099999999998,
+          "p95_ms": 0.2063755
+        },
+        "paired_p50_ratios": [
+          0.02847031163167075,
+          0.030548915592729955,
+          0.13276503128684136,
+          0.12327713891544435
+        ],
+        "median_p50_ratio": 0.07691302725408715,
+        "aa_p50_ratio": 1.040380350877193
+      },
+      {
+        "scale": 2,
+        "name": "nested",
+        "phase": "cold",
+        "baseline": {
+          "p50_ms": 13.5964375,
+          "p95_ms": 20.7226045
+        },
+        "candidate": {
+          "p50_ms": 5.8015419999999995,
+          "p95_ms": 7.499396
+        },
+        "paired_p50_ratios": [
+          0.2875013767370932,
+          0.21005706318777073,
+          0.8008436738530071,
+          0.7968701118672566
+        ],
+        "median_p50_ratio": 0.5421857443021749,
+        "aa_p50_ratio": 1.086911637506369
+      },
+      {
+        "scale": 2,
+        "name": "nested",
+        "phase": "repaint",
+        "baseline": {
+          "p50_ms": 1.4453955,
+          "p95_ms": 4.0886455
+        },
+        "candidate": {
+          "p50_ms": 0.177854,
+          "p95_ms": 0.2059375
+        },
+        "paired_p50_ratios": [
+          0.1223870934185961,
+          0.06532275941142748,
+          0.13244660169101222,
+          0.12372489040510416
+        ],
+        "median_p50_ratio": 0.12305599191185013,
+        "aa_p50_ratio": 1.0016274052478136
+      }
+    ],
+    "binary_sha256": {
+      "baseline": "6d8c95a9f02244139617cc1ca4bbea6eca2b93ab3ca039ebfb9667cb6b277444",
+      "candidate": "06df6e45dfd6cb75da84b25a5832292401cdff32d27173b7eec7ee9106c97f1e"
+    }
+  },
+  "content_timing_interpretation": "exploratory/inconclusive qualification:2x A/A ratios0.6695\u20131.2561; retain raw runs, no qualified gain claim",
+  "background_timing_scope": "2x A/A range0.9703\u20131.0145 in this run; public Button pixels includes cold build or tick/repaint/RGBA copy; no OS latency claim",
+  "rust_tests_passed": 267,
+  "rust_tests_ignored": 9,
+  "native_all_targets": "passed",
+  "probe_fixture_test": "passed8/32/96/256",
+  "hardware_reveal": {
+    "adapter": "Apple M4 Max/Metal",
+    "comparisons": 126,
+    "max_channel_error": 1
+  },
+  "exact_wasm_frames": 480,
+  "exact_artifact_json": 30,
+  "node_cases": 14,
+  "browser_cases": 18,
+  "actual_native_256": {
+    "status": "partial",
+    "validated": "Actual OS NativeHost[256] synthetic mixed-font editor forms, CPU/GPU presents, top/bottom scroll and bound model edits; extra0 roundtrips on256",
+    "interval_selection": "Adjacent presents with identical renderer/focus/scroll and animating=true in both; no duration cutoff; includes input/journaling overhead. Other intervals remain in raw logs.",
+    "units": "Frame intervals/update/load in ms. macOS getrusage ru_maxrss is process peak bytes; includes CPU/GPU host allocations.",
+    "rows": [
+      {
+        "controls": 256,
+        "load_ms": 21.57,
+        "first_present_ms": 270.066,
+        "presentation_count": 3028,
+        "renderer_transitions": [
+          "Gpu",
+          "Cpu",
+          "Gpu"
+        ],
+        "segments": [
+          {
+            "renderer": "Gpu",
+            "first_at_us": 270066,
+            "first_peak_rss_bytes": 102121472,
+            "max_peak_rss_bytes": 118652928,
+            "frames": 260
+          },
+          {
+            "renderer": "Cpu",
+            "first_at_us": 14900229,
+            "first_peak_rss_bytes": 151027712,
+            "max_peak_rss_bytes": 169902080,
+            "frames": 1097
+          },
+          {
+            "renderer": "Gpu",
+            "first_at_us": 33990443,
+            "first_peak_rss_bytes": 169902080,
+            "max_peak_rss_bytes": 169902080,
+            "frames": 1671
+          }
+        ],
+        "max_scroll_y": 9334.0,
+        "final_scroll": [
+          0.0,
+          0.0
+        ],
+        "final_model_exact": true,
+        "frame_interval_ms": {
+          "Cpu": {
+            "samples": 1094,
+            "p50": 17.118,
+            "p95": 23.881,
+            "max": 43.431
+          },
+          "Gpu": {
+            "samples": 1924,
+            "p50": 8.485,
+            "p95": 16.17,
+            "max": 60.467
+          }
+        },
+        "peak_rss_bytes": 169902080,
+        "changed_model_update_ms": [
+          17.862,
+          17.459,
+          17.348,
+          33.229
+        ],
+        "gpu_errors": 0
+      }
+    ],
+    "limits": [
+      "One release run per form size on one macOS machine; no A/A or baseline comparison",
+      "Callback follows CPU buffer.present/GPU frame.present; does not prove display scanout or GPU completion",
+      "No OS input-to-display latency claim; update_ms includes host input callback and binding sync only",
+      "Process peak RSS is not current live memory, GPU-resident accounting or leak proof",
+      "Default Svet scheduler only; other schedulers/platforms and true CJK IME remain open"
+    ]
+  },
+  "candidate_wasm_sha256": "1f3699a927b83c8d2474078f03c56921bc31f7e0efbdba8d3520de917ca21f88",
+  "baseline_wasm_sha256": "26f0ede893899a7239ebb3dc978d8fa50805b9de20f86193480ceb4216f43815",
+  "baseline_cache_sha256": "999d32a691dd5a8a58aa0e5914e11ab70865032f3b48cdbb10e124f5c8edaef6",
+  "candidate_cache_sha256": "a9580e1b8ae1979e8d2ba7780a086712d92d793be903afd89c91babd9745d3f4",
+  "native_release_binary_sha256": "23b3f03aff72a6e9ed5dab999bc581772762827cd617137f663b351ab42e0e81",
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: aarch64-apple-darwin\nrelease: 1.97.1\nLLVM version: 22.1.6\n",
+  "limits": [
+    "RGBA output/native XRGB still dense",
+    "Frame support is still evaluated per pixel when geometry is built",
+    "Content-only timing A/A is unstable; do not use as qualified speedup",
+    "One host; native256 is a single smoke/behavior run, not paired OS latency or RSS qualification",
+    "Long lifecycle/RSS plateau and other platforms remain open"
+  ]
+}

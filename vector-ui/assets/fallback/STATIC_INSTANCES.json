@@ -1,0 +1,34 @@
+{
+  "fonttools": "4.68.0",
+  "weight": 400,
+  "subsetting": false,
+  "sources_revision": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+  "fonts": [
+    {
+      "source": "NotoSansSC.ttf",
+      "source_sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+      "output": "FormaCJK-Regular.ttf",
+      "output_sha256": "1dba554ea997adf3b552032118fd58740b3293d5586cae9e50ee8ce24bbf669a",
+      "source_bytes": 17772300,
+      "output_bytes": 10595844,
+      "unicode_mappings": 30890,
+      "glyphs": 31036,
+      "glyph_order_preserved": true,
+      "best_cmap_preserved": true,
+      "all_cmap_tables_preserved": true
+    },
+    {
+      "source": "NotoEmoji.ttf",
+      "source_sha256": "de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551",
+      "output": "FormaEmoji-Regular.ttf",
+      "output_sha256": "266175f54d63923908dcaff987d9d2633cf8ad0e767223c192ee40d93afea3ea",
+      "source_bytes": 1982596,
+      "output_bytes": 886652,
+      "unicode_mappings": 1489,
+      "glyphs": 1891,
+      "glyph_order_preserved": true,
+      "best_cmap_preserved": true,
+      "all_cmap_tables_preserved": true
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "name": "Custom visual template reads props.__state through transferred snapshot",
+      "status": "passed"
+    },
+    {
+      "name": "Column For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Frame For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through single retained Let collection alias",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through chained retained Let collection alias",
+      "status": "passed"
+    },
+    {
+      "name": "Warmed idle and reload reorder preserve single alias writes",
+      "status": "passed"
+    },
+    {
+      "name": "Warmed idle and reload reorder preserve chained alias writes",
+      "status": "passed"
+    },
+    {
+      "name": "Project reload errors preserve live document, focus and cache versions",
+      "status": "passed"
+    },
+    {
+      "name": "Live disabled TextInput binding locks and unlocks without reload",
+      "status": "passed"
+    },
+    {
+      "name": "Nested layout keeps control snapshots and live writes with unrelated payload",
+      "status": "passed"
+    },
+    {
+      "name": "Large resolved List property retains contract type validation",
+      "status": "passed"
+    },
+    {
+      "name": "Source wrappers throw atomically and recover after invalid markup/template",
+      "status": "passed"
+    },
+    {
+      "name": "Modal blocks base scroll without cancelling its pressed control",
+      "status": "passed"
+    },
+    {
+      "name": "Portable CJK and emoji use real pixels and matching simple/shaped advances",
+      "status": "passed"
+    }
+  ],
+  "wasmSha256": "2d191eb657b71c642a5598c42630effcf75c3d6c680ebd67c31f1a65bc03d627",
+  "status": "passed"
+}

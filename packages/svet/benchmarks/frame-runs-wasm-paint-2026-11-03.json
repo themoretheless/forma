@@ -1,0 +1,1478 @@
+{
+  "status": "passed",
+  "scope": "Exact Button dense pixels across animated fill/border/reveal, clipping/background, Scroll and DPI. No OS presentation claim.",
+  "baselineSha256": "26f0ede893899a7239ebb3dc978d8fa50805b9de20f86193480ceb4216f43815",
+  "candidateSha256": "1f3699a927b83c8d2474078f03c56921bc31f7e0efbdba8d3520de917ca21f88",
+  "rows": [
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": false,
+      "state": 0,
+      "sha256": "d4829c13de10c5810eab6f78c124da153fdd3deeb8c1a491331692a16f3ab159"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": false,
+      "state": 1,
+      "sha256": "cb66a3da4aceabc11e3de9544a8613dfdb9c84a751797946b2ef46656c59b96a"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": false,
+      "state": 2,
+      "sha256": "9333deae2ec3951f3ec14d7fb3b2244a3669d8cc824760f6e7f95322ab8250fd"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": false,
+      "state": 3,
+      "sha256": "80c7ec273f41d45c36d19200688d69eda9e83c0a51f2f27a2d4df7b82fb1cb9a"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": false,
+      "state": 4,
+      "sha256": "a82f9c7496dbd5370807a3015d278959982bd4034454968053cfe902e38624be"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": false,
+      "state": 5,
+      "sha256": "5542c1d73705c28ce70474273776419ce4626b6c1e533bac2aa81a976cd6ea9e"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": false,
+      "state": 6,
+      "sha256": "d4829c13de10c5810eab6f78c124da153fdd3deeb8c1a491331692a16f3ab159"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": true,
+      "state": 0,
+      "sha256": "242ca266fd2212d4648a7b15f8d3541a8910df3e214d8492e868bcc6b2568865"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": true,
+      "state": 1,
+      "sha256": "b5549fd8ad38d6cec7183c8258c9d4a340dddf0a9463c8cf17f21352cf18d854"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": true,
+      "state": 2,
+      "sha256": "6de17552086dc295cdf7a445d86d3549cc5fb2c65fb8c660f7142fc7c3764ee1"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": true,
+      "state": 3,
+      "sha256": "18456cc1e456e2b26c67f13dd75f4dd7f60b02810fc03e93bf75d9d437c39665"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": true,
+      "state": 4,
+      "sha256": "ec574d871b0d1dd2bb2a85e10e44f780066da656003fa181b6b8bc44932f0ef7"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": true,
+      "state": 5,
+      "sha256": "6fc458f216a93106429cb9c203ad7d663f106ded19b92939a38b23239a3b9c69"
+    },
+    {
+      "sourceId": 0,
+      "scale": 0.75,
+      "background": true,
+      "state": 6,
+      "sha256": "242ca266fd2212d4648a7b15f8d3541a8910df3e214d8492e868bcc6b2568865"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": false,
+      "state": 0,
+      "sha256": "345155eda5d3988a40699f996d4225ccf1290fe0ca4bce9616dd62f39e960982"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": false,
+      "state": 1,
+      "sha256": "66f5ef8e887aff4c21a1605ef119d2bb0eb3abbc37196be9e80199aa484f0c1e"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": false,
+      "state": 2,
+      "sha256": "ae0063263c662d39c49273499d38247c4137759183cbaac57f61634aec1d0589"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": false,
+      "state": 3,
+      "sha256": "6afde63153cc9b404b83e42f8271d3dc381ff7046be05981e90b6f8d09bdf4bf"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": false,
+      "state": 4,
+      "sha256": "9f498e0142c632ffa1855ecf4f977c852116c774d34bb49c7c8b65ba241664e2"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": false,
+      "state": 5,
+      "sha256": "f0c636cd46de85975414cb2fb699251bb4223e8cc58c631a51ca927c13cea1d1"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": false,
+      "state": 6,
+      "sha256": "345155eda5d3988a40699f996d4225ccf1290fe0ca4bce9616dd62f39e960982"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": true,
+      "state": 0,
+      "sha256": "5df66987fe5e7a60752bbf69b03f5abc293e93ffec357a50a1ea5e3677db7473"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": true,
+      "state": 1,
+      "sha256": "7466a5176f74c31f798c4602e5a5d0b335fda01c7302ac37cd654e469a45da54"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": true,
+      "state": 2,
+      "sha256": "87ff044f83579b89f7ef59cf756a84abe7f01367abae3b3cb27f5574a4587313"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": true,
+      "state": 3,
+      "sha256": "ec6a7dbb5661a5e7ccc7439eacb6c3b8fad6efa8efcf0f4e7806ca1a4a7b0cbe"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": true,
+      "state": 4,
+      "sha256": "c7cedeb520ab712a502cd533038559c19f4aaa7e90652b642c0913d34bf3601b"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": true,
+      "state": 5,
+      "sha256": "af0a1350705f7401648858d3efb81157509ac09242ec0b6a5a9459c2bcc71302"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1,
+      "background": true,
+      "state": 6,
+      "sha256": "5df66987fe5e7a60752bbf69b03f5abc293e93ffec357a50a1ea5e3677db7473"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": false,
+      "state": 0,
+      "sha256": "4a8ec7acddc169017c976855be78eebcf659bd9fc686bb51e33b58bcde3e5153"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": false,
+      "state": 1,
+      "sha256": "c21c7a58cdb5f65583e39832c24811204531c94cd8ba64ab9ca04a160e9cdedd"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": false,
+      "state": 2,
+      "sha256": "9322d377a312d4bac71d785e52caf53562445a7bb00827d256fdb27d13017926"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": false,
+      "state": 3,
+      "sha256": "c8bcdb8d087c2f57810c831f102aabc6453b913eb87e060e47b58159cb116ec3"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": false,
+      "state": 4,
+      "sha256": "81f9cb760178d88aae858efd6ec007350c943140b7464afccf2766ef13ae71fc"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": false,
+      "state": 5,
+      "sha256": "e0379f98300fdf1a1537a187be00f2b445f0a37e4ae33c6d7482c3fb7bc7f8a9"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": false,
+      "state": 6,
+      "sha256": "4a8ec7acddc169017c976855be78eebcf659bd9fc686bb51e33b58bcde3e5153"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": true,
+      "state": 0,
+      "sha256": "e406d022f5c7e2d159181f0680fad0c5aac70bb4ba6dc0d8dbda8130f72acc70"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": true,
+      "state": 1,
+      "sha256": "d57888106b8fb37d30b1baf2e8f53b601ff14d42585be6dd9a7ebbbceace997d"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": true,
+      "state": 2,
+      "sha256": "a0742352321debe7b41d054d4e6f46146a1294e396c9d889ed4e2444e75e3797"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": true,
+      "state": 3,
+      "sha256": "a2f19b634658c96ec192671dc810659810670ef2b0167f1cafc5d6a5017da25b"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": true,
+      "state": 4,
+      "sha256": "fdce18e2c00212961896746ea8d71016ec9787cc166a552bc4cfe7aa26d42d26"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": true,
+      "state": 5,
+      "sha256": "5167bee77b0039a220157ca43311e5a2520f553eb42f52de1a15dbfe20ee5f6d"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.25,
+      "background": true,
+      "state": 6,
+      "sha256": "e406d022f5c7e2d159181f0680fad0c5aac70bb4ba6dc0d8dbda8130f72acc70"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": false,
+      "state": 0,
+      "sha256": "52e4c70eb63ef57e0275ea0e62e388e7b8a0ad14c2ef1307bc5f7be3c885531a"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": false,
+      "state": 1,
+      "sha256": "17224979dc0acffb9d72c0a379d732bbe3c1945ac768f110bcf55c5668abfdb1"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": false,
+      "state": 2,
+      "sha256": "79466b7da6a7d5d457af8c019a29ae91ee332a552532b3a939c354728589d0ea"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": false,
+      "state": 3,
+      "sha256": "cb3a50676f85f50087dc3214efe36698d4ee78fa406cda80b701f71a6d221ee7"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": false,
+      "state": 4,
+      "sha256": "142aeb0a26f8f9dd45fdcfdb0650ccf267da694d63345802b3aa50015f5320d6"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": false,
+      "state": 5,
+      "sha256": "5cfeb2f3092e9ef8b1ef7600271c97bb766385bb2b9be8452870241da90866a9"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": false,
+      "state": 6,
+      "sha256": "52e4c70eb63ef57e0275ea0e62e388e7b8a0ad14c2ef1307bc5f7be3c885531a"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": true,
+      "state": 0,
+      "sha256": "76719a15f5f00a976b776758204554e8ee87f373a1f0e0f751844c54effc0efc"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": true,
+      "state": 1,
+      "sha256": "2b93b40e53b2f9ac338e6aea25f953655108fdf838ec10a9a57db4263fae716a"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": true,
+      "state": 2,
+      "sha256": "dd9b5974bc67a756780ac23ed66fee4657f4cf40b9ebd31c44219bb395ff28a6"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": true,
+      "state": 3,
+      "sha256": "9ef892b75f24f898c49911ea0220c86a83e9e8cbb4961263f93a5a65dfdd4e40"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": true,
+      "state": 4,
+      "sha256": "c240d6b38847e7d7b66f2a41598f7bfc00182436ea85631fe82be9acaacbd96b"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": true,
+      "state": 5,
+      "sha256": "52df08e959b1c3fdd7ff901ca44b4bde180e6c0cfb984f81253941ec4d82f570"
+    },
+    {
+      "sourceId": 0,
+      "scale": 1.5,
+      "background": true,
+      "state": 6,
+      "sha256": "76719a15f5f00a976b776758204554e8ee87f373a1f0e0f751844c54effc0efc"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": false,
+      "state": 0,
+      "sha256": "46420eef29afb3fd554f0b93de73f4962848ef3999dc46224c3346b72f6d89c6"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": false,
+      "state": 1,
+      "sha256": "f79b5e9bf0c5e7c9dc232c6fe4471c65a5b7e629cb7b31369cab4193340c094c"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": false,
+      "state": 2,
+      "sha256": "092374db9adff5d7f44b91962c8b2781e578e45cdb579c78d03f56ac3b9d76e6"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": false,
+      "state": 3,
+      "sha256": "01acb09458bca3639443822e0157f765b93bc1d787f3b48ecbc0df80c4624d56"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": false,
+      "state": 4,
+      "sha256": "d73704ef33bc9697be7eb3fa361945513d6600f109cc9de08ae631c457bfd42a"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": false,
+      "state": 5,
+      "sha256": "bf5f05b0982a5cf3aa9d03ec1a6b117965f7ed0b6bbf9172117a37ce089f8b13"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": false,
+      "state": 6,
+      "sha256": "46420eef29afb3fd554f0b93de73f4962848ef3999dc46224c3346b72f6d89c6"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": true,
+      "state": 0,
+      "sha256": "c78993d68588f4ea54f22d212dacd72cc21fd0c33b27224eb573bc7155df8305"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": true,
+      "state": 1,
+      "sha256": "602d2a71a9481ddbf684fdafe29de4844171c4cdd9aad844543e1a55d79c942b"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": true,
+      "state": 2,
+      "sha256": "c9a4cd9015201363017e9f1bbb9440b88a64790efd6eaae1cb6be3a5edf09dd1"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": true,
+      "state": 3,
+      "sha256": "bb04f9cbc94717a9426898ce2d28c604983e7b9ab21a7699810a93f538c5be38"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": true,
+      "state": 4,
+      "sha256": "4141bbca944de26c7d2163611df6452c7b05c2f1946ede2ff4c19766d57c887b"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": true,
+      "state": 5,
+      "sha256": "9105a802bfec877263db3961ab173fe3c01b358593facaf10d0f66020e635124"
+    },
+    {
+      "sourceId": 0,
+      "scale": 2,
+      "background": true,
+      "state": 6,
+      "sha256": "c78993d68588f4ea54f22d212dacd72cc21fd0c33b27224eb573bc7155df8305"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": false,
+      "state": 0,
+      "sha256": "89e544b8945b608aa0a164919c6e92347da04e9286e17141963dc625b8d74967"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": false,
+      "state": 1,
+      "sha256": "b41c6d20efc585e08bd71c6d4a555d4aec9854db6ab83d07707ea687918775ad"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": false,
+      "state": 2,
+      "sha256": "bbcc7ea08b936c99978dad751d6ba529a1c66e520f55b7a5bae48b2f39adbdc6"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": false,
+      "state": 3,
+      "sha256": "f1ef8195a6c152c59250393cfd26780299f85e4d4f04499f22481b0577983051"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": false,
+      "state": 4,
+      "sha256": "256cda15779a3b45f671e0eeb1cf4cad342ad8f98096e04b5eb3050c1bb7ef07"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": false,
+      "state": 5,
+      "sha256": "9017e286665b9e2c75c5ed8fe3a9a9ee2665217e3e8415d2eb575dd844b958f3"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": false,
+      "state": 6,
+      "sha256": "89e544b8945b608aa0a164919c6e92347da04e9286e17141963dc625b8d74967"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": true,
+      "state": 0,
+      "sha256": "06c7a6daa3825d50ca5f2406039da8771c4edf87db0c51efe02c620edd9b8420"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": true,
+      "state": 1,
+      "sha256": "ab95980f32f4ed78c47eb74a6c461dc7cbe4ee111b5c344644188618251f1ea5"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": true,
+      "state": 2,
+      "sha256": "5e725f6df485eab196c56afb7980851292c5d0ad00077d2384dc4dc6e17b5e81"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": true,
+      "state": 3,
+      "sha256": "a7d2c4526f023cb185886c61574aace2af69b80f2867d537942412f4890d0a73"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": true,
+      "state": 4,
+      "sha256": "d6c495259c39fcce9ec0941b863f17ee1f868bb36d04e9c317cd040818acc9ba"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": true,
+      "state": 5,
+      "sha256": "2155fbc83394c9d423b129377158de22c419c8523e101bc650c365c4c264e9af"
+    },
+    {
+      "sourceId": 1,
+      "scale": 0.75,
+      "background": true,
+      "state": 6,
+      "sha256": "06c7a6daa3825d50ca5f2406039da8771c4edf87db0c51efe02c620edd9b8420"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": false,
+      "state": 0,
+      "sha256": "fc1a1733ba65ed8ce5ce114ded58e15bbdc3c16c27b5d8612e27ab4f92e7e829"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": false,
+      "state": 1,
+      "sha256": "3c5540974cfaa04010beac436cfc572d9a832db86a90cd93962b79e1a66cc664"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": false,
+      "state": 2,
+      "sha256": "e5e0b84f7ace17c5fd80526ef71dfe1d4add8066f15eaafc506c23c104b3d479"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": false,
+      "state": 3,
+      "sha256": "be7f4374ccd6496720d5bd8d31622a5048751128fa5b60008285b6c1c5ef36e2"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": false,
+      "state": 4,
+      "sha256": "88f2bd93598151200342a7ecb8e5902c70eae9c6253876f3e99b44354f4303cd"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": false,
+      "state": 5,
+      "sha256": "f2e37e40142d3d101c2bc9d50ffeba624c8afe3645a8258f8d8e4cad85459e8d"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": false,
+      "state": 6,
+      "sha256": "fc1a1733ba65ed8ce5ce114ded58e15bbdc3c16c27b5d8612e27ab4f92e7e829"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": true,
+      "state": 0,
+      "sha256": "9d3d43c1f2f6cb5c2cd67eccf2b2a8c6b1cec64d143c807c0d29bb4de1dff15b"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": true,
+      "state": 1,
+      "sha256": "207c222b9d67ac148b4e1e7cacf7d5a205a71ba5a5ce68aaa183a95733925490"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": true,
+      "state": 2,
+      "sha256": "ac3038e54f34ddd1104b3f7d7a4fd71f63bb37516373dc426226fc647c36c43b"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": true,
+      "state": 3,
+      "sha256": "dd430645d50bd957143f7954d61710343fe05951f524e4e818514536e68b85d6"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": true,
+      "state": 4,
+      "sha256": "54cc4e79526cd487fdf102a631c3b9419efb3db77a6f5226d0d0e1f8ccd1186a"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": true,
+      "state": 5,
+      "sha256": "3f2e7f84748b1e8a2276661cb99e683a657f016aca78737dee4c780742375f83"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1,
+      "background": true,
+      "state": 6,
+      "sha256": "9d3d43c1f2f6cb5c2cd67eccf2b2a8c6b1cec64d143c807c0d29bb4de1dff15b"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": false,
+      "state": 0,
+      "sha256": "c76a897aa5ac1b796e0eaceeabbfc0ee9e44efc86b04774e9b153fb0a0da3035"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": false,
+      "state": 1,
+      "sha256": "6b9001b535995ed9679d9697a940bc2faa5392d76c01e9304af18e7c180da540"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": false,
+      "state": 2,
+      "sha256": "c63f5d6f4ea4d3782e636d9df8b878072f494a8cca61f4a6c8ba0b81a2ae4355"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": false,
+      "state": 3,
+      "sha256": "e2acdb0c4dfac3100eb876e370d620275d205cf77563887dbd599202f6026fc4"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": false,
+      "state": 4,
+      "sha256": "f19a86d3e276467022ad460c2eab411e21548a3c76a48c9d3697188b7d6ebed3"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": false,
+      "state": 5,
+      "sha256": "e1203208c891dedc6a50d52a01a094510c29c5afed7a90b61eec6cfda9da3c93"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": false,
+      "state": 6,
+      "sha256": "c76a897aa5ac1b796e0eaceeabbfc0ee9e44efc86b04774e9b153fb0a0da3035"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": true,
+      "state": 0,
+      "sha256": "f25959bf7deee6871b87b57d37f5a68afd0ff7ce95a9527f42a53f231da3380e"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": true,
+      "state": 1,
+      "sha256": "c00b9fab13d0a61d393e252be7afdce8f480c2b7f17fc11368ace55b94d3187d"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": true,
+      "state": 2,
+      "sha256": "94f77259afac40479dba81bd1e910983da4d115b66eeeea3cf174305352fe662"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": true,
+      "state": 3,
+      "sha256": "027275be0e6de6c2469160ab393648fb87029c4c539bf63302e84d28bcdeda49"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": true,
+      "state": 4,
+      "sha256": "9096952e320aa0ea1a580468e8784a96bdfa0b6f077591c80b468b88292e1b41"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": true,
+      "state": 5,
+      "sha256": "7f496bd9ab9c868b01c1cb4b891f2f8fa19429f131217a27fa43060aae8363c5"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.25,
+      "background": true,
+      "state": 6,
+      "sha256": "f25959bf7deee6871b87b57d37f5a68afd0ff7ce95a9527f42a53f231da3380e"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": false,
+      "state": 0,
+      "sha256": "9504e7b9cffe81e41da03ba5fdef68e6e7d54ad36368125a00d84814f7ca77b8"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": false,
+      "state": 1,
+      "sha256": "d2289e351fc139067b292db5ff67da3700ff9def63d08068468c4b098528bb90"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": false,
+      "state": 2,
+      "sha256": "6376344015d8c50d42c80dcaea5f5ee52af6d491a3658e05068c176afca6c34b"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": false,
+      "state": 3,
+      "sha256": "4d6b4337dda9b7d440f1104753ddf07ea1ab4112d88394ec0ebf05b246e66b14"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": false,
+      "state": 4,
+      "sha256": "11dd844108fc19a08b9a4b7e9f3247d7c6d29e7f657976528d7cd8e86bd6f266"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": false,
+      "state": 5,
+      "sha256": "7a24bcd8bcc34787e1b3823499366432cad2a139a6f577c53e2b9eff22e9e41c"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": false,
+      "state": 6,
+      "sha256": "9504e7b9cffe81e41da03ba5fdef68e6e7d54ad36368125a00d84814f7ca77b8"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": true,
+      "state": 0,
+      "sha256": "bcc52b01187d2da87868f5064c541490c874f16fc7d028f39f08b3cbf66394a5"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": true,
+      "state": 1,
+      "sha256": "db8df7c288970d9fc1d1d784250e0b02119e348978520afea171e39229602a9a"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": true,
+      "state": 2,
+      "sha256": "e9b86ceba0f301462d31c66f7eb444417e0541f0c5d4ba5728838ab592b8f14f"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": true,
+      "state": 3,
+      "sha256": "03355b308f2cc55ab1fb457ad877c06b67b672c294bb5d858f89564bd9234214"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": true,
+      "state": 4,
+      "sha256": "2a6d8c0c17d99742b0918cad31c5bbac95a3cd82dd81bdc2afb4f1a993f3d762"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": true,
+      "state": 5,
+      "sha256": "2b0a49d4c9cab9fbcc1a76fd16247111270f5105187694b91ffa6a53a0fb6446"
+    },
+    {
+      "sourceId": 1,
+      "scale": 1.5,
+      "background": true,
+      "state": 6,
+      "sha256": "bcc52b01187d2da87868f5064c541490c874f16fc7d028f39f08b3cbf66394a5"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": false,
+      "state": 0,
+      "sha256": "983e9c2b4a718b1c30e4f8071182b89f07469462c0e11852b4710feca66911dc"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": false,
+      "state": 1,
+      "sha256": "45e207f6c03d41e93c71eacd621e4902a24b8187fa4ee8264fd7b18c386d9563"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": false,
+      "state": 2,
+      "sha256": "3a391193bd01aea3355941538f62ec8186505bcf4689ff3a41d9f134f1d4c357"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": false,
+      "state": 3,
+      "sha256": "364de27226913373765cc5b87698cec8bf604e103eb7dc3f0b79bdfa1797813c"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": false,
+      "state": 4,
+      "sha256": "f6dce6247f2a1b7295c88c9918569964f1af078a85908c816799435df840ac2b"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": false,
+      "state": 5,
+      "sha256": "de401bc26664fd9cd84f915ea8abd5a7824804000571ed2bdf22a6a3a69e349c"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": false,
+      "state": 6,
+      "sha256": "983e9c2b4a718b1c30e4f8071182b89f07469462c0e11852b4710feca66911dc"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": true,
+      "state": 0,
+      "sha256": "5d3e57cd3233e8dbc7d51e34e63f430fb6e31e2e93b0c6a6a5f1a343b40ea7be"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": true,
+      "state": 1,
+      "sha256": "25e09180881d15fb789d13ccfb769ae576c7628c30250da2173f0199b18acb1b"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": true,
+      "state": 2,
+      "sha256": "5d0e8f26290e52339cf41685dd335657f4366b28686a919ca6bcefbc931c3c2a"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": true,
+      "state": 3,
+      "sha256": "30dd7b1142a95f11d8c5fb70f155770e648dd0e0b214f0b9d73e8009ac7c3f2f"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": true,
+      "state": 4,
+      "sha256": "a895ad9b71146c29e8ec250db27a3899e572f9952293fb17fad83216bf3ff4ff"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": true,
+      "state": 5,
+      "sha256": "3b7902648dd1bf7ff8e8d23b7a3d43767d5992c996fc8ca3e4397074163519d2"
+    },
+    {
+      "sourceId": 1,
+      "scale": 2,
+      "background": true,
+      "state": 6,
+      "sha256": "5d3e57cd3233e8dbc7d51e34e63f430fb6e31e2e93b0c6a6a5f1a343b40ea7be"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": false,
+      "state": 0,
+      "sha256": "8e28c9c2409924bd67750b56e883d697c5da190ee5e03337536aad1730a8ad05"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": false,
+      "state": 1,
+      "sha256": "01dbb17f648c15d5b24e7b9a1af19f64e6766453706ebac8e0ebb75569f959a8"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": false,
+      "state": 2,
+      "sha256": "48be9bcddf7d7f575ea0be703f78cb25a35112043f77cfc29b3a3604ad95bcb3"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": false,
+      "state": 3,
+      "sha256": "0257d4db33ab0833577d25ddcd571f52541ddcd778e858f5fdf44c4d042e3b31"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": false,
+      "state": 4,
+      "sha256": "0a713c7df043734de32f7b23d91e7281ecc8592f6aef3dcf1b3f3faede89c0ce"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": false,
+      "state": 5,
+      "sha256": "44f995717879dcfeda4364a4fb86e7effe7808de1253549ac5fbc037d5042048"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": false,
+      "state": 6,
+      "sha256": "b244d5e62d4635bfbdefd3db5fcdc63b961faf514504ecad8f19f678c99288fe"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": true,
+      "state": 0,
+      "sha256": "5e9c0e7b9fef5a6b81156bece82e9346dc8bb3ff8008be071250632561e243cd"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": true,
+      "state": 1,
+      "sha256": "806958992957c6ebfd2bc30b211d65ef6b00b151a8b1340e338edc7e7155c7a1"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": true,
+      "state": 2,
+      "sha256": "7a74ef644e0c9f42bf64f0e803597d5d62e3bce9761a2c1dc549f1efaebeb78d"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": true,
+      "state": 3,
+      "sha256": "1b029d0f7b1478b74a84cb5a82832af639d9fc48905366f08b2ca4f145abe08b"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": true,
+      "state": 4,
+      "sha256": "7eada8f2785f1df73fb9f1689f74269adf887dd3b1322a949446c03b197c7016"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": true,
+      "state": 5,
+      "sha256": "ea58c0b34896b800b7aff6325567bb1665794b33a1ee4b36448451ab89aaaa0f"
+    },
+    {
+      "sourceId": 2,
+      "scale": 0.75,
+      "background": true,
+      "state": 6,
+      "sha256": "752937115a0805268f341523007a85f767d965c3d48e14dba42094a63ec6eb3c"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": false,
+      "state": 0,
+      "sha256": "f913fbbe60dcd0a510d282fd99f4ea9b94843c95a369cba20a9c454b8ceff416"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": false,
+      "state": 1,
+      "sha256": "419c4d9d0f8b742428a7acca3504dde2da74ccd526afbc2ddea26ef16587cefc"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": false,
+      "state": 2,
+      "sha256": "edff2bbd3529ac1d7ee31650bcf5d62a42043cf8094451810769e8cf4c79b8b7"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": false,
+      "state": 3,
+      "sha256": "e59621fbe5e7802b79fcf49ade2a08b2feb196cd2a0344367d123e78d13b4921"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": false,
+      "state": 4,
+      "sha256": "69f6962c2e20e169f0cc76f904d5744c16fe84d6b44339ae80316cc6e8a5de98"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": false,
+      "state": 5,
+      "sha256": "795688201b14e4a599230f4cea33b6c75ca0b4544c1b82feb3cee30146d61279"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": false,
+      "state": 6,
+      "sha256": "fc59e1fbc52fcbd23f31e588eec2c40c31ee6844a4246d93b502b54ed2305238"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": true,
+      "state": 0,
+      "sha256": "7dfe61cc10fe665111f63489efd4495016eb9d2662e2b823125eb4437f706f39"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": true,
+      "state": 1,
+      "sha256": "4e7d17a8d15c67ae60a629b8bba9e12b58cba39fcb4d7182eedaa37bcae13fb8"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": true,
+      "state": 2,
+      "sha256": "63861b93846f2f0b5702fda788b2747f564720ad91d33576e1107ca12dc2b3f8"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": true,
+      "state": 3,
+      "sha256": "245a50154b1e1532893fc238c28a784f39d31a6aeb1b02636cd05a1f544ab4b2"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": true,
+      "state": 4,
+      "sha256": "dab2cd8fa9221a7ce5b63804c3ffca144cdbfe40f19a14f963a10b96f58578cf"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": true,
+      "state": 5,
+      "sha256": "9f2902f0ad62998ca60ed09403703e70b12cbf459efe6d19a3a7c3e1fa36b591"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1,
+      "background": true,
+      "state": 6,
+      "sha256": "d882d3b318288c44b3aa6fdd94b6e8c055b1260c4d1e100fa06598772c83e568"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": false,
+      "state": 0,
+      "sha256": "dd4ca7515ed223a3ab45bdfe15734ddcf04779966fa8bde622e09df78eb09566"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": false,
+      "state": 1,
+      "sha256": "5b8320d045b9813e3e8bdb34a39049dac441863b105f64ec375536b00b1bf742"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": false,
+      "state": 2,
+      "sha256": "fa860b2f39eb5d9429fcaf663fcf04a5345c6341178e452f89f1db3178e5f338"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": false,
+      "state": 3,
+      "sha256": "e87dc820e942d4801346161546eeb670314836cd6c61ce67e316223716188210"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": false,
+      "state": 4,
+      "sha256": "2bba0c938dfe2aaad0852a631b996b3b57dfea6f5783a030f5cceb129b50245e"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": false,
+      "state": 5,
+      "sha256": "917028853e2f8051cc60fd456de08780b39fc7a87370a18560186dca71d3d9c2"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": false,
+      "state": 6,
+      "sha256": "7e3fa9cd4501c1b5c398d2f2b84fdc4a68709f0052bb83f2ab2c888820ec051f"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": true,
+      "state": 0,
+      "sha256": "1c8483987b9ed39c3de796478b027552a64b1def18e01034a4ab31b64c3e57fe"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": true,
+      "state": 1,
+      "sha256": "07966f49739c644afb76417c222f64af16385fc7934407fe8b12333630bfd18d"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": true,
+      "state": 2,
+      "sha256": "65bd2c7b589d9631d34da522f8302d6c2e6b0f5235f67738c4abbb702c6ce13f"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": true,
+      "state": 3,
+      "sha256": "68e613d96c6033579da67f150030cfe180715e6228bfc4328fa84a7a0c8222aa"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": true,
+      "state": 4,
+      "sha256": "e925b4afadb0575452f5d70f30486c65822c4f666f147557067d716771b7fb39"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": true,
+      "state": 5,
+      "sha256": "8a3782c65fae1893d72b68b1dda66e09dca010a087fa6b4e269ef3fc9e1f4493"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.25,
+      "background": true,
+      "state": 6,
+      "sha256": "1fd492caad2b53385765d28d22579d65a25d87745f82b2efc84580d0496abbb1"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": false,
+      "state": 0,
+      "sha256": "34f58bafe330a4ed1705d283b8c9bda8f3ef1826683361b492ea619f47d2a2fb"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": false,
+      "state": 1,
+      "sha256": "074cb0bc1fe710887ed9ff48a534eebe36a78e4454f1543050b2c26d41a0c1a0"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": false,
+      "state": 2,
+      "sha256": "b074b9f33bac3da3724ec93fabc132f6c4f7022483672ffed79788735024719e"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": false,
+      "state": 3,
+      "sha256": "4daf37db0ce68c0450e324294eec74e737c71b3c2b886711d7075be476abe896"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": false,
+      "state": 4,
+      "sha256": "321f90787bbe8d3a2ebe991e3de9b4b3c18735b0a6fe9ea815156bd139da516e"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": false,
+      "state": 5,
+      "sha256": "1d118ac24ff241f13ccd30500468ba198080591cadf0fdaf799d71728789cbad"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": false,
+      "state": 6,
+      "sha256": "9c7198c3a91ac14aa7063f67a15fdec5ee6561617dad84319bbd02f8d79af976"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": true,
+      "state": 0,
+      "sha256": "6168aa90334fd15e854ed1795e20df78e2789e078ff81937cf0156672ade09a5"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": true,
+      "state": 1,
+      "sha256": "5050b49cd4f647bf8b0508660102372064e66dabb83fe24b2b496b5513883ba9"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": true,
+      "state": 2,
+      "sha256": "9baf3c21accc02d262d04b4c15c7686832a9547611fec7c436cbe64e1dcd9c40"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": true,
+      "state": 3,
+      "sha256": "7b589f2ac8e3f4f71cca8031b6dbc9623a3b7f4c848a8deccf2e4f72f67505f0"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": true,
+      "state": 4,
+      "sha256": "c833169a5fb95d342c0bae17514e0d8dddf04d72f308354f7651631c3df8cc13"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": true,
+      "state": 5,
+      "sha256": "6b876510d0fef527bb7c7a1d7a23cd03fb5a8bc396ba1013f83363516ac71b69"
+    },
+    {
+      "sourceId": 2,
+      "scale": 1.5,
+      "background": true,
+      "state": 6,
+      "sha256": "a186c41770855f0b33b6bba40876e80c931751fb590c83031d3628ec7ad9c2f9"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": false,
+      "state": 0,
+      "sha256": "00a8f3ce55f9db5d6f6e8136baaf73deb04831fb6c806b5688d0f6d3df09ed9c"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": false,
+      "state": 1,
+      "sha256": "ef2aa99b30306a515b303144354f671ae110570b1ae51458f456dd0f2aba47d5"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": false,
+      "state": 2,
+      "sha256": "900c750de7a711236a95e840e59a92bf10a68ab6a2b2d1a02b36689a28b64227"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": false,
+      "state": 3,
+      "sha256": "ae7867ac823dcb014e7fa5a02e7cd52cd04883cb7878ccf4c737673982901a57"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": false,
+      "state": 4,
+      "sha256": "a11a27f0b6ce84b4bae5fca1268eae143bbf8bb754d3423039a0438ba79c0db3"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": false,
+      "state": 5,
+      "sha256": "28433df1d77cb3b03c42804af9855278785c8c6086f47b0460d09fa33ceb944b"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": false,
+      "state": 6,
+      "sha256": "7062f6f427571f204c4dfaf463210ddbaf0ad058ea6628dc8f5047ceaf392079"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": true,
+      "state": 0,
+      "sha256": "c8b9b93507178378f5b8c53836ed37a548e3b581b16dd8ab6fef1572c12ef5af"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": true,
+      "state": 1,
+      "sha256": "dd1ac47214d839dc48e1c96f36e773e91a5e3a97c217e45660f261264e3b3707"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": true,
+      "state": 2,
+      "sha256": "c03406882c22de2755e41d9e18899c9792a8459b303de1e8d4dcd164e5ddf4cb"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": true,
+      "state": 3,
+      "sha256": "5692d1badfb63eff3bada458ba749de05582473438e5ceaf0e53bcf1a64b7dba"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": true,
+      "state": 4,
+      "sha256": "21bb51c5076ec18695037abea2d23b3c9164acbfd34fc84eb6d8b63af95fd4c3"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": true,
+      "state": 5,
+      "sha256": "ece087f503285bf8c0d6489c03a0c27f942f029a58f1a1a3fcdc1e999bbbc4da"
+    },
+    {
+      "sourceId": 2,
+      "scale": 2,
+      "background": true,
+      "state": 6,
+      "sha256": "649c1dc68bc69ef53ba60cc5f55997a6b7658221fa0d7826af73d4434b0358d7"
+    }
+  ]
+}

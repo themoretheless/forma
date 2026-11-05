@@ -1,0 +1,56 @@
+{
+  "cases": [
+    {
+      "name": "production factory releases never-mounted disposed instances",
+      "status": "passed"
+    },
+    {
+      "name": "HMR tracks mounted instances and preserves registration until last unmount",
+      "status": "passed"
+    },
+    {
+      "name": "HMR explicit disposal retires live views before handles unmount",
+      "status": "passed"
+    },
+    {
+      "name": "cached factory uses the newest AST even when no instance was mounted during update",
+      "status": "passed"
+    },
+    {
+      "name": "HMR drains healthy instances after one failure and defers newly mounted instances",
+      "status": "passed"
+    },
+    {
+      "name": "installed parser and validator refuse unsupported contract placement",
+      "status": "passed"
+    },
+    {
+      "name": "installed AST contracts refuse malformed data before allocation and mutation",
+      "status": "passed"
+    },
+    {
+      "name": "installed AST snapshot isolates caller edits across construction and HMR",
+      "status": "passed"
+    },
+    {
+      "name": "unknown AST extensions collect while the admitted instance stays mounted",
+      "status": "failed",
+      "error": "AssertionError [ERR_ASSERTION]: Unknown extension payload retained by mounted snapshot\n\n5 !== 0\n\n    at file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:145:13\n    at async check (file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:14:37)\n    at async file:///Users/themoretheless/Documents/Sources/forma/packages/svet/scripts/check-forma-aot-lifecycle.mjs:128:1"
+    },
+    {
+      "name": "invalid semantic HMR preserves live state and factory AST until a valid update",
+      "status": "passed"
+    }
+  ],
+  "node": "v26.13.0",
+  "generatedSha256": "1ec5858586f633159b0f59685405a73f2f4746e8163bbcf536ff1364c908860e",
+  "retainedTargets": 0,
+  "gc": {
+    "targets": 8,
+    "controlsHeld": 4,
+    "controlsReleased": 0
+  },
+  "status": "failed",
+  "probeSha256": "34e2efe49178a3912dedb48f33b0cb19f9eee25d77c9c34cdfbeba3dfccf4f1e",
+  "compilerSha256": "e54ab1b0619736e8a7ba83fd7ee34dbdfe4af1a6e3301080b7828aeca18e7f08"
+}

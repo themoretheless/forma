@@ -1,0 +1,20 @@
+ @constant MTLCommandBufferErrorDomain
+ @abstract An error domain for NSError objects produced by MTLCommandBuffer
+ */
+API_AVAILABLE(macos(10.11), ios(8.0))
+MTL_EXTERN NSErrorDomain const MTLCommandBufferErrorDomain;
+typedef NS_ENUM(NSUInteger, MTLCommandBufferError)
+{
+    MTLCommandBufferErrorNone = 0,
+    MTLCommandBufferErrorInternal = 1,
+    MTLCommandBufferErrorTimeout = 2,
+    MTLCommandBufferErrorPageFault = 3,
+    MTLCommandBufferErrorBlacklisted API_DEPRECATED_WITH_REPLACEMENT("MTLCommandBufferErrorAccessRevoked", macos(10.11, 13.0), ios(8.0, 16.0)) = 4, 
+    MTLCommandBufferErrorAccessRevoked = 4,
+    MTLCommandBufferErrorNotPermitted = 7,
+    MTLCommandBufferErrorOutOfMemory = 8,
+    MTLCommandBufferErrorInvalidResource = 9,
+    MTLCommandBufferErrorMemoryless API_AVAILABLE(macos(11.0), macCatalyst(14.0), ios(10.0)) = 10,
+    MTLCommandBufferErrorDeviceRemoved API_DEPRECATED("MTLCommandBufferErrorDeviceRemoved cannot occur on Apple Silicon", macos(10.13, 27.0)) API_UNAVAILABLE(ios) = 11,
+    MTLCommandBufferErrorStackOverflow API_AVAILABLE(macos(12.0), ios(15.0)) = 12,
+} API_AVAILABLE(macos(10.11), ios(8.0));

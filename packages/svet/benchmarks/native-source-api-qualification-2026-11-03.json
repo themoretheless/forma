@@ -1,0 +1,23 @@
+{
+  "status": "partial",
+  "change": "Native String-error load_component_native/load_native/compile_ui_scene_artifact_native; existing JS wrappers delegate",
+  "validation": {
+    "passed": 229,
+    "gpu_ignored": 2,
+    "wasm_check": "passed",
+    "cases": [
+      "malformed component source/template refusal",
+      "pixels/focus/control count/versions unchanged",
+      "valid component replacement increments versions",
+      "default source load recovers",
+      "project compilation refuses invalid files/entry/state",
+      "compiled scene loads with expected editor text"
+    ]
+  },
+  "source_sha256": "0d2de1fe2a88336ffe937564739603929fcbaee56b29c55f1d6116d6db0303fd",
+  "limits": [
+    "JS-facing methods still return JsValue; native callers must use native counterparts",
+    "Fresh generated WASM runtime gate pending",
+    "Other JsValue APIs not audited exhaustively"
+  ]
+}

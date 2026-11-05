@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "scope": "Semantic text SetValue and shared-host macOS AX SetValue",
+  "nativeTests": {
+    "passed": 329,
+    "failed": 0,
+    "ignored": 9
+  },
+  "verified": [
+    "actual AX value mutation with CJK/emoji",
+    "native Cmd+Z restores previous value",
+    "readonly AX request does not mutate text",
+    "binding and undo integration tests",
+    "missing/wrong AccessKit payload refusal",
+    "oversized value admission",
+    "WASM target check",
+    "owned probe closed"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "eaf2f1c8c5b3ca47bc80543ae55b4673896fcd1d5e8f7778b047af08602fe4a3",
+    "vector-ui/src/text_input.rs": "24889c41114df213003ba889c54de6a1a75cc6a9172e5bdd9caf36638522cbef",
+    "vector-ui/src/native_accessibility.rs": "9a537c6f500978b507577600438bf08deef8f0faa45461eecb68a985beaacd3b",
+    "vector-ui/src/native_window.rs": "5a6ce046a06d0a39835e967af9cbcd119cf9888d6d720351a55d5c00dc845994",
+    "vector-ui/tests/accessibility_selection.rs": "df8fcbd1edcc2a1113823daeaa26dab451a0e9c40a8728546317fa3842027a5e",
+    "/tmp/SvetAccessKitValueProbe.app/Contents/MacOS/native_readonly_probe": "2f8960164195e965b8d02bc875bf51b246a4628dcf48eea283dcd5c87222d399"
+  },
+  "limitations": [
+    "OS CUA setter may focus element before SetValue; no OS invalid-action focus-preservation claim",
+    "No speech or OS selection/range qualification",
+    "Fresh release WASM execution of new SetValue export remains open"
+  ]
+}

@@ -1,0 +1,103 @@
+<!doctype html><meta charset="utf-8"><title>Forma browser GC</title>
+<style>body{font:16px system-ui;max-width:1000px;margin:32px auto}button{padding:10px;margin:4px}pre{white-space:pre-wrap;background:#eef5ff;padding:16px}#cards{display:flex;gap:12px}</style>
+<h1>Forma installed-runtime browser GC</h1><p id="status">Ready</p>
+<button id="allocate">Allocate cohort</button><button id="pressure" disabled>Apply bounded pressure</button><button id="inspect" disabled>Inspect WeakRefs</button><button id="release" disabled>Release live controls</button><div id="cards"></div><pre id="result">Not started</pre>
+<script type="module">
+import * as e from __RUNTIME_IMPORT__;
+const source="component Card { prop limit: Number = 5; state count: Number = 1; let doubled = state.count * 2; shortcut 'Mod+X' -> state.increment('count',1); Column { Button { text:doubled; clicked -> state.increment('count',1); } } }";
+const $=id=>document.getElementById(id);let live=[],held=[],probes=[],phase='initial',report,retired=[],pending=[],cleanupCalls=0;
+const track=(kind,value)=>probes.push({kind,ref:new WeakRef(value)});
+const same=(a,b)=>{if(a!==b)throw Error(`${a} != ${b}`);};
+const publish=async()=>{$('status').textContent=report.status+'; phase='+phase+'; graph='+e.getGraphTelemetry().nodes;$('result').textContent=JSON.stringify(report,null,2);await fetch('/__forma_gc_result',{method:'POST',body:JSON.stringify(report)});};
+function liveCard(){
+ const ast=e.parseFormaSource(source),arm={pattern:'_',propertyAssignments:{},childNodes:[]};ast.rootAstNodes[0].matchArms=[arm];
+ for(const object of [ast,ast.rootAstNodes[0],ast.propConstraints[0],ast.letExpressions[0],ast.shortcuts[0],arm]){const payload={bytes:new Uint8Array(4096)};object.unusedExtension=payload;track('extensionPayload',payload);}
+ const view=e.compileFormaAst(ast),container=document.createElement('div');$('cards').append(container);const handle=view.mount(container);track('liveView',view);return {view,container,handle};
+}
+function closedCore(mode){
+ const core=e.createWasmCoreInstance();track('disposedCore',core);track('disposedMemory',core.memory);
+ e.withWasmCore(core,()=>{
+  if(mode==='root-disposer'){let stop;e.createRoot(dispose=>{stop=dispose;e.computed(()=>1)();});stop();retired.push({mode,value:stop});same(e.getGraphTelemetry().nodes,0);return;}
+  const view=e.compileFormaAst(e.parseFormaSource(source));let handle;const container=document.createElement('div');
+  try{
+   if(mode!=='never-mounted')handle=view.mount(container);
+   if(mode==='HMR')view.hotReload(source.replace('count * 2','count * 3'));
+   if(mode==='unmounted')handle.unmount();
+   const values={instance:view,'mount-handle':handle,'bound-render':view.render.bind(view),button:container.querySelector('button'),
+    'state-signal':view.state.count,'prop-signal':view.props.limit,computed:view.computedLets.doubled,'signal-peek':view.state.count.peek,
+    action:view.actions.increment,'event-unsubscribe':view.onEvent('probe',()=>{})};
+   if(retainedModes.includes(mode))retired.push({mode,value:values[mode]});
+  }finally{handle?.unmount();view.dispose();}
+  same(e.getGraphTelemetry().nodes,0);
+ });
+}
+const retainedModes=['instance','mount-handle','bound-render','button','state-signal','prop-signal','computed','signal-peek','action','event-unsubscribe','root-disposer'];
+function checkRetired(){
+ for(const {mode,value} of retired){
+  if(mode==='instance')value.dispose();else if(mode==='mount-handle')value.unmount();
+  else if(mode==='bound-render'){let refused=false;try{value();}catch(error){refused=/disposed/.test(String(error));}same(refused,true);}
+  else if(mode==='button')value.click();else if(mode==='action')value('count',1);
+  else if(mode==='event-unsubscribe'||mode==='root-disposer')value();
+  else same(value(),mode==='prop-signal'?5:mode==='computed'?2:mode.startsWith('reset-')?(mode.includes('computed')?6:3):1);
+ }
+}
+const resetModes=['reset-signal','reset-peek','reset-computed','reset-computed-peek'];
+const pendingModes=['effect-handle','effect-method','root-disposer'];
+function resetHandle(mode){
+ const core=e.createWasmCoreInstance();track('resetCore',core);track('resetMemory',core.memory);
+ e.withWasmCore(core,()=>{
+  const source=e.signal(3),derived=e.createRoot(()=>e.computed(()=>source()*2));same(derived(),6);
+  const values={'reset-signal':source,'reset-peek':source.peek,'reset-computed':derived,'reset-computed-peek':derived.peek};
+  retired.push({mode,value:values[mode]});e.resetReactiveSystem();
+  const fresh=e.signal(9);source.set(99);same(fresh(),9);fresh.dispose();same(e.getGraphTelemetry().nodes,0);
+ });
+}
+function makePendingCleanup(payload){return ()=>{same(payload.marker,'cleanup');cleanupCalls++;};}
+function makeRetiredBody(payload,cleanup){return register=>{same(payload.marker,'body');register(cleanup);};}
+function pendingEffect(mode){
+ const core=e.createWasmCoreInstance();track('pendingCore',core);track('pendingMemory',core.memory);
+ e.withWasmCore(core,()=>{
+  const body={marker:'body'},cleanup={marker:'cleanup'};track('effectBody',body);track('pendingCleanup',cleanup);
+  let stop;const handle=e.createRoot(dispose=>{stop=dispose;return e.effect(makeRetiredBody(body,makePendingCleanup(cleanup)));});
+  pending.push({mode,value:mode==='effect-handle'?handle:mode==='effect-method'?handle.dispose:stop});
+  e.resetReactiveSystem();same(e.getGraphTelemetry().nodes,0);
+ });
+}
+function disposePending(){for(const {mode,value} of pending){if(mode==='effect-handle')value.dispose();else value();}}
+$('allocate').onclick=async()=>{
+ try{report={startedAt:new Date().toISOString(),userAgent:navigator.userAgent,status:'allocated',observations:[],forcedGCs:0,gcMechanism:'Natural Chromium GC under task-separated bounded allocation pressure',scope:'24 unknown extensions while four Forma instances stay mounted; 48 disposed isolated cores+Memory, including44 strongly retained public/raw/root handles across11 modes; sixteen reset-only raw handles plus twelve pending effect/root payload cohorts; 46 held/released positive controls. No heap/RSS plateau or browser-wide leak-freedom claim.'};
+  probes=[];live=[];held=[];retired=[];pending=[];cleanupCalls=0;for(let n=0;n<4;n++)live.push(liveCard());
+  for(const mode of ['never-mounted','mounted','unmounted','HMR'])closedCore(mode);
+  for(const mode of retainedModes)for(let n=0;n<4;n++)closedCore(mode);
+  for(const mode of resetModes)for(let n=0;n<4;n++)resetHandle(mode);
+  for(const mode of pendingModes)for(let n=0;n<4;n++)pendingEffect(mode);
+  report.retainedHandleModes=[...retainedModes,...resetModes,...pendingModes.map(mode=>'pending-'+mode)];report.retainedHandles=retired.length+pending.length;report.targets=164;report.pendingEffectControls=36;
+  for(let n=0;n<4;n++){const control={bytes:new Uint8Array(4096)};track('liveObject',control);held.push(control);}
+  const core=e.createWasmCoreInstance();track('liveCore',core);track('liveMemory',core.memory);held.push(core,core.memory);
+  report.initialGraphNodes=e.getGraphTelemetry().nodes;if(report.initialGraphNodes<=0)throw Error('Live views missing');
+  phase='held';$('allocate').disabled=true;$('pressure').disabled=false;$('inspect').disabled=false;await publish();
+ }catch(error){report??={};report.status='failed';report.error=String(error.stack??error);await publish();}
+};
+$('pressure').onclick=async()=>{
+ $('pressure').disabled=true;$('status').textContent='Applying bounded pressure…';
+ for(let n=0;n<12;n++){
+  {const bytes=new Uint8Array(16*1024*1024),array=Array.from({length:500000},(_,i)=>i+n);bytes.fill(n);same(array[100],100+n);same(bytes[0],n);}
+  await new Promise(resolve=>setTimeout(resolve,10));
+ }
+ report.pressureRuns=(report.pressureRuns??0)+1;$('pressure').disabled=false;$('status').textContent='Pressure complete; inspect WeakRefs';
+};
+$('inspect').onclick=async()=>{
+ const alive={};for(const probe of probes)if(probe.ref.deref())alive[probe.kind]=(alive[probe.kind]??0)+1;
+ const expected=phase==='held'?{liveView:4,liveObject:4,liveCore:1,liveMemory:1,pendingCore:12,pendingMemory:12,pendingCleanup:12}:{};
+ const passed=[...new Set([...Object.keys(alive),...Object.keys(expected)])].every(kind=>(alive[kind]??0)===(expected[kind]??0));
+ if(phase==='held'){for(const item of live){item.view.state.count.set(2);same(item.container.textContent,'4');}if(passed)$('release').disabled=false;}
+ checkRetired();if(phase==='released')disposePending();
+ same(cleanupCalls,phase==='held'?0:12);report.cleanupCalls=cleanupCalls;
+ report.lateHandleChecks=(report.lateHandleChecks??0)+retired.length+(phase==='released'?pending.length:0);
+ const graph=e.getGraphTelemetry().nodes;report.observations.push({phase,alive,expected,passed,graph});report.status=passed?(phase==='held'?'held-controls-verified':'passed'):'needs-investigation';
+ if(phase==='released')same(graph,0);await publish();
+};
+$('release').onclick=async()=>{
+ for(const item of live){item.handle.unmount();item.view.dispose();item.container.remove();}disposePending();same(cleanupCalls,12);live=[];held=[];phase='released';$('release').disabled=true;same(e.getGraphTelemetry().nodes,0);report.status='released-awaiting-pressure';await publish();
+};
+</script>

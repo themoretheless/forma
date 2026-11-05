@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.26s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-7dac897e0ed79b95)
+
+running 1 test
+test text_input::animation_tests::multiline_crlf_and_lf_have_identical_visible_content_and_selection_geometry ... FAILED
+
+failures:
+
+---- text_input::animation_tests::multiline_crlf_and_lf_have_identical_visible_content_and_selection_geometry stdout ----
+
+thread 'text_input::animation_tests::multiline_crlf_and_lf_have_identical_visible_content_and_selection_geometry' (23275059) panicked at src/text_input.rs:212:13:
+assertion `left == right` failed: selected=false
+  left: [Clip { bounds: [0.0, 0.0, 200.0, 80.0], radius: 0.0 }, Text { bounds: [0.0, 0.0, 30.45, 22.5], text: Text { text: "first\r", color: [255, 255, 255, 255], font_size: 15.0 } }, Text { bounds: [0.0, 22.5, 23.685, 22.5], text: Text { text: "last", color: [255, 255, 255, 255], font_size: 15.0 } }, Shape { points: [[23.685, 22.5], [24.685, 22.5], [24.685, 45.0], [23.685, 45.0]], color: [255, 255, 255, 255] }, ClipEnd]
+ right: [Clip { bounds: [0.0, 0.0, 200.0, 80.0], radius: 0.0 }, Text { bounds: [0.0, 0.0, 27.03, 22.5], text: Text { text: "first", color: [255, 255, 255, 255], font_size: 15.0 } }, Text { bounds: [0.0, 22.5, 23.685, 22.5], text: Text { text: "last", color: [255, 255, 255, 255], font_size: 15.0 } }, Shape { points: [[23.685, 22.5], [24.685, 22.5], [24.685, 45.0], [23.685, 45.0]], color: [255, 255, 255, 255] }, ClipEnd]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    text_input::animation_tests::multiline_crlf_and_lf_have_identical_visible_content_and_selection_geometry
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 199 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

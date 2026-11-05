@@ -1,0 +1,15 @@
+component App {
+  state rows: List = [];
+  Column {
+    width:640; height:420; padding:16;
+    Scroll {
+      width:608; height:388;
+      Column {
+        width:588; gap:6;
+        for row in state.rows key row.id {
+          TextInput { key: row.id; width:570; height:32; value <-> row.title; background:#27334a; }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "adapterTests": 52,
+  "rustBoundaryTests": 1,
+  "scope": "No semantic epoch key reuse after u32 exhaustion; zero forces uncached reads",
+  "sha256": {
+    "src/vector-preview.js": "ec8c2fbd234400684de61103cbdd28ca88c5655e5c3c333e90f2cdebafca454e",
+    "test/vector-preview.test.js": "b209bf7981ea10d5dc2ecec5eaa57fffb860cd41f38360dc49fdeed6514c199a",
+    "vector-ui/src/text_input.rs": "6d45c060df123b37e2bf9c8df0557a22d1272d6938098375b4a1054dc7779aac",
+    "vector-ui/src/runtime.rs": "e6499ed5a2b2edd28239cf3d1f2d55b29542812810d935513817cdd8cd3dffa5"
+  },
+  "limitations": [
+    "Boundary injected through local AtomicU32; not billions of live edits",
+    "No fresh release WASM/browser execution for this epoch change",
+    "Full native321 run predates epoch exhaustion change"
+  ]
+}

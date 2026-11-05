@@ -1,0 +1,23 @@
+{
+  "status": "partial",
+  "change": "Fuse composition ownership reconciliation and IME presentation read into one NativeApp.update",
+  "validation": {
+    "passed": 203,
+    "ignored_gpu": 2,
+    "update_count": "one app update for presentation including reconciliation",
+    "cases": [
+      "post-input callback Runtime replacement",
+      "caret and editing state returned together",
+      "retirement persists when application returns error after callback",
+      "unchanged owner preserves composition",
+      "noncomposing presentation clears stale owner"
+    ]
+  },
+  "source_sha256": "1240d6672db56c4f7d8327de77b0097de8bec002281326757ce7a590034dde1a",
+  "limits": [
+    "No actual OS CJK session",
+    "Late OS commits unqualified",
+    "Application can still replace Runtime after presentation callback; returned caret may then be stale",
+    "No latency claim from call count"
+  ]
+}

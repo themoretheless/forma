@@ -1,0 +1,191 @@
+{
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "cases": [
+    {
+      "name": "Browser source/AST admission refuses unknown, nested and cyclic contracts",
+      "status": "passed"
+    },
+    {
+      "name": "Caller AST edits cannot change owned tree/let/range snapshots",
+      "status": "passed"
+    },
+    {
+      "name": "Browser props ownership ignores public aliases/foreign replacements",
+      "status": "passed"
+    },
+    {
+      "name": "Browser computedLets ownership ignores public aliases/foreign replacements",
+      "status": "passed"
+    },
+    {
+      "name": "Browser rollback drains candidate cleanup and restores old reactive handles",
+      "status": "passed"
+    },
+    {
+      "name": "Browser closing options getter prevents late owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Browser schema snapshot does not read unknown extension getters",
+      "status": "passed"
+    },
+    {
+      "name": "Browser admission getter cannot reenter HMR and valid retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Failed child mount releases graph and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Failed child render releases graph and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during factory refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during child-render refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Reentrant disposal during connection refuses mount and releases graph",
+      "status": "passed"
+    },
+    {
+      "name": "Mounted-view update dispose retires late returned child",
+      "status": "passed"
+    },
+    {
+      "name": "Mounted-view update unmount retires late returned child",
+      "status": "passed"
+    },
+    {
+      "name": "Failed HMR child-render preserves prior view and retries",
+      "status": "passed"
+    },
+    {
+      "name": "Failed HMR insertion preserves prior view and retries",
+      "status": "passed"
+    },
+    {
+      "name": "All views prepare before any previous view retires; second-view failure preserves both",
+      "status": "passed"
+    },
+    {
+      "name": "Preparation failure restores document constraints/signals and original reactive computed handles",
+      "status": "passed"
+    },
+    {
+      "name": "Old child cleanup dispose during commit drains candidate without publishing it",
+      "status": "passed"
+    },
+    {
+      "name": "Old child cleanup unmount during commit drains candidate without publishing it",
+      "status": "passed"
+    },
+    {
+      "name": "Factory throwing before return releases completed child instance and retry succeeds",
+      "status": "passed"
+    },
+    {
+      "name": "Constructor props refusal drains owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Constructor locale refusal drains owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Constructor lets refusal drains owned allocations",
+      "status": "passed"
+    },
+    {
+      "name": "Cross-copy factory local-to-peer failure drains both cores and retries",
+      "status": "passed"
+    },
+    {
+      "name": "Cross-copy factory peer-to-local failure drains both cores and retries",
+      "status": "passed"
+    },
+    {
+      "name": "AOT UI mounts twice and preserves shared state",
+      "status": "passed"
+    }
+  ],
+  "hmrUpdates": 0,
+  "trace": [
+    {
+      "step": "baseline",
+      "nodes": 9,
+      "count": 7
+    }
+  ],
+  "status": "failed",
+  "error": "Error: HMR DOM deadline\n    at until (http://127.0.0.1:4215/index.html?html-proxy&index=0.js:7:112)\n    at async http://127.0.0.1:4215/index.html?html-proxy&index=0.js:153:52",
+  "completedAt": "2026-11-02T16:54:56.867Z",
+  "fileChanges": [
+    {
+      "version": 2,
+      "at": "2026-11-02T16:54:46.861Z"
+    }
+  ],
+  "updateMinIntervalMs": 250,
+  "watchTrace": [
+    {
+      "kind": "transform",
+      "at": 1793638486774,
+      "sha256": "0e185e7be5b14619a0acdacda58183fdf612d285ceb2dc37903d371ed6844b36"
+    },
+    {
+      "kind": "write-start",
+      "at": 1793638486861,
+      "version": 2
+    },
+    {
+      "kind": "write-end",
+      "at": 1793638486861,
+      "version": 2
+    },
+    {
+      "kind": "watcher",
+      "at": 1793638486867,
+      "event": "change",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-j78DXI/View.ui"
+    },
+    {
+      "kind": "raw",
+      "at": 1793638486867,
+      "event": "created",
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-j78DXI/View.ui"
+    },
+    {
+      "kind": "hot-hook",
+      "at": 1793638486868,
+      "file": "/private/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-j78DXI/View.ui"
+    },
+    {
+      "kind": "ws",
+      "at": 1793638486868,
+      "payload": {
+        "type": "update",
+        "updates": [
+          {
+            "type": "js-update",
+            "timestamp": 1793638486900,
+            "path": "/View.ui",
+            "acceptedPath": "/View.ui",
+            "explicitImportRequired": true,
+            "isWithinCircularImport": false
+          }
+        ]
+      }
+    }
+  ],
+  "serverNode": "v26.13.0",
+  "writeMode": "direct",
+  "installedPackage": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-UcTiu6/consumer/node_modules/svet-engine",
+  "peerRuntime": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-real-hmr-j78DXI/peer",
+  "fixtureSha256": "16246c24a3cad888c8ce78e6904943459ea90e8b099c9735e190a4de9681d5a5"
+}

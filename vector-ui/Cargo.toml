@@ -12,14 +12,18 @@ path = "src/main.rs"
 required-features = ["native"]
 
 [features]
-native = ["dep:winit", "dep:softbuffer", "gpu", "dep:objc"]
+native-test-hooks = ["native", "wgpu/test-hooks"]
+native = ["dep:accesskit_winit", "dep:accesskit", "dep:winit", "dep:softbuffer", "gpu", "dep:objc"]
 gpu = ["dep:wgpu", "dep:gpu-shader", "dep:gpu-compute", "dep:pollster", "dep:bytemuck"]
 
 [dependencies]
+unicode-segmentation = "=1.13.3"
 themoretheless-tokenizer-forma = { git = "https://github.com/themoretheless/tokenizer", rev = "1c83ab03d879b085ec53ec5badf8abcc82c2ee3c", version = "0.8.0" }
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
 wasm-bindgen = "=0.2.125"
+accesskit = { version = "=0.25.2", optional = true }
+accesskit_winit = { version = "=0.34.2", optional = true }
 winit = { version = "0.30", optional = true }
 softbuffer = { version = "0.4", optional = true }
 ttf-parser = "0.25.1"

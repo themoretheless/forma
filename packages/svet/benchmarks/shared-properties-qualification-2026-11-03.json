@@ -1,0 +1,44 @@
+{
+  "status": "partial",
+  "implementation": "Properties shared immutable Arc map with copy-on-write mutation; JSON remains owned value transport",
+  "native_tests_passed": 243,
+  "ignored": 3,
+  "all_targets_check": "passed",
+  "node_cases": 14,
+  "exact_frames": 90,
+  "exact_public_artifact_comparisons": 30,
+  "allocations": [
+    {
+      "case": "owned control-local state snapshot",
+      "before": 1082,
+      "after": 339,
+      "change_percent": -68.6691312384473
+    },
+    {
+      "case": "large resolved component property",
+      "before": 4272,
+      "after": 1475,
+      "change_percent": -65.47284644194757
+    },
+    {
+      "case": "24 nested layouts with 256 unrelated records",
+      "before": 2978,
+      "after": 1576,
+      "change_percent": -47.0785762256548
+    },
+    {
+      "case": "96-editor pending visual repair",
+      "before": 140045,
+      "after": 41253,
+      "change_percent": -70.54303973722732
+    }
+  ],
+  "limits": [
+    "Rust Properties alias becomes newtype; BTreeMap callers need .into()",
+    "For/local overlays and owned Vec list detachment remain",
+    "Paired timing is allocator-instrumented, A/A noisy on small controls; not app latency",
+    "Net live allocator bytes exclude Document/allocator overhead/RSS"
+  ],
+  "chromium_cases": 17,
+  "retention_pairs": "shared-properties-retention-pairs-2026-11-03/summary.json"
+}

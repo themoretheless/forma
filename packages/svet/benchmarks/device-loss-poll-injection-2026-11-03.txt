@@ -1,0 +1,10 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.10s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-cc416d5dfac22531)
+
+running 1 test
+DEVICE_LOSS_POLL_RESULT callback_once=true late_registration=true reentry=true physical_removal=false
+test device_loss_delivery_tests::poll_delivers_backend_loss_to_late_callback_once_with_reentry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.08s
+

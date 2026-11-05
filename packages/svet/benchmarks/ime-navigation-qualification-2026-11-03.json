@@ -1,0 +1,14 @@
+{
+  "status": "passed-scoped",
+  "standaloneTests": 3,
+  "change": "Tab/Escape cancel active or pending-owner composition; blur uses same cancellation helper",
+  "invariants": [
+    "Empty preedit retains commit owner until explicit cancellation",
+    "Cancelled late repeated commits refused",
+    "Fresh preedit admits subsequent commit"
+  ],
+  "sourceSha256": "061d4f80fedadcfeec1bf7b2ed2c08cb02c3043fe9389e3b1cd221072ff3104d",
+  "limits": [
+    "Dispatch helper tests, not OS keyboard/IME qualification"
+  ]
+}

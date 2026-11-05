@@ -9449,3 +9449,3044 @@ device-loss,full golden parity,browser GC plateau or performance qualification.
 Full source-bound candidate/environment matrix remains open.
 
 Evidence: [qualification](benchmarks/native-current-browser-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — current-runtime natural HTTP soak qualification
+
+Завершённый natural-GC loopback HTTP прогон проанализирован с исходными
+бюджетами heap16/RSS64/external64/ArrayBuffers16 MiB и минимумом2h.
+Результат within-observed-budget: 1 655 800 requests, 7 200 013 ms,
+request/cleanup failures0, forcedGC0. Post-warmup trough growth: RSS147384,
+external4035 bytes; ArrayBuffers peak growth13340 bytes; остальные growth0.
+Пересобранный package и текущий harness совпали по22 SHA256 с сохранёнными
+идентичностями; initial/final runtime hashes и manifest совпали.
+Анализатор:10/10 tests. Evidence: benchmarks/http-current-runtime-natural-2h-qualification-2026-11-02.json.
+Это не доказательство отсутствия медленных утечек или стационарности;
+исторический external failure, gzip/codec/proxy и kernel saturation открыты.
+
+
+## 2026-11-02 — multi-view HMR cleanup qualification
+
+Добавлены две регрессии: исключение из child.dispose после освобождения
+и вложенный hotReload из cleanup во время commit. Existing owner teardown
+перехватывает ошибку, продолжает siblings; оба views обновляются, старые
+click callbacks inert, повторный HMR сохраняет graph baseline, teardown graph0.
+Focused HMR23/23, TypeScript passed. Runtime не менялся.
+Общая атомарность commit и arbitrary user side effects остаются открытыми.
+Evidence: benchmarks/forma-hmr-cleanup-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — explicit contract admission
+
+Shared parser/validator contract check now rejects unknown names, empty annotations,
+reversed/nonfinite range bounds, invalid regex and patterns rejected by the
+existing safety policy. Six new cases failed before the fix; focused contract +
+HMR tests40/40 and TypeScript passed afterwards. README states the accepted
+grammar and the compatibility impact of rejecting unknown metadata.
+Full suite1371/1372: synthetic benchmark exceeded its existing5000ms timeout;
+unchanged isolated repeat1/1 passed. This full run remains recorded as failed.
+Installed AOT fixture now separately checks parser refusal and HMR validation
+admission, since invalid source can no longer produce a parser AST.
+Placement/duplicate/dangling annotations and arbitrary AST validation remain open.
+Installed-package gate passed after fixture update; evidence: benchmarks/forma-contract-admission-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — component contract placement
+
+Seven reproduced parser failures now reject duplicate range/pattern contracts,
+dangling annotations and contracts separated from their prop by state, let,
+tokens or a visual root. Distinct contracts can be stacked across line comments
+on one required prop. The validator invokes the same parser placement rules
+after token/semantic admission, so an invalid placement is not admitted by HMR
+validation. Focused48/48 and TypeScript passed. This covers component-level
+declarations; annotations inside visual subtrees and arbitrary ASTs remain open.
+Full suite1380/102 files with one worker and unchanged timeout passed; installed-package gate passed. Evidence: benchmarks/forma-contract-placement-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — nested contract refusal
+
+Five reproduced cases now refuse contracts in nested visual/control-flow/token
+blocks and after a visual root. Component-body scanning respects quoted strings,
+escapes, line comments and quoted contract contents. HMR source refusal retains
+old DOM identity, graph baseline and callbacks; valid retry retires old callbacks.
+Focused55/55 and types passed. Installed AOT lifecycle now exercises admission
+from the installed package (seven cases); package checker case count updated.
+Arbitrary caller-provided AST validation remains open.
+Full1387/102 files, types and full installed-package gate passed. Evidence: benchmarks/forma-contract-nested-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — AST prop contract admission
+
+Eight reproduced AST bypasses now refuse reversed/infinite/extra/string range
+bounds, invalid/unsafe/non-string regex and duplicate props before construction
+allocations or HMR document mutation. The contract check also verifies prop
+metadata shape. Source parser validates emitted contracts; validator runs parser
+admission even when no inline annotations occur, rejecting duplicate source props.
+Focused64/64 and TypeScript passed. Installed package gate passed with eight AOT
+lifecycle cases, including no-allocation malformed AST refusal and live-state
+preservation on HMR refusal. Complete AST structure/cycles, accessor/proxy
+semantics and post-admission mutation remain open.
+Full1396/103 files passed. Evidence: benchmarks/forma-ast-contract-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — iterative visual AST admission
+
+Eight reproduced malformed/cyclic visual AST cases now refuse before runtime
+allocation or HMR mutation. Iterative DFS validates node shape and all branch
+arrays, distinguishes shared acyclic nodes from cycles, and admits a20k-deep
+acyclic tree without recursive validation (rendering at that depth is unqualified).
+Sparse range bounds exposed an Array.every hole; direct numeric bound checks
+now reject holes. Sparse roots/styles are also rejected. Stable focused22/22
+(tree + contracts), types passed. An intermediate full run overlapped these
+source edits and recorded failures; retained as intermediate evidence, not a
+qualification. Final package/full gates run after the sources are stable.
+Document metadata, accessors/proxies, post-admission mutation and renderer
+stack depth remain open.
+Stable full1409/104 files, types and rebuilt installed-package gate passed. Evidence: benchmarks/forma-ast-tree-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — node-kind and document metadata admission
+
+Nine reproduced kind-field failures now reject missing/empty tag, condition,
+item/list, match expression/arms, slot name and empty explicit key expression.
+Eight metadata failures now reject malformed component name, token/state map
+shape, style/i18n string maps and let/shortcut declaration arrays (including holes).
+Refusal occurs before construction allocations and HMR mutation; old DOM identity,
+graph baseline and reactive state survive. Focused94/94 and types passed.
+Semantic expression/name admission, accessor/proxy effects and post-admission
+mutation remain open.
+Full1426/105 files and installed-package gate passed. Evidence: benchmarks/forma-ast-document-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — declaration names and overwritten computed leak
+
+Ten new name tests failed before the fix. In the prior built package, constructing
+an AST with duplicate lets then disposing left graph.nodes=1 (raw diagnostic
+retained); duplicate lets now refuse before allocating overwritten handles.
+Reserved AST state/let names and reserved source declaration names are refused.
+State/prop/computed dictionaries use null prototypes, preserving valid own names
+like toString/valueOf/hasOwnProperty. Three further reproduced HMR reset failures
+were fixed by giving declared-default dictionaries null prototypes too.
+Focused107/107 and types passed. Accessors/proxies, AST mutation and complete
+expression semantics remain open.
+Full1439/106 files and installed-package gate passed. Evidence: benchmarks/forma-ast-names-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — own caller AST snapshots
+
+Seven reproduced cases let post-admission caller edits change visual properties,
+let expressions, range bounds or prop object defaults. Object AST construction/HMR
+now snapshots recognized document fields, iteratively copies the visual graph,
+and detaches contract/let/shortcut/default data. Source-string parser results are
+already private and avoid the redundant copy. Caller-added cycles do not affect
+private views. An intermediate snapshot regression dropped explicit undefined
+state fields; per-value state cloning preserves their presence and reset value.
+Focused119/119 passed, including construction/HMR and shortcut mutation; deep
+acyclic20k admission and shared-node rendering are retained in the suite.
+Accessors/proxies, function data, unknown extension objects and snapshot overhead
+remain open; this is not a general arbitrary-JS deep-immutability guarantee.
+Stable full1451/107 files, types and installed-package gate (AOT9 cases) passed. Evidence: benchmarks/forma-ast-snapshot-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — schema-only snapshots and extension retention
+
+Twelve getter regressions reproduced spread-copy reads of unknown extension
+fields on document/node/prop/let/shortcut/match-arm objects. Explicit schema
+copy now ignores these fields without executing their getters. Focused131/131
+and types passed. A Node --expose-gc baseline against the previous built runtime
+retained5 of6 unknown extension payloads while the instance remained mounted;
+its report records compiler/probe hashes. The new installed gate includes live
+reactivity after collection and two held/released positive controls. Recognized
+field accessors/proxies, function data and snapshot overhead remain open.
+Final full1463/108 files, types and installed-package gate passed. Same GC probe hash before/after: candidate0/6 retained, controls2 held then0 released; mounted state remains reactive. Evidence: benchmarks/forma-ast-extensions-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — AOT snapshot cost diagnostic
+
+Added scripts/bench-forma-snapshot.mjs: isolated rotating A1/B/A2 workers,
+shared trusted immutable AST workload at8/32/96/256 buttons, construction/dispose,
+mount and staged HMR timed separately. Functional DOM/state/stale-callback checks
+and graph.nodes=0 asserted each iteration. Candidate runtime20 hashes verified;
+baseline differs only in an injected unsafe trusted-input snapshot bypass.
+Six rounds,18 workers,2592 timed samples; input/harness/runtime identities checked.
+On256 controls construction medians: baseline0.088ms, candidate0.253ms; median
+paired delta0.164ms. This is diagnostic only: loadavg34–37 on16 logical CPUs,
+A/A scatter up to63%; mount/HMR differences are inconclusive. No production bypass,
+latency/FPS/allocation or readiness claim. Quiet-host measurements and profiling
+remain open. Evidence: benchmarks/forma-snapshot-cost-qualification-2026-11-02.json.
+Reproduce after package build:
+`node packages/svet/scripts/bench-forma-snapshot.mjs /tmp/svet-snapshot-cost.json 12 6`.
+Engine runtime did not change in this milestone; prior correctness qualification
+remains hash-matched. Harness passed node --check, pilot and completed diagnostic.
+
+
+## 2026-11-02 — profile-guided visual validation allocation reduction
+
+CPU sampling20000 constructions of256-control AOT ASTs identified tree validation,
+string-map checks and GC as the main sampled work. Replaced Object.values/Array.from
+temporary validation arrays with own-property/element loops, per-node kind/string
+arrays with constants/switch, and object DFS frames/combined child arrays with a
+private exit marker and direct branch scheduling. Sparse/null/undefined nodes,
+all branch cycles, shared nodes and deep admission remain checked. No validation
+or snapshot bypass in the candidate.
+Focused134/134, full1466/108 files, types and installed-package/GC gate passed.
+Preserved full baseline runtime archive and both compressed CPU profiles.
+Paired A1/B/A2 comparison:6 rounds,18 workers,2592 samples; only forma.js differs
+between baseline and candidate. Construction medians256 controls0.199→0.155ms,
+paired median delta−0.0446ms; all6 paired construction deltas improve at32/96/256.
+This remains local diagnostic evidence: loadavg30–33 on16 CPUs; mount/HMR scatter
+and browser/native latency are not qualified. Quiet-host performance gate stays
+open. Evidence: benchmarks/forma-validation-opt-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — HMR admission lock and final cleanup draining
+
+Three initial failures reproduced nested HMR during AST getter admission, missing
+instance liveness boundary after getter disposal, and a permanently set update
+lock after final computed cleanup threw. Update lock now wraps admission and all
+cleanup in an outer finally, with liveness checks before document mutation.
+Two further cleanup failures reproduced a retained retired sibling computed and
+masking of a primary commit failure. Final cleanup drains all retired siblings,
+preserves a primary update error, or propagates the first cleanup failure after
+a successful update. No post-commit rollback guarantee is added.
+Focused138/138 and types passed; full and installed-package gates run on stable
+sources. Recognized accessor side effects beyond these boundaries remain open.
+Stable full1470/108 files and installed-package gate (AOT11 cases) passed. Evidence: benchmarks/forma-hmr-admission-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — rollback/instance teardown draining and ownership
+
+Reproduced candidate computed cleanup failure that replaced the preparation error,
+prevented previous computed restoration and orphaned siblings. Rollback now drains
+candidate siblings, restores old identity/reactivity and preserves the preparation
+error; if cleanup closes the instance, restoration stops. Three direct-disposal
+regressions reproduced interrupted owned cleanup, accidental disposal of an external
+signal after options.viewModel replacement, and a leaked owned signal for a skipped
+invalid ViewModel entry. Successful binding ownership is recorded at construction.
+Instance disposal drains siblings/built-ins, clears registries and returns first
+cleanup error afterwards; idempotence remains. Wide focused142, final targeted33,
+full1475/109 files, types and installed-package gate (AOT13 cases) passed.
+Evidence: benchmarks/forma-rollback-dispose-qualification-2026-11-02.json.
+Custom failing resource self-release, arbitrary callback effects and post-commit
+atomic rollback are not guaranteed. No new latency qualification.
+
+
+## 2026-11-02 — allocated state ownership independent of public aliases
+
+Three regressions reproduced repeated disposal through aliases, lost original own
+state and accidental foreign disposal after public state-map replacement, plus
+rollback freeing a foreign alias instead of the allocated candidate signal.
+An internal allocated-state registry now owns the actual created handles; public
+map edits do not transfer that ownership. Rollback removes/releases its allocated
+candidate handle and ignores foreign replacement ownership. A further callback
+regression showed a prop setter invoked after closing state cleanup; liveness
+guards now stop remaining rollback steps.
+Signal.peek is not used as a disposal oracle: tests observe disposer counts, live
+external values and graph totals. Focused147/147 and types passed. Direct map
+assignment is not a qualified reactive rebinding API; other public resource-map
+replacement semantics remain open.
+Stable full1479/109 files and installed-package gate passed. Evidence: benchmarks/forma-state-ownership-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — prop/computed allocated ownership and HMR generations
+
+Six reproduced cases showed repeated disposal through public aliases, hidden own
+prop/computed leaks, foreign computed disposal on HMR retirement and candidate
+rollback freeing the wrong handle. Separate allocated-prop registry and current
+owned-computed set now govern cleanup. HMR keeps previous owned generation apart
+from the published let map, drains originals after commit, or restores ownership
+and publication on rollback. Foreign public replacements are never acquired.
+Focused153/153 and types passed; stable installed/full gates run below. Direct
+map mutation remains unqualified as a reactive rebinding API; arbitrary callback
+reentrancy and post-commit rollback remain open.
+Stable full1485/110 files and installed-package gate (AOT14 cases) passed. Evidence: benchmarks/forma-resource-ownership-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — allocation liveness and options callback reentrancy
+
+Three initial regressions reproduced options prop getters closing an instance
+while HMR continued allocation/rebuilding or returned success with closed data.
+Own factories now check liveness before/after resource creation, register ownership
+before public-map publication, and HMR checks after apply/rebuild. Old owned lets
+are retired only after real detachment; rollback returns ownership before restoring
+publication. Three setter closure cases verify state/prop/let allocation publication
+and one-disposal old handles. A further rollback regression exposed a repeated
+options getter read; restoration now uses previously resolved prop defaults instead
+of caller getters, retaining old live handles and the primary preparation error.
+Focused160/160 and types passed. Arbitrary callback effects, mutable object rollback,
+reactive rebinding and browser/native qualification remain open.
+Stable full1492/111 files and installed-package gate (AOT15 cases) passed; current20 runtime hashes recorded. Evidence: benchmarks/forma-hmr-options-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — current installed Chromium HMR qualification
+
+Fresh packed/installed consumer passed package gate (--keep); current Chromium156
+ran expanded browser lifecycle matrix. Legacy fixture passed26 cases then timed out
+because it only watched module admission errors, while invalid range now refuses
+in Vite transform. An expanded reconnect run passed28 then timed out on its first
+update; watcher/hook/ws send were recorded, browser import was absent. Both failure
+reports are retained. Added explicit hot websocket readiness acknowledgement and
+strict known transform-error observation while preserving old DOM/state/graph,
+cached factory and valid recovery checks. Fresh page then passed35 automated cases.
+Trusted automation input clicked add (isTrusted=true,v9:1→v9:2), then cleanup
+(isTrusted=true,graph0):37/37 total,7 successful HMR updates and one expected
+invalid-contract transform refusal. Added current snapshot/ownership/rollback/
+closing getter/extension/nested admission browser scenarios.
+Verified60 runtime hashes across workspace, installed and physical peer copies;
+source/fixture identities and final screenshot preserved. Browser GC, other engines,
+production bundle/native/GPU/performance remain open. Readiness does not establish
+the cause of historical watcher update5 loss. QA tabs and server closed.
+Evidence: benchmarks/forma-current-browser-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — Forma natural browser WeakRef cohort qualification
+
+Added installed-runtime GC fixture/server. Three independent Chromium156 page
+cohorts each track24 unused extension payloads while4 Forma views remain mounted,
+4 disposed isolated core exports +4 Memory, and10 held/released controls. Modes:
+never-mounted, mounted, repeated unmount and HMR teardown. Two task-separated
+bounded allocation-pressure runs per cohort; no explicit forced/CDP GC requested.
+All32 targets collect with controls held; views remain reactive (labels2→4).
+After release all10 controls collect and default graph32→0. Aggregate96 target
+objects collected,30 controls held then collected, forcedGC0 across3 cohorts.
+Verified20 installed runtime hashes against workspace/current qualification.
+Raw reports, held/final screenshots and source/server hashes retained; QA tab and
+server closed. This does not establish RSS/heap stationarity, slow-leak freedom,
+retained-handle/DOM behavior, async mixed-core or other-engine readiness.
+Evidence: benchmarks/forma-browser-gc-qualification-2026-11-02.json.
+
+
+## 2026-11-02 — terminal Forma actions compatibility
+
+Public facade initially bypassed action overrides from mounted Button events;
+a regression reproduced the failure. Per-action slots now preserve overrides,
+wrapping of the original action without recursion, and restoration of original.
+Disposal clears original and override slots. Cached terminal reads and inert
+writes are covered. Focused52/52, full1494/112 files, types, package build and
+fresh installed-package gate passed. Installed retained-handles GC checks all
+four modes (16 instances, 32 core/Memory targets): retained0, controls4→0, graph0.
+Runtime and probe hashes match the local tested package. This does not qualify
+raw captured SDK handles, older SDK cache protocols or the new bytes in a browser.
+Evidence: [qualification](benchmarks/forma-public-actions-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — terminal cached values without private Signal metadata
+
+A reproduced regression showed a foreign Signal losing its terminal value
+(7→undefined) when private cache metadata was absent. Terminal snapshots now
+fall back to Signal.peek for state/props/locale. Computed.peek is never used as
+a fallback: it could execute user code during teardown. A regression verifies
+unused lazy computed remains unevaluated. Foreign computed without safe cache
+metadata has undefined terminal cache. Focused17/17, types, build, full1496/112
+files and fresh installed-package gate passed. Retained public handles keep
+zero core/Memory targets, controls4→0, graph0 in the installed Node probe.
+[Qualification](benchmarks/forma-terminal-cache-qualification-2026-11-02.json).
+Browser and raw SDK retained-handle qualification remain open.
+
+
+## 2026-11-02 — disposed raw Signal/Computed context detachment
+
+Separately retained state, prop, computed and signal.peek handles each retained
+4 cores/4 Memory after Forma disposal; action/unsubscribe retained0. Signal now
+drops core/context/direct subscriber/comparator after disposal and active writes
+finish. Computed drops core/context/owner/body/dependencies after its observation
+frame unwinds. Immediate Signal detachment initially broke2 existing callback
+reset/source-replacement tests; active-write counting preserves unwinding.
+Four dedicated regressions cover cached/inert methods, comparator disposal,
+owner disposal during evaluation and post-disposal computed caching.
+Focused117/117, types, build, full1500/113 files and fresh installed-package gate
+passed. Same-hash raw probe:24 strongly held handles,48 core/Memory targets,
+retained0 in all6 modes, controls4→0, graph0. Natural browser GC, retained root
+disposers, reset-only lifetime and hot-path cost remain open. Cached user values
+may intentionally retain arbitrary data, including native contexts.
+[Qualification](benchmarks/reactive-handle-detach-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — retained root disposer lifetime
+
+All4 root-disposer modes retained4 cores/Memory before the fix: explicit close,
+construction throw, close during construction, and throwing cleanup. Root
+disposers now use a terminal cell registered in a WeakMap; physical scope
+teardown clears its core/scope references. This avoids changing observable
+owner cleanup registrations. A first implementation using an extra cleanup
+registration failed3 existing counter tests; the WeakMap version passes them.
+Live roots still strongly own their core until disposal. Reentrant cleanup and
+escaped disposers after failed construction have dedicated regressions.
+Types, focused173/173, full1502/113 files, build and fresh installed-package gate
+passed. Same-hash installed GC probe:16 held disposers,32 collected core/Memory
+targets, controls4→0, live-root controls2→0, graph0. Current browser runtime
+qualification, reset-only retention and bookkeeping performance remain open.
+[Qualification](benchmarks/root-disposer-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — current terminal handles: Chromium GC and HMR
+
+Fresh installed runtime after public Forma facade, raw Signal/Computed and root
+disposer detachment passes3 independent Chromium156 natural-GC page cohorts.
+Each cohort:120 targets collected with44 terminal handles strongly retained,
+88 late calls,10 positive controls held then collected, forcedGC0 and graph0.
+Totals:360 targets,132 retained handles,264 late calls,30 controls.11 retained
+modes cover instance/mount/bound-render/button/state/props/computed/peek/action/
+unsubscribe/root disposer, plus4 earlier lifecycle modes and unknown extensions.
+All20 JS/WASM runtime hashes match workspace dist/package. This bounded pressure
+probe does not establish heap/RSS plateau or browser-wide leak freedom.
+The same installed runtime passes real Vite HMR37/37 (35 automated +2 trusted
+input/cleanup), final graph0;60 workspace/installed/peer artifact hashes match.
+Historical watcher update5 loss, other engines, reset-only handles and hot-path
+performance remain open.
+[GC evidence](benchmarks/forma-terminal-browser-gc-qualification-2026-11-02.json),
+[HMR evidence](benchmarks/forma-terminal-browser-hmr-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — graph reset retires retained raw handles
+
+Reset-only retained Signal/Computed getter/peek handles each retained4 cores and
+4 Memory in local and compatible peer reset modes (8 modes total). Computed
+probe construction uses an independent root so async request teardown cannot
+mask reset-only retention. Reset now captures internal retirement callbacks
+from the old registries before reset cleanup can allocate fresh nodes. Public
+dispose replacement is ignored; cached reads and fresh-slot safety are covered.
+The retirement registry is a shared-domain WeakMap. A module-local intermediate
+version passed local probes but failed all peer reset modes. Root disposer cells
+also live in the shared domain. Types, build, full1503/113 files and fresh
+installed-package gate passed. Same-hash final probe:32 held handles,64 collected
+core/Memory targets, controls4→0, graph0. Prior browser reports precede these
+runtime bytes. Browser requalification, reset-only effects/roots and performance
+remain open. [Qualification](benchmarks/reset-handle-retention-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — terminal public effect handles
+
+Disposed EffectHandle and saved dispose methods retained4 core/Memory each in
+local and peer reset modes. A dedicated public-handle cell now detaches native
+core, parent owner and pooled internal handle before invoking cleanup. Cleanup
+reentry and throws cannot retain or dispose a replacement pooled effect.
+Types, build, focused85/85, full1505/113 files and fresh installed-package gate
+passed. Same-hash installed probe collects32 effect core/Memory targets with16
+handles strongly held, controls4→0 and graph0.
+Reset-only roots deliberately retain deferred owner cleanup; reset does not
+replace owner disposal. Dedicated regression verifies cleanup stays pending
+through reset and runs once on late disposal. Installed local/peer diagnostic
+shows root contexts retained until late disposal, then all targets collected.
+Reset-only effect payloads, current-byte browser qualification and performance
+remain open. [Qualification](benchmarks/disposed-effect-retention-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — reset-only effect body and cleanup payload separation
+
+A same-hash local/peer GC probe found obsolete body payloads retained along with
+pending cleanup after reset. Shared retirement now drops entry.userFn without
+executing previously registered cleanup.16 body targets collect at reset while
+16 cleanup payloads and32 core/Memory controls stay owned; late disposal invokes
+16 cleanups exactly once and all remaining targets collect, with16 public
+handles/methods strongly held. Auxiliary controls4→0 and graph0.
+An in-effect reset regression verifies earlier cleanup stays deferred while late
+registration/returned cleanup execute immediately; late disposal preserves fresh
+effects. Focused92/92, types, build and fresh installed-package gate passed.
+Full suite:1505 passed,1 synthetic benchmark timeout at5000ms under host load
+approaching99. No code/assertion changes: targeted benchmark retry with30s limit
+passed in2.95s. A single all-green full run of these bytes remains unrecorded.
+Browser requalification and performance remain open.
+[Qualification](benchmarks/reset-effect-payload-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — measured lifecycle cost and reset allocations
+
+Added scripts/bench-reactive-lifecycle.mjs: balanced serial isolated Node workers,
+baseline A/A control and A/B, correctness checks for100k writes/observed writes,
+10k effect mount/dispose operations and reset of512 signal/computed pairs.
+Three experiments:54 workers,2592 timed samples.20 JS/WASM hashes per runtime
+were checked;3 runtime archives preserve baseline, retirement and allocation
+candidates. Reproduce with `node scripts/bench-reactive-lifecycle.mjs BASELINE_ROOT CANDIDATE_ROOT OUTPUT_JSON`.
+Baseline→retirement reset ratio median5.44, approximately0.08–0.10ms versus
+0.35–0.55ms in the first experiment. Write/effect overhead remains inconclusive.
+Reset snapshot now avoids large intermediate filter/spread arrays. Disposed
+computed retirement no longer allocates a terminal compute closure/replacement
+deps array. Candidate reset ratios0.86/0.83 in two experiments do not establish
+a speedup: A/A scatter0.57–1.92 and host load reaching128 prevent qualification.
+Types, build, focused92 and fresh installed-package/GC gate passed. Full suite
+passed1491 tests/112 files but dom-lifecycle worker failed to start (pool timeout);
+its isolated retry passed15/15. A single all-green full run remains unrecorded.
+Quiet-host A/A–A/B, reset scaling/owner subtree cost, applications and current-byte
+browser qualification remain open.
+[Evidence](benchmarks/reactive-lifecycle-cost-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — shared-owner reset scales without per-computed array splice
+
+Reset of8192 computeds in one owner took roughly10–12ms with interleaved/tail
+user cleanup registrations. Each computed individually scanned/spliced the
+shared callback array. Retirement callbacks now optionally receive a per-reset
+owner batch, then reset compacts each callback array once. Array identity and
+user callback ordering are preserved; user cleanup remains deferred to owner
+disposal. Old-copy reset without the optional batch argument retains individual
+disposal fallback. A regression checks256 interleaved computeds,32 preserved
+callbacks, array identity, reverse teardown order and fresh-slot safety.
+Paired diagnostic:18 isolated Node workers,6 balanced rounds,972 timed samples,
+512/2048/8192 computeds and none/interleaved/tail callback patterns, host load
+10.9–11.5. At8192 interleaved, median12.09→1.38ms (paired ratio0.114); tail
+9.79→1.21ms (ratio0.122); all6 pairs improve with A/A near1.512/no-user-callback
+has roughly11% overhead, so this is not an all-workload speedup or application
+latency claim. Baseline/candidate20-artifact hashes and runtime archives saved.
+Types, build, focused211, full1507/113 files (30s test timeout) and fresh
+installed-package/GC gates passed. Current-byte browser qualification and
+application/native performance remain open.
+[Qualification](benchmarks/root-reset-scaling-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — current reset/owner runtime: browser GC and real HMR
+
+The installed runtime after shared-owner reset batching passes3 fresh Chromium156
+natural-GC cohorts. Each has164 targets,72 strongly retained terminal handles,
+46 positive controls and132 late calls. Totals:492 targets collected,216 retained
+handles,138 controls held then collected,396 late calls,36 cleanup invocations
+exactly once, forcedGC0 and final graph0. Coverage adds reset-only raw getter/peek
+handles plus pending effect-handle/method/root-disposer payload cohorts. Obsolete
+effect bodies collect at reset; pending cleanup and native context stay live
+until late disposal, then collect while public handles remain retained.
+20 JS/WASM runtime hashes match workspace. This is bounded pressure qualification,
+not heap/RSS plateau or browser-wide leak freedom.
+The same bytes pass real Vite HMR37/37 (35 automated +2 trusted input/cleanup),
+graph0,60 workspace/installed/peer artifact comparisons. Peer-reset browser GC,
+other engines/realms, application/native latency and historical watcher update5
+loss remain open.
+[GC evidence](benchmarks/reset-browser-gc-qualification-2026-11-02.json),
+[HMR evidence](benchmarks/owner-reset-browser-hmr-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native steady idle avoids repeated lexical binding replay
+
+Runtime now permits an idle shortcut only after a successful full binding sync,
+with unchanged document model/widget values, no pending activation/last event
+and no pending render. New/rebuilt runtimes and failed attempts still require
+a full pass, preserving missing-target initialization and render-error recovery.
+Release diagnostic lexical forms8/32/96/256 in both native scheduler modes show
+steady idle allocations570/6006/48666/334501→0. This concerns the warmed first
+sample; the following idle after each edit/rebuild still takes the full path.
+A regression verifies8 allocation-free idle calls, a subsequent edited model
+commit and warmed idle after rebuild. Rust166 lib +19 integration tests pass,
+as do release example build and wasm32 compile check. No paired latency/p95,
+full-frame/window/IME/DPI/GPU or newly shipped browser WASM claim. CPU model
+equality and widget scans remain linear; edit-time rebuild/Let replay is open.
+[Qualification](benchmarks/native-lexical-idle-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native direct root alias/key resolution borrows model data
+
+Native binding replay now recognizes root direct model aliases and scalar member
+keys without cloning/evaluating their collection per control. The same plain-key
+guard is shared with existing key indexes. Cached indexes are used only after
+pure scalar reads; computed key values, exact dotted fields, enum precedence,
+complex expressions or parent frames fall back to general replay. A regression
+compares alias-chain resolution with general replay under reorder, duplicate
+key shadow and computed item ID fallback.
+Release instrumented diagnostics in both scheduler modes: cold idle allocation
+counts for8/32/96/256 lexical editors570/6006/48666/334501→234/822/2394/6309.
+At256 editors (Svet=true), edit allocations2094359→1766167, requested bytes
+284706741→239631029; all7 edit samples in8 workloads improve allocation counts
+and requested bytes. Timings are unpaired/instrumented, not latency qualification.
+Steady idle stays0 allocations. Cold96 budget<10000 is enforced in both modes.
+Rust167 lib +19 integration tests, release build and wasm32 compile check pass.
+Complex/nested replay, SceneArtifact snapshots, Runtime replacement, actual
+browser WASM/window/IME/DPI/GPU and application p95/RSS remain open.
+[Qualification](benchmarks/native-alias-binding-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native alias semantic boundaries
+
+Added a7-sequence differential matrix against general replay: direct/chained
+aliases, state-field shadowing, later shadow preserving an earlier alias,
+repeated declarations, an unrelated literal Let and readonly conditional
+collections. Origins are checked before/after reorder; equal collection values
+do not acquire writable model origin. Missing state in an unused Let still
+errors without modifying model state. All169 lib +19 integration tests pass.
+Removing exactly the2 new test blocks reproduces the previously qualified
+source hash, confirming production implementation is unchanged in this step.
+Nested/property-based expression coverage and rebuilt WASM/browser/native-window
+qualification remain open.
+[Qualification](benchmarks/native-alias-boundaries-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — rebuilt Rust vector-ui WASM execution
+
+Current vector-ui release WASM (idle guard and borrowed alias resolver) rebuilt
+with wasm-bindgen0.2.125 NodeJS/web bindings. Node passes7 artifact +7 binding
+snapshot/reload cases. Chromium156 passes10/10 CPU Canvas2D checks. Single and
+chained alias cases perform24 idle sync calls, Unicode input, reload with reversed
+item IDs[b,a], then edit the correct new first item while preserving the other.
+Both reordered input frames change1242 pixel bytes inside the control bounds.
+The public API exposes reload, so these are reload-reorder checks; native Rust
+stale-frame reorder remains separate. Browser input is programmatic WASM calls,
+not trusted DOM keyboard/native-window/IME routing. No hardware GPU, browser
+allocation/p95/RSS plateau or release/publication claim. Generated HTML/JS/WASM
+hashes and replay bundle saved; production assets were not replaced.
+[Qualification](benchmarks/native-current-wasm-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — native focus loss retires IME/modifier/touch session
+
+WindowEvent::Focused routing now uses a shared focus_changed handler. A regression
+using a real editable fixture failed before the fix: Runtime cleared preedit but
+NativeHost retained composing=true without a separate Ime Disabled/Commit event.
+Focus loss now clears composing/shift/command/alt/touch_last before app/chooser
+dispatch. Existing Runtime focus/pointer cancellation remains. Uncommitted preedit
+does not change the model, and focused editing can resume.
+Native-feature suite passes177 unit +19 integration tests;2 hardware GPU tests
+remain ignored. These tests instantiate the host without an OS window. Actual
+IME/keyboard/window switches, DPI and hardware qualification remain open.
+[Qualification](benchmarks/native-focus-session-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — explicit native Metal hardware gates
+
+Ran both ignored hardware tests serially with --features native. Tests now print
+structured adapter identity and reject DeviceType::Cpu instead of allowing a
+software fallback to qualify hardware. Runtime reports Apple M4 Max / Metal /
+IntegratedGpu; source audit confirms MTLCreateSystemDefaultDevice and Metal
+render encoder/command-buffer commit paths. Reveal matrix asserts126 comparisons
+(3 target shapes ×2 control counts ×3 scales ×7 states): max channel error1/255
+versus budget2/255. State updates preserve geometry upload count. Renderer reuse
+smoke passes7 owned buffers/10496 buffer bytes, geometry/tile upload1 each and
+one bind-group creation; unchanged frame avoids repeated payload upload.
+Two tests passed with none ignored. This is offscreen debug/test hardware
+execution, not window presentation, device-loss, all-renderer/application
+latency or global VRAM/RSS qualification.
+[Evidence](benchmarks/native-metal-hardware-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — Tab/Escape retire the old native composition session
+
+A native-handler regression reproduced Tab moving focus while composing stayed
+true, suppressing later character routing. The keyboard navigation branch now
+has a dedicated handler. Pressed nonrepeat Tab/Escape clear host composing and
+Runtime preedit before the existing navigation/modal dismissal. Key release and
+repeat preserve active composition. Regression verifies uncommitted model values,
+Escape restoring the nonpreedit CPU frame, Tab selecting the next field, next
+edit committing to that field and the other field remaining unchanged.
+Native-feature suite passes178 unit +19 integration tests;2 GPU tests are
+ignored in this run (separate Metal hardware qualification already recorded).
+Actual OS IME/key events, pointer/backend switches, reverse navigation and input
+latency remain open.
+[Qualification](benchmarks/native-ime-navigation-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — pointer focus changes retire the previous native IME owner
+
+Pointer press into another editor reproduced composing=true after Runtime had
+changed focus. Mouse/touch/scroll input now uses a shared wrapper: while composing,
+compare editable focus before/after the callback and clear preedit/host session
+if the owner changes or disappears. Without composition, dispatch stays direct;
+combined touch updates retain one NativeApp callback. Hover preserves session.
+Regression covers editor hover/press/release, next-target commit with unchanged
+other field, then blank hover/press with no model change.179 native-feature unit
++19 integration tests pass;2 GPU tests are skipped in this run.
+Actual OS IME/pointer, same-editor caret/drag, model replacement after callback,
+backend/window switching and input latency remain open.
+[Qualification](benchmarks/native-pointer-ime-qualification-2026-11-02.json).
+
+
+## 2026-11-03 — actual NativeHost window input and editor restoration
+
+Built a reusable NativeHost probe as a temporary macOS app bundle. UI automation
+confirmed OS-routed ASCII input, Tab/Shift+Tab, pointer target changes, Escape
+and visible model summary; fixture journal captured field values/focus indices.
+Minimize/reopen exposed focus2→-1→1: the second editor was lost on activation.
+NativeHost now remembers the blurred editable stable key and resolves it again
+on focus regain, preserving it across duplicate blur. Missing/ambiguous or
+non-admitted targets fall back to ordinary Runtime focus admission. A regression
+fails before the fix and verifies normal/reordered target restoration after it.
+Actual OS rerun shows2→-1→2; subsequent r edits second to seed-Bkr while first
+stays seed-A.180 native-feature unit +19 integration tests pass;2 GPU tests
+were omitted here (separate hardware gate exists). Probe/Finder windows closed
+and owned process termination verified.
+No CJK marked-text/clipboard/a11y/DPI-change or latency claim; the standalone
+forma binary has an independent host and remains a separate parity boundary.
+[Qualification](benchmarks/native-os-input-qualification-2026-11-03.json).
+
+### Native refocus boundary matrix — 2026-11-03
+
+Добавлена регрессия `window_refocus_rejects_retired_or_ineligible_editor_keys`:
+удаление, runtime-disabled и замена TextInput на Button вызывают ordinary focus
+fallback; последующий text_insert поступает в первое поле, remembered key очищен.
+Duplicate key проверен как compiler refusal (`Повторный key b`), а не допустимая
+сцена. Полная проверка: 181 unit + 19 integration passed, 2 GPU tests ignored.
+[Лог](benchmarks/native-refocus-boundaries-2026-11-03.txt).
+
+Во время подготовки fixtures выявлен открытый native error path:
+`load_ui_files_json` конвертирует ошибку в JsValue::from_str и aborts на non-WASM.
+Ошибочный fixture использовал unsupported disabled property TextInput; финальная
+матрица отключает control через set_binding_disabled и использует native
+from_ui_files с String errors. Исправление native reload error API ещё требуется.
+
+### Atomic native project reload — 2026-11-03
+
+Добавлен load_ui_files_json_native -> Result<(), String>; JS-facing wrapper
+сохраняет API и делегирует общей реализации. Документ и Runtime собираются до
+замены self; successful reload сохраняет выбор native Svet scheduler и повышает
+revision/geometry/layout keys. Native refocus regression перешла на native API.
+
+Регрессия проверяет malformed files/state JSON, missing entry/component,
+неизменность model/text/focus/versions при отказе, последующий рабочий ввод и
+успешную замену для обоих scheduler modes. 201 Rust tests passed, 2 GPU ignored;
+wasm32 cargo check passed. Browser runtime и actual OS reload не проверялись.
+[Evidence](benchmarks/native-project-reload-qualification-2026-11-03.json).
+
+### Fresh WASM project reload qualification — 2026-11-03
+
+Release Rust WASM пересобран; wasm-bindgen Node/web bindings созданы заново.
+Node snapshot suite8/8 и Chromium browser suite11/11 прошли. Новый browser case
+проверяет четыре error paths с неизменными state/text/focus/cache versions и
+побайтово одинаковыми CPU pixels, последующий ввод и successful replacement.
+Artifact hashes, raw reports и generated bundle сохранены. Это программный
+WASM input и Chromium CPU rendering; OS IME/другие engines не квалифицированы.
+[Evidence](benchmarks/native-reload-wasm-qualification-2026-11-03.json).
+
+### Native composition ownership across Runtime replacement — 2026-11-03
+
+Index-only ownership пропускал замену focused editor на новый Runtime с тем же
+key/index. Native Runtime теперь получает u64 instance id без heap allocation;
+focus_sensitive_input сравнивает instance + focused index. Новый regression
+падает на прежнем comparator и проходит после fix. Полный suite: 183 unit +19
+integrations passed,2 GPU ignored; allocation budgets проходят. Это замена внутри
+callback; post-callback NativeApp mutation и actual OS IME ещё открыты.
+[Evidence](benchmarks/native-editor-session-qualification-2026-11-03.json).
+
+### Post-callback native IME ownership — 2026-11-03
+
+Host сохраняет owner (native Runtime instance,index) из preedit/input и сверяет
+его в reconcile_composition перед OS IME update. Wrapper regression заменяет
+Runtime после input callback на scene с тем же editor index/key; старая
+composition завершается, новый model не содержит preedit. 184 unit +19
+integration passed,2 GPU ignored.
+
+Открыто: actual CJK/late OS commit, повторная замена в reconciliation update,
+стоимость дополнительного NativeApp.update во время composition.
+[Лог](benchmarks/native-ime-post-callback-2026-11-03.txt).
+
+### Single-turn IME presentation — 2026-11-03
+
+Дополнительный reconciliation update убран: ime_presentation получает editing/
+caret и сверяет composition owner в одном NativeApp.update. Regression считает
+updates, проверяет unchanged owner, очистку stale owner и отмену composition
+даже когда app после callback возвращает sync error. 203 Rust tests passed,
+2 GPU ignored; allocation budgets проходят. Возможная замена Runtime после
+presentation callback остаётся открытой: snapshot caret тогда может устареть.
+[Evidence](benchmarks/native-ime-presentation-qualification-2026-11-03.json).
+
+### Read-only NativeApp inspection — 2026-11-03
+
+NativeApp.inspect — обязательный read-only observer retained Runtime. Runtime,
+probe и test wrapper реализуют его; миграция документирована в vector-ui README.
+IME presentation больше не вызывает update, получает caret после завершённой
+замены Runtime и не очищает preedit нового редактора. Regression проверяет
+call count0, exact caret, unchanged pixels, inspect error и owner retirement.
+203 Rust tests passed,2 GPU ignored; native examples check passed. Draw update
+lifecycle и late OS commits остаются открытыми.
+[Evidence](benchmarks/native-inspect-qualification-2026-11-03.json).
+
+### Retained native frame observation — 2026-11-03
+
+paint_app использует NativeApp.inspect вместо update: frame и animation status
+читаются из Runtime, оставшегося после tick/app synchronization. Удалён второй
+app update на paint. Wrapper regression меняет Runtime после tick callback,
+сравнивает exact CPU pixels и проверяет call count, invalid buffer и inspect
+refusal. 204 Rust tests passed,2 GPU ignored. Actual window/frame latency после
+изменения не квалифицированы.
+[Evidence](benchmarks/native-frame-inspection-qualification-2026-11-03.json).
+
+### Actual native window after inspect migration — 2026-11-03
+
+Свежий probe подтвердил ASCII в обоих полях через Tab и видимые frame/summary.
+Pointer/navigation повтор partial: после клика во второе поле journal показывает
+index2→1 и q поступает в first. Есть промежуточные blur/refocus от UI workflow;
+root cause без event trace не установлен. Shift+Tab/z тоже не засчитаны.
+Screenshot и полный journal сохранены; закрытый app был повторно запущен AX
+наблюдением, собственный перезапущенный process затем terminated.
+[Evidence](benchmarks/native-inspect-window-qualification-2026-11-03.json).
+
+### Activation click versus remembered editor — 2026-11-03
+
+Rust regression воспроизвела blur→pointer select second→Focused(true): host
+восстанавливал remembered first и терял новый выбор. focus_changed(true) теперь
+сохраняет уже выбранный control; stable-key restore нужен только без focus.
+Регрессия before падает index1/2, after проходит вместе с duplicate activation
+и проверкой binding target. 205 Rust tests passed,2 GPU ignored. Actual OS
+повтор исправленного binary ещё требуется; event ordering не объявлен
+подтверждённой причиной всех наблюдений UI automation.
+[Evidence](benchmarks/native-activation-focus-qualification-2026-11-03.json).
+
+### Actual activation focus fix replay — 2026-11-03
+
+Пересобранный native probe прошёл actual OS repeat: first x→ч, click second
+q→й, Shift+Tab z→я в first; повторный click second w/Escape/v→цм в second.
+Текущая русская раскладка оставлена без изменений. Visible frame/summary и
+journal совпадают: first=seed-Aчя,second=seed-Bйцм. Собственный probe закрыт,
+process0. Это pointer/keyboard/refocus qualification CPU окна, не CJK IME
+и не latency qualification.
+[Evidence](benchmarks/native-activation-window-qualification-2026-11-03.json).
+
+### Builtin disabled TextInput — 2026-11-03
+
+Builtin TextInput не объявлял disabled: .ui compiler отказывал с Unknown
+property TextInput.disabled. Добавлен default false. Native regression покрывает
+state-bound disabled, отказ focus/text, fallback, сохранение locked value,
+a11y отсутствие actions, затем unlock/reload и успешный edit/set_value action.
+Baseline fails, candidate206 Rust tests passed,2 GPU ignored. Browser/live-model
+transition и OS accessibility не квалифицированы.
+[Evidence](benchmarks/native-disabled-input-qualification-2026-11-03.json).
+
+### Live disabled binding across native and WASM — 2026-11-03
+
+Toggle checked binding меняет locked state без reload. Оба native schedulers
+проверены: отключение активного editor, сохранение committed text без preedit,
+запрет focus/input и успешный edit после unlock. Fresh release WASM: Node9/9,
+Chromium12/12; accessibility tree actions пусты для disabled editor.
+207 Rust tests passed,2 GPU ignored. Generated bundle/hashes и browser report
+сохранены. OS accessibility/trusted DOM/CJK отдельно не проверялись.
+[Evidence](benchmarks/live-disabled-qualification-2026-11-03.json).
+
+### Disabled editor session retirement — 2026-11-03
+
+Новая regression подтверждает существующий direct runtime путь: disable во
+время pointer press/preedit очищает capture/focus/down/preedit; insert refused,
+idempotent disable safe, release после enable не активирует старый press.
+Refocus fallback test теперь использует настоящий .ui disabled:true вместо
+setter workaround. 208 Rust tests passed,2 GPU ignored. Actual OS IME/touch
+матрица этим не подтверждена.
+[Evidence](benchmarks/native-disabled-session-qualification-2026-11-03.json).
+
+### IME commit dispatch owner guard — 2026-11-03
+
+commit_ime проверяет сохранённого owner внутри app update непосредственно перед
+insert: другое focused поле или Runtime replacement не получают старый текст.
+Регрессия покрывает оба случая, valid owner commit и direct/no-preedit commit.
+209 Rust tests passed,2 GPU ignored. Ограничение: cancellation и empty-preedit
+ещё могут очистить owner до commit; полная late-commit state machine открыта.
+Actual CJK OS path не проверен.
+[Evidence](benchmarks/native-ime-commit-owner-qualification-2026-11-03.json).
+
+### Empty preedit pending commit ownership — 2026-11-03
+
+preedit_ime разделяет удаление marked pixels и завершение pending commit:
+пустой preedit сохраняет owner, presentation тоже не стирает его. Commit
+принимается исходным editor и отклоняется после Runtime replacement даже
+если между ними было presentation inspection. Exact CPU pixels после empty
+preedit совпадают с clean frame. 210 Rust tests passed,2 GPU ignored.
+Cancelled-session late commit и actual CJK OS ordering ещё открыты.
+[Evidence](benchmarks/native-ime-empty-preedit-qualification-2026-11-03.json).
+
+### Explicit native IME cancellation barrier — 2026-11-03
+
+ime_cancelled хранит отмену отдельно от видимого composing и owner. Escape,Tab,
+blur и pointer retirement блокируют late commits; empty preedit не снимает
+барьер. Новый nonempty preedit/Enabled открывает новую сессию, Disabled закрывает.
+ime_event объединяет production routing и regression event sequences.
+211 Rust tests passed,2 GPU ignored. Контракт сверён с установленным winit0.30.13
+event.rs: перед Commit идёт empty Preedit, после Disabled события ждут Enabled.
+
+Ограничение: после cancellation no-preedit commit без нового Enabled отклонён;
+actual CJK/emoji workflows ещё нужны. OS session id отсутствует, поэтому старый
+commit после начала новой сессии неотличим от нового.
+[Evidence](benchmarks/native-ime-cancelled-session-qualification-2026-11-03.json).
+
+### IME diagnostics and incomplete emoji attempt — 2026-11-03
+
+Actual macOS ctrl+super+space не открыл наблюдаемый picker; emoji insertion
+и cancellation recovery не квалифицированы. Собственный probe закрыт,process0.
+Добавлен optional NativeApp.on_ime_event, probe пишет отдельный fixture-only
+*.ime.jsonl при заданном FORMA_NATIVE_INPUT_PROBE_LOG. Normal apps не логируют
+текст по умолчанию. 211 Rust tests passed,2 GPU ignored; example check passed.
+Actual OS trace на instrumented binary ещё требуется.
+[Evidence](benchmarks/native-ime-diagnostics-2026-11-03.json).
+
+### Layout-only snapshot elimination — 2026-11-03
+
+scene_expand больше не вкладывает owned __state в layout-only узлы: их props
+уже вычислены, children получают scope отдельно, а control/template snapshots
+сохранены. Regression24 nested Column/256 unrelated records/1 control:
+40950→3024 allocations (-92.6%), public control snapshot сохраняет256 records.
+Budget10000. 212 Rust tests passed,2 GPU ignored. Это debug allocation evidence;
+общие edit latency/RSS и fresh WASM/browser после изменения ещё открыты.
+[Evidence](benchmarks/native-layout-snapshot-qualification-2026-11-03.json).
+
+### Fresh WASM nested-layout qualification — 2026-11-03
+
+После layout snapshot optimisation rebuilt release WASM прошёл Node10/10 и
+Chromium13/13. Новый case24 nested Column/256 records сохраняет control state
+и unrelated payload, live edit→seed-nested; browser CPU frame просмотрен.
+Generated bundle, hashes,raw reports сохранены. Это функциональная проверка,
+не browser allocations/latency/RSS benchmark.
+[Evidence](benchmarks/layout-snapshot-wasm-qualification-2026-11-03.json).
+
+### Paired release nested-form edit cost — 2026-11-03
+
+Binding benchmark получил --nested-layout (12 уровней). Baseline отменяет
+только layout snapshot optimisation; candidate использует текущий fix.
+Baseline A/A +4 AB/BA pairs,8/32/96/256 controls,оба schedulers,7 edits/run.
+Svet256 edit allocations1799435→1764767 (-1.93%): per-control snapshots всё
+ещё dominant. Timing inconclusive: A/A до2.056×, allocator-instrumented timings
+не дают application latency guarantee. RSS/live/peak не измерялись.
+Raw10runs,build logs,baseline source gzip/hashes и reusable pair runner сохранены.
+[Evidence](benchmarks/layout-edit-paired-qualification-2026-11-03.json).
+
+### Borrow resolved props during contract validation — 2026-11-03
+
+Два contract validation пути клонировали resolved Properties даже без required
+keys. Cow теперь заимствует map; to_mut вызывается только при фактическом
+удалении missing required key. Существующие required/enum/constraints tests
+проходят. Custom component с List256:5059→4284 allocations (-15.3%); budget4700
+падает на baseline и проходит candidate. 213 Rust tests passed,2 GPU ignored.
+Полные per-control snapshots сохранены; их устранение требует изменения
+внутреннего представления при сохранении public transport. Fresh WASM/browser
+и latency/RSS после этой оптимизации ещё открыты.
+[Evidence](benchmarks/native-contract-props-qualification-2026-11-03.json).
+
+### Fresh WASM borrowed-contract validation — 2026-11-03
+
+Release WASM rebuilt после contract-props Cow optimisation: Node11/11,
+Chromium14/14. Новый custom List256 case загружается, wrong type сохраняет
+отказ expects List без изменения текущего state/layout revision.
+Generated bundle/hashes/raw reports сохранены. Browser allocations/latency
+не измерены; required/enums остаются покрыты native suite.
+[Evidence](benchmarks/contract-props-wasm-qualification-2026-11-03.json).
+
+### Move owned control state into public snapshots — 2026-11-03
+
+Snapshot insertion перенесён после child expansion, state.into_owned()
+перемещает Cow-owned local scope вместо дополнительного clone. Borrowed
+root state по-прежнему клонируется, public transport не меняется.
+Public Document.states regression с local payload256:1878→1105 allocations
+(-41.2%), budget1400 fails baseline/passes candidate; inherited query и весь
+local payload сохранены. 214 Rust tests passed,2 GPU ignored. Fresh WASM/browser
+и shared-root representation optimisation ещё открыты.
+[Evidence](benchmarks/native-owned-state-qualification-2026-11-03.json).
+
+### Owned-state transfer portability and repeated render — 2026-11-03
+
+Fresh release WASM Node11 binding +7 artifact checks passed. Rust local-state
+regression теперь проверяет unchanged Document.states и byte-identical repeated
+SceneArtifact render,1105 allocations. Важно: public .ui loader создаёт только
+root state, поэтому WASM API gate не исполняет synthetic node-local allocation
+case и не доказывает его performance. Browser повтор ещё открыт.
+[Evidence](benchmarks/owned-state-portability-qualification-2026-11-03.json).
+
+### Native source and compiler error APIs — 2026-11-03
+
+Добавлены String-error load_component_native/load_native и
+compile_ui_scene_artifact_native. JS wrappers делегируют, сохраняют ABI.
+Native regression проверяет invalid source/template/project, exact pixels,
+focus/control count/versions после отказа, успешную recovery и portable artifact
+с editor values. 229 Rust tests passed (включая14 display-list),2 GPU ignored;
+wasm32 cargo check passed. Native API usage документирован; fresh generated
+WASM execution после изменения ещё открыт.
+[Evidence](benchmarks/native-source-api-qualification-2026-11-03.json).
+
+### Fresh WASM source adapter and browser compatibility — 2026-11-03
+
+Fresh release WASM после source API extraction/owned-state transfer прошёл
+Node12 binding +7 artifact checks и Chromium15/15. Invalid source/template/
+project throwing adapters сохраняют count/layout/geometry, valid UI reload
+после отказа восстанавливает работу. Generated bundle/hashes/raw reports
+сохранены. Node-local allocation case остаётся Rust-only evidence, browser
+perf/OS routes не квалифицированы.
+[Evidence](benchmarks/source-api-wasm-qualification-2026-11-03.json).
+
+### Watcher/HMR disk-cache-websocket diagnostics — 2026-11-03
+
+Server probe сохраняет финальные disk/expected hashes, stat, canonical +URL
+module cache code hash/version markers/invalidation timestamps. Browser fixture
+пишет bounded websocket before/after/error lifecycle trace. Lookup учитывает
+macOS /var→/private/var: первоначальный file-only lookup дал пустой module set,
+canonical replay подтвердил cached v9. Два unpaced replay37/37,graph0; disk/cache/
+DOM=v9,59 workspace/installed compiled files equal. Historical update5 failure
+не воспроизведён и не объяснён. Instrumentation diagnostic, не perf baseline;
+installed build переиспользован после byte comparison, fresh package gate не запускался.
+[Evidence](benchmarks/watcher-diagnostics-qualification-2026-11-03.json).
+
+### Character Viewer accessibility boundary — 2026-11-03
+
+На актуальном instrumented native binary обычный русский input x/Tab/q
+даёт first=seed-Aч,second=seed-Bй; IME event log отсутствует (events0).
+CharacterPalette process существует, но CUA getApp по path и bundle id timeout,
+окно не доступно inventory. Emoji/CJK не квалифицированы. Собственный probe
+закрыт,process0; системные настройки/существующий system process не менялись.
+Повтор того же пути без новой UI surface не даёт дальнейшего доказательства.
+[Evidence](benchmarks/native-character-viewer-qualification-2026-11-03.json).
+
+### Native primary touch ownership — 2026-11-03
+
+Touch routing раньше не учитывал device/id, secondary finger мог менять
+координаты и завершать чужой press. NativeHost теперь хранит primary owner,
+пропускает только его события; end/cancel/blur освобождают owner, orphan
+move/end игнорируются. Regression проверяет все secondary phases, exact
+pointer/focus, single correct click, new touch и late events после blur/cancel.
+230 Rust tests passed (14 display-list included),2 GPU ignored. Physical
+touchscreen и chooser-specific matrix не квалифицированы; pinch/zoom нет.
+[Evidence](benchmarks/native-touch-owner-qualification-2026-11-03.json).
+
+### Accumulate subthreshold native touch movement — 2026-11-03
+
+Проверка pan/release подтвердила existing Runtime.scroll cancellation, но
+slow-motion extension выявила потерю80×0.25px: touch_last обновлялся до порога,
+поэтому offset оставался0. Теперь consumed coordinate двигается только при
+накоплении >0.5px по оси. Regression baseline fails; candidate231 Rust tests
+passed,2 GPU ignored. Distance residual≤0.5 проверен отдельно; edge-pan не
+активирует control, small jitter остаётся tap, новый tap работает. Physical
+touchscreen/inertia/pinch не квалифицированы.
+[Evidence](benchmarks/native-touch-slow-qualification-2026-11-03.json).
+
+### Modal root-scroll input isolation — 2026-11-03
+
+Runtime.scroll раньше менял base offset при активном Modal (baseline160→140)
+и отменял press внутри диалога. Теперь active modal отказывает root scroll
+до mutation/cancel; modal press остаётся рабочим, после close scroll resumes.
+231 Rust tests passed,2 GPU ignored; fresh release WASM Node13/13 и
+Chromium16/16. Actual OS wheel/touch и modal-local nested scrolling не
+квалифицированы. Bundle/hashes/raw reports сохранены.
+[Evidence](benchmarks/modal-scroll-qualification-2026-11-03.json).
+
+### Disabled keyboard and modal focus regression — 2026-11-03
+
+Текущий runtime прошёл новую targeted regression без production правки:
+disable во время Space press очищает gesture; поздний release не активирует
+original/другой control после reenable; fresh press/release работает. Tab в
+обе стороны пропускает disabled, все disabled дают no focus; empty Modal не
+пропускает focus на base, reenabled modal control traps traversal.
+Focused1/1 passed; full suite не повторялся для test-only addition.
+[Evidence](benchmarks/native-disabled-navigation-qualification-2026-11-03.json).
+
+### Shared clipboard commands in NativeHost — 2026-11-03
+
+Reusable NativeHost не обрабатывал command C/X/V. Platform clipboard adapters
+вынесены из standalone main в native_clipboard и используются обоими hosts.
+Общий handler выполняет copy/cut/paste через Runtime: cut только после write
+success, ошибки сохраняют текст/selection, empty copy не меняет clipboard.
+Fake clipboard regressions: Unicode,CRLF normalization,undo/redo,target model,
+disabled/unfocused refusal.235 Rust tests passed,2 GPU ignored; native all-targets
+check passed. System clipboard не использовался; OS integration/IME/latency open.
+[Evidence](benchmarks/native-clipboard-qualification-2026-11-03.json).
+
+### Non-Latin native command shortcuts and OS paste — 2026-11-03
+
+Actual Russian layout Cmd+A/paste сначала не менял model. Native command_key
+сохраняет ASCII logical keys (Latin layout positions не remap), non-ASCII
+shortcuts получают physical A/C/X/V/Z/Y fallback; оба hosts подключены.
+236 Rust tests passed,2 GPU ignored;all-targets check passed. Actual OS
+повтор: Unicode paste first=你好 мир🙂,Undo→seed-A,Redo→Unicode,Tab/paste
+second=second-paste. CUA App.paste восстанавливает clipboard по tool contract.
+Own probe closed,process0. Выявлен отдельный renderer defect: CJK/emoji есть
+в model, но невидимы на frame; glyph fallback ещё открыт. OS copy/cut/CJK IME
+не квалифицированы.
+[Evidence](benchmarks/native-clipboard-layout-qualification-2026-11-03.json).
+
+### Visible missing-scalar fallback in simple renderer — 2026-11-03
+
+measure/hit/glyph_ids fallback использовал table.glyphs[0] (NUL,zero advance,
+no outline). Теперь отсутствующий scalar получает существующий ? glyph в
+measure/hit/vector/CPU. Regression baseline fails zero width; candidate237
+Rust tests passed,2 GPU ignored: UTF8 caret,width,nonempty CPU/vector coverage
+и exact question fallback pixels. Actual window shows ?? мир?, model retains
+你好 мир🙂; own probe closed,process0. Full CJK/emoji font coverage и fresh
+WASM/browser остаются открытыми; placeholders не считаются glyph support.
+[Evidence](benchmarks/unicode-fallback-qualification-2026-11-03.json).
+
+### Portable CJK/emoji font source qualification — 2026-11-03
+
+Добавлены unmodified Google Fonts NotoSansSC17,772,300bytes и NotoEmoji1,982,596
+bytes, upstream OFL/METADATA, immutable revision/URL/SHA256 provenance. Новый
+font_coverage_probe через ttf-parser weight400 проверил11 scalar samples:
+你好中文日本語 и 🙂🦀❤☀, positive advances/nonempty outlines. Production renderer
+ещё не использует fonts; multi-face units/baseline/CPU/vector/shaping integration,
+full sequences и WASM/package size/startup остаются открытыми. Asset-only
+probe не считается CJK rendering qualification.
+[Evidence](benchmarks/font-assets-qualification-2026-11-03.json).
+
+### Portable real-font simple renderer — 2026-11-03
+
+Default simple text path выбирает primary Ubuntu,NotoSansSC,NotoEmoji. Cached
+primary coverage сохраняет fast path; FontGlyph хранит face/id, advances
+нормализованы к primary UPEM, outlines масштабируются per-face относительно
+общего baseline. Measure/hit/CPU/vector используют общий resolver.
+238 Rust tests passed,2 GPU ignored;wasm32 check passed. Real face/glyph,
+nonempty/distinct CPU glyph, mixed-font UTF8 caret и streamed/collected vector
+parity проверены. Actual native frame показывает 你好 мир🙂, model exact,own
+probe closed/process0. Shaped API пока primary-only; full sequences/colour,
+fresh release WASM/browser и size/startup/resolver performance остаются открытыми.
+[Evidence](benchmarks/real-fonts-native-qualification-2026-11-03.json).
+
+### Real fallback faces in shaped API and WASM — 2026-11-03
+
+ShapedGlyph получил font_index; font_face предоставляет matching immutable
+face weight400. Actual CJK/emoji glyph id и normalized advance берутся из
+общего resolver; kerning разрешён только внутри одного face и направления,
+synthetic glyph0 сохранён для неподдерживаемых scalar.239 Rust tests passed,
+2 GPU ignored. Fresh release vector-ui WASM Node14/14 и Chromium17/17 passed;
+CPU CJK/emoji frames просмотрены, pixels/caret/simple-shape samples проверены.
+Module21,828,894bytes,gzip13,246,694bytes. Bundle дедуплицирует Node/web WASM
+через tar hardlink. Full shaping/ZWJ/colour/broader baselines и controlled
+startup/RSS/resolver performance остаются открытыми.
+[Evidence](benchmarks/shaped-real-fonts-qualification-2026-11-03.json).
+
+
+### Static font reproducibility — 2026-11-03
+
+Repeated generation with FontTools4.68.0 reproduced both original candidate
+SHA256 values, preserving every cmap/UVS table and glyph order. The release Rust
+`font_instance_compare` example now fails on topology changes, nonzero advance
+error or coordinate error >0.5 font units; the exhaustive run passed for
+31,036 CJK and1,891 emoji glyphs. CJK maximum error0.49981689453125, emoji0.
+Reports: `benchmarks/font-instance-{compare,reproducibility}-2026-11-03.json`.
+Production renderer still uses variable fonts. Static raster comparison,
+startup/RSS and deployment gates remain open.
+
+
+### Static font CPU raster comparison — 2026-11-03
+
+Release test `static_font_candidates_raster_comparison` passed through production
+Contours/rasterize: selected CJK/emoji glyphs at9/14/24/48/96px and four subpixel
+offsets. Emoji exact-alpha equality is enforced. Raw measurements are in
+`benchmarks/font-instance-raster-2026-11-03.json`; CJK differences are measured,
+not yet accepted as a production threshold. No renderer switch or full-glyph
+raster/OS qualification is claimed.
+
+
+### Higher-precision static CJK experiment — 2026-11-03
+
+Generator supports isolated --output-dir and --cjk-upem experiments.16000 UPEM
+overflows signed TTF glyph bounds (xMax38603);8000 builds preserving all cmap
+tables and glyph order,13,487,632bytes. Production CPU raster release test
+passed; metrics and original hashes are retained in
+`benchmarks/font-instance-upem8000-2026-11-03.json`. Renderer remains unchanged.
+This sample gate does not prove all-glyph geometry/metrics or shaping parity.
+
+
+### Exhaustive higher-UPEM gate — 2026-11-03
+
+Comparator now normalizes geometry/advances to original UPEM and accepts a
+separate candidate directory.8000-UPEM CJK retained all31036 glyphs/topology
+with maximum coordinate error0.0625 original units, but horizontal advances
+differ by up to0.5 original units. Gate correctly fails (exit101); production
+replacement is rejected until original metrics are preserved. Report is saved
+before assertions so failed gates remain inspectable. Emoji remains exact.
+
+
+### Preserved metrics for high-UPEM CJK — 2026-11-03
+
+Generation now obtains weight400 reference advances before UPEM scaling and
+transfers exact integer-multiplied hmtx/vmtx advances into high-precision contours.
+Exhaustive release comparator passes all31036 CJK and1891 emoji glyphs: both
+horizontal/vertical advances exact, topology unchanged, normalized CJK coordinate
+error0.0625, emoji0. Selected CPU raster gate also passes; residual CJK pixel
+differences remain. Report: font-instance-upem8000-preserved-metrics-2026-11-03.json.
+Production renderer unchanged; global metrics/kerning/mixed-font integration
+and broader rendering gates remain open.
+
+
+### Static font global metrics and flattening diagnostics — 2026-11-03
+
+Exhaustive comparator now checks normalized ascender/descender/line gap/x-height/
+cap height: all exact for preserved-advance8000 CJK and static emoji. Release
+CPU raster gate reports original/candidate edge counts per glyph. Diagnostics
+are preserved in font-instance-global-metrics-2026-11-03.json; counts alone
+do not prove the cause of remaining pixel errors. Renderer unchanged.
+
+
+### Flattening tolerance diagnostic — 2026-11-03
+
+A test-only per-Contours tolerance override isolates subdivision effects without
+changing production0.15px. At0.01px the same selected8000-UPEM CJK sample matrix
+reduces maximum alpha error19→3/255; emoji remains exact. This supports a
+subdivision-threshold contribution but does not eliminate font rounding or
+prove all-glyph raster equivalence. More edges are emitted (worst sample
+好96px:356/359 edges). Release library suite passed at default tolerance;
+raw test log is font-diagnostics-lib-tests-2026-11-03.txt. Production policy
+needs an accuracy/performance comparison before changing renderer behavior.
+
+
+### Exploratory flattening cost — 2026-11-03
+
+Manual ignored release probe font_flattening_cost_probe alternates tolerance
+order, reuses buffers and excludes first warmup pair. Seven measured pairs
+per size:0.01px median time ratio1.54/1.76/1.64 at14/48/96px relative to0.15;
+0.05px1.11/1.21/1.15. Edges at0.01 grow2.23–3.21×. No A/A process/host noise
+control or app-frame claim. Raw measurements in font-flattening-cost-2026-11-03.json;
+intermediate-quality raster comparison in font-instance-medium-flattening-2026-11-03.json.
+Evidence does not support globally tightening production tolerance merely to
+compensate for static-font rounding. Renderer and production tolerance unchanged.
+
+
+### Production static emoji fallback — 2026-11-03
+
+Renderer now embeds FormaEmoji-Regular.ttf instead of variable NotoEmoji;
+source assets/provenance/licenses preserved. CJK and production curve tolerance
+unchanged.240 Rust tests passed,2 GPU tests and1 manual probe ignored; fresh
+WASM Node14/14 passed. New compare-font-wasm.cjs checks90 exact CPU frames,
+mixed caret and simple/shaped metrics against previous variable-font module.
+No kern/GPOS table exists in either emoji file. Payload saved1,095,944bytes.
+Actual sizes/hashes and remaining browser/OS scope are in
+benchmarks/static-emoji-qualification-2026-11-03.json.
+
+
+### Static emoji browser and native presentation — 2026-11-03
+
+Fresh web bindings passed17/17 in Chromium156. Browser frame shows real CJK,
+static emoji and mixed text. Rebuilt native probe received mixed Unicode paste
+in second editor and displayed matching summary; journal/screenshots retained.
+CUA action batch timed out after paste; re-observation confirmed the effect.
+Probe window/tab/server closed. Scope is paste/font presentation, not CJK IME.
+See static-emoji-qualification-2026-11-03.json and corresponding screenshots.
+
+
+### Borrow scene property defaults — 2026-11-03
+
+scene_properties reads definition-over-fallback defaults through borrowed
+lookups; merged map materializes only for missing-state fallback expressions.
+Regression covers definition precedence, fallback-only and live-state paths.
+241 Rust tests passed,3 ignored. Same-command allocation before/after logs
+and exact counts saved in native-defaults-qualification-2026-11-03.json.
+Shared-root/control snapshots remain owned and dominant; no latency/RSS claim.
+Fresh WASM/Node/browser integration still pending.
+
+
+### Defaults borrowing WASM gate — 2026-11-03
+
+Fresh release wasm-bindgen node/web:Node14/14 and Chromium17/17 passed.
+90 CPU frame/caret comparisons against static-emoji baseline are byte-exact.
+Reports/build log/screenshot saved under native-defaults-wasm-* and
+native-defaults-browser-2026-11-03.jpg. Test tab/server closed. Performance
+evidence remains allocation-only; shared-root snapshot storage is still open.
+
+
+### Shared snapshot ownership audit — 2026-11-03
+
+Traced expansion→props.__state→visual/template evaluation→SceneControl→retained
+Runtime binding transaction. Live root already comes from Document.states;
+captured locals/lexical frames/key scope remain required. Public owned transport
+prevents silently deleting snapshots. SNAPSHOT_STORAGE.md records the internal
+shared-scope migration boundary and compatibility gates. Added reproducible
+release snapshot_storage_probe:8/32/96/256 controls,256 unrelated records,
+public JSON bytes and retained record counts; root immutability asserted.
+Raw baseline saved. No shared-storage implementation or RSS improvement claimed.
+
+
+### Shared Properties implementation — 2026-11-03
+
+Properties now owns Arc<BTreeMap> with COW mutation; serde emits the same plain
+map. Sibling snapshots share unchanged root storage and detach on edits; nested
+object/list mutation, mutable iteration, owned iteration and serde roundtrip
+regressions pass.243 Rust tests,3 ignored,all-targets check; fresh WASM Node14/14,
+30 exact public artifact JSON comparisons and90 exact frames/caret comparisons
+against defaults baseline. Native96-editor repair allocations140045→41253;
+other exact counts/raw logs in shared-properties-qualification-2026-11-03.json.
+Rust alias→newtype migration documented. Browser, timing/RSS and mutable
+overlay/list cloning remain open.
+
+
+### Shared Properties browser + retained allocator qualification — 2026-11-03
+
+Chromium17/17 passed on fresh web WASM; report/screenshot saved. Constructed
+separate baseline source copy differing only in Properties alias vs COW map.
+Same benchmark source, release binaries hashed; A/A+four AB/BA pairs saved.
+256 controls retained allocator bytes135619610→5104326 (-96.2%); allocations
+1736152→80582. Every artifact Drop returns measured allocator delta to zero.
+This excludes Document,allocator overhead,RSS/GPU; instrumented timing cannot
+stand for app latency. Small-control A/A noise reaches2.23×. Sources gzipped,
+build logs/raw runs preserved, reusable run-snapshot-retention-pairs.py added.
+Full Runtime RSS/edit/frame and overlay/list costs remain open.
+
+
+### Full retained Runtime memory probe — 2026-11-03
+
+Added --runtime-retention benchmark path: both schedulers,8/32/96/256 controls,
+complete warmup, two measured samples, construction+3 binding edit/rebuild/CPU
+frames at1.25scale, allocator live/peak and after-Drop delta0. Benchmark
+diagnostics are allocated while live/peak counters are suspended. Same release
+source compiled with isolated old-alias baseline and current COW Properties.
+Process /usr/bin/time -l peak RSS367951872→28672000bytes; local getrusage(2)
+man page confirms byte units. This is one process/host probe, not per-case RSS
+or OS-window/GPU latency. Detailed live/peak counts and raw/source/build/hash
+evidence saved in shared-properties-runtime-qualification-2026-11-03.json.
+
+
+### Sparse offscreen cache allocation culling — 2026-11-03
+
+Phase-specific trace separated load16.44MB,first sync0.42MB from first CPU
+frame278.22MB requested. Sparse leaf Cache::build allocated full canvases before
+packing even for wholly offscreen controls. Conservative support test now
+returns empty cache first, accounting for base/main text/content text/shape
+overflow and physical AA margin; clip markers cannot add support. Nonfinite
+support conservatively follows old path. Scroll/DPI/key changes rebuild cache.
+244 Rust tests passed,3 ignored; explicit regression verifies zero offscreen
+canvas capacity, scroll reentry and exact overflowing-shape pixels at4 scales.
+Frame requested bytes278224356→13553796,allocations1453→228; load/sync
+counts unchanged. Runtime lifecycle still returns allocator delta0; lifetime
+peak unchanged. Fresh WASM/browser/native GPU gates remain open.
+See offscreen-cache-qualification-2026-11-03.json and saved traces/sources.
+
+
+### Offscreen culling fresh WASM/browser gate — 2026-11-03
+
+Node14/14,Chromium17/17 passed. Standard90 frame/caret+30 artifact comparisons
+against previous COW module remain exact. Added compare-sparse-cache-wasm.cjs:
+60 exact multi-control content frames across five parent positions,empty/text/
+shape templates and four DPI scales. Visible overflow explicitly nonempty;
+transparent controls empty. Negative source parent coordinates are refused by
+parser,so fixture uses supported nonnegative parents with negative child offsets.
+Browser screenshot/raw reports saved; probe tab/server closed. Actual OS/GPU
+presentation gate remains open.
+
+
+### Current native CPU window + physical offscreen GPU repeat — 2026-11-03
+
+Rebuilt NativeHost probe after shared Properties/offscreen cache changes. Actual
+macOS paste second=COW你好 мир🙂 (space retained after COW),ShiftTab/paste
+first=first edited; raw journal confirms independent fields and visible summary.
+Window closed. Hardware offscreen renderer buffers test and126 Reveal
+comparisons passed on Apple M4 Max/Metal,max error1/255. These are separate
+CPU-window and offscreen-GPU scopes,not GPU OS presentation. Source audit found
+select_backend only changes profile/title and frame-bar decoration while draw
+uses paint_native/softbuffer; actual egui/GPU transition remains open.
+See offscreen-cache-native-hardware-qualification-2026-11-03.json.
+
+
+### Actual reusable NativeHost GPU presentation — 2026-11-03
+
+Extracted GpuWindow/Presentation and Metal layer visibility into shared native_gpu
+module; standalone consumes it unchanged. Reusable host now requests desktop
+Svet GPU frames via NativeApp.inspect, preserves CPU fallback and schedules
+surface Retry with event-loop deadlines. CPU/chooser/mobile paths retained.
+Optional on_frame_presented observer fires after successful presentation; probe
+records separate journal. Actual macOS sequence Gpu→Cpu→Gpu (7087 callbacks)
+and Unicode edits across F7 roundtrip observed, final model preserved. Screenshots
+and compressed journal saved; probe closed.244 Rust tests,all-targets and two
+hardware offscreen tests passed. Egui label clarified as CPU compatibility;
+app scheduler is independent. Partial native-host-gpu-qualification-2026-11-03.json
+lists failure/resize/other-platform/large-form gates still open.
+
+
+### Native surface backoff + actual OS occlusion — 2026-11-03
+
+Draw now checks retry deadline before update/window lookup/acquisition so input
+redraws cannot bypass the16ms retry timer. OS occlusion blocks draws and clears
+pending retry; unocclusion requests redraw. Regression exercises10 repeated
+backoff/hidden draws,expiry and resumed acquisition boundary without a window.
+Optional on_occlusion_changed observer and timestamped probe presentation logs
+added. Actual macOS minimize emitted false→true→false;579.415ms hidden interval
+contained0 presented frames,then GPU frames resumed. Unicode first value
+preserved and second edited after restore.245 Rust tests/all-targets passed;
+probe closed. native-host-occlusion-qualification-2026-11-03.json records exact
+scope; forced GPU timeout/device loss and repeated/cross-platform lifecycle
+remain open.
+
+
+### GPU uncaptured error delivery + pre-acquisition health — 2026-11-03
+
+Source audit found gpu-runtime on_uncaptured_error and device-lost registration
+were no-op. Implemented shared uncaptured handler state on Device/CommandEncoder;
+matching innermost error scopes consume errors and preserve first slot,unscoped
+callbacks run outside both mutexes. Scope/reentry/handler replacement tests pass.
+Renderer keeps first cause,exposes check_health,and NativeGpu checks it before
+surface configure/acquisition so latched faults cannot remain hidden by Timeout.
+Hardware test now uses invalid encoder dispatch to trigger actual runtime
+validation callback without submitting invalid commands; later Device descriptor
+validation cannot overwrite cause,draw rejects without frames/uploads.
+2 gpu-runtime tests,245 native tests,all-targets,two hardware gates passed.
+Device-loss callback still placeholder and explicitly documented; no physical
+device-loss/OS fallback qualification claimed. Root cause and remaining scope
+saved in gpu-error-delivery-qualification-2026-11-03.json. Generated local crate
+lock preserved with evidence and removed from workspace after isolated tests.
+
+
+### Metal device-loss callback delivery — 2026-11-03
+
+Replaced callback placeholder with per-logical-device once-only state,late
+registration and reentry-safe notification outside mutex. Metal retains pending
+command buffers through completion rather than losing diagnostics when last
+command pointer changes. Reaps on submit/poll/wait; synchronous internal waits
+inspect completion too. Local SDK codes4=AccessRevoked,11=DeviceRemoved latch
+backend loss; other errors do not become device loss. Device.poll delivers
+notification,Renderer health polls before acquire and setup refuses already-lost
+backend.5 runtime tests,explicit Metal Device backend-state injection,245 native
+tests,all-targets,two hardware gates passed. Physical removal/reset, idle macOS
+notification subscription and OS fallback under injected loss remain open.
+Evidence and SDK header hash:device-loss-delivery-qualification-2026-11-03.json.
+
+
+### Actual OS GPU-loss CPU fallback and explicit recovery — 2026-11-03
+
+Added opt-in native-test-hooks feature bridging gpu-runtime/test-hooks. F8 in
+this build injects backend loss into the active GPU Device; ordinary native
+feature tree excludes test hooks. Optional on_gpu_fallback observer records
+reason before CPU fallback. Actual macOS probe:Gpu→Cpu after F8,one device-loss
+error,first field preserved,second edited on CPU;F7 profile roundtrip creates
+new GPU and second edit continues. Raw model/error/presentation journals and
+screenshots saved.245 tests pass in native and native-test-hooks configurations,
+normal all-targets check passed,probe closed. Synthetic backend state does not
+qualify physical reset/removal or automatic recovery. Report:
+native-host-loss-fallback-qualification-2026-11-03.json.
+
+
+### CPU self-animation pacing and release frame evidence — 2026-11-03
+
+Saved debug trace showed CPU13.8FPS,so it was not treated as evidence of release
+over-rendering. New --cpu-frame release probe measures tick+binding sync+paint
+with fixed60Hz dt:2x unfocused median0.047ms/0alloc,focused2.134ms/8.70MB
+requested and one leaf rebuild/frame. NativeHost CPU self-animation now targets
+60Hz start-to-start via event-loop deadlines;input events can redraw immediately,
+GPU keeps FIFO cadence,retry uses nearest deadline and occlusion cancels wakes.
+245 tests/all-targets passed. Actual release window CPU median17.058ms,return
+GPU8.3385ms;model/binding input survived. No pre-change release OS baseline or
+input-latency claim. Visible-leaf full-canvas scratch remains a measured target.
+Evidence:native-host-cpu-pacing-qualification-2026-11-03.json.
+
+
+### Region-aware sparse leaf raster scratch — 2026-11-03
+
+Added text/shape region raster APIs retaining global coordinates,clip and
+horizontal accumulation prefix;only storage writes are rebased. Conservative
+physical support sizes sparse leaf coverage/content/nested clip layers;packed
+spans,rect edges and reveal coordinates remain global. Dense path unchanged.
+Exact composited region/full tests cover mixed fonts/shapes/alpha/fractional
+scales and invalid regions.247 Rust tests,all-targets,hardware Reveal passed.
+Fresh WASM Node14/14,Chromium17/17,90 standard+60 overflow frames and30 artifact
+JSON comparisons exact against pre-change WASM. Allocation budget2MB on
+1600x1200:baseline17,694,710fails,candidate1,124,666passes. Four releaseAB/BA
+pairs+A/A:2x focused requested8,704,257→1,119,813 (-87.1%),median time ratio
+0.868,A/A0.987. Instrumented timings not OS latency/RSS. Raw runs/sources/builds
+and limits preserved in region-raster-qualification-2026-11-03.json.
+
+
+## Geometry-only CPU content scratch — 2026-11-03
+
+Geometry-only controls no longer allocate or scan a temporary RGBA content
+layer. Clip markers alone are also empty. Dense/sparse geometry and paint
+remain unchanged. Cold 800×600 content_pixels requested bytes:6,720,064→4,800,064
+(−1,920,000 bytes); allocation regression failed before and passes after.
+Exact dense/sparse pixel equality against the transparent-shape layer path
+passes at four scales. Default lib/integration suite passed 238 tests, 1 ignored;
+native all-targets and wasm32 library checks passed. No browser/window, timing
+or RSS qualification claimed. Text/shape scratch, dense geometry/frame storage
+and physical large-form qualification remain open.
+
+[Qualification](benchmarks/empty-content-qualification-2026-11-03.json).
+
+
+## Content-only region for dense and sparse CPU storage — 2026-11-03
+
+Content support is now computed independently of base geometry. Temporary RGBA
+and pooled nested-clip layers use only the conservative text/shape support
+union; global contours, clip/AA arithmetic and emitted spans remain unchanged.
+Dense geometry/frame/output buffers are still full canvas. Empty and offscreen
+content require no content layer. Nonfinite support falls back to full canvas.
+
+The cold800×600 nested-clip allocation regression fails before (10,561,888
+requested bytes) and passes after (4,805,356,−54.5%). 240 exact comparisons
+against full-canvas content storage cover four templates, three scroll offsets,
+five scales, dense/sparse and both background modes. The native suite passes266
+Rust tests (9ignored); all-targets check passes. Explicit Apple M4 Max/Metal
+Reveal gate passes126 comparisons,max1/255. Fresh release WASM passes14 Node
+cases,120 dense Button+90 Runtime font+60 overflow exact frames and30 exact
+artifact JSON comparisons. Chromium156 passes18/18, including a new dense
+nested-clip/mixed-font case; screenshot and report saved.
+
+No timing, RSS, OS input latency or physical-window qualification claimed.
+Disjoint overflow can still require a large union, and repeated scratch reuse
+remains open. Raw logs, before/after source and hashes are retained in the
+[qualification](benchmarks/dense-content-qualification-2026-11-03.json).
+
+
+## Packed dense coverage and split paint passes — 2026-11-03
+
+Dense caches now pack coverage into global row spans too. Output RGBA and root
+frame storage remain dense; geometry-only offscreen controls still compose the
+root background. Painting preserves per-pixel base→rect edge→content→reveal→
+frame/background order while removing per-pixel sparse-item checks from the
+full-canvas pass. Sparse output compositing remains packed.
+
+Cold800×600 nested-content requested bytes4,805,356→4,355,408 (−9.36%); the
+4.5MB regression fails on the isolated baseline and passes on the candidate.
+A/A+4AB/BA default-feature release probes cover geometry/mixed/nested small
+controls and a full-canvas control at1x/2x. At2x, small geometry repaint+RGBA
+copy median2.699→1.187ms (paired ratio0.439),full-canvas3.178→1.782ms (0.561).
+At2x cold ratios0.820–0.868; observed A/A0.932–1.005 across those cases.
+This is public Button content_pixels, not NativeHost or OS input latency/RSS.
+All sample arrays (sorted),binary hashes and runner are retained.
+
+266 native-feature Rust tests pass (9ignored),all-targets check passes; explicit
+M4 Max/Metal Reveal126 comparisons,max1/255 passes. Fresh release WASM:
+210 stateful dense paint+120 dense content+90 mixed-font Runtime+60 overflow
+exact frames,30 exact artifact JSON,Node14/14 and Chromium18/18 pass.
+Stateful differential covers animated fill/border/reveal,clipping/background,
+Scroll and DPI. Browser screenshot/report saved; owned tab/server closed.
+
+Frame/output/native XRGB storage,buffer reuse,physical-window/RSS,other backends
+and the broader PLAN remain open. [Qualification](benchmarks/packed-dense-qualification-2026-11-03.json).
+
+
+## Actual large-form NativeHost matrix — 2026-11-03
+
+Added native_form_probe and the synthetic svet-native-large fixture: retained
+Svet scheduler,8/32/96/256 mixed CJK/Cyrillic/emoji bound editors in Scroll.
+The fixture regression verifies final-row binding writes and CPU pixels at all
+four sizes. Native all-targets check and release build pass. An opt-in journal
+records changed model snapshots, successful CPU/GPU present callbacks, raster
+counters and getrusage process peak RSS. Instrumentation adds overhead.
+
+Actual macOS windows at Retina2x were operated through CUA: GPU edit first row,
+F7 CPU,edit first row,scroll to last row,CPU edit last row,F7 GPU,append text,
+scroll back to top.8rows fit without scrolling.256 additionally performed3
+quick CPU/GPU roundtrips (2CPU frames each),so this is limited lifecycle evidence.
+All original unrelated rows and identifiers match exactly; first/last values,
+full row count,final scroll0 and renderer sequences are verified from raw logs.
+Zero GPU fallback errors in all four runs. Screenshots include256 CPU/GPU
+last-row editing and the return to the first row. Owned windows/processes closed.
+
+Observed instrumented present interval p50 CPU/GPU (ms):8=16.922/8.388,
+32=17.196/9.835,96=17.246/9.588,256=17.123/8.712. At256 p95=23.930/17.031ms;
+max=54.459/48.792ms. Selection includes all adjacent presents with identical
+renderer/focus/scroll and both animating,without a duration cutoff. Raw logs
+retain the other intervals and transition stalls. Runtime load (not OS launch)
+3.133/5.156/10.097/18.152ms. Process peak RSS139.7/145.2/152.0/171.9MB.
+Changed-model input callback+binding sync at256 observed16.65–35.42ms; this is
+not input-to-display latency. GPU present callback is not completion/scanout.
+
+Each size is one release run on one machine,without baseline or A/A. Peak RSS
+is not current live/GPU memory or evidence of no leaks; extra256 roundtrips
+raised observed process peak167.2→171.9MB. Long plateau/scroll/lifecycle runs,
+other schedulers/platforms,true CJK IME and latency gates remain open.
+
+[Qualification and raw data](benchmarks/native-large-qualification-2026-11-03.json).
+Recheck the saved journals with:
+
+```sh
+python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/native-large-raw-2026-11-03 /tmp/svet-native-large-recheck.json
+```
+
+
+## Frame run storage and composition — 2026-11-03
+
+Dense caches replace the Frame byte-per-pixel map with equal-value runs
+(exclusive u32 end +coverage/viewport byte). Original round_coverage and
+scrollbar coordinates are preserved. Paint handles viewport/scrollbar runs,
+then background and rounded clipping; homogeneous regions with no work skip
+per-pixel traversal. RGBA output/native XRGB remain dense. Frame construction
+still evaluates every pixel; it has not become a geometric span solver.
+
+Uniform1600×1200 Frame needs one run,capacity≤64bytes instead1,920,000byte map,
+including the case where button geometry is wholly offscreen. Cold800×600
+nested-content allocation regression:4,355,408→3,875,440 requested bytes;
+4MB budget fails on the isolated baseline and passes on candidate.
+
+A/A+4AB/BA release pairs were run separately for public Button pixels with
+background and content_pixels without it. At2x background repaint+RGBA copy:
+small geometry2.796→1.293ms,full-canvas7.491→5.648ms. Background2x A/A range
+0.970–1.014. Content-only A/A varies0.670–1.256; those timing results remain
+exploratory and do not qualify a speedup. Both raw sets,sorted sample arrays,
+source snapshots,binary hashes and --background runner support are retained.
+These are not NativeHost input-to-display latency measurements.
+
+267 native-feature Rust tests pass (9ignored),all-targets check passes,probe
+fixture regression8/32/96/256 passes. Explicit M4 Max/Metal Reveal126
+comparisons,max1/255 passes. Fresh release WASM:480 exact frames (including
+stateful animated fill/border/reveal,clipping/background,Scroll,DPI),30 exact
+artifact JSON,Node14/14,Chromium18/18 pass. Browser screenshot retained.
+
+Fresh updated release256-editor OS window also passes GPU→CPU→GPU,first/last
+row edits,scroll to9334 and back0; final full model matches expected and
+unrelated rows/IDs remain exact,0 GPU errors. Raw journal and CPU/GPU screenshots
+saved; window/process closed. This single smoke run is not paired latency/RSS
+qualification. Frame construction,output/XRGB storage,buffer reuse,long-lived
+resource/RSS plateau,other platforms and broader PLAN remain open.
+
+[Qualification](benchmarks/frame-runs-qualification-2026-11-03.json).
+The saved256 journal can be checked independently:
+
+```sh
+python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/frame-runs-native-raw-2026-11-03 /tmp/svet-frame-runs-recheck.json --counts 256 --extra-roundtrips-256 0
+```
+
+
+## Exact monotone Frame run search — 2026-11-03
+
+Frame construction splits every row at the rounded-root center and all
+pixel-center viewport/scrollbar comparisons. Pixel coordinates retain the
+original `(x+0.5)/scale` arithmetic; threshold conversion uses exact binary
+search rather than floor/ceil. On each interval viewport bits are constant
+and rounded Frame coverage is monotone,so equal-value prefixes are searched
+without evaluating the full width. Original scalar sampling remains for small
+canvases(width<64),degenerate/nonfinite root parameters. This optimization is
+specific to rounded root/viewport metadata; arbitrary contours are unchanged.
+
+A scalar oracle checks240 generated configurations,including fractional
+geometry,padding,scroll offsets,both scrollbars,DPI from tiny positive to very
+large,plus3 negative/nonfinite-radius fallback cases. Uniform1600×1200 requires
+24,000 scalar samples instead1,920,000; both normal and wholly offscreen button
+geometry pass the100,000-sample budget and exact original run output.
+
+A/A+4AB/BA default-feature release public Button pixels(background=true)
+probes pass.2x cold build+RGBA copy:small geometry6.865→1.506ms (paired0.219),
+full-canvas12.560→7.187ms (0.572). Repaint ratios0.965–0.997 at2x remain within
+ordinary variation; no independent repaint speedup claimed.2x A/A0.992–1.028.
+Raw runs,sorted sample arrays,source snapshots and binary hashes retained.
+These are not NativeHost input-to-display latency/RSS measurements.
+
+268 native-feature Rust tests pass (9ignored),all-targets check passes; explicit
+M4 Max/Metal Reveal126 comparisons,max1/255 passes. Fresh release WASM passes
+480 exact frames,30 exact artifact JSON,Node14/14 and Chromium18/18. Actual
+updated256-editor NativeHost GPU→CPU→GPU,top/bottom scroll and first/last-row
+edits pass; exact full final model/unrelated rows preserved,0 GPU errors.
+CPU/GPU/browser screenshots and the OS journal are saved; owned windows/server
+closed. Native behavior run is single,not paired latency/RSS qualification.
+
+RGBA/XRGB output,buffer reuse,For/local overlays/list detachment,long native
+RSS/lifecycle plateau and other platforms/schedulers remain open.
+[Qualification](benchmarks/frame-spans-qualification-2026-11-03.json).
+
+```sh
+python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/frame-spans-native-raw-2026-11-03 /tmp/svet-frame-spans-recheck.json --counts 256 --extra-roundtrips-256 0
+```
+
+## Scope overlay qualification — 2026-11-03
+
+Shared For/Let/read-only replay scopes and captured locals passed regression,
+allocation and exact interop gates. [Final evidence](benchmarks/property-overlay-qualification-2026-11-03.json)
+and final AB/BA pair directories preserve measured results and source hashes.
+Fresh actual native256 journal verified with:
+
+```sh
+python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/property-overlay-native-raw-2026-11-03 packages/svet/benchmarks/property-overlay-native-qualification-2026-11-03.json --counts 256 --extra-roundtrips-256 0
+```
+
+Exact model/unchanged rows, maximum scroll9334 and final0, CPU/GPU presents
+and no GPU errors passed. The probe title `egui` denotes CPU compatibility,
+not an independent egui renderer. Chromium19/19 and screenshots saved.
+Native probe process exited after window close. No RSS plateau/input latency
+or universal speedup claim; small-form edit overhead remains approximately1–5%.
+
+## Caller-owned RGBA output — 2026-11-03
+
+Added Rust `Runtime::paint_rgba` / `Button::paint_rgba` with exact buffer-size
+and DPI validation, supporting background and content-only output. They copy
+visible cached pixels into retained caller storage. Existing owned APIs remain
+unchanged. Warmed allocation matrix:0 allocations versus1 owned output Vec;
+cache release/reconstruction and unchanged destination on invalid DPI passed.
+The independent full-canvas oracle now also validates this path.
+
+```sh
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --lib --test runtime_allocations
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path vector-ui/Cargo.toml --features native --all-targets
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path vector-ui/Cargo.toml --target wasm32-unknown-unknown
+```
+
+192 lib tests +17 allocation tests passed;1 ignored.
+[Evidence and limitations](benchmarks/rgba-output-qualification-2026-11-03.json).
+No OS smoke/browser bundle refresh is claimed for this Rust API addition.
+Retained raster/XRGB storage and JS-owned output still require further work.
+
+## CPU allocator lifecycle — 2026-11-03
+
+Added `--cpu-lifecycle` to the binding workload and a separate raw JSON verifier.
+Both schedulers,8/32/96/256 controls,32 alternating first/last edits, retained
+RGBA/XRGB destinations and CPU cache release every4 edits. Each frame checks
+owned RGBA equivalence and XRGB compositing; final model checks every row/ID.
+One warm lifecycle precedes3 measured lifecycles per configuration.
+
+```sh
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo run --manifest-path vector-ui/Cargo.toml --release --example binding_sync_bench -- --cpu-lifecycle > /tmp/svet-cpu-lifecycle-final.json
+python3 vector-ui/scripts/qualify-cpu-lifecycle.py /tmp/svet-cpu-lifecycle-final.json /tmp/svet-cpu-lifecycle-summary.json
+```
+
+All24 measured lifecycles (768 edit frames) pass. Late16-edit live bytes are
+exactly constant; retained bytes repeat exactly across3 samples and after-Drop
+delta is0 throughout. Svet256 retained4,132,937/peak6,469,927 Layout bytes.
+Raw, build log and source hashes saved with the
+[qualification](benchmarks/cpu-lifecycle-qualification-2026-11-03.json).
+This is bounded single-thread allocator accounting, including caller output
+buffers, excluding diagnostics. No OS presentation, RSS, GPU memory or universal
+leak-freedom claim. Long-duration platform lifecycle remains open.
+
+## Logical GPU Queue identity — 2026-11-03
+
+Two request_device calls on one adapter previously produced unequal Device
+handles but equal Queue handles because Queue equality compared shared native
+Metal pointers. Each logical queue now owns an Arc identity, retained by clones.
+No Metal resource isolation or command routing behavior is implied.
+
+The explicit two-device hardware regression failed before the fix and passed
+after it; it also checks clone stability after Device drop and existing logical
+error-handler isolation. gpu-runtime5 tests passed/2 hardware tests ignored in
+default run; explicit queue hardware test passed; native218 passed/3 ignored;
+explicit profiled renderer smoke passed on Apple M4 Max/Metal.
+
+```sh
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml distinct_logical_devices -- --ignored --nocapture
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml --lib
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --features native --lib
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --features gpu profiled_renderer_reports_owned_buffers_and_reuses_them -- --ignored --nocapture
+```
+
+[Evidence](benchmarks/queue-identity-qualification-2026-11-03.json). Non-loss
+command errors are still dropped by backend completion inspection. Forwarding
+must retain submit ownership across deferred compute batches and invoke callbacks
+outside backend locks. Idle removal notification/physical reset remains open.
+
+## Metal command failure forwarding — 2026-11-03
+
+Logical Queue captures its error scope stack/handler as an internal sink.
+Pending compute batches preserve deduplicated logical sinks; native command
+completion records keep them through general/timed commands and staged writes.
+Non-loss NSError failures and missing-NSError failures now reach original sinks
+as Internal errors. Existing removal/revocation device-loss behavior remains.
+The pending-command mutex is released before invoking callbacks, allowing poll
+reentry and error-scope operations. Raw public MetalDevice APIs retain their
+previous signatures without a logical sink.
+
+Explicit hardware regression submits real clear and pure-compute commands on
+two logical devices sharing one adapter and verifies owner metadata. Injected
+completion failures then verify routing even if the other device polls, once-only
+delivery, Internal scope capture and handler poll reentry. No physical fault is
+claimed. Runtime5 unit tests +3 explicit hardware tests passed; native218 passed;
+Metal renderer smoke passed. [Evidence](benchmarks/command-error-qualification-2026-11-03.json).
+
+```sh
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml --lib
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml --lib -- --ignored --nocapture
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --features native --lib
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path vector-ui/Cargo.toml --features native --all-targets
+```
+
+Remaining: OOM-specific classification, physical fault/error-code coverage, idle
+removal wakeups, other backends and performance cost of ownership metadata.
+Timed/staged failures use the same completion collector but lack forced-fault
+coverage. Async error-scope pop semantics remain outside this implementation.
+
+## Metal OOM classification — 2026-11-03
+
+The system SDK MTLCommandBuffer.h defines OutOfMemory=8. Classification now
+compares NSError domain against exported MTLCommandBufferErrorDomain before
+returning OutOfMemory; other non-loss errors retain Internal and messages.
+Removal/revocation codes also require the Metal domain. No new domain/code
+conversion runs for successful commands.
+
+Unit matrix tests OOM, other codes, and foreign domains. Existing real-adapter
+routing test now verifies OOM scope capture and pop, foreign-domain code8
+bypassing OOM scope to Internal handler, no duplicates and callback reentry.
+Scope pop is explicitly polled; dropping the guard alone does not remove it
+in the current API.6 runtime unit tests,3 explicit hardware tests and218 native
+lib tests passed. [Evidence](benchmarks/command-oom-qualification-2026-11-03.json)
+contains SDK excerpt/hash and official Apple references.
+
+Synthetic completion failures do not prove actual GPU OOM/device-removal
+recovery. Physical faults, forced NSError extraction, idle removal notification
+and cross-platform/performance gates remain open.
+
+## Native idle completion service — 2026-11-03
+
+Added Device::is_queue_idle (Metal completion status), GpuWindow::poll_idle and
+a NativeHost completion deadline after GPU presents. about_to_wait polls health
+without acquiring a drawable or rendering, rescheduling16ms only while work
+is pending. A fault retires the GPU layer and requests CPU redraw if visible.
+Occlusion suppresses animation/retry paints but preserves completion servicing.
+Once complete, the host returns to unbounded Wait. Fully idle device removal
+after this point still requires native notifications and is not implemented.
+
+Native218 tests passed/3 ignored; all-targets check passed. Extended scheduler
+regression covers occlusion/health deadlines and stopping completion wakeups.
+Explicit Apple M4 Max/Metal renderer test drains queue and repeats health checks
+without changing the frame counter.
+[Evidence](benchmarks/idle-completion-qualification-2026-11-03.json).
+
+Pending: fresh OS-window idle-fallback/occlusion smoke, physical GPU faults,
+native removal notifications, energy/performance and other backend behavior.
+The non-Metal idle-query branch is not platform qualification.
+
+## Actual idle-fallback window — 2026-11-03
+
+Added F9 only under native-test-hooks. Press/release bypass generic input
+redraw; a per-host flag injects logical loss at the start of about_to_wait and
+services health immediately. Idle-path fallback reports an explicit origin prefix.
+Ordinary native builds omit the injection field and F9 branch. F8 remains the
+existing draw-path fault hook.
+
+First diagnostic injected in the key handler; a scheduled caret draw observed
+the fault before idle service. That raw journal is retained as draw-race
+diagnostic, excluded from qualification. The revised hook's fresh native window
+records exactly one `Idle GPU completion` fault, followed by CPU presents and
+no GPU presents. Unicode editing succeeds after fallback; final exact model and
+all7 unrelated rows verified. Screenshot and raw journal saved with
+[qualification](benchmarks/idle-window-qualification-2026-11-03.json).
+
+Both ordinary native and native-test-hooks lib suites pass218 tests/3 ignored.
+Debug instrumented OS run on one macOS machine; synthetic logical loss is not
+physical removal/OOM, performance, latency or RSS proof. Forced occlusion while
+work is pending, OS idle wakeup cessation and native removal callbacks remain
+open. Test window/process exited.
+
+## Actual idle completion cessation and OS occlusion — 2026-11-03
+
+Added optional NativeApp::on_gpu_health_checked observer; default is no-op.
+The probe journals health service and supports NO_FOCUS=1 to disable caret
+animation without changing ordinary fixture behavior. A stop record bounds the
+finished journal. Callback errors exit the host, independently of GPU errors.
+
+Actual ordinary debug native8 window (no test hooks) records an OS-occluded
+32.24s interval:1 final idle health check,0 presents, then GPU presentation
+resumes when visible. A separately timed13.40s live-process observation has a
+byte-identical journal after idle. Exact model remains unchanged. Native218
+lib tests +1 probe test passed. A reusable verifier checks idle health cessation,
+occlusion/presentation ordering and model; it rejects inserted repeated health
+checks without intervening new frames.
+[Evidence](benchmarks/idle-wakeup-qualification-2026-11-03.json).
+
+```sh
+python3 vector-ui/scripts/qualify-idle-wakeup.py packages/svet/benchmarks/idle-wakeup-raw-2026-11-03.jsonl.gz /tmp/svet-idle-wakeup-summary.json
+```
+
+This measures recorded health checks/presents, not all event-loop wakeups or
+energy/latency/RSS. Queue execution may have completed before occlusion; the
+proof covers servicing an outstanding health deadline while occluded. Actual
+physical loss while occluded and fully-idle removal notification remain open.
+Test window/process exited; screenshot saved.
+
+## Error-scope guard ownership — 2026-11-03
+
+ErrorScopeGuard::pop previously removed the stack's latest entry regardless of
+which guard owned it. Each entry/guard now shares a unique Arc token; pop removes
+the matching entry. Error dispatch still picks the innermost matching active
+filter and preserves its first error. Tests exercise both pop orders, an unrelated
+new scope remaining intact, and8 concurrent pops returning their own errors.
+Runtime8 unit tests +3 explicit Metal tests and native218 tests pass.
+[Evidence](benchmarks/scope-owner-qualification-2026-11-03.json).
+
+This fixes ownership only. Pending-completion-aware async pop and submit-time
+scope snapshots remain open; callers still poll before pop, whose future is
+immediately ready. Implicit guard Drop behavior is unchanged.
+
+## Submitted error scopes and asynchronous pop — 2026-11-03
+
+Error-scope entries now share result/pending/waker state. Logical Queue submit
+and write capture the active scope set before entering the backend. Captured
+leases survive scope pop; error dispatch uses that set, so a newly pushed scope
+cannot receive an old submission's error. Batching deduplicates clones of the
+same submission while retaining distinct scope captures. Unscoped submissions
+record an empty capture without allocating snapshot storage.
+
+pop removes its own active entry immediately and returns a future that waits
+for outstanding leases. On first pending poll it starts a completion worker;
+the worker services backend completions until that scope's work finishes.
+Successful and failed completions both release leases outside backend locks.
+Waker replacement/drop and wake occur outside scope locks. The collector owns
+a batch outside its mutex and restores unfinished records, preserving concurrent
+submissions without an extra per-completion delivery vector in the common path.
+
+Unit10 +3 explicit Metal tests, native218 tests and hardware renderer smoke
+passed. Tests cover submission snapshots, unscoped submissions, partial command
+completion, Pending/wake, successful real command and injected error, no explicit
+caller poll, reentrant waker and clean newer scope.
+[Evidence](benchmarks/scope-capture-qualification-2026-11-03.json).
+
+This supersedes the earlier immediately-ready-pop limitation. Pending pops use
+a detached completion thread per awaited scope; thread pooling/resource limits,
+performance and cancellation of driver waits remain unqualified. Physical GPU
+faults, raw backend calls without logical sinks and other backends are not
+covered by this proof.
+
+## Shared scope completion service — 2026-11-03
+
+Replaced one worker per pending pop with a service shared by cloned Metal
+backends and their logical devices. Registrations hold Weak scope-result
+references; a single servicing worker drains completions for the active burst.
+It retires when requests finish or expire, releasing registration queue capacity.
+Scope upgrades/destructors and backend waits execute outside service locks.
+Concurrent registrations are merged back after each scan; existing capacity is
+reused while work remains.
+
+A real-adapter resource test holds64 synthetic submit leases and polls64 scope
+futures. Each of2 rounds cancels32 futures, releases all leases with individual
+errors, verifies32 remaining results, one worker launch per burst, retirement
+and zero idle registration capacity. Previous real clear-command async-pop,
+reentrant waker, OOM and logical-owner tests remain green. Runtime10 unit tests,
+4 explicit Metal tests,native218 and renderer smoke pass.
+[Evidence](benchmarks/scope-service-qualification-2026-11-03.json).
+
+Worker counts are internal launch instrumentation, not whole-process OS thread
+sampling. Throughput, latency, RSS/energy, driver-wait cancellation and other
+backends remain unqualified. Registration memory scales with active scope waits;
+separate backend instances retain separate services.
+
+## Real GPU scope timing and conditional backoff — 2026-11-03
+
+Added gpu_scope_bench:1MiB real Metal clear under1/8/32/64 nested scopes,
+concurrent pops, async service versus explicit blocking wait. Every warm/measured
+operation asserts queue idle and exact all-zero readback. Twelve measured
+samples/group after4 warmups; alternating mode order. A runner stores baseline
+A/A +4 AB/BA pairs and can regenerate medians/nearest-rank p95 with
+--summarize-only. Per-group p95 is the maximum of12 samples, not a qualified tail.
+
+Initial release timing exposed the service's unconditional1ms sleep. The worker
+now reaps completions before scanning and backs off only when pending leases
+outlive entered backend work. Functional gates pass: runtime10,explicit Metal4,
+native218,hardware renderer and all-targets.
+
+First paired series overlapped test compilation and is diagnostic. Second
+series had no owned build/test jobs, but baseline explicit-wait A/A ratios still
+span0.362–1.656; performance qualification remains inconclusive. Async p50
+observations improve~0.52–0.58→0.13ms, but no qualified speedup is claimed.
+Both complete raw series, source/binary hashes and build logs are preserved in
+[qualification](benchmarks/scope-backoff-qualification-2026-11-03.json).
+
+```sh
+cargo run --manifest-path vector-ui/Cargo.toml --release --features gpu --example gpu_scope_bench
+python3 vector-ui/scripts/qualify-gpu-scopes.py BASELINE_BINARY CANDIDATE_BINARY OUTPUT_DIR
+```
+
+Next: stabilize control timing and increase warmup/samples before accepting
+performance claims; OS thread/RSS/energy and physical GPU faults remain open.
+
+## Scope benchmark control isolation and rejected confirmation — 2026-11-03
+
+Found the previous unchanged control was not independent: async and explicit
+wait used one Metal backend, so a completion worker could take the control's
+last command buffer. Each mode now owns a separately requested backend/device/
+queue/buffer. Work remains nested1/8/32/64 scopes,1MiB real clear and exact
+readback. Warmup/sample counts are configurable (defaults16/64).
+
+Two standalone harnesses use identical benchmark sources, profiles and lock
+files, differing only in saved baseline/candidate runtime types.rs. Reusing one
+target directory unexpectedly produced identical executables; that entire
+series is rejected and retained. The final candidate was rebuilt in its own
+target directory; distinct hashes are recorded. The runner now rejects equal
+binaries before execution and validates recorded identity/protocol/isolation.
+
+The first valid isolated series stabilizes explicit controls but retains unstable
+async pooled medians. Baseline async samples have two order-conditioned modes
+(~0.15ms and~0.97ms); pooled50/50 p50 is unstable. Added both order strata while
+retaining every sample and pooled gate. A fresh10-run confirmation fails frozen
+control/async gates, so **performance is inconclusive**, with no qualified
+speedup claim. Failed cells and all raw results are preserved in
+[qualification](benchmarks/scope-order-qualification-2026-11-03.json).
+
+Two valid series contain10 runs each,512 measured samples/run and640 exact
+clear checks including warmup/run. Negative tests verify equal-binary rejection
+and shared-control disqualification. No further retries to obtain green were
+performed. Next work should investigate scheduling/order effects and measurement
+conditions while keeping failed evidence and thresholds.
+
+## Scope-pop cancellation lifetime — 2026-11-03
+
+Pending scope-pop Drop clears pop_waiting and takes/releases the executor waker
+outside its scope mutex. Service scans require both outstanding work and a live
+waiter; captured scope state/error routing remains owned by submission leases.
+This separates task cancellation from command lifetime.
+
+The unit regression retains a submitted lease, cancels its future and verifies
+that an executor resource immediately drops. Its destructor reenters the same
+scope state, proving no lock is held during waker destruction. A subsequent
+error remains in the original captured scope; dropping the lease does not wake
+the cancelled task. Extended real-adapter service regression cancels64 futures
+and observes worker/registration retirement while64 synthetic leases remain
+alive. Previous partial-burst, reentrant-waker and real-command tests pass.
+
+Runtime11 unit tests +4 explicit Metal tests, native218 and renderer smoke pass.
+[Evidence](benchmarks/scope-cancel-qualification-2026-11-03.json). Already-entered
+backend wait_idle is still not cancellable; the retirement proof uses held
+leases without a hung driver wait. No performance/RSS/energy claim, and earlier
+performance gates remain inconclusive.
+
+## Native completion signals instead of blocking scope waits — 2026-11-03
+
+Added target-specific block2=0.6.2 (already present in native dependency lock).
+Scoped Metal commands register addCompletedHandler before commit. The copied
+block captures only a Weak Send+Sync completion service, invokes no user callback
+and owns no Metal backend. Commands without captured scopes skip block creation.
+General, pure compute, timed and staged-write command paths install the signal;
+metadata publication also notifies to cover completion racing record publication.
+
+The scope worker no longer calls wait_idle. It reaps statuses nonblockingly,
+scans live waiters and parks on a generation-counted Condvar. Completion, new
+registrations and cancellation notify it;16ms timeout is a fallback. Existing
+public explicit blocking waits retain their behavior. Future cancellation can
+now remove a parked scope worker without waiting for GPU work completion.
+GPU execution itself is not cancelled.
+
+Explicit Metal tests observe real native callback delivery and0 blocking backend
+wait calls across successful real clear commands and synthetic scope failures.
+Burst/cancellation with live leases, scope ownership, OOM, reentrant wakers and
+task destructors pass. Runtime11 unit +4 explicit Metal tests, native218 and
+renderer smoke pass. [Evidence](benchmarks/scope-signal-qualification-2026-11-03.json)
+includes source/lock hashes and official API references.
+
+Physical hang/removal/OOM, fully-idle removal callbacks and non-Metal execution
+remain unqualified. Prior performance gates remain inconclusive and do not
+cover this changed implementation; no timing/energy improvement is claimed.
+
+## Completion signal ordering regression gates — 2026-11-03
+
+Extracted generation-checked parking from the worker into a private helper,
+retaining the same production behavior. Deterministic tests cover completion
+notification before parking, notification after the same-mutex atomic unlock/
+park, explicit missing-signal timeout fallback and epoch wrap. The before-park
+case checks the GenerationChanged result, so timeout fallback cannot mask a
+lost early signal. A real-adapter cancellation test invokes a late production
+signal entry point after service retirement and verifies no new worker or
+registration storage appears.
+
+Runtime14 unit tests +4 explicit Metal tests and native218 pass. Real native
+callback delivery and0 async-path backend waits remain verified.
+[Evidence](benchmarks/scope-signal-races-qualification-2026-11-03.json). These
+are targeted regression cases, not exhaustive concurrency verification. Physical
+faults and performance/resource qualification remain open; failed benchmark
+series are retained and do not qualify the signal-driven implementation.
+
+## Grapheme-aware native/WASM input — 2026-11-03
+
+Added direct unicode-segmentation1.13.3 dependency and explicit TextEdit cluster
+APIs, preserving existing scalar operations and byte-offset contracts. Complete-
+string GraphemeCursor queries retain context for RI pairs and ZWJ sequences.
+UI keyboard navigation, deletion, insertion and single-pass hit testing now use
+cluster boundaries. Partial scalar selections expand for grapheme replacements;
+insertion joining a suffix and live binding replacement align resulting caret.
+No shaping/BiDi/IME ownership changes are implied.
+
+Tests cover combining, skin tone, ZWJ family,flags,keycaps,Hangul,Indic,CRLF,
+empty/extreme navigation, scalar compatibility, undo/redo, partial selection,
+fade ranges, exhaustive hit coordinates and binding replacement. Native220 unit
++4 integration +17 allocation tests pass; fresh WASM Node21/21 passes including
+7 cluster scenarios with sync and unrelated payload. Actual8-editor macOS GPU/
+CPU smoke verifies ZWJ deletion, undo/selection, combining,flag and skin-tone
+deletions with exact intermediate/final models and7 untouched rows;0 GPU errors.
+Window/process exited; screenshots/raw journal saved with
+[qualification](benchmarks/grapheme-qualification-2026-11-03.json).
+
+Remaining: browser DOM/input smoke, actual marked-text IME, full shaping/BiDi/
+ZWJ/color emoji visuals, platform matrix and performance qualification.
+
+## Unicode17 grapheme boundary conformance — 2026-11-03
+
+Vendored complete unmodified GraphemeBreakTest17.0.0 with Unicode license and
+provenance. Its766 vectors supply independent expected byte boundaries, matching
+the pinned segmentation library's Unicode version. Tests do not obtain expected
+results by invoking the segmentation algorithm under test.
+
+Four conformance gates verify forward/reverse/Shift selection, exact deletion/
+undo/redo, arbitrary scalar-offset snapping/movement and scalar selection
+replacement expansion. Corpus contains1391 reference clusters,2756 scalar
+cursor offsets and1990 scalar replacement spans. Four conformance +4 prior
+grapheme integration tests pass. Production editor source hashes match the
+previous native/WASM qualification snapshot; no production code changed.
+[Evidence](benchmarks/grapheme-conformance-qualification-2026-11-03.json).
+
+```sh
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --test grapheme_conformance --test grapheme_edit
+```
+
+The fixture is offline and version/count pinned. Passing this finite corpus
+does not qualify all Unicode strings, font shaping, BiDi, actual marked-text
+IME, browser DOM events or performance.
+
+## Native/normalized word-boundary actions — 2026-11-03
+
+Added TextEdit move_words/backspace_word/delete_word, Editor word-key dispatch
+and additive Runtime::text_word_key. Non-whitespace UAX29 word-boundary
+segments (including punctuation/emoji) are stops. Left targets starts, Right
+ends, with grapheme rounding; selection collapse consumes the first step.
+Deletion is one undoable replacement. Full-string scanning retains Unicode
+context, and bulk movement consumes the iterator once.
+
+Native Option (macOS) or Ctrl without Alt (Windows/Linux) dispatches normalized
+word actions before clipboard/plain keys. AltGr guard and ordinary grapheme
+keys remain separate. Tests cover punctuation,emoji,combining marks,apostrophes,
+decimals,multiline,scalar interior positions,history and Runtime bindings. A
+fifth Unicode17 corpus gate checks word movement/deletion never splits the
+reference grapheme boundaries; this is not WordBreakTest conformance.
+
+Native220 unit +word4 +grapheme4 +conformance5 +allocation17 tests pass. Fresh
+WASM Node23/23 and native all-targets pass. Actual macOS8-editor GPU/CPU smoke
+verifies Option backward/forward/delete/Shift selection and undo, exact bound
+values and7 untouched rows,0 GPU errors. Screenshot/raw journal saved; window
+closed and process exited.
+[Evidence](benchmarks/word-qualification-2026-11-03.json).
+
+Windows/Linux runtime, browser DOM modifier forwarding, locale dictionary
+segmentation, platform-native word parity, full shaping/BiDi/IME and performance
+remain unqualified. Browser hosts can use the tested normalized WASM method.
+
+
+## Standalone native word dispatch — 2026-11-03
+
+The standalone main.rs host now tracks Control/Alt, forwards Option on macOS
+or Ctrl without Alt on Windows/Linux to Rust word actions before clipboard and
+plain keys, preserves text-producing AltGr input, and excludes Ctrl+Option
+accessibility chords. Blur clears modifiers and preedit state. This closes the
+source-level difference from the shared NativeHost; actual standalone OS-window
+and non-macOS input remain unqualified.
+
+Native all-targets cargo check passed (existing window_bench dead-code warning),
+word_edit4 and browser adapter32 tests passed. Logs retained in benchmarks as
+standalone-word-{check,tests,adapter-tests}-2026-11-03.txt. Browser DOM/WASM
+smoke remains the next task; adapter unit tests do not qualify trusted OS input.
+
+
+## Browser DOM → Rust word input — 2026-11-03
+
+Real createVectorPreview plus fresh Rust WASM passed7 browser cases: word delete,
+undo, Shift selection/replacement, beforeinput word deletes, composition and
+Ctrl+Alt guards, binding callbacks and untouched second row. This exposed a
+production platform bug: UA Client Hints returns macOS, which the original
+Mac-only regex missed. Added macOS recognition and regression (adapter33 pass).
+The fixture derives expected macOS modifiers independently from navigator.platform.
+The initial failing diagnostic is preserved. Final JSON/screenshot/hashes are
+in browser-word-* benchmark artifacts. Synthetic DOM input only; trusted OS
+keyboard/IME and GPU presentation are not qualified by this probe.
+
+Reproduce with a fresh wasm-bindgen web bundle:
+`python3 vector-ui/scripts/serve-word-browser.py --wasm-dir /path/to/web-bundle --result /tmp/word-browser.json`,
+then open `/vector-ui/tests/preview-word-browser.html` on localhost:8769.
+Owned probe tab and server were closed.
+
+
+## Browser composition cancellation — 2026-11-03
+
+Empty compositionend previously called text_insert("") and could delete a live
+selection. It now clears preedit without committing. Cancellation resets the
+adapter composition flag (including window blur), and late compositionupdate/
+compositionend are ignored until a new composition starts.34 adapter tests pass;
+real DOM + Rust WASM9 cases pass, including exact selected-value preservation
+and late commit after blur. Screenshot, JSON, logs and hashes retained as
+composition-cancel-* artifacts. The shared browser-word-dom JSON now contains
+this expanded9-case rerun; earlier7-case qualification describes the prior run.
+Actual marked-text IME, trusted keyboard and broader platform matrix remain open.
+
+
+## Browser composition owner — 2026-11-03
+
+Composition now captures its Runtime identity and focused index. Updates and
+commit require the same owner; focus synchronization cancels a displaced owner,
+scene replacement clears admission before freeing the previous Runtime, and
+hidden/nonediting inputs or destroy cancel admission. Late commit cannot insert
+into a replacement Runtime or another focused control. Adapter35 tests passed,
+including focus displacement, scene replacement and fresh-owner commit. This is
+adapter evidence, not actual IME or browser end-to-end qualification of this
+latest ownership change; those remain required.
+
+
+## Browser composition ownership qualification — 2026-11-03
+
+Real DOM/Rust WASM12 cases pass: focus switches, Runtime replacement and a fresh
+composition owner preserve exact models, including unrelated row. CUA browser
+keyboard presses separately produced isTrusted=true events: End, Alt+Backspace
+changes alpha beta→alpha space; Meta+z restores it. The second row stays intact.
+This is browser-dispatched trusted input, not physical keyboard or OS marked-text
+IME qualification. Source hashes, JSON and screenshot: composition-owner-*.
+Probe/server closed. Fixture server now requires --result and sends no-store
+headers, avoiding accidental overwrite of previous evidence and stale modules.
+
+
+## Rust preedit reconciliation boundary — 2026-11-03
+
+Added independent Runtime regression for keyed editor reorder with committed
+edit, select-all and active preedit. Replacement preserves value/selection/focus
+and undo, drops preedit, leaves sibling unchanged and does not mutate the prior
+Runtime. Existing implementation already satisfies this boundary; no production
+Rust change was needed. Native lib221 passed,3 ignored. Evidence and source hash:
+preedit-reconcile-* artifacts. Actual OS marked-text IME remains unqualified.
+Standalone main.rs still has direct IME commit/preedit handling unlike shared
+NativeHost ownership checks; bring this path to parity next.
+
+
+## Standalone IME ownership — 2026-11-03
+
+Standalone main.rs now captures native Runtime/editor identity for preedit,
+checks it before commit and while updating presentation, retires composition on
+blur/Disabled, and supports a fresh preedit or Enabled session. Empty commit
+clears marked text without deleting selection. Direct commits remain supported.
+Runtime::native_editor_session is now a native-only public method in the ordinary
+Rust impl (outside wasm_bindgen); no WASM export/schema change.
+
+Two standalone binary tests use real Runtime: focus displacement, replacement,
+Disabled late commit, fresh preedit through empty preedit, direct commit and
+empty-commit selection preservation. Both pass; native lib221 pass,3 ignored;
+native all-targets check passes with existing window_bench warning. Logs/hashes:
+standalone-ime-* artifacts. Actual OS-window marked-text/IME and non-macOS
+runtime qualification remain open.
+
+
+## Shared NativeHost empty IME commit — 2026-11-03
+
+Regression reproduced a destructive empty-commit path: with select-all active,
+commit_ime("") replaced the entire committed value with empty text. NativeHost
+now clears preedit for an empty commit and leaves committed selection untouched.
+The expanded owner-dispatch test runs both focus-switch and Runtime-replacement
+branches. Before-failure and final logs retained;221 lib +2 standalone tests
+pass,3 ignored. Evidence: shared-empty-commit-* artifacts. Actual OS IME remains
+open; this verifies native dispatch/model behavior directly.
+
+
+## Repeated stale IME commits — 2026-11-03
+
+Expanded native owner-dispatch regression reproduced a second stale commit
+entering the newly focused field: the first rejection consumed owner identity,
+so the next commit was treated as direct input. Shared NativeHost now records
+cancellation on owner mismatch; subsequent commits stay rejected until new
+preedit or Enabled. Cancellation is recorded after app.update returns even when
+that update returns an error after executing its callback. Both focus-switch
+and Runtime-replacement branches pass, along with fresh preedit/direct commit
+and empty commit selection preservation. Native lib221 +binary2 pass,3 ignored.
+Before/after logs and hash retained in repeated-ime-* artifacts. OS IME remains
+open; these are native event-dispatch/model regressions.
+
+
+## Standalone IME navigation cancellation — 2026-11-03
+
+Pressed nonrepeat Tab/Escape now explicitly cancels composing or pending-owner
+IME in standalone host before navigation, matching shared-host admission rules.
+Blur uses the same cancellation helper. A real Runtime regression covers empty
+preedit (composing=false but owner retained), cancellation, two late commits,
+unchanged sibling and fresh preedit recovery. Standalone3 tests pass; native
+all-targets check passed. Logs/hash: ime-navigation-* artifacts. This verifies
+dispatch helper behavior; actual keyboard/OS IME remains open.
+
+
+## Pending-owner focus cancellation — 2026-11-03
+
+Shared focus_sensitive_input previously skipped ownership tracking whenever
+composing=false, including the empty-preedit interval before commit. Expanded
+regression failed for pointer cancellation in that interval. The shortcut now
+requires no pending owner as well. Eight combinations (Escape/Tab/blur/pointer
+with active/empty preedit) verify cancellation, repeated late commits and fresh
+session recovery. Standalone also observes owner immediately after binding sync,
+which can replace Runtime. Native221 +standalone3 tests pass,3 ignored. Before/
+after logs and source hashes retained in pending-ime-owner-* artifacts. Actual
+OS IME and dedicated standalone binding-sync/IME end-to-end qualification remain
+open.
+
+
+## Standalone bindings/IME integration — 2026-11-03
+
+Added real Runtime integration for both schedulers. Idle binding sync preserves
+composition ownership/admission; changing a sibling binding reconstructs scene
+with the same focused key/index but a new native session. Production presentation
+observer cancels composition immediately, two late commits stay refused, and a
+fresh preedit/commit updates bound state while preserving the sibling value.
+Extracted the small ownership observation helper so event and presentation paths
+share exactly the tested logic. All4 standalone tests pass. Evidence/hash:
+ime-binding-* artifacts. This closes dispatch/model binding integration, not
+actual OS-window marked-text IME or cross-platform input qualification.
+
+
+## Unicode17 full word conformance — 2026-11-03
+
+Vendored complete unmodified WordBreakTest17.0.0 with existing Unicode license,
+provenance and SHA256. All1944 vectors pass exact raw boundary comparison.
+A second gate tests Rust TextEdit word navigation/deletion from each scalar
+position against reference segment markers plus documented whitespace-skipping
+and grapheme-rounding policy. Exact removal/undo/redo/value/cursor pass. Expected
+word boundaries never call the segmentation algorithm under test; grapheme
+rounding uses the library separately qualified by GraphemeBreakTest. Both tests
+pass offline. Evidence: word-conformance-* artifacts. No production source change.
+Dictionary segmentation, platform-native parity, shaping/IME and performance
+remain open.
+
+
+## Native input CI gate — 2026-11-03
+
+CI runtime matrix previously checked native binary compilation only; GPU-only
+lib tests did not compile native_window.rs. Replaced native check with locked
+native lib +standalone binary tests, covering host IME/modifier regressions on
+configured Ubuntu/macOS/Windows jobs. Tests create no OS windows. Existing GPU
+lib/tests step already includes grapheme/word corpus integration tests.
+
+Exact new command passes locally on macOS:221 lib +4 binary,3 ignored. Workflow
+YAML parsed with Ruby Psych and OS matrix/gate verified. actionlint unavailable;
+remote CI has not run (changes uncommitted/unpublished). Evidence and workflow
+hash: native-input-ci-* artifacts. Configuration is not cross-platform runtime
+qualification until remote jobs actually pass.
+
+
+## Explicit editor commands retire transient preedit — 2026-11-03
+
+Regression reproduced undo retaining stale marked text after committed history
+changed. Editor now clears preedit after handled ordinary, command and word
+keys; unsupported keys preserve it. Hosts continue gating active IME key input;
+this hardens explicit Runtime/editor operations. Regression covers undo/redo,
+plain navigation/deletion, word navigation/deletion and absence of marked text
+in committed value. Before failure retained. Native222 +standalone4 +Unicode/
+word/grapheme integrations15 =241 tests pass,3 ignored. WASM compile check passed;
+fresh WASM/browser runtime qualification of this source revision remains open.
+Evidence/hash: editor-preedit-* artifacts. True OS IME remains open.
+
+
+## Fresh WASM marked-pixel qualification — 2026-11-03
+
+Rebuilt release WASM from latest editor source; Node24/24 and browser13/13 pass.
+New oracle first verifies preedit changes pixels, then compares exact full RGBA
+frames against clean editors after plain navigation, word deletion and undo.
+Committed values match and marked pixels disappear for all3 paths. Browser
+DOM ownership/bindings matrix also rerun on fresh bundle. Bundle archive, build
+log, source/WASM hashes, JSON and screenshot retained as editor-preedit-wasm-*.
+Owned tab/server closed. This closes WASM execution qualification of the editor
+change; synthetic composition does not qualify actual OS marked-text IME.
+
+
+## Multiline End preserves CRLF grapheme — 2026-11-03
+
+Regression reproduced End targeting the byte between CR and LF in initial
+multiline values. Shift+End could then make grapheme-aware deletion consume the
+line break. End now targets before the whole CRLF pair. Regression checks plain/
+Shift End, exact selected combining text, deletion preserving CRLF, undo,
+initial scalar-interior cursor and second-line Home/End. Native223 +standalone4
++integration15 =242 tests pass,3 ignored. Before-failure/final logs and hash:
+crlf-end-* artifacts. Fresh WASM/browser qualification and OS input remain open.
+
+
+## Multiline CRLF hit/vertical navigation — 2026-11-03
+
+Right-edge hit regression reproduced caret inside CRLF: split-newline left CR
+in the line-local grapheme scanner. Hit now excludes trailing CR when a following
+LF exists, preserving scalar start offsets for subsequent rows. Tests scan1010
+x-coordinates on each of2 rows, check exact far-right hits, vertical navigation
+and Shift selection across the complete CRLF. Native224 +standalone4 +integration15
+=243 pass,3 ignored. Before failure/final logs/hash: crlf-hit-* artifacts. Fresh
+WASM/browser regression for both End and hit fixes remains required.
+
+
+## Fresh CRLF WASM qualification — 2026-11-03
+
+Fresh release WASM passes Node25/25 and browser14/14. CRLF is loaded through
+JSON state binding, preserving original bytes rather than insertion normalization.
+Public Runtime API test covers End/Shift+End deletion/undo, pointer right-edge
+hit and vertical Shift selection/deletion/undo. Exact values and selected bytes
+retain complete CRLF. Browser runs same API assertions on real WASM; it does not
+qualify trusted DOM multiline keyboard or actual OS IME. Build/bundle archive,
+source/WASM hashes, JSON and screenshot retained as crlf-wasm-* artifacts.
+Owned probe/server closed.
+
+
+## CRLF visual line geometry — 2026-11-03
+
+Independent LF-equivalence oracle reproduced CRLF rendering a trailing CR glyph/
+advance (first-row width30.45 vs27.03). Content generation now strips CR only
+before an existing LF while retaining raw byte lengths for subsequent row and
+selection offsets. Exact Content/caret equality against LF passes both selected
+and unselected; model retains original CRLF bytes. Native225 +standalone4 +15
+integrations =244 pass,3 ignored. Before/final logs/hash: crlf-render-* artifacts.
+Fresh WASM/browser/pixel qualification of this render change remains open.
+
+
+## CRLF fresh WASM pixel equivalence — 2026-11-03
+
+Fresh release WASM passes Node26/26 and browser15/15. New gate compares exact
+full RGBA frames and caret bounds of JSON-bound LF vs CRLF editors, both focused
+unselected and select-all, and confirms CRLF bytes remain in model/state. Prior
+End/hit/vertical/undo and preedit pixel gates rerun. Build, web/Node bundle,
+source/WASM hashes, JSON and screenshot retained as crlf-render-wasm-* artifacts.
+Fixture now shows all named results with raw evidence collapsed, improving
+reviewability. Owned tab/server closed. CPU pixel equivalence does not qualify
+native GPU presentation or true OS IME.
+
+
+## Multiline preferred vertical column — 2026-11-03
+
+Regression reproduced long→short→long Up/Down losing horizontal position.
+Editor now retains desired x across vertical key sequences including Shift,
+while pointer hits, horizontal/command actions, insertion and focus transitions
+reset it. Existing hit/grapheme mapping still selects valid boundaries. Test
+checks down/up restoration, Shift anchor, pointer reset and focus reset. Native226
++standalone4 +integration15 =245 pass,3 ignored. Before/final logs/hash retained
+as vertical-column-* artifacts. Fresh WASM/browser and OS input qualification
+of this change remain open.
+
+
+## Fresh WASM preferred vertical column — 2026-11-03
+
+Fresh release WASM passes Node27/27 and browser16/16. Runtime-level LF/CRLF
+long-short-long navigation retains exact caret x; reverse Shift movement selects
+expected complete byte range, deletion/undo restores exact original text.
+Prior CRLF/render/preedit gates rerun. Build log, bundle, source/WASM hashes,
+JSON and screenshot retained as vertical-wasm-* artifacts. Probe/server closed.
+This qualifies Runtime methods in browser, not trusted DOM multiline keyboard,
+actual OS IME or GPU presentation.
+
+
+## Trusted multiline DOM input and modifier correction — 2026-11-03
+
+Actual browser textarea adapter sequence exposed a gap omitted by direct API
+tests: standalone Shift keydown reset desired x before each Shift+ArrowUp.
+The second arrow selected from column1 instead of7. Editor now resets desired x
+only after handled horizontal/command actions; unknown modifier events preserve
+it. Native226 lib tests pass (regression now interleaves Shift); fresh Node27/27.
+Trusted browser End-state journal verifies two Down keys retain x, Shift+Up twice
+selects exact h/newline/x/newline/abcdefg, Backspace yields abcdefgh and Meta+z
+restores exact original text/selection. All9 key events have isTrusted=true.
+Before/final JSON, screenshot, bundle and hashes: multiline-trusted-* artifacts.
+Owned tab/server closed. Browser automation is not physical keyboard/OS IME proof.
+
+
+## Logical line-edge deletion — 2026-11-03
+
+Added TextEdit::delete_to_line_edge with selection precedence, grapheme rounding,
+CRLF preservation and atomic undo. Editor command Backspace/Delete routes it;
+shared/standalone word-modifier dispatch still takes precedence for Ctrl word
+keys. Browser soft-line beforeinput maps to existing Rust command key method.
+No visual wrapping exists here, so boundaries are logical LF/CRLF lines.
+
+Native227 +standalone4 +line integration3 and adapter36 pass,3 ignored. Corrected
+the existing composition-cancel stub to report text_editing=true: otherwise
+sync correctly retired its fake nonediting session before end. No production
+composition admission weakened. Logs/hashes: line-edit-* artifacts. Fresh WASM,
+actual browser/native keyboard and soft-wrap support remain open.
+
+
+## Fresh WASM and trusted line deletion — 2026-11-03
+
+Fresh release WASM passes Node28/28, including command line deletion/undo/redo
+for JSON-bound LF/CRLF. Trusted browser textarea Meta+Backspace/Delete removes
+only the expected part of current line; each Meta+z restores exact original
+text/caret. All8 key events are isTrusted=true. Other lines remain unchanged.
+Build/bundle, raw JSON, screenshot and source/WASM hashes: line-wasm-* and
+line-trusted-* artifacts. Owned tab/server closed. Native OS-window, actual IME,
+visual soft wrap and trusted beforeinput soft-line path remain open.
+
+
+## Line deletion joining graphemes — 2026-11-03
+
+Regression reproduced line selection deletion leaving caret inside newly joined
+RI flag. delete_to_line_edge now aligns caret against resulting full string,
+matching other grapheme-aware replacements. Tests cover RI, ZWJ and removed-CRLF
+joins in both directions, with exact undo selection/value and redo caret. Native227
++standalone4 +integration19 =250 tests pass,3 ignored; expanded join matrix rerun.
+Before/final logs, cases and hashes: line-join-* artifacts. Fresh WASM/browser
+qualification of this latest fix remains open.
+
+
+## Fresh WASM joined-cluster caret — 2026-11-03
+
+Fresh release WASM passes Node29/29 and browser17/17. New Runtime API gate
+selects X between RI or ZWJ neighbors, removes it via both command directions,
+checks the next Shift+Left selects the complete joined cluster, and verifies
+undo restores original X selection plus redo restores joined result. Build,
+bundle, hashes, JSON and screenshot retained as line-join-wasm-* artifacts.
+Owned tab/server closed. This verifies editing boundaries, not ZWJ visual
+ligature shaping, trusted keyboard for this fixture or actual OS IME.
+
+
+## Browser multiline accessibility metadata — 2026-11-03
+
+Added additive Runtime::control_multiline (false for missing/noneditor controls)
+and DOM aria-multiline synchronization from focused Rust editor. Previously both
+single/multiline inputs exposed the same textarea semantics. Runtime integration5
+and adapter37 pass, including false→true→false focus transitions; WASM compile
+passes. Logs/source hashes: multiline-a11y-* artifacts. Fresh WASM/browser AX
+inspection remains required. Readonly editing semantics and screen-reader/native
+accessibility qualification are still open; this does not claim full a11y parity.
+
+
+## Fresh WASM multiline browser AX — 2026-11-03
+
+Fresh WASM Node30/30 and4 real focus transitions pass: single/multi/single/multi
+Rust metadata equals DOM aria-multiline. Browser Accessibility.getFullAXTree
+confirms focused textbox multiline=true. Project fixture adapts load_component
+transport to real Rust load_ui_files_json because legacy Button syntax does not
+accept arbitrary multiline prop/template comparison. No semantic/editor stub.
+Initial unsupported-format diagnostic retained. JSON/AX/screenshot/bundle/hashes:
+multiline-a11y-* artifacts. Owned tab/server closed.
+
+New gap observed: textarea transport stays empty, so browser AX lacks current
+Rust field value. Value/selection accessibility synchronization is the next
+concrete task. Readonly and screen-reader/native platform qualification remain
+open; multiline property alone is not full accessibility parity.
+
+
+## Browser accessibility value/selection mirroring — 2026-11-03
+
+Textarea now mirrors focused Rust value and selection outside composition.
+Removed post-beforeinput/end unconditional blanking that erased accessibility
+value. Runtime::text_selection_utf16 exports anchor/caret in DOM UTF16 units,
+subtracting CRLF pair normalization; DOM newline normalization preserves model
+bytes and avoids repeated assignments. Direction is retained with setSelectionRange.
+Active composition DOM is untouched. Adapter38 and runtime integration6 pass,
+including emoji/combining/reverse selection and CRLF offsets; WASM compile passes.
+Logs/source hashes: a11y-value-* artifacts. Fresh WASM/browser AX and trusted input
+regression remain required. Accessibility-driven DOM selection→Rust is not yet
+implemented; screen-reader parity remains open.
+
+
+## Fresh WASM accessibility value/selection — 2026-11-03
+
+Fresh release WASM Node31/31 passes, including DOM UTF16 CRLF/emoji offsets.
+Four browser focus transitions mirror Rust value; trusted select-all and Unicode
+insertion produce identical Rust/DOM values at every event. Two Shift+Left keys
+select combining and emoji clusters with Rust [5,1] and DOM [1,5,backward]. All12
+logged input events are isTrusted=true. Browser AX tree now exposes value A😀é.
+JSON/AX/screenshot/bundle/source hashes retained as a11y-value-* artifacts. Probe/
+server closed. DOM accessibility selection→Rust, screen-reader/platform actions
+and true OS marked-text IME remain open.
+
+
+## DOM selection import to Rust — 2026-11-03
+
+Added Runtime::text_set_selection_utf16 backed by Rust Editor mapping normalized
+textarea offsets to bytes. Surrogate interior endpoints round outward for ranges,
+collapsed caret rounds forward, CRLF normalization maps to original bytes, and
+selection expands to grapheme boundaries preserving direction. Clamp/noop/history
+behavior tested; no committed edit record is created. Editor resets preferred x
+and blink only on changed selection. DOM select handler adopts only active,
+noncomposing, value-consistent selection differing from authoritative mirror.
+Mirror range updates are skipped when already equal, preventing feedback loops.
+Runtime integration7 and adapter39 pass; WASM compile passes. Evidence/hash:
+dom-selection-* artifacts. Fresh browser event-order/accessibility selection
+and screen-reader/platform qualification remain open.
+
+
+## Fresh WASM DOM selection import — 2026-11-03
+
+Fresh WASM Node32/32 passes. Browser fixture button calls setSelectionRange
+without losing textarea focus; real browser select imports [1,5,backward] into
+Rust [5,1]. Trusted X insertion yields AX in both models, Meta+z restores original
+A😀é and reverse selection. Twelve observed events are finite, values agree
+throughout, no sustained feedback loop observed. Initial mirror transitions
+produce4 queued select notifications; these are noops against current Rust state.
+JSON/screenshot/bundle/hashes: dom-selection-* artifacts. Probe/server closed.
+This is real browser select-event integration, not a screen-reader action or
+universal event-order/platform qualification; OS IME remains open.
+
+
+## Pending DOM selection before editing — 2026-11-03
+
+Before/after adapter regression reproduced beforeinput editing stale Rust range
+when native select notification had not arrived. Adapter now adopts current
+value-consistent DOM range before beforeinput, keydown and clipboard actions.
+Adapter40 pass. Real browser same-task setSelectionRange plus synthetic
+beforeinput yields AX (not append); trusted Meta+z restores A😀é and [5,1]
+reverse selection. Existing fresh WASM unchanged. Logs/JSON/screenshot/hashes:
+selection-order-* artifacts. Probe/server closed. Synthetic insert is deliberate
+for ordering; this is not screen-reader or universal OS IME qualification.
+
+
+## Composition captures pending DOM selection — 2026-11-03
+
+Before/after regression reproduced composition start locking transport before
+adopting pending DOM selection. Start now adopts range before setting composing
+and capturing owner; active-composition guards remain. Adapter41 pass. Browser
+same-task reverse range plus synthetic composition replaces selected emoji/
+combining suffix with 新 (A新); trusted undo restores exact original value and
+reverse range. Existing WASM unchanged. Journal microtasks see final same-task
+state, so per-stage protection is unit-tested separately. Logs/JSON/screenshot/
+hashes: composition-selection-* artifacts. Probe/server closed. True OS IME and
+screen-reader/platform qualification remain open.
+
+
+## Stable editor accessible names — 2026-11-03
+
+TextInput now accepts label, forwarded through builtin primitive emission to
+ContentInput/Input spec. Parser duplicate-property tracking includes label.
+Runtime::control_input_label resolves explicit label, placeholder, then stable
+key; current value is excluded. Native accessibility tree and browser textarea
+use this name separately from live value. Existing control_label diagnostic API
+is unchanged. Tests verify name survives editing and native tree reports changed
+value separately. Native227 +integration8 and adapter42 pass,3 ignored; WASM
+compile passes. Logs/hashes: input-label-* artifacts. Fresh WASM/browser AX name
+stability and screen-reader/platform qualification remain open.
+
+
+## Fresh WASM stable AX name — 2026-11-03
+
+Fresh WASM Node33/33 passes, including stable label across bound edit/rebuild and
+separate native tree value. Browser4 focus transitions expose Search/Notes labels;
+trusted select-all/type Changed keeps label Notes at every event. Browser AX
+snapshots confirm name Notes before/after while value changes A😀é→Changed.
+JSON/AX/screenshot/bundle/hashes: input-label-* artifacts. Probe/server closed.
+Screen-reader spoken output/platform actions and actual OS IME remain open.
+
+
+## Accessibility snapshot JSON escaping — 2026-11-03
+
+Independent serde_json parse regression reproduced invalid escape in manually
+formatted accessibility_tree_json containing NUL/ESC. Replaced Rust Debug string
+formatting with serde_json object serialization, preserving existing schema
+fields. Roundtrip confirms quote/backslash/NUL/ESC/tab/newline value, stable label
+and focused node relationship. Native227 +integration9 pass,3 ignored; WASM
+compile passes. Before/final logs/source hashes: a11y-json-* artifacts. Fresh
+WASM execution and snapshot performance qualification remain open.
+
+
+## Fresh WASM accessibility JSON execution — 2026-11-03
+
+Fresh release WASM Node34/34 passes. Expanded JavaScript JSON.parse oracle loads
+all32 C0 characters plus quote/backslash/emoji through JSON state, in both editor
+value and bound label. Accessibility snapshot roundtrips exact strings and
+focusedId relationship. Build/bundle/source/WASM hashes and JSON retained as
+a11y-json-wasm-* artifacts. This closes Node WASM execution gate; no fresh
+browser/screen-reader or serialization performance claim is made.
+
+
+## Readonly TextInput semantics — 2026-11-03
+
+Added readOnly through builtin TextInput forwarding, ContentInput parsing and
+Rust Editor spec. Readonly retains focus/navigation/selection and copy value;
+insertion, deletion (plain/word/line), undo/redo and nonempty preedit are refused.
+Programmatic binding replacement remains available. Existing history is retained
+while readonly and works after reenabling. Runtime::control_readonly exposes
+state; browser sets native readOnly and aria-readonly. Native IME admission is
+false for readonly editors while keyboard selection path stays active. Semantic
+A11yNode now includes read_only, JSON readOnly, and omits set_value action.
+
+Native228 +standalone4 +integration10 and adapter43 pass,3 ignored. WASM compile
+passes. Logs/hashes: readonly-input-* artifacts. Fresh WASM/browser AX/trusted
+readonly input and actual OS-window/platform qualification remain open.
+
+
+## Fresh WASM readonly browser qualification — 2026-11-03
+
+Fresh WASM Node35/35 passes readonly editing/selection/semantic action gates.
+Browser trusted select-all works; trusted X insertion (including beforeinput),
+Backspace, Meta+Delete and Meta+z leave Rust/DOM value and selection unchanged.
+AX tree confirms focused multiline textbox readonly=true, label Notes and value
+A😀é. JSON/AX/screenshot/bundle/hashes: readonly-* artifacts. Probe/server closed.
+Actual native OS-window/IME and screen-reader spoken output remain open.
+
+
+## Live readonly binding transition — 2026-11-03
+
+Real Runtime Toggle-bound readOnly integration passes for both schedulers.
+Committed seed! edit is synchronized, preedit started, then Toggle reconstructs
+readonly editor. Value/history remain; editor focus works but native editor
+session is absent and insertion/undo are refused. Reenable reconstructs editable
+session; original undo restores seed and bound state, with no preedit/blocked
+payload. All11 line/editor integration tests pass. Evidence/hash: readonly-live-*
+artifacts. No production source change. Actual OS IME delivery and browser live
+readonly-transition qualification remain open.
+
+
+## Browser live readonly reconciliation — 2026-11-03
+
+Actual preview source reconstruction retains edited seed! across Lock/Unlock.
+Trusted X/Backspace/Meta+z while locked do not change Rust/DOM; unlock exposes
+editable state and original undo restores seed/caret4. All12 observed events
+retain focus0, matching Rust/DOM values and readonly flags. Browser fixture
+changes source while native integration separately covers bound Toggle state.
+Raw JSON/screenshot/source/WASM hashes: readonly-live-browser-* artifacts.
+Owned tab/server closed. Actual OS IME and screen-reader/platform actions open.
+
+
+## Native semantic multiline and selection — 2026-11-03
+
+A11yNode/native JSON now includes multiline and selectionUtf16 anchor/caret.
+Offsets correspond to the node's original value, retaining CRLF; DOM selection
+API separately uses textarea-normalized offsets. Regression verifies original
+A😀CRLFé reverse selection [7,5] vs DOM [6,4], exact value, multiline flag and
+noneditor null selection. Native228 +standalone4 +integration12 pass,3 ignored;
+WASM compile passes. Logs/hashes: native-semantic-selection-* artifacts. Actual
+AccessKit/OS screen-reader integration and fresh WASM execution of new fields
+remain open. JSON additions are additive; downstream native adapters must use
+original-value units rather than the DOM-normalized selection API.
+
+
+## Consolidated input/native and semantic WASM gate — 2026-11-03
+
+Exact locked native --lib --tests run passes315 tests,9 ignored (including6
+explicit GPU tests). Covers all binary/integration targets, allocation/retention,
+resize/artifact/cache and both Unicode corpora. Fresh release WASM Node36/36
+passes, including original-value semantic selection [7,5] versus DOM-normalized
+[6,4], multiline/readonly metadata. Logs, bundle and source/WASM hashes:
+input-full-* and native-semantic-wasm-* artifacts. This is local macOS/native
+plus Node WASM evidence, not ignored hardware/cross-platform/OS IME/screen-reader
+or universal performance/RSS qualification.
+
+
+## Current Metal input/render regression — 2026-11-03
+
+Explicit hardware execution on Apple M4 Max / Metal Direct Native Runtime:
+all6 runtime_gpu tests pass (retained clipping/scroll/fractional DPI, animation,
+analytic text and retained editor/summary). Two ignored lib GPU tests also pass:
+retained resource reuse, health polling after queue drain without extra draw,
+synthetic encoder-validation latch and Reveal126 comparisons (max1/255 within
+budget2 at1/1.25/2x). Logs/source hashes: input-metal-* artifacts. This closes
+execution of8 GPU regression tests on this local Metal adapter; ignored font
+flattening probe was not run. Physical device faults, OS presentation/input
+latency, RSS/energy and other platforms remain open.
+
+
+## Actual macOS NativeHost readonly keyboard — 2026-11-03
+
+Added instrumented native_readonly_probe (synthetic fixture, append JSONL logs)
+and ran actual OS-window CUA input on current debug build. Readonly Unicode
+reference remains exact after select-all/x/backspace/undo. Tab editable insertion
+produces Editable!, undo/redo gives Editable→Editable!; ShiftTab readonly selection
+and F7 CPU presentation preserve both rows while rejecting further edits. GPU
+and CPU presents observed,0 GPU errors. Screenshots/raw/source/binary hashes:
+native-readonly-* artifacts. Owned process verified absent after window close.
+
+Initial diagnostic log was overwritten when a post-close AX observation relaunched
+the app; final run repeated after append logging fix, saved before closing and
+verified separately. No IME events observed: actual marked-text OS IME remains
+open. This is shared NativeHost, not standalone-window or native screen-reader
+qualification. Debug instrumentation provides no latency/RSS/energy evidence.
+
+
+## Native dead-key diagnostic and explicit IME gate — 2026-11-03
+
+Attempted actual macOS Option+E in focused editable probe. It produced ordinary
+U+045E text (Editableў), not marked composition; IME event count0. Native undo
+restored Editable. Screenshot/session raw retained as native-ime-deadkey-
+diagnostic-*; probe process verified absent. This attempt does not qualify IME.
+
+Added qualify-native-readonly.py: checks immutable reference, full readonly
+selection, editable sibling change, GPU errors, optional CPU+GPU presentation,
+and explicit --require-ime Preedit/Commit gate. Prior readonly smoke passes;
+diagnostic fails required nonempty Preedit/Commit (and lacks full readonly
+selection in that narrower run). Verifier JSON saved. Actual input-method
+composition lifecycle still requires suitable OS source; no system source was
+changed. Journal validation alone does not prove physical input or screen-reader
+behavior.
+
+
+## Direct semantic snapshot serialization — 2026-11-03
+
+A11yRole/Node/Tree now serialize directly with serde, eliminating intermediate
+JSON Value nodes. Explicit names/skipped numeric_value preserve field contract;
+bounds widen f32→f64 to preserve legacy JSON numeric strings. Parsed complete
+value oracle and fractional numeric-text oracle pass. Allocation counts for
+1/32/256 controls:136→14,2124→204,16463→1551; JSON lengths580/9285/73302 unchanged
+in those fixtures (key order may differ). Frozen7*controls+32 allocation ceiling
+rejects the prior path. Full native317 pass,9 ignored; WASM compile passes.
+Before/after source snapshots/logs/hashes: a11y-serialize-* artifacts. Counts are
+allocator operations, not timing/RSS/energy; fresh WASM execution remains open.
+
+
+## Fresh WASM direct semantic serializer — 2026-11-03
+
+Fresh release WASM Node37/37 passes. JavaScript verifies fractional bounds equal
+Math.fround originals widened to f64, expected semantic field set, noneditor null
+selection and omitted legacy numericValue; existing control-character/label/value,
+readonly/selection and editor suites rerun. Build/bundle/source/WASM hashes and
+JSON: direct-a11y-wasm-* artifacts. This closes Node WASM execution of direct
+serializer; no new browser/screen-reader or timing/RSS/energy claim.
+
+
+## Semantic editor epoch for DOM mirror — 2026-11-03
+
+Editor now owns a process-wide u32 semantic epoch, refreshed for explicit model/
+selection operations and new editor construction. Blink/preedit visual changes
+do not update it. Runtime::text_model_revision exposes the focused epoch without
+allocating. Browser mirror caches value/selection by Runtime, focus index and
+epoch; stale DOM can still be repaired from cache, active composition stays
+untouched, and hidden/destroyed inputs release cache. Old runtimes without the
+getter retain eager synchronization. External binding replacement receives a
+fresh epoch even if cursor/index are unchanged.
+
+Adapter44 passes including20 real resize/sync dispatches with exactly1 value and
+selection fetch, then refresh on changed epoch. Full native318 pass,9 ignored;
+WASM compile passes. Logs/hashes: input-revision-* artifacts. This is call-count
+evidence, not latency/RSS qualification. Fresh WASM/browser cache integration
+remains open.
+
+
+## Fresh WASM semantic mirror cache — 2026-11-03
+
+Fresh WASM Node38/38 and real browser3 cache cases pass. Instrumented subclass
+calls actual inherited Rust getters;4096-char+emoji field needs zero additional
+value/selection fetches across20 unchanged resize/syncs. Real text edit refreshes
+mirror once; visual preedit does not advance epoch or copy unchanged value.
+Trusted Shift+Left/Y/Meta+z then preserves exact Rust/DOM tail and selection.
+Live journal getters contribute to final totals; frozen case deltas are measured
+before that journal. JSON/screenshot/bundle/source/WASM hashes: input-epoch-*
+artifacts. Probe/server closed. Call counts are not latency/RSS/energy proof;
+OS IME/screen-reader/platform qualification remains open.
+
+
+## DOM selection adoption mirror reuse — 2026-11-03
+
+Selection adoption now reuses cached value/selection only when Runtime identity,
+focused index and semantic epoch all match. Missing revision support or stale
+cache retains direct Rust getters. Composition and stale DOM value guards remain.
+The regression failed before the fix; all 45 adapter tests pass after it and were
+rerun when finalizing evidence. Real browser/WASM fixture passes 4/4 cases:
+20 unchanged modifier/select pairs add zero value/selection getter calls. Trusted
+Shift+Left, Y and undo preserve exact DOM/Rust value and reverse selection.
+Before/after logs, browser JSON/screenshot and source/WASM SHA256 are preserved
+in adoption-cache-* artifacts. Browser journal getter overhead is excluded from
+frozen case deltas. This qualifies call counts, not latency/RSS/energy. Actual
+OS marked-text IME, accessibility platform bridge and remaining PLAN gates stay open.
+
+
+## Clipboard cut transport failure safety — 2026-11-03
+
+Adapter previously deleted selected Rust text even when clipboardData was absent.
+Cut now requires setData transport and a write call returning without exception
+before deletion; a thrown write is contained and leaves text intact. Regression
+failed before the fix; adapter46 passes after it, including successful write then
+one deletion. Evidence: cut-transport-* logs/qualification. This verifies adapter
+ordering and failure preservation, not actual OS clipboard persistence.
+
+
+## Empty/unavailable insertion transport safety — 2026-11-03
+
+Paste previously substituted an empty string for missing clipboard transport;
+Rust interprets empty insertion as selection deletion. Adapter now prevents
+default paste, requires a nonempty plain-text string and catches clipboard read
+errors before adopting selection or mutating text. insertText/replacement with
+null or empty data similarly does not delete selection. Explicit delete actions
+and cut retain their existing semantics. The new regression failed before the
+fix; all47 adapter tests pass, including Unicode paste and nonempty replacement.
+Raw logs and source hashes: paste-transport-* artifacts. Actual OS clipboard,
+real browser platform coverage and accessibility remain open.
+
+
+## Real browser/WASM clipboard failure safety — 2026-11-03
+
+preview-clipboard-browser.html passes10/10 against actual Rust WASM and current
+adapter in IAB. Missing/throwing cut and paste transports, empty paste and null
+insertion retain text plus exact selection; Unicode paste and successful cut
+mutate the model, and each undo restores original value/selection. JSON, screenshot
+and source/WASM hashes: clipboard-browser-* artifacts. Events are synthetic DOM
+events, not actual OS clipboard. Owned browser tab/server closed after capture.
+
+
+## Native empty paste preservation — 2026-11-03
+
+Shared native clipboard adapter also passed an empty successful read to
+text_insert, deleting selection. Empty paste now leaves editor untouched.
+Regression failed before fix; after fix full native lib/tests suite passes
+319 tests, 9 ignored. Regression checks selection, bound query, untouched sibling
+and preexisting undo/redo. Both native hosts call this adapter. Evidence and
+source hash: native-empty-paste-*; injected reader is not OS clipboard proof.
+
+
+## Reject malformed native clipboard encoding — 2026-11-03
+
+Native clipboard readers used lossy UTF8 decoding, allowing corrupt bytes to
+replace selected text with replacement characters. All readers now share strict
+UTF8 decoding and propagate InvalidData; paste preserves original text and
+selection. Regression failed before fix, then all6 native clipboard tests pass.
+Invalid lead, truncated and overlong sequences plus valid CJK/emoji are covered.
+PowerShell read command explicitly requests UTF8 output; Windows execution remains
+unqualified. Logs/hash: clipboard-utf8-* artifacts. No actual OS transport or
+full platform qualification claim; latest full native319 run predates this change.
+
+
+## Clipboard writer subprocess ownership — 2026-11-03
+
+All native clipboard writers now share write_clipboard_child: close stdin and
+wait even after a write error or missing stdin. Previously early ?/fallback
+paths skipped child reaping. Unix test launches actual child processes for
+success, early nonzero exit/broken pipe and missing pipe; waitpid returns ECHILD
+after helper, proving reaping. Full native suite after UTF8 and lifecycle changes:
+321 passed, 9 ignored. Evidence/source hash: clipboard-child-* artifacts.
+Timeouts, synchronous UI latency and actual cross-platform clipboard remain open.
+
+
+## Clipboard mutation invalidates pending composition — 2026-11-03
+
+Successful paste/cut previously mutated Rust while retaining browser composition
+ownership, allowing late compositionend to append another commit. Clipboard
+mutations now cancel that ownership before text_insert; copy and unavailable
+paste keep the session. New tests use an actively editing fixture, reproduce
+late commit before fix, and pass after it. Adapter49 passes; clipboard-composition-*
+preserves logs/hashes. Actual browser/OS IME ordering remains unqualified.
+
+
+## Browser clipboard/composition mirror regression — 2026-11-03
+
+Expanded actual-browser/Rust-WASM fixture exposed a missed DOM regression:
+late compositionend after paste correctly refused Rust mutation but cleared
+textarea value. Nonowned end now clears ownership only if still composing and
+resynchronizes the mirror. Failed browser JSON and failing adapter regression
+are preserved; after fix adapter50 and browser14/14 pass. Checks include paste/
+cut late commits, retained composition across copy/refusal, exact DOM/Rust value
+and undo selection. Evidence: clipboard-composition-browser-* and
+late-composition-mirror-*; synthetic DOM events do not qualify actual OS IME.
+Owned tab/server closed after screenshot capture.
+
+
+## Semantic epoch exhaustion without cache-key reuse — 2026-11-03
+
+Global u32 editor epoch previously wrapped and reused old keys. Allocation now
+saturates atomically; after the last unique nonzero key it permanently returns
+zero. Zero disables cache reuse for both mirror synchronization and selection
+adoption, preserving correctness at the cost of copies after exhaustion.
+Injected MAX-1 boundary test failed before fix, passes after; adapter52 passes
+including changing values under zero and stale DOM selection rejection. WASM
+target check passes. Evidence/hashes: epoch-exhaustion-*; no fresh release WASM
+or browser execution for this change, latest full native321 predates it.
+
+
+## Fresh release WASM and native epoch/clipboard integration — 2026-11-03
+
+Rebuilt release WASM after epoch exhaustion fix. Node38, adapter52, full native
+322 passed/9 ignored; browser clipboard14 with real epoch plus14 forced-zero
+fallback and mirror4 pass. Forced-zero subclass only overrides epoch getter;
+actual inherited Rust operations/value/selection remain in use. Saturation itself
+is proven by native injected-counter boundary test, not billions of browser edits.
+Build logs, report JSON, screenshot, node/web WASM archive and hashes preserved
+in epoch-release-* artifacts. Server report path was reused across fixtures;
+separate mirror/zero reports saved and clipboard rerun last to retain correct
+final clipboard JSON. Owned probes/server closed. Actual OS IME/clipboard,
+platform accessibility and latency/RSS/energy gates stay open.
+
+
+## Semantic accessibility selection action — 2026-11-03
+
+TextInput semantic nodes advertise set_text_selection. New exported
+accessibility_set_text_selection accepts snapshot-local node ID and original-value
+UTF16 offsets, retains CRLF units, rounds to grapheme boundaries, focuses accepted
+editor and clears preedit. Readonly permits selection; disabled/modal-blocked,
+noneditor/unknown nodes refuse without focus theft. Accepted no-op returns true.
+Three integrations pass: CRLF/reverse/surrogate/readonly roundtrip, refusal, modal
+scope plus prior undo history. Full native324/ignored9 passed before adding
+third test; final focused3 and WASM target check pass. Evidence: a11y-selection-*.
+OS accessibility bridge/screen reader and fresh release-WASM execution remain open.
+
+
+## Fresh release WASM semantic selection execution — 2026-11-03
+
+New action executed through freshly generated wasm-bindgen Node bindings:
+all40 checks pass, including readonly/original CRLF/reverse selection, surrogate
+rounding, u32::MAX clamp, invalid/disabled/noneditor refusal without focus theft.
+Old WASM negative run fails the two new checks because action/schema was absent;
+that record is preserved as an API-presence check, not an old semantic bug claim.
+Full final native suite 325 passed/9 ignored includes all3 new integrations.
+Node/web bundles, reports, build/native logs and hashes: a11y-action-* artifacts
+and a11y-selection-fresh-wasm JSON. OS bridge and screen reader remain open.
+
+
+## AccessKit native translation foundation — 2026-11-03
+
+Added optional native accesskit=0.25.2 and native_accessibility module. Runtime
+semantic trees translate to actual AccessKit TreeUpdate: hierarchy, roles,
+multiline input, label/value, bounds, numeric value, readonly/disabled/modal
+state and focus. Focus/Click dispatch verifies advertised semantic action before
+Runtime admission. Focused real-editor test covers readonly Unicode metadata,
+focus, disabled/unknown/unadvertised action refusal; native and WASM target
+checks pass. Evidence: accesskit-* artifacts. This is partial bridge work:
+window adapter/event loop, transforms, text-position descendants, selection/
+value/range OS actions and actual AX/screen reader inspection remain open.
+Adapter lifecycle reference: https://docs.rs/accesskit_winit/0.34.2/accesskit_winit/struct.Adapter.html
+
+
+## Shared native AccessKit window adapter and actual macOS AX — 2026-11-03
+
+Added optional accesskit_winit=0.34.2. Shared host creates initially hidden window,
+constructs adapter, then shows window. Adapter receives window events first;
+custom event-loop events deliver activation/deactivation and ROOT-tree actions.
+Active trees update from retained chooser/application runtime after events and
+redraw, with root DPR transform. Focus/Click route through app update and native
+IME ownership guards. Inactive accessibility avoids snapshot construction.
+All-targets check and host18 pass; full native326/ignored9 passes.
+Actual M4 Max/macOS probe via CUA exposes Reference/Query text fields with values
+in OS AX; clicking Query and native End/Shift+1 changes value to Editable!, which
+updates live in AX. AX text, screenshot, raw app journal and binary/source hashes
+saved in accesskit-native-* / accesskit-host-*; process closure verified by pgrep.
+This proves basic shared-host macOS AX integration, not spoken screen-reader
+output or SetValue/text-selection/range support. Those, other OS backends,
+standalone parity, stale snapshot IDs and incremental allocation costs remain open.
+
+
+## AccessKit text SetValue and actual macOS AX mutation — 2026-11-03
+
+Added Runtime accessibility_set_text_value and AccessKit Value payload routing.
+Editable text nodes advertise SetValue; readonly/range nodes do not. Full-value
+replacement/empty clear is one undoable edit, normalizes CRLF/single-line breaks,
+synchronizes through normal app binding update. Admission rejects invalid,
+readonly, disabled/modal and oversized requests before changing focus/selection;
+raw-size bound avoids unbounded normalization allocation. Same-value action keeps
+selection and history. Missing/wrong AccessKit payload is refused.
+Actual macOS CUA AX setter changes Query to AX 你好🙂; AX reflects it; native
+Cmd+Z restores Editable. Readonly Reference remains unchanged on AX setter attempt.
+CUA may focus target first, so only text refusal is claimed for that OS attempt.
+AX snapshots/screenshot/raw journal/binary hashes: accesskit-set-value-* artifacts.
+Process closure verified; full native329/ignored9 and WASM target check pass.
+Fresh release WASM execution, OS selection/range and screen-reader speech remain open.
+
+
+## AccessKit text runs and actual macOS AX selection — 2026-11-03
+
+TextInput now exposes per-line TextRun descendants with grapheme UTF8 byte lengths
+and mapped selection. CRLF counts as one grapheme, final newline has empty trailing
+run; synthetic IDs occupy a separate high-bit namespace. SetTextSelection validates
+run ownership and character index before converting back to original-value UTF16
+and Runtime selection. Unsupported >255-byte grapheme disables text-run selection
+without inventing split grapheme units. Native4 focused tests pass; full native
+331/ignored9 passes. Actual macOS AX selects readonly 你好 and editable dit;
+native Shift+1 replaces selected dit with ! (E!able); Cmd+Z restores Editable
+and selected dit. Raw journal/AX/screenshot/binary hashes: accesskit-selection-*.
+Process closed. No speech/magnifier geometry/other-OS or actual multiline OS matrix
+claim. Word starts, character positions/widths, same-editor IME interleaving and
+stale snapshot ID protection remain open.
+
+
+## Same-editor AX/IME ownership cancellation — 2026-11-03
+
+Factored shared host accessibility_action dispatch. Regression reproduces late
+IME commit replacing an AX-selected range in unchanged editor (seed -> slated).
+Accepted SetValue/SetTextSelection now cancels nonempty or empty-pending IME
+ownership and latches late-commit refusal; fresh nonempty preedit opens a new
+session. Refused actions retain IME. Eight combinations cover both actions,
+nonempty/empty pending preedit and accepted/refused payload; repeated stale
+commits and fresh recovery checked. Host19 pass; before/after logs and source
+hash: accesskit-ime-* artifacts. Injected host events are not actual OS IME
+qualification; full native331 run predates this change.
+
+
+## Published AccessKit IDs and scene/text retirement — 2026-11-03
+
+Shared host now maps all semantic/text-run IDs to monotonically allocated
+window-lifetime IDs. Old scene requests refuse before and after new publication;
+removed IDs are pruned, changed text receives new run IDs, and selection against
+unpublished changed text refuses. Existing unchanged IDs remain stable. Native
+a11y identity is separate from IME instance identity: internal binding rebuild
+retains it only for unchanged topology and uniquely keyed index-preserved controls;
+explicit reload/ambiguous structure retires identity. No counter wrap is allowed.
+Initial OS diagnostic showed overbroad scene rotation invalidated AX handles
+after successful bound SetValue; that raw/AX diagnostic is retained. After identity
+refinement, actual macOS SetValue retains Query handle, selection of 你好 on new
+value works, native input yields AX !🙂 and undo restores value plus selection.
+Accessibility7, host19, full native335/ignored9 and WASM check pass. Logs/
+raw/AX/screenshot/hashes: accesskit-stable-ids-*; probes closed. Queued stale
+actions are verified at Rust dispatcher, not OS queue injection. Full-tree
+allocation costs, speech, other OS and marked-text IME gates remain open.
+
+
+## Skip unchanged active AccessKit publications — 2026-11-03
+
+PublishedTree compares semantic snapshot, scene identity and DPR before text-run/
+ID translation and OS publication. Blink/preedit-only visual changes no longer
+rebuild/send trees. Selection/value/disabled/source/DPR changes still publish;
+activation explicitly invalidates cache so reactivation gets full tree. Measured
+allocation calls per warmed update for1/32/256 controls: full40/774/6038 versus
+unchanged10/196/1540. Snapshot construction still allocates and one previous
+snapshot remains retained; no latency/RSS/energy claim. Exact no-publication and
+invalidation tests pass; full native337/ignored9 passes. Evidence/source
+hashes: accesskit-unchanged-* artifacts. Actual OS publication-suppression rerun
+remains open; earlier AX integration evidence predates this optimization.
+
+
+## Actual macOS AX after unchanged-publication optimization — 2026-11-03
+
+Completed pending OS rerun using probe rebuilt from the same source hashes as
+native337/allocation qualification. AX SetValue changes Query to Cache 你好🙂;
+AX selection of 你好 is visible without changing value, native Shift+1 replaces
+only that range (Cache !🙂), and Cmd+Z restores value plus selected 你好. Readonly
+Reference still permits CJK selection and refuses native insertion. Raw journal,
+AX snapshots, screenshot, build log and binary/source hashes: accesskit-cache-os-*
+artifacts. Owned process closed and absence checked with pgrep. This closes basic
+OS regression after cache optimization; physical DPR/deactivation/reactivation,
+speech/marked-text IME and latency/RSS/energy remain open.
+
+
+## Full text shaping, BiDi, ZWJ emoji, dictionary word segmentation, soft wrapping, and full AccessKit bridge — 2026-11-06
+
+- **Native Accessibility (`AccessKit`)**:
+  - Extended `Runtime` and `native_accessibility` with semantic actions for `A11yRole::Slider` (`Action::Increment`, `Action::Decrement`, `Action::SetValue` accepting normalized `[0.0, 1.0]` or percentage strings), `A11yRole::ScrollView` (`Action::ScrollUp`/`ScrollDown`/`ScrollLeft`/`ScrollRight` isolated under active modals), and `A11yRole::Dialog` (`Action::Collapse` dismissal and `accesskit::Live::Polite` live-region announcements for screen-reader speech output).
+  - Integrated `accesskit_winit::Adapter` and `PublishedTree` into the standalone `forma` binary (`vector-ui/src/main.rs`), cancelling active IME composition when an accepted `SetValue` or `SetTextSelection` action mutates the active editor.
+  - Added a `450ms` timeout with child-process reaping in `native_clipboard.rs` so external clipboard helpers (`pbpaste`/`pbcopy`/`wl-paste`/`xclip`/`xsel`/`powershell`) never block the UI thread.
+- **Text Completeness (`text.rs`, `control_state.rs`, `text_input.rs`, `runtime.rs`)**:
+  - Added zero-advance cluster attachment in `shape_text` for ZWJ emoji sequences (`👨‍👩‍👧‍👦`), Fitzpatrick skin-tone modifiers (`👍🏽`), keycap sequences (`1️⃣`), regional indicator flag pairs (`🇬🇪`), and variation selectors (`VS1..=VS16`, `VS17..=VS256`).
+  - Added `UAX #9 N1` BiDi neutral resolution in `shape_text` so neutral/whitespace runs between RTL words remain within a single RTL visual run (`"אב גד"` -> `"דג בא"`).
+  - Added dictionary-backed CJK/Thai compound word segmentation (`segment_words_dictionary`, `move_words_dictionary`, `backspace_word_dictionary`, `delete_word_dictionary`) in `control_state.rs` while preserving 100% Unicode 17 `UAX #29` conformance.
+  - Added visual soft-wrapping layout and hit-testing (`SoftWrappedLine`, `wrap_shaped_text`, `hit_wrapped_text`, `Editor::soft_wrapped_lines`/`hit_soft_wrapped`, `Runtime::text_soft_line_count`/`text_hit_soft_wrapped`).
+- **Release & Gate Verification**:
+  - `cargo test --locked --manifest-path vector-ui/Cargo.toml --features native --lib --tests --bin forma`: 248 unit tests and all integration test suites pass.
+  - `cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests -- --ignored`: all 9 hardware Metal GPU tests pass.
+  - `npm --prefix packages/svet test` (113 files / 1507 tests), `npm --prefix packages/svet run test:package` (62 files, isolated consumer install & build), and `npm --prefix packages/svet run test:actions` (4 HTTP abort/streaming tests) pass.
+  - `npm run gate`: all 15 gate checks pass (`tokenizer`, `version-check`, `studio-js` 585/585, `studio-build`, JS compiler/session/tools benches, `runtime-gpu`, `svet-wasm` 66/66, `binding-native`, `language-example`, `native-host`, `native-x86_64-unknown-linux-gnu`, `native-x86_64-pc-windows-msvc`, `studio-legacy`, and `wasm-provenance`).

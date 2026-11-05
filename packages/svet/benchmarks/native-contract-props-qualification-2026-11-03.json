@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "change": "Borrow resolved properties for contract checks; clone only when missing required values must be removed",
+  "scenario": {
+    "custom_component": 1,
+    "list_property_records": 256
+  },
+  "allocations": {
+    "before": 5059,
+    "after": 4284,
+    "reduction_percent": 15.319233050009885,
+    "budget": 4700
+  },
+  "validation": {
+    "passed": 213,
+    "gpu_ignored": 2,
+    "baseline_regression": "fails allocation budget",
+    "contracts_required_enum_constraints": "existing suite passed"
+  },
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "95f8d4820828084c0aa7b21db3ab5f6c35b1adf314db6de1e68671386be9d37c",
+    "vector-ui/tests/runtime_allocations.rs": "65a8673f8df47221a5dc2d75a1242061c04c0ea64320452ff478917414b8f623"
+  },
+  "limits": [
+    "Full per-control state snapshots remain; public transport contract preserved",
+    "Debug allocator counts, not latency/RSS qualification",
+    "Fresh WASM/browser qualification pending"
+  ]
+}

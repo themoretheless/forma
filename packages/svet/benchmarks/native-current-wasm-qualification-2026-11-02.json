@@ -1,0 +1,46 @@
+{
+  "status": "partial",
+  "scope": "Fresh Rust vector-ui WASM release executed via wasm-bindgen NodeJS and Chromium156 web bindings; CPU Canvas2D scene/render binding checks",
+  "validation": {
+    "releaseWasmBuild": "passed",
+    "artifactNodeChecks": 7,
+    "bindingNodeCases": 7,
+    "browserCases": 10,
+    "idleSyncsPerReloadReorderCase": 24,
+    "aliasReorderedCases": 2,
+    "insideControlChangedBytes": [
+      1242,
+      1242
+    ]
+  },
+  "sourceSha256": {
+    "vector-ui/src/runtime.rs": "fcf027df13c6f0ea18a3482378267a36f657073fcce75e16e746b08dd165f32c",
+    "vector-ui/src/form_document.rs": "4111cc35eb6bc78a936dbdb0a6c8671f7f26ff569fd6936601f5e2037a5e66be",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50",
+    "vector-ui/tests/check-scene-artifact-wasm.cjs": "350718937a7815a61af4cba90019128ec7140b35e235f1f554cb8dc41ef47529",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "3ccdaa591c9e521bb7033cab870c570e33204c9ad92f75c61f8f9c87e76f3c38",
+    "vector-ui/tests/scene-artifact-browser.html": "c00ba6d8de630e56e0456def1fc953e0f2e3a14598924136dd7ac30dd2f67b2a"
+  },
+  "rawRustWasmSha256": "b113478ade63a2e7b098187bcef09df247ab2c7a8314c76e0f2825904fd9bfb4",
+  "generatedArtifactSha256": {
+    "web/index.html": "c00ba6d8de630e56e0456def1fc953e0f2e3a14598924136dd7ac30dd2f67b2a",
+    "web/forma_bg.wasm": "291fa047cd38711e95c8ba0aca2a728ed330830332ddf1a4b53adc83339cc793",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "291fa047cd38711e95c8ba0aca2a728ed330830332ddf1a4b53adc83339cc793",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "wasmBindgen": "wasm-bindgen 0.2.125",
+  "bundleArchiveSha256": "180e5e1ebe82d8f8d1094c900aef5f194b766931ea13729026c703348dec337c",
+  "limits": [
+    "Reorder uses public reload API, not live external state mutation; native Rust stale-frame reorder is separately tested",
+    "Programmatic WASM input, not trusted DOM keyboard routing/native-window/IME",
+    "No hardware GPU qualification",
+    "No browser allocation/p95/RSS/heap plateau qualification",
+    "No release publication or production asset replacement performed"
+  ]
+}

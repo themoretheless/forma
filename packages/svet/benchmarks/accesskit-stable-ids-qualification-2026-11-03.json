@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "scope": "Window-lifetime published AccessKit IDs and stale scene/text position refusal",
+  "nativeTests": {
+    "passed": 335,
+    "failed": 0,
+    "ignored": 9
+  },
+  "focusedAccessibilityTests": 7,
+  "hostTests": 19,
+  "actualMacOS": [
+    "SetValue retains field AX handle across keyed binding rebuild",
+    "new Unicode text selection works after value update",
+    "key replacement and undo preserve current field identity",
+    "owned process closed"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "ba6afdfbb89018a87628e02ad6a8abf3e773be11173bffdc3e71980eb5c45bdb",
+    "vector-ui/src/native_accessibility.rs": "b96025ca94b17103a1c7de6d1a6a2ea855edc59a0638f55b494451cce0d1c8e1",
+    "vector-ui/src/native_window.rs": "fe4e7b4d19b5efe9ad712cfbbd8f61ce166f58cd3e6b32c01850331578c26b4a",
+    "/tmp/SvetAccessKitStableIdsProbe.app/Contents/MacOS/native_readonly_probe": "af8644520ddafe15a30197be023319f8c38b8cb28c6e4524f1743abdce2c73fe"
+  },
+  "limitations": [
+    "Keyed unchanged-topology internal binding rebuild retains scene identity; unkeyed/structural changes conservatively retire it",
+    "Actual stale queued actions tested via Rust dispatcher, not injected into OS event queue",
+    "Full-tree allocation/performance remains unqualified",
+    "No new screen reader speech or OS marked-text IME proof"
+  ]
+}

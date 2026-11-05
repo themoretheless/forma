@@ -1,0 +1,17 @@
+{
+  "status": "passed-scoped",
+  "before": "Rust debug escaping of NUL/ESC produced invalid accessibility JSON",
+  "fix": "serde_json serialization with existing field set",
+  "nativeLibPassed": 227,
+  "integrationTests": 9,
+  "ignored": 3,
+  "wasmCompile": "passed",
+  "sha256": {
+    "vector-ui/src/runtime.rs": "081a3c16b2eb35581790fcf6df190041b48fc5beda6db406b1e120330c050eef",
+    "vector-ui/tests/line_edit.rs": "0db2565179f6a3d5a93f77d04e8efb5a0e5c469268bcd3cec3c87fc60a4870ab"
+  },
+  "limits": [
+    "Fresh WASM execution qualification pending",
+    "No accessibility snapshot performance claim"
+  ]
+}

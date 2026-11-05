@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "nativeTests": {
+    "passed": 319,
+    "failed": 0,
+    "ignored": 9
+  },
+  "scope": "Empty native paste preserves selection, bindings and prior undo/redo",
+  "sourceSha256": "a80796a23f1f52ad9f1ec1cb588aa7d72da739527837719c77a368c34c24515b",
+  "limitations": [
+    "Injected clipboard reader; actual OS clipboard not qualified",
+    "Shared adapter used by both hosts; OS host integration matrix remains open"
+  ]
+}

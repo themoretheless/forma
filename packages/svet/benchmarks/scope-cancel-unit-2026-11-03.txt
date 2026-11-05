@@ -1,0 +1,23 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.60s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-cc416d5dfac22531)
+
+running 15 tests
+test device_loss_delivery_tests::poll_delivers_backend_loss_to_late_callback_once_with_reentry ... ignored, requires Metal; injects a logical backend notification, not physical device removal
+test error_delivery_tests::command_completion_routes_to_submit_owner_with_scope_and_reentry ... ignored, requires Metal; injects completion failures, not a hardware fault
+test error_delivery_tests::distinct_logical_devices_have_distinct_queues_on_one_adapter ... ignored, requires a real Metal adapter
+test error_delivery_tests::scope_completion_service_coalesces_bursts_and_retires_cancelled_requests ... ignored, requires Metal; holds synthetic submit leases to test completion service bursts
+test metal::device_loss_classification_tests::only_access_revoked_or_removed_are_device_loss ... ok
+test error_delivery_tests::submission_without_scopes_does_not_capture_a_later_scope ... ok
+test device_loss_delivery_tests::registration_before_loss_observes_first_message_once ... ok
+test device_loss_delivery_tests::late_registration_reentry_and_duplicate_loss_deliver_once ... ok
+test error_delivery_tests::submitted_scope_survives_pop_and_new_scope_with_waker_notification ... ok
+test error_delivery_tests::matching_innermost_scope_captures_first_without_uncaptured_delivery ... ok
+test error_delivery_tests::uncaptured_handler_can_replace_itself_and_reenter_error_scopes ... ok
+test error_delivery_tests::cancelled_scope_pop_releases_waker_before_submission_lease ... ok
+test error_delivery_tests::scope_guards_pop_their_own_errors_in_either_order ... ok
+test metal::command_failure_classification_tests::only_metal_oom_code_maps_to_out_of_memory ... ok
+test error_delivery_tests::concurrent_scope_pops_preserve_each_guard_error ... ok
+
+test result: ok. 11 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

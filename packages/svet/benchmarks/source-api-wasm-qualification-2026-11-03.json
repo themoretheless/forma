@@ -1,0 +1,32 @@
+{
+  "status": "partial",
+  "scope": "Fresh release WASM after native source/compiler API extraction and owned-scope transfer",
+  "validation": {
+    "node_binding_cases": 12,
+    "node_artifact_checks": 7,
+    "chromium_cases": 15,
+    "source_wrapper_errors": "source/template/project errors throw; live count/layout/geometry preserved; valid UI reload recovers"
+  },
+  "sources": {
+    "vector-ui/src/runtime.rs": "0d2de1fe2a88336ffe937564739603929fcbaee56b29c55f1d6116d6db0303fd",
+    "vector-ui/src/form_document.rs": "a68a7fdf0c221e2a696c62e49d05b0cd50d88938b88a7aac226825c0f868c56d",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "36f91243f997933b29fef551f5559d3655ec23ce667be1194b6195f785f1d557",
+    "vector-ui/tests/scene-artifact-browser.html": "0e7ec3f3ce7a97f17798a9cfb6c2152e70fedd76ecbf597fe494582947692a22"
+  },
+  "generated": {
+    "web/index.html": "0e7ec3f3ce7a97f17798a9cfb6c2152e70fedd76ecbf597fe494582947692a22",
+    "web/forma_bg.wasm": "d80f0a859907f607ebd1ba605cb6b89c7f23bf5571c6a5a2617c40053cd65794",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "d80f0a859907f607ebd1ba605cb6b89c7f23bf5571c6a5a2617c40053cd65794",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "limits": [
+    "Programmatic input, Chromium CPU frames only",
+    "Node-local state transfer performance remains native Document fixture evidence",
+    "No app latency/RSS qualification"
+  ]
+}

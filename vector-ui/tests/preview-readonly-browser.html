@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Readonly Rust editor</title>
+<style>body{font:16px system-ui;margin:32px;background:#eef2f6}#editor{width:500px;min-height:200px}pre{white-space:pre-wrap}</style>
+<h1>Readonly · Rust editor semantics</h1><p id="status">Loading…</p><div id="editor"></div><button id="select">Set reverse Unicode selection</button><button id="immediate">Select and replace in same task</button><button id="compose">Select and compose in same task</button><pre id="report"></pre>
+<script type="module">
+import init,* as wasm from '/wasm/forma.js';
+import {createVectorPreview} from '/src/vector-preview.js';
+const report={status:'running',cases:[]};
+try{
+ await init();let active;class Observed extends wasm.Runtime{constructor(){super();active=this;}load_component(source){this.load_ui_files_json(source,'App.ui','{}');}}
+ const preview=createVectorPreview({runtime:{...wasm,Runtime:Observed},onError:error=>{(report.errors??=[]).push(String(error));}});
+ // Adapt project-file transport only; compile and all semantics remain real Rust.
+ preview.render({container:document.querySelector('#editor'),source:JSON.stringify({'App.ui':"component App { Column { width:480; height:180; TextInput { key:'single'; label:'Search'; width:440; height:40; multiline:false; value:'single'; } TextInput { key:'multi'; label:'Notes'; readOnly:true; width:440; height:100; multiline:true; value:'A😀é'; } } }"}),designMode:false,reducedMotion:true,previewControls:[{type:'TextInput',props:{key:'single'}},{type:'TextInput',props:{key:'multi'}}]});
+ for(const [key,index,expected]of [['single',0,false],['multi',1,true],['single',0,false],['multi',1,true]]){
+  if(!preview.focusKey(key))throw Error('Focus refused '+key);const input=document.querySelector('textarea');const rust=active.control_multiline(index),aria=input.getAttribute('aria-multiline');if(rust!==expected||aria!==String(expected))throw Error(key+' mismatch '+rust+'/'+aria);if(input.value!==active.text_value(index))throw Error('DOM value mismatch');const label=input.getAttribute('aria-label');if(label!==(key==='single'?'Search':'Notes'))throw Error('Unstable label');report.cases.push({key,rust,aria,value:input.value,label,readOnly:input.readOnly,status:'passed'});
+ }
+ const input=document.querySelector('textarea');
+ const selectButton=document.querySelector('#select');selectButton.addEventListener('mousedown',event=>event.preventDefault());selectButton.addEventListener('click',()=>{input.focus();input.setSelectionRange(1,5,'backward');});
+ const immediate=document.querySelector('#immediate');immediate.addEventListener('mousedown',e=>e.preventDefault());immediate.addEventListener('click',()=>{input.focus();input.setSelectionRange(1,5,'backward');input.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:'X',bubbles:true,cancelable:true}));});
+ const compose=document.querySelector('#compose');compose.addEventListener('mousedown',e=>e.preventDefault());compose.addEventListener('click',()=>{input.focus();input.setSelectionRange(1,5,'backward');for(const [type,data]of [['compositionstart',''],['compositionupdate','新'],['compositionend','新']])input.dispatchEvent(new CompositionEvent(type,{data,bubbles:true}));});
+ for(const type of ['keydown','beforeinput','select','compositionstart','compositionupdate','compositionend'])input.addEventListener(type,event=>queueMicrotask(()=>{(report.live??=[]).push({type,key:event.key,inputType:event.inputType,isTrusted:event.isTrusted,rust:active.text_value(active.focused_index()),dom:input.value,label:input.getAttribute('aria-label'),readOnly:input.readOnly,selection:[input.selectionStart,input.selectionEnd,input.selectionDirection],rustSelection:Array.from(active.text_selection_utf16())});document.querySelector('#report').textContent=JSON.stringify(report,null,2);fetch('/result',{method:'POST',body:JSON.stringify(report)});}));
+ report.status='passed';
+}catch(e){report.status='failed';report.error=String(e.stack);}
+document.querySelector('#status').textContent=report.status.toUpperCase();document.querySelector('#report').textContent=JSON.stringify(report,null,2);await fetch('/result',{method:'POST',body:JSON.stringify(report)});
+</script>

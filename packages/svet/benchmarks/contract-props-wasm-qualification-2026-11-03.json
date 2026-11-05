@@ -1,0 +1,30 @@
+{
+  "status": "partial",
+  "scope": "Fresh release WASM after borrowed contract validation props",
+  "validation": {
+    "node_cases": 11,
+    "chromium_cases": 14,
+    "new_case": "List256 valid component loads; wrong type refuses and preserves state/layout revision"
+  },
+  "sources": {
+    "vector-ui/src/form_document.rs": "95f8d4820828084c0aa7b21db3ab5f6c35b1adf314db6de1e68671386be9d37c",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "2ffddffe136b0420045fc1d256729124fd8034f1833f894a792089be6bc9e2e7",
+    "vector-ui/tests/scene-artifact-browser.html": "67b6d068533cbf99deb89fbef2101d7d7437b4f0ed6425fb2ac44e059890bc9d"
+  },
+  "generated": {
+    "web/index.html": "67b6d068533cbf99deb89fbef2101d7d7437b4f0ed6425fb2ac44e059890bc9d",
+    "web/forma_bg.wasm": "2363d2d3cf296d9ad1eb15ecf489e2ba64e23437e69011491fd9f4f4e8f4e9f1",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "2363d2d3cf296d9ad1eb15ecf489e2ba64e23437e69011491fd9f4f4e8f4e9f1",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "limits": [
+    "Programmatic WASM input/Chromium CPU frames",
+    "No browser allocation or latency qualification",
+    "Required/enums covered native suite; new browser negative case is List type"
+  ]
+}

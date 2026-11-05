@@ -1,0 +1,25 @@
+{
+  "status": "partial",
+  "implemented": "Production fallback uses static FormaEmoji-Regular.ttf; CJK variable and CPU curve tolerance unchanged",
+  "native_tests_passed": 240,
+  "ignored": {
+    "gpu": 2,
+    "manual_cost_probe": 1
+  },
+  "node_cases_passed": 14,
+  "exact_frame_comparisons": 90,
+  "wasm_bytes": 20732957,
+  "gzip_bytes": 12597062,
+  "sha256": "660920cd95288fb38c53779f65f9a060454f29afed096fbf85838aa7f4713648",
+  "font_payload_reduction_bytes": 1095944,
+  "limits": [
+    "CJK static deployment remains open",
+    "Full shaping/ZWJ/color emoji not implemented by this change",
+    "Actual IME composition separate from paste/font qualification"
+  ],
+  "browser_cases_passed": 17,
+  "browser_engine": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "native_window": "macOS: mixed CJK/Cyrillic/emoji pasted into second editor; frame and summary observed; exact model recorded in journal",
+  "native_binary_sha256": "4d46b76a45e8b9a3902b253b3674737674e3824b21b5812731dcb775bf936b81",
+  "ui_observation_note": "CUA paste batch timed out after insertion; fresh screenshot confirmed effect; probe then closed"
+}

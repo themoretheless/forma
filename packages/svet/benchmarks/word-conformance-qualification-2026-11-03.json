@@ -1,0 +1,21 @@
+{
+  "status": "passed-scoped",
+  "unicodeVersion": "17.0.0",
+  "vectors": 1944,
+  "tests": 2,
+  "source": "https://www.unicode.org/Public/17.0.0/ucd/auxiliary/WordBreakTest.txt",
+  "coverage": [
+    "Exact raw word boundaries from independent markers",
+    "UI word navigation and deletion from every scalar position",
+    "Undo/redo restores exact value/cursor"
+  ],
+  "limitations": [
+    "Grapheme rounding uses separately qualified segmentation library",
+    "No dictionary/locale/native OS semantic parity",
+    "No rendering/IME/performance qualification"
+  ],
+  "sha256": {
+    "vector-ui/tests/fixtures/unicode-17.0.0/WordBreakTest.txt": "1de23a75f37904abc7d206239ee8d34f8fdf0fb4ab32a7174dfbabbde25419b2",
+    "vector-ui/tests/word_conformance.rs": "b346214cc70f5d9c2a69db6d9969284b90b9b062ce9099ad0b0b287ac1916a5e"
+  }
+}

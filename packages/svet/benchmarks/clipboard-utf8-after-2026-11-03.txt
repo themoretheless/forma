@@ -1,0 +1,14 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.56s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-c219d57b926883c5)
+
+running 6 tests
+test native_clipboard::tests::non_latin_commands_use_physical_fallback_without_remapping_latin_layouts ... ok
+test native_clipboard::tests::unavailable_editor_and_empty_copy_do_not_access_clipboard ... ok
+test native_clipboard::tests::copy_and_failed_cut_preserve_selection_and_model ... ok
+test native_clipboard::tests::empty_paste_preserves_selection_bindings_and_undo_history ... ok
+test native_clipboard::tests::cut_is_undoable_and_unicode_paste_commits_only_selected_editor ... ok
+test native_clipboard::tests::malformed_clipboard_is_rejected_without_replacing_selection ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 227 filtered out; finished in 0.02s
+

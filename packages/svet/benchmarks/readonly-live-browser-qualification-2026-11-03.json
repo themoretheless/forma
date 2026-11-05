@@ -1,0 +1,14 @@
+{
+  "status": "passed-scoped",
+  "browser": "Trusted edit\u2192Lock/reconstruct\u2192edit refusal\u2192Unlock/reconstruct\u2192original undo restores text/caret",
+  "observedEvents": 12,
+  "sha256": {
+    "vector-ui/tests/preview-readonly-live-browser.html": "70a812e4eb75d6e2e8a65c4116c0322e99bc3e12bd8ebb40a6c5efb5f9e25870",
+    "src/vector-preview.js": "5876775bd96f0e946a7cac1f4cad29f29131b00e6b2fc187d069c9af7c171aad",
+    "/tmp/svet-readonly-wasm/web/forma_bg.wasm": "30bc0c4e4a0fd22e7d7923acb0adb99e4d09277cf6aebdb993857d4811cb35cc"
+  },
+  "limits": [
+    "Browser fixture changes source and reconciles Runtime; native bound Toggle separately tested",
+    "No actual OS IME or screen-reader/platform claim"
+  ]
+}

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {mkdtemp,readFile,writeFile,readdir} from 'node:fs/promises';
+import {resolve,dirname} from 'node:path';
+import {tmpdir} from 'node:os';
+import {createHash} from 'node:crypto';
+import {createServer} from 'vite';
+const [installation,output]=process.argv.slice(2);assert(installation&&output);
+const installed=resolve(installation),root=await mkdtemp(resolve(tmpdir(),'svet-forma-browser-gc-')),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
+const fixture=await readFile(new URL('../tests/browser/forma-retention-gc.html',import.meta.url),'utf8'),runtime=resolve(installed,'dist/package'),runtimeSha256={};
+for(const file of (await readdir(runtime)).sort())if(/\.(js|wasm)$/.test(file))runtimeSha256[file]=sha(await readFile(resolve(runtime,file)));
+await writeFile(resolve(root,'index.html'),fixture.replace('__RUNTIME_IMPORT__',JSON.stringify('/@fs'+resolve(runtime,'index.js'))));
+const manifest={installed,runtimeSha256,fixtureSha256:sha(fixture),serverSha256:sha(await readFile(new URL(import.meta.url))),node:process.version};
+const server=await createServer({root,configFile:false,optimizeDeps:{noDiscovery:true,include:[]},server:{host:'127.0.0.1',port:4218,strictPort:true,fs:{allow:[root,dirname(installed)]}},plugins:[{name:'forma-gc-report',configureServer(vite){vite.middlewares.use('/__forma_gc_result',async(req,res)=>{try{if(req.method!=='POST'){res.statusCode=405;return res.end();}let body='';for await(const chunk of req){body+=chunk;if(body.length>65536)throw Error('Report too large');}await writeFile(resolve(output),JSON.stringify({...JSON.parse(body),manifest,recordedAt:new Date().toISOString()},null,2)+'\n');res.end('saved');}catch(error){res.statusCode=400;res.end(String(error));}});}}]});
+await server.listen();console.log(JSON.stringify({url:'http://127.0.0.1:4218',root,output,manifest},null,2));
+for(const event of ['SIGINT','SIGTERM'])process.once(event,()=>server.close());

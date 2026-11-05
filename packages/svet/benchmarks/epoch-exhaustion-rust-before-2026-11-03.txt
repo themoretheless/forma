@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.12s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-c219d57b926883c5)
+
+running 1 test
+test text_input::semantic_epoch_tests::exhausted_epoch_never_reuses_an_earlier_cache_key ... FAILED
+
+failures:
+
+---- text_input::semantic_epoch_tests::exhausted_epoch_never_reuses_an_earlier_cache_key stdout ----
+
+thread 'text_input::semantic_epoch_tests::exhausted_epoch_never_reuses_an_earlier_cache_key' (25586596) panicked at src/text_input.rs:393:24:
+assertion `left == right` failed
+  left: 1
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    text_input::semantic_epoch_tests::exhausted_epoch_never_reuses_an_earlier_cache_key
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 234 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

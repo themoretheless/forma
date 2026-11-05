@@ -1,0 +1,26 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-public-handle.test.ts (2 tests | 1 failed) 54ms
+   × allows action overrides to wrap originals and intercept mounted events 47ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-public-handle.test.ts > allows action overrides to wrap originals and intercept mounted events
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ tests/forma-public-handle.test.ts:13:62
+     11|  const mount=instance.mount(container);
+     12|  try {
+     13|   container.querySelector('button')!.click();expect(wrapped).toHaveBee…
+       |                                                              ^
+     14|   instance.actions.increment=original;
+     15|   container.querySelector('button')!.click();expect(wrapped).toHaveBee…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  21:35:31
+   Duration  1.82s (environment 85%, transform 7%, import 5%, tests 3%)
+

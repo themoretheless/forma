@@ -1,0 +1,23 @@
+{
+  "status": "partial",
+  "implementation": "After GPU presentation NativeHost arms16ms completion health checks without acquiring drawables. Checks continue while queue work is pending, cease once idle, remain available during occlusion, and retire GPU/request CPU redraw on observed fault",
+  "gates": {
+    "native_lib_passed": 218,
+    "native_lib_ignored": 3,
+    "native_all_targets": "passed",
+    "hardware_renderer": "Apple M4 Max/Metal: queue drained, repeated health polling leaves frame counter unchanged",
+    "scheduler": "occlusion retains completion deadline while suppressing animation/retry painting; clearing completed deadline returns unbounded Wait"
+  },
+  "limits": [
+    "Actual OS-window idle fallback/occlusion smoke remains pending",
+    "No device-removal wakeup once a fully idle queue has stopped polling; native notifications remain open",
+    "No physical GPU fault or energy/latency/performance qualification",
+    "Non-Metal is_queue_idle branch currently reports idle; other backends are not qualified"
+  ],
+  "source_sha256": {
+    "crates/gpu-runtime/src/lib.rs": "27a55ecb3d70489f0d49d93fbe907cd801085d1cceabc240547850ea60fec004",
+    "vector-ui/src/native_gpu.rs": "2b2ad2a3d309d1774050906b48e9c5c68d3ef1ceeae44df641aa4368291a173d",
+    "vector-ui/src/native_window.rs": "c939d89640b26c5af6a75ba5173dcb281629b4a6817539fa821ebe285eb51048",
+    "vector-ui/src/gpu.rs": "6f87a66d8fd6985d34784c3ea7c49ded240a343db834f0d80ab016ddf24a13a4"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "status": "partial",
+  "implementation": "Grapheme-safe non-whitespace UAX29 word-boundary navigation/selection/deletion, undo/redo; additive Runtime::text_word_key for host-normalized modifiers; native Option on macOS and Ctrl-without-Alt mapping on Windows/Linux",
+  "policy": "Non-whitespace word-boundary segments are stops, including punctuation and emoji. Right moves to segment end, Left to segment start. Selection collapse consumes first movement step. This is explicit logical policy, not locale dictionary segmentation or universal platform-native parity",
+  "gates": {
+    "native_lib_passed": 220,
+    "native_ignored": 3,
+    "word_integration_passed": 4,
+    "grapheme_integration_passed": 4,
+    "grapheme_conformance_passed": 5,
+    "allocation_tests_passed": 17,
+    "fresh_wasm_node_passed": 23,
+    "native_all_targets": "passed",
+    "native_window": "Actual macOS GPU/CPU Option+Backspace,Option+Shift+Left,undo,Option+Right/Delete; exact Unicode model and untouched7 rows;0 GPU errors"
+  },
+  "source_sha256": {
+    "vector-ui/src/control_state.rs": "dbed6181fc553f53971704ff3cfb0dc5158bf3fdcb2d01717fa3055b3652a0e7",
+    "vector-ui/src/text_input.rs": "4daff3039cef676fcccd45825d4cc1f05082545f4098982865f5546b2f9a2e66",
+    "vector-ui/src/runtime.rs": "bca52435fd914bd8fd87cc86bbf8086c8e5fc46fa4161690269211af7bb6b7cd",
+    "vector-ui/src/native_window.rs": "0c455b2dcfc71ef3249849e200c1fea7f8a38e88a2fca5081d344d8fc4c3e4af",
+    "vector-ui/tests/word_edit.rs": "e0a83951cf7a22cb7d07b06da1efc33fc4c882937c3d0b11e090a3f107f7dfc2",
+    "vector-ui/tests/grapheme_conformance.rs": "188c1c5e2c6320037eef4aec8e863802d014a1d74623bf92953dd6d3dec7b751",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "d2f296bbc3a3cafe366bbf99bfb6b75a057c27ed028bfa04c52f42d0ec0d7aca"
+  },
+  "native_binary_sha256": "0a597339d64e532a516a941f9091f80cad260776151ba52bdbe68435fc358b02",
+  "wasm_sha256": "95fddabc86424991070dcd8f460655d38b4690a312f1059cc7bc0911752c10ef",
+  "references": [
+    "https://docs.rs/unicode-segmentation/1.13.3/unicode_segmentation/trait.UnicodeSegmentation.html#tymethod.split_word_bound_indices"
+  ],
+  "limits": [
+    "Windows/Linux Ctrl and AltGr runtime behavior not exercised; modifier guard preserved by inspection",
+    "Browser DOM modifier forwarding remains host integration work; normalized WASM API is tested",
+    "Grapheme corpus checks word-action grapheme safety, not official WordBreakTest conformance",
+    "No shaping/BiDi/real IME, locale dictionary or performance/RSS qualification"
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "status": "partial",
+  "implementation": "Separate content-only support region from dense/sparse geometry region; nested clip layers use content support, original global raster and AA arithmetic preserved",
+  "allocation_regression": {
+    "fixture": "800x600 dense content_pixels, small shape with two nested clips",
+    "requested_bytes_before": 10561888,
+    "requested_bytes_after": 4805356,
+    "budget_bytes": 5500000,
+    "baseline": "failed as expected",
+    "candidate": "passed",
+    "saved_bytes": 5756532
+  },
+  "rust_tests_passed": 266,
+  "rust_tests_ignored": 9,
+  "exact_native_storage_comparisons": 240,
+  "native_all_targets_check": "passed",
+  "hardware_reveal": {
+    "status": "passed",
+    "adapter": "Apple M4 Max/Metal",
+    "comparisons": 126,
+    "max_channel_error": 1
+  },
+  "node_cases": 14,
+  "chromium_cases": 18,
+  "exact_wasm_dense_frames": 120,
+  "exact_wasm_runtime_font_frames": 90,
+  "exact_wasm_overflow_frames": 60,
+  "exact_wasm_artifact_json": 30,
+  "wasm_sha256": "ec194e51ab19883ee0996501eecb20a14b2b110281136c411e15399b30cf401c",
+  "native_allocation_baseline_cache_sha256": "c1234e39bb97b810b7ff56371e2f93c3f9939d8d489acd4535acc571a2a5be5a",
+  "candidate_cache_sha256": "24507459b2cc465be2ea41773089cef56377b23ab7d04e8317c95d9f3e2d0968",
+  "pixel_baseline": "region-raster WASM (before preceding empty-content optimization); exact pixel oracle, not native allocation baseline",
+  "limits": [
+    "No timing or OS input latency claim",
+    "No RSS or physical-window qualification for this change",
+    "Dense geometry/frame/output storage still full canvas",
+    "Widely separated content can require a large conservative union region",
+    "Per-leaf buffer reuse remains open"
+  ]
+}

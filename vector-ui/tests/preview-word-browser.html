@@ -1,0 +1,99 @@
+<!doctype html><meta charset="utf-8"><title>Rust word input DOM probe</title>
+<style>body{font:16px system-ui;margin:32px;background:#eef2f6}#editor{width:500px;min-height:180px}pre{white-space:pre-wrap}h1{font-size:24px}</style>
+<h1>Rust word input · browser DOM</h1><p id="status">Running…</p><div id="editor"></div><ul id="cases"></ul><pre id="live"></pre><details><summary>Raw evidence</summary><pre id="report"></pre></details>
+<script type="module">
+import init,* as wasm from '/wasm/forma.js';
+import {createVectorPreview} from '/src/vector-preview.js?composition-owner=1';
+const report={status:'running',input:'synthetic DOM events; not trusted OS keyboard',platform:navigator.platform,userAgentPlatform:navigator.userAgentData?.platform,cases:[],bindings:[]};
+const equal=(a,b)=>{if(a!==b)throw Error(JSON.stringify(a)+' != '+JSON.stringify(b));};
+const check=(name,fn)=>{try{fn();report.cases.push({name,status:'passed'});}catch(e){report.cases.push({name,status:'failed',error:String(e.stack)});}};
+let active,preview;
+try{
+ await init();class Observed extends wasm.Runtime{constructor(){super();active=this;}}
+ preview=createVectorPreview({runtime:{...wasm,Runtime:Observed},onError:e=>{(report.errors??=[]).push(String(e));},onBindingChange:changes=>report.bindings.push(changes.map(({path,value})=>({path,value})))});
+ const renderOptions={container:document.querySelector('#editor'),source:"component App { Frame { width:480; height:160; Button { key:'field'; width:440; height:40; } Button { key:'other'; width:440; height:40; } } }",template:"component Button { Rectangle { ContentInput { width:440; height:40; value:'alpha beta'; fontSize:18; } PointerArea { clicked -> events.clicked(); } } }",designMode:false,reducedMotion:true,previewControls:[{type:'TextInput',props:{key:'field'},bindings:{value:'query'}},{type:'TextInput',props:{key:'other'}}]};
+ preview.render(renderOptions);
+ equal(preview.focusKey('field'),true);const input=document.querySelector('textarea');if(!input)throw Error('Missing textarea');
+ const apple=/Mac|iPhone|iPad|iPod/.test(navigator.platform),word=apple?{altKey:true}:{ctrlKey:true},command=apple?{metaKey:true}:{ctrlKey:true};
+ const key=(name,mods={})=>{const e=new KeyboardEvent('keydown',{key:name,bubbles:true,cancelable:true,...mods});input.dispatchEvent(e);return e.defaultPrevented;};
+ const before=(inputType,data=null)=>{const e=new InputEvent('beforeinput',{inputType,data,bubbles:true,cancelable:true});input.dispatchEvent(e);return e.defaultPrevented;};
+ const value=()=>active.text_value(0),reset=()=>{key('a',command);before('insertText','alpha beta');key('End');};
+ check('word backward deletion reaches Rust model',()=>{reset();equal(key('Backspace',word),true);equal(value(),'alpha ');equal(active.text_value(1),'alpha beta');});
+ check('undo restores one word replacement',()=>{key('z',command);equal(value(),'alpha beta');});
+ check('word Shift selection and replacement',()=>{key('End');key('ArrowLeft',{...word,shiftKey:true});equal(active.text_selected(),'beta');before('insertText','gamma');equal(value(),'alpha gamma');});
+ check('beforeinput word backward and forward',()=>{reset();equal(before('deleteWordBackward'),true);equal(value(),'alpha ');key('Home');equal(before('deleteWordForward'),true);equal(value(),' ');});
+ check('composition key is not consumed',()=>{reset();const e=new KeyboardEvent('keydown',{key:'Backspace',...word,isComposing:true,bubbles:true,cancelable:true});input.dispatchEvent(e);equal(e.defaultPrevented,false);equal(value(),'alpha beta');});
+ check('Ctrl+Alt chord is not consumed',()=>{equal(key('Backspace',{ctrlKey:true,altKey:true}),false);equal(value(),'alpha beta');});
+ check('cancelled composition preserves selected Rust text',()=>{reset();key('a',command);input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.dispatchEvent(new CompositionEvent('compositionupdate',{data:'未確定',bubbles:true}));input.dispatchEvent(new CompositionEvent('compositionend',{data:'',bubbles:true}));equal(value(),'alpha beta');equal(active.text_selected(),'alpha beta');});
+ check('late composition commit after blur is ignored',()=>{input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));input.dispatchEvent(new CompositionEvent('compositionupdate',{data:'途中',bubbles:true}));window.dispatchEvent(new Event('blur'));input.dispatchEvent(new CompositionEvent('compositionend',{data:'late',bubbles:true}));equal(value(),'alpha beta');preview.focusKey('field');});
+ check('binding updates and unrelated row preserved',()=>{if(!report.bindings.flat().some(c=>c.path==='query'&&c.value==='alpha gamma'))throw Error('Missing binding');equal(active.text_value(1),'alpha beta');});
+ const compose=(type,data='')=>input.dispatchEvent(new CompositionEvent(type,{data,bubbles:true}));
+ check('field switch cancels original composition owner',()=>{preview.focusKey('field');compose('compositionstart');compose('compositionupdate','未確定');equal(preview.focusKey('other'),true);compose('compositionend','wrong');equal(value(),'alpha beta');equal(active.text_value(1),'alpha beta');});
+ check('runtime replacement rejects late composition commit',()=>{preview.focusKey('field');compose('compositionstart');compose('compositionupdate','途中');const old=active;preview.render({...renderOptions,source:renderOptions.source+' '});if(active===old)throw Error('Runtime not replaced');preview.focusKey('field');compose('compositionend','wrong');equal(value(),'alpha beta');equal(active.text_value(1),'alpha beta');});
+ check('fresh owner commits after replacement',()=>{key('End');compose('compositionstart');compose('compositionupdate','新');compose('compositionend','新');equal(value(),'alpha beta新');equal(active.text_value(1),'alpha beta');key('z',command);equal(value(),'alpha beta');});
+ check('explicit commands clear marked pixels in fresh WASM',()=>{
+  for(const action of ['plain','word','undo']){
+   const views=[new wasm.Runtime(),new wasm.Runtime()];try{
+    for(const view of views){view.load_component(renderOptions.source,renderOptions.template);view.set_reduced_motion(true);view.focus_control(0);view.text_key('End',false,false);view.text_insert('!');}
+    const clean=views[0].pixels(480,160,1).slice();views[1].text_preedit('未確定');if(!views[1].pixels(480,160,1).some((v,i)=>v!==clean[i]))throw Error('Marked text not visible');
+    for(const view of views){if(action==='plain')view.text_key('ArrowLeft',false,false);else if(action==='word')view.text_word_key('Backspace',false);else view.text_key('z',false,true);}
+    equal(views[1].text_value(0),views[0].text_value(0));const expected=views[0].pixels(480,160,1);if(views[1].pixels(480,160,1).some((v,i)=>v!==expected[i]))throw Error(action+' stale marked pixels');
+   }finally{for(const view of views)view.free();}
+  }
+ });
+check('CRLF End, pointer hit and vertical selection retain complete line breaks',()=>{
+ const assert=condition=>{if(!condition)throw Error('Assertion failed');};assert.equal=equal;
+ const view=new wasm.Runtime();try{
+  const value='first\r\nlast';
+  view.load_ui_files_json(JSON.stringify({'App.ui':"component App { state query: String = ''; Column { width:240; height:120; TextInput { width:200; height:90; multiline:true; value <-> state.query; } } }"}),'App.ui',JSON.stringify({query:value}));assert(view.focus_control(0));
+  view.text_key('Home',false,false);view.text_key('ArrowUp',false,false);view.text_key('Home',false,false);
+  view.text_key('End',true,false);assert.equal(view.text_selected(),'first');view.text_key('Backspace',false,false);assert.equal(view.text_value(0),'\r\nlast');view.text_key('z',false,true);assert.equal(view.text_value(0),value);
+  const [x,y,w]=view.control_bounds(0);view.pointer(x+w-2,y+1,1);view.pointer(x+w-2,y+1,2);view.text_key('Home',true,false);assert.equal(view.text_selected(),'first');
+  view.text_key('End',false,false);view.text_key('ArrowDown',true,false);assert.equal(view.text_selected(),'\r\nlast');
+  view.text_key('Backspace',false,false);assert.equal(view.text_value(0),'first');view.text_key('z',false,true);assert.equal(view.text_value(0),value);
+ }finally{view.free();}
+});
+check('CRLF and LF render exactly equal pixels with selection and preserve bound bytes',()=>{
+ const assert={equal,deepEqual:(a,b)=>equal(JSON.stringify(ArrayBuffer.isView(a)?Array.from(a):a),JSON.stringify(ArrayBuffer.isView(b)?Array.from(b):b))};
+ const files=JSON.stringify({'App.ui':"component App { state query: String = ''; Column { width:240; height:120; TextInput { width:200; height:90; multiline:true; value <-> state.query; } } }"});
+ const views=[new wasm.Runtime(),new wasm.Runtime()];try{
+  for(let i=0;i<2;i++){views[i].load_ui_files_json(files,'App.ui',JSON.stringify({query:i?'first\r\nlast':'first\nlast'}));views[i].set_reduced_motion(true);views[i].focus_control(0);}
+  for(const select of [false,true]){
+   if(select)for(const view of views)view.text_key('a',false,true);
+   assert.deepEqual(views[0].pixels(240,120,1),views[1].pixels(240,120,1),'selected='+select);
+   assert.deepEqual(views[0].text_caret_bounds(),views[1].text_caret_bounds());
+  }
+  assert.equal(views[1].text_value(0),'first\r\nlast');assert.equal(JSON.parse(views[1].ui_state_json()).query,'first\r\nlast');
+ }finally{for(const view of views)view.free();}
+});
+check('Vertical keys preserve desired column through short rows for LF and CRLF',()=>{
+ const assert={equal};
+ for(const newline of ['\n','\r\n']){
+  const view=new wasm.Runtime();try{
+   const value=['abcdefgh','x','abcdefgh'].join(newline);
+   view.load_ui_files_json(JSON.stringify({'App.ui':"component App { state query: String = ''; Column { width:320; height:150; TextInput { width:280; height:120; multiline:true; value <-> state.query; } } }"}),'App.ui',JSON.stringify({query:value}));view.focus_control(0);
+   view.text_key('Home',false,false);view.text_key('ArrowUp',false,false);view.text_key('ArrowUp',false,false);view.text_key('Home',false,false);
+   for(let i=0;i<7;i++)view.text_key('ArrowRight',false,false);
+   const first=view.text_caret_bounds();view.text_key('ArrowDown',false,false);view.text_key('ArrowDown',false,false);const last=view.text_caret_bounds();assert.equal(last[0],first[0]);
+   view.text_key('Shift',true,false);view.text_key('ArrowUp',true,false);view.text_key('Shift',true,false);view.text_key('ArrowUp',true,false);assert.equal(view.text_selected(),'h'+newline+'x'+newline+'abcdefg');
+   view.text_key('Backspace',false,false);assert.equal(view.text_value(0),'abcdefgh');view.text_key('z',false,true);assert.equal(view.text_value(0),value);
+  }finally{view.free();}
+ }
+});
+check('Line deletion joining RI and ZWJ clusters aligns caret and preserves undo selection',()=>{
+ const assert={equal};
+ for(const [value,cluster] of [['🇬X🇪','🇬🇪'],['👨‍X👩','👨‍👩']])for(const forward of [false,true]){
+  const view=new wasm.Runtime();try{
+   view.load_ui_files_json(JSON.stringify({'App.ui':"component App { state query: String = ''; Column { TextInput { width:280; height:40; value <-> state.query; } } }"}),'App.ui',JSON.stringify({query:value}));view.focus_control(0);view.text_key('Home',false,false);view.text_key('ArrowRight',false,false);view.text_key('ArrowRight',true,false);assert.equal(view.text_selected(),'X');
+   view.text_key(forward?'Delete':'Backspace',false,true);assert.equal(view.text_value(0),cluster);
+   view.text_key('ArrowLeft',true,false);assert.equal(view.text_selected(),cluster,'post-join caret must be after whole cluster');
+   view.text_key('z',false,true);assert.equal(view.text_value(0),value);assert.equal(view.text_selected(),'X');
+   view.text_key('z',true,true);assert.equal(view.text_value(0),cluster);view.text_key('ArrowLeft',true,false);assert.equal(view.text_selected(),cluster);
+  }finally{view.free();}
+ }
+});
+ for(const type of ['keydown','beforeinput'])input.addEventListener(type,event=>queueMicrotask(()=>{const entry={type,key:event.key,inputType:event.inputType,isTrusted:event.isTrusted,defaultPrevented:event.defaultPrevented,values:[active.text_value(0),active.text_value(1)]};(report.live??=[]).push(entry);document.querySelector('#live').textContent=JSON.stringify(report.live,null,2);fetch('/result',{method:'POST',body:JSON.stringify(report)});}));
+ report.snapshot=preview.snapshot?.();
+}catch(e){report.fatal=String(e.stack);}
+report.status=!report.fatal&&report.cases.length===17&&report.cases.every(c=>c.status==='passed')?'passed':'failed';document.querySelector('#status').textContent=report.status.toUpperCase();document.querySelector('#report').textContent=JSON.stringify(report,null,2);for(const item of report.cases){const li=document.createElement('li');li.textContent=item.status+' · '+item.name;document.querySelector('#cases').append(li);}await fetch('/result',{method:'POST',body:JSON.stringify(report)});
+</script>

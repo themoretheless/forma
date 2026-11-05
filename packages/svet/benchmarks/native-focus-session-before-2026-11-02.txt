@@ -1,0 +1,22 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.50s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-ab83b96525f28f30)
+
+running 1 test
+test native_window::tests::focus_loss_clears_composition_and_modifiers_without_committing_preedit ... FAILED
+
+failures:
+
+---- native_window::tests::focus_loss_clears_composition_and_modifiers_without_committing_preedit stdout ----
+
+thread 'native_window::tests::focus_loss_clears_composition_and_modifiers_without_committing_preedit' (15675568) panicked at src/native_window.rs:1115:9:
+focus loss must retire the old IME session
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_window::tests::focus_loss_clears_composition_and_modifiers_without_committing_preedit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 178 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

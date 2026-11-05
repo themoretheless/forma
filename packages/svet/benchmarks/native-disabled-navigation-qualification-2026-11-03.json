@@ -1,0 +1,23 @@
+{
+  "status": "partial",
+  "scope": "Regression coverage of existing disabled focus/keyboard/modal semantics",
+  "validation": {
+    "targeted_test": "passed",
+    "checks": [
+      "disable retires held Space gesture",
+      "late release cannot activate another or reenabled original control",
+      "new Space press/release works",
+      "Tab and Shift+Tab skip disabled control",
+      "all disabled controls yield no focus",
+      "empty modal cannot focus background",
+      "reenabled modal control traps both traversal directions",
+      "closing modal permits base focus"
+    ]
+  },
+  "source_sha256": "ba8b34c1d77686fe70f21d8b818a190092784796188c5379f286112789225ec1",
+  "limits": [
+    "No production behavior change needed; current implementation passed",
+    "Focused test only this turn; previous full suite not rerun for test-only addition",
+    "No OS keyboard/accessibility qualification"
+  ]
+}

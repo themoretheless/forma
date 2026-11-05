@@ -1,0 +1,28 @@
+{
+  "status": "partial",
+  "change": "Guard draw before window lookup/update/acquisition during retry deadline or OS occlusion; clear deadline on occlusion notifications",
+  "regression": "Repeated draw calls wait during backoff/occlusion; expired deadline resumes presentation attempt",
+  "native_tests_passed": 245,
+  "ignored": 3,
+  "all_targets": "passed",
+  "actual_macos": {
+    "os_occlusion_sequence": [
+      false,
+      true,
+      false
+    ],
+    "occluded_interval_ns": 579415000,
+    "frames_inside_occluded_interval": 0,
+    "gpu_frames_after_restore": 3842,
+    "final_model": {
+      "first": "occlusion preserved 🙂",
+      "second": "resumed 🚀"
+    },
+    "binary_sha256": "2d406df3a42450b88efaf399f062087025154dea799219688844835a10995e31"
+  },
+  "limits": [
+    "One real minimize/restore interval observed; UI observation may reactivate the window",
+    "No forced GPU Timeout/device-loss fault injection yet",
+    "Cross-platform resize/retry/occlusion and long-window lifecycle remain open"
+  ]
+}

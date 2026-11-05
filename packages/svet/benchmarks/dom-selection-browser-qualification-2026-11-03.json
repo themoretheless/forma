@@ -1,0 +1,18 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 32,
+  "browser": "setSelectionRange-triggered browser select imports reverse Unicode range; trusted insert replaces it; undo restores exact value/range",
+  "events": 12,
+  "sha256": {
+    "vector-ui/src/runtime.rs": "0cb25793ef65bdf24d91514dcec33b569adc2e0af530ed3338bb3d1f773416d9",
+    "vector-ui/src/text_input.rs": "31a4b3bcd00a9ef0b896521019bb73f921fdad04e51c3973dab84e8da2c8cd15",
+    "src/vector-preview.js": "891498b28ff0d8bcd68eb0e92bb593c08048ecdf08a75afe488a4af95951ee23",
+    "vector-ui/tests/preview-a11y-browser.html": "9132db0dfe0ee751a8fe0b31d474d23719c162f4f93250ef063fe11757089f8f",
+    "/tmp/svet-dom-selection-wasm/web/forma_bg.wasm": "894093b643ca3adce77e0d6d758282db35350cb8f7948838dc9c00c68de96100"
+  },
+  "limits": [
+    "Selection action originates from fixture API, not a screen reader",
+    "Finite observed sequence; no general event-order/platform qualification",
+    "True OS IME remains open"
+  ]
+}

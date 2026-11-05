@@ -1,0 +1,103 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+   Compiling gpu-compute v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-compute)
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+warning: field `native_instance_id` is never read
+   --> src/runtime.rs:157:5
+    |
+120 | pub struct Runtime {
+    |            ------- field in this struct
+...
+157 |     native_instance_id: u64,
+    |     ^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `native_editor_session` is never used
+    --> src/runtime.rs:1338:19
+     |
+1207 | impl Runtime {
+     | ------------ method in this implementation
+...
+1338 |     pub(crate) fn native_editor_session(&self) -> Option<(u64, i32)> {
+     |                   ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `rasterize` is never used
+   --> src/text.rs:783:15
+    |
+783 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 4 warnings
+warning: `forma` (lib test) generated 2 warnings (2 duplicates)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.79s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-2c03d6a773e34aa5)
+
+running 1 test
+GPU_TEST_ADAPTER {"test":"profiled-renderer","name":"Apple M4 Max","vendor":4203,"device":1,"device_type":"IntegratedGpu","backend":"Metal","driver":"Metal Direct Native Runtime","driver_info":"ASD + UMA + dUMA Accelerated"}
+GPU_IDLE_COMPLETION_RESULT queue_drained=true health_without_draw=true
+GPU_FAULT_LATCH_RESULT encoder_validation_delivered=true first_error_preserved=true submission_blocked=true
+GPU profiling smoke: GpuResourceStats { memory_architecture: Uma, buffer_count: 7, buffer_bytes: 10496, uniform_bytes: 64, command_bytes: 2048, edge_bytes: 8192, tile_bytes: 128, paint_bytes: 32, timing_buffer_bytes: 32, bind_group_count: 1, render_pipeline_count: 1, query_set_count: 1, buffer_allocations_total: 7, buffer_allocation_bytes_total: 10496, uploaded_bytes_total: 7048, geometry_uploads_total: 1, tile_uploads_total: 1, bind_group_creations_total: 1, cpu_geometry_cache_bytes: 0, cpu_shared_geometry_bytes: 7280, cpu_tile_scratch_bytes: 1024, cpu_paint_scratch_bytes: 192, uma_shared_pool_bytes: 18992, duma_device_local_bytes: 0, duma_host_ram_bytes: 0 }; allocator=None
+test gpu::tests::profiled_renderer_reports_owned_buffers_and_reuses_them ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 198 filtered out; finished in 0.07s
+
+     Running tests/display_list.rs (/tmp/svet-native-development/debug/deps/display_list-9b147a113edc193b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+     Running tests/empty_scene.rs (/tmp/svet-native-development/debug/deps/empty_scene-4ece376971b6f8ae)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/interaction.rs (/tmp/svet-native-development/debug/deps/interaction-d186f0f432843a95)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/native_resize.rs (/tmp/svet-native-development/debug/deps/native_resize-77cca7656b55d701)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests/retained_allocations.rs (/tmp/svet-native-development/debug/deps/retained_allocations-7089d47e900c997a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/runtime_allocations.rs (/tmp/svet-native-development/debug/deps/runtime_allocations-2aa8d619b94600b4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+     Running tests/runtime_gpu.rs (/tmp/svet-native-development/debug/deps/runtime_gpu-39ee4ffab579e709)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests/scene_artifact.rs (/tmp/svet-native-development/debug/deps/scene_artifact-db96a17d409c9d1c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/template_parse_cache.rs (/tmp/svet-native-development/debug/deps/template_parse_cache-e502b0218e3dbc6f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+

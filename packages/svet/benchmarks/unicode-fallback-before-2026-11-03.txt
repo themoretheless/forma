@@ -1,0 +1,22 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.30s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-ab83b96525f28f30)
+
+running 1 test
+test text::tests::missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width ... FAILED
+
+failures:
+
+---- text::tests::missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width stdout ----
+
+thread 'text::tests::missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width' (16548890) panicked at src/text.rs:934:47:
+missing scalar must not collapse to zero width
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    text::tests::missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 202 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

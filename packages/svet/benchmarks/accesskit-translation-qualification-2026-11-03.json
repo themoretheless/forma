@@ -1,0 +1,28 @@
+{
+  "status": "partial",
+  "implemented": [
+    "Real AccessKit TreeUpdate translation",
+    "Native focus/click dispatch with advertised-action admission"
+  ],
+  "verified": [
+    "native cargo check",
+    "focused native integration test",
+    "WASM optional-dependency target check"
+  ],
+  "dependencies": {
+    "accesskit": "=0.25.2"
+  },
+  "sha256": {
+    "vector-ui/src/native_accessibility.rs": "7465218d235545cc3b75e387bdcc9fd8444564d7b9bc13b059fa9213f4c14e94",
+    "vector-ui/Cargo.toml": "a61acc374cb5467f2e792f6f820e092070537cd969367b8764b73d3edc713c59",
+    "vector-ui/Cargo.lock": "15bb805dac1a3075077a4c47cb8a1c7ae1ace8611e95d44525ec9d3ebad549d3"
+  },
+  "remaining": [
+    "accesskit_winit window adapter/event loop wiring",
+    "Window coordinate transform",
+    "AccessKit text-position descendants and selection dispatch",
+    "SetValue/range actions",
+    "OS AX inspection and screen reader qualification",
+    "Standalone window parity"
+  ]
+}

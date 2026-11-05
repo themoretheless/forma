@@ -1,0 +1,60 @@
+warning: function `rasterize` is never used
+   --> src/text.rs:798:15
+    |
+798 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.45s
+     Running tests/grapheme_conformance.rs (/tmp/svet-native-development/debug/deps/grapheme_conformance-7d900316131d9cd5)
+
+running 4 tests
+test unicode17_reference_boundaries_match_forward_reverse_and_selection ... ok
+test unicode17_arbitrary_scalar_offsets_snap_using_full_string_context ... ok
+test unicode17_deletion_undo_and_redo_remove_exact_reference_clusters ... ok
+test unicode17_partial_scalar_replacements_expand_to_reference_clusters ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/grapheme_edit.rs (/tmp/svet-native-development/debug/deps/grapheme_edit-bab86ab5791693b6)
+
+running 4 tests
+test insertion_that_joins_suffix_and_crlf_keep_valid_caret_positions ... ok
+test partial_scalar_selection_expands_but_scalar_api_remains_available ... ok
+test grapheme_navigation_deletion_selection_and_history_are_atomic ... ok
+test live_binding_replacement_does_not_leave_caret_inside_a_cluster ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime_allocations.rs (/tmp/svet-native-development/debug/deps/runtime_allocations-c888a02d5b1fc172)
+
+running 17 tests
+test document_markup_parse_pays_only_for_owned_property_values ... ok
+test component_contract_check_borrows_large_resolved_properties ... ok
+test control_local_state_moves_into_snapshot_after_expansion ... ok
+test scene_construction_allocations_scale_with_control_count ... ok
+test nested_layout_render_does_not_snapshot_root_payload_per_container ... ok
+test warmed_pointer_tick_and_paint_buffers_do_not_allocate ... ok
+test idle_editors_and_ranges_do_not_recompose_each_tick ... ok
+test idle_scalar_binding_does_not_copy_unrelated_model_payload ... ok
+test empty_dense_content_does_not_allocate_an_rgba_scratch_layer ... ok
+test dense_nested_content_scratch_is_bounded_by_content_support ... ok
+test retained_idle_bindings_reuse_the_displayed_scene ... ok
+test retained_large_form_can_repair_a_pending_visual_error ... ok
+test warmed_lexical_idle_skips_replay_but_next_edit_still_commits ... ok
+test for_scope_overlays_do_not_copy_unrelated_root_lists_per_control ... ok
+test caller_owned_rgba_reuses_output_and_survives_cache_release ... ok
+test transport_sizes_control_buffers_instead_of_growing_them ... ok
+test focused_leaf_scratch_does_not_allocate_a_full_canvas_per_caret_frame ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.27s
+

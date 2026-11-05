@@ -1,0 +1,31 @@
+{
+  "status": "partial",
+  "change": "Shared native clipboard module reused by NativeHost and standalone; C/X/V command keys route through Runtime editing",
+  "validation": {
+    "rust_passed": 235,
+    "gpu_ignored": 2,
+    "native_all_targets_check": "passed",
+    "tests_use": "injected clipboard closures; no system clipboard access",
+    "checks": [
+      "Unicode copy preserves selection",
+      "failed write prevents cut deletion",
+      "failed paste read preserves text and selection",
+      "cut undo/redo",
+      "Unicode CRLF normalized paste commits only target editor",
+      "empty copy does not overwrite clipboard",
+      "disabled/unfocused editor does not access clipboard"
+    ]
+  },
+  "sources": {
+    "vector-ui/src/native_clipboard.rs": "3b35f082140db316ff3b2d24f23026f42092cd2229feeb822bd76ef2a0b05982",
+    "vector-ui/src/native_window.rs": "70815a86088727a0da46e1fef8621efd0f49cc486cf56da405b2066631353406",
+    "vector-ui/src/main.rs": "d671795ca701a694eef7d919f326a28dfd43ba7b4eb1c8ded8934f982fff3dde",
+    "vector-ui/src/lib.rs": "bf87ec159a5eb1e484ae7197e1134a57e0c7172643ad51af49a8acd85ea50b67"
+  },
+  "limits": [
+    "OS clipboard integration and command routing not manually qualified",
+    "macOS/Windows/Linux adapters migrated from standalone; other platforms not executed",
+    "Subprocess adapters are synchronous; latency unmeasured",
+    "IME clipboard interaction matrix open"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "scope": "All cmap mappings and glyph outlines at weight400 via ttf-parser; no raster/sequence qualification",
+  "rows": [
+    {
+      "original": "NotoSansSC.ttf",
+      "derived": "FormaCJK-Regular.ttf",
+      "glyphs": 31036,
+      "cmap_codepoints": 30890,
+      "outline_glyphs": 31032,
+      "max_coordinate_error_font_units": 0.49981689453125,
+      "max_advance_error_font_units": 0,
+      "topology_mismatches": []
+    },
+    {
+      "original": "NotoEmoji.ttf",
+      "derived": "FormaEmoji-Regular.ttf",
+      "glyphs": 1891,
+      "cmap_codepoints": 1489,
+      "outline_glyphs": 1848,
+      "max_coordinate_error_font_units": 0.0,
+      "max_advance_error_font_units": 0,
+      "topology_mismatches": []
+    }
+  ]
+}

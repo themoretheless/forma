@@ -1,0 +1,83 @@
+{
+  "status": "passed",
+  "retained": {
+    "state-signal": {
+      "cores": 0,
+      "memories": 0
+    },
+    "prop-signal": {
+      "cores": 0,
+      "memories": 0
+    },
+    "computed": {
+      "cores": 0,
+      "memories": 0
+    },
+    "signal-peek": {
+      "cores": 0,
+      "memories": 0
+    },
+    "action": {
+      "cores": 0,
+      "memories": 0
+    },
+    "event-unsubscribe": {
+      "cores": 0,
+      "memories": 0
+    }
+  },
+  "graph": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "heldReferences": 24,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "artifactSha256": {
+    "advanced.js": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d",
+    "compiler.js": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+    "devtools.js": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+    "dom.js": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+    "forma.js": "4aca701de8b3595e1d9e14531b6c308ff3ea81d769d9e70800fcd719782bfc28",
+    "gpu-resident-bridge.js": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+    "gpu-resident.js": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+    "gpu.js": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+    "index.js": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+    "jsx-runtime.js": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+    "reactivity.js": "8787f8b72fafec53e81a0e88c5ba59ad726acce1bd305026706e0ddced2e5dfa",
+    "resumable.js": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+    "server.js": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+    "ssr-runtime.js": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+    "stream-codec.js": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+    "stream-protocol.js": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+    "stream.js": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+    "svet-core.wasm": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+    "wasm-binary.js": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46",
+    "wasm-bridge.js": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+  },
+  "probeSha256": "4e5784bc63d0c6de7edf7154fe1a19aaa684e77ec242c08b26c7e6a5f2cc086b",
+  "node": "v26.13.0",
+  "scope": "Installed Node isolated contexts+JSDOM; separately captured state/prop/computed/peek/action/unsubscribe handles after Forma disposal; explicit forced GC."
+}

@@ -1,0 +1,6 @@
+{"state":{"first":"seed-A","second":"seed-B"},"focused_index":-1}
+{"state":{"first":"seed-A","second":"seed-B"},"focused_index":1}
+{"state":{"first":"preserved on loss 🙂","second":"seed-B"},"focused_index":1}
+{"state":{"first":"preserved on loss 🙂","second":"seed-B"},"focused_index":2}
+{"state":{"first":"preserved on loss 🙂","second":"CPU after loss"},"focused_index":2}
+{"state":{"first":"preserved on loss 🙂","second":"CPU after loss / GPU restored"},"focused_index":2}

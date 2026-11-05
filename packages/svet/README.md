@@ -1415,7 +1415,14 @@ updater/equals callback or computed evaluation/equals callback disposes its own
 node: the interrupted operation cannot publish values, dirty state or dependency
 edges into the recycled ID. Disposed computed reads keep their last cached value.
 It does not replace DOM owner teardown; use
-`unmount()` or dispose the owner for listener cleanup.
+`unmount()` or dispose the owner for listener cleanup. A retained generic root
+disposer remains live after graph reset: root cleanup is deferred until owner
+disposal, and the root keeps its native context until then. Dispose the root
+when its lifetime ends. Explicitly disposed effect handles and saved dispose
+methods detach their native core, parent owner and pooled entry shell, even
+when cleanup throws or reenters disposal. Reset drops obsolete effect bodies,
+while cleanup registered before reset remains pending until disposal. Cleanup
+registered after reset during an active old invocation is executed immediately.
 
 For native browser lifecycle checks, run `npm run dev` in this package and open
 `/tests/browser/dom-lifecycle.html`, then click **Run checks**. This covers a bounded
@@ -2121,3 +2128,139 @@ Native scene expansion borrows inherited state/props during read-only traversal
 and detaches for local writes. Returned scene-control snapshots remain owned
 and independent of subsequent model changes. This preserves the public data
 representation; output snapshots and writable collection locals still copy data.
+
+
+### Forma inline contract admission
+
+Source parsing and validation accept `#[range(min, max)]` with finite ordered
+decimal bounds, and `#[pattern('regex')]` / `#[pattern("regex")]` with a
+nonempty valid regex that passes the existing regex safety policy. Quoted
+brackets and multiline patterns are supported. Unknown annotations, including
+misspelled names, are errors rather than ignored metadata. This is an admission
+change: callers using unknown annotations must remove or replace them.
+`parseFormaSource` rejects invalid contracts before producing an AOT AST;
+source-based `hotReload` rejects them before changing document state.
+At component declaration level, annotations must immediately precede a `prop`
+or `required prop`, allowing whitespace, line comments and other distinct
+contracts between them. Duplicate range/pattern annotations and dangling
+contracts are errors; they cannot carry across state, let, tokens or visual
+declarations. Contracts inside nested blocks (including visual subtrees and
+tokens) or after the first visual declaration are rejected. Annotation-looking
+text inside strings and line comments is ignored.
+
+AST construction and HMR also validate prop contract data before allocating
+instance resources or changing the live document: unique valid prop names,
+nonempty type, boolean required, exactly two finite ordered numeric range
+bounds, and a nonempty valid pattern accepted by the regex safety policy.
+Duplicate source prop declarations are rejected by parser and validator too.
+AST admission also checks visual node kinds, expression maps, child/branch/match
+arrays, style/forward arrays, transition maps and scalar expression field types.
+An iterative traversal rejects cyclic references across any child branch while
+allowing shared acyclic nodes. Sparse ranges and sparse structural arrays are
+not accepted. Admission of a deep tree does not qualify recursive rendering at
+the same depth. Each node kind requires its own nonempty tag/condition/item/list/
+match/slot fields; match nodes require an arms array and explicit keys must be
+nonempty. Document metadata checks component name, token/state map shape,
+style/i18n string maps and let/shortcut declaration shape before any mutation.
+Expression semantics, accessors/proxies and post-admission mutations remain
+outside this validation guarantee.
+
+
+Forma AST state/let declarations reject reserved member names (`__proto__`,
+`constructor`, `prototype` and legacy getter/setter hooks), matching source
+admission. Source declarations with these names now fail explicitly rather
+than being silently skipped. Duplicate lets are rejected before allocating
+computed handles. Runtime state, prop, computed and default-value dictionaries
+have no prototype: otherwise valid names such as `toString`, `valueOf` and
+`hasOwnProperty` remain usable, including HMR introduction and state reset.
+
+
+Caller-provided Forma ASTs are snapshotted before construction and HMR. Visual
+structure is copied iteratively with shared-node identity preserved within the
+private tree; expression maps, range bounds, lets and shortcuts are detached.
+Object default data uses the existing JSON clone policy; explicit undefined
+state entries remain present. Subsequent edits to recognized AST fields, including
+adding a cycle to the original tree, cannot change already admitted views or
+future mounts. Source strings already produce private parser results.
+External `options.props`/ViewModel data retains its existing ownership semantics.
+Unknown fields on document/node/contract/let/shortcut/match-arm schema objects
+are ignored without reading their getters or retaining their values. This does
+not treat keys inside user default/token data as unknown fields: those follow
+the documented data clone policy. Accessors/proxies on recognized fields and
+function-valued data are not covered by a general deep-immutability guarantee;
+AOT snapshot overhead remains
+to be measured. Deep-tree admission still does not qualify deep rendering.
+
+
+AOT construction profiling is reproducible with
+`node --cpu-prof --cpu-prof-interval=100 --cpu-prof-dir=/tmp --cpu-prof-name=forma-validation.cpuprofile packages/svet/scripts/profile-forma-construction.mjs packages/svet/dist/package /tmp/forma-validation-profile.json 20000 256`
+from the repository root after package build. The script asserts unchanged input
+and runtime hashes plus zero graph nodes after disposal. Profiling timings are
+instrumented diagnostics. `bench-forma-snapshot.mjs OUTPUT SAMPLES ROUNDS BASELINE_RUNTIME_DIR`
+compares a preserved complete runtime against the current build with rotating
+A1/B/A2 workers. Without BASELINE_RUNTIME_DIR it uses an unsafe trusted-input
+snapshot bypass solely to estimate ownership cost; that variant is never a
+production recommendation. Raw timings, A/A scatter, identities and host load
+are retained; quiet-host/browser/native qualification remains separate.
+
+
+HMR holds its update lock across AST admission/snapshot creation and rechecks
+instance liveness afterwards. A recognized-field getter cannot start nested HMR;
+if it disposes the instance, the outer update refuses before document mutation.
+The lock is released even if admission or final cleanup throws. Retired computed
+handles are drained after commit/disposal despite a sibling cleanup failure. A
+primary update error takes precedence over secondary final cleanup errors; when
+the update itself succeeded, the first final cleanup error is propagated after
+draining siblings. This does not roll back committed DOM or arbitrary user
+side effects, and is not general accessor/proxy isolation.
+
+
+Preparation rollback drains candidate computed siblings despite a cleanup error,
+restores the previous computed handles and preserves the preparation error. If
+cleanup disposes the instance, rollback does not restore a closed document.
+Instance disposal likewise attempts all owned resources and clears lifecycle
+registries before propagating the first failure; repeated disposal is a no-op.
+ViewModel ownership is captured for bindings actually established at construction,
+so later options-map edits cannot dispose an originally external signal or exempt
+an internally allocated one. Draining siblings does not prove that a caller's
+replacement disposer released itself before throwing.
+
+
+State resource ownership follows the handles allocated by the instance, separately
+from the public state dictionary. Adding aliases or replacing a public state field
+does not transfer ownership: original allocated state is released once, and
+borrowed signals placed in the dictionary remain external. Failed preparation
+releases the originally allocated candidate state even if its public entry was
+replaced by an external alias. Rollback rechecks liveness between state/prop/
+computed restoration so closing cleanup cannot invoke later prop setters. This
+cleanup guarantee does not define reactive rebinding semantics for direct map
+assignment or resource ownership of replacements in other public maps.
+
+
+Props and computed lets likewise track allocated resources independently from
+public dictionary entries. HMR snapshots the previous owned computed generation
+separately from its published map: successful retirement releases original owned
+handles, rollback restores the previous owned generation, and foreign replacements
+are not acquired or disposed. Candidate prop/let rollback releases original
+allocated handles even when their published entries have been replaced. These
+are ownership/cleanup guarantees, not a new reactive map-rebinding API.
+
+
+Owned resource factories check instance liveness before allocation and drain a
+resource if its creation closes the instance before returning. Resources enter
+their ownership registry before publication into a public map. HMR checks
+liveness after document application and computed rebuilding, and only retires
+old computed ownership when that generation was actually detached. Rollback
+returns old ownership before restoring publication, and uses captured resolved
+prop defaults without re-reading caller options getters. Closing callbacks stop
+further rollback setters. These are specific reentrancy boundaries rather than
+isolation of arbitrary callback side effects.
+
+
+The development HMR probe performs an explicit client/server hot-connection
+readiness acknowledgement before writing its first update. Its browser fixture
+separately observes invalid-contract transform refusals and preserves state/DOM/
+cached-factory recovery assertions. After automated checks, finish the trusted
+input phase by clicking add once and then Finish browser verification; the final
+report requires trusted events and graph zero. This development gate does not
+qualify browser GC, deployed production bundles or other engines.

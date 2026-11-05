@@ -1,0 +1,11 @@
+component App {
+  state first: String = 'seed-A';
+  state second: String = 'seed-B';
+  Column {
+    width: 520; height: 260; padding: 16; gap: 8;
+    Text { text: 'Svet native input probe'; width: 480; height: 32; color: #ffffff; fontSize: 22; }
+    TextInput { key: 'first'; width: 480; height: 40; value <-> state.first; background: #27334a; }
+    TextInput { key: 'second'; width: 480; height: 40; value <-> state.second; background: #27334a; }
+    Text { key: 'summary'; width: 480; height: 40; text: 'A: ${state.first} | B: ${state.second}'; color: #ffffff; fontSize: 16; }
+  }
+}

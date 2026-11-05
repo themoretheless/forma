@@ -1,0 +1,35 @@
+{
+  "scope": "HMR admission reentrancy, lock release and retired computed cleanup draining",
+  "before": {
+    "initialRegressionFailures": 3,
+    "additionalCleanupDrainFailures": 2
+  },
+  "after": {
+    "focusedPassed": 138,
+    "fullSuitePassed": 1470,
+    "fullSuiteFiles": 108,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 11
+  },
+  "sha256": {
+    "src/engine/forma.ts": "047174907d961557183ffed1bb2baa0a3bfccdfcc0925b8a81978eb794f47f27",
+    "tests/forma-hmr-events.test.ts": "8779ed8f7791425afe73a7b55e8bd35f541f868ae3786e1efe1bce61b29a06cc",
+    "scripts/check-forma-aot-lifecycle.mjs": "d033c1dcc77825a398f8132d4dab3ec267a607b249016ab2ed0a2d7fd404cc78",
+    "scripts/check-package.mjs": "1b1dacdce050c57c901968bea1dcd84a408af80a8fed3f077302199512f16381"
+  },
+  "invariants": [
+    "update lock covers admission/snapshot and final cleanup",
+    "nested HMR during getter admission refused before document mutation",
+    "instance liveness rechecked after getter admission",
+    "lock released after admission or final cleanup failure",
+    "retired computed siblings drained after one disposer throws",
+    "primary update failure preserved over secondary final cleanup errors",
+    "valid retry remains possible and teardown graph empty"
+  ],
+  "limitations": [
+    "Committed DOM and arbitrary user side effects are not rolled back.",
+    "General getter/proxy side-effect isolation remains open.",
+    "No new browser/native/latency qualification for this change."
+  ]
+}

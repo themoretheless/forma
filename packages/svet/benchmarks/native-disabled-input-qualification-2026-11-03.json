@@ -1,0 +1,27 @@
+{
+  "status": "partial",
+  "fix": "Declare disabled:false on builtin TextInput so UI documents can opt out of input",
+  "baseline": "Unknown property TextInput.disabled",
+  "validation": {
+    "passed": 206,
+    "ignored_gpu": 2,
+    "cases": [
+      "disabled bound to state.locked",
+      "focus and insertion refused for disabled editor",
+      "focus fallback skips locked field",
+      "other editor commits without changing locked model",
+      "disabled accessibility node exposes no actions",
+      "reload with unlocked state permits focus/edit and set_value action"
+    ]
+  },
+  "sources": {
+    "vector-ui/src/runtime.rs": "8c0163b96b800a308318f118da09d0b4c847b1eed5c8bd4854319cda44cfbefe",
+    "vector-ui/src/form_document.rs": "d56b6d1cd576b248247e634344d7405c91ea97878989856059674273e46a0f10"
+  },
+  "limits": [
+    "Runtime a11y tree only, not OS accessibility integration",
+    "Enable transition uses public reload, not externally mutated live model",
+    "Rebuilt WASM/browser qualification pending",
+    "No dedicated disabled visual theme added"
+  ]
+}

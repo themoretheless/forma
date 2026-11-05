@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 26,
+  "browserCases": 15,
+  "oracle": "Exact full RGBA and caret bounds equality LF vs CRLF, focused selected/unselected; CRLF bound bytes retained",
+  "sha256": {
+    "vector-ui/src/text_input.rs": "39a8f97248ebc0fbefbf6dda4140e7817777de17a3cfb66c4671617d934c1816",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "bb7f270210ab822991f16d16ba364dafc6c11cedae674c9962a9282127ea942b",
+    "vector-ui/tests/preview-word-browser.html": "b6aa6097c78f3f149a52b715eb29563cb597f4350809fd1b30f87bf5e771f348",
+    "/tmp/svet-crlf-render-wasm/web/forma_bg.wasm": "4284e137196b8297c5456654bea3a71dd8a8b075dbe27eb772940a7e5a1500f7"
+  },
+  "limits": [
+    "CPU pixels only; not native GPU presentation",
+    "Actual OS marked-text IME unqualified"
+  ]
+}

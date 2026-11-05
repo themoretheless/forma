@@ -1,0 +1,32 @@
+{
+  "status": "partial",
+  "change": "Extracted generation-checked Condvar parking into a small internal operation so notification ordering and fallback can be tested independently of GPU/timeout masking",
+  "gates": {
+    "runtime_unit_passed": 14,
+    "runtime_ignored": 4,
+    "explicit_metal_passed": 4,
+    "native_lib_passed": 218,
+    "native_ignored": 3,
+    "targeted_cases": [
+      "Signal before park returns GenerationChanged without waiting",
+      "Signal after same-mutex atomic unlock+park awakens waiter",
+      "No signal takes explicit timeout fallback",
+      "Generation wrap max->0 does not lose notification",
+      "Late completion signal after cancelled service retirement starts no worker"
+    ],
+    "native_signal_callback_observed": true,
+    "async_scope_blocking_wait_counter": 0,
+    "native_all_targets": "passed",
+    "metal_renderer_smoke": "passed"
+  },
+  "source_sha256": {
+    "crates/gpu-runtime/src/types.rs": "27e629b1fbe0196f7242140cf911ea058ea6aa5cb3dad67bf23ed4f81055165d",
+    "crates/gpu-runtime/src/lib.rs": "7d91ca2ad3eeaa7c0a8a2d7ca3a3a600f2f6e7a8318bc7e435a2a84e72f11c5a"
+  },
+  "limits": [
+    "Targeted synchronization tests, not exhaustive concurrency model checking",
+    "Late post-cancellation notification is injected through production service signal entry point",
+    "No physical device loss/hang/OOM, performance, energy or cross-platform qualification",
+    "Earlier benchmark performance gates remain inconclusive"
+  ]
+}

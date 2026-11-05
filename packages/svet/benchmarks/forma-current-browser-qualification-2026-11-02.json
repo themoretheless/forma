@@ -1,0 +1,328 @@
+{
+  "scope": "Real Chromium156 Vite HMR from fresh packed/installed current runtime; Node/jsdom is separate",
+  "status": "passed",
+  "browserCases": 37,
+  "automatedCases": 35,
+  "trustedInputCases": 2,
+  "nativeClickTrusted": true,
+  "cleanupClickTrusted": true,
+  "finalGraphNodes": 0,
+  "hmrUpdates": 7,
+  "invalidContractTransformRefusals": 1,
+  "hmrReadiness": "acknowledged",
+  "runtimeArtifactChecks": [
+    {
+      "owner": "workspace",
+      "file": "advanced.js",
+      "sha256": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d"
+    },
+    {
+      "owner": "installed",
+      "file": "advanced.js",
+      "sha256": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d"
+    },
+    {
+      "owner": "peer",
+      "file": "advanced.js",
+      "sha256": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d"
+    },
+    {
+      "owner": "workspace",
+      "file": "compiler.js",
+      "sha256": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3"
+    },
+    {
+      "owner": "installed",
+      "file": "compiler.js",
+      "sha256": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3"
+    },
+    {
+      "owner": "peer",
+      "file": "compiler.js",
+      "sha256": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3"
+    },
+    {
+      "owner": "workspace",
+      "file": "devtools.js",
+      "sha256": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164"
+    },
+    {
+      "owner": "installed",
+      "file": "devtools.js",
+      "sha256": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164"
+    },
+    {
+      "owner": "peer",
+      "file": "devtools.js",
+      "sha256": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164"
+    },
+    {
+      "owner": "workspace",
+      "file": "dom.js",
+      "sha256": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514"
+    },
+    {
+      "owner": "installed",
+      "file": "dom.js",
+      "sha256": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514"
+    },
+    {
+      "owner": "peer",
+      "file": "dom.js",
+      "sha256": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514"
+    },
+    {
+      "owner": "workspace",
+      "file": "forma.js",
+      "sha256": "4e870f650c36162be3ada5cef02cb449369abcb245911208b67c5aec2c57b807"
+    },
+    {
+      "owner": "installed",
+      "file": "forma.js",
+      "sha256": "4e870f650c36162be3ada5cef02cb449369abcb245911208b67c5aec2c57b807"
+    },
+    {
+      "owner": "peer",
+      "file": "forma.js",
+      "sha256": "4e870f650c36162be3ada5cef02cb449369abcb245911208b67c5aec2c57b807"
+    },
+    {
+      "owner": "workspace",
+      "file": "gpu-resident-bridge.js",
+      "sha256": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73"
+    },
+    {
+      "owner": "installed",
+      "file": "gpu-resident-bridge.js",
+      "sha256": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73"
+    },
+    {
+      "owner": "peer",
+      "file": "gpu-resident-bridge.js",
+      "sha256": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73"
+    },
+    {
+      "owner": "workspace",
+      "file": "gpu-resident.js",
+      "sha256": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd"
+    },
+    {
+      "owner": "installed",
+      "file": "gpu-resident.js",
+      "sha256": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd"
+    },
+    {
+      "owner": "peer",
+      "file": "gpu-resident.js",
+      "sha256": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd"
+    },
+    {
+      "owner": "workspace",
+      "file": "gpu.js",
+      "sha256": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687"
+    },
+    {
+      "owner": "installed",
+      "file": "gpu.js",
+      "sha256": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687"
+    },
+    {
+      "owner": "peer",
+      "file": "gpu.js",
+      "sha256": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687"
+    },
+    {
+      "owner": "workspace",
+      "file": "index.js",
+      "sha256": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec"
+    },
+    {
+      "owner": "installed",
+      "file": "index.js",
+      "sha256": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec"
+    },
+    {
+      "owner": "peer",
+      "file": "index.js",
+      "sha256": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec"
+    },
+    {
+      "owner": "workspace",
+      "file": "jsx-runtime.js",
+      "sha256": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51"
+    },
+    {
+      "owner": "installed",
+      "file": "jsx-runtime.js",
+      "sha256": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51"
+    },
+    {
+      "owner": "peer",
+      "file": "jsx-runtime.js",
+      "sha256": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51"
+    },
+    {
+      "owner": "workspace",
+      "file": "reactivity.js",
+      "sha256": "9f9977d527ce399637462efa133780678296b7fd3a59335d808bad67fccd4322"
+    },
+    {
+      "owner": "installed",
+      "file": "reactivity.js",
+      "sha256": "9f9977d527ce399637462efa133780678296b7fd3a59335d808bad67fccd4322"
+    },
+    {
+      "owner": "peer",
+      "file": "reactivity.js",
+      "sha256": "9f9977d527ce399637462efa133780678296b7fd3a59335d808bad67fccd4322"
+    },
+    {
+      "owner": "workspace",
+      "file": "resumable.js",
+      "sha256": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c"
+    },
+    {
+      "owner": "installed",
+      "file": "resumable.js",
+      "sha256": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c"
+    },
+    {
+      "owner": "peer",
+      "file": "resumable.js",
+      "sha256": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c"
+    },
+    {
+      "owner": "workspace",
+      "file": "server.js",
+      "sha256": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b"
+    },
+    {
+      "owner": "installed",
+      "file": "server.js",
+      "sha256": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b"
+    },
+    {
+      "owner": "peer",
+      "file": "server.js",
+      "sha256": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b"
+    },
+    {
+      "owner": "workspace",
+      "file": "ssr-runtime.js",
+      "sha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70"
+    },
+    {
+      "owner": "installed",
+      "file": "ssr-runtime.js",
+      "sha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70"
+    },
+    {
+      "owner": "peer",
+      "file": "ssr-runtime.js",
+      "sha256": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70"
+    },
+    {
+      "owner": "workspace",
+      "file": "stream-codec.js",
+      "sha256": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df"
+    },
+    {
+      "owner": "installed",
+      "file": "stream-codec.js",
+      "sha256": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df"
+    },
+    {
+      "owner": "peer",
+      "file": "stream-codec.js",
+      "sha256": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df"
+    },
+    {
+      "owner": "workspace",
+      "file": "stream-protocol.js",
+      "sha256": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9"
+    },
+    {
+      "owner": "installed",
+      "file": "stream-protocol.js",
+      "sha256": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9"
+    },
+    {
+      "owner": "peer",
+      "file": "stream-protocol.js",
+      "sha256": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9"
+    },
+    {
+      "owner": "workspace",
+      "file": "stream.js",
+      "sha256": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889"
+    },
+    {
+      "owner": "installed",
+      "file": "stream.js",
+      "sha256": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889"
+    },
+    {
+      "owner": "peer",
+      "file": "stream.js",
+      "sha256": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889"
+    },
+    {
+      "owner": "workspace",
+      "file": "svet-core.wasm",
+      "sha256": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea"
+    },
+    {
+      "owner": "installed",
+      "file": "svet-core.wasm",
+      "sha256": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea"
+    },
+    {
+      "owner": "peer",
+      "file": "svet-core.wasm",
+      "sha256": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea"
+    },
+    {
+      "owner": "workspace",
+      "file": "wasm-binary.js",
+      "sha256": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46"
+    },
+    {
+      "owner": "installed",
+      "file": "wasm-binary.js",
+      "sha256": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46"
+    },
+    {
+      "owner": "peer",
+      "file": "wasm-binary.js",
+      "sha256": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46"
+    },
+    {
+      "owner": "workspace",
+      "file": "wasm-bridge.js",
+      "sha256": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+    },
+    {
+      "owner": "installed",
+      "file": "wasm-bridge.js",
+      "sha256": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+    },
+    {
+      "owner": "peer",
+      "file": "wasm-bridge.js",
+      "sha256": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241"
+    }
+  ],
+  "sourceSha256": "e4c3c28604fa359bb4e13c8e6ba7f6f91c9ab9cc2cd7ad646904b7a8a65e3bb9",
+  "fixtureSha256": "2084ef2d4445e17ae86872d8b6abac794a9f0157d31c1397e7e855a492b7a4db",
+  "serverHarnessSha256": "1e5d6762c570109d12c1eb9bb30ea96861886d7513170b442057b44d3fcbf348",
+  "rawSha256": "a3479b4b533469bc0490a81c2e7f3cda6a61f4645fa72394c68b212a5eff8f82",
+  "screenshotSha256": "0f5635dd7a148e7d45b3db4f89852ffa186dd565337c7927947c65840588030b",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36",
+  "consoleInspection": "Two expected messages: injected Controlled instance HMR failure and Vite Failed to reload; no other captured warn/error entries.",
+  "limitations": [
+    "Browser GC, other engines/OS and production-bundled execution remain open.",
+    "No native-window/GPU/DPI/IME or performance qualification.",
+    "Readiness gating avoids pre-connection test writes but does not explain the earlier historical watcher update5 loss.",
+    "Legacy transform-phase expectation and unready/reconnected run failures are retained separately."
+  ]
+}

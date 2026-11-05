@@ -1,0 +1,32 @@
+    Checking gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+warning: type `CommandErrorSink` is more private than the item `MetalDevice::write_buffer`
+    --> src/metal.rs:1549:5
+     |
+1549 |     pub fn write_buffer(&self, buffer: &crate::Buffer, offset: crate::BufferAddress, data: &[u8], error_sink: crate::CommandErrorSink) {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method `MetalDevice::write_buffer` is reachable at visibility `pub`
+     |
+note: but type `CommandErrorSink` is only usable at visibility `pub(crate)`
+    --> src/lib.rs:283:1
+     |
+ 283 | pub(crate) struct CommandErrorSink {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: `#[warn(private_interfaces)]` on by default
+
+warning: type `CommandErrorSink` is more private than the item `MetalDevice::submit`
+    --> src/metal.rs:1682:5
+     |
+1682 | /     pub fn submit<I: IntoIterator<Item = crate::CommandBuffer>>(
+1683 | |         &self,
+1684 | |         command_buffers: I,
+1685 | |         error_sink: crate::CommandErrorSink,
+1686 | |     ) -> crate::SubmissionIndex {
+     | |_______________________________^ method `MetalDevice::submit` is reachable at visibility `pub`
+     |
+note: but type `CommandErrorSink` is only usable at visibility `pub(crate)`
+    --> src/lib.rs:283:1
+     |
+ 283 | pub(crate) struct CommandErrorSink {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `gpu-runtime` (lib) generated 2 warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.24s

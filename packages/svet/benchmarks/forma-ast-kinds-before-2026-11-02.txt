@@ -1,0 +1,48 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-tree.test.ts (21 tests | 9 failed) 39ms
+   × rejects missing element tag before construction or live document mutation 6ms
+   × rejects empty element tag before construction or live document mutation 1ms
+   × rejects missing if condition before construction or live document mutation 0ms
+   × rejects missing for item before construction or live document mutation 0ms
+   × rejects missing for list before construction or live document mutation 0ms
+   × rejects missing match expression before construction or live document mutation 0ms
+   × rejects missing match arms before construction or live document mutation 0ms
+   × rejects missing slot name before construction or live document mutation 0ms
+   × rejects empty key expression before construction or live document mutation 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing element tag before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects empty element tag before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing if condition before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing for item before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing for list before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing match expression before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing match arms before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects missing slot name before construction or live document mutation
+ FAIL  tests/forma-ast-tree.test.ts > rejects empty key expression before construction or live document mutation
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-tree.test.ts:29:35
+     27| for(const [name,change] of changes) it(`rejects ${name} before constru…
+     28|  const ast=parseFormaSource(source);change(ast);
+     29|  expect(()=>compileFormaAst(ast)).toThrow(/AST.*tree/i);expect(getGrap…
+       |                                   ^
+     30|  const inst=compileFormaAst(parseFormaSource(source)),container=docume…
+     31|  const old=container.firstChild,nodes=getGraphTelemetry().nodes;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 12 passed (21)
+   Start at  19:38:32
+   Duration  445ms (environment 72%, tests 11%, import 9%, transform 7%, worker 1%)

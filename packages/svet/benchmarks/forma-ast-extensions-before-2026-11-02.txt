@@ -1,0 +1,54 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-extensions.test.ts (12 tests | 12 failed) 12ms
+   × ignores unknown document getters during construction snapshot 6ms
+   × ignores unknown node getters during construction snapshot 1ms
+   × ignores unknown prop getters during construction snapshot 0ms
+   × ignores unknown let getters during construction snapshot 0ms
+   × ignores unknown shortcut getters during construction snapshot 0ms
+   × ignores unknown arm getters during construction snapshot 0ms
+   × ignores unknown document getters during HMR snapshot 2ms
+   × ignores unknown node getters during HMR snapshot 0ms
+   × ignores unknown prop getters during HMR snapshot 0ms
+   × ignores unknown let getters during HMR snapshot 0ms
+   × ignores unknown shortcut getters during HMR snapshot 0ms
+   × ignores unknown arm getters during HMR snapshot 0ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown document getters during construction snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown node getters during construction snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown prop getters during construction snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown let getters during construction snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown shortcut getters during construction snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown arm getters during construction snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown document getters during HMR snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown node getters during HMR snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown prop getters during HMR snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown let getters during HMR snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown shortcut getters during HMR snapshot
+ FAIL  tests/forma-ast-extensions.test.ts > ignores unknown arm getters during HMR snapshot
+AssertionError: expected [Function] to not throw an error but 'Error: unknown extension must not run' was thrown
+
+- Expected:
+undefined
+
++ Received:
+"Error: unknown extension must not run"
+
+ ❯ tests/forma-ast-extensions.test.ts:13:133
+     11|  let inst: ReturnType<typeof compileFormaAst>|undefined;
+     12|  try{
+     13|   expect(()=>{inst=compileFormaAst(phase==='construction'?ast:parseFor…
+       |                                                                                                                                     ^
+     14|   const container=document.createElement('div'),handle=inst!.mount(con…
+     15|   try{expect(container.textContent).toBe('2');inst!.state.count.set(2)…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  12 failed (12)
+   Start at  19:52:11
+   Duration  516ms (environment 80%, import 9%, transform 7%, tests 3%, worker 1%)

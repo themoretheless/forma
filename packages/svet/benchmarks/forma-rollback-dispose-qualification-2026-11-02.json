@@ -1,0 +1,38 @@
+{
+  "scope": "Candidate rollback cleanup draining, instance teardown draining and stable ViewModel ownership",
+  "before": {
+    "rollbackCleanupRegressionFailures": 1,
+    "instanceDisposalRegressionFailures": 3
+  },
+  "after": {
+    "wideFocusedPassed": 142,
+    "finalTargetedPassed": 33,
+    "fullSuitePassed": 1475,
+    "fullSuiteFiles": 109,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 13
+  },
+  "sha256": {
+    "src/engine/forma.ts": "923b25ec377ebbf54df08fda65f2e2367554e873cf49901c16236620e72f5e31",
+    "tests/forma-hmr-events.test.ts": "a3c246beffd1d2f8694378a2bfd71f51d782a5a4c61c29b4d29077ba7149a890",
+    "tests/forma-dispose-failures.test.ts": "4b8314ca9f3e5e1094c8364e844883abfa207c798a631e811870be29eea7379c",
+    "scripts/check-forma-aot-lifecycle.mjs": "03c231b9dab2c166dd788ed7c12acf7ab25d7017a7850207fbbb17f84d1663e7",
+    "scripts/check-package.mjs": "18ac886758540fd76b5822f863f4152cba4434d8c3aa6b47f5cc6a418d59e58f"
+  },
+  "invariants": [
+    "candidate computed siblings drained despite throwing disposer",
+    "preparation error preserved and previous computed identity restored",
+    "old DOM/reactivity and graph baseline preserved after failed preparation",
+    "disposal during rollback prevents restoration of closed document",
+    "instance teardown attempts all owned siblings before first error propagation",
+    "external ViewModel ownership captured on successful binding rather than reread mutable options",
+    "invalid skipped ViewModel entries do not exempt owned state cleanup",
+    "idempotent dispose and tested teardown graph empty"
+  ],
+  "limitations": [
+    "A custom disposer throwing before releasing its own resource is not proven released by sibling draining.",
+    "Arbitrary user callbacks/getters/proxies and committed DOM side effects remain outside atomic rollback guarantee.",
+    "No new browser/native or performance qualification."
+  ]
+}

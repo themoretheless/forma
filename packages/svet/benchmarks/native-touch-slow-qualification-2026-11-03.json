@@ -1,0 +1,23 @@
+{
+  "status": "partial",
+  "defect": "Updating consumed touch coordinate for every subthreshold move discarded slow high-frequency drags",
+  "fix": "Advance consumed position only when accumulated axis delta exceeds0.5 logical px",
+  "validation": {
+    "passed": 231,
+    "gpu_ignored": 2,
+    "focused_distance_regression": "passed",
+    "cases": [
+      "single20px scroll",
+      "80x0.25px accumulates20px minus at most0.5 residual",
+      "edge-boundary pan cancels click even with unchanged offset",
+      "subthreshold stationary jitter remains tap",
+      "new tap after pan still activates"
+    ]
+  },
+  "source_sha256": "634f712e0a5c965ff4c672be0de27b7e3389db26b2b4b6eac70f9e2208ecaa07",
+  "limits": [
+    "No physical touchscreen qualification",
+    "Existing Runtime.scroll already cancels pointer capture; no new pan state added",
+    "No touch velocity/inertia/pinch/zoom implementation"
+  ]
+}

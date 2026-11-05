@@ -1,0 +1,707 @@
+{
+  "status": "partial",
+  "summary": [
+    {
+      "size_px": 14,
+      "tolerance_px": 0.05,
+      "paired_median_time_ratio": 1.111353711790393,
+      "min_ratio": 1.0773743303609633,
+      "max_ratio": 1.150656287339718,
+      "edge_ratio": 1.255813953488372
+    },
+    {
+      "size_px": 14,
+      "tolerance_px": 0.01,
+      "paired_median_time_ratio": 1.537808034699267,
+      "min_ratio": 1.4947413011107877,
+      "max_ratio": 1.6684635878427145,
+      "edge_ratio": 2.2304439746300213
+    },
+    {
+      "size_px": 48,
+      "tolerance_px": 0.05,
+      "paired_median_time_ratio": 1.2117772505772644,
+      "min_ratio": 1.1626673937193093,
+      "max_ratio": 1.2272449707341555,
+      "edge_ratio": 1.5235772357723578
+    },
+    {
+      "size_px": 48,
+      "tolerance_px": 0.01,
+      "paired_median_time_ratio": 1.7611814599361981,
+      "min_ratio": 1.7035467020138004,
+      "max_ratio": 1.9002350901126972,
+      "edge_ratio": 3.011382113821138
+    },
+    {
+      "size_px": 96,
+      "tolerance_px": 0.05,
+      "paired_median_time_ratio": 1.148977730689905,
+      "min_ratio": 1.1168432163558815,
+      "max_ratio": 1.1973977948619035,
+      "edge_ratio": 1.4670807453416148
+    },
+    {
+      "size_px": 96,
+      "tolerance_px": 0.01,
+      "paired_median_time_ratio": 1.638264487521092,
+      "min_ratio": 1.6071480145584696,
+      "max_ratio": 1.7930506993006994,
+      "edge_ratio": 3.207453416149068
+    }
+  ],
+  "raw": {
+    "scope": "Manual CPU outline plus raster cost, repeated CJK glyphs, reused buffers; not an application frame/startup benchmark",
+    "rows": [
+      {
+        "size_px": 14.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 312792
+      },
+      {
+        "size_px": 14.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 279166
+      },
+      {
+        "size_px": 14.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 384709
+      },
+      {
+        "size_px": 14.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 348834
+      },
+      {
+        "size_px": 14.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 254375
+      },
+      {
+        "size_px": 14.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 230042
+      },
+      {
+        "size_px": 14.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 224292
+      },
+      {
+        "size_px": 14.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 258083
+      },
+      {
+        "size_px": 14.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 354209
+      },
+      {
+        "size_px": 14.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 349083
+      },
+      {
+        "size_px": 14.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 254500
+      },
+      {
+        "size_px": 14.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 229000
+      },
+      {
+        "size_px": 14.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 225166
+      },
+      {
+        "size_px": 14.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 252417
+      },
+      {
+        "size_px": 14.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 350667
+      },
+      {
+        "size_px": 14.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 351709
+      },
+      {
+        "size_px": 14.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 251917
+      },
+      {
+        "size_px": 14.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 228708
+      },
+      {
+        "size_px": 14.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 224458
+      },
+      {
+        "size_px": 14.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 252500
+      },
+      {
+        "size_px": 14.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 374500
+      },
+      {
+        "size_px": 14.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 8440,
+        "elapsed_ns": 349333
+      },
+      {
+        "size_px": 14.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 4752,
+        "elapsed_ns": 251791
+      },
+      {
+        "size_px": 14.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 3784,
+        "elapsed_ns": 233708
+      },
+      {
+        "size_px": 48.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 738000
+      },
+      {
+        "size_px": 48.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 894917
+      },
+      {
+        "size_px": 48.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1287292
+      },
+      {
+        "size_px": 48.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1174667
+      },
+      {
+        "size_px": 48.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 801708
+      },
+      {
+        "size_px": 48.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 689542
+      },
+      {
+        "size_px": 48.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 643583
+      },
+      {
+        "size_px": 48.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 789834
+      },
+      {
+        "size_px": 48.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1222959
+      },
+      {
+        "size_px": 48.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1165333
+      },
+      {
+        "size_px": 48.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 803458
+      },
+      {
+        "size_px": 48.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 663041
+      },
+      {
+        "size_px": 48.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 641084
+      },
+      {
+        "size_px": 48.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 782500
+      },
+      {
+        "size_px": 48.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1184959
+      },
+      {
+        "size_px": 48.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1173167
+      },
+      {
+        "size_px": 48.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 792250
+      },
+      {
+        "size_px": 48.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 666125
+      },
+      {
+        "size_px": 48.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 641250
+      },
+      {
+        "size_px": 48.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 782125
+      },
+      {
+        "size_px": 48.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1187167
+      },
+      {
+        "size_px": 48.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 14816,
+        "elapsed_ns": 1159584
+      },
+      {
+        "size_px": 48.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 7496,
+        "elapsed_ns": 789917
+      },
+      {
+        "size_px": 48.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 4920,
+        "elapsed_ns": 659625
+      },
+      {
+        "size_px": 96.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1927667
+      },
+      {
+        "size_px": 96.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2203000
+      },
+      {
+        "size_px": 96.0,
+        "pair": 0,
+        "warmup_pair": true,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 3126459
+      },
+      {
+        "size_px": 96.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 2964084
+      },
+      {
+        "size_px": 96.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2095208
+      },
+      {
+        "size_px": 96.0,
+        "pair": 1,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1823541
+      },
+      {
+        "size_px": 96.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1716000
+      },
+      {
+        "size_px": 96.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2032334
+      },
+      {
+        "size_px": 96.0,
+        "pair": 2,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 3076875
+      },
+      {
+        "size_px": 96.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 2949250
+      },
+      {
+        "size_px": 96.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2049500
+      },
+      {
+        "size_px": 96.0,
+        "pair": 3,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1835083
+      },
+      {
+        "size_px": 96.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1716083
+      },
+      {
+        "size_px": 96.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2054834
+      },
+      {
+        "size_px": 96.0,
+        "pair": 4,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 3042708
+      },
+      {
+        "size_px": 96.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 2964166
+      },
+      {
+        "size_px": 96.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2053875
+      },
+      {
+        "size_px": 96.0,
+        "pair": 5,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1809333
+      },
+      {
+        "size_px": 96.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1732875
+      },
+      {
+        "size_px": 96.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2066542
+      },
+      {
+        "size_px": 96.0,
+        "pair": 6,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 3042167
+      },
+      {
+        "size_px": 96.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.009999999776482582,
+        "glyph_renders": 80,
+        "edges": 20656,
+        "elapsed_ns": 2940750
+      },
+      {
+        "size_px": 96.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.05000000074505806,
+        "glyph_renders": 80,
+        "edges": 9448,
+        "elapsed_ns": 2051042
+      },
+      {
+        "size_px": 96.0,
+        "pair": 7,
+        "warmup_pair": false,
+        "tolerance_px": 0.15000000596046448,
+        "glyph_renders": 80,
+        "edges": 6440,
+        "elapsed_ns": 1806917
+      }
+    ]
+  },
+  "limits": "One process/host run; no A/A noise control or application-frame claim; timing ratios are exploratory."
+}

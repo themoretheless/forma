@@ -1,0 +1,20 @@
+{
+  "status": "partial",
+  "scope": "NativeHost focus event routing without an actual OS window; pending preedit, stale composition/modifiers/touch cleanup and resumed editing",
+  "reproduced": "Before fix, focus-loss regression leaves composing=true when no Ime Disabled/Commit event follows.",
+  "implementation": "Window focus loss clears composing, shift, command, alt and touch_last before dispatch to app/chooser. Runtime focus/pointer cancellation remains unchanged.",
+  "validation": {
+    "before": "regression failed on stale IME session",
+    "nativeFeatureUnitPassed": 177,
+    "integrationPassed": 19,
+    "ignoredHardwareGpuTests": 2,
+    "modelPreeditCommit": "seed unchanged after focus loss; subsequent focused text insert commits"
+  },
+  "sourceSha256": "9260df6ee7dcdd753059e3052049a3913255ab711fbefd94183594e6237fe5a1",
+  "limits": [
+    "No physical OS window or actual IME session exercised",
+    "No trusted keyboard routing across window/backend switches qualification",
+    "Two hardware GPU tests remain ignored",
+    "Application input latency/IME/DPI matrix remains open"
+  ]
+}

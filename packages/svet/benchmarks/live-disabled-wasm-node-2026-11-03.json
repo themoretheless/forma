@@ -1,0 +1,43 @@
+{
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "name": "Custom visual template reads props.__state through transferred snapshot",
+      "status": "passed"
+    },
+    {
+      "name": "Column For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Frame For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through single retained Let collection alias",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through chained retained Let collection alias",
+      "status": "passed"
+    },
+    {
+      "name": "Warmed idle and reload reorder preserve single alias writes",
+      "status": "passed"
+    },
+    {
+      "name": "Warmed idle and reload reorder preserve chained alias writes",
+      "status": "passed"
+    },
+    {
+      "name": "Project reload errors preserve live document, focus and cache versions",
+      "status": "passed"
+    },
+    {
+      "name": "Live disabled TextInput binding locks and unlocks without reload",
+      "status": "passed"
+    }
+  ],
+  "wasmSha256": "9e94a7396d378e09ed2751f9d352650d859ec1880aa7051ad5e9ce450eae2b72",
+  "status": "passed"
+}

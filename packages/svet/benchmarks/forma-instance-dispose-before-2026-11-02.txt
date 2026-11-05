@@ -1,0 +1,67 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-dispose-failures.test.ts (3 tests | 3 failed) 12ms
+   × drains all owned resources when a computed disposer throws and stays idempotent 11ms
+   × preserves an external signal even when the options ViewModel map is replaced later 1ms
+   × does not classify a skipped ViewModel entry as an external owned-state binding 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-dispose-failures.test.ts > drains all owned resources when a computed disposer throws and stays idempotent
+AssertionError: expected 5 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 5
+
+ ❯ tests/forma-dispose-failures.test.ts:8:124
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/forma-dispose-failures.test.ts > preserves an external signal even when the options ViewModel map is replaced later
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/forma-dispose-failures.test.ts:13:82
+     11|  const external=signal(7),options:{viewModel:Record<string,any>}={view…
+     12|  const inst=compileFormaComponent(`component App { state external: Num…
+     13|  try{inst.dispose();expect(external()).toBe(7);expect(getGraphTelemetr…
+       |                                                                                  ^
+     14|  finally{external.dispose();}expect(getGraphTelemetry().nodes).toBe(0);
+     15| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/forma-dispose-failures.test.ts > does not classify a skipped ViewModel entry as an external owned-state binding
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ tests/forma-dispose-failures.test.ts:18:86
+     16| it('does not classify a skipped ViewModel entry as an external owned-s…
+     17|  const inst=compileFormaComponent(`component App { state owned: Number…
+     18|  expect(inst.state.owned()).toBe(1);inst.dispose();expect(getGraphTele…
+       |                                                                                      ^
+     19| });
+     20|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  20:19:42
+   Duration  568ms (environment 83%, transform 7%, import 6%, tests 3%, worker 1%)

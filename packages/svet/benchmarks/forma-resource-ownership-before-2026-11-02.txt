@@ -1,0 +1,89 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-resource-ownership.test.ts (6 tests | 6 failed) 19ms
+   × owns original prop handles once despite aliases in the public map 8ms
+   × does not acquire an external prop replacement or lose the original own handle 1ms
+   × owns original computed handles once despite public aliases 0ms
+   × HMR retires allocated computed handles and preserves a public foreign replacement 1ms
+   × rollback releases the allocated candidate prop rather than its foreign public replacement 7ms
+   × rollback releases the allocated candidate computed rather than its foreign public replacement 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-resource-ownership.test.ts > owns original prop handles once despite aliases in the public map
+AssertionError: expected 3 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ❯ tests/forma-resource-ownership.test.ts:6:306
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/forma-resource-ownership.test.ts > does not acquire an external prop replacement or lose the original own handle
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/forma-resource-ownership.test.ts:10:35
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/forma-resource-ownership.test.ts > owns original computed handles once despite public aliases
+AssertionError: expected 3 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ❯ tests/forma-resource-ownership.test.ts:13:316
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/forma-resource-ownership.test.ts > HMR retires allocated computed handles and preserves a public foreign replacement
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/forma-resource-ownership.test.ts:17:46
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/forma-resource-ownership.test.ts > rollback releases the allocated candidate prop rather than its foreign public replacement
+ FAIL  tests/forma-resource-ownership.test.ts > rollback releases the allocated candidate computed rather than its foreign public replacement
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/forma-resource-ownership.test.ts:24:211
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  6 failed (6)
+   Start at  20:33:22
+   Duration  699ms (environment 81%, transform 9%, import 7%, tests 3%, worker 1%)

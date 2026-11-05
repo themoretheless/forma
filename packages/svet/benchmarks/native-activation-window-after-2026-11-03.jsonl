@@ -1,0 +1,12 @@
+{"state":{"first":"seed-A","second":"seed-B"},"focused_index":-1}
+{"state":{"first":"seed-A","second":"seed-B"},"focused_index":1}
+{"state":{"first":"seed-Aч","second":"seed-B"},"focused_index":1}
+{"state":{"first":"seed-Aч","second":"seed-B"},"focused_index":2}
+{"state":{"first":"seed-Aч","second":"seed-Bй"},"focused_index":2}
+{"state":{"first":"seed-Aч","second":"seed-Bй"},"focused_index":1}
+{"state":{"first":"seed-Aчя","second":"seed-Bй"},"focused_index":1}
+{"state":{"first":"seed-Aчя","second":"seed-Bй"},"focused_index":2}
+{"state":{"first":"seed-Aчя","second":"seed-Bйц"},"focused_index":2}
+{"state":{"first":"seed-Aчя","second":"seed-Bйцм"},"focused_index":2}
+{"state":{"first":"seed-Aчя","second":"seed-Bйцм"},"focused_index":-1}
+{"state":{"first":"seed-Aчя","second":"seed-Bйцм"},"focused_index":2}

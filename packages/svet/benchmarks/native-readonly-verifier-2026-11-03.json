@@ -1,0 +1,11 @@
+{
+  "status": "passed-scoped",
+  "errors": [],
+  "updates": 739,
+  "renderers": [
+    "Cpu",
+    "Gpu"
+  ],
+  "imeEvents": [],
+  "scope": "Model/event journal only; UI actions, OS source and visual output need separate evidence"
+}

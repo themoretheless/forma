@@ -1,0 +1,17 @@
+Window: "Svet readonly qualification [svet/GPU] · F6: платформа · F7: бэкенд", App: SvetAccessKitCacheProbe.
+0 standard window Svet readonly qualification [svet/GPU] · F6: платформа · F7: бэкенд, Secondary Actions: Raise
+	1 container
+		2 text field (settable) Reference, Value: Readonly — 你好 мир🙂
+		3 text field (settable) Query, Value: Cache 你好🙂
+	4 close button
+	5 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	6 minimize button
+	7 text Svet readonly qualification [svet/GPU] · F6: платформа · F7: бэкенд
+8 menu bar
+	9 SvetAccessKitCacheProbe
+
+Selected text: ```
+你好
+```
+
+Note: Pay special attention to the content selected by the user. If the user asks a question or refers to the content they are looking at on-screen, they might be referring to the selected content (but they might be referring to something else that's visible, too).

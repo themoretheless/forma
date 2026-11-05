@@ -1,0 +1,17 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 30,
+  "focusTransitions": 4,
+  "ax": "Focused textbox multiline=true confirmed by browser AX tree",
+  "sha256": {
+    "vector-ui/src/runtime.rs": "82919a99cf39117e5d68832b8be5ba892a820edafd540e93ba3a538ed36d70c4",
+    "src/vector-preview.js": "1614809a7c293ae94aa416afb2bc3ade6b9b30e703ee40f8508c468a6a0fd914",
+    "vector-ui/tests/preview-a11y-browser.html": "7c38633f1ef132e51f70389e3646d8ba2b1eb70b48a44435308e034ff0507d12",
+    "/tmp/svet-a11y-wasm/web/forma_bg.wasm": "778bf66bcd00eb2649dba02c8effaf07541bcff9e081d3a6caa05caf6917324e"
+  },
+  "gaps": [
+    "Textarea transport has no current Rust value exposed in AX tree",
+    "Readonly and screen-reader qualification open"
+  ],
+  "fixture": "Project-file transport delegates to actual Rust load_ui_files_json; semantics unmocked"
+}

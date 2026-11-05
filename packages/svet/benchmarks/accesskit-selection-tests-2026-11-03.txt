@@ -1,0 +1,12 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.22s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-f7e368aeef0dd407)
+
+running 4 tests
+test native_accessibility::tests::translates_real_editor_metadata_and_refuses_unadvertised_actions ... ok
+test native_accessibility::tests::text_runs_roundtrip_graphemes_crlf_reverse_and_trailing_empty_line ... ok
+test native_accessibility::tests::set_value_requires_text_payload_and_preserves_readonly ... ok
+test native_accessibility::tests::oversized_grapheme_disables_unrepresentable_text_run_selection ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 235 filtered out; finished in 0.01s
+

@@ -1,0 +1,18 @@
+   Compiling hashbrown v0.17.1
+   Compiling equivalent v1.0.2
+   Compiling itoa v1.0.18
+   Compiling unicode-ident v1.0.24
+   Compiling memchr v2.8.3
+   Compiling once_cell v1.21.4
+   Compiling serde_core v1.0.229
+   Compiling wasm-bindgen-shared v0.2.125
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.151
+   Compiling serde v1.0.229
+   Compiling cfg-if v1.0.4
+   Compiling ttf-parser v0.25.1
+   Compiling indexmap v2.14.2
+   Compiling wasm-bindgen v0.2.125
+   Compiling themoretheless-tokenizer-forma v0.8.0 (https://github.com/themoretheless/tokenizer?rev=1c83ab03d879b085ec53ec5badf8abcc82c2ee3c#1c83ab03)
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `release` profile [optimized] target(s) in 18.34s

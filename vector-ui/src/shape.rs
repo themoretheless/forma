@@ -2,13 +2,17 @@
 //! Uses the same exact-area rasterizer as text, so CPU shapes match the GPU
 //! path; simple polygons give the same result under nonzero and even-odd.
 use std::cell::RefCell;
-use crate::text::{rasterize, Point};
+use crate::text::{rasterize_region, Point};
 
 thread_local! {
     static SHAPE_EDGES: RefCell<Vec<(Point, Point)>> = const { RefCell::new(Vec::new()) };
 }
 
 pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+    draw_region(out,width,height,scale,points,origin,color,[0,0,width,height]);
+}
+
+pub(crate) fn draw_region(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4],region:[u32;4]) {
     if points.len()<3||color[3]==0{return;}
     let mut edges = SHAPE_EDGES.with(|cell| std::mem::take(&mut *cell.borrow_mut()));
     edges.clear();
@@ -22,6 +26,6 @@ pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origi
         prev = next;
     }
     edges.push((prev, first));
-    rasterize(out,width,&edges,[0.,0.,width as f32,height as f32],color);
+    rasterize_region(out,width,height,region,&edges,[0.,0.,width as f32,height as f32],color);
     SHAPE_EDGES.with(|cell| *cell.borrow_mut() = edges);
 }

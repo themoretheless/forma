@@ -1,22 +1,28 @@
 //! GPU CommandEncoder, CommandBuffer, ComputePass, RenderPass, and hardware Metal command encoding.
 
+use crate::metal::MetalDevice;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::metal::{
     metal_msg_send, metal_selectors, MTLClearColor, MTLOrigin, MTLScissorRect, MTLSize,
-    MTLViewport, MetalDevice, NSRange,
+    MTLViewport, NSRange,
 };
 use crate::{
     BindGroup, Buffer, BufferAddress, BufferAsyncError, BufferSlice, ComputePipeline,
-    DynamicOffset, Error, ErrorFilter, Extent3d, Face, FrontFace, IndexFormat, Label, MapMode,
-    Origin3d, QuerySet, RenderPipeline, TexelCopyBufferInfo, TexelCopyTextureInfo, Texture,
-    TextureView,
+    DynamicOffset, Error, Extent3d, IndexFormat, Label, MapMode, Origin3d, QuerySet,
+    RenderPipeline, TexelCopyBufferInfo, TexelCopyTextureInfo, Texture, TextureView,
 };
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use crate::{Face, FrontFace};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader::back::msl::{
     msl_buffer_slot, msl_sampler_slot, msl_texture_slot, MSL_ARRAY_LENGTHS_BUFFER_SLOT,
     MSL_IMMEDIATE_BUFFER_SLOT, MSL_VERTEX_BUFFER_BASE_SLOT,
 };
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ffi::c_void;
 use std::num::NonZeroU32;
 use std::ops::{Range, RangeBounds};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ptr;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
@@ -288,25 +294,15 @@ pub(crate) enum RecordedOp {
 
 pub struct CommandEncoder {
     pub(crate) device: MetalDevice,
-    pub(crate) error_stack: Arc<Mutex<Vec<(ErrorFilter, Option<Error>)>>>,
+    pub(crate) error_stack: Arc<Mutex<Vec<crate::types::ErrorScopeEntry>>>,
+    pub(crate) uncaptured_error_handler: Arc<Mutex<Option<crate::UncapturedErrorHandler>>>,
     pub(crate) ops: Vec<RecordedOp>,
     pub(crate) on_submit_callbacks: Mutex<Vec<Box<dyn FnOnce() + Send>>>,
 }
 
 impl CommandEncoder {
     pub(crate) fn record_error(&self, err: Error) {
-        let err_filter = match &err {
-            Error::OutOfMemory { .. } => ErrorFilter::OutOfMemory,
-            Error::Validation { .. } => ErrorFilter::Validation,
-            Error::Internal { .. } => ErrorFilter::Internal,
-        };
-        if let Ok(mut stack) = self.error_stack.lock() {
-            if let Some((_, slot)) = stack.iter_mut().rev().find(|(f, _)| *f == err_filter) {
-                if slot.is_none() {
-                    *slot = Some(err);
-                }
-            }
-        }
+        crate::dispatch_error(&self.error_stack,&self.uncaptured_error_handler,err);
     }
 
     pub fn map_buffer_on_submit<S, F>(

@@ -1,0 +1,84 @@
+{
+  "status": "partial",
+  "scope": "Disposed EffectHandle and retained dispose methods; reset-only root late-teardown contract",
+  "beforeRetained": {
+    "effect-dispose": {
+      "cores": 4,
+      "memories": 4
+    },
+    "effect-method": {
+      "cores": 4,
+      "memories": 4
+    },
+    "peer-effect-dispose": {
+      "cores": 4,
+      "memories": 4
+    },
+    "peer-effect-method": {
+      "cores": 4,
+      "memories": 4
+    }
+  },
+  "afterRetained": {
+    "effect-dispose": {
+      "cores": 0,
+      "memories": 0
+    },
+    "effect-method": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-effect-dispose": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-effect-method": {
+      "cores": 0,
+      "memories": 0
+    }
+  },
+  "effectCoreMemoryTargetsCollected": 32,
+  "heldEffectHandles": 16,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "rootContract": "Graph reset does not replace owner disposal; root cleanup remains deferred. Live root retains context until late disposal, then all targets collect.",
+  "rootLateTeardown": {
+    "effect-dispose": {
+      "cores": 0,
+      "memories": 0
+    },
+    "effect-method": {
+      "cores": 0,
+      "memories": 0
+    },
+    "root-reset": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-effect-dispose": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-effect-method": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-root-reset": {
+      "cores": 0,
+      "memories": 0
+    }
+  },
+  "validation": {
+    "fullTests": 1505,
+    "fullFiles": 113,
+    "types": "passed",
+    "build": "passed",
+    "freshInstalledPackage": "passed"
+  },
+  "open": [
+    "Reset-only effect cleanup/capture payloads",
+    "Browser qualification on current bytes",
+    "Performance of lifetime bookkeeping",
+    "Other broad roadmap tasks"
+  ]
+}

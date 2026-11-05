@@ -1,0 +1,30 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+warning: function `rasterize` is never used
+   --> src/text.rs:798:15
+    |
+798 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.15s
+     Running tests/line_edit.rs (/tmp/svet-native-development/debug/deps/line_edit-84ba447f6a79a090)
+
+running 7 tests
+test line_deletion_rounds_partial_grapheme_selection_and_keeps_history ... ok
+test line_edges_and_scalar_interior_crlf_do_not_remove_separator ... ok
+test line_deletion_preserves_crlf_and_one_undo_restores_original_selection ... ok
+test line_selection_deletion_realigns_caret_when_neighbors_join_a_new_cluster ... ok
+test runtime_multiline_metadata_comes_from_editor_spec ... ok
+test dom_selection_import_preserves_direction_clusters_crlf_and_no_history ... ok
+test runtime_selection_utf16_matches_dom_surrogates_and_direction ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

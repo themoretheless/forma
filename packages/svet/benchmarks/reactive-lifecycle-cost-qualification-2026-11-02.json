@@ -1,0 +1,710 @@
+{
+  "status": "diagnostic",
+  "scope": "Lifecycle microbenchmarks; balanced serial isolated Node workers with baseline A/A and A/B; not quiet-host application performance qualification",
+  "experiments": 3,
+  "workers": 54,
+  "timedSamples": 2592,
+  "initialRetirementOverhead": [
+    {
+      "operation": "signal-writes",
+      "pairs": [
+        {
+          "round": 0,
+          "baselineMs": 5.995353999999992,
+          "controlMs": 6.319770500000004,
+          "candidateMs": 5.6789165,
+          "aaRatio": 1.0541113168630265,
+          "abRatio": 0.9472195470025635
+        },
+        {
+          "round": 1,
+          "baselineMs": 5.172186999999994,
+          "controlMs": 5.871291999999997,
+          "candidateMs": 6.777041499999996,
+          "aaRatio": 1.1351662265884825,
+          "abRatio": 1.3102854749837938
+        },
+        {
+          "round": 2,
+          "baselineMs": 7.499999500000001,
+          "controlMs": 5.941687999999999,
+          "candidateMs": 6.900270500000005,
+          "aaRatio": 0.7922251194816744,
+          "abRatio": 0.9200361280024091
+        },
+        {
+          "round": 3,
+          "baselineMs": 6.0126459999999895,
+          "controlMs": 6.460624999999993,
+          "candidateMs": 6.777791500000006,
+          "aaRatio": 1.0745061325745777,
+          "abRatio": 1.1272560366933324
+        },
+        {
+          "round": 4,
+          "baselineMs": 6.202104000000006,
+          "controlMs": 6.828229000000007,
+          "candidateMs": 6.556666500000006,
+          "aaRatio": 1.1009536441181897,
+          "abRatio": 1.0571680997287372
+        },
+        {
+          "round": 5,
+          "baselineMs": 8.923792000000006,
+          "controlMs": 7.502603999999991,
+          "candidateMs": 7.867229000000009,
+          "aaRatio": 0.8407416936656509,
+          "abRatio": 0.8816015657917625
+        }
+      ],
+      "medianAaRatio": 1.0643087247188021,
+      "medianAbRatio": 1.0021938233656504
+    },
+    {
+      "operation": "observed-writes",
+      "pairs": [
+        {
+          "round": 0,
+          "baselineMs": 24.905374999999992,
+          "controlMs": 27.96754200000001,
+          "candidateMs": 24.183396000000016,
+          "aaRatio": 1.1229520535225836,
+          "abRatio": 0.9710111170781417
+        },
+        {
+          "round": 1,
+          "baselineMs": 23.499375000000015,
+          "controlMs": 23.583499999999958,
+          "candidateMs": 20.673958499999998,
+          "aaRatio": 1.0035798824436797,
+          "abRatio": 0.879766312933854
+        },
+        {
+          "round": 2,
+          "baselineMs": 27.17149999999998,
+          "controlMs": 25.759916499999918,
+          "candidateMs": 29.300708000000014,
+          "aaRatio": 0.9480491139613174,
+          "abRatio": 1.0783618129289894
+        },
+        {
+          "round": 3,
+          "baselineMs": 26.293729000000013,
+          "controlMs": 27.19779200000002,
+          "candidateMs": 22.97768750000003,
+          "aaRatio": 1.0343832173823655,
+          "abRatio": 0.8738847007969094
+        },
+        {
+          "round": 4,
+          "baselineMs": 26.48056249999999,
+          "controlMs": 28.017999999999972,
+          "candidateMs": 30.48656250000002,
+          "aaRatio": 1.0580590952325875,
+          "abRatio": 1.1512807743415583
+        },
+        {
+          "round": 5,
+          "baselineMs": 27.204124999999976,
+          "controlMs": 26.917417,
+          "candidateMs": 29.02841649999999,
+          "aaRatio": 0.9894608630125036,
+          "abRatio": 1.0670593705917766
+        }
+      ],
+      "medianAaRatio": 1.0189815499130226,
+      "medianAbRatio": 1.019035243834959
+    },
+    {
+      "operation": "effect-churn",
+      "pairs": [
+        {
+          "round": 0,
+          "baselineMs": 6.299937499999942,
+          "controlMs": 7.013208500000019,
+          "candidateMs": 6.259937500000035,
+          "aaRatio": 1.1132187422494404,
+          "abRatio": 0.9936507306620252
+        },
+        {
+          "round": 1,
+          "baselineMs": 6.9144375000000196,
+          "controlMs": 8.514562499999897,
+          "candidateMs": 6.126916499999993,
+          "aaRatio": 1.2314179569921448,
+          "abRatio": 0.8861048349919969
+        },
+        {
+          "round": 2,
+          "baselineMs": 7.759708499999988,
+          "controlMs": 7.002895999999964,
+          "candidateMs": 13.691062500000044,
+          "aaRatio": 0.9024689522808718,
+          "abRatio": 1.764378455711328
+        },
+        {
+          "round": 3,
+          "baselineMs": 5.788020500000016,
+          "controlMs": 8.155416000000002,
+          "candidateMs": 7.647604000000001,
+          "aaRatio": 1.409016433165705,
+          "abRatio": 1.3212814294627981
+        },
+        {
+          "round": 4,
+          "baselineMs": 11.581916999999976,
+          "controlMs": 9.098270500000012,
+          "candidateMs": 7.525833499999976,
+          "aaRatio": 0.7855582543028095,
+          "abRatio": 0.6497916968322249
+        },
+        {
+          "round": 5,
+          "baselineMs": 8.412832999999978,
+          "controlMs": 7.432666499999982,
+          "candidateMs": 9.008562500000039,
+          "aaRatio": 0.8834915063689012,
+          "abRatio": 1.0708119963869558
+        }
+      ],
+      "medianAaRatio": 1.007843847265156,
+      "medianAbRatio": 1.0322313635244904
+    },
+    {
+      "operation": "graph-reset",
+      "pairs": [
+        {
+          "round": 0,
+          "baselineMs": 0.09656250000000455,
+          "controlMs": 0.09881250000000819,
+          "candidateMs": 0.5239579999999933,
+          "aaRatio": 1.023300970873823,
+          "abRatio": 5.426102265371843
+        },
+        {
+          "round": 1,
+          "baselineMs": 0.08277100000003657,
+          "controlMs": 0.08400050000000192,
+          "candidateMs": 0.35481250000003683,
+          "aaRatio": 1.0148542363867152,
+          "abRatio": 4.286676492973144
+        },
+        {
+          "round": 2,
+          "baselineMs": 0.09781299999997373,
+          "controlMs": 0.09243750000007367,
+          "candidateMs": 0.5006664999999657,
+          "aaRatio": 0.9450430924324834,
+          "abRatio": 5.118608978357685
+        },
+        {
+          "round": 3,
+          "baselineMs": 0.08027049999998326,
+          "controlMs": 0.08637499999997544,
+          "candidateMs": 0.49791650000003074,
+          "aaRatio": 1.0760491089502802,
+          "abRatio": 6.202982415708568
+        },
+        {
+          "round": 4,
+          "baselineMs": 0.09568750000005366,
+          "controlMs": 0.09208300000000236,
+          "candidateMs": 0.5507494999999949,
+          "aaRatio": 0.9623305029387403,
+          "abRatio": 5.75570999346504
+        },
+        {
+          "round": 5,
+          "baselineMs": 0.09514599999999973,
+          "controlMs": 0.09200050000004012,
+          "candidateMs": 0.518457999999896,
+          "aaRatio": 0.9669402812523951,
+          "abRatio": 5.449078258675062
+        }
+      ],
+      "medianAaRatio": 0.9908972588195551,
+      "medianAbRatio": 5.437590262023452
+    }
+  ],
+  "allocationOptimizationExperiments": [
+    [
+      {
+        "operation": "signal-writes",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 11.334937499999981,
+            "controlMs": 15.240271000000007,
+            "candidateMs": 14.830020999999988,
+            "aaRatio": 1.344539482462963,
+            "abRatio": 1.308346076014977
+          },
+          {
+            "round": 1,
+            "baselineMs": 10.548895500000015,
+            "controlMs": 14.703166500000009,
+            "candidateMs": 18.7784585,
+            "aaRatio": 1.3938109918711383,
+            "abRatio": 1.7801350387820196
+          },
+          {
+            "round": 2,
+            "baselineMs": 16.61602049999999,
+            "controlMs": 12.727624999999989,
+            "candidateMs": 15.442583499999984,
+            "aaRatio": 0.7659851527024775,
+            "abRatio": 0.9293791795695
+          },
+          {
+            "round": 3,
+            "baselineMs": 12.555166000000014,
+            "controlMs": 8.947228999999993,
+            "candidateMs": 18.406042000000014,
+            "aaRatio": 0.7126332698428666,
+            "abRatio": 1.4660134322397644
+          },
+          {
+            "round": 4,
+            "baselineMs": 5.5726455,
+            "controlMs": 6.546250500000006,
+            "candidateMs": 6.516020999999995,
+            "aaRatio": 1.174711454371179,
+            "abRatio": 1.169286831541679
+          },
+          {
+            "round": 5,
+            "baselineMs": 13.602291500000007,
+            "controlMs": 11.841562500000009,
+            "candidateMs": 6.937729499999989,
+            "aaRatio": 0.8705564426405656,
+            "abRatio": 0.5100412309205391
+          }
+        ],
+        "medianAaRatio": 1.0226339485058724,
+        "medianAbRatio": 1.238816453778328
+      },
+      {
+        "operation": "observed-writes",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 70.36066649999998,
+            "controlMs": 74.8702914999999,
+            "candidateMs": 93.96758349999999,
+            "aaRatio": 1.0640929829736607,
+            "abRatio": 1.3355129815320896
+          },
+          {
+            "round": 1,
+            "baselineMs": 84.90812449999999,
+            "controlMs": 98.85589600000003,
+            "candidateMs": 80.1040415,
+            "aaRatio": 1.1642689858259683,
+            "abRatio": 0.9434202200520871
+          },
+          {
+            "round": 2,
+            "baselineMs": 80.54499999999996,
+            "controlMs": 77.45574950000008,
+            "candidateMs": 95.43622900000003,
+            "aaRatio": 0.9616456577068734,
+            "abRatio": 1.1848808616301456
+          },
+          {
+            "round": 3,
+            "baselineMs": 57.91029200000003,
+            "controlMs": 37.7708540000001,
+            "candidateMs": 65.82802099999992,
+            "aaRatio": 0.6522304187310968,
+            "abRatio": 1.1367240386216648
+          },
+          {
+            "round": 4,
+            "baselineMs": 29.299000000000007,
+            "controlMs": 37.68554149999994,
+            "candidateMs": 38.20343749999995,
+            "aaRatio": 1.286239854602544,
+            "abRatio": 1.3039160892863217
+          },
+          {
+            "round": 5,
+            "baselineMs": 48.75066700000002,
+            "controlMs": 60.534188000000086,
+            "candidateMs": 78.39125000000001,
+            "aaRatio": 1.2417099441942006,
+            "abRatio": 1.6080036402373732
+          }
+        ],
+        "medianAaRatio": 1.1141809843998145,
+        "medianAbRatio": 1.2443984754582336
+      },
+      {
+        "operation": "effect-churn",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 16.508771499999966,
+            "controlMs": 9.726895499999955,
+            "candidateMs": 13.535041999999976,
+            "aaRatio": 0.5891955982309147,
+            "abRatio": 0.8198697280412418
+          },
+          {
+            "round": 1,
+            "baselineMs": 32.80810399999996,
+            "controlMs": 10.456083499999977,
+            "candidateMs": 11.765125000000012,
+            "aaRatio": 0.3187042902570655,
+            "abRatio": 0.35860423388075174
+          },
+          {
+            "round": 2,
+            "baselineMs": 21.322520500000223,
+            "controlMs": 7.198917000000051,
+            "candidateMs": 22.25297899999987,
+            "aaRatio": 0.3376203577808719,
+            "abRatio": 1.043637359851507
+          },
+          {
+            "round": 3,
+            "baselineMs": 8.820520999999985,
+            "controlMs": 8.349354500000004,
+            "candidateMs": 18.481125499999962,
+            "aaRatio": 0.9465829172675875,
+            "abRatio": 2.0952419363890176
+          },
+          {
+            "round": 4,
+            "baselineMs": 9.451707999999996,
+            "controlMs": 11.785270500000024,
+            "candidateMs": 12.424624999999992,
+            "aaRatio": 1.2468932070267118,
+            "abRatio": 1.314537541786098
+          },
+          {
+            "round": 5,
+            "baselineMs": 10.352895500000045,
+            "controlMs": 19.628290999999876,
+            "candidateMs": 9.323770999999965,
+            "aaRatio": 1.895922836273175,
+            "abRatio": 0.9005954904113467
+          }
+        ],
+        "medianAaRatio": 0.7678892577492511,
+        "medianAbRatio": 0.9721164251314268
+      },
+      {
+        "operation": "graph-reset",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 0.42943799999989096,
+            "controlMs": 0.5407079999999951,
+            "candidateMs": 0.41924999999991996,
+            "aaRatio": 1.2591060874914013,
+            "abRatio": 0.9762759699887444
+          },
+          {
+            "round": 1,
+            "baselineMs": 0.2992500000000291,
+            "controlMs": 0.47545850000005885,
+            "candidateMs": 0.25045799999975316,
+            "aaRatio": 1.5888337510443196,
+            "abRatio": 0.8369523809514747
+          },
+          {
+            "round": 2,
+            "baselineMs": 0.3352915000000394,
+            "controlMs": 0.30464600000004793,
+            "candidateMs": 0.2314790000002631,
+            "aaRatio": 0.9086004267928419,
+            "abRatio": 0.6903813547323326
+          },
+          {
+            "round": 3,
+            "baselineMs": 0.3767290000000685,
+            "controlMs": 0.3416664999999739,
+            "candidateMs": 0.25041700000019773,
+            "aaRatio": 0.9069291188093079,
+            "abRatio": 0.6647138924801441
+          },
+          {
+            "round": 4,
+            "baselineMs": 0.2573125000000118,
+            "controlMs": 0.4934369999999717,
+            "candidateMs": 0.2275005000000192,
+            "aaRatio": 1.9176565460284636,
+            "abRatio": 0.8841408792810639
+          },
+          {
+            "round": 5,
+            "baselineMs": 0.2873539999999366,
+            "controlMs": 0.41774999999995543,
+            "candidateMs": 0.4335829999999987,
+            "aaRatio": 1.4537817465566778,
+            "abRatio": 1.508881031759065
+          }
+        ],
+        "medianAaRatio": 1.3564439170240394,
+        "medianAbRatio": 0.8605466301162693
+      }
+    ],
+    [
+      {
+        "operation": "signal-writes",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 8.496688000000006,
+            "controlMs": 7.374895999999993,
+            "candidateMs": 14.044958499999993,
+            "aaRatio": 0.867973026666389,
+            "abRatio": 1.6529921423500524
+          },
+          {
+            "round": 1,
+            "baselineMs": 10.891208000000006,
+            "controlMs": 6.424812500000002,
+            "candidateMs": 8.710937499999986,
+            "aaRatio": 0.5899081626207119,
+            "abRatio": 0.7998137121244935
+          },
+          {
+            "round": 2,
+            "baselineMs": 6.847832999999994,
+            "controlMs": 7.429396499999996,
+            "candidateMs": 8.097083499999997,
+            "aaRatio": 1.0849266475978607,
+            "abRatio": 1.1824300475785556
+          },
+          {
+            "round": 3,
+            "baselineMs": 7.04989599999999,
+            "controlMs": 6.423749999999984,
+            "candidateMs": 5.361562499999991,
+            "aaRatio": 0.9111836543404319,
+            "abRatio": 0.7605165381163068
+          },
+          {
+            "round": 4,
+            "baselineMs": 8.592999500000019,
+            "controlMs": 9.565666500000006,
+            "candidateMs": 10.312437000000003,
+            "aaRatio": 1.113192954334512,
+            "abRatio": 1.2000974746943696
+          },
+          {
+            "round": 5,
+            "baselineMs": 42.73252050000002,
+            "controlMs": 8.465312499999996,
+            "candidateMs": 13.113395999999995,
+            "aaRatio": 0.1981000044216908,
+            "abRatio": 0.30687157805259785
+          }
+        ],
+        "medianAaRatio": 0.8895783405034104,
+        "medianAbRatio": 0.9911218798515246
+      },
+      {
+        "operation": "observed-writes",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 42.863958500000024,
+            "controlMs": 44.74447950000001,
+            "candidateMs": 41.29143700000003,
+            "aaRatio": 1.043871846320493,
+            "abRatio": 0.9633136659555138
+          },
+          {
+            "round": 1,
+            "baselineMs": 28.941958999999997,
+            "controlMs": 42.15806249999997,
+            "candidateMs": 38.32291649999996,
+            "aaRatio": 1.456641635764876,
+            "abRatio": 1.3241300113789798
+          },
+          {
+            "round": 2,
+            "baselineMs": 34.572479000000044,
+            "controlMs": 29.060333499999956,
+            "candidateMs": 40.935896000000014,
+            "aaRatio": 0.8405626191862007,
+            "abRatio": 1.1840601884522068
+          },
+          {
+            "round": 3,
+            "baselineMs": 36.21647899999999,
+            "controlMs": 38.17235450000004,
+            "candidateMs": 29.16527100000002,
+            "aaRatio": 1.054005125677735,
+            "abRatio": 0.8053038783808891
+          },
+          {
+            "round": 4,
+            "baselineMs": 31.71816700000005,
+            "controlMs": 59.620750000000044,
+            "candidateMs": 53.56854149999998,
+            "aaRatio": 1.8797035150234234,
+            "abRatio": 1.6888914639991617
+          },
+          {
+            "round": 5,
+            "baselineMs": 81.09558349999998,
+            "controlMs": 51.681291999999985,
+            "candidateMs": 73.69966650000003,
+            "aaRatio": 0.6372886138737752,
+            "abRatio": 0.9088000026536593
+          }
+        ],
+        "medianAaRatio": 1.048938485999114,
+        "medianAbRatio": 1.0736869272038603
+      },
+      {
+        "operation": "effect-churn",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 11.574770499999886,
+            "controlMs": 9.80491649999999,
+            "candidateMs": 14.73014599999999,
+            "aaRatio": 0.8470938149486494,
+            "abRatio": 1.2726080400471125
+          },
+          {
+            "round": 1,
+            "baselineMs": 8.480895499999974,
+            "controlMs": 12.029458500000032,
+            "candidateMs": 6.297708499999999,
+            "aaRatio": 1.4184184323459792,
+            "abRatio": 0.7425758871807839
+          },
+          {
+            "round": 2,
+            "baselineMs": 7.8548339999999826,
+            "controlMs": 7.880791499999987,
+            "candidateMs": 7.931396000000063,
+            "aaRatio": 1.0033046529054597,
+            "abRatio": 1.0097471187806237
+          },
+          {
+            "round": 3,
+            "baselineMs": 8.182583500000078,
+            "controlMs": 9.181270499999982,
+            "candidateMs": 7.960437500000012,
+            "aaRatio": 1.1220503279923626,
+            "abRatio": 0.9728513616756781
+          },
+          {
+            "round": 4,
+            "baselineMs": 13.742124500000045,
+            "controlMs": 16.947603999999956,
+            "candidateMs": 11.564583499999912,
+            "aaRatio": 1.2332593843113486,
+            "abRatio": 0.8415426231948251
+          },
+          {
+            "round": 5,
+            "baselineMs": 20.75218749999999,
+            "controlMs": 8.438083499999948,
+            "candidateMs": 18.316103999999996,
+            "aaRatio": 0.4066117608083462,
+            "abRatio": 0.8826107609137592
+          }
+        ],
+        "medianAaRatio": 1.0626774904489111,
+        "medianAbRatio": 0.9277310612947187
+      },
+      {
+        "operation": "graph-reset",
+        "pairs": [
+          {
+            "round": 0,
+            "baselineMs": 0.45287499999994907,
+            "controlMs": 0.3084790000000339,
+            "candidateMs": 0.3046044999999822,
+            "aaRatio": 0.6811570521668642,
+            "abRatio": 0.6726017112890234
+          },
+          {
+            "round": 1,
+            "baselineMs": 0.31695799999999963,
+            "controlMs": 0.31893750000006094,
+            "candidateMs": 0.2842709999999897,
+            "aaRatio": 1.006245306949379,
+            "abRatio": 0.8968727717867669
+          },
+          {
+            "round": 2,
+            "baselineMs": 0.2589585000000625,
+            "controlMs": 0.4529999999999177,
+            "candidateMs": 0.2872704999999769,
+            "aaRatio": 1.7493150446878878,
+            "abRatio": 1.1093302594813748
+          },
+          {
+            "round": 3,
+            "baselineMs": 0.3737504999999146,
+            "controlMs": 0.31606250000004366,
+            "candidateMs": 0.28795800000011695,
+            "aaRatio": 0.8456510426076108,
+            "abRatio": 0.7704551565822193
+          },
+          {
+            "round": 4,
+            "baselineMs": 0.26793750000001637,
+            "controlMs": 0.31531250000000455,
+            "candidateMs": 0.3195629999999028,
+            "aaRatio": 1.1768136225798378,
+            "abRatio": 1.19267739678053
+          },
+          {
+            "round": 5,
+            "baselineMs": 0.51043750000008,
+            "controlMs": 0.29120799999998326,
+            "candidateMs": 0.24487500000009277,
+            "aaRatio": 0.5705066731968901,
+            "abRatio": 0.47973552099924943
+          }
+        ],
+        "medianAaRatio": 0.925948174778495,
+        "medianAbRatio": 0.8336639641844932
+      }
+    ]
+  ],
+  "interpretation": "Initial reset regression is consistent across6 rounds. Allocation candidate has median reset ratios0.86/0.83 versus retirement runtime, but wide A/A scatter and high host load prevent a speedup claim. Write/effect timing differences are inconclusive.",
+  "hostLoadOneMinuteRange": [
+    46.7333984375,
+    128.130859375
+  ],
+  "scriptSha256": "6f1b1676fca27615b7ac1d625569c01293ed110ef2ae3a87ce6f858f4470f535",
+  "archives": {
+    "reactive-lifecycle-cost-baseline-runtime-2026-11-02.tar.gz": "019c91557a8221c5ba20153d2cf2ed95d6e4225be4963eda6b63feb641296f2f",
+    "reactive-lifecycle-cost-retirement-runtime-2026-11-02.tar.gz": "57590bfe984b45404f87aea3930fd0e8ccd03a9c71a4c6e139079600e89db6cc",
+    "reactive-lifecycle-cost-allocation-runtime-2026-11-02.tar.gz": "29c347e23a5c688260d15bad5cabb5edfeb7f8424fdb991fcd7d0c01228904ec"
+  },
+  "implementation": "Reset callback snapshot avoids two large intermediate arrays; disposed computed no longer allocates a terminal compute closure or replacement deps array. Behavior checked by focused92, types, build, full1491 plus DOM retry15 and fresh installed-package/GC gates. Single all-green full run remains unrecorded after worker startup timeout.",
+  "open": [
+    "Quiet-host repeated A/A and A/B",
+    "Large root disposal/512-20k node reset scaling",
+    "Application latency and browser/native workload measurements",
+    "Current runtime browser qualification"
+  ],
+  "validation": {
+    "focusedTests": 92,
+    "types": "passed",
+    "build": "passed",
+    "fullSuite": {
+      "passedTests": 1491,
+      "passedFiles": 112,
+      "error": "dom-lifecycle worker startup timeout; file did not start"
+    },
+    "domLifecycleRetry": {
+      "passedTests": 15,
+      "passedFiles": 1,
+      "testTimeoutMs": 30000
+    },
+    "freshInstalledPackage": "passed",
+    "currentInstalledConsumer": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-B8AZjt/consumer"
+  }
+}

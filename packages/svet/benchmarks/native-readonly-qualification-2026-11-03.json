@@ -1,0 +1,37 @@
+{
+  "status": "passed-scoped",
+  "platform": "macOS",
+  "build": "debug instrumented; no performance qualification",
+  "renderers": [
+    "Metal GPU",
+    "CPU fallback selected by F7"
+  ],
+  "actions": [
+    "readonly select-all/x/backspace/undo refused",
+    "Tab to editable and ! inserted",
+    "editable undo/redo",
+    "ShiftTab to readonly and CPU edit refusal"
+  ],
+  "editableSequence": [
+    "Editable",
+    "Editable!",
+    "Editable",
+    "Editable!"
+  ],
+  "gpuErrors": 0,
+  "process": "verified absent after closing owned app window",
+  "imeEvents": 0,
+  "sha256": {
+    "vector-ui/examples/native_readonly_probe.rs": "3c246e2e2cc747fbb2a610e4af5562363fb347b6f807ee41022ae51d2a1c9a3e",
+    "vector-ui/src/native_window.rs": "b4d9d686e462b6632942b799888b3286cc38ca7296ca5d61344b534c5ae118cd",
+    "vector-ui/src/runtime.rs": "4be82038ee107faefdcb0d7db07a459abfb13573cce5d8d63a379e4b117f88dd",
+    "vector-ui/src/text_input.rs": "5ac6fdfc2d0d82f3d4091e68f73fd205aecc496234c1896feed8a6fbc2aab10c",
+    "/tmp/svet-native-development/debug/examples/native_readonly_probe": "66b11d919aa299b786ea9d5938e454a3c918b2241c00cec475a7d423713865cd"
+  },
+  "limits": [
+    "Shared NativeHost only; standalone window parity unqualified",
+    "No actual OS marked-text IME or native screen-reader bridge",
+    "Initial diagnostic journal was overwritten by app auto-relaunch; final run repeated and preserved",
+    "No RSS/latency/energy claim"
+  ]
+}

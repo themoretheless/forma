@@ -1,0 +1,13 @@
+{
+  "status": "failed",
+  "errors": [
+    "Readonly full selection not observed",
+    "Actual nonempty IME Preedit and Commit events required; ordinary text is insufficient"
+  ],
+  "updates": 4981,
+  "renderers": [
+    "Gpu"
+  ],
+  "imeEvents": [],
+  "scope": "Model/event journal only; UI actions, OS source and visual output need separate evidence"
+}

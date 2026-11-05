@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "adapterTests": 50,
+  "realBrowserWasmCases": 14,
+  "discoveredDefect": "Late compositionend cleared DOM mirror after successful paste; repaired synchronization",
+  "sha256": {
+    "src/vector-preview.js": "23fc93a8f34a28d02e8c9a8d45d08adb1d1f8254317a165eefdc65625d2bf2ee",
+    "test/vector-preview.test.js": "845143174e393e3cfb772253693ccbcce7f5510e229da2be5d4247aeec84e0f5",
+    "vector-ui/tests/preview-clipboard-browser.html": "2958031424646e2f2da657553d20234a80c554e2a864c507e59a750a014518ed",
+    "/tmp/svet-input-epoch-wasm/web/forma_bg.wasm": "ffad5bd83f06a4e6389d9410a7706b919bac12bdc0a3a3bb55ff5f337318cb40"
+  },
+  "limitations": [
+    "Synthetic DOM composition/clipboard events; actual OS IME and clipboard remain open"
+  ]
+}

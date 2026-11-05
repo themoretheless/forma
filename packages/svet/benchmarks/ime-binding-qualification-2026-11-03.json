@@ -1,0 +1,19 @@
+{
+  "status": "passed-scoped",
+  "standaloneTests": 4,
+  "schedulerMatrix": [
+    false,
+    true
+  ],
+  "coverage": [
+    "Idle binding sync retains session/admission",
+    "Sibling binding rebuild changes Runtime session with focus retained",
+    "Presentation observation cancels composing immediately",
+    "Repeated stale commits refused",
+    "Fresh preedit commit reaches bound state preserving sibling"
+  ],
+  "sourceSha256": "56296e09280665cb397b88e7025b1b96169e6305b545faf4af015f87a12e7518",
+  "limits": [
+    "Real Runtime binding integration through production helpers; no OS window/IME qualification"
+  ]
+}

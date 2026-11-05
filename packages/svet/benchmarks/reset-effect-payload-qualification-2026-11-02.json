@@ -1,0 +1,112 @@
+{
+  "status": "partial",
+  "scope": "Reset-only obsolete effect body release while pending cleanup and native context remain owned until late disposal; local and compatible peer reset",
+  "beforeRetained": {
+    "effect-handle": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 4,
+      "cleanups": 4
+    },
+    "effect-method": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 4,
+      "cleanups": 4
+    },
+    "peer-effect-handle": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 4,
+      "cleanups": 4
+    },
+    "peer-effect-method": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 4,
+      "cleanups": 4
+    }
+  },
+  "afterReset": {
+    "effect-handle": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 0,
+      "cleanups": 4
+    },
+    "effect-method": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 0,
+      "cleanups": 4
+    },
+    "peer-effect-handle": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 0,
+      "cleanups": 4
+    },
+    "peer-effect-method": {
+      "cores": 4,
+      "memories": 4,
+      "bodies": 0,
+      "cleanups": 4
+    }
+  },
+  "afterLateDisposal": {
+    "effect-handle": {
+      "cores": 0,
+      "memories": 0,
+      "bodies": 0,
+      "cleanups": 0
+    },
+    "effect-method": {
+      "cores": 0,
+      "memories": 0,
+      "bodies": 0,
+      "cleanups": 0
+    },
+    "peer-effect-handle": {
+      "cores": 0,
+      "memories": 0,
+      "bodies": 0,
+      "cleanups": 0
+    },
+    "peer-effect-method": {
+      "cores": 0,
+      "memories": 0,
+      "bodies": 0,
+      "cleanups": 0
+    }
+  },
+  "sameProbeSha256": "2d37ca9a5218868bc328fa2adb94fefe942c980965de7bebbbde725c08a7510e",
+  "bodyTargetsCollectedAtReset": 16,
+  "pendingCleanupControls": 16,
+  "nativeContextControls": 32,
+  "cleanupCalls": 16,
+  "heldHandles": 16,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "validation": {
+    "focusedTests": 92,
+    "types": "passed",
+    "build": "passed",
+    "fullSuite": {
+      "passed": 1505,
+      "failed": 1,
+      "failure": "synthetic benchmark 5000ms timeout under host load average around99"
+    },
+    "benchmarkRetry": {
+      "passed": 1,
+      "testTimeoutMs": 30000,
+      "durationSeconds": 2.95
+    },
+    "freshInstalledPackage": "passed"
+  },
+  "open": [
+    "Single full suite rerun on quiet host if needed for release candidate",
+    "Current runtime browser GC/HMR",
+    "Performance qualification",
+    "Broader roadmap P1-P4"
+  ]
+}

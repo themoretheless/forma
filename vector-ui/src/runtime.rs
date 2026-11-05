@@ -14,7 +14,7 @@ pub enum NodeKind {
 }
 
 /// AccessKit-compatible semantic role for a node in the accessibility tree.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum A11yRole {
     Window,
     ScrollView,
@@ -40,7 +40,8 @@ impl A11yRole {
 }
 
 /// AccessKit-compatible semantic accessibility node exported by [`Runtime::accessibility_tree`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all="camelCase")]
 pub struct A11yNode {
     pub id: usize,
     pub parent: Option<usize>,
@@ -49,21 +50,32 @@ pub struct A11yNode {
     pub key: String,
     pub label: String,
     pub value: Option<String>,
+    #[serde(skip)]
     pub numeric_value: Option<f32>,
+    #[serde(serialize_with="serialize_a11y_bounds")]
     pub bounds: [f32; 4],
     pub focused: bool,
     pub disabled: bool,
+    pub read_only: bool,
+    pub multiline: bool,
+    /// Anchor/caret UTF-16 offsets in this node's original value (CRLF retained).
+    pub selection_utf16: Option<[u32;2]>,
     pub modal_blocked: bool,
     pub actions: Vec<&'static str>,
 }
 
 /// Snapshot of the scene's semantic accessibility tree and live region state.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all="camelCase")]
 pub struct A11yTree {
     pub root_id: usize,
     pub focused_id: Option<usize>,
     pub active_modal_id: Option<usize>,
     pub nodes: Vec<A11yNode>,
+}
+// Preserve the existing JSON numeric values, formerly materialized through Value.
+fn serialize_a11y_bounds<S:serde::Serializer>(bounds:&[f32;4],serializer:S)->Result<S::Ok,S::Error>{
+    serde::Serialize::serialize(&bounds.map(f64::from),serializer)
 }
 #[derive(Debug)]
 pub struct Node {
@@ -144,6 +156,7 @@ pub struct Runtime {
     raster_cache: RefCell<Option<RasterCache>>,
     ui_document: Option<crate::form_document::Document>,
     ui_render_pending: bool,
+    ui_binding_idle_ready: bool,
     // Binding indices for the last committed scene, reused while model state
     // is unchanged. Recovery resolves current control identities separately.
     ui_binding_scene: Vec<crate::form_document::SceneControl>,
@@ -152,6 +165,10 @@ pub struct Runtime {
     ui_binding_states: Vec<crate::form_document::Properties>,
     #[cfg(not(target_arch = "wasm32"))]
     svet_document: Option<crate::native_document_graph::DocumentGraph>,
+    #[cfg(not(target_arch = "wasm32"))]
+    native_instance_id: u64,
+    #[cfg(not(target_arch="wasm32"))]
+    native_accessibility_id:Option<u64>,
 }
 
 fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> {
@@ -181,6 +198,17 @@ fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> 
     Ok(result)
 }
 impl Runtime {
+    /// Identity of the loaded scene, including noneditable accessibility nodes.
+    #[cfg(not(target_arch="wasm32"))]
+    pub fn native_scene_identity(&self)->u64 {self.native_accessibility_id.unwrap_or(self.native_instance_id)}
+
+    /// Scene-local editor identity for native composition ownership. Rebuilding
+    /// a Runtime retires its editor session even if key and index are reused.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_editor_session(&self) -> Option<(u64, i32)> {
+        (self.text_editing()&&!self.control_readonly(self.focused.unwrap())).then(|| (self.native_instance_id, self.focused_index()))
+    }
+
     pub fn from_source(source: &str) -> Result<Self, String> {
         Self::from_sources(source, crate::BUTTON_COMPONENT)
     }
@@ -230,6 +258,16 @@ impl Runtime {
         };
         let activated = self.last_event.take();
         let model_changed = doc.states != self.ui_binding_states;
+        if self.ui_binding_idle_ready && !model_changed && !self.ui_render_pending
+            && activated.is_none() && self.ui_activations.events.is_empty()
+            && (0..self.control_count()).all(|index| !self.binding_widget_changed(index))
+        {
+            self.ui_document = Some(doc);
+            return Ok(false);
+        }
+        // First synchronization, rebuilds and failed attempts must still validate
+        // binding targets and initialize missing model fields from live widgets.
+        self.ui_binding_idle_ready = false;
         let controls = if !model_changed {
             std::borrow::Cow::Borrowed(self.ui_binding_scene.as_slice())
         } else {
@@ -287,6 +325,7 @@ impl Runtime {
             *self = next;
             Ok(true)
         } else {
+            self.ui_binding_idle_ready = true;
             self.ui_document = Some(doc);
             Ok(false)
         }
@@ -322,6 +361,9 @@ impl Runtime {
                         bounds: [0.0, 0.0, self.render_width(), self.render_height()],
                         focused: false,
                         disabled: false,
+                        multiline: false,
+                        selection_utf16: None,
+                        read_only: false,
                         modal_blocked: false,
                         actions: Vec::new(),
                     });
@@ -339,6 +381,9 @@ impl Runtime {
                         bounds: self.viewport_rect(),
                         focused: false,
                         disabled: false,
+                        multiline: false,
+                        selection_utf16: None,
+                        read_only: false,
                         modal_blocked: active_modal.is_some(),
                         actions: vec!["scroll"],
                     });
@@ -370,6 +415,9 @@ impl Runtime {
                         bounds: [m_spec.x, m_spec.y, m_spec.width, m_spec.height],
                         focused: false,
                         disabled: !open,
+                        multiline: false,
+                        selection_utf16: None,
+                        read_only: false,
                         modal_blocked: active_modal.is_some() && active_modal != Some(modal_idx),
                         actions: if open && m_spec.dismiss {
                             vec!["dismiss"]
@@ -409,6 +457,7 @@ impl Runtime {
                             }
                         }
                     }
+                    if self.control_editable(idx){label=self.control_input_label(idx);}
                     let value = if self.control_editable(idx) {
                         Some(self.text_value(idx))
                     } else if is_ranged {
@@ -425,7 +474,7 @@ impl Runtime {
                     if !disabled && !blocked {
                         match role {
                             A11yRole::Button => actions.extend(["focus", "click"]),
-                            A11yRole::TextInput => actions.extend(["focus", "set_value"]),
+                            A11yRole::TextInput => {actions.extend(["focus","set_text_selection"]);if !self.control_readonly(idx){actions.push("set_value");}},
                             A11yRole::Slider => {
                                 actions.extend(["focus", "increment", "decrement", "set_value"])
                             }
@@ -444,6 +493,9 @@ impl Runtime {
                         bounds,
                         focused,
                         disabled,
+                        multiline: self.control_multiline(idx),
+                        selection_utf16: self.editors[idx].as_ref().map(|editor|[editor.model.anchor(),editor.model.caret()].map(|at|editor.model.value()[..at].encode_utf16().count() as u32)),
+                        read_only: self.control_readonly(idx),
                         modal_blocked: blocked,
                         actions,
                     });
@@ -458,6 +510,49 @@ impl Runtime {
             nodes: a11y_nodes,
         }
     }
+    /// Replace component markup atomically without constructing a WASM error.
+    pub fn load_component_native(&mut self, source: &str, component: &str) -> Result<(), String> {
+        let mut next = Self::from_sources(source, component)?;
+        next.revision = self.revision.wrapping_add(1);
+        next.geometry_revision = self.geometry_revision.wrapping_add(1);
+        next.layout_revision = self.layout_revision.wrapping_add(1);
+        *self = next;
+        Ok(())
+    }
+    /// Load markup using the built-in Button template with native Rust errors.
+    pub fn load_native(&mut self, source: &str) -> Result<(), String> {
+        self.load_component_native(source, crate::BUTTON_COMPONENT)
+    }
+    /// Compile a UI project to a portable scene artifact with native Rust errors.
+    pub fn compile_ui_scene_artifact_native(files_json: &str, entry_file: &str, state_json: &str) -> Result<String, String> {
+        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)?;
+        doc.render_scene_artifact()?.to_json()
+    }
+
+    /// Reload a UI project atomically with native Rust errors.
+    /// A rejected project leaves the live scene, document and scheduler untouched.
+    pub fn load_ui_files_json_native(
+        &mut self,
+        files_json: &str,
+        entry_file: &str,
+        state_json: &str,
+    ) -> Result<(), String> {
+        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)?;
+        let (source, templates, controls, logical_end) = doc.render_scene_with_extents()?;
+        let mut next = Self::from_sources(&source, &templates)?;
+        next.apply_logical_content_end(logical_end);
+        next.ui_binding_scene = controls;
+        next.ui_binding_states = doc.states.clone();
+        next.ui_document = Some(doc);
+        #[cfg(not(target_arch = "wasm32"))]
+        next.set_svet_document_scheduling(self.svet_document.is_some());
+        next.revision = self.revision.wrapping_add(1);
+        next.geometry_revision = self.geometry_revision.wrapping_add(1);
+        next.layout_revision = self.layout_revision.wrapping_add(1);
+        *self = next;
+        Ok(())
+    }
+
     /// Atomically replace the scene from versioned JSON; a refusal preserves this Runtime.
     pub fn load_scene_artifact_native(&mut self, json: &str) -> Result<(), String> {
         let artifact = crate::form_document::SceneArtifact::from_json(json)?;
@@ -619,6 +714,13 @@ impl Runtime {
             last_event: None,
             ui_activations: UiActivations::default(),
             scroll: [0.; 2],
+            #[cfg(not(target_arch = "wasm32"))]
+            native_accessibility_id:None,
+            #[cfg(not(target_arch = "wasm32"))]
+            native_instance_id: {
+                static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+                NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            },
             revision: 0,
             geometry_revision: 0,
             layout_revision: 0,
@@ -626,6 +728,7 @@ impl Runtime {
             raster_cache: RefCell::new(None),
             ui_document: None,
             ui_render_pending: false,
+            ui_binding_idle_ready: false,
             ui_binding_scene: Vec::new(),
             ui_binding_states: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
@@ -682,6 +785,15 @@ impl Runtime {
     /// Context replacement is cancelled separately by the binding owner.
     pub(crate) fn preserve_binding_interaction(&mut self, previous:&Runtime) {
         let matches = self.preserve_interaction_matches(previous);
+        #[cfg(not(target_arch="wasm32"))]
+        {
+            let same_structure=self.nodes.len()==previous.nodes.len()&&self.nodes.iter().zip(&previous.nodes).all(|(a,b)|a.parent==b.parent&&a.kind==b.kind&&a.control==b.control);
+            let mut keys=std::collections::BTreeSet::new();
+            let same_controls=self.controls.len()==previous.controls.len()&&matches.iter().enumerate().all(|(i,old)|{
+                let key=self.control_key(i);!key.is_empty()&&keys.insert(key)&&*old==Some(i)
+            });
+            if same_structure&&same_controls {self.native_accessibility_id=Some(previous.native_scene_identity());}
+        }
         for (i,c) in self.controls.iter_mut().enumerate() {
             let Some(old_index)=matches[i] else {continue};
             let old=&previous.controls[old_index];
@@ -714,6 +826,8 @@ impl Runtime {
             let mut caret = editor.model.caret().min(value.len());
             while !value.is_char_boundary(caret) { caret -= 1; }
             next.model.set_selection(caret, caret).map_err(|e| e.to_string())?;
+            let caret=next.model.grapheme_selection().start;
+            next.model.set_selection(caret,caret).map_err(|e|e.to_string())?;
         }
         *editor = next;
         self.refresh_editors();
@@ -1095,6 +1209,22 @@ impl Runtime {
         }
         self.raster_cached(w, h, s, background).map_or_else(Vec::new, |cache| cache.pixels.clone())
     }
+    /// Paint RGBA into caller-owned storage without allocating an output Vec.
+    /// Invalid dimensions/DPI leave the destination unchanged.
+    pub fn paint_rgba(&self, out: &mut [u8], w: u32, h: u32, s: f32,
+        background: bool) -> Result<(), &'static str> {
+        if self.controls.len() == 1 && self.scene.modals.is_empty() {
+            return self.controls[0].paint_rgba(out, w, h, s, background);
+        }
+        if (w as usize).checked_mul(h as usize).and_then(|n| n.checked_mul(4)) != Some(out.len()) {
+            return Err("Invalid RGBA buffer size");
+        }
+        let cache = self.raster_cached(w, h, s, background)
+            .ok_or("Visible scene exceeds CPU raster budget")?;
+        out.copy_from_slice(&cache.pixels);
+        Ok(())
+    }
+
     pub fn paint_native(
         &self,
         out: &mut [u32],
@@ -1129,58 +1259,7 @@ impl Runtime {
     /// Exports the AccessKit-compatible semantic accessibility tree as a compact JSON snapshot.
     pub fn accessibility_tree_json(&self) -> String {
         let tree = self.accessibility_tree();
-        let nodes_json = tree
-            .nodes
-            .iter()
-            .map(|n| {
-                let parent = n.parent.map_or("null".to_string(), |p| p.to_string());
-                let children = n
-                    .children
-                    .iter()
-                    .map(usize::to_string)
-                    .collect::<Vec<_>>()
-                    .join(",");
-                let value = n
-                    .value
-                    .as_ref()
-                    .map_or("null".to_string(), |v| format!("{v:?}"));
-                let actions = n
-                    .actions
-                    .iter()
-                    .map(|a| format!("{a:?}"))
-                    .collect::<Vec<_>>()
-                    .join(",");
-                format!(
-                    "{{\"id\":{},\"parent\":{},\"children\":[{}],\"role\":\"{}\",\"key\":{:?},\"label\":{:?},\"value\":{},\"bounds\":[{},{},{},{}],\"focused\":{},\"disabled\":{},\"modalBlocked\":{},\"actions\":[{}]}}",
-                    n.id,
-                    parent,
-                    children,
-                    n.role.as_str(),
-                    n.key,
-                    n.label,
-                    value,
-                    n.bounds[0],
-                    n.bounds[1],
-                    n.bounds[2],
-                    n.bounds[3],
-                    n.focused,
-                    n.disabled,
-                    n.modal_blocked,
-                    actions
-                )
-            })
-            .collect::<Vec<_>>()
-            .join(",");
-        let focused = tree
-            .focused_id
-            .map_or("null".to_string(), |id| id.to_string());
-        let modal = tree
-            .active_modal_id
-            .map_or("null".to_string(), |id| id.to_string());
-        format!(
-            "{{\"rootId\":{},\"focusedId\":{},\"activeModalId\":{},\"nodes\":[{}]}}",
-            tree.root_id, focused, modal, nodes_json
-        )
+        serde_json::to_string(&tree).expect("semantic tree serializes to JSON")
     }
 
     #[wasm_bindgen(constructor)]
@@ -1188,14 +1267,7 @@ impl Runtime {
         Self::from_source(crate::EXAMPLE).expect("valid built-in scene")
     }
     pub fn load_component(&mut self, source: &str, component: &str) -> Result<(), JsValue> {
-        let mut next = Self::from_sources(source, component).map_err(|e| JsValue::from_str(&e))?;
-        // JS can keep the same WASM object across load(). Its cache identity is
-        // unchanged, so replacing source must not reset version keys to zero.
-        next.revision = self.revision.wrapping_add(1);
-        next.geometry_revision = self.geometry_revision.wrapping_add(1);
-        next.layout_revision = self.layout_revision.wrapping_add(1);
-        *self = next;
-        Ok(())
+        self.load_component_native(source, component).map_err(|e| JsValue::from_str(&e))
     }
     /// Load a complete artifact atomically through the Rust parser/runtime.
     pub fn load_scene_artifact(&mut self, json: &str) -> Result<(), JsValue> {
@@ -1203,9 +1275,8 @@ impl Runtime {
     }
     /// Compile a UI project to a versioned transport in Rust for a later runtime load.
     pub fn compile_ui_scene_artifact(files_json: &str, entry_file: &str, state_json: &str) -> Result<String, JsValue> {
-        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)
-            .map_err(|e| JsValue::from_str(&e))?;
-        doc.render_scene_artifact().and_then(|artifact| artifact.to_json()).map_err(|e| JsValue::from_str(&e))
+        Self::compile_ui_scene_artifact_native(files_json, entry_file, state_json)
+            .map_err(|e| JsValue::from_str(&e))
     }
     pub fn load(&mut self, source: &str) -> Result<(), JsValue> {
         self.load_component(source, crate::BUTTON_COMPONENT)
@@ -1217,15 +1288,8 @@ impl Runtime {
         entry_file: &str,
         state_json: &str,
     ) -> Result<(), JsValue> {
-        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)
-            .map_err(|e| JsValue::from_str(&e))?;
-        let (scene_src, templates, controls, logical_end) = doc.render_scene_with_extents().map_err(|e| JsValue::from_str(&e))?;
-        self.load_component(&scene_src, &templates)?;
-        self.apply_logical_content_end(logical_end);
-        self.ui_binding_scene = controls;
-        self.ui_binding_states = doc.states.clone();
-        self.ui_document = Some(doc);
-        Ok(())
+        self.load_ui_files_json_native(files_json, entry_file, state_json)
+            .map_err(|e| JsValue::from_str(&e))
     }
     /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from the live runtime
     /// back into the retained Rust `.ui` `Document`, re-rendering the scene while preserving focus
@@ -1269,15 +1333,116 @@ impl Runtime {
         self.refresh_editors();true
     }
     pub fn text_editing(&self)->bool {self.focused.is_some_and(|i|self.editors[i].is_some()&&self.enabled(i))}
+    /// Whether this control accepts multiline editing; false for noneditors.
+    pub fn control_readonly(&self,i:usize)->bool {self.editors.get(i).and_then(Option::as_ref).is_some_and(|editor|editor.spec.read_only)}
+    pub fn control_multiline(&self,i:usize)->bool {self.editors.get(i).and_then(Option::as_ref).is_some_and(|editor|editor.spec.multiline)}
     pub fn control_editable(&self,i:usize)->bool {self.editors.get(i).is_some_and(Option::is_some)}
+    /// Semantic editor epoch; visual caret animation does not change it.
+    /// Zero means unavailable/exhausted: consumers must read the model without caching.
+    pub fn text_model_revision(&self)->u32 {self.focused.and_then(|i|self.editors[i].as_ref()).map_or(0,|editor|editor.semantic_revision)}
     pub fn text_value(&self,i:usize)->String {self.editors.get(i).and_then(Option::as_ref).map_or_else(String::new,|e|e.model.value().into())}
+    /// Focused anchor/caret in textarea UTF-16 units, with CRLF normalized to LF.
+    /// The model keeps its original bytes; empty without a focused editor.
+    pub fn text_selection_utf16(&self)->Vec<u32> {
+        self.focused.and_then(|i|self.editors[i].as_ref()).map_or_else(Vec::new,|editor|{
+            [editor.model.anchor(),editor.model.caret()].into_iter().map(|at|{let prefix=&editor.model.value()[..at];(prefix.encode_utf16().count()-prefix.as_bytes().windows(2).filter(|pair|*pair==b"\r\n").count()) as u32}).collect()
+        })
+    }
+    /// Replace the entire text value as one undoable semantic action. Invalid,
+    /// readonly, disabled, modal-blocked and oversized requests leave focus and
+    /// selection unchanged. The host synchronizes bindings after dispatch.
+    pub fn accessibility_set_text_value(&mut self,node_id:usize,value:&str)->bool {
+        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
+        if !self.control_editable(index)||!self.enabled(index)||self.control_readonly(index){return false;}
+        // CRLF normalization can at most halve the byte length.
+        if value.len()>crate::text_input::MAX_VALUE_BYTES*2{return false;}
+        let clean=value.replace("\r\n","\n").replace('\r',"\n");
+        let clean=if self.control_multiline(index){clean}else{clean.replace('\n'," ")};
+        if clean.len()>crate::text_input::MAX_VALUE_BYTES{return false;}
+        if !self.focus_control(index){return false;}
+        let editor=self.editors[index].as_mut().unwrap();
+        editor.set_preedit("");
+        if editor.model.value()!=clean {
+            editor.select_original_utf16(0,u32::MAX);
+            editor.insert(&clean);
+        }
+        self.refresh_editors();true
+    }
+    /// Set a normalized `[0.0, 1.0]` slider range value via semantic accessibility action.
+    /// Accepts values in `[0.0, 1.0]` or percentage `[0.0, 100.0]` (normalized when `> 1.0 && <= 100.0`).
+    pub fn accessibility_set_range_value(&mut self,node_id:usize,value:f64)->bool {
+        if !value.is_finite()||value<0.||value>100.{return false;}
+        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
+        if !self.enabled(index){return false;}
+        if self.controls.get(index).and_then(|c|c.template.range.as_ref()).is_none(){return false;}
+        if !self.focus_control(index){return false;}
+        let normalized=if value>1.{(value/100.).clamp(0.,1.) as f32}else{value.clamp(0.,1.) as f32};
+        if let Some(range)=Arc::make_mut(&mut self.controls[index].template).range.as_mut() {
+            range.value=normalized;
+        }
+        self.refresh_editors();true
+    }
+    /// Step a slider range control via semantic accessibility increment/decrement action.
+    pub fn accessibility_step_range(&mut self,node_id:usize,delta:f32)->bool {
+        if !delta.is_finite(){return false;}
+        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
+        if !self.enabled(index){return false;}
+        if self.controls.get(index).and_then(|c|c.template.range.as_ref()).is_none(){return false;}
+        if !self.focus_control(index){return false;}
+        if let Some(range)=Arc::make_mut(&mut self.controls[index].template).range.as_mut() {
+            range.value=(range.value+delta).clamp(0.,1.);
+        }
+        self.refresh_editors();true
+    }
+    /// Dismiss an open modal dialog node via semantic accessibility action.
+    pub fn accessibility_dismiss_modal(&mut self,node_id:usize)->bool {
+        let Some(node)=self.nodes.get(node_id).filter(|node|node.id==node_id&&node.kind==NodeKind::Modal) else{return false;};
+        let modal_idx=self.scene.modals.iter().position(|m|{
+            (!m.controls.is_empty()).then_some(m.controls.start)==node.children.first().and_then(|&cid|self.nodes[cid].control)
+        }).unwrap_or(0);
+        if self.active_modal_index()!=Some(modal_idx){return false;}
+        self.dismiss_modal(modal_idx)
+    }
+    /// Apply a semantic scroll action on the scene's ScrollView node.
+    pub fn accessibility_scroll(&mut self,node_id:usize,dx:f32,dy:f32)->bool {
+        let Some(node)=self.nodes.get(node_id).filter(|node|node.id==node_id&&node.kind==NodeKind::Scroll) else{return false;};
+        let _=node;
+        if !self.scene.scroll||self.active_modal_index().is_some()||!dx.is_finite()||!dy.is_finite(){return false;}
+        self.scroll(dx,dy);
+        true
+    }
+    /// Accept a semantic text-selection action using snapshot-local node ID and
+    /// UTF-16 offsets in the original value (CRLF retained). Readonly permits
+    /// selection; disabled, modal-blocked, noneditor and unknown nodes refuse it.
+    /// Returns whether accepted, including an already matching selection.
+    pub fn accessibility_set_text_selection(&mut self,node_id:usize,anchor:u32,caret:u32)->bool {
+        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
+        if !self.control_editable(index)||!self.enabled(index){return false;}
+        if !self.focus_control(index){return false;}
+        let editor=self.editors[index].as_mut().unwrap();
+        editor.set_preedit("");
+        editor.select_original_utf16(anchor,caret);
+        self.refresh_editors();true
+    }
+    /// Apply normalized textarea UTF-16 selection, preserving grapheme boundaries.
+    pub fn text_set_selection_utf16(&mut self,anchor:u32,caret:u32)->bool {
+        if !self.text_editing(){return false;}
+        let changed=self.editors[self.focused.unwrap()].as_mut().unwrap().select_utf16(anchor,caret);
+        self.refresh_editors();changed
+    }
     pub fn text_selected(&self)->String {self.focused.and_then(|i|self.editors[i].as_ref()).map_or_else(String::new,|e|e.model.selected_text().into())}
     pub fn text_insert(&mut self,text:&str)->bool {
-        if !self.text_editing(){return false;}
+        if !self.text_editing() || self.control_readonly(self.focused.unwrap()){return false;}
         self.editors[self.focused.unwrap()].as_mut().unwrap().insert(text); self.refresh_editors();true
     }
     pub fn text_preedit(&mut self,text:&str) {
         if self.text_editing(){self.editors[self.focused.unwrap()].as_mut().unwrap().set_preedit(text); self.refresh_editors();}
+    }
+    /// Host-normalized word modifier (Option on macOS, Ctrl on Windows/Linux).
+    pub fn text_word_key(&mut self,key:&str,shift:bool)->bool {
+        if !self.text_editing(){return false;}
+        let handled=self.editors[self.focused.unwrap()].as_mut().unwrap().word_key(key,shift);
+        self.refresh_editors();handled
     }
     pub fn text_key(&mut self,key:&str,shift:bool,command:bool)->bool {
         if !self.text_editing(){return false;}
@@ -1287,11 +1452,29 @@ impl Runtime {
         let Some(i)=self.focused else{return vec![]};let Some(e)=&self.editors[i] else{return vec![]};
         let mut rect=e.caret_rect();let b=self.controls[i].bounds_rect();rect[0]+=b[0];rect[1]+=b[1];rect.to_vec()
     }
+    /// Number of visual lines produced by soft-wrapping the control's text editor.
+    pub fn text_soft_line_count(&self,i:usize)->usize {
+        self.editors.get(i).and_then(Option::as_ref).map_or(0,|e|e.soft_wrapped_lines().len())
+    }
+    /// Hit-test a point inside the focused editor using visual soft-wrapping.
+    pub fn text_hit_soft_wrapped(&mut self,x:f32,y:f32,extend:bool)->bool {
+        let Some(i)=self.focused else{return false;};
+        if !self.text_editing(){return false;}
+        let b=self.controls[i].bounds_rect();
+        self.editors[i].as_mut().unwrap().hit_soft_wrapped(x-b[0],y-b[1],extend);
+        self.refresh_editors();true
+    }
     pub fn control_count(&self) -> usize {
         self.controls.len()
     }
     pub fn control_key(&self, i: usize) -> String {
         self.controls.get(i).map(Button::key).unwrap_or_default()
+    }
+    /// Stable editor name, separate from current value (label, placeholder, key).
+    pub fn control_input_label(&self,i:usize)->String {
+        self.editors.get(i).and_then(Option::as_ref).map_or_else(String::new,|editor|{
+            if !editor.spec.label.is_empty(){editor.spec.label.clone()}else if !editor.spec.placeholder.is_empty(){editor.spec.placeholder.clone()}else{self.control_key(i)}
+        })
     }
     pub fn control_label(&self, i: usize) -> String {
         self.controls.get(i).map(Button::label).unwrap_or_default()
@@ -1422,7 +1605,11 @@ impl Runtime {
         self.scroll.to_vec()
     }
     pub fn scroll(&mut self, dx: f32, dy: f32) {
-        if !self.scene.scroll || !dx.is_finite() || !dy.is_finite() {
+        // Modal input is isolated from the base scroll container, just as
+        // pointer hit testing and keyboard focus are isolated from the base.
+        // A refused scroll must also preserve the active modal's press.
+        if !self.scene.scroll || self.active_modal_index().is_some()
+            || !dx.is_finite() || !dy.is_finite() {
             return;
         }
         let v = self.viewport_rect();
@@ -1799,6 +1986,139 @@ impl RenderScene for Runtime {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn disabling_editor_cancels_preedit_capture_and_stale_release() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),"component App { state query: String = 'seed'; Column { width:260; height:120; TextInput { key:'editor'; width:200; height:32; value <-> state.query; } } }".into())]);
+        let mut runtime=Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+        let bounds=runtime.control_bounds(0);let (x,y)=(bounds[0]+10.,bounds[1]+10.);
+        runtime.pointer(x,y,0);runtime.pointer(x,y,1);
+        assert_eq!(runtime.captured,Some(0));assert!(runtime.text_editing());
+        runtime.text_preedit("未確定");assert!(!runtime.editors[0].as_ref().unwrap().preedit.is_empty());
+        let clicks=runtime.control_clicks(0);
+        runtime.set_binding_disabled(0,true).unwrap();
+        assert!(runtime.captured.is_none());assert_eq!(runtime.focused_index(),-1);
+        assert!(runtime.editors[0].as_ref().unwrap().preedit.is_empty());
+        assert!(!runtime.controls[0].down);assert!(!runtime.text_insert("blocked"));
+        runtime.set_binding_disabled(0,true).unwrap();
+        runtime.set_binding_disabled(0,false).unwrap();
+        runtime.pointer(x,y,2);assert_eq!(runtime.control_clicks(0),clicks,"release from retired press cannot activate");
+        assert!(runtime.focus_control(0));runtime.text_key("End",false,false);runtime.text_insert("-back");runtime.sync_ui_bindings_native().unwrap();
+        assert_eq!(runtime.text_value(0),"seed-back");
+        let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();assert_eq!(state["query"],"seed-back");
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn live_disabled_binding_retires_editor_and_reenables_without_reload() {
+        let files=std::collections::BTreeMap::from([
+            ("App.ui".into(),"component App { state locked: Bool = false; state query: String = 'seed'; Column { width:260; height:160; TextInput { key:'editor'; disabled:state.locked; width:200; height:32; value <-> state.query; } Toggle { key:'lock'; checked <-> state.locked; } } }".into()),
+            ("Toggle.component.ui".into(),"component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".into()),
+        ]);
+        for svet in [false,true] {
+            let mut runtime=Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();runtime.set_svet_document_scheduling(svet);
+            assert!(runtime.focus_control(0));runtime.text_key("End",false,false);runtime.text_insert("-kept");runtime.text_preedit("未確定");
+            runtime.activate_control(1);assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert!(runtime.control_disabled(0));assert!(!runtime.text_editing());
+            assert!(!runtime.focus_control(0));assert!(!runtime.text_insert("-blocked"));
+            assert_eq!(runtime.text_value(0),"seed-kept");
+            let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();assert_eq!(state["locked"],true);assert_eq!(state["query"],"seed-kept");
+            runtime.activate_control(1);assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert!(!runtime.control_disabled(0));assert!(runtime.focus_control(0));runtime.text_key("End",false,false);runtime.text_insert("-back");runtime.sync_ui_bindings_native().unwrap();
+            let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();assert_eq!(state["locked"],false);assert_eq!(state["query"],"seed-kept-back");
+            assert_eq!(runtime.svet_document_telemetry().is_some(),svet);
+        }
+    }
+
+    #[test]
+    fn builtin_text_input_disabled_property_controls_input_and_accessibility() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(), "component App { state locked: Bool = true; state a: String = 'locked'; state b: String = 'open'; Column { width:260; height:120; TextInput { key:'a'; disabled:state.locked; width:200; height:32; value <-> state.a; } TextInput { key:'b'; width:200; height:32; value <-> state.b; } } }".into())]);
+        let mut runtime=Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+        assert!(runtime.control_disabled(0));assert!(!runtime.focus_control(0));
+        assert!(!runtime.text_insert("blocked"));
+        runtime.focus(true);assert_eq!(runtime.focused_index(),1);
+        runtime.text_key("End",false,false);runtime.text_insert("!");runtime.sync_ui_bindings_native().unwrap();
+        let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();
+        assert_eq!(state["a"],"locked");assert_eq!(state["b"],"open!");
+        let a11y=runtime.accessibility_tree();
+        let locked=a11y.nodes.iter().find(|node|node.key=="a").unwrap();
+        assert!(locked.disabled);assert!(locked.actions.is_empty());
+        runtime.load_ui_files_json_native(&serde_json::to_string(&files).unwrap(),"App.ui",r#"{"locked":false,"a":"locked","b":"open!"}"#).unwrap();
+        assert!(!runtime.control_disabled(0));assert!(runtime.focus_control(0));
+        runtime.text_key("End",false,false);runtime.text_insert("-enabled");runtime.sync_ui_bindings_native().unwrap();
+        let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();
+        assert_eq!(state["a"],"locked-enabled");assert_eq!(state["b"],"open!");
+        let a11y=runtime.accessibility_tree();let enabled=a11y.nodes.iter().find(|node|node.key=="a").unwrap();
+        assert!(!enabled.disabled);assert!(enabled.actions.contains(&"set_value"));
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn native_project_reload_refuses_atomically_and_keeps_scheduler_choice() {
+        let project = |value: &str| serde_json::to_string(&std::collections::BTreeMap::from([(
+            "App.ui", format!("component App {{ state query: String = '{value}'; Column {{ width:220; height:100; TextInput {{ key:'editor'; width:200; height:32; value <-> state.query; }} }} }}"),
+        )])).unwrap();
+        for svet in [false, true] {
+            let mut runtime = Runtime::new();
+            runtime.set_svet_document_scheduling(svet);
+            runtime.load_ui_files_json_native(&project("old"), "App.ui", "{}").unwrap();
+            assert_eq!(runtime.svet_document_telemetry().is_some(), svet);
+            assert!(runtime.focus_control(0));
+            runtime.text_insert("!");
+            runtime.sync_ui_bindings_native().unwrap();
+            let state = runtime.ui_state_json();
+            let text = runtime.text_value(0);
+            let versions = (runtime.revision, runtime.geometry_revision, runtime.layout_revision);
+            for (files, entry, initial) in [
+                ("{", "App.ui", "{}"),
+                ("{}", "missing.ui", "{}"),
+                (r#"{"App.ui":"component App { Missing {} }"}"#, "App.ui", "{}"),
+                (project("next").as_str(), "App.ui", "{"),
+            ] {
+                assert!(runtime.load_ui_files_json_native(files, entry, initial).is_err());
+                assert_eq!(runtime.ui_state_json(), state);
+                assert_eq!(runtime.text_value(0), text);
+                assert_eq!(runtime.focused_index(), 0);
+                assert_eq!((runtime.revision, runtime.geometry_revision, runtime.layout_revision), versions);
+                assert_eq!(runtime.svet_document_telemetry().is_some(), svet);
+            }
+            runtime.text_insert("?");
+            runtime.sync_ui_bindings_native().unwrap();
+            assert!(runtime.ui_state_json().contains('?'));
+            let before = (runtime.revision, runtime.geometry_revision, runtime.layout_revision);
+            runtime.load_ui_files_json_native(&project("next"), "App.ui", "{}").unwrap();
+            assert_eq!(runtime.text_value(0), "next");
+            assert_eq!(runtime.svet_document_telemetry().is_some(), svet);
+            assert_eq!((runtime.revision, runtime.geometry_revision, runtime.layout_revision),
+                (before.0.wrapping_add(1), before.1.wrapping_add(1), before.2.wrapping_add(1)));
+        }
+    }
+
+    #[test]
+    fn native_source_api_refusals_preserve_scene_and_can_recover() {
+        let mut runtime=model();assert!(runtime.focus_control(0));
+        let versions=(runtime.revision,runtime.geometry_revision,runtime.layout_revision);
+        let pixels=runtime.pixels(160,160,1.);
+        for (source,template) in [("component Bad {",VISUAL),(TWO,"component Button {")] {
+            assert!(runtime.load_component_native(source,template).is_err());
+            assert_eq!((runtime.revision,runtime.geometry_revision,runtime.layout_revision),versions);
+            assert_eq!(runtime.focused_index(),0);assert_eq!(runtime.control_count(),2);
+            assert_eq!(runtime.pixels(160,160,1.),pixels);
+        }
+        assert!(runtime.load_native("invalid markup").is_err());
+        runtime.load_component_native(TWO,VISUAL).unwrap();
+        assert_eq!((runtime.revision,runtime.geometry_revision,runtime.layout_revision),
+            (versions.0.wrapping_add(1),versions.1.wrapping_add(1),versions.2.wrapping_add(1)));
+        runtime.load_native(crate::EXAMPLE).unwrap();
+        assert!(runtime.control_count()>0);
+        let files=serde_json::to_string(&std::collections::BTreeMap::from([("App.ui",include_str!("../tests/fixtures/svet-native-ime/App.ui"))])).unwrap();
+        for (project,entry,state) in [("{","App.ui","{}"),("{}","missing.ui","{}"),(files.as_str(),"App.ui","{")] {
+            assert!(Runtime::compile_ui_scene_artifact_native(project,entry,state).is_err());
+        }
+        let json=Runtime::compile_ui_scene_artifact_native(&files,"App.ui","{}").unwrap();
+        runtime.load_scene_artifact_native(&json).unwrap();
+        assert_eq!(runtime.text_value(1),"seed-A");assert_eq!(runtime.text_value(2),"seed-B");
+    }
+
     const TWO:&str="component Demo { Frame { width:120; height:120; padding:10; gap:10; clip:true; Button { key:'first'; width:80; height:35; text:'Первая'; clicked -> actions.first(); } Button { key:'second'; width:80; height:35; text:'Вторая'; clicked -> actions.second(); } } }";
     const VISUAL:&str="component Button { Rectangle { radius:4; background:Brush { color:#ff0000; hover:#00ff00; pressed:#0000ff; transition:0ms; }; Border { width:2; background:Brush { color:#ffffff; focus:#ffff00; }; } PointerArea { clicked -> events.clicked(); } } }";
     fn model() -> Runtime {
@@ -2120,6 +2440,33 @@ mod tests {
         r.text_preedit("pending");r.focus(false);
         assert!(r.editors[0].as_ref().unwrap().preedit.is_empty());
         assert!(!r.is_animating());
+    }
+    #[test]
+    fn editor_reconciliation_preserves_committed_history_but_drops_preedit() {
+        let mut previous=Runtime::from_sources(TWO,EDITOR).unwrap();
+        assert!(previous.focus_control(0));
+        previous.text_key("End",false,false);
+        previous.text_insert("—committed");
+        let committed=previous.text_value(0);
+        previous.text_key("a",false,true);
+        let selection=previous.text_selected();
+        previous.text_preedit("未確定");
+        assert_eq!(previous.editors[0].as_ref().unwrap().preedit,"未確定");
+        let swapped=TWO.replace("'first'","'temporary'").replace("'second'","'first'").replace("'temporary'","'second'");
+        let mut next=Runtime::from_sources(&swapped,EDITOR).unwrap();
+        next.preserve_interaction(&previous);
+        assert_eq!(next.focused_index(),1);
+        assert_eq!(next.text_value(1),committed);
+        assert_eq!(next.text_selected(),selection);
+        assert!(next.editors.iter().flatten().all(|editor|editor.preedit.is_empty()));
+        assert_eq!(next.text_value(0),"seed");
+        assert!(next.text_key("z",false,true));
+        assert_eq!(next.text_value(1),"seed");
+        assert_eq!(next.text_value(0),"seed");
+        // Reconciliation is read-only with respect to the previous live scene.
+        assert_eq!(previous.text_value(0),committed);
+        assert_eq!(previous.editors[0].as_ref().unwrap().preedit,"未確定");
+        assert_eq!(previous.text_selected(),selection);
     }
     #[test]
     fn editor_reconciliation_uses_the_same_unique_keys_as_control_state() {
@@ -2515,6 +2862,30 @@ mod tests {
         assert!(!flipped.modal_is_open(0), "a changed declaration wins over runtime state");
     }
     #[test]
+    fn disabled_focus_navigation_and_late_key_release_remain_isolated() {
+        let mut runtime=model();assert!(runtime.focus_control(0));
+        runtime.key_event(1,true,false);runtime.set_binding_disabled(0,true).unwrap();
+        assert_eq!(runtime.focused_index(),-1);
+        runtime.set_binding_disabled(0,false).unwrap();assert!(runtime.focus_control(1));
+        runtime.key_event(1,false,false);assert_eq!(runtime.control_clicks(1),0);
+        assert!(runtime.focus_control(0));runtime.key_event(1,false,false);assert_eq!(runtime.control_clicks(0),0);
+        runtime.key_event(1,true,false);runtime.key_event(1,false,false);assert_eq!(runtime.control_clicks(0),1);
+        runtime.set_binding_disabled(0,true).unwrap();
+        assert!(runtime.focus_next(false));assert_eq!(runtime.focused_index(),1);
+        runtime.focus(false);assert!(runtime.focus_next(true));assert_eq!(runtime.focused_index(),1);
+        runtime.set_binding_disabled(1,true).unwrap();
+        assert!(!runtime.focus_next(false));assert!(!runtime.focus_next(true));runtime.focus(true);assert_eq!(runtime.focused_index(),-1);
+
+        let mut modal=Runtime::from_sources(LAYERED,VISUAL).unwrap();
+        modal.set_binding_disabled(1,true).unwrap();modal.set_binding_disabled(2,true).unwrap();
+        assert!(!modal.focus_control(0),"background cannot receive focus through an empty modal");
+        for reverse in [false,true] {assert!(!modal.focus_next(reverse));assert_eq!(modal.focused_index(),-1);}
+        modal.set_binding_disabled(2,false).unwrap();
+        for reverse in [false,true,false] {assert!(modal.focus_next(reverse));assert_eq!(modal.focused_index(),2);}
+        modal.close_modal(0);assert!(modal.focus_control(0));
+    }
+
+    #[test]
     fn scrolling_moves_only_the_base_scene_under_a_layer() {
         let source = "component Demo { Frame { width:200; height:60; padding:10; clip:true; Scroll { Button { key:'base'; width:80; height:200; clicked -> actions.base(); } } Modal { key:'ask'; x:20; y:40; width:160; height:80; Button { key:'yes'; width:60; height:24; clicked -> actions.yes(); } } } }";
         let mut r = Runtime::from_sources(source, VISUAL).unwrap();
@@ -2527,6 +2898,13 @@ mod tests {
         assert!(r.control_bounds(0)[1] < 10.);
         r.open_modal(0);
         assert_eq!(r.hit_index(30., 50.), 1, "layer controls ignore the scroll viewport");
+        let offset=r.scroll_offset();let base=r.control_bounds(0);let layer=r.control_bounds(1);
+        r.pointer(30.,50.,1);
+        r.scroll(0.,-20.);
+        assert_eq!(r.scroll_offset(),offset,"active modal blocks background scrolling");
+        assert_eq!(r.control_bounds(0),base);assert_eq!(r.control_bounds(1),layer);
+        r.pointer(30.,50.,2);assert_eq!(r.control_clicks(1),1,"blocked scroll must not cancel modal press");
+        r.close_modal(0);r.scroll(0.,-20.);assert!(r.scroll_offset()[1]<offset[1]);
     }
     #[test]
     fn layout_uses_component_defaults_and_single_scene_is_compatible() {
@@ -2609,7 +2987,7 @@ mod raster_tests {
         assert_eq!(runtime.layout_revision(), layout);
         let visual = runtime.visual_revision();
         let geometry = runtime.geometry_revision();
-        runtime.load_component(source, TEMPLATE).unwrap();
+        runtime.load_component_native(source, TEMPLATE).unwrap();
         assert_ne!(runtime.layout_revision(), layout);
         assert_ne!(runtime.visual_revision(), visual);
         assert_ne!(runtime.geometry_revision(), geometry);
@@ -2722,6 +3100,9 @@ mod raster_tests {
                     first % width as usize, first / width as usize, &expected[first*4..first*4+4], &actual[first*4..first*4+4]);
             }
             assert_eq!(runtime.raster(width, height, scale, background), actual);
+            let mut reused = vec![0x99; expected.len()];
+            runtime.paint_rgba(&mut reused, width, height, scale, background).unwrap();
+            assert_eq!(reused, expected, "caller-owned RGBA differs from full-canvas oracle");
             if background {
                 let mut native = vec![0; (width * height) as usize];
                 runtime.paint_native(&mut native, width, height, scale).unwrap();

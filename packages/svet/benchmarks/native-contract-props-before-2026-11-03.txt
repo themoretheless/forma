@@ -1,0 +1,20 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.57s
+     Running tests/runtime_allocations.rs (/tmp/svet-native-development/debug/deps/runtime_allocations-12d99b309779448f)
+
+running 1 test
+large resolved component property: 5059 allocations
+
+thread 'component_contract_check_borrows_large_resolved_properties' (16273213) panicked at tests/runtime_allocations.rs:280:5:
+contract validation copied resolved payload: 5059
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test component_contract_check_borrows_large_resolved_properties ... FAILED
+
+failures:
+
+failures:
+    component_contract_check_borrows_large_resolved_properties
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--test runtime_allocations`

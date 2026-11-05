@@ -1,0 +1,305 @@
+TAP version 13
+# Subtest: canvas geometry snapshots reuse bounds without requesting diagnostic strings
+ok 1 - canvas geometry snapshots reuse bounds without requesting diagnostic strings
+  ---
+  duration_ms: 3.472625
+  type: 'test'
+  ...
+# Subtest: a layout snapshot names the control of the markup it drew
+ok 2 - a layout snapshot names the control of the markup it drew
+  ---
+  duration_ms: 0.501958
+  type: 'test'
+  ...
+# Subtest: a layout snapshot carries the box a coordinate of the control counts from
+ok 3 - a layout snapshot carries the box a coordinate of the control counts from
+  ---
+  duration_ms: 0.393375
+  type: 'test'
+  ...
+# Subtest: a layout snapshot hands over the box of each container the layout measured
+ok 4 - a layout snapshot hands over the box of each container the layout measured
+  ---
+  duration_ms: 0.435625
+  type: 'test'
+  ...
+# Subtest: paint revisions do not invalidate layout snapshots on versioned runtimes
+ok 5 - paint revisions do not invalidate layout snapshots on versioned runtimes
+  ---
+  duration_ms: 0.695083
+  type: 'test'
+  ...
+# Subtest: selection and same-DPR resizes reuse the canvas while revision, DPI and model changes repaint
+ok 6 - selection and same-DPR resizes reuse the canvas while revision, DPI and model changes repaint
+  ---
+  duration_ms: 0.731375
+  type: 'test'
+  ...
+# Subtest: CPU ImageData shares the owned RGBA result, including a nonzero byte offset
+ok 7 - CPU ImageData shares the owned RGBA result, including a nonzero byte offset
+  ---
+  duration_ms: 0.265208
+  type: 'test'
+  ...
+# Subtest: mode changes rasterize once after clearing interaction and unchanged reduced motion is not reapplied
+ok 8 - mode changes rasterize once after clearing interaction and unchanged reduced motion is not reapplied
+  ---
+  duration_ms: 0.44525
+  type: 'test'
+  ...
+# Subtest: GPU activation releases the CPU backing store and fallback repaints the same revision
+ok 9 - GPU activation releases the CPU backing store and fallback repaints the same revision
+  ---
+  duration_ms: 0.684584
+  type: 'test'
+  ...
+# Subtest: destroy releases the canvas backing store even while the preview API remains referenced
+ok 10 - destroy releases the canvas backing store even while the preview API remains referenced
+  ---
+  duration_ms: 0.277459
+  type: 'test'
+  ...
+# Subtest: a passive canvas is an image with no tab stop, pointer capture, or activation
+ok 11 - a passive canvas is an image with no tab stop, pointer capture, or activation
+  ---
+  duration_ms: 0.42575
+  type: 'test'
+  ...
+# Subtest: disabled clickable controls retain button semantics without accepting input
+ok 12 - disabled clickable controls retain button semantics without accepting input
+  ---
+  duration_ms: 0.235125
+  type: 'test'
+  ...
+# Subtest: a mixed group uses a pointer and accepts pointer focus only over an enabled interactive control
+ok 13 - a mixed group uses a pointer and accepts pointer focus only over an enabled interactive control
+  ---
+  duration_ms: 0.319333
+  type: 'test'
+  ...
+# Subtest: passive items do not make a group with only disabled buttons focusable
+ok 14 - passive items do not make a group with only disabled buttons focusable
+  ---
+  duration_ms: 0.164416
+  type: 'test'
+  ...
+# Subtest: replacing an interactive template with a passive one updates semantics and a stationary cursor
+ok 15 - replacing an interactive template with a passive one updates semantics and a stationary cursor
+  ---
+  duration_ms: 0.177542
+  type: 'test'
+  ...
+# Subtest: design mode keeps its crosshair and selects passive geometry
+ok 16 - design mode keeps its crosshair and selects passive geometry
+  ---
+  duration_ms: 0.161833
+  type: 'test'
+  ...
+# Subtest: Shift+Tab enters a group at its last control and traverses every control before leaving
+ok 17 - Shift+Tab enters a group at its last control and traverses every control before leaving
+  ---
+  duration_ms: 0.247
+  type: 'test'
+  ...
+# Subtest: a custom drag focuses its control before start and survives synchronous value rerenders
+ok 18 - a custom drag focuses its control before start and survives synchronous value rerenders
+  ---
+  duration_ms: 0.336
+  type: 'test'
+  ...
+# Subtest: a custom drag is cancelled when its control becomes designMode
+ok 19 - a custom drag is cancelled when its control becomes designMode
+  ---
+  duration_ms: 0.664625
+  type: 'test'
+  ...
+# Subtest: a custom drag is cancelled when its control becomes disabled
+ok 20 - a custom drag is cancelled when its control becomes disabled
+  ---
+  duration_ms: 0.283708
+  type: 'test'
+  ...
+# Subtest: a custom drag is cancelled when its control becomes removed
+ok 21 - a custom drag is cancelled when its control becomes removed
+  ---
+  duration_ms: 0.233208
+  type: 'test'
+  ...
+# Subtest: window blur clears Reveal proximity and rerender, scroll, or resize cannot revive it
+ok 22 - window blur clears Reveal proximity and rerender, scroll, or resize cannot revive it
+  ---
+  duration_ms: 0.238625
+  type: 'test'
+  ...
+# Subtest: touch forwards ordinary pointer gestures and clears Reveal before a cached mouse can revive it
+ok 23 - touch forwards ordinary pointer gestures and clears Reveal before a cached mouse can revive it
+  ---
+  duration_ms: 0.340375
+  type: 'test'
+  ...
+# Subtest: a touch custom drag keeps focus and capture across value rerenders without mouse Reveal
+ok 24 - a touch custom drag keeps focus and capture across value rerenders without mouse Reveal
+  ---
+  duration_ms: 0.294708
+  type: 'test'
+  ...
+# Subtest: browser adapter commits composition once and routes clipboard into the Rust editor
+ok 25 - browser adapter commits composition once and routes clipboard into the Rust editor
+  ---
+  duration_ms: 0.441375
+  type: 'test'
+  ...
+# Subtest: binding callbacks target expanded controls and publish normalized values before recompile
+ok 26 - binding callbacks target expanded controls and publish normalized values before recompile
+  ---
+  duration_ms: 0.295833
+  type: 'test'
+  ...
+# Subtest: selected binding remains true on repeated activation while checked toggles
+ok 27 - selected binding remains true on repeated activation while checked toggles
+  ---
+  duration_ms: 0.18275
+  type: 'test'
+  ...
+# Subtest: browser word modifiers normalize Apple Option and non-Apple Ctrl without stealing composition/AltGr
+    # Subtest: MacIntel
+    ok 1 - MacIntel
+      ---
+      duration_ms: 0.243708
+      type: 'test'
+      ...
+    # Subtest: macOS
+    ok 2 - macOS
+      ---
+      duration_ms: 0.257958
+      type: 'test'
+      ...
+    # Subtest: Linux
+    ok 3 - Linux
+      ---
+      duration_ms: 0.332417
+      type: 'test'
+      ...
+    # Subtest: Win32
+    ok 4 - Win32
+      ---
+      duration_ms: 0.226625
+      type: 'test'
+      ...
+    1..4
+ok 28 - browser word modifiers normalize Apple Option and non-Apple Ctrl without stealing composition/AltGr
+  ---
+  duration_ms: 1.22425
+  type: 'test'
+  ...
+# Subtest: beforeinput word deletions forward normalized Rust actions without keydown
+ok 29 - beforeinput word deletions forward normalized Rust actions without keydown
+  ---
+  duration_ms: 0.229292
+  type: 'test'
+  ...
+# Subtest: composition cancellation preserves selection and ignores late updates/commit
+ok 30 - composition cancellation preserves selection and ignores late updates/commit
+  ---
+  duration_ms: 0.249041
+  type: 'test'
+  ...
+# Subtest: composition commit belongs to the original runtime and focused editor
+ok 31 - composition commit belongs to the original runtime and focused editor
+  ---
+  duration_ms: 0.235208
+  type: 'test'
+  ...
+# Subtest: browser soft line deletion forwards normalized Rust command keys
+ok 32 - browser soft line deletion forwards normalized Rust command keys
+  ---
+  duration_ms: 0.203458
+  type: 'test'
+  ...
+# Subtest: textarea multiline semantics follow Rust focused editor
+ok 33 - textarea multiline semantics follow Rust focused editor
+  ---
+  duration_ms: 0.187459
+  type: 'test'
+  ...
+# Subtest: textarea mirrors Rust value and UTF16 selection while leaving active composition untouched
+ok 34 - textarea mirrors Rust value and UTF16 selection while leaving active composition untouched
+  ---
+  duration_ms: 0.243333
+  type: 'test'
+  ...
+# Subtest: DOM selection import ignores mirrors, stale values and active composition
+ok 35 - DOM selection import ignores mirrors, stale values and active composition
+  ---
+  duration_ms: 0.220708
+  type: 'test'
+  ...
+# Subtest: editing adopts pending DOM selection before asynchronous select notification
+ok 36 - editing adopts pending DOM selection before asynchronous select notification
+  ---
+  duration_ms: 0.234916
+  type: 'test'
+  ...
+# Subtest: composition start captures pending DOM selection before locking transport
+not ok 37 - composition start captures pending DOM selection before locking transport
+  ---
+  duration_ms: 1.375166
+  type: 'test'
+  location: '/Users/themoretheless/Documents/Sources/forma/test/vector-preview.test.js:685:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly deep-equal:
+    + actual - expected
+    
+      [
+        [
+    -     'select',
+    -     5,
+    -     1
+    -   ],
+    -   [
+          'commit',
+          '新',
+          5,
+    +     5
+    -     1
+        ]
+      ]
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+    0:
+      0: 'select'
+      1: 5
+      2: 1
+    1:
+      0: 'commit'
+      1: '新'
+      2: 5
+      3: 1
+  actual:
+    0:
+      0: 'commit'
+      1: '新'
+      2: 5
+      3: 5
+  operator: 'deepStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///Users/themoretheless/Documents/Sources/forma/test/vector-preview.test.js:691:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..37
+# tests 41
+# suites 0
+# pass 40
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 94.324708

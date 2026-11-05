@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 24,
+  "browserCases": 13,
+  "pixelOracle": "Exact RGBA equality after plain navigation, word deletion, undo with/without preedit; marked frame differs before action",
+  "sha256": {
+    "vector-ui/src/text_input.rs": "3352a4a4c97ae073a6a5e1b86bc4825b4c1906e37219b09a8c81b5eccbf526d2",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "33cb81cc462a9bcb1abd660bfdb323b300ad683e2386b1fc9f743de7924674f2",
+    "vector-ui/tests/preview-word-browser.html": "c3e248819ea693bb09f98a9a97f634f95c973daf4304864dd860aa2bf2707e0c",
+    "/tmp/svet-editor-preedit-wasm/web/forma_bg.wasm": "05df45ac2a2985ec0bddfcbe3dbcebb5e91682e13ada0c1942829854600f2299"
+  },
+  "limits": [
+    "Synthetic composition, not actual OS IME",
+    "No GPU presentation gate"
+  ]
+}

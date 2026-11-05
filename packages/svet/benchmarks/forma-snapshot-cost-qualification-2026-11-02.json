@@ -1,0 +1,175 @@
+{
+  "status": "diagnostic-uncontrolled-host",
+  "scope": "Built Forma AOT Node/jsdom controls; current ownership snapshot versus unsafe trusted-input diagnostic bypass",
+  "rawReport": "forma-snapshot-cost-verified-2026-11-02.json",
+  "rawSha256": "6d188fc081efba767e4e64d6dcefb1ebc06c8de6955e62a1e206b9cb6c09fa66",
+  "harnessSha256": "45b55c9b495ee1dbf6ccae88c839b4381328e6a06b41a0e942c4361bb598f34d",
+  "runtimeFilesVerified": 20,
+  "priorCorrectnessQualification": "forma-ast-extensions-qualification-2026-11-02.json",
+  "rounds": 6,
+  "isolatedWorkers": 18,
+  "timedSamples": 2592,
+  "cells": 12,
+  "controls": [
+    8,
+    32,
+    96,
+    256
+  ],
+  "logicalCPUs": 16,
+  "loadavgBefore": [
+    37.13037109375,
+    31.57080078125,
+    31.89453125
+  ],
+  "loadavgAfter": [
+    34.53271484375,
+    31.376953125,
+    31.81884765625
+  ],
+  "maximumObservedAaRelativeSpread": 0.6298181063015167,
+  "observed256": [
+    {
+      "controls": 256,
+      "operation": "construct-dispose",
+      "baselineRoundMediansMs": {
+        "A1": [
+          0.21393699999998717,
+          0.16612500000002228,
+          0.08683350000001155,
+          0.08479149999999436,
+          0.08799950000002354,
+          0.1181255000000192
+        ],
+        "A2": [
+          0.08620849999999791,
+          0.20245849999997745,
+          0.11260400000003301,
+          0.08289600000000519,
+          0.08704149999994115,
+          0.08795850000001337
+        ]
+      },
+      "candidateRoundMediansMs": [
+        0.22091700000004266,
+        0.43972949999999855,
+        0.21524999999996908,
+        0.22974949999996852,
+        0.2763125000000173,
+        0.28591650000004165
+      ],
+      "baselineMedianMs": 0.08797900000001846,
+      "candidateMedianMs": 0.2530309999999929,
+      "candidateToBaselineRatio": 2.876038600119799,
+      "pairedCandidateMinusBaselineMs": [
+        0.07084425000005012,
+        0.2554377499999987,
+        0.1155312499999468,
+        0.14590574999996875,
+        0.18879200000003493,
+        0.18287450000002536
+      ],
+      "aaMedianRatio": 0.848999393571465,
+      "aaMaxRoundRelativeSpread": 0.5970379130304572,
+      "pairedMedianDeltaMs": 0.16439012499999706
+    },
+    {
+      "controls": 256,
+      "operation": "mount",
+      "baselineRoundMediansMs": {
+        "A1": [
+          1.5868540000000166,
+          2.6404794999999694,
+          1.6959165000000667,
+          1.5931250000000432,
+          1.7935414999999466,
+          1.8705415000000585
+        ],
+        "A2": [
+          1.6489374999999313,
+          3.075437499999964,
+          2.6362085000000093,
+          1.6774374999999964,
+          1.7114585000000488,
+          3.0466669999999567
+        ]
+      },
+      "candidateRoundMediansMs": [
+        1.827854000000002,
+        2.459895999999958,
+        1.9567499999999427,
+        1.835625499999992,
+        2.2772709999999847,
+        2.6677290000000085
+      ],
+      "baselineMedianMs": 1.7524999999999977,
+      "candidateMedianMs": 2.1170104999999637,
+      "candidateToBaselineRatio": 1.2079945791725915,
+      "pairedCandidateMinusBaselineMs": [
+        0.2099582500000281,
+        -0.39806250000000887,
+        -0.20931250000009527,
+        0.20034424999997213,
+        0.524770999999987,
+        0.20912475000000086
+      ],
+      "aaMedianRatio": 1.2459433528072388,
+      "aaMaxRoundRelativeSpread": 0.3860367739565614,
+      "pairedMedianDeltaMs": 0.2047344999999865
+    },
+    {
+      "controls": 256,
+      "operation": "HMR",
+      "baselineRoundMediansMs": {
+        "A1": [
+          3.1081040000001394,
+          2.9963955000000055,
+          3.7625209999999925,
+          1.8120210000000156,
+          4.8153125000000045,
+          2.096896000000015
+        ],
+        "A2": [
+          2.7579584999999724,
+          4.057375499999978,
+          2.0346460000000093,
+          2.5770835000000147,
+          1.7825414999999794,
+          2.3418960000000197
+        ]
+      },
+      "candidateRoundMediansMs": [
+        3.962395499999957,
+        2.0550835000000234,
+        2.2321249999999964,
+        2.0495205000000283,
+        2.449333499999966,
+        2.0611040000000003
+      ],
+      "baselineMedianMs": 2.6675209999999936,
+      "candidateMedianMs": 2.1466144999999983,
+      "candidateToBaselineRatio": 0.8047226244891805,
+      "pairedCandidateMinusBaselineMs": [
+        1.029364249999901,
+        -1.4718019999999683,
+        -0.6664585000000045,
+        -0.14503174999998691,
+        -0.8495935000000259,
+        -0.1582920000000172
+      ],
+      "aaMedianRatio": 0.8057957085588946,
+      "aaMaxRoundRelativeSpread": 0.6298181063015167,
+      "pairedMedianDeltaMs": -0.41237525000001085
+    }
+  ],
+  "interpretation": [
+    "Construction/dispose shows snapshot cost worth profiling: for32/96/256 controls all6 paired deltas are positive in this diagnostic.",
+    "Mount/HMR differences overlap substantial A/A scatter; no speedup or regression qualification.",
+    "Baseline bypass intentionally violates ownership and is not a proposed production change."
+  ],
+  "limitations": [
+    "Host load average34-37 on16 logical CPUs; controlled quiet-host run remains required.",
+    "Synthetic constant-label buttons share a counter; not a general complex-form workload.",
+    "Node/jsdom times do not qualify browser/native latency, FPS, peak memory, allocation counts or readiness."
+  ]
+}

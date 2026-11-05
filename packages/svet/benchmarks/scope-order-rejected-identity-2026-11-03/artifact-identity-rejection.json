@@ -1,0 +1,5 @@
+{
+  "status": "rejected",
+  "reason": "Baseline/candidate binary sha256 identical despite distinct types.rs sources; shared target directory reused artifact",
+  "sha256": "2ea61d306b3b5dc87aa5640e4ff889ac4f14d28192e2e2bce57c7850033f7cb4"
+}

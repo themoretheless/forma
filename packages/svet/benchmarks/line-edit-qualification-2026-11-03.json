@@ -1,0 +1,25 @@
+{
+  "status": "passed-scoped",
+  "nativeLibPassed": 227,
+  "standaloneTests": 4,
+  "lineIntegrationTests": 3,
+  "adapterTests": 36,
+  "ignored": 3,
+  "coverage": [
+    "Logical line start/end deletion",
+    "CRLF/combining/emoji and partial selection",
+    "Single undo restores value and cursor",
+    "Scalar CRLF interior preserves separator",
+    "Browser soft-line beforeinput forwarding"
+  ],
+  "sha256": {
+    "vector-ui/src/control_state.rs": "a2cac59779eda630390b565f1d8505c876d6ec3b6fe6fb5ce22280221bb132ff",
+    "vector-ui/src/text_input.rs": "052805ea6a7cdf19d9971998b7d3b2dd55decb37f1e995cba26df1e544b22791",
+    "src/vector-preview.js": "2c3b4b65d56c83e4282b5f37314fb9c45ff660c9df36767c68337d513ce0e927",
+    "vector-ui/tests/line_edit.rs": "2f3c4a46e1199783a56736bbd141165562b8ce0a0145f229c4150655e8957e56"
+  },
+  "limits": [
+    "No visual soft wrapping; logical lines only",
+    "Fresh WASM/browser and actual native keyboard gate pending"
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "status": "partial",
+  "scope": "Signal/Computed getters and peek retained after graph reset without explicit disposal; local and compatible peer-copy reset, Node forced GC",
+  "beforeRetained": {
+    "signal": {
+      "cores": 4,
+      "memories": 4
+    },
+    "signal-peek": {
+      "cores": 4,
+      "memories": 4
+    },
+    "computed": {
+      "cores": 4,
+      "memories": 4
+    },
+    "computed-peek": {
+      "cores": 4,
+      "memories": 4
+    },
+    "peer-signal": {
+      "cores": 4,
+      "memories": 4
+    },
+    "peer-signal-peek": {
+      "cores": 4,
+      "memories": 4
+    },
+    "peer-computed": {
+      "cores": 4,
+      "memories": 4
+    },
+    "peer-computed-peek": {
+      "cores": 4,
+      "memories": 4
+    }
+  },
+  "afterRetained": {
+    "signal": {
+      "cores": 0,
+      "memories": 0
+    },
+    "signal-peek": {
+      "cores": 0,
+      "memories": 0
+    },
+    "computed": {
+      "cores": 0,
+      "memories": 0
+    },
+    "computed-peek": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-signal": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-signal-peek": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-computed": {
+      "cores": 0,
+      "memories": 0
+    },
+    "peer-computed-peek": {
+      "cores": 0,
+      "memories": 0
+    }
+  },
+  "probeSha256": "d2e09248a340413704f67df90c97cc7294bcc9961e94a718fcb08a8b1d34b749",
+  "heldHandles": 32,
+  "coreMemoryTargets": 64,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "validation": {
+    "types": "passed",
+    "build": "passed",
+    "fullTests": 1503,
+    "fullFiles": 113,
+    "freshInstalledPackage": "passed"
+  },
+  "intermediate": "Module-local WeakMap passed local reset but retained all peer-reset handles; shared reactive domain fixes both",
+  "open": [
+    "Browser GC/HMR on new runtime bytes",
+    "Reset-only effects and retained root disposers",
+    "Hot-path and reset cost",
+    "Incompatible copies and other realms",
+    "Broad roadmap P1-P4"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 38,
+  "browserCases": 3,
+  "cache": "20 unchanged syncs have zero additional value/selection calls; real edit refreshes once",
+  "trusted": "Selection/replacement/undo Rust/DOM tails and offsets agree",
+  "sha256": {
+    "vector-ui/src/runtime.rs": "38b0d5a248a8f4ffe8b2be8ecf44a65916b64e96d4f658e1c67148c69c65ca6e",
+    "vector-ui/src/text_input.rs": "ff8ce0daf0a02296ae81564ffa1c490b12879411ee0793855f682285cde330eb",
+    "src/vector-preview.js": "8910fbd441474b0c358c58379c9fd99a58bc05d283e6d435a16de4bce2e6e477",
+    "vector-ui/tests/preview-mirror-browser.html": "45ba41a61764abc716e24f9d52e4e24ee47d55b463e20d9547b369c19f9cde69",
+    "/tmp/svet-input-epoch-wasm/web/forma_bg.wasm": "ffad5bd83f06a4e6389d9410a7706b919bac12bdc0a3a3bb55ff5f337318cb40"
+  },
+  "limits": [
+    "Call-count evidence, no timing/RSS/energy qualification",
+    "Post-scenario calls totals include live journal getters; use frozen case deltas",
+    "OS IME/screen-reader/platform qualification open"
+  ]
+}

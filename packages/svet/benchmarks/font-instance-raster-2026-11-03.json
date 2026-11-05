@@ -1,0 +1,4445 @@
+{
+  "scope": "Selected glyphs, five pixel sizes and four subpixel offsets through production CPU rasterizer; no full coverage or OS presentation claim",
+  "rows": [
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.0,
+      "glyphs": 10,
+      "max_alpha_error": 3,
+      "changed_pixels": 254,
+      "total_alpha_error": 277,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 1,
+          "changed_pixels": 32,
+          "total_alpha_error": 32,
+          "original_alpha_sum": 5755,
+          "relative_l1_error": 0.005560382276281494,
+          "worst_pixel": {
+            "x": 14,
+            "y": 112,
+            "original_alpha": 80,
+            "candidate_alpha": 79
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 2,
+          "changed_pixels": 21,
+          "total_alpha_error": 22,
+          "original_alpha_sum": 5897,
+          "relative_l1_error": 0.0037307105307783617,
+          "worst_pixel": {
+            "x": 20,
+            "y": 116,
+            "original_alpha": 106,
+            "candidate_alpha": 104
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 2,
+          "changed_pixels": 30,
+          "total_alpha_error": 33,
+          "original_alpha_sum": 5910,
+          "relative_l1_error": 0.005583756345177665,
+          "worst_pixel": {
+            "x": 16,
+            "y": 113,
+            "original_alpha": 170,
+            "candidate_alpha": 172
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 18,
+          "total_alpha_error": 19,
+          "original_alpha_sum": 6265,
+          "relative_l1_error": 0.0030327214684756584,
+          "worst_pixel": {
+            "x": 16,
+            "y": 115,
+            "original_alpha": 230,
+            "candidate_alpha": 228
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 2,
+          "changed_pixels": 25,
+          "total_alpha_error": 27,
+          "original_alpha_sum": 4851,
+          "relative_l1_error": 0.0055658627087198514,
+          "worst_pixel": {
+            "x": 19,
+            "y": 114,
+            "original_alpha": 212,
+            "candidate_alpha": 210
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 3,
+          "changed_pixels": 22,
+          "total_alpha_error": 29,
+          "original_alpha_sum": 4812,
+          "relative_l1_error": 0.006026600166251039,
+          "worst_pixel": {
+            "x": 14,
+            "y": 114,
+            "original_alpha": 252,
+            "candidate_alpha": 255
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 3,
+          "changed_pixels": 23,
+          "total_alpha_error": 27,
+          "original_alpha_sum": 7297,
+          "relative_l1_error": 0.0037001507468822806,
+          "worst_pixel": {
+            "x": 17,
+            "y": 114,
+            "original_alpha": 197,
+            "candidate_alpha": 200
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 2,
+          "changed_pixels": 31,
+          "total_alpha_error": 34,
+          "original_alpha_sum": 5116,
+          "relative_l1_error": 0.006645817044566067,
+          "worst_pixel": {
+            "x": 15,
+            "y": 115,
+            "original_alpha": 161,
+            "candidate_alpha": 163
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 2,
+          "changed_pixels": 31,
+          "total_alpha_error": 32,
+          "original_alpha_sum": 6128,
+          "relative_l1_error": 0.005221932114882507,
+          "worst_pixel": {
+            "x": 15,
+            "y": 117,
+            "original_alpha": 90,
+            "candidate_alpha": 88
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 2,
+          "changed_pixels": 21,
+          "total_alpha_error": 22,
+          "original_alpha_sum": 5803,
+          "relative_l1_error": 0.003791142512493538,
+          "worst_pixel": {
+            "x": 13,
+            "y": 115,
+            "original_alpha": 223,
+            "candidate_alpha": 221
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.25,
+      "glyphs": 10,
+      "max_alpha_error": 3,
+      "changed_pixels": 265,
+      "total_alpha_error": 289,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 2,
+          "changed_pixels": 24,
+          "total_alpha_error": 25,
+          "original_alpha_sum": 5755,
+          "relative_l1_error": 0.004344048653344918,
+          "worst_pixel": {
+            "x": 14,
+            "y": 114,
+            "original_alpha": 168,
+            "candidate_alpha": 170
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 1,
+          "changed_pixels": 20,
+          "total_alpha_error": 20,
+          "original_alpha_sum": 6024,
+          "relative_l1_error": 0.0033200531208499337,
+          "worst_pixel": {
+            "x": 14,
+            "y": 112,
+            "original_alpha": 37,
+            "candidate_alpha": 38
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 2,
+          "changed_pixels": 31,
+          "total_alpha_error": 32,
+          "original_alpha_sum": 5759,
+          "relative_l1_error": 0.005556520229206459,
+          "worst_pixel": {
+            "x": 16,
+            "y": 114,
+            "original_alpha": 176,
+            "candidate_alpha": 178
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 27,
+          "total_alpha_error": 28,
+          "original_alpha_sum": 6287,
+          "relative_l1_error": 0.004453634483855575,
+          "worst_pixel": {
+            "x": 16,
+            "y": 115,
+            "original_alpha": 167,
+            "candidate_alpha": 165
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 2,
+          "changed_pixels": 23,
+          "total_alpha_error": 24,
+          "original_alpha_sum": 4931,
+          "relative_l1_error": 0.004867166903265057,
+          "worst_pixel": {
+            "x": 17,
+            "y": 118,
+            "original_alpha": 24,
+            "candidate_alpha": 26
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 3,
+          "changed_pixels": 24,
+          "total_alpha_error": 32,
+          "original_alpha_sum": 4800,
+          "relative_l1_error": 0.006666666666666667,
+          "worst_pixel": {
+            "x": 17,
+            "y": 114,
+            "original_alpha": 178,
+            "candidate_alpha": 181
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 2,
+          "changed_pixels": 30,
+          "total_alpha_error": 35,
+          "original_alpha_sum": 7497,
+          "relative_l1_error": 0.004668534080298786,
+          "worst_pixel": {
+            "x": 17,
+            "y": 114,
+            "original_alpha": 149,
+            "candidate_alpha": 151
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 2,
+          "changed_pixels": 27,
+          "total_alpha_error": 32,
+          "original_alpha_sum": 5179,
+          "relative_l1_error": 0.006178798995945163,
+          "worst_pixel": {
+            "x": 16,
+            "y": 113,
+            "original_alpha": 229,
+            "candidate_alpha": 231
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 2,
+          "changed_pixels": 29,
+          "total_alpha_error": 30,
+          "original_alpha_sum": 6131,
+          "relative_l1_error": 0.004893165878323275,
+          "worst_pixel": {
+            "x": 18,
+            "y": 118,
+            "original_alpha": 62,
+            "candidate_alpha": 60
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 2,
+          "changed_pixels": 30,
+          "total_alpha_error": 31,
+          "original_alpha_sum": 5839,
+          "relative_l1_error": 0.0053091282753896215,
+          "worst_pixel": {
+            "x": 13,
+            "y": 116,
+            "original_alpha": 56,
+            "candidate_alpha": 54
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.5,
+      "glyphs": 10,
+      "max_alpha_error": 2,
+      "changed_pixels": 269,
+      "total_alpha_error": 285,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 1,
+          "changed_pixels": 24,
+          "total_alpha_error": 24,
+          "original_alpha_sum": 5769,
+          "relative_l1_error": 0.004160166406656267,
+          "worst_pixel": {
+            "x": 15,
+            "y": 113,
+            "original_alpha": 80,
+            "candidate_alpha": 79
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 2,
+          "changed_pixels": 30,
+          "total_alpha_error": 33,
+          "original_alpha_sum": 6169,
+          "relative_l1_error": 0.005349327281569136,
+          "worst_pixel": {
+            "x": 18,
+            "y": 115,
+            "original_alpha": 103,
+            "candidate_alpha": 105
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 2,
+          "changed_pixels": 30,
+          "total_alpha_error": 31,
+          "original_alpha_sum": 5726,
+          "relative_l1_error": 0.005413901501921062,
+          "worst_pixel": {
+            "x": 18,
+            "y": 118,
+            "original_alpha": 160,
+            "candidate_alpha": 158
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 24,
+          "total_alpha_error": 25,
+          "original_alpha_sum": 6317,
+          "relative_l1_error": 0.0039575747981636855,
+          "worst_pixel": {
+            "x": 16,
+            "y": 115,
+            "original_alpha": 167,
+            "candidate_alpha": 165
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 1,
+          "changed_pixels": 22,
+          "total_alpha_error": 22,
+          "original_alpha_sum": 5076,
+          "relative_l1_error": 0.004334121355397951,
+          "worst_pixel": {
+            "x": 17,
+            "y": 113,
+            "original_alpha": 84,
+            "candidate_alpha": 85
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 2,
+          "changed_pixels": 27,
+          "total_alpha_error": 29,
+          "original_alpha_sum": 4869,
+          "relative_l1_error": 0.005956048469911686,
+          "worst_pixel": {
+            "x": 16,
+            "y": 114,
+            "original_alpha": 136,
+            "candidate_alpha": 138
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 2,
+          "changed_pixels": 25,
+          "total_alpha_error": 27,
+          "original_alpha_sum": 7462,
+          "relative_l1_error": 0.0036183328866255695,
+          "worst_pixel": {
+            "x": 19,
+            "y": 113,
+            "original_alpha": 243,
+            "candidate_alpha": 245
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 2,
+          "changed_pixels": 28,
+          "total_alpha_error": 34,
+          "original_alpha_sum": 5229,
+          "relative_l1_error": 0.00650219927328361,
+          "worst_pixel": {
+            "x": 14,
+            "y": 113,
+            "original_alpha": 30,
+            "candidate_alpha": 32
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 1,
+          "changed_pixels": 32,
+          "total_alpha_error": 32,
+          "original_alpha_sum": 6128,
+          "relative_l1_error": 0.005221932114882507,
+          "worst_pixel": {
+            "x": 16,
+            "y": 113,
+            "original_alpha": 132,
+            "candidate_alpha": 133
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 2,
+          "changed_pixels": 27,
+          "total_alpha_error": 28,
+          "original_alpha_sum": 5866,
+          "relative_l1_error": 0.00477326968973747,
+          "worst_pixel": {
+            "x": 15,
+            "y": 119,
+            "original_alpha": 153,
+            "candidate_alpha": 155
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.75,
+      "glyphs": 10,
+      "max_alpha_error": 2,
+      "changed_pixels": 261,
+      "total_alpha_error": 272,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 2,
+          "changed_pixels": 24,
+          "total_alpha_error": 25,
+          "original_alpha_sum": 5704,
+          "relative_l1_error": 0.00438288920056101,
+          "worst_pixel": {
+            "x": 14,
+            "y": 116,
+            "original_alpha": 198,
+            "candidate_alpha": 200
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 2,
+          "changed_pixels": 28,
+          "total_alpha_error": 29,
+          "original_alpha_sum": 6066,
+          "relative_l1_error": 0.004780745136828223,
+          "worst_pixel": {
+            "x": 19,
+            "y": 115,
+            "original_alpha": 173,
+            "candidate_alpha": 175
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 2,
+          "changed_pixels": 30,
+          "total_alpha_error": 32,
+          "original_alpha_sum": 5817,
+          "relative_l1_error": 0.005501117414474815,
+          "worst_pixel": {
+            "x": 16,
+            "y": 115,
+            "original_alpha": 176,
+            "candidate_alpha": 178
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 19,
+          "total_alpha_error": 20,
+          "original_alpha_sum": 6292,
+          "relative_l1_error": 0.003178639542275906,
+          "worst_pixel": {
+            "x": 16,
+            "y": 115,
+            "original_alpha": 163,
+            "candidate_alpha": 161
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 2,
+          "changed_pixels": 29,
+          "total_alpha_error": 30,
+          "original_alpha_sum": 5048,
+          "relative_l1_error": 0.005942947702060222,
+          "worst_pixel": {
+            "x": 17,
+            "y": 121,
+            "original_alpha": 67,
+            "candidate_alpha": 69
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 2,
+          "changed_pixels": 24,
+          "total_alpha_error": 25,
+          "original_alpha_sum": 4854,
+          "relative_l1_error": 0.005150391429748661,
+          "worst_pixel": {
+            "x": 15,
+            "y": 115,
+            "original_alpha": 195,
+            "candidate_alpha": 197
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 2,
+          "changed_pixels": 27,
+          "total_alpha_error": 28,
+          "original_alpha_sum": 7407,
+          "relative_l1_error": 0.003780207911435129,
+          "worst_pixel": {
+            "x": 16,
+            "y": 114,
+            "original_alpha": 149,
+            "candidate_alpha": 147
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 1,
+          "changed_pixels": 30,
+          "total_alpha_error": 30,
+          "original_alpha_sum": 5166,
+          "relative_l1_error": 0.005807200929152149,
+          "worst_pixel": {
+            "x": 16,
+            "y": 113,
+            "original_alpha": 47,
+            "candidate_alpha": 48
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 2,
+          "changed_pixels": 28,
+          "total_alpha_error": 31,
+          "original_alpha_sum": 6129,
+          "relative_l1_error": 0.005057921357480829,
+          "worst_pixel": {
+            "x": 16,
+            "y": 115,
+            "original_alpha": 85,
+            "candidate_alpha": 83
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 1,
+          "changed_pixels": 22,
+          "total_alpha_error": 22,
+          "original_alpha_sum": 5782,
+          "relative_l1_error": 0.0038049117952265654,
+          "worst_pixel": {
+            "x": 19,
+            "y": 113,
+            "original_alpha": 108,
+            "candidate_alpha": 109
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.0,
+      "glyphs": 10,
+      "max_alpha_error": 4,
+      "changed_pixels": 611,
+      "total_alpha_error": 773,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 2,
+          "changed_pixels": 47,
+          "total_alpha_error": 64,
+          "original_alpha_sum": 13464,
+          "relative_l1_error": 0.004753416518122401,
+          "worst_pixel": {
+            "x": 15,
+            "y": 111,
+            "original_alpha": 131,
+            "candidate_alpha": 133
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 2,
+          "changed_pixels": 58,
+          "total_alpha_error": 69,
+          "original_alpha_sum": 14186,
+          "relative_l1_error": 0.004863950373607782,
+          "worst_pixel": {
+            "x": 23,
+            "y": 109,
+            "original_alpha": 248,
+            "candidate_alpha": 246
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 3,
+          "changed_pixels": 67,
+          "total_alpha_error": 94,
+          "original_alpha_sum": 13776,
+          "relative_l1_error": 0.006823461091753775,
+          "worst_pixel": {
+            "x": 18,
+            "y": 111,
+            "original_alpha": 217,
+            "candidate_alpha": 220
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 58,
+          "total_alpha_error": 62,
+          "original_alpha_sum": 14972,
+          "relative_l1_error": 0.004141063318193962,
+          "worst_pixel": {
+            "x": 18,
+            "y": 110,
+            "original_alpha": 141,
+            "candidate_alpha": 139
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 2,
+          "changed_pixels": 57,
+          "total_alpha_error": 64,
+          "original_alpha_sum": 12061,
+          "relative_l1_error": 0.005306359340021557,
+          "worst_pixel": {
+            "x": 13,
+            "y": 115,
+            "original_alpha": 178,
+            "candidate_alpha": 180
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 3,
+          "changed_pixels": 52,
+          "total_alpha_error": 67,
+          "original_alpha_sum": 11375,
+          "relative_l1_error": 0.0058901098901098905,
+          "worst_pixel": {
+            "x": 18,
+            "y": 110,
+            "original_alpha": 103,
+            "candidate_alpha": 106
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 4,
+          "changed_pixels": 66,
+          "total_alpha_error": 93,
+          "original_alpha_sum": 17222,
+          "relative_l1_error": 0.00540006967831843,
+          "worst_pixel": {
+            "x": 21,
+            "y": 111,
+            "original_alpha": 208,
+            "candidate_alpha": 212
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 2,
+          "changed_pixels": 56,
+          "total_alpha_error": 75,
+          "original_alpha_sum": 12418,
+          "relative_l1_error": 0.006039619906587212,
+          "worst_pixel": {
+            "x": 14,
+            "y": 109,
+            "original_alpha": 76,
+            "candidate_alpha": 78
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 2,
+          "changed_pixels": 80,
+          "total_alpha_error": 109,
+          "original_alpha_sum": 14832,
+          "relative_l1_error": 0.007348975188781014,
+          "worst_pixel": {
+            "x": 25,
+            "y": 109,
+            "original_alpha": 0,
+            "candidate_alpha": 2
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 3,
+          "changed_pixels": 70,
+          "total_alpha_error": 76,
+          "original_alpha_sum": 13856,
+          "relative_l1_error": 0.005484988452655889,
+          "worst_pixel": {
+            "x": 19,
+            "y": 115,
+            "original_alpha": 230,
+            "candidate_alpha": 233
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.25,
+      "glyphs": 10,
+      "max_alpha_error": 3,
+      "changed_pixels": 609,
+      "total_alpha_error": 748,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 3,
+          "changed_pixels": 52,
+          "total_alpha_error": 72,
+          "original_alpha_sum": 13673,
+          "relative_l1_error": 0.005265852409858846,
+          "worst_pixel": {
+            "x": 15,
+            "y": 111,
+            "original_alpha": 249,
+            "candidate_alpha": 252
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 2,
+          "changed_pixels": 59,
+          "total_alpha_error": 68,
+          "original_alpha_sum": 14507,
+          "relative_l1_error": 0.004687392293375611,
+          "worst_pixel": {
+            "x": 23,
+            "y": 110,
+            "original_alpha": 242,
+            "candidate_alpha": 244
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 3,
+          "changed_pixels": 63,
+          "total_alpha_error": 74,
+          "original_alpha_sum": 13490,
+          "relative_l1_error": 0.005485544848035582,
+          "worst_pixel": {
+            "x": 19,
+            "y": 111,
+            "original_alpha": 178,
+            "candidate_alpha": 181
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 63,
+          "total_alpha_error": 69,
+          "original_alpha_sum": 14945,
+          "relative_l1_error": 0.004616928738708598,
+          "worst_pixel": {
+            "x": 18,
+            "y": 110,
+            "original_alpha": 77,
+            "candidate_alpha": 75
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 2,
+          "changed_pixels": 51,
+          "total_alpha_error": 74,
+          "original_alpha_sum": 11712,
+          "relative_l1_error": 0.006318306010928962,
+          "worst_pixel": {
+            "x": 19,
+            "y": 109,
+            "original_alpha": 194,
+            "candidate_alpha": 196
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 2,
+          "changed_pixels": 49,
+          "total_alpha_error": 63,
+          "original_alpha_sum": 11393,
+          "relative_l1_error": 0.005529711226191521,
+          "worst_pixel": {
+            "x": 13,
+            "y": 110,
+            "original_alpha": 10,
+            "candidate_alpha": 12
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 3,
+          "changed_pixels": 74,
+          "total_alpha_error": 95,
+          "original_alpha_sum": 17662,
+          "relative_l1_error": 0.005378779300192504,
+          "worst_pixel": {
+            "x": 23,
+            "y": 109,
+            "original_alpha": 179,
+            "candidate_alpha": 182
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 3,
+          "changed_pixels": 66,
+          "total_alpha_error": 81,
+          "original_alpha_sum": 12192,
+          "relative_l1_error": 0.006643700787401575,
+          "worst_pixel": {
+            "x": 19,
+            "y": 109,
+            "original_alpha": 235,
+            "candidate_alpha": 238
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 3,
+          "changed_pixels": 77,
+          "total_alpha_error": 92,
+          "original_alpha_sum": 14832,
+          "relative_l1_error": 0.006202804746494067,
+          "worst_pixel": {
+            "x": 19,
+            "y": 111,
+            "original_alpha": 67,
+            "candidate_alpha": 70
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 2,
+          "changed_pixels": 55,
+          "total_alpha_error": 60,
+          "original_alpha_sum": 13676,
+          "relative_l1_error": 0.004387247733255338,
+          "worst_pixel": {
+            "x": 17,
+            "y": 115,
+            "original_alpha": 49,
+            "candidate_alpha": 51
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.5,
+      "glyphs": 10,
+      "max_alpha_error": 3,
+      "changed_pixels": 669,
+      "total_alpha_error": 820,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 2,
+          "changed_pixels": 54,
+          "total_alpha_error": 59,
+          "original_alpha_sum": 13744,
+          "relative_l1_error": 0.004292782305005821,
+          "worst_pixel": {
+            "x": 25,
+            "y": 112,
+            "original_alpha": 212,
+            "candidate_alpha": 210
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 2,
+          "changed_pixels": 62,
+          "total_alpha_error": 70,
+          "original_alpha_sum": 14224,
+          "relative_l1_error": 0.004921259842519685,
+          "worst_pixel": {
+            "x": 15,
+            "y": 110,
+            "original_alpha": 203,
+            "candidate_alpha": 205
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 3,
+          "changed_pixels": 69,
+          "total_alpha_error": 78,
+          "original_alpha_sum": 13773,
+          "relative_l1_error": 0.0056632541929862775,
+          "worst_pixel": {
+            "x": 18,
+            "y": 112,
+            "original_alpha": 217,
+            "candidate_alpha": 220
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 53,
+          "total_alpha_error": 58,
+          "original_alpha_sum": 14730,
+          "relative_l1_error": 0.003937542430414121,
+          "worst_pixel": {
+            "x": 18,
+            "y": 111,
+            "original_alpha": 120,
+            "candidate_alpha": 118
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 3,
+          "changed_pixels": 47,
+          "total_alpha_error": 75,
+          "original_alpha_sum": 11449,
+          "relative_l1_error": 0.006550790462049087,
+          "worst_pixel": {
+            "x": 20,
+            "y": 115,
+            "original_alpha": 4,
+            "candidate_alpha": 7
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 3,
+          "changed_pixels": 56,
+          "total_alpha_error": 77,
+          "original_alpha_sum": 11597,
+          "relative_l1_error": 0.006639648184875399,
+          "worst_pixel": {
+            "x": 23,
+            "y": 112,
+            "original_alpha": 190,
+            "candidate_alpha": 193
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 3,
+          "changed_pixels": 91,
+          "total_alpha_error": 110,
+          "original_alpha_sum": 17597,
+          "relative_l1_error": 0.00625106552253225,
+          "worst_pixel": {
+            "x": 23,
+            "y": 109,
+            "original_alpha": 179,
+            "candidate_alpha": 182
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 2,
+          "changed_pixels": 71,
+          "total_alpha_error": 97,
+          "original_alpha_sum": 12151,
+          "relative_l1_error": 0.007982882067319562,
+          "worst_pixel": {
+            "x": 14,
+            "y": 110,
+            "original_alpha": 203,
+            "candidate_alpha": 205
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 2,
+          "changed_pixels": 93,
+          "total_alpha_error": 112,
+          "original_alpha_sum": 14854,
+          "relative_l1_error": 0.007540056550424128,
+          "worst_pixel": {
+            "x": 21,
+            "y": 110,
+            "original_alpha": 151,
+            "candidate_alpha": 149
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 2,
+          "changed_pixels": 73,
+          "total_alpha_error": 84,
+          "original_alpha_sum": 13580,
+          "relative_l1_error": 0.006185567010309278,
+          "worst_pixel": {
+            "x": 21,
+            "y": 109,
+            "original_alpha": 23,
+            "candidate_alpha": 21
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.75,
+      "glyphs": 10,
+      "max_alpha_error": 3,
+      "changed_pixels": 615,
+      "total_alpha_error": 725,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 2,
+          "changed_pixels": 59,
+          "total_alpha_error": 66,
+          "original_alpha_sum": 13572,
+          "relative_l1_error": 0.004862953138815208,
+          "worst_pixel": {
+            "x": 18,
+            "y": 113,
+            "original_alpha": 194,
+            "candidate_alpha": 196
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 3,
+          "changed_pixels": 48,
+          "total_alpha_error": 54,
+          "original_alpha_sum": 13850,
+          "relative_l1_error": 0.0038989169675090253,
+          "worst_pixel": {
+            "x": 23,
+            "y": 114,
+            "original_alpha": 39,
+            "candidate_alpha": 36
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 3,
+          "changed_pixels": 61,
+          "total_alpha_error": 69,
+          "original_alpha_sum": 13830,
+          "relative_l1_error": 0.004989154013015184,
+          "worst_pixel": {
+            "x": 20,
+            "y": 112,
+            "original_alpha": 178,
+            "candidate_alpha": 181
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 2,
+          "changed_pixels": 57,
+          "total_alpha_error": 62,
+          "original_alpha_sum": 14936,
+          "relative_l1_error": 0.004151044456347081,
+          "worst_pixel": {
+            "x": 19,
+            "y": 111,
+            "original_alpha": 248,
+            "candidate_alpha": 246
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 2,
+          "changed_pixels": 57,
+          "total_alpha_error": 59,
+          "original_alpha_sum": 11784,
+          "relative_l1_error": 0.005006788866259335,
+          "worst_pixel": {
+            "x": 20,
+            "y": 117,
+            "original_alpha": 137,
+            "candidate_alpha": 139
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 3,
+          "changed_pixels": 49,
+          "total_alpha_error": 65,
+          "original_alpha_sum": 11480,
+          "relative_l1_error": 0.005662020905923345,
+          "worst_pixel": {
+            "x": 19,
+            "y": 111,
+            "original_alpha": 174,
+            "candidate_alpha": 177
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 3,
+          "changed_pixels": 72,
+          "total_alpha_error": 89,
+          "original_alpha_sum": 17215,
+          "relative_l1_error": 0.005169909962242231,
+          "worst_pixel": {
+            "x": 20,
+            "y": 112,
+            "original_alpha": 162,
+            "candidate_alpha": 165
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 3,
+          "changed_pixels": 69,
+          "total_alpha_error": 93,
+          "original_alpha_sum": 12323,
+          "relative_l1_error": 0.007546863588411913,
+          "worst_pixel": {
+            "x": 19,
+            "y": 115,
+            "original_alpha": 168,
+            "candidate_alpha": 171
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 3,
+          "changed_pixels": 80,
+          "total_alpha_error": 95,
+          "original_alpha_sum": 14852,
+          "relative_l1_error": 0.0063964449232426605,
+          "worst_pixel": {
+            "x": 19,
+            "y": 111,
+            "original_alpha": 78,
+            "candidate_alpha": 81
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 3,
+          "changed_pixels": 63,
+          "total_alpha_error": 73,
+          "original_alpha_sum": 13708,
+          "relative_l1_error": 0.005325357455500438,
+          "worst_pixel": {
+            "x": 18,
+            "y": 115,
+            "original_alpha": 225,
+            "candidate_alpha": 228
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.0,
+      "glyphs": 10,
+      "max_alpha_error": 19,
+      "changed_pixels": 1429,
+      "total_alpha_error": 2434,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 19,
+          "changed_pixels": 128,
+          "total_alpha_error": 243,
+          "original_alpha_sum": 39504,
+          "relative_l1_error": 0.006151275820170109,
+          "worst_pixel": {
+            "x": 13,
+            "y": 108,
+            "original_alpha": 190,
+            "candidate_alpha": 171
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 3,
+          "changed_pixels": 144,
+          "total_alpha_error": 207,
+          "original_alpha_sum": 40619,
+          "relative_l1_error": 0.005096137275659174,
+          "worst_pixel": {
+            "x": 32,
+            "y": 101,
+            "original_alpha": 169,
+            "candidate_alpha": 166
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 4,
+          "changed_pixels": 146,
+          "total_alpha_error": 256,
+          "original_alpha_sum": 39869,
+          "relative_l1_error": 0.006421028869547769,
+          "worst_pixel": {
+            "x": 22,
+            "y": 105,
+            "original_alpha": 45,
+            "candidate_alpha": 49
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 6,
+          "changed_pixels": 149,
+          "total_alpha_error": 205,
+          "original_alpha_sum": 43170,
+          "relative_l1_error": 0.004748668056520732,
+          "worst_pixel": {
+            "x": 19,
+            "y": 116,
+            "original_alpha": 191,
+            "candidate_alpha": 185
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 5,
+          "changed_pixels": 127,
+          "total_alpha_error": 217,
+          "original_alpha_sum": 33663,
+          "relative_l1_error": 0.00644624662091911,
+          "worst_pixel": {
+            "x": 24,
+            "y": 121,
+            "original_alpha": 198,
+            "candidate_alpha": 203
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 4,
+          "changed_pixels": 112,
+          "total_alpha_error": 213,
+          "original_alpha_sum": 33372,
+          "relative_l1_error": 0.006382596188421431,
+          "worst_pixel": {
+            "x": 29,
+            "y": 104,
+            "original_alpha": 242,
+            "candidate_alpha": 246
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 5,
+          "changed_pixels": 174,
+          "total_alpha_error": 314,
+          "original_alpha_sum": 49982,
+          "relative_l1_error": 0.006282261614181105,
+          "worst_pixel": {
+            "x": 22,
+            "y": 103,
+            "original_alpha": 58,
+            "candidate_alpha": 53
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 3,
+          "changed_pixels": 142,
+          "total_alpha_error": 270,
+          "original_alpha_sum": 35511,
+          "relative_l1_error": 0.007603277857565261,
+          "worst_pixel": {
+            "x": 14,
+            "y": 102,
+            "original_alpha": 166,
+            "candidate_alpha": 169
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 8,
+          "changed_pixels": 167,
+          "total_alpha_error": 282,
+          "original_alpha_sum": 43617,
+          "relative_l1_error": 0.006465369007497077,
+          "worst_pixel": {
+            "x": 33,
+            "y": 121,
+            "original_alpha": 116,
+            "candidate_alpha": 108
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 4,
+          "changed_pixels": 140,
+          "total_alpha_error": 227,
+          "original_alpha_sum": 39597,
+          "relative_l1_error": 0.005732757532136273,
+          "worst_pixel": {
+            "x": 21,
+            "y": 111,
+            "original_alpha": 172,
+            "candidate_alpha": 176
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.25,
+      "glyphs": 10,
+      "max_alpha_error": 19,
+      "changed_pixels": 1468,
+      "total_alpha_error": 2425,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 19,
+          "changed_pixels": 123,
+          "total_alpha_error": 229,
+          "original_alpha_sum": 39449,
+          "relative_l1_error": 0.005804963370427641,
+          "worst_pixel": {
+            "x": 13,
+            "y": 108,
+            "original_alpha": 79,
+            "candidate_alpha": 60
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 4,
+          "changed_pixels": 150,
+          "total_alpha_error": 232,
+          "original_alpha_sum": 40533,
+          "relative_l1_error": 0.005723731280684874,
+          "worst_pixel": {
+            "x": 31,
+            "y": 103,
+            "original_alpha": 225,
+            "candidate_alpha": 229
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 4,
+          "changed_pixels": 144,
+          "total_alpha_error": 220,
+          "original_alpha_sum": 39723,
+          "relative_l1_error": 0.00553835309518415,
+          "worst_pixel": {
+            "x": 25,
+            "y": 106,
+            "original_alpha": 233,
+            "candidate_alpha": 237
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 13,
+          "changed_pixels": 162,
+          "total_alpha_error": 217,
+          "original_alpha_sum": 43124,
+          "relative_l1_error": 0.005032000742046193,
+          "worst_pixel": {
+            "x": 19,
+            "y": 117,
+            "original_alpha": 198,
+            "candidate_alpha": 185
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 5,
+          "changed_pixels": 116,
+          "total_alpha_error": 199,
+          "original_alpha_sum": 33866,
+          "relative_l1_error": 0.005876099923226835,
+          "worst_pixel": {
+            "x": 25,
+            "y": 112,
+            "original_alpha": 152,
+            "candidate_alpha": 157
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 3,
+          "changed_pixels": 116,
+          "total_alpha_error": 224,
+          "original_alpha_sum": 33292,
+          "relative_l1_error": 0.00672834314550042,
+          "worst_pixel": {
+            "x": 14,
+            "y": 104,
+            "original_alpha": 172,
+            "candidate_alpha": 175
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 5,
+          "changed_pixels": 175,
+          "total_alpha_error": 304,
+          "original_alpha_sum": 49962,
+          "relative_l1_error": 0.006084624314479004,
+          "worst_pixel": {
+            "x": 29,
+            "y": 103,
+            "original_alpha": 240,
+            "candidate_alpha": 235
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 5,
+          "changed_pixels": 145,
+          "total_alpha_error": 253,
+          "original_alpha_sum": 35614,
+          "relative_l1_error": 0.007103947885662942,
+          "worst_pixel": {
+            "x": 23,
+            "y": 111,
+            "original_alpha": 171,
+            "candidate_alpha": 176
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 5,
+          "changed_pixels": 191,
+          "total_alpha_error": 333,
+          "original_alpha_sum": 43612,
+          "relative_l1_error": 0.00763551316151518,
+          "worst_pixel": {
+            "x": 34,
+            "y": 121,
+            "original_alpha": 38,
+            "candidate_alpha": 33
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 4,
+          "changed_pixels": 146,
+          "total_alpha_error": 214,
+          "original_alpha_sum": 39540,
+          "relative_l1_error": 0.005412240768841679,
+          "worst_pixel": {
+            "x": 21,
+            "y": 111,
+            "original_alpha": 168,
+            "candidate_alpha": 172
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.5,
+      "glyphs": 10,
+      "max_alpha_error": 16,
+      "changed_pixels": 1436,
+      "total_alpha_error": 2514,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 16,
+          "changed_pixels": 110,
+          "total_alpha_error": 229,
+          "original_alpha_sum": 39363,
+          "relative_l1_error": 0.005817646012753093,
+          "worst_pixel": {
+            "x": 14,
+            "y": 108,
+            "original_alpha": 204,
+            "candidate_alpha": 188
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 5,
+          "changed_pixels": 145,
+          "total_alpha_error": 242,
+          "original_alpha_sum": 40566,
+          "relative_l1_error": 0.005965586944732042,
+          "worst_pixel": {
+            "x": 30,
+            "y": 112,
+            "original_alpha": 121,
+            "candidate_alpha": 116
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 4,
+          "changed_pixels": 158,
+          "total_alpha_error": 274,
+          "original_alpha_sum": 39833,
+          "relative_l1_error": 0.006878718650365275,
+          "worst_pixel": {
+            "x": 25,
+            "y": 106,
+            "original_alpha": 233,
+            "candidate_alpha": 237
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 13,
+          "changed_pixels": 143,
+          "total_alpha_error": 213,
+          "original_alpha_sum": 43431,
+          "relative_l1_error": 0.004904331007805484,
+          "worst_pixel": {
+            "x": 19,
+            "y": 117,
+            "original_alpha": 109,
+            "candidate_alpha": 96
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 5,
+          "changed_pixels": 104,
+          "total_alpha_error": 232,
+          "original_alpha_sum": 34000,
+          "relative_l1_error": 0.006823529411764706,
+          "worst_pixel": {
+            "x": 25,
+            "y": 112,
+            "original_alpha": 152,
+            "candidate_alpha": 157
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 4,
+          "changed_pixels": 122,
+          "total_alpha_error": 231,
+          "original_alpha_sum": 33412,
+          "relative_l1_error": 0.006913683706452772,
+          "worst_pixel": {
+            "x": 24,
+            "y": 104,
+            "original_alpha": 182,
+            "candidate_alpha": 186
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 5,
+          "changed_pixels": 186,
+          "total_alpha_error": 311,
+          "original_alpha_sum": 50045,
+          "relative_l1_error": 0.006214407033669697,
+          "worst_pixel": {
+            "x": 29,
+            "y": 103,
+            "original_alpha": 240,
+            "candidate_alpha": 235
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 5,
+          "changed_pixels": 130,
+          "total_alpha_error": 252,
+          "original_alpha_sum": 35669,
+          "relative_l1_error": 0.007064958367209622,
+          "worst_pixel": {
+            "x": 24,
+            "y": 111,
+            "original_alpha": 244,
+            "candidate_alpha": 249
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 7,
+          "changed_pixels": 192,
+          "total_alpha_error": 305,
+          "original_alpha_sum": 43585,
+          "relative_l1_error": 0.006997820351038201,
+          "worst_pixel": {
+            "x": 34,
+            "y": 121,
+            "original_alpha": 122,
+            "candidate_alpha": 115
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 4,
+          "changed_pixels": 146,
+          "total_alpha_error": 225,
+          "original_alpha_sum": 39451,
+          "relative_l1_error": 0.005703277483460495,
+          "worst_pixel": {
+            "x": 25,
+            "y": 112,
+            "original_alpha": 249,
+            "candidate_alpha": 253
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.75,
+      "glyphs": 10,
+      "max_alpha_error": 18,
+      "changed_pixels": 1445,
+      "total_alpha_error": 2497,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 18,
+          "changed_pixels": 112,
+          "total_alpha_error": 245,
+          "original_alpha_sum": 39544,
+          "relative_l1_error": 0.0061956301840987256,
+          "worst_pixel": {
+            "x": 14,
+            "y": 108,
+            "original_alpha": 97,
+            "candidate_alpha": 79
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 4,
+          "changed_pixels": 149,
+          "total_alpha_error": 229,
+          "original_alpha_sum": 40760,
+          "relative_l1_error": 0.005618253189401374,
+          "worst_pixel": {
+            "x": 31,
+            "y": 104,
+            "original_alpha": 61,
+            "candidate_alpha": 65
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 4,
+          "changed_pixels": 146,
+          "total_alpha_error": 271,
+          "original_alpha_sum": 39951,
+          "relative_l1_error": 0.0067833095542039,
+          "worst_pixel": {
+            "x": 23,
+            "y": 106,
+            "original_alpha": 172,
+            "candidate_alpha": 176
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 10,
+          "changed_pixels": 152,
+          "total_alpha_error": 242,
+          "original_alpha_sum": 43081,
+          "relative_l1_error": 0.005617325503122026,
+          "worst_pixel": {
+            "x": 19,
+            "y": 117,
+            "original_alpha": 25,
+            "candidate_alpha": 15
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 3,
+          "changed_pixels": 112,
+          "total_alpha_error": 205,
+          "original_alpha_sum": 33771,
+          "relative_l1_error": 0.006070297000384946,
+          "worst_pixel": {
+            "x": 25,
+            "y": 101,
+            "original_alpha": 160,
+            "candidate_alpha": 163
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 5,
+          "changed_pixels": 121,
+          "total_alpha_error": 188,
+          "original_alpha_sum": 33434,
+          "relative_l1_error": 0.005623018484177783,
+          "worst_pixel": {
+            "x": 24,
+            "y": 104,
+            "original_alpha": 131,
+            "candidate_alpha": 136
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 5,
+          "changed_pixels": 193,
+          "total_alpha_error": 340,
+          "original_alpha_sum": 50174,
+          "relative_l1_error": 0.006776418065133336,
+          "worst_pixel": {
+            "x": 29,
+            "y": 103,
+            "original_alpha": 240,
+            "candidate_alpha": 235
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 4,
+          "changed_pixels": 147,
+          "total_alpha_error": 265,
+          "original_alpha_sum": 35588,
+          "relative_l1_error": 0.0074463302236709005,
+          "worst_pixel": {
+            "x": 34,
+            "y": 103,
+            "original_alpha": 189,
+            "candidate_alpha": 193
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 5,
+          "changed_pixels": 171,
+          "total_alpha_error": 289,
+          "original_alpha_sum": 43612,
+          "relative_l1_error": 0.006626616527561221,
+          "worst_pixel": {
+            "x": 24,
+            "y": 105,
+            "original_alpha": 194,
+            "candidate_alpha": 199
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 3,
+          "changed_pixels": 142,
+          "total_alpha_error": 223,
+          "original_alpha_sum": 39530,
+          "relative_l1_error": 0.005641285099924108,
+          "worst_pixel": {
+            "x": 28,
+            "y": 101,
+            "original_alpha": 33,
+            "candidate_alpha": 30
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.0,
+      "glyphs": 10,
+      "max_alpha_error": 21,
+      "changed_pixels": 3435,
+      "total_alpha_error": 10244,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 8,
+          "changed_pixels": 293,
+          "total_alpha_error": 833,
+          "original_alpha_sum": 157026,
+          "relative_l1_error": 0.005304853973227363,
+          "worst_pixel": {
+            "x": 32,
+            "y": 95,
+            "original_alpha": 124,
+            "candidate_alpha": 132
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 8,
+          "changed_pixels": 333,
+          "total_alpha_error": 930,
+          "original_alpha_sum": 160976,
+          "relative_l1_error": 0.005777258721797038,
+          "worst_pixel": {
+            "x": 47,
+            "y": 103,
+            "original_alpha": 241,
+            "candidate_alpha": 233
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 9,
+          "changed_pixels": 306,
+          "total_alpha_error": 1023,
+          "original_alpha_sum": 158649,
+          "relative_l1_error": 0.006448196963107237,
+          "worst_pixel": {
+            "x": 33,
+            "y": 91,
+            "original_alpha": 89,
+            "candidate_alpha": 98
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 6,
+          "changed_pixels": 382,
+          "total_alpha_error": 874,
+          "original_alpha_sum": 171849,
+          "relative_l1_error": 0.005085860261043125,
+          "worst_pixel": {
+            "x": 34,
+            "y": 85,
+            "original_alpha": 228,
+            "candidate_alpha": 222
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 9,
+          "changed_pixels": 250,
+          "total_alpha_error": 852,
+          "original_alpha_sum": 134409,
+          "relative_l1_error": 0.0063388612369707385,
+          "worst_pixel": {
+            "x": 37,
+            "y": 123,
+            "original_alpha": 148,
+            "candidate_alpha": 157
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 7,
+          "changed_pixels": 282,
+          "total_alpha_error": 822,
+          "original_alpha_sum": 133047,
+          "relative_l1_error": 0.00617826783016528,
+          "worst_pixel": {
+            "x": 21,
+            "y": 91,
+            "original_alpha": 208,
+            "candidate_alpha": 215
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 11,
+          "changed_pixels": 449,
+          "total_alpha_error": 1383,
+          "original_alpha_sum": 198088,
+          "relative_l1_error": 0.006981745486854327,
+          "worst_pixel": {
+            "x": 46,
+            "y": 86,
+            "original_alpha": 225,
+            "candidate_alpha": 214
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 21,
+          "changed_pixels": 322,
+          "total_alpha_error": 1214,
+          "original_alpha_sum": 141665,
+          "relative_l1_error": 0.00856951258250097,
+          "worst_pixel": {
+            "x": 36,
+            "y": 80,
+            "original_alpha": 159,
+            "candidate_alpha": 180
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 7,
+          "changed_pixels": 456,
+          "total_alpha_error": 1242,
+          "original_alpha_sum": 174550,
+          "relative_l1_error": 0.007115439702091091,
+          "worst_pixel": {
+            "x": 36,
+            "y": 105,
+            "original_alpha": 42,
+            "candidate_alpha": 49
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 16,
+          "changed_pixels": 362,
+          "total_alpha_error": 1071,
+          "original_alpha_sum": 156998,
+          "relative_l1_error": 0.006821742952139518,
+          "worst_pixel": {
+            "x": 57,
+            "y": 116,
+            "original_alpha": 245,
+            "candidate_alpha": 229
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.25,
+      "glyphs": 10,
+      "max_alpha_error": 24,
+      "changed_pixels": 3485,
+      "total_alpha_error": 10424,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 10,
+          "changed_pixels": 322,
+          "total_alpha_error": 870,
+          "original_alpha_sum": 157255,
+          "relative_l1_error": 0.005532415503481606,
+          "worst_pixel": {
+            "x": 19,
+            "y": 97,
+            "original_alpha": 127,
+            "candidate_alpha": 137
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 11,
+          "changed_pixels": 345,
+          "total_alpha_error": 972,
+          "original_alpha_sum": 160939,
+          "relative_l1_error": 0.006039555359484028,
+          "worst_pixel": {
+            "x": 44,
+            "y": 94,
+            "original_alpha": 219,
+            "candidate_alpha": 230
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 8,
+          "changed_pixels": 304,
+          "total_alpha_error": 1040,
+          "original_alpha_sum": 158601,
+          "relative_l1_error": 0.006557335704062395,
+          "worst_pixel": {
+            "x": 34,
+            "y": 91,
+            "original_alpha": 217,
+            "candidate_alpha": 225
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 7,
+          "changed_pixels": 349,
+          "total_alpha_error": 808,
+          "original_alpha_sum": 171834,
+          "relative_l1_error": 0.004702212600533073,
+          "worst_pixel": {
+            "x": 34,
+            "y": 89,
+            "original_alpha": 249,
+            "candidate_alpha": 242
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 9,
+          "changed_pixels": 239,
+          "total_alpha_error": 873,
+          "original_alpha_sum": 134409,
+          "relative_l1_error": 0.006495100774501708,
+          "worst_pixel": {
+            "x": 38,
+            "y": 104,
+            "original_alpha": 50,
+            "candidate_alpha": 59
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 8,
+          "changed_pixels": 294,
+          "total_alpha_error": 908,
+          "original_alpha_sum": 132892,
+          "relative_l1_error": 0.006832615958823706,
+          "worst_pixel": {
+            "x": 36,
+            "y": 88,
+            "original_alpha": 186,
+            "candidate_alpha": 194
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 11,
+          "changed_pixels": 456,
+          "total_alpha_error": 1374,
+          "original_alpha_sum": 198232,
+          "relative_l1_error": 0.0069312724484442475,
+          "worst_pixel": {
+            "x": 46,
+            "y": 86,
+            "original_alpha": 225,
+            "candidate_alpha": 214
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 24,
+          "changed_pixels": 328,
+          "total_alpha_error": 1229,
+          "original_alpha_sum": 141667,
+          "relative_l1_error": 0.00867527370523834,
+          "worst_pixel": {
+            "x": 47,
+            "y": 97,
+            "original_alpha": 126,
+            "candidate_alpha": 102
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 7,
+          "changed_pixels": 492,
+          "total_alpha_error": 1254,
+          "original_alpha_sum": 174555,
+          "relative_l1_error": 0.007183982125977486,
+          "worst_pixel": {
+            "x": 21,
+            "y": 100,
+            "original_alpha": 174,
+            "candidate_alpha": 181
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 19,
+          "changed_pixels": 356,
+          "total_alpha_error": 1096,
+          "original_alpha_sum": 156866,
+          "relative_l1_error": 0.006986855022758278,
+          "worst_pixel": {
+            "x": 58,
+            "y": 116,
+            "original_alpha": 68,
+            "candidate_alpha": 49
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.5,
+      "glyphs": 10,
+      "max_alpha_error": 22,
+      "changed_pixels": 3511,
+      "total_alpha_error": 10375,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 8,
+          "changed_pixels": 318,
+          "total_alpha_error": 847,
+          "original_alpha_sum": 157197,
+          "relative_l1_error": 0.0053881435396349806,
+          "worst_pixel": {
+            "x": 20,
+            "y": 97,
+            "original_alpha": 215,
+            "candidate_alpha": 223
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 9,
+          "changed_pixels": 352,
+          "total_alpha_error": 957,
+          "original_alpha_sum": 160677,
+          "relative_l1_error": 0.005956048469911686,
+          "worst_pixel": {
+            "x": 44,
+            "y": 120,
+            "original_alpha": 224,
+            "candidate_alpha": 233
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 7,
+          "changed_pixels": 337,
+          "total_alpha_error": 1080,
+          "original_alpha_sum": 158545,
+          "relative_l1_error": 0.006811946135166672,
+          "worst_pixel": {
+            "x": 38,
+            "y": 92,
+            "original_alpha": 211,
+            "candidate_alpha": 218
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 7,
+          "changed_pixels": 364,
+          "total_alpha_error": 846,
+          "original_alpha_sum": 171656,
+          "relative_l1_error": 0.004928461574311414,
+          "worst_pixel": {
+            "x": 34,
+            "y": 89,
+            "original_alpha": 121,
+            "candidate_alpha": 114
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 7,
+          "changed_pixels": 261,
+          "total_alpha_error": 896,
+          "original_alpha_sum": 134446,
+          "relative_l1_error": 0.006664385701322464,
+          "worst_pixel": {
+            "x": 38,
+            "y": 108,
+            "original_alpha": 215,
+            "candidate_alpha": 222
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 9,
+          "changed_pixels": 291,
+          "total_alpha_error": 904,
+          "original_alpha_sum": 133023,
+          "relative_l1_error": 0.006795817264683551,
+          "worst_pixel": {
+            "x": 36,
+            "y": 88,
+            "original_alpha": 170,
+            "candidate_alpha": 179
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 11,
+          "changed_pixels": 455,
+          "total_alpha_error": 1331,
+          "original_alpha_sum": 198444,
+          "relative_l1_error": 0.006707181874987402,
+          "worst_pixel": {
+            "x": 46,
+            "y": 86,
+            "original_alpha": 225,
+            "candidate_alpha": 214
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 22,
+          "changed_pixels": 329,
+          "total_alpha_error": 1275,
+          "original_alpha_sum": 141612,
+          "relative_l1_error": 0.009003474281840522,
+          "worst_pixel": {
+            "x": 37,
+            "y": 81,
+            "original_alpha": 117,
+            "candidate_alpha": 139
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 9,
+          "changed_pixels": 459,
+          "total_alpha_error": 1188,
+          "original_alpha_sum": 174509,
+          "relative_l1_error": 0.006807671810622948,
+          "worst_pixel": {
+            "x": 36,
+            "y": 89,
+            "original_alpha": 140,
+            "candidate_alpha": 149
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 18,
+          "changed_pixels": 345,
+          "total_alpha_error": 1051,
+          "original_alpha_sum": 156990,
+          "relative_l1_error": 0.006694693929549653,
+          "worst_pixel": {
+            "x": 58,
+            "y": 116,
+            "original_alpha": 142,
+            "candidate_alpha": 124
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.75,
+      "glyphs": 10,
+      "max_alpha_error": 25,
+      "changed_pixels": 3400,
+      "total_alpha_error": 10327,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 9,
+          "changed_pixels": 315,
+          "total_alpha_error": 850,
+          "original_alpha_sum": 157051,
+          "relative_l1_error": 0.00541225461792666,
+          "worst_pixel": {
+            "x": 20,
+            "y": 97,
+            "original_alpha": 224,
+            "candidate_alpha": 233
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 10,
+          "changed_pixels": 350,
+          "total_alpha_error": 978,
+          "original_alpha_sum": 160861,
+          "relative_l1_error": 0.006079783166833478,
+          "worst_pixel": {
+            "x": 44,
+            "y": 120,
+            "original_alpha": 145,
+            "candidate_alpha": 155
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 8,
+          "changed_pixels": 301,
+          "total_alpha_error": 991,
+          "original_alpha_sum": 158583,
+          "relative_l1_error": 0.0062490935346159425,
+          "worst_pixel": {
+            "x": 34,
+            "y": 92,
+            "original_alpha": 217,
+            "candidate_alpha": 225
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 9,
+          "changed_pixels": 361,
+          "total_alpha_error": 868,
+          "original_alpha_sum": 171699,
+          "relative_l1_error": 0.005055358505291236,
+          "worst_pixel": {
+            "x": 34,
+            "y": 93,
+            "original_alpha": 42,
+            "candidate_alpha": 33
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 7,
+          "changed_pixels": 274,
+          "total_alpha_error": 945,
+          "original_alpha_sum": 134511,
+          "relative_l1_error": 0.007025447732899168,
+          "worst_pixel": {
+            "x": 34,
+            "y": 105,
+            "original_alpha": 241,
+            "candidate_alpha": 248
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 10,
+          "changed_pixels": 279,
+          "total_alpha_error": 859,
+          "original_alpha_sum": 133113,
+          "relative_l1_error": 0.006453163853267525,
+          "worst_pixel": {
+            "x": 36,
+            "y": 88,
+            "original_alpha": 124,
+            "candidate_alpha": 134
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 11,
+          "changed_pixels": 434,
+          "total_alpha_error": 1320,
+          "original_alpha_sum": 198065,
+          "relative_l1_error": 0.006664478832706435,
+          "worst_pixel": {
+            "x": 46,
+            "y": 86,
+            "original_alpha": 225,
+            "candidate_alpha": 214
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 25,
+          "changed_pixels": 330,
+          "total_alpha_error": 1275,
+          "original_alpha_sum": 141699,
+          "relative_l1_error": 0.008997946351068108,
+          "worst_pixel": {
+            "x": 48,
+            "y": 97,
+            "original_alpha": 140,
+            "candidate_alpha": 115
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 9,
+          "changed_pixels": 393,
+          "total_alpha_error": 1154,
+          "original_alpha_sum": 174495,
+          "relative_l1_error": 0.006613370010602023,
+          "worst_pixel": {
+            "x": 36,
+            "y": 89,
+            "original_alpha": 134,
+            "candidate_alpha": 143
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 17,
+          "changed_pixels": 363,
+          "total_alpha_error": 1087,
+          "original_alpha_sum": 156974,
+          "relative_l1_error": 0.006924713646845974,
+          "worst_pixel": {
+            "x": 58,
+            "y": 116,
+            "original_alpha": 216,
+            "candidate_alpha": 199
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.0,
+      "glyphs": 10,
+      "max_alpha_error": 33,
+      "changed_pixels": 7662,
+      "total_alpha_error": 42096,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 33,
+          "changed_pixels": 761,
+          "total_alpha_error": 3654,
+          "original_alpha_sum": 627315,
+          "relative_l1_error": 0.0058248248487601925,
+          "worst_pixel": {
+            "x": 51,
+            "y": 73,
+            "original_alpha": 153,
+            "candidate_alpha": 186
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 19,
+          "changed_pixels": 790,
+          "total_alpha_error": 4024,
+          "original_alpha_sum": 641194,
+          "relative_l1_error": 0.006275791726061067,
+          "worst_pixel": {
+            "x": 68,
+            "y": 127,
+            "original_alpha": 157,
+            "candidate_alpha": 176
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 18,
+          "changed_pixels": 621,
+          "total_alpha_error": 4149,
+          "original_alpha_sum": 633721,
+          "relative_l1_error": 0.00654704515078402,
+          "worst_pixel": {
+            "x": 55,
+            "y": 63,
+            "original_alpha": 178,
+            "candidate_alpha": 196
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 15,
+          "changed_pixels": 772,
+          "total_alpha_error": 3433,
+          "original_alpha_sum": 686545,
+          "relative_l1_error": 0.005000400556409267,
+          "worst_pixel": {
+            "x": 56,
+            "y": 58,
+            "original_alpha": 243,
+            "candidate_alpha": 228
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 16,
+          "changed_pixels": 561,
+          "total_alpha_error": 3684,
+          "original_alpha_sum": 537132,
+          "relative_l1_error": 0.006858649270570363,
+          "worst_pixel": {
+            "x": 63,
+            "y": 96,
+            "original_alpha": 174,
+            "candidate_alpha": 190
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 25,
+          "changed_pixels": 634,
+          "total_alpha_error": 3620,
+          "original_alpha_sum": 531588,
+          "relative_l1_error": 0.006809785021482802,
+          "worst_pixel": {
+            "x": 42,
+            "y": 109,
+            "original_alpha": 140,
+            "candidate_alpha": 165
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 29,
+          "changed_pixels": 1003,
+          "total_alpha_error": 5789,
+          "original_alpha_sum": 791335,
+          "relative_l1_error": 0.007315485856179747,
+          "worst_pixel": {
+            "x": 28,
+            "y": 70,
+            "original_alpha": 205,
+            "candidate_alpha": 176
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 15,
+          "changed_pixels": 665,
+          "total_alpha_error": 4404,
+          "original_alpha_sum": 565882,
+          "relative_l1_error": 0.007782541236512206,
+          "worst_pixel": {
+            "x": 56,
+            "y": 98,
+            "original_alpha": 228,
+            "candidate_alpha": 243
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 25,
+          "changed_pixels": 1060,
+          "total_alpha_error": 5240,
+          "original_alpha_sum": 697880,
+          "relative_l1_error": 0.007508454175502952,
+          "worst_pixel": {
+            "x": 37,
+            "y": 48,
+            "original_alpha": 109,
+            "candidate_alpha": 84
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 17,
+          "changed_pixels": 795,
+          "total_alpha_error": 4099,
+          "original_alpha_sum": 626462,
+          "relative_l1_error": 0.0065430943935945035,
+          "worst_pixel": {
+            "x": 88,
+            "y": 105,
+            "original_alpha": 227,
+            "candidate_alpha": 210
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.25,
+      "glyphs": 10,
+      "max_alpha_error": 30,
+      "changed_pixels": 7610,
+      "total_alpha_error": 42193,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 30,
+          "changed_pixels": 749,
+          "total_alpha_error": 3608,
+          "original_alpha_sum": 627200,
+          "relative_l1_error": 0.005752551020408163,
+          "worst_pixel": {
+            "x": 52,
+            "y": 72,
+            "original_alpha": 137,
+            "candidate_alpha": 167
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 19,
+          "changed_pixels": 752,
+          "total_alpha_error": 4031,
+          "original_alpha_sum": 641283,
+          "relative_l1_error": 0.006285836362417216,
+          "worst_pixel": {
+            "x": 68,
+            "y": 127,
+            "original_alpha": 221,
+            "candidate_alpha": 240
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 16,
+          "changed_pixels": 616,
+          "total_alpha_error": 4073,
+          "original_alpha_sum": 633907,
+          "relative_l1_error": 0.006425232723412109,
+          "worst_pixel": {
+            "x": 89,
+            "y": 63,
+            "original_alpha": 121,
+            "candidate_alpha": 137
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 14,
+          "changed_pixels": 777,
+          "total_alpha_error": 3458,
+          "original_alpha_sum": 686488,
+          "relative_l1_error": 0.005037232988777662,
+          "worst_pixel": {
+            "x": 46,
+            "y": 81,
+            "original_alpha": 219,
+            "candidate_alpha": 233
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 18,
+          "changed_pixels": 504,
+          "total_alpha_error": 3540,
+          "original_alpha_sum": 537247,
+          "relative_l1_error": 0.0065891480082718,
+          "worst_pixel": {
+            "x": 63,
+            "y": 127,
+            "original_alpha": 153,
+            "candidate_alpha": 171
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 22,
+          "changed_pixels": 626,
+          "total_alpha_error": 3561,
+          "original_alpha_sum": 531640,
+          "relative_l1_error": 0.006698141599578662,
+          "worst_pixel": {
+            "x": 42,
+            "y": 109,
+            "original_alpha": 43,
+            "candidate_alpha": 65
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 30,
+          "changed_pixels": 1041,
+          "total_alpha_error": 6012,
+          "original_alpha_sum": 791296,
+          "relative_l1_error": 0.007597662568747978,
+          "worst_pixel": {
+            "x": 28,
+            "y": 70,
+            "original_alpha": 178,
+            "candidate_alpha": 148
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 18,
+          "changed_pixels": 687,
+          "total_alpha_error": 4384,
+          "original_alpha_sum": 566062,
+          "relative_l1_error": 0.0077447346757069015,
+          "worst_pixel": {
+            "x": 72,
+            "y": 74,
+            "original_alpha": 100,
+            "candidate_alpha": 118
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 23,
+          "changed_pixels": 1060,
+          "total_alpha_error": 5519,
+          "original_alpha_sum": 697833,
+          "relative_l1_error": 0.007908769003472177,
+          "worst_pixel": {
+            "x": 70,
+            "y": 124,
+            "original_alpha": 180,
+            "candidate_alpha": 203
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 17,
+          "changed_pixels": 798,
+          "total_alpha_error": 4007,
+          "original_alpha_sum": 626279,
+          "relative_l1_error": 0.006398106914011168,
+          "worst_pixel": {
+            "x": 89,
+            "y": 106,
+            "original_alpha": 81,
+            "candidate_alpha": 64
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.5,
+      "glyphs": 10,
+      "max_alpha_error": 34,
+      "changed_pixels": 7595,
+      "total_alpha_error": 42126,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 34,
+          "changed_pixels": 692,
+          "total_alpha_error": 3579,
+          "original_alpha_sum": 627316,
+          "relative_l1_error": 0.005705258593754981,
+          "worst_pixel": {
+            "x": 52,
+            "y": 73,
+            "original_alpha": 96,
+            "candidate_alpha": 130
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 19,
+          "changed_pixels": 757,
+          "total_alpha_error": 3963,
+          "original_alpha_sum": 641291,
+          "relative_l1_error": 0.0061797218423461425,
+          "worst_pixel": {
+            "x": 69,
+            "y": 128,
+            "original_alpha": 27,
+            "candidate_alpha": 46
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 18,
+          "changed_pixels": 678,
+          "total_alpha_error": 4261,
+          "original_alpha_sum": 633706,
+          "relative_l1_error": 0.006723938230030961,
+          "worst_pixel": {
+            "x": 56,
+            "y": 63,
+            "original_alpha": 178,
+            "candidate_alpha": 196
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 18,
+          "changed_pixels": 817,
+          "total_alpha_error": 3587,
+          "original_alpha_sum": 686473,
+          "relative_l1_error": 0.005225260134047515,
+          "worst_pixel": {
+            "x": 56,
+            "y": 65,
+            "original_alpha": 83,
+            "candidate_alpha": 65
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 18,
+          "changed_pixels": 563,
+          "total_alpha_error": 3579,
+          "original_alpha_sum": 537069,
+          "relative_l1_error": 0.006663948207772186,
+          "worst_pixel": {
+            "x": 64,
+            "y": 89,
+            "original_alpha": 100,
+            "candidate_alpha": 118
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 22,
+          "changed_pixels": 631,
+          "total_alpha_error": 3550,
+          "original_alpha_sum": 531638,
+          "relative_l1_error": 0.006677476026920574,
+          "worst_pixel": {
+            "x": 42,
+            "y": 110,
+            "original_alpha": 193,
+            "candidate_alpha": 215
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 28,
+          "changed_pixels": 995,
+          "total_alpha_error": 5923,
+          "original_alpha_sum": 791424,
+          "relative_l1_error": 0.007483978246805758,
+          "worst_pixel": {
+            "x": 28,
+            "y": 70,
+            "original_alpha": 149,
+            "candidate_alpha": 121
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 15,
+          "changed_pixels": 667,
+          "total_alpha_error": 4424,
+          "original_alpha_sum": 566010,
+          "relative_l1_error": 0.007816116323033162,
+          "worst_pixel": {
+            "x": 57,
+            "y": 49,
+            "original_alpha": 54,
+            "candidate_alpha": 69
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 24,
+          "changed_pixels": 1002,
+          "total_alpha_error": 5302,
+          "original_alpha_sum": 697901,
+          "relative_l1_error": 0.007597066059512739,
+          "worst_pixel": {
+            "x": 38,
+            "y": 49,
+            "original_alpha": 143,
+            "candidate_alpha": 119
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 17,
+          "changed_pixels": 793,
+          "total_alpha_error": 3958,
+          "original_alpha_sum": 626056,
+          "relative_l1_error": 0.006322118149175154,
+          "worst_pixel": {
+            "x": 89,
+            "y": 106,
+            "original_alpha": 129,
+            "candidate_alpha": 112
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaCJK-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.75,
+      "glyphs": 10,
+      "max_alpha_error": 30,
+      "changed_pixels": 7785,
+      "total_alpha_error": 42006,
+      "per_glyph": [
+        {
+          "character": "\u4f60",
+          "codepoint": "U+4F60",
+          "max_alpha_error": 30,
+          "changed_pixels": 728,
+          "total_alpha_error": 3553,
+          "original_alpha_sum": 627451,
+          "relative_l1_error": 0.0056625935730439505,
+          "worst_pixel": {
+            "x": 52,
+            "y": 74,
+            "original_alpha": 55,
+            "candidate_alpha": 85
+          }
+        },
+        {
+          "character": "\u597d",
+          "codepoint": "U+597D",
+          "max_alpha_error": 20,
+          "changed_pixels": 781,
+          "total_alpha_error": 3980,
+          "original_alpha_sum": 641314,
+          "relative_l1_error": 0.006206008289231172,
+          "worst_pixel": {
+            "x": 76,
+            "y": 69,
+            "original_alpha": 136,
+            "candidate_alpha": 156
+          }
+        },
+        {
+          "character": "\u4e16",
+          "codepoint": "U+4E16",
+          "max_alpha_error": 12,
+          "changed_pixels": 620,
+          "total_alpha_error": 4306,
+          "original_alpha_sum": 633587,
+          "relative_l1_error": 0.006796225301339832,
+          "worst_pixel": {
+            "x": 103,
+            "y": 65,
+            "original_alpha": 254,
+            "candidate_alpha": 242
+          }
+        },
+        {
+          "character": "\u754c",
+          "codepoint": "U+754C",
+          "max_alpha_error": 16,
+          "changed_pixels": 791,
+          "total_alpha_error": 3520,
+          "original_alpha_sum": 686527,
+          "relative_l1_error": 0.005127256466242406,
+          "worst_pixel": {
+            "x": 56,
+            "y": 65,
+            "original_alpha": 83,
+            "candidate_alpha": 67
+          }
+        },
+        {
+          "character": "\u4e2d",
+          "codepoint": "U+4E2D",
+          "max_alpha_error": 18,
+          "changed_pixels": 604,
+          "total_alpha_error": 3648,
+          "original_alpha_sum": 537105,
+          "relative_l1_error": 0.00679196805093976,
+          "worst_pixel": {
+            "x": 64,
+            "y": 89,
+            "original_alpha": 100,
+            "candidate_alpha": 118
+          }
+        },
+        {
+          "character": "\u6587",
+          "codepoint": "U+6587",
+          "max_alpha_error": 25,
+          "changed_pixels": 631,
+          "total_alpha_error": 3589,
+          "original_alpha_sum": 531553,
+          "relative_l1_error": 0.006751913732026721,
+          "worst_pixel": {
+            "x": 42,
+            "y": 110,
+            "original_alpha": 94,
+            "candidate_alpha": 119
+          }
+        },
+        {
+          "character": "\u6f22",
+          "codepoint": "U+6F22",
+          "max_alpha_error": 27,
+          "changed_pixels": 1143,
+          "total_alpha_error": 5761,
+          "original_alpha_sum": 791222,
+          "relative_l1_error": 0.007281142334262697,
+          "worst_pixel": {
+            "x": 21,
+            "y": 118,
+            "original_alpha": 159,
+            "candidate_alpha": 132
+          }
+        },
+        {
+          "character": "\u5b57",
+          "codepoint": "U+5B57",
+          "max_alpha_error": 26,
+          "changed_pixels": 664,
+          "total_alpha_error": 4349,
+          "original_alpha_sum": 565865,
+          "relative_l1_error": 0.007685578715771429,
+          "worst_pixel": {
+            "x": 57,
+            "y": 85,
+            "original_alpha": 104,
+            "candidate_alpha": 130
+          }
+        },
+        {
+          "character": "\u6d4b",
+          "codepoint": "U+6D4B",
+          "max_alpha_error": 25,
+          "changed_pixels": 997,
+          "total_alpha_error": 5252,
+          "original_alpha_sum": 697877,
+          "relative_l1_error": 0.007525681459626839,
+          "worst_pixel": {
+            "x": 38,
+            "y": 49,
+            "original_alpha": 127,
+            "candidate_alpha": 102
+          }
+        },
+        {
+          "character": "\u8bd5",
+          "codepoint": "U+8BD5",
+          "max_alpha_error": 18,
+          "changed_pixels": 826,
+          "total_alpha_error": 4048,
+          "original_alpha_sum": 626199,
+          "relative_l1_error": 0.006464398697538642,
+          "worst_pixel": {
+            "x": 89,
+            "y": 106,
+            "original_alpha": 178,
+            "candidate_alpha": 160
+          }
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.0,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 3357,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4823,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 6666,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4446,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8864,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.25,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 3355,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4817,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 6665,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4455,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8853,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.5,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 3355,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4819,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 6664,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4451,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8861,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 9.0,
+      "offset": 0.75,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 3355,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4822,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 6662,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 4443,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8861,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.0,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8119,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 11658,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 16141,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 10763,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 21446,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.25,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8118,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 11659,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 16143,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 10831,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 21446,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.5,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8114,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 11658,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 16076,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 10827,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 21450,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 14.0,
+      "offset": 0.75,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 8115,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 11660,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 16088,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 10759,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 21446,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.0,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 24211,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 34652,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 46475,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 31236,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 62863,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.25,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 24214,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 34657,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 46085,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 31460,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 62855,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.5,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 24212,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 34655,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 46640,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 31417,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 62858,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 24.0,
+      "offset": 0.75,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 24208,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 34647,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 46856,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 31249,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 62865,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.0,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 97194,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 138799,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 182498,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 124504,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 253451,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.25,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 97190,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 138791,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 182340,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 124620,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 253459,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.5,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 97190,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 138803,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 182195,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 124528,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 253435,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 48.0,
+      "offset": 0.75,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 97186,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 138784,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 182365,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 124422,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 253445,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.0,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 390171,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 556403,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 728574,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 496871,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 1012565,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.25,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 390165,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 556384,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 728839,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 496906,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 1012548,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.5,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 390177,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 556395,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 728817,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 496814,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 1012562,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    },
+    {
+      "font": "FormaEmoji-Regular.ttf",
+      "size_px": 96.0,
+      "offset": 0.75,
+      "glyphs": 5,
+      "max_alpha_error": 0,
+      "changed_pixels": 0,
+      "total_alpha_error": 0,
+      "per_glyph": [
+        {
+          "character": "\ud83d\ude42",
+          "codepoint": "U+1F642",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 390171,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude00",
+          "codepoint": "U+1F600",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 556397,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\u2764",
+          "codepoint": "U+2764",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 728704,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83d\ude80",
+          "codepoint": "U+1F680",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 496728,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        },
+        {
+          "character": "\ud83c\udf0d",
+          "codepoint": "U+1F30D",
+          "max_alpha_error": 0,
+          "changed_pixels": 0,
+          "total_alpha_error": 0,
+          "original_alpha_sum": 1012550,
+          "relative_l1_error": 0.0,
+          "worst_pixel": null
+        }
+      ]
+    }
+  ]
+}

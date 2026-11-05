@@ -1,0 +1,16 @@
+{
+  "status": "not-qualified",
+  "attempt": "CUA Option+E in focused native editable field",
+  "observed": "Ordinary U+045E text insertion, then native undo restores Editable",
+  "imeEvents": 0,
+  "verifier": "--require-ime correctly rejects diagnostic; --require-cpu-gpu accepts prior readonly smoke",
+  "sha256": {
+    "vector-ui/scripts/qualify-native-readonly.py": "c2d403a2ba4e835b0dc7d258b732b232dd9052a239a842ab9f9fc8f387bdd680",
+    "vector-ui/examples/native_readonly_probe.rs": "3c246e2e2cc747fbb2a610e4af5562363fb347b6f807ee41022ae51d2a1c9a3e"
+  },
+  "remaining": [
+    "Actual OS input method delivering Preedit/Commit",
+    "Marked text lifecycle/position/cancel/ownership on GPU/CPU",
+    "Screen-reader/standalone/platform matrix"
+  ]
+}

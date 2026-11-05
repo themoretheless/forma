@@ -1,0 +1,20 @@
+{
+  "status": "passed",
+  "scope": "DOM selection adoption semantic mirror getter reuse",
+  "adapterTests": 45,
+  "browserCases": 4,
+  "trustedEditUndo": true,
+  "hashes": {
+    "src/vector-preview.js": "03255e665f2958d46dfbb9c3d99fcb9073e4033b7a1249ee4f4d656c10070280",
+    "test/vector-preview.test.js": "c670eeda50ff499d7d165f9a1d318f0c764824b3c19e6a44e0a6fa08d459ff68",
+    "vector-ui/tests/preview-mirror-browser.html": "e45a32d7fb631016fa73707cf32b0e441ecf07855df7f3ee7b5f96ef86548ca1",
+    "packages/svet/benchmarks/adoption-cache-browser-2026-11-03.json": "f77e3b46842f7b8617072a94714ee2984c350b38dfcd923712e6039a77377684",
+    "packages/svet/benchmarks/adoption-cache-browser-2026-11-03.jpg": "d764872acabd523634186142326664129662d223bf6eebb78ecb86141cf7682b",
+    "/tmp/svet-input-epoch-wasm/web/forma_bg.wasm": "ffad5bd83f06a4e6389d9410a7706b919bac12bdc0a3a3bb55ff5f337318cb40"
+  },
+  "limitations": [
+    "Getter call counts only; latency/RSS/energy not measured",
+    "Browser record from preceding live run; adapter suite rerun during evidence finalization",
+    "Actual OS marked-text IME and native screen reader remain open"
+  ]
+}

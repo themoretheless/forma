@@ -1,0 +1,25 @@
+{
+  "status": "partial",
+  "implementation": "Native Metal completion failures now retain original logical Queue error sinks through general commands, pure compute batching, timed subcommands and staged write_buffer; callback delivery occurs outside pending-command locks",
+  "classification": "Existing access-revoked/device-removed codes retain device-loss path; other failures currently surface as Error::Internal",
+  "gates": {
+    "runtime_unit_passed": 5,
+    "runtime_hardware_explicit_passed": 3,
+    "native_lib_passed": 218,
+    "native_lib_ignored": 3,
+    "metal_renderer_smoke": "passed",
+    "routing": "real clear and pure-compute commands preserve owner; injected completed failure reaches original owner even when another Device polls; callback reentry, scope capture and no duplicate delivery pass"
+  },
+  "source_sha256": {
+    "crates/gpu-runtime/src/lib.rs": "8d33f79ed73a06e09c09b0d7ce2a7ef868cc5a40c13d5b4fa46b814705226e0e",
+    "crates/gpu-runtime/src/metal.rs": "b4639b4e255c4c1a0f69ba06ad768e7b577087dbe4ba91bee1726674788f2cb0"
+  },
+  "limits": [
+    "Injected completion failures are not physical GPU faults",
+    "OOM-specific classification and error-code coverage remain open",
+    "Raw MetalDevice submit/write_buffer APIs preserve existing signatures and have no logical error sink",
+    "No idle native removal notification, physical reset or non-Metal qualification",
+    "No performance qualification for added per-submission ownership tracking",
+    "Error-scope asynchronous pop semantics are outside this change"
+  ]
+}

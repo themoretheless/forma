@@ -1,0 +1,12 @@
+{
+  "status": "passed-scoped",
+  "before": "Explicit undo retained old preedit",
+  "after": "Handled plain/command/word keys clear transient preedit; unsupported keys preserve it",
+  "rustTestsPassed": 241,
+  "ignored": 3,
+  "sha256": "3352a4a4c97ae073a6a5e1b86bc4825b4c1906e37219b09a8c81b5eccbf526d2",
+  "limits": [
+    "WASM compile only; fresh WASM/browser/runtime run required",
+    "OS marked-text IME still unqualified"
+  ]
+}

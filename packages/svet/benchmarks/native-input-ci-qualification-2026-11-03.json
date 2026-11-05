@@ -1,0 +1,18 @@
+{
+  "status": "local-command-passed-ci-configured",
+  "command": "cargo test --locked --manifest-path vector-ui/Cargo.toml --features native --lib --bin forma",
+  "localMacOS": {
+    "libPassed": 221,
+    "binaryPassed": 4,
+    "ignored": 3
+  },
+  "yamlParse": "Ruby Psych passed",
+  "configuredMatrix": [
+    "ubuntu-24.04",
+    "macos-15",
+    "windows-2022"
+  ],
+  "remoteCi": "not run; worktree not published",
+  "unicodeCorpusGate": "existing --features gpu --lib --tests includes integration corpora",
+  "workflowSha256": "3aaa824f894e4e5d3641ecc4a284da10c14997fc4d9392c1cefd272157dc7369"
+}

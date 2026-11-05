@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "scope": "AccessKit per-line grapheme TextRun nodes and original UTF16 selection routing",
+  "nativeTests": {
+    "passed": 331,
+    "failed": 0,
+    "ignored": 9
+  },
+  "actualMacOS": [
+    "AX readonly CJK selection",
+    "AX editable substring selection",
+    "native key replaces selected substring",
+    "Cmd+Z restores value and selected substring",
+    "owned process closed"
+  ],
+  "sha256": {
+    "vector-ui/src/native_accessibility.rs": "b8d04a285037b145f3bcbfca09464a40aa5ecd5d5ef7dbc6d8199003223b96c7",
+    "/tmp/SvetAccessKitSelectionProbe.app/Contents/MacOS/native_readonly_probe": "a4a0b087b5aa29d760743fe2a57d70b41fab22f2c8b652358ac34905de7217d2"
+  },
+  "limitations": [
+    "No wordStarts/character positions/widths: magnifier/highlight geometry unqualified",
+    "Grapheme byte length >255 disables text-run selection",
+    "No actual OS multiline/CRLF/emoji selection matrix; native tests cover conversion",
+    "Screen reader speech and other OS backends open",
+    "Same-editor IME composition interleaving with AX mutation needs audit"
+  ]
+}

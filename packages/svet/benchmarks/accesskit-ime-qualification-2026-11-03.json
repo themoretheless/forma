@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "hostTests": 19,
+  "matrixCombinations": 8,
+  "scope": "Accepted AX SetValue/SetTextSelection cancels same-editor pending IME; rejected action retains composition",
+  "matrix": {
+    "action": [
+      "SetValue",
+      "SetTextSelection"
+    ],
+    "preedit": [
+      "nonempty",
+      "empty with pending owner"
+    ],
+    "admission": [
+      "accepted",
+      "refused"
+    ]
+  },
+  "verified": [
+    "repeated late commits refused after accepted action",
+    "fresh preedit reopens commit path",
+    "refused payload preserves original IME"
+  ],
+  "sha256": "a30961eafcae95eabd8f974140c9aaeda4012616f62245f4e68319376360cf6d",
+  "limitations": [
+    "Injected Ime host calls; actual OS marked-text interleaving remains open",
+    "Latest full native331 predates this host change"
+  ]
+}

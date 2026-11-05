@@ -1,0 +1,36 @@
+{
+  "status": "partial",
+  "implementation": "Scoped Metal command buffers register addCompletedHandler before commit using block2 0.6.2. Handler holds Weak service and signals only. Shared scope worker uses nonblocking completion collection and generation-counted Condvar waits; cancellation and metadata publication also signal. No backend wait_idle in async scope service",
+  "gates": {
+    "runtime_unit_passed": 11,
+    "runtime_ignored": 4,
+    "explicit_metal_passed": 4,
+    "native_lib_passed": 218,
+    "native_ignored": 3,
+    "metal_renderer_smoke": "passed",
+    "native_completion_callback_observed": true,
+    "blocking_backend_wait_calls_in_async_scope_test": 0,
+    "cancellation_with_live_leases": "passed",
+    "reentrant_waker_and_task_destructor": "passed",
+    "native_all_targets": "passed"
+  },
+  "dependency": "Target-specific block2=0.6.2 for macOS/iOS; existing public explicit wait APIs unchanged",
+  "references": [
+    "https://developer.apple.com/documentation/metal/mtlcommandbuffer/addcompletedhandler(_:)?language=objc",
+    "https://docs.rs/block2/0.6.2/block2/struct.RcBlock.html"
+  ],
+  "source_sha256": {
+    "crates/gpu-runtime/Cargo.toml": "badd9bf8074852d67a1b731ee8f2fbe99b47c06ca81372ba065409ead8dbd68a",
+    "crates/gpu-runtime/src/types.rs": "da0d96832e27fee342840d08befa7a87703c80134e7e2978e2e60d2347dc8437",
+    "crates/gpu-runtime/src/metal.rs": "b7f30bf263c6b5f4a09c9cb03fc53f50d16c0b695c7346cedaa6cbabae883190",
+    "crates/gpu-runtime/src/lib.rs": "545bb1df6158109698dd2efe7379849ad535776159912ac000dec7c850953372",
+    "vector-ui/Cargo.lock": "a1372fd103caea08c6c26272a7e3be814bc7f1560ef86182a7fb2f0f01a879a0"
+  },
+  "limits": [
+    "Completion waits have16ms timeout fallback for missed/unavailable signals; no latency/throughput/energy claim",
+    "No physical device hang/removal/OOM test; fully-idle device-removal notifications remain open",
+    "Non-Metal runtime behavior remains unqualified",
+    "Cancellation retires scope waiters, not GPU execution; pending resources still require normal completion collection/drop",
+    "Earlier benchmark results describe older implementations and do not qualify this signal-driven path"
+  ]
+}

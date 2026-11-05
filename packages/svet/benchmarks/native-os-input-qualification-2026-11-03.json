@@ -1,0 +1,49 @@
+{
+  "status": "partial",
+  "scope": "Actual macOS NSWindow with reusable NativeHost, CPU softbuffer presentation, UI-tool keyboard/pointer and minimize/reopen; instrumented fixture-only probe",
+  "recordedAt": "2026-11-02T20:09:32.932960+00:00",
+  "os": "26.7.2",
+  "checks": [
+    "OS key x updates first editor and summary",
+    "Tab/key y updates second editor",
+    "Shift+Tab/key z returns to first and clears modifier for next character",
+    "Pointer click/key w selects second; Escape/key v preserves ordinary input",
+    "Minimize blurs without model changes",
+    "Before fix:reopen focus2\u2192-1\u21921 loses previous editor",
+    "After fix:reopen focus2\u2192-1\u21922 restores previous editor; r updates second only"
+  ],
+  "beforeFinalState": {
+    "first": "seed-Axz",
+    "second": "seed-Bywv"
+  },
+  "afterFinalState": {
+    "first": "seed-A",
+    "second": "seed-Bkr"
+  },
+  "refocusImplementation": "Remember last editable stable key on window blur; resolve unique editable/admitted target on focus regain; preserve key across duplicate blur and fall back to ordinary focus admission if unavailable.",
+  "validation": {
+    "unitRegressionBefore": "failed: restored index0 instead of1",
+    "nativeFeatureUnitPassed": 180,
+    "integrationPassed": 19,
+    "gpuTestsIgnoredInThisRun": 2,
+    "unitStableKeyReorder": "passed",
+    "ownedWindowsClosed": true,
+    "ownedProbeProcessesRemaining": 0
+  },
+  "sourceSha256": {
+    "vector-ui/src/native_window.rs": "1f62fe3eb481ccb492295378cf2a3a6646bc976644b8ee42d96beaa5ca8e0bb8",
+    "vector-ui/examples/native_input_probe.rs": "371ff7d8006c1f674874b70cc9c7bc0065dd8836c77f5163d94b232f3cf43261",
+    "vector-ui/tests/fixtures/svet-native-ime/App.ui": "a990c8005f0e20c77116af1dda69ffd0b25338bbd7404e7a1b36b54bf30b4610",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50"
+  },
+  "baselineNativeWindowSha256": "171d9c370b06ac9654332cf561266bebe2c65abfd54ba70c81f0ec6191ac2626",
+  "baselineBinarySha256": "47082bc6b3a3c817441963867c6b604f93eb5580457ab64ee7a845e4b6b7bfd5",
+  "candidateBinarySha256": "3d4cd0e7d9cceb43be29b4bd9f26375a7848232da7fa93d16793214d527de1e6",
+  "probeBundleInfoSha256": "28e8176ac6a08e0043a518d9bfc6b1fbb1803efae189f36065805e87cd81eebd",
+  "limits": [
+    "No actual CJK/marked-text IME candidate session, clipboard, accessibility tree or native DPI-change matrix",
+    "Probe uses reusable NativeHost; standalone forma main.rs has independent host and remains separate",
+    "No release/profile input latency claim; probe trace logging adds overhead",
+    "Missing/disabled/ambiguous restoration-key matrix and backend switches remain open"
+  ]
+}

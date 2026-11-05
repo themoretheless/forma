@@ -1,0 +1,12 @@
+{
+  "status": "passed-scoped",
+  "reproducedBefore": "empty commit deleted entire selected committed value",
+  "nativeLibPassed": 221,
+  "ignored": 3,
+  "standaloneTests": 2,
+  "fix": "Empty IME commit clears preedit without inserting empty replacement",
+  "sourceSha256": "decd8eb66b289ea2c68043e6849a290beb853e33d34d9f313b27cf77b3165a31",
+  "limits": [
+    "No OS-window marked-text IME qualification"
+  ]
+}

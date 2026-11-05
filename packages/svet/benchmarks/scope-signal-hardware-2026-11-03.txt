@@ -1,0 +1,20 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.63s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-f4a19236bee428a5)
+
+running 4 tests
+QUEUE_IDENTITY_RESULT logical_devices=2 shared_adapter=true isolated_errors=true clone_stable=true
+DEVICE_LOSS_POLL_RESULT callback_once=true late_registration=true reentry=true physical_removal=false
+test error_delivery_tests::distinct_logical_devices_have_distinct_queues_on_one_adapter ... ok
+test device_loss_delivery_tests::poll_delivers_backend_loss_to_late_callback_once_with_reentry ... ok
+SCOPE_CANCELLATION_RESULT cancelled=64 live_submission_leases=64 service_retired_before_lease_release=true
+SCOPE_SERVICE_RESULT rounds=2 scopes_per_round=64 cancelled_per_round=32 workers_per_burst=1 retired=true idle_capacity=0 synthetic_leases=true
+test error_delivery_tests::scope_completion_service_coalesces_bursts_and_retires_cancelled_requests ... ok
+NATIVE_SCOPE_SIGNAL_RESULT callbacks=true blocking_wait_calls=0 successful_and_failed_scopes=true
+ASYNC_SCOPE_RESULT captured_at_submit=true pop_waits=true completion_worker=true reentrant_waker=true newer_scope_clean=true physical_fault=false
+COMMAND_COMPLETION_OOM_RESULT scoped_oom=true foreign_domain_internal=true owner_isolation=true duplicate=false physical_fault=false
+COMMAND_COMPLETION_RESULT owner_isolation=true callback_reentry=true duplicate=false scope_capture=true physical_fault=false
+test error_delivery_tests::command_completion_routes_to_submit_owner_with_scope_and_reentry ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.05s
+

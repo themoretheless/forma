@@ -1,0 +1,62 @@
+{
+  "status": "partial",
+  "scope": "Retained createRoot disposer lifetime in isolated Node contexts; explicit forced GC",
+  "beforeRetained": {
+    "explicit-dispose": {
+      "cores": 4,
+      "memories": 4
+    },
+    "construction-throw": {
+      "cores": 4,
+      "memories": 4
+    },
+    "construction-dispose": {
+      "cores": 4,
+      "memories": 4
+    },
+    "cleanup-throw": {
+      "cores": 4,
+      "memories": 4
+    }
+  },
+  "afterRetained": {
+    "explicit-dispose": {
+      "cores": 0,
+      "memories": 0
+    },
+    "construction-throw": {
+      "cores": 0,
+      "memories": 0
+    },
+    "construction-dispose": {
+      "cores": 0,
+      "memories": 0
+    },
+    "cleanup-throw": {
+      "cores": 0,
+      "memories": 0
+    }
+  },
+  "probeSha256": "86caf33991a418e9e01b43c867f11a3d48660bcd137944abc711acc00c91a83b",
+  "targets": 32,
+  "heldDisposers": 16,
+  "controlsHeld": 4,
+  "controlsReleased": 0,
+  "liveRootControlsHeld": 2,
+  "liveRootControlsReleased": 0,
+  "validation": {
+    "types": "passed",
+    "focusedTests": 173,
+    "fullTests": 1502,
+    "fullFiles": 113,
+    "packageBuild": "passed",
+    "freshInstalledPackage": "passed"
+  },
+  "intermediateFailure": "Using a cleanup registration changed owner.disposables counts in three existing tests; WeakMap tracking preserves registrations",
+  "open": [
+    "Current runtime browser natural GC/HMR",
+    "Reset-only retained handles",
+    "Root bookkeeping and Signal guard performance",
+    "Broader P1-P4 roadmap"
+  ]
+}

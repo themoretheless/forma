@@ -1,0 +1,18 @@
+{
+  "status": "passed-scoped",
+  "fix": "End targets before CRLF pair, not its interior",
+  "before": "Caret byte4 instead of byte3 in combining-text CRLF line",
+  "testsPassed": 242,
+  "ignored": 3,
+  "coverage": [
+    "End",
+    "Shift+End selection/delete preserves CRLF",
+    "Undo",
+    "Initial caret at CRLF scalar interior",
+    "Home and End on subsequent line"
+  ],
+  "sha256": "7d7403929b71e929b64c69eb9ba9e2166352e3386fcbb24b1e194f0b037b45d0",
+  "limits": [
+    "Fresh WASM/browser and OS input qualification pending for this change"
+  ]
+}

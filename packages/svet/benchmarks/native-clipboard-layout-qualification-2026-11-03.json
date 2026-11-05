@@ -1,0 +1,30 @@
+{
+  "status": "partial",
+  "defect": "Command shortcuts compared only logical Latin characters and failed under current Cyrillic layout",
+  "fix": "Preserve ASCII logical shortcut; fallback selected A/C/X/V/Z/Y physical key for non-ASCII command",
+  "validation": {
+    "rust_passed": 236,
+    "gpu_ignored": 2,
+    "native_all_targets_check": "passed",
+    "actual_OS": [
+      "Cmd+A and paste replace first field with 你好 мир🙂",
+      "Cmd+Z restores seed-A after binding sync",
+      "Cmd+Shift+Z restores pasted text",
+      "Tab then Cmd+A/paste changes second only to second-paste",
+      "own probe closed; processes0"
+    ],
+    "clipboard_handling": "CUA App.paste temporarily sets clipboard and restores prior contents per tool contract; no persistent fixture copy/cut"
+  },
+  "source_hashes": {
+    "vector-ui/src/native_clipboard.rs": "d06e975f746f60508307485ea31448beac394ebd0f91a0e8c95221a2215864d5",
+    "vector-ui/src/native_window.rs": "2c061e77058ed1665d16cef16401018b4685165d1061f363fce0f0da50e9c7cc",
+    "vector-ui/src/main.rs": "9e770d8053349b4e6bdb9261922725478d8c1ed2fa3e8fa8c8e7488db548a5c7"
+  },
+  "binary_sha256": "03dd20d878f7e6034001799c9179f9146ab1b44b27cad64289f8c172c10a0406",
+  "limits": [
+    "CJK/emoji present in model but absent visually in screenshot: glyph fallback/rendering issue open",
+    "OS copy/cut not tested; injected tests cover semantics",
+    "No CJK IME composition qualification",
+    "Platform shortcut variants beyond tested layout require matrix"
+  ]
+}

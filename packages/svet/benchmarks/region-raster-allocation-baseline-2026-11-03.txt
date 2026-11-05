@@ -1,0 +1,24 @@
+   Compiling gpu-shader v0.1.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-region-baseline-6rqofl9d/crates/gpu-shader)
+   Compiling svet-wasm v0.1.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-region-baseline-6rqofl9d/packages/svet/crates/svet-wasm)
+   Compiling gpu-runtime v0.1.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-region-baseline-6rqofl9d/crates/gpu-runtime)
+   Compiling gpu-compute v0.1.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-region-baseline-6rqofl9d/crates/gpu-compute)
+   Compiling forma v0.2.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-region-baseline-6rqofl9d/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.26s
+     Running tests/runtime_allocations.rs (/tmp/svet-native-development/debug/deps/runtime_allocations-cb007c4fe366d6d2)
+
+running 1 test
+focused leaf on1600x1200 canvas: 17694710 requested bytes
+
+thread 'focused_leaf_scratch_does_not_allocate_a_full_canvas_per_caret_frame' (18486680) panicked at tests/runtime_allocations.rs:321:5:
+caret frame rebuilt full-canvas scratch: 17694710
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test focused_leaf_scratch_does_not_allocate_a_full_canvas_per_caret_frame ... FAILED
+
+failures:
+
+failures:
+    focused_leaf_scratch_does_not_allocate_a_full_canvas_per_caret_frame
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 12 filtered out; finished in 1.71s
+
+error: test failed, to rerun pass `--test runtime_allocations`

@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>Rust clipboard failure safety</title><style>body{font:16px system-ui;margin:32px;background:#eef2f6}#editor{width:500px;min-height:140px}pre{white-space:pre-wrap}</style>
+<h1>Rust clipboard failure safety</h1><p id="status">Loading…</p><div id="editor"></div><pre id="report"></pre>
+<script type="module">
+import init,* as wasm from '/wasm/forma.js';import {createVectorPreview} from '/src/vector-preview.js';
+const report={status:'running',cases:[],epochMode:new URLSearchParams(location.search).has('uncached')?'forced-zero':'runtime'};
+try{
+ await init();let active;const calls={value:0,selection:0};class Observed extends wasm.Runtime{constructor(){super();active=this;}load_component(source){this.load_ui_files_json(source,'App.ui','{}');}text_model_revision(){return new URLSearchParams(location.search).has('uncached')?0:super.text_model_revision();}text_value(index){calls.value++;return super.text_value(index);}text_selection_utf16(){calls.selection++;return super.text_selection_utf16();}}
+ const preview=createVectorPreview({runtime:{...wasm,Runtime:Observed},onError:e=>{report.error=String(e);}});const initial='Selected 😀é text';
+ preview.render({container:document.querySelector('#editor'),source:JSON.stringify({'App.ui':`component App { state query: String = ${JSON.stringify(initial)}; Column { width:480; height:100; TextInput { key:'editor'; label:'Large field'; width:440; height:40; value <-> state.query; } } }`}),designMode:false,reducedMotion:true,previewControls:[{type:'TextInput',props:{key:'editor'}}]});preview.focusKey('editor');const input=document.querySelector('textarea');
+
+ const check=(name,expected,selection)=>{if(active.text_value(0)!==expected||input.value!==expected)throw Error(name+': value mismatch');if(selection&&JSON.stringify(Array.from(active.text_selection_utf16()))!==JSON.stringify(selection))throw Error(name+': selection mismatch');report.cases.push({name,status:'passed'});};
+ const select=()=>{active.text_key('a',false,true);window.dispatchEvent(new Event('resize'));};select();
+ const event=(name,data)=>{const e=new Event(name,{bubbles:true,cancelable:true});if(data)Object.defineProperty(e,'clipboardData',{value:data});input.dispatchEvent(e);};
+ event('cut');check('cut missing transport preserves text',initial,[0,initial.length]);
+ event('cut',{setData(){throw Error('write denied');}});check('cut write refusal preserves text',initial,[0,initial.length]);
+ event('paste');check('paste missing transport preserves text',initial,[0,initial.length]);
+ event('paste',{getData(){throw Error('read denied');}});check('paste read refusal preserves text',initial,[0,initial.length]);
+ event('paste',{getData:()=>''});check('empty paste preserves text',initial,[0,initial.length]);
+ input.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:null,bubbles:true,cancelable:true}));check('null insertion preserves text',initial,[0,initial.length]);
+ event('paste',{getData:()=> '你好🙂'});check('Unicode paste replaces selection','你好🙂');
+ active.text_key('z',false,true);window.dispatchEvent(new Event('resize'));check('paste undo restores selection',initial,[0,initial.length]);
+ let copied;event('cut',{setData:(type,text)=>copied={type,text}});if(copied.type!=='text/plain'||copied.text!==initial)throw Error('cut payload mismatch');check('successful cut copies then deletes','');
+ active.text_key('z',false,true);window.dispatchEvent(new Event('resize'));check('cut undo restores selection',initial,[0,initial.length]);
+ const composition=(type,data)=>input.dispatchEvent(new CompositionEvent(type,{data,bubbles:true}));
+ composition('compositionstart','');composition('compositionupdate','未確定');
+ event('paste',{getData:()=> 'pasted'});composition('compositionend','late');check('paste cancels late composition commit','pasted');
+ active.text_key('z',false,true);window.dispatchEvent(new Event('resize'));select();
+ composition('compositionstart','');composition('compositionupdate','未確定');
+ event('cut',{setData(){}});composition('compositionend','late');check('cut cancels late composition commit','');
+ active.text_key('z',false,true);window.dispatchEvent(new Event('resize'));select();
+ composition('compositionstart','');composition('compositionupdate','未確定');
+ event('copy',{setData(){}});event('paste');composition('compositionend','日本');check('copy and refused paste retain composition','日本');
+ active.text_key('z',false,true);window.dispatchEvent(new Event('resize'));check('retained composition undo restores selection',initial,[0,initial.length]);report.status='passed';
+}catch(e){report.status='failed';report.error=String(e.stack);}
+document.querySelector('#status').textContent=report.status.toUpperCase();document.querySelector('#report').textContent=JSON.stringify(report,null,2);await fetch('/result',{method:'POST',body:JSON.stringify(report)});
+</script>

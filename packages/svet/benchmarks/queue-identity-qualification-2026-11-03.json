@@ -1,0 +1,23 @@
+{
+  "status": "partial",
+  "change": "Queue equality now uses a per-logical-device identity retained by Queue clones instead of shared Metal backend handles",
+  "regression": {
+    "before": "hardware test failed: queues of different logical devices compared equal",
+    "after": "passed on actual Metal adapter; queue clones stable, device error handlers isolated, identity survives device handle drop"
+  },
+  "gates": {
+    "gpu_runtime_lib_passed": 5,
+    "gpu_runtime_lib_ignored": 2,
+    "explicit_queue_hardware_test": "passed",
+    "native_lib_passed": 218,
+    "native_lib_ignored": 3,
+    "explicit_renderer_hardware_test": "passed on Apple M4 Max/Metal"
+  },
+  "source_sha256": "e216ea381869c76a9c8b502c29fed4971c181e06edb048e027005eddfe00a22b",
+  "limits": [
+    "Logical identity fix only; Metal queue/resources remain shared",
+    "Error isolation assertion calls logical Device record_error; it is not asynchronous backend error routing qualification",
+    "Forwarding non-loss command failures with original submit ownership remains open",
+    "Physical device removal, idle notifications and other backends remain unqualified"
+  ]
+}

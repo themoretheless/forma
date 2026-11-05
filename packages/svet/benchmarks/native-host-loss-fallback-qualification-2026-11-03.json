@@ -1,0 +1,33 @@
+{
+  "status": "partial",
+  "mechanism": "Opt-in native-test-hooks Cargo feature -> F8 -> gpu-runtime injected backend loss -> poll -> renderer health error -> NativeHost CPU fallback",
+  "presented_sequence": [
+    "Gpu",
+    "Cpu",
+    "Gpu"
+  ],
+  "fallback_errors": [
+    {
+      "gpu_fallback": "GPU device lost: Unknown: injected NativeHost device loss (test hook)",
+      "at_ns": 1793666674676524000
+    }
+  ],
+  "final_model": {
+    "first": "preserved on loss 🙂",
+    "second": "CPU after loss / GPU restored"
+  },
+  "native_tests_per_configuration": 245,
+  "configurations": [
+    "native",
+    "native-test-hooks"
+  ],
+  "ignored_per_configuration": 3,
+  "default_native_feature_tree_excludes_test_hooks": true,
+  "all_targets_native": "passed",
+  "window_binary_sha256": "f63f0ea464274a559cfe96674a98b34bf768524954787496dc96b94259544b95",
+  "limits": [
+    "Injected backend state on actual GPU window, not physical GPU removal/reset",
+    "GPU recovery was explicitly requested by F7 roundtrip; automatic recovery not claimed",
+    "Initialization/surface Timeout/Lost/Validation fault injection and other OS/backends pending"
+  ]
+}

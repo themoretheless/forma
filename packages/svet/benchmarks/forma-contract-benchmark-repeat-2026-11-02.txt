@@ -1,0 +1,8 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  19:22:52
+   Duration  3.64s (tests 70%, environment 21%, transform 8%, import 2%)

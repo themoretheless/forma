@@ -1,0 +1,22 @@
+{
+  "status": "passed-scoped",
+  "runtimeTests": 5,
+  "adapterTests": 37,
+  "wasm": "compile passed",
+  "change": "Add control_multiline getter; textarea aria-multiline tracks focused Rust editor",
+  "coverage": [
+    "Single/multiline/noneditor/out-of-range metadata",
+    "Focus transition false\u2192true\u2192false"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "82919a99cf39117e5d68832b8be5ba892a820edafd540e93ba3a538ed36d70c4",
+    "src/vector-preview.js": "1614809a7c293ae94aa416afb2bc3ade6b9b30e703ee40f8508c468a6a0fd914",
+    "vector-ui/tests/line_edit.rs": "5dbf2f843f814c489c0e77a577b328d06c62752aead60d1b2409dcd6bcb4c6a1",
+    "test/vector-preview.test.js": "3fc64f1af8a44609a24322a2becc8e6f93d800de8f2566d4b9c3914669cc47c1"
+  },
+  "limits": [
+    "Fresh WASM/browser accessibility inspection pending",
+    "Readonly editor semantics not implemented",
+    "No screen-reader/platform qualification"
+  ]
+}

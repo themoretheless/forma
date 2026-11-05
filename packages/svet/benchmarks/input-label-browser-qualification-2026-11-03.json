@@ -1,0 +1,21 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 33,
+  "browser": "Four focus transitions; trusted edit keeps label Notes; AX value changes to Changed",
+  "axNameBeforeAfter": [
+    "Notes",
+    "Notes"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "f23cef490b128d54b2ae4a766f938f2e9136113472cbc6afd915b0058de29200",
+    "vector-ui/src/form_document.rs": "431b48e103e90a4e3d56ecce07832256d27627aa0bc665e209a7e04ecfaa3095",
+    "vector-ui/src/template.rs": "63f4d17f6469e8a2ec4c19d973b9b501003965add24de9443ca8e076c280a674",
+    "src/vector-preview.js": "71bc98597f3645f325bcb032806d0c5858d0f7d84a95c7510e9e2bbb375901b6",
+    "vector-ui/tests/preview-a11y-browser.html": "3f71b90686a8253bb5e8a598754acf6d712e838b92be0bb075b27ae112585ca6",
+    "/tmp/svet-input-label-wasm/web/forma_bg.wasm": "f8af15e2fb81dee9df471ad51d735e6f75e7a0174f0598e52b8f752baaf4c6c8"
+  },
+  "limits": [
+    "No screen-reader spoken-output/platform qualification",
+    "True OS IME still open"
+  ]
+}

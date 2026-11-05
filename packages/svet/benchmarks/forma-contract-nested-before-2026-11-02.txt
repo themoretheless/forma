@@ -1,0 +1,40 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-contract-tokens.test.ts (31 tests | 5 failed) 17ms
+   × refuses unsupported nested or late contract Column { #[range(0,10)] prop x: Number = 2; Text {} } 4ms
+   × refuses unsupported nested or late contract Column { if true { #[range(0,10)] Text {} } } 0ms
+   × refuses unsupported nested or late contract Column { for item in state.items { #[range(0,10)] Text {} } } 0ms
+   × refuses unsupported nested or late contract tokens { #[range(0,10)] value: 2; } Column {} 0ms
+   × refuses unsupported nested or late contract Column {} #[range(0,10)] prop x: Number = 2; 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported nested or late contract Column { #[range(0,10)] prop x: Number = 2; Text {} }
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported nested or late contract Column { if true { #[range(0,10)] Text {} } }
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported nested or late contract Column { for item in state.items { #[range(0,10)] Text {} } }
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported nested or late contract tokens { #[range(0,10)] value: 2; } Column {}
+ FAIL  tests/forma-contract-tokens.test.ts > refuses unsupported nested or late contract Column {} #[range(0,10)] prop x: Number = 2;
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-contract-tokens.test.ts:86:44
+     84|   it(`refuses unsupported nested or late contract ${body}`, () => {
+     85|     const source = `component App { ${body} }`;
+     86|     expect(() => parseFormaSource(source)).toThrow(/contract/i);
+       |                                            ^
+     87|     expect(validateFormaSource(source).valid).toBe(false);
+     88|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 26 passed (31)
+   Start at  19:28:03
+   Duration  254ms (transform 44%, import 38%, tests 15%, worker 3%)

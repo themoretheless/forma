@@ -503,3 +503,72 @@ Chrome156 installed production bundles19/19 (paced). Same fixture before:
 tables correctly, prior route cleanup1, params/DOM correct, terminal matcher
 avoids disposed options getters and graph0. Continuous unpaced stress remains
 open. [Raw/screenshot](benchmarks/router-table-browser-qualification-2026-11-02.json).
+
+
+### 2026-11-02 — Forma installed natural browser GC cohorts
+
+Chromium156/current runtime:3 independent page cohorts collect72 unknown AST
+extension payloads while12 views are live, plus12 disposed core exports and12
+Memory objects. Controls30 held/30 collected after release; no forced/CDP GC,
+6 bounded pressure runs; final graph0 each. Live view labels update2→4.
+Same20 runtime hashes as current Node/package and HMR qualification.
+Run `node packages/svet/scripts/serve-forma-retention-gc.mjs INSTALLED_PACKAGE OUTPUT_JSON`,
+open localhost4218, allocate → pressure → inspect (held controls verified) →
+release → pressure → inspect. Other engines, retained handles/DOM, async cores
+and long-run heap/RSS plateau remain open.
+[Raw/cohort hashes/screenshots](benchmarks/forma-browser-gc-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — current terminal handles: Chromium GC and HMR
+
+Fresh installed runtime after public Forma facade, raw Signal/Computed and root
+disposer detachment passes3 independent Chromium156 natural-GC page cohorts.
+Each cohort:120 targets collected with44 terminal handles strongly retained,
+88 late calls,10 positive controls held then collected, forcedGC0 and graph0.
+Totals:360 targets,132 retained handles,264 late calls,30 controls.11 retained
+modes cover instance/mount/bound-render/button/state/props/computed/peek/action/
+unsubscribe/root disposer, plus4 earlier lifecycle modes and unknown extensions.
+All20 JS/WASM runtime hashes match workspace dist/package. This bounded pressure
+probe does not establish heap/RSS plateau or browser-wide leak freedom.
+The same installed runtime passes real Vite HMR37/37 (35 automated +2 trusted
+input/cleanup), final graph0;60 workspace/installed/peer artifact hashes match.
+Historical watcher update5 loss, other engines, reset-only handles and hot-path
+performance remain open.
+[GC evidence](benchmarks/forma-terminal-browser-gc-qualification-2026-11-02.json),
+[HMR evidence](benchmarks/forma-terminal-browser-hmr-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — current reset/owner runtime: browser GC and real HMR
+
+The installed runtime after shared-owner reset batching passes3 fresh Chromium156
+natural-GC cohorts. Each has164 targets,72 strongly retained terminal handles,
+46 positive controls and132 late calls. Totals:492 targets collected,216 retained
+handles,138 controls held then collected,396 late calls,36 cleanup invocations
+exactly once, forcedGC0 and final graph0. Coverage adds reset-only raw getter/peek
+handles plus pending effect-handle/method/root-disposer payload cohorts. Obsolete
+effect bodies collect at reset; pending cleanup and native context stay live
+until late disposal, then collect while public handles remain retained.
+20 JS/WASM runtime hashes match workspace. This is bounded pressure qualification,
+not heap/RSS plateau or browser-wide leak freedom.
+The same bytes pass real Vite HMR37/37 (35 automated +2 trusted input/cleanup),
+graph0,60 workspace/installed/peer artifact comparisons. Peer-reset browser GC,
+other engines/realms, application/native latency and historical watcher update5
+loss remain open.
+[GC evidence](benchmarks/reset-browser-gc-qualification-2026-11-02.json),
+[HMR evidence](benchmarks/owner-reset-browser-hmr-qualification-2026-11-02.json).
+
+
+## 2026-11-02 — rebuilt Rust vector-ui WASM execution
+
+Current vector-ui release WASM (idle guard and borrowed alias resolver) rebuilt
+with wasm-bindgen0.2.125 NodeJS/web bindings. Node passes7 artifact +7 binding
+snapshot/reload cases. Chromium156 passes10/10 CPU Canvas2D checks. Single and
+chained alias cases perform24 idle sync calls, Unicode input, reload with reversed
+item IDs[b,a], then edit the correct new first item while preserving the other.
+Both reordered input frames change1242 pixel bytes inside the control bounds.
+The public API exposes reload, so these are reload-reorder checks; native Rust
+stale-frame reorder remains separate. Browser input is programmatic WASM calls,
+not trusted DOM keyboard/native-window/IME routing. No hardware GPU, browser
+allocation/p95/RSS plateau or release/publication claim. Generated HTML/JS/WASM
+hashes and replay bundle saved; production assets were not replaced.
+[Qualification](benchmarks/native-current-wasm-qualification-2026-11-02.json).

@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "nativeTests": {
+    "passed": 321,
+    "failed": 0,
+    "ignored": 9
+  },
+  "scope": "Clipboard writer child reaping on success, broken pipe and missing stdin",
+  "proof": "Actual Unix subprocesses; waitpid after helper returns ECHILD",
+  "sha256": "bc295785f80cc3299b8557c70078efd8ca0dc33156bbae2e92e909e396ffbf1a",
+  "limitations": [
+    "No subprocess timeout or asynchronous UI clipboard implementation",
+    "Windows/Linux actual clipboard utilities not executed",
+    "OS clipboard transport remains unqualified"
+  ]
+}

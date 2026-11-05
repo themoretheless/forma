@@ -1,0 +1,37 @@
+{
+  "status": "partial",
+  "change": "Root scroll refuses input while a modal is active, preserving background offset and modal press",
+  "baseline": "offset160\u2192140 while modal open",
+  "validation": {
+    "rust_passed": 231,
+    "gpu_ignored": 2,
+    "node_wasm_cases": 13,
+    "chromium_cases": 16,
+    "checks": [
+      "background offset and control bounds unchanged",
+      "blocked scroll does not cancel modal press",
+      "root scrolling resumes after modal closes"
+    ]
+  },
+  "sources": {
+    "vector-ui/src/runtime.rs": "e2b5554184a7a12ad2ae449b8733248062fe32bcf7adb98633b8d05171548e28",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "8a4f72eaaf3c2bfe6b377e9e0a76090051d856379ca73a33fd6b774e07bbfad7",
+    "vector-ui/tests/scene-artifact-browser.html": "b5ea987f0f59c1a4f7a6bf0b2b0f4c07461537bbff57ed158ed0222b04b47bb6"
+  },
+  "generated": {
+    "web/index.html": "b5ea987f0f59c1a4f7a6bf0b2b0f4c07461537bbff57ed158ed0222b04b47bb6",
+    "web/forma_bg.wasm": "8dbd975b208121562e0c4762f30383f9d94e8ce5ab37450d856d3d3de9636e6c",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "8dbd975b208121562e0c4762f30383f9d94e8ce5ab37450d856d3d3de9636e6c",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "limits": [
+    "Programmatic input and CPU browser rendering",
+    "No OS wheel/touch modal qualification",
+    "Nested modal-local scroll containers unsupported/unqualified"
+  ]
+}

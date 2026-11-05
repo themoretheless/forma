@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "change": "Classify native command-buffer OOM as Error::OutOfMemory only when NSError domain equals exported MTLCommandBufferErrorDomain and code is 8; other non-loss failures remain Internal; loss codes are now domain-checked too",
+  "sdk_header_sha256": "d84dda866f07ffc37ce68e3c635177373cdefa419fc1f64c766442ed81966895",
+  "references": [
+    "https://developer.apple.com/documentation/metal/mtlcommandbuffererror-swift.struct/code/outofmemory",
+    "https://developer.apple.com/documentation/metal/mtlcommandbuffererrordomain?language=objc"
+  ],
+  "gates": {
+    "runtime_unit_passed": 6,
+    "explicit_hardware_passed": 3,
+    "native_lib_passed": 218,
+    "native_lib_ignored": 3,
+    "classification": "OOM code8/domain, unknown and foreign-domain codes",
+    "routing": "OOM scope capture and pop return; foreign-domain code8 bypasses OOM scope to original Internal handler; reentry, owner isolation and no duplicates",
+    "native_all_targets": "passed",
+    "metal_renderer_smoke": "passed on Apple M4 Max"
+  },
+  "limits": [
+    "Synthetic completion failures on real Metal adapter, no physical OOM pressure or device removal",
+    "Actual NSError extraction is compiled/linked but forced native NSError completion is not covered",
+    "Other native command failure codes remain Internal",
+    "No idle notifications or performance/platform qualification"
+  ],
+  "source_sha256": {
+    "crates/gpu-runtime/src/lib.rs": "1135828a721524d8dead71c59e04a60ef2a93f978a56e52791cfe4a323a855fc",
+    "crates/gpu-runtime/src/metal.rs": "27ea90625f5fae735f098d5b7a0a5978f4f95aca359c61de680ff98778480f8c"
+  }
+}

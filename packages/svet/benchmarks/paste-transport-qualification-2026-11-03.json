@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "adapterTests": 47,
+  "scope": "Preserve selected text when paste has no usable text or beforeinput insertion data is absent",
+  "cases": [
+    "clipboardData absent",
+    "getData absent",
+    "clipboard read throws",
+    "empty clipboard plain text",
+    "null insertText data",
+    "empty insertReplacementText data",
+    "nonempty Unicode paste",
+    "nonempty replacement"
+  ],
+  "sha256": {
+    "src/vector-preview.js": "9e24f5f349f5798ddbaf622b90e499b84c338216de166f66e332957807c7dc95",
+    "test/vector-preview.test.js": "abe42ee1702c0301016b492bbca232dc43918b56039057ff92266a60d108c16b"
+  },
+  "limitations": [
+    "Adapter event harness only; actual OS clipboard and browser platform matrix remain open"
+  ]
+}

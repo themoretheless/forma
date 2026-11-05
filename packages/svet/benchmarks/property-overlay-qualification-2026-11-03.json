@@ -1,0 +1,54 @@
+{
+  "status": "partial",
+  "scope": "Shared For/Let evaluation scopes; implementation and focused native/browser/WASM gates passed; broader engine qualification remains open",
+  "source_sha256": {
+    "vector-ui/src/form_document.rs": "34f920e55d2892ca92b6d0df36693ea1d42030471f6031187b3a8e16c7458c24",
+    "vector-ui/src/form_document/properties.rs": "ea533fd5d453699a3389a95ec0e8eab20d94d59d953411c62f6055551d42f004",
+    "vector-ui/tests/runtime_allocations.rs": "73ba4c951fb6dbeb193fe78a779017b6ef6183b91b94035979482c75cce16254",
+    "vector-ui/tests/compare-property-overlays-wasm.cjs": "ccaa007fffb1ffac4268a66eaf785cf0b66c74a6aa94109ec7b005192170d4fe",
+    "vector-ui/examples/binding_sync_bench.rs": "020f8e5103703f901e0eed482fb0a8fef636980cc5d47e6959ee2f09309782c8",
+    "vector-ui/scripts/run-layout-edit-pairs.py": "6ebbcc4bfc8ec02f8b9cffd3b86f7e0fbc470da5acd930fbdde3f7cd56df3bd9",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50"
+  },
+  "wasm_sha256": "2d191eb657b71c642a5598c42630effcf75c3d6c680ebd67c31f1a65bc03d627",
+  "gates": {
+    "browser": {
+      "passed": 19,
+      "total": 19
+    },
+    "node": {
+      "passed": 14,
+      "total": 14
+    },
+    "exact_frames": 426,
+    "exact_artifact_json": 50,
+    "metal_reveal_comparisons": 126,
+    "metal_max_channel_error": 1,
+    "native256": "property-overlay-native-qualification-2026-11-03.json",
+    "rust": {
+      "passed": 273,
+      "ignored": 9
+    }
+  },
+  "allocator_256": {
+    "artifact_retained_before": 5104326,
+    "artifact_retained_after": 961772,
+    "runtime_initial_live_before": 6823252,
+    "runtime_initial_live_after": 2681002,
+    "runtime_peak_before": 15856674,
+    "runtime_peak_after": 4961902,
+    "after_drop_delta": 0
+  },
+  "limits": [
+    "Allocator bytes are not RSS or GPU memory",
+    "Instrumented release edit timing excludes painting/presentation; small 8/32 control forms show about 1-5% overhead",
+    "One native256 OS run; no input latency, leak plateau or cross-platform qualification",
+    "Value::List remains owned Vec; evaluation/export/whole-map materialization can copy",
+    "Explicit Rust btree_map::Iter annotations migrate to PropertyIter or generic iterator"
+  ],
+  "binary_sha256": {
+    "/tmp/svet-property-overlay-baseline-bench": "5406efdcb6a8d24230b3cc2b008901185eafdacee4ecd3c6bbe0e6def786e628",
+    "/tmp/svet-property-overlay-candidate-final-bench": "d3aae7693072703e98b53757560fcaea22a3c76f29d29d7a834d6cd3dff8b614",
+    "/tmp/svet-native-development/release/examples/native_form_probe": "ab60a60644323bdc9dabd72863ffbbc72bd37ce6bf32572a24f073ff2201944d"
+  }
+}

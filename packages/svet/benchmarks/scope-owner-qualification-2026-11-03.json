@@ -1,0 +1,24 @@
+{
+  "status": "partial",
+  "change": "ErrorScopeGuard owns a unique Arc token. pop removes that exact scope instead of the most recently pushed entry; error dispatch still selects innermost matching active scope",
+  "gates": {
+    "runtime_unit_passed": 8,
+    "runtime_ignored": 3,
+    "explicit_metal_passed": 3,
+    "native_lib_passed": 218,
+    "native_ignored": 3,
+    "regression": "Both pop orders, unrelated scope surviving older guard pop,8 concurrent guard pops preserve individually captured errors",
+    "renderer_metal_smoke": "passed"
+  },
+  "source_sha256": {
+    "crates/gpu-runtime/src/lib.rs": "090faeabc4574c2d46bc7b23c12a91bff196177ef979cd9519a48ad621f53e4d",
+    "crates/gpu-runtime/src/types.rs": "774a127877a5ac1e319a4060c50b94017e33b85e2354e813c80b4a1d1ad02362",
+    "crates/gpu-runtime/src/command.rs": "9017611c77f3df61dd8959fcfc4c24f935a40adba5309bdc66eac45e54380315"
+  },
+  "limits": [
+    "pop still returns an immediately-ready future and does not wait for pending GPU work",
+    "Completion errors still select currently-active scopes; submit-time scope snapshots remain open",
+    "Dropping a guard without explicit pop retains historical behavior; not automatic RAII scope removal",
+    "No performance or physical GPU-fault qualification"
+  ]
+}

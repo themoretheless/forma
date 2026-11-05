@@ -1,0 +1,294 @@
+{
+  "scope": "Current package natural-GC loopback HTTP 2h; no general transport or leak-freedom claim",
+  "analysis": {
+    "status": "within-observed-budget",
+    "probeCompleted": true,
+    "issues": [],
+    "elapsedMs": 7200013.194792001,
+    "requests": 1655800,
+    "minimumDurationMs": 7200000,
+    "metrics": {
+      "heap": {
+        "windowRangesBytes": [
+          [
+            45031848,
+            80116464
+          ],
+          [
+            44728816,
+            81053920
+          ],
+          [
+            44530960,
+            80550872
+          ],
+          [
+            44534384,
+            80663528
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 0,
+        "postWarmupPeakGrowthBytes": 0,
+        "growthBudgetBytes": 16777216.0,
+        "withinBudget": true
+      },
+      "rss": {
+        "windowRangesBytes": [
+          [
+            135594936,
+            225565360
+          ],
+          [
+            135955384,
+            174546928
+          ],
+          [
+            135709552,
+            173153904
+          ],
+          [
+            136102768,
+            173514208
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 147384,
+        "postWarmupPeakGrowthBytes": 0,
+        "growthBudgetBytes": 67108864.0,
+        "withinBudget": true
+      },
+      "external": {
+        "windowRangesBytes": [
+          [
+            7192608,
+            176074680
+          ],
+          [
+            7190129,
+            266986808
+          ],
+          [
+            7194164,
+            250472140
+          ],
+          [
+            7189786,
+            202274101
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 4035,
+        "postWarmupPeakGrowthBytes": 0,
+        "growthBudgetBytes": 67108864.0,
+        "withinBudget": true
+      },
+      "arrayBuffers": {
+        "windowRangesBytes": [
+          [
+            887294,
+            14216992
+          ],
+          [
+            886168,
+            15134689
+          ],
+          [
+            885467,
+            14491020
+          ],
+          [
+            885825,
+            15148029
+          ]
+        ],
+        "postWarmupTroughGrowthBytes": 0,
+        "postWarmupPeakGrowthBytes": 13340,
+        "growthBudgetBytes": 16777216.0,
+        "withinBudget": true
+      }
+    },
+    "limitations": [
+      "Window extrema do not establish a stationary distribution or absence of slow leaks.",
+      "Budgets are caller-specified investigation thresholds, not universal RSS bounds.",
+      "Loopback fixture does not qualify gzip, both codecs, proxy or kernel saturation."
+    ],
+    "rawSha256": "52984f965c16e04fab8edcf79343400e6a7680c1692cc5026b6999fff8529ccc",
+    "analyzerSha256": "a9b5082c5996cddf7e354cf3b92a86e1c3b99b6807ae5233ff14120c2bced14b"
+  },
+  "currentArtifactChecks": [
+    {
+      "path": "packages/svet/dist/package/advanced.js",
+      "expected": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d",
+      "actual": "ec0faf5f09733069854dd00ed425e5fd5b9de7ae0f0779e5d2e4688a363aee7d",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/compiler.js",
+      "expected": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+      "actual": "0f14b43a743fcbcda51a389e843bb3242d4ec918315b92dc0c16483174f937c3",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/devtools.js",
+      "expected": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+      "actual": "bf58e900048a1c98d101501262de0c629f6693270895239b63aa3bac2897e164",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/dom.js",
+      "expected": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+      "actual": "d0a8243dd4736a69216c8fdcdb0c1b26418428289bbe164b67dd6b82b757c514",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/forma.js",
+      "expected": "56a93cf64fa277260f950eb4821aa18afa333f959567a2eb6a8b4c7885bf028a",
+      "actual": "56a93cf64fa277260f950eb4821aa18afa333f959567a2eb6a8b4c7885bf028a",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/gpu-resident-bridge.js",
+      "expected": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+      "actual": "65f45744406f15360c1c3b9dc6ad4f5e4c07ce1f5b522d7e6abeae3b8dc3bc73",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/gpu-resident.js",
+      "expected": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+      "actual": "04f4e9bb312d873f254c16cb9a636cad4dc10ad614fedfc2c748ef46c493f6fd",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/gpu.js",
+      "expected": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+      "actual": "b5b64a803270a2bacfb394067f71683c9e4953eae3997ba676829a3311bae687",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/index.js",
+      "expected": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+      "actual": "5268fb80cf32e2e4c07574c02db6e13ce83fb111173f5d9f95ce75d4a6c586ec",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/jsx-runtime.js",
+      "expected": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+      "actual": "8838fa65756e6fd7d89baac975c899a506ab3ddb881ffee2daa6ebbae5f7ff51",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/reactivity.js",
+      "expected": "9f9977d527ce399637462efa133780678296b7fd3a59335d808bad67fccd4322",
+      "actual": "9f9977d527ce399637462efa133780678296b7fd3a59335d808bad67fccd4322",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/resumable.js",
+      "expected": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+      "actual": "cb8b61837aededdb63bd90d5aaa5008fafa675ee703a846d34a04a33a91efc6c",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/server.js",
+      "expected": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+      "actual": "110ad8c00341ad2cd4fba3702dfc1bcdb77c3421397faff1f3bb988164a6ea7b",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/ssr-runtime.js",
+      "expected": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+      "actual": "2e07308ac4c93e1b302e4816de087b76f3f3d8e48a3831c5ee892dd2acdbcb70",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/stream-codec.js",
+      "expected": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+      "actual": "ab293fbf38f2d8f911bca477f142e75768144ef71071267a29a5a9ae0885b3df",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/stream-protocol.js",
+      "expected": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+      "actual": "c0e1ecd50cbc9821ff53a223eb4a7c07e467c702389f17b5eed44ec38648e6d9",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/stream.js",
+      "expected": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+      "actual": "490c58572b51a618b0ff3999a3ba1f31e6da36b513c0544d796df8e18923b889",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/svet-core.wasm",
+      "expected": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+      "actual": "2bbbcad5fd0859be0b465555c77aff78d93e8dc1fdc73a86ac501718a79508ea",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/wasm-binary.js",
+      "expected": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46",
+      "actual": "97fe0f678d8650922703ce1fa633d90a32679fd6cd1cdc255143a67baf85da46",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/dist/package/wasm-bridge.js",
+      "expected": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241",
+      "actual": "6a830029ea35fa34a3fcbbf74da090bd6768e0069b43951b292e30f053473241",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/scripts/soak-ssr-stream-http.mjs",
+      "expected": "58c9766943939119ea8f16f8e2a8a19d21a00faaf09afe08fc308beba6a6f0fd",
+      "actual": "58c9766943939119ea8f16f8e2a8a19d21a00faaf09afe08fc308beba6a6f0fd",
+      "matches": true
+    },
+    {
+      "path": "packages/svet/scripts/browser-fixture-endpoints.mjs",
+      "expected": "262d89caa1d33137c6db5008b4157c57a8821a145c1841a4a367f48ee8b75a36",
+      "actual": "262d89caa1d33137c6db5008b4157c57a8821a145c1841a4a367f48ee8b75a36",
+      "matches": true
+    }
+  ],
+  "runtimeManifestMatchesRaw": true,
+  "initialFinalRuntimeMatches": true,
+  "node": "v22.23.4",
+  "afterShutdown": {
+    "memory": {
+      "rss": 143509560,
+      "heapTotal": 97222656,
+      "heapUsed": 53324848,
+      "external": 26755665,
+      "arrayBuffers": 2756984
+    },
+    "diagnostics": {
+      "sockets": {
+        "active": 0,
+        "opened": 551952,
+        "closed": 551952,
+        "readableBytes": 0,
+        "writableBytes": 0,
+        "bytesRead": 1346332898,
+        "bytesWritten": 294749508270
+      },
+      "responses": {
+        "active": 0,
+        "peak": 9
+      },
+      "resources": {},
+      "v8": {
+        "externalMemory": 26755665,
+        "mallocedMemory": 565352,
+        "peakMallocedMemory": 32997376,
+        "totalPhysicalSize": 76546048
+      },
+      "mainWasmBytes": 1114112
+    }
+  },
+  "analyzerTests": {
+    "passed": 10,
+    "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s packages/svet/scripts -p test_analyze_http_soak.py"
+  },
+  "limitations": [
+    "Historical external-memory failure remains unexplained.",
+    "The traced older-runtime run is separate evidence.",
+    "Frozen snapshot cache was deleted after terminal completion; current harness and rebuilt package hashes were independently checked against the raw report."
+  ]
+}

@@ -1,0 +1,610 @@
+{
+  "status": "partial",
+  "adapter": "Apple M4 Max",
+  "backend": "Metal",
+  "protocol": "Baseline A/A +4 pairs, AB/BA/AB/BA;64 measured samples/group/process after16 warmups;1MiB exact clear output each operation",
+  "checks": {
+    "distinct_recorded_binaries": true,
+    "same_protocol": true,
+    "independent_mode_backends": true,
+    "control_aa_within15pct": false,
+    "async_aa_within20pct": false,
+    "unchanged_control_within15pct": false,
+    "async_no_p50_total_regression_over5pct": true
+  },
+  "performance_gate": "inconclusive_control_or_regression_gate",
+  "p95_note": "Nearest-rank p95 per process/group, then median across pairs; descriptive tail statistic only",
+  "order_strata": [
+    {
+      "source_round_parity": 0,
+      "scopes": 1,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.9721982499999999,
+      "candidate_p50_total_ms": 0.1867605,
+      "paired_ratio": 0.19203551885980116,
+      "baseline_aa_ratio": 0.8903034375807702
+    },
+    {
+      "source_round_parity": 0,
+      "scopes": 1,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.18230225,
+      "candidate_p50_total_ms": 0.1845,
+      "paired_ratio": 1.2584050902360717,
+      "baseline_aa_ratio": 1.7243099928828962
+    },
+    {
+      "source_round_parity": 0,
+      "scopes": 8,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.97139575,
+      "candidate_p50_total_ms": 0.16405199999999998,
+      "paired_ratio": 0.16866628058858574,
+      "baseline_aa_ratio": 0.923375834533316
+    },
+    {
+      "source_round_parity": 0,
+      "scopes": 8,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.14730225000000002,
+      "candidate_p50_total_ms": 0.15924974999999997,
+      "paired_ratio": 1.1240650676602324,
+      "baseline_aa_ratio": 0.5913661321735676
+    },
+    {
+      "source_round_parity": 0,
+      "scopes": 32,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.9699997499999999,
+      "candidate_p50_total_ms": 0.158021,
+      "paired_ratio": 0.1627663373378302,
+      "baseline_aa_ratio": 0.9901033650835708
+    },
+    {
+      "source_round_parity": 0,
+      "scopes": 32,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.1483645,
+      "candidate_p50_total_ms": 0.1535625,
+      "paired_ratio": 0.908729345461295,
+      "baseline_aa_ratio": 1.0108719528425492
+    },
+    {
+      "source_round_parity": 0,
+      "scopes": 64,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.9727915,
+      "candidate_p50_total_ms": 0.18062475,
+      "paired_ratio": 0.1628848696518957,
+      "baseline_aa_ratio": 1.0043199395951141
+    },
+    {
+      "source_round_parity": 0,
+      "scopes": 64,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.1535525,
+      "candidate_p50_total_ms": 0.16887475000000002,
+      "paired_ratio": 0.9696760789154857,
+      "baseline_aa_ratio": 1.1145506553303328
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 1,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.17042675000000002,
+      "candidate_p50_total_ms": 0.20472899999999997,
+      "paired_ratio": 1.475593991772858,
+      "baseline_aa_ratio": 1.650571758056991
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 1,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.1681665,
+      "candidate_p50_total_ms": 0.17606275,
+      "paired_ratio": 1.2264162512739274,
+      "baseline_aa_ratio": 1.3736380751177708
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 8,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.1467185,
+      "candidate_p50_total_ms": 0.17013525000000002,
+      "paired_ratio": 1.210429977502132,
+      "baseline_aa_ratio": 0.5968347201827379
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 8,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.140646,
+      "candidate_p50_total_ms": 0.1597815,
+      "paired_ratio": 1.1614217582613855,
+      "baseline_aa_ratio": 0.7112279797255029
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 32,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.14900025,
+      "candidate_p50_total_ms": 0.1640415,
+      "paired_ratio": 0.9008871022267781,
+      "baseline_aa_ratio": 1.199100675916044
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 32,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.14241674999999998,
+      "candidate_p50_total_ms": 0.15616625,
+      "paired_ratio": 0.9178469408038705,
+      "baseline_aa_ratio": 0.9745707936229988
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 64,
+      "explicit_wait": false,
+      "baseline_p50_total_ms": 0.1503335,
+      "candidate_p50_total_ms": 0.18284375,
+      "paired_ratio": 1.0217233111291792,
+      "baseline_aa_ratio": 1.0645569119102607
+    },
+    {
+      "source_round_parity": 1,
+      "scopes": 64,
+      "explicit_wait": true,
+      "baseline_p50_total_ms": 0.14762475000000003,
+      "candidate_p50_total_ms": 0.17157300000000003,
+      "paired_ratio": 0.997094155462493,
+      "baseline_aa_ratio": 1.0477156684164546
+    }
+  ],
+  "order_strata_checks": {
+    "all_samples_partitioned": true,
+    "control_aa_within15pct": false,
+    "async_aa_within20pct": false,
+    "unchanged_control_within15pct": false,
+    "async_no_p50_total_regression_over5pct": false
+  },
+  "order_strata_gate": "inconclusive",
+  "rows": [
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.53325025,
+          "candidate_ms": 0.17477075,
+          "paired_ratio": 0.3787635163110486,
+          "raw_pair_ratios": [
+            0.8828149434634306,
+            0.40317114104916707,
+            0.3543558915729301,
+            0.2515512438223552
+          ],
+          "baseline_aa_ratio": 1.1017955429784225
+        },
+        "total_ms": {
+          "baseline_ms": 0.5426875,
+          "candidate_ms": 0.1925625,
+          "paired_ratio": 0.371151327947017,
+          "raw_pair_ratios": [
+            0.9247342841811877,
+            0.45108681728513444,
+            0.2912158386088996,
+            0.25722884971155113
+          ],
+          "baseline_aa_ratio": 1.1754069104327407
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 1.003104,
+          "candidate_ms": 0.5435625,
+          "paired_ratio": 0.5585493409197335,
+          "raw_pair_ratios": [
+            2.2408749893458935,
+            0.8314579864112636,
+            0.13305321043320553,
+            0.2856406954282035
+          ],
+          "baseline_aa_ratio": 3.3676378512768452
+        },
+        "p95_total_ms": {
+          "baseline_ms": 1.013208,
+          "candidate_ms": 0.5556665000000001,
+          "paired_ratio": 0.565959003830693,
+          "raw_pair_ratios": [
+            2.349277445542064,
+            0.8417933000886706,
+            0.1406203259827421,
+            0.2901247075727154
+          ],
+          "baseline_aa_ratio": 3.424064926957173
+        }
+      }
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.14990625,
+          "candidate_ms": 0.16212525,
+          "paired_ratio": 1.2446191335214158,
+          "raw_pair_ratios": [
+            3.036661898890259,
+            1.4847164174656746,
+            0.7135131217784381,
+            1.0045218495771568
+          ],
+          "baseline_aa_ratio": 1.2545832705350415
+        },
+        "total_ms": {
+          "baseline_ms": 0.17115625,
+          "candidate_ms": 0.18127074999999998,
+          "paired_ratio": 1.2465957197140036,
+          "raw_pair_ratios": [
+            3.0118653431220967,
+            1.5115718954248365,
+            0.65841135688346,
+            0.9816195440031705
+          ],
+          "baseline_aa_ratio": 1.5503121552200847
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.3448335,
+          "candidate_ms": 0.32608349999999997,
+          "paired_ratio": 0.8495873917520839,
+          "raw_pair_ratios": [
+            0.9401837048342568,
+            1.2679347793132303,
+            0.499770726976125,
+            0.7589910786699109
+          ],
+          "baseline_aa_ratio": 5.787039929793768
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.3825205,
+          "candidate_ms": 0.3564995,
+          "paired_ratio": 0.8633244469336441,
+          "raw_pair_ratios": [
+            0.9814560764186031,
+            1.3297082748948108,
+            0.46558117789891346,
+            0.7451928174486849
+          ],
+          "baseline_aa_ratio": 5.88852462330521
+        }
+      }
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.5803125,
+          "candidate_ms": 0.1522605,
+          "paired_ratio": 0.28082726517533313,
+          "raw_pair_ratios": [
+            0.9834350606894082,
+            0.3049269644288438,
+            0.20832294762681594,
+            0.25672756592182244
+          ],
+          "baseline_aa_ratio": 0.5793793478706825
+        },
+        "total_ms": {
+          "baseline_ms": 0.6011977500000001,
+          "candidate_ms": 0.16767725,
+          "paired_ratio": 0.30010151183496936,
+          "raw_pair_ratios": [
+            0.9463040986531212,
+            0.33334558789739255,
+            0.2119618397328384,
+            0.2668574357725461
+          ],
+          "baseline_aa_ratio": 0.6826749088430383
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.9756244999999999,
+          "candidate_ms": 0.3279795,
+          "paired_ratio": 0.3360126831373672,
+          "raw_pair_ratios": [
+            0.6264316879544933,
+            0.4280782496856241,
+            0.24394711658911034,
+            0.18719368306407697
+          ],
+          "baseline_aa_ratio": 0.3526502754265753
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.9846665,
+          "candidate_ms": 0.34249999999999997,
+          "paired_ratio": 0.34401796716600963,
+          "raw_pair_ratios": [
+            0.4369347650386791,
+            0.44433692116210355,
+            0.2511011692933401,
+            0.19385472800673453
+          ],
+          "baseline_aa_ratio": 0.361236552467238
+        }
+      }
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.13016675,
+          "candidate_ms": 0.14120825,
+          "paired_ratio": 1.1050148322143443,
+          "raw_pair_ratios": [
+            3.412711270274367,
+            1.2091774727875062,
+            0.9061206352176252,
+            1.0008521916411823
+          ],
+          "baseline_aa_ratio": 0.585328461226147
+        },
+        "total_ms": {
+          "baseline_ms": 0.14403175,
+          "candidate_ms": 0.15936475,
+          "paired_ratio": 1.1415151693536458,
+          "raw_pair_ratios": [
+            2.820758541618894,
+            1.3041547011548873,
+            0.8634939746385307,
+            0.9788756375524041
+          ],
+          "baseline_aa_ratio": 0.6730841287445019
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.2501875,
+          "candidate_ms": 0.2742915,
+          "paired_ratio": 1.1159630716814668,
+          "raw_pair_ratios": [
+            1.5708031887931433,
+            1.619940205702254,
+            0.6611229545697904,
+            0.6013304407327922
+          ],
+          "baseline_aa_ratio": 0.22288083981915396
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.27,
+          "candidate_ms": 0.287187,
+          "paired_ratio": 1.0756458077270417,
+          "raw_pair_ratios": [
+            1.5360053862381615,
+            1.6062830767555716,
+            0.6152862292159219,
+            0.5702693815785287
+          ],
+          "baseline_aa_ratio": 0.24702489930428417
+        }
+      }
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.5435315000000001,
+          "candidate_ms": 0.14658325,
+          "paired_ratio": 0.28014351943077026,
+          "raw_pair_ratios": [
+            0.33027712838496,
+            0.3408425607738323,
+            0.23000991047658054,
+            0.2273213654295801
+          ],
+          "baseline_aa_ratio": 0.9122288809846729
+        },
+        "total_ms": {
+          "baseline_ms": 0.55230175,
+          "candidate_ms": 0.15957325,
+          "paired_ratio": 0.29035518346654116,
+          "raw_pair_ratios": [
+            0.3387733043162859,
+            0.3676656446976553,
+            0.24193706261679643,
+            0.24061630632406739
+          ],
+          "baseline_aa_ratio": 0.8839121497349345
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.9688125,
+          "candidate_ms": 0.381688,
+          "paired_ratio": 0.27996094585622516,
+          "raw_pair_ratios": [
+            0.18700895417171606,
+            0.4157592830075984,
+            0.37291293754073424,
+            0.16332115470706313
+          ],
+          "baseline_aa_ratio": 1.0072992399845422
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.980167,
+          "candidate_ms": 0.3929785,
+          "paired_ratio": 0.2988061629889336,
+          "raw_pair_ratios": [
+            0.22018432592899154,
+            0.4245244058267314,
+            0.3774280000488756,
+            0.16979731629392972
+          ],
+          "baseline_aa_ratio": 1.0090213759469766
+        }
+      }
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.13047925,
+          "candidate_ms": 0.139573,
+          "paired_ratio": 0.9335671239889676,
+          "raw_pair_ratios": [
+            0.6732241676410283,
+            1.2132427752544543,
+            0.926695683436728,
+            0.9404385645412072
+          ],
+          "baseline_aa_ratio": 1.0096385542168673
+        },
+        "total_ms": {
+          "baseline_ms": 0.14393725000000002,
+          "candidate_ms": 0.15471875,
+          "paired_ratio": 0.9186611067505176,
+          "raw_pair_ratios": [
+            0.6007246625094224,
+            1.2358727741208622,
+            0.9142612244331392,
+            0.923060989067896
+          ],
+          "baseline_aa_ratio": 0.994937448153422
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.28225,
+          "candidate_ms": 0.285812,
+          "paired_ratio": 0.7242689325808698,
+          "raw_pair_ratios": [
+            0.6511947192897914,
+            1.7879039275714523,
+            0.7973431458719482,
+            0.4141005926310659
+          ],
+          "baseline_aa_ratio": 0.758134725913403
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.2973335,
+          "candidate_ms": 0.29712500000000003,
+          "paired_ratio": 0.6088126510102633,
+          "raw_pair_ratios": [
+            0.46420070082052817,
+            1.7162505219206683,
+            0.7534246011999984,
+            0.43219345661450925
+          ],
+          "baseline_aa_ratio": 0.8043722206972276
+        }
+      }
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.64164575,
+          "candidate_ms": 0.16329175,
+          "paired_ratio": 0.2400417968194099,
+          "raw_pair_ratios": [
+            0.15555909482853364,
+            0.29604261145858657,
+            0.2802918745240448,
+            0.199791719114775
+          ],
+          "baseline_aa_ratio": 0.7905104629977946
+        },
+        "total_ms": {
+          "baseline_ms": 0.65621875,
+          "candidate_ms": 0.18151024999999998,
+          "paired_ratio": 0.2544946076916858,
+          "raw_pair_ratios": [
+            0.18430186221792863,
+            0.32395417759898265,
+            0.295160028066962,
+            0.21382918731640957
+          ],
+          "baseline_aa_ratio": 0.9115180775373892
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.9716875,
+          "candidate_ms": 1.6145205000000002,
+          "paired_ratio": 0.45542773879528065,
+          "raw_pair_ratios": [
+            0.6237050716104093,
+            3.275765793528506,
+            0.287150405980152,
+            0.14581714581714583
+          ],
+          "baseline_aa_ratio": 0.9979295310519647
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.9846254999999999,
+          "candidate_ms": 1.6395205000000002,
+          "paired_ratio": 0.4622850533256877,
+          "raw_pair_ratios": [
+            0.6208404936728635,
+            3.3013238923123405,
+            0.3037296129785119,
+            0.16041959831137267
+          ],
+          "baseline_aa_ratio": 0.9953264903700085
+        }
+      }
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.13347874999999998,
+          "candidate_ms": 0.150302,
+          "paired_ratio": 0.9985128144475737,
+          "raw_pair_ratios": [
+            0.1317614084371147,
+            1.4340779625218727,
+            0.9764735459470885,
+            1.0205520829480588
+          ],
+          "baseline_aa_ratio": 0.9999969723759582
+        },
+        "total_ms": {
+          "baseline_ms": 0.14945799999999998,
+          "candidate_ms": 0.17149999999999999,
+          "paired_ratio": 0.991290184424767,
+          "raw_pair_ratios": [
+            0.14516282375905515,
+            1.4969630956743625,
+            0.973611459336773,
+            1.008968909512761
+          ],
+          "baseline_aa_ratio": 1.0658358870622808
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.29481250000000003,
+          "candidate_ms": 0.7811875,
+          "paired_ratio": 1.3542168880935588,
+          "raw_pair_ratios": [
+            0.2928999833398124,
+            6.252,
+            0.6767778901247051,
+            2.0316558860624125
+          ],
+          "baseline_aa_ratio": 0.8027671474830733
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.327271,
+          "candidate_ms": 0.8188955,
+          "paired_ratio": 1.2941063874969652,
+          "raw_pair_ratios": [
+            0.26036155347654855,
+            5.835666713524234,
+            0.6911198391140028,
+            1.8970929358799276
+          ],
+          "baseline_aa_ratio": 0.9215962118371215
+        }
+      }
+    }
+  ],
+  "limits": [
+    "Single machine/driver; descriptive paired CPU wall times, not universal optimization qualification",
+    "Explicit wait is an unchanged blocking control; async wait includes completion scheduling",
+    "No OS input/presentation, GPU timestamps, thread sampling, RSS or energy measurement"
+  ]
+}

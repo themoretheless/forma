@@ -1,0 +1,58 @@
+{
+  "status": "partial",
+  "implementation": "Global-coordinate text/shape raster into contiguous physical region; sparse leaf coverage/content/clip layers sized to conservative support rectangle; global spans and f32 horizontal accumulation prefix preserved",
+  "native_tests_passed": 247,
+  "ignored": 3,
+  "all_targets": "passed",
+  "hardware_reveal": "passed",
+  "node_cases": 14,
+  "chromium_cases": 17,
+  "exact_standard_frames": 90,
+  "exact_overflow_frames": 60,
+  "exact_artifact_json_comparisons": 30,
+  "allocation_regression": {
+    "canvas": [
+      1600,
+      1200
+    ],
+    "scale": 2,
+    "before_requested_bytes": 17694710,
+    "after_requested_bytes": 1124666,
+    "budget_bytes": 2000000,
+    "baseline_expected_exit": 101,
+    "candidate_exit": 0
+  },
+  "paired_release_2x_focused": {
+    "scale": 2,
+    "focused": true,
+    "baseline": {
+      "ms": 2.0112605,
+      "allocations": 22.0,
+      "requested_bytes": 8704257.0
+    },
+    "candidate": {
+      "ms": 1.7456772500000002,
+      "allocations": 22.0,
+      "requested_bytes": 1119813.0
+    },
+    "paired_time_ratios": [
+      0.8742578039959616,
+      0.8618500944611335,
+      0.8618825776898704,
+      0.8745862219568423
+    ],
+    "median_time_ratio": 0.868070190842916,
+    "aa_time_ratio": 0.9870119939117199
+  },
+  "source_sha256": {
+    "vector-ui/src/text.rs": "bb6688058d48b3007ee0750e0fc8dde955f351e390459ac80b93a20d2e051f39",
+    "vector-ui/src/shape.rs": "889aaa6b31c9b7f4287e796efe35db9edf8a9bdfc72aab464a06b64e86bfd117",
+    "vector-ui/src/raster_cache.rs": "e5a57ec331dbdd1ceed07151e489b730a4d9d6e114f0358e7e4b1c44eb0961a1"
+  },
+  "limits": [
+    "Allocator-instrumented CPU fixture timing; no OS input latency/RSS or cross-platform claim",
+    "Dense root/single-control path unchanged",
+    "Widely separated overflow can conservatively require a large support region",
+    "Large-form physical window and repeated lifecycle qualification remain open"
+  ]
+}

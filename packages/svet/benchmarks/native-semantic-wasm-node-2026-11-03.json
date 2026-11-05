@@ -1,0 +1,151 @@
+{
+  "node": "v22.23.4",
+  "cases": [
+    {
+      "name": "Custom visual template reads props.__state through transferred snapshot",
+      "status": "passed"
+    },
+    {
+      "name": "Column For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Frame For snapshots preserve root collection and distinct owned item values",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through single retained Let collection alias",
+      "status": "passed"
+    },
+    {
+      "name": "Live input commits through chained retained Let collection alias",
+      "status": "passed"
+    },
+    {
+      "name": "Warmed idle and reload reorder preserve single alias writes",
+      "status": "passed"
+    },
+    {
+      "name": "Warmed idle and reload reorder preserve chained alias writes",
+      "status": "passed"
+    },
+    {
+      "name": "Project reload errors preserve live document, focus and cache versions",
+      "status": "passed"
+    },
+    {
+      "name": "Live disabled TextInput binding locks and unlocks without reload",
+      "status": "passed"
+    },
+    {
+      "name": "Nested layout keeps control snapshots and live writes with unrelated payload",
+      "status": "passed"
+    },
+    {
+      "name": "Large resolved List property retains contract type validation",
+      "status": "passed"
+    },
+    {
+      "name": "Source wrappers throw atomically and recover after invalid markup/template",
+      "status": "passed"
+    },
+    {
+      "name": "Modal blocks base scroll without cancelling its pressed control",
+      "status": "passed"
+    },
+    {
+      "name": "Portable CJK and emoji use real pixels and matching simple/shaped advances",
+      "status": "passed"
+    },
+    {
+      "name": "Grapheme editing preserves é atomically",
+      "status": "passed"
+    },
+    {
+      "name": "Grapheme editing preserves 👍🏽 atomically",
+      "status": "passed"
+    },
+    {
+      "name": "Grapheme editing preserves 👨‍👩‍👧‍👦 atomically",
+      "status": "passed"
+    },
+    {
+      "name": "Grapheme editing preserves 🇬🇪 atomically",
+      "status": "passed"
+    },
+    {
+      "name": "Grapheme editing preserves 1️⃣ atomically",
+      "status": "passed"
+    },
+    {
+      "name": "Grapheme editing preserves 각 atomically",
+      "status": "passed"
+    },
+    {
+      "name": "Grapheme editing preserves क्‍ष atomically",
+      "status": "passed"
+    },
+    {
+      "name": "Normalized word navigation/deletion retains Unicode clusters and binding payload",
+      "status": "passed"
+    },
+    {
+      "name": "Word-forward deletion is additive to ordinary grapheme keys",
+      "status": "passed"
+    },
+    {
+      "name": "Explicit editor commands remove marked pixels without changing committed history",
+      "status": "passed"
+    },
+    {
+      "name": "CRLF End, pointer hit and vertical selection retain complete line breaks",
+      "status": "passed"
+    },
+    {
+      "name": "CRLF and LF render exactly equal pixels with selection and preserve bound bytes",
+      "status": "passed"
+    },
+    {
+      "name": "Vertical keys preserve desired column through short rows for LF and CRLF",
+      "status": "passed"
+    },
+    {
+      "name": "Command line deletion keeps LF/CRLF and is one undoable replacement",
+      "status": "passed"
+    },
+    {
+      "name": "Line deletion joining RI and ZWJ clusters aligns caret and preserves undo selection",
+      "status": "passed"
+    },
+    {
+      "name": "Multiline metadata exports editor semantics and rejects noneditor indices",
+      "status": "passed"
+    },
+    {
+      "name": "DOM UTF16 selection uses surrogate pairs and normalized CRLF offsets",
+      "status": "passed"
+    },
+    {
+      "name": "DOM selection import maps reverse Unicode and partial surrogate offsets safely",
+      "status": "passed"
+    },
+    {
+      "name": "Explicit editor label is stable across bound edits and distinct from value",
+      "status": "passed"
+    },
+    {
+      "name": "Accessibility snapshot JSON roundtrips control characters under JavaScript JSON.parse",
+      "status": "passed"
+    },
+    {
+      "name": "Readonly editor exports state and refuses edits while retaining Unicode selection",
+      "status": "passed"
+    },
+    {
+      "name": "Native semantic selection retains original CRLF UTF16 units independently of DOM units",
+      "status": "passed"
+    }
+  ],
+  "wasmSha256": "39816733028933a896994fcfe103a949639603b546fc5674b5faaa047c5b62f6",
+  "status": "passed"
+}

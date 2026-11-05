@@ -1,0 +1,18 @@
+{
+  "status": "passed-scoped",
+  "before": "Right-edge hit placed caret between CR and LF",
+  "after": "CR omitted from row hit targets only when followed by LF",
+  "testsPassed": 243,
+  "ignored": 3,
+  "coverage": [
+    "Full x-coordinate scan on both rows",
+    "Far-right hit exact positions",
+    "ArrowUp/Down boundary safety",
+    "Shift vertical selection across full CRLF"
+  ],
+  "sha256": "1b162f4a20a5175e181631ed8bbbc38c501a8e5a09330869f700765f52588c23",
+  "limits": [
+    "Fresh WASM/browser CRLF qualification pending",
+    "No OS input matrix claim"
+  ]
+}

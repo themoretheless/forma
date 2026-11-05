@@ -1,0 +1,33 @@
+{
+  "status": "partial",
+  "scope": "Fresh release Rust WASM after layout snapshot elimination",
+  "validation": {
+    "node_cases": 10,
+    "chromium_cases": 13,
+    "nested_columns": 24,
+    "control_snapshot_records": 256,
+    "edited_query": "seed-nested",
+    "unrelated_last_record": "payload-255"
+  },
+  "sources": {
+    "vector-ui/src/form_document.rs": "dd095e98d8787ea1ee9f34a51ca31f77cdd3ea754cd5734473bec5bf2afd4324",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "130d4f231051b181edeb339123ae3a8b448b117d21677cc5a91945b06445baca",
+    "vector-ui/tests/scene-artifact-browser.html": "c4942da2e33646b7b2242edeb66b91a92238f88c67a59c5e62a147892ae08385"
+  },
+  "generated": {
+    "web/index.html": "c4942da2e33646b7b2242edeb66b91a92238f88c67a59c5e62a147892ae08385",
+    "web/forma_bg.wasm": "d600bdfcf2b8534dff4874ae2749cddf8c4c630e8c5582e328609b23e5f0b53d",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "d600bdfcf2b8534dff4874ae2749cddf8c4c630e8c5582e328609b23e5f0b53d",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "limits": [
+    "Programmatic input and Chromium CPU frames",
+    "No WASM allocation/latency/RSS measurement",
+    "Native allocation reduction separately qualified; no cross-engine performance claim"
+  ]
+}

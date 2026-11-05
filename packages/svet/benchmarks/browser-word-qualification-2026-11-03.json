@@ -1,0 +1,19 @@
+{
+  "status": "passed-scoped",
+  "browserCases": 7,
+  "adapterTests": 33,
+  "input": "synthetic DOM events, not trusted OS keyboard",
+  "fix": "Recognize UA Client Hints macOS platform for Option word dispatch",
+  "limitations": [
+    "True IME/OS trusted keyboard not qualified",
+    "Windows/Linux real browser input not qualified",
+    "No GPU rendering qualification; snapshot captured before asynchronous GPU initialization"
+  ],
+  "sha256": {
+    "src/vector-preview.js": "fdd4effb105c7ad80ef7b2c241a978ad4b9bd0b695a0d6055f38a0cbe0366dd4",
+    "test/vector-preview.test.js": "3409dc7f3eedb0c33b20a0242904c72306b15bd445c9e6f31ed0108f63278425",
+    "vector-ui/tests/preview-word-browser.html": "37ea020f1b047c3fddb5bdb3e9959b3b35f3c4b405f9d349892fe30c2c3edf6a",
+    "vector-ui/scripts/serve-word-browser.py": "f51e5de52c87d5d712750b9f6d0301af7d2c9934d3584db27cb4c138172b1279",
+    "/tmp/svet-browser-word/web/forma_bg.wasm": "95fddabc86424991070dcd8f460655d38b4690a312f1059cc7bc0911752c10ef"
+  }
+}

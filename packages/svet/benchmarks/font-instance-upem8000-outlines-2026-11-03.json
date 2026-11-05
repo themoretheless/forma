@@ -1,0 +1,33 @@
+{
+  "scope": "All cmap mappings and glyph outlines at weight400 via ttf-parser; no raster/sequence qualification",
+  "rows": [
+    {
+      "original": "NotoSansSC.ttf",
+      "derived": "FormaCJK-Regular.ttf",
+      "original_upem": 1000,
+      "candidate_upem": 8000,
+      "coordinate_error_limit_original_units": 0.06350000202655792,
+      "glyphs": 31036,
+      "cmap_codepoints": 30890,
+      "outline_glyphs": 31032,
+      "max_coordinate_error_font_units": 0.0625,
+      "max_advance_error_font_units": 0.5,
+      "topology_mismatches": []
+    },
+    {
+      "original": "NotoEmoji.ttf",
+      "derived": "FormaEmoji-Regular.ttf",
+      "original_upem": 2048,
+      "candidate_upem": 2048,
+      "coordinate_error_limit_original_units": 0.5009999871253967,
+      "glyphs": 1891,
+      "cmap_codepoints": 1489,
+      "outline_glyphs": 1848,
+      "max_coordinate_error_font_units": 0.0,
+      "max_advance_error_font_units": 0.0,
+      "topology_mismatches": []
+    }
+  ],
+  "status": "rejected-metrics",
+  "gate_exit_code": 101
+}

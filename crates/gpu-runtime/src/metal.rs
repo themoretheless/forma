@@ -1,8 +1,12 @@
 #![allow(unsafe_code, unsafe_op_in_unsafe_fn)]
 
-use std::ffi::{c_char, c_void, CStr, CString};
+use std::ffi::c_void;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use std::ffi::{c_char, CStr, CString};
 use std::ptr;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use std::sync::OnceLock;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "objc")]
@@ -16,6 +20,7 @@ extern "C" {
 #[link(name = "Metal", kind = "framework")]
 extern "C" {
     pub fn MTLCreateSystemDefaultDevice() -> *mut c_void;
+    static MTLCommandBufferErrorDomain: *mut c_void;
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -30,6 +35,7 @@ extern "C" {}
 #[link(name = "Foundation", kind = "framework")]
 extern "C" {}
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 #[derive(Clone, Copy)]
 pub struct Selectors {
     pub release: *mut c_void,
@@ -206,9 +212,12 @@ pub struct Selectors {
     pub drain: *mut c_void,
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 unsafe impl Send for Selectors {}
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 unsafe impl Sync for Selectors {}
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 static SELECTORS: OnceLock<Selectors> = OnceLock::new();
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -583,6 +592,34 @@ pub unsafe fn nserror_description(err: *mut c_void) -> String {
     nsstring_to_string(desc)
 }
 
+fn command_error_is_device_loss(code:i64)->bool { matches!(code,4|11) }
+// MTLCommandBuffer.h: OutOfMemory=8. A numeric code in another NSError
+// domain must not become a Metal allocation failure.
+pub(crate) fn command_failure_error(metal_domain:bool, code:i64, message:String)->crate::Error {
+    let source=Arc::new(std::io::Error::other(message.clone()));
+    if metal_domain && code==8 { crate::Error::OutOfMemory {source} }
+    else { crate::Error::Internal {source,description:message} }
+}
+
+
+#[derive(Default)]
+pub(crate) struct PendingCompute {
+    ops: Vec<crate::ComputeDispatchOp>,
+    sinks: Vec<crate::CommandErrorSink>,
+}
+fn add_error_sink(sinks: &mut Vec<crate::CommandErrorSink>, sink: crate::CommandErrorSink) {
+    if !sinks.iter().any(|old|old.same_submission(&sink)) { sinks.push(sink); }
+}
+enum CompletionCommand {
+    Native(ObjCObject),
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+    Failed(crate::Error),
+}
+struct PendingCommand {
+    command: CompletionCommand,
+    sinks: Vec<crate::CommandErrorSink>,
+}
+
 #[derive(Clone)]
 pub struct MetalDevice {
     pub raw: Arc<ObjCObject>,
@@ -600,7 +637,12 @@ pub struct MetalDevice {
     pub(crate) color_atts_pool: Arc<Mutex<Vec<Vec<Option<crate::OwnedColorAttachment>>>>>,
     pub(crate) compute_dispatches_pool: Arc<Mutex<Vec<Vec<crate::ComputeDispatchOp>>>>,
     pub last_cmd_buf: Arc<Mutex<Option<(ObjCObject, u64)>>>,
-    pub(crate) pending_compute_ops: Arc<Mutex<Vec<crate::ComputeDispatchOp>>>,
+    pending_error_checks: Arc<Mutex<Vec<PendingCommand>>>,
+    backend_device_loss: Arc<Mutex<Option<String>>>,
+    pub(crate) pending_compute_ops: Arc<Mutex<PendingCompute>>,
+    pub(crate) scope_completion_service: Arc<crate::types::ScopeCompletionService>,
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+    pub(crate) blocking_wait_calls: Arc<std::sync::atomic::AtomicUsize>,
     pub next_submission_index: Arc<std::sync::atomic::AtomicU64>,
 }
 
@@ -653,7 +695,12 @@ impl MetalDevice {
                 color_atts_pool: Arc::new(Mutex::new(Vec::with_capacity(8))),
                 compute_dispatches_pool: Arc::new(Mutex::new(Vec::with_capacity(8))),
                 last_cmd_buf: Arc::new(Mutex::new(None)),
-                pending_compute_ops: Arc::new(Mutex::new(Vec::with_capacity(32))),
+                pending_error_checks: Arc::new(Mutex::new(Vec::with_capacity(8))),
+                backend_device_loss: Arc::new(Mutex::new(None)),
+                pending_compute_ops: Arc::new(Mutex::new(PendingCompute { ops:Vec::with_capacity(32), sinks:Vec::new() })),
+                scope_completion_service: Arc::new(crate::types::ScopeCompletionService::default()),
+                #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+                blocking_wait_calls:Arc::new(std::sync::atomic::AtomicUsize::new(0)),
                 next_submission_index: Arc::new(std::sync::atomic::AtomicU64::new(1)),
             })
         }
@@ -968,9 +1015,22 @@ impl MetalDevice {
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
+    unsafe fn install_completion_signal(&self,command:*mut c_void,scoped:bool) {
+        if !scoped {return;}
+        let service=Arc::downgrade(&self.scope_completion_service);
+        // Metal copies this block before commit. Only a Send+Sync Weak signal
+        // crosses the driver thread; user callbacks run in the collector.
+        let block=block2::RcBlock::new(move |_: *mut c_void| {
+            if let Some(service)=service.upgrade() {service.native_completed();}
+        });
+        let add:unsafe extern "C" fn(*mut c_void,*mut c_void,*mut block2::Block<dyn Fn(*mut c_void)>)=std::mem::transmute(objc_msgSend as *const c_void);
+        add(command,sel("addCompletedHandler:"),block2::RcBlock::as_ptr(&block));
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn flush_pending_compute(&self) {
-        let ops: Vec<crate::ComputeDispatchOp> = if let Ok(mut v) = self.pending_compute_ops.lock() {
-            if v.is_empty() {
+        let batch = if let Ok(mut v) = self.pending_compute_ops.lock() {
+            if v.ops.is_empty() {
                 return;
             }
             std::mem::take(&mut *v)
@@ -990,10 +1050,15 @@ impl MetalDevice {
             }
             let cmd_buf = ObjCObject::from_unretained(cmd_buf_ptr).unwrap();
             let enc = f_obj(cmd_buf.as_ptr(), s.compute_command_encoder);
-            crate::encode_compute_dispatches(enc, &ops);
+            crate::encode_compute_dispatches(enc, &batch.ops);
             f_void(enc, s.end_encoding);
+            let signal=batch.sinks.iter().any(crate::CommandErrorSink::has_scoped_work);
+            self.install_completion_signal(cmd_buf.as_ptr(),signal);
             f_void(cmd_buf.as_ptr(), s.commit);
             let idx = self.next_submission_index.load(std::sync::atomic::Ordering::Relaxed);
+            let _ = self.device_loss_message(); // Reap completed work even when callers do not poll.
+            self.pending_error_checks.lock().unwrap_or_else(|e|e.into_inner()).push(PendingCommand {command:CompletionCommand::Native(cmd_buf.clone()),sinks:batch.sinks});
+            if signal {self.scope_completion_service.notify();}
             if let Ok(mut last) = self.last_cmd_buf.lock() {
                 *last = Some((cmd_buf, idx));
             }
@@ -1001,7 +1066,87 @@ impl MetalDevice {
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
+    unsafe fn inspect_command_loss(&self, command: *mut c_void, failure: &mut Option<crate::Error>) -> bool {
+        let f_status:unsafe extern "C" fn(*mut c_void,*mut c_void)->usize=std::mem::transmute(objc_msgSend as *const c_void);
+        let status=f_status(command,selectors().status);
+        if status<4 { return false; }
+        if status==5 {
+            let f_obj:unsafe extern "C" fn(*mut c_void,*mut c_void)->*mut c_void=std::mem::transmute(objc_msgSend as *const c_void);
+            let error=f_obj(command,sel("error"));
+            if !error.is_null() {
+                let f_code:unsafe extern "C" fn(*mut c_void,*mut c_void)->isize=std::mem::transmute(objc_msgSend as *const c_void);
+                let code=f_code(error,sel("code")) as i64;
+                let domain=nsstring_to_string(f_obj(error,sel("domain")));
+                let metal_domain=domain==nsstring_to_string(MTLCommandBufferErrorDomain);
+                if metal_domain && command_error_is_device_loss(code) {
+                    let mut loss=self.backend_device_loss.lock().unwrap_or_else(|e|e.into_inner());
+                    if loss.is_none() { *loss=Some(format!("Metal command buffer device loss (code {code}): {}",nserror_description(error))); }
+                } else {
+                    *failure=Some(command_failure_error(metal_domain,code,format!("Metal command buffer failure (domain {domain}, code {code}): {}",nserror_description(error))));
+                }
+            } else {
+                *failure=Some(command_failure_error(false,0,"Metal command buffer failed without NSError".into()));
+            }
+        }
+        true
+    }
+
+    #[cfg(all(any(test, feature = "test-hooks"), any(target_os = "macos", target_os = "ios")))]
+    pub(crate) fn inject_device_loss_for_test(&self, message:String) {
+        let mut loss=self.backend_device_loss.lock().unwrap();
+        if loss.is_none() { *loss=Some(message); }
+    }
+
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+    pub(crate) fn last_command_owned_by_for_test(&self, sink:&crate::CommandErrorSink)->bool {
+        self.pending_error_checks.lock().unwrap().last().is_some_and(|entry|
+            entry.sinks.len()==1 && entry.sinks[0].same_device(sink))
+    }
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+    pub(crate) fn inject_command_failure_for_test(&self, sink:crate::CommandErrorSink, message:&str) {
+        self.pending_error_checks.lock().unwrap().push(PendingCommand {
+            command:CompletionCommand::Failed(command_failure_error(false,0,message.into())), sinks:vec![sink.capture()],
+        });self.scope_completion_service.notify();
+    }
+
+    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+    pub(crate) fn inject_classified_command_failure_for_test(&self, sink:crate::CommandErrorSink, metal_domain:bool, code:i64) {
+        self.pending_error_checks.lock().unwrap().push(PendingCommand {
+            command:CompletionCommand::Failed(command_failure_error(metal_domain,code,format!("injected code {code}"))), sinks:vec![sink.capture()],
+        });self.scope_completion_service.notify();
+    }
+
+    /// Poll completed command buffers without blocking and retain the first
+    /// device-removal/access-revocation cause for all logical device observers.
+    pub(crate) fn device_loss_message(&self) -> Option<String> {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        {
+            // Own the batch outside the mutex: successful completion can also
+            // drop a scope lease and invoke an arbitrary Future waker.
+            let mut pending=std::mem::take(&mut *self.pending_error_checks.lock().unwrap_or_else(|e|e.into_inner()));
+            let mut index=0;
+            while index<pending.len() {
+                let mut failure=None;
+                let completed=match &pending[index].command {
+                    CompletionCommand::Native(command)=>unsafe {self.inspect_command_loss(command.as_ptr(), &mut failure)},
+                    #[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+                    CompletionCommand::Failed(error)=>{failure=Some(error.clone());true},
+                };
+                if completed {
+                    let entry=pending.swap_remove(index);
+                    for sink in entry.sinks {if let Some(error)=&failure {sink.command_failure(error.clone());}}
+                } else {index+=1;}
+            }
+            let mut queued=self.pending_error_checks.lock().unwrap_or_else(|e|e.into_inner());
+            if queued.is_empty() {*queued=pending;} else {queued.append(&mut pending);}
+
+        }
+        self.backend_device_loss.lock().unwrap_or_else(|e|e.into_inner()).clone()
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn wait_idle(&self) {
+        #[cfg(all(test, any(target_os = "macos", target_os = "ios")))] {self.blocking_wait_calls.fetch_add(1,std::sync::atomic::Ordering::Relaxed);}
         self.flush_pending_compute();
         let cmd_opt = self.last_cmd_buf.lock().ok().and_then(|mut g| g.take());
         if let Some((cmd_buf, _)) = cmd_opt {
@@ -1018,12 +1163,13 @@ impl MetalDevice {
                 }
             }
         }
+        let _ = self.device_loss_message();
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     pub fn is_last_cmd_completed(&self) -> bool {
         if let Ok(pending) = self.pending_compute_ops.lock() {
-            if !pending.is_empty() {
+            if !pending.ops.is_empty() {
                 return false;
             }
         }
@@ -1337,6 +1483,8 @@ impl MetalDevice {
                 depth_bias: desc.depth_stencil.as_ref().map(|d| d.bias).unwrap_or_default(),
             }
         }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        unimplemented!("Metal render pipelines are only available on macOS and iOS")
     }
 
     pub fn create_texture(&self, desc: &crate::TextureDescriptor<'_>) -> crate::Texture {
@@ -1430,6 +1578,8 @@ impl MetalDevice {
                 storage_mode,
             }
         }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        unimplemented!("Metal textures are only available on macOS and iOS")
     }
 
     pub fn create_sampler(&self, desc: &crate::SamplerDescriptor<'_>) -> crate::Sampler {
@@ -1469,9 +1619,14 @@ impl MetalDevice {
                 raw: Arc::new(ObjCObject(samp_ptr)),
             }
         }
+        #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+        unimplemented!("Metal samplers are only available on macOS and iOS")
     }
 
     pub fn write_buffer(&self, buffer: &crate::Buffer, offset: crate::BufferAddress, data: &[u8]) {
+        self.write_buffer_with_error_sink(buffer,offset,data,None);
+    }
+    pub(crate) fn write_buffer_with_error_sink(&self, buffer: &crate::Buffer, offset: crate::BufferAddress, data: &[u8], error_sink: Option<crate::CommandErrorSink>) {
         if data.is_empty() {
             return;
         }
@@ -1509,8 +1664,14 @@ impl MetalDevice {
                     data.len(),
                 );
                 f_void(blit, s.end_encoding);
+                let signal=error_sink.as_ref().is_some_and(crate::CommandErrorSink::has_scoped_work);
+                self.install_completion_signal(cmd_buf,signal);
                 f_void(cmd_buf, s.commit);
                 f_void(cmd_buf, s.wait_until_completed);
+                if let Some(command)=ObjCObject::from_unretained(cmd_buf) {
+                    self.pending_error_checks.lock().unwrap_or_else(|e|e.into_inner()).push(PendingCommand {command:CompletionCommand::Native(command),sinks:error_sink.into_iter().collect()});
+            if signal {self.scope_completion_service.notify();}
+                }
             }
             return;
         }
@@ -1601,11 +1762,17 @@ impl MetalDevice {
         }
     }
 
-    pub fn submit<I: IntoIterator<Item = crate::CommandBuffer>>(
+    pub fn submit<I: IntoIterator<Item = crate::CommandBuffer>>(&self, command_buffers: I) -> crate::SubmissionIndex {
+        self.submit_with_error_sink(command_buffers,None)
+    }
+    pub(crate) fn submit_with_error_sink<I: IntoIterator<Item = crate::CommandBuffer>>(
         &self,
         command_buffers: I,
+        error_sink: Option<crate::CommandErrorSink>,
     ) -> crate::SubmissionIndex {
-        use crate::{ComputeDispatchOp, RecordedOp, SubmissionIndex, encode_compute_dispatches, encode_non_compute_op};
+        use crate::SubmissionIndex;
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        use crate::{RecordedOp, encode_compute_dispatches, encode_non_compute_op};
         use std::sync::atomic::Ordering;
 
         let idx = self.next_submission_index.fetch_add(1, Ordering::Relaxed);
@@ -1642,17 +1809,18 @@ impl MetalDevice {
             if is_pure_untimed_compute {
                 let mut should_flush = false;
                 if let Ok(mut pending) = self.pending_compute_ops.lock() {
+                    if let Some(sink)=error_sink.clone() {add_error_sink(&mut pending.sinks,sink);}
                     for mut cb in cbs {
                         let mut ops = std::mem::take(&mut cb.ops);
                         for op in ops.drain(..) {
                             if let RecordedOp::ComputePass { mut dispatches, .. } = op {
-                                pending.append(&mut dispatches);
+                                pending.ops.append(&mut dispatches);
                                 self.recycle_compute_dispatches(dispatches);
                             }
                         }
                         self.recycle_cmd_ops(ops);
                     }
-                    if pending.len() >= 1 {
+                    if !pending.ops.is_empty() {
                         should_flush = true;
                     }
                 }
@@ -1709,15 +1877,10 @@ impl MetalDevice {
                 return SubmissionIndex(idx);
             }
 
-            let mut pending: Vec<ComputeDispatchOp> = if let Ok(mut v) = self.pending_compute_ops.lock() {
-                if v.is_empty() {
-                    Vec::new()
-                } else {
-                    std::mem::take(&mut *v)
-                }
-            } else {
-                Vec::new()
-            };
+            let batch = std::mem::take(&mut *self.pending_compute_ops.lock().unwrap_or_else(|e|e.into_inner()));
+            let mut pending = batch.ops;
+            let mut error_sinks = batch.sinks;
+            if let Some(sink)=error_sink {add_error_sink(&mut error_sinks,sink);}
 
             let s = selectors();
             let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
@@ -1782,8 +1945,14 @@ impl MetalDevice {
                                 encode_compute_dispatches(sub_enc, &dispatches);
                                 self.recycle_compute_dispatches(dispatches);
                                 f_void(sub_enc, s.end_encoding);
+                                let signal=error_sinks.iter().any(crate::CommandErrorSink::has_scoped_work);
+                                self.install_completion_signal(sub_cmd_ptr,signal);
                                 f_void(sub_cmd_ptr, s.commit);
                                 f_void(sub_cmd_ptr, s.wait_until_completed);
+                if let Some(command)=ObjCObject::from_unretained(sub_cmd_ptr) {
+                    self.pending_error_checks.lock().unwrap_or_else(|e|e.into_inner()).push(PendingCommand {command:CompletionCommand::Native(command),sinks:error_sinks.clone()});
+            if signal {self.scope_completion_service.notify();}
+                }
 
                                 let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 =
                                     std::mem::transmute(objc_msgSend as *const c_void);
@@ -1832,8 +2001,14 @@ impl MetalDevice {
                             if start_ts.is_some() || end_ts.is_some() {
                                 let sub_cmd_ptr = f_obj(self.queue.as_ptr(), s.command_buffer);
                                 crate::encode_render_pass(self, sub_cmd_ptr, rp);
+                                let signal=error_sinks.iter().any(crate::CommandErrorSink::has_scoped_work);
+                                self.install_completion_signal(sub_cmd_ptr,signal);
                                 f_void(sub_cmd_ptr, s.commit);
                                 f_void(sub_cmd_ptr, s.wait_until_completed);
+                if let Some(command)=ObjCObject::from_unretained(sub_cmd_ptr) {
+                    self.pending_error_checks.lock().unwrap_or_else(|e|e.into_inner()).push(PendingCommand {command:CompletionCommand::Native(command),sinks:error_sinks.clone()});
+            if signal {self.scope_completion_service.notify();}
+                }
 
                                 let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 =
                                     std::mem::transmute(objc_msgSend as *const c_void);
@@ -1883,10 +2058,15 @@ impl MetalDevice {
                 f_void(active_compute_enc, s.end_encoding);
             }
 
+            let signal=error_sinks.iter().any(crate::CommandErrorSink::has_scoped_work);
+            self.install_completion_signal(cmd_buf.as_ptr(),signal);
             f_void(cmd_buf.as_ptr(), s.commit);
             if !pool.is_null() {
                 f_void(pool, s.drain);
             }
+            let _ = self.device_loss_message(); // Reap completed work even when callers do not poll.
+            self.pending_error_checks.lock().unwrap_or_else(|e|e.into_inner()).push(PendingCommand {command:CompletionCommand::Native(cmd_buf.clone()),sinks:error_sinks});
+            if signal {self.scope_completion_service.notify();}
             if let Ok(mut last) = self.last_cmd_buf.lock() {
                 *last = Some((cmd_buf, idx));
             }
@@ -2121,5 +2301,71 @@ impl MetalDevice {
     }
 }
 
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
+impl MetalDevice {
+    pub fn alloc_buffer(&self, _size: usize, _options: u64) -> (Arc<ObjCObject>, *mut u8) {
+        unimplemented!("Metal buffers are only available on macOS and iOS")
+    }
+
+    pub fn alloc_buffer_with_bytes(&self, _bytes: &[u8], _options: u64) -> (Arc<ObjCObject>, *mut u8) {
+        unimplemented!("Metal buffers are only available on macOS and iOS")
+    }
+
+    pub unsafe fn alloc_buffer_no_copy(
+        &self,
+        _page_aligned_ptr: *mut c_void,
+        _page_aligned_len: usize,
+        _options: u64,
+    ) -> Option<(Arc<ObjCObject>, *mut u8)> {
+        unimplemented!("Metal buffers are only available on macOS and iOS")
+    }
+
+    pub fn compile_compute_pipeline(
+        &self,
+        _msl_source: &str,
+        _entry_point: &str,
+        _wg_total: u32,
+    ) -> Result<Arc<ObjCObject>, String> {
+        unimplemented!("Metal pipelines are only available on macOS and iOS")
+    }
+
+    pub fn flush_pending_compute(&self) {}
+
+    pub fn wait_idle(&self) {}
+
+    pub fn is_last_cmd_completed(&self) -> bool {
+        true
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub use selectors as metal_selectors;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 pub use objc_msgSend as metal_msg_send;
+
+#[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+mod device_loss_classification_tests {
+    use super::command_error_is_device_loss;
+    #[test]
+    fn only_access_revoked_or_removed_are_device_loss() {
+        assert!(command_error_is_device_loss(4));assert!(command_error_is_device_loss(11));
+        for code in [-1,0,1,2,3,7,8,9,10,12,99] {assert!(!command_error_is_device_loss(code),"command error {code} is not device loss");}
+    }
+}
+
+#[cfg(all(test, any(target_os = "macos", target_os = "ios")))]
+mod command_failure_classification_tests {
+    use super::command_failure_error;
+    #[test]
+    fn only_metal_oom_code_maps_to_out_of_memory() {
+        let error=command_failure_error(true,8,"Metal allocation exhausted".into());
+        assert!(matches!(error,crate::Error::OutOfMemory{..}));
+        assert!(error.to_string().contains("Metal allocation exhausted"));
+        for code in [-1,0,1,2,3,7,9,10,12,99] {
+            assert!(matches!(command_failure_error(true,code,"other".into()),crate::Error::Internal{..}));
+        }
+        for code in [4,8,11] {
+            assert!(matches!(command_failure_error(false,code,"foreign domain".into()),crate::Error::Internal{..}));
+        }
+    }
+}

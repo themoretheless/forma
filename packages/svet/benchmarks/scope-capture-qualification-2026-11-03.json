@@ -1,0 +1,34 @@
+{
+  "status": "partial",
+  "implementation": "Queue submit/write captures active error scopes; captured states and per-submission leases survive guard pop. pop removes active scope then waits asynchronously for all captured work. Pending pop starts a completion worker, waker delivery and callback execution occur outside scope/backend locks",
+  "gates": {
+    "runtime_unit_passed": 10,
+    "runtime_unit_ignored": 3,
+    "explicit_metal_passed": 3,
+    "native_lib_passed": 218,
+    "native_ignored": 3,
+    "metal_renderer_smoke": "passed",
+    "regressions": [
+      "Later scope cannot capture an earlier submitted error",
+      "No-scope submission bypasses later scopes with no snapshot allocation",
+      "Cloned command parts retain pending scope until final lease drops",
+      "pop future returns Pending and wakes after completion",
+      "Real clear-buffer success and synthetic error completion are driven without caller polling",
+      "Reentrant waker polls Device without deadlock; newer scope stays clean"
+    ],
+    "native_all_targets": "passed"
+  },
+  "source_sha256": {
+    "crates/gpu-runtime/src/types.rs": "a7c0f226ab9600758a196b291325500b1c98f9848cd717514ae52582ff637169",
+    "crates/gpu-runtime/src/lib.rs": "3316ffbf05de21f48b2b75ae1305ffc80c41e2fbd2e1b28da81058a5a1f68d94",
+    "crates/gpu-runtime/src/metal.rs": "c062905c07fab8c77f27458e5ee6dcba9be37ec0e3bb2b117c114212e2195284",
+    "crates/gpu-runtime/src/command.rs": "9017611c77f3df61dd8959fcfc4c24f935a40adba5309bdc66eac45e54380315"
+  },
+  "limits": [
+    "Error completions are injected; no physical GPU fault/OOM claim",
+    "A pending scope pop starts a detached completion thread; pooling/resource limits and performance remain unqualified",
+    "The worker uses backend wait_idle; driver waits do not block the async caller but are not cancellable",
+    "Raw MetalDevice calls without logical sinks do not participate in scope capture",
+    "Native idle removal notifications and other backend runtime qualification remain open"
+  ]
+}

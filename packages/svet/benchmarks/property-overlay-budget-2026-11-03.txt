@@ -1,0 +1,28 @@
+warning: function `rasterize` is never used
+   --> src/text.rs:783:15
+    |
+783 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running tests/runtime_allocations.rs (/tmp/svet-native-development/debug/deps/runtime_allocations-12d99b309779448f)
+
+running 1 test
+96 For scopes with1024 unrelated text records, mode=direct: 3291035 requested bytes
+96 For scopes with1024 unrelated text records, mode=lexical: 3613180 requested bytes
+96 For scopes with1024 unrelated text records, mode=shadow: 3526712 requested bytes
+owned masked scope: 7956 requested bytes
+96 For scopes with1024 unrelated text records, mode=captured: 3503081 requested bytes
+test for_scope_overlays_do_not_copy_unrelated_root_lists_per_control ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.08s
+

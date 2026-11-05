@@ -1,0 +1,31 @@
+{
+  "scope": "Component-level annotation placement and duplicate/dangling rejection",
+  "before": {
+    "regressionsFailed": 7
+  },
+  "after": {
+    "focusedPassed": 48,
+    "fullSuitePassed": 1380,
+    "fullSuiteFiles": 102,
+    "fullSuiteWorkers": 1,
+    "typesPassed": true,
+    "packageGatePassed": true
+  },
+  "sha256": {
+    "src/engine/forma.ts": "8f806a474e18a3488aa5a6d247f13da6854bcec2c6cbfa5c02108a4ce7412323",
+    "tests/forma-contract-tokens.test.ts": "76ceedc2d770c4923e582fae46e47fd942519ac7ced64ea2a4069bd333ff375d",
+    "scripts/check-forma-aot-lifecycle.mjs": "36dfdfaa0b79329d8e4bff27c1e94bea1c64ddfe368c851de7c7862a7c46dd9c"
+  },
+  "accepted": "Distinct contract kinds stacked across whitespace or line comments immediately before prop or required prop",
+  "rejected": [
+    "duplicate range",
+    "duplicate pattern",
+    "dangling annotation",
+    "annotation separated from prop by state, let, tokens or visual root"
+  ],
+  "limitations": [
+    "Visual subtree annotation admission remains open.",
+    "Arbitrary AST admission remains open.",
+    "Installed browser rerun not performed."
+  ]
+}

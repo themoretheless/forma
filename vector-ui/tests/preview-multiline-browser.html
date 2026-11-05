@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>Multiline trusted DOM input</title>
+<style>body{font:16px system-ui;margin:32px;background:#eef2f6}#editor{width:500px;min-height:180px}pre{white-space:pre-wrap;font-size:13px}</style>
+<h1>Multiline · trusted browser input</h1><p id="status">Loading…</p><div id="editor"></div><pre id="journal"></pre>
+<script type="module">
+import init,* as wasm from '/wasm/forma.js';
+import {createVectorPreview} from '/src/vector-preview.js';
+const report={status:'loading',userAgent:navigator.userAgent,platform:navigator.platform,events:[]};
+try{
+ await init();let active;class Observed extends wasm.Runtime{constructor(){super();active=this;}}
+ const preview=createVectorPreview({runtime:{...wasm,Runtime:Observed},onError:e=>{report.error=String(e);}});
+ const value='abcdefgh\nx\nabcdefgh';
+ preview.render({container:document.querySelector('#editor'),source:"component App { Frame { width:480; height:180; Button { key:'editor'; width:440; height:140; } } }",template:`component Button { Rectangle { ContentInput { width:440; height:140; multiline:true; value:${JSON.stringify(value)}; fontSize:18; } PointerArea { clicked -> events.clicked(); } } }`,designMode:false,reducedMotion:true,previewControls:[{type:'TextInput',props:{key:'editor'},bindings:{value:'query'}}]});
+ if(!preview.focusKey('editor'))throw Error('Focus refused');
+ active.text_key('Home',false,false);active.text_key('ArrowUp',false,false);active.text_key('ArrowUp',false,false);active.text_key('Home',false,false);for(let i=0;i<7;i++)active.text_key('ArrowRight',false,false);
+ const snapshot=()=>({value:active.text_value(0),selected:active.text_selected(),caret:Array.from(active.text_caret_bounds())});report.initial=snapshot();
+ const input=document.querySelector('textarea');input.addEventListener('keydown',event=>queueMicrotask(()=>{report.events.push({key:event.key,shift:event.shiftKey,isTrusted:event.isTrusted,prevented:event.defaultPrevented,...snapshot()});document.querySelector('#journal').textContent=JSON.stringify(report,null,2);fetch('/result',{method:'POST',body:JSON.stringify(report)});}));
+ report.status='ready';document.querySelector('#status').textContent='READY · caret at first row, column 7';document.querySelector('#journal').textContent=JSON.stringify(report,null,2);await fetch('/result',{method:'POST',body:JSON.stringify(report)});
+}catch(e){report.status='failed';report.error=String(e.stack);document.querySelector('#status').textContent=report.error;await fetch('/result',{method:'POST',body:JSON.stringify(report)});}
+</script>

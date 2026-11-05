@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "adapterTests": 40,
+  "before": "beforeinput used stale Rust selection before queued select event",
+  "fix": "Adopt active DOM selection before beforeinput/keydown/clipboard",
+  "browser": "Same-task setSelectionRange + synthetic beforeinput yielded AX; trusted undo restored exact value and reverse range",
+  "sha256": {
+    "src/vector-preview.js": "2b770e2a09a74c2d550e983ab0da68e65cedd249a024f25a9c551fcd4cc9a399",
+    "test/vector-preview.test.js": "2a17d73f738c74a2ea8ea29080c4cf88fbc55e142e0432f6db7870d3ae55c9b0",
+    "vector-ui/tests/preview-a11y-browser.html": "a0772a56469090082b81930c541ef2fbe4211cea1fcdb0c7cb30a37a5dc5af0f"
+  },
+  "limits": [
+    "Insertion intentionally synthetic to exercise event ordering",
+    "No screen-reader/OS IME/platform-wide ordering qualification"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "status": "passed",
+  "scope": "Actual macOS AX regression after unchanged-publication cache optimization",
+  "verified": [
+    "AX SetValue Unicode value updates",
+    "AX selection updates without value change",
+    "native key replaces selected range",
+    "Cmd+Z restores value and selection",
+    "readonly selection remains selectable and edit refused",
+    "same source hashes as native337/allocation qualification",
+    "owned probe process closed"
+  ],
+  "baselineQualification": "accesskit-unchanged-qualification-2026-11-03.json",
+  "sha256": {
+    "vector-ui/src/native_accessibility.rs": "a3f357b1cab43aa35b9b74c98de03b118275a3cec80101338ae32927e200cec7",
+    "vector-ui/src/native_window.rs": "e8a01341527023071f019fa1ba849ff5a62059c91ce9deb842c9966ca22dbd42",
+    "/tmp/SvetAccessKitCacheProbe.app/Contents/MacOS/native_readonly_probe": "9d99e071056b0188634947fb33b4c4eec64df9f584728ba91ab321c1a53c0192",
+    "packages/svet/benchmarks/accesskit-cache-os-raw-2026-11-03.jsonl": "42a7b3e3fd61c43eee334a144bdd87692a614bf332e43dd5f3324c82161ef2ca"
+  },
+  "limitations": [
+    "No OS deactivation/reactivation or physical DPR change exercised; native tests cover invalidation",
+    "No new spoken screen reader, marked-text IME, latency/RSS/energy qualification",
+    "Previous semantic snapshot still allocates and retained snapshot consumes memory"
+  ]
+}

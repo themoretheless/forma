@@ -1,0 +1,34 @@
+{
+  "status": "passed-scoped",
+  "allocationCounts": {
+    "1": {
+      "before": 136,
+      "after": 14
+    },
+    "32": {
+      "before": 2124,
+      "after": 204
+    },
+    "256": {
+      "before": 16463,
+      "after": 1551
+    }
+  },
+  "nativePassed": 317,
+  "ignored": 9,
+  "wasm": "compile only",
+  "compatibility": [
+    "Same parsed schema/values",
+    "Fractional bounds retain legacy f64 numeric strings",
+    "Safe JSON control escaping retained"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "cb6761eb7cffd724b5dbc088d055a4d99e60e7a212a94982f9c0cbc0928963df",
+    "vector-ui/tests/runtime_allocations.rs": "6e6103fbb4a0cbcf528ee3f80dc3c9c3c79c2c71d1a1c8e941df83e9d7546bd6",
+    "vector-ui/tests/line_edit.rs": "a16d4294fed020a0ef2fc28a8d4c947c7ca834ef6bad0fadb118e94eb861dc16"
+  },
+  "limits": [
+    "Allocation counts only; no timing/RSS/energy qualification",
+    "Fresh WASM execution of direct serializer pending"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "status": "passed",
+  "cases": [
+    {
+      "name": "20 unchanged resize/sync events",
+      "getterDelta": {
+        "value": 0,
+        "selection": 0
+      },
+      "status": "passed"
+    },
+    {
+      "name": "Changed model refreshes once",
+      "valueLength": 4101,
+      "status": "passed"
+    },
+    {
+      "name": "Visual preedit retains semantic epoch",
+      "status": "passed"
+    },
+    {
+      "name": "20 unchanged modifier/select pairs",
+      "getterDelta": {
+        "value": 0,
+        "selection": 0
+      },
+      "status": "passed"
+    }
+  ],
+  "calls": {
+    "value": 2,
+    "selection": 2
+  }
+}

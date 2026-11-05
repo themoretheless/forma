@@ -1,0 +1,39 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯⎯ Unhandled Error ⎯⎯⎯⎯⎯⎯⎯
+Error: [vitest-pool]: Failed to start forks worker for test files /Users/themoretheless/Documents/Sources/forma/packages/svet/tests/dom-lifecycle.test.ts.
+ ❯ node_modules/vitest/dist/chunks/index.1TqnEahn.js:5921:94
+ ❯ runNextTicks node:internal/process/task_queues:65:5
+ ❯ process.processTimers node:internal/timers:615:9
+ ❯ Pool.schedule node_modules/vitest/dist/chunks/index.1TqnEahn.js:5921:5
+
+Caused by: Error: [vitest-pool-runner]: Timeout waiting for worker to respond
+ ❯ Timeout.<anonymous> node_modules/vitest/dist/chunks/index.1TqnEahn.js:5418:58
+ ❯ listOnTimeout node:internal/timers:685:17
+ ❯ process.processTimers node:internal/timers:618:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  112 passed (112)
+      Tests  1491 passed (1491)
+     Errors  1 error
+   Start at  22:11:41
+   Duration  2389.43s (environment 66%, tests 20%, import 10%, transform 4%, worker 1%)
+
+    Isolate  112 workers spawned · ~965ms startup each (spawn + environment, per file)
+             at least ~107.06s faster with isolate: false — reuses workers across files instead of one per file
+

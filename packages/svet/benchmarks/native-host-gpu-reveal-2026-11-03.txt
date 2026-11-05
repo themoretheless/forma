@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-ab83b96525f28f30)
+
+running 1 test
+GPU_TEST_ADAPTER {"test":"reveal-agreement","name":"Apple M4 Max","vendor":4203,"device":1,"device_type":"IntegratedGpu","backend":"Metal","driver":"Metal Direct Native Runtime","driver_info":"ASD + UMA + dUMA Accelerated"}
+GPU_REVEAL_RESULT {"comparisons":126,"max_channel_error":1,"channel_error_budget":2,"scale_factors":[1.0,1.25,2.0]}
+test reveal::tests::reveal_cpu_gpu_agree_across_states_and_dpi_without_geometry_uploads ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 210 filtered out; finished in 1.51s
+

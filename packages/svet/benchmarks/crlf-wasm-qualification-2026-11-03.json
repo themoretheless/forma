@@ -1,0 +1,21 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 25,
+  "browserCases": 14,
+  "coverage": [
+    "CRLF binding retained from JSON state",
+    "End/Shift+End selection deletion/undo",
+    "Public Runtime pointer hit",
+    "Vertical Shift selection/delete/undo"
+  ],
+  "sha256": {
+    "vector-ui/src/text_input.rs": "1b162f4a20a5175e181631ed8bbbc38c501a8e5a09330869f700765f52588c23",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "cfe3815975f47f8e33a5ba50db80ed213e5856b8096672036b14cd38f5124557",
+    "vector-ui/tests/preview-word-browser.html": "3a1f2e3444174adb388c2d7b1b47ad32b37cbf93be125b65962ee5f3cadf8473",
+    "/tmp/svet-crlf-wasm/web/forma_bg.wasm": "5f2d748d19d6119bda1444247a48859b315d44de89eb96878dbc23815056ef51"
+  },
+  "limits": [
+    "CRLF check uses Runtime methods within browser; not trusted DOM keyboard on multiline editor",
+    "No actual OS IME qualification"
+  ]
+}

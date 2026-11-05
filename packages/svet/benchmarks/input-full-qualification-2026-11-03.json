@@ -1,0 +1,24 @@
+{
+  "status": "passed-scoped",
+  "nativePassed": 315,
+  "nativeIgnored": 9,
+  "nativeCommand": "cargo test --locked --manifest-path vector-ui/Cargo.toml --features native --lib --tests",
+  "wasmNodeCases": 36,
+  "coverage": [
+    "All native lib/binary/integration tests including allocation/retention/resize/artifact/corpora",
+    "Snapshot original-value CRLF selection vs normalized DOM units"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "4be82038ee107faefdcb0d7db07a459abfb13573cce5d8d63a379e4b117f88dd",
+    "vector-ui/src/text_input.rs": "5ac6fdfc2d0d82f3d4091e68f73fd205aecc496234c1896feed8a6fbc2aab10c",
+    "vector-ui/src/form_document.rs": "41d5160353d169709cb728c82a5e06a6739e2cc31c85701a188246721ffc4b70",
+    "vector-ui/src/template.rs": "fa3981e55b8f36fe16e364e2139ea82457d7330cbc87318f44ce9775259b0ba7",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "c0dd2d75af078922882d0f55fee0741b316ecdf6c8043c440cf924043c83cb2c",
+    "/tmp/svet-semantic-wasm/node/forma_bg.wasm": "39816733028933a896994fcfe103a949639603b546fc5674b5faaa047c5b62f6"
+  },
+  "limits": [
+    "Ignored GPU tests not run",
+    "No cross-platform/OS IME/screen-reader qualification",
+    "No universal performance or RSS qualification"
+  ]
+}

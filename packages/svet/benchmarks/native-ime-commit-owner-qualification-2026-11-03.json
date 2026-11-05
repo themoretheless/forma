@@ -1,0 +1,21 @@
+{
+  "status": "partial",
+  "change": "Validate known composition owner inside IME commit dispatch callback",
+  "validation": {
+    "passed": 209,
+    "ignored_gpu": 2,
+    "cases": [
+      "focused editor changed before commit",
+      "Runtime replaced with same key/index before commit",
+      "same owner commit accepted",
+      "direct commit with no preedit accepted",
+      "host composing and owner consumed"
+    ]
+  },
+  "source_sha256": "119a08761445329d6d447c8700122eae7ae1709ac604b69a06c672f5ea0725de",
+  "limits": [
+    "Only known owner guard; cancellation or empty-preedit currently can clear owner before commit",
+    "Empty-preedit then commit and cancelled-session late commit need explicit state machine",
+    "No actual CJK OS session qualification"
+  ]
+}

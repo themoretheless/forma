@@ -1,0 +1,4 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+   Compiling gpu-compute v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-compute)
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `release` profile [optimized] target(s) in 33.30s

@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "before": "Second stale commit inserted into newly focused field after first was rejected",
+  "after": "Owner mismatch retires IME admission until new preedit/Enabled",
+  "nativeLibPassed": 221,
+  "standaloneTests": 2,
+  "ignored": 3,
+  "branches": [
+    "focus switch",
+    "Runtime replacement"
+  ],
+  "sha256": "45c30d5d5f28cefb65db253a6bdb95b3f04239c1502f93bc555aa17967252282",
+  "limits": [
+    "Direct native dispatch/model tests; OS marked-text input not qualified"
+  ]
+}

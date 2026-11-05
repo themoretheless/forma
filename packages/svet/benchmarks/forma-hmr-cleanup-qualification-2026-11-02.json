@@ -1,0 +1,26 @@
+{
+  "scope": "Two mounted views; child dispose throws after disposal or attempts nested hotReload during commit",
+  "checks": [
+    "both candidate views committed",
+    "old callbacks inert",
+    "current callbacks live",
+    "repeat update works",
+    "graph node baseline preserved",
+    "final graph empty"
+  ],
+  "tests": {
+    "passed": 23,
+    "command": "npx vitest run tests/forma-hmr-events.test.ts --maxWorkers=1"
+  },
+  "types": "npx tsc --noEmit passed",
+  "sha256": {
+    "src/engine/forma.ts": "8adcc1f5adeb5c7c5467b6ca5cf49aceb85a563ced76531284ee5990226a6bae",
+    "src/engine/reactivity.ts": "6e0680495549713ec95b88ee25c79eb8963797aca8512df6812e5efdb3d687ac",
+    "tests/forma-hmr-events.test.ts": "ac090c43c961b3ecb13d217910cc562c29765e517fc71fdc4d905912f05a83fd"
+  },
+  "limitations": [
+    "Exceptions are swallowed by existing owner teardown policy, not reported to caller.",
+    "Arbitrary external side effects and throwing before custom instance disposal are not qualified.",
+    "General reentrant callbacks and browser installed-package qualification remain open."
+  ]
+}

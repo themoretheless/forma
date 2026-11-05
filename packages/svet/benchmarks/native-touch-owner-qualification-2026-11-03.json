@@ -1,0 +1,22 @@
+{
+  "status": "partial",
+  "change": "Native touch-to-pointer adapter tracks primary gesture by device/id; ignores other touches and orphan move/end; blur retires owner",
+  "validation": {
+    "passed": 230,
+    "ignored_gpu": 2,
+    "cases": [
+      "secondary start/move/end/cancel cannot replace primary coordinates/focus",
+      "primary release activates correct control once",
+      "new touch admitted after primary end",
+      "blur clears touch owner and last coordinate",
+      "late move/end after blur ignored",
+      "cancel followed by end does not activate"
+    ]
+  },
+  "source_sha256": "a0aa81a287485526f201f8387f848586966f97b1f33abb3eb8b901484241a8af",
+  "limits": [
+    "Deterministic Rust event routing, no physical touchscreen",
+    "Primary-touch pointer policy; no multi-finger pinch/zoom gestures",
+    "Chooser uses same owner gate; dedicated chooser touch matrix not run"
+  ]
+}

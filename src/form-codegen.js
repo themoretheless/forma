@@ -78,10 +78,10 @@ export function generateForm(files,entry,{state={},measureText,nativeApp=false}=
    scan({key:loop.key,children:loop.children});
    const projection=(root,paths,prefix='')=>{
      const groups=new Map();for(const [head,...tail] of paths){if(!groups.has(head))groups.set(head,[]);groups.get(head).push(tail);}
-     return `::forma::form_document::Value::Object(::std::collections::BTreeMap::from([${[...groups].map(([field,tails])=>{
+     return `::forma::form_document::Value::Object(::forma::form_document::props(vec![${[...groups].map(([field,tails])=>{
        validName(field,loop.start);const part=prefix+field,child=nested.get(part);
        const value=child?collectionProjection(child,root+'.'+field):tails.some(t=>!t.length)?`::forma::binding::ModelValue::to_value(&${root}.${field})`:projection(root+'.'+field,tails,part+'.');
-       return `(${rustString(field)}.into(),${value})`;
+       return `(${rustString(field)},${value})`;
      }).join(',')}]))`;
    };
    const item=bare?`::forma::binding::ModelValue::to_value(${loop.item})`:projection(loop.item,references.map(ref=>ref.slice(loop.item.length+1).split('.')));
@@ -264,7 +264,7 @@ pub struct ${doc.name} {
     ${fields.map(field=>field+',').join('\n    ')}
 }
 impl ${doc.name} {
-    pub fn new(value: ::std::rc::Rc<${rootType}>) -> Result<Self, String> { Self::with_properties(value, ::std::collections::BTreeMap::new()) }
+    pub fn new(value: ::std::rc::Rc<${rootType}>) -> Result<Self, String> { Self::with_properties(value, ::forma::form_document::Properties::new()) }
     pub fn with_properties(value: ::std::rc::Rc<${rootType}>, properties: ::forma::form_document::Properties) -> Result<Self, String> {
         let context = ::forma::binding::Context::new(value);
         let mut program = ${program};
@@ -288,6 +288,10 @@ impl ${doc.name} {
 }
 ${nativeApp ? `#[cfg(feature = "native")]
 impl ::forma::native_window::NativeApp for ${doc.name} {
+    fn inspect(&self, observer: &mut dyn FnMut(&::forma::Runtime)) -> Result<(), String> {
+        observer(self.inner.runtime());
+        Ok(())
+    }
     fn update(&mut self, input: &mut dyn FnMut(&mut ::forma::Runtime)) -> Result<(), String> {
         ${doc.name}::update(self, |runtime| input(runtime))
     }

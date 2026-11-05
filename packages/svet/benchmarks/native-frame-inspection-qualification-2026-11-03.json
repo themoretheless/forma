@@ -1,0 +1,22 @@
+{
+  "status": "partial",
+  "change": "Native frame paints through inspect after tick/update; animation state comes from the painted retained Runtime",
+  "validation": {
+    "passed": 204,
+    "gpu_ignored": 2,
+    "cases": [
+      "post-tick replacement renders retained model",
+      "exact CPU pixel equivalence",
+      "one update for tick and one inspect for painting",
+      "invalid buffer refusal",
+      "inspect error propagation"
+    ]
+  },
+  "source_sha256": "a40ec9eecd8a75be9cafa7d69727d6a29e9ee781430709ed9bdab0edaebda884",
+  "limits": [
+    "No actual native window rerun",
+    "No frame latency/RSS qualification",
+    "Tick callbacks still execute before app sync; ordering is explicit",
+    "Late IME commits remain open"
+  ]
+}

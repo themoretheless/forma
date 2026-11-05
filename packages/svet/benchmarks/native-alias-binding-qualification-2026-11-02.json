@@ -1,0 +1,113 @@
+{
+  "status": "partial",
+  "scope": "Borrowed direct root model aliases with scalar member keys during retained native binding sync; unsupported expressions/parents use existing general replay",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "coldIdleAllocationsBefore": 570,
+      "coldIdleAllocationsAfter": 234,
+      "editAllocationsBefore": 6125,
+      "editAllocationsAfter": 5789,
+      "editRequestedBytesBefore": 777169,
+      "editRequestedBytesAfter": 724105
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "coldIdleAllocationsBefore": 6006,
+      "coldIdleAllocationsAfter": 822,
+      "editAllocationsBefore": 46810,
+      "editAllocationsAfter": 41626,
+      "editRequestedBytesBefore": 6189490,
+      "editRequestedBytesAfter": 5453586
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "coldIdleAllocationsBefore": 48666,
+      "coldIdleAllocationsAfter": 2394,
+      "editAllocationsBefore": 324273,
+      "editAllocationsAfter": 278001,
+      "editRequestedBytesBefore": 43721306,
+      "editRequestedBytesAfter": 37323386
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "coldIdleAllocationsBefore": 334501,
+      "coldIdleAllocationsAfter": 6309,
+      "editAllocationsBefore": 2093072,
+      "editAllocationsAfter": 1764880,
+      "editRequestedBytesBefore": 284531070,
+      "editRequestedBytesAfter": 239455358
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "coldIdleAllocationsBefore": 570,
+      "coldIdleAllocationsAfter": 234,
+      "editAllocationsBefore": 6161,
+      "editAllocationsAfter": 5825,
+      "editRequestedBytesBefore": 781543,
+      "editRequestedBytesAfter": 728479
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "coldIdleAllocationsBefore": 6006,
+      "coldIdleAllocationsAfter": 822,
+      "editAllocationsBefore": 46977,
+      "editAllocationsAfter": 41793,
+      "editRequestedBytesBefore": 6212081,
+      "editRequestedBytesAfter": 5476177
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "coldIdleAllocationsBefore": 48666,
+      "coldIdleAllocationsAfter": 2394,
+      "editAllocationsBefore": 324760,
+      "editAllocationsAfter": 278488,
+      "editRequestedBytesBefore": 43787545,
+      "editRequestedBytesAfter": 37389625
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "coldIdleAllocationsBefore": 334501,
+      "coldIdleAllocationsAfter": 6309,
+      "editAllocationsBefore": 2094359,
+      "editAllocationsAfter": 1766167,
+      "editRequestedBytesBefore": 284706741,
+      "editRequestedBytesAfter": 239631029
+    }
+  ],
+  "validation": {
+    "libTests": 167,
+    "retainedAllocationTests": 2,
+    "runtimeAllocationTests": 9,
+    "sceneArtifactTests": 8,
+    "coldIdle96Budget": "under10000 allocations in both schedulers; actual2394",
+    "releaseBuild": "passed",
+    "wasm32CompileCheck": "passed",
+    "semanticRegression": "Alias chain matches general replay under reorder, dotted root-field shadow/duplicate key errors, computed item IDs"
+  },
+  "provenance": {
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+    "baselineFormDocumentSha256": "3fc138d28581d7bf9c203a2c6779c1860f4e2c6b75ae75979b6dc51330ae62e0",
+    "candidateFormDocumentSha256": "2683a5e450bd08cc123c614b8a9f4df1350039fdbfc186a6b0e0ab872959c260",
+    "runtimeSourceSha256": "fcf027df13c6f0ea18a3482378267a36f657073fcce75e16e746b08dd165f32c",
+    "benchmarkSourceSha256": "4e88ce550954e70c91a94a7f225c362421746e1caf577f3b874dc578029e8176",
+    "cargoLockSha256": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50",
+    "baselineBinarySha256": "89e5b10ccfeee0a6d061953341e520e4ccedd616bafd4795737858b1def1d181",
+    "candidateBinarySha256": "620879e78abaa34502c9281df9720227bb4fdcbd10b4f40728b46b8557a4f98a"
+  },
+  "limits": [
+    "Requested allocator bytes are not live/peak/RSS",
+    "No paired latency/p95/full-frame/native-window/IME/DPI/GPU qualification",
+    "Nested/complex/computed Let/key expressions still use general replay",
+    "SceneArtifact per-control snapshots and edit-time Runtime replacement remain expensive",
+    "wasm32 compile is not shipped browser WASM qualification"
+  ]
+}

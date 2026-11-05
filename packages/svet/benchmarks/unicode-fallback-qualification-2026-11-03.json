@@ -1,0 +1,24 @@
+{
+  "status": "partial",
+  "defect": "Missing scalars outside cached range fell back to NUL glyph with zero advance and no outlines",
+  "fix": "Use existing question-mark fallback consistently in simple measure/hit/vector/CPU raster",
+  "validation": {
+    "rust_passed": 237,
+    "gpu_ignored": 2,
+    "checks": [
+      "missing CJK/emoji/noncharacter has positive advance",
+      "UTF8 hit-character caret boundary consistent",
+      "CPU pixels equal question fallback and nonempty",
+      "vector path emitted",
+      "actual native window shows ?? мир? while model retains 你好 мир🙂",
+      "own probe closed/process0"
+    ]
+  },
+  "source_sha256": "2805db780b39540ebf3285f13ca88ba41dc9dc7d86b8577cf434b1ccf329c5c6",
+  "binary_sha256": "996f126000463d169bb3c5d362d2cbf8c2d0c21b599e1539c3d1c055454de861",
+  "limits": [
+    "Actual CJK/emoji glyph font coverage remains open; placeholders preserve visibility only",
+    "Fresh WASM/browser after change pending",
+    "Complex shaping/font fallback chains not qualified by this simple renderer fix"
+  ]
+}

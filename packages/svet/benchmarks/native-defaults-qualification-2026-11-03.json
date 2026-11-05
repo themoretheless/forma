@@ -1,0 +1,39 @@
+{
+  "status": "partial",
+  "change": "Borrow fallback/definition defaults during scene property expansion; merge only on missing-state fallback evaluation",
+  "allocation_cases": [
+    {
+      "case": "owned control-local state snapshot",
+      "before": 1105,
+      "after": 1082,
+      "change_percent": -2.0814479638009087
+    },
+    {
+      "case": "large resolved component property",
+      "before": 4284,
+      "after": 4272,
+      "change_percent": -0.2801120448179262
+    },
+    {
+      "case": "24 nested layouts with 256 unrelated records",
+      "before": 3001,
+      "after": 2978,
+      "change_percent": -0.7664111962679132
+    },
+    {
+      "case": "96-editor pending visual repair",
+      "before": 144533,
+      "after": 140045,
+      "change_percent": -3.1051732130378484
+    }
+  ],
+  "native_tests_passed": 241,
+  "ignored": 3,
+  "scope": "Same non-native allocation command before/after; full native suite and fresh release WASM Node/Chromium gates passed. No latency/RSS or shared-root snapshot elimination claim.",
+  "wasm": {
+    "node_passed": 14,
+    "chromium_passed": 17,
+    "exact_frame_comparisons": 90,
+    "sha256": "37c3f1704608fbc2193f970e45173ed79e5ca90ba33277beea2148dafcfb2f64"
+  }
+}

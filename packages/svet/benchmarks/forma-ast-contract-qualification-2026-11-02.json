@@ -1,0 +1,33 @@
+{
+  "scope": "Prop contract portion of AOT AST admission, not complete AST validation",
+  "before": {
+    "regressionsFailed": 8
+  },
+  "after": {
+    "focusedPassed": 64,
+    "fullSuitePassed": 1396,
+    "fullSuiteFiles": 103,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 8
+  },
+  "sha256": {
+    "src/engine/forma.ts": "c2805afd600f34749e88e9b036ef92dff391302a2a0d368d2b2f30d894c79eed",
+    "tests/forma-ast-contracts.test.ts": "b2091e618a853874c34fc9468e3624939cb934403c83c9a720ff3787a5ab6f60",
+    "scripts/check-forma-aot-lifecycle.mjs": "090ac17cbde785a2fdae168cdb09e60faf56f488921e1e75c0f3535b469cc492",
+    "scripts/check-package.mjs": "1c07cd607c1ba477ffb7aa2171e12ee7d8e278b0bfa16cbe9c501f8acf1dc441"
+  },
+  "invariants": [
+    "invalid contracts refused before construction allocations",
+    "HMR refuses before document mutation",
+    "old DOM identity and callbacks preserved on refusal",
+    "valid retry works",
+    "graph baseline preserved and final teardown empty",
+    "duplicate source prop refused by parser and validator"
+  ],
+  "limitations": [
+    "Complete AST document/tree validation remains open.",
+    "Accessor/proxy side effects and post-admission mutation are not qualified.",
+    "Installed browser rerun not performed."
+  ]
+}

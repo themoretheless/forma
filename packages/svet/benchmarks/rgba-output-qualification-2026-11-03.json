@@ -1,0 +1,27 @@
+{
+  "status": "partial",
+  "implementation": "Rust Runtime::paint_rgba and Button::paint_rgba copy cached RGBA into caller-owned slices; owned pixels/content_pixels APIs unchanged",
+  "gates": {
+    "lib_passed": 192,
+    "lib_ignored": 1,
+    "allocation_tests_passed": 17,
+    "native_all_targets": "passed",
+    "wasm_check": "passed",
+    "warmed_output_allocation_count": 0,
+    "owned_output_allocation_count": 1,
+    "output_bytes_per_owned_call_in_fixture": 211200,
+    "allocation_matrix": "single/multi control x DPI 1/1.25/2 x background/content-only",
+    "correctness": "full-canvas scalar oracle including overflow, clipping, scroll and modals; cache release/reconstruction; invalid DPI leaves destination unchanged"
+  },
+  "limits": [
+    "Adds a Rust caller-owned output path; existing owned APIs and JS transport still allocate output",
+    "Copies cached RGBA bytes; does not remove retained raster or XRGB caches",
+    "No timing, OS presentation, RSS or cross-platform runtime claim",
+    "WASM compile check only for this API addition; not a refreshed browser bundle"
+  ],
+  "source_sha256": {
+    "vector-ui/src/runtime.rs": "9d72aadead3cd2cb7f30f411b4c4146596af45d71e74414bfb45fd0762a9c3f4",
+    "vector-ui/src/raster_cache.rs": "628ce9b700f08263cad80beee3a3a06eacfc090ee43dbeeef67dac972be5ebf7",
+    "vector-ui/tests/runtime_allocations.rs": "92238fe20de0d37aecca7383dbf0aae37d6f1924e8aaca78a40b5e34e5c0a561"
+  }
+}

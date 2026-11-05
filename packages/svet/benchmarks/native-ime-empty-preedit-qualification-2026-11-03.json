@@ -1,0 +1,21 @@
+{
+  "status": "partial",
+  "change": "Empty preedit clears visuals while retaining pending commit owner; presentation does not erase its address",
+  "validation": {
+    "passed": 210,
+    "ignored_gpu": 2,
+    "cases": [
+      "preedit empty restores exact original CPU pixels",
+      "presentation preserves pending owner",
+      "same-owner commit after empty preedit accepted",
+      "Runtime replacement then presentation then commit refused",
+      "commit consumes owner"
+    ]
+  },
+  "source_sha256": "e44664613952cbb3a719c4a415eca52d0dc499768d1b9e9d9110b7d51f5e175b",
+  "limits": [
+    "Cancellation/late commit after Escape, blur or pointer still requires explicit session state",
+    "Nonempty preedit starts new ownership; no OS session id is supplied",
+    "Actual CJK IME event ordering unqualified"
+  ]
+}

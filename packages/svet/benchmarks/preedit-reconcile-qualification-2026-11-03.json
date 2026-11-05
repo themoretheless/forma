@@ -1,0 +1,17 @@
+{
+  "status": "passed-scoped",
+  "nativeLibPassed": 221,
+  "ignored": 3,
+  "invariants": [
+    "Keyed reorder preserves committed value, selection, undo and focus",
+    "Preedit does not transfer to replacement Runtime",
+    "Previous Runtime remains unchanged"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "b1f2d824e209a9740f348e70777e1111db7088ee1bf4cf15870c425e7bd08397"
+  },
+  "limits": [
+    "No true OS IME qualification",
+    "Standalone native host composition ownership remains open"
+  ]
+}

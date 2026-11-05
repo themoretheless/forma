@@ -2,11 +2,13 @@ node_modules/
 dist/
 .forma/
 native-app/target/
+crates/*/target/
 vector-ui/target/
 vector-ui/examples/*/target/
 packages/svet/crates/svet-wasm/target/
 packages/svet/dist/
 packages/svet/node_modules/
+packages/svet/benchmarks/*wasm-bundle*.tar.gz
 public/vector-pkg/
 .DS_Store
 .env

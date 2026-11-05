@@ -1,0 +1,782 @@
+{
+  "status": "partial",
+  "adapter": "Apple M4 Max",
+  "backend": "Metal",
+  "buffer_bytes": 1048576,
+  "workload": "Nested scopes around one real clear command; pop all, await concurrently; exact zero-byte readback after every sample;4 warmup+12 measured alternating-order rounds per size/mode",
+  "limits": [
+    "One process/machine; descriptive timing, not paired optimization qualification",
+    "No OS input/presentation, GPU timestamps, RSS, thread sampling or energy measurement",
+    "Explicit wait blocks caller; async mode uses completion service; timings include CPU encoding and scheduling"
+  ],
+  "samples": [
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 0,
+      "submit_ms": 0.011708999999999999,
+      "wait_ms": 0.969541,
+      "total_ms": 0.9813339999999999
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 0,
+      "submit_ms": 0.042459000000000004,
+      "wait_ms": 0.138875,
+      "total_ms": 0.181375
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 1,
+      "submit_ms": 0.007875,
+      "wait_ms": 0.142583,
+      "total_ms": 0.1505
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 1,
+      "submit_ms": 0.005834000000000001,
+      "wait_ms": 0.14300000000000002,
+      "total_ms": 0.14891700000000002
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 2,
+      "submit_ms": 0.006083,
+      "wait_ms": 1.025166,
+      "total_ms": 1.031375
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 2,
+      "submit_ms": 0.005582999999999999,
+      "wait_ms": 0.119542,
+      "total_ms": 0.125166
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 3,
+      "submit_ms": 0.009542,
+      "wait_ms": 0.110375,
+      "total_ms": 0.11995800000000001
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 3,
+      "submit_ms": 0.0045000000000000005,
+      "wait_ms": 0.142125,
+      "total_ms": 0.146666
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 4,
+      "submit_ms": 0.0049169999999999995,
+      "wait_ms": 1.013209,
+      "total_ms": 1.018333
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 4,
+      "submit_ms": 0.008834,
+      "wait_ms": 0.125375,
+      "total_ms": 0.13425
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 5,
+      "submit_ms": 0.006458,
+      "wait_ms": 0.12575,
+      "total_ms": 0.13229100000000002
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 5,
+      "submit_ms": 0.005582999999999999,
+      "wait_ms": 0.142291,
+      "total_ms": 0.147916
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 6,
+      "submit_ms": 0.010584000000000001,
+      "wait_ms": 0.960084,
+      "total_ms": 0.97075
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 6,
+      "submit_ms": 0.012958,
+      "wait_ms": 0.12675,
+      "total_ms": 0.139792
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 7,
+      "submit_ms": 0.007625,
+      "wait_ms": 0.143208,
+      "total_ms": 0.15087499999999998
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 7,
+      "submit_ms": 0.008666,
+      "wait_ms": 0.142333,
+      "total_ms": 0.151041
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 8,
+      "submit_ms": 0.005959,
+      "wait_ms": 0.959875,
+      "total_ms": 0.965875
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 8,
+      "submit_ms": 0.0085,
+      "wait_ms": 0.135167,
+      "total_ms": 0.14375
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 9,
+      "submit_ms": 0.016,
+      "wait_ms": 0.110625,
+      "total_ms": 0.126667
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 9,
+      "submit_ms": 0.005958000000000001,
+      "wait_ms": 0.128375,
+      "total_ms": 0.134417
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 10,
+      "submit_ms": 0.005667,
+      "wait_ms": 0.9705,
+      "total_ms": 0.9762500000000001
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 10,
+      "submit_ms": 0.0115,
+      "wait_ms": 0.152125,
+      "total_ms": 0.16370800000000002
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "round": 11,
+      "submit_ms": 0.01525,
+      "wait_ms": 0.1395,
+      "total_ms": 0.154792
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "round": 11,
+      "submit_ms": 0.004875,
+      "wait_ms": 0.13966599999999998,
+      "total_ms": 0.144625
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 0,
+      "submit_ms": 0.006333,
+      "wait_ms": 0.959833,
+      "total_ms": 0.9662499999999999
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 0,
+      "submit_ms": 0.008749999999999999,
+      "wait_ms": 0.166625,
+      "total_ms": 0.17541700000000002
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 1,
+      "submit_ms": 0.007583,
+      "wait_ms": 0.1295,
+      "total_ms": 0.137166
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 1,
+      "submit_ms": 0.011291,
+      "wait_ms": 0.12604200000000002,
+      "total_ms": 0.13741599999999998
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 2,
+      "submit_ms": 0.008042,
+      "wait_ms": 0.953083,
+      "total_ms": 0.961167
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 2,
+      "submit_ms": 0.007,
+      "wait_ms": 0.12341699999999999,
+      "total_ms": 0.1305
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 3,
+      "submit_ms": 0.009415999999999999,
+      "wait_ms": 0.15,
+      "total_ms": 0.1595
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 3,
+      "submit_ms": 0.009833999999999999,
+      "wait_ms": 0.144625,
+      "total_ms": 0.15445899999999999
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 4,
+      "submit_ms": 0.007542,
+      "wait_ms": 0.925125,
+      "total_ms": 0.93275
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 4,
+      "submit_ms": 0.015291999999999998,
+      "wait_ms": 0.14675,
+      "total_ms": 0.162125
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 5,
+      "submit_ms": 0.008583,
+      "wait_ms": 0.26425,
+      "total_ms": 0.272917
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 5,
+      "submit_ms": 0.008083,
+      "wait_ms": 0.153875,
+      "total_ms": 0.162
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 6,
+      "submit_ms": 0.00575,
+      "wait_ms": 0.960916,
+      "total_ms": 0.966666
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 6,
+      "submit_ms": 0.00625,
+      "wait_ms": 0.122708,
+      "total_ms": 0.129
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 7,
+      "submit_ms": 0.005708,
+      "wait_ms": 0.122791,
+      "total_ms": 0.128583
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 7,
+      "submit_ms": 0.005417,
+      "wait_ms": 0.204208,
+      "total_ms": 0.209709
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 8,
+      "submit_ms": 0.005666,
+      "wait_ms": 0.975292,
+      "total_ms": 0.981083
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 8,
+      "submit_ms": 0.005667,
+      "wait_ms": 0.143583,
+      "total_ms": 0.149292
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 9,
+      "submit_ms": 0.005915999999999999,
+      "wait_ms": 0.140958,
+      "total_ms": 0.146916
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 9,
+      "submit_ms": 0.006208,
+      "wait_ms": 0.137166,
+      "total_ms": 0.143458
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 10,
+      "submit_ms": 0.006041,
+      "wait_ms": 0.957375,
+      "total_ms": 0.9634999999999999
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 10,
+      "submit_ms": 0.007833,
+      "wait_ms": 0.135292,
+      "total_ms": 0.143208
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "round": 11,
+      "submit_ms": 0.007084,
+      "wait_ms": 0.149667,
+      "total_ms": 0.156792
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "round": 11,
+      "submit_ms": 0.008457999999999999,
+      "wait_ms": 0.14366600000000002,
+      "total_ms": 0.152166
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 0,
+      "submit_ms": 0.015541,
+      "wait_ms": 0.960917,
+      "total_ms": 0.976541
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 0,
+      "submit_ms": 0.01475,
+      "wait_ms": 0.135625,
+      "total_ms": 0.150417
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 1,
+      "submit_ms": 0.008083,
+      "wait_ms": 0.13349999999999998,
+      "total_ms": 0.14166600000000001
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 1,
+      "submit_ms": 0.009417,
+      "wait_ms": 0.161166,
+      "total_ms": 0.17066699999999999
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 2,
+      "submit_ms": 0.010125,
+      "wait_ms": 0.9940000000000001,
+      "total_ms": 1.004125
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 2,
+      "submit_ms": 0.009917,
+      "wait_ms": 0.146208,
+      "total_ms": 0.15620900000000001
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 3,
+      "submit_ms": 0.007500000000000001,
+      "wait_ms": 0.134917,
+      "total_ms": 0.142459
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 3,
+      "submit_ms": 0.006333,
+      "wait_ms": 0.140333,
+      "total_ms": 0.14675
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 4,
+      "submit_ms": 0.007875,
+      "wait_ms": 0.999958,
+      "total_ms": 1.007875
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 4,
+      "submit_ms": 0.007208,
+      "wait_ms": 0.138208,
+      "total_ms": 0.14550000000000002
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 5,
+      "submit_ms": 0.006416,
+      "wait_ms": 0.132833,
+      "total_ms": 0.139291
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 5,
+      "submit_ms": 0.009792,
+      "wait_ms": 0.186584,
+      "total_ms": 0.196458
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 6,
+      "submit_ms": 0.009000000000000001,
+      "wait_ms": 0.986375,
+      "total_ms": 0.995459
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 6,
+      "submit_ms": 0.010625,
+      "wait_ms": 0.14750000000000002,
+      "total_ms": 0.158208
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 7,
+      "submit_ms": 0.00725,
+      "wait_ms": 0.155625,
+      "total_ms": 0.162958
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 7,
+      "submit_ms": 0.008417,
+      "wait_ms": 0.13783299999999998,
+      "total_ms": 0.146334
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 8,
+      "submit_ms": 0.022833,
+      "wait_ms": 1.002042,
+      "total_ms": 1.0250000000000001
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 8,
+      "submit_ms": 0.014416,
+      "wait_ms": 0.12483399999999999,
+      "total_ms": 0.139291
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 9,
+      "submit_ms": 0.007500000000000001,
+      "wait_ms": 0.120333,
+      "total_ms": 0.12787500000000002
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 9,
+      "submit_ms": 0.007333,
+      "wait_ms": 0.120875,
+      "total_ms": 0.12829200000000002
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 10,
+      "submit_ms": 0.010417000000000001,
+      "wait_ms": 1.0016669999999999,
+      "total_ms": 1.012208
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 10,
+      "submit_ms": 0.009417,
+      "wait_ms": 0.12045900000000001,
+      "total_ms": 0.129917
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "round": 11,
+      "submit_ms": 0.007208,
+      "wait_ms": 0.116333,
+      "total_ms": 0.12362500000000001
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "round": 11,
+      "submit_ms": 0.007083,
+      "wait_ms": 0.127292,
+      "total_ms": 0.134458
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 0,
+      "submit_ms": 0.013042,
+      "wait_ms": 0.955541,
+      "total_ms": 0.968625
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 0,
+      "submit_ms": 0.0125,
+      "wait_ms": 0.138333,
+      "total_ms": 0.150917
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 1,
+      "submit_ms": 0.01275,
+      "wait_ms": 0.14612499999999998,
+      "total_ms": 0.15895800000000002
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 1,
+      "submit_ms": 0.010834,
+      "wait_ms": 0.145209,
+      "total_ms": 0.15612499999999999
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 2,
+      "submit_ms": 0.014292,
+      "wait_ms": 0.9764590000000001,
+      "total_ms": 0.990833
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 2,
+      "submit_ms": 0.010625,
+      "wait_ms": 0.13924999999999998,
+      "total_ms": 0.149917
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 3,
+      "submit_ms": 0.0115,
+      "wait_ms": 0.145,
+      "total_ms": 0.156583
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 3,
+      "submit_ms": 0.014,
+      "wait_ms": 0.14358400000000002,
+      "total_ms": 0.157666
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 4,
+      "submit_ms": 0.010625,
+      "wait_ms": 0.9437500000000001,
+      "total_ms": 0.954458
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 4,
+      "submit_ms": 0.013625000000000002,
+      "wait_ms": 0.151792,
+      "total_ms": 0.1655
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 5,
+      "submit_ms": 0.012875,
+      "wait_ms": 0.145833,
+      "total_ms": 0.15875
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 5,
+      "submit_ms": 0.011667,
+      "wait_ms": 0.153542,
+      "total_ms": 0.165292
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 6,
+      "submit_ms": 0.010375,
+      "wait_ms": 0.969417,
+      "total_ms": 0.979834
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 6,
+      "submit_ms": 0.010583,
+      "wait_ms": 0.130416,
+      "total_ms": 0.141083
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 7,
+      "submit_ms": 0.010209,
+      "wait_ms": 0.132542,
+      "total_ms": 0.142834
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 7,
+      "submit_ms": 0.011834,
+      "wait_ms": 0.352291,
+      "total_ms": 0.36416699999999996
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 8,
+      "submit_ms": 0.011,
+      "wait_ms": 0.869084,
+      "total_ms": 0.8801669999999999
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 8,
+      "submit_ms": 0.010499999999999999,
+      "wait_ms": 0.12191700000000001,
+      "total_ms": 0.13245800000000002
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 9,
+      "submit_ms": 0.010875,
+      "wait_ms": 0.125583,
+      "total_ms": 0.1365
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 9,
+      "submit_ms": 0.012041,
+      "wait_ms": 0.127417,
+      "total_ms": 0.139541
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 10,
+      "submit_ms": 0.010334,
+      "wait_ms": 0.969125,
+      "total_ms": 0.9795419999999999
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 10,
+      "submit_ms": 0.014375,
+      "wait_ms": 0.12829200000000002,
+      "total_ms": 0.142708
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "round": 11,
+      "submit_ms": 0.01175,
+      "wait_ms": 0.124666,
+      "total_ms": 0.136458
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "round": 11,
+      "submit_ms": 0.009708,
+      "wait_ms": 0.127542,
+      "total_ms": 0.13729200000000003
+    }
+  ]
+}

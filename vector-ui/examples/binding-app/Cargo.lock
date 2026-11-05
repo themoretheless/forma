@@ -416,6 +416,7 @@ dependencies = [
  "svet-wasm",
  "themoretheless-tokenizer-forma",
  "ttf-parser",
+ "unicode-segmentation",
  "wasm-bindgen",
 ]
 

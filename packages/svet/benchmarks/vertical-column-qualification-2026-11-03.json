@@ -1,0 +1,11 @@
+{
+  "status": "passed-scoped",
+  "before": "Vertical movement lost preferred x after short row",
+  "change": "Retain desired x across Up/Down and Shift; reset on pointer/horizontal/command/insertion/focus change",
+  "testsPassed": 245,
+  "ignored": 3,
+  "sha256": "754987e28a8003ba3da62daa9ab8d8cf5cb936b3eeec50f9bb3face0e5e7f47e",
+  "limits": [
+    "Fresh WASM/browser and OS input gate pending"
+  ]
+}

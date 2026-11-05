@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.56s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-7dac897e0ed79b95)
+
+running 1 test
+test text_input::animation_tests::vertical_navigation_retains_desired_column_across_short_rows ... FAILED
+
+failures:
+
+---- text_input::animation_tests::vertical_navigation_retains_desired_column_across_short_rows stdout ----
+
+thread 'text_input::animation_tests::vertical_navigation_retains_desired_column_across_short_rows' (23280021) panicked at src/text_input.rs:212:40:
+assertion `left == right` failed: return to original column after short row
+  left: 12
+ right: 18
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    text_input::animation_tests::vertical_navigation_retains_desired_column_across_short_rows
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 200 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

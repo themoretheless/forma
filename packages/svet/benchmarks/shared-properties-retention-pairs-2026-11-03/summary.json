@@ -1,0 +1,102 @@
+{
+  "status": "partial",
+  "scope": "A/A plus four AB/BA pairs, instrumented release owned SceneArtifact render; net live allocator bytes exclude Document/allocator overhead/RSS; after-Drop delta zero",
+  "rows": [
+    {
+      "controls": 8,
+      "baseline": {
+        "allocations": 4798.0,
+        "requested_bytes": 611862.0,
+        "retained_allocator_bytes": 171952.0,
+        "render_ms": 0.1895835
+      },
+      "candidate": {
+        "allocations": 2644.0,
+        "requested_bytes": 303389.0,
+        "retained_allocator_bytes": 34496.0,
+        "render_ms": 0.21761475
+      },
+      "paired_render_ratios": [
+        0.7612057750445793,
+        1.5964450260203507,
+        0.7103332851452637,
+        0.7507120973860448
+      ],
+      "median_ratio": 0.7559589362153121,
+      "aa_render_ratio": 0.9662860166335331
+    },
+    {
+      "controls": 32,
+      "baseline": {
+        "allocations": 37956.0,
+        "requested_bytes": 5032364.0,
+        "retained_allocator_bytes": 2257134.0,
+        "render_ms": 1.090021
+      },
+      "candidate": {
+        "allocations": 10194.0,
+        "requested_bytes": 1263576.0,
+        "retained_allocator_bytes": 181010.0,
+        "render_ms": 0.5119272500000001
+      },
+      "paired_render_ratios": [
+        0.47718773783234864,
+        0.46395662035724416,
+        0.7865266462860447,
+        0.4620477171791242
+      ],
+      "median_ratio": 0.47057217909479643,
+      "aa_render_ratio": 2.226917657822507
+    },
+    {
+      "controls": 96,
+      "baseline": {
+        "allocations": 267162.0,
+        "requested_bytes": 36052044.0,
+        "retained_allocator_bytes": 19340974.0,
+        "render_ms": 7.36931225
+      },
+      "candidate": {
+        "allocations": 30312.0,
+        "requested_bytes": 4386680.0,
+        "retained_allocator_bytes": 932178.0,
+        "render_ms": 1.73790625
+      },
+      "paired_render_ratios": [
+        0.2355835673318877,
+        0.24092418699081863,
+        0.2297879223503148,
+        0.24103385273732253
+      ],
+      "median_ratio": 0.23825387716135316,
+      "aa_render_ratio": 0.9803812168440789
+    },
+    {
+      "controls": 256,
+      "baseline": {
+        "allocations": 1736152.0,
+        "requested_bytes": 236130208.0,
+        "retained_allocator_bytes": 135619610.0,
+        "render_ms": 47.70078125
+      },
+      "candidate": {
+        "allocations": 80582.0,
+        "requested_bytes": 15561655.0,
+        "retained_allocator_bytes": 5104326.0,
+        "render_ms": 6.258021
+      },
+      "paired_render_ratios": [
+        0.07267437931416161,
+        0.1345392975129847,
+        0.12772714633534868,
+        0.1330360370468932
+      ],
+      "median_ratio": 0.13038159169112096,
+      "aa_render_ratio": 1.5315543779269414
+    }
+  ],
+  "binary_sha256": {
+    "baseline": "10f9d2c1426b6b92c12c90c884a98622cfe0e5f8e988a2e9db1921dcb92b9649",
+    "candidate": "0e412b75eebea79f2a15546bd27a0e1a8c61813d512507c066ff050cec2c9cbc"
+  }
+}

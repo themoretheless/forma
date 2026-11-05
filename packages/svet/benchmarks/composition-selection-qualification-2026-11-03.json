@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "adapterTests": 41,
+  "before": "composition captured stale Rust range before queued select",
+  "fix": "Adopt DOM selection before composition lock/owner capture",
+  "browser": "Same-task selection + synthetic composition yielded A\u65b0; trusted undo restores value and backward range",
+  "sha256": {
+    "src/vector-preview.js": "010ad7a0fd04f65d41f0d2d9c3730df98010e521cbae743ecb7e3daba2371442",
+    "test/vector-preview.test.js": "60a3f8eb8ddc87161c87e5f6cb37bfe73af6a8b74a2ce21ff49b2340e9f428ef",
+    "vector-ui/tests/preview-a11y-browser.html": "48b4b9b02b8b190351228e0034767e4fcf4fa46bc0e5613524f6d4f0dfdb3829"
+  },
+  "limits": [
+    "Synthetic composition, not OS IME",
+    "Microtask journal sees final same-task state; per-stage lock behavior covered by unit test"
+  ]
+}

@@ -1,0 +1,327 @@
+{
+  "status": "partial",
+  "validated": "Actual OS NativeHost8/32/96/256 synthetic mixed-font editor forms, CPU/GPU presents, top/bottom scroll and bound model edits; extra3 roundtrips on256",
+  "interval_selection": "Adjacent presents with identical renderer/focus/scroll and animating=true in both; no duration cutoff; includes input/journaling overhead. Other intervals remain in raw logs.",
+  "units": "Frame intervals/update/load in ms. macOS getrusage ru_maxrss is process peak bytes; includes CPU/GPU host allocations.",
+  "rows": [
+    {
+      "controls": 8,
+      "load_ms": 3.133,
+      "first_present_ms": 259.255,
+      "presentation_count": 2218,
+      "renderer_transitions": [
+        "Gpu",
+        "Cpu",
+        "Gpu"
+      ],
+      "segments": [
+        {
+          "renderer": "Gpu",
+          "first_at_us": 259255,
+          "first_peak_rss_bytes": 85147648,
+          "max_peak_rss_bytes": 94830592,
+          "frames": 275
+        },
+        {
+          "renderer": "Cpu",
+          "first_at_us": 17190734,
+          "first_peak_rss_bytes": 126763008,
+          "max_peak_rss_bytes": 139706368,
+          "frames": 613
+        },
+        {
+          "renderer": "Gpu",
+          "first_at_us": 27844106,
+          "first_peak_rss_bytes": 139706368,
+          "max_peak_rss_bytes": 139706368,
+          "frames": 1330
+        }
+      ],
+      "max_scroll_y": 0.0,
+      "final_scroll": [
+        0.0,
+        0.0
+      ],
+      "final_model_exact": true,
+      "frame_interval_ms": {
+        "Cpu": {
+          "samples": 611,
+          "p50": 16.922,
+          "p95": 24.183,
+          "max": 36.043
+        },
+        "Gpu": {
+          "samples": 1599,
+          "p50": 8.388,
+          "p95": 12.395,
+          "max": 39.433
+        }
+      },
+      "peak_rss_bytes": 139706368,
+      "changed_model_update_ms": [
+        10.31,
+        10.143,
+        9.506,
+        26.559
+      ],
+      "gpu_errors": 0
+    },
+    {
+      "controls": 32,
+      "load_ms": 5.156,
+      "first_present_ms": 213.737,
+      "presentation_count": 2958,
+      "renderer_transitions": [
+        "Gpu",
+        "Cpu",
+        "Gpu"
+      ],
+      "segments": [
+        {
+          "renderer": "Gpu",
+          "first_at_us": 213737,
+          "first_peak_rss_bytes": 86409216,
+          "max_peak_rss_bytes": 97370112,
+          "frames": 256
+        },
+        {
+          "renderer": "Cpu",
+          "first_at_us": 13235605,
+          "first_peak_rss_bytes": 129253376,
+          "max_peak_rss_bytes": 145178624,
+          "frames": 1199
+        },
+        {
+          "renderer": "Gpu",
+          "first_at_us": 34083927,
+          "first_peak_rss_bytes": 145178624,
+          "max_peak_rss_bytes": 145178624,
+          "frames": 1503
+        }
+      ],
+      "max_scroll_y": 822.0,
+      "final_scroll": [
+        0.0,
+        0.0
+      ],
+      "final_model_exact": true,
+      "frame_interval_ms": {
+        "Cpu": {
+          "samples": 1196,
+          "p50": 17.195500000000003,
+          "p95": 23.708,
+          "max": 33.517
+        },
+        "Gpu": {
+          "samples": 1752,
+          "p50": 9.8345,
+          "p95": 17.055,
+          "max": 64.383
+        }
+      },
+      "peak_rss_bytes": 145178624,
+      "changed_model_update_ms": [
+        11.401,
+        10.768,
+        19.881,
+        21.401
+      ],
+      "gpu_errors": 0
+    },
+    {
+      "controls": 96,
+      "load_ms": 10.097,
+      "first_present_ms": 226.785,
+      "presentation_count": 2452,
+      "renderer_transitions": [
+        "Gpu",
+        "Cpu",
+        "Gpu"
+      ],
+      "segments": [
+        {
+          "renderer": "Gpu",
+          "first_at_us": 226785,
+          "first_peak_rss_bytes": 90357760,
+          "max_peak_rss_bytes": 105725952,
+          "frames": 283
+        },
+        {
+          "renderer": "Cpu",
+          "first_at_us": 13304785,
+          "first_peak_rss_bytes": 136282112,
+          "max_peak_rss_bytes": 152027136,
+          "frames": 1067
+        },
+        {
+          "renderer": "Gpu",
+          "first_at_us": 31895508,
+          "first_peak_rss_bytes": 152027136,
+          "max_peak_rss_bytes": 152027136,
+          "frames": 1102
+        }
+      ],
+      "max_scroll_y": 3254.0,
+      "final_scroll": [
+        0.0,
+        0.0
+      ],
+      "final_model_exact": true,
+      "frame_interval_ms": {
+        "Cpu": {
+          "samples": 1064,
+          "p50": 17.246,
+          "p95": 23.576,
+          "max": 42.704
+        },
+        "Gpu": {
+          "samples": 1378,
+          "p50": 9.5875,
+          "p95": 17.444,
+          "max": 49.43
+        }
+      },
+      "peak_rss_bytes": 152027136,
+      "changed_model_update_ms": [
+        11.778,
+        14.576,
+        20.56,
+        26.426
+      ],
+      "gpu_errors": 0
+    },
+    {
+      "controls": 256,
+      "load_ms": 18.152,
+      "first_present_ms": 225.826,
+      "presentation_count": 4704,
+      "renderer_transitions": [
+        "Gpu",
+        "Cpu",
+        "Gpu",
+        "Cpu",
+        "Gpu",
+        "Cpu",
+        "Gpu",
+        "Cpu",
+        "Gpu"
+      ],
+      "segments": [
+        {
+          "renderer": "Gpu",
+          "first_at_us": 225826,
+          "first_peak_rss_bytes": 102236160,
+          "max_peak_rss_bytes": 120111104,
+          "frames": 282
+        },
+        {
+          "renderer": "Cpu",
+          "first_at_us": 13585167,
+          "first_peak_rss_bytes": 152715264,
+          "max_peak_rss_bytes": 167215104,
+          "frames": 1324
+        },
+        {
+          "renderer": "Gpu",
+          "first_at_us": 36704038,
+          "first_peak_rss_bytes": 167215104,
+          "max_peak_rss_bytes": 167215104,
+          "frames": 2205
+        },
+        {
+          "renderer": "Cpu",
+          "first_at_us": 61875879,
+          "first_peak_rss_bytes": 171737088,
+          "max_peak_rss_bytes": 171753472,
+          "frames": 2
+        },
+        {
+          "renderer": "Gpu",
+          "first_at_us": 61887531,
+          "first_peak_rss_bytes": 171753472,
+          "max_peak_rss_bytes": 171753472,
+          "frames": 7
+        },
+        {
+          "renderer": "Cpu",
+          "first_at_us": 61953930,
+          "first_peak_rss_bytes": 171835392,
+          "max_peak_rss_bytes": 171835392,
+          "frames": 2
+        },
+        {
+          "renderer": "Gpu",
+          "first_at_us": 61962663,
+          "first_peak_rss_bytes": 171835392,
+          "max_peak_rss_bytes": 171835392,
+          "frames": 7
+        },
+        {
+          "renderer": "Cpu",
+          "first_at_us": 62029410,
+          "first_peak_rss_bytes": 171851776,
+          "max_peak_rss_bytes": 171851776,
+          "frames": 2
+        },
+        {
+          "renderer": "Gpu",
+          "first_at_us": 62039005,
+          "first_peak_rss_bytes": 171851776,
+          "max_peak_rss_bytes": 171851776,
+          "frames": 873
+        }
+      ],
+      "max_scroll_y": 9334.0,
+      "final_scroll": [
+        0.0,
+        0.0
+      ],
+      "final_model_exact": true,
+      "frame_interval_ms": {
+        "Cpu": {
+          "samples": 1324,
+          "p50": 17.1235,
+          "p95": 23.93,
+          "max": 54.459
+        },
+        "Gpu": {
+          "samples": 3364,
+          "p50": 8.712,
+          "p95": 17.031,
+          "max": 48.792
+        }
+      },
+      "peak_rss_bytes": 171851776,
+      "changed_model_update_ms": [
+        16.654,
+        30.413,
+        16.904,
+        35.416
+      ],
+      "gpu_errors": 0
+    }
+  ],
+  "limits": [
+    "One release run per form size on one macOS machine; no A/A or baseline comparison",
+    "Callback follows CPU buffer.present/GPU frame.present; does not prove display scanout or GPU completion",
+    "No OS input-to-display latency claim; update_ms includes host input callback and binding sync only",
+    "Process peak RSS is not current live memory, GPU-resident accounting or leak proof",
+    "Default Svet scheduler only; other schedulers/platforms and true CJK IME remain open"
+  ],
+  "source_sha256": {
+    "vector-ui/examples/native_form_probe.rs": "faeaeb5074d8ac81966a73385203b57546019e6330197e5937c0d730ca950279",
+    "vector-ui/tests/fixtures/svet-native-large/App.ui": "d0f816a878b249ccc8abceb6419ca56e2ffd02b02d4c6e11a10b7581aca9fbf7",
+    "vector-ui/src/runtime.rs": "ba8b34c1d77686fe70f21d8b818a190092784796188c5379f286112789225ec1",
+    "vector-ui/src/raster_cache.rs": "999d32a691dd5a8a58aa0e5914e11ab70865032f3b48cdbb10e124f5c8edaef6",
+    "vector-ui/src/native_window.rs": "a0dbae013d5fec5fc6a78d6a509659eee3b0a5b633e5e3c4d60c8fbe946c7eb3",
+    "vector-ui/src/native_gpu.rs": "d556763e3526d2671dc5249136c23e40597a5cc4c9da2f256051ce50dd1b631d",
+    "vector-ui/src/form_document.rs": "037f1a06efd51438c5232fd37140bf5da17ab881d9cc3cb037d85021d31cb0c3",
+    "vector-ui/Cargo.lock": "08d5f906acb3b7f075cda143a191e586dc5e6686f5487ffd4a684c2939ddae50"
+  },
+  "release_binary_sha256": "36586586de24e29433f4d6d2b805a343206c0101e84daf70ad5ea075574b6d27",
+  "probe_source_archive": "native-large-probe-source-2026-11-03.rs.gz",
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: aarch64-apple-darwin\nrelease: 1.97.1\nLLVM version: 22.1.6\n",
+  "fixture_regression": "passed8/32/96/256 final-row binding+CPU pixels",
+  "native_all_targets": "passed",
+  "owned_windows_closed": true
+}

@@ -150,7 +150,12 @@ function leaveObservationContext(ctx: JsReactiveContext): void {
   if (--ctx.observationDepth === 0) activeObservationContexts.pop();
 }
 type AsyncOwnerResolver = (core: SvetWasmExports) => OwnerScope | null | undefined;
+type ReactiveResetOwnerRetirements = Map<OwnerScope, Set<() => void>>;
+type ReactiveHandleRetirement = (owners?: ReactiveResetOwnerRetirements) => void;
+
 type ReactiveDomains = {
+  handleRetirements?: WeakMap<object, ReactiveHandleRetirement>;
+  rootDisposerCells?: WeakMap<OwnerScope, RootDisposerCell>;
   batchTransport?: { depth: number; held: Map<SvetWasmExports, { ctx: JsReactiveContext; generation: number }> };
   bridges?: WeakMap<object, Map<object, ForeignBridge>>;
   sourceBridges?: WeakMap<object, Set<ForeignBridge>>;
@@ -651,6 +656,9 @@ function getNodeStateFast(core: SvetWasmExports, ctx: JsReactiveContext, id: num
 
 let ownerTeardownDepth = 0;
 const retiringOwnerScopes = new WeakSet<OwnerScope>();
+type RootDisposerCell = { core: SvetWasmExports | null; scope: OwnerScope | null };
+const rootDisposerCells = reactiveDomains.rootDisposerCells ??= new WeakMap<OwnerScope, RootDisposerCell>();
+const reactiveHandleRetirements = reactiveDomains.handleRetirements ??= new WeakMap<object, ReactiveHandleRetirement>();
 
 function disposeOwnerScope(scope: OwnerScope): void {
   if (scope.disposed) return;
@@ -679,6 +687,11 @@ function disposeOwnerScope(scope: OwnerScope): void {
           try { current.disposables[i](); } catch { /* Continue teardown after cleanup failure. */ }
         }
         current.disposables.length = 0;
+        const rootCell = rootDisposerCells.get(current);
+        if (rootCell) {
+          rootCell.core = null; rootCell.scope = null;
+          rootDisposerCells.delete(current);
+        }
         if (current.parent?.children) {
           current.parent.children.delete(current);
           current.parent = null;
@@ -694,6 +707,18 @@ function addChildScope(parent: OwnerScope, child: OwnerScope): void {
     parent.children = new Set();
   }
   parent.children.add(child);
+}
+
+/** Keep a live root's core strongly owned, then detach retained terminal callbacks. */
+function createRootDisposer(core: SvetWasmExports, scope: OwnerScope): () => void {
+  const cell: RootDisposerCell = { core, scope };
+  rootDisposerCells.set(scope, cell);
+  core = null!; scope = null!;
+  return () => {
+    const currentScope = cell.scope, currentCore = cell.core;
+    if (!currentScope || !currentCore || currentScope.disposed) return;
+    runUntrackedInCore(currentCore, () => disposeOwnerScope(currentScope));
+  };
 }
 
 /**
@@ -719,9 +744,7 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
   ctx.currentOwner = scope;
   ctx.ownerDepth++;
   try {
-    return fn(() => {
-      if (!scope.disposed) runUntrackedInCore(core, () => disposeOwnerScope(scope));
-    });
+    return fn(createRootDisposer(core, scope));
   } catch (error) {
     disposeOwnerScope(scope);
     throw error;
@@ -1226,10 +1249,10 @@ export function signal<T>(
   initialValue: T,
   options?: { equals?: (a: T, b: T) => boolean }
 ): Signal<T> {
-  const core = getWasmCore();
-  const ctx = getJsContext(core);
+  let core = getWasmCore();
+  let ctx = getJsContext(core);
   const generation = ctx.generation;
-  const equals = options?.equals ?? Object.is;
+  let equals = options?.equals ?? Object.is;
   if (generation !== ctx.generation) throw new Error('Reactive graph reset during signal construction');
   if (typeof equals !== 'function') throw new TypeError('Signal equals must be a function');
   const id = allocateReactiveNode(core, KIND_SIGNAL);
@@ -1241,6 +1264,13 @@ export function signal<T>(
   let currentValue = initialValue;
   let valueVersion = 0;
   let disposed = false;
+  let activeWrites = 0;
+  const detachDisposedContext = () => {
+    if (!disposed || activeWrites > 0) return;
+    singleSubEffect = null;
+    equals = Object.is;
+    core = null!; ctx = null!;
+  };
 
   let singleSubEffect: EffectEntry | null | undefined = undefined; // undefined = unknown, null = multiple/none
   let singleSubEpoch = -1;
@@ -1267,6 +1297,7 @@ export function signal<T>(
   (getter as any).id = id;
   (getter as any).__svet_sig = true;
   (getter as any)._tryRegisterDirectUnlinked = (eff: EffectEntry, ver: number): boolean => {
+    if (disposed) return false;
     if (!hasComputedSubscriber && (singleSubEffect === undefined || singleSubEffect === eff || singleSubEffect?.disposed)) {
       singleSubEffect = eff;
       singleSubEpoch = ver;
@@ -1281,6 +1312,7 @@ export function signal<T>(
     return false;
   };
   (getter as any)._invalidateDirectEffect = (ver: number, isComputed = false) => {
+    if (disposed) return;
     if (isComputed) hasComputedSubscriber = true;
     if (singleSubEffect && !singleSubEffect.disposed && !singleSubEffect.wasmLinked) {
       singleSubEffect.wasmLinked = true;
@@ -1292,9 +1324,12 @@ export function signal<T>(
   ctx.signalRegistry[id] = getter;
 
   getter.peek = () => currentValue;
+  (getter as any).__svet_cached_value = getter.peek;
 
   getter.set = (next: T | ((prev: T) => T)) => {
     if (disposed || generation !== ctx.generation) return;
+    activeWrites++;
+    try {
     if (getWasmCore() !== core) return runInForeignReactiveCore(core, () => getter.set(next));
     // One originating write may fan out through several native cores. Keep all
     // downstream deliveries in the same boundary even without an explicit batch.
@@ -1380,6 +1415,10 @@ export function signal<T>(
         singleSubEpoch = ctx.topologyVersion;
       }
     }
+    } finally {
+      activeWrites--;
+      detachDisposedContext();
+    }
   };
 
   getter.update = (updater: (prev: T) => T) => {
@@ -1389,13 +1428,19 @@ export function signal<T>(
   getter.dispose = () => {
     if (disposed) return;
     disposed = true;
-    if (generation !== ctx.generation) return;
-    retireForeignSource(getter);
-    ctx.signalRegistry[id] = undefined;
-    ctx.topologyVersion++;
-    disposeTrackedNode(core, id);
+    try {
+      if (generation !== ctx.generation) return;
+      retireForeignSource(getter);
+      ctx.signalRegistry[id] = undefined;
+      ctx.topologyVersion++;
+      disposeTrackedNode(core, id);
+    } finally {
+      // Active writes may still be unwinding subscriber callbacks.
+      detachDisposedContext();
+    }
   };
 
+  reactiveHandleRetirements.set(getter, getter.dispose);
   return getter;
 }
 
@@ -1407,10 +1452,10 @@ export function computed<T>(
   fn: () => T,
   options?: { equals?: (a: T, b: T) => boolean }
 ): ReadonlySignal<T> {
-  const core = getWasmCore();
-  const ctx = getJsContext(core);
+  let core = getWasmCore();
+  let ctx = getJsContext(core);
   const generation = ctx.generation;
-  const owner = resolveCurrentOwner(ctx, core);
+  let owner = resolveCurrentOwner(ctx, core);
   if (isOwnerScopeDisposed(owner)) throw new Error('Cannot create computed in a disposed owner');
   if (typeof fn !== 'function') throw new TypeError('Computed body must be a function');
   const equals = options?.equals ?? Object.is;
@@ -1435,6 +1480,16 @@ export function computed<T>(
     evaluating: false, failed: false, retiredDependencies: null, sourceRetirementVersion: 0,
   };
   ctx.computedRegistry[id] = entry;
+
+  const detachDisposedContext = () => {
+    if (!disposed || entry.evaluating) return;
+    entry.compute = undefined as any;
+    entry.equals = Object.is;
+    entry.deps.length = 0; entry.dep0 = -1; entry.dep1 = -1; entry.depsCount = 0;
+    fn = null!; options = undefined;
+    owner = null;
+    core = null!; ctx = null!;
+  };
 
   const cycleError = () => {
     const computeds = ctx.observerStack.filter(item => item.kind === 1);
@@ -1514,6 +1569,7 @@ export function computed<T>(
         entry.evaluating = false; entry.retiredDependencies = null;
         if (generation === ctx.generation) evaluations.pop();
         leaveObservationContext(ctx);
+        detachDisposedContext();
       }
     }
     entry.lastCleanClock = ctx.globalClock;
@@ -1575,6 +1631,7 @@ export function computed<T>(
   }) as ReadonlySignal<T>;
 
   (getter as any).id = id;
+  (getter as any).__svet_cached_value = () => entry.value;
   getter.peek = () => {
     if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation) return entry.value;
     if (!entry.evaluating) refreshForeignTracking(entry, ctx);
@@ -1582,22 +1639,38 @@ export function computed<T>(
     return getWasmCore() === core ? evaluateIfNeeded() : runInForeignReactiveCore(core, evaluateIfNeeded);
   };
 
-  getter.dispose = () => {
+  const disposeComputed = (unregisterOwner: boolean) => {
     if (disposed) return;
     disposed = true;
-    if (owner && !owner.disposed) {
-      const index = owner.disposables.indexOf(getter.dispose);
+    if (unregisterOwner && owner && !owner.disposed) {
+      const index = owner.disposables.indexOf(ownerDisposer);
       if (index >= 0) owner.disposables.splice(index, 1);
     }
-    if (generation !== ctx.generation) return;
-    ctx.topologyVersion++;
-    retireForeignTracking(entry, true);
-    retireForeignSource(getter);
-    ctx.computedRegistry[id] = undefined;
-    disposeTrackedNode(core, id);
+    try {
+      if (generation !== ctx.generation) return;
+      ctx.topologyVersion++;
+      retireForeignTracking(entry, true);
+      retireForeignSource(getter);
+      ctx.computedRegistry[id] = undefined;
+      disposeTrackedNode(core, id);
+    } finally {
+      // A computation may dispose itself; its observation frame must unwind
+      // before the captured context can be released.
+      detachDisposedContext();
+    }
   };
 
-  if (owner) owner.disposables.push(getter.dispose);
+  const ownerDisposer = () => disposeComputed(true);
+  getter.dispose = ownerDisposer;
+  reactiveHandleRetirements.set(entry, owners => {
+    if (owners && !disposed && owner && !owner.disposed) {
+      let callbacks = owners.get(owner);
+      if (!callbacks) { callbacks = new Set(); owners.set(owner, callbacks); }
+      callbacks.add(ownerDisposer);
+      disposeComputed(false);
+    } else disposeComputed(true);
+  });
+  if (owner) owner.disposables.push(ownerDisposer);
 
   return getter;
 }
@@ -1792,6 +1865,37 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
   return entry;
 }
 
+/** Reset invalidates scheduling, while registered cleanup remains owner-owned. */
+function createEffectResetRetirement(entry: EffectEntry): () => void {
+  return () => { entry.userFn = undefined as any; };
+}
+
+/** Public effect lifetimes must not retain recycled native entry shells. */
+function createEffectPublicHandle(
+  core: SvetWasmExports, parentOwner: OwnerScope | null, pooledHandle: EffectHandle, id: number,
+): EffectHandle {
+  const cell: { core: SvetWasmExports | null; parentOwner: OwnerScope | null; pooledHandle: EffectHandle | null } = { core, parentOwner, pooledHandle };
+  core = null!; parentOwner = null; pooledHandle = null!;
+  const handle: EffectHandle = {
+    id,
+    dispose() {
+      const currentCore = cell.core, currentOwner = cell.parentOwner, currentHandle = cell.pooledHandle;
+      if (!currentCore || !currentHandle) return;
+      // Detach before user cleanup: reentry is inert, and thrown cleanup cannot
+      // leave a terminal public handle pointing at a core or a recycled shell.
+      cell.core = null; cell.parentOwner = null; cell.pooledHandle = null;
+      runUntrackedInCore(currentCore, () => {
+        if (currentOwner && !currentOwner.disposed) {
+          const index = currentOwner.disposables.indexOf(handle.dispose);
+          if (index >= 0) currentOwner.disposables.splice(index, 1);
+        }
+        currentHandle.dispose();
+      });
+    },
+  };
+  return handle;
+}
+
 /**
  * Creates an automatically tracked side-effect.
  * - Registers with the enclosing `OwnerScope` (if any) for automatic hierarchical disposal.
@@ -1847,26 +1951,12 @@ export function effect(
   entry.userFn = fn;
 
   ctx.effectRegistry[id] = entry;
+  reactiveHandleRetirements.set(entry, createEffectResetRetirement(entry));
 
   // The entry and its internal handle are pooled, but a caller's handle belongs
   // to exactly one effect lifetime. In particular, a retained owner cleanup must
   // never dispose a replacement effect after this entry has been reused.
-  const pooledHandle = entry.handle;
-  let disposed = false;
-  const handle: EffectHandle = {
-    id,
-    dispose() {
-      if (disposed) return;
-      disposed = true;
-      runUntrackedInCore(core, () => {
-        if (parentOwner && !parentOwner.disposed) {
-          const index = parentOwner.disposables.indexOf(handle.dispose);
-          if (index >= 0) parentOwner.disposables.splice(index, 1);
-        }
-        pooledHandle.dispose();
-      });
-    },
-  };
+  const handle = createEffectPublicHandle(core, parentOwner, entry.handle, id);
 
   if (parentOwner) {
     parentOwner.disposables.push(handle.dispose);
@@ -2035,7 +2125,30 @@ export function createStore<T extends Record<string, any>>(initial: T): SignalSt
 export function resetReactiveSystem(): void {
   const core = getWasmCore();
   const ctx = getJsContext(core);
+  // Capture the retiring generation before reset cleanups can create new nodes.
+  // Use private callbacks rather than mutable public dispose properties.
+  const retirements: ReactiveHandleRetirement[] = [];
+  for (const registry of [ctx.signalRegistry, ctx.computedRegistry, ctx.effectRegistry]) {
+    for (const handle of registry) {
+      if (!handle) continue;
+      const retire = reactiveHandleRetirements.get(handle);
+      if (retire) retirements.push(retire);
+    }
+  }
   ctx.generation++;
+  const retiredOwners: ReactiveResetOwnerRetirements = new Map();
+  for (const retire of retirements) retire(retiredOwners);
+  // Preserve the public callback array and user cleanup order. Per-node splice
+  // would shift/scan a large shared owner once for every retired computed.
+  for (const [owner, retired] of retiredOwners) {
+    const callbacks = owner.disposables;
+    let write = 0;
+    for (let read = 0; read < callbacks.length; read++) {
+      const callback = callbacks[read];
+      if (!retired.has(callback)) callbacks[write++] = callback;
+    }
+    callbacks.length = write;
+  }
   for (const cleanup of reactiveResetCleanups.get(core) ?? []) {
     try { cleanup(); } catch { /* Reset must still invalidate graph storage. */ }
   }

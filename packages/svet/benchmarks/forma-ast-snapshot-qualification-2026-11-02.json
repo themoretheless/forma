@@ -1,0 +1,36 @@
+{
+  "scope": "Own snapshots of recognized caller AST fields on construction and HMR",
+  "before": {
+    "callerMutationRegressionsFailed": 7,
+    "intermediateUndefinedStateRegressionFailed": 1
+  },
+  "after": {
+    "focusedPassed": 119,
+    "fullSuitePassed": 1451,
+    "fullSuiteFiles": 107,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 9
+  },
+  "sha256": {
+    "src/engine/forma.ts": "a019c90b739f99ac3dfe2ecf0f739b28c666c75fac2b14950bdba658270c7050",
+    "tests/forma-ast-snapshot.test.ts": "13b46671836c521421c3cdc7ed79ec424278b8acf332e75249f1fd627283298a",
+    "scripts/check-forma-aot-lifecycle.mjs": "e352c932a6fe1925fb25f86f952f88e289440565250887e2aa44936a0cb52c2f",
+    "scripts/check-package.mjs": "65d2c7b4a72f228dee50cd0376d6fb17d4a94db3e207faadee4ef7fcfdfcb0bb"
+  },
+  "invariants": [
+    "private iterative visual graph snapshot with shared-node preservation",
+    "caller edits to tree/let/range/shortcut cannot affect future mounts or reactive updates",
+    "caller-added cycles isolated from private tree",
+    "object prop defaults detached using JSON clone policy",
+    "explicit undefined state field remains own and resets correctly",
+    "source-string path retains private parser result without redundant snapshot",
+    "teardown graph empty"
+  ],
+  "limitations": [
+    "Accessor/proxy side effects remain unqualified.",
+    "Function data and unknown extension objects lack a general deep-immutability guarantee.",
+    "Snapshot overhead is unmeasured.",
+    "No deep-rendering or installed browser qualification."
+  ]
+}

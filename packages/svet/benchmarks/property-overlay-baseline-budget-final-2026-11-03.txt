@@ -1,0 +1,40 @@
+   Compiling forma v0.2.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-property-overlay-baseline-983lev3z/vector-ui)
+warning: function `rasterize` is never used
+   --> src/text.rs:783:15
+    |
+783 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.88s
+     Running tests/runtime_allocations.rs (/tmp/svet-native-development/debug/deps/runtime_allocations-8250ecd2e522808b)
+
+running 1 test
+96 For scopes with1024 unrelated text records, mode=direct: 13574870 requested bytes
+96 For scopes with1024 unrelated text records, mode=lexical: 34873104 requested bytes
+96 For scopes with1024 unrelated text records, mode=shadow: 14071177 requested bytes
+96 For scopes with1024 unrelated text records, mode=captured: 33910170 requested bytes
+
+thread 'for_scope_overlays_do_not_copy_unrelated_root_lists_per_control' (22112238) panicked at tests/runtime_allocations.rs:405:47:
+assertion `left == right` failed: captured locals must share immutable storage
+  left: 0xb86458000
+ right: 0xb86440000
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test for_scope_overlays_do_not_copy_unrelated_root_lists_per_control ... FAILED
+
+failures:
+
+failures:
+    for_scope_overlays_do_not_copy_unrelated_root_lists_per_control
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `--test runtime_allocations`

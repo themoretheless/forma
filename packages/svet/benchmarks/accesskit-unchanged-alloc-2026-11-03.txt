@@ -1,0 +1,27 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+warning: function `rasterize` is never used
+   --> src/text.rs:798:15
+    |
+798 | pub(crate) fn rasterize(
+    |               ^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `draw` is never used
+  --> src/shape.rs:11:8
+   |
+11 | pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
+   |        ^^^^
+
+warning: `forma` (lib) generated 2 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.43s
+     Running tests/runtime_allocations.rs (/tmp/svet-native-development/debug/deps/runtime_allocations-139aec5dbe28881b)
+
+running 1 test
+ACCESSKIT_PUBLICATION controls=1 full=40 unchanged=10
+ACCESSKIT_PUBLICATION controls=32 full=774 unchanged=196
+ACCESSKIT_PUBLICATION controls=256 full=6038 unchanged=1540
+test unchanged_accesskit_publication_skips_translation_allocations ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.04s
+

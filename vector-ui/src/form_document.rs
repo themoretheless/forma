@@ -2,7 +2,20 @@
 //! or JS is used in the application: typed model accessors supply named values.
 use std::collections::BTreeMap;
 
-pub type Properties = BTreeMap<String, Value>;
+mod properties;
+pub use properties::{Properties, PropertyIter};
+
+// Evaluation scopes capture immutable model data, unlike the live model map.
+// Their first local mutation gets a shared-root overlay instead of owning it.
+fn scope_mut<'a, 'b>(scope: &'a mut std::borrow::Cow<'b, Properties>) -> &'a mut Properties {
+    if matches!(scope, std::borrow::Cow::Borrowed(_)) {
+        let current=scope.as_ref();
+        *scope = std::borrow::Cow::Owned(current.small_scope_clone(4096)
+            .unwrap_or_else(|| current.scoped_clone()));
+    }
+    scope.to_mut()
+}
+
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "kind", content = "value")]
 pub enum Value {
@@ -2164,7 +2177,7 @@ fn check_contracts(
 // declaration also hides an older For local with the same name.
 fn insert_scene_lexical(state: &mut Properties, name: String, value: Value, expression: &Value, scope: &Properties) {
     let parents = state.get("__binding_active").cloned().unwrap_or_else(|| Value::Object(Properties::new()));
-    let steps = state.entry("__binding_let_steps".into()).or_insert_with(|| Value::List(Vec::new()));
+    let steps = state.get_or_insert_with("__binding_let_steps".into(), || Value::List(Vec::new()));
     if let Value::List(steps) = steps {
         steps.push(Value::Object(Properties::from([
             ("name".into(), Value::Text(name.clone())),
@@ -2173,13 +2186,13 @@ fn insert_scene_lexical(state: &mut Properties, name: String, value: Value, expr
             ("parents".into(), parents),
         ])));
     }
-    let lexicals = state.entry("__binding_lexicals".into()).or_insert_with(|| Value::Object(Properties::new()));
+    let lexicals = state.get_or_insert_with("__binding_lexicals".into(), || Value::Object(Properties::new()));
     if let Value::Object(lexicals) = lexicals { lexicals.insert(name.clone(), value.clone()); }
     if let Some(Value::Object(active)) = state.get_mut("__binding_active") { active.remove(&name); }
     for prefix in ["__collection", "__binding_key", "__binding_key_expr", "__binding_key_scope"] {
-        state.remove(&format!("{prefix}.{name}"));
+        state.unset(&format!("{prefix}.{name}"));
     }
-    state.insert(name, value);
+    state.set(name, value);
 }
 
 // A displayed control no longer expands children. Keep replay data once in
@@ -2192,8 +2205,8 @@ fn compact_scene_control_state(mut state: Properties) -> Properties {
         _ => false,
     };
     if represented {
-        state.remove("__binding_lexicals");
-        state.remove("__binding_let_steps");
+        state.unset("__binding_lexicals");
+        state.unset("__binding_let_steps");
     }
     state
 }
@@ -2319,7 +2332,7 @@ impl Document {
                         }
                     }
                     for (index, value) in items.into_iter().enumerate() {
-                        let mut state = current_state.as_ref().clone();
+                        let mut state = current_state.as_ref().scoped_clone();
                         state.insert(item.clone(), value);
                         state.insert(format!("__index.{item}"), number(index as f64));
                         let key = key_part(
@@ -2353,7 +2366,7 @@ impl Document {
                     if !name.is_empty() {
                         if let Some(val_expr) = node.props.get("value") {
                             let val = val_expr.evaluate(props, &current_state)?;
-                            current_state.to_mut().insert(name, val);
+                            scope_mut(&mut current_state).insert(name, val);
                             if !node.children.is_empty() {
                                 result.extend(self.expand_sequence(
                                     &node.children,
@@ -2563,13 +2576,13 @@ impl Document {
             .filter(|(k, _)| !k.starts_with("__"))
             .map(|(k, v)| Ok((k.clone(), self.expand_value(v, &props, state, &parents, 0)?)))
             .collect::<Result<_, String>>()?;
-        let mut contract_values = resolved.clone();
+        let mut contract_values = std::borrow::Cow::Borrowed(&resolved);
         if let Some(Value::Object(contracts)) = definition.defaults.get("__contracts") {
             for (key, contract) in contracts {
                 if matches!(contract,Value::Object(contract) if contract.get("required")==Some(&Value::Bool(true)))
                     && !supplied.contains(key)
                 {
-                    contract_values.remove(key);
+                    if contract_values.contains_key(key) { contract_values.to_mut().remove(key); }
                 }
             }
         }
@@ -2718,16 +2731,19 @@ impl Document {
                     format_args!("ContentInput {{ x:{x}; y:{y}; width:{w}; height:{h}; value:"),
                 );
                 Value::Text(text(&n.props, "value", "")?).write_literal(out)?;
+                out.push_str("; label:");
+                Value::Text(text(&n.props, "label", "")?).write_literal(out)?;
                 out.push_str("; placeholder:");
                 Value::Text(text(&n.props, "placeholder", "")?).write_literal(out)?;
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!(
-                        "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; }} ",
+                        "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; readOnly:{}; }} ",
                         text(&n.props, "color", "#ffffff")?,
                         text(&n.props, "placeholderColor", "#999999")?,
                         num(&n.props, "fontSize", 15.)?,
                         boolean(&n.props, "multiline", false)?,
+                        boolean(&n.props, "readOnly", false)?,
                     ),
                 );
             }
@@ -2803,15 +2819,17 @@ impl Document {
         scope: &Properties,
         state: &Properties,
     ) -> Result<Properties, String> {
-        let mut defaults = self.fallback.clone();
-        if let Some(definition) = self.definitions.get(&node.kind) {
-            defaults.extend(definition.defaults.clone());
-        }
-        let mut scope = scope.clone();
+        let definition = self.definitions.get(&node.kind);
+        // Most nodes only read defaults; materialize the merged scope only when
+        // a missing-state fallback expression actually needs it for evaluation.
+        let default_value = |key: &str| definition.and_then(|d| d.defaults.get(key))
+            .or_else(|| self.fallback.get(key));
+        let mut scope = std::borrow::Cow::Borrowed(scope);
         for meta_key in ["__enums", "__tokens", "__i18n", "__lets", "__styles"] {
-            if let Some(Value::Object(meta_obj)) = defaults.get(meta_key) {
+            if let Some(Value::Object(meta_obj)) = default_value(meta_key) {
+                let scope = scope_mut(&mut scope);
                 let mut merged = match scope.remove(meta_key) {
-                    Some(Value::Object(v)) => v,
+                    Some(Value::Object(v)) => v.small_scope_clone(4096).unwrap_or_else(||v.scoped_clone()),
                     _ => Properties::new(),
                 };
                 merged.extend(meta_obj.clone());
@@ -2829,7 +2847,11 @@ impl Document {
                     result.insert(key.clone(), value);
                 }
                 Err(error) if error.starts_with("Missing state.") => {
-                    if let Some(default) = defaults.get(key) {
+                    if let Some(default) = default_value(key) {
+                        let mut defaults = self.fallback.clone();
+                        if let Some(definition) = definition {
+                            defaults.extend(definition.defaults.clone());
+                        }
                         result.insert(
                             key.clone(),
                             eval(default, &defaults, state, &mut Vec::new())?,
@@ -2841,7 +2863,8 @@ impl Document {
         }
         if result.get("__range_normalized") == Some(&Value::Bool(true)) {
             if let Some(Value::Number(value)) = result.get("value") {
-                result.insert("value".into(), Value::Expr(format!("{}%", value * 100.)));
+                let normalized = Value::Expr(format!("{}%", value * 100.));
+                result.insert("value".into(), normalized);
             }
         }
         Ok(result)
@@ -2861,7 +2884,7 @@ impl Document {
                 if !name.is_empty() {
                     if let Some(expression) = child.props.get("value") {
                         let value = expression.evaluate(scope, &state)?;
-                        insert_scene_lexical(state.to_mut(), name, value, expression, scope);
+                        insert_scene_lexical(scope_mut(&mut state), name, value, expression, scope);
                     }
                 }
                 out.extend(self.scene_expand_sequence(&child.children, &state, prefix, scope, depth + 1, budget)?);
@@ -2890,25 +2913,25 @@ impl Document {
         let id = num(&node.props, "__node", 0.)? as usize;
         let mut state = std::borrow::Cow::Borrowed(inherited);
         if let Some(local) = self.states.get(id) {
-            if !local.is_empty() { state.to_mut().extend(local.clone()); }
+            if !local.is_empty() { scope_mut(&mut state).extend(local.clone()); }
         }
         let mut scope = std::borrow::Cow::Borrowed(inherited_props);
         if let Some(Value::Object(values)) = node.props.get("__scope") {
-            scope.to_mut().extend(values.clone());
+            scope_mut(&mut scope).extend(values.clone());
             let selected = select_groups(values.get("__matches"), &scope, &state)?;
-            scope.to_mut().extend(selected);
+            scope_mut(&mut scope).extend(selected);
             let resolved = scope
                 .iter()
                 .filter(|(key, _)| !key.starts_with("__"))
                 .map(|(key, value)| Ok((key.clone(), value.evaluate(&scope, &state)?)))
                 .collect::<Result<Properties, String>>()?;
-            let mut contract_values = resolved.clone();
+            let mut contract_values = std::borrow::Cow::Borrowed(&resolved);
             if let Some(Value::Object(contracts)) = values.get("__contracts") {
                 for (key, contract) in contracts {
                     if matches!(contract,Value::Object(contract) if contract.get("required")==Some(&Value::Bool(true)))
                         && !values.contains_key(key)
                     {
-                        contract_values.remove(key);
+                        if contract_values.contains_key(key) { contract_values.to_mut().remove(key); }
                     }
                 }
             }
@@ -2918,7 +2941,7 @@ impl Document {
                 scope.get("__enums"),
                 &contract_values,
             )?;
-            scope.to_mut().extend(resolved);
+            scope_mut(&mut scope).extend(resolved);
         }
         match node.kind.as_str() {
             "If" => {
@@ -2964,29 +2987,42 @@ impl Document {
                         }
                     }
                 }
-                let mut local = std::borrow::Cow::Borrowed(state.as_ref());
+                // Small loops with little owned data keep the cheaper flat
+                // map path. Large loops/payloads retain shared-root overlays.
+                let mut local = std::borrow::Cow::Owned(
+                    if items.len()<=32 { state.small_scope_clone(4096) } else { None }
+                        .unwrap_or_else(|| state.as_ref().scoped_clone())
+                );
+                // These captured outer locals are identical for every item.
+                // Materialize them only after the first valid key, then share
+                // the immutable map across retained binding frames.
+                let mut captured_locals: Option<Properties> = None;
                 let binding_metadata = [
                     format!("__binding_key.{item}"),
                     format!("__binding_key_expr.{item}"),
                     format!("__binding_key_scope.{item}"),
                 ];
                 for (index, value) in items.into_iter().enumerate() {
-                    let local = local.to_mut();
+                    let local = scope_mut(&mut local);
                     // Key evaluation sees the inherited metadata, never the
                     // previous iteration's key (also when nested For shadows item).
                     for name in &binding_metadata {
                         match state.get(name) {
-                            Some(value) => { local.insert(name.clone(), value.clone()); }
-                            None => { local.remove(name); }
+                            Some(value) => { local.set(name.clone(), value.clone()); }
+                            None => { local.unset(name); }
                         }
                     }
-                    local.insert(item.clone(), value);
+                    local.set(item.clone(), value);
                     if let Some(Value::Object(lexicals)) = local.get_mut("__binding_lexicals") {
-                        lexicals.remove(&item);
+                        if lexicals.contains_key(&item) {
+                            let mut masked=lexicals.scoped_clone();
+                            masked.unset(&item);
+                            *lexicals=masked;
+                        }
                     }
-                    local.insert(format!("__index.{item}"), number(index as f64));
+                    local.set(format!("__index.{item}"), number(index as f64));
                     if let Some(col_expr) = &collection_expr {
-                        local.insert(format!("__collection.{item}"), Value::Text(col_expr.clone()));
+                        local.set(format!("__collection.{item}"), Value::Text(col_expr.clone()));
                     }
                     let key = key_part(
                         &node
@@ -3000,9 +3036,9 @@ impl Document {
                     }
                     // Retain key semantics, not just the old positional index,
                     // so a recovery binding map can resolve the same live item.
-                    local.insert(format!("__binding_key.{item}"), Value::Text(key.clone()));
-                    local.insert(format!("__binding_key_expr.{item}"), node.props["key"].clone());
-                    local.insert(format!("__binding_key_scope.{item}"), Value::Object(scope.as_ref().clone()));
+                    local.set(format!("__binding_key.{item}"), Value::Text(key.clone()));
+                    local.set(format!("__binding_key_expr.{item}"), node.props["key"].clone());
+                    local.set(format!("__binding_key_scope.{item}"), Value::Object(scope.as_ref().clone()));
                     let mut frames = match state.get("__binding_frames") {
                         Some(Value::List(frames)) => frames.clone(), _ => Vec::new(),
                     };
@@ -3011,11 +3047,11 @@ impl Document {
                     };
                     // Lexicals are retained in __lexicals and replayed over locals.
                     // Avoid a second owned copy of each lexical collection here.
-                    let locals = state.iter().filter(|(name, _)| {
+                    let locals = captured_locals.get_or_insert_with(|| state.iter().filter(|(name, _)| {
                         !name.starts_with("__")
                             && !self.states.first().is_some_and(|root| root.contains_key(*name))
                             && !matches!(state.get("__binding_lexicals"), Some(Value::Object(lexicals)) if lexicals.contains_key(*name))
-                    }).map(|(name, value)| (name.clone(), value.clone())).collect();
+                    }).map(|(name, value)| (name.clone(), value.clone())).collect()).clone();
                     let mut frame = Properties::from([
                         ("__item".into(), Value::Text(item.clone())),
                         ("__parents".into(), Value::Object(active.clone())),
@@ -3032,8 +3068,8 @@ impl Document {
                     }
                     active.insert(item.clone(), number(frames.len() as f64));
                     frames.push(Value::Object(frame));
-                    local.insert("__binding_frames".into(), Value::List(frames));
-                    local.insert("__binding_active".into(), Value::Object(active));
+                    local.set("__binding_frames".into(), Value::List(frames));
+                    local.set("__binding_active".into(), Value::Object(active));
                     let prefix = format!("{prefix}@{id}:{key}/");
                     out.extend(self.scene_expand_sequence(node.children.iter().filter(|n| n.kind != "Empty"), local, &prefix, &scope, depth + 1, budget)?);
                 }
@@ -3046,7 +3082,7 @@ impl Document {
                 if !name.is_empty() {
                     if let Some(val_expr) = node.props.get("value") {
                         let val = val_expr.evaluate(&scope, &state)?;
-                        let mut next_state = state.as_ref().clone();
+                        let mut next_state = state.as_ref().scoped_clone();
                         insert_scene_lexical(&mut next_state, name, val, val_expr, &scope);
                         out.extend(self.scene_expand_sequence(&node.children, &next_state, prefix, &scope, depth + 1, budget)?);
                     }
@@ -3088,9 +3124,6 @@ impl Document {
                     children: Vec::new(),
                     action: node.action.clone(),
                 };
-                output
-                    .props
-                    .insert("__state".into(), Value::Object(state.as_ref().clone()));
                 if self.definitions.contains_key(&node.kind) {
                     let explicit = output
                         .props
@@ -3110,6 +3143,13 @@ impl Document {
                     output.children = node.children.clone();
                 } else {
                     output.children = self.scene_expand_sequence(&node.children, &state, prefix, &scope, depth + 1, budget)?;
+                }
+                // Children and resolved properties no longer borrow this scope.
+                // Move a local owned state into its public control snapshot;
+                // inherited shared state is cloned only when ownership is needed.
+                // Layout-only nodes do not consume snapshots.
+                if !is_layout(&node.kind) {
+                    output.props.insert("__state".into(), Value::Object(state.into_owned()));
                 }
                 Ok(vec![output])
             }
@@ -3928,6 +3968,68 @@ fn binding_model_path(
     state.contains_key(head).then(|| path.to_owned())
 }
 
+// A direct model alias and scalar item key need no owned lexical values.
+// Unsupported expressions/parents continue through the general replay below.
+fn resolve_direct_alias_frame(
+    frame: &Properties, state: &Properties, indexes: &mut BindingKeyIndexes, depth: usize,
+) -> Option<Result<Option<(String, usize)>, String>> {
+    let empty = Properties::new();
+    let Value::Object(parents) = frame.get("__parents")? else { return None; };
+    if !parents.is_empty() { return None; }
+    let Value::Object(lexicals) = frame.get("__lexicals")? else { return None; };
+    let Value::List(steps) = frame.get("__let_steps")? else { return None; };
+    if steps.len() > 16_384 { return None; }
+    let item = frame.get("__item")?.text().ok()?;
+    let expression = frame.get(&format!("__binding_key_expr.{item}"))?;
+    let scope = match frame.get(&format!("__binding_key_scope.{item}")) { Some(Value::Object(scope)) => scope, _ => &empty };
+    let locals = match frame.get("__locals") { Some(Value::Object(locals)) => locals, _ => &empty };
+    let member = direct_binding_key_member(expression, scope, frame, &item, state, locals)?;
+    let Value::Expr(key_path) = expression else { return None; };
+    if lexicals.contains_key(key_path) { return None; }
+    let mut aliases = BTreeMap::new();
+    for step in steps {
+        let Value::Object(step) = step else { return None; };
+        let name = step.get("name")?.text().ok()?;
+        let Value::Expr(expression) = step.get("expression")? else { return None; };
+        if matches!(step.get("parents"), Some(Value::Object(parents)) if !parents.is_empty()) { return None; }
+        let scope = match step.get("scope") { Some(Value::Object(scope)) => scope, _ => &empty };
+        let head = expression.split('.').next()?;
+        if !expression.starts_with("state.") && (!aliases.contains_key(head) || enum_value(expression, scope).is_some()) { return None; }
+        let origin = binding_model_path(expression, &BTreeMap::new(), &aliases, &empty, state)?;
+        let value = lookup_binding_ref(state, &origin)?;
+        if matches!(value, Value::Expr(_) | Value::Expression(_) | Value::Interpolation(_) | Value::Match(..)) { return None; }
+        aliases.insert(name, Some(origin));
+    }
+    let collection = frame.get(&format!("__collection.{item}"))?.text().ok()?;
+    let path = binding_model_path(&collection, &BTreeMap::new(), &aliases, lexicals, state)?;
+    let Some(Value::List(items)) = lookup_binding_ref(state, &path) else { return None; };
+    if items.len() > 16_384 { return None; }
+    // Cached indexes are installed only after every key was a pure scalar read.
+    // Otherwise replay is required for computed key values and their lexicals.
+    if indexes.get(&path).and_then(|members| members.get(member)).is_none()
+        && items.iter().any(|item| !matches!(item, Value::Object(object)
+            if matches!(lookup_binding_ref(object, member), Some(Value::Text(_) | Value::Number(_)))))
+    { return None; }
+    Some(resolve_binding_item_inner(frame, &item, state, indexes, &mut Properties::new(), depth + 1, Some(&format!("state.{path}"))))
+}
+
+fn direct_binding_key_member<'a>(
+    expression: &'a Value, scope: &Properties, metadata: &Properties,
+    item: &str, state: &Properties, live_locals: &Properties,
+) -> Option<&'a str> {
+    let Value::Expr(expression) = expression else { return None; };
+    if ["state", "props", "tokens", "i18n"].contains(&item) { return None; }
+    let prefix = format!("{item}.");
+    expression.strip_prefix(&prefix).filter(|tail| {
+        !tail.is_empty()
+            && tail.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+            && !state.contains_key(expression)
+            && !metadata.contains_key(expression)
+            && !live_locals.contains_key(expression)
+            && enum_value(expression, scope).is_none()
+    })
+}
+
 fn resolve_binding_frame(
     frames: &[Value], index: usize, state: &Properties,
     indexes: &mut BindingKeyIndexes,
@@ -3936,6 +4038,11 @@ fn resolve_binding_frame(
     if depth >= 64 { return Err("Collection binding lexical depth exceeded".into()); }
     if let Some(result) = resolved.get(&index) { return Ok(result.clone()); }
     let Some(Value::Object(frame)) = frames.get(index) else { return Err("Invalid collection binding frame".into()); };
+    if let Some(result) = resolve_direct_alias_frame(frame, state, indexes, depth) {
+        let result = result?;
+        resolved.insert(index, result.clone());
+        return Ok(result);
+    }
     let item = frame.get("__item").ok_or("Missing binding frame item")?.text()?;
     let collection_name = format!("__collection.{item}");
     let Some(collection) = frame.get(&collection_name) else { return Ok(None); };
@@ -3978,11 +4085,11 @@ fn resolve_binding_frame(
                 // The first root Let can evaluate against borrowed state. Own
                 // an environment only when a previous lexical/parent is overlaid.
                 if !overlay_names.is_empty() || !evaluated.is_empty() {
-                    let environment = environment.to_mut();
+                    let environment = scope_mut(&mut environment);
                     for name in overlay_names.drain(..) {
                         match state.get(&name) {
-                            Some(value) => { environment.insert(name, value.clone()); }
-                            None => { environment.remove(&name); }
+                            Some(value) => { environment.set(name, value.clone()); }
+                            None => { environment.unset(&name); }
                         }
                     }
                     environment.extend(evaluated.clone());
@@ -3998,7 +4105,7 @@ fn resolve_binding_frame(
                         let Some((path, item_index)) = resolve_binding_frame(frames, parent_index as usize, state, indexes, resolved, depth + 1)? else { return Ok(None); };
                         let Some(Value::List(items)) = lookup_binding_ref(state, &path) else { return Err("Let parent expects a list".into()); };
                         let Some(value) = items.get(item_index) else { return Ok(None); };
-                        environment.to_mut().insert(name.clone(), value.clone());
+                        scope_mut(&mut environment).set(name.clone(), value.clone());
                         overlay_names.push(name.clone());
                         step_parent_paths.insert(name.clone(), (path, item_index));
                     }
@@ -4076,20 +4183,7 @@ fn resolve_binding_item_inner(
     if items.len() > 16_384 { return Err("Binding collection exceeds 16384 items".into()); }
     // Plain item-member keys can be read directly. Preserve evaluator precedence
     // for exact dotted fields, enums, reserved namespaces and computed values.
-    let direct_path = match key_expression {
-        Value::Expr(expression) if !["state", "props", "tokens", "i18n"].contains(&item) => {
-            let prefix = format!("{item}.");
-            expression.strip_prefix(&prefix).filter(|tail| {
-                !tail.is_empty()
-                    && tail.split('.').all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
-                    && !state.contains_key(expression)
-                    && !metadata.contains_key(expression)
-                    && !live_locals.contains_key(expression)
-                    && enum_value(expression, key_scope).is_none()
-            })
-        }
-        _ => None,
-    };
+    let direct_path = direct_binding_key_member(key_expression, key_scope, metadata, item, state, live_locals);
     if let Some(member) = direct_path {
         if let Some(keys) = indexes.get(path).and_then(|members| members.get(member)) {
             return Ok(keys.get(&key).map(|index| (path.to_owned(), *index)));
@@ -4107,7 +4201,7 @@ fn resolve_binding_item_inner(
             key_part(value)?
         } else {
             let local = local.get_or_insert_with(|| {
-                let mut local = state.clone();
+                let mut local = state.scoped_clone();
                 for (name, value) in metadata {
                     if name != item && !name.starts_with("__") && !local.contains_key(name) {
                         local.insert(name.clone(), value.clone());
@@ -5201,7 +5295,11 @@ fn compile_ui_files_to_document(
         ),
         (
             "TextInput",
-            "component TextInput { width: 240; height: 38; value: ''; placeholder: ''; multiline: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, placeholder, multiline, fontSize, color, placeholderColor }; } PointerArea { clicked -> events.clicked(); } } }",
+            "component TextInput { width: 240; height: 38; value: ''; label: ''; placeholder: ''; multiline: false; readOnly: false; disabled: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, label, placeholder, multiline, readOnly, fontSize, color, placeholderColor }; } PointerArea { clicked -> events.clicked(); } } }",
+        ),
+        (
+            "Slider",
+            "component Slider { width: 240; height: 32; value: 0%; disabled: false; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; PointerArea { clicked -> events.clicked(); } } }",
         ),
     ] {
         if !definitions.contains_key(builtin_name) {
@@ -5554,6 +5652,61 @@ mod tests {
         assert_eq!(resolved["color"], string("#ff0000"));
         assert_eq!(resolved["text"], string("Override"));
     }
+    #[test]
+    fn sibling_control_snapshots_share_root_until_mutated() {
+        let files = BTreeMap::from([("App.ui".into(), "component App { state query: String = 'seed'; state payload: List = []; Column { TextInput { key:'a'; value <-> state.query; } TextInput { key:'b'; value <-> state.query; } } }".into())]);
+        let payload = Value::List((0..256).map(|i| string(&format!("payload-{i}"))).collect());
+        let mut doc = Document::from_ui_files(&files,"App.ui",&props(vec![("payload",payload)])).unwrap();
+        let (_,_,mut controls) = doc.render_scene().unwrap();
+        assert_eq!(controls.len(),2);
+        assert!(controls[0].state.shares_storage(&controls[1].state),"siblings must share the expanded root map");
+        let before = serde_json::to_string(&controls[1]).unwrap();
+        controls[0].state.insert("query".into(),string("snapshot-edit"));
+        doc.states[0].insert("query".into(),string("model-edit"));
+        assert_eq!(serde_json::to_string(&controls[1]).unwrap(),before);
+        assert_eq!(controls[0].state["query"],string("snapshot-edit"));
+        assert_eq!(doc.states[0]["query"],string("model-edit"));
+    }
+
+    #[test]
+    fn shared_property_snapshots_detach_on_every_mutable_access() {
+        let mut original = props(vec![("object", Value::Object(props(vec![("caption", string("before"))]))), ("list", Value::List(vec![string("first")]))]);
+        let snapshot = original.clone();
+        assert!(original.shares_storage(&snapshot));
+        let expected_json = serde_json::to_string(&snapshot).unwrap();
+        let Some(Value::Object(object)) = original.get_mut("object") else { panic!("object") };
+        object.insert("caption".into(), string("after"));
+        let Some(Value::List(list)) = original.get_mut("list") else { panic!("list") };
+        list.push(string("second"));
+        assert!(!original.shares_storage(&snapshot));
+        assert_eq!(serde_json::to_string(&snapshot).unwrap(), expected_json);
+        assert_ne!(original, snapshot);
+        let restored: Properties = serde_json::from_str(&expected_json).unwrap();
+        assert_eq!(restored, snapshot);
+        let mut detached = snapshot.clone();
+        for (_, value) in &mut detached { *value = Value::Null; }
+        assert_eq!(serde_json::to_string(&snapshot).unwrap(), expected_json);
+        let consumed: Properties = snapshot.clone().into_iter().collect();
+        assert_eq!(consumed, snapshot);
+    }
+
+    #[test]
+    fn scene_default_lookup_preserves_overlay_and_missing_state_evaluation() {
+        let mut doc = document(root(vec![]));
+        doc.fallback.insert("seed".into(), string("fallback"));
+        doc.fallback.insert("text".into(), expr("props.seed"));
+        let definition = doc.definitions.get_mut("Control").unwrap();
+        definition.defaults.insert("seed".into(), string("definition"));
+        definition.defaults.insert("text".into(), expr("props.seed"));
+        let instance = node("Control", vec![("text", expr("state.absent"))], vec![]);
+        let resolved = doc.scene_properties(&instance, &Properties::new(), &Properties::new()).unwrap();
+        assert_eq!(resolved["text"], string("definition"));
+        let plain = node("Text", vec![("text", expr("state.absent"))], vec![]);
+        assert_eq!(doc.scene_properties(&plain, &Properties::new(), &Properties::new()).unwrap()["text"], string("fallback"));
+        let state = props(vec![("absent", string("live"))]);
+        assert_eq!(doc.scene_properties(&instance, &Properties::new(), &state).unwrap()["text"], string("live"));
+    }
+
     #[test]
     fn definition_matches_select_from_one_property_snapshot() {
         let mut doc = document(root(vec![]));
@@ -6324,6 +6477,85 @@ mod tests {
         assert_eq!(snapshots[5].state["__binding_key.item"], string(&key_part(&string("b")).unwrap()));
         assert!(!doc.states[0].contains_key("item"));
     }
+    #[test]
+    fn borrowed_root_alias_keys_match_general_replay_on_reorder_and_key_errors() {
+        let files = BTreeMap::from([("App.ui".into(), "component App { state items: List = []; Column { let visible = state.items; let rows = visible; for item in rows key item.id { TextInput { width:100; height:30; value <-> item.title; } } } }".into())]);
+        let item = |id: Value, title: &str| Value::Object(props(vec![("id", id), ("title", string(title))]));
+        let mut doc = Document::from_ui_files(&files, "App.ui", &props(vec![("items", Value::List(vec![item(string("a"), "Alpha"), item(string("b"), "Beta")]))])).unwrap();
+        let (_, _, controls) = doc.render_scene().unwrap();
+        let mut reference = controls[0].clone();
+        let Value::List(frames) = reference.state.get_mut("__binding_frames").unwrap() else { panic!("frames") };
+        let Value::Object(frame) = &mut frames[0] else { panic!("frame") };
+        let Value::List(steps) = frame.get_mut("__let_steps").unwrap() else { panic!("steps") };
+        // An unrelated literal Let requires general replay without changing the key.
+        steps.push(Value::Object(props(vec![("name", string("unused_marker")), ("expression", string("marker"))])));
+        let Value::Object(lexicals) = frame.get_mut("__lexicals").unwrap() else { panic!("lexicals") };
+        lexicals.insert("unused_marker".into(), string("marker"));
+        let compare = |state: &Properties| {
+            let actual = resolve_binding_item(&controls[0], "item", state);
+            let expected = resolve_binding_item(&reference, "item", state);
+            assert_eq!(actual, expected);
+            actual
+        };
+        assert_eq!(compare(&doc.states[0]).unwrap(), Some(("items".into(), 0)));
+        let Value::List(items) = doc.states[0].get_mut("items").unwrap() else { panic!("items") };
+        items.reverse();
+        assert_eq!(compare(&doc.states[0]).unwrap(), Some(("items".into(), 1)));
+        doc.states[0].insert("item.id".into(), string("override"));
+        assert!(compare(&doc.states[0]).unwrap_err().contains("Duplicate"));
+        doc.states[0].remove("item.id");
+        let Value::List(items) = doc.states[0].get_mut("items").unwrap() else { panic!("items") };
+        let Value::Object(first) = &mut items[0] else { panic!("item") };
+        first.insert("id".into(), expr("item.title"));
+        assert_eq!(compare(&doc.states[0]).unwrap(), Some(("items".into(), 1)));
+    }
+
+    #[test]
+    fn direct_alias_replay_preserves_shadowing_and_readonly_origins() {
+        for (lets, target) in [
+            ("let visible = state.items;", Some("items")),
+            ("let rows = state.items; let visible = rows;", Some("items")),
+            ("let items = state.other; let visible = items;", Some("other")),
+            ("let visible = state.items; let items = state.other;", Some("items")),
+            ("let visible = state.items; let visible = state.other;", Some("other")),
+            ("let marker = 'literal'; let visible = state.items;", Some("items")),
+            ("let visible = true ? state.items : state.other;", None),
+        ] {
+            let source = format!("component App {{ state items: List = []; state other: List = []; Column {{ {lets} for item in visible key item.id {{ TextInput {{ width:100; height:30; value <-> item.title; }} }} }} }}");
+            let files = BTreeMap::from([("App.ui".into(), source)]);
+            let list = |prefix: &str| Value::List(["a", "b"].into_iter().map(|id| Value::Object(props(vec![("id", string(id)), ("title", string(&format!("{prefix}-{id}")))]))).collect());
+            let mut doc = Document::from_ui_files(&files, "App.ui", &props(vec![("items", list("items")), ("other", list("other"))])).unwrap();
+            let (_, _, controls) = doc.render_scene().unwrap();
+            let mut reference = controls[0].clone();
+            let Value::List(frames) = reference.state.get_mut("__binding_frames").unwrap() else { panic!("frames") };
+            let Value::Object(frame) = &mut frames[0] else { panic!("frame") };
+            let Value::List(steps) = frame.get_mut("__let_steps").unwrap() else { panic!("steps") };
+            steps.push(Value::Object(props(vec![("name", string("unused_reference_marker")), ("expression", string("marker"))])));
+            let Value::Object(lexicals) = frame.get_mut("__lexicals").unwrap() else { panic!("lexicals") };
+            lexicals.insert("unused_reference_marker".into(), string("marker"));
+            for reversed in [false, true] {
+                if reversed { for name in ["items", "other"] {
+                    let Value::List(items) = doc.states[0].get_mut(name).unwrap() else { panic!("items") }; items.reverse();
+                } }
+                let actual = resolve_binding_item(&controls[0], "item", &doc.states[0]);
+                let expected = resolve_binding_item(&reference, "item", &doc.states[0]);
+                assert_eq!(actual, expected, "{lets}");
+                assert_eq!(actual.unwrap(), target.map(|target| (target.into(), usize::from(reversed))), "{lets}");
+            }
+        }
+    }
+
+    #[test]
+    fn direct_alias_shortcut_does_not_hide_an_unused_let_replay_error() {
+        let files = BTreeMap::from([("App.ui".into(), "component App { state items: List = []; state unused: List = []; Column { let ignored = state.unused; let visible = state.items; for item in visible key item.id { TextInput { width:100; height:30; value <-> item.title; } } } }".into())]);
+        let mut doc = Document::from_ui_files(&files, "App.ui", &props(vec![("items", Value::List(vec![Value::Object(props(vec![("id", string("a")), ("title", string("Alpha"))]))]))])).unwrap();
+        let (_, _, controls) = doc.render_scene().unwrap();
+        doc.states[0].remove("unused");
+        let before = doc.states.clone();
+        assert!(resolve_binding_item(&controls[0], "item", &doc.states[0]).unwrap_err().contains("Missing state.unused"));
+        assert_eq!(doc.states, before);
+    }
+
     #[test]
     fn later_let_metadata_is_retained_when_not_represented_in_collection_frame() {
         let files = BTreeMap::from([("App.ui".into(), "component App { state items: List = []; state suffix: String = 'tail'; Column { let visible = state.items; for item in visible key item.id { let extra = state.suffix; TextInput { width:100; height:30; value <-> item.title; } } } }".into())]);

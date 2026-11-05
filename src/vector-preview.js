@@ -51,6 +51,10 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   Object.assign(input.style,{position:'absolute',opacity:'0',width:'1px',height:'20px',padding:'0',border:'0',resize:'none',pointerEvents:'none'});
   host.append(input);
   let composing=false;
+  let compositionOwner=null;
+  let inputMirror=null;
+  const ownsComposition=()=>composing&&compositionOwner?.model===button&&compositionOwner.index===button?.focused_index();
+  function cancelComposition(){composing=false;compositionOwner=null;input.value='';}
 
   const gpuCanvas=document.createElement('canvas');
   Object.assign(gpuCanvas.style,{position:'absolute',left:'0',top:'0',pointerEvents:'none'});
@@ -212,37 +216,83 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
 
   function syncTextInput() {
     if(!button)return;
+    if(composing&&!ownsComposition())cancelComposition();
     const editing=!current?.designMode&&button.text_editing?.();
+    if(!editing){inputMirror=null;if(composing)cancelComposition();}
     if(editing) {
       input.hidden=false;
       const bounds=button.text_caret_bounds();
       Object.assign(input.style,{left:`${Math.max(0,bounds[0]??0)}px`,top:`${Math.max(0,bounds[1]??0)}px`,height:`${bounds[3]??20}px`});
-      input.setAttribute('aria-label',button.control_label(button.focused_index())||'Поле ввода');
+      const focused=button.focused_index();
+      input.setAttribute('aria-label',(button.control_input_label?button.control_input_label(focused):button.control_label(focused))||'Поле ввода');
+      input.setAttribute('aria-multiline',String(button.control_multiline?.(focused)??false));
+      input.readOnly=button.control_readonly?.(focused)??false;
+      input.setAttribute('aria-readonly',String(input.readOnly));
+      if(!composing&&button.text_value){
+        const revision=button.text_model_revision?.();
+        if(revision===undefined||revision===0||inputMirror?.model!==button||inputMirror.index!==focused||inputMirror.revision!==revision){
+          inputMirror={model:button,index:focused,revision,value:button.text_value(focused).replace(/\r\n?/g,'\n'),selection:button.text_selection_utf16?.()};
+        }
+        const {value,selection}=inputMirror;if(input.value!==value)input.value=value;
+        if(selection?.length===2){const [anchor,caret]=selection,start=Math.min(anchor,caret),end=Math.max(anchor,caret),direction=anchor>caret?'backward':'forward';if(input.selectionStart!==start||input.selectionEnd!==end||input.selectionDirection!==direction)input.setSelectionRange?.(start,end,direction);}
+      }
       if(document.activeElement===canvas) input.focus({preventScroll:true});
     } else {if(document.activeElement===input) {if(!current?.designMode&&button.focused_index()>=0)canvas.focus({preventScroll:true});else input.blur?.();}input.hidden=true;}
   }
+  function adoptTextSelection(){
+    if(composing||document.activeElement!==input||!button?.text_editing?.()||!button.text_set_selection_utf16)return;
+    const index=button.focused_index(),revision=button.text_model_revision?.();
+    const mirror=revision!==undefined&&revision!==0&&inputMirror?.model===button&&inputMirror.index===index&&inputMirror.revision===revision?inputMirror:null;
+    if(input.value!==(mirror?mirror.value:button.text_value(index).replace(/\r\n?/g,'\n')))return;
+    const start=input.selectionStart,end=input.selectionEnd;
+    if(!Number.isInteger(start)||!Number.isInteger(end))return;
+    const [anchor,caret]=input.selectionDirection==='backward'?[end,start]:[start,end];
+    const current=mirror?mirror.selection:button.text_selection_utf16?.();
+    if(current?.[0]!==anchor||current?.[1]!==caret)change(()=>button.text_set_selection_utf16(anchor,caret));
+  }
+  listen(input,'select',adoptTextSelection);
   const textInsert=text=>change(()=>button.text_insert?.(text));
-  listen(input,'compositionstart',()=>{composing=true;});
-  listen(input,'compositionupdate',event=>change(()=>button.text_preedit?.(event.data??'')));
-  listen(input,'compositionend',event=>{composing=false;textInsert(event.data??'');input.value='';});
+  listen(input,'compositionstart',()=>{adoptTextSelection();composing=true;compositionOwner={model:button,index:button?.focused_index()};});
+  listen(input,'compositionupdate',event=>{if(ownsComposition())change(()=>button.text_preedit?.(event.data??''));});
+  listen(input,'compositionend',event=>{
+    if(!ownsComposition()){if(composing)cancelComposition();syncTextInput();return;}
+    cancelComposition();
+    const text=event.data??'';
+    if(text)textInsert(text);
+    else change(()=>button.text_preedit?.(''));
+  });
   listen(input,'beforeinput',event=>{
     if(composing||event.isComposing)return;
+    adoptTextSelection();
     event.preventDefault();
-    if(event.inputType==='insertText'||event.inputType==='insertReplacementText')textInsert(event.data??'');
+    if(event.inputType==='insertText'||event.inputType==='insertReplacementText'){if(typeof event.data==='string'&&event.data.length)textInsert(event.data);}
     else if(['insertLineBreak','insertParagraph'].includes(event.inputType))change(()=>button.text_key?.('Enter',false,false));
+    else if(event.inputType==='deleteSoftLineBackward')change(()=>button.text_key?.('Backspace',false,true));
+    else if(event.inputType==='deleteSoftLineForward')change(()=>button.text_key?.('Delete',false,true));
+    else if(event.inputType==='deleteWordBackward')change(()=>button.text_word_key?.('Backspace',false));
+    else if(event.inputType==='deleteWordForward')change(()=>button.text_word_key?.('Delete',false));
     else if(event.inputType==='deleteContentBackward')change(()=>button.text_key?.('Backspace',false,false));
     else if(event.inputType==='deleteContentForward')change(()=>button.text_key?.('Delete',false,false));
     else if(event.inputType==='historyUndo')change(()=>button.text_key?.('z',false,true));
     else if(event.inputType==='historyRedo')change(()=>button.text_key?.('z',true,true));
-    input.value='';
+    syncTextInput();
   });
-  listen(input,'paste',event=>{event.preventDefault();textInsert(event.clipboardData?.getData('text/plain')??'');});
+  listen(input,'paste',event=>{
+    event.preventDefault();
+    if(!event.clipboardData?.getData)return;
+    let text;try{text=event.clipboardData.getData('text/plain');}catch{return;}
+    if(typeof text!=='string'||!text.length)return;
+    adoptTextSelection();if(composing)cancelComposition();textInsert(text);
+  });
   for(const name of ['copy','cut'])listen(input,name,event=>{
+    adoptTextSelection();
     const text=button?.text_selected?.();if(!text)return;
-    event.preventDefault();event.clipboardData?.setData('text/plain',text);
-    if(name==='cut')textInsert('');
+    event.preventDefault();
+    if(!event.clipboardData?.setData)return;
+    try{event.clipboardData.setData('text/plain',text);}catch{return;}
+    if(name==='cut'){if(composing)cancelComposition();textInsert('');}
   });
-  listen(input,'blur',event=>{if(event.relatedTarget!==canvas){composing=false;cancel();}});
+  listen(input,'blur',event=>{if(event.relatedTarget!==canvas){cancel();}});
   function position(event) {
     const bounds = canvas.getBoundingClientRect();
     return [(event.clientX - bounds.left) * button.render_width() / bounds.width, (event.clientY - bounds.top) * button.render_height() / bounds.height];
@@ -263,6 +313,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   }
 
   function cancel(event) {
+    cancelComposition();
     pressedKey = null;
     reverseTabEntry = false;
     controlDrag = null;
@@ -381,7 +432,19 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
   listenKeys('keydown', event => {
     if(button&&!current.designMode&&button.text_editing?.()) {
       if(composing||event.isComposing)return;
-      let handled=false;change(()=>{handled=button.text_key(event.key,event.shiftKey,event.metaKey||event.ctrlKey);});
+      adoptTextSelection();
+      const platform=globalThis.navigator?.userAgentData?.platform??globalThis.navigator?.platform??'';
+      const apple=/Mac|macOS|iPhone|iPad|iPod/.test(platform);
+      // Do not consume VoiceOver chords or AltGr text-producing events.
+      if(apple&&event.ctrlKey&&event.altKey)return;
+      if(!apple&&(event.getModifierState?.('AltGraph')||(event.ctrlKey&&event.altKey)))return;
+      const word=apple?(event.altKey&&!event.metaKey):(event.ctrlKey&&!event.altKey&&!event.metaKey);
+      const wordKey=word&&['ArrowLeft','ArrowRight','Backspace','Delete'].includes(event.key);
+      let handled=false;change(()=>{
+        handled=wordKey&&typeof button.text_word_key==='function'
+          ?button.text_word_key(event.key,event.shiftKey)
+          :button.text_key(event.key,event.shiftKey,event.metaKey||event.ctrlKey);
+      });
       if(handled){event.preventDefault();return;}
       if(event.key!=='Tab'&&event.key!=='Escape')return;
     }
@@ -455,6 +518,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
         // Validate and rasterize before touching the last good DOM or runtime.
         const image = modeChanged ? null : raster(candidate ?? button);
         if (changed) {
+          cancelComposition();
           cancelAnimationFrame(frame);
           frame = null;
           if (controlDrag === null) releasePointer();
@@ -557,6 +621,8 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     },
     destroy() {
       if (destroyed) return;
+      cancelComposition();
+      inputMirror=null;
       destroyed = true;
       gpu?.destroy();gpu=null;
       scope.dispose();

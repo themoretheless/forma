@@ -1,0 +1,72 @@
+{
+  "status": "passed-observed-cohorts",
+  "scope": "Current installed Forma in Chromium156; WeakRef collection under bounded natural allocation pressure",
+  "targets": {
+    "extensionPayloadsWhileViewsLive": 24,
+    "disposedIsolatedCores": 4,
+    "disposedIsolatedMemoryObjects": 4
+  },
+  "controls": {
+    "held": 10,
+    "releasedAndCollected": 10
+  },
+  "forcedGCsRequested": 0,
+  "pressureRuns": 2,
+  "roundsPerPressureRun": 12,
+  "typedArrayBytesPerRound": 16777216,
+  "arrayEntriesPerRound": 500000,
+  "heldGraphNodes": 32,
+  "releasedGraphNodes": 0,
+  "runtimeFilesMatchedPerCopy": 20,
+  "sourceSha256": "e4c3c28604fa359bb4e13c8e6ba7f6f91c9ab9cc2cd7ad646904b7a8a65e3bb9",
+  "fixtureSha256": "73942496a1cc33f3560f678fcb3624a20075fb7c0cc0dd24a3fb340f767353e8",
+  "serverSha256": "7819d74d5cb2eea31916acb2710a6eab4a41c5c14a7fd64cfb75ad4dd8c1e2e4",
+  "rawSha256": "bfca84556dc37d8b721e418224d2e1ce23f5a97754c07293f4c0ccdc2e345ada",
+  "screenshots": {
+    "forma-browser-gc-held-2026-11-02.jpg": "3173eff2f5da11776d2c1697c41c4edbe4842e9d7d7fbcdff04d7f904200aefc",
+    "forma-browser-gc-final-2026-11-02.jpg": "f70f3502ffe5f175066619fb38ccdfca94f2ed99078ae69c681ba1c11c3d59c7"
+  },
+  "isolatedCoreModes": [
+    "never-mounted",
+    "mounted",
+    "unmounted",
+    "HMR"
+  ],
+  "limitations": [
+    "Three bounded cohorts do not prove leak-freedom, heap/RSS stationarity or absence of slow leaks.",
+    "Default singleton core is intentionally not a collection target.",
+    "Retained handles/DOM, async cross-core/SSR and other browser engines remain open.",
+    "No native/GPU/performance qualification."
+  ],
+  "cohorts": [
+    {
+      "report": "forma-browser-gc-2026-11-02.json",
+      "sha256": "bfca84556dc37d8b721e418224d2e1ce23f5a97754c07293f4c0ccdc2e345ada",
+      "startedAt": "2026-11-02T17:05:31.829Z"
+    },
+    {
+      "report": "forma-browser-gc-cohort-2-2026-11-02.json",
+      "sha256": "6a7eac9902f24a9ec7a78a78b8fc4d7b1f0808ed5bc9f7bdd037a30f2aa231f0",
+      "startedAt": "2026-11-02T17:10:56.466Z"
+    },
+    {
+      "report": "forma-browser-gc-cohort-3-2026-11-02.json",
+      "sha256": "008881a50a601ac5328a622391df8194a9d167a0e510cf9a5eeac057cd53f15f",
+      "startedAt": "2026-11-02T17:11:25.323Z"
+    }
+  ],
+  "aggregate": {
+    "extensionTargetsCollected": 72,
+    "disposedCoresCollected": 12,
+    "disposedMemoryObjectsCollected": 12,
+    "positiveControlsHeld": 30,
+    "positiveControlsCollectedAfterRelease": 30,
+    "forcedGCsRequested": 0,
+    "pressureRuns": 6,
+    "finalGraphNodesPerCohort": [
+      0,
+      0,
+      0
+    ]
+  }
+}

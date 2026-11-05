@@ -1,0 +1,26 @@
+{
+  "status": "partial",
+  "scope": "NativeHost mouse/touch/scroll input wrapper tracks editable focus owner during active composition; handler tests without OS window",
+  "reproduced": "Pointer press switched editable focus from0 to1 but left composing=true.",
+  "implementation": "Compare editable focus before/after the input callback. A changed or missing owner clears preedit and host composing. When not composing, delegate directly without tracking. Pointer/touch batches keep their original single NativeApp update.",
+  "validation": {
+    "nativeFeatureUnitPassed": 179,
+    "integrationPassed": 19,
+    "hardwareTestsIgnoredInThisRun": 2,
+    "checks": [
+      "Hover over another editor preserves composition and focus",
+      "Click another editor retires session",
+      "Preedit not committed",
+      "Subsequent edit updates new target only",
+      "Hover over blank area preserves session",
+      "Click blank area retires session without model changes"
+    ]
+  },
+  "sourceSha256": "171d9c370b06ac9654332cf561266bebe2c65abfd54ba70c81f0ec6191ac2626",
+  "limits": [
+    "No actual OS IME or pointer event injection",
+    "Same-editor caret selection/drag matrix remains open",
+    "Model replacement after NativeApp callback and backend/window switches remain open",
+    "No pointer/input latency qualification"
+  ]
+}

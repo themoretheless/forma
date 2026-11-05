@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "browserCases": 12,
+  "adapterTests": 35,
+  "trustedBrowserInput": "CUA browser-dispatched isTrusted End, Alt+Backspace, Meta+z; exact Rust values and untouched row verified",
+  "limits": [
+    "Composition cases synthetic; true OS marked-text IME still open",
+    "Trusted browser automation is not physical keyboard/OS IME qualification",
+    "No GPU rendering gate"
+  ],
+  "sha256": {
+    "src/vector-preview.js": "b855362bb40341b9aef26204b078f402ed5b04a7a0e492c13c2264ff17c10267",
+    "vector-ui/tests/preview-word-browser.html": "eb61b0a975ced7a08506b9ba2bcd6d148039676be26edfd199841cc81e74b4cd",
+    "vector-ui/scripts/serve-word-browser.py": "d677afe858d8f58b55ebd11f5af4d52a84fdb4ef614d12b23b35426914d154a7"
+  }
+}

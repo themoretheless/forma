@@ -1,0 +1,30 @@
+{
+  "status": "partial",
+  "implementation": "Shared native_gpu surface lifecycle used by standalone and reusable NativeHost; desktop Svet GPU presentation, CPU compatibility profile/fallback, delayed surface retries and occlusion handling",
+  "native_tests_passed": 244,
+  "ignored": 3,
+  "hardware_tests_passed": 2,
+  "all_targets": "passed",
+  "actual_macos_window": {
+    "presented_sequence": [
+      "Gpu",
+      "Cpu",
+      "Gpu"
+    ],
+    "frame_callbacks": 7087,
+    "final_model": {
+      "first": "GPU 你好 мир🙂",
+      "second": "GPU return 🚀"
+    },
+    "binary_sha256": "9c423fb598d9e1f4ee145c34f32e422fa7c1ef48a276c740254e125e87786e6c",
+    "presentation_observer": "Callback after successful GPU frame.present or CPU buffer.present; probe journal only"
+  },
+  "limits": [
+    "Successful GPU/CPU/GPU paths observed; setup/device/surface fault injection pending",
+    "Resize/minimize/occlusion/retry policy requires actual OS qualification",
+    "No exact CPU/GPU window-pixel equivalence claim",
+    "Egui is CPU compatibility presentation, not an integrated egui engine",
+    "App scheduling is owned by NativeApp/Runtime independently",
+    "Large-form GPU window performance and other platforms pending"
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "status": "partial",
+  "performance_gate": "inconclusive: baseline A/A control wait ratios span0.362\u20131.656 in the otherwise isolated run; no qualified speedup claim",
+  "change": "Completion worker reaps finished work before scanning scopes and applies1ms backoff only when leases outlive entered backend work, rather than after every wait",
+  "observed_async_wait_p50_ms": [
+    {
+      "scopes": 1,
+      "baseline": 0.5232604999999999,
+      "candidate": 0.13613550000000002
+    },
+    {
+      "scopes": 8,
+      "baseline": 0.578281,
+      "candidate": 0.13388525
+    },
+    {
+      "scopes": 32,
+      "baseline": 0.55276075,
+      "candidate": 0.12947925
+    },
+    {
+      "scopes": 64,
+      "baseline": 0.5583227500000001,
+      "candidate": 0.12858325
+    }
+  ],
+  "protocol": "Baseline A/A +4 pairs, AB/BA/AB/BA;12 measured samples/group/process after4 warmups;1MiB exact clear output each operation",
+  "exact_clear_checks_per_run": 128,
+  "final_runs": 10,
+  "gates": {
+    "runtime_unit_passed": 10,
+    "runtime_hardware_explicit_passed": 4,
+    "native_lib_passed": 218,
+    "native_ignored": 3,
+    "renderer_metal_smoke": "passed",
+    "native_all_targets": "passed"
+  },
+  "source_sha256": {
+    "crates/gpu-runtime/src/types.rs": "73ed549a9772225305710c7dfc38bf4b8d7a8c8fd2e653dd2d5d9f79cd445de9",
+    "crates/gpu-runtime/src/lib.rs": "71851df9e098f0996461648aa15a838a4667264b8f2a2481e3176738e34f433e",
+    "crates/gpu-runtime/src/metal.rs": "543eabc662c9d97a862cd82de31628b7736a1c798e3465433c4b478158a341e2",
+    "vector-ui/examples/gpu_scope_bench.rs": "2d663d9344b94a39cb411045f9414c59e3db8f13f79e98eaadfa8bd003a0daec",
+    "vector-ui/scripts/qualify-gpu-scopes.py": "0f1ff5188ff2db9a956d7f3435de6950bfc8dfd91a4d20869f4ede97c6d93419"
+  },
+  "binary_sha256": {
+    "/tmp/svet-scope-service-before-bench": "e0cb26b848ab18f89d22b0275ec77f6291b014ad99905a19086e2797a6fcd08a",
+    "/tmp/svet-native-development/release/examples/gpu_scope_bench": "5c92f81c18b7dea4b789e2776cc7001b59a224107967167a31ad999b91ffebae"
+  },
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: aarch64-apple-darwin\nrelease: 1.97.1\nLLVM version: 22.1.6\n",
+  "limits": [
+    "First paired series overlapped test compilation and is diagnostic only; second series had no owned build/test job running",
+    "Both paired series retained; neither supports a qualified performance speedup due control instability",
+    "Nearest-rank p95 of12 samples equals maximum; no tail-latency qualification",
+    "No OS input/presentation, GPU timestamp, RSS, OS thread sampling or energy claim"
+  ]
+}

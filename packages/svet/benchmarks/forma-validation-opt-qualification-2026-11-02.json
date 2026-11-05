@@ -1,0 +1,257 @@
+{
+  "status": "correctness-validated-local-performance-diagnostic",
+  "scope": "Allocation-avoiding visual AST validation; snapshots and all checks retained",
+  "correctness": {
+    "focusedPassed": 134,
+    "fullSuitePassed": 1466,
+    "fullSuiteFiles": 108,
+    "typesPassed": true,
+    "installedPackageGatePassed": true
+  },
+  "sourceSha256": "5e5f8775c978af758fbfaebaeafe308ffbc584983d3b0ccf8aa3724c44dc24e8",
+  "harnessSha256": "49d7a76be967de5fcd215ebbc064eb93000944256e1a0a018fd28945b0c6fcab",
+  "profileHarnessSha256": "ac81231d570aeb7e17d122cf6532f379ce482555d500df214f48aa6faf397b7f",
+  "rawBenchmarkSha256": "2e98f677e2a0489cac42ebe3fb9ccd3f6a69e597cef13892269e34e97e48ecb9",
+  "baselineArchiveSha256": "7bba69aa1dc3adbbd17936db3cce0832981a526d19627ba830a905e39def6ece",
+  "runtimeFilesVerified": 20,
+  "profiles": {
+    "baseline": {
+      "samples": 35312,
+      "selfSamples": {
+        "assertFormaAstTree": 13306,
+        "(garbage collector)": 6182,
+        "stringMap": 4922,
+        "assertFormaAstContracts": 4119,
+        "copy": 3306,
+        "snapshotFormaAst": 1213,
+        "strings": 843,
+        "compileForInternalLoader": 199,
+        "compileFormaComponent": 186,
+        "structuredCloneIfObject": 176,
+        "dispose": 120,
+        "assertFormaAstMetadata": 85
+      },
+      "profileSha256": "f8285f167150a50d8c039d86147e791874f0e5f0e24372f11f67b81f31a9dd81"
+    },
+    "candidate": {
+      "samples": 27187,
+      "selfSamples": {
+        "assertFormaAstTree": 10857,
+        "(garbage collector)": 4720,
+        "assertFormaAstContracts": 3823,
+        "copy": 3393,
+        "stringMap": 1347,
+        "snapshotFormaAst": 1246,
+        "compileForInternalLoader": 233,
+        "compileFormaComponent": 229,
+        "dispose": 180,
+        "structuredCloneIfObject": 180,
+        "applyDocumentAst": 100,
+        "": 88
+      },
+      "profileSha256": "872e40db9228ee675b9828cca1dc91eee749046d571a01d31f391ce929b60e0c"
+    }
+  },
+  "construction": [
+    {
+      "controls": 8,
+      "operation": "construct-dispose",
+      "baselineRoundMediansMs": {
+        "A1": [
+          0.04568700000001513,
+          0.05212499999998954,
+          0.06152050000000031,
+          0.06410450000001333,
+          0.048187499999983174,
+          0.04970800000000963
+        ],
+        "A2": [
+          0.04681200000001695,
+          0.044999999999987494,
+          0.04641650000002073,
+          0.060666499999996404,
+          0.04945850000001428,
+          0.046354000000008
+        ]
+      },
+      "candidateRoundMediansMs": [
+        0.04614599999999314,
+        0.04260399999998299,
+        0.06568799999999442,
+        0.04633349999997449,
+        0.045291500000018914,
+        0.09820849999999837
+      ],
+      "baselineMedianMs": 0.04882299999999873,
+      "candidateMedianMs": 0.046239749999983815,
+      "candidateToBaselineRatio": 0.9470894865121975,
+      "pairedCandidateMinusBaselineMs": [
+        -0.00010350000002290471,
+        -0.005958500000005529,
+        0.011719499999983896,
+        -0.016052000000030375,
+        -0.0035314999999798147,
+        0.05017749999998955
+      ],
+      "aaMedianRatio": 0.9155038150701486,
+      "aaMaxRoundRelativeSpread": 0.24551165871505437,
+      "pairedMedianDeltaMs": -0.0018175000000013597,
+      "improvedPairs": 4
+    },
+    {
+      "controls": 32,
+      "operation": "construct-dispose",
+      "baselineRoundMediansMs": {
+        "A1": [
+          0.07229150000000573,
+          0.077312500000005,
+          0.07879150000002255,
+          0.0811880000000258,
+          0.0972500000000025,
+          0.07941650000000777
+        ],
+        "A2": [
+          0.077604000000008,
+          0.07452050000003396,
+          0.07154149999999504,
+          0.07700049999999692,
+          0.07889599999998609,
+          0.07129150000002937
+        ]
+      },
+      "candidateRoundMediansMs": [
+        0.06839549999997985,
+        0.06645800000001145,
+        0.06745850000001496,
+        0.07237499999999386,
+        0.06977049999997575,
+        0.06999999999999318
+      ],
+      "baselineMedianMs": 0.0774582500000065,
+      "candidateMedianMs": 0.0690829999999778,
+      "candidateToBaselineRatio": 0.8918740095467171,
+      "pairedCandidateMinusBaselineMs": [
+        -0.006552250000027016,
+        -0.00945850000000803,
+        -0.007707999999993831,
+        -0.006719250000017496,
+        -0.01830250000001854,
+        -0.005354000000025394
+      ],
+      "aaMedianRatio": 0.9577328580097204,
+      "aaMaxRoundRelativeSpread": 0.18873007712098655,
+      "pairedMedianDeltaMs": -0.007213625000005663,
+      "improvedPairs": 6
+    },
+    {
+      "controls": 96,
+      "operation": "construct-dispose",
+      "baselineRoundMediansMs": {
+        "A1": [
+          0.08570849999998131,
+          0.09068750000000136,
+          0.09295899999997914,
+          0.09077049999999076,
+          0.09356300000001738,
+          0.0907709999999895
+        ],
+        "A2": [
+          0.0873539999999764,
+          0.08606249999999704,
+          0.08937500000001819,
+          0.09268700000001218,
+          0.0964375000000075,
+          0.09137499999999932
+        ]
+      },
+      "candidateRoundMediansMs": [
+        0.07347900000002028,
+        0.07495850000000814,
+        0.08310399999999163,
+        0.0818335000000161,
+        0.08445799999998371,
+        0.082458000000031
+      ],
+      "baselineMedianMs": 0.09077074999999013,
+      "candidateMedianMs": 0.08214575000002355,
+      "candidateToBaselineRatio": 0.9049804039300379,
+      "pairedCandidateMinusBaselineMs": [
+        -0.013052249999958576,
+        -0.01341649999999106,
+        -0.008063000000007037,
+        -0.009895249999985367,
+        -0.01054225000002873,
+        -0.008614999999963402
+      ],
+      "aaMedianRatio": 0.9956401153457317,
+      "aaMaxRoundRelativeSpread": 0.05099931082017092,
+      "pairedMedianDeltaMs": -0.010218750000007049,
+      "improvedPairs": 6
+    },
+    {
+      "controls": 256,
+      "operation": "construct-dispose",
+      "baselineRoundMediansMs": {
+        "A1": [
+          0.1768545000000188,
+          0.20247900000001096,
+          0.200937999999951,
+          0.3444375000000264,
+          0.1970215000000053,
+          0.20324999999996862
+        ],
+        "A2": [
+          0.18958349999999768,
+          0.18072899999998526,
+          0.2023540000000139,
+          0.187729499999989,
+          0.19287500000007185,
+          0.20847950000000992
+        ]
+      },
+      "candidateRoundMediansMs": [
+        0.1537294999999972,
+        0.14227049999996666,
+        0.1521045000000072,
+        0.15531249999997954,
+        0.157291999999984,
+        0.16593750000004093
+      ],
+      "baselineMedianMs": 0.19897974999997814,
+      "candidateMedianMs": 0.15452099999998836,
+      "candidateToBaselineRatio": 0.7765664596523282,
+      "pairedCandidateMinusBaselineMs": [
+        -0.02948950000001105,
+        -0.04933350000003145,
+        -0.04954149999997526,
+        -0.11077100000002815,
+        -0.03765625000005457,
+        -0.039927249999948344
+      ],
+      "aaMedianRatio": 0.9480475537721653,
+      "aaMaxRoundRelativeSpread": 0.4549678824170579,
+      "pairedMedianDeltaMs": -0.0446303749999899,
+      "improvedPairs": 6
+    }
+  ],
+  "host": {
+    "logicalCPUs": 16,
+    "loadavgBefore": [
+      33.28564453125,
+      25.42041015625,
+      28.171875
+    ],
+    "loadavgAfter": [
+      29.8994140625,
+      25.05615234375,
+      27.9931640625
+    ]
+  },
+  "limitations": [
+    "Host is uncontrolled and loaded; quiet-host performance gate remains open.",
+    "CPU profiles are instrumented samples, not wall-clock or allocation measurements.",
+    "Node/jsdom synthetic controls do not qualify browser/native latency or FPS.",
+    "Mount/HMR differences remain inconclusive against A/A scatter.",
+    "Accessor/proxy side-effect semantics remain separately unqualified."
+  ]
+}

@@ -1,0 +1,33 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-public-handle.test.ts (4 tests | 1 failed) 19ms
+   × preserves cached external signal values without private cache metadata 2ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-public-handle.test.ts > preserves cached external signal values without private cache metadata
+AssertionError: expected undefined to be 7 // Object.is equality
+
+- Expected:
+7
+
++ Received:
+undefined
+
+ ❯ tests/forma-public-handle.test.ts:37:96
+     35|  const external=signal(7);delete (external as any).__svet_cached_value;
+     36|  const instance=compileFormaComponent(`component App { state count: Nu…
+     37|  try {expect(instance.state.count()).toBe(7);instance.dispose();expect…
+       |                                                                                                ^
+     38|  instance.state.count.set(9);expect(external()).toBe(7);
+     39|  } finally {instance.dispose();external.dispose();}
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  21:37:49
+   Duration  360ms (environment 74%, import 9%, transform 9%, tests 7%, worker 1%)
+

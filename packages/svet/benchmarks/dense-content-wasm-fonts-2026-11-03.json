@@ -1,0 +1,638 @@
+{
+  "status": "passed",
+  "scope": "Public artifact JSON, simple/shaped metrics, mixed-font caret and CPU frame exact equality; six strings, five sizes, three scales. Not an OS presentation/full shaping gate.",
+  "baselineSha256": "0fb77edda5daf9613bdd42321c3069ef0a2b7d80d9a45d82808c48b200c471ee",
+  "candidateSha256": "ec194e51ab19883ee0996501eecb20a14b2b110281136c411e15399b30cf401c",
+  "rows": [
+    {
+      "text": "🙂",
+      "size": 9,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "4974c53c6e6e3f28df0712e0be398c2af872a1e16afccc779a6499a7dddfa28d"
+    },
+    {
+      "text": "🙂",
+      "size": 9,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "393ed25cd491118999bae0ef4d8d4786e2b0763b26b04b2e45faf09b1b9042f3"
+    },
+    {
+      "text": "🙂",
+      "size": 9,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "10cc8153af4d593b446a0cd5f424d7ad5f44f5b91e274320b5e68f1c35e19828"
+    },
+    {
+      "text": "🙂",
+      "size": 14,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "79d2a6c4bd9d406238dda3db61d37e095f601b2552afd2cbf1e5726c5cc9e615"
+    },
+    {
+      "text": "🙂",
+      "size": 14,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "42fbf14d69fdb3b0a4ffd8740f380e255ba987ce9e773872cc2ab4f6831b6259"
+    },
+    {
+      "text": "🙂",
+      "size": 14,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "1d828f398163f2e4d768b00e165fee4a749ef5e984ca1d07f37730002382d4f5"
+    },
+    {
+      "text": "🙂",
+      "size": 28,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "fdc4bb57ed0d41c7d211dffb22fc0f99a0e2d40cf7af8477d491673ac2ce4353"
+    },
+    {
+      "text": "🙂",
+      "size": 28,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "50454c81708b9f35339be931ae9cbe2e9e6c086a943ba530a4164d77b2a3a370"
+    },
+    {
+      "text": "🙂",
+      "size": 28,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "801f33f122c5a3d7c2307b9426e0b367143f08ed1291f7fb7fe206cbbd7a1401"
+    },
+    {
+      "text": "🙂",
+      "size": 48,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "aff238484251de13be1a0a277975f0c6da8951f4b49cf6fe8eeb70a64c36907c"
+    },
+    {
+      "text": "🙂",
+      "size": 48,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "e10b4494574c545b7506a934aa0c39da774dddfba8c75caaf8c33819afbd0ff9"
+    },
+    {
+      "text": "🙂",
+      "size": 48,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "21ef0e8546fa252c9b2107bedd381f8d4e98e7e4b7616d1e528791b9a90e5ff8"
+    },
+    {
+      "text": "🙂",
+      "size": 96,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "ff5755f0d585e100fcd855eb8233c6239d88bf992447665554e052959f4b88fb"
+    },
+    {
+      "text": "🙂",
+      "size": 96,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "f5998948b7891ae44c485bd93b186665369709a3c6b03373ca2b6d10a789c530"
+    },
+    {
+      "text": "🙂",
+      "size": 96,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "137fddb302fee9b3ec801229f9fca156f7c34b53b7934c0c9077f95a20e15db0"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 9,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "21e6df42c81a9f6abc45507ba06ead25ab30726ab8f216919b6ea9b3ad1bc04a"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 9,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "2d88976cb5d4256de0d20c98bf6b8e091cffbe9df56acb5dbb8090c9e4da86ca"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 9,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "28a6f7c066789919602c2f9ef1d1819cc04c6ea1cf041930d73d65da4e749e48"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 14,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "d217d4530c9bb6aa3169ca75a8fa2492bf30e503ce4c86e41995a4c24a054ce8"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 14,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "eb3cd004fd00822ee7099bf5b30c445ac2a879bc01fff27becbfd5b4f3c223fb"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 14,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "feafc410f3806224901dca884f32369a06c71eb24318b435ae917f3af39d845c"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 28,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "0510774b2a0dde826ebefcb389ec04e2adb506631ac46fc75d6468a4e6b0f3c2"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 28,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "9196d8a8a7f5a93fb3594cbab9ccabc2aa3007905b0401f85c99f22d08caf7b2"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 28,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "9c78febfacd6ccfbf4dcb9c97a2fa70523bfb6217c87e2c3e52144016353b255"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 48,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "fa59a8c12bd02d2d0549757d7a79202d25af0428de980387e33713ce5e05b33c"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 48,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "89c86bbcdd33c173582416d322cf08f6d498d20c472ead90745d55f02c183f54"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 48,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "af637699b231558596664b243c9bf1dd934054651b608e98fb949c4edf0d0ee4"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 96,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "1cf487afcb418dece8f22ecb4e871889b30168b7c56a526966a37515d916de4b"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 96,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "ad18b0e05515347f183e16d819ed80e0c268321b3b39703521b68fa113815a79"
+    },
+    {
+      "text": "😀❤🚀🌍",
+      "size": 96,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "7e71196ee8e8027537e6e7690e42e1ecc0dcf81fdb3418030552fb09a7ccd1e3"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 9,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "c1c18d57619ccf957eb0440393125ce04b234f5df91277c5ec09a92503222408"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 9,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "64e8cf27d4149b410d41bf19ae966c0bcecd3ac942877a857ccc3ab5e5c6e455"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 9,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "a5565c7ebc87bee65ed9ae489b264e307f8b8f1d459d76daf003415d3e0c0a01"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 14,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "038df9b9792b8658aa2fcc692ea8264a0cbf1f1af14e6b992c24249ab4aa2677"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 14,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "473d264b1ef813bf9ae4ac7277a1034c18b49ad6b6bbde3641ea757cd67fe316"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 14,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "78dd585cd37e9dc0bc7945556cb2b6f788f34daf15f41c778e0ee068eaab2e6a"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 28,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "148e84237744f9d3068ec795ef06563b774cf6a17c57b908a547e118452aa9a7"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 28,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "04e91cf9df53dcfa7e1e18929885b089e0ac2fe618f219d01656da04df68ad46"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 28,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "da42604cf98a36fa4188951de6035d36cb40356ea8652d96d3c9ca1f90e59cfa"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 48,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "e98045e67503c250e2eaac1032f9e2d1565ecf7785eba8003ce00275f9dde3af"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 48,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "5fae60c0a8f8c1a18a83307f6c39d6b19d9eabf513ec1a561f82dc659cf4b58f"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 48,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "24cc725cb426bcd8658ddd50c0dcd0fa23e453e23355095671d27942342bc220"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 96,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "5ac03be2dd420f64cae5e9df3d16faf5401afc862aa317f7ca008c41f6e6f7ca"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 96,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "4ee78d5038aceb1adbde95bf20fac6fa008273672e69a3fc313c3d7d23fa44f9"
+    },
+    {
+      "text": "你好 мир🙂",
+      "size": 96,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "9299b8b4b3f01dac848839e6b7b5009cd545bfd75dc9e9f88a4276341c675124"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 9,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "01200cb74065cdd7e57b52f90c56a493181e9493021f31e6bf67a9ce062f2787"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 9,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "9454d7620fb459ec3248bfaaa5205cf4cd2d160e6ca04508430e6626e6837973"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 9,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "11c77f0fc7437c7c8ade72b56f220b732657e0e788426dac809b6107b6514a39"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 14,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "58f2227dba4e421438656d7763094e8ae254693d29231d72926e5c20cc191f84"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 14,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "0eb5f2ddc5af2eead6895dd61eacd0591824d6e7ffca0fb27d51eaf182178d22"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 14,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "b71bc72d4a4579ebe87f385f000962291bd250f9e53859dc9c9e8ca82548d524"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 28,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "9426922d6462ef6545f5f697ce9a6843253162251eca2e681ffd767390cf1f7e"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 28,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "c600b278e6b72fa3adf5f41b8bb896813f4c4bf393c87b6c3e0b475ad81a0292"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 28,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "5e33e2f4c0e61e2553a4ef5d40ec9f769f7478a69861d936b26f2b7405a09288"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 48,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "7040925c43e6cd1f64581801d9e3a30a82fcda2597f8be5ba9726de4714eadec"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 48,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "eb5d7ba8fdc3881df03d72e34ca308d2e0467fda522cfe16a5be4b008a5e192f"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 48,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "6e1e8296f797b5d5d6273605ee153ceeb0b7afd63e76f033d192b4dbb67390b3"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 96,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "df77e677c92e7f592778df75fb03d88725c33e221a21b20dfa307847f326ae49"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 96,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "425fb75003448fa2b27d6984214efa69f963a63e9b31452ba619639293fbaed3"
+    },
+    {
+      "text": "Latin🙂Ж",
+      "size": 96,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "39ba921db9004ffe493d8ea62475263014054bf1ee2758b223a6378e443fa512"
+    },
+    {
+      "text": "漢字",
+      "size": 9,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "9e639c69a056aa0d4faf8a9b4d3442025005ab27ce36cb874e41c8fbbe3d8422"
+    },
+    {
+      "text": "漢字",
+      "size": 9,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "dff01e80f3bd2804e598a530e004c996ab29e072b4af978f221c2512534d5dff"
+    },
+    {
+      "text": "漢字",
+      "size": 9,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "a992a0c4788eb1cb26154da1d3098174d2d91f5978033369b50cb5332c5c03d4"
+    },
+    {
+      "text": "漢字",
+      "size": 14,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "583b8322c96db88546b2500b82584e32688575232a0508e8cb9239f8316b548e"
+    },
+    {
+      "text": "漢字",
+      "size": 14,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "e11b32510cd05193b4a4c53b9e173957e60714e63ad153588d9d5f4eda299f62"
+    },
+    {
+      "text": "漢字",
+      "size": 14,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "d85433c7961d91838e4da8f326a34f9264199e99bb8fb6597cf063b5f424eb4d"
+    },
+    {
+      "text": "漢字",
+      "size": 28,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "bc1b49acb223a99f7a5fc7a55b9e9c4f1227f5edb8c80ce08ff1ed0414ca3add"
+    },
+    {
+      "text": "漢字",
+      "size": 28,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "745bafcfea814eacefd7bb24527cb7e87512eb5eef7d17118f4352acdd2bc5e0"
+    },
+    {
+      "text": "漢字",
+      "size": 28,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "8a6aa6ae500824ae93a049d1c1b3eeb929328aaefdc9ab596e4dd47d14846c8f"
+    },
+    {
+      "text": "漢字",
+      "size": 48,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "a0485ac521d3ac80a026667dfe0edf2ee7636447174d415755aa688085373570"
+    },
+    {
+      "text": "漢字",
+      "size": 48,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "244cc1526fbb479af6b2cab825948a6ada0b12b4dcd60255cc2d2290f951ba04"
+    },
+    {
+      "text": "漢字",
+      "size": 48,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "ecfafe35e1820dbc9f00c4e722cee4da8a3929970b30a22a07f108eed9d6ca77"
+    },
+    {
+      "text": "漢字",
+      "size": 96,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "6013a2e5a737ac8d15f8d287d6630a07f6c68f06d39767b2631c2a412d804533"
+    },
+    {
+      "text": "漢字",
+      "size": 96,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "2d92ea41f984d7c9193df5bc405ab5f48a1c855a0d01970a97e3361847464c6d"
+    },
+    {
+      "text": "漢字",
+      "size": 96,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "8d7d2ac39ca2937c78c903c409a7c389be91f8e42d1585f4d6459de3cec9265b"
+    },
+    {
+      "text": "?",
+      "size": 9,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "08556a9c97912a38daa5cf1d09790c552c8bec8dac7cf76c10daa30db8892d7e"
+    },
+    {
+      "text": "?",
+      "size": 9,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "6a9e233c55c4363b29aea6e403d33196b7bd97f312e9b550f08dd0f10def2022"
+    },
+    {
+      "text": "?",
+      "size": 9,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "1f100628ca5b4dae58e69958c4f038ab57e05b1598970dad89db3707be8e01a2"
+    },
+    {
+      "text": "?",
+      "size": 14,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "7eb81b45af4f7e6a60080fa1829825517619ec48cedd131533bde4583e550dbb"
+    },
+    {
+      "text": "?",
+      "size": 14,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "b15bf66ef365dad50ff7567c25d47205db3c96a42b12f61253781f540e15a555"
+    },
+    {
+      "text": "?",
+      "size": 14,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "27af9e9ca3a18d39e023536dead4ae8686361f56953fd9cfbf1d916873e18fb6"
+    },
+    {
+      "text": "?",
+      "size": 28,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "182f2bb23f159fca617fca3f713dd7120e1b98b3667f1122debfda943a543fbe"
+    },
+    {
+      "text": "?",
+      "size": 28,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "26a155dbc2c55c012fc1227cda14b6b8925d8629294f414407dc591ca6a055c0"
+    },
+    {
+      "text": "?",
+      "size": 28,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "f7dde9dc3894e0156366f3ef7ea40ade3d560d26794d49e3ada8cdec0fcf4444"
+    },
+    {
+      "text": "?",
+      "size": 48,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "86b7b4b68c4326ae848d59ec2144973e0c8bebe4e4e5acac36e610e38a467592"
+    },
+    {
+      "text": "?",
+      "size": 48,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "103483ddf33d53b7c4bb4f80d551a27b259c6b3367086b4c40993813dd4e9271"
+    },
+    {
+      "text": "?",
+      "size": 48,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "0dc876f93396e3585793984bff04df3da8c55b7315eefb1fdb9e48cd6e99d119"
+    },
+    {
+      "text": "?",
+      "size": 96,
+      "scale": 1,
+      "pixels": 96000,
+      "sha256": "27809c84223e4c4051fbbed542a110658f95c8dde91edddbd6c0d901b072fa88"
+    },
+    {
+      "text": "?",
+      "size": 96,
+      "scale": 1.25,
+      "pixels": 96000,
+      "sha256": "93839283ab685ea50e00f0802aac3f9482f8d2c4c62822d9f24934b07d3f4332"
+    },
+    {
+      "text": "?",
+      "size": 96,
+      "scale": 2,
+      "pixels": 96000,
+      "sha256": "333e1aba4086db339dfcd23c3c76f2ffeb6d8f3ee8d964701d3a24bdbdd0ace5"
+    }
+  ]
+}

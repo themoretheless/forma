@@ -1,0 +1,30 @@
+{
+  "status": "passed-scoped",
+  "nativeLibPassed": 228,
+  "standaloneTests": 4,
+  "integrationTests": 10,
+  "adapterTests": 43,
+  "ignored": 3,
+  "wasmCompile": "passed",
+  "coverage": [
+    "Focus/select/copy value remain available",
+    "Insert/delete/word-delete/history/preedit refused",
+    "Programmatic binding update remains available",
+    "Readonly native semantic flag; no set_value action",
+    "DOM readOnly/aria-readonly",
+    "Native IME disabled"
+  ],
+  "sha256": {
+    "vector-ui/src/text_input.rs": "5ac6fdfc2d0d82f3d4091e68f73fd205aecc496234c1896feed8a6fbc2aab10c",
+    "vector-ui/src/template.rs": "fa3981e55b8f36fe16e364e2139ea82457d7330cbc87318f44ce9775259b0ba7",
+    "vector-ui/src/form_document.rs": "41d5160353d169709cb728c82a5e06a6739e2cc31c85701a188246721ffc4b70",
+    "vector-ui/src/runtime.rs": "d46d419e8116562096f79d9168d452f7855a9c995e2cfd1b32136cb94beccb05",
+    "vector-ui/src/native_window.rs": "b4d9d686e462b6632942b799888b3286cc38ca7296ca5d61344b534c5ae118cd",
+    "vector-ui/src/main.rs": "1c1f5c7060b6ea5222747bb2bc1fc0f9e7d792c9a7768db64317151dcf1b7d45",
+    "src/vector-preview.js": "5876775bd96f0e946a7cac1f4cad29f29131b00e6b2fc187d069c9af7c171aad"
+  },
+  "limits": [
+    "Fresh WASM/browser AX/trusted input readonly gate pending",
+    "Actual native window/OS IME/platform qualification open"
+  ]
+}

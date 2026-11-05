@@ -1,0 +1,27 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-options-reentrancy.test.ts (7 tests | 1 failed) 30ms
+   × returns old let ownership before rollback metadata getters close the instance 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-options-reentrancy.test.ts > returns old let ownership before rollback metadata getters close the instance
+AssertionError: expected 2 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/forma-hmr-options-reentrancy.test.ts:30:128
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  20:42:51
+   Duration  1.02s (environment 76%, transform 14%, import 6%, tests 3%)

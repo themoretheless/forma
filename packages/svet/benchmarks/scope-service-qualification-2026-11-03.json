@@ -1,0 +1,32 @@
+{
+  "status": "partial",
+  "implementation": "Shared Metal backend completion service coalesces pending scope-pop registrations. Only one servicing worker is launched for a concurrent burst; weak scope registrations avoid owning cancelled futures, and worker/registration storage retire when requests drain",
+  "gates": {
+    "runtime_unit_passed": 10,
+    "runtime_unit_ignored": 4,
+    "explicit_metal_passed": 4,
+    "native_lib_passed": 218,
+    "native_ignored": 3,
+    "metal_renderer_smoke": "passed",
+    "burst": {
+      "rounds": 2,
+      "scopes_per_round": 64,
+      "cancelled_futures_per_round": 32,
+      "worker_launches_per_burst": 1,
+      "idle_registration_capacity": 0,
+      "remaining_futures_return_own_errors": true
+    },
+    "native_all_targets": "passed"
+  },
+  "source_sha256": {
+    "crates/gpu-runtime/src/types.rs": "87f30f991af8a4755f19c127795c7a4cd3e4a3f333c10bbfaa146bd9dc33f6d3",
+    "crates/gpu-runtime/src/lib.rs": "71851df9e098f0996461648aa15a838a4667264b8f2a2481e3176738e34f433e",
+    "crates/gpu-runtime/src/metal.rs": "543eabc662c9d97a862cd82de31628b7736a1c798e3465433c4b478158a341e2"
+  },
+  "limits": [
+    "Burst test holds synthetic submission leases on an actual Metal backend; not physical fault or throughput qualification",
+    "Service worker uses backend wait_idle and cannot cancel driver waits",
+    "Registration storage is proportional to active scope waits; no global bound on separately created backend instances",
+    "Wall-time, OS thread sampling, energy/RSS and cross-platform qualification remain open"
+  ]
+}

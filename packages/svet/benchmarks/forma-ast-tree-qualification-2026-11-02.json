@@ -1,0 +1,36 @@
+{
+  "scope": "Visual AST structural/cycle admission and sparse range rejection",
+  "before": {
+    "malformedTreeRegressionsFailed": 8
+  },
+  "after": {
+    "stableFocusedPassed": 22,
+    "deepAcyclicAdmissionDepth": 20000,
+    "fullSuitePassed": 1409,
+    "fullSuiteFiles": 104,
+    "typesPassed": true,
+    "installedPackageGatePassed": true,
+    "installedAotLifecycleCases": 8
+  },
+  "sha256": {
+    "src/engine/forma.ts": "5bccc08797b2cc1c103be43ead59ce21a830b793b4cc05c03782de4be016cf9f",
+    "tests/forma-ast-tree.test.ts": "069b1f5d813c1546bde60a2a31592e063b619571d50cab59937dee8fb73fb1f1",
+    "tests/forma-ast-contracts.test.ts": "6b17fc88a7015aca429a292e49e0528373b0875d06b77d475c04dbcdc56edf92",
+    "scripts/check-forma-aot-lifecycle.mjs": "01320fb918629f19df8f26353c27315eeb1c28f764b02133c1aae447095fbaae"
+  },
+  "invariants": [
+    "malformed visual maps/arrays and unknown kinds refused",
+    "cycles across children, else/empty and match arms refused",
+    "shared acyclic child accepted and reactive",
+    "sparse range/root/style arrays refused",
+    "HMR refusal preserves old document and graph baseline",
+    "teardown graph empty"
+  ],
+  "limitations": [
+    "Kind-specific required fields and complete document metadata remain to be qualified.",
+    "No guarantee for rendering20k-deep trees.",
+    "Accessor/proxy effects and post-admission mutation remain open.",
+    "Intermediate full run overlapped source edits; final run is the stable qualification.",
+    "Installed browser rerun not performed."
+  ]
+}

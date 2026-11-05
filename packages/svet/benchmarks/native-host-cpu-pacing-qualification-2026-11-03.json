@@ -1,0 +1,94 @@
+{
+  "status": "partial",
+  "change": "CPU self-animation schedules start-to-start60Hz event-loop deadlines; input redraws remain immediate; retry/animation choose nearest deadline and occlusion clears both",
+  "native_tests_passed": 245,
+  "ignored": 3,
+  "all_targets": "passed",
+  "release_cpu_microbenchmark": [
+    {
+      "scale": 1.0,
+      "focused": false,
+      "median_ms": 0.011583000000000001,
+      "p95_ms": 0.011708,
+      "median_requested_bytes": 0.0,
+      "leaf_cache_builds": 0
+    },
+    {
+      "scale": 1.0,
+      "focused": true,
+      "median_ms": 1.0848125,
+      "p95_ms": 1.52275,
+      "median_requested_bytes": 2178117.0,
+      "leaf_cache_builds": 30
+    },
+    {
+      "scale": 1.25,
+      "focused": false,
+      "median_ms": 0.0187295,
+      "p95_ms": 0.01925,
+      "median_requested_bytes": 0.0,
+      "leaf_cache_builds": 0
+    },
+    {
+      "scale": 1.25,
+      "focused": true,
+      "median_ms": 0.8232085,
+      "p95_ms": 2.03125,
+      "median_requested_bytes": 3401085.0,
+      "leaf_cache_builds": 30
+    },
+    {
+      "scale": 2.0,
+      "focused": false,
+      "median_ms": 0.047479,
+      "p95_ms": 0.050791,
+      "median_requested_bytes": 0.0,
+      "leaf_cache_builds": 0
+    },
+    {
+      "scale": 2.0,
+      "focused": true,
+      "median_ms": 2.13375,
+      "p95_ms": 4.779333,
+      "median_requested_bytes": 8704257.0,
+      "leaf_cache_builds": 30
+    }
+  ],
+  "release_os_presentation_cadence": [
+    {
+      "renderer": "Gpu",
+      "frames": 276,
+      "duration_s": 9.964927,
+      "mean_fps": 27.59679022234684,
+      "median_interval_ms": 8.313,
+      "min_interval_ms": 1.235
+    },
+    {
+      "renderer": "Cpu",
+      "frames": 3766,
+      "duration_s": 65.686512,
+      "mean_fps": 57.317703214321995,
+      "median_interval_ms": 17.058,
+      "min_interval_ms": 4.666
+    },
+    {
+      "renderer": "Gpu",
+      "frames": 797,
+      "duration_s": 6.710982,
+      "mean_fps": 118.61155342094496,
+      "median_interval_ms": 8.3385,
+      "min_interval_ms": 2.793
+    }
+  ],
+  "final_model": {
+    "first": "release paced 🙂",
+    "second": "CPU input intact"
+  },
+  "release_binary_sha256": "ec81eb83821d8c2f17599ae1649712c6f6839d4a3d0a3d9b4ab7701e2f5f8ef4",
+  "limits": [
+    "One host/process CPU microbenchmark; allocator-instrumented timings are not OS input latency",
+    "OS cadence includes probe journaling,OS/input events and startup;60Hz target applies only self-animation",
+    "No pre-change release OS cadence comparison; older debug cadence is not a release baseline",
+    "Visible focused-leaf cache still requests8.70MB/frame at2x DPI; region-aware scratch remains open"
+  ]
+}

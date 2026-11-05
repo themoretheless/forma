@@ -107,6 +107,7 @@ function fixture(t, controls, designMode = false, options = {}) {
   const models = [], actions = [], selected = [], errors = [];
   const globals = {
     document: {createElement: tag => new Element(tag)},
+    navigator: {platform: options.platform??'Linux',...(options.platform==='macOS'?{userAgentData:{platform:'macOS'}}:{})},
     window: Object.assign(new EventTarget(), {devicePixelRatio: 1}),
     ImageData: class {constructor(data, width, height) {Object.assign(this, {data, width, height});}},
     requestAnimationFrame: () => assert.fail('static test scene must not animate'),
@@ -582,4 +583,213 @@ test('selected binding remains true on repeated activation while checked toggles
  const selected={...node,props:{key:'a',selected:true},bindings:{selected:'state.selected'}};
  f.render([button],false,{previewControls:[selected]});
  f.canvas.emit('click',{detail:0});assert.equal(changes.length,1,'selecting an already selected item must not clear it');
+});
+
+test('browser word modifiers normalize Apple Option and non-Apple Ctrl without stealing composition/AltGr',async t=>{
+ for(const platform of ['MacIntel','macOS','Linux','Win32']) await t.test(platform,t=>{
+  const f=fixture(t,[button],false,{platform});const model=f.models[0];
+  const input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+  const words=[],plain=[];model.text_editing=()=>true;model.text_caret_bounds=()=>[10,10,1,20];
+  model.text_word_key=(...args)=>{words.push(args);return true;};model.text_key=(...args)=>{plain.push(args);return false;};
+  const apple=platform==='MacIntel'||platform==='macOS';
+  const event=input.emit('keydown',{key:'ArrowLeft',shiftKey:true,altKey:apple,ctrlKey:!apple,metaKey:false});
+  assert.equal(event.defaultPrevented,true);assert.deepEqual(words,[['ArrowLeft',true]]);assert.equal(plain.length,0);
+  input.emit('keydown',{key:'ArrowRight',shiftKey:false,altKey:false,ctrlKey:false,metaKey:false});assert.equal(plain.length,1);
+  const reserved=input.emit('keydown',{key:'ArrowLeft',ctrlKey:true,altKey:true,metaKey:false,shiftKey:false});
+  assert.equal(reserved.defaultPrevented,false);assert.equal(words.length,1);assert.equal(plain.length,1);
+  input.emit('compositionstart');input.emit('keydown',{key:'Backspace',isComposing:true,altKey:apple,ctrlKey:!apple});
+  input.emit('beforeinput',{inputType:'deleteWordBackward',isComposing:true});assert.equal(words.length,1);
+ });
+});
+
+test('beforeinput word deletions forward normalized Rust actions without keydown',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ const calls=[];model.text_word_key=(...args)=>{calls.push(args);return true;};
+ assert.equal(input.emit('beforeinput',{inputType:'deleteWordBackward'}).defaultPrevented,true);
+ assert.equal(input.emit('beforeinput',{inputType:'deleteWordForward'}).defaultPrevented,true);
+ assert.deepEqual(calls,[['Backspace',false],['Delete',false]]);
+});
+
+
+test('composition cancellation preserves selection and ignores late updates/commit',t=>{
+ const f=fixture(t,[button]);const model=f.models[0];const input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ const inserted=[],preedit=[];model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_insert=text=>inserted.push(text);model.text_preedit=text=>preedit.push(text);
+ input.emit('compositionstart');input.emit('compositionupdate',{data:'未確定'});
+ input.emit('compositionend',{data:''});
+ assert.deepEqual(inserted,[],'cancel must not replace selected text with empty insertion');
+ assert.equal(preedit.at(-1),'');
+ input.emit('compositionstart');input.emit('compositionupdate',{data:'途中'});
+ window.dispatchEvent(new Event('blur'));
+ input.emit('compositionupdate',{data:'late'});input.emit('compositionend',{data:'late'});
+ assert.deepEqual(inserted,[],'late end must not commit after focus loss');
+ assert.equal(preedit.includes('late'),false);
+ input.emit('compositionstart');input.emit('compositionend',{data:'次'});
+ assert.deepEqual(inserted,['次'],'new composition can commit after cancellation');
+});
+
+
+test('composition commit belongs to the original runtime and focused editor',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ const inserted=[];model.text_insert=text=>inserted.push(text);
+ input.emit('compositionstart');model.focused=1;
+ input.emit('compositionend',{data:'wrong-editor'});assert.deepEqual(inserted,[]);
+ input.emit('compositionstart');f.render([{...button,key:'replacement'}]);
+ f.models.at(-1).text_insert=text=>inserted.push(text);
+ input.emit('compositionend',{data:'wrong-model'});assert.deepEqual(inserted,[]);
+ input.emit('compositionstart');input.emit('compositionend',{data:'new-owner'});
+ assert.deepEqual(inserted,['new-owner']);
+});
+
+test('browser soft line deletion forwards normalized Rust command keys',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ const keys=[];model.text_key=(...args)=>{keys.push(args);return true;};
+ for(const inputType of ['deleteSoftLineBackward','deleteSoftLineForward'])assert.equal(input.emit('beforeinput',{inputType}).defaultPrevented,true);
+ assert.deepEqual(keys,[['Backspace',false,true],['Delete',false,true]]);
+});
+
+test('textarea multiline semantics follow Rust focused editor',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.control_multiline=()=>model.focused===1;
+ model.focused=0;input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.getAttribute('aria-multiline'),'false');
+ model.focused=1;input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.getAttribute('aria-multiline'),'true');
+ model.focused=0;input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.getAttribute('aria-multiline'),'false');
+});
+
+test('textarea mirrors Rust value and UTF16 selection while leaving active composition untouched',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_value=()=>"A😀é";model.text_selection_utf16=()=>[5,1];
+ let selection;input.setSelectionRange=(...args)=>selection=args;
+ input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.value,'A😀é');assert.deepEqual(selection,[1,5,'backward']);
+ input.emit('compositionstart');input.value='marked';input.emit('compositionupdate',{data:'未確定'});assert.equal(input.value,'marked');
+ input.emit('compositionend',{data:''});assert.equal(input.value,'A😀é');assert.deepEqual(selection,[1,5,'backward']);
+});
+
+test('DOM selection import ignores mirrors, stale values and active composition',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_value=()=>"A😀é";let current=[5,5],calls=[];model.text_selection_utf16=()=>current;model.text_set_selection_utf16=(a,c)=>{calls.push([a,c]);current=[a,c];};
+ document.activeElement=input;input.value='A😀é';input.selectionStart=1;input.selectionEnd=5;input.selectionDirection='backward';input.setSelectionRange=(a,c,d)=>{input.selectionStart=a;input.selectionEnd=c;input.selectionDirection=d;};
+ input.emit('select');assert.deepEqual(calls,[[5,1]]);input.emit('select');assert.equal(calls.length,1,'mirrored selection must not loop');
+ input.value='stale';input.selectionStart=0;input.emit('select');assert.equal(calls.length,1);
+ input.value='A😀é';input.emit('compositionstart');const atStart=calls.length;input.selectionStart=2;input.emit('select');assert.equal(calls.length,atStart);
+});
+
+test('editing adopts pending DOM selection before asynchronous select notification',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_value=()=>"A😀é";let current=[5,5];const actions=[];
+ model.text_selection_utf16=()=>current;model.text_set_selection_utf16=(a,c)=>{current=[a,c];actions.push(['select',a,c]);};model.text_insert=text=>actions.push(['insert',text,...current]);
+ document.activeElement=input;input.value='A😀é';input.selectionStart=1;input.selectionEnd=5;input.selectionDirection='backward';input.setSelectionRange=(a,c,d)=>{input.selectionStart=a;input.selectionEnd=c;input.selectionDirection=d;};
+ input.emit('beforeinput',{inputType:'insertText',data:'X'});
+ assert.deepEqual(actions,[['select',5,1],['insert','X',5,1]]);
+});
+
+test('composition start captures pending DOM selection before locking transport',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_value=()=>"A😀é";let current=[5,5];const actions=[];
+ model.text_selection_utf16=()=>current;model.text_set_selection_utf16=(a,c)=>{current=[a,c];actions.push(['select',a,c]);};model.text_insert=text=>actions.push(['commit',text,...current]);
+ document.activeElement=input;input.value='A😀é';input.selectionStart=1;input.selectionEnd=5;input.selectionDirection='backward';input.setSelectionRange=(a,c,d)=>{input.selectionStart=a;input.selectionEnd=c;input.selectionDirection=d;};
+ input.emit('compositionstart');input.emit('compositionupdate',{data:'新'});input.emit('compositionend',{data:'新'});
+ assert.deepEqual(actions,[['select',5,1],['commit','新',5,1]]);
+});
+
+test('textarea accessible name uses stable Rust input label rather than current value',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.control_input_label=()=>'Search';model.control_label=()=>'private value';model.text_value=()=>'private value';
+ input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.getAttribute('aria-label'),'Search');
+ model.control_label=()=>'edited value';model.text_value=()=>'edited value';input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.getAttribute('aria-label'),'Search');assert.equal(input.value,'edited value');
+});
+
+test('textarea exposes Rust readonly state independently of focusable editing',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];let readonly=true;model.control_readonly=()=>readonly;
+ input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.readOnly,true);assert.equal(input.getAttribute('aria-readonly'),'true');assert.equal(input.hidden,false);
+ readonly=false;input.emit('beforeinput',{inputType:'historyUndo'});assert.equal(input.readOnly,false);assert.equal(input.getAttribute('aria-readonly'),'false');
+});
+
+test('semantic revision avoids repeated WASM value/selection copies and refreshes changed model',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];let revision=1,value='large value',values=0,selections=0;
+ model.text_model_revision=()=>revision;model.text_value=()=>{values++;return value;};model.text_selection_utf16=()=>{selections++;return [0,0];};
+ document.activeElement=input;for(let i=0;i<20;i++)window.dispatchEvent(new Event('resize'));
+ assert.equal(values,1);assert.equal(selections,1);assert.equal(input.value,value);
+ revision++;value='changed';window.dispatchEvent(new Event('resize'));assert.equal(values,2);assert.equal(selections,2);assert.equal(input.value,'changed');
+});
+
+test('unchanged modifier and select events use valid semantic mirror without WASM text copies',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_model_revision=()=>1;let values=0,selections=0;
+ model.text_value=()=>{values++;return 'large value';};model.text_selection_utf16=()=>{selections++;return [0,0];};model.text_set_selection_utf16=()=>assert.fail('unchanged selection must not update Rust');model.text_key=()=>false;
+ document.activeElement=input;input.setSelectionRange=(a,c,d)=>{input.selectionStart=a;input.selectionEnd=c;input.selectionDirection=d;};window.dispatchEvent(new Event('resize'));
+ for(let i=0;i<20;i++){input.emit('keydown',{key:'Shift',shiftKey:true});input.emit('select');}
+ assert.equal(values,1);assert.equal(selections,1);
+});
+
+test('cut preserves Rust selection when clipboard transport is unavailable or rejects write',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_selected=()=> 'valuable selection';let deletes=0;model.text_insert=()=>{deletes++;};
+ input.emit('cut');assert.equal(deletes,0);
+ input.emit('cut',{clipboardData:{setData(){throw new Error('clipboard refused');}}});
+ assert.equal(deletes,0);
+ let copied;input.emit('cut',{clipboardData:{setData(type,text){copied=[type,text];}}});
+ assert.deepEqual(copied,['text/plain','valuable selection']);assert.equal(deletes,1);
+});
+
+test('unavailable or empty paste and absent insertion data preserve selected text',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');let inserted=[];
+ model.text_insert=text=>inserted.push(text);
+ input.emit('paste');input.emit('paste',{clipboardData:{}});
+ input.emit('paste',{clipboardData:{getData(){throw new Error('read refused');}}});
+ input.emit('paste',{clipboardData:{getData:()=>''}});
+ input.emit('beforeinput',{inputType:'insertText',data:null});
+ input.emit('beforeinput',{inputType:'insertReplacementText',data:''});
+ assert.deepEqual(inserted,[]);
+ input.emit('paste',{clipboardData:{getData:()=> '你好🙂'}});
+ input.emit('beforeinput',{inputType:'insertReplacementText',data:'replacement'});
+ assert.deepEqual(inserted,['你好🙂','replacement']);
+});
+
+test('successful clipboard mutation cancels pending composition before late IME commit',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];
+ const inserted=[];model.text_insert=text=>inserted.push(text);model.text_preedit=()=>{};model.text_selected=()=> 'selected';
+ input.emit('compositionstart');input.emit('compositionupdate',{data:'未確定'});
+ input.emit('paste',{clipboardData:{getData:()=> 'pasted'}});
+ input.emit('compositionend',{data:'late'});assert.deepEqual(inserted,['pasted']);
+ input.emit('compositionstart');input.emit('compositionupdate',{data:'未確定'});
+ input.emit('cut',{clipboardData:{setData(){}}});
+ input.emit('compositionend',{data:'late'});assert.deepEqual(inserted,['pasted','']);
+});
+
+test('copy and refused paste preserve the active composition session',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];
+ const inserted=[];model.text_insert=text=>inserted.push(text);model.text_preedit=()=>{};model.text_selected=()=> 'selected';
+ input.emit('compositionstart');input.emit('compositionupdate',{data:'未確定'});
+ input.emit('copy',{clipboardData:{setData(){}}});input.emit('paste');
+ input.emit('compositionend',{data:'日本'});assert.deepEqual(inserted,['日本']);
+});
+
+test('late composition end after clipboard paste keeps DOM mirror equal to committed model',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];let value='original';
+ model.text_value=()=>value;model.text_insert=text=>{value=text;};model.text_preedit=()=>{};
+ input.emit('compositionstart');input.emit('compositionupdate',{data:'未確定'});
+ input.emit('paste',{clipboardData:{getData:()=> 'pasted'}});assert.equal(input.value,'pasted');
+ input.emit('compositionend',{data:'late'});assert.equal(value,'pasted');assert.equal(input.value,value);
+});
+
+test('exhausted semantic epoch zero always refreshes the mirror',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_model_revision=()=>0;
+ let value='before';model.text_value=()=>value;model.text_selection_utf16=()=>[0,0];
+ window.dispatchEvent(new Event('resize'));assert.equal(input.value,'before');
+ value='after';window.dispatchEvent(new Event('resize'));assert.equal(input.value,'after');
+});
+
+test('exhausted epoch selection adoption checks current Rust value instead of stale mirror',t=>{
+ const f=fixture(t,[button]);const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_model_revision=()=>0;
+ let value='before';model.text_value=()=>value;model.text_selection_utf16=()=>[0,0];
+ model.text_set_selection_utf16=()=>assert.fail('stale DOM must not override current Rust selection');
+ document.activeElement=input;window.dispatchEvent(new Event('resize'));
+ input.selectionStart=1;input.selectionEnd=2;input.selectionDirection='forward';value='after';input.emit('select');
 });

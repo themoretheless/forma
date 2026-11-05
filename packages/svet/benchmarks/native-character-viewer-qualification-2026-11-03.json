@@ -1,0 +1,18 @@
+{
+  "status": "incomplete",
+  "scope": "System Character Viewer attempt on current native probe with IME diagnostics",
+  "observed": [
+    "CharacterPalette process exists, CUA app selection times out via path and bundle id",
+    "No Character Viewer UI available in inventory",
+    "Russian-layout ordinary input x/Tab/q reaches first ч and second й",
+    "No IME event log created; ordinary key input is not marked-text evidence",
+    "Own probe closed and owned processes0"
+  ],
+  "binary_sha256": "2d3f18973545e16eff08a1114987ddb54ec80e8022ed80ce35adecf4d7ab5cb2",
+  "limits": [
+    "No emoji inserted",
+    "No CJK composition or cancel recovery qualified",
+    "System input settings unchanged; existing system process not terminated"
+  ],
+  "next_action": "Do not repeat unsupported Character Viewer activation path; continue independent engine work; OS IME qualification needs an interactable input method surface"
+}

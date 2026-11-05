@@ -1,0 +1,51 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+stdout | tests/benchmark.test.ts > Svet and local algorithm simulations > exercise workloads and report measured timings with explicit simulation labels
+┌─────────┬────────────────────────────────────────────────────────┬──────────────────────────────────────────────────────┬─────────────────────────────────────────┬───────────────────────────────────────────┬────────────────────────────────────────────┐
+│ (index) │ Benchmark                                              │ Svet (TS + Rust WASM)                                │ Local VNode simulation                  │ Local proxy/block simulation              │ Local reaction/cursor simulation           │
+├─────────┼────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────┼─────────────────────────────────────────┼───────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 0       │ '1. 1,000 Updates in 1,000-Row Table'                  │ '39.15 ms (direct row updates)'                      │ '1742.48 ms (1M VNodes diffed)'         │ '994.57 ms (1M Block VNodes)'             │ '15.43 ms (JS Set + Closures)'             │
+│ 1       │ '2. 30-Layer Diamond DAG (5,000 Ticks)'                │ '421.38 ms (synchronous diamond updates)'            │ '14.23 ms (310k useMemo [deps] allocs)' │ '244.71 ms (JS Link/Dep Heap Objects)'    │ '129.74 ms (JS Reaction Array/Set GC)'     │
+│ 2       │ '3. 1,000-Row List Reorder (Move 999->1, 500->10)'     │ '2.65 ms (2 DOM moves via WASM LIS)'                 │ '170.98 ms (998 DOM moves, no LIS!)'    │ '0.60 ms (2 moves + 1,000 VNodes)'        │ '3.84 ms (2 moves + JS Map/Block)'         │
+│ 3       │ '4. 50,000 Effect Mount/Dispose Cycles'                │ '197.18 ms (Cap: 2->2, stable native node capacity)' │ '79.38 ms (100k Hook/Deps GC Objects)'  │ '161.94 ms (100k Effect/Link GC Objects)' │ '80.81 ms (100k Effect/Set GC Objects)'    │
+│ 4       │ '5. Mock-device partial uploads (500 updates, 128 KB)' │ '12.03 ms (7.8 KB via 128B dirty lines)'             │ 'No GPU Arena (62.5 MB full copy)'      │ 'No GPU Arena (62.5 MB + Proxy trap)'     │ 'No GPU Arena (62.5 MB full copy)'         │
+│ 5       │ '6. WASM CPU arena FMA (200 x 16,384 f32)'             │ '10.45 ms (626.9 MFLOP/s WASM CPU)'                  │ 'Not measured'                          │ 'Not measured'                            │ 'Not measured'                             │
+│ 6       │ '7. SSR Boot (500 Static Components + 1 Signal)'       │ '2.80 ms (one restored binding)'                     │ '2.93 ms (local VNode traversal)'       │ '9.37 ms (local DOM child traversal)'     │ '1.04 ms (local sibling cursor traversal)' │
+│ 7       │ '8. CPU scene updates (200 x 1,000 vertices)'          │ '8.35 ms (24.0M vert/s in WASM)'                     │ 'Not measured'                          │ 'Not measured'                            │ 'Not measured'                             │
+└─────────┴────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────┴─────────────────────────────────────────┴───────────────────────────────────────────┴────────────────────────────────────────────┘
+
+ ❯ tests/benchmark.test.ts (1 test | 1 failed) 5424ms
+   ❯ Svet and local algorithm simulations (1)
+     × exercise workloads and report measured timings with explicit simulation labels 5423ms
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/benchmark.test.ts > Svet and local algorithm simulations > exercise workloads and report measured timings with explicit simulation labels
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ tests/benchmark.test.ts:94:3
+     92|
+     93| describe('Svet and local algorithm simulations', () => {
+     94|   it('exercise workloads and report measured timings with explicit sim…
+       |   ^
+     95|     const results: Array<{
+     96|       Benchmark: string;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 101 passed (102)
+      Tests  1 failed | 1371 passed (1372)
+   Start at  19:21:34
+   Duration  65.93s (environment 62%, tests 26%, import 9%, transform 2%, worker 1%)
+
+    Isolate  102 workers spawned · ~850ms startup each (spawn + environment, per file)
+             at least ~42.50s faster with isolate: false — reuses workers across files instead of one per file

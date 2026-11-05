@@ -1,0 +1,13 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-cc416d5dfac22531)
+
+running 6 tests
+test device_loss_delivery_tests::poll_delivers_backend_loss_to_late_callback_once_with_reentry ... ignored, requires Metal; injects a logical backend notification, not physical device removal
+test device_loss_delivery_tests::late_registration_reentry_and_duplicate_loss_deliver_once ... ok
+test device_loss_delivery_tests::registration_before_loss_observes_first_message_once ... ok
+test error_delivery_tests::uncaptured_handler_can_replace_itself_and_reenter_error_scopes ... ok
+test error_delivery_tests::matching_innermost_scope_captures_first_without_uncaptured_delivery ... ok
+test metal::device_loss_classification_tests::only_access_revoked_or_removed_are_device_loss ... ok
+
+test result: ok. 5 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

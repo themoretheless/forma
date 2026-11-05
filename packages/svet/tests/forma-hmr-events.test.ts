@@ -294,3 +294,91 @@ it.each(['props', 'locale', 'lets'] as const)('constructor refusal in %s release
   finally { external.dispose(); }
   expect(getGraphTelemetry().nodes).toBe(0);
 });
+
+it.each(['throw', 'nested-update'] as const)('drains %s child cleanup across multiple HMR views and retires old callbacks', mode => {
+  let throwing = false, cleanupCalls = 0;
+  const source = `component App { state count: Number = 0; Button { text:'old'; clicked -> state.increment('count',1); } Child {} }`;
+  const inst = compileFormaComponent(source, { components: { Child: () => {
+    const child = compileFormaComponent(`component Child { state value: Number = 2; Text { text:state.value; } }`);
+    const dispose = child.dispose.bind(child);
+    child.dispose = () => { cleanupCalls++; dispose(); if (throwing) { if (mode === 'nested-update') inst.hotReload(source); else throw Error('cleanup refused'); } };
+    return child;
+  } } });
+  const a = document.createElement('div'), b = document.createElement('div');
+  const left = inst.mount(a), right = inst.mount(b), baseline = getGraphTelemetry().nodes;
+  const oldButtons = [a.querySelector('button')!, b.querySelector('button')!];
+  try {
+    throwing = true;
+    expect(() => inst.hotReload(source.replace("text:'old'", "text:'new'"))).not.toThrow();
+    expect(cleanupCalls).toBe(2);
+    expect(a.textContent).toBe('new2'); expect(b.textContent).toBe('new2');
+    expect(getGraphTelemetry().nodes).toBe(baseline);
+    oldButtons.forEach(button => button.click()); expect(inst.state.count()).toBe(0);
+    a.querySelector('button')!.click(); expect(inst.state.count()).toBe(1);
+    inst.hotReload(source.replace("text:'old'", "text:'retry'"));
+    expect(a.textContent).toBe('retry2'); expect(b.textContent).toBe('retry2');
+    expect(getGraphTelemetry().nodes).toBe(baseline);
+  } finally { throwing = false; left.unmount(); right.unmount(); inst.dispose(); }
+  expect(cleanupCalls).toBe(6); expect(getGraphTelemetry().nodes).toBe(0);
+});
+
+it('nested contract refusal preserves the mounted document and admits a valid retry', () => {
+  const source = `component App { state count: Number = 1; Button { text:'old'; clicked -> state.increment('count',1); } }`;
+  const inst = compileFormaComponent(source), container = document.createElement('div'), handle = inst.mount(container);
+  const old = container.querySelector('button')!, baseline = getGraphTelemetry().nodes;
+  try {
+    expect(() => inst.hotReload(`component App { Column { #[range(0,10)] prop x: Number = 2; } }`)).toThrow(/contract/i);
+    expect(container.querySelector('button')).toBe(old); expect(getGraphTelemetry().nodes).toBe(baseline);
+    old.click(); expect(inst.state.count()).toBe(2);
+    inst.hotReload(source.replace("text:'old'", "text:'new'"));
+    expect(container.textContent).toBe('new'); old.click(); expect(inst.state.count()).toBe(2);
+    expect(getGraphTelemetry().nodes).toBe(baseline);
+  } finally { handle.unmount(); inst.dispose(); }
+  expect(getGraphTelemetry().nodes).toBe(0);
+});
+
+it('refuses nested HMR from an AST admission getter and unlocks after refusal',()=>{
+ const source=`component App { Text { text:'old'; } }`,inst=compileFormaComponent(source),container=document.createElement('div'),handle=inst.mount(container),old=container.firstChild,nodes=getGraphTelemetry().nodes;
+ const ast=parseFormaSource(source);let entered=false;
+ Object.defineProperty(ast,'componentName',{get(){if(!entered){entered=true;inst.hotReload(source.replace("'old'","'nested'"));}return 'App';}});
+ try{expect(()=>inst.hotReload(ast)).toThrow(/already in progress/);expect(container.firstChild).toBe(old);expect(container.textContent).toBe('old');expect(getGraphTelemetry().nodes).toBe(nodes);inst.hotReload(source.replace("'old'","'retry'"));expect(container.textContent).toBe('retry');}
+ finally{handle.unmount();inst.dispose();}expect(getGraphTelemetry().nodes).toBe(0);
+});
+it('rechecks instance liveness after an AST admission getter disposes it',()=>{
+ const source=`component App { Column {} }`,inst=compileFormaComponent(source),ast=parseFormaSource(source);
+ Object.defineProperty(ast,'componentName',{get(){inst.dispose();return 'App';}});
+ expect(()=>inst.hotReload(ast)).toThrow(/Forma instance is disposed/);expect(getGraphTelemetry().nodes).toBe(0);
+});
+it('unlocks HMR after a retired computed disposer throws at the final cleanup boundary',()=>{
+ const source=`component App { state count: Number = 1; let doubled = state.count * 2; let tripled = state.count * 3; Text { text:doubled; } }`,inst=compileFormaComponent(source),container=document.createElement('div'),handle=inst.mount(container);
+ const old=inst.computedLets.doubled,dispose=old.dispose.bind(old);old.dispose=()=>{dispose();throw Error('retired computed cleanup');};
+ try{expect(()=>inst.hotReload(source)).toThrow('retired computed cleanup');expect(()=>inst.hotReload(source)).not.toThrow();inst.state.count.set(2);expect(container.textContent).toBe('4');}
+ finally{handle.unmount();inst.dispose();}expect(getGraphTelemetry().nodes).toBe(0);
+});
+it('preserves a primary commit failure while draining throwing retired computed cleanup',()=>{
+ let retire=false;
+ const source=`component App { state count: Number = 1; let doubled = state.count * 2; Column { Text { text:doubled; } Child {} } }`;
+ const inst=compileFormaComponent(source,{components:{Child:()=>{const child=compileFormaComponent(`component Child { Column {} }`),dispose=child.dispose.bind(child);child.dispose=()=>{dispose();if(retire)inst.dispose();};return child;}}});
+ const container=document.createElement('div'),handle=inst.mount(container),old=inst.computedLets.doubled,dispose=old.dispose.bind(old);
+ old.dispose=()=>{dispose();throw Error('secondary computed cleanup');};
+ try{retire=true;expect(()=>inst.hotReload(source)).toThrow(/Forma instance is disposed/);}
+ finally{retire=false;handle.unmount();inst.dispose();}expect(getGraphTelemetry().nodes).toBe(0);
+});
+it('restores old computed handles and primary error when candidate cleanup throws during rollback',()=>{
+ let fail=false,cleanups=0;const primary=Error('prepare refused'),secondary=Error('candidate cleanup refused');
+ const source=`component App { state count: Number = 1; let doubled = state.count * 2; let tripled = state.count * 3; Column { Text { text:doubled; } Child {} } }`;
+ const inst=compileFormaComponent(source,{components:{Child:()=>{const child=compileFormaComponent(`component Child { Text { text:'child'; } }`);if(fail){const candidate=inst.computedLets.doubled,dispose=candidate.dispose.bind(candidate);candidate.dispose=()=>{dispose();cleanups++;throw secondary;};child.render=()=>{throw primary;};}return child;}}});
+ const container=document.createElement('div'),handle=inst.mount(container),old=inst.computedLets.doubled,nodes=getGraphTelemetry().nodes;
+ try{fail=true;let caught;try{inst.hotReload(source.replace('state count: Number = 1;','state count: Number = 1; state added: Number = 9;').replace('count * 2','count * 4'));}catch(error){caught=error;}
+  expect(caught).toBe(primary);expect(cleanups).toBe(1);expect(inst.computedLets.doubled).toBe(old);expect('added' in inst.state).toBe(false);expect(getGraphTelemetry().nodes).toBe(nodes);
+  inst.state.count.set(2);expect(container.textContent).toBe('4child');fail=false;inst.hotReload(source);expect(container.textContent).toBe('4child');
+ }finally{fail=false;handle.unmount();inst.dispose();}expect(getGraphTelemetry().nodes).toBe(0);
+});
+it('does not restore or allocate a closed document when candidate rollback cleanup disposes the instance',()=>{
+ let fail=false;const primary=Error('prepare closes document');
+ const source=`component App { state count: Number = 1; let doubled = state.count * 2; let tripled = state.count * 3; Column { Text { text:doubled; } Child {} } }`;
+ const inst=compileFormaComponent(source,{components:{Child:()=>{const child=compileFormaComponent(`component Child { Column {} }`);if(fail){const candidate=inst.computedLets.doubled,dispose=candidate.dispose.bind(candidate);candidate.dispose=()=>{dispose();inst.dispose();throw Error('secondary closing cleanup');};child.render=()=>{throw primary;};}return child;}}});
+ const container=document.createElement('div'),handle=inst.mount(container);
+ try{fail=true;let caught;try{inst.hotReload(source);}catch(error){caught=error;}expect(caught).toBe(primary);expect(container.childNodes.length).toBe(0);expect(()=>inst.hotReload(source)).toThrow(/Forma instance is disposed/);expect(getGraphTelemetry().nodes).toBe(0);}
+ finally{fail=false;handle.unmount();inst.dispose();}
+});

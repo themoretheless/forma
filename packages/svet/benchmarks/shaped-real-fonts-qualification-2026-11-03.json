@@ -1,0 +1,51 @@
+{
+  "status": "partial",
+  "scope": "Real fallback faces in shaped Rust API and fresh vector-ui WASM CPU renderer",
+  "validation": {
+    "rust_passed": 239,
+    "gpu_ignored": 2,
+    "node_cases": 14,
+    "chromium_cases": 17,
+    "checks": [
+      "ShapedGlyph has real font_index/glyph id",
+      "font_face exposes immutable matching weight400 face",
+      "same-face-only normalized kerning",
+      "cross-face shaped/simple scalar advances",
+      "real CJK/emoji pixels differ from question fallback",
+      "caret span matches simple advance",
+      "browser CPU frames visually inspected"
+    ],
+    "archive_hardlink_hash_check": "passed"
+  },
+  "size": {
+    "generated_wasm_bytes": 21828894,
+    "gzip_bytes": 13246694,
+    "font_payload_bytes": 19754896,
+    "previous_no_font_module_bytes": 2067855
+  },
+  "source_hashes": {
+    "vector-ui/src/text.rs": "2a4514da8f98cd4ace8650addd0f20b4b2e5f86381491875ee0b1b64463a8aae",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "3564dcff391d8a96a45b8544b074eb6f389f7b06c8b6301ea15dc5a839d6e1f9",
+    "vector-ui/tests/scene-artifact-browser.html": "720f6773f194122f055d0552f55d2d3f971a84155f39f59649dece7e5ee499b3",
+    "vector-ui/assets/fallback/PROVENANCE.json": "d62f821e86809669e50e73204b8dbe1b7694ed6e5e834bb1f05f04009ab74b59"
+  },
+  "generated_hashes": {
+    "web/index.html": "720f6773f194122f055d0552f55d2d3f971a84155f39f59649dece7e5ee499b3",
+    "web/forma_bg.wasm": "cca8a31b839256bcae5de43701d44e13dc72ba7b6d14c894cf47e94354be58db",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "cca8a31b839256bcae5de43701d44e13dc72ba7b6d14c894cf47e94354be58db",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "compatibility": "Rust ShapedGlyph adds font_index; fallback=true can refer to real fallback face, glyph_id0 remains synthetic only",
+  "limits": [
+    "No full shaping/GSUB/GPOS/Unicode BiDi/ZWJ sequence qualification",
+    "Monochrome emoji only",
+    "No controlled startup/RSS/resolver performance qualification",
+    "No physical GPU presentation qualification",
+    "New font data increases vector-ui module size materially"
+  ]
+}

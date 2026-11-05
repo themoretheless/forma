@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><title>Live readonly transition</title>
+<style>body{font:16px system-ui;margin:32px;background:#eef2f6}#editor{width:500px;min-height:120px}pre{white-space:pre-wrap;font-size:13px}</style>
+<h1>Live readonly · retained Rust history</h1><p id="status">Loading…</p><div id="editor"></div><button id="lock">Lock editor</button><button id="unlock">Unlock editor</button><pre id="report"></pre>
+<script type="module">
+import init,* as wasm from '/wasm/forma.js';import {createVectorPreview} from '/src/vector-preview.js';
+const report={status:'running',events:[]};let active,preview;
+try{
+ await init();class Observed extends wasm.Runtime{constructor(){super();active=this;}load_component(source){this.load_ui_files_json(source,'App.ui','{}');}}
+ preview=createVectorPreview({runtime:{...wasm,Runtime:Observed},onError:e=>{report.error=String(e);}});
+ const snapshot=()=>{const input=document.querySelector('textarea');return{rust:active.text_value(0),dom:input.value,readOnly:input.readOnly,rustReadonly:active.control_readonly(0),focused:active.focused_index(),selection:Array.from(active.text_selection_utf16())};};
+ const save=event=>{report.events.push({...event,...snapshot()});document.querySelector('#report').textContent=JSON.stringify(report,null,2);fetch('/result',{method:'POST',body:JSON.stringify(report)});};
+ const render=locked=>{preview.render({container:document.querySelector('#editor'),source:JSON.stringify({'App.ui':`component App { Column { width:480; height:100; TextInput { key:'editor'; label:'Query'; width:440; height:40; readOnly:${locked}; value:'seed'; } } }`}),designMode:false,reducedMotion:true,previewControls:[{type:'TextInput',props:{key:'editor'}}]});preview.focusKey('editor');};
+ render(false);report.status='ready';document.querySelector('#status').textContent='READY';save({type:'initial'});
+ for(const [id,locked]of [['lock',true],['unlock',false]]){const button=document.getElementById(id);button.addEventListener('mousedown',e=>e.preventDefault());button.addEventListener('click',()=>{render(locked);save({type:id});});}
+ const input=document.querySelector('textarea');for(const type of ['keydown','beforeinput'])input.addEventListener(type,event=>queueMicrotask(()=>save({type,key:event.key,inputType:event.inputType,isTrusted:event.isTrusted})));
+}catch(e){report.status='failed';report.error=String(e.stack);document.querySelector('#status').textContent=report.error;await fetch('/result',{method:'POST',body:JSON.stringify(report)});}
+</script>

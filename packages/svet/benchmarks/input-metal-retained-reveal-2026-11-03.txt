@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-c219d57b926883c5)
+
+running 2 tests
+GPU_TEST_ADAPTER {"test":"profiled-renderer","name":"Apple M4 Max","vendor":4203,"device":1,"device_type":"IntegratedGpu","backend":"Metal","driver":"Metal Direct Native Runtime","driver_info":"ASD + UMA + dUMA Accelerated"}
+GPU_TEST_ADAPTER {"test":"reveal-agreement","name":"Apple M4 Max","vendor":4203,"device":1,"device_type":"IntegratedGpu","backend":"Metal","driver":"Metal Direct Native Runtime","driver_info":"ASD + UMA + dUMA Accelerated"}
+GPU_IDLE_COMPLETION_RESULT queue_drained=true health_without_draw=true
+GPU_FAULT_LATCH_RESULT encoder_validation_delivered=true first_error_preserved=true submission_blocked=true
+GPU profiling smoke: GpuResourceStats { memory_architecture: Uma, buffer_count: 7, buffer_bytes: 10496, uniform_bytes: 64, command_bytes: 2048, edge_bytes: 8192, tile_bytes: 128, paint_bytes: 32, timing_buffer_bytes: 32, bind_group_count: 1, render_pipeline_count: 1, query_set_count: 1, buffer_allocations_total: 7, buffer_allocation_bytes_total: 10496, uploaded_bytes_total: 7048, geometry_uploads_total: 1, tile_uploads_total: 1, bind_group_creations_total: 1, cpu_geometry_cache_bytes: 0, cpu_shared_geometry_bytes: 7280, cpu_tile_scratch_bytes: 1024, cpu_paint_scratch_bytes: 192, uma_shared_pool_bytes: 18992, duma_device_local_bytes: 0, duma_host_ram_bytes: 0 }; allocator=None
+test gpu::tests::profiled_renderer_reports_owned_buffers_and_reuses_them ... ok
+GPU_REVEAL_RESULT {"comparisons":126,"max_channel_error":1,"channel_error_budget":2,"scale_factors":[1.0,1.25,2.0]}
+test reveal::tests::reveal_cpu_gpu_agree_across_states_and_dpi_without_geometry_uploads ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 229 filtered out; finished in 1.17s
+

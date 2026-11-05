@@ -1,0 +1,14 @@
+    Updating crates.io index
+     Locking 15 packages to latest compatible versions
+      Adding pollster v0.4.0 (available: v1.0.1)
+   Compiling serde_core v1.0.229
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.154
+   Compiling memchr v2.8.3
+   Compiling gpu-shader v0.1.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-gpu-scope-isolated-cf2kmvmb/baseline/gpu-shader)
+   Compiling itoa v1.0.18
+   Compiling raw-window-handle v0.6.2
+   Compiling pollster v0.4.0
+   Compiling gpu-runtime v0.1.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-gpu-scope-isolated-cf2kmvmb/baseline/runtime)
+   Compiling gpu-scope-harness v0.0.0 (/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-gpu-scope-isolated-cf2kmvmb/baseline)
+    Finished `release` profile [optimized] target(s) in 6.60s

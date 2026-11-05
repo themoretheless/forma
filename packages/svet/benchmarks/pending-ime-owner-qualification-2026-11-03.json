@@ -1,0 +1,16 @@
+{
+  "status": "passed-scoped",
+  "before": "Pointer focus cancellation skipped pending owner after empty preedit",
+  "matrix": "Escape/Tab/blur/pointer x active/empty preedit (8 combinations)",
+  "nativeLibPassed": 221,
+  "standaloneTests": 3,
+  "ignored": 3,
+  "sha256": {
+    "vector-ui/src/native_window.rs": "8cd6de263f9df95223b550d5e0e9807de56465d24dcc19f0fee55ddd944da0a8",
+    "vector-ui/src/main.rs": "e2e17c03e3c8b99e415d4b3e38545a75a388b0ebe51fc33bf0529a3bff665063"
+  },
+  "limits": [
+    "OS IME not qualified",
+    "Standalone post-binding observation compiled; dedicated end-to-end binding/IME test remains open"
+  ]
+}

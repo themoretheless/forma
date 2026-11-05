@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.93s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-c219d57b926883c5)
+
+running 1 test
+test native_window::tests::ime_commit_checks_editor_owner_at_dispatch ... FAILED
+
+failures:
+
+---- native_window::tests::ime_commit_checks_editor_owner_at_dispatch stdout ----
+
+thread 'native_window::tests::ime_commit_checks_editor_owner_at_dispatch' (23158348) panicked at src/native_window.rs:1556:57:
+assertion `left == right` failed
+  left: "seed-Bstale-again"
+ right: "seed-B"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_window::tests::ime_commit_checks_editor_owner_at_dispatch
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 223 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `--lib`

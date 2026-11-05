@@ -1,0 +1,29 @@
+{
+  "status": "partial",
+  "implemented": [
+    "Uncaptured Device/CommandEncoder errors routed to shared registered handler",
+    "Matching innermost scopes capture first error and consume subsequent matching errors",
+    "Handlers called outside stack/registration mutexes, permitting scope reentry and handler replacement",
+    "Renderer preserves first fault and checks health before native surface configure/acquisition",
+    "Faulted renderer rejects draw without frames/uploads"
+  ],
+  "tests": {
+    "gpu_runtime": 2,
+    "native": 245,
+    "hardware_renderer": 1,
+    "hardware_reveal": 1,
+    "all_targets": "passed"
+  },
+  "qualification": "Hardware renderer test injects invalid encoder dispatch without submitting invalid GPU commands; callback reaches renderer, subsequent descriptor validation cannot overwrite first cause",
+  "limits": [
+    "gpu-runtime set_device_lost_callback remains a documented compatibility placeholder; physical device-loss delivery not implemented",
+    "Native OS CPU fallback under injected validation/driver fault not yet exercised",
+    "Surface Timeout/Lost/Validation recovery and cross-platform faults remain open"
+  ],
+  "source_sha256": {
+    "crates/gpu-runtime/src/lib.rs": "7a8ebf8216522d13d86b0bb04349995e3ae505d1431880ea8ce551d1ec07224b",
+    "crates/gpu-runtime/src/command.rs": "1b6dc02b854390ed0a3d9d1183828ceaff0f8ddeb0c7c2bec89418b4d5daf3d6",
+    "vector-ui/src/gpu.rs": "83e9b0d44d785aca433480b0f966ebfd5faf97c8935cdf761929dfe27e53dada",
+    "vector-ui/src/native_gpu.rs": "38717dae9dca083042d9ad0ba0cbb1794351178d9b04e7aa61923591ae05a3f6"
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "status": "partial",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "baseline": {
+        "initial_live_bytes": 1254284.0,
+        "lifetime_peak_bytes": 2286054.0,
+        "initial_allocations": 6919.0,
+        "initial_requested_bytes": 11031392.0,
+        "after_third_edit_live_bytes": 1259434.0
+      },
+      "candidate": {
+        "initial_live_bytes": 1111079.0,
+        "lifetime_peak_bytes": 2142584.0,
+        "initial_allocations": 4772.0,
+        "initial_requested_bytes": 10713835.0,
+        "after_third_edit_live_bytes": 1115964.0
+      }
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "baseline": {
+        "initial_live_bytes": 3517728.0,
+        "lifetime_peak_bytes": 6717219.0,
+        "initial_allocations": 41597.0,
+        "initial_requested_bytes": 41648032.0,
+        "after_third_edit_live_bytes": 3523598.0
+      },
+      "candidate": {
+        "initial_live_bytes": 1420527.0,
+        "lifetime_peak_bytes": 2505836.0,
+        "initial_allocations": 13698.0,
+        "initial_requested_bytes": 37842040.0,
+        "after_third_edit_live_bytes": 1425412.0
+      }
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "baseline": {
+        "initial_live_bytes": 20792032.0,
+        "lifetime_peak_bytes": 47237251.0,
+        "initial_allocations": 274760.0,
+        "initial_requested_bytes": 142233352.0,
+        "after_third_edit_live_bytes": 20799822.0
+      },
+      "candidate": {
+        "initial_live_bytes": 2321263.0,
+        "lifetime_peak_bytes": 4208961.0,
+        "initial_allocations": 37389.0,
+        "initial_requested_bytes": 110455776.0,
+        "after_third_edit_live_bytes": 2326148.0
+      }
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "baseline": {
+        "initial_live_bytes": 137501440.0,
+        "lifetime_peak_bytes": 320143391.0,
+        "initial_allocations": 1753770.0,
+        "initial_requested_bytes": 516142696.0,
+        "after_third_edit_live_bytes": 137514030.0
+      },
+      "candidate": {
+        "initial_live_bytes": 6821943.0,
+        "lifetime_peak_bytes": 15855365.0,
+        "initial_allocations": 96719.0,
+        "initial_requested_bytes": 295273787.0,
+        "after_third_edit_live_bytes": 6826828.0
+      }
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "baseline": {
+        "initial_live_bytes": 1261686.0,
+        "lifetime_peak_bytes": 2293466.0,
+        "initial_allocations": 6987.0,
+        "initial_requested_bytes": 11038919.0,
+        "after_third_edit_live_bytes": 1266846.0
+      },
+      "candidate": {
+        "initial_live_bytes": 1112388.0,
+        "lifetime_peak_bytes": 2143893.0,
+        "initial_allocations": 4797.0,
+        "initial_requested_bytes": 10715269.0,
+        "after_third_edit_live_bytes": 1117273.0
+      }
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "baseline": {
+        "initial_live_bytes": 3541494.0,
+        "lifetime_peak_bytes": 6740995.0,
+        "initial_allocations": 41785.0,
+        "initial_requested_bytes": 41671923.0,
+        "after_third_edit_live_bytes": 3547374.0
+      },
+      "candidate": {
+        "initial_live_bytes": 1421836.0,
+        "lifetime_peak_bytes": 2507145.0,
+        "initial_allocations": 13723.0,
+        "initial_requested_bytes": 37843474.0,
+        "after_third_edit_live_bytes": 1426721.0
+      }
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "baseline": {
+        "initial_live_bytes": 20859446.0,
+        "lifetime_peak_bytes": 47304675.0,
+        "initial_allocations": 275268.0,
+        "initial_requested_bytes": 142300891.0,
+        "after_third_edit_live_bytes": 20867246.0
+      },
+      "candidate": {
+        "initial_live_bytes": 2322572.0,
+        "lifetime_peak_bytes": 4210270.0,
+        "initial_allocations": 37414.0,
+        "initial_requested_bytes": 110457210.0,
+        "after_third_edit_live_bytes": 2327457.0
+      }
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "baseline": {
+        "initial_live_bytes": 137678286.0,
+        "lifetime_peak_bytes": 320320247.0,
+        "initial_allocations": 1755078.0,
+        "initial_requested_bytes": 516319667.0,
+        "after_third_edit_live_bytes": 137690886.0
+      },
+      "candidate": {
+        "initial_live_bytes": 6823252.0,
+        "lifetime_peak_bytes": 15856674.0,
+        "initial_allocations": 96744.0,
+        "initial_requested_bytes": 295275221.0,
+        "after_third_edit_live_bytes": 6828137.0
+      }
+    }
+  ],
+  "process_probe": {
+    "baseline": {
+      "maximum_rss_bytes": 367951872,
+      "binary_sha256": "25d9fa0b966ff84130c685c4c99c19954d4abb98419f65492969a325d41cfa8c"
+    },
+    "candidate": {
+      "maximum_rss_bytes": 28672000,
+      "binary_sha256": "fb5e17ae5cda5312545eca44425735c15604f3de7f8d88f72494bb27c41173f0"
+    }
+  },
+  "rss_units_evidence": "Local macOS getrusage(2) man page: ru_maxrss is maximum resident set size in bytes",
+  "scope": "Same release benchmark source; baseline uses previous Properties alias, candidate COW. Full Runtime +3 edits and CPU frames, both schedulers, two samples/case, zero allocator delta after Drop. Process RSS is single fresh process per variant.",
+  "limits": [
+    "Warmed thread caches/source-file strings/allocator overhead excluded from Layout-byte counters",
+    "RSS is process peak across all cases, not per-case current RSS",
+    "One host run, no claim about OS-window/GPU or application frame latency"
+  ]
+}

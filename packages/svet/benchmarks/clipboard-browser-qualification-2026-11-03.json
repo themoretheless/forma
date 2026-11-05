@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "browserCases": 10,
+  "eventProvenance": "synthetic DOM events in real IAB browser with real Rust WASM",
+  "sha256": {
+    "src/vector-preview.js": "9e24f5f349f5798ddbaf622b90e499b84c338216de166f66e332957807c7dc95",
+    "vector-ui/tests/preview-clipboard-browser.html": "27b744cd0644fe20f90036f35fe62bddc404de80362637e56dea154aed9098cb",
+    "/tmp/svet-input-epoch-wasm/web/forma_bg.wasm": "ffad5bd83f06a4e6389d9410a7706b919bac12bdc0a3a3bb55ff5f337318cb40",
+    "packages/svet/benchmarks/clipboard-browser-2026-11-03.json": "8ccc09ea97abcea91e9b33cbf6bfaf4a4478106db44778ab42e551fbe829f096"
+  },
+  "limitations": [
+    "Not actual OS clipboard transport qualification",
+    "No native clipboard/platform matrix or latency qualification"
+  ]
+}

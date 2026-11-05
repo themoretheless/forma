@@ -14,8 +14,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-#[cfg(target_os = "macos")]
-mod metal_resize;
+use forma::native_gpu::{GpuWindow, Presentation};
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
@@ -27,13 +26,6 @@ use winit::{
 
 const TITLE_INTERVAL: Duration = Duration::from_millis(250);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Presentation {
-    Presented,
-    ZeroSize,
-    Occluded,
-    Retry,
-}
 
 /// Outcome of one software frame, reported instead of applied in place: the pixel buffer
 /// borrows the surface, and Linux keeps that borrow alive until the block ends.
@@ -63,8 +55,16 @@ struct App {
     a11y_report: String,
     shift: bool,
     command: bool,
+    control: bool,
+    alt: bool,
     composing: bool,
+    composition_owner: Option<(u64,i32)>,
+    ime_cancelled: bool,
     ime_allowed: bool,
+    accessibility: Option<accesskit_winit::Adapter>,
+    accessibility_proxy: Option<winit::event_loop::EventLoopProxy<accesskit_winit::Event>>,
+    accessibility_active: bool,
+    accessibility_ids: forma::native_accessibility::PublishedTree,
     window: Option<Arc<Window>>,
     surface: Option<softbuffer::Surface<Arc<Window>, Arc<Window>>>,
     gpu: Option<GpuWindow>,
@@ -96,6 +96,43 @@ struct App {
 }
 
 impl App {
+    fn observe_ime_owner(&mut self) {
+        standalone_observe_ime(&self.button,&mut self.composing,self.composition_owner,&mut self.ime_cancelled);
+    }
+    fn ime_event(&mut self,event:winit::event::Ime) {
+        standalone_ime_event(&mut self.button,&mut self.composing,&mut self.composition_owner,&mut self.ime_cancelled,event);
+    }
+    fn update_accessibility(&mut self) {
+        if !self.accessibility_active { return; }
+        let scale = self.window.as_ref().map_or(1., |window| window.scale_factor());
+        let active_rt = self.chooser.as_ref().unwrap_or(&self.button);
+        if let Ok(Some(update)) = self.accessibility_ids.update_if_changed(active_rt, scale) {
+            if let Some(adapter) = &mut self.accessibility {
+                adapter.update_if_active(|| update);
+            }
+        }
+    }
+    fn accessibility_action(&mut self, request: &accesskit::ActionRequest) {
+        if request.target_tree != accesskit::TreeId::ROOT { return; }
+        let pending_ime = self.composing || self.composition_owner.is_some();
+        let previous = self.button.native_editor_session();
+        let accepted = if let Some(chooser) = &mut self.chooser {
+            self.accessibility_ids.apply(chooser, request)
+        } else {
+            self.accessibility_ids.apply(&mut self.button, request)
+        };
+        if self.chooser.is_none() {
+            if (pending_ime && (previous.is_none() || self.button.native_editor_session() != previous))
+                || (accepted && pending_ime && matches!(request.action, accesskit::Action::SetValue | accesskit::Action::SetTextSelection))
+            {
+                standalone_cancel_ime(&mut self.button, &mut self.composing, &mut self.composition_owner, &mut self.ime_cancelled);
+            }
+            let binding_error = self.button.sync_ui_bindings_native().err();
+            self.observe_ime_owner();
+            self.set_binding_error(binding_error);
+        }
+    }
+
     fn set_render_error(&mut self, error: Option<String>) {
         if self.render_error != error {
             if let Some(error) = &error {
@@ -244,7 +281,7 @@ impl App {
             && self.platform == TargetPlatform::Desktop;
         #[cfg(target_os = "macos")]
         if self.gpu.is_some() {
-            if let Err(error) = metal_resize::set_visible(window, use_gpu) {
+            if let Err(error) = forma::native_gpu::set_visible(window, use_gpu) {
                 self.set_render_error(Some(error));
             }
         }
@@ -260,7 +297,7 @@ impl App {
                     Err(error) => {
                         eprintln!("GPU остановлен, CPU fallback: {error}");
                         #[cfg(target_os = "macos")]
-                        if let Err(error) = metal_resize::set_visible(window, false) {
+                        if let Err(error) = forma::native_gpu::set_visible(window, false) {
                             eprintln!("Metal layer fallback: {error}");
                         }
                         self.gpu = None;
@@ -511,7 +548,42 @@ impl App {
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<accesskit_winit::Event> for App {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
+        if !self.window.as_ref().is_some_and(|window| window.id() == event.window_id) {
+            return;
+        }
+        match event.window_event {
+            accesskit_winit::WindowEvent::InitialTreeRequested => {
+                self.accessibility_ids.invalidate();
+                self.accessibility_active = true;
+                self.update_accessibility();
+            }
+            accesskit_winit::WindowEvent::AccessibilityDeactivated => {
+                self.accessibility_active = false;
+            }
+            accesskit_winit::WindowEvent::ActionRequested(request) => {
+                self.accessibility_action(&request);
+                self.update_accessibility();
+                if let Some(window) = &self.window {
+                    let editing = self.button.text_editing() && !self.button.control_readonly(self.button.focused_index().max(0) as usize);
+                    if editing != self.ime_allowed {
+                        window.set_ime_allowed(editing);
+                        self.ime_allowed = editing;
+                    }
+                    let caret = self.button.text_caret_bounds();
+                    if caret.len() == 4 {
+                        window.set_ime_cursor_area(
+                            winit::dpi::LogicalPosition::new(caret[0] as f64, caret[1] as f64),
+                            LogicalSize::new(caret[2] as f64, caret[3] as f64),
+                        );
+                    }
+                    window.request_redraw();
+                }
+            }
+        }
+    }
+
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -525,11 +597,20 @@ impl ApplicationHandler for App {
             event_loop
                 .create_window(
                     Window::default_attributes()
+                        .with_visible(false)
                         .with_title("Forma · ожидание кадра · F6: платформа · F7: бэкенд · F8: FPS-тест")
                         .with_inner_size(LogicalSize::new(init_w, init_h)),
                 )
                 .unwrap(),
         );
+        if let Some(proxy) = &self.accessibility_proxy {
+            self.accessibility = Some(accesskit_winit::Adapter::with_event_loop_proxy(
+                event_loop,
+                &window,
+                proxy.clone(),
+            ));
+        }
+        window.set_visible(true);
         if std::env::var("FORMA_RENDERER").as_deref() != Ok("cpu") {
             match pollster::block_on(GpuWindow::new(window.clone())) {
                 Ok(gpu) => self.gpu = Some(gpu),
@@ -614,6 +695,9 @@ impl ApplicationHandler for App {
         let Some(window) = self.window.as_ref().cloned() else {
             return;
         };
+        if let Some(adapter) = &mut self.accessibility {
+            adapter.process_event(&window, &event);
+        }
         if self.chooser.is_some() {
             match event {
                 WindowEvent::CloseRequested => event_loop.exit(),
@@ -700,7 +784,7 @@ impl ApplicationHandler for App {
                     }
                 }
                 WindowEvent::ModifiersChanged(modifiers) => {
-                    self.shift = modifiers.state().shift_key();
+                    self.shift = modifiers.state().shift_key();self.control=modifiers.state().control_key();self.alt=modifiers.state().alt_key();
                     self.command = if cfg!(target_os = "macos") {
                         modifiers.state().super_key()
                     } else {
@@ -787,6 +871,7 @@ impl ApplicationHandler for App {
                 }
                 _ => {}
             }
+            self.update_accessibility();
             return;
         }
         let clicks = self.button.clicks();
@@ -869,11 +954,13 @@ impl ApplicationHandler for App {
                     }
                 }
             }
-            WindowEvent::ModifiersChanged(modifiers) => {self.shift = modifiers.state().shift_key();self.command=if cfg!(target_os="macos"){modifiers.state().super_key()}else{modifiers.state().control_key()};},
-            WindowEvent::Ime(winit::event::Ime::Preedit(text,_))=>{self.composing=!text.is_empty();self.button.text_preedit(&text);},
-            WindowEvent::Ime(winit::event::Ime::Commit(text))=>{self.composing=false;self.button.text_insert(&text);},
-            WindowEvent::Ime(winit::event::Ime::Disabled)=>{self.composing=false;self.button.text_preedit("");},
+            WindowEvent::ModifiersChanged(modifiers) => {self.shift = modifiers.state().shift_key();self.control=modifiers.state().control_key();self.alt=modifiers.state().alt_key();self.command=if cfg!(target_os="macos"){modifiers.state().super_key()}else{modifiers.state().control_key()};},
+            WindowEvent::Ime(event)=>self.ime_event(event),
             WindowEvent::KeyboardInput { event, .. } => {
+                if (self.composing || self.composition_owner.is_some()) && event.state==ElementState::Pressed && !event.repeat
+                    && matches!(event.logical_key,Key::Named(NamedKey::Tab|NamedKey::Escape)) {
+                    standalone_cancel_ime(&mut self.button,&mut self.composing,&mut self.composition_owner,&mut self.ime_cancelled);
+                }
                 if event.logical_key == Key::Named(NamedKey::F6)
                     && event.state == ElementState::Pressed
                     && !event.repeat
@@ -909,16 +996,18 @@ impl ApplicationHandler for App {
                 } else if event.state==ElementState::Pressed && self.button.range_key(&match &event.logical_key {Key::Named(key)=>format!("{key:?}"),_=>String::new()}) {
                     // Range navigation belongs to the same runtime as pointer input.
                 } else if self.button.text_editing() && !matches!(event.logical_key, Key::Named(NamedKey::Tab) | Key::Named(NamedKey::Escape)) {
-                    if event.state==ElementState::Pressed && !self.composing {
+                    if event.state==ElementState::Pressed && !self.composing && !(cfg!(target_os="macos") && self.control && self.alt) {
                         let key=match &event.logical_key {
                             Key::Character(text)=>text.to_string(),
                             Key::Named(name)=>format!("{name:?}"),_=>String::new(),
                         };
-                        let lower=key.to_lowercase();
-                        if self.command && ["c","x","v"].contains(&lower.as_str()) {
-                            if lower=="v" {if let Ok(text)=clipboard_read(){self.button.text_insert(&text);}}
-                            else {let text=self.button.text_selected();if !text.is_empty() && clipboard_write(&text).is_ok() && lower=="x" {self.button.text_insert("");}}
-                        } else if !self.button.text_key(&key,self.shift,self.command) && !self.command {
+                        let alt_gr=cfg!(not(target_os="macos")) && self.control && self.alt && event.text.is_some();
+                        let command=self.command && !alt_gr;
+                        let word_modifier=if cfg!(target_os="macos") {self.alt && !command} else {self.control && !self.alt};
+                        let key=if command {forma::native_clipboard::command_key(&event.physical_key,&key)} else {&key};
+                        let word_handled=word_modifier && self.button.text_word_key(&key,self.shift);
+                        let clipboard_handled=!word_handled && command && forma::native_clipboard::handle_key(&mut self.button,&key);
+                        if !word_handled && !clipboard_handled && !self.button.text_key(&key,self.shift,command) && !command {
                             if let Some(text)=event.text {if !text.chars().any(char::is_control){self.button.text_insert(&text);}}
                         }
                     }
@@ -945,6 +1034,8 @@ impl ApplicationHandler for App {
             WindowEvent::Focused(focused) => {
                 self.button.focus(focused);
                 if !focused {
+                    self.shift=false;self.command=false;self.control=false;self.alt=false;
+                    standalone_cancel_ime(&mut self.button,&mut self.composing,&mut self.composition_owner,&mut self.ime_cancelled);
                     self.button.pointer(-1., -1., 3);
                 }
             }
@@ -982,12 +1073,14 @@ impl ApplicationHandler for App {
                 self.a11y_report = a11y;
             }
         }
-        let editing=self.button.text_editing();
+        self.observe_ime_owner();
+        let editing=self.button.text_editing()&&!self.button.control_readonly(self.button.focused_index().max(0) as usize);
         if editing!=self.ime_allowed {window.set_ime_allowed(editing);self.ime_allowed=editing;}
         let caret=self.button.text_caret_bounds();
         if caret.len()==4 {window.set_ime_cursor_area(winit::dpi::LogicalPosition::new(caret[0] as f64,caret[1] as f64),LogicalSize::new(caret[2] as f64,caret[3] as f64));}
         if !redraw {
             let binding_error = self.button.sync_ui_bindings_native().err();
+            self.observe_ime_owner();
             self.set_binding_error(binding_error);
             let started = !was_animating && self.button.is_animating();
             if started {
@@ -1031,6 +1124,7 @@ impl ApplicationHandler for App {
                 self.button.modal_action(layer)
             );
         }
+        self.update_accessibility();
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
@@ -1361,7 +1455,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .as_deref()
         .and_then(|p| std::fs::metadata(p).ok())
         .and_then(|m| Some((m.modified().ok()?, m.len())));
-    EventLoop::new()?.run_app(&mut App {
+    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event().build()?;
+    let accessibility_proxy = event_loop.create_proxy();
+    event_loop.run_app(&mut App {
         ui_backend,
         platform,
         chooser,
@@ -1370,8 +1466,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         a11y_report: String::new(),
         shift: false,
         command: false,
+        control: false,
+        alt: false,
         composing: false,
+        composition_owner: None,
+        ime_cancelled: false,
         ime_allowed: false,
+        accessibility: None,
+        accessibility_proxy: Some(accessibility_proxy),
+        accessibility_active: false,
+        accessibility_ids: Default::default(),
         window: None,
         surface: None,
         gpu: None,
@@ -1404,166 +1508,114 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-struct GpuWindow {
-    surface: wgpu::Surface<'static>,
-    renderer: forma::gpu::Renderer,
-    config: wgpu::SurfaceConfiguration,
-}
-impl GpuWindow {
-    async fn new(window: Arc<Window>) -> Result<Self, String> {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
-            Box::new(window.clone()),
-        ));
-        let surface = instance
-            .create_surface(window.clone())
-            .map_err(|e| e.to_string())?;
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                compatible_surface: Some(&surface),
-                ..Default::default()
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-        let size = window.inner_size();
-        let mut config = surface
-            .get_default_config(&adapter, size.width.max(1), size.height.max(1))
-            .ok_or("No GPU surface configuration")?;
-        // Prefer encoded-color target, matching CPU compositing exactly.
-        if let Some(format) = surface
-            .get_capabilities(&adapter)
-            .formats
-            .into_iter()
-            .find(|f| !f.is_srgb())
-        {
-            config.format = format;
-        }
-        config.present_mode = wgpu::PresentMode::Fifo;
-        let renderer = forma::gpu::Renderer::new(&adapter, config.format).await?;
-        surface.configure(&renderer.device, &config);
-        #[cfg(target_os = "macos")]
-        metal_resize::configure(&window)?;
-        println!(
-            "Renderer: GPU vector / {:?} ({}) / {}",
-            adapter.get_info().backend,
-            renderer.memory_architecture.as_str(),
-            adapter.get_info().name
-        );
-        Ok(Self {
-            surface,
-            renderer,
-            config,
-        })
-    }
-    fn draw(
-        &mut self,
-        button: &forma::Runtime,
-        window: &Window,
-    ) -> Result<Presentation, String> {
-        let size = window.inner_size();
-        if size.width == 0 || size.height == 0 {
-            return Ok(Presentation::ZeroSize);
-        }
-        if self.config.width != size.width || self.config.height != size.height {
-            self.config.width = size.width;
-            self.config.height = size.height;
-            self.surface.configure(&self.renderer.device, &self.config);
-        }
-        let mut suboptimal = false;
-        let frame = match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(frame) => frame,
-            wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
-                suboptimal = true;
-                frame
-            }
-            wgpu::CurrentSurfaceTexture::Occluded => return Ok(Presentation::Occluded),
-            wgpu::CurrentSurfaceTexture::Timeout => {
-                return Ok(Presentation::Retry);
-            }
-            wgpu::CurrentSurfaceTexture::Outdated => {
-                self.surface.configure(&self.renderer.device, &self.config);
-                return Ok(Presentation::Retry);
-            }
-            e => return Err(format!("GPU surface: {e:?}")),
-        };
-        // AppKit can resize while the next drawable is being acquired. Always
-        // address the actual target, not an earlier Window::inner_size snapshot.
-        let target_size = frame.texture.size();
-        self.renderer.draw(
-            button,
-            &frame.texture.create_view(&Default::default()),
-            target_size.width,
-            target_size.height,
-            window.scale_factor() as f32,
-            true,
-            true,
-        )?;
-        window.pre_present_notify();
-        frame.present();
-        if suboptimal {
-            self.config.width = 0;
-            window.request_redraw();
-        }
-        Ok(Presentation::Presented)
-    }
+fn standalone_observe_ime(button:&forma::Runtime,composing:&mut bool,owner:Option<(u64,i32)>,cancelled:&mut bool) {
+    if owner.is_some() && owner!=button.native_editor_session(){*composing=false;*cancelled=true;}
 }
 
-#[cfg(target_os="macos")]
-fn clipboard_read()->Result<String,std::io::Error> {
-    let output=std::process::Command::new("/usr/bin/pbpaste").output()?;
-    if !output.status.success(){return Err(std::io::Error::other("Clipboard read failed"));}
-    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+fn standalone_cancel_ime(button:&mut forma::Runtime,composing:&mut bool,owner:&mut Option<(u64,i32)>,cancelled:&mut bool) {
+    *composing=false;*owner=None;*cancelled=true;button.text_preedit("");
 }
-#[cfg(target_os="macos")]
-fn clipboard_write(text:&str)->Result<(),std::io::Error> {
-    use std::io::Write;
-    let mut child=std::process::Command::new("/usr/bin/pbcopy").stdin(std::process::Stdio::piped()).spawn()?;
-    child.stdin.take().unwrap().write_all(text.as_bytes())?;
-    if child.wait()?.success(){Ok(())}else{Err(std::io::Error::other("Clipboard write failed"))}
-}
-#[cfg(target_os="windows")]
-fn clipboard_read()->Result<String,std::io::Error> {
-    let output=std::process::Command::new("powershell")
-        .args(["-NoProfile","-NonInteractive","-Command","Get-Clipboard -Raw"])
-        .output()?;
-    if !output.status.success(){return Err(std::io::Error::other("Clipboard read failed"));}
-    let mut s=String::from_utf8_lossy(&output.stdout).into_owned();
-    if s.ends_with("\r\n"){s.truncate(s.len()-2);}else if s.ends_with('\n'){s.pop();}
-    Ok(s)
-}
-#[cfg(target_os="windows")]
-fn clipboard_write(text:&str)->Result<(),std::io::Error> {
-    use std::io::Write;
-    let mut child=std::process::Command::new("clip").stdin(std::process::Stdio::piped()).spawn()?;
-    child.stdin.take().unwrap().write_all(text.as_bytes())?;
-    if child.wait()?.success(){Ok(())}else{Err(std::io::Error::other("Clipboard write failed"))}
-}
-#[cfg(all(unix,not(target_os="macos")))]
-fn clipboard_read()->Result<String,std::io::Error> {
-    for (cmd,args) in [("wl-paste",&["--no-newline"][..]),("xclip",&["-selection","clipboard","-o"][..]),("xsel",&["--clipboard","--output"][..])] {
-        if let Ok(output)=std::process::Command::new(cmd).args(args).output() {
-            if output.status.success() {
-                return Ok(String::from_utf8_lossy(&output.stdout).into_owned());
+
+fn standalone_ime_event(button:&mut forma::Runtime,composing:&mut bool,composition_owner:&mut Option<(u64,i32)>,ime_cancelled:&mut bool,event:winit::event::Ime) {
+        use winit::event::Ime;
+        standalone_observe_ime(button,composing,*composition_owner,ime_cancelled);
+        match event {
+            Ime::Enabled=>{*composing=false;*ime_cancelled=false;*composition_owner=None;}
+            Ime::Disabled=>{*composing=false;*ime_cancelled=true;*composition_owner=None;button.text_preedit("");}
+            Ime::Preedit(text,_)=>{
+                if !text.is_empty() {
+                    *composition_owner=button.native_editor_session();
+                    *ime_cancelled=false;
+                }
+                *composing=!text.is_empty();
+                if composition_owner.is_none() || *composition_owner==button.native_editor_session(){button.text_preedit(&text);}
             }
-        }
-    }
-    Err(std::io::Error::other("Native clipboard adapter unavailable"))
-}
-#[cfg(all(unix,not(target_os="macos")))]
-fn clipboard_write(text:&str)->Result<(),std::io::Error> {
-    use std::io::Write;
-    for (cmd,args) in [("wl-copy",&[][..]),("xclip",&["-selection","clipboard"][..]),("xsel",&["--clipboard","--input"][..])] {
-        if let Ok(mut child)=std::process::Command::new(cmd).args(args).stdin(std::process::Stdio::piped()).spawn() {
-            if let Some(mut stdin)=child.stdin.take() {
-                if stdin.write_all(text.as_bytes()).is_ok() {
-                    drop(stdin);
-                    if child.wait().is_ok_and(|s|s.success()) { return Ok(()); }
+            Ime::Commit(text)=>{
+                *composing=false;
+                let owner=composition_owner.take();
+                if !*ime_cancelled && (owner.is_none() || owner==button.native_editor_session()) {
+                    if text.is_empty(){button.text_preedit("");}else{button.text_insert(&text);}
                 }
             }
         }
     }
-    Err(std::io::Error::other("Native clipboard adapter unavailable"))
+
+
+#[cfg(test)]
+mod standalone_ime_tests {
+    use super::standalone_ime_event;
+    use winit::event::Ime;
+    fn runtime()->forma::Runtime {
+        forma::Runtime::from_sources("component App { Frame { width:240; height:100; Button { key:'first'; } Button { key:'second'; } } }","component Button { Rectangle { ContentInput { value:'seed'; width:200; height:32; } PointerArea { clicked -> events.clicked(); } } }").unwrap()
+    }
+    #[test]
+    fn standalone_ime_rejects_retired_owner_and_allows_fresh_preedit() {
+        let mut rt=runtime();rt.focus_control(0);
+        let(mut composing,mut owner,mut cancelled)=(false,None,false);
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("old".into(),None));
+        rt.focus_control(1);
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("wrong".into()));
+        assert_eq!(rt.text_value(0),"seed");assert_eq!(rt.text_value(1),"seed");
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("fresh".into(),None));
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("".into(),None));
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("fresh".into()));
+        assert!(rt.text_value(1).contains("fresh"));assert_eq!(rt.text_value(0),"seed");
+    }
+    #[test]
+    fn standalone_ime_binding_sync_retires_rebuilt_session_but_not_idle_session() {
+        let files=std::collections::BTreeMap::from([("App.ui".into(),"component App { state a: String = 'first'; state b: String = 'second'; Column { width:240; height:140; TextInput { key:'a'; width:200; height:32; value <-> state.a; } TextInput { key:'b'; width:200; height:32; value <-> state.b; } } }".into())]);
+        for svet in [false,true] {
+            let mut rt=forma::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+            rt.set_svet_document_scheduling(svet);
+            rt.sync_ui_bindings_native().unwrap();rt.focus_control(0);rt.text_key("End",false,false);
+            let(mut composing,mut owner,mut cancelled)=(false,None,false);
+            standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("pending".into(),None));
+            let original=owner;
+            assert!(!rt.sync_ui_bindings_native().unwrap());assert_eq!(rt.native_editor_session(),original);
+            super::standalone_observe_ime(&rt,&mut composing,owner,&mut cancelled);assert!(composing);assert!(!cancelled);
+            // A sibling binding causes scene reconstruction while preserving focus/key.
+            rt.set_binding_value(1,"updated",false).unwrap();assert!(rt.sync_ui_bindings_native().unwrap());
+            assert_ne!(rt.native_editor_session(),original);assert_eq!(rt.focused_index(),0);
+            super::standalone_observe_ime(&rt,&mut composing,owner,&mut cancelled);assert!(!composing);assert!(cancelled);
+            for text in ["late","again"] {standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit(text.into()));}
+            assert_eq!(rt.text_value(0),"first");assert_eq!(rt.text_value(1),"updated");
+            standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("new".into(),None));
+            standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("新".into()));
+            rt.sync_ui_bindings_native().unwrap();
+            assert_eq!(rt.text_value(0),"first新");assert_eq!(rt.text_value(1),"updated");
+            assert!(rt.ui_state_json().contains("first新"));assert!(!rt.ui_state_json().contains("late"));
+        }
+    }
+    #[test]
+    fn standalone_navigation_cancellation_survives_empty_preedit_and_late_commits() {
+        let mut rt=runtime();rt.focus_control(0);
+        let(mut composing,mut owner,mut cancelled)=(false,None,false);
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("pending".into(),None));
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("".into(),None));
+        assert!(!composing);assert!(owner.is_some());
+        super::standalone_cancel_ime(&mut rt,&mut composing,&mut owner,&mut cancelled);
+        for text in ["late","again"] {standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit(text.into()));}
+        assert_eq!(rt.text_value(0),"seed");assert_eq!(rt.text_value(1),"seed");
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("new".into(),None));
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("new".into()));
+        assert!(rt.text_value(0).contains("new"));
+    }
+    #[test]
+    fn standalone_ime_rejects_replacement_and_disabled_commit() {
+        let mut rt=runtime();rt.focus_control(0);
+        let(mut composing,mut owner,mut cancelled)=(false,None,false);
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("old".into(),None));
+        rt=runtime();rt.focus_control(0);
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("wrong".into()));
+        assert_eq!(rt.text_value(0),"seed");
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Disabled);
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("late".into()));
+        assert_eq!(rt.text_value(0),"seed");
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Enabled);
+        rt.text_key("a",false,true);
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("".into()));
+        assert_eq!(rt.text_value(0),"seed");assert_eq!(rt.text_selected(),"seed");
+        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("direct".into()));
+        assert_eq!(rt.text_value(0),"direct");
+    }
 }
-#[cfg(not(any(unix,target_os="windows")))]
-fn clipboard_read()->Result<String,std::io::Error> {Err(std::io::Error::other("Native clipboard adapter unavailable"))}
-#[cfg(not(any(unix,target_os="windows")))]
-fn clipboard_write(_: &str)->Result<(),std::io::Error> {Err(std::io::Error::other("Native clipboard adapter unavailable"))}

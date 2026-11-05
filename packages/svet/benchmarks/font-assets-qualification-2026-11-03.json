@@ -1,0 +1,21 @@
+{
+  "status": "partial",
+  "scope": "Unmodified portable fallback font assets and ttf-parser outline qualification",
+  "revision": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+  "font_bytes": 19754896,
+  "validation": {
+    "sample_scalars": 11,
+    "weight": 400,
+    "glyph_lookup": "passed",
+    "positive_advances": "passed",
+    "nonempty_vector_contours": "passed",
+    "download_hashes": "verified"
+  },
+  "limits": [
+    "Not yet used by production renderer",
+    "No full CJK language/emoji sequence qualification",
+    "No CPU/GPU/native/WASM visual integration qualification",
+    "Default package size unchanged; integration size/startup cost pending"
+  ],
+  "provenance": "vector-ui/assets/fallback/PROVENANCE.json"
+}

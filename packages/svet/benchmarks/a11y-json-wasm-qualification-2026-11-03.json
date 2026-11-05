@@ -1,0 +1,14 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 34,
+  "oracle": "JavaScript JSON.parse exact roundtrip all32 C0 controls, quote, backslash and emoji in value/label; focusedId relationship",
+  "sha256": {
+    "vector-ui/src/runtime.rs": "081a3c16b2eb35581790fcf6df190041b48fc5beda6db406b1e120330c050eef",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "68ac4783813cd92c4c1e818b0295b04072ec4184e51965e0e1b38452ba2ec028",
+    "/tmp/svet-a11y-json-wasm/node/forma_bg.wasm": "c747f035dc87f3784e8dba115b03cb78d6fe11f92376adbc5da893fe8bd17a8e"
+  },
+  "limits": [
+    "Node WASM execution; no fresh browser/screen-reader claim",
+    "Snapshot serialization performance unqualified"
+  ]
+}

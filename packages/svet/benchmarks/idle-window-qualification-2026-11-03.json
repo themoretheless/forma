@@ -1,0 +1,28 @@
+{
+  "status": "partial",
+  "validated": "Actual macOS8-editor NativeHost; test-only F9 injects backend loss at about_to_wait, services health without requesting GPU redraw, CPU fallback then exact Unicode binding edit; untouched rows preserved",
+  "build": "debug, native-test-hooks; ordinary builds omit F9 and pending injection field",
+  "fault": {
+    "event": "gpu_error",
+    "error": "Idle GPU completion: GPU device lost: Unknown: injected NativeHost device loss (test hook)"
+  },
+  "journal_records": 1463,
+  "final_model_exact": true,
+  "unrelated_rows_exact": true,
+  "gpu_presents_after_fault": 0,
+  "cpu_presents_after_fault": 844,
+  "binary_sha256": "5d4cc645a7617dd57d8a6602f29bc8cf86e0c59127e62d4f2c8629dfd63c41a4",
+  "source_sha256": "1fcaa1058d63d00f4bf5f04676cf2cce6054751293ec00c49b62241221e92f2a",
+  "limits": [
+    "Injected logical backend loss, not physical device removal or GPU OOM",
+    "One macOS debug run; no OS latency/RSS/performance qualification",
+    "Forced occlusion during pending completion not exercised in this window run",
+    "Fully idle native removal notifications remain open"
+  ],
+  "diagnostic": "First diagnostic injected during key input and was consumed by an already-scheduled caret draw; preserved separately and not counted as idle-path proof",
+  "gates": {
+    "ordinary_native_lib_passed": 218,
+    "hook_native_lib_passed": 218,
+    "ignored_per_run": 3
+  }
+}

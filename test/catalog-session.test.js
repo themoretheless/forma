@@ -112,6 +112,9 @@ test('catalog export captures the current session and keeps every section reacha
       assert.equal(model.control_count(),all.length);
       assert.equal(model.active_modal(),0);
       model.scroll(0,1_000_000);
+      assert.equal(model.scroll_offset()[1],0,'active modal blocks background scroll');
+      model.close_modal(0);
+      model.scroll(0,1_000_000);
       assert.ok(model.scroll_offset()[1]>0);
       const [,y,,height]=model.control_bounds(model.control_count()-1);
       assert.ok(y>=0&&y+height<=780,'the layer stays inside the window while sections scroll');

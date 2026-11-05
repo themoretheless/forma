@@ -1,0 +1,47 @@
+{
+  "status": "partial",
+  "hardware_offscreen": {
+    "adapter": {
+      "test": "profiled-renderer",
+      "name": "Apple M4 Max",
+      "vendor": 4203,
+      "device": 1,
+      "device_type": "IntegratedGpu",
+      "backend": "Metal",
+      "driver": "Metal Direct Native Runtime",
+      "driver_info": "ASD + UMA + dUMA Accelerated"
+    },
+    "profiled_renderer": "passed",
+    "reveal_agreement": {
+      "comparisons": 126,
+      "max_channel_error": 1,
+      "channel_error_budget": 2,
+      "scale_factors": [
+        1.0,
+        1.25,
+        2.0
+      ]
+    }
+  },
+  "native_window": {
+    "host": "macOS CPU softbuffer NativeHost",
+    "fixture": "two bound TextInputs plus summary",
+    "final_model": {
+      "first": "first edited",
+      "second": "COW 你好 мир🙂"
+    },
+    "actions": [
+      "paste mixed Unicode to second",
+      "Shift+Tab and paste first",
+      "first changes while second retained",
+      "close probe"
+    ],
+    "binary_sha256": "e8189f82db6113375ad6c6d1bdcfb2d0c5f216cbda5f14451d16e88cc75e25df"
+  },
+  "limits": [
+    "Two-field OS fixture does not qualify256-control OS scrolling/culling",
+    "Hardware tests are offscreen, not GPU window presentation",
+    "NativeHost F7 currently changes profile/title/frame bar; actual native GPU backend transition remains unimplemented",
+    "CJK IME separate from paste"
+  ]
+}

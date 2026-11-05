@@ -1,0 +1,28 @@
+{
+  "status": "partial",
+  "change": "Explicit cancelled-session barrier; empty preedit cannot reopen a retired session; new nonempty preedit or Enabled reopens input",
+  "validation": {
+    "passed": 211,
+    "ignored_gpu": 2,
+    "cancel_causes": [
+      "Escape",
+      "Tab",
+      "blur/refocus",
+      "pointer focus change"
+    ],
+    "cases": [
+      "empty preedit preserves cancellation",
+      "repeated late commits refused",
+      "new nonempty preedit commits normally",
+      "Disabled blocks commits",
+      "Enabled then empty-preedit/direct commit accepted"
+    ]
+  },
+  "contract_source": "Installed winit0.30.13 src/event.rs Ime docs: empty Preedit precedes Commit; Disabled ends events until Enabled",
+  "source_sha256": "908ac7cbb72118fd2a6b408b3acc759429caae48297a8cd61868ca4d0116395f",
+  "limits": [
+    "Actual OS CJK ordering unqualified",
+    "After cancellation no-preedit commit without new Enabled is refused; test real IMEs/emoji workflows",
+    "Events have no OS session id; delayed old commits after a new session starts cannot be distinguished"
+  ]
+}

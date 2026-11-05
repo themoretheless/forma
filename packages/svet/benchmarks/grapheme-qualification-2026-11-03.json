@@ -1,0 +1,47 @@
+{
+  "status": "partial",
+  "implementation": "Explicit grapheme-aware TextEdit APIs and UI default navigation/deletion/insertion/hit-testing using unicode-segmentation1.13.3. Existing scalar APIs and UTF-8 byte offset model remain; live binding caret aligns to grapheme boundary",
+  "gates": {
+    "native_lib_passed": 220,
+    "native_lib_ignored": 3,
+    "grapheme_integration_passed": 4,
+    "allocation_tests_passed": 17,
+    "fresh_wasm_node_passed": 21,
+    "native_window": "Actual macOS8 editor GPU/CPU deletion/selection/undo of ZWJ family,combining cluster,flag and skin-tone emoji; exact model and untouched7 rows;0 GPU errors",
+    "wasm_compile": "passed",
+    "native_all_targets": "passed"
+  },
+  "cases": [
+    "Combining marks",
+    "Emoji skin tone",
+    "ZWJ family",
+    "Regional-indicator flag",
+    "Variation-selector keycap",
+    "Hangul Jamo cluster",
+    "Indic conjunct",
+    "CRLF multiline model",
+    "Partial scalar selections and insertion joining suffix",
+    "Binding replacement caret alignment"
+  ],
+  "source_sha256": {
+    "vector-ui/src/control_state.rs": "f13ba0f2f1b47bfec4efe9e92db45c979b1dd357885662ef845947b41e1aa81d",
+    "vector-ui/src/text_input.rs": "a538432ef53b5782ae1c76b3b80ab50dd6957269d24692026fc4afded4551e85",
+    "vector-ui/src/text.rs": "ea6784c9b4d04595220848bb625512ddf693fea0345263a7bca41ecab00fcbcb",
+    "vector-ui/src/runtime.rs": "a50d102ebdbcf276864e291fd756111db0d2e9fcaa245b58a245172f427834ea",
+    "vector-ui/tests/grapheme_edit.rs": "35bb2377666c09d1e932dc957bfcca0352f5f0692b837f92e11321129e42fb5a",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "8994d67c6a8c98c64b5e9f165dea1c8b47338397cd5a4fcd56262d220865055b",
+    "vector-ui/Cargo.toml": "9b7995ae1d3aad5531f4c8a6b9d3e1281a4b38122d7a929f6a3f3329f4507518",
+    "vector-ui/Cargo.lock": "17b23ae9733ca994ad415ef0d5bbb9d4ca9ad710fbbc52fa6ef4dd1ccac19195"
+  },
+  "native_binary_sha256": "4a961bdc10d923ba074d8c78ad2ac24fbf1a4a87e06b88e340eccbc09f1ff42f",
+  "wasm_sha256": "7806f3a2b70448d172616fa85cd21aa97d4a79b8a35d636e24a43f41175ae19e",
+  "references": [
+    "https://docs.rs/unicode-segmentation/1.13.3/unicode_segmentation/"
+  ],
+  "limits": [
+    "Logical grapheme editing, not full shaping/BiDi/ZWJ/color emoji rendering qualification",
+    "Actual CJK marked-text IME and browser DOM input path remain open",
+    "One native debug run; no latency/RSS/performance claim",
+    "Programmatic scalar TextEdit API still permits scalar-boundary selections by design"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "status": "passed-scoped",
+  "nativeTestsPassed": 318,
+  "ignored": 9,
+  "adapterTests": 44,
+  "wasmCompile": "passed",
+  "coverage": [
+    "20 repeated resize/sync calls fetch value/selection once",
+    "Changed semantic epoch refreshes cached mirror",
+    "Blink/preedit do not advance epoch",
+    "Selection/edit/binding replacement advance epoch",
+    "Fallback for old Runtime without epoch getter"
+  ],
+  "sha256": {
+    "vector-ui/src/text_input.rs": "ff8ce0daf0a02296ae81564ffa1c490b12879411ee0793855f682285cde330eb",
+    "vector-ui/src/runtime.rs": "38b0d5a248a8f4ffe8b2be8ecf44a65916b64e96d4f658e1c67148c69c65ca6e",
+    "src/vector-preview.js": "8910fbd441474b0c358c58379c9fd99a58bc05d283e6d435a16de4bce2e6e477",
+    "test/vector-preview.test.js": "9490fb3d216210f8a6202a363d5cb995eaa3e2d9b89e18d37b9a62f5b05016ea",
+    "vector-ui/tests/line_edit.rs": "b8892188684527f6a9cee23c506b932f557482fc9d347af740bb2ed1dc91563e"
+  },
+  "limits": [
+    "Call-count optimization, not latency/RSS benchmark",
+    "Fresh WASM/browser cache integration pending"
+  ]
+}

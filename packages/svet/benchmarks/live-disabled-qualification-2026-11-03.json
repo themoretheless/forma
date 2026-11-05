@@ -1,0 +1,43 @@
+{
+  "status": "partial",
+  "scope": "Live state-bound TextInput disabled on/off without project reload",
+  "validation": {
+    "rust_passed": 207,
+    "gpu_ignored": 2,
+    "node_wasm_cases": 9,
+    "chromium_cases": 12,
+    "native_schedulers": [
+      "legacy",
+      "Svet"
+    ],
+    "checks": [
+      "locked editor rejects focus and insert",
+      "committed value survives lock",
+      "preedit not committed",
+      "unlock edits same retained model",
+      "a11y actions empty while disabled"
+    ]
+  },
+  "source_hashes": {
+    "vector-ui/src/runtime.rs": "b163e545e999cc56f4eb434a8c454727452102b738be1718b9c2e2f079ce7667",
+    "vector-ui/src/form_document.rs": "d56b6d1cd576b248247e634344d7405c91ea97878989856059674273e46a0f10",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "603ef8099b4a39050557e7f198b0d022b3371a4a9fc9d724691d5e10e8a41ebe",
+    "vector-ui/tests/scene-artifact-browser.html": "f7ce5aef3d6bb9c43a84eb68cf8fe5198ccdd07678d0e46c0d5be251f2677d47"
+  },
+  "generated_hashes": {
+    "web/index.html": "f7ce5aef3d6bb9c43a84eb68cf8fe5198ccdd07678d0e46c0d5be251f2677d47",
+    "web/forma_bg.wasm": "9e94a7396d378e09ed2751f9d352650d859ec1880aa7051ad5e9ce450eae2b72",
+    "web/forma.js": "33daa0000a7a6d849c49378de03ee9432e365a6b927231c3b33ad36f4c8bff93",
+    "web/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "web/forma.d.ts": "f246d204a6646e9df6db8dd731e423092b5bd77ad042ad8fe190b4fe4ef06b73",
+    "node/forma_bg.wasm": "9e94a7396d378e09ed2751f9d352650d859ec1880aa7051ad5e9ce450eae2b72",
+    "node/forma.js": "79eb0f95791d9e47a506a0b335dd0b51f6cee99ec84cee1b3fb78df687fbf9a4",
+    "node/forma_bg.wasm.d.ts": "538ab2042303b4dec4d1e2495e82364e6cc45bac23b36f02537381f170bf276d",
+    "node/forma.d.ts": "e0dc4440c67de3b31cea1d0cf8f8162b95d7122b26eaf0e2bac4315675d208fc"
+  },
+  "limits": [
+    "Programmatic WASM input; not trusted DOM routes",
+    "Accessibility tree, not OS screen reader",
+    "No CJK OS IME or disabled theme qualification"
+  ]
+}

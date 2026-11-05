@@ -1,0 +1,32 @@
+{
+  "status": "passed-scoped",
+  "hardware": "Apple M4 Max",
+  "backend": "Metal Direct Native Runtime",
+  "explicitRendererTests": 6,
+  "retainedRevealTests": 2,
+  "reveal": {
+    "comparisons": 126,
+    "maxChannelError": 1,
+    "budget": 2,
+    "scales": [
+      1,
+      1.25,
+      2
+    ]
+  },
+  "idleHealth": "Queue drain without draw passed",
+  "faultLatch": "Synthetic encoder validation delivered, first error retained, submission blocked",
+  "sha256": {
+    "vector-ui/src/gpu.rs": "6f87a66d8fd6985d34784c3ea7c49ded240a343db834f0d80ab016ddf24a13a4",
+    "vector-ui/src/reveal.rs": "2889130c06d19fe752ec7990ef70fe291dcfe5a71f0aebf2c514233a94688e77",
+    "vector-ui/src/text_input.rs": "5ac6fdfc2d0d82f3d4091e68f73fd205aecc496234c1896feed8a6fbc2aab10c",
+    "vector-ui/src/runtime.rs": "4be82038ee107faefdcb0d7db07a459abfb13573cce5d8d63a379e4b117f88dd",
+    "vector-ui/tests/runtime_gpu.rs": "930143b81cb7f7511a7973c2ff607f2e1d1470bac4603c2e44d67b19fcbdcd1c",
+    "crates/gpu-runtime/src/metal.rs": "b7f30bf263c6b5f4a09c9cb03fc53f50d16c0b695c7346cedaa6cbabae883190"
+  },
+  "limits": [
+    "Physical device removal/OOM/hang not tested",
+    "No input-to-display latency, RSS, energy or cross-platform qualification",
+    "Ignored font flattening probe not run"
+  ]
+}

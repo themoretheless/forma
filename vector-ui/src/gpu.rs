@@ -148,6 +148,17 @@ fn storage_capacity(required: u64, current: u64, limit: u64) -> Result<u64, Stri
         .min(limit))
 }
 
+// Preserve the first actionable failure; teardown/device-loss callbacks must
+// not overwrite the original validation diagnostic.
+fn record_gpu_fault(fault: &std::sync::Mutex<Option<String>>, error: String) {
+    let mut stored=fault.lock().unwrap_or_else(|poisoned|poisoned.into_inner());
+    if stored.is_none() { *stored=Some(error); }
+}
+fn check_gpu_fault(fault: &std::sync::Mutex<Option<String>>) -> Result<(),String> {
+    let stored=fault.lock().map_err(|_|"GPU fault state poisoned".to_owned())?;
+    match stored.as_ref() { Some(error)=>Err(error.clone()),None=>Ok(()) }
+}
+
 pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -210,12 +221,15 @@ impl Renderer {
         let fault = std::sync::Arc::new(std::sync::Mutex::new(None));
         let errors = fault.clone();
         device.on_uncaptured_error(std::sync::Arc::new(move |error| {
-            *errors.lock().unwrap() = Some(format!("GPU validation/device error: {error}"));
+            record_gpu_fault(&errors,format!("GPU validation/device error: {error}"));
         }));
         let lost = fault.clone();
         device.set_device_lost_callback(move |reason, message| {
-            *lost.lock().unwrap() = Some(format!("GPU device lost: {reason:?}: {message}"));
+            record_gpu_fault(&lost,format!("GPU device lost: {reason:?}: {message}"));
         });
+        // Late registration can immediately deliver an already-lost backend.
+        // Refuse setup before creating more device resources in that case.
+        check_gpu_fault(&fault)?;
         let validation = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Forma vector"),
@@ -418,6 +432,14 @@ impl Renderer {
         timing.pending = false;
         Ok(timestamp_duration_ns(begin, end, timing.period_ns))
     }
+    /// Report a latched renderer fault before configuring/acquiring a surface.
+    /// Hosts should leave the GPU path when this fails, even if acquisition
+    /// would otherwise only produce transient timeouts.
+    pub fn check_health(&self) -> Result<(),String> {
+        self.device.poll(wgpu::PollType::Poll).map_err(|e|format!("GPU health poll: {e:?}"))?;
+        check_gpu_fault(&self.fault)
+    }
+
     pub fn draw(
         &mut self,
         model: &impl RenderScene,
@@ -428,9 +450,7 @@ impl Renderer {
         background: bool,
         opaque: bool,
     ) -> Result<(), String> {
-        if let Some(error) = self.fault.lock().unwrap().clone() {
-            return Err(error);
-        }
+        self.check_health()?;
         if width == 0
             || height == 0
             || width > 8192
@@ -671,6 +691,10 @@ mod tests {
         pollster::block_on(async {
             let instance = wgpu::Instance::default();
             let adapter = instance.request_adapter(&Default::default()).await.unwrap();
+            let adapter_info = adapter.get_info();
+            assert_ne!(adapter_info.device_type, wgpu::DeviceType::Cpu, "hardware test cannot qualify a CPU adapter");
+            eprintln!("GPU_TEST_ADAPTER {}", serde_json::json!({"test":"profiled-renderer","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
+                "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info}));
             let mut renderer = Renderer::new_profiled(&adapter, wgpu::TextureFormat::Rgba8Unorm)
                 .await
                 .unwrap();
@@ -929,6 +953,36 @@ mod tests {
                 .device
                 .poll(wgpu::PollType::wait_indefinitely())
                 .unwrap();
+            // Completion service must not require another draw/present.
+            let frames_before_idle=renderer.frames;
+            renderer.device.poll(wgpu::PollType::Wait {submission_index:None,timeout:None}).unwrap();
+            assert!(renderer.device.is_queue_idle());
+            for _ in 0..3 {renderer.check_health().unwrap();}
+            assert_eq!(renderer.frames,frames_before_idle);
+            eprintln!("GPU_IDLE_COMPLETION_RESULT queue_drained=true health_without_draw=true");
+            // An invalid compute dispatch reaches the Device handler through
+            // CommandEncoder; no invalid commands are submitted to hardware.
+            let frames_before_fault=renderer.frames;
+            let uploads_before_fault=renderer.resource_stats().uploaded_bytes_total;
+            let mut invalid_encoder=renderer.device.create_command_encoder(&Default::default());
+            {
+                let mut pass=invalid_encoder.begin_compute_pass(&Default::default());
+                pass.dispatch_workgroups(1,1,1);
+            }
+            drop(invalid_encoder);
+            let first_error=renderer.check_health().unwrap_err();
+            assert!(first_error.contains("without an active ComputePipeline"));
+            // Device-level descriptor validation follows the same handler and
+            // cannot replace the first actionable cause in the renderer latch.
+            let invalid_buffer=renderer.device.create_buffer(&wgpu::BufferDescriptor {
+                label:Some("validation delivery probe"),size:4,usage:wgpu::BufferUsages::empty(),mapped_at_creation:false,
+            });
+            drop(invalid_buffer);
+            assert_eq!(renderer.check_health().unwrap_err(),first_error);
+            assert_eq!(renderer.draw(&model,&target,96,64,1.,true,true).unwrap_err(),first_error);
+            assert_eq!(renderer.frames,frames_before_fault);
+            assert_eq!(renderer.resource_stats().uploaded_bytes_total,uploads_before_fault);
+            eprintln!("GPU_FAULT_LATCH_RESULT encoder_validation_delivered=true first_error_preserved=true submission_blocked=true");
             println!(
                 "GPU profiling smoke: {stats:?}; allocator={:?}",
                 renderer.backend_allocator_stats()

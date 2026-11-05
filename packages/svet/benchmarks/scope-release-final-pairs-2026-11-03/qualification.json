@@ -1,0 +1,447 @@
+{
+  "status": "partial",
+  "adapter": "Apple M4 Max",
+  "backend": "Metal",
+  "protocol": "Baseline A/A +4 pairs, AB/BA/AB/BA;12 measured samples/group/process after4 warmups;1MiB exact clear output each operation",
+  "performance_gate": "inconclusive: inspect baseline A/A control stability; observed ratios are diagnostic",
+  "p95_note": "Nearest-rank p95 for12 samples is the maximum; no tail-latency qualification",
+  "rows": [
+    {
+      "scopes": 1,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.5232604999999999,
+          "candidate_ms": 0.13613550000000002,
+          "paired_ratio": 0.2687345655937827,
+          "raw_pair_ratios": [
+            0.2417324724833754,
+            0.30612367456732936,
+            0.2494601659279464,
+            0.288008965259619
+          ],
+          "baseline_aa_ratio": 2.0720715797843825
+        },
+        "total_ms": {
+          "baseline_ms": 0.5346455000000001,
+          "candidate_ms": 0.1504165,
+          "paired_ratio": 0.29702360352490076,
+          "raw_pair_ratios": [
+            0.24933665471481392,
+            0.32301143654114367,
+            0.28420372333418503,
+            0.30984348371561654
+          ],
+          "baseline_aa_ratio": 2.152076229606568
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.9611875000000001,
+          "candidate_ms": 0.21518750000000003,
+          "paired_ratio": 0.2240174599068409,
+          "raw_pair_ratios": [
+            0.1498457039429614,
+            0.17541430568727534,
+            0.30459736054922537,
+            0.2726206141264065
+          ],
+          "baseline_aa_ratio": 2.310962240191043
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.970583,
+          "candidate_ms": 0.2252085,
+          "paired_ratio": 0.23212488851563728,
+          "raw_pair_ratios": [
+            0.16577868020304568,
+            0.1881208763078143,
+            0.37027422680412364,
+            0.27612890072346025
+          ],
+          "baseline_aa_ratio": 2.341980396879937
+        }
+      }
+    },
+    {
+      "scopes": 1,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.13092725,
+          "candidate_ms": 0.130354,
+          "paired_ratio": 0.9955987930768452,
+          "raw_pair_ratios": [
+            0.9034675323282412,
+            1.0305519156370897,
+            0.9905665082269715,
+            1.000631077926719
+          ],
+          "baseline_aa_ratio": 1.6560461586894544
+        },
+        "total_ms": {
+          "baseline_ms": 0.14210425000000002,
+          "candidate_ms": 0.14104224999999998,
+          "paired_ratio": 1.0083574535386903,
+          "raw_pair_ratios": [
+            0.8722940596887507,
+            1.0328803652968033,
+            1.0410199203187251,
+            0.9838345417805776
+          ],
+          "baseline_aa_ratio": 1.6619804690540079
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.18004199999999998,
+          "candidate_ms": 0.20947900000000003,
+          "paired_ratio": 1.0388103050001138,
+          "raw_pair_ratios": [
+            0.9752128688775785,
+            1.102407741122649,
+            0.6280740508315029,
+            1.3312642143935516
+          ],
+          "baseline_aa_ratio": 4.182709715994021
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.198917,
+          "candidate_ms": 0.219646,
+          "paired_ratio": 0.9936404109560464,
+          "raw_pair_ratios": [
+            0.8770385604113109,
+            1.1102422615007819,
+            0.6596651445966515,
+            1.302744681759671
+          ],
+          "baseline_aa_ratio": 4.142659672667834
+        }
+      }
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.578281,
+          "candidate_ms": 0.13388525,
+          "paired_ratio": 0.23268373379551166,
+          "raw_pair_ratios": [
+            0.24274251137091568,
+            0.22262495622010767,
+            0.25086309103168525,
+            0.2097029754027935
+          ],
+          "baseline_aa_ratio": 0.8991238823063802
+        },
+        "total_ms": {
+          "baseline_ms": 0.59142725,
+          "candidate_ms": 0.1422395,
+          "paired_ratio": 0.23849009767422222,
+          "raw_pair_ratios": [
+            0.2461186291739894,
+            0.23086156617445502,
+            0.2621914230421611,
+            0.2171549202851513
+          ],
+          "baseline_aa_ratio": 0.8801799454549415
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.970813,
+          "candidate_ms": 0.17131249999999998,
+          "paired_ratio": 0.16607025794864866,
+          "raw_pair_ratios": [
+            0.07336742600084231,
+            0.16122766122766125,
+            0.1709128546696361,
+            0.24095827401385866
+          ],
+          "baseline_aa_ratio": 1.0034379721072413
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.9795205,
+          "candidate_ms": 0.1942505,
+          "paired_ratio": 0.18794851838720672,
+          "raw_pair_ratios": [
+            0.07508296782743183,
+            0.16595649409200483,
+            0.20994054268240864,
+            0.24693054670574743
+          ],
+          "baseline_aa_ratio": 1.0387784751222076
+        }
+      }
+    },
+    {
+      "scopes": 8,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.13594775,
+          "candidate_ms": 0.12715625000000003,
+          "paired_ratio": 0.936961553722566,
+          "raw_pair_ratios": [
+            0.7508701929701589,
+            0.900555832297046,
+            1.0237620396600564,
+            0.9733672751480859
+          ],
+          "baseline_aa_ratio": 0.5616036128131903
+        },
+        "total_ms": {
+          "baseline_ms": 0.150729,
+          "candidate_ms": 0.1348335,
+          "paired_ratio": 0.9036485978969045,
+          "raw_pair_ratios": [
+            0.7177007600457813,
+            0.8402274716770484,
+            1.05664687230551,
+            0.9670697241167607
+          ],
+          "baseline_aa_ratio": 0.5663715583027185
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.16991699999999998,
+          "candidate_ms": 0.16210449999999998,
+          "paired_ratio": 0.9494633952785754,
+          "raw_pair_ratios": [
+            0.41173256584426,
+            0.9208869621713659,
+            0.9780398283857848,
+            1.1109473420748919
+          ],
+          "baseline_aa_ratio": 0.4456681723595391
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.19056250000000002,
+          "candidate_ms": 0.181521,
+          "paired_ratio": 0.9182046483891292,
+          "raw_pair_ratios": [
+            0.37844373333333337,
+            0.824563593416934,
+            1.106802520352016,
+            1.0118457033613244
+          ],
+          "baseline_aa_ratio": 0.6545507102530717
+        }
+      }
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.55276075,
+          "candidate_ms": 0.12947925,
+          "paired_ratio": 0.22967175435877096,
+          "raw_pair_ratios": [
+            0.24884772823484125,
+            0.23097222492952507,
+            0.2134010152284264,
+            0.22837128378801685
+          ],
+          "baseline_aa_ratio": 1.0448177329474748
+        },
+        "total_ms": {
+          "baseline_ms": 0.5676355,
+          "candidate_ms": 0.14092700000000002,
+          "paired_ratio": 0.24228703851764044,
+          "raw_pair_ratios": [
+            0.25868531679183654,
+            0.24216771316133123,
+            0.2289320554441262,
+            0.24240636387394968
+          ],
+          "baseline_aa_ratio": 0.8861572253782873
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.9652915,
+          "candidate_ms": 0.199187,
+          "paired_ratio": 0.20635706128073378,
+          "raw_pair_ratios": [
+            0.21663983179564167,
+            0.19607429076582591,
+            0.14911031770145788,
+            0.3232037294004014
+          ],
+          "baseline_aa_ratio": 0.8561386117506607
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.9774170000000001,
+          "candidate_ms": 0.209542,
+          "paired_ratio": 0.21441863030233282,
+          "raw_pair_ratios": [
+            0.22460333118996043,
+            0.20423392941470525,
+            0.18170638679124534,
+            0.3269407031589022
+          ],
+          "baseline_aa_ratio": 0.8556009756123175
+        }
+      }
+    },
+    {
+      "scopes": 32,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.12779175,
+          "candidate_ms": 0.12306249999999999,
+          "paired_ratio": 0.9801069131777178,
+          "raw_pair_ratios": [
+            1.028560856864654,
+            0.8996107699433709,
+            0.9941109322878221,
+            0.9661028940676134
+          ],
+          "baseline_aa_ratio": 0.3818117249154453
+        },
+        "total_ms": {
+          "baseline_ms": 0.13997925,
+          "candidate_ms": 0.13082275000000002,
+          "paired_ratio": 0.9352146630171073,
+          "raw_pair_ratios": [
+            1.0255995463187475,
+            0.8627293746575251,
+            0.9508902260672163,
+            0.9195390999669983
+          ],
+          "baseline_aa_ratio": 0.40040341512837613
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.1494165,
+          "candidate_ms": 0.182375,
+          "paired_ratio": 1.0285726957897874,
+          "raw_pair_ratios": [
+            1.0591018404907975,
+            1.6314755018952685,
+            0.9604311347571427,
+            0.9980435510887773
+          ],
+          "baseline_aa_ratio": 0.19178137582455237
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.1694375,
+          "candidate_ms": 0.20608300000000002,
+          "paired_ratio": 1.0869012952420056,
+          "raw_pair_ratios": [
+            1.0554760941366883,
+            1.4944007582672192,
+            0.9568637059724348,
+            1.118326496347323
+          ],
+          "baseline_aa_ratio": 0.23059670461568116
+        }
+      }
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": false,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.5583227500000001,
+          "candidate_ms": 0.12858325,
+          "paired_ratio": 0.23450405389989742,
+          "raw_pair_ratios": [
+            0.23917437011670079,
+            0.22983373768309406,
+            0.27483638995477055,
+            0.22312624986265248
+          ],
+          "baseline_aa_ratio": 0.9613785359634606
+        },
+        "total_ms": {
+          "baseline_ms": 0.576948,
+          "candidate_ms": 0.14170824999999998,
+          "paired_ratio": 0.24771538585355599,
+          "raw_pair_ratios": [
+            0.2518503270076123,
+            0.2435804446994997,
+            0.25202532233078234,
+            0.23893912913918344
+          ],
+          "baseline_aa_ratio": 0.8114558321798913
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.9654795,
+          "candidate_ms": 0.1852915,
+          "paired_ratio": 0.19199450517320166,
+          "raw_pair_ratios": [
+            0.21161998078536276,
+            0.1812193231723069,
+            0.20276968717409638,
+            0.14863440852400672
+          ],
+          "baseline_aa_ratio": 0.6949897313733018
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.9882285,
+          "candidate_ms": 0.19777099999999997,
+          "paired_ratio": 0.19988340865770865,
+          "raw_pair_ratios": [
+            0.2204149672425975,
+            0.19170116352275055,
+            0.20806565379266675,
+            0.1908636180549276
+          ],
+          "baseline_aa_ratio": 0.677381693167168
+        }
+      }
+    },
+    {
+      "scopes": 64,
+      "explicit_wait": true,
+      "metrics": {
+        "wait_ms": {
+          "baseline_ms": 0.13238525,
+          "candidate_ms": 0.12754174999999998,
+          "paired_ratio": 0.9699390242465159,
+          "raw_pair_ratios": [
+            1.0153257623907233,
+            1.02186917953089,
+            0.8293094808904968,
+            0.9245522861023086
+          ],
+          "baseline_aa_ratio": 0.36158542616420747
+        },
+        "total_ms": {
+          "baseline_ms": 0.147656,
+          "candidate_ms": 0.140406,
+          "paired_ratio": 0.951711299316821,
+          "raw_pair_ratios": [
+            1.000143776800894,
+            0.9908251427452545,
+            0.7654998330550916,
+            0.9125974558883875
+          ],
+          "baseline_aa_ratio": 0.36795090936398167
+        },
+        "p95_wait_ms": {
+          "baseline_ms": 0.1844165,
+          "candidate_ms": 0.192167,
+          "paired_ratio": 0.8338053055252284,
+          "raw_pair_ratios": [
+            1.5773366747550286,
+            0.8635375000000001,
+            0.8040731110504565,
+            0.787566595825206
+          ],
+          "baseline_aa_ratio": 0.39633208481045773
+        },
+        "p95_total_ms": {
+          "baseline_ms": 0.21610449999999998,
+          "candidate_ms": 0.20675,
+          "paired_ratio": 0.8535163906292363,
+          "raw_pair_ratios": [
+            1.4013986013986013,
+            0.9025952542372881,
+            0.7299926563748316,
+            0.8044375270211845
+          ],
+          "baseline_aa_ratio": 0.2906415402537544
+        }
+      }
+    }
+  ],
+  "limits": [
+    "Single machine/driver; descriptive paired CPU wall times, not universal optimization qualification",
+    "Explicit wait is an unchanged blocking control; async wait includes completion scheduling",
+    "No OS input/presentation, GPU timestamps, thread sampling, RSS or energy measurement"
+  ]
+}

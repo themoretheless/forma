@@ -1,0 +1,34 @@
+{
+  "status": "partial",
+  "unicode_version": "17.0.0",
+  "dependency": "unicode-segmentation1.13.3 (Unicode17)",
+  "reference": "https://www.unicode.org/Public/17.0.0/ucd/auxiliary/GraphemeBreakTest.txt",
+  "corpus_cases": 766,
+  "reference_clusters": 1391,
+  "scalar_cursor_offsets": 2756,
+  "partial_scalar_replacement_spans": 1990,
+  "gates": {
+    "conformance_tests_passed": 4,
+    "existing_grapheme_tests_passed": 4,
+    "production_editor_hashes_match_prior_native_wasm_snapshot": true
+  },
+  "validated": [
+    "Forward/reverse navigation and shift selection against independent boundary markers",
+    "Exact reference-cluster Backspace/Delete with undo/redo",
+    "Arbitrary scalar cursor positions snap/move using full string context",
+    "Every individual scalar selection expands to its reference cluster for replacement, preserving undo selection"
+  ],
+  "source_sha256": {
+    "vector-ui/tests/fixtures/unicode-17.0.0/GraphemeBreakTest.txt": "e2d134d2c52919bace503ebb6a551c1855fe1a1faec18478c78fff254a1793ec",
+    "vector-ui/tests/fixtures/unicode-17.0.0/LICENSE.txt": "e7a93b009565cfce55919a381437ac4db883e9da2126fa28b91d12732bc53d96",
+    "vector-ui/tests/fixtures/unicode-17.0.0/README.md": "54b2b066ff0885fd4a465a582b266173af0d1a42864df860b7f6a2f91ad73a85",
+    "vector-ui/tests/grapheme_conformance.rs": "49552a2af0a68ffa179805a4f7829a78eb175ebd0afd296905c3b040f209bd4a",
+    "vector-ui/src/control_state.rs": "f13ba0f2f1b47bfec4efe9e92db45c979b1dd357885662ef845947b41e1aa81d"
+  },
+  "limits": [
+    "Finite official test corpus, not exhaustive Unicode string coverage",
+    "Logical editing model only; shaping/BiDi/rendering/real IME/browser DOM input remain separately qualified",
+    "No production source change or new native/WASM runtime claim; prior snapshot hashes verified",
+    "No performance/latency/RSS claim"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "status": "passed-scoped",
+  "before": "Line selection deletion joined flag while retaining interior caret",
+  "fix": "Round resulting caret to full-string grapheme boundary after replacement",
+  "testsPassed": 250,
+  "ignored": 3,
+  "joinMatrix": [
+    "RI flag after separator removal",
+    "ZWJ emoji after separator removal",
+    "RI flag after CRLF selection removal"
+  ],
+  "directions": [
+    "backward",
+    "forward"
+  ],
+  "history": "Exact undo selection/value and redo caret",
+  "sha256": {
+    "vector-ui/src/control_state.rs": "0a548d173f1d8394b183ef87f0cf181193cf51f4e8c51c9650a42ee6aa615c92",
+    "vector-ui/tests/line_edit.rs": "73a7d2c4ea649940d1a6778a35635689f9487b5d37c5ec4a97467b6489c85b08"
+  },
+  "limits": [
+    "Fresh WASM/browser qualification of join fix pending"
+  ]
+}

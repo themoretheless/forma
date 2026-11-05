@@ -1,0 +1,12 @@
+{"state":{"first":"seed-A","second":"seed-B"},"focused_index":-1}
+{"state":{"first":"seed-A","second":"seed-B"},"focused_index":1}
+{"state":{"first":"seed-Ax","second":"seed-B"},"focused_index":1}
+{"state":{"first":"seed-Ax","second":"seed-B"},"focused_index":2}
+{"state":{"first":"seed-Ax","second":"seed-By"},"focused_index":2}
+{"state":{"first":"seed-Ax","second":"seed-By"},"focused_index":1}
+{"state":{"first":"seed-Axz","second":"seed-By"},"focused_index":1}
+{"state":{"first":"seed-Axz","second":"seed-By"},"focused_index":2}
+{"state":{"first":"seed-Axz","second":"seed-Byw"},"focused_index":2}
+{"state":{"first":"seed-Axz","second":"seed-Bywv"},"focused_index":2}
+{"state":{"first":"seed-Axz","second":"seed-Bywv"},"focused_index":-1}
+{"state":{"first":"seed-Axz","second":"seed-Bywv"},"focused_index":1}

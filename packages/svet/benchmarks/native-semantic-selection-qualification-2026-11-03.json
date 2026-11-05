@@ -1,0 +1,25 @@
+{
+  "status": "passed-scoped",
+  "nativeLibPassed": 228,
+  "standaloneTests": 4,
+  "integrationTests": 12,
+  "ignored": 3,
+  "wasmCompile": "passed",
+  "schemaAdditions": [
+    "multiline",
+    "selectionUtf16 (anchor/caret, original node value units)"
+  ],
+  "coverage": [
+    "CRLF original native offsets vs normalized DOM offsets",
+    "Reverse direction and emoji",
+    "Noneditor null selection"
+  ],
+  "sha256": {
+    "vector-ui/src/runtime.rs": "4be82038ee107faefdcb0d7db07a459abfb13573cce5d8d63a379e4b117f88dd",
+    "vector-ui/tests/line_edit.rs": "d56d9cf7e5a31cad03bc0dfec4ed49cee41ac6fe5ef89c77622f906955fa88cc"
+  },
+  "limits": [
+    "Actual AccessKit/OS screen-reader bridge not qualified",
+    "Fresh WASM execution of added snapshot fields pending"
+  ]
+}

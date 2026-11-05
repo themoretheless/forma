@@ -1,0 +1,24 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.61s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-7dac897e0ed79b95)
+
+running 1 test
+test text_input::animation_tests::multiline_hit_and_vertical_keys_do_not_land_inside_crlf ... FAILED
+
+failures:
+
+---- text_input::animation_tests::multiline_hit_and_vertical_keys_do_not_land_inside_crlf stdout ----
+
+thread 'text_input::animation_tests::multiline_hit_and_vertical_keys_do_not_land_inside_crlf' (23246191) panicked at src/text_input.rs:205:31:
+assertion `left == right` failed: first row right edge
+  left: 6
+ right: 5
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    text_input::animation_tests::multiline_hit_and_vertical_keys_do_not_land_inside_crlf
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 198 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `--lib`

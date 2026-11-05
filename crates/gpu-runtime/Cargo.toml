@@ -6,6 +6,7 @@ publish = false
 description = "Custom zero-copy cross-platform GPU runtime (Metal, Vulkan, DirectX 12, CUDA, OpenGL, WebGPU, RTX, ASD, UMA, dUMA)"
 
 [features]
+test-hooks = []
 default = ["wgsl", "std", "metal", "vulkan", "dx12", "cuda", "opengl", "webgpu"]
 wgsl = []
 std = []
@@ -19,3 +20,6 @@ webgpu = []
 [dependencies]
 gpu-shader = { path = "../gpu-shader", version = "0.1.0" }
 raw-window-handle = "0.6"
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+block2 = "=0.6.2"

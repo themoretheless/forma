@@ -1,0 +1,46 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-ast-contracts.test.ts (8 tests | 8 failed) 17ms
+   × refuses reversed range before construction and before HMR mutation 10ms
+   × refuses infinite range before construction and before HMR mutation 1ms
+   × refuses extra range bound before construction and before HMR mutation 1ms
+   × refuses string range bound before construction and before HMR mutation 1ms
+   × refuses invalid regex before construction and before HMR mutation 2ms
+   × refuses unsafe regex before construction and before HMR mutation 1ms
+   × refuses non-string regex before construction and before HMR mutation 0ms
+   × refuses duplicate prop before construction and before HMR mutation 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-ast-contracts.test.ts > refuses reversed range before construction and before HMR mutation
+ FAIL  tests/forma-ast-contracts.test.ts > refuses infinite range before construction and before HMR mutation
+ FAIL  tests/forma-ast-contracts.test.ts > refuses extra range bound before construction and before HMR mutation
+ FAIL  tests/forma-ast-contracts.test.ts > refuses string range bound before construction and before HMR mutation
+ FAIL  tests/forma-ast-contracts.test.ts > refuses invalid regex before construction and before HMR mutation
+ FAIL  tests/forma-ast-contracts.test.ts > refuses unsafe regex before construction and before HMR mutation
+ FAIL  tests/forma-ast-contracts.test.ts > refuses non-string regex before construction and before HMR mutation
+ FAIL  tests/forma-ast-contracts.test.ts > refuses duplicate prop before construction and before HMR mutation
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-ast-contracts.test.ts:19:40
+     17|   it(`refuses ${name} before construction and before HMR mutation`, ()…
+     18|     const ast = parseFormaSource(source); change(ast);
+     19|     expect(() => compileFormaAst(ast)).toThrow(/AST.*contract/i);
+       |                                        ^
+     20|     expect(getGraphTelemetry().nodes).toBe(0);
+     21|     const inst = compileFormaAst(parseFormaSource(source)), container …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed (8)
+   Start at  19:31:16
+   Duration  600ms (environment 73%, transform 12%, import 10%, tests 4%, worker 1%)

@@ -1,0 +1,20 @@
+{
+  "status": "passed-scoped",
+  "nodeCases": 29,
+  "browserCases": 17,
+  "coverage": [
+    "RI/ZWJ joins in both line-deletion directions",
+    "Post-join Shift+Left selects entire cluster",
+    "Undo original separator selection; redo complete result"
+  ],
+  "sha256": {
+    "vector-ui/src/control_state.rs": "0a548d173f1d8394b183ef87f0cf181193cf51f4e8c51c9650a42ee6aa615c92",
+    "vector-ui/tests/check-scene-snapshot-wasm.cjs": "e8952716ea8dea830b3876171e1c44a86a31c3faeafec57fbdd95ba6e724a6cd",
+    "vector-ui/tests/preview-word-browser.html": "f9ca66958e155afa1309332de61155d5e723a1f65c56134adbabbe10be28ba7a",
+    "/tmp/svet-line-join-wasm/web/forma_bg.wasm": "2ea7841d0cc65ec4df43c71fac82ae3753baa4ac196a541a44797306dd12ef3a"
+  },
+  "limits": [
+    "Runtime API browser tests, not trusted keyboard for join cases",
+    "Font shaping/ZWJ visual ligatures and OS IME remain open"
+  ]
+}

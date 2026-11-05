@@ -1,0 +1,30 @@
+{
+  "status": "partial",
+  "change": "Transfer Cow-owned control-local state into snapshot after expanding children; borrowed root still cloned",
+  "scenario": {
+    "control_local_records": 256,
+    "root_query": "seed"
+  },
+  "allocations": {
+    "before": 1878,
+    "after": 1105,
+    "reduction_percent": 41.16080937167199,
+    "budget": 1400
+  },
+  "validation": {
+    "passed": 214,
+    "gpu_ignored": 2,
+    "baseline_budget": "failed",
+    "control_snapshot": "local payload256 and inherited query retained"
+  },
+  "sources": {
+    "vector-ui/src/form_document.rs": "a68a7fdf0c221e2a696c62e49d05b0cd50d88938b88a7aac226825c0f868c56d",
+    "vector-ui/tests/runtime_allocations.rs": "fbcd93990e8ce0638ac7a8a4696a93f74685d72abd714927b697048f3e3f2eec"
+  },
+  "limits": [
+    "Synthetic public Document.states local payload fixture",
+    "Shared root snapshots on wide forms unchanged",
+    "Debug allocations, not latency/RSS qualification",
+    "Fresh WASM/browser qualification pending"
+  ]
+}

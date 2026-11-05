@@ -1,0 +1,44 @@
+{
+  "status": "passed",
+  "scope": "Skip AccessKit translation/publication for unchanged active semantic snapshots",
+  "allocations": [
+    {
+      "controls": 1,
+      "full": 40,
+      "unchanged": 10
+    },
+    {
+      "controls": 32,
+      "full": 774,
+      "unchanged": 196
+    },
+    {
+      "controls": 256,
+      "full": 6038,
+      "unchanged": 1540
+    }
+  ],
+  "nativeTests": {
+    "passed": 337,
+    "failed": 0,
+    "ignored": 9
+  },
+  "invalidations": [
+    "value",
+    "selection",
+    "disabled",
+    "new scene even with identical semantic data",
+    "DPR",
+    "reactivation"
+  ],
+  "sha256": {
+    "vector-ui/src/native_accessibility.rs": "a3f357b1cab43aa35b9b74c98de03b118275a3cec80101338ae32927e200cec7",
+    "vector-ui/src/native_window.rs": "e8a01341527023071f019fa1ba849ff5a62059c91ce9deb842c9966ca22dbd42",
+    "vector-ui/tests/runtime_allocations.rs": "2d4126e77bc4684d50a7b829f316d03b6ea964db99a68f02f2abd00f19fce268"
+  },
+  "limitations": [
+    "Semantic snapshot still allocates and one prior snapshot is retained",
+    "No timing/RSS/energy benefit established",
+    "No actual OS AX rerun for publication suppression; preceding actual OS evidence predates this change"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "scope": "Native direct-alias replay semantic regression matrix; same production implementation as prior allocation qualification",
+  "cases": [
+    "Direct root alias",
+    "Chained aliases",
+    "Let shadows root state field",
+    "Later Let does not retroactively change earlier alias",
+    "Repeated Let selects latest declaration",
+    "Unrelated literal Let uses general replay",
+    "Conditional collection does not acquire writable origin",
+    "All7 declaration cases preserve origin through reorder",
+    "Missing state referenced by unused Let still errors and leaves state unchanged"
+  ],
+  "validation": {
+    "libTests": 169,
+    "retainedAllocationTests": 2,
+    "runtimeAllocationTests": 9,
+    "sceneArtifactTests": 8,
+    "onlyNewTestBlocksDifferFromPriorQualifiedSource": true
+  },
+  "sourceSha256": "4111cc35eb6bc78a936dbdb0a6c8671f7f26ff569fd6936601f5e2037a5e66be",
+  "limits": [
+    "Not exhaustive property-based expression testing",
+    "No new runtime performance measurements or shipped WASM/browser/window qualification"
+  ]
+}

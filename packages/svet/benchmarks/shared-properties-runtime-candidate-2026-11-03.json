@@ -1,0 +1,549 @@
+{
+  "scope": "Warmed Runtime construction +3 binding edit/rebuild/CPU frames at1.25scale; includes created model and runtime, excludes caller source files, warmed thread caches, allocator overhead, RSS/GPU; Layout bytes measured on one thread",
+  "rows": [
+    {
+      "svet": false,
+      "controls": 8,
+      "samples": [
+        {
+          "initial_ms": 1.024167,
+          "initial_allocations": 4772,
+          "initial_requested_bytes": 10713835,
+          "initial_live_bytes": 1111079,
+          "lifetime_peak_bytes": 2142584,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 0.94675,
+              "allocations": 3316,
+              "requested_bytes": 10546728,
+              "live_bytes": 1116100,
+              "peak_bytes": 2142584
+            },
+            {
+              "ms": 0.93325,
+              "allocations": 3315,
+              "requested_bytes": 10546560,
+              "live_bytes": 1115928,
+              "peak_bytes": 2142584
+            },
+            {
+              "ms": 0.926791,
+              "allocations": 3315,
+              "requested_bytes": 10546596,
+              "live_bytes": 1115964,
+              "peak_bytes": 2142584
+            }
+          ]
+        },
+        {
+          "initial_ms": 0.9801250000000001,
+          "initial_allocations": 4772,
+          "initial_requested_bytes": 10713835,
+          "initial_live_bytes": 1111079,
+          "lifetime_peak_bytes": 2142584,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 0.940334,
+              "allocations": 3316,
+              "requested_bytes": 10546728,
+              "live_bytes": 1116100,
+              "peak_bytes": 2142584
+            },
+            {
+              "ms": 0.925167,
+              "allocations": 3315,
+              "requested_bytes": 10546560,
+              "live_bytes": 1115928,
+              "peak_bytes": 2142584
+            },
+            {
+              "ms": 0.9480419999999999,
+              "allocations": 3315,
+              "requested_bytes": 10546596,
+              "live_bytes": 1115964,
+              "peak_bytes": 2142584
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "svet": false,
+      "controls": 32,
+      "samples": [
+        {
+          "initial_ms": 2.5,
+          "initial_allocations": 13698,
+          "initial_requested_bytes": 37842040,
+          "initial_live_bytes": 1420527,
+          "lifetime_peak_bytes": 2505836,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 2.472917,
+              "allocations": 12246,
+              "requested_bytes": 37668169,
+              "live_bytes": 1425548,
+              "peak_bytes": 2505836
+            },
+            {
+              "ms": 2.495084,
+              "allocations": 12245,
+              "requested_bytes": 37668001,
+              "live_bytes": 1425376,
+              "peak_bytes": 2505836
+            },
+            {
+              "ms": 2.50525,
+              "allocations": 12245,
+              "requested_bytes": 37668037,
+              "live_bytes": 1425412,
+              "peak_bytes": 2505836
+            }
+          ]
+        },
+        {
+          "initial_ms": 2.492833,
+          "initial_allocations": 13698,
+          "initial_requested_bytes": 37842040,
+          "initial_live_bytes": 1420527,
+          "lifetime_peak_bytes": 2505836,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 2.499792,
+              "allocations": 12246,
+              "requested_bytes": 37668169,
+              "live_bytes": 1425548,
+              "peak_bytes": 2505836
+            },
+            {
+              "ms": 2.489,
+              "allocations": 12245,
+              "requested_bytes": 37668001,
+              "live_bytes": 1425376,
+              "peak_bytes": 2505836
+            },
+            {
+              "ms": 2.448875,
+              "allocations": 12245,
+              "requested_bytes": 37668037,
+              "live_bytes": 1425412,
+              "peak_bytes": 2505836
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "svet": false,
+      "controls": 96,
+      "samples": [
+        {
+          "initial_ms": 6.582167,
+          "initial_allocations": 37389,
+          "initial_requested_bytes": 110455776,
+          "initial_live_bytes": 2321263,
+          "lifetime_peak_bytes": 4208961,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 6.922833,
+              "allocations": 35949,
+              "requested_bytes": 110260593,
+              "live_bytes": 2326284,
+              "peak_bytes": 4208906
+            },
+            {
+              "ms": 6.618209,
+              "allocations": 35948,
+              "requested_bytes": 110260425,
+              "live_bytes": 2326112,
+              "peak_bytes": 4208961
+            },
+            {
+              "ms": 6.605291,
+              "allocations": 35948,
+              "requested_bytes": 110260461,
+              "live_bytes": 2326148,
+              "peak_bytes": 4208961
+            }
+          ]
+        },
+        {
+          "initial_ms": 6.615083,
+          "initial_allocations": 37389,
+          "initial_requested_bytes": 110455776,
+          "initial_live_bytes": 2321263,
+          "lifetime_peak_bytes": 4208961,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 6.639916,
+              "allocations": 35949,
+              "requested_bytes": 110260593,
+              "live_bytes": 2326284,
+              "peak_bytes": 4208906
+            },
+            {
+              "ms": 6.53475,
+              "allocations": 35948,
+              "requested_bytes": 110260425,
+              "live_bytes": 2326112,
+              "peak_bytes": 4208961
+            },
+            {
+              "ms": 6.600957999999999,
+              "allocations": 35948,
+              "requested_bytes": 110260461,
+              "live_bytes": 2326148,
+              "peak_bytes": 4208961
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "svet": false,
+      "controls": 256,
+      "samples": [
+        {
+          "initial_ms": 17.74375,
+          "initial_allocations": 96719,
+          "initial_requested_bytes": 295273787,
+          "initial_live_bytes": 6821943,
+          "lifetime_peak_bytes": 15855365,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 18.316792,
+              "allocations": 95148,
+              "requested_bytes": 295035348,
+              "live_bytes": 6826964,
+              "peak_bytes": 15855310
+            },
+            {
+              "ms": 18.806459,
+              "allocations": 95147,
+              "requested_bytes": 295035180,
+              "live_bytes": 6826792,
+              "peak_bytes": 15855365
+            },
+            {
+              "ms": 18.32725,
+              "allocations": 95147,
+              "requested_bytes": 295035216,
+              "live_bytes": 6826828,
+              "peak_bytes": 15855365
+            }
+          ]
+        },
+        {
+          "initial_ms": 17.918375,
+          "initial_allocations": 96719,
+          "initial_requested_bytes": 295273787,
+          "initial_live_bytes": 6821943,
+          "lifetime_peak_bytes": 15855365,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 17.838375,
+              "allocations": 95148,
+              "requested_bytes": 295035348,
+              "live_bytes": 6826964,
+              "peak_bytes": 15855310
+            },
+            {
+              "ms": 18.312208,
+              "allocations": 95147,
+              "requested_bytes": 295035180,
+              "live_bytes": 6826792,
+              "peak_bytes": 15855365
+            },
+            {
+              "ms": 19.039417,
+              "allocations": 95147,
+              "requested_bytes": 295035216,
+              "live_bytes": 6826828,
+              "peak_bytes": 15855365
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 8,
+      "samples": [
+        {
+          "initial_ms": 1.000625,
+          "initial_allocations": 4797,
+          "initial_requested_bytes": 10715269,
+          "initial_live_bytes": 1112388,
+          "lifetime_peak_bytes": 2143893,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 0.937709,
+              "allocations": 3320,
+              "requested_bytes": 10546861,
+              "live_bytes": 1117409,
+              "peak_bytes": 2143893
+            },
+            {
+              "ms": 0.9408329999999999,
+              "allocations": 3319,
+              "requested_bytes": 10546693,
+              "live_bytes": 1117237,
+              "peak_bytes": 2143893
+            },
+            {
+              "ms": 0.9313750000000001,
+              "allocations": 3319,
+              "requested_bytes": 10546729,
+              "live_bytes": 1117273,
+              "peak_bytes": 2143893
+            }
+          ]
+        },
+        {
+          "initial_ms": 0.9816250000000001,
+          "initial_allocations": 4797,
+          "initial_requested_bytes": 10715269,
+          "initial_live_bytes": 1112388,
+          "lifetime_peak_bytes": 2143893,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 0.943167,
+              "allocations": 3320,
+              "requested_bytes": 10546861,
+              "live_bytes": 1117409,
+              "peak_bytes": 2143893
+            },
+            {
+              "ms": 0.932584,
+              "allocations": 3319,
+              "requested_bytes": 10546693,
+              "live_bytes": 1117237,
+              "peak_bytes": 2143893
+            },
+            {
+              "ms": 0.9299160000000001,
+              "allocations": 3319,
+              "requested_bytes": 10546729,
+              "live_bytes": 1117273,
+              "peak_bytes": 2143893
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 32,
+      "samples": [
+        {
+          "initial_ms": 2.5417080000000003,
+          "initial_allocations": 13723,
+          "initial_requested_bytes": 37843474,
+          "initial_live_bytes": 1421836,
+          "lifetime_peak_bytes": 2507145,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 2.4907079999999997,
+              "allocations": 12250,
+              "requested_bytes": 37668302,
+              "live_bytes": 1426857,
+              "peak_bytes": 2507145
+            },
+            {
+              "ms": 2.479583,
+              "allocations": 12249,
+              "requested_bytes": 37668134,
+              "live_bytes": 1426685,
+              "peak_bytes": 2507145
+            },
+            {
+              "ms": 2.467458,
+              "allocations": 12249,
+              "requested_bytes": 37668170,
+              "live_bytes": 1426721,
+              "peak_bytes": 2507145
+            }
+          ]
+        },
+        {
+          "initial_ms": 2.499292,
+          "initial_allocations": 13723,
+          "initial_requested_bytes": 37843474,
+          "initial_live_bytes": 1421836,
+          "lifetime_peak_bytes": 2507145,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 2.456833,
+              "allocations": 12250,
+              "requested_bytes": 37668302,
+              "live_bytes": 1426857,
+              "peak_bytes": 2507145
+            },
+            {
+              "ms": 2.471208,
+              "allocations": 12249,
+              "requested_bytes": 37668134,
+              "live_bytes": 1426685,
+              "peak_bytes": 2507145
+            },
+            {
+              "ms": 2.455167,
+              "allocations": 12249,
+              "requested_bytes": 37668170,
+              "live_bytes": 1426721,
+              "peak_bytes": 2507145
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 96,
+      "samples": [
+        {
+          "initial_ms": 6.53275,
+          "initial_allocations": 37414,
+          "initial_requested_bytes": 110457210,
+          "initial_live_bytes": 2322572,
+          "lifetime_peak_bytes": 4210270,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 6.596375,
+              "allocations": 35953,
+              "requested_bytes": 110260726,
+              "live_bytes": 2327593,
+              "peak_bytes": 4210215
+            },
+            {
+              "ms": 6.629916,
+              "allocations": 35952,
+              "requested_bytes": 110260558,
+              "live_bytes": 2327421,
+              "peak_bytes": 4210270
+            },
+            {
+              "ms": 6.691584000000001,
+              "allocations": 35952,
+              "requested_bytes": 110260594,
+              "live_bytes": 2327457,
+              "peak_bytes": 4210270
+            }
+          ]
+        },
+        {
+          "initial_ms": 6.513042,
+          "initial_allocations": 37414,
+          "initial_requested_bytes": 110457210,
+          "initial_live_bytes": 2322572,
+          "lifetime_peak_bytes": 4210270,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 6.565208999999999,
+              "allocations": 35953,
+              "requested_bytes": 110260726,
+              "live_bytes": 2327593,
+              "peak_bytes": 4210215
+            },
+            {
+              "ms": 6.53,
+              "allocations": 35952,
+              "requested_bytes": 110260558,
+              "live_bytes": 2327421,
+              "peak_bytes": 4210270
+            },
+            {
+              "ms": 6.660958,
+              "allocations": 35952,
+              "requested_bytes": 110260594,
+              "live_bytes": 2327457,
+              "peak_bytes": 4210270
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "svet": true,
+      "controls": 256,
+      "samples": [
+        {
+          "initial_ms": 17.680459,
+          "initial_allocations": 96744,
+          "initial_requested_bytes": 295275221,
+          "initial_live_bytes": 6823252,
+          "lifetime_peak_bytes": 15856674,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 18.118708,
+              "allocations": 95152,
+              "requested_bytes": 295035481,
+              "live_bytes": 6828273,
+              "peak_bytes": 15856619
+            },
+            {
+              "ms": 18.449625,
+              "allocations": 95151,
+              "requested_bytes": 295035313,
+              "live_bytes": 6828101,
+              "peak_bytes": 15856674
+            },
+            {
+              "ms": 18.315709,
+              "allocations": 95151,
+              "requested_bytes": 295035349,
+              "live_bytes": 6828137,
+              "peak_bytes": 15856674
+            }
+          ]
+        },
+        {
+          "initial_ms": 17.697,
+          "initial_allocations": 96744,
+          "initial_requested_bytes": 295275221,
+          "initial_live_bytes": 6823252,
+          "lifetime_peak_bytes": 15856674,
+          "allocator_delta_after_drop": 0,
+          "edits": [
+            {
+              "ms": 18.7725,
+              "allocations": 95152,
+              "requested_bytes": 295035481,
+              "live_bytes": 6828273,
+              "peak_bytes": 15856619
+            },
+            {
+              "ms": 18.452459,
+              "allocations": 95151,
+              "requested_bytes": 295035313,
+              "live_bytes": 6828101,
+              "peak_bytes": 15856674
+            },
+            {
+              "ms": 18.397083000000002,
+              "allocations": 95151,
+              "requested_bytes": 295035349,
+              "live_bytes": 6828137,
+              "peak_bytes": 15856674
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.04s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-f7e368aeef0dd407)
+
+running 19 tests
+test native_window::tests::surface_backoff_and_occlusion_block_acquisition_until_ready ... ok
+test native_window::tests::chooser_and_two_buttons_runtimes_compile_and_click ... ok
+test native_window::tests::touch_scroll_does_not_activate_the_pressed_control_on_release ... ok
+test native_window::tests::ui_backend_parses_and_toggles_between_egui_and_svet ... ok
+test native_window::tests::secondary_touches_cannot_steal_or_end_the_primary_gesture ... ok
+test native_window::tests::target_platform_parses_cycles_and_renders_mobile_chrome ... ok
+test native_window::tests::activation_focus_does_not_overwrite_new_pointer_selection ... ok
+test native_window::tests::pointer_focus_switch_retires_composition_but_hover_preserves_it ... ok
+test native_window::tests::focus_loss_clears_composition_and_modifiers_without_committing_preedit ... ok
+test native_window::tests::window_refocus_restores_stable_editor_key_after_reorder ... ok
+test native_window::tests::composition_retires_when_callback_replaces_editor_at_same_index ... ok
+test native_window::tests::ime_commit_checks_editor_owner_at_dispatch ... ok
+test native_window::tests::window_refocus_rejects_retired_or_ineligible_editor_keys ... ok
+test native_window::tests::accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it ... ok
+test native_window::tests::tab_and_escape_end_composition_without_committing_pending_text ... ok
+test native_window::tests::cancelled_composition_rejects_late_commits_until_a_new_preedit ... ok
+test native_window::tests::composition_reconciles_replacement_after_input_callback ... ok
+test native_window::tests::presentation_paints_retained_runtime_without_dispatching_update ... ok
+test native_window::tests::empty_preedit_preserves_commit_address_across_runtime_replacement ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 221 filtered out; finished in 0.12s
+

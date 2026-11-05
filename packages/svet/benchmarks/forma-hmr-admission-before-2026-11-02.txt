@@ -1,0 +1,62 @@
+
+ RUN  v5.0.5 /Users/themoretheless/Documents/Sources/forma/packages/svet
+
+ ❯ tests/forma-hmr-events.test.ts (27 tests | 3 failed) 44ms
+   × refuses nested HMR from an AST admission getter and unlocks after refusal 3ms
+   × rechecks instance liveness after an AST admission getter disposes it 0ms
+   × unlocks HMR after a retired computed disposer throws at the final cleanup boundary 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > refuses nested HMR from an AST admission getter and unlocks after refusal
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-hmr-events.test.ts:344:38
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > rechecks instance liveness after an AST admission getter disposes it
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/forma-hmr-events.test.ts:350:34
+    348|  const source=`component App { Column {} }`,inst=compileFormaComponent…
+    349|  Object.defineProperty(ast,'componentName',{get(){inst.dispose();retur…
+    350|  expect(()=>inst.hotReload(ast)).toThrow(/Forma instance is disposed/)…
+       |                                  ^
+    351| });
+    352| it('unlocks HMR after a retired computed disposer throws at the final …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/forma-hmr-events.test.ts > unlocks HMR after a retired computed disposer throws at the final cleanup boundary
+AssertionError: expected [Function] to not throw an error but 'Error: Forma document update is alrea…' was thrown
+
+- Expected:
+undefined
+
++ Received:
+"Error: Forma document update is already in progress"
+
+ ❯ tests/forma-hmr-events.test.ts:355:116
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 24 passed (27)
+   Start at  20:11:44
+   Duration  634ms (environment 76%, transform 9%, tests 8%, import 7%)

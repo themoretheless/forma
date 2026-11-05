@@ -1,0 +1,100 @@
+{
+  "status": "partial",
+  "scope": "Shared owner reset of512/2048/8192 computeds with none/interleaved/tail user cleanup registrations; isolated Node microbenchmark",
+  "workers": 18,
+  "timedSamples": 972,
+  "summary": [
+    {
+      "case": "512:none",
+      "baselineMedianMs": 0.1083437500000004,
+      "candidateMedianMs": 0.12439575000000058,
+      "aaRatio": 0.9937971827997787,
+      "abRatio": 1.1106604395613497
+    },
+    {
+      "case": "512:interleaved",
+      "baselineMedianMs": 0.12573974999999837,
+      "candidateMedianMs": 0.09010399999999841,
+      "aaRatio": 0.9709727399301036,
+      "abRatio": 0.7030892118575095
+    },
+    {
+      "case": "512:tail",
+      "baselineMedianMs": 0.10345849999999857,
+      "candidateMedianMs": 0.08441674999999904,
+      "aaRatio": 0.9664993267407841,
+      "abRatio": 0.8019635793938933
+    },
+    {
+      "case": "2048:none",
+      "baselineMedianMs": 0.3929794999999974,
+      "candidateMedianMs": 0.29326024999999944,
+      "aaRatio": 0.9713514621812469,
+      "abRatio": 0.7498035712388587
+    },
+    {
+      "case": "2048:interleaved",
+      "baselineMedianMs": 0.9349789999999985,
+      "candidateMedianMs": 0.3314687499999991,
+      "aaRatio": 1.003009575128741,
+      "abRatio": 0.3599014760534692
+    },
+    {
+      "case": "2048:tail",
+      "baselineMedianMs": 0.7599377500000024,
+      "candidateMedianMs": 0.33831249999999713,
+      "aaRatio": 1.0551332163088252,
+      "abRatio": 0.4447384616924721
+    },
+    {
+      "case": "8192:none",
+      "baselineMedianMs": 3.828948000000004,
+      "candidateMedianMs": 1.5801252500000018,
+      "aaRatio": 1.033017925954638,
+      "abRatio": 0.3920654269441948
+    },
+    {
+      "case": "8192:interleaved",
+      "baselineMedianMs": 12.09075,
+      "candidateMedianMs": 1.3835102500000005,
+      "aaRatio": 0.9980142426106446,
+      "abRatio": 0.11387183970217742
+    },
+    {
+      "case": "8192:tail",
+      "baselineMedianMs": 9.785927000000015,
+      "candidateMedianMs": 1.2086354999999998,
+      "aaRatio": 0.9758465387350872,
+      "abRatio": 0.12210322392026124
+    }
+  ],
+  "oneMinuteHostLoadRange": [
+    10.91650390625,
+    11.4892578125
+  ],
+  "implementation": "Batch retired owner registrations in shared reset protocol and compact each callback array once, preserving array identity and user callback order. Old-copy reset without batching argument uses individual disposal fallback.",
+  "tradeoff": "512 computed/no-user-callback case has about11 percent overhead; large shared owners improve, not all workloads. No application/browser latency claim.",
+  "validation": {
+    "focusedTests": 211,
+    "types": "passed",
+    "build": "passed",
+    "fullSuite": {
+      "passedTests": 1507,
+      "passedFiles": 113,
+      "testTimeoutMs": 30000
+    },
+    "installedPackage": "passed",
+    "gc": "passed",
+    "consumer": "/var/folders/jx/ps1h62vx3gdgly_ddwly4mqr0000gn/T/svet-consumer-EdH0t3/consumer",
+    "browserGc": "passed:3 fresh Chromium cohorts,492 targets,138 controls",
+    "browserHmr": "passed:37 cases,graph0"
+  },
+  "scriptSha256": "90b90ed738356e43060049ed8c955c594df38bf3854067c28184dc343b557e28",
+  "baselineArchive": "reactive-lifecycle-cost-allocation-runtime-2026-11-02.tar.gz",
+  "candidateArchiveSha256": "e449b64087bd70712832109445cb654673e103eb083ab0d6ab950ef84a073b5e",
+  "open": [
+    "Other realms/incompatible copies",
+    "Application/native large-form qualification",
+    "Broader P1-P4 scope"
+  ]
+}

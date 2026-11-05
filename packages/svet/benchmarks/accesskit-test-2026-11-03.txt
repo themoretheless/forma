@@ -1,0 +1,11 @@
+   Compiling uuid v1.29.0
+   Compiling accesskit v0.25.2
+   Compiling forma v0.2.0 (/Users/themoretheless/Documents/Sources/forma/vector-ui)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.51s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/forma-7e85afa0a4421193)
+
+running 1 test
+test native_accessibility::tests::translates_real_editor_metadata_and_refuses_unadvertised_actions ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 235 filtered out; finished in 0.01s
+

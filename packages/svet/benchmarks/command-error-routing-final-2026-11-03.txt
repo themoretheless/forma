@@ -1,0 +1,10 @@
+   Compiling gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.71s
+     Running unittests src/lib.rs (/tmp/svet-native-development/debug/deps/gpu_runtime-cc416d5dfac22531)
+
+running 1 test
+COMMAND_COMPLETION_RESULT owner_isolation=true callback_reentry=true duplicate=false scope_capture=true physical_fault=false
+test error_delivery_tests::command_completion_routes_to_submit_owner_with_scope_and_reentry ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.14s
+

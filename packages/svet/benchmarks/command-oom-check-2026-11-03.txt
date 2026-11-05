@@ -1,0 +1,2 @@
+    Checking gpu-runtime v0.1.0 (/Users/themoretheless/Documents/Sources/forma/crates/gpu-runtime)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.00s
