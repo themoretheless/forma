@@ -51,3 +51,34 @@ it('admits a deep acyclic tree without recursive validation',()=>{
  for(let i=0;i<20000;i++){const child={...template,children:[]};cursor.children=[child];cursor=child;}
  const inst=compileFormaAst(ast);inst.dispose();expect(getGraphTelemetry().nodes).toBe(0);
 });
+
+it('renders wrapped Text, multiline TextInput, and two-way Slider in DOM',()=>{
+ const ui=`component App {
+  state note: String = 'line1\\nline2';
+  state level: Number = 42;
+  Column {
+   Text { key: 'wrapped'; text: 'Soft wrapped text'; wrap: true; fontSize: 18; }
+   TextInput { key: 'notes'; multiline: true; readOnly: true; value <-> state.note; }
+   Slider { key: 'slider'; min: 0; max: 100; value <-> state.level; }
+  }
+ }`;
+ const inst=compileFormaAst(parseFormaSource(ui)),container=document.createElement('div'),handle=inst.mount(container);
+ try{
+  const wrapped=inst.getElementByKey('wrapped')!;
+  expect(wrapped.style.whiteSpace).toBe('pre-wrap');
+  expect(wrapped.style.overflowWrap).toBe('break-word');
+  expect(wrapped.style.fontSize).toBe('18px');
+  const notes=inst.getElementByKey('notes') as HTMLTextAreaElement;
+  expect(notes.tagName).toBe('TEXTAREA');
+  expect(notes.readOnly).toBe(true);
+  expect(notes.value).toBe('line1\nline2');
+  const slider=inst.getElementByKey('slider') as HTMLInputElement;
+  expect(slider.tagName).toBe('INPUT');
+  expect(slider.type).toBe('range');
+  expect(slider.value).toBe('42');
+  slider.value='75';
+  slider.dispatchEvent(new Event('input'));
+  expect(inst.state.level()).toBe(75);
+ }finally{handle.unmount();inst.dispose();}
+ expect(getGraphTelemetry().nodes).toBe(0);
+});

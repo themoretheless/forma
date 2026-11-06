@@ -159,11 +159,11 @@ function compileBundle(bundle, targetDir) {
   }
   const manifest = join(directory, 'Cargo.toml');
   const env = {...process.env, CARGO_TARGET_DIR: targetDir};
-  const test = spawnSync('cargo', ['test', '--offline', '--manifest-path', manifest], {
+  const test = spawnSync('cargo', ['test', '--manifest-path', manifest], {
     encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024, env,
   });
   assert.equal(test.status, 0, test.stderr + test.stdout);
-  const native = spawnSync('cargo', ['check', '--offline', '--features', 'native', '--manifest-path', manifest], {
+  const native = spawnSync('cargo', ['check', '--features', 'native', '--manifest-path', manifest], {
     encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024, env,
   });
   assert.equal(native.status, 0, native.stderr + native.stdout);

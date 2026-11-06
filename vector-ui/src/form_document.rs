@@ -1687,9 +1687,18 @@ fn natural(n: &Node, axis: usize) -> Result<f64, String> {
     };
     let measured = match n.kind.as_str() {
         "Text" => {
-            let fs = num(&n.props, "fontSize", 16.)?;
+            let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
             let text = text(&n.props, "text", "")?;
-            if axis == 1 && text.contains('\n') {
+            let wrap = boolean(&n.props, "wrap", false)?;
+            let max_w = n.props.get("width").and_then(|v| v.number().ok()).unwrap_or(0.);
+            if wrap && max_w > 0. {
+                let lines = crate::text::wrap_shaped_text(&text, fs as f32, max_w as f32);
+                if axis == 1 {
+                    lines.len().max(1) as f64 * fs * 1.5
+                } else {
+                    lines.iter().map(|l| l.width as f64).fold(0., f64::max)
+                }
+            } else if axis == 1 && text.contains('\n') {
                 text.split('\n').count() as f64 * fs * 1.5
             } else {
                 text.split('\n')
@@ -2751,34 +2760,66 @@ impl Document {
                 let value = text(&n.props, "text", "")?;
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
                 let color = text(&n.props, "color", "#ffffff")?;
-                let multiline = value.contains('\n');
-                if multiline {
-                    clip(out, 0.);
-                }
-                for (i, line) in value.split('\n').enumerate() {
-                    let (width, height) = if multiline {
-                        (
-                            crate::text::measure_line(line, fs as f32)[0] as f64,
-                            fs * 1.5,
-                        )
-                    } else {
-                        (w, h)
-                    };
-                    let _ = std::fmt::Write::write_fmt(
-                        out,
-                        format_args!(
-                            "ContentText {{ x:{x}; y:{}; width:{width}; height:{height}; text:",
-                            y + i as f64 * fs * 1.5
-                        ),
-                    );
-                    Value::Text(line.into()).write_literal(out)?;
-                    let _ = std::fmt::Write::write_fmt(
-                        out,
-                        format_args!("; color:{color}; fontSize:{fs}; }} "),
-                    );
-                }
-                if multiline {
-                    out.push_str("ContentClipEnd {} ");
+                let wrap = boolean(&n.props, "wrap", false)?;
+                if wrap && w > 0. {
+                    let wrapped = crate::text::wrap_shaped_text(&value, fs as f32, w as f32);
+                    let multiline = wrapped.len() > 1 || value.contains('\n');
+                    if multiline {
+                        clip(out, 0.);
+                    }
+                    for (i, wl) in wrapped.iter().enumerate() {
+                        let line = &value[wl.byte_range.clone()];
+                        let (width, height) = if multiline {
+                            (wl.width as f64, fs * 1.5)
+                        } else {
+                            (w, h)
+                        };
+                        let _ = std::fmt::Write::write_fmt(
+                            out,
+                            format_args!(
+                                "ContentText {{ x:{x}; y:{}; width:{width}; height:{height}; text:",
+                                y + i as f64 * fs * 1.5
+                            ),
+                        );
+                        Value::Text(line.into()).write_literal(out)?;
+                        let _ = std::fmt::Write::write_fmt(
+                            out,
+                            format_args!("; color:{color}; fontSize:{fs}; }} "),
+                        );
+                    }
+                    if multiline {
+                        out.push_str("ContentClipEnd {} ");
+                    }
+                } else {
+                    let multiline = value.contains('\n');
+                    if multiline {
+                        clip(out, 0.);
+                    }
+                    for (i, line) in value.split('\n').enumerate() {
+                        let (width, height) = if multiline {
+                            (
+                                crate::text::measure_line(line, fs as f32)[0] as f64,
+                                fs * 1.5,
+                            )
+                        } else {
+                            (w, h)
+                        };
+                        let _ = std::fmt::Write::write_fmt(
+                            out,
+                            format_args!(
+                                "ContentText {{ x:{x}; y:{}; width:{width}; height:{height}; text:",
+                                y + i as f64 * fs * 1.5
+                            ),
+                        );
+                        Value::Text(line.into()).write_literal(out)?;
+                        let _ = std::fmt::Write::write_fmt(
+                            out,
+                            format_args!("; color:{color}; fontSize:{fs}; }} "),
+                        );
+                    }
+                    if multiline {
+                        out.push_str("ContentClipEnd {} ");
+                    }
                 }
             }
             "Image" => {
@@ -6942,6 +6983,24 @@ mod tests {
         assert!(doc.sync_runtime_bindings_from_scene(&runtime, None, &controls).unwrap_err().contains("16384 nodes"));
         assert_eq!(doc.states, before);
         assert!(doc.render_scene().unwrap_err().contains("16384 nodes"));
+    }
+
+    #[test]
+    fn wrapped_text_component_emits_multiline_content_and_measures_height() {
+        let files = BTreeMap::from([(
+            "App.ui".to_string(),
+            "component App { Column { width: 200; height: 160; Text { key: 'wrapped'; width: 120; height: 'auto'; wrap: true; text: 'Hello world from Forma soft wrapped text'; } } }".to_string(),
+        )]);
+        let doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        let (scene_src, templates, controls) = doc.render_scene().unwrap();
+        assert_eq!(controls.len(), 1);
+        let content_text_count = templates.matches("ContentText {").count();
+        assert!(
+            content_text_count >= 2,
+            "expected wrapped Text to emit >= 2 ContentText lines, got {content_text_count}: {templates}"
+        );
+        let runtime = crate::Runtime::from_sources(&scene_src, &templates).unwrap();
+        assert_eq!(runtime.control_count(), 1);
     }
 
 }

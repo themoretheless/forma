@@ -1,9 +1,14 @@
 //! Real Metal clear-buffer + error-scope completion timings, without presentation.
+//! This benchmark is macOS-only: upstream wgpu error-scope completion does not imply queue idle.
+#[cfg(all(feature="gpu",target_os="macos"))]
+use forma::gpu_runtime as wgpu;
 #[cfg(not(feature="gpu"))]
 fn main(){panic!("Run with --features gpu");}
-#[cfg(feature="gpu")]
+#[cfg(all(feature="gpu",not(target_os="macos")))]
+fn main(){panic!("The GPU scope benchmark requires the in-tree Metal runtime on macOS");}
+#[cfg(all(feature="gpu",target_os="macos"))]
 fn main(){pollster::block_on(run());}
-#[cfg(feature="gpu")]
+#[cfg(all(feature="gpu",target_os="macos"))]
 async fn run(){
     use std::{future::{poll_fn,Future},task::Poll,time::Instant};
     let instance=wgpu::Instance::default();

@@ -38,7 +38,7 @@ test('generator accepts a Row as the form root',()=>{
 });
 
 test('generated Rust compiles, exercises the renderer, and rejects wrong fields and types',()=>{
- const build=spawnSync('cargo',['test','--offline','--locked','--manifest-path',join(project,'Cargo.toml'),'--message-format=json'],{encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024,env:{...process.env,FORMA_NODE:process.execPath}});
+ const build=spawnSync('cargo',['test','--locked','--manifest-path',join(project,'Cargo.toml'),'--message-format=json'],{encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024,env:{...process.env,FORMA_NODE:process.execPath}});
  assert.equal(build.status,0,build.stderr+'\n'+build.stdout.split('\n').filter(line=>line.startsWith('{')).map(line=>{try{return JSON.parse(line).message?.rendered??'';}catch{return '';}}).join('\n'));
  const artifacts=build.stdout.split('\n').filter(line=>line.startsWith('{')).map(line=>JSON.parse(line));
  const library=artifacts.find(item=>item.reason==='compiler-artifact'&&item.target.name==='forma'&&item.filenames.some(name=>name.endsWith('.rlib')));

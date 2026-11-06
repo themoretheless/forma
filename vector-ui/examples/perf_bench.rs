@@ -2,6 +2,8 @@
 mod bench_support;
 use bench_support::CountingAllocator;
 #[cfg(feature = "gpu")]
+use forma::gpu_runtime as wgpu;
+#[cfg(feature = "gpu")]
 use bench_support::ProcessSnapshot;
 #[cfg(feature = "gpu")]
 use std::{hint::black_box, time::Instant};

@@ -108,10 +108,10 @@ impl Editor {
         self.preferred_x=None;
         self.phase=0.;self.dirty=true;
         match key {
-            "ArrowLeft"=>{self.model.move_words(-1,shift);},
-            "ArrowRight"=>{self.model.move_words(1,shift);},
-            "Backspace"=>{self.fades.clear();self.model.backspace_word();},
-            "Delete"=>{self.fades.clear();self.model.delete_word();},
+            "ArrowLeft"=>{self.model.move_words_dictionary(-1,shift);},
+            "ArrowRight"=>{self.model.move_words_dictionary(1,shift);},
+            "Backspace"=>{self.fades.clear();self.model.backspace_word_dictionary();},
+            "Delete"=>{self.fades.clear();self.model.delete_word_dictionary();},
             _=>unreachable!(),
         }
         self.semantic_revision=next_semantic_revision();
@@ -415,11 +415,11 @@ mod animation_tests {
         e.hit_soft_wrapped(1.,e.line_height()*1.5,false);
         assert_eq!(e.model.caret(),lines[1].byte_range.start);
         e.model.home(false);
-        assert!(e.model.move_words_dictionary(1,false));
+        assert!(e.word_key("ArrowRight",false));
         assert_eq!(e.model.caret(),"你好".len(),"dictionary groups CJK compound 你好");
-        assert!(e.model.move_words_dictionary(1,false));
+        assert!(e.word_key("ArrowRight",false));
         assert_eq!(e.model.caret(),"你好世界".len(),"dictionary groups CJK compound 世界");
-        assert!(e.model.backspace_word_dictionary());
+        assert!(e.word_key("Backspace",false));
         assert!(e.model.value().starts_with("你好 Hello"));
         assert!(e.model.undo());
         assert_eq!(e.model.value(),"你好世界 Hello world from Forma");

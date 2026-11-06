@@ -21,7 +21,11 @@ pub mod gpu;
 pub use gpu_compute;
 #[cfg(feature="gpu")]
 pub use gpu_shader;
-#[cfg(feature="gpu")]
+#[cfg(all(feature="gpu", target_os="linux"))]
+extern crate wgpu_linux as wgpu;
+#[cfg(all(feature="gpu", target_os="linux"))]
+pub use wgpu_linux as gpu_runtime;
+#[cfg(all(feature="gpu", not(target_os="linux")))]
 pub use wgpu as gpu_runtime;
 #[cfg(feature="native")]
 #[doc(hidden)]

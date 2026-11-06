@@ -1,4 +1,6 @@
 //! CPU encode+submit and synchronized GPU completion, excluding OS presentation.
+#[cfg(feature = "gpu")]
+use forma::gpu_runtime as wgpu;
 #[cfg(not(feature = "gpu"))]
 fn main() {
     panic!("Use --features gpu");

@@ -8,6 +8,7 @@ thread_local! {
     static SHAPE_EDGES: RefCell<Vec<(Point, Point)>> = const { RefCell::new(Vec::new()) };
 }
 
+#[allow(dead_code)]
 pub fn draw(out:&mut [u8],width:u32,height:u32,scale:f32,points:&[[f32;2]],origin:[f32;2],color:[u8;4]) {
     draw_region(out,width,height,scale,points,origin,color,[0,0,width,height]);
 }

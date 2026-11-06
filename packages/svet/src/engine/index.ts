@@ -154,6 +154,7 @@ export {
   type FormaDocumentAst,
   type FormaStateMutator,
   type FormaRuntimeInstance,
+  type FormaCompileOptions,
   type FormaSlotMap,
   type FormaDiagnostic,
   type FormaValidationReport,

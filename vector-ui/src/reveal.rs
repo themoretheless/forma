@@ -333,7 +333,7 @@ mod tests {
                 .await
                 .expect("real GPU required");
             let adapter_info = adapter.get_info();
-            assert_ne!(adapter_info.device_type, wgpu::DeviceType::Cpu, "hardware test cannot qualify a CPU adapter");
+            crate::gpu::assert_gpu_test_adapter(&adapter_info);
             eprintln!("GPU_TEST_ADAPTER {}", serde_json::json!({"test":"reveal-agreement","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
                 "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info}));
             let mut renderer = crate::gpu::Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)

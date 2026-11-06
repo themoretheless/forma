@@ -323,6 +323,7 @@ impl SeenFields {
             "transitionDuration" => 40,
             "label" => 41,
             "readOnly" => 42,
+            "wrap" => 43,
             _ => return None,
         };
         Some(1u64 << index)
@@ -726,7 +727,7 @@ impl<'a> Parser<'a> {
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
-            if !matches!(name.text(), "text" | "color" | "font.size" | "fontSize") {
+            if !matches!(name.text(), "text" | "color" | "font.size" | "fontSize" | "wrap") {
                 return Err(self.error(&format!("Unsupported Text field or primitive '{name}'")));
             }
             self.colon()?;
@@ -734,6 +735,12 @@ impl<'a> Parser<'a> {
                 "text" => text.text = self.text_value()?.into_owned(),
                 "color" => text.color = self.color("color")?,
                 "font.size" | "fontSize" => text.font_size = self.scalar("fontSize", true)?,
+                "wrap" => {
+                    let v = self.ident()?;
+                    if !matches!(v.text(), "true" | "false" | "props.wrap") {
+                        return Err(self.error("Expected boolean for wrap"));
+                    }
+                }
                 _ => unreachable!(),
             }
             self.semi()?;

@@ -996,6 +996,7 @@ fn edge_area(a: Point, b: Point, px: f32, y0: f32, y1: f32) -> f32 {
 /// exact area coverage under the nonzero rule, clipped to `clip` (physical
 /// pixels, fractional edges scale the boundary column/row). Shared by text and
 /// composed shapes on native and WASM.
+#[cfg(test)]
 pub(crate) fn rasterize(
     pixels: &mut [u8],
     width: u32,

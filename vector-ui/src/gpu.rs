@@ -159,6 +159,47 @@ fn check_gpu_fault(fault: &std::sync::Mutex<Option<String>>) -> Result<(),String
     match stored.as_ref() { Some(error)=>Err(error.clone()),None=>Ok(()) }
 }
 
+#[cfg(any(feature = "native", test))]
+pub(crate) fn device_queue_idle(device: &wgpu::Device) -> bool {
+    #[cfg(not(target_os = "linux"))]
+    {
+        device.is_queue_idle()
+    }
+    #[cfg(target_os = "linux")]
+    {
+        matches!(device.poll(wgpu::PollType::Poll), Ok(wgpu::PollStatus::QueueEmpty))
+    }
+}
+
+#[cfg(test)]
+fn missing_compute_pipeline_error(message: &str) -> bool {
+    message.contains("without an active ComputePipeline")
+        || message.contains("Compute pipeline must be set")
+}
+
+#[cfg(test)]
+fn gpu_test_adapter_supported(info: &wgpu::AdapterInfo) -> bool {
+    if info.device_type != wgpu::DeviceType::Cpu {
+        return true;
+    }
+    if info.backend != wgpu::Backend::Vulkan {
+        return false;
+    }
+    // Mesa's lavapipe Vulkan driver commonly identifies the device as llvmpipe.
+    [&info.name, &info.driver, &info.driver_info].iter().any(|value| {
+        let value = value.to_ascii_lowercase();
+        value.contains("lavapipe") || value.contains("llvmpipe")
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn assert_gpu_test_adapter(info: &wgpu::AdapterInfo) {
+    assert!(
+        gpu_test_adapter_supported(info),
+        "hardware adapter or Mesa lavapipe required, got {info:?}"
+    );
+}
+
 pub struct Renderer {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -426,9 +467,35 @@ impl Renderer {
         encoder.resolve_query_set(&timing.queries, 0..2, &timing.resolve, 0);
         encoder.copy_buffer_to_buffer(&timing.resolve, 0, &timing.readback, 0, 16);
         self.queue.submit(Some(encoder.finish()));
-        let values = timing.readback.uma_slice();
-        let begin = u64::from_ne_bytes(values[..8].try_into().unwrap());
-        let end = u64::from_ne_bytes(values[8..16].try_into().unwrap());
+        #[cfg(not(target_os = "linux"))]
+        let (begin, end) = {
+            let values = timing.readback.uma_slice();
+            (
+                u64::from_ne_bytes(values[..8].try_into().unwrap()),
+                u64::from_ne_bytes(values[8..16].try_into().unwrap()),
+            )
+        };
+        #[cfg(target_os = "linux")]
+        let (begin, end) = {
+            let (send, recv) = std::sync::mpsc::channel();
+            timing.readback.slice(..).map_async(wgpu::MapMode::Read, move |result| {
+                let _ = send.send(result);
+            });
+            self.device
+                .poll(wgpu::PollType::wait_indefinitely())
+                .map_err(|e| e.to_string())?;
+            recv.recv()
+                .map_err(|e| e.to_string())?
+                .map_err(|e| e.to_string())?;
+            let values = timing.readback.slice(..).get_mapped_range();
+            let pair = (
+                u64::from_ne_bytes(values[..8].try_into().unwrap()),
+                u64::from_ne_bytes(values[8..16].try_into().unwrap()),
+            );
+            drop(values);
+            timing.readback.unmap();
+            pair
+        };
         timing.pending = false;
         Ok(timestamp_duration_ns(begin, end, timing.period_ns))
     }
@@ -438,6 +505,14 @@ impl Renderer {
     pub fn check_health(&self) -> Result<(),String> {
         self.device.poll(wgpu::PollType::Poll).map_err(|e|format!("GPU health poll: {e:?}"))?;
         check_gpu_fault(&self.fault)
+    }
+
+    #[cfg(feature = "native-test-hooks")]
+    pub(crate) fn inject_device_loss_for_testing(&self, message: String) {
+        #[cfg(not(target_os = "linux"))]
+        self.device.inject_backend_device_loss_for_testing(message);
+        #[cfg(target_os = "linux")]
+        record_gpu_fault(&self.fault, message);
     }
 
     pub fn draw(
@@ -686,13 +761,72 @@ mod tests {
     }
 
     #[test]
+    fn missing_pipeline_validation_accepts_only_known_backend_messages() {
+        assert!(missing_compute_pipeline_error(
+            "dispatch_workgroups called without an active ComputePipeline"
+        ));
+        assert!(missing_compute_pipeline_error(
+            "In a ComputePass, note: Compute pipeline must be set"
+        ));
+        assert!(!missing_compute_pipeline_error("Compute pipeline is invalid"));
+        assert!(!missing_compute_pipeline_error("validation failed"));
+    }
+
+    #[test]
+    fn gpu_test_adapters_are_hardware_or_mesa_lavapipe() {
+        let make = |device_type, backend, name: &str, driver: &str| wgpu::AdapterInfo {
+            name: name.into(),
+            vendor: 0,
+            device: 0,
+            device_type,
+            device_pci_bus_id: String::new(),
+            driver: driver.into(),
+            driver_info: String::new(),
+            backend,
+            subgroup_min_size: 4,
+            subgroup_max_size: 64,
+            transient_saves_memory: false,
+        };
+        assert!(gpu_test_adapter_supported(&make(
+            wgpu::DeviceType::DiscreteGpu,
+            wgpu::Backend::Dx12,
+            "",
+            ""
+        )));
+        assert!(gpu_test_adapter_supported(&make(
+            wgpu::DeviceType::Cpu,
+            wgpu::Backend::Vulkan,
+            "llvmpipe (LLVM 17.0.6, 256 bits)",
+            ""
+        )));
+        assert!(gpu_test_adapter_supported(&make(
+            wgpu::DeviceType::Cpu,
+            wgpu::Backend::Vulkan,
+            "Mesa CPU",
+            "lavapipe"
+        )));
+        assert!(!gpu_test_adapter_supported(&make(
+            wgpu::DeviceType::Cpu,
+            wgpu::Backend::Vulkan,
+            "SwiftShader",
+            ""
+        )));
+        assert!(!gpu_test_adapter_supported(&make(
+            wgpu::DeviceType::Cpu,
+            wgpu::Backend::Metal,
+            "llvmpipe",
+            ""
+        )));
+    }
+
+    #[test]
     #[ignore = "requires a real GPU; run explicitly with --features gpu -- --ignored"]
     fn profiled_renderer_reports_owned_buffers_and_reuses_them() {
         pollster::block_on(async {
             let instance = wgpu::Instance::default();
             let adapter = instance.request_adapter(&Default::default()).await.unwrap();
             let adapter_info = adapter.get_info();
-            assert_ne!(adapter_info.device_type, wgpu::DeviceType::Cpu, "hardware test cannot qualify a CPU adapter");
+            assert_gpu_test_adapter(&adapter_info);
             eprintln!("GPU_TEST_ADAPTER {}", serde_json::json!({"test":"profiled-renderer","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
                 "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info}));
             let mut renderer = Renderer::new_profiled(&adapter, wgpu::TextureFormat::Rgba8Unorm)
@@ -956,7 +1090,7 @@ mod tests {
             // Completion service must not require another draw/present.
             let frames_before_idle=renderer.frames;
             renderer.device.poll(wgpu::PollType::Wait {submission_index:None,timeout:None}).unwrap();
-            assert!(renderer.device.is_queue_idle());
+            assert!(device_queue_idle(&renderer.device));
             for _ in 0..3 {renderer.check_health().unwrap();}
             assert_eq!(renderer.frames,frames_before_idle);
             eprintln!("GPU_IDLE_COMPLETION_RESULT queue_drained=true health_without_draw=true");
@@ -971,7 +1105,10 @@ mod tests {
             }
             drop(invalid_encoder);
             let first_error=renderer.check_health().unwrap_err();
-            assert!(first_error.contains("without an active ComputePipeline"));
+            assert!(
+                missing_compute_pipeline_error(&first_error),
+                "expected a missing compute pipeline diagnostic, got {first_error}"
+            );
             // Device-level descriptor validation follows the same handler and
             // cannot replace the first actionable cause in the renderer latch.
             let invalid_buffer=renderer.device.create_buffer(&wgpu::BufferDescriptor {

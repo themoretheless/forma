@@ -10,6 +10,8 @@
 
 #[cfg(feature = "native")]
 mod bench_support;
+#[cfg(feature = "native")]
+use forma::gpu_runtime as wgpu;
 #[cfg(all(feature = "native", target_os = "macos"))]
 #[path = "../src/metal_resize.rs"]
 mod metal_resize;

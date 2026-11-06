@@ -7,6 +7,8 @@
 #[cfg(feature = "gpu")]
 mod bench_support;
 #[cfg(feature = "gpu")]
+use forma::gpu_runtime as wgpu;
+#[cfg(feature = "gpu")]
 #[global_allocator]
 static ALLOCATOR: bench_support::CountingAllocator = bench_support::CountingAllocator::new();
 #[cfg(not(feature = "gpu"))]

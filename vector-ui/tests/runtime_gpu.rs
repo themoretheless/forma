@@ -1,5 +1,5 @@
 #![cfg(feature = "gpu")]
-use forma::{gpu::Renderer, Runtime};
+use forma::{gpu::Renderer, gpu_runtime as wgpu, Runtime};
 
 #[test]
 #[ignore="requires a real GPU"]

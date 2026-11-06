@@ -1,5 +1,7 @@
 //! Requires a real GPU. Fails (does not silently skip) if adapter/validation fails.
 #[cfg(feature = "gpu")]
+use forma::gpu_runtime as wgpu;
+#[cfg(feature = "gpu")]
 fn main() {
     pollster::block_on(run());
 }

@@ -303,6 +303,7 @@ export interface FormaEvalScope {
   i18n: ReadonlySignal<Record<string, string>>;
   isValid: ReadonlySignal<boolean>;
   locals?: Record<string, any>;
+  readState?: (key: string) => any;
 }
 
 // ============================================================================
@@ -371,7 +372,13 @@ function tokenizeFormaExpr(src: string): ExprToken[] {
             i += 2;
             continue;
           }
-          i++;
+          const nextCh = src[i + 1];
+          i += 2;
+          if (nextCh === 'n') s += '\n';
+          else if (nextCh === 'r') s += '\r';
+          else if (nextCh === 't') s += '\t';
+          else s += nextCh;
+          continue;
         }
         s += src[i++];
       }
@@ -466,7 +473,7 @@ function parseFormaExprAst(raw: string): ExprAst {
     if (tok.kind === 'ident') {
       if (tok.val === 'true') return { type: 'literal', value: true };
       if (tok.val === 'false') return { type: 'literal', value: false };
-      if (tok.val === 'null') return { type: 'literal', value: null };
+      if (tok.val === 'null' || tok.val === 'none') return { type: 'literal', value: null };
       if (tok.val === 'undefined') return { type: 'literal', value: undefined };
       if (tok.val.startsWith('#')) return { type: 'literal', value: tok.val };
       return { type: 'ident', name: tok.val };
@@ -655,10 +662,14 @@ function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
       if (node.object.type === 'ident') {
         const rootName = node.object.name;
         if (rootName === 'state') {
-          const sig = Object.prototype.hasOwnProperty.call(scope.state, node.property)
-            ? scope.state[node.property]
-            : undefined;
-          return typeof sig === 'function' ? sig() : sig;
+          if (Object.prototype.hasOwnProperty.call(scope.state, node.property)) {
+            const sig = scope.state[node.property];
+            return typeof sig === 'function' ? sig() : sig;
+          }
+          if (scope.readState) {
+            return scope.readState(node.property);
+          }
+          return undefined;
         }
         if (rootName === 'props') {
           const sig = Object.prototype.hasOwnProperty.call(scope.props, node.property)
@@ -793,6 +804,29 @@ function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
   }
 }
 
+function isStaticFormaExprNode(node: ExprAst, locals?: Record<string, any>): boolean {
+  switch (node.type) {
+    case 'literal':
+      return true;
+    case 'member':
+      if (node.object.type === 'ident' && node.object.name === 'tokens') {
+        return true;
+      }
+      return false;
+    default:
+      return false;
+  }
+}
+
+function isStaticFormaExpr(rawExpr: string, locals?: Record<string, any>): boolean {
+  const expr = rawExpr.trim();
+  if (!expr) return true;
+  try {
+    return isStaticFormaExprNode(parseFormaExprAst(expr), locals);
+  } catch {
+    return false;
+  }
+}
 /**
  * Evaluates a Forma expression string against a reactive scope (`state`, `props`, `tokens`, `i18n`, `let`, `item`)
  * using a 100% CSP-Safe cached AST evaluator (Zero `new Function`, Zero `eval`, Zero `with (__env)`!).
@@ -875,6 +909,8 @@ export interface FormaRuntimeInstance {
   readonly locale: Signal<string>;
   readonly isValid: ReadonlySignal<boolean>;
   readonly actions: FormaStateMutator;
+  /** Atomically updates multiple state fields inside a single WASM batch (creates signals for undeclared fields) */
+  setState(partial: Record<string, any>): void;
   onEvent(eventName: string, handler: (...args: any[]) => void): () => void;
   emitEvent(eventName: string, ...args: any[]): void;
   getElementByKey(key: string): HTMLElement | undefined;
@@ -1830,19 +1866,25 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
   return ast;
 }
 
+export interface FormaCompileOptions {
+  props?: Record<string, any>;
+  state?: Record<string, any>;
+  locale?: string;
+  viewModel?: Record<string, FormaProperty<any> | Signal<any>>;
+  slots?: FormaSlotMap;
+  components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
+  actions?: Record<string, (...args: any[]) => void>;
+  onAction?: (name: string, args: any[], event?: Event) => void;
+  onBinding?: (path: string, value: any) => void;
+}
+
 /**
  * Instantiates a live, reactive **Svet + WASM** `FormaRuntimeInstance` directly from a pre-parsed
  * `FormaDocumentAst` (0ms runtime parsing overhead) or a raw `.ui` source string.
  */
 export function compileFormaAst(
   astOrSource: FormaDocumentAst | string,
-  options?: {
-    props?: Record<string, any>;
-    locale?: string;
-    viewModel?: Record<string, FormaProperty<any> | Signal<any>>;
-    slots?: FormaSlotMap;
-    components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
-  }
+  options?: FormaCompileOptions
 ): FormaRuntimeInstance {
   return compileFormaComponent(astOrSource, options);
 }
@@ -1912,7 +1954,7 @@ function createFormaPublicHandle(implementation: FormaRuntimeInstance): FormaRun
   for (const key of ['state','props','computedLets','locale','isValid'] as const) {
     Object.defineProperty(handle,key,{enumerable:true,get:() => cell.current ? cell.current[key] : cell.closed[key]});
   }
-  for (const key of ['emitEvent','restoreHmrSnapshot','hotReload','render'] as const) {
+  for (const key of ['setState','emitEvent','restoreHmrSnapshot','hotReload','render'] as const) {
     (handle as any)[key] = (...args: any[]) => (live()[key] as Function).apply(handle,args);
   }
   handle.getElementByKey = key => cell.current?.getElementByKey(key);
@@ -1983,13 +2025,7 @@ function snapshotClosedForma(instance: FormaRuntimeInstance) {
  */
 export function compileFormaComponent(
   uiSourceOrAst: string | FormaDocumentAst,
-  options?: {
-    props?: Record<string, any>;
-    locale?: string;
-    viewModel?: Record<string, FormaProperty<any> | Signal<any>>;
-    slots?: FormaSlotMap;
-    components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
-  }
+  options?: FormaCompileOptions
 ): FormaRuntimeInstance {
   let constructing = true, disposed = false;
   const constructionDisposers: Array<() => void> = [];
@@ -2032,6 +2068,18 @@ export function compileFormaComponent(
   const renderDisposers = new Set<() => void>();
   const mountDisposers = new Set<() => void>();
   const assertLive = () => { if (disposed) throw new Error('Forma instance is disposed'); };
+  const ensureStateSignal = (key: string, initialVal: any = undefined): Signal<any> => {
+    if (FORBIDDEN_MEMBER_KEYS.has(key)) {
+      return cachedFormaValue(undefined);
+    }
+    let sig = stateSignals[key];
+    if (!sig) {
+      sig = ownSignal(initialVal);
+      ownedStateSignals.set(key, sig);
+      stateSignals[key] = sig;
+    }
+    return sig;
+  };
 
   // Bind external Rust/TS ViewModel properties if provided
   if (options?.viewModel) {
@@ -2042,6 +2090,26 @@ export function compileFormaComponent(
       } else if (typeof propOrSig === 'function') {
         stateSignals[k] = propOrSig;
         initialStateValues[k] = propOrSig.peek();
+      }
+    }
+  }
+
+  // Bind initial external `options.state` fields or signals if provided
+  if (options?.state) {
+    for (const [k, valOrSig] of Object.entries(options.state)) {
+      if (FORBIDDEN_MEMBER_KEYS.has(k)) continue;
+      if (valOrSig && typeof valOrSig === 'object' && 'signal' in valOrSig && typeof (valOrSig as any).signal === 'function') {
+        const extSig = (valOrSig as FormaProperty<any>).signal;
+        stateSignals[k] = extSig;
+        initialStateValues[k] = extSig.peek();
+      } else if (typeof valOrSig === 'function' && '__svet_sig' in (valOrSig as any)) {
+        const extSig = valOrSig as Signal<any>;
+        stateSignals[k] = extSig;
+        initialStateValues[k] = extSig.peek();
+      } else {
+        const cloned = structuredCloneIfObject(valOrSig);
+        initialStateValues[k] = cloned;
+        ensureStateSignal(k, cloned);
       }
     }
   }
@@ -2131,13 +2199,21 @@ export function compileFormaComponent(
 
   const computedLets: Record<string, ReadonlySignal<any>> = Object.create(null);
   const ownedComputedLets = new Set<ReadonlySignal<any>>();
-  const evalScope = {
+  const evalScope: FormaEvalScope = {
     state: stateSignals,
     props: propSignals,
     computedLets,
     tokens,
     i18n: activeI18n,
     isValid,
+    readState: (key: string) => {
+      if (disposed || FORBIDDEN_MEMBER_KEYS.has(key)) return undefined;
+      if (updatingDocument) {
+        const existing = stateSignals[key];
+        return existing ? existing() : undefined;
+      }
+      return ensureStateSignal(key, undefined)();
+    },
   };
 
   const rebuildComputedLets = (retirePrevious = true) => {
@@ -2160,24 +2236,24 @@ export function compileFormaComponent(
   // Built-in Forma `state.*` / `actions.*` mutators
   const actions: FormaStateMutator = {
     toggle(field: string) {
-      const sig = stateSignals[field];
-      if (sig) sig.update((v) => !v);
+      if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
+      ensureStateSignal(field, false).update((v) => !v);
     },
     set(field: string, value: any) {
-      const sig = stateSignals[field];
-      if (sig) sig.set(value);
+      if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
+      ensureStateSignal(field, value).set(value);
     },
     increment(field: string, delta = 1) {
-      const sig = stateSignals[field];
-      if (sig) sig.update((v) => Number(v || 0) + delta);
+      if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
+      ensureStateSignal(field, 0).update((v) => Number(v || 0) + delta);
     },
     decrement(field: string, delta = 1) {
-      const sig = stateSignals[field];
-      if (sig) sig.update((v) => Number(v || 0) - delta);
+      if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
+      ensureStateSignal(field, 0).update((v) => Number(v || 0) - delta);
     },
     push(field: string, item: any) {
-      const sig = stateSignals[field];
-      if (sig) sig.update((arr) => (Array.isArray(arr) ? [...arr, item] : [item]));
+      if (FORBIDDEN_MEMBER_KEYS.has(field)) return;
+      ensureStateSignal(field, []).update((arr) => (Array.isArray(arr) ? [...arr, item] : [item]));
     },
     remove(field: string, index: number) {
       const sig = stateSignals[field];
@@ -2216,7 +2292,7 @@ export function compileFormaComponent(
     }
   };
 
-  const executeFormaAction = (actionStr: string, locals?: Record<string, any>) => {
+  const executeFormaAction = (actionStr: string, locals?: Record<string, any>, domEvent?: Event) => {
     const trimmed = actionStr.trim();
     const callScope = { ...evalScope, locals };
 
@@ -2229,17 +2305,31 @@ export function compileFormaComponent(
       const parsedArgs = ast.args.map((argNode) => evalAstNode(argNode, callScope));
 
       if (targetNamespace === 'state' || targetNamespace === 'actions') {
-        const method = methodName as keyof FormaStateMutator;
-        if (typeof actions[method] === 'function') {
-          (actions[method] as (...a: any[]) => void)(...parsedArgs);
+        const customFn = options?.actions?.[methodName];
+        if (typeof customFn === 'function') {
+          customFn(...parsedArgs, domEvent);
+        } else {
+          const method = methodName as keyof FormaStateMutator;
+          if (typeof actions[method] === 'function') {
+            (actions[method] as (...a: any[]) => void)(...parsedArgs);
+          }
         }
+        options?.onAction?.(methodName, parsedArgs, domEvent);
+        emitEvent(methodName, ...parsedArgs, domEvent);
         return;
       }
 
       if (targetNamespace === 'events') {
+        options?.onAction?.(methodName, parsedArgs, domEvent);
         emitEvent(methodName, ...parsedArgs);
         return;
       }
+    } else if (ast.type === 'call' && ast.callee.type === 'ident') {
+      const methodName = ast.callee.name;
+      const parsedArgs = ast.args.map((argNode) => evalAstNode(argNode, callScope));
+      options?.actions?.[methodName]?.(...parsedArgs, domEvent);
+      options?.onAction?.(methodName, parsedArgs, domEvent);
+      emitEvent(methodName, ...parsedArgs);
     }
   };
 
@@ -2403,6 +2493,27 @@ export function compileFormaComponent(
 
     const tag = ast.tag ?? 'Frame';
 
+    // Uppercase `Slot { name: "fileMenu"; ... }` or `Slot { name: "default"; ... }`
+    if (tag === 'Slot') {
+      const slotName = mergedProps.name
+        ? String(evaluateFormaExpression(mergedProps.name, localScope) ?? 'default')
+        : 'default';
+      const customSlot =
+        options?.slots?.namedSlots?.[slotName] ??
+        (slotName === 'default' ? options?.slots?.defaultSlot : undefined);
+      if (customSlot) {
+        const frag = document.createDocumentFragment();
+        const node = typeof customSlot === 'function' ? customSlot() : customSlot;
+        insertChild(frag, node);
+        return frag;
+      }
+      const frag = document.createDocumentFragment();
+      for (const ch of ast.children) {
+        insertChild(frag, renderAstNode(ch, locals));
+      }
+      return frag;
+    }
+
     // Declarative 3D GPU Widget inside Forma `.ui`: `Scene3D { rotX: ...; rotY: ...; rotZ: ...; scale: ...; width: ...; height: ...; }`
     if (tag === 'Scene3D' || tag === 'OrbitCube3D' || tag === 'Viewport3D') {
       const width = () => mergedProps.width
@@ -2538,14 +2649,155 @@ export function compileFormaComponent(
       return wrapperEl;
     }
 
+    const isButtonTag =
+      tag === 'Button' ||
+      tag === 'PrimaryButton' ||
+      tag === 'GhostButton' ||
+      tag === 'SegmentButton' ||
+      tag === 'IconButton' ||
+      tag === 'QuietIconButton' ||
+      tag === 'SecondaryButton' ||
+      tag === 'LeadingIconButton' ||
+      tag === 'PrimaryIconButton' ||
+      tag === 'TabButton';
+
     let domTag = 'div';
-    if (tag === 'Button') domTag = 'button';
-    else if (tag === 'TextInput' || tag === 'TextField') domTag = 'input';
-    else if (tag === 'Text' || tag === 'Badge' || tag === 'Tag' || tag === 'Chip') domTag = 'span';
+    const isMultilineInput =
+      (tag === 'TextInput' || tag === 'TextField') &&
+      Boolean(mergedProps.multiline && evaluateFormaExpression(mergedProps.multiline, localScope));
+    if (isButtonTag) domTag = 'button';
+    else if (tag === 'TextInput' || tag === 'TextField') domTag = isMultilineInput ? 'textarea' : 'input';
+    else if (tag === 'Slider') domTag = 'input';
+    else if (tag === 'Text' || tag === 'Span' || tag === 'Badge' || tag === 'Tag' || tag === 'Chip' || tag === 'Spacer') domTag = 'span';
+    else if (tag === 'Strong') domTag = 'strong';
+    else if (tag === 'Paragraph') domTag = 'p';
+    else if (tag === 'Keycap') domTag = 'kbd';
+    else if (tag === 'StatusDot') domTag = 'i';
+    else if (tag === 'Nav') domTag = 'nav';
+    else if (tag === 'Footer') domTag = 'footer';
+    else if (tag === 'Section') domTag = 'section';
+    else if (tag === 'ProgressBar') domTag = 'progress';
+    else if (tag === 'Checkbox') domTag = 'label';
     else if (tag === 'Divider' || tag === 'Separator') domTag = 'hr';
 
-    const el = document.createElement(domTag);
+    const el =
+      tag === 'SvgIcon'
+        ? (document.createElementNS('http://www.w3.org/2000/svg', 'svg') as unknown as HTMLElement)
+        : document.createElement(domTag);
     el.setAttribute('data-forma-type', tag);
+
+    const baseClasses =
+      tag === 'PrimaryButton'
+        ? 'btn btn-primary forma-btn'
+        : tag === 'IconButton' || tag === 'QuietIconButton'
+          ? 'icon-btn forma-icon-btn'
+          : tag === 'SegmentButton'
+            ? 'forma-seg-btn'
+            : isButtonTag
+              ? 'btn forma-btn'
+              : tag === 'Checkbox'
+                ? 'auto-check forma-checkbox'
+                : tag === 'Keycap'
+                  ? 'forma-kbd'
+                  : tag === 'Badge'
+                    ? 'forma-badge'
+                    : tag === 'StatusDot'
+                      ? 'status-dot'
+                      : tag === 'Spacer'
+                        ? 'toolbar-spacer'
+                        : tag === 'Nav'
+                          ? 'forma-nav'
+                          : tag === 'Footer'
+                            ? 'forma-footer'
+                            : tag === 'Section'
+                              ? 'forma-section'
+                              : tag === 'Row'
+                                ? 'forma-row'
+                                : tag === 'Column'
+                                  ? 'forma-col'
+                                  : '';
+
+    let userClassStr = '';
+    let isActiveClass = false;
+    const syncClassAttribute = () => {
+      const parts: string[] = [];
+      if (baseClasses) parts.push(baseClasses);
+      if (userClassStr) parts.push(userClassStr);
+      if (isActiveClass) parts.push('active');
+      if (parts.length > 0) {
+        el.setAttribute('class', parts.join(' '));
+      } else {
+        el.removeAttribute('class');
+      }
+    };
+    if (baseClasses) {
+      syncClassAttribute();
+    }
+    if (isButtonTag) {
+      el.setAttribute('type', 'button');
+    } else if (tag === 'Slider') {
+      el.setAttribute('type', 'range');
+      if (!mergedProps.min) el.setAttribute('min', '0');
+      if (!mergedProps.max) el.setAttribute('max', '100');
+    }
+
+    const bindExpr = (rawExpr: string, applyVal: (val: any) => void) => {
+      if (isStaticFormaExpr(rawExpr, locals)) {
+        applyVal(evaluateFormaExpression(rawExpr, localScope));
+      } else {
+        effect(() => {
+          applyVal(evaluateFormaExpression(rawExpr, localScope));
+        });
+      }
+    };
+
+    if (tag === 'SvgIcon') {
+      el.setAttribute('viewBox', '0 0 24 24');
+      el.setAttribute('stroke-linecap', 'round');
+      el.setAttribute('stroke-linejoin', 'round');
+      el.setAttribute('aria-hidden', 'true');
+      const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const applySvg = () => {
+        const size = Number(mergedProps.size ? evaluateFormaExpression(mergedProps.size, localScope) : 15) || 15;
+        const strokeWidth = Number(mergedProps.strokeWidth ? evaluateFormaExpression(mergedProps.strokeWidth, localScope) : 2) || 2;
+        const fill = String(mergedProps.fill ? evaluateFormaExpression(mergedProps.fill, localScope) ?? 'none' : 'none');
+        el.setAttribute('width', String(size));
+        el.setAttribute('height', String(size));
+        el.setAttribute('fill', fill);
+        el.setAttribute('stroke', fill === 'currentColor' ? 'none' : 'currentColor');
+        el.setAttribute('stroke-width', String(strokeWidth));
+        const d1 = mergedProps.path ? evaluateFormaExpression(mergedProps.path, localScope) : null;
+        if (d1) {
+          path1.setAttribute('d', String(d1));
+          if (!path1.parentNode) el.appendChild(path1);
+        } else if (path1.parentNode) {
+          path1.parentNode.removeChild(path1);
+        }
+        const d2 = mergedProps.path2 ? evaluateFormaExpression(mergedProps.path2, localScope) : null;
+        if (d2) {
+          path2.setAttribute('d', String(d2));
+          if (!path2.parentNode) el.appendChild(path2);
+        } else if (path2.parentNode) {
+          path2.parentNode.removeChild(path2);
+        }
+      };
+      const allSvgStatic = ['size', 'strokeWidth', 'fill', 'path', 'path2'].every(
+        (k) => !mergedProps[k] || isStaticFormaExpr(mergedProps[k], locals)
+      );
+      if (allSvgStatic) applySvg();
+      else effect(applySvg);
+    }
+
+    let checkboxInput: HTMLInputElement | null = null;
+    let checkboxLabelNode: Text | null = null;
+    if (tag === 'Checkbox') {
+      checkboxInput = document.createElement('input');
+      checkboxInput.type = 'checkbox';
+      el.appendChild(checkboxInput);
+      checkboxLabelNode = document.createTextNode('');
+      el.appendChild(checkboxLabelNode);
+    }
 
     // Apply `transition { duration: 200ms; easing: 'spring'; }` if present
     if (ast.transition) {
@@ -2582,63 +2834,161 @@ export function compileFormaComponent(
       keyedElements.set(keyVal, el);
     }
 
+    const hasChildren = ast.children.length > 0;
+    let leadingTextNode: Text | null = null;
+
     // Apply reactive properties
     for (const [propName, rawExpr] of Object.entries(mergedProps)) {
       if (propName === 'key') continue;
+      if (tag === 'SvgIcon' && (propName === 'path' || propName === 'path2' || propName === 'size' || propName === 'strokeWidth' || propName === 'fill')) {
+        continue;
+      }
 
-      if (propName === 'text') {
-        effect(() => {
-          const val = evaluateFormaExpression(rawExpr, localScope);
-          el.textContent = val == null ? '' : String(val);
+      if (propName === 'text' || (propName === 'label' && tag !== 'Checkbox')) {
+        if (hasChildren) {
+          if (!leadingTextNode) {
+            leadingTextNode = document.createTextNode('');
+            el.appendChild(leadingTextNode);
+          }
+          const tNode = leadingTextNode;
+          bindExpr(rawExpr, (val) => {
+            tNode.nodeValue = val == null ? '' : String(val);
+          });
+        } else {
+          bindExpr(rawExpr, (val) => {
+            el.textContent = val == null ? '' : String(val);
+          });
+        }
+      } else if (propName === 'label' && tag === 'Checkbox' && checkboxLabelNode) {
+        const lNode = checkboxLabelNode;
+        bindExpr(rawExpr, (val) => {
+          lNode.nodeValue = val ? ` ${String(val)}` : '';
         });
-      } else if (propName === 'value' && domTag === 'input') {
-        effect(() => {
-          const val = evaluateFormaExpression(rawExpr, localScope);
-          (el as HTMLInputElement).value = val == null ? '' : String(val);
+      } else if (propName === 'checked' && tag === 'Checkbox' && checkboxInput) {
+        const inp = checkboxInput;
+        bindExpr(rawExpr, (val) => {
+          inp.checked = Boolean(val);
+        });
+      } else if (propName === 'value' && (domTag === 'input' || domTag === 'textarea')) {
+        bindExpr(rawExpr, (val) => {
+          const strVal =
+            tag === 'Slider' && typeof val === 'string' && val.endsWith('%')
+              ? val.slice(0, -1)
+              : val == null
+                ? ''
+                : String(val);
+          (el as HTMLInputElement | HTMLTextAreaElement).value = strVal;
+        });
+      } else if ((propName === 'min' || propName === 'max' || propName === 'step') && tag === 'Slider') {
+        bindExpr(rawExpr, (v) => {
+          if (v !== undefined && v !== null) {
+            el.setAttribute(propName, String(v));
+          }
+        });
+      } else if (propName === 'readOnly' && (domTag === 'input' || domTag === 'textarea')) {
+        bindExpr(rawExpr, (v) => {
+          const isRo = Boolean(v);
+          (el as HTMLInputElement | HTMLTextAreaElement).readOnly = isRo;
+          if (isRo) el.setAttribute('readonly', '');
+          else el.removeAttribute('readonly');
+        });
+      } else if (propName === 'wrap' && (tag === 'Text' || tag === 'Span' || tag === 'Paragraph')) {
+        bindExpr(rawExpr, (v) => {
+          const shouldWrap = Boolean(v);
+          el.style.whiteSpace = shouldWrap ? 'pre-wrap' : 'nowrap';
+          el.style.overflowWrap = shouldWrap ? 'break-word' : 'normal';
+        });
+      } else if (propName === 'fontSize' || propName === 'font.size') {
+        bindExpr(rawExpr, (v) => {
+          el.style.fontSize = typeof v === 'number' ? `${v}px` : String(v ?? '');
+        });
+      } else if ((propName === 'value' || propName === 'max') && domTag === 'progress') {
+        bindExpr(rawExpr, (v) => {
+          const val = Number(v ?? (propName === 'max' ? 100 : 0));
+          el.setAttribute(propName, String(val));
+          (el as HTMLProgressElement)[propName] = val;
         });
       } else if (propName === 'disabled') {
-        effect(() => {
-          (el as HTMLButtonElement).disabled = Boolean(
-            evaluateFormaExpression(rawExpr, localScope)
-          );
+        bindExpr(rawExpr, (v) => {
+          const isDis = Boolean(v);
+          (el as HTMLButtonElement).disabled = isDis;
+          if (isDis) el.setAttribute('disabled', '');
+          else el.removeAttribute('disabled');
         });
-      } else if (propName === 'placeholder' && domTag === 'input') {
-        effect(() => {
-          (el as HTMLInputElement).placeholder = String(
-            evaluateFormaExpression(rawExpr, localScope) ?? ''
-          );
+      } else if (propName === 'class' || propName === 'className') {
+        bindExpr(rawExpr, (v) => {
+          userClassStr = v == null ? '' : String(v).trim();
+          syncClassAttribute();
+        });
+      } else if (propName === 'active') {
+        bindExpr(rawExpr, (v) => {
+          isActiveClass = Boolean(v);
+          syncClassAttribute();
+        });
+      } else if (propName === 'id' || propName === 'role' || propName === 'title' || propName === 'tooltip') {
+        const attrName = propName === 'tooltip' ? 'title' : propName;
+        bindExpr(rawExpr, (v) => {
+          if (v !== undefined && v !== null && v !== '') {
+            el.setAttribute(attrName, String(v));
+          } else {
+            el.removeAttribute(attrName);
+          }
+        });
+      } else if (propName === 'tabindex') {
+        bindExpr(rawExpr, (v) => {
+          if (v !== undefined && v !== null) {
+            el.setAttribute('tabindex', String(Number(v)));
+          } else {
+            el.removeAttribute('tabindex');
+          }
+        });
+      } else if (propName === 'testId') {
+        bindExpr(rawExpr, (v) => {
+          if (v !== undefined && v !== null && v !== '') {
+            el.setAttribute('data-testid', String(v));
+          } else {
+            el.removeAttribute('data-testid');
+          }
+        });
+      } else if (propName.startsWith('aria') && propName.length > 4) {
+        const ariaAttr = `aria-${propName.slice(4).toLowerCase()}`;
+        bindExpr(rawExpr, (v) => {
+          if (v !== undefined && v !== null && v !== '') {
+            el.setAttribute(ariaAttr, String(v));
+          } else {
+            el.removeAttribute(ariaAttr);
+          }
+        });
+      } else if (propName === 'placeholder' && (domTag === 'input' || domTag === 'textarea')) {
+        bindExpr(rawExpr, (v) => {
+          (el as HTMLInputElement | HTMLTextAreaElement).placeholder = String(v ?? '');
         });
       } else if (propName === 'gap') {
-        effect(() => {
-          const v = evaluateFormaExpression(rawExpr, localScope);
+        bindExpr(rawExpr, (v) => {
           el.style.gap = typeof v === 'number' ? `${v}px` : String(v);
         });
       } else if (propName === 'padding') {
-        effect(() => {
-          const v = evaluateFormaExpression(rawExpr, localScope);
+        bindExpr(rawExpr, (v) => {
           el.style.padding = typeof v === 'number' ? `${v}px` : String(v);
         });
       } else if (propName === 'background') {
-        effect(() => {
-          el.style.background = String(evaluateFormaExpression(rawExpr, localScope) ?? '');
+        bindExpr(rawExpr, (v) => {
+          el.style.background = String(v ?? '');
         });
       } else if (propName === 'color') {
-        effect(() => {
-          el.style.color = String(evaluateFormaExpression(rawExpr, localScope) ?? '');
+        bindExpr(rawExpr, (v) => {
+          el.style.color = String(v ?? '');
         });
       } else if (propName === 'cornerRadius') {
-        effect(() => {
-          const v = evaluateFormaExpression(rawExpr, localScope);
+        bindExpr(rawExpr, (v) => {
           el.style.borderRadius = typeof v === 'number' ? `${v}px` : String(v);
         });
       } else if (propName === 'width' || propName === 'height') {
-        effect(() => {
-          const v = evaluateFormaExpression(rawExpr, localScope);
+        bindExpr(rawExpr, (v) => {
           (el.style as any)[propName] = typeof v === 'number' ? `${v}px` : String(v);
         });
       } else {
-        effect(() => {
-          const v = evaluateFormaExpression(rawExpr, localScope);
+        bindExpr(rawExpr, (v) => {
           if (v !== undefined && v !== null) {
             el.setAttribute(`data-${propName.toLowerCase()}`, String(v));
           }
@@ -2646,39 +2996,81 @@ export function compileFormaComponent(
       }
     }
 
-    // Two-way bindings: `value <-> state.name`
+    // Two-way bindings: `value <-> state.name` and `checked <-> state.autoRender`
     for (const [propName, targetPath] of Object.entries(ast.twoWayBindings)) {
       const cleanName = targetPath.replace(/^state\./, '').trim();
-      const targetSig = stateSignals[cleanName];
-      if (targetSig && propName === 'value' && domTag === 'input') {
-        const inputEl = el as HTMLInputElement;
+      const targetSig = ensureStateSignal(cleanName, propName === 'checked' ? false : '');
+      if (targetSig && propName === 'value' && (domTag === 'input' || domTag === 'textarea')) {
+        const inputEl = el as HTMLInputElement | HTMLTextAreaElement;
         effect(() => {
-          const nextStr = String(targetSig() ?? '');
+          const raw = targetSig();
+          const nextStr =
+            tag === 'Slider' && typeof raw === 'string' && raw.endsWith('%')
+              ? raw.slice(0, -1)
+              : String(raw ?? '');
           if (inputEl.value !== nextStr) {
             inputEl.value = nextStr;
           }
         });
-        const onInput = () => {
-          targetSig.set(inputEl.value);
+        const onInput = (ev: Event) => {
+          const nextVal =
+            tag === 'Slider' && typeof targetSig.peek() === 'number'
+              ? Number(inputEl.value)
+              : inputEl.value;
+          targetSig.set(nextVal);
+          options?.onBinding?.(cleanName, nextVal);
           if (ast.eventHandlers.changed) {
-            executeFormaAction(ast.eventHandlers.changed, locals);
+            executeFormaAction(ast.eventHandlers.changed, locals, ev);
           }
         };
         inputEl.addEventListener('input', onInput);
         onCleanup(() => inputEl.removeEventListener('input', onInput));
+      } else if (targetSig && propName === 'checked' && checkboxInput) {
+        const chkEl = checkboxInput;
+        effect(() => {
+          const nextBool = Boolean(targetSig());
+          if (chkEl.checked !== nextBool) {
+            chkEl.checked = nextBool;
+          }
+        });
+        const onChange = (ev: Event) => {
+          const nextChecked = chkEl.checked;
+          targetSig.set(nextChecked);
+          options?.onBinding?.(cleanName, nextChecked);
+          if (ast.eventHandlers.changed) {
+            executeFormaAction(ast.eventHandlers.changed, locals, ev);
+          }
+        };
+        chkEl.addEventListener('change', onChange);
+        onCleanup(() => chkEl.removeEventListener('change', onChange));
       }
     }
 
-    // Event handlers: `clicked -> ...`
+    // Event handlers: `clicked -> ...`, `keydown -> ...`, `changed -> ...`
     for (const [evtName, actionExpr] of Object.entries(ast.eventHandlers)) {
       if (evtName === 'clicked') {
-        const onClick = () => {
+        const onClick = (ev: MouseEvent) => {
           if (!(el as HTMLButtonElement).disabled) {
-            executeFormaAction(actionExpr, locals);
+            executeFormaAction(actionExpr, locals, ev);
           }
         };
         el.addEventListener('click', onClick);
         onCleanup(() => el.removeEventListener('click', onClick));
+      } else if (evtName === 'keydown') {
+        const onKeydown = (ev: KeyboardEvent) => {
+          if (!(el as HTMLButtonElement).disabled) {
+            executeFormaAction(actionExpr, locals, ev);
+          }
+        };
+        el.addEventListener('keydown', onKeydown);
+        onCleanup(() => el.removeEventListener('keydown', onKeydown));
+      } else if (evtName === 'changed' && !('value' in ast.twoWayBindings) && !('checked' in ast.twoWayBindings)) {
+        const targetEl = checkboxInput ?? el;
+        const onChange = (ev: Event) => {
+          executeFormaAction(actionExpr, locals, ev);
+        };
+        targetEl.addEventListener('change', onChange);
+        onCleanup(() => targetEl.removeEventListener('change', onChange));
       }
     }
 
@@ -2719,6 +3111,15 @@ export function compileFormaComponent(
     locale,
     isValid,
     actions,
+    setState(partial: Record<string, any>) {
+      assertLive();
+      batch(() => {
+        for (const [k, v] of Object.entries(partial)) {
+          if (FORBIDDEN_MEMBER_KEYS.has(k)) continue;
+          ensureStateSignal(k, v).set(v);
+        }
+      });
+    },
     onEvent(eventName: string, handler: (...args: any[]) => void) {
       assertLive();
       let set = eventListeners.get(eventName);
@@ -3048,7 +3449,20 @@ function parseLiteralValue(raw: string): any {
   if (s === 'null') return null;
   if (/^-?\d+(\.\d+)?$/.test(s)) return Number(s);
   if ((s.startsWith("'") && s.endsWith("'")) || (s.startsWith('"') && s.endsWith('"'))) {
-    return s.slice(1, -1);
+    const inner = s.slice(1, -1);
+    let out = '';
+    for (let i = 0; i < inner.length; i++) {
+      if (inner[i] === '\\' && i + 1 < inner.length) {
+        const next = inner[++i];
+        if (next === 'n') out += '\n';
+        else if (next === 'r') out += '\r';
+        else if (next === 't') out += '\t';
+        else out += next;
+      } else {
+        out += inner[i];
+      }
+    }
+    return out;
   }
   if (s.startsWith('[') || s.startsWith('{')) {
     try {
@@ -3847,18 +4261,26 @@ export function FormaHost(props: {
   source?: string;
   instance?: FormaRuntimeInstance;
   props?: Record<string, any>;
+  state?: Record<string, any>;
   locale?: string;
   viewModel?: Record<string, FormaProperty<any> | Signal<any>>;
   slots?: FormaSlotMap;
+  actions?: Record<string, (...args: any[]) => void>;
+  onAction?: (name: string, args: any[], event?: Event) => void;
+  onBinding?: (path: string, value: any) => void;
   onReady?: (instance: FormaRuntimeInstance) => void;
 }): DocumentFragment {
   const inst =
     props.instance ??
     compileFormaComponent(props.source ?? '', {
       props: props.props,
+      state: props.state,
       locale: props.locale,
       viewModel: props.viewModel,
       slots: props.slots,
+      actions: props.actions,
+      onAction: props.onAction,
+      onBinding: props.onBinding,
     });
   if (props.onReady) {
     props.onReady(inst);

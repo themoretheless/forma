@@ -75,6 +75,8 @@ jobs:
       # device (buffer reuse, CPU/GPU agreement across DPI) run on every PR, not only on a Mac by hand.
       - name: GPU renderer tests on software Vulkan (lavapipe)
         if: runner.os == 'Linux'
+        env:
+          WGPU_BACKEND: vulkan
         run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests -- --ignored
       - name: Design runner execution, cleanup and result limits
         run: node --test test/design-data-runner.test.js

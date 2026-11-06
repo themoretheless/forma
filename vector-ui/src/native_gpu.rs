@@ -74,13 +74,13 @@ impl GpuWindow {
     }
     #[cfg(feature="native-test-hooks")]
     pub(crate) fn inject_device_loss_for_testing(&self) {
-        self.renderer.device.inject_backend_device_loss_for_testing("injected NativeHost device loss (test hook)".into());
+        self.renderer.inject_device_loss_for_testing("injected NativeHost device loss (test hook)".into());
     }
 
     /// Service completion errors without acquiring a drawable or rendering.
     pub fn poll_idle(&self) -> Result<bool,String> {
         self.renderer.check_health()?;
-        Ok(self.renderer.device.is_queue_idle())
+        Ok(crate::gpu::device_queue_idle(&self.renderer.device))
     }
 
     pub fn draw(
