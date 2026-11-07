@@ -804,15 +804,39 @@ function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
   }
 }
 
+function isTokensRoot(node: ExprAst): boolean {
+  if (node.type === 'ident') {
+    return node.name === 'tokens';
+  }
+  if (node.type === 'member') {
+    return isTokensRoot(node.object);
+  }
+  return false;
+}
+
 function isStaticFormaExprNode(node: ExprAst, locals?: Record<string, any>): boolean {
   switch (node.type) {
     case 'literal':
       return true;
     case 'member':
-      if (node.object.type === 'ident' && node.object.name === 'tokens') {
+      if (isTokensRoot(node.object)) {
         return true;
       }
-      return false;
+      return isStaticFormaExprNode(node.object, locals);
+    case 'index':
+      return isStaticFormaExprNode(node.object, locals) && isStaticFormaExprNode(node.index, locals);
+    case 'unary':
+      return isStaticFormaExprNode(node.arg, locals);
+    case 'binary':
+      return isStaticFormaExprNode(node.left, locals) && isStaticFormaExprNode(node.right, locals);
+    case 'conditional':
+      return (
+        isStaticFormaExprNode(node.test, locals) &&
+        isStaticFormaExprNode(node.consequent, locals) &&
+        isStaticFormaExprNode(node.alternate, locals)
+      );
+    case 'array':
+      return node.elements.every((el) => isStaticFormaExprNode(el, locals));
     default:
       return false;
   }

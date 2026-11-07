@@ -518,11 +518,14 @@ pub fn segment_words_dictionary(value: &str) -> Vec<(usize, &str)> {
 }
 
 fn word_edge_dictionary(value: &str, at: usize, forward: bool, count: usize) -> usize {
-    let tokens = segment_words_dictionary(value)
-        .into_iter()
-        .filter(|(_, text)| !text.chars().all(char::is_whitespace));
+    if value.is_ascii() {
+        return word_edge(value, at, forward, count);
+    }
+    let tokens = segment_words_dictionary(value);
     if forward {
         tokens
+            .into_iter()
+            .filter(|(_, text)| !text.chars().all(char::is_whitespace))
             .filter(|(start, text)| start + text.len() > at)
             .nth(count - 1)
             .map_or(value.len(), |(start, text)| {
@@ -530,9 +533,9 @@ fn word_edge_dictionary(value: &str, at: usize, forward: bool, count: usize) -> 
             })
     } else {
         tokens
-            .collect::<Vec<_>>()
             .into_iter()
             .rev()
+            .filter(|(_, text)| !text.chars().all(char::is_whitespace))
             .filter(|(start, _)| *start < at)
             .nth(count - 1)
             .map_or(0, |(start, _)| grapheme_edge(value, start, false, false))

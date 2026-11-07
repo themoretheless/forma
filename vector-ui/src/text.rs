@@ -335,12 +335,94 @@ pub fn shape_text(text: &str, font_size: f32) -> Vec<ShapedGlyph> {
     visual
 }
 
-/// Measures the total horizontal advance of shaped text (including ligatures, kerning, and zero-advance combining marks).
+/// Measures the total horizontal advance of shaped text (including ligatures, kerning, and zero-advance combining marks)
+/// without allocating a visual [`ShapedGlyph`] output vector.
 pub fn measure_shaped_text(text: &str, font_size: f32) -> f32 {
-    shape_text(text, font_size)
-        .iter()
-        .map(|g| g.x_advance)
-        .sum()
+    if !font_size.is_finite() || font_size <= 0. || text.is_empty() {
+        return 0.;
+    }
+    let face = font();
+    let table = font_table();
+    let scale = font_size / table.units_per_em as f32;
+    let mut total_units = 0.0_f32;
+    let mut prev_base: Option<(GlyphId, u8, bool, bool, f32)> = None;
+    let mut prev_rtl = false;
+    let mut prev_cluster = 0usize;
+    let mut prev_combining = false;
+    let mut has_prev = false;
+    let mut byte_idx = 0;
+    while byte_idx < text.len() {
+        let rest = &text[byte_idx..];
+        if let Some((lig_len, lig_char)) = match_standard_ligature(rest) {
+            if let Some(id) = face.glyph_index(lig_char) {
+                let adv = advance(face, id);
+                if let Some((p_id, p_font, p_rtl, p_syn, p_adv)) = prev_base {
+                    if !p_rtl && p_font == 0 && !p_syn {
+                        let kern = kern_pair_units(face, p_id, id);
+                        if kern != 0. {
+                            total_units += (p_adv + kern).max(0.) - p_adv;
+                        }
+                    }
+                }
+                total_units += adv;
+                prev_base = Some((id, 0, false, false, adv));
+                prev_rtl = false;
+                prev_cluster = byte_idx;
+                prev_combining = false;
+                has_prev = true;
+                byte_idx += lig_len;
+                continue;
+            }
+        }
+        let ch = rest.chars().next().unwrap();
+        let ch_len = ch.len_utf8();
+        let zero_mod = is_zero_width_modifier(ch);
+        let emoji_mod = is_emoji_modifier(ch);
+        let combining = is_combining_mark(ch) || zero_mod || emoji_mod;
+        let rtl = is_rtl_char(ch) || (combining && has_prev && prev_rtl);
+        let prev_was_zwj = has_prev
+            && text
+                .get(prev_cluster..byte_idx)
+                .is_some_and(|s| s.ends_with('\u{200D}'));
+        let prev_was_ri = is_regional_indicator(ch)
+            && has_prev
+            && !prev_combining
+            && text
+                .get(prev_cluster..)
+                .and_then(|s| s.chars().next())
+                .is_some_and(is_regional_indicator);
+        let is_fallback = face.glyph_index(ch).is_none();
+        let (resolved, advance_units) = resolve_glyph_with_table(ch, table);
+        let id = resolved.id;
+        let synthetic = (is_fallback && resolved.face == 0) || zero_mod;
+        let raw_adv = if synthetic {
+            table.units_per_em as f32 * 0.6
+        } else {
+            advance_units
+        };
+        let is_zero_adv = combining || prev_was_zwj || prev_was_ri;
+        if !is_zero_adv {
+            if let Some((p_id, p_font, p_rtl, p_syn, p_adv)) = prev_base {
+                if p_rtl == rtl && p_font == resolved.face && !p_syn && !synthetic {
+                    let pair_face = glyph_face(resolved.face);
+                    let kern = kern_pair_units(pair_face, p_id, id)
+                        * table.units_per_em as f32
+                        / pair_face.units_per_em() as f32;
+                    if kern != 0. {
+                        total_units += (p_adv + kern).max(0.) - p_adv;
+                    }
+                }
+            }
+            total_units += raw_adv;
+            prev_base = Some((id, resolved.face, rtl, synthetic, raw_adv));
+        }
+        prev_rtl = rtl;
+        prev_cluster = byte_idx;
+        prev_combining = is_zero_adv;
+        has_prev = true;
+        byte_idx += ch_len;
+    }
+    total_units * scale
 }
 
 /// Visual soft-wrapped line produced by [`wrap_shaped_text`].
@@ -403,13 +485,26 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
                 });
                 break;
             }
-            // Find the furthest word/ideograph boundary that fits within `max_width`.
+            // Find the furthest word/ideograph boundary that fits within `max_width` using O(N) incremental measurement.
             let mut best_word_end = None;
             let mut accum_end = 0;
+            let mut running_w = 0.0_f32;
+            let mut trailing_ws_w = 0.0_f32;
             for (seg_idx, seg) in rest.split_word_bound_indices() {
                 let end = seg_idx + seg.len();
-                let trimmed = rest[..end].trim_end_matches([' ', '\t']);
-                let w = measure_shaped_text(trimmed, font_size);
+                let seg_w = measure_shaped_text(seg, font_size);
+                running_w += seg_w;
+                if seg.bytes().all(|b| b == b' ' || b == b'\t') {
+                    trailing_ws_w += seg_w;
+                } else {
+                    let trimmed_seg = seg.trim_end_matches([' ', '\t']);
+                    trailing_ws_w = if trimmed_seg.len() == seg.len() {
+                        0.0
+                    } else {
+                        measure_shaped_text(&seg[trimmed_seg.len()..], font_size)
+                    };
+                }
+                let w = (running_w - trailing_ws_w).max(0.0);
                 if w <= max_width && end > 0 {
                     best_word_end = Some(end);
                     accum_end = end;
@@ -422,12 +517,13 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
             let break_rel = if let Some(word_end) = best_word_end {
                 word_end
             } else {
-                // Emergency grapheme wrap: take at least 1 grapheme cluster.
+                // Emergency grapheme wrap: take at least 1 grapheme cluster using O(N) incremental measurement.
                 let mut g_end = 0;
+                let mut g_running_w = 0.0_f32;
                 for (gi, g_str) in rest.grapheme_indices(true) {
                     let cand = gi + g_str.len();
-                    let w = measure_shaped_text(&rest[..cand], font_size);
-                    if w <= max_width || g_end == 0 {
+                    g_running_w += measure_shaped_text(g_str, font_size);
+                    if g_running_w <= max_width || g_end == 0 {
                         g_end = cand;
                     } else {
                         break;
@@ -1723,5 +1819,12 @@ mod tests {
         // Hit testing on wrapped lines resolves back to original UTF-8 byte offsets.
         let hit_second_row = hit_wrapped_text(text, 16., single_word_w + 2., 24., 1., 28.);
         assert_eq!(hit_second_row, wrapped[1].byte_range.start);
+
+        // Zero-allocation `measure_shaped_text` agrees with full `shape_text` sum across scripts.
+        for sample in ["ffi ffl AV To", "אב גד", "你好世界", "👨‍👩‍👧‍👦👍🏽1\u{fe0f}\u{20e3}🇬🇪", "Forma — векторы"] {
+            let shaped_sum: f32 = shape_text(sample, 18.).iter().map(|g| g.x_advance).sum();
+            let fast_measured = measure_shaped_text(sample, 18.);
+            assert!((shaped_sum - fast_measured).abs() < 1e-3, "{sample}: {shaped_sum} vs {fast_measured}");
+        }
     }
 }

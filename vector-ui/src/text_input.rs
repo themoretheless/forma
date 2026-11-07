@@ -54,8 +54,11 @@ impl Editor {
     fn width(&self,s:&str)->f32 {crate::text::measure_line(s,self.spec.font_size)[0]}
     fn line_height(&self)->f32 {self.spec.font_size*1.5}
     fn caret_point(&self)->[f32;2] {
-        if self.spec.multiline && self.spec.wrap {
-            let lines=self.soft_wrapped_lines();
+        let wrapped=(self.spec.multiline && self.spec.wrap).then(||self.soft_wrapped_lines());
+        self.caret_point_with_lines(wrapped.as_deref())
+    }
+    fn caret_point_with_lines(&self,wrapped:Option<&[crate::text::SoftWrappedLine]>)->[f32;2] {
+        if let Some(lines)=wrapped {
             let caret=self.model.caret();
             for (row,wl) in lines.iter().enumerate().rev() {
                 if caret>=wl.byte_range.start && (caret<=wl.byte_range.end || row+1==lines.len()) {
@@ -184,12 +187,44 @@ impl Editor {
             self.phase=0.;
         }
     }
+    fn push_visual_row(&self,out:&mut Vec<Content>,focused:bool,selection:&std::ops::Range<usize>,px:f32,py:f32,lh:f32,start:usize,line:&str) {
+        if focused && !selection.is_empty() {
+            let a=selection.start.max(start);let b=selection.end.min(start+line.len());
+            if a<=b && selection.end>start && selection.start<=start+line.len() {
+                let left=self.width(&line[..a.saturating_sub(start).min(line.len())]);
+                let right=self.width(&line[..b.saturating_sub(start).min(line.len())]);
+                out.push(rect(px+left,py,(right-left).max(if selection.end>start+line.len(){5.}else{0.}),lh,[222,106,25,90]));
+            }
+        }
+        if self.fades.is_empty() {
+            out.push(Content::Text{bounds:[px,py,self.width(line),lh],text:Text{text:line.into(),font_size:self.spec.font_size,color:self.spec.color}});
+        } else {
+            let mut cuts=vec![0,line.len()];
+            for (range,_) in &self.fades {
+                if range.start<start+line.len() && range.end>start {
+                    cuts.push(range.start.saturating_sub(start));
+                    cuts.push((range.end-start).min(line.len()));
+                }
+            }
+            cuts.sort_unstable();cuts.dedup();
+            for run in cuts.windows(2) {
+                let text=&line[run[0]..run[1]];
+                let mut color=self.spec.color;
+                if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
+                    let t=(*age/220.).clamp(0.,1.);
+                    color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
+                }
+                out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
+            }
+        }
+    }
     pub fn content(&mut self,focused:bool)->Vec<Content> {
         if focused!=self.focused {self.phase=0.;self.focused=focused;self.preferred_x=None;}
         let mut out=self.base.clone();let [x,y,w,h]=self.spec.bounds;let lh=self.line_height();
-        let p=self.caret_point();
+        let wrapped=(self.spec.multiline && self.spec.wrap).then(||self.soft_wrapped_lines());
+        let p=self.caret_point_with_lines(wrapped.as_deref());
         if focused {
-            if self.spec.multiline && self.spec.wrap {
+            if wrapped.is_some() {
                 self.offset[0]=0.;
             } else {
                 self.offset[0]=self.offset[0].min(p[0]).max((p[0]+self.width(&self.preedit)+2.-w).max(0.));
@@ -198,42 +233,11 @@ impl Editor {
         }
         out.push(Content::Clip{bounds:[x,y,w,h],radius:0.});
         let value=self.model.value();let selection=self.model.selection();
-        if self.spec.multiline && self.spec.wrap {
-            let wrapped=self.soft_wrapped_lines();
+        let px=x-self.offset[0];
+        if let Some(wrapped)=&wrapped {
             for (row,wl) in wrapped.iter().enumerate() {
-                let start=wl.byte_range.start;
-                let line=&value[wl.byte_range.clone()];
                 let py=y+self.top()+row as f32*lh-self.offset[1];
-                let px=x-self.offset[0];
-                if focused && !selection.is_empty() {
-                    let a=selection.start.max(start);let b=selection.end.min(start+line.len());
-                    if a<=b && selection.end>start && selection.start<=start+line.len() {
-                        let left=self.width(&line[..a.saturating_sub(start).min(line.len())]);
-                        let right=self.width(&line[..b.saturating_sub(start).min(line.len())]);
-                        out.push(rect(px+left,py,(right-left).max(if selection.end>start+line.len(){5.}else{0.}),lh,[222,106,25,90]));
-                    }
-                }
-                if self.fades.is_empty() {
-                    out.push(Content::Text{bounds:[px,py,self.width(line),lh],text:Text{text:line.into(),font_size:self.spec.font_size,color:self.spec.color}});
-                } else {
-                    let mut cuts=vec![0,line.len()];
-                    for (range,_) in &self.fades {
-                        if range.start<start+line.len() && range.end>start {
-                            cuts.push(range.start.saturating_sub(start));
-                            cuts.push((range.end-start).min(line.len()));
-                        }
-                    }
-                    cuts.sort_unstable();cuts.dedup();
-                    for run in cuts.windows(2) {
-                        let text=&line[run[0]..run[1]];
-                        let mut color=self.spec.color;
-                        if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
-                            let t=(*age/220.).clamp(0.,1.);
-                            color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
-                        }
-                        out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
-                    }
-                }
+                self.push_visual_row(&mut out,focused,&selection,px,py,lh,wl.byte_range.start,&value[wl.byte_range.clone()]);
             }
         } else {
             let mut start=0;
@@ -241,36 +245,7 @@ impl Editor {
                 let raw_len=line.len();
                 let line=if start+raw_len<value.len(){line.strip_suffix('\r').unwrap_or(line)}else{line};
                 let py=y+self.top()+row as f32*lh-self.offset[1];
-                let px=x-self.offset[0];
-                if focused && !selection.is_empty() {
-                    let a=selection.start.max(start);let b=selection.end.min(start+line.len());
-                    if a<=b && selection.end>start && selection.start<=start+line.len() {
-                        let left=self.width(&line[..a.saturating_sub(start).min(line.len())]);
-                        let right=self.width(&line[..b.saturating_sub(start).min(line.len())]);
-                        out.push(rect(px+left,py,(right-left).max(if selection.end>start+line.len(){5.}else{0.}),lh,[222,106,25,90]));
-                    }
-                }
-                if self.fades.is_empty() {
-                    out.push(Content::Text{bounds:[px,py,self.width(line),lh],text:Text{text:line.into(),font_size:self.spec.font_size,color:self.spec.color}});
-                } else {
-                    let mut cuts=vec![0,line.len()];
-                    for (range,_) in &self.fades {
-                        if range.start<start+line.len() && range.end>start {
-                            cuts.push(range.start.saturating_sub(start));
-                            cuts.push((range.end-start).min(line.len()));
-                        }
-                    }
-                    cuts.sort_unstable();cuts.dedup();
-                    for run in cuts.windows(2) {
-                        let text=&line[run[0]..run[1]];
-                        let mut color=self.spec.color;
-                        if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
-                            let t=(*age/220.).clamp(0.,1.);
-                            color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
-                        }
-                        out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
-                    }
-                }
+                self.push_visual_row(&mut out,focused,&selection,px,py,lh,start,line);
                 start+=raw_len+1;
             }
         }
