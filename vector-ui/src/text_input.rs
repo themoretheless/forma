@@ -54,16 +54,16 @@ impl Editor {
     fn width(&self,s:&str)->f32 {crate::text::measure_line(s,self.spec.font_size)[0]}
     fn line_height(&self)->f32 {self.spec.font_size*1.5}
     fn caret_point(&self)->[f32;2] {
-        let wrapped=(self.spec.multiline && self.spec.wrap).then(||self.soft_wrapped_lines());
-        self.caret_point_with_lines(wrapped.as_deref())
+        let wrapped=(self.spec.multiline && self.spec.wrap).then(||crate::text::wrap_text_ranges(self.model.value(),self.spec.font_size,self.spec.bounds[2].max(1.)));
+        self.caret_point_with_ranges(wrapped.as_deref())
     }
-    fn caret_point_with_lines(&self,wrapped:Option<&[crate::text::SoftWrappedLine]>)->[f32;2] {
+    fn caret_point_with_ranges(&self,wrapped:Option<&[(std::ops::Range<usize>,f32)]>)->[f32;2] {
         if let Some(lines)=wrapped {
             let caret=self.model.caret();
-            for (row,wl) in lines.iter().enumerate().rev() {
-                if caret>=wl.byte_range.start && (caret<=wl.byte_range.end || row+1==lines.len()) {
-                    let end=caret.min(wl.byte_range.end);
-                    return [self.width(&self.model.value()[wl.byte_range.start..end]),row as f32*self.line_height()];
+            for (row,(byte_range,_)) in lines.iter().enumerate().rev() {
+                if caret>=byte_range.start && (caret<=byte_range.end || row+1==lines.len()) {
+                    let end=caret.min(byte_range.end);
+                    return [self.width(&self.model.value()[byte_range.start..end]),row as f32*self.line_height()];
                 }
             }
         }
@@ -221,8 +221,8 @@ impl Editor {
     pub fn content(&mut self,focused:bool)->Vec<Content> {
         if focused!=self.focused {self.phase=0.;self.focused=focused;self.preferred_x=None;}
         let mut out=self.base.clone();let [x,y,w,h]=self.spec.bounds;let lh=self.line_height();
-        let wrapped=(self.spec.multiline && self.spec.wrap).then(||self.soft_wrapped_lines());
-        let p=self.caret_point_with_lines(wrapped.as_deref());
+        let wrapped=(self.spec.multiline && self.spec.wrap).then(||crate::text::wrap_text_ranges(self.model.value(),self.spec.font_size,self.spec.bounds[2].max(1.)));
+        let p=self.caret_point_with_ranges(wrapped.as_deref());
         if focused {
             if wrapped.is_some() {
                 self.offset[0]=0.;
@@ -235,9 +235,9 @@ impl Editor {
         let value=self.model.value();let selection=self.model.selection();
         let px=x-self.offset[0];
         if let Some(wrapped)=&wrapped {
-            for (row,wl) in wrapped.iter().enumerate() {
+            for (row,(byte_range,_)) in wrapped.iter().enumerate() {
                 let py=y+self.top()+row as f32*lh-self.offset[1];
-                self.push_visual_row(&mut out,focused,&selection,px,py,lh,wl.byte_range.start,&value[wl.byte_range.clone()]);
+                self.push_visual_row(&mut out,focused,&selection,px,py,lh,byte_range.start,&value[byte_range.clone()]);
             }
         } else {
             let mut start=0;

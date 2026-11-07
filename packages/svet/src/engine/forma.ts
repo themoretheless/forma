@@ -349,24 +349,51 @@ function isSafePatternRegex(pattern: string): boolean {
   return true;
 }
 
+function isCharacterRange(code: number, min: number, max: number): boolean {
+  return code >= min && code <= max;
+}
+
+function isAsciiWhitespace(code: number): boolean {
+  return code === 32 || code === 9 || code === 10 || code === 13 || code === 12 || code === 11;
+}
+
+function isIdentStart(code: number): boolean {
+  return (
+    isCharacterRange(code, 65, 90) || // A-Z
+    isCharacterRange(code, 97, 122) || // a-z
+    code === 95 || // _
+    code === 36 || // $
+    code === 35 // #
+  );
+}
+
+function isIdentContinue(code: number): boolean {
+  return (
+    isIdentStart(code) ||
+    isCharacterRange(code, 48, 57) || // 0-9
+    code === 45 // -
+  );
+}
+
 function tokenizeFormaExpr(src: string): ExprToken[] {
   const tokens: ExprToken[] = [];
   let i = 0;
   const n = src.length;
 
   while (i < n) {
-    const ch = src[i];
-    if (/\s/.test(ch)) {
+    const code = src.charCodeAt(i);
+    if (isAsciiWhitespace(code)) {
       i++;
       continue;
     }
 
-    if (ch === "'" || ch === '"') {
+    const ch = src[i];
+    if (code === 39 || code === 34) {
       const q = ch;
       let s = '';
       i++;
       while (i < n && src[i] !== q) {
-        if (src[i] === '\\' && i + 1 < n) {
+        if (src.charCodeAt(i) === 92 && i + 1 < n) {
           if (src[i + 1] === '$') {
             s += '\\$';
             i += 2;
@@ -387,16 +414,22 @@ function tokenizeFormaExpr(src: string): ExprToken[] {
       continue;
     }
 
-    if (/\d/.test(ch)) {
-      let numStr = '';
-      while (i < n && /[0-9.]/.test(src[i])) {
-        numStr += src[i++];
+    if (isCharacterRange(code, 48, 57)) {
+      const numStart = i;
+      while (i < n) {
+        const c = src.charCodeAt(i);
+        if (isCharacterRange(c, 48, 57) || c === 46) i++;
+        else break;
       }
+      const numStr = src.slice(numStart, i);
       // Consume optional Forma unit (`px`, `ms`, `s`, `deg`, `rad`, `rem`, `em`, `%`, `turn`)
-      let unit = '';
-      while (i < n && /[a-zA-Z%]/.test(src[i])) {
-        unit += src[i++];
+      const unitStart = i;
+      while (i < n) {
+        const c = src.charCodeAt(i);
+        if (isCharacterRange(c, 65, 90) || isCharacterRange(c, 97, 122) || c === 37) i++;
+        else break;
       }
+      const unit = src.slice(unitStart, i);
       if (unit && unit !== 'px' && unit !== 'ms') {
         tokens.push({ kind: 'str', val: numStr + unit });
       } else {
@@ -406,17 +439,26 @@ function tokenizeFormaExpr(src: string): ExprToken[] {
     }
 
     // Multi-char operators
-    const three = src.slice(i, i + 3);
-    if (three === '===' || three === '!==') {
-      tokens.push({ kind: 'op', val: three });
+    if (i + 2 < n && (src.startsWith('===', i) || src.startsWith('!==', i))) {
+      tokens.push({ kind: 'op', val: src.slice(i, i + 3) });
       i += 3;
       continue;
     }
-    const two = src.slice(i, i + 2);
-    if (['==', '!=', '<=', '>=', '&&', '||', '??'].includes(two)) {
-      tokens.push({ kind: 'op', val: two });
-      i += 2;
-      continue;
+    if (i + 1 < n) {
+      const c2 = src.charCodeAt(i + 1);
+      if (
+        (code === 61 && c2 === 61) || // ==
+        (code === 33 && c2 === 61) || // !=
+        (code === 60 && c2 === 61) || // <=
+        (code === 62 && c2 === 61) || // >=
+        (code === 38 && c2 === 38) || // &&
+        (code === 124 && c2 === 124) || // ||
+        (code === 63 && c2 === 63) // ??
+      ) {
+        tokens.push({ kind: 'op', val: src.slice(i, i + 2) });
+        i += 2;
+        continue;
+      }
     }
 
     if ('+-*/%<>!?:'.includes(ch)) {
@@ -431,12 +473,13 @@ function tokenizeFormaExpr(src: string): ExprToken[] {
       continue;
     }
 
-    if (/[a-zA-Z_$#]/.test(ch)) {
-      let id = '';
-      while (i < n && /[a-zA-Z0-9_$#-]/.test(src[i])) {
-        id += src[i++];
+    if (isIdentStart(code)) {
+      const idStart = i;
+      i++;
+      while (i < n && isIdentContinue(src.charCodeAt(i))) {
+        i++;
       }
-      tokens.push({ kind: 'ident', val: id });
+      tokens.push({ kind: 'ident', val: src.slice(idStart, i) });
       continue;
     }
 
@@ -2318,7 +2361,7 @@ export function compileFormaComponent(
 
   const executeFormaAction = (actionStr: string, locals?: Record<string, any>, domEvent?: Event) => {
     const trimmed = actionStr.trim();
-    const callScope = { ...evalScope, locals };
+    const callScope = baseScopeWithLocals(locals);
 
     // Parse action expression via `parseFormaExprAst` so commas inside strings `'Иванов, И.И.'`
     // or arrays `['a', 'b']` or nested calls `clamp(1, 2, 3)` are handled with 100% accuracy!
@@ -2357,9 +2400,12 @@ export function compileFormaComponent(
     }
   };
 
+  const baseScopeWithLocals = (locals?: Record<string, any>): FormaEvalScope =>
+    locals === undefined ? evalScope : { ...evalScope, locals };
+
   const renderAstNode = (ast: FormaAstNode, locals?: Record<string, any>): Node => {
     assertLive();
-    const localScope = { ...evalScope, locals };
+    const localScope = baseScopeWithLocals(locals);
 
     if (ast.kind === 'slot') {
       const slotName = ast.slotName!;

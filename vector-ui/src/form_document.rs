@@ -1692,11 +1692,11 @@ fn natural(n: &Node, axis: usize) -> Result<f64, String> {
             let wrap = boolean(&n.props, "wrap", false)?;
             let max_w = n.props.get("width").and_then(|v| v.number().ok()).unwrap_or(0.);
             if wrap && max_w > 0. {
-                let lines = crate::text::wrap_shaped_text(&text, fs as f32, max_w as f32);
+                let lines = crate::text::wrap_text_ranges(&text, fs as f32, max_w as f32);
                 if axis == 1 {
                     lines.len().max(1) as f64 * fs * 1.5
                 } else {
-                    lines.iter().map(|l| l.width as f64).fold(0., f64::max)
+                    lines.iter().map(|(_, w)| *w as f64).fold(0., f64::max)
                 }
             } else if axis == 1 && text.contains('\n') {
                 text.split('\n').count() as f64 * fs * 1.5
@@ -2763,15 +2763,15 @@ impl Document {
                 let color = text(&n.props, "color", "#ffffff")?;
                 let wrap = boolean(&n.props, "wrap", false)?;
                 if wrap && w > 0. {
-                    let wrapped = crate::text::wrap_shaped_text(&value, fs as f32, w as f32);
+                    let wrapped = crate::text::wrap_text_ranges(&value, fs as f32, w as f32);
                     let multiline = wrapped.len() > 1 || value.contains('\n');
                     if multiline {
                         clip(out, 0.);
                     }
-                    for (i, wl) in wrapped.iter().enumerate() {
-                        let line = &value[wl.byte_range.clone()];
+                    for (i, (byte_range, line_w)) in wrapped.iter().enumerate() {
+                        let line = &value[byte_range.clone()];
                         let (width, height) = if multiline {
-                            (wl.width as f64, fs * 1.5)
+                            (*line_w as f64, fs * 1.5)
                         } else {
                             (w, h)
                         };

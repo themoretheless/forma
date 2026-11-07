@@ -439,6 +439,25 @@ pub struct SoftWrappedLine {
 /// Breaks `text` into visual lines constrained by `max_width` logical pixels, respecting hard line breaks (`\n`, `\r\n`),
 /// UAX #29 / CJK / script word break opportunities, and grapheme-cluster emergency fallback when a single word exceeds `max_width`.
 pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftWrappedLine> {
+    wrap_text_ranges(text, font_size, max_width)
+        .into_iter()
+        .map(|(byte_range, width)| {
+            let mut glyphs = shape_text(&text[byte_range.clone()], font_size);
+            for g in &mut glyphs {
+                g.cluster += byte_range.start;
+            }
+            SoftWrappedLine {
+                byte_range,
+                glyphs,
+                width,
+            }
+        })
+        .collect()
+}
+
+/// Breaks `text` into visual line `(byte_range, width)` pairs constrained by `max_width` logical pixels
+/// without allocating per-line [`ShapedGlyph`] vectors.
+pub fn wrap_text_ranges(text: &str, font_size: f32, max_width: f32) -> Vec<(std::ops::Range<usize>, f32)> {
     if !font_size.is_finite() || font_size <= 0. {
         return Vec::new();
     }
@@ -453,41 +472,21 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
             raw_line
         };
         if line.is_empty() || unbounded {
-            let mut glyphs = shape_text(line, font_size);
-            for g in &mut glyphs {
-                g.cluster += hard_start;
-            }
-            let width = glyphs.iter().map(|g| g.x_advance).sum();
-            result.push(SoftWrappedLine {
-                byte_range: hard_start..(hard_start + line.len()),
-                glyphs,
-                width,
-            });
+            let width = measure_shaped_text(line, font_size);
+            result.push((hard_start..(hard_start + line.len()), width));
             hard_start += raw_len + 1;
             continue;
         }
-        // Collect candidate soft-wrap break points (word boundaries + CJK ideograph boundaries), falling back to graphemes.
         use unicode_segmentation::UnicodeSegmentation;
         let mut cur_start = 0;
         while cur_start < line.len() {
             let rest = &line[cur_start..];
-            let full_shaped = shape_text(rest, font_size);
-            let full_w: f32 = full_shaped.iter().map(|g| g.x_advance).sum();
+            let full_w = measure_shaped_text(rest, font_size);
             if full_w <= max_width {
-                let mut glyphs = full_shaped;
-                for g in &mut glyphs {
-                    g.cluster += hard_start + cur_start;
-                }
-                result.push(SoftWrappedLine {
-                    byte_range: (hard_start + cur_start)..(hard_start + line.len()),
-                    glyphs,
-                    width: full_w,
-                });
+                result.push(((hard_start + cur_start)..(hard_start + line.len()), full_w));
                 break;
             }
-            // Find the furthest word/ideograph boundary that fits within `max_width` using O(N) incremental measurement.
             let mut best_word_end = None;
-            let mut accum_end = 0;
             let mut running_w = 0.0_f32;
             let mut trailing_ws_w = 0.0_f32;
             for (seg_idx, seg) in rest.split_word_bound_indices() {
@@ -507,9 +506,6 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
                 let w = (running_w - trailing_ws_w).max(0.0);
                 if w <= max_width && end > 0 {
                     best_word_end = Some(end);
-                    accum_end = end;
-                } else if accum_end > 0 {
-                    break;
                 } else {
                     break;
                 }
@@ -517,7 +513,6 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
             let break_rel = if let Some(word_end) = best_word_end {
                 word_end
             } else {
-                // Emergency grapheme wrap: take at least 1 grapheme cluster using O(N) incremental measurement.
                 let mut g_end = 0;
                 let mut g_running_w = 0.0_f32;
                 for (gi, g_str) in rest.grapheme_indices(true) {
@@ -532,26 +527,17 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
                 g_end.max(1)
             };
             let slice = &rest[..break_rel];
-            let mut glyphs = shape_text(slice, font_size);
-            for g in &mut glyphs {
-                g.cluster += hard_start + cur_start;
-            }
-            let width = glyphs.iter().map(|g| g.x_advance).sum();
-            result.push(SoftWrappedLine {
-                byte_range: (hard_start + cur_start)..(hard_start + cur_start + break_rel),
-                glyphs,
+            let width = measure_shaped_text(slice, font_size);
+            result.push((
+                (hard_start + cur_start)..(hard_start + cur_start + break_rel),
                 width,
-            });
+            ));
             cur_start += break_rel;
         }
         hard_start += raw_len + 1;
     }
     if text.is_empty() && result.is_empty() {
-        result.push(SoftWrappedLine {
-            byte_range: 0..0,
-            glyphs: Vec::new(),
-            width: 0.,
-        });
+        result.push((0..0, 0.));
     }
     result
 }
@@ -559,7 +545,7 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
 /// Hit-tests a logical `(x, y)` point against soft-wrapped lines produced by [`wrap_shaped_text`],
 /// returning a grapheme-aligned UTF-8 byte offset in `text`.
 pub fn hit_wrapped_text(text: &str, font_size: f32, max_width: f32, line_height: f32, x: f32, y: f32) -> usize {
-    let lines = wrap_shaped_text(text, font_size, max_width);
+    let lines = wrap_text_ranges(text, font_size, max_width);
     if lines.is_empty() {
         return 0;
     }
@@ -569,9 +555,9 @@ pub fn hit_wrapped_text(text: &str, font_size: f32, max_width: f32, line_height:
         font_size * 1.5
     };
     let row = (y / lh).floor().max(0.) as usize;
-    let line = &lines[row.min(lines.len() - 1)];
-    let slice = &text[line.byte_range.clone()];
-    line.byte_range.start + hit_grapheme(slice, font_size, x)
+    let (range, _) = &lines[row.min(lines.len() - 1)];
+    let slice = &text[range.clone()];
+    range.start + hit_grapheme(slice, font_size, x)
 }
 
 fn font() -> &'static Face<'static> {
