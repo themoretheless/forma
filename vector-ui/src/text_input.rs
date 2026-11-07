@@ -15,9 +15,9 @@ fn allocate_semantic_revision(counter:&std::sync::atomic::AtomicU32)->u32 {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Input {
     pub bounds: [f32;4], pub value: String, pub placeholder: String, pub label: String, pub read_only:bool,
-    pub color: [u8;4], pub placeholder_color: [u8;4], pub font_size:f32, pub multiline:bool,
+    pub color: [u8;4], pub placeholder_color: [u8;4], pub font_size:f32, pub multiline:bool, pub wrap:bool,
 }
-impl Default for Input { fn default()->Self {Self {bounds:[0.,0.,100.,30.],value:String::new(),placeholder:String::new(),label:String::new(),read_only:false,color:[255;4],placeholder_color:[150,150,150,255],font_size:15.,multiline:false}} }
+impl Default for Input { fn default()->Self {Self {bounds:[0.,0.,100.,30.],value:String::new(),placeholder:String::new(),label:String::new(),read_only:false,color:[255;4],placeholder_color:[150,150,150,255],font_size:15.,multiline:false,wrap:false}} }
 #[derive(Clone)]
 pub(crate) struct Editor {
     pub spec:Input, pub model:TextEdit, pub base:Vec<Content>, pub preedit:String,
@@ -54,11 +54,25 @@ impl Editor {
     fn width(&self,s:&str)->f32 {crate::text::measure_line(s,self.spec.font_size)[0]}
     fn line_height(&self)->f32 {self.spec.font_size*1.5}
     fn caret_point(&self)->[f32;2] {
+        if self.spec.multiline && self.spec.wrap {
+            let lines=self.soft_wrapped_lines();
+            let caret=self.model.caret();
+            for (row,wl) in lines.iter().enumerate().rev() {
+                if caret>=wl.byte_range.start && (caret<=wl.byte_range.end || row+1==lines.len()) {
+                    let end=caret.min(wl.byte_range.end);
+                    return [self.width(&self.model.value()[wl.byte_range.start..end]),row as f32*self.line_height()];
+                }
+            }
+        }
         let prefix=&self.model.value()[..self.model.caret()];
         [self.width(prefix.rsplit('\n').next().unwrap_or("")),prefix.bytes().filter(|b|*b==b'\n').count() as f32*self.line_height()]
     }
     fn top(&self)->f32 {if self.spec.multiline {0.} else {(self.spec.bounds[3]-self.line_height())*0.5}}
     pub fn hit(&mut self,x:f32,y:f32,extend:bool) {
+        if self.spec.multiline && self.spec.wrap {
+            self.hit_soft_wrapped(x,y,extend);
+            return;
+        }
         self.semantic_revision=next_semantic_revision();
         self.preferred_x=None;
         self.phase=0.;self.dirty=true;
@@ -175,47 +189,90 @@ impl Editor {
         let mut out=self.base.clone();let [x,y,w,h]=self.spec.bounds;let lh=self.line_height();
         let p=self.caret_point();
         if focused {
-            self.offset[0]=self.offset[0].min(p[0]).max((p[0]+self.width(&self.preedit)+2.-w).max(0.));
+            if self.spec.multiline && self.spec.wrap {
+                self.offset[0]=0.;
+            } else {
+                self.offset[0]=self.offset[0].min(p[0]).max((p[0]+self.width(&self.preedit)+2.-w).max(0.));
+            }
             self.offset[1]=self.offset[1].min(p[1]).max((p[1]+lh-h).max(0.));
         }
         out.push(Content::Clip{bounds:[x,y,w,h],radius:0.});
         let value=self.model.value();let selection=self.model.selection();
-        let mut start=0;
-        for (row,line) in value.split('\n').enumerate() {
-            let raw_len=line.len();
-            let line=if start+raw_len<value.len(){line.strip_suffix('\r').unwrap_or(line)}else{line};
-            let py=y+self.top()+row as f32*lh-self.offset[1];
-            let px=x-self.offset[0];
-            if focused && !selection.is_empty() {
-                let a=selection.start.max(start);let b=selection.end.min(start+line.len());
-                if a<=b && selection.end>start && selection.start<=start+line.len() {
-                    let left=self.width(&line[..a.saturating_sub(start).min(line.len())]);
-                    let right=self.width(&line[..b.saturating_sub(start).min(line.len())]);
-                    out.push(rect(px+left,py,(right-left).max(if selection.end>start+line.len(){5.}else{0.}),lh,[222,106,25,90]));
-                }
-            }
-            if self.fades.is_empty() {
-                out.push(Content::Text{bounds:[px,py,self.width(line),lh],text:Text{text:line.into(),font_size:self.spec.font_size,color:self.spec.color}});
-            } else {
-                let mut cuts=vec![0,line.len()];
-                for (range,_) in &self.fades {
-                    if range.start<start+line.len() && range.end>start {
-                        cuts.push(range.start.saturating_sub(start));
-                        cuts.push((range.end-start).min(line.len()));
+        if self.spec.multiline && self.spec.wrap {
+            let wrapped=self.soft_wrapped_lines();
+            for (row,wl) in wrapped.iter().enumerate() {
+                let start=wl.byte_range.start;
+                let line=&value[wl.byte_range.clone()];
+                let py=y+self.top()+row as f32*lh-self.offset[1];
+                let px=x-self.offset[0];
+                if focused && !selection.is_empty() {
+                    let a=selection.start.max(start);let b=selection.end.min(start+line.len());
+                    if a<=b && selection.end>start && selection.start<=start+line.len() {
+                        let left=self.width(&line[..a.saturating_sub(start).min(line.len())]);
+                        let right=self.width(&line[..b.saturating_sub(start).min(line.len())]);
+                        out.push(rect(px+left,py,(right-left).max(if selection.end>start+line.len(){5.}else{0.}),lh,[222,106,25,90]));
                     }
                 }
-                cuts.sort_unstable();cuts.dedup();
-                for run in cuts.windows(2) {
-                    let text=&line[run[0]..run[1]];
-                    let mut color=self.spec.color;
-                    if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
-                        let t=(*age/220.).clamp(0.,1.);
-                        color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
+                if self.fades.is_empty() {
+                    out.push(Content::Text{bounds:[px,py,self.width(line),lh],text:Text{text:line.into(),font_size:self.spec.font_size,color:self.spec.color}});
+                } else {
+                    let mut cuts=vec![0,line.len()];
+                    for (range,_) in &self.fades {
+                        if range.start<start+line.len() && range.end>start {
+                            cuts.push(range.start.saturating_sub(start));
+                            cuts.push((range.end-start).min(line.len()));
+                        }
                     }
-                    out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
+                    cuts.sort_unstable();cuts.dedup();
+                    for run in cuts.windows(2) {
+                        let text=&line[run[0]..run[1]];
+                        let mut color=self.spec.color;
+                        if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
+                            let t=(*age/220.).clamp(0.,1.);
+                            color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
+                        }
+                        out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
+                    }
                 }
             }
-            start+=raw_len+1;
+        } else {
+            let mut start=0;
+            for (row,line) in value.split('\n').enumerate() {
+                let raw_len=line.len();
+                let line=if start+raw_len<value.len(){line.strip_suffix('\r').unwrap_or(line)}else{line};
+                let py=y+self.top()+row as f32*lh-self.offset[1];
+                let px=x-self.offset[0];
+                if focused && !selection.is_empty() {
+                    let a=selection.start.max(start);let b=selection.end.min(start+line.len());
+                    if a<=b && selection.end>start && selection.start<=start+line.len() {
+                        let left=self.width(&line[..a.saturating_sub(start).min(line.len())]);
+                        let right=self.width(&line[..b.saturating_sub(start).min(line.len())]);
+                        out.push(rect(px+left,py,(right-left).max(if selection.end>start+line.len(){5.}else{0.}),lh,[222,106,25,90]));
+                    }
+                }
+                if self.fades.is_empty() {
+                    out.push(Content::Text{bounds:[px,py,self.width(line),lh],text:Text{text:line.into(),font_size:self.spec.font_size,color:self.spec.color}});
+                } else {
+                    let mut cuts=vec![0,line.len()];
+                    for (range,_) in &self.fades {
+                        if range.start<start+line.len() && range.end>start {
+                            cuts.push(range.start.saturating_sub(start));
+                            cuts.push((range.end-start).min(line.len()));
+                        }
+                    }
+                    cuts.sort_unstable();cuts.dedup();
+                    for run in cuts.windows(2) {
+                        let text=&line[run[0]..run[1]];
+                        let mut color=self.spec.color;
+                        if let Some((_,age))=self.fades.iter().find(|(range,_)|range.contains(&(start+run[0]))) {
+                            let t=(*age/220.).clamp(0.,1.);
+                            color[3]=(color[3] as f32*t*t*(3.-2.*t)).round() as u8;
+                        }
+                        out.push(Content::Text{bounds:[px+self.width(&line[..run[0]]),py,self.width(text),lh],text:Text{text:text.into(),font_size:self.spec.font_size,color}});
+                    }
+                }
+                start+=raw_len+1;
+            }
         }
         if value.is_empty()&&self.preedit.is_empty() {out.push(Content::Text{bounds:[x,y+self.top(),self.width(&self.spec.placeholder),lh],text:Text{text:self.spec.placeholder.clone(),font_size:self.spec.font_size,color:self.spec.placeholder_color}});}
         if focused {
@@ -423,6 +480,15 @@ mod animation_tests {
         assert!(e.model.value().starts_with("你好 Hello"));
         assert!(e.model.undo());
         assert_eq!(e.model.value(),"你好世界 Hello world from Forma");
+
+        // Verify multiline + wrap: true renders multiple visual Content::Text rows and routes vertical ArrowDown/Up
+        let mut wrapped_ed=Editor::new(Input{value:"Hello world from Forma soft wrapped editor".into(),multiline:true,wrap:true,bounds:[0.,0.,90.,80.],..Input::default()},vec![]).unwrap();
+        let primitives=wrapped_ed.content(true);
+        let text_rows:Vec<_>=primitives.iter().filter(|c|matches!(c,Content::Text{..})).collect();
+        assert!(text_rows.len()>=2,"expected >= 2 visual wrapped rows in Editor::content, got {}",text_rows.len());
+        wrapped_ed.model.home(false);
+        assert!(wrapped_ed.key("ArrowDown",false,false));
+        assert!(wrapped_ed.model.caret()>0,"ArrowDown in wrapped multiline editor moves caret to second soft line");
     }
 }
 

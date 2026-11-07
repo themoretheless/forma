@@ -2892,9 +2892,12 @@ export function compileFormaComponent(
           if (isRo) el.setAttribute('readonly', '');
           else el.removeAttribute('readonly');
         });
-      } else if (propName === 'wrap' && (tag === 'Text' || tag === 'Span' || tag === 'Paragraph')) {
+      } else if (propName === 'wrap' && (tag === 'Text' || tag === 'Span' || tag === 'Paragraph' || domTag === 'textarea')) {
         bindExpr(rawExpr, (v) => {
           const shouldWrap = Boolean(v);
+          if (domTag === 'textarea') {
+            el.setAttribute('wrap', shouldWrap ? 'soft' : 'off');
+          }
           el.style.whiteSpace = shouldWrap ? 'pre-wrap' : 'nowrap';
           el.style.overflowWrap = shouldWrap ? 'break-word' : 'normal';
         });

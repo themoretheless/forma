@@ -710,6 +710,7 @@ impl<'a> Parser<'a> {
                 "fontSize"=>input.font_size=self.scalar("fontSize",true)?,
                 "readOnly"=>{let value=self.ident()?;input.read_only=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
                 "multiline"=>{let value=self.ident()?; input.multiline=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
+                "wrap"=>{let value=self.ident()?; input.wrap=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
                 _=>return Err(self.error("Unknown ContentInput property")),
             }
             self.semi()?;

@@ -58,7 +58,7 @@ it('renders wrapped Text, multiline TextInput, and two-way Slider in DOM',()=>{
   state level: Number = 42;
   Column {
    Text { key: 'wrapped'; text: 'Soft wrapped text'; wrap: true; fontSize: 18; }
-   TextInput { key: 'notes'; multiline: true; readOnly: true; value <-> state.note; }
+   TextInput { key: 'notes'; multiline: true; wrap: true; readOnly: true; value <-> state.note; }
    Slider { key: 'slider'; min: 0; max: 100; value <-> state.level; }
   }
  }`;
@@ -70,6 +70,8 @@ it('renders wrapped Text, multiline TextInput, and two-way Slider in DOM',()=>{
   expect(wrapped.style.fontSize).toBe('18px');
   const notes=inst.getElementByKey('notes') as HTMLTextAreaElement;
   expect(notes.tagName).toBe('TEXTAREA');
+  expect(notes.getAttribute('wrap')).toBe('soft');
+  expect(notes.style.whiteSpace).toBe('pre-wrap');
   expect(notes.readOnly).toBe(true);
   expect(notes.value).toBe('line1\nline2');
   const slider=inst.getElementByKey('slider') as HTMLInputElement;

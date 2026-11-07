@@ -2747,12 +2747,13 @@ impl Document {
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!(
-                        "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; readOnly:{}; }} ",
+                        "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; readOnly:{}; wrap:{}; }} ",
                         text(&n.props, "color", "#ffffff")?,
                         text(&n.props, "placeholderColor", "#999999")?,
                         num(&n.props, "fontSize", 15.)?,
                         boolean(&n.props, "multiline", false)?,
                         boolean(&n.props, "readOnly", false)?,
+                        boolean(&n.props, "wrap", false)?,
                     ),
                 );
             }
@@ -5336,7 +5337,7 @@ fn compile_ui_files_to_document(
         ),
         (
             "TextInput",
-            "component TextInput { width: 240; height: 38; value: ''; label: ''; placeholder: ''; multiline: false; readOnly: false; disabled: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, label, placeholder, multiline, readOnly, fontSize, color, placeholderColor }; } PointerArea { clicked -> events.clicked(); } } }",
+            "component TextInput { width: 240; height: 38; value: ''; label: ''; placeholder: ''; multiline: false; wrap: false; readOnly: false; disabled: false; text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; TextInput { forward props { value, label, placeholder, multiline, wrap, readOnly, fontSize, color, placeholderColor }; } PointerArea { clicked -> events.clicked(); } } }",
         ),
         (
             "Slider",
