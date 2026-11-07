@@ -2492,8 +2492,9 @@ export function compileFormaComponent(
         currentNodes = [];
       };
 
+      const matchAst = parseFormaExprAst(ast.matchExpr!);
       effect(() => {
-        const val = evaluateFormaExpression(ast.matchExpr!, localScope);
+        const val = evalAstNode(matchAst, localScope);
         clearArm();
         const matchedArm = (ast.matchArms ?? []).find((arm) =>
           doesFormaPatternMatch(arm.pattern, val)
@@ -2519,8 +2520,9 @@ export function compileFormaComponent(
     }
 
     if (ast.kind === 'if') {
+      const condAst = parseFormaExprAst(ast.conditionExpr!);
       return Show({
-        when: () => Boolean(evaluateFormaExpression(ast.conditionExpr!, localScope)),
+        when: () => Boolean(evalAstNode(condAst, localScope)),
         children: () => {
           const frag = document.createDocumentFragment();
           for (const ch of ast.children) {
@@ -2543,8 +2545,14 @@ export function compileFormaComponent(
 
     if (ast.kind === 'for') {
       const itemVar = ast.itemVar!;
+      const listAst = parseFormaExprAst(ast.listExpr!);
+      const keyAst = ast.keyExpr ? parseFormaExprAst(ast.keyExpr) : null;
+      const keyLocals: Record<string, any> = locals
+        ? Object.defineProperties({}, Object.getOwnPropertyDescriptors(locals))
+        : {};
+      const keyScope = keyAst ? baseScopeWithLocals(keyLocals) : null;
       const listAccessor = () => {
-        const res = evaluateFormaExpression(ast.listExpr!, localScope);
+        const res = evalAstNode(listAst, localScope);
         return Array.isArray(res) ? res : [];
       };
 
@@ -2563,16 +2571,17 @@ export function compileFormaComponent(
         children: () =>
           For({
             each: listAccessor,
-            keyFn: (item, idx) =>
-              ast.keyExpr
-                ? evaluateFormaExpression(ast.keyExpr, {
-                    ...localScope,
-                    locals: { ...(locals ?? {}), [itemVar]: item },
-                  })
-                : idx,
+            keyFn: keyAst
+              ? (item) => {
+                  keyLocals[itemVar] = item;
+                  return evalAstNode(keyAst, keyScope!);
+                }
+              : (_item, idx) => idx,
             children: (_item, _index, current) => {
               const frag = document.createDocumentFragment();
-              const childLocals = Object.defineProperties({}, Object.getOwnPropertyDescriptors(locals ?? {}));
+              const childLocals = locals
+                ? Object.defineProperties({}, Object.getOwnPropertyDescriptors(locals))
+                : {};
               Object.defineProperty(childLocals, itemVar, { get: current, enumerable: true, configurable: true });
               for (const ch of ast.children) {
                 insertChild(frag, renderAstNode(ch, childLocals));
@@ -2848,11 +2857,12 @@ export function compileFormaComponent(
     }
 
     const bindExpr = (rawExpr: string, applyVal: (val: any) => void) => {
-      if (isStaticFormaExpr(rawExpr, locals)) {
-        applyVal(evaluateFormaExpression(rawExpr, localScope));
+      const exprAst = parseFormaExprAst(rawExpr);
+      if (isStaticFormaExprNode(exprAst, locals)) {
+        applyVal(evalAstNode(exprAst, localScope));
       } else {
         effect(() => {
-          applyVal(evaluateFormaExpression(rawExpr, localScope));
+          applyVal(evalAstNode(exprAst, localScope));
         });
       }
     };
@@ -3190,8 +3200,9 @@ export function compileFormaComponent(
         childAst.matchArms &&
         childAst.matchArms.every((a) => a.childNodes.length === 0)
       ) {
+        const propMatchAst = parseFormaExprAst(childAst.matchExpr!);
         effect(() => {
-          const val = evaluateFormaExpression(childAst.matchExpr!, localScope);
+          const val = evalAstNode(propMatchAst, localScope);
           const arm = childAst.matchArms!.find((a) => doesFormaPatternMatch(a.pattern, val));
           if (arm) {
             for (const [pKey, pExpr] of Object.entries(arm.propertyAssignments)) {
@@ -3429,14 +3440,19 @@ export function compileFormaComponent(
               assertViewLive();
             }
             if (shortcuts.length > 0 && typeof window !== 'undefined') {
+              const compiledShortcuts = shortcuts.map((sc) => {
+                const parts = sc.combo.split('+');
+                const keyLower = parts[parts.length - 1].toLowerCase();
+                const needsMod = parts.includes('Mod') || parts.includes('Ctrl') || parts.includes('Meta');
+                return { keyLower, needsMod, action: sc.action };
+              });
               const onKeyDown = (e: KeyboardEvent) => {
-                for (const sc of shortcuts) {
-                  const parts = sc.combo.split('+');
-                  const keyPart = parts[parts.length - 1];
-                  const needsMod = parts.includes('Mod') || parts.includes('Ctrl') || parts.includes('Meta');
-                  const modPressed = e.metaKey || e.ctrlKey;
-                  if (needsMod && !modPressed) continue;
-                  if (e.key.toLowerCase() === keyPart.toLowerCase()) {
+                const modPressed = e.metaKey || e.ctrlKey;
+                const keyLower = e.key.toLowerCase();
+                for (let i = 0; i < compiledShortcuts.length; i++) {
+                  const sc = compiledShortcuts[i];
+                  if (sc.needsMod && !modPressed) continue;
+                  if (keyLower === sc.keyLower) {
                     e.preventDefault();
                     executeFormaAction(sc.action);
                   }

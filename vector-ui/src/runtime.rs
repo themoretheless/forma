@@ -1250,11 +1250,18 @@ impl Runtime {
             .ok_or("Visible scene exceeds CPU raster budget")?;
         if cache.native_pixels.is_empty() {
             let RasterCache { native_pixels, pixels, .. } = &mut *cache;
+            native_pixels.reserve(pixels.len() / 4);
             native_pixels.extend(pixels.chunks_exact(4).map(|src| {
                 let a = src[3] as u32;
-                let rgb = [17u32, 19, 25];
-                let c = |k: usize| (src[k] as u32 * a + rgb[k] * (255 - a) + 127) / 255;
-                c(0) << 16 | c(1) << 8 | c(2)
+                if a == 255 {
+                    ((src[0] as u32) << 16) | ((src[1] as u32) << 8) | (src[2] as u32)
+                } else if a == 0 {
+                    0x111319
+                } else {
+                    let rgb = [17u32, 19, 25];
+                    let c = |k: usize| (src[k] as u32 * a + rgb[k] * (255 - a) + 127) / 255;
+                    c(0) << 16 | c(1) << 8 | c(2)
+                }
             }));
         }
         out.copy_from_slice(&cache.native_pixels);

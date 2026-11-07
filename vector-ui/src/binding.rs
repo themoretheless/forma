@@ -1166,82 +1166,102 @@ impl Form {
         self.wake.native.borrow_mut().drain();
         if self.is_dirty() {
             if let Some(document) = &mut self.document {
-                let mut program = document.program.clone();
+                let has_control_overrides = self.controls.iter().any(|c| {
+                    document.nodes.contains_key(&c.index)
+                        && (!c.properties.borrow().is_empty() || !c.bindings.borrow().is_empty())
+                });
+                let mut saved_root = has_control_overrides.then(|| document.program.root.clone());
+                let saved_states = document.program.states.clone();
                 for (node, path, input) in &document.inputs {
-                    while program.states.len() <= *node {
-                        program.states.push(Default::default());
+                    while document.program.states.len() <= *node {
+                        document.program.states.push(Default::default());
                     }
                     if input.present() {
-                        program.states[*node].insert(path.clone(), input.value());
+                        document.program.states[*node].insert(path.clone(), input.value());
                     } else {
                         let val = input.value();
                         if matches!(val, crate::form_document::Value::List(_)) {
-                            program.states[*node].insert(path.clone(), val);
+                            document.program.states[*node].insert(path.clone(), val);
                         }
                     }
                 }
-                fn node_at<'a>(
-                    node: &'a mut crate::form_document::Node,
-                    index: usize,
-                    count: &mut usize,
-                ) -> Option<&'a mut crate::form_document::Node> {
-                    if node
-                        .props
-                        .get("__node")
-                        .and_then(|v| v.number().ok())
-                        .map_or(*count == index, |v| v as usize == index)
-                    {
-                        return Some(node);
-                    }
-                    *count += 1;
-                    for child in &mut node.children {
-                        if let Some(found) = node_at(child, index, count) {
-                            return Some(found);
+                if has_control_overrides {
+                    fn collect_nodes_mut<'a>(
+                        node: &'a mut crate::form_document::Node,
+                        out: &mut std::collections::HashMap<usize, &'a mut crate::form_document::Node>,
+                        count: &mut usize,
+                    ) {
+                        let id = node
+                            .props
+                            .get("__node")
+                            .and_then(|v| v.number().ok())
+                            .map_or(*count, |v| v as usize);
+                        *count += 1;
+                        let ptr = node as *mut crate::form_document::Node;
+                        for child in &mut node.children {
+                            collect_nodes_mut(child, out, count);
                         }
+                        // SAFETY: `ptr` points to `node` while `children` points to disjoint heap allocations.
+                        out.insert(id, unsafe { &mut *ptr });
                     }
-                    None
-                }
-                for control in &self.controls {
-                    if let Some(index) = document.nodes.get(&control.index) {
-                        if let Some(node) = node_at(&mut program.root, *index, &mut 0) {
-                            for (name, input) in control.properties.borrow().iter() {
-                                node.props.insert(name.clone(), input.value());
+                    let mut node_map = std::collections::HashMap::new();
+                    collect_nodes_mut(&mut document.program.root, &mut node_map, &mut 0);
+                    for control in &self.controls {
+                        if let Some(index) = document.nodes.get(&control.index) {
+                            if let Some(node) = node_map.get_mut(index) {
+                                for (name, input) in control.properties.borrow().iter() {
+                                    node.props.insert(name.clone(), input.value());
+                                }
+                                for (target, binding) in control.bindings.borrow().iter() {
+                                    let name = match target {
+                                        Target::Value => "value",
+                                        Target::Text => "text",
+                                        Target::Disabled => "disabled",
+                                        Target::Checked => "checked",
+                                        Target::Selected => "selected",
+                                    };
+                                    let value = match binding.as_ref() {
+                                        Binding::String(f, _) => {
+                                            f.get().unwrap_or_default().to_value()
+                                        }
+                                        Binding::Bool(f) => f.get().unwrap_or(false).to_value(),
+                                        Binding::Number(f, _) if node.kind == "Slider" => {
+                                            crate::form_document::Value::Expr(format!(
+                                                "{}%",
+                                                f.number() * 100.
+                                            ))
+                                        }
+                                        Binding::Number(f, _) => {
+                                            crate::form_document::Value::Number(f.number())
+                                        }
+                                    };
+                                    node.props.insert(name.into(), value);
+                                }
                             }
-                            for (target, binding) in control.bindings.borrow().iter() {
-                                let name = match target {
-                                    Target::Value => "value",
-                                    Target::Text => "text",
-                                    Target::Disabled => "disabled",
-                                    Target::Checked => "checked",
-                                    Target::Selected => "selected",
-                                };
-                                let value = match binding.as_ref() {
-                                    Binding::String(f, _) => f.get().unwrap_or_default().to_value(),
-                                    Binding::Bool(f) => f.get().unwrap_or(false).to_value(),
-                                    Binding::Number(f, _) if node.kind == "Slider" => {
-                                        crate::form_document::Value::Expr(format!(
-                                            "{}%",
-                                            f.number() * 100.
-                                        ))
-                                    }
-                                    Binding::Number(f, _) => {
-                                        crate::form_document::Value::Number(f.number())
-                                    }
-                                };
-                                node.props.insert(name.into(), value);
-                            }
                         }
                     }
                 }
-                let artifact = program.render_scene_artifact()?;
+                let render_res = document.program.render_scene_artifact();
+                if let Some(orig_root) = saved_root.take() {
+                    document.program.root = orig_root;
+                }
+                let artifact = match render_res {
+                    Ok(a) => a,
+                    Err(e) => {
+                        document.program.states = saved_states;
+                        return Err(e);
+                    }
+                };
                 let scene = &artifact.controls;
                 for item in scene {
                     for ((node, event), types) in &document.event_types {
                         if *node != item.node {
                             continue;
                         }
-                        let arguments = item.event_args.get(event).cloned().unwrap_or_default();
+                        let empty_args = Vec::new();
+                        let arguments = item.event_args.get(event).unwrap_or(&empty_args);
                         if arguments.len() != types.len() {
+                            document.program.states = saved_states;
                             return Err(format!("Event {event} expects {} arguments", types.len()));
                         }
                         for (value, kind) in arguments.iter().zip(types) {
@@ -1263,12 +1283,19 @@ impl Form {
                                 }
                             };
                             if !valid {
+                                document.program.states = saved_states;
                                 return Err(format!("Event {event} expects {kind}, got {value:?}"));
                             }
                         }
                     }
                 }
-                let mut next = Runtime::from_scene_artifact(&artifact)?;
+                let mut next = match Runtime::from_scene_artifact(&artifact) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        document.program.states = saved_states;
+                        return Err(e);
+                    }
+                };
                 next.preserve_binding_interaction(&self.runtime);
                 document.base_disabled = (0..next.control_count())
                     .map(|i| next.control_disabled(i))
@@ -1284,7 +1311,6 @@ impl Form {
                     }
                 }
                 document.scene = artifact.controls;
-                document.program.states = program.states;
                 self.runtime = next;
                 for (_, _, input) in &document.inputs {
                     input.clean();
@@ -1296,8 +1322,8 @@ impl Form {
                 }
             }
         }
-        let instances = self.instances();
-        for (control, index, _, _) in &instances {
+        let sync_instances = self.sync_instances();
+        for (control, index) in &sync_instances {
             if control.context_changed.get() {
                 self.runtime.cancel_binding_interaction(*index);
             }
@@ -1360,6 +1386,29 @@ impl Form {
     }
     pub fn runtime(&self) -> &Runtime {
         &self.runtime
+    }
+    fn sync_instances(&self) -> Vec<(Rc<ControlState>, usize)> {
+        if let Some(document) = &self.document {
+            document
+                .scene
+                .iter()
+                .enumerate()
+                .filter_map(|(index, item)| {
+                    let control_index = document.node_controls.get(&item.node)?;
+                    let control = self
+                        .controls
+                        .get(*control_index)
+                        .filter(|c| c.index == *control_index)
+                        .or_else(|| self.controls.iter().find(|c| c.index == *control_index))?;
+                    Some((control.clone(), index))
+                })
+                .collect()
+        } else {
+            self.controls
+                .iter()
+                .map(|c| (c.clone(), c.index))
+                .collect()
+        }
     }
     fn instances(
         &self,

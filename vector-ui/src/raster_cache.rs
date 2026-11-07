@@ -611,7 +611,9 @@ impl Cache {
                         background[3] = (background[3] as f32 * coverage).round() as u8;
                     }
                     for dst in pixels.chunks_exact_mut(4) {
-                        if dst[3] != 255 {
+                        if dst[3] == 0 {
+                            dst.copy_from_slice(&background);
+                        } else if dst[3] != 255 {
                             let mut bg = background;
                             over(&mut bg, dst);
                             dst.copy_from_slice(&bg);
@@ -745,10 +747,17 @@ impl Button {
             .ok_or("Visible scene exceeds CPU raster budget")?;
         if cache.native_pixels.is_empty() {
             let Cache { native_pixels, pixels, .. } = &mut *cache;
+            native_pixels.reserve(pixels.len() / 4);
             native_pixels.extend(pixels.chunks_exact(4).map(|p| {
                 let a = p[3] as u32;
-                let c = |k: usize, bg: u32| (p[k] as u32 * a + bg * (255 - a) + 127) / 255;
-                (c(0, 17) << 16) | (c(1, 19) << 8) | c(2, 25)
+                if a == 255 {
+                    ((p[0] as u32) << 16) | ((p[1] as u32) << 8) | (p[2] as u32)
+                } else if a == 0 {
+                    0x111319
+                } else {
+                    let c = |k: usize, bg: u32| (p[k] as u32 * a + bg * (255 - a) + 127) / 255;
+                    (c(0, 17) << 16) | (c(1, 19) << 8) | c(2, 25)
+                }
             }));
         }
         let pixels = &cache.native_pixels;

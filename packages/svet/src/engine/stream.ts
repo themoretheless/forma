@@ -64,7 +64,7 @@ function createReceiver(container:HTMLElement,options:{maxChunkBytes?:number},re
         if(closing){const start=starts.get(id);if(!start||start.parentNode!==node.parentNode||found.has(id)||stack.pop()!==id)throw Error('Invalid SSR stream range');found.set(id,{start,end:node as Comment});starts.delete(id);}
         else {if(starts.has(id)||found.has(id))throw Error('Duplicate SSR stream boundary');starts.set(id,node as Comment);stack.push(id);}
       }}
-      const children=Array.from(node.childNodes);for(let i=children.length-1;i>=0;i--)pending.push(children[i]);
+      for(let child=node.lastChild;child;child=child.previousSibling)pending.push(child);
     }
     if(starts.size)throw Error('Unclosed SSR stream range');
     return found;
