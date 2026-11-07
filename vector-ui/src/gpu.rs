@@ -1094,8 +1094,9 @@ mod tests {
             for _ in 0..3 {renderer.check_health().unwrap();}
             assert_eq!(renderer.frames,frames_before_idle);
             eprintln!("GPU_IDLE_COMPLETION_RESULT queue_drained=true health_without_draw=true");
-            // An invalid compute dispatch reaches the Device handler through
-            // CommandEncoder; no invalid commands are submitted to hardware.
+            // Finishing an invalid compute dispatch reaches the Device handler;
+            // no invalid commands are submitted to hardware. Upstream wgpu defers
+            // this validation until finish, while the in-tree backend reports eagerly.
             let frames_before_fault=renderer.frames;
             let uploads_before_fault=renderer.resource_stats().uploaded_bytes_total;
             let mut invalid_encoder=renderer.device.create_command_encoder(&Default::default());
@@ -1103,7 +1104,7 @@ mod tests {
                 let mut pass=invalid_encoder.begin_compute_pass(&Default::default());
                 pass.dispatch_workgroups(1,1,1);
             }
-            drop(invalid_encoder);
+            drop(invalid_encoder.finish());
             let first_error=renderer.check_health().unwrap_err();
             assert!(
                 missing_compute_pipeline_error(&first_error),

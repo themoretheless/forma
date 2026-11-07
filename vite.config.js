@@ -9,7 +9,7 @@ import {createVectorRunner} from './vector-runner.js';
 import {readFile,readdir,writeFile,stat,lstat,realpath,mkdir,rename,rm,cp} from 'node:fs/promises';
 import {resolve as resolvePath,relative as relativePath,dirname as dirnamePath,basename as basenamePath,extname as extnamePath,join as joinPath} from 'node:path';
 
-const openScadRoot=realpathSync(fileURLToPath(new URL('../open-scad-viewer',import.meta.url)));
+const openScadRoot=(()=>{try{return realpathSync(fileURLToPath(new URL('../open-scad-viewer',import.meta.url)));}catch(e){if(e.code==='ENOENT')return null;throw e;}})();
 const ALLOWED_HOSTS=new Set(['127.0.0.1:5173','localhost:5173']);
 const ALLOWED_ORIGINS=new Set(['http://127.0.0.1:5173','http://localhost:5173']);
 function assertLocalWorkspaceRequest(req){
@@ -72,6 +72,7 @@ export default defineConfig({optimizeDeps:{exclude:['@themoretheless/tokenizer-f
       const send=(status,value)=>{res.statusCode=status;res.end(JSON.stringify(value));};
       try{
         assertLocalWorkspaceRequest(req);
+        if(!openScadRoot)return send(503,{error:'open-scad-viewer workspace is unavailable'});
         const url=new URL(req.url??'/','http://127.0.0.1:5173');
         if(req.method==='GET'&&url.pathname==='/list'){
           const dir=url.searchParams.get('dir')??'';
