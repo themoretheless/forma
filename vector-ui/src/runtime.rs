@@ -1175,22 +1175,30 @@ impl Runtime {
                 }
                 for index in modal.controls.clone() { self.controls[index].composite_content(&mut cache.pixels, w, h, s); }
             }
-            for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
-                let cov_int = frame & 31;
-                if background {
-                    let mut bg = self.scene.background;
-                    if !self.scene.clip && cov_int < 16 {
-                        bg[3] = (bg[3] as f32 * (cov_int as f32 / 16.)).round() as u8;
+            if background || self.scene.clip {
+                for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
+                    let cov_int = frame & 31;
+                    if background {
+                        if cov_int == 16 && p[3] == 255 {
+                            // Fully opaque pixel inside unclipped interior: background is completely occluded.
+                        } else if cov_int == 16 && p[3] == 0 {
+                            p.copy_from_slice(&self.scene.background);
+                        } else {
+                            let mut bg = self.scene.background;
+                            if !self.scene.clip && cov_int < 16 {
+                                bg[3] = (bg[3] as f32 * (cov_int as f32 / 16.)).round() as u8;
+                            }
+                            crate::raster_cache::over(&mut bg, p);
+                            p.copy_from_slice(&bg);
+                        }
                     }
-                    crate::raster_cache::over(&mut bg, p);
-                    p.copy_from_slice(&bg);
-                }
-                if self.scene.clip && cov_int < 16 {
-                    if cov_int == 0 {
-                        p.fill(0);
-                    } else {
-                        p[3] = (p[3] as f32 * (cov_int as f32 / 16.)).round() as u8;
-                        if p[3] == 0 { p.fill(0); }
+                    if self.scene.clip && cov_int < 16 {
+                        if cov_int == 0 {
+                            p.fill(0);
+                        } else {
+                            p[3] = (p[3] as f32 * (cov_int as f32 / 16.)).round() as u8;
+                            if p[3] == 0 { p.fill(0); }
+                        }
                     }
                 }
             }

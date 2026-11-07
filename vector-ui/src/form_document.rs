@@ -2923,15 +2923,18 @@ impl Document {
     }
     fn scene_expand_sequence<'a>(
         &self, children: impl IntoIterator<Item = &'a Node>, inherited: &Properties,
-        prefix: &str, scope: &Properties, depth: usize, budget: &mut usize,
+        prefix: &str, scope: &Properties, depth: usize, budget: &mut usize, node_index: &mut usize,
     ) -> Result<Vec<Node>, String> {
         let mut state = std::borrow::Cow::Borrowed(inherited);
         let mut out = Vec::new();
         for child in children {
             if child.kind == "Let" {
-                if depth > 64 { return Err("Scene composition depth exceeded".into()); }
+                let mut child_node_index = *node_index;
+                count_scene_subtree(child, &mut child_node_index, depth)?;
                 if *budget == 0 { return Err("Scene exceeds 16384 nodes".into()); }
                 *budget -= 1;
+                let mut seq_index = *node_index + 1;
+                *node_index = child_node_index;
                 let name = text(&child.props, "name", "")?;
                 if !name.is_empty() {
                     if let Some(expression) = child.props.get("value") {
@@ -2939,9 +2942,9 @@ impl Document {
                         insert_scene_lexical(scope_mut(&mut state), name, value, expression, scope);
                     }
                 }
-                out.extend(self.scene_expand_sequence(&child.children, &state, prefix, scope, depth + 1, budget)?);
+                out.extend(self.scene_expand_sequence(&child.children, &state, prefix, scope, depth + 1, budget, &mut seq_index)?);
             } else {
-                out.extend(self.scene_expand(child, &state, prefix, scope, depth, budget)?);
+                out.extend(self.scene_expand(child, &state, prefix, scope, depth, budget, node_index)?);
             }
         }
         Ok(out)
@@ -2954,15 +2957,20 @@ impl Document {
         inherited_props: &Properties,
         depth: usize,
         budget: &mut usize,
+        node_index: &mut usize,
     ) -> Result<Vec<Node>, String> {
-        if depth > 64 {
-            return Err("Scene composition depth exceeded".into());
-        }
+        let start_node_index = *node_index;
+        let mut subtree_end = start_node_index;
+        count_scene_subtree(node, &mut subtree_end, depth)?;
+        *node_index = subtree_end;
         if *budget == 0 {
             return Err("Scene exceeds 16384 nodes".into());
         }
         *budget -= 1;
-        let id = num(&node.props, "__node", 0.)? as usize;
+        let id = match node.props.get("__node") {
+            Some(v) => v.number()? as usize,
+            None => start_node_index,
+        };
         let mut state = std::borrow::Cow::Borrowed(inherited);
         if let Some(local) = self.states.get(id) {
             if !local.is_empty() { scope_mut(&mut state).extend(local.clone()); }
@@ -3003,11 +3011,27 @@ impl Document {
                     .ok_or("If requires a condition")?
                     .evaluate(&scope, &state)?
                     .boolean()?;
+                let mut child_idx = start_node_index + 1;
                 if condition {
-                    self.scene_expand_sequence(node.children.iter().filter(|n| n.kind != "Else"), &state, prefix, &scope, depth + 1, budget)
-                } else if let Some(branch) = node.children.iter().find(|n| n.kind == "Else") {
-                    self.scene_expand_sequence(&branch.children, &state, prefix, &scope, depth + 1, budget)
-                } else { Ok(Vec::new()) }
+                    let mut then_nodes = Vec::with_capacity(node.children.len());
+                    for child in &node.children {
+                        if child.kind == "Else" {
+                            count_scene_subtree(child, &mut child_idx, depth + 1)?;
+                        } else {
+                            then_nodes.push(child);
+                        }
+                    }
+                    self.scene_expand_sequence(then_nodes, &state, prefix, &scope, depth + 1, budget, &mut child_idx)
+                } else {
+                    for child in &node.children {
+                        if child.kind == "Else" {
+                            let mut else_idx = child_idx + 1;
+                            return self.scene_expand_sequence(&child.children, &state, prefix, &scope, depth + 1, budget, &mut else_idx);
+                        }
+                        count_scene_subtree(child, &mut child_idx, depth + 1)?;
+                    }
+                    Ok(Vec::new())
+                }
             }
             "For" => {
                 let Value::List(items) = node
@@ -3015,9 +3039,9 @@ impl Document {
                     .get("collection")
                     .ok_or("For requires a collection")?
                     .evaluate(&scope, &state)?
-                else {
-                    return Err("For expects a list".into());
-                };
+                    else {
+                        return Err("For expects a list".into());
+                    };
                 let item = text(&node.props, "item", "item")?;
                 let collection_expr = node
                     .props
@@ -3026,17 +3050,24 @@ impl Document {
                 let mut out = Vec::new();
                 let mut keys = std::collections::BTreeSet::new();
                 if items.is_empty() {
-                    if let Some(empty) = node.children.iter().find(|n| n.kind == "Empty") {
-                        for child in &empty.children {
-                            out.extend(self.scene_expand(
-                                child,
-                                &state,
-                                prefix,
-                                &scope,
-                                depth + 1,
-                                budget,
-                            )?);
+                    let mut child_idx = start_node_index + 1;
+                    for child in &node.children {
+                        if child.kind == "Empty" {
+                            let mut empty_idx = child_idx + 1;
+                            for empty_child in &child.children {
+                                out.extend(self.scene_expand(
+                                    empty_child,
+                                    &state,
+                                    prefix,
+                                    &scope,
+                                    depth + 1,
+                                    budget,
+                                    &mut empty_idx,
+                                )?);
+                            }
+                            break;
                         }
+                        count_scene_subtree(child, &mut child_idx, depth + 1)?;
                     }
                 }
                 // Small loops with little owned data keep the cheaper flat
@@ -3054,6 +3085,7 @@ impl Document {
                     format!("__binding_key_expr.{item}"),
                     format!("__binding_key_scope.{item}"),
                 ];
+                let body_children: Vec<&Node> = node.children.iter().filter(|n| n.kind != "Empty").collect();
                 for (index, value) in items.into_iter().enumerate() {
                     let local = scope_mut(&mut local);
                     // Key evaluation sees the inherited metadata, never the
@@ -3123,7 +3155,8 @@ impl Document {
                     local.set("__binding_frames".into(), Value::List(frames));
                     local.set("__binding_active".into(), Value::Object(active));
                     let prefix = format!("{prefix}@{id}:{key}/");
-                    out.extend(self.scene_expand_sequence(node.children.iter().filter(|n| n.kind != "Empty"), local, &prefix, &scope, depth + 1, budget)?);
+                    let mut iter_idx = start_node_index + 1;
+                    out.extend(self.scene_expand_sequence(body_children.iter().copied(), local, &prefix, &scope, depth + 1, budget, &mut iter_idx)?);
                 }
                 Ok(out)
             }
@@ -3136,7 +3169,8 @@ impl Document {
                         let val = val_expr.evaluate(&scope, &state)?;
                         let mut next_state = state.as_ref().scoped_clone();
                         insert_scene_lexical(&mut next_state, name, val, val_expr, &scope);
-                        out.extend(self.scene_expand_sequence(&node.children, &next_state, prefix, &scope, depth + 1, budget)?);
+                        let mut child_idx = start_node_index + 1;
+                        out.extend(self.scene_expand_sequence(&node.children, &next_state, prefix, &scope, depth + 1, budget, &mut child_idx)?);
                     }
                 }
                 Ok(out)
@@ -3148,7 +3182,10 @@ impl Document {
                     .ok_or("Match requires a subject")?
                     .evaluate(&scope, &state)?;
                 let mut out = Vec::new();
+                let mut child_idx = start_node_index + 1;
                 for branch in &node.children {
+                    let branch_start = child_idx;
+                    count_scene_subtree(branch, &mut child_idx, depth + 1)?;
                     if branch.kind != "Branch" {
                         continue;
                     }
@@ -3162,7 +3199,8 @@ impl Document {
                             None => true,
                         };
                         if guard_ok {
-                            out.extend(self.scene_expand_sequence(&branch.children, &state, prefix, &scope, depth + 1, budget)?);
+                            let mut branch_body_idx = branch_start + 1;
+                            out.extend(self.scene_expand_sequence(&branch.children, &state, prefix, &scope, depth + 1, budget, &mut branch_body_idx)?);
                             break;
                         }
                     }
@@ -3170,9 +3208,11 @@ impl Document {
                 Ok(out)
             }
             _ => {
+                let mut props = self.scene_properties(node, &scope, &state)?;
+                props.entry("__node".into()).or_insert(number(id as f64));
                 let mut output = Node {
                     kind: node.kind.clone(),
-                    props: self.scene_properties(node, &scope, &state)?,
+                    props,
                     children: Vec::new(),
                     action: node.action.clone(),
                 };
@@ -3192,9 +3232,15 @@ impl Document {
                 }
                 if self.definitions.contains_key(&node.kind) {
                     // Supplied content resolves props in the receiving component's scope.
-                    output.children = node.children.clone();
+                    let mut child_idx = start_node_index + 1;
+                    let mut annotated_children = Vec::with_capacity(node.children.len());
+                    for child in &node.children {
+                        annotated_children.push(annotated_scene_source(child, &mut child_idx, depth + 1)?);
+                    }
+                    output.children = annotated_children;
                 } else {
-                    output.children = self.scene_expand_sequence(&node.children, &state, prefix, &scope, depth + 1, budget)?;
+                    let mut child_idx = start_node_index + 1;
+                    output.children = self.scene_expand_sequence(&node.children, &state, prefix, &scope, depth + 1, budget, &mut child_idx)?;
                 }
                 // Children and resolved properties no longer borrow this scope.
                 // Move a local owned state into its public control snapshot;
@@ -3331,8 +3377,8 @@ impl Document {
     /// Current control identity without visual instantiation/layout/serialization.
     /// A failed visual must not authorize bindings from a branch no longer selected.
     pub(crate) fn binding_scene_controls(&self) -> Result<Vec<SceneControl>, String> {
-        let program = annotated_scene_source(&self.root, &mut 0, 0)?;
-        let mut expanded = self.scene_expand(&program, &Properties::new(), "", &Properties::new(), 0, &mut 16_384)?;
+        let mut node_index = 0usize;
+        let mut expanded = self.scene_expand(&self.root, &Properties::new(), "", &Properties::new(), 0, &mut 16_384, &mut node_index)?;
         if expanded.len() != 1 || !is_layout(&expanded[0].kind) {
             return Err("A scene requires one layout root".into());
         }
@@ -3370,14 +3416,15 @@ impl Document {
     }
     /// Runtime metadata retains logical layout bounds that serialized control leaves cannot express.
     pub(crate) fn render_scene_with_extents(&self) -> Result<(String, String, Vec<SceneControl>, Option<[f64; 2]>), String> {
-        let program = annotated_scene_source(&self.root, &mut 0, 0)?;
+        let mut node_index = 0usize;
         let mut expanded = self.scene_expand(
-            &program,
+            &self.root,
             &Properties::new(),
             "",
             &Properties::new(),
             0,
             &mut 16_384,
+            &mut node_index,
         )?;
         if expanded.len() != 1 {
             return Err("A scene requires one layout root".into());
@@ -3770,7 +3817,8 @@ impl Document {
         activations: &[usize],
         controls: &[SceneControl],
     ) -> Result<usize, String> {
-        let annotated = annotated_scene_source(&self.root, &mut 0, 0)?;
+        let mut preorder_nodes = Vec::with_capacity(64);
+        collect_preorder_nodes(&self.root, &mut preorder_nodes, 0)?;
         // Scene expansion may have reordered/removed controls since the live
         // widgets captured their events. Match stable keys before using indices.
         let mut runtime_keys = BTreeMap::new();
@@ -3809,7 +3857,9 @@ impl Document {
                 let Some(ctrl) = bound_controls[idx] else {
                     continue;
                 };
-                let Some(src_node) = find_annotated_node(&annotated, ctrl.node) else {
+                let Some(&src_node) = preorder_nodes.get(ctrl.node).or_else(|| {
+                    preorder_nodes.iter().find(|n| n.props.get("__node").and_then(|v| v.number().ok()) == Some(ctrl.node as f64))
+                }) else {
                     continue;
                 };
                 let Some(Value::Object(bindings)) = src_node.props.get("__bindings") else {
@@ -4346,6 +4396,26 @@ fn write_list_path(items: &mut [Value], path: &str, value: Value) -> bool {
     }
 }
 
+fn count_scene_subtree(node: &Node, index: &mut usize, depth: usize) -> Result<(), String> {
+    if depth > 64 { return Err("Scene composition depth exceeded".into()); }
+    if *index >= 16_384 { return Err("Scene exceeds 16384 nodes".into()); }
+    *index += 1;
+    for child in &node.children {
+        count_scene_subtree(child, index, depth + 1)?;
+    }
+    Ok(())
+}
+
+fn collect_preorder_nodes<'a>(node: &'a Node, out: &mut Vec<&'a Node>, depth: usize) -> Result<(), String> {
+    if depth > 64 { return Err("Scene composition depth exceeded".into()); }
+    if out.len() >= 16_384 { return Err("Scene exceeds 16384 nodes".into()); }
+    out.push(node);
+    for child in &node.children {
+        collect_preorder_nodes(child, out, depth + 1)?;
+    }
+    Ok(())
+}
+
 // Check each structural level before cloning its children. A clone-then-check
 // approach can overflow the stack on malformed externally supplied trees.
 fn annotated_scene_source(node: &Node, index: &mut usize, depth: usize) -> Result<Node, String> {
@@ -4359,18 +4429,6 @@ fn annotated_scene_source(node: &Node, index: &mut usize, depth: usize) -> Resul
         children.push(annotated_scene_source(child, index, depth + 1)?);
     }
     Ok(Node { kind: node.kind.clone(), props, children, action: node.action.clone() })
-}
-
-fn find_annotated_node<'a>(node: &'a Node, target_id: usize) -> Option<&'a Node> {
-    if node.props.get("__node").and_then(|v| v.number().ok()) == Some(target_id as f64) {
-        return Some(node);
-    }
-    for child in &node.children {
-        if let Some(found) = find_annotated_node(child, target_id) {
-            return Some(found);
-        }
-    }
-    None
 }
 
 fn doc_value_to_json(v: &Value) -> Result<serde_json::Value, String> {

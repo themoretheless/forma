@@ -1611,6 +1611,14 @@ export function For<T, K = T>(props: {
               moveIdx(secondDisplacedIdx);
             }
             moveIdx(firstDisplacedIdx);
+          } else if (reusedCount === 0) {
+            // Initial mount or full replacement: no existing rows are reused, so LIS is empty.
+            let anchorNode: Node = endMarker;
+            for (let i = nextLen - 1; i >= 0; i--) {
+              const rec = nextRecords[i];
+              moveRow(rec, parent, anchorNode);
+              anchorNode = rec.node;
+            }
           } else {
             const lisPositions = computeLisWasm(oldIndices.subarray(0, nextLen));
             let lisCursor = lisPositions.length - 1;

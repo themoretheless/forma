@@ -26,7 +26,11 @@ const VOID_ELEMENTS = new Set([
   'wbr',
 ]);
 
+const HTML_ESCAPE_RE = /[&<>"']/;
+const SCRIPT_JSON_ESCAPE_RE = /[<>&\u2028\u2029]/;
+
 function escapeHtml(str: string): string {
+  if (!HTML_ESCAPE_RE.test(str)) return str;
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -36,6 +40,7 @@ function escapeHtml(str: string): string {
 }
 
 function escapeJsonForScript(jsonStr: string): string {
+  if (!SCRIPT_JSON_ESCAPE_RE.test(jsonStr)) return jsonStr;
   return jsonStr
     .replace(/</g, '\\u003c')
     .replace(/>/g, '\\u003e')
@@ -71,8 +76,9 @@ export function serializeDomNodeToHtml(node: Node): string {
   type Frame = { node: Node } | { close: string };
   const frames: Frame[] = [{ node }], chunks: string[] = [];
   const pushChildren = (parent: Node) => {
-    const children = Array.from(parent.childNodes);
-    for (let i = children.length - 1; i >= 0; i--) frames.push({ node: children[i] });
+    for (let child = parent.lastChild; child; child = child.previousSibling) {
+      frames.push({ node: child });
+    }
   };
   while (frames.length) {
     const frame = frames.pop()!;
