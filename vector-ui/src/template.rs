@@ -597,7 +597,7 @@ impl<'a> Parser<'a> {
         Ok(brush)
     }
     fn brush_value(&mut self) -> Result<Brush, String> {
-        if self.current.kind == Kind::Ident("Brush".into()) {
+        if matches!(&self.current.kind, Kind::Ident(id) if id.text() == "Brush") {
             self.advance()?;
             self.brush()
         } else {
@@ -764,7 +764,7 @@ impl<'a> Parser<'a> {
             }
             self.expect(Kind::Arrow, "'->' after clicked")?;
             self.expect(
-                Kind::Ident("events.clicked".into()),
+                Kind::Ident(Cow::Borrowed("events.clicked")),
                 "events.clicked() forwarding; arbitrary code is not supported",
             )?;
             self.expect(Kind::LeftParen, "'(' after events.clicked")?;
@@ -862,11 +862,11 @@ impl<'a> Parser<'a> {
         else {if !seen.contains("width")||!seen.contains("height"){return Err(self.error("Content requires width and height"));}if kind=="ContentClip"{Ok(Content::Clip{bounds,radius})}else{Ok(Content::Text{bounds,text})}}
     }
     fn template(&mut self) -> Result<Template, String> {
-        self.expect(Kind::Ident("component".into()), "'component'")?;
-        self.expect(Kind::Ident("Button".into()), "Button component name")?;
+        self.expect(Kind::Ident(Cow::Borrowed("component")), "'component'")?;
+        self.expect(Kind::Ident(Cow::Borrowed("Button")), "Button component name")?;
         self.open()?;
         let mut seen=SeenFields::default();
-        while self.current.kind!=Kind::Ident("Rectangle".into()) {
+        while !matches!(&self.current.kind, Kind::Ident(id) if id.text() == "Rectangle") {
             let name=self.ident()?;let name=if name.text()=="font.size"{Cow::Borrowed("fontSize")}else{name};
             self.unique(&mut seen,&name)?;self.colon()?;
             // Defaults are literals: no ordering-dependent references or cycles.
@@ -883,7 +883,7 @@ impl<'a> Parser<'a> {
             self.semi()?;
         }
         self.expect(
-            Kind::Ident("Rectangle".into()),
+            Kind::Ident(Cow::Borrowed("Rectangle")),
             "exactly one Rectangle root",
         )?;
         let template = self.rectangle()?;

@@ -310,9 +310,11 @@ export interface FormaEvalScope {
 // CSP-Safe AST Expression Parser & Evaluator (Zero `new Function` / Zero `with`)
 // ============================================================================
 
+type InterpPart = { literal: true; text: string } | { literal: false; ast: ExprAst };
+
 type ExprAst =
   | { type: 'literal'; value: any }
-  | { type: 'interp'; template: string }
+  | { type: 'interp'; template: string; parts: InterpPart[] }
   | { type: 'ident'; name: string }
   | { type: 'member'; object: ExprAst; property: string }
   | { type: 'index'; object: ExprAst; index: ExprAst }
@@ -489,6 +491,28 @@ function tokenizeFormaExpr(src: string): ExprToken[] {
   return tokens;
 }
 
+function compileInterpParts(template: string): InterpPart[] {
+  const parts: InterpPart[] = [];
+  const re = /\\?\$\{([^}]+)\}/g;
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(template)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push({ literal: true, text: template.slice(lastIdx, match.index) });
+    }
+    if (match[0].startsWith('\\')) {
+      parts.push({ literal: true, text: match[0].slice(1) });
+    } else {
+      parts.push({ literal: false, ast: parseFormaExprAst(match[1].trim()) });
+    }
+    lastIdx = re.lastIndex;
+  }
+  if (lastIdx < template.length) {
+    parts.push({ literal: true, text: template.slice(lastIdx) });
+  }
+  return parts;
+}
+
 function parseFormaExprAst(raw: string): ExprAst {
   const cached = _exprAstCache.get(raw);
   if (cached) return cached;
@@ -509,7 +533,7 @@ function parseFormaExprAst(raw: string): ExprAst {
     }
     if (tok.kind === 'str') {
       if (tok.val.includes('${')) {
-        return { type: 'interp', template: tok.val };
+        return { type: 'interp', template: tok.val, parts: compileInterpParts(tok.val) };
       }
       return { type: 'literal', value: tok.val };
     }
@@ -660,14 +684,18 @@ function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
     case 'literal':
       return node.value;
 
-    case 'interp':
-      return node.template.replace(/\\?\$\{([^}]+)\}/g, (match, subExpr) => {
-        if (match.startsWith('\\')) {
-          return match.slice(1);
+    case 'interp': {
+      let out = '';
+      for (const part of node.parts) {
+        if (part.literal) {
+          out += part.text;
+        } else {
+          const val = evalAstNode(part.ast, scope);
+          if (val != null) out += String(val);
         }
-        const val = evaluateFormaExpression(subExpr, scope);
-        return val == null ? '' : String(val);
-      });
+      }
+      return out;
+    }
 
     case 'array':
       return node.elements.map((el) => evalAstNode(el, scope));
@@ -861,6 +889,14 @@ function isStaticFormaExprNode(node: ExprAst, locals?: Record<string, any>): boo
   switch (node.type) {
     case 'literal':
       return true;
+    case 'interp':
+      return node.parts.every((p) => p.literal || isStaticFormaExprNode(p.ast, locals));
+    case 'call':
+      return (
+        node.callee.type === 'ident' &&
+        Object.prototype.hasOwnProperty.call(formaStdlib, node.callee.name) &&
+        node.args.every((arg) => isStaticFormaExprNode(arg, locals))
+      );
     case 'member':
       if (isTokensRoot(node.object)) {
         return true;
@@ -3697,20 +3733,27 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
     }
   });
 
+  let precompiledAst: FormaDocumentAst | undefined;
   if (!diagnostics.some(d => d.severity === 'error')) {
-    try { parseFormaSource(uiSource); }
+    try { precompiledAst = parseFormaSource(uiSource); }
     catch (error) {
       diagnostics.push({ severity: 'error', message: error instanceof Error ? error.message : String(error), line: contracts[0]?.line ?? 1 });
     }
   }
 
-  const propCount = (uiSource.match(/(?:^|\s)(?:required\s+)?prop\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;
-  const stateCount = (uiSource.match(/(?:^|\s)state\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;
-  const letCount = (uiSource.match(/(?:^|\s)let\s+[a-zA-Z0-9_]+\s*=/gm) ?? []).length;
+  const propCount = precompiledAst
+    ? precompiledAst.propConstraints.length
+    : (uiSource.match(/(?:^|\s)(?:required\s+)?prop\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;
+  const stateCount = precompiledAst
+    ? Object.keys(precompiledAst.initialStateValues).length
+    : (uiSource.match(/(?:^|\s)state\s+[a-zA-Z0-9_]+\s*:/gm) ?? []).length;
+  const letCount = precompiledAst
+    ? precompiledAst.letExpressions.length
+    : (uiSource.match(/(?:^|\s)let\s+[a-zA-Z0-9_]+\s*=/gm) ?? []).length;
   const has3DViewport = /\b(Scene3D|OrbitCube3D|Viewport3D)\s*\{/.test(uiSource);
 
   const hasError = diagnostics.some((d) => d.severity === 'error');
-  return {
+  const report: FormaValidationReport = {
     valid: !hasError,
     componentName,
     diagnostics,
@@ -3719,6 +3762,10 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
     letCount,
     has3DViewport,
   };
+  if (precompiledAst) {
+    Object.defineProperty(report, '_ast', { value: precompiledAst, enumerable: false });
+  }
+  return report;
 }
 
 /**
@@ -3728,7 +3775,7 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
  */
 export function compileFormaToJsModule(uiSource: string, importSource = 'svet-engine'): string {
   const report = validateFormaSource(uiSource);
-  const precompiledAst = parseFormaSource(uiSource);
+  const precompiledAst = (report as FormaValidationReport & { _ast?: FormaDocumentAst })._ast ?? parseFormaSource(uiSource);
   return `import { compileFormaAst, parseFormaSource } from ${JSON.stringify(importSource)};
 export const uiSource = ${JSON.stringify(uiSource)};
 export const uiAst = ${JSON.stringify(precompiledAst)};
