@@ -109,6 +109,10 @@ pub struct ReactiveGraph {
     pub lis_buffer: Vec<u32>,
     /// Reusable input scratch buffer for LIS and batch operations (avoids per-call alloc/free)
     pub lis_input_buffer: Vec<u32>,
+    /// Reusable LIS tail indices scratch buffer (zero-alloc keyed list diffing)
+    pub lis_tails: Vec<usize>,
+    /// Reusable LIS predecessor links scratch buffer (zero-alloc keyed list diffing)
+    pub lis_predecessors: Vec<usize>,
     /// Reusable traversal stack for `trigger_write` (avoids per-write Vec allocation)
     pub propagate_stack: Vec<(u32, u8)>,
     dependency_stack: Vec<u32>,
@@ -150,6 +154,8 @@ impl ReactiveGraph {
             global_epoch: 1,
             lis_buffer: Vec::new(),
             lis_input_buffer: Vec::new(),
+            lis_tails: Vec::new(),
+            lis_predecessors: Vec::new(),
             propagate_stack: Vec::new(),
             dependency_stack: Vec::new(), dependency_seen: Vec::new(), dependency_epoch: 0,
             gpu_f32_arena: Vec::new(),
@@ -181,6 +187,8 @@ impl ReactiveGraph {
         self.global_epoch = 1;
         self.lis_buffer.clear();
         self.lis_input_buffer.clear();
+        self.lis_tails.clear();
+        self.lis_predecessors.clear();
         self.propagate_stack.clear();
         self.dependency_stack.clear(); self.dependency_seen.clear(); self.dependency_epoch = 0;
         self.gpu_f32_arena.clear();
@@ -341,19 +349,43 @@ impl ReactiveGraph {
             return 0;
         }
         let arena_len = self.gpu_f32_arena.len() as u32;
+        if arena_len == 0 {
+            return 0;
+        }
+        let total_blocks = (arena_len + 31) / 32;
+        let start_block = (self.gpu_dirty_min / 32).min(total_blocks.saturating_sub(1));
+        let end_block = ((self.gpu_dirty_max - 1) / 32).min(total_blocks.saturating_sub(1));
+
         let mut in_span = false;
         let mut span_start = 0u32;
+        let mut b = start_block;
 
-        let total_blocks = (arena_len + 31) / 32;
-        for b in 0..total_blocks {
-            let word = (b / 32) as usize;
+        while b <= end_block {
+            let word_idx = (b / 32) as usize;
             let bit = b % 32;
-            let is_dirty = self
-                .gpu_dirty_blocks
-                .get(word)
-                .map(|&w| (w & (1u32 << bit)) != 0)
-                .unwrap_or(false);
+            let word = self.gpu_dirty_blocks.get(word_idx).copied().unwrap_or(0);
 
+            if bit == 0 && b + 31 <= end_block {
+                if word == 0 {
+                    if in_span {
+                        in_span = false;
+                        let span_end = (b * 32).min(arena_len);
+                        self.lis_buffer.push(span_start);
+                        self.lis_buffer.push(span_end - span_start);
+                    }
+                    b += 32;
+                    continue;
+                } else if word == u32::MAX {
+                    if !in_span {
+                        in_span = true;
+                        span_start = b * 32;
+                    }
+                    b += 32;
+                    continue;
+                }
+            }
+
+            let is_dirty = (word & (1u32 << bit)) != 0;
             if is_dirty && !in_span {
                 in_span = true;
                 span_start = b * 32;
@@ -363,10 +395,11 @@ impl ReactiveGraph {
                 self.lis_buffer.push(span_start);
                 self.lis_buffer.push(span_end - span_start);
             }
+            b += 1;
         }
 
         if in_span {
-            let span_end = arena_len;
+            let span_end = ((end_block + 1) * 32).min(arena_len);
             self.lis_buffer.push(span_start);
             self.lis_buffer.push(span_end - span_start);
         }
@@ -377,11 +410,18 @@ impl ReactiveGraph {
     /// Clears the dirty range tracker after a UMA/DUMA frame flush.
     #[inline]
     pub fn gpu_clear_dirty(&mut self) {
+        if self.gpu_dirty_min < self.gpu_dirty_max && self.gpu_dirty_min != u32::MAX {
+            let start_word = (self.gpu_dirty_min / 1024) as usize;
+            let end_word = ((self.gpu_dirty_max - 1) / 1024) as usize;
+            let len = self.gpu_dirty_blocks.len();
+            if start_word < len {
+                for w in &mut self.gpu_dirty_blocks[start_word..=end_word.min(len - 1)] {
+                    *w = 0;
+                }
+            }
+        }
         self.gpu_dirty_min = u32::MAX;
         self.gpu_dirty_max = 0;
-        for w in &mut self.gpu_dirty_blocks {
-            *w = 0;
-        }
     }
 
     /// High-throughput SIMD128 / CPU kernel in WASM (`dst[i] = src[i] * scale + bias`)
@@ -655,12 +695,13 @@ impl ReactiveGraph {
         if !(2..=4).contains(&indices.len()) || indices.iter().any(|&i| i >= count) { return 0; }
         let end = (count as usize).checked_mul(4).and_then(|total| (offset as usize).checked_add(total));
         if end.map_or(true, |end| end > self.gpu_f32_arena.len()) { return 0; }
-        let mut vertices: Vec<[f64; 4]> = Vec::with_capacity(10);
-        for &index in indices {
+        let mut buf_a = [[0.0f64; 4]; 12];
+        let mut len_a = indices.len();
+        for (slot, &index) in indices.iter().enumerate() {
             let base = offset as usize + index as usize * 4;
             let v = std::array::from_fn(|axis| self.gpu_f32_arena[base + axis] as f64);
             if v.iter().any(|value| !value.is_finite()) { return 0; }
-            vertices.push(v);
+            buf_a[slot] = v;
         }
         let distance = |v: [f64; 4], plane: usize| match plane {
             0 => v[3] + v[0], 1 => v[3] - v[0],
@@ -670,8 +711,8 @@ impl ReactiveGraph {
         let interpolate = |a: [f64; 4], b: [f64; 4], t: f64| {
             std::array::from_fn(|axis| a[axis] + (b[axis] - a[axis]) * t)
         };
-        if indices.len() == 2 {
-            let a = vertices[0]; let b = vertices[1];
+        if len_a == 2 {
+            let a = buf_a[0]; let b = buf_a[1];
             let mut enter: f64 = 0.0; let mut exit: f64 = 1.0;
             for plane in 0..6 {
                 let da = distance(a, plane); let db = distance(b, plane);
@@ -680,26 +721,33 @@ impl ReactiveGraph {
                 if db < 0.0 { exit = exit.min(da / (da - db)); }
             }
             if enter > exit { return 0; }
-            vertices = vec![interpolate(a, b, enter), interpolate(a, b, exit)];
+            buf_a[0] = interpolate(a, b, enter);
+            buf_a[1] = interpolate(a, b, exit);
         } else {
+            let mut buf_b = [[0.0f64; 4]; 12];
             for plane in 0..6 {
-                if vertices.is_empty() { break; }
-                let mut output = Vec::with_capacity(vertices.len() + 1);
-                let mut previous = *vertices.last().unwrap();
+                if len_a == 0 { break; }
+                let mut len_b = 0usize;
+                let mut previous = buf_a[len_a - 1];
                 let mut dp = distance(previous, plane);
-                for &current in &vertices {
+                for &current in &buf_a[..len_a] {
                     let dc = distance(current, plane);
-                    if (dp >= 0.0) != (dc >= 0.0) {
-                        output.push(interpolate(previous, current, dp / (dp - dc)));
+                    if (dp >= 0.0) != (dc >= 0.0) && len_b < buf_b.len() {
+                        buf_b[len_b] = interpolate(previous, current, dp / (dp - dc));
+                        len_b += 1;
                     }
-                    if dc >= 0.0 { output.push(current); }
+                    if dc >= 0.0 && len_b < buf_b.len() {
+                        buf_b[len_b] = current;
+                        len_b += 1;
+                    }
                     previous = current; dp = dc;
                 }
-                vertices = output;
+                buf_a[..len_b].copy_from_slice(&buf_b[..len_b]);
+                len_a = len_b;
             }
         }
-        if vertices.iter().any(|v| v[3] <= 0.0) { return 0; }
-        for vertex in vertices {
+        if buf_a[..len_a].iter().any(|v| v[3] <= 0.0) { return 0; }
+        for vertex in &buf_a[..len_a] {
             self.gpu_clip_output.extend(vertex.map(|value| value as f32));
         }
         (self.gpu_clip_output.len() / 4) as u32
@@ -746,8 +794,12 @@ impl ReactiveGraph {
             let indices = [self.gpu_pick_indices[base], self.gpu_pick_indices[base + 1], self.gpu_pick_indices[base + 2]];
             let size = self.gpu_clip_primitive_3d(offset, count, &indices) as usize;
             if size < 3 { continue; }
-            let points: Vec<[f64; 3]> = self.gpu_clip_output.chunks_exact(4).map(|v| [v[0] as f64 / v[3] as f64, v[1] as f64 / v[3] as f64, v[2] as f64 / v[3] as f64]).collect();
-            for i in 1..size - 1 { triangles.push([points[0], points[i], points[i + 1]]); }
+            let mut points = [[0.0f64; 3]; 12];
+            for (slot, v) in self.gpu_clip_output.chunks_exact(4).take(12).enumerate() {
+                let w = v[3] as f64;
+                points[slot] = [v[0] as f64 / w, v[1] as f64 / w, v[2] as f64 / w];
+            }
+            for i in 1..size.min(12) - 1 { triangles.push([points[0], points[i], points[i + 1]]); }
         }
         self.gpu_pick_vertex_impl(offset, count, vw, vh, x, y, radius, &triangles)
     }
@@ -1255,7 +1307,7 @@ impl ReactiveGraph {
 
     /// Computes Longest Increasing Subsequence (LIS) of `input` (ignoring `u32::MAX` which denotes new items).
     /// Writes indices of the LIS in ascending order into `self.lis_buffer` and returns the count.
-    /// Complexity: O(n log n) time, O(n) memory in WASM linear heap.
+    /// Complexity: O(n log n) time, 0 per-call heap allocations once warmed.
     pub fn compute_lis(&mut self, input: &[u32]) -> usize {
         let n = input.len();
         self.lis_buffer.clear();
@@ -1263,8 +1315,10 @@ impl ReactiveGraph {
             return 0;
         }
 
-        let mut tails: Vec<usize> = Vec::with_capacity(n);
-        let mut predecessors: Vec<usize> = vec![usize::MAX; n];
+        self.lis_tails.clear();
+        if self.lis_predecessors.len() < n {
+            self.lis_predecessors.resize(n, usize::MAX);
+        }
 
         for i in 0..n {
             let val = input[i];
@@ -1272,41 +1326,37 @@ impl ReactiveGraph {
                 continue;
             }
 
-            if tails.is_empty() || input[*tails.last().unwrap()] < val {
-                if let Some(&last_idx) = tails.last() {
-                    predecessors[i] = last_idx;
-                }
-                tails.push(i);
+            if self.lis_tails.is_empty() || input[*self.lis_tails.last().unwrap()] < val {
+                self.lis_predecessors[i] = self.lis_tails.last().copied().unwrap_or(usize::MAX);
+                self.lis_tails.push(i);
             } else {
                 let mut low = 0usize;
-                let mut high = tails.len() - 1;
+                let mut high = self.lis_tails.len() - 1;
                 while low < high {
                     let mid = low + (high - low) / 2;
-                    if input[tails[mid]] < val {
+                    if input[self.lis_tails[mid]] < val {
                         low = mid + 1;
                     } else {
                         high = mid;
                     }
                 }
-                if val < input[tails[low]] {
-                    if low > 0 {
-                        predecessors[i] = tails[low - 1];
-                    }
-                    tails[low] = i;
+                if val < input[self.lis_tails[low]] {
+                    self.lis_predecessors[i] = if low > 0 { self.lis_tails[low - 1] } else { usize::MAX };
+                    self.lis_tails[low] = i;
                 }
             }
         }
 
-        let lis_len = tails.len();
+        let lis_len = self.lis_tails.len();
         if lis_len == 0 {
             return 0;
         }
 
         self.lis_buffer.resize(lis_len, 0);
-        let mut k = tails[lis_len - 1];
+        let mut k = self.lis_tails[lis_len - 1];
         for idx in (0..lis_len).rev() {
             self.lis_buffer[idx] = k as u32;
-            k = predecessors[k];
+            k = self.lis_predecessors[k];
         }
 
         lis_len

@@ -2693,16 +2693,26 @@ impl Document {
                 let cols = sizes(n, 0, w)?;
                 let rows = sizes(n, 1, h)?;
                 let gap = gaps(&n.props)?;
+                let mut col_offsets = Vec::with_capacity(cols.len());
+                let mut col_acc = 0.0;
+                for (i, &cw) in cols.iter().enumerate() {
+                    col_offsets.push(col_acc + i as f64 * gap[1]);
+                    col_acc += cw;
+                }
+                let mut row_offsets = Vec::with_capacity(rows.len());
+                let mut row_acc = 0.0;
+                for (i, &rh) in rows.iter().enumerate() {
+                    row_offsets.push(row_acc + i as f64 * gap[0]);
+                    row_acc += rh;
+                }
                 for c in &n.children {
                     let ci = cell(c, 0, cols.len())?;
                     let ri = cell(c, 1, rows.len())?;
                     self.flatten(
                         c,
                         [
-                            x + ci
-                                .map_or(0., |i| cols[..i].iter().sum::<f64>() + i as f64 * gap[1]),
-                            y + ri
-                                .map_or(0., |i| rows[..i].iter().sum::<f64>() + i as f64 * gap[0]),
+                            x + ci.map_or(0., |i| col_offsets[i]),
+                            y + ri.map_or(0., |i| row_offsets[i]),
                             ci.map_or(w, |i| cols[i]),
                             ri.map_or(h, |i| rows[i]),
                         ],
@@ -3282,13 +3292,25 @@ impl Document {
         let cols = sizes(&visual, 0, width)?;
         let rows = sizes(&visual, 1, height)?;
         let gap = gaps(&node.props)?;
+        let mut col_offsets = Vec::with_capacity(cols.len());
+        let mut col_acc = 0.0;
+        for (i, &cw) in cols.iter().enumerate() {
+            col_offsets.push(col_acc + i as f64 * gap[1]);
+            col_acc += cw;
+        }
+        let mut row_offsets = Vec::with_capacity(rows.len());
+        let mut row_acc = 0.0;
+        for (i, &rh) in rows.iter().enumerate() {
+            row_offsets.push(row_acc + i as f64 * gap[0]);
+            row_acc += rh;
+        }
         for (child, child_visual) in node.children.into_iter().zip(visual.children) {
             let ci = cell(&child, 0, cols.len())?;
             let ri = cell(&child, 1, rows.len())?;
             let cw = ci.map_or(width, |i| cols[i]);
             let ch = ri.map_or(height, |i| rows[i]);
-            let mut cx = x + ci.map_or(0., |i| cols[..i].iter().sum::<f64>() + i as f64 * gap[1]);
-            let mut cy = y + ri.map_or(0., |i| rows[..i].iter().sum::<f64>() + i as f64 * gap[0]);
+            let mut cx = x + ci.map_or(0., |i| col_offsets[i]);
+            let mut cy = y + ri.map_or(0., |i| row_offsets[i]);
             if is_layout(&child.kind) {
                 let w = dimension(&child_visual, 0, cw)?;
                 let h = dimension(&child_visual, 1, ch)?;

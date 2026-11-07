@@ -779,10 +779,16 @@ function bindAttribute(el: HTMLElement, key: string, value: any, notifyModel: bo
 }
 
 const managedStyles = new WeakMap<HTMLElement, Set<string>>();
+const cssPropertyCache = new Map<string, string>();
 function cssPropertyName(name: string): string {
   if (name.startsWith('--')) return name;
-  if (name === 'cssFloat') return 'float';
-  return name.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`).replace(/^ms-/, '-ms-');
+  let cached = cssPropertyCache.get(name);
+  if (cached !== undefined) return cached;
+  cached = name === 'cssFloat'
+    ? 'float'
+    : name.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`).replace(/^ms-/, '-ms-');
+  if (cssPropertyCache.size < 1024) cssPropertyCache.set(name, cached);
+  return cached;
 }
 
 function applyStyle(el: HTMLElement, styleVal: string | Record<string, any> | undefined, assertCurrent: () => void): void {
