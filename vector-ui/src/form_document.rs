@@ -173,20 +173,7 @@ impl Value {
     fn write_literal(&self, out: &mut String) -> Result<(), String> {
         use std::fmt::Write;
         match self {
-            Self::Text(s) => {
-                out.push('\'');
-                for ch in s.chars() {
-                    match ch {
-                        '\\' => out.push_str("\\\\"),
-                        '\'' => out.push_str("\\'"),
-                        '\n' => out.push_str("\\n"),
-                        '\r' => out.push_str("\\r"),
-                        '\t' => out.push_str("\\t"),
-                        c => out.push(c),
-                    }
-                }
-                out.push('\'');
-            }
+            Self::Text(s) => write_str_literal(s, out),
             Self::Expr(s) => out.push_str(s),
             Self::Number(_) => {
                 let _ = write!(out, "{}", self.number()?);
@@ -210,6 +197,24 @@ impl Value {
         }
         Ok(())
     }
+}
+fn write_str_literal(s: &str, out: &mut String) {
+    out.push('\'');
+    if !s.bytes().any(|b| matches!(b, b'\\' | b'\'' | b'\n' | b'\r' | b'\t')) {
+        out.push_str(s);
+    } else {
+        for ch in s.chars() {
+            match ch {
+                '\\' => out.push_str("\\\\"),
+                '\'' => out.push_str("\\'"),
+                '\n' => out.push_str("\\n"),
+                '\r' => out.push_str("\\r"),
+                '\t' => out.push_str("\\t"),
+                c => out.push(c),
+            }
+        }
+    }
+    out.push('\'');
 }
 fn lookup(values: &Properties, path: &str) -> Option<Value> {
     if let Some(value) = values.get(path) {
@@ -1541,6 +1546,15 @@ fn tracks(p: &Properties, key: &str) -> Vec<Value> {
         Some(v) => vec![v.clone()],
     }
 }
+fn tracks_slice<'a>(p: &'a Properties, key: &str) -> &'a [Value] {
+    static DEFAULT_STAR: std::sync::LazyLock<[Value; 1]> =
+        std::sync::LazyLock::new(|| [Value::Expr("*".into())]);
+    match p.get(key) {
+        None => &*DEFAULT_STAR,
+        Some(Value::List(v)) => v.as_slice(),
+        Some(v) => std::slice::from_ref(v),
+    }
+}
 fn cell(n: &Node, axis: usize, count: usize) -> Result<Option<usize>, String> {
     let value = if let Some(Value::List(values)) = n.props.get("cell") {
         if values.len() != 2 || n.props.contains_key("row") || n.props.contains_key("column") {
@@ -1614,7 +1628,7 @@ fn normalize_layout_owned(mut n: Node) -> Result<Node, String> {
             n.kind = "Frame".into();
         }
         "Grid" => {
-            let columns = tracks(&n.props, "columns").len().max(1);
+            let columns = tracks_slice(&n.props, "columns").len().max(1);
             let mut rows = tracks(&n.props, "rows");
             if !n.props.contains_key("rows") {
                 rows = vec![Value::Expr("auto".into())];
@@ -1720,7 +1734,7 @@ fn natural(n: &Node, axis: usize) -> Result<f64, String> {
             .map(|c| natural(c, axis))
             .try_fold(0.0_f64, |a, b| b.map(|b| a.max(b)))?,
         "Frame" | "Scroll" => {
-            let ts = tracks(&n.props, if axis == 0 { "columns" } else { "rows" });
+            let ts = tracks_slice(&n.props, if axis == 0 { "columns" } else { "rows" });
             let pad = insets(n.props.get("padding"))?;
             let mut total = pad[1 - axis]
                 + pad[3 - axis]
@@ -1764,9 +1778,9 @@ fn dimension(n: &Node, axis: usize, available: f64) -> Result<f64, String> {
     constraint(n, axis, value)
 }
 fn sizes(n: &Node, axis: usize, available: f64) -> Result<Vec<f64>, String> {
-    let ts = tracks(&n.props, if axis == 0 { "columns" } else { "rows" });
-    let mut values = Vec::new();
-    let mut weights = Vec::new();
+    let ts = tracks_slice(&n.props, if axis == 0 { "columns" } else { "rows" });
+    let mut values = Vec::with_capacity(ts.len());
+    let mut weights = Vec::with_capacity(ts.len());
     for (i, t) in ts.iter().enumerate() {
         let mut weight = 0.;
         let size = match t {
@@ -2275,9 +2289,9 @@ impl Document {
             Ok(value)
         }
     }
-    fn expand_sequence(
+    fn expand_sequence<'a>(
         &self,
-        nodes: &[Node],
+        nodes: impl IntoIterator<Item = &'a Node>,
         props: &Properties,
         state: &Properties,
         parents: &[String],
@@ -2298,25 +2312,28 @@ impl Document {
                         .ok_or("If requires a condition")?
                         .evaluate(props, &current_state)?
                         .boolean()?;
-                    let children = if condition {
-                        node.children
+                    if condition {
+                        let body_children: Vec<&Node> = node
+                            .children
                             .iter()
                             .filter(|n| n.kind != "Else")
-                            .cloned()
-                            .collect()
-                    } else {
-                        node.children
-                            .iter()
-                            .find(|n| n.kind == "Else")
-                            .map_or(Vec::new(), |n| n.children.clone())
-                    };
-                    result.extend(self.expand_sequence(
-                        &children,
-                        props,
-                        &current_state,
-                        parents,
-                        depth + 1,
-                    )?);
+                            .collect();
+                        result.extend(self.expand_sequence(
+                            body_children.iter().copied(),
+                            props,
+                            &current_state,
+                            parents,
+                            depth + 1,
+                        )?);
+                    } else if let Some(else_node) = node.children.iter().find(|n| n.kind == "Else") {
+                        result.extend(self.expand_sequence(
+                            &else_node.children,
+                            props,
+                            &current_state,
+                            parents,
+                            depth + 1,
+                        )?);
+                    }
                 }
                 "For" => {
                     let Value::List(items) = node
@@ -2328,6 +2345,7 @@ impl Document {
                         return Err("For expects a list".into());
                     };
                     let item = text(&node.props, "item", "item")?;
+                    let idx_key = format!("__index.{item}");
                     let mut keys = std::collections::BTreeSet::new();
                     if items.is_empty() {
                         if let Some(empty) = node.children.iter().find(|n| n.kind == "Empty") {
@@ -2340,10 +2358,15 @@ impl Document {
                             )?);
                         }
                     }
+                    let body_children: Vec<&Node> = node
+                        .children
+                        .iter()
+                        .filter(|n| n.kind != "Empty")
+                        .collect();
                     for (index, value) in items.into_iter().enumerate() {
                         let mut state = current_state.as_ref().scoped_clone();
                         state.insert(item.clone(), value);
-                        state.insert(format!("__index.{item}"), number(index as f64));
+                        state.insert(idx_key.clone(), number(index as f64));
                         let key = key_part(
                             &node
                                 .props
@@ -2354,14 +2377,8 @@ impl Document {
                         if !keys.insert(key) {
                             return Err("Duplicate collection key".into());
                         }
-                        let children = node
-                            .children
-                            .iter()
-                            .filter(|n| n.kind != "Empty")
-                            .cloned()
-                            .collect::<Vec<_>>();
                         result.extend(self.expand_sequence(
-                            &children,
+                            body_children.iter().copied(),
                             props,
                             &state,
                             parents,
@@ -2749,11 +2766,11 @@ impl Document {
                     out,
                     format_args!("ContentInput {{ x:{x}; y:{y}; width:{w}; height:{h}; value:"),
                 );
-                Value::Text(text(&n.props, "value", "")?).write_literal(out)?;
+                write_str_literal(&text(&n.props, "value", "")?, out);
                 out.push_str("; label:");
-                Value::Text(text(&n.props, "label", "")?).write_literal(out)?;
+                write_str_literal(&text(&n.props, "label", "")?, out);
                 out.push_str("; placeholder:");
-                Value::Text(text(&n.props, "placeholder", "")?).write_literal(out)?;
+                write_str_literal(&text(&n.props, "placeholder", "")?, out);
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!(
@@ -2792,7 +2809,7 @@ impl Document {
                                 y + i as f64 * fs * 1.5
                             ),
                         );
-                        Value::Text(line.into()).write_literal(out)?;
+                        write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
                             format_args!("; color:{color}; fontSize:{fs}; }} "),
@@ -2822,7 +2839,7 @@ impl Document {
                                 y + i as f64 * fs * 1.5
                             ),
                         );
-                        Value::Text(line.into()).write_literal(out)?;
+                        write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
                             format_args!("; color:{color}; fontSize:{fs}; }} "),
@@ -3080,6 +3097,8 @@ impl Document {
                 // Materialize them only after the first valid key, then share
                 // the immutable map across retained binding frames.
                 let mut captured_locals: Option<Properties> = None;
+                let idx_key = format!("__index.{item}");
+                let col_key = format!("__collection.{item}");
                 let binding_metadata = [
                     format!("__binding_key.{item}"),
                     format!("__binding_key_expr.{item}"),
@@ -3104,9 +3123,9 @@ impl Document {
                             *lexicals=masked;
                         }
                     }
-                    local.set(format!("__index.{item}"), number(index as f64));
+                    local.set(idx_key.clone(), number(index as f64));
                     if let Some(col_expr) = &collection_expr {
-                        local.set(format!("__collection.{item}"), Value::Text(col_expr.clone()));
+                        local.set(col_key.clone(), Value::Text(col_expr.clone()));
                     }
                     let key = key_part(
                         &node
@@ -3120,9 +3139,9 @@ impl Document {
                     }
                     // Retain key semantics, not just the old positional index,
                     // so a recovery binding map can resolve the same live item.
-                    local.set(format!("__binding_key.{item}"), Value::Text(key.clone()));
-                    local.set(format!("__binding_key_expr.{item}"), node.props["key"].clone());
-                    local.set(format!("__binding_key_scope.{item}"), Value::Object(scope.as_ref().clone()));
+                    local.set(binding_metadata[0].clone(), Value::Text(key.clone()));
+                    local.set(binding_metadata[1].clone(), node.props["key"].clone());
+                    local.set(binding_metadata[2].clone(), Value::Object(scope.as_ref().clone()));
                     let mut frames = match state.get("__binding_frames") {
                         Some(Value::List(frames)) => frames.clone(), _ => Vec::new(),
                     };
@@ -3147,8 +3166,13 @@ impl Document {
                             frame.insert("__let_steps".into(), steps.clone());
                         }
                     }
-                    for name in [format!("__collection.{item}"), format!("__binding_key.{item}"), format!("__binding_key_expr.{item}"), format!("__binding_key_scope.{item}")] {
-                        if let Some(value) = local.get(&name) { frame.insert(name, value.clone()); }
+                    if let Some(value) = local.get(&col_key) {
+                        frame.insert(col_key.clone(), value.clone());
+                    }
+                    for name in &binding_metadata {
+                        if let Some(value) = local.get(name) {
+                            frame.insert(name.clone(), value.clone());
+                        }
                     }
                     active.insert(item.clone(), number(frames.len() as f64));
                     frames.push(Value::Object(frame));

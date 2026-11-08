@@ -805,12 +805,14 @@ function applyStyle(el: HTMLElement, styleVal: string | Record<string, any> | un
   }
   const keys = styleVal ? Object.keys(styleVal) : [];
   assertCurrent();
-  const entries: Array<[string, any]> = [];
-  for (const prop of keys) {
+  const entries: Array<[string, any]> = new Array(keys.length);
+  const nextProperties = new Set<string>();
+  for (let i = 0; i < keys.length; i++) {
+    const prop = keys[i];
     assertCurrent(); const raw = (styleVal as Record<string, any>)[prop]; assertCurrent();
-    entries.push([prop, raw]);
+    entries[i] = [prop, raw];
+    nextProperties.add(cssPropertyName(prop));
   }
-  const nextProperties = new Set(entries.map(([prop]) => cssPropertyName(prop)));
   for (const prop of managedStyles.get(el) ?? []) {
     assertCurrent();
     if (!nextProperties.has(prop) && el.style.getPropertyValue(prop)) {
@@ -1596,8 +1598,15 @@ export function For<T, K = T>(props: {
           }
         }
         if (reusedCount < oldLen) {
-          const nextSet = new Set(nextRecords);
-          for (const rec of oldRecords) if (!nextSet.has(rec)) removed.push(rec);
+          if (reusedCount === 0) {
+            for (let i = 0; i < oldLen; i++) removed.push(oldRecords[i]);
+          } else {
+            const nextSet = new Set(nextRecords);
+            for (let i = 0; i < oldLen; i++) {
+              const rec = oldRecords[i];
+              if (!nextSet.has(rec)) removed.push(rec);
+            }
+          }
         }
         if (anyMovedOrNew) {
           if (displacedCount > 0 && displacedCount <= 2 && reusedCount === nextLen && oldLen === nextLen) {

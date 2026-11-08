@@ -447,25 +447,35 @@ export function syncGpuArena(): {
   let spansCount = 0;
   try {
     if (state.device) {
-      let spans: Array<[number, number]>;
-      if (state.forceUpload) spans = [[0, arenaBytes]];
-      else if (state.architecture === 'UMA') spans = [[minFloat * 4, (maxFloat - minFloat) * 4]];
-      else {
+      const queue = state.device.queue;
+      const buffer = state.buffer;
+      const uploadSpan = (arena: Uint8Array<ArrayBuffer>, start: number, length: number) => {
+        const aligned = start & ~15;
+        const end = Math.min((start + length + 15) & ~15, arenaBytes);
+        const alignedLen = end - aligned;
+        queue.writeBuffer(buffer, aligned, arena, aligned, alignedLen);
+        state.lastBytes += alignedLen;
+        state.totalBytes += alignedLen;
+        spansCount++;
+      };
+      if (state.forceUpload) {
+        const arena = new Uint8Array(core.memory.buffer, core.svet_gpu_get_arena_ptr(), arenaBytes);
+        uploadSpan(arena, 0, arenaBytes);
+      } else if (state.architecture === 'UMA') {
+        const arena = new Uint8Array(core.memory.buffer, core.svet_gpu_get_arena_ptr(), arenaBytes);
+        uploadSpan(arena, minFloat * 4, (maxFloat - minFloat) * 4);
+      } else {
         const count = core.svet_gpu_collect_dirty_spans();
+        // Construct views after WASM span collection, which can grow linear memory.
+        const arena = new Uint8Array(core.memory.buffer, core.svet_gpu_get_arena_ptr(), arenaBytes);
         if (count > 1) {
           const data = new Uint32Array(core.memory.buffer, core.svet_get_lis_ptr(), count * 2);
-          spans = Array.from({ length: count }, (_, i) => [data[i * 2] * 4, data[i * 2 + 1] * 4]);
-        } else spans = [[minFloat * 4, (maxFloat - minFloat) * 4]];
-        spans = spans.map(([start, length]) => {
-          const aligned = Math.floor(start / 16) * 16;
-          return [aligned, Math.min(Math.ceil((start + length) / 16) * 16, arenaBytes) - aligned];
-        });
-      }
-      // Construct views after WASM span collection, which can grow linear memory.
-      const arena = new Uint8Array(core.memory.buffer, core.svet_gpu_get_arena_ptr(), arenaBytes);
-      for (const [start, length] of spans) {
-        state.device.queue.writeBuffer(state.buffer, start, arena, start, length);
-        state.lastBytes += length; state.totalBytes += length; spansCount++;
+          for (let i = 0; i < count; i++) {
+            uploadSpan(arena, data[i * 2] * 4, data[i * 2 + 1] * 4);
+          }
+        } else {
+          uploadSpan(arena, minFloat * 4, (maxFloat - minFloat) * 4);
+        }
       }
     }
     core.svet_gpu_clear_dirty();
@@ -2064,6 +2074,7 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     }
   };
 
+  let screenCoords = new Float32Array(0);
   const draw = (force2d = false) => {
     const nextWidth = dimension(props.width, 360), nextHeight = dimension(props.height, 200);
     if (nextWidth !== width || nextHeight !== height) {
@@ -2097,16 +2108,16 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     const count = mesh.vertexCount;
     if (!force2d && tryRenderWebGpu(clipVerts, mesh, indices)) return;
 
-    const screenPts: Array<[number, number, number]> = new Array(count);
+    if (screenCoords.length < count * 2) {
+      screenCoords = new Float32Array(count * 2);
+    }
     for (let i = 0; i < count; i++) {
       const x = clipVerts[i * 4];
       const y = clipVerts[i * 4 + 1];
-      const z = clipVerts[i * 4 + 2];
       const w = clipVerts[i * 4 + 3];
       const invW = 1.0 / w;
-      const sx = halfW + x * invW * halfW;
-      const sy = halfH - y * invW * halfH;
-      screenPts[i] = [sx, sy, z * invW];
+      screenCoords[i * 2] = halfW + x * invW * halfW;
+      screenCoords[i * 2 + 1] = halfH - y * invW * halfH;
     }
 
     const ctx = (surfaces?.fallback ?? canvas).getContext?.('2d');
@@ -2118,36 +2129,49 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
 
     // Rust clips homogeneous primitives before JS transports finite screen points.
     const clipPrimitive = (indices: number[]): Array<[number, number, number]> => {
-      if (indices.some(index => !Number.isInteger(index) || index < 0 || index >= count)) return [];
+      for (let i = 0; i < indices.length; i++) {
+        const index = indices[i];
+        if (!Number.isInteger(index) || index < 0 || index >= count) return [];
+      }
       const size = renderCore.svet_gpu_clip_primitive_3d(mesh.transformedVertices.offset, count,
         indices[0], indices[1], indices[2] ?? 0, indices[3] ?? 0, indices.length);
+      if (size === 0) return [];
       // Clipping may grow WASM memory; construct the view after the call.
       const data = new Float32Array(renderCore.memory.buffer, renderCore.svet_gpu_clip_output_ptr() >>> 0, size * 4);
-      const points: Array<[number, number, number]> = [];
+      const points: Array<[number, number, number]> = new Array(size);
       for (let i = 0; i < size; i++) {
         const w = data[i * 4 + 3];
-        const point: [number, number, number] = [halfW * (1 + data[i * 4] / w), halfH * (1 - data[i * 4 + 1] / w), data[i * 4 + 2] / w];
-        if (!point.every(Number.isFinite)) return [];
-        points.push(point);
+        const px = halfW * (1 + data[i * 4] / w);
+        const py = halfH * (1 - data[i * 4 + 1] / w);
+        const pz = data[i * 4 + 2] / w;
+        if (!Number.isFinite(px) || !Number.isFinite(py) || !Number.isFinite(pz)) return [];
+        points[i] = [px, py, pz];
       }
       return points;
     };
     if (props.faces?.length) {
-      const sortedFaces = props.faces.map(face => clipPrimitive(face))
-        .filter(points => points.length >= 3)
-        .map(points => ({ points, avgZ: points.reduce((sum, point) => sum + point[2], 0) / points.length }))
-        .sort((a, b) => b.avgZ - a.avgZ);
+      const sortedFaces: Array<{ points: Array<[number, number, number]>; avgZ: number }> = [];
+      for (let i = 0; i < props.faces.length; i++) {
+        const points = clipPrimitive(props.faces[i]);
+        if (points.length >= 3) {
+          let sumZ = 0;
+          for (let j = 0; j < points.length; j++) sumZ += points[j][2];
+          sortedFaces.push({ points, avgZ: sumZ / points.length });
+        }
+      }
+      sortedFaces.sort((a, b) => b.avgZ - a.avgZ);
       ctx.fillStyle = props.fillStyle ?? 'rgba(56, 189, 248, 0.14)';
-      for (const { points } of sortedFaces) {
+      for (let i = 0; i < sortedFaces.length; i++) {
+        const points = sortedFaces[i].points;
         ctx.beginPath(); ctx.moveTo(points[0][0], points[0][1]);
-        for (const point of points.slice(1)) ctx.lineTo(point[0], point[1]);
+        for (let j = 1; j < points.length; j++) ctx.lineTo(points[j][0], points[j][1]);
         ctx.closePath(); ctx.fill();
       }
     }
     if (props.edges?.length) {
       ctx.strokeStyle = props.strokeStyle ?? '#38bdf8'; ctx.lineWidth = 2; ctx.beginPath();
-      for (const edge of props.edges) {
-        const points = clipPrimitive(edge);
+      for (let i = 0; i < props.edges.length; i++) {
+        const points = clipPrimitive(props.edges[i]);
         if (points.length !== 2) continue;
         ctx.moveTo(points[0][0], points[0][1]); ctx.lineTo(points[1][0], points[1][1]);
       }
@@ -2161,8 +2185,9 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       for (let i = 0; i < count; i++) {
         const base = i * 4;
         const x = markerVertices[base], y = markerVertices[base + 1], z = markerVertices[base + 2], w = markerVertices[base + 3];
-        if (![x, y, z, w].every(Number.isFinite) || w <= 0 || Math.abs(x) > w || Math.abs(y) > w || z < 0 || z > w) continue;
-        const [px, py] = screenPts[i];
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) || !Number.isFinite(w) || w <= 0 || Math.abs(x) > w || Math.abs(y) > w || z < 0 || z > w) continue;
+        const px = screenCoords[i * 2];
+        const py = screenCoords[i * 2 + 1];
         ctx.beginPath();
         ctx.arc(px, py, 3.5, 0, Math.PI * 2);
         ctx.fill();

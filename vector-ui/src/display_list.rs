@@ -396,8 +396,11 @@ impl DisplayList {
         let cols = width.div_ceil(TILE);
         let rows = height.div_ceil(TILE);
         let tile_count = (cols * rows) as usize;
-        scratch.data.resize(tile_count * 2, 0);
-        scratch.data.fill(0);
+        let headers = tile_count * 2;
+        if scratch.data.len() < headers {
+            scratch.data.resize(headers, 0);
+        }
+        scratch.data[..headers].fill(0);
         scratch.ranges.clear();
         scratch.clips.clear();
         // The tiler emits exactly one range record per command; reserving that depth keeps the
@@ -460,12 +463,6 @@ impl DisplayList {
         }
         // The counts are already in the header, so the tail is sized once here rather than
         // doubling while the fill pass writes into it.
-        let headers = tile_count * 2;
-        let listed: usize = scratch.data[..headers]
-            .chunks_exact(2)
-            .map(|pair| pair[1] as usize)
-            .sum();
-        scratch.data.resize(headers + listed, 0);
         let mut length = headers;
         for pair in scratch.data[..headers].chunks_exact_mut(2) {
             let count = pair[1] as usize;
@@ -475,6 +472,7 @@ impl DisplayList {
             pair[1] = 0;
             length += count;
         }
+        scratch.data.resize(length, 0);
         for (id, &[x0, y0, x1, y1]) in scratch.ranges.iter().enumerate() {
             for y in y0..y1 {
                 for x in x0..x1 {
