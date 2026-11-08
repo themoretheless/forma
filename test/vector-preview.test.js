@@ -43,7 +43,7 @@ class Model {
   constructor() {
     this.focusCalls = []; this.focusControlCalls = []; this.keyCalls = []; this.pointerCalls = []; this.revealCalls = [];
     this.revealPresent = false;
-    this.activateCalls = 0; this.pointerPresses = 0; this.count = 0; this.focused = -1; this.rasterCalls = 0; this.revision = 0;
+    this.activateCalls = 0; this.pointerPresses = 0; this.count = 0; this.submissionCount = 0; this.lastSubmitted = -1; this.focused = -1; this.rasterCalls = 0; this.revision = 0;
   }
   load_component(source) {this.controls = JSON.parse(source);}
   preserve_interaction() {}
@@ -89,6 +89,8 @@ class Model {
   reveal_pointer(x, y, present) {this.revealPresent = present; this.revealCalls.push({x, y, present});}
   activate() {this.activateCalls++; this.count++;}
   clicks() {return this.count;}
+  submissions() {return this.submissionCount;}
+  submitted_index() {return this.lastSubmitted;}
   disabled() {return this.controls.every(control => control.disabled);}
   hit_index(x, y) {return this.controls.findLastIndex(({bounds: [left, top, width, height]}) => x >= left && y >= top && x < left + width && y < top + height);}
   hit(x, y) {return this.hit_index(x, y) >= 0;}
@@ -117,7 +119,7 @@ function fixture(t, controls, designMode = false, options = {}) {
   for (const [name, value] of Object.entries(globals)) Object.defineProperty(globalThis, name, {value, configurable: true});
   const runtime = {Runtime: class extends Model {constructor() {super(); models.push(this);}}};
   setGpuFactory(options.gpuFactory);
-  const preview = createVectorPreview({...options, runtime, onAction: action => actions.push(action), onSelect: node => selected.push(node), onError: error => errors.push(error)});
+  const preview = createVectorPreview({...options, runtime, onAction: (action,node,event='clicked') => {actions.push(action);options.onAction?.(action,node,event);}, onSelect: node => selected.push(node), onError: error => errors.push(error)});
   setGpuFactory(null);
   const container = new Element('div');
   const render = (controls, designMode = false, extra = {}) => {
@@ -572,6 +574,31 @@ test('binding callbacks target expanded controls and publish normalized values b
  model.control_editable=()=>false;model.range_value=()=>0.75;
  input.emit('beforeinput',{inputType:'insertText',data:'unused'});
  assert.equal(changes.at(-1).value,0.75,'model range stays normalized to 0…1');
+});
+
+test('singleline Enter publishes bindings before submitted and never synthesizes clicked',t=>{
+ const calls=[];
+ const f=fixture(t,[button],false,{onBindingChange:items=>{for(const item of items)calls.push(`binding:${item.value}`);},onAction:(action,node,event)=>calls.push(`${event}:${action}`)});
+ const node={start:90,type:'TextField',props:{key:'query',value:'old'},bindings:{value:'state.query'},events:{submitted:'actions.submit',clicked:'actions.click'}};
+ f.render([button],false,{previewControls:[node]});
+ const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.control_editable=()=>true;model.control_multiline=()=>false;model.text_caret_bounds=()=>[0,0,1,20];model.text_value=()=>model.value??'old';
+ model.text_key=key=>{if(key==='Enter'){model.value='new';model.revision++;model.submissionCount++;model.lastSubmitted=0;}return true;};
+ input.emit('keydown',{key:'Enter',shiftKey:false,ctrlKey:false,metaKey:false});
+ assert.deepEqual(calls,['binding:new','submitted:actions.submit']);
+ assert.equal(model.count,0);assert.equal(model.submissions(),1);
+});
+
+test('multiline Enter updates its binding without submitted or clicked',t=>{
+ const calls=[];
+ const f=fixture(t,[button],false,{onAction:(action,node,event)=>calls.push(`${event}:${action}`)});
+ const node={start:90,type:'TextArea',props:{key:'notes',value:'old'},bindings:{value:'state.notes'},events:{submitted:'actions.submit',clicked:'actions.click'}};
+ f.render([button],false,{previewControls:[node]});
+ const model=f.models[0],input=f.canvas.parentElement.children.find(c=>c.tag==='textarea');
+ model.text_editing=()=>true;model.control_editable=()=>true;model.control_multiline=()=>true;model.text_caret_bounds=()=>[0,0,1,20];model.text_value=()=>model.value??'old';
+ model.text_key=key=>{if(key==='Enter'){model.value+='\n';model.revision++;}return true;};
+ input.emit('beforeinput',{inputType:'insertParagraph'});
+ assert.deepEqual(calls,[]);assert.equal(model.count,0);assert.equal(model.submissions(),0);
 });
 
 test('selected binding remains true on repeated activation while checked toggles',t=>{

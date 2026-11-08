@@ -181,6 +181,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
     if (!button || destroyed) return;
     try {
       const count = button.clicks();
+      const submissions = button.submissions?.()??0;
       const dismissals = button.dismiss_count?.()??0;
       const revision=button.visual_revision();
       update();
@@ -190,6 +191,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
       schedule();
       if (!current.designMode) {
         const activated=button.clicks()!==count, eventNode=activated?buttonNode(button.event_index()):null, action=activated?button.action():null;
+        const submitted=(button.submissions?.()??0)!==submissions,submittedNode=submitted?buttonNode(button.submitted_index?.()??-1):null,submittedAction=submittedNode?.events?.submitted;
         const changes=[];
         if(onBindingChange&&(activated||button.visual_revision()!==revision))controlNodes().forEach((node,index)=>{
           for(const [property,path]of Object.entries(node.bindings??{})){
@@ -203,6 +205,7 @@ export function createVectorPreview({runtime, onSelect, onAction, onError, onCon
         // Consumers may recompile synchronously; capture event identity before
         // callbacks can replace/free the old WASM model.
         if(changes.length)onBindingChange(changes);
+        if(submittedAction)onAction?.(submittedAction,submittedNode,'submitted');
         if(action)onAction?.(action,eventNode);
         // Escape or a backdrop press closed a layer inside Rust; run its handler
         // through the same action path as a click.

@@ -139,6 +139,8 @@ pub struct Runtime {
     focused: Option<usize>,
     captured: Option<usize>,
     last_event: Option<usize>,
+    submissions: Vec<u32>,
+    last_submitted: Option<usize>,
     ui_activations: UiActivations,
     // Modal layers: each control belongs to the base scene or to one layer.
     // Only the topmost open layer receives input; lower layers stay visible
@@ -706,12 +708,14 @@ impl Runtime {
             modal_of,
             dismissals: 0,
             last_dismissed: None,
+            submissions: vec![0; controls.len()],
             scene,
             controls,
             nodes,
             focused: None,
             captured: None,
             last_event: None,
+            last_submitted: None,
             ui_activations: UiActivations::default(),
             scroll: [0.; 2],
             #[cfg(not(target_arch = "wasm32"))]
@@ -1461,7 +1465,15 @@ impl Runtime {
     }
     pub fn text_key(&mut self,key:&str,shift:bool,command:bool)->bool {
         if !self.text_editing(){return false;}
-        let handled=self.editors[self.focused.unwrap()].as_mut().unwrap().key(key,shift,command);self.refresh_editors();handled
+        let index=self.focused.unwrap();
+        let multiline=self.control_multiline(index);
+        let handled=self.editors[index].as_mut().unwrap().key(key,shift,command);
+        self.refresh_editors();
+        if handled&&key=="Enter"&&!multiline {
+            self.submissions[index]=self.submissions[index].saturating_add(1);
+            self.last_submitted=Some(index);
+        }
+        handled
     }
     pub fn text_caret_bounds(&self)->Vec<f32> {
         let Some(i)=self.focused else{return vec![]};let Some(e)=&self.editors[i] else{return vec![]};
@@ -1505,6 +1517,15 @@ impl Runtime {
     }
     pub fn control_clicks(&self, i: usize) -> u32 {
         self.controls.get(i).map_or(0, Button::clicks)
+    }
+    pub fn control_submissions(&self, i: usize) -> u32 {
+        self.submissions.get(i).copied().unwrap_or(0)
+    }
+    pub fn submissions(&self) -> u32 {
+        self.submissions.iter().copied().fold(0, u32::saturating_add)
+    }
+    pub fn submitted_index(&self) -> i32 {
+        self.last_submitted.map_or(-1, |i| i as i32)
     }
     pub fn control_bounds(&self, i: usize) -> Vec<f32> {
         self.controls.get(i).map(Button::bounds).unwrap_or_default()
@@ -1902,6 +1923,7 @@ impl Runtime {
         for (i, c) in self.controls.iter_mut().enumerate() {
             if let Some(old) = matches[i] {
                 c.preserve_interaction(&previous.controls[old]);
+                self.submissions[i]=previous.submissions[old];
                 if previous.focused == Some(old) && !c.disabled() && c.template.clickable { focused = Some(i); }
             }
         }
@@ -1916,6 +1938,7 @@ impl Runtime {
         }
         self.captured = None;
         self.last_event = None;
+        self.last_submitted = None;
         self.ui_activations.clear();
         self.set_focus(focused);
         self.update_revision(before);

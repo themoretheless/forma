@@ -37,6 +37,17 @@ test('generator accepts a Row as the form root',()=>{
  assert.match(spanning.rust,/r#"column.span"#/);assert.match(spanning.rust,/r#"row.span"#/);
 });
 
+test('generator supports typed and ViewModel submitted handlers with existing event validation',()=>{
+ const source="component Submit {contextType:'crate::Vm';event sent(query:String);Frame {width:300;height:100;TextInput {key:'query';value <-> state.query;submitted -> events.sent(state.query);} TextInput {key:'direct';submitted -> state.send();}}}";
+ const result=generateForm({...files,'ui/Submit.ui':source},'ui/Submit.ui');
+ assert.match(result.rust,/declare_event\(\d+, r#"submitted"#/);
+ assert.match(result.rust,/\.on_submitted\(move \|event\| handler\(SubmitSentEvent/);
+ assert.match(result.rust,/\.on_submitted\(move \|_\| \{ if let Some\(vm\) = context\.get\(\) \{ vm\.send\(\); \} \}\)/);
+ assert.throws(()=>generateForm({...files,'ui/Submit.ui':source.replace('events.sent(state.query)','events.missing(state.query)')},'ui/Submit.ui'),/не объявлено/);
+ assert.throws(()=>generateForm({...files,'ui/Submit.ui':source.replace('events.sent(state.query)','events.sent()')},'ui/Submit.ui'),/ожидает 1 аргументов/);
+ assert.throws(()=>generateForm({...files,'ui/Submit.ui':source.replace('submitted ->','submitting ->')},'ui/Submit.ui'),/Неизвестное событие submitting/);
+});
+
 test('generated Rust compiles, exercises the renderer, and rejects wrong fields and types',()=>{
  const build=spawnSync('cargo',['test','--locked','--manifest-path',join(project,'Cargo.toml'),'--message-format=json'],{encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024,env:{...process.env,FORMA_NODE:process.execPath}});
  assert.equal(build.status,0,build.stderr+'\n'+build.stdout.split('\n').filter(line=>line.startsWith('{')).map(line=>{try{return JSON.parse(line).message?.rendered??'';}catch{return '';}}).join('\n'));
@@ -153,11 +164,16 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
      },
      {
        name:'builtin',
-       source:`component Builtin {contextType:'crate::Vm';Column {width:360;height:180;gap:8;Text {key:'label';text:'Name: \${state.name}';width:320;height:40;} TextInput {key:'input';value <-> state.name;width:320;height:40;}}}`,
-       model:`use forma::binding::Property;use std::rc::Rc;pub struct Vm{name:Property<String>}`,
-       body:`let vm=Rc::new(Vm{name:Property::new("Ada".into())});let mut form=Builtin::new(vm.clone()).unwrap();
-         assert_eq!(form.runtime().unwrap().control_count(),2);assert_eq!(form.runtime().unwrap().control_label(0),"Name: Ada");
-         form.update(|r|{r.focus_control(1);r.text_key("a",false,true);r.text_insert("Grace");}).unwrap();assert_eq!(vm.name.get(),"Grace");assert_eq!(form.runtime().unwrap().control_label(0),"Name: Grace");`,
+       source:`component Builtin {contextType:'crate::Vm';event edited(value:String);event submitted(query:String);Column {width:360;height:180;gap:8;Text {key:'label';text:'Name: \${state.name}';width:320;height:40;} TextInput {key:'input';value <-> state.name;width:320;height:40;changed -> events.edited(state.name);submitted -> events.submitted(state.name);} TextInput {key:'direct';submitted -> state.submit();}}}`,
+       model:`use forma::binding::Property;use std::rc::Rc;pub struct Vm{name:Property<String>,submissions:std::cell::Cell<usize>} impl Vm{fn submit(&self){self.submissions.set(self.submissions.get()+1);}}`,
+       body:`let vm=Rc::new(Vm{name:Property::new("Ada".into()),submissions:std::cell::Cell::new(0)});let mut form=Builtin::new(vm.clone()).unwrap();
+         assert_eq!(form.runtime().unwrap().control_count(),3);assert_eq!(form.runtime().unwrap().control_label(0),"Name: Ada");
+         let events=Rc::new(std::cell::RefCell::new(Vec::new()));let captured=events.clone();form.on_edited(move|event|captured.borrow_mut().push(format!("edited:{}:{}:{}",event.value,event.control_index,event.context.name.get())));
+         let captured=events.clone();form.on_submitted(move|event|captured.borrow_mut().push(format!("submitted:{}:{}:{}",event.query,event.control_index,event.context.name.get())));
+         form.update(|r|{r.focus_control(1);r.text_key("a",false,true);r.text_insert("Grace");r.text_key("Enter",false,false);}).unwrap();
+         assert_eq!(vm.name.get(),"Grace");assert_eq!(form.runtime().unwrap().control_label(0),"Name: Grace");assert_eq!(form.runtime().unwrap().clicks(),0);
+         assert_eq!(&*events.borrow(),&["edited:Grace:1:Grace","submitted:Grace:1:Grace"]);form.sync().unwrap();form.update(|_|{}).unwrap();assert_eq!(events.borrow().len(),2);
+         form.update(|r|{r.focus_control(2);r.text_key("Enter",false,false);}).unwrap();assert_eq!(vm.submissions.get(),1);assert_eq!(events.borrow().len(),2);`,
        definitions:{},
      },
      {

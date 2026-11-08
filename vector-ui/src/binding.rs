@@ -492,6 +492,7 @@ struct ControlState {
     properties: RefCell<BTreeMap<String, Box<dyn Input>>>,
     handler: RefCell<Option<Handler>>,
     changed_handler: RefCell<Option<Handler>>,
+    submitted_handler: RefCell<Option<Handler>>,
     present: Rc<dyn Fn() -> bool>,
     base_disabled: Cell<bool>,
     context_changed: Rc<Cell<bool>>,
@@ -725,6 +726,19 @@ impl<C: 'static> Control<C> {
         let context = self.context.clone();
         let state = self.state.clone();
         *self.state.changed_handler.borrow_mut() = Some(Rc::new(move || {
+            if let Some(context) = context.get() {
+                handler(Event {
+                    context,
+                    control_index: state.dispatch_index.get(),
+                    arguments: state.dispatch_arguments.borrow().clone(),
+                });
+            }
+        }));
+    }
+    pub fn on_submitted(&self, handler: impl Fn(Event<C>) + 'static) {
+        let context = self.context.clone();
+        let state = self.state.clone();
+        *self.state.submitted_handler.borrow_mut() = Some(Rc::new(move || {
             if let Some(context) = context.get() {
                 handler(Event {
                     context,
@@ -1086,6 +1100,7 @@ impl Form {
             properties: RefCell::new(BTreeMap::new()),
             handler: RefCell::new(None),
             changed_handler: RefCell::new(None),
+            submitted_handler: RefCell::new(None),
             present: Rc::new(move || present.get().is_some()),
             base_disabled: Cell::new(self.runtime.control_disabled(index)),
             context_changed,
@@ -1457,6 +1472,7 @@ impl Form {
                     self.runtime.text_value(*index),
                     self.runtime.range_value(*index),
                     self.runtime.control_clicks(*index),
+                    self.runtime.control_submissions(*index),
                     c.context_epoch.get(),
                     c.bindings
                         .borrow()
@@ -1489,7 +1505,7 @@ impl Form {
         let mut events = Vec::new();
         for (
             (control, index, locals, key),
-            (text, range, clicks, context_epoch, bindings, collections),
+            (text, range, clicks, submissions, context_epoch, bindings, collections),
         ) in instances.into_iter().zip(before)
         {
             if control.context_epoch.get() != context_epoch {
@@ -1498,6 +1514,7 @@ impl Form {
             let next_text = self.runtime.text_value(index);
             let next_range = self.runtime.range_value(index);
             let count = self.runtime.control_clicks(index).saturating_sub(clicks);
+            let submitted = self.runtime.control_submissions(index).saturating_sub(submissions);
             let changed = text != next_text || range.is_finite() && range != next_range;
             let mut toggled = false;
             for (target, binding, epoch) in bindings {
@@ -1596,6 +1613,17 @@ impl Form {
                     ));
                 }
             }
+            if let Some(handler) = control.submitted_handler.borrow().clone() {
+                for _ in 0..submitted {
+                    events.push((
+                        control.clone(),
+                        key.clone(),
+                        context_epoch,
+                        "submitted",
+                        handler.clone(),
+                    ));
+                }
+            }
             if let Some(handler) = control.handler.borrow().clone() {
                 for _ in 0..count {
                     events.push((
@@ -1671,6 +1699,7 @@ impl Drop for Form {
             control.properties.borrow_mut().clear();
             control.handler.borrow_mut().take();
             control.changed_handler.borrow_mut().take();
+            control.submitted_handler.borrow_mut().take();
             control.context_subscription.borrow_mut().take();
         }
     }

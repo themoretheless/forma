@@ -23,12 +23,14 @@ serde = "1"
   'ui/Counter.ui': `component Counter {
     contextType: 'crate::CounterVm';
     event increment();
+    event submitted(query: String);
     Frame {
         width: 320;
         height: 200;
         padding: 16;
         gap: 12;
         Button { key: 'increment'; text: '+1'; clicked -> events.increment(); }
+        TextInput { key: 'query'; value <-> state.query; submitted -> events.submitted(state.query); }
         Text { text: state.count; color: #ffffff; }
     }
   }`,
@@ -38,6 +40,8 @@ use std::rc::Rc;
 
 pub struct CounterVm {
     pub count: Property<String>,
+    pub query: Property<String>,
+    pub submitted: Property<String>,
 }
 
 fn with_view_model(model: Rc<CounterVm>) -> Result<Counter, String> {
@@ -46,11 +50,16 @@ fn with_view_model(model: Rc<CounterVm>) -> Result<Counter, String> {
         let next = event.context.count.get().parse::<i32>().unwrap_or(0) + 1;
         event.context.count.set(next.to_string());
     });
+    form.on_submitted(|event| {
+        assert_eq!(event.control_index, 1);
+        assert_eq!(event.context.query.get(), event.query);
+        event.context.submitted.set(event.query);
+    });
     Ok(form)
 }
 
 pub fn create_form() -> Result<Counter, String> {
-    with_view_model(Rc::new(CounterVm { count: Property::new("0".into()) }))
+    with_view_model(Rc::new(CounterVm { count: Property::new("0".into()), query: Property::new("seed".into()), submitted: Property::new(String::new()) }))
 }
 
 #[cfg(test)]
@@ -59,13 +68,28 @@ mod tests {
 
     #[test]
     fn native_form_dispatches_the_registered_event_handler() {
-        let model = Rc::new(CounterVm { count: Property::new("0".into()) });
+        let model = Rc::new(CounterVm { count: Property::new("0".into()), query: Property::new("seed".into()), submitted: Property::new(String::new()) });
         let mut form = with_view_model(model.clone()).unwrap();
         let before = form.runtime().unwrap().pixels(320, 200, 1.0);
         form.update(|runtime| runtime.activate_control(0)).unwrap();
         assert_eq!(model.count.get(), "1");
         let after = form.runtime().unwrap().pixels(320, 200, 1.0);
         assert_ne!(before, after, "handler must update the rendered ViewModel text");
+    }
+
+    #[test]
+    fn native_form_enter_submits_the_updated_query() {
+        let model = Rc::new(CounterVm { count: Property::new("0".into()), query: Property::new("seed".into()), submitted: Property::new(String::new()) });
+        let mut form = with_view_model(model.clone()).unwrap();
+        form.update(|runtime| {
+            runtime.focus_control(1);
+            runtime.text_key("a", false, true);
+            runtime.text_insert("forma");
+            runtime.text_key("Enter", false, false);
+        }).unwrap();
+        assert_eq!(model.query.get(), "forma");
+        assert_eq!(model.submitted.get(), "forma");
+        assert_eq!(form.runtime().unwrap().control_clicks(1), 0);
     }
 }
 `,

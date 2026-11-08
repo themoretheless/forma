@@ -176,7 +176,7 @@ export function generateForm(files,entry,{state={},measureText,nativeApp=false}=
 
    }
    for(const [event,action]of Object.entries(node.events)){
-     if(!['clicked','changed'].includes(event))fail('Неизвестное событие '+event,node.start);
+     if(!['clicked','changed','submitted'].includes(event))fail('Неизвестное событие '+event,node.start);
      if(action.startsWith('state.')){if(node.eventArgs?.[event]?.length)fail('Аргументы команд используйте через типизированное event',node.start);statements.push(`// @forma-source ${entry}:${source.slice(0,node.statementRanges[event].from).split('\n').length}`);const segments=path(action,node.start),method=segments.pop(),owner=project(current,segments);statements.push(`{ let context = ${owner}.clone(); ${variable}.on_${event}(move |_| { if let Some(vm) = context.get() { vm.${method}(); } }); }`);continue;}
      if(!action.startsWith('events.'))fail('Событие ожидает events.name() или state.method()',node.start);
      const name=action.slice(7);const descriptor=eventTypes.get(name);
