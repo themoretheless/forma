@@ -72,6 +72,13 @@ export function steps({ platform, installedTargets, viteEntry }) {
         args: ['scripts/rust-fmt.mjs', '--check'],
         requiresOutput: true,
       },
+      {
+        id: 'layering',
+        name: 'Workspace crates depend only on the layers below them',
+        argv: process.execPath,
+        args: ['scripts/check-layering.mjs'],
+        requiresOutput: true,
+      },
       // Every load and compile number in PRODUCTION_READINESS.md was produced by these three, and
       // nothing ran them: the suite covers the APIs they call, so a bench could die on a refactor and
       // the discovery would come mid-measurement. They write into .forma, never into a tracked path.
