@@ -251,6 +251,13 @@ export function steps({ platform, installedTargets, viteEntry }) {
         argv: 'cargo',
         args: ['check', '--locked', '--manifest-path', 'openscad-ui/Cargo.toml'],
       },
+      // Needs `cargo install cargo-deny`; a missing tool fails the step instead of skipping it.
+      {
+        id: 'deny',
+        name: 'Dependency sources, licences and advisories pass the policy (cargo-deny)',
+        argv: 'cargo',
+        args: ['deny', '--locked', 'check'],
+      },
       // Counts come from a macOS build with the native feature, so the comparison is only
       // meaningful on the platform that recorded the baseline.
       ...(platform === 'darwin'

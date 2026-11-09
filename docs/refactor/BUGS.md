@@ -31,3 +31,13 @@
 | G-8 | `crates/gpu-shader/src/front/wgsl.rs:834-837` | подозрение | неизвестный тип превращается в `u32` |
 | G-9 | `crates/gpu-shader/src/front/wgsl.rs:108,114,131` | подтверждено чтением | позиция `ParseError` всегда 1:1 |
 | G-10 | `crates/gpu-shader/src/back/msl.rs:1878` | подозрение | `arrayLength` угадывается |
+
+## Зависимости (cargo-deny)
+
+Приняты в `deny.toml` с причиной; пересмотреть при обновлении зависимостей.
+
+| ID | Крейт | Откуда | Суть |
+|---|---|---|---|
+| RUSTSEC-2026-0194, -0195 | quick-xml 0.39.4 | winit → smithay-client-toolkit → wayland-scanner (proc-macro, Linux) | уязвимости разбора XML; у нас разбирает только протокольные файлы Wayland при сборке |
+| RUSTSEC-2026-0192 | ttf-parser 0.25.1 | прямая зависимость `forma` | не поддерживается, обновления нет |
+| RUSTSEC-2026-0370, -0371, -0372 | zvariant, zbus_names, zvariant_derive | accesskit_unix → atspi (Linux) | не поддерживаются, обновления нет |
