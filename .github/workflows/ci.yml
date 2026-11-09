@@ -224,6 +224,8 @@ jobs:
         run: |
           cargo build --locked --manifest-path crates/svet-wasm/Cargo.toml --target wasm32-unknown-unknown --release
           node scripts/check-wasm-provenance.mjs "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/svet_wasm.wasm" "${{ runner.temp }}/svet-wasm-provenance.json"
+      - name: ESLint (suppressed findings may only shrink)
+        run: npm run lint
       - name: Unchecked indexed access has not grown
         run: npm run typecheck:indexed
       - name: Build WASM, ESM package and demo
