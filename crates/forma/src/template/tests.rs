@@ -1,4 +1,3 @@
-
 use super::*;
 
 const SOURCE: &str = "component Button { Rectangle { radius: props.radius; background: Brush { color: props.background; hover: #a8baff; pressed: #6a83da; disabled: #596273; transition: 140ms; }; Border { width: 1; background: Brush { color: #bed0ff; focus: #ffffff; transition: 100ms; }; } Text { text: props.text; color: props.color; font.size: props.font.size; } PointerArea { clicked -> events.clicked(); } } }";

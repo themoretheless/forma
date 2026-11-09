@@ -1,4 +1,3 @@
-
 use super::changed_paint_range;
 #[test]
 fn partial_updates_reconstruct_exact_bits_and_handle_resizes() {

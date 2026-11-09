@@ -1,4 +1,3 @@
-
 #[test]
 fn exhausted_epoch_never_reuses_an_earlier_cache_key() {
     let counter = std::sync::atomic::AtomicU32::new(u32::MAX - 1);

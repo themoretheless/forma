@@ -1,4 +1,3 @@
-
 use super::*;
 #[test]
 fn translates_real_editor_metadata_and_refuses_unadvertised_actions() {

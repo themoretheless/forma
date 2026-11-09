@@ -1,4 +1,3 @@
-
 use super::*;
 fn compare_reference(b: &Button, w: u32, h: u32, s: f32) {
     for background in [false, true] {

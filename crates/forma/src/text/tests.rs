@@ -1,4 +1,3 @@
-
 use super::*;
 
 // Pre-streaming reference: retain each flattened path before the consumer

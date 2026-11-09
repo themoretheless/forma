@@ -1,4 +1,3 @@
-
 use super::*;
 #[test]
 fn frame_run_search_matches_every_scalar_sample_at_viewport_and_aa_boundaries() {
