@@ -1,4 +1,5 @@
 use wasm_bindgen::prelude::*;
+mod blend;
 pub mod frame_stats;
 pub mod markup;
 pub mod runtime;

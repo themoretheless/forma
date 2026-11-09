@@ -10,6 +10,7 @@ use std::path::Path;
 
 /// Module name and layer, lowest first. `lib` stands for items defined in the crate root.
 const LAYERS: &[(&str, u8)] = &[
+    ("blend", 0),
     ("frame_stats", 0),
     ("markup", 0),
     ("control_state", 1),

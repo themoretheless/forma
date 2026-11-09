@@ -1336,7 +1336,7 @@ pub(crate) fn rasterize_region(
             }
             let pixel =
                 ((y - region[1] as usize) * region[2] as usize + global_x - region[0] as usize) * 4;
-            blend(&mut pixels[pixel..pixel + 4], color, coverage);
+            crate::blend::blend(&mut pixels[pixel..pixel + 4], color, coverage);
         }
     }
     CPU_SCRATCH.with(|cell| {
@@ -1344,29 +1344,6 @@ pub(crate) fn rasterize_region(
         s.area = area;
         s.full = full;
     });
-}
-
-fn blend(pixel: &mut [u8], color: [u8; 4], coverage: f32) {
-    if pixel[3] == 0 {
-        let a = (color[3] as f32 * coverage).round() as u8;
-        if a > 0 {
-            pixel[0] = color[0];
-            pixel[1] = color[1];
-            pixel[2] = color[2];
-            pixel[3] = a;
-        }
-        return;
-    }
-    let source_alpha = color[3] as f32 / 255. * coverage;
-    let retained_alpha = pixel[3] as f32 / 255. * (1. - source_alpha);
-    let alpha = source_alpha + retained_alpha;
-    for channel in 0..3 {
-        pixel[channel] = ((color[channel] as f32 * source_alpha
-            + pixel[channel] as f32 * retained_alpha)
-            / alpha)
-            .round() as u8;
-    }
-    pixel[3] = (alpha * 255.).round() as u8;
 }
 
 #[cfg(test)]

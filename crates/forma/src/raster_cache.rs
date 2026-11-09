@@ -49,22 +49,7 @@ pub(crate) struct Cache {
 }
 
 /// Straight-alpha source-over, same rounding as the outline renderer.
-pub(crate) fn over(dst: &mut [u8], src: &[u8]) {
-    if src[3] == 0 {
-        return;
-    }
-    if src[3] == 255 || dst[3] == 0 {
-        dst.copy_from_slice(src);
-        return;
-    }
-    let sa = src[3] as f32 / 255.;
-    let retained = dst[3] as f32 / 255. * (1. - sa);
-    let a = sa + retained;
-    for k in 0..3 {
-        dst[k] = ((src[k] as f32 * sa + dst[k] as f32 * retained) / a).round() as u8;
-    }
-    dst[3] = (a * 255.).round() as u8;
-}
+pub(crate) use crate::blend::over;
 
 // Conservative support of geometry plus content, or content alone. Clip
 // markers only remove support; overflowing text/shapes must remain visible.
