@@ -12,6 +12,7 @@ use std::path::Path;
 const LAYERS: &[(&str, u8)] = &[
     ("blend", 0),
     ("frame_stats", 0),
+    ("geometry", 0),
     ("markup", 0),
     ("control_state", 1),
     ("reveal", 1),

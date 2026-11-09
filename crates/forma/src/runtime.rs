@@ -1,7 +1,11 @@
 //! Shared native/WASM scene runtime. Node IDs are local to one loaded snapshot.
 //! Controls own interaction; the renderer sees only geometry and paint slots.
 use crate::display_list::{DisplayList, ListHints, RenderScene, STRIDE};
-use crate::{Button, markup, round_coverage, round_inside};
+use crate::{
+    Button,
+    geometry::{round_coverage, round_inside},
+    markup,
+};
 use std::{cell::RefCell, sync::Arc};
 use wasm_bindgen::prelude::*;
 

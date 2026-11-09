@@ -1,6 +1,6 @@
 //! Single-entry, per-instance raster cache. A new model owns a new cache.
 //! Geometry/content depend on viewport, DPI and scroll, not animated colors.
-use crate::{Button, round_coverage, shape, template::Content, text};
+use crate::{Button, geometry::round_coverage, shape, template::Content, text};
 
 #[derive(Clone, Copy, PartialEq)]
 struct GeometryKey {
@@ -388,8 +388,13 @@ impl Cache {
                     continue;
                 }
                 if r == 0. {
-                    let area = crate::rect_area_coverage(x, y, scale, [bx, by, b.width, b.height]);
-                    let inner = crate::rect_area_coverage(
+                    let area = crate::geometry::rect_area_coverage(
+                        x,
+                        y,
+                        scale,
+                        [bx, by, b.width, b.height],
+                    );
+                    let inner = crate::geometry::rect_area_coverage(
                         x,
                         y,
                         scale,
@@ -633,7 +638,7 @@ impl Cache {
                 dst.copy_from_slice(&palette[self.coverage[packed] as usize]);
                 if let Some(&&(index, area, band)) = rect_edges.peek() {
                     if index == i {
-                        dst.copy_from_slice(&crate::rect_area_paint(
+                        dst.copy_from_slice(&crate::geometry::rect_area_paint(
                             key.fill, key.border, area, band,
                         ));
                         rect_edges.next();
@@ -675,8 +680,9 @@ impl Cache {
                 packed += span.len();
             }
             for &(i, area, band) in &self.rect_edges {
-                self.pixels[i * 4..i * 4 + 4]
-                    .copy_from_slice(&crate::rect_area_paint(key.fill, key.border, area, band));
+                self.pixels[i * 4..i * 4 + 4].copy_from_slice(&crate::geometry::rect_area_paint(
+                    key.fill, key.border, area, band,
+                ));
             }
             let mut packed = 0;
             for span in &self.content_spans {
