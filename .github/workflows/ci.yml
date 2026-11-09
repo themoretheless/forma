@@ -54,6 +54,16 @@ jobs:
         run: cargo test --locked -p compute-mlx
       - name: gpu-compute on its own lockfile
         run: cargo test --locked --manifest-path crates/gpu-compute/Cargo.toml
+      # The lint baseline was recorded on macOS with forma's native feature; Linux resolves a
+      # different wgpu and would report different counts, so the ratchet runs on macOS only.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        if: runner.os == 'macOS'
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Clippy lint debt has not grown
+        if: runner.os == 'macOS'
+        run: node scripts/clippy-ratchet.mjs
   runtime:
     name: Forma / ${{ matrix.os }}
     strategy:
