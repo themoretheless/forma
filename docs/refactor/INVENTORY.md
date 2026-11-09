@@ -11,7 +11,7 @@
 | crates/forma/src/main.rs | 2015 | 4 | второй оконный хост, `window_event` на сотни строк | 1 | todo |
 | crates/forma/src/native_window.rs | 3164 | 19 | хост + генерация UI + эмуляция платформ + ввод | 1 | todo |
 | crates/forma/src/binding.rs | 1904 | 5 | `Form::sync`/`update` по 220 строк, `unsafe` с пересекающимися `&mut` | 1 | todo |
-| crates/forma/src/form_document/eval.rs | — | 0 | диспетчер builtins одной функцией, ошибки строками | 1 | todo |
+| crates/forma/src/form_document/eval.rs + eval/builtins/* | 505 + 880 | golden на все builtins, 2 теста цвета | диспетчер builtins разбит на 9 семейств; осталось: `eval_mode` (~280 строк), ошибки строками, тесты путей и операторов | 1 | в работе |
 | crates/forma/src/form_document/{bindings,compiler,layout,contracts,svg}.rs | — | 0 | нет прямых тестов | 1 | todo |
 | crates/forma/src/text.rs | 2298 | 18 | юникод, шейпинг, шрифты, раскладка и растеризатор вместе; цикл с `shape` | 2 | todo |
 | crates/forma/src/control_state.rs | 2233 | 13 | 12 независимых моделей в одном файле | 2 | todo |
