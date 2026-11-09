@@ -23,9 +23,13 @@
     "package:release": "node scripts/package-release.mjs",
     "gate": "node scripts/full-gate.mjs",
     "format": "prettier --write . && node scripts/rust-fmt.mjs",
-    "format:check": "prettier --check . && node scripts/rust-fmt.mjs --check"
+    "format:check": "prettier --check . && node scripts/rust-fmt.mjs --check",
+    "lint": "eslint ."
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.14.0",
     "prettier": "^3.9.10",
     "vite": "^7.1.0"
   },

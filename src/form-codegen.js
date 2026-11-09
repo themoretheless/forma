@@ -43,7 +43,7 @@ function cachedSvgShapes(name, source) {
   return entry;
 }
 
-export function generateForm(files, entry, { state = {}, measureText, nativeApp = false } = {}) {
+export function generateForm(files, entry, { state = {}, nativeApp = false } = {}) {
   if (/[\r\n]/.test(entry)) throw Error('Путь формы не должен содержать перевод строки');
   const source = files[entry];
   if (typeof source !== 'string') throw Error(`Форма не найдена: ${entry}`);
@@ -596,7 +596,7 @@ export function generateForm(files, entry, { state = {}, measureText, nativeApp 
       : {}),
   });
   const n = (node, scene = false) => {
-    let props = {
+    const props = {
       ...metadata(node),
       ...Object.fromEntries(Object.entries(node.bindings ?? {}).map(([k, expr]) => [k, { expr }])),
     };

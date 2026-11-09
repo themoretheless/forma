@@ -48,22 +48,8 @@ import './property-inspector.css';
 import './states-panel.css';
 import { createControlTree } from './control-tree.js';
 import { createStatesPanel } from './states-panel.js';
-import {
-  designStatesSummary,
-  findEntry,
-  stateCreateEdit,
-  stateDeleteEdit,
-  statePropertyEdit,
-  stateRenameEdit,
-} from './design-states.js';
-import {
-  copyElement,
-  extractElement,
-  insertElement,
-  moveAmongSiblings,
-  moveIntoContainer,
-  removeElement,
-} from './element-edit.js';
+import { findEntry, stateCreateEdit, stateDeleteEdit, stateRenameEdit } from './design-states.js';
+import { extractElement, moveAmongSiblings, moveIntoContainer } from './element-edit.js';
 import { restoreSelection, selectionIdentities } from './selection-restore.js';
 import { findNodeByStart } from './element-tree.js';
 import { mountEditor } from './editor.js';

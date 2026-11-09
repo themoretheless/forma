@@ -81,6 +81,13 @@ export function steps({ platform, installedTargets, viteEntry }) {
         argv: process.execPath,
         args: ['node_modules/prettier/bin/prettier.cjs', '--check', '--log-level', 'warn', '.'],
       },
+      // Findings that predate the linter are listed in eslint-suppressions.json; a new one fails.
+      {
+        id: 'lint-js',
+        name: 'JavaScript passes ESLint (suppressions may only shrink)',
+        argv: process.execPath,
+        args: ['node_modules/eslint/bin/eslint.js', '--max-warnings', '0', '.'],
+      },
       {
         id: 'format-rust',
         name: 'Every tracked Rust manifest is formatted (rustfmt)',

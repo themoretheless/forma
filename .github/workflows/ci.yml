@@ -178,6 +178,7 @@ jobs:
       - name: Require WASM integration tests (no missing-asset skips)
         run: node -e "for(const p of ['public/vector-pkg/forma.js','public/vector-pkg/forma_bg.wasm'])require('node:fs').accessSync(p)"
       - run: npm run format:check
+      - run: npm run lint
       - run: npm test
       - run: npm run build
       - run: npm run package:release
