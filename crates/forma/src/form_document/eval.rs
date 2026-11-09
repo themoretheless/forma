@@ -361,6 +361,11 @@ fn parse_hex_color(value: &Value) -> Result<(u8, u8, u8, u8), String> {
         .ok_or("Color function expects a hex color (#rgb, #rrggbb, or #rrggbbaa)")?;
     let hex =
         |slice: &str| u8::from_str_radix(slice, 16).map_err(|_| String::from("Invalid hex color"));
+    // Digits are sliced by byte below, so every byte must be one ASCII hex digit: a multi-byte
+    // character would be cut in half, and `from_str_radix` alone accepts a leading sign.
+    if matches!(s.len(), 3 | 6 | 8) && !s.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("Invalid hex color".into());
+    }
     match s.len() {
         3 => {
             let r = hex(&s[0..1])?;

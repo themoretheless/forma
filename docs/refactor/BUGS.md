@@ -6,7 +6,7 @@
 | ID | Место | Статус | Суть |
 |---|---|---|---|
 | F-1 | `crates/forma/src/binding.rs:1204-1221` | подозрение (несостоятельный `unsafe`) | `collect_nodes_mut` кладёт в карту `&mut` на узел и `&mut` на его потомков одновременно |
-| F-2 | `crates/forma/src/form_document/eval.rs:356-381` | подозрение (паника) | `parse_hex_color` режет `&str` по байтам; не-ASCII строка длиной 3, 6 или 8 байт |
+| F-2 | `crates/forma/src/form_document/eval.rs` `parse_hex_color` | исправлено (тесты `tests/eval_colors.rs`) | паника на не-ASCII цвете (`#é1`) подтверждена падающим тестом; также принимался знак (`#+f+f+f`). Теперь оба случая дают `Invalid hex color` |
 | F-3 | `crates/forma/src/form_document.rs:513-529, 1071-1085, 1197-1206, 1311-1323` | подозрение | три разных правила раскрытия детей `let`; `let` внутри `empty {}` не виден соседям |
 | F-4 | `crates/forma/src/main.rs:917-956` | расхождение подтверждено чтением | медленный touch-drag теряет движение; исправлено только в `native_window.rs` |
 | F-5 | `scripts/runtime-digest.mjs:15-19` | подтверждено чтением | `TwoButtons.ui` встраивается в wasm, но не входит в дайджест |
