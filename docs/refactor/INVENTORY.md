@@ -14,7 +14,7 @@
 | crates/forma/src/form_document/eval.rs + eval/builtins/* | 505 + 880 | golden на все builtins, 2 теста цвета | диспетчер builtins разбит на 9 семейств; осталось: `eval_mode` (~280 строк), ошибки строками, тесты путей и операторов | 1 | в работе |
 | crates/forma/src/form_document/{bindings,compiler,layout,contracts,svg}.rs | — | 0 | нет прямых тестов | 1 | todo |
 | crates/forma/src/text.rs | 2298 | 18 | юникод, шейпинг, шрифты, раскладка и растеризатор вместе; цикл с `shape` | 2 | todo |
-| crates/forma/src/control_state.rs | 2233 | 13 | 12 независимых моделей в одном файле | 2 | todo |
+| crates/forma/src/control_state/* | 2291 в 15 файлах | 13 | разбит по моделям | 2 | done (перемещение); логика не проходилась |
 | crates/forma/src/template.rs | — | 14 | лексер, парсер, кэш; публичный элемент после тестового модуля | 2 | todo |
 | crates/forma/src/{raster_cache,display_list,lib}.rs | — | 9 / 0 / 17 | `impl Button` размазан по трём файлам, цикл с `lib` | 2 | todo |
 | crates/forma/src/{gpu,mcp,reveal,text_input,native_*}.rs | — | — | не проходились | 3 | todo |
@@ -29,7 +29,7 @@
 | vite.config.js, корневые runners | — | да | dev-бэкенд внутри конфига | 2 | todo |
 | src/mcp-commands.js + mcp/server.js | — | текстовые | таблица инструментов в двух местах | 2 | todo |
 | остальные 65 файлов src/ | — | частично | не проходились | 3 | todo |
-| crates/gpu-shader | 4416 | 0 | нет тестов; транслятор переписыванием строк | 1 | todo |
+| crates/gpu-shader | 4416 | golden по 123 шейдерам | транслятор переписыванием строк; осталось: разбиение `msl.rs`/`wgsl.rs`, позиция ошибок, проверка компиляции MSL на Metal | 1 | в работе |
 | crates/gpu-runtime | 9295 | 18 | 111 `transmute`, ноль `// SAFETY:`, crate-wide `allow`, заглушки бэкендов | 1 | todo |
 | crates/gpu-compute | 3072 | 25 | мелкие | 3 | todo |
 | crates/raster-core | 3936 | 31 | `RasterPipelines::new` 426 строк; тесты пишут в `output/` | 3 | todo |
