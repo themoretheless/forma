@@ -276,6 +276,12 @@ fn num(p: &Properties, key: &str, default: f64) -> Result<f64, String> {
 fn boolean(p: &Properties, key: &str, default: bool) -> Result<bool, String> {
     p.get(key).map_or(Ok(default), Value::boolean)
 }
+/// `fontFamily` (or `font.family`) of a passive Text: `'sans'` by default, or `'mono'`.
+fn font_family(p: &Properties) -> Result<crate::text::FontFamily, String> {
+    let name = text(p, "fontFamily", &text(p, "font.family", "sans")?)?;
+    crate::text::FontFamily::from_name(&name)
+        .ok_or_else(|| format!("Text.fontFamily expects 'sans' or 'mono', got '{name}'"))
+}
 fn text(p: &Properties, key: &str, default: &str) -> Result<String, String> {
     p.get(key).map_or(Ok(default.into()), Value::text)
 }
@@ -989,8 +995,15 @@ impl Document {
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
                 let color = text(&n.props, "color", "#ffffff")?;
                 let wrap = boolean(&n.props, "wrap", false)?;
+                let family = font_family(&n.props)?;
+                // The default family is left implicit, so existing scenes stay byte-identical.
+                let family_field = match family {
+                    crate::text::FontFamily::Sans => String::new(),
+                    other => format!(" fontFamily:{};", other.as_str()),
+                };
                 if wrap && w > 0. {
-                    let wrapped = crate::text::wrap_text_ranges(&value, fs as f32, w as f32);
+                    let wrapped =
+                        crate::text::wrap_text_ranges_in(family, &value, fs as f32, w as f32);
                     let multiline = wrapped.len() > 1 || value.contains('\n');
                     if multiline {
                         clip(out, 0.);
@@ -1012,7 +1025,7 @@ impl Document {
                         write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
-                            format_args!("; color:{color}; fontSize:{fs}; }} "),
+                            format_args!("; color:{color}; fontSize:{fs};{family_field} }} "),
                         );
                     }
                     if multiline {
@@ -1026,7 +1039,7 @@ impl Document {
                     for (i, line) in value.split('\n').enumerate() {
                         let (width, height) = if multiline {
                             (
-                                crate::text::measure_line(line, fs as f32)[0] as f64,
+                                crate::text::measure_line_in(family, line, fs as f32)[0] as f64,
                                 fs * 1.5,
                             )
                         } else {
@@ -1042,7 +1055,7 @@ impl Document {
                         write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
-                            format_args!("; color:{color}; fontSize:{fs}; }} "),
+                            format_args!("; color:{color}; fontSize:{fs};{family_field} }} "),
                         );
                     }
                     if multiline {
@@ -4674,6 +4687,53 @@ mod tests {
         assert!(templates.contains("ContentShape {"));
         let runtime = crate::Runtime::from_sources(&scene_src, &templates).unwrap();
         assert_eq!(runtime.control_count(), 2);
+    }
+
+    #[test]
+    fn text_font_family_reaches_the_scene_and_sizes_by_monospace_metrics() {
+        let scene = |family: &str| {
+            let mut files: BTreeMap<String, String> = BTreeMap::new();
+            files.insert(
+                "Code.component.ui".into(),
+                format!("component Code {{ width: 400; height: 60; Rectangle {{ Frame {{ columns: [-, *]; Text {{ cell: 1 1; text: 'iiii\nWWWW'; fontSize: 20; {family} }} }} }} }}"),
+            );
+            files.insert(
+                "App.ui".into(),
+                "component App { Column { width: 420; height: 80; Code { key: 'code'; } } }".into(),
+            );
+            let doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+            let (scene_src, templates, _) = doc.render_scene().unwrap();
+            crate::Runtime::from_sources(&scene_src, &templates).unwrap();
+            templates
+        };
+        let widths = |templates: &str| -> Vec<f64> {
+            templates
+                .split("ContentText {")
+                .skip(1)
+                .map(|part| {
+                    let rest = part.split("width:").nth(1).unwrap();
+                    rest.split(';').next().unwrap().trim().parse().unwrap()
+                })
+                .collect()
+        };
+        let sans = scene("");
+        assert!(!sans.contains("fontFamily"));
+        let sans_widths = widths(&sans);
+        assert_ne!(sans_widths[0], sans_widths[1]);
+
+        let mono = scene("fontFamily: 'mono';");
+        assert_eq!(mono.matches("fontFamily:mono;").count(), 2);
+        let mono_widths = widths(&mono);
+        assert_eq!(mono_widths[0], mono_widths[1]);
+
+        let mut files: BTreeMap<String, String> = BTreeMap::new();
+        files.insert(
+            "App.ui".into(),
+            "component App { Column { width: 200; height: 80; Text { key: 't'; text: 'x'; fontFamily: 'serif'; } } }".into(),
+        );
+        let bad = Document::from_ui_files(&files, "App.ui", &Properties::new())
+            .and_then(|doc| doc.render_scene().map(|_| ()));
+        assert!(bad.is_err());
     }
 
     #[test]

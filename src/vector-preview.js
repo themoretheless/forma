@@ -878,7 +878,7 @@ export function createVectorPreview({
   });
 
   return {
-    measureText: (value, fontSize) => runtime.text_metrics(value, fontSize),
+    measureText: (value, fontSize, family) => runtime.text_metrics(value, fontSize, family),
     render({
       container,
       source,

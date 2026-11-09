@@ -107,7 +107,7 @@ export const contentProps = new Map(
     Stack: ['gap', 'padding', 'clip', 'radius'],
     Rectangle: ['background', 'radius'],
     TextInput: ['value', 'placeholder', 'color', 'placeholderColor', 'fontSize', 'multiline'],
-    Text: ['text', 'color', 'fontSize', 'font.size', 'wrap'],
+    Text: ['text', 'color', 'fontSize', 'font.size', 'fontFamily', 'font.family', 'wrap'],
     Image: ['source', 'color'],
   }).map(([type, props]) => [type, new Set([...layoutProps, ...props])]),
 );
@@ -217,7 +217,16 @@ function gap(p) {
   if (a.length !== 2) throw Error('gap: один или два размера');
   return a.map(v => num(v, 'gap'));
 }
-function wrapLines(text, fontSize, maxWidth, metrics) {
+// Primary face of a passive Text: 'sans' (default) or 'mono'.
+function fontFamily(p) {
+  const family = p.fontFamily ?? p['font.family'] ?? 'sans';
+  if (family !== 'sans' && family !== 'mono')
+    throw Error("Text.fontFamily ожидает 'sans' или 'mono'");
+  return family;
+}
+// The default family stays implicit so existing scenes compile to the same text.
+const familyField = family => (family === 'sans' ? '' : ` fontFamily: ${family};`);
+function wrapLines(text, fontSize, maxWidth, metrics, family = 'sans') {
   const raw = String(text ?? '').split('\n');
   if (!Number.isFinite(maxWidth) || maxWidth <= 0) return raw;
   const out = [];
@@ -227,7 +236,7 @@ function wrapLines(text, fontSize, maxWidth, metrics) {
     for (let i = 1; i < words.length; i++) {
       const word = words[i],
         candidate = current ? `${current} ${word}` : word;
-      if (metrics.measureText(candidate, fontSize)[0] <= maxWidth) current = candidate;
+      if (metrics.measureText(candidate, fontSize, family)[0] <= maxWidth) current = candidate;
       else {
         out.push(current);
         current = word;
@@ -247,18 +256,21 @@ function natural(n, axis, metrics) {
   if (n.type === 'Text') {
     if (p.wrap !== undefined && typeof p.wrap !== 'boolean')
       throw Error('Text.wrap ожидает boolean');
-    const fs = num(p.fontSize ?? p['font.size'] ?? 16, 'fontSize');
+    const fs = num(p.fontSize ?? p['font.size'] ?? 16, 'fontSize'),
+      family = fontFamily(p);
     if (!metrics?.measureText) throw Error('Размер текста по контенту требует метрик Rust runtime');
     const wrapW =
       p.wrap && axis === 1 && typeof p.width === 'number' ? num(p.width, 'width') : null;
     const lines =
-      wrapW !== null ? wrapLines(p.text, fs, wrapW, metrics) : String(p.text ?? '').split('\n');
+      wrapW !== null
+        ? wrapLines(p.text, fs, wrapW, metrics, family)
+        : String(p.text ?? '').split('\n');
     const size =
       lines.length === 1
-        ? metrics.measureText(lines[0], fs)[axis]
+        ? metrics.measureText(lines[0], fs, family)[axis]
         : axis === 1
           ? lines.length * fs * 1.5
-          : Math.max(...lines.map(line => metrics.measureText(line, fs)[0]));
+          : Math.max(...lines.map(line => metrics.measureText(line, fs, family)[0]));
     if (!Number.isFinite(size) || size < 0) throw Error('Некорректные метрики текста');
     return size;
   }
@@ -483,19 +495,20 @@ function flatten(n, box, files, output, metrics) {
     if (p.wrap !== undefined && typeof p.wrap !== 'boolean')
       throw Error('Text.wrap ожидает boolean');
     const text = String(p.text ?? ''),
-      fontSize = num(p.fontSize ?? p['font.size'] ?? 16, 'fontSize');
+      fontSize = num(p.fontSize ?? p['font.size'] ?? 16, 'fontSize'),
+      family = fontFamily(p);
     if (p.wrap && !metrics?.measureText) throw Error('Перенос текста требует метрик Rust runtime');
-    const lines = p.wrap ? wrapLines(text, fontSize, w, metrics) : text.split('\n');
+    const lines = p.wrap ? wrapLines(text, fontSize, w, metrics, family) : text.split('\n');
     if (lines.length === 1)
       output.push(
-        `ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(lines[0])}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize}; }`,
+        `ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(lines[0])}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize};${familyField(family)} }`,
       );
     else {
       if (!metrics?.measureText) throw Error('Многострочный текст требует метрик Rust runtime');
       output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: 0; }`);
       lines.forEach((line, i) =>
         output.push(
-          `ContentText { x: ${x}; y: ${y + i * fontSize * 1.5}; width: ${metrics.measureText(line, fontSize)[0]}; height: ${fontSize * 1.5}; text: ${literal(line)}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize}; }`,
+          `ContentText { x: ${x}; y: ${y + i * fontSize * 1.5}; width: ${metrics.measureText(line, fontSize, family)[0]}; height: ${fontSize * 1.5}; text: ${literal(line)}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize};${familyField(family)} }`,
         ),
       );
       output.push('ContentClipEnd {}');
@@ -609,14 +622,19 @@ function compile(files, entry, state, metrics, read, links) {
   metrics = {
     ...metrics,
     measureText: measureText
-      ? function (text, size) {
-          let byText = textSizes.get(size);
+      ? function (text, size, family = 'sans') {
+          // The default family keeps the bare size as its key and the two-argument call.
+          const sizeKey = family === 'sans' ? size : `${family}:${size}`;
+          let byText = textSizes.get(sizeKey);
           if (!byText) {
             byText = new Map();
-            textSizes.set(size, byText);
+            textSizes.set(sizeKey, byText);
           }
           if (!byText.has(text)) {
-            const measured = measureText.call(metricsContext, text, size);
+            const measured =
+              family === 'sans'
+                ? measureText.call(metricsContext, text, size)
+                : measureText.call(metricsContext, text, size, family);
             byText.set(text, [measured[0], measured[1]]);
           }
           return byText.get(text);
