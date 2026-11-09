@@ -1,9 +1,6 @@
 import { createOpenScadProject } from './openscad-project.js';
-const library = import.meta.glob('../crates/forma/controls/{components,assets}/*', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-});
+import { controlsLibrary } from './controls-library.js';
+import { stripPathPrefix } from './shared/text.js';
 const sources = import.meta.glob('../openscad-ui/ui/*.ui', {
   query: '?raw',
   import: 'default',
@@ -14,11 +11,7 @@ const rust = import.meta.glob('../openscad-ui/{Cargo.toml,src/*.rs}', {
   import: 'default',
   eager: true,
 });
-const paths = (files, prefix) =>
-  Object.fromEntries(
-    Object.entries(files).map(([path, source]) => [path.slice(prefix.length), source]),
-  );
-export const openScadProject = createOpenScadProject(paths(library, '../crates/forma/controls/'), {
-  ...paths(sources, '../openscad-ui/'),
-  ...paths(rust, '../openscad-ui/'),
+export const openScadProject = createOpenScadProject(controlsLibrary, {
+  ...stripPathPrefix(sources, '../openscad-ui/'),
+  ...stripPathPrefix(rust, '../openscad-ui/'),
 });

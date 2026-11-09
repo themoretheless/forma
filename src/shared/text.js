@@ -18,3 +18,9 @@ export function countLines(text, end = text.length) {
   for (let i = 0; i < end; i++) if (text.charCodeAt(i) === 10) n++;
   return n;
 }
+
+/** Re-keys a path-to-text map by removing a common path prefix from every key. */
+export const stripPathPrefix = (files, prefix) =>
+  Object.fromEntries(
+    Object.entries(files).map(([path, source]) => [path.slice(prefix.length), source]),
+  );
