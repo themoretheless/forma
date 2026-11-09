@@ -1,0 +1,225 @@
+/**
+ * # Svet Engine — Public API (`src/engine/api.ts`)
+ *
+ * Shared by both entries: `index.ts` (self-contained) and `slim.ts` (no embedded WASM, no 3D Forma tags).
+ *
+ * Complete Hybrid TypeScript + Rust WebAssembly UI Framework.
+ */
+
+export {
+  signal,
+  computed,
+  effect,
+  ReactiveStabilizationError,
+  ReactiveCycleError,
+  batch,
+  untrack,
+  createRoot,
+  onCleanup,
+  getCurrentOwner,
+  captureReactiveContext,
+  ReactiveContextDisposedError,
+  type CapturedReactiveContext,
+  runWithOwnerScope,
+  lookupOwnerContext,
+  runWithIsolatedContext,
+  createStore,
+  createDeepStore,
+  flushEffects,
+  resetReactiveSystem,
+  getGraphTelemetry,
+  type Signal,
+  type ReadonlySignal,
+  type EffectHandle,
+  type OwnerScope,
+  type SignalStore,
+  type DeepSignalStore,
+} from './reactivity.ts';
+
+export {
+  h,
+  Fragment,
+  Show,
+  For,
+  mount,
+  bindProp,
+  insertChild,
+  getDomMutationCount,
+  resetDomMutationCount,
+  type Component,
+  type AsyncComponent,
+  type ChildNodeValue,
+  type ReactiveValue,
+} from './dom.ts';
+
+export {
+  createContext,
+  useContext,
+  Portal,
+  createResource,
+  Suspense,
+  ErrorBoundary,
+  createRouter,
+  useRouter,
+  RouterView,
+  Link,
+  type SvetContext,
+  type Resource,
+  type RouteDefinition,
+  type NavigationGuard,
+  type RouterInstance,
+} from './advanced.ts';
+
+export {
+  serializeState,
+  resumeContainer,
+  disposeResumedContainer,
+  renderToString,
+  serializeDomNodeToHtml,
+  createServerAction,
+  ServerActionDisposedError,
+  type ResumableSnapshot,
+  type ServerAction,
+} from './resumable.ts';
+
+export {
+  computeLisWasm,
+  getWasmCore,
+  createWasmCoreInstance,
+  installSvetWasmModule,
+  loadSvetWasm,
+  withWasmCore,
+} from './wasm-bridge.ts';
+
+export {
+  transformSvetJsx,
+  transformSvetJsxWithMap,
+  SvetJsxCompileError,
+  svetVitePlugin,
+} from './compiler.ts';
+
+export {
+  configureGpuSubsystem,
+  initWebGpuHardware,
+  resetGpuTelemetry,
+  createGpuTensor,
+  syncGpuArena,
+  executeGpuVectorFma,
+  dispatchGpuComputeKernel,
+  dispatchGpuComputeKernelAsync,
+  getGpuTelemetry,
+  GpuComputeCapacityError,
+  type GpuComputeQueueTelemetry,
+  createTransform3D,
+  createPerspectiveCamera3D,
+  createMesh3D,
+  createCubeMesh3D,
+  pickNearestVertex3D,
+  Canvas3D,
+  Viewport3D,
+  type Canvas3DProps,
+  type VertexPickFrame3D,
+  GpuSparkline,
+  type MemoryArchitecture,
+  type GpuDeviceTelemetry,
+  type GpuTensorSignal,
+  type WebGpuDeviceLike,
+  type WebGpuQueueLike,
+  type GpuSubsystemConfig,
+  type WebGpuComputeDispatchOptions,
+  type AsyncWebGpuComputeDispatchOptions,
+  type GpuComputeChainStage,
+  type GpuComputeResult,
+  type Vec3Tuple,
+  type ReactiveTransform3D,
+  type PerspectiveCamera3D,
+  type PerspectiveCamera3DOptions,
+  type Mesh3D,
+} from './gpu.ts';
+
+export {
+  createFormaProperty,
+  createFormaContext,
+  formaStdlib,
+  transformFormaPipes,
+  evaluateFormaExpression,
+  doesFormaPatternMatch,
+  compileFormaComponent,
+  compileFormaAst,
+  instantiateFormaAst,
+  registerFormaElement,
+  parseFormaSource,
+  registerFormaComponent,
+  validateFormaSource,
+  compileFormaToJsModule,
+  createSpring,
+  flushSpringFrame,
+  createPersistedSignal,
+  createForm,
+  createContractForm,
+  FormaHost,
+  type FormaProperty,
+  type FormaContextHolder,
+  type FormaPropConstraint,
+  type FormaDocumentAst,
+  type FormaStateMutator,
+  type FormaRuntimeInstance,
+  type FormaCompileOptions,
+  type FormaModuleOptions,
+  type FormaElementContext,
+  type FormaElementRenderer,
+  type FormaSlotMap,
+  type FormaDiagnostic,
+  type FormaValidationReport,
+  type FormaHmrSnapshot,
+  type SpringSignal,
+  type FormFieldRule,
+  type ReactiveForm,
+} from './forma.ts';
+
+export {
+  createTimeTravelDebugger,
+  VirtualList,
+  type TimeTravelSnapshot,
+  type TimeTravelDebugger,
+  type VirtualListProps,
+  type VirtualListHandle,
+} from './devtools.ts';
+
+export {
+  dispatchGpuComputeResident,
+  readGpuResidentTensor,
+  readGpuResidentSnapshot,
+  GpuResidentCapacityError,
+  type GpuResidentTensor,
+  type GpuResidentComputeOptions,
+} from './gpu-resident.ts';
+
+export {
+  createSsrStreamReceiver,
+  SSR_STREAM_VERSION,
+  type SsrStreamChunk,
+  type SsrStreamReceiver,
+} from './stream.ts';
+export {
+  SSR_STREAM_ACCEPT_HEADER,
+  SSR_STREAM_VERSION_HEADER,
+  SSR_STREAM_CONTENT_TYPE,
+  negotiateSsrStreamVersion,
+  assertSsrStreamResponse,
+} from './stream-protocol.ts';
+export {
+  SSR_STREAM_HTML_REFERENCE_CODEC,
+  createSsrStreamTransportEncoder,
+  createSsrStreamTransportDecoder,
+  type SsrStreamTransportFrame,
+  type SsrStreamHtmlReference,
+  type SsrStreamTransportEncoder,
+  type SsrStreamTransportDecoder,
+} from './stream-codec.ts';
+
+export {
+  SSR_STREAM_CODEC_HEADER,
+  negotiateSsrStreamCodec,
+  type SsrStreamCodec,
+} from './stream-protocol.ts';
