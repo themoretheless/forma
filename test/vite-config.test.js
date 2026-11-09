@@ -21,6 +21,9 @@ async function fixture(t, { sibling = false } = {}) {
   mkdirSync(checkout);
   copyFileSync(join(root, 'vite.config.js'), join(checkout, 'vite.config.js'));
   for (const [file, source] of Object.entries(stubs)) writeFileSync(join(checkout, file), source);
+  // Real shared modules the config imports, copied as they are rather than stubbed.
+  mkdirSync(join(checkout, 'protocol'));
+  copyFileSync(join(root, 'protocol/enums.js'), join(checkout, 'protocol/enums.js'));
   if (sibling) {
     const workspace = join(directory, 'open-scad-viewer');
     mkdirSync(workspace);

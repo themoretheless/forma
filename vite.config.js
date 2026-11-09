@@ -6,6 +6,7 @@ import { createRustRunner } from './rust-runner.js';
 import { createNativeRunner } from './native-runner.js';
 import { evaluateDesignData } from './design-data-runner.js';
 import { createVectorRunner } from './vector-runner.js';
+import { DEFAULT_BACKEND, DEFAULT_PLATFORM, isBackend, isPlatform } from './protocol/enums.js';
 import {
   readFile,
   readdir,
@@ -286,18 +287,16 @@ export default defineConfig({
         const token = randomUUID();
         const pending = new Map();
         let client = null,
-          selectedBackend = 'svet',
-          selectedPlatform = 'desktop';
+          selectedBackend = DEFAULT_BACKEND,
+          selectedPlatform = DEFAULT_PLATFORM;
         const runner = createRustRunner(data => client?.send('forma:rust-output', data));
         const native = createNativeRunner(data => client?.send('forma:rust-output', data));
         const vector = createVectorRunner(data => client?.send('forma:rust-output', data));
         server.ws.on('forma:backend', (data, sender) => {
-          if (sender === client && ['egui', 'svet', 'ask'].includes(data?.backend))
-            selectedBackend = data.backend;
+          if (sender === client && isBackend(data?.backend)) selectedBackend = data.backend;
         });
         server.ws.on('forma:platform', (data, sender) => {
-          if (sender === client && ['desktop', 'ios', 'android'].includes(data?.platform))
-            selectedPlatform = data.platform;
+          if (sender === client && isPlatform(data?.platform)) selectedPlatform = data.platform;
         });
         server.ws.on('forma:vector-run', (data, sender) => {
           if (sender === client)
@@ -305,7 +304,8 @@ export default defineConfig({
               ...data,
               backend: data?.backend ?? (selectedBackend !== 'ask' ? selectedBackend : undefined),
               platform:
-                data?.platform ?? (selectedPlatform !== 'desktop' ? selectedPlatform : undefined),
+                data?.platform ??
+                (selectedPlatform !== DEFAULT_PLATFORM ? selectedPlatform : undefined),
             });
         });
         server.ws.on('forma:vector-update', (data, sender) => {

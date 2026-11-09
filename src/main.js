@@ -49,6 +49,7 @@ import './states-panel.css';
 import { createControlTree } from './control-tree.js';
 import { createStatesPanel } from './states-panel.js';
 import { workspaceSaveStatus } from './workspace-save.js';
+import { DEFAULT_BACKEND, DEFAULT_PLATFORM, isBackend, isPlatform } from '../protocol/enums.js';
 import { escapeHtml as esc, parentDirOf, countLines } from './shared/text.js';
 import { findEntry, stateCreateEdit, stateDeleteEdit, stateRenameEdit } from './design-states.js';
 import { extractElement, moveAmongSiblings, moveIntoContainer } from './element-edit.js';
@@ -135,16 +136,10 @@ if (isSampleWorkspace) {
   files['components/TextInput.ui'] ??= sampleProject['components/TextInput.ui'];
   files['ui/TwoButtons.ui'] ??= sampleProject['ui/TwoButtons.ui'];
 }
-let appBackend = ['egui', 'svet', 'ask'].includes(
-  readStorage('localStorage', storageKey('forma-backend')),
-)
-  ? readStorage('localStorage', storageKey('forma-backend'))
-  : 'svet';
-let appPlatform = ['desktop', 'ios', 'android'].includes(
-  readStorage('localStorage', storageKey('forma-platform')),
-)
-  ? readStorage('localStorage', storageKey('forma-platform'))
-  : 'desktop';
+const storedBackend = readStorage('localStorage', storageKey('forma-backend'));
+let appBackend = isBackend(storedBackend) ? storedBackend : DEFAULT_BACKEND;
+const storedPlatform = readStorage('localStorage', storageKey('forma-platform'));
+let appPlatform = isPlatform(storedPlatform) ? storedPlatform : DEFAULT_PLATFORM;
 files['Cargo.toml'] ??=
   `[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
 files['src/main.rs'] ??=
@@ -2474,7 +2469,7 @@ const ideCommand = createIdeCommands({
     return appBackend;
   },
   set backend(v) {
-    if (['egui', 'svet', 'ask'].includes(v)) {
+    if (isBackend(v)) {
       appBackend = v;
       if (backendPicker) backendPicker.value = v;
       writeStorage('localStorage', storageKey('forma-backend'), v);
@@ -2485,7 +2480,7 @@ const ideCommand = createIdeCommands({
     return appPlatform;
   },
   set platform(v) {
-    if (['desktop', 'ios', 'android'].includes(v)) {
+    if (isPlatform(v)) {
       appPlatform = v;
       if (platformPicker) platformPicker.value = v;
       writeStorage('localStorage', storageKey('forma-platform'), v);

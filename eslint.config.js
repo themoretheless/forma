@@ -25,7 +25,7 @@ export default [
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.browser },
   },
   {
-    files: ['test/**/*.js', 'scripts/**/*.mjs', 'mcp/**/*.js', '*.js'],
+    files: ['test/**/*.js', 'scripts/**/*.mjs', 'mcp/**/*.js', 'protocol/**/*.js', '*.js'],
     languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: globals.node },
   },
   // These suites install fake window and document objects on globalThis before using them.
