@@ -9,7 +9,7 @@ import {createShellRegion,keyText} from './forma-shell.js';
 // The chrome itself is Forma markup (`studio-ui/`) drawn by the Rust/WASM runtime. The old
 // DOM header and toolbars stay hidden in place as command targets, so commands, tests and the
 // MCP bridge keep driving the same elements.
-export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}={}){
+export function mountMinimalShell(root,{events,newFile,clearSelection,inspector,layers}={}){
  const $=selector=>root.querySelector(selector);
  const body=document.body,header=$('header'),run=$('#run');
  body.classList.add('minimal','show-layers');
@@ -172,6 +172,69 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
   placeholder='Добавить свойство…';query='';index=0;palette.hidden=false;filter();draw();
   regions?.palette.focus('query');
  }
+ // Layers: the rows the control tree resolved. The list can be long and the runtime draws a bounded
+ // scene, so only the rows in the scrolled window are drawn; a spacer keeps the scroll height.
+ const rowHeight=24,rowIndent=14;
+ const layersBox=document.createElement('div');layersBox.className='forma-layers';
+ const layersList=document.createElement('div');layersList.className='forma-layers-list';
+ const layersSpacer=document.createElement('div');layersSpacer.className='forma-layers-spacer';
+ const dropMark=document.createElement('div');dropMark.className='forma-layers-drop';dropMark.hidden=true;
+ layersList.append(layersSpacer,dropMark);
+ let layersView=null,layersFrame=0,revealed=null,pointer=null,drag=null;
+ function drawLayers(){
+  layersFrame=0;
+  if(!layersView||!regions?.layers||destroyed)return;
+  const width=layersList.clientWidth;
+  if(!width)return;
+  const all=layersView.rows,count=Math.ceil((layersList.clientHeight||rowHeight)/rowHeight)+4;
+  const first=Math.max(0,Math.min(Math.floor(layersList.scrollTop/rowHeight)-2,all.length-count));
+  layersSpacer.style.height=Math.max(1,all.length)*rowHeight+'px';
+  regions.layers.element.style.top=first*rowHeight+'px';
+  regions.layers.update({width,disabled:layersView.disabled,emptyText:layersView.query?'Контролы не найдены':'Нет контролов',
+   rows:all.slice(first,first+count).map(row=>({id:row.id,indent:(row.level-1)*rowIndent,label:row.label,detail:row.detail,branch:row.branch,expanded:row.expanded,selected:row.id===layersView.selectedId}))});
+  regions.layersHeader.update({width,query:layersView.query,hasStatus:!!layersView.status,status:layersView.status});
+  const actions=layersView.canExtract||!!layersView.templatePath;
+  regions.layersActions.element.hidden=!actions;
+  if(actions)regions.layersActions.update({width,canExtract:layersView.canExtract,hasTemplate:!!layersView.templatePath});
+ }
+ const scheduleLayers=()=>{if(!layersFrame)layersFrame=requestAnimationFrame(drawLayers);};
+ const rowAt=clientY=>{const y=clientY-layersList.getBoundingClientRect().top+layersList.scrollTop,i=Math.floor(y/rowHeight);return {row:layersView?.rows[i]??null,index:i,fraction:y/rowHeight-i};};
+ function revealLayer(id){
+  const i=layersView.rows.findIndex(row=>row.id===id);
+  if(i<0)return;
+  const top=i*rowHeight,view=layersList.clientHeight;
+  if(top<layersList.scrollTop)layersList.scrollTop=top;
+  else if(view&&top+rowHeight>layersList.scrollTop+view)layersList.scrollTop=top+rowHeight-view;
+ }
+ // A drag is the same gesture the list rows take: an edge of a sibling reorders, the middle of a
+ // container moves the control into it. The tree decides which slots exist; this only points at one.
+ function dragTo(event){
+  if(!drag.active){if(Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<5)return;drag.active=true;layersList.classList.add('dragging');}
+  const {row,index,fraction}=rowAt(event.clientY);
+  drag.side=row?layers.slot(drag.id,row.id,fraction):null;drag.target=row?.id??null;
+  dropMark.hidden=!drag.side;
+  if(!drag.side)return;
+  dropMark.dataset.side=drag.side;
+  dropMark.style.top=(drag.side==='after'?index+1:index)*rowHeight+'px';
+  dropMark.style.left=6+(row.level-1)*rowIndent+'px';
+ }
+ function endDrag(commit){
+  const done=drag;drag=null;dropMark.hidden=true;layersList.classList.remove('dragging');
+  if(commit&&done?.active&&done.side&&done.target)layers.move(done.id,done.target,done.side);
+ }
+ function layerKey(event,node){
+  // Keyboard focus stays on the row that was clicked while the selection walks away from it, so the
+  // keys act on the selected row when it is on screen and on the focused one otherwise.
+  const rows=layersView?.rows??[],selected=rows.findIndex(row=>row.id===layersView?.selectedId);
+  const i=selected>=0?selected:rows.findIndex(row=>row.id===node?.eventArgs?.clicked?.[0]);
+  if(i<0)return false;
+  const id=rows[i].id;
+  const row=rows[i],vertical=event.key==='ArrowUp'||event.key==='ArrowDown';
+  if(event.altKey&&vertical){layers.nudge(id,event.key==='ArrowUp');return true;}
+  if(vertical){const next=rows[i+(event.key==='ArrowUp'?-1:1)];if(next)layers.activate(next.id);return true;}
+  if(event.key==='ArrowRight'&&row.branch&&!row.expanded||event.key==='ArrowLeft'&&row.expanded){layers.toggle(id);return true;}
+  return false;
+ }
  loadVectorRuntime().then(runtime=>{
   if(destroyed)return;
   const region=(entry,className,options={})=>createShellRegion({runtime,entry,className,...options});
@@ -192,6 +255,19 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
      if(event.key==='Tab')commitField(key);
      return false;
     }}),
+   layersHeader:region('ui/LayersHeader.ui','forma-layers-header',{
+    onAction:(action,[which])=>layers.foldAll(which==='collapse'),
+    onBinding:(path,value)=>{if(path==='query')layers.search(value);}}),
+   layersActions:region('ui/LayersActions.ui','forma-layers-actions',{onAction:action=>action==='extract'?layers.extract():layers.openTemplate()}),
+   layers:region('ui/Layers.ui','forma-layers-rows',{
+    // One click per row reaches the host; where it landed says whether it was the disclosure.
+    onAction:(action,[id])=>{
+     const row=layersView?.rows.find(row=>row.id===id);
+     if(!row)return;
+     const x=pointer?pointer.x-layersList.getBoundingClientRect().left:Infinity;
+     if(row.branch&&x<6+(row.level-1)*rowIndent+18)layers.toggle(id);else layers.activate(id);
+    },
+    onKey:layerKey}),
    palette:region('ui/Palette.ui','forma-palette-box',{onAction:(action,[i])=>pick(i),onBinding:(path,value)=>{if(path==='query'){query=value;index=0;filter();draw();}}}),
   };
   topbar.append(regions.title.element,regions.states.element,regions.run.element);
@@ -214,6 +290,28 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
    });
    scope.signal.addEventListener('abort',off);
    body.classList.add('forma-inspector');
+  }
+  const treePanel=layers&&$('.control-tree-panel');
+  if(treePanel){
+   layersList.append(regions.layers.element);layersBox.append(regions.layersHeader.element,layersList,regions.layersActions.element);treePanel.prepend(layersBox);
+   listen(layersList,'scroll',scheduleLayers,{passive:true});
+   listen(layersList,'pointerdown',e=>{
+    pointer={x:e.clientX,y:e.clientY};
+    const row=e.button===0?rowAt(e.clientY).row:null;
+    if(row?.movable&&!layersView.disabled)drag={id:row.id,x:e.clientX,y:e.clientY,active:false,side:null,target:null};
+   },{capture:true});
+   listen(window,'pointermove',e=>{if(drag)dragTo(e);});
+   listen(window,'pointerup',()=>{if(drag)endDrag(true);});
+   listen(window,'pointercancel',()=>{if(drag)endDrag(false);});
+   // The panel opens, closes and is resized by its neighbours, and a hidden one has no width to draw at.
+   const resize=new ResizeObserver(scheduleLayers);resize.observe(layersList);
+   const off=layers.subscribe(view=>{
+    layersView=view;
+    if(view.selectedId!==revealed){revealed=view.selectedId;if(revealed)revealLayer(revealed);}
+    scheduleLayers();
+   });
+   scope.signal.addEventListener('abort',()=>{off();resize.disconnect();cancelAnimationFrame(layersFrame);});
+   body.classList.add('forma-layers');
   }
   draw();
  }).catch(error=>console.error('Studio UI:',error));
@@ -244,5 +342,5 @@ export function mountMinimalShell(root,{events,newFile,clearSelection,inspector}
   else if(e.key==='/'){e.preventDefault();openPalette('insert');}
  },{capture:true});
 
- return {toggle,openPalette,destroy(){destroyed=true;scope.dispose();for(const r of Object.values(regions??{}))r.destroy();for(const b of resizers)b.remove();palette.remove();topbar.remove();corner.remove();hints.remove();body.classList.remove('minimal','forma-chrome','forma-inspector',...Object.values(panels),'has-selection','running','used-shortcut');}};
+ return {toggle,openPalette,destroy(){destroyed=true;scope.dispose();for(const r of Object.values(regions??{}))r.destroy();for(const b of resizers)b.remove();palette.remove();topbar.remove();corner.remove();hints.remove();layersBox.remove();body.classList.remove('minimal','forma-chrome','forma-inspector','forma-layers',...Object.values(panels),'has-selection','running','used-shortcut');}};
 }

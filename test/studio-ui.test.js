@@ -22,6 +22,11 @@ const regionState={
  'ui/Inspector.ui':{title:'Button',hasNote:false,note:'',canAdd:true,hasNotice:false,notice:'',
   rows:[{key:'text',text:'OK',editable:true,readonly:false,layered:false,error:false},{key:'x',text:'12',editable:false,readonly:true,layered:false,error:false}],
   links:[{key:'clicked',label:'clicked ->',text:'actions.save',error:false}]},
+ 'ui/Layers.ui':{width:252,disabled:false,emptyText:'',rows:[
+  {id:'ui/A.ui/root/0',indent:0,label:'Column',detail:'',branch:true,expanded:true,selected:false},
+  {id:'ui/A.ui/root/0/child/0',indent:14,label:'Button',detail:'#save',branch:false,expanded:false,selected:true}]},
+ 'ui/LayersHeader.ui':{width:252,query:'',hasStatus:false,status:''},
+ 'ui/LayersActions.ui':{width:252,canExtract:true,hasTemplate:true},
 };
 function load(compiled){const runtime=new Runtime();runtime.load_component(compiled.source,compiled.template);return runtime;}
 
@@ -78,4 +83,15 @@ test('the inspector region edits each row through a field keyed by its property 
  assert.deepEqual(compiled.previewControls.filter(node=>node.events?.clicked==='actions.remove').map(node=>node.eventArgs.clicked),[['text']]);
  const runtime=load(compiled);
  try{assert.equal(runtime.width(),258);}finally{runtime.free();}
+});
+
+test('the layers region draws one fixed-height row per tree row and reports the row id on a click',()=>{
+ const state=regionState['ui/Layers.ui'],compiled=compileComponents(files,'ui/Layers.ui',state,{measureText:text_metrics});
+ assert.deepEqual(compiled.previewControls.map(node=>node.eventArgs.clicked),state.rows.map(row=>[row.id]));
+ const runtime=load(compiled);
+ // The host scrolls a window of rows, so a row's place is its index times this height.
+ try{assert.deepEqual([runtime.width(),runtime.height()],[252,48]);assert.deepEqual([...runtime.control_bounds(1)],[0,24,252,24]);}
+ finally{runtime.free();}
+ const empty=compileComponents(files,'ui/Layers.ui',{...state,rows:[],emptyText:'Нет контролов'},{measureText:text_metrics});
+ assert.equal(empty.previewControls.length,1);
 });

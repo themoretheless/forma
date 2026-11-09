@@ -1,0 +1,16 @@
+// What the selected control offers, under the tree so the rows never move when it changes.
+component StudioLayersActions {
+    Column {
+        width: state.width;
+        height: content;
+        gap: 2;
+        padding: 4 8;
+        background: #00000000;
+        if state.canExtract {
+            GhostButton { key: 'extract'; width: *; height: 26; fontSize: 12; text: 'Вынести в .ui…'; clicked -> actions.extract(); }
+        }
+        if state.hasTemplate {
+            GhostButton { key: 'template'; width: *; height: 26; fontSize: 12; text: 'Открыть шаблон компонента'; clicked -> actions.template(); }
+        }
+    }
+}

@@ -156,3 +156,13 @@ body.minimal .inspector{padding-bottom:12px}
 body.minimal.forma-inspector #inspector>:not(.bulk-edit){display:none}
 body.minimal.forma-inspector #inspector{padding-top:0}
 .forma-inspector[hidden]{display:none}
+/* The Forma layers panel draws the tree; the DOM rows stay as the tree's own state and MCP targets. */
+body.minimal.forma-layers .control-tree-panel>:not(.forma-layers){display:none!important}
+.forma-layers{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;width:100%;overflow:hidden}
+.forma-layers-list{position:relative;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#ffffff24 transparent}
+.forma-layers-rows{position:absolute;left:0}
+.forma-layers-list.dragging{cursor:grabbing}
+.forma-layers-drop{position:absolute;right:6px;height:2px;margin-top:-1px;border-radius:1px;background:var(--m-accent);pointer-events:none;z-index:2}
+.forma-layers-drop[data-side=inside]{height:24px;margin-top:0;border-radius:5px;background:transparent;box-shadow:inset 0 0 0 1px var(--m-accent)}
+.forma-layers>.forma-region{flex-shrink:0}
+.forma-region[hidden]{display:none}

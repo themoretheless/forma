@@ -218,3 +218,25 @@ test('destroy detaches list handlers, so a remounted tree leaves no live clicks 
  tree.destroy();tree.destroy();
  list.dispatch('click',list.children[4]);assert.equal(selected.length,1,'no handler survives destroy');
 });
+test('a second view reads the rows and moves a control through the tree, not around it',t=>{
+ const {tree,calls,doc}=dragTree(t),views=[];
+ const off=tree.subscribe(view=>views.push(view));
+ const rows=views[0].rows,deep=doc.nodes[0].children[1].children;
+ assert.deepEqual(rows.map(row=>row.movable),[false,false,true,true,true,true,true]);
+ assert.deepEqual([rows[0].branch,rows[0].selectable,rows[2].branch,rows[2].selectable],[true,false,false,true]);
+ // The same slots a pointer over a list row opens: an edge orders siblings, the middle enters a container.
+ assert.equal(tree.slot(rows[5].id,rows[4].id,0.1),'before');
+ assert.equal(tree.slot(rows[5].id,rows[4].id,0.9),'after');
+ assert.equal(tree.slot(rows[2].id,rows[3].id,0.5),'inside');
+ assert.equal(tree.slot(rows[1].id,rows[2].id,0.1),null,'a row that cannot move opens no slot');
+ tree.move(rows[5].id,rows[4].id,'before');
+ assert.deepEqual(calls,[{path,start:deep[1].start,targetStart:deep[0].start,side:'before'}]);
+ assert.equal(tree.nudge(rows[4].id,false),true);
+ assert.deepEqual(calls[1],{path,start:deep[0].start,targetStart:deep[1].start,side:'after'});
+ tree.toggle(rows[3].id);
+ assert.equal(views.at(-1).rows.length,rows.length-2,'folding the column hides its two rows from every view');
+ tree.search('deep');
+ assert.equal(views.at(-1).query,'deep');
+ assert.ok(views.at(-1).rows.every(row=>!row.movable),'a filtered tree cannot reorder');
+ off();const seen=views.length;tree.search('');assert.equal(views.length,seen);
+});

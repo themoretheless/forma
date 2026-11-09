@@ -1,0 +1,23 @@
+// The visible window of the layers tree. The host scrolls it and passes only the rows on screen.
+component StudioLayers {
+    Column {
+        width: state.width;
+        height: content;
+        background: #00000000;
+        for row in state.rows key row.id {
+            LayerRow {
+                key: row.id;
+                indent: row.indent;
+                text: row.label;
+                detail: row.detail;
+                branch: row.branch;
+                expanded: row.expanded;
+                selected: row.selected;
+                disabled: state.disabled;
+                clicked -> actions.pick(row.id);
+            }
+        } empty {
+            InspectorText { height: 28; horizontalPadding: 8; color: state.theme.textMuted; text: state.emptyText; }
+        }
+    }
+}

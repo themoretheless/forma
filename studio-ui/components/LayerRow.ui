@@ -1,0 +1,45 @@
+// One row of the layers tree: disclosure, control type and a muted detail (its key or text).
+component LayerRow : TreeItem {
+    width: *;
+    height: 24;
+    fontSize: 12;
+    detail: '';
+    color: match props.selected {
+        true => state.theme.text;
+        _ => state.theme.textMuted;
+    };
+
+    override content: Frame {
+        columns: [props.indent, 12, -, *];
+        padding: 0 6;
+        gap: 4;
+        ContentPresenter {
+            key: 'disclosure';
+            content: match props.branch {
+                true => Icon {
+                    cell: 1 2;
+                    width: 12;
+                    height: 12;
+                    color: state.theme.textMuted;
+                    source: match props.expanded {
+                        true => 'assets/chevron-down.svg';
+                        _ => 'assets/chevron-right.svg';
+                    };
+                };
+                _ => Frame { cell: 1 2; };
+            };
+        }
+        Label {
+            cell: 1 3;
+            text: props.text;
+            color: props.textColor;
+            fontSize: props.fontSize;
+        }
+        StartLabel {
+            cell: 1 4;
+            text: props.detail;
+            color: state.theme.textMuted;
+            fontSize: 11;
+        }
+    };
+}

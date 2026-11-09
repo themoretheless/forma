@@ -1008,7 +1008,7 @@ spacingOverlay=createSpacingOverlay($('canvas'),()=>mode==='design'&&selectedPat
 open(active);compile(true);
 let studioShell,shellDisposed=false;
 studioEvents.emit(studioEventTypes.mode,{mode});
-const minimalShell=mountMinimalShell(document.querySelector('#app'),{events:studioEvents,newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);},inspector:propertyInspector});
+const minimalShell=mountMinimalShell(document.querySelector('#app'),{events:studioEvents,newFile:()=>$('new').click(),clearSelection:()=>{clearSelection();controlTree?.select(null,null);},inspector:propertyInspector,layers:controlTree});
 mountStudioShell(document.querySelector('#app')).then(shell=>{if(shellDisposed)shell.destroy();else studioShell=shell;}).catch(e=>log('Контролы Studio: '+e.message));
 import.meta.hot?.dispose(()=>{shellDisposed=true;vectorLoads.cancel();codeEvents.dispose();treeContextMenu?.remove();controlTree?.destroy();minimalShell.destroy();clearTimeout(saveTimer);clearTimeout(compileTimer);studioShell?.destroy();elementTools?.destroy();canvasTools?.destroy();layoutInspector?.destroy();spacingOverlay?.destroy();vectorPreview?.destroy();});
 const backendPicker=$('app-backend'),platformPicker=$('app-platform');

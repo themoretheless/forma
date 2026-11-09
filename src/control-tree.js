@@ -95,7 +95,18 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
     }
     if(!rows.length){const empty=document.createElement('p');empty.className='control-tree-empty';empty.textContent=query?'Контролы не найдены':'Нет контролов';list.append(empty);}
     if(restoreFocus)rowElement(focusId)?.focus({preventScroll:true});
+    emit();
   }
+  // Another view of the same tree (the Forma layers panel) draws these rows and acts through the
+  // methods below, so a click, a fold or a move there takes the path the list's own handlers take.
+  const listeners=new Set();
+  function view(){
+    return {visible,disabled,query,path:currentPath??null,status:status.hidden?'':status.textContent,selectedId,
+      canExtract:!extractBtn.hidden,templatePath:template.hidden?null:templatePath,
+      rows:rows.map(n=>({id:n.id,label:n.label,detail:n.detail??'',level:n.level,parent:n.parent,branch:n.children.length>0,expanded:n.expanded,
+        selectable:!!n.node,movable:movable.has(n.id)}))};
+  }
+  function emit(){if(!listeners.size)return;const next=view();for(const listener of listeners)listener(next);}
   function focus(id){const previous=rowElement(focusId);if(previous)previous.tabIndex=-1;focusId=id;const next=rowElement(id);if(next){next.tabIndex=0;next.focus({preventScroll:true});next.scrollIntoView({block:'nearest'});}}
   function fold(id,collapse){const item=rows.find(n=>n.id===id);if(!item?.children.length)return;if(collapse)collapsed.add(id);else collapsed.delete(id);draw(true);}
   function choose(item){if(disabled)return;focus(item.id);if(item.node)onSelect(item);else fold(item.id,item.expanded);}
@@ -185,6 +196,7 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
       if(previousFocus!==focusId){const old=rowElement(previousFocus),next=rowElement(focusId);if(old)old.tabIndex=-1;if(next)next.tabIndex=0;}
     }
     revealSelected();
+    if(!redraw)emit();
   }
   // Scrolling the selected row into view reads layout, so it waits for the next frame: by then the
   // rest of the selection has changed the DOM, and the frame lays it out once for all of it.
@@ -210,6 +222,21 @@ export function createControlTree({explorer,toolbar,onSelect,onScopeChange,onOpe
       syncSelection(selectedStart,selectedPath,redraw);
     },
     select:syncSelection,
+    view,subscribe(listener){listeners.add(listener);listener(view());return ()=>listeners.delete(listener);},
+    // A row click: a control is selected, a row that only groups others folds.
+    activate(id){const item=rows.find(n=>n.id===id);if(item)choose(item);},
+    toggle(id){const item=rows.find(n=>n.id===id);if(item&&!disabled)fold(id,item.expanded);},
+    search(text){search.value=text;search.oninput();},
+    foldAll(collapse){panel.querySelector(collapse?'[data-action=collapse]':'[data-action=expand]').onclick();},
+    extract(){extractBtn.onclick();},openTemplate(){template.onclick();},
+    // `fraction` is how far down the target row the pointer is, 0 at its top edge and 1 at its bottom.
+    slot(sourceId,targetId,fraction){
+      if(!reorderReady()||!movable.has(sourceId))return null;
+      return slotOf(rows.find(n=>n.id===sourceId),rows.find(n=>n.id===targetId),fraction,{top:0,height:1});
+    },
+    move,
+    // Alt+arrow: one place up or down among the siblings the row shares a container with.
+    nudge(id,up){const current=rows.find(n=>n.id===id),group=groupOf(current),neighbour=group[group.indexOf(current)+(up?-1:1)];if(neighbour)move(id,neighbour.id,up?'before':'after');return !!neighbour;},
     snapshot(){return {visible,scope,disabled,selectedId,rows:rows.map(n=>({id:n.id,path:n.path,label:n.label,detail:n.detail,level:n.level,expanded:n.expanded,start:n.node?.start??null,end:n.node?.end??null,selected:n.id===selectedId}))};},
     selectId(id){const n=rows.find(n=>n.id===id);if(!n||!n.node)throw Error('Контрол не найден в видимом дереве');if(disabled)throw Error('Исправьте разметку перед выбором');choose(n);},
     fold(id,collapsed){if(!rows.some(n=>n.id===id))throw Error('Узел дерева не найден');fold(id,collapsed);},

@@ -1,0 +1,30 @@
+// Layers heading: fold controls and search.
+component StudioLayersHeader {
+    Column {
+        width: state.width;
+        height: content;
+        gap: 4;
+        padding: 6 8;
+        background: #00000000;
+        Row {
+            width: *;
+            height: content;
+            gap: 2;
+            InspectorText { width: *; color: state.theme.textMuted; text: 'Контролы'; }
+            QuietIconButton { key: 'expand'; width: 24; height: 24; text: 'Развернуть дерево'; icon: 'assets/plus.svg'; clicked -> actions.fold('expand'); }
+            QuietIconButton { key: 'collapse'; width: 24; height: 24; text: 'Свернуть дерево'; icon: 'assets/minus.svg'; clicked -> actions.fold('collapse'); }
+        }
+        SearchField {
+            key: 'search';
+            width: *;
+            height: 28;
+            fontSize: 12;
+            placeholder: 'Найти контрол…';
+            suffix: '';
+            value <-> state.query;
+        }
+        if state.hasStatus {
+            InspectorText { color: state.theme.dangerInk; text: state.status; }
+        }
+    }
+}
