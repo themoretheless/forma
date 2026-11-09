@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
+import {squash} from './support/source-text.js';
 
 // mcp/server.js and the bridge in src/mcp-commands.js are two halves of one surface that never import each
 // other: a tool the server registers but the IDE does not answer fails the agent with 'Unknown IDE
@@ -9,8 +10,9 @@ import {readFileSync} from 'node:fs';
 const root=new URL('..',import.meta.url);
 const read=path=>readFileSync(new URL(path,root),'utf8');
 // A chained `case 'a':case 'b':` shares one block, so both names count even mid-line.
-const handled=text=>[...text.matchAll(/case '([a-z_]+)':/g)].map(match=>match[1]);
-const registered=text=>[...text.matchAll(/^ \['([a-z_]+)',/gm)].map(match=>match[1]);
+// Both readers tolerate any layout: a tool row is an array literal opening a line or following `[` or `,`.
+const handled=text=>[...text.matchAll(/case\s*'([a-z_]+)'\s*:/g)].map(match=>match[1]);
+const registered=text=>[...text.matchAll(/(?:^|[\[,])\s*\[\s*'([a-z_]+)'\s*,/gm)].map(match=>match[1]);
 
 test('the tool table and the IDE bridge name the same commands',()=>{
   const tools=registered(read('mcp/server.js'));
@@ -28,7 +30,7 @@ test('every design state an agent can reach has a tool of its own',()=>{
 });
 
 test('typed app_run starts the Rust ViewModel without designer preview state',()=>{
-  const bridge=read('src/mcp-commands.js');
-  assert.match(bridge,/case 'app_run':if\(parse\(files\[entry\]\)\.defaults\.contextType\)\{hot\.send\('forma:form-run',\{files\}\)/);
+  const bridge=squash(read('src/mcp-commands.js'));
+  assert.match(bridge,/case'app_run':if\(parse\(files\[entry\]\)\.defaults\.contextType\)\{hot\.send\('forma:form-run',\{files\}\)/);
   assert.doesNotMatch(bridge,/hot\.send\('forma:form-run',\{files,state\}\)/);
 });

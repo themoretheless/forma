@@ -1,12 +1,13 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {replaceOnce} from './support/source-text.js';
 
 // Execute the real painter: only Vite's raw-shader import and the relative
 // module URL need adapting for a Node in-memory module. No actual GPU is used.
-const source = (await readFile(new URL('../src/vector-gpu.js', import.meta.url), 'utf8'))
-  .replace("import shader from '../vector-ui/src/vector.wgsl?raw';", "const shader = 'mock WGSL';")
-  .replace("'./gpu-buffers.js'", JSON.stringify(new URL('../src/gpu-buffers.js', import.meta.url).href));
+const original = await readFile(new URL('../src/vector-gpu.js', import.meta.url), 'utf8');
+const withShader = replaceOnce(original, /import\s+shader\s+from\s*'[^']*\/src\/vector\.wgsl\?raw';/, "const shader = 'mock WGSL';");
+const source = replaceOnce(withShader, /'\.\/gpu-buffers\.js'/, JSON.stringify(new URL('../src/gpu-buffers.js', import.meta.url).href));
 const {createGpuPainter} = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 
 function model(commandFloats = 20) {
