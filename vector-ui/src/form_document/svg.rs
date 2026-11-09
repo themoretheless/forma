@@ -65,7 +65,10 @@ fn parse_svg_points(raw: &str) -> Result<Vec<[f64; 2]>, String> {
     let values: Vec<f64> = raw
         .split(|c: char| c.is_ascii_whitespace() || c == ',')
         .filter(|s| !s.is_empty())
-        .map(|s| s.parse::<f64>().map_err(|_| "Invalid SVG points".to_string()))
+        .map(|s| {
+            s.parse::<f64>()
+                .map_err(|_| "Invalid SVG points".to_string())
+        })
         .collect::<Result<Vec<_>, _>>()?;
     if values.len() < 4 || values.len() % 2 != 0 || values.iter().any(|n| !n.is_finite()) {
         return Err("Invalid SVG points".into());
@@ -152,7 +155,12 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
             }
             "circle" => {
                 let r = svg_num(&attrs, "r", 0.0)?;
-                svg_ring(svg_num(&attrs, "cx", 0.0)?, svg_num(&attrs, "cy", 0.0)?, r, r)
+                svg_ring(
+                    svg_num(&attrs, "cx", 0.0)?,
+                    svg_num(&attrs, "cy", 0.0)?,
+                    r,
+                    r,
+                )
             }
             "ellipse" => svg_ring(
                 svg_num(&attrs, "cx", 0.0)?,
@@ -179,7 +187,8 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
                 points.len()
             };
             for i in 0..limit {
-                if let Some(quad) = svg_stroke_segment(points[i], points[(i + 1) % points.len()], sw)
+                if let Some(quad) =
+                    svg_stroke_segment(points[i], points[(i + 1) % points.len()], sw)
                 {
                     shapes.push((quad, stroke.to_string()));
                 }

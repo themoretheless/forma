@@ -1,4 +1,4 @@
-use super::{boolean, expression_number, text, Properties, Value};
+use super::{Properties, Value, boolean, expression_number, text};
 
 fn valid_unit(value: &str, units: &[&str]) -> bool {
     units.iter().any(|unit| {
@@ -101,10 +101,7 @@ pub(super) fn matches_contract_type(value: &Value, ty: &str, enums: Option<&Valu
     if let Some(inner) = ty.strip_prefix("Map<").and_then(|s| s.strip_suffix('>')) {
         return matches!(value, Value::Object(obj) if obj.values().all(|v| matches_contract_type(v, inner, enums)));
     }
-    if let Some(inner) = ty
-        .strip_prefix("Record<")
-        .and_then(|s| s.strip_suffix('>'))
-    {
+    if let Some(inner) = ty.strip_prefix("Record<").and_then(|s| s.strip_suffix('>')) {
         let Some(parts) = split_top_level(inner, b',') else {
             return false;
         };
@@ -215,8 +212,9 @@ pub(super) fn check_value_constraints(
     if let Some(pat) = constraints.get("pattern") {
         let pat = pat.text()?;
         let s = value.text()?;
-        let matched = themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat)
-            .map_err(|e| e.to_string())?;
+        let matched =
+            themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat)
+                .map_err(|e| e.to_string())?;
         if !matched {
             return Err(format!("Property {label} does not match pattern '{pat}'"));
         }

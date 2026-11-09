@@ -1203,7 +1203,10 @@ impl Form {
                 if has_control_overrides {
                     fn collect_nodes_mut<'a>(
                         node: &'a mut crate::form_document::Node,
-                        out: &mut std::collections::HashMap<usize, &'a mut crate::form_document::Node>,
+                        out: &mut std::collections::HashMap<
+                            usize,
+                            &'a mut crate::form_document::Node,
+                        >,
                         count: &mut usize,
                     ) {
                         let id = node
@@ -1419,10 +1422,7 @@ impl Form {
                 })
                 .collect()
         } else {
-            self.controls
-                .iter()
-                .map(|c| (c.clone(), c.index))
-                .collect()
+            self.controls.iter().map(|c| (c.clone(), c.index)).collect()
         }
     }
     fn instances(
@@ -1514,7 +1514,10 @@ impl Form {
             let next_text = self.runtime.text_value(index);
             let next_range = self.runtime.range_value(index);
             let count = self.runtime.control_clicks(index).saturating_sub(clicks);
-            let submitted = self.runtime.control_submissions(index).saturating_sub(submissions);
+            let submitted = self
+                .runtime
+                .control_submissions(index)
+                .saturating_sub(submissions);
             let changed = text != next_text || range.is_finite() && range != next_range;
             let mut toggled = false;
             for (target, binding, epoch) in bindings {

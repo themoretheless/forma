@@ -20,7 +20,11 @@ pub struct Reveal {
 impl Default for Reveal {
     fn default() -> Self {
         Self {
-            target_x: None, target_y: None, target_width: None, target_height: None, target_radius: None,
+            target_x: None,
+            target_y: None,
+            target_width: None,
+            target_height: None,
+            target_radius: None,
             width: 1.,
             color: [222, 106, 25, 255],
             radius: 120.,
@@ -37,8 +41,18 @@ impl Reveal {
         let [x, y, width, height] = bounds;
         let w = self.target_width.unwrap_or(width).min(width);
         let h = self.target_height.unwrap_or(height).min(height);
-        [x + self.target_x.unwrap_or((width-w)*0.5).clamp(0., width-w),
-         y + self.target_y.unwrap_or((height-h)*0.5).clamp(0., height-h), w, h]
+        [
+            x + self
+                .target_x
+                .unwrap_or((width - w) * 0.5)
+                .clamp(0., width - w),
+            y + self
+                .target_y
+                .unwrap_or((height - h) * 0.5)
+                .clamp(0., height - h),
+            w,
+            h,
+        ]
     }
 }
 
@@ -334,159 +348,179 @@ mod tests {
                 .expect("real GPU required");
             let adapter_info = adapter.get_info();
             crate::gpu::assert_gpu_test_adapter(&adapter_info);
-            eprintln!("GPU_TEST_ADAPTER {}", serde_json::json!({"test":"reveal-agreement","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
-                "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info}));
+            eprintln!(
+                "GPU_TEST_ADAPTER {}",
+                serde_json::json!({"test":"reveal-agreement","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
+                "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info})
+            );
             let mut renderer = crate::gpu::Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)
                 .await
                 .unwrap();
             let mut comparisons = 0usize;
             let mut max_observed_error = 0u8;
-            for target in ["", "targetX:10; targetWidth:18; targetHeight:18; targetRadius:5;", "targetX:10; targetWidth:18; targetHeight:18; targetRadius:9;"] {
-            let template = format!("component Button {{ Rectangle {{ radius:8; Reveal {{ width:2; color:#e6782080; {target} }} PointerArea {{ clicked -> events.clicked(); }} }} }}");
-            for multi in [false, true] {
-                let second = if multi {
-                    "Button { key:'second'; width:140; height:35; }"
-                } else {
-                    ""
-                };
-                let source = format!("component Demo {{ Frame {{ width:180; height:130; padding:20; gap:10; background:#00000000; Button {{ key:'first'; width:140; height:35; }} {second} }} }}");
-                for scale in [1., 1.25, 2.] {
-                    let (w, h) = ((180. * scale) as u32, (130. * scale) as u32);
-                    let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
-                        label: Some("Reveal CPU/GPU agreement"),
-                        size: wgpu::Extent3d {
-                            width: w,
-                            height: h,
-                            depth_or_array_layers: 1,
-                        },
-                        mip_level_count: 1,
-                        sample_count: 1,
-                        dimension: wgpu::TextureDimension::D2,
-                        format: wgpu::TextureFormat::Rgba8Unorm,
-                        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                            | wgpu::TextureUsages::COPY_SRC,
-                        view_formats: &[],
-                    });
-                    let view = texture.create_view(&Default::default());
-                    let stride = (w * 4).div_ceil(256) * 256;
-                    let readback = renderer.device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some("Reveal readback"),
-                        size: stride as u64 * h as u64,
-                        usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-                        mapped_at_creation: false,
-                    });
-                    for state in [
-                        "hidden",
-                        "outside",
-                        "inside-half",
-                        "inside-full",
-                        "focus",
-                        "disabled",
-                        "reduced",
-                    ] {
-                        let source = if state == "disabled" {
-                            source.replace("width:140;", "width:140; disabled:true;")
-                        } else {
-                            source.clone()
-                        };
-                        let mut model = crate::Runtime::from_sources(&source, &template).unwrap();
-                        renderer
-                            .draw(&model, &view, w, h, scale, false, false)
-                            .unwrap();
-                        let uploads = renderer.uploads;
-                        match state {
-                            "outside" => model.reveal_pointer(-10., 40., true),
-                            "inside-half" => {
-                                model.reveal_pointer(30., 40., true);
-                                model.tick(140.);
-                            }
-                            "inside-full" => {
-                                model.reveal_pointer(30., 40., true);
-                                model.tick(280.);
-                            }
-                            "focus" => {
-                                model.focus_control(0);
-                            }
-                            "disabled" => {
-                                model.reveal_pointer(30., 40., true);
-                                model.tick(280.);
-                            }
-                            "reduced" => {
-                                model.set_reduced_motion(true);
-                                model.reveal_pointer(30., 40., true);
-                            }
-                            _ => {}
-                        }
-                        renderer
-                            .draw(&model, &view, w, h, scale, false, false)
-                            .unwrap();
-                        assert_eq!(
-                            renderer.uploads, uploads,
-                            "Reveal must change paint, never upload glyph geometry"
-                        );
-                        let mut encoder =
-                            renderer.device.create_command_encoder(&Default::default());
-                        encoder.copy_texture_to_buffer(
-                            wgpu::TexelCopyTextureInfo {
-                                texture: &texture,
-                                mip_level: 0,
-                                origin: wgpu::Origin3d::ZERO,
-                                aspect: wgpu::TextureAspect::All,
-                            },
-                            wgpu::TexelCopyBufferInfo {
-                                buffer: &readback,
-                                layout: wgpu::TexelCopyBufferLayout {
-                                    offset: 0,
-                                    bytes_per_row: Some(stride),
-                                    rows_per_image: Some(h),
-                                },
-                            },
-                            wgpu::Extent3d {
+            for target in [
+                "",
+                "targetX:10; targetWidth:18; targetHeight:18; targetRadius:5;",
+                "targetX:10; targetWidth:18; targetHeight:18; targetRadius:9;",
+            ] {
+                let template = format!(
+                    "component Button {{ Rectangle {{ radius:8; Reveal {{ width:2; color:#e6782080; {target} }} PointerArea {{ clicked -> events.clicked(); }} }} }}"
+                );
+                for multi in [false, true] {
+                    let second = if multi {
+                        "Button { key:'second'; width:140; height:35; }"
+                    } else {
+                        ""
+                    };
+                    let source = format!(
+                        "component Demo {{ Frame {{ width:180; height:130; padding:20; gap:10; background:#00000000; Button {{ key:'first'; width:140; height:35; }} {second} }} }}"
+                    );
+                    for scale in [1., 1.25, 2.] {
+                        let (w, h) = ((180. * scale) as u32, (130. * scale) as u32);
+                        let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
+                            label: Some("Reveal CPU/GPU agreement"),
+                            size: wgpu::Extent3d {
                                 width: w,
                                 height: h,
                                 depth_or_array_layers: 1,
                             },
-                        );
-                        renderer.queue.submit(Some(encoder.finish()));
-                        let (send, recv) = std::sync::mpsc::channel();
-                        readback
-                            .slice(..)
-                            .map_async(wgpu::MapMode::Read, move |result| {
-                                send.send(result).unwrap()
-                            });
-                        renderer
-                            .device
-                            .poll(wgpu::PollType::wait_indefinitely())
-                            .unwrap();
-                        recv.recv().unwrap().unwrap();
-                        let mapped = readback.slice(..).get_mapped_range();
-                        let cpu = model.content_pixels(w, h, scale);
-                        let mut max_error = 0;
-                        for y in 0..h as usize {
-                            for x in 0..w as usize {
-                                let p = &cpu[(y * w as usize + x) * 4..][..4];
-                                for k in 0..4 {
-                                    let expected = if k == 3 {
-                                        p[k]
-                                    } else {
-                                        ((p[k] as u32 * p[3] as u32 + 127) / 255) as u8
-                                    };
-                                    max_error = max_error.max(
-                                        expected.abs_diff(mapped[y * stride as usize + x * 4 + k]),
-                                    );
+                            mip_level_count: 1,
+                            sample_count: 1,
+                            dimension: wgpu::TextureDimension::D2,
+                            format: wgpu::TextureFormat::Rgba8Unorm,
+                            usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                                | wgpu::TextureUsages::COPY_SRC,
+                            view_formats: &[],
+                        });
+                        let view = texture.create_view(&Default::default());
+                        let stride = (w * 4).div_ceil(256) * 256;
+                        let readback = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+                            label: Some("Reveal readback"),
+                            size: stride as u64 * h as u64,
+                            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                            mapped_at_creation: false,
+                        });
+                        for state in [
+                            "hidden",
+                            "outside",
+                            "inside-half",
+                            "inside-full",
+                            "focus",
+                            "disabled",
+                            "reduced",
+                        ] {
+                            let source = if state == "disabled" {
+                                source.replace("width:140;", "width:140; disabled:true;")
+                            } else {
+                                source.clone()
+                            };
+                            let mut model =
+                                crate::Runtime::from_sources(&source, &template).unwrap();
+                            renderer
+                                .draw(&model, &view, w, h, scale, false, false)
+                                .unwrap();
+                            let uploads = renderer.uploads;
+                            match state {
+                                "outside" => model.reveal_pointer(-10., 40., true),
+                                "inside-half" => {
+                                    model.reveal_pointer(30., 40., true);
+                                    model.tick(140.);
+                                }
+                                "inside-full" => {
+                                    model.reveal_pointer(30., 40., true);
+                                    model.tick(280.);
+                                }
+                                "focus" => {
+                                    model.focus_control(0);
+                                }
+                                "disabled" => {
+                                    model.reveal_pointer(30., 40., true);
+                                    model.tick(280.);
+                                }
+                                "reduced" => {
+                                    model.set_reduced_motion(true);
+                                    model.reveal_pointer(30., 40., true);
+                                }
+                                _ => {}
+                            }
+                            renderer
+                                .draw(&model, &view, w, h, scale, false, false)
+                                .unwrap();
+                            assert_eq!(
+                                renderer.uploads, uploads,
+                                "Reveal must change paint, never upload glyph geometry"
+                            );
+                            let mut encoder =
+                                renderer.device.create_command_encoder(&Default::default());
+                            encoder.copy_texture_to_buffer(
+                                wgpu::TexelCopyTextureInfo {
+                                    texture: &texture,
+                                    mip_level: 0,
+                                    origin: wgpu::Origin3d::ZERO,
+                                    aspect: wgpu::TextureAspect::All,
+                                },
+                                wgpu::TexelCopyBufferInfo {
+                                    buffer: &readback,
+                                    layout: wgpu::TexelCopyBufferLayout {
+                                        offset: 0,
+                                        bytes_per_row: Some(stride),
+                                        rows_per_image: Some(h),
+                                    },
+                                },
+                                wgpu::Extent3d {
+                                    width: w,
+                                    height: h,
+                                    depth_or_array_layers: 1,
+                                },
+                            );
+                            renderer.queue.submit(Some(encoder.finish()));
+                            let (send, recv) = std::sync::mpsc::channel();
+                            readback
+                                .slice(..)
+                                .map_async(wgpu::MapMode::Read, move |result| {
+                                    send.send(result).unwrap()
+                                });
+                            renderer
+                                .device
+                                .poll(wgpu::PollType::wait_indefinitely())
+                                .unwrap();
+                            recv.recv().unwrap().unwrap();
+                            let mapped = readback.slice(..).get_mapped_range();
+                            let cpu = model.content_pixels(w, h, scale);
+                            let mut max_error = 0;
+                            for y in 0..h as usize {
+                                for x in 0..w as usize {
+                                    let p = &cpu[(y * w as usize + x) * 4..][..4];
+                                    for k in 0..4 {
+                                        let expected = if k == 3 {
+                                            p[k]
+                                        } else {
+                                            ((p[k] as u32 * p[3] as u32 + 127) / 255) as u8
+                                        };
+                                        max_error = max_error.max(
+                                            expected
+                                                .abs_diff(mapped[y * stride as usize + x * 4 + k]),
+                                        );
+                                    }
                                 }
                             }
+                            assert!(
+                                max_error <= 2,
+                                "Reveal {state}, multi={multi}, scale={scale}: channel error {max_error}/255"
+                            );
+                            comparisons += 1;
+                            max_observed_error = max_observed_error.max(max_error);
+                            drop(mapped);
+                            readback.unmap();
                         }
-                        assert!(max_error <= 2, "Reveal {state}, multi={multi}, scale={scale}: channel error {max_error}/255");
-                        comparisons += 1;max_observed_error = max_observed_error.max(max_error);
-                        drop(mapped);
-                        readback.unmap();
                     }
                 }
             }
-            }
-            assert_eq!(comparisons,126);
-            eprintln!("GPU_REVEAL_RESULT {}", serde_json::json!({"comparisons":comparisons,"max_channel_error":max_observed_error,"channel_error_budget":2,"scale_factors":[1.,1.25,2.]}));
+            assert_eq!(comparisons, 126);
+            eprintln!(
+                "GPU_REVEAL_RESULT {}",
+                serde_json::json!({"comparisons":comparisons,"max_channel_error":max_observed_error,"channel_error_budget":2,"scale_factors":[1.,1.25,2.]})
+            );
         });
     }
 }

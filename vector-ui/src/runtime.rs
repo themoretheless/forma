@@ -1,7 +1,7 @@
 //! Shared native/WASM scene runtime. Node IDs are local to one loaded snapshot.
 //! Controls own interaction; the renderer sees only geometry and paint slots.
 use crate::display_list::{DisplayList, ListHints, RenderScene, STRIDE};
-use crate::{markup, round_coverage, round_inside, Button};
+use crate::{Button, markup, round_coverage, round_inside};
 use std::{cell::RefCell, sync::Arc};
 use wasm_bindgen::prelude::*;
 
@@ -41,7 +41,7 @@ impl A11yRole {
 
 /// AccessKit-compatible semantic accessibility node exported by [`Runtime::accessibility_tree`].
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct A11yNode {
     pub id: usize,
     pub parent: Option<usize>,
@@ -52,21 +52,21 @@ pub struct A11yNode {
     pub value: Option<String>,
     #[serde(skip)]
     pub numeric_value: Option<f32>,
-    #[serde(serialize_with="serialize_a11y_bounds")]
+    #[serde(serialize_with = "serialize_a11y_bounds")]
     pub bounds: [f32; 4],
     pub focused: bool,
     pub disabled: bool,
     pub read_only: bool,
     pub multiline: bool,
     /// Anchor/caret UTF-16 offsets in this node's original value (CRLF retained).
-    pub selection_utf16: Option<[u32;2]>,
+    pub selection_utf16: Option<[u32; 2]>,
     pub modal_blocked: bool,
     pub actions: Vec<&'static str>,
 }
 
 /// Snapshot of the scene's semantic accessibility tree and live region state.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct A11yTree {
     pub root_id: usize,
     pub focused_id: Option<usize>,
@@ -74,8 +74,11 @@ pub struct A11yTree {
     pub nodes: Vec<A11yNode>,
 }
 // Preserve the existing JSON numeric values, formerly materialized through Value.
-fn serialize_a11y_bounds<S:serde::Serializer>(bounds:&[f32;4],serializer:S)->Result<S::Ok,S::Error>{
-    serde::Serialize::serialize(&bounds.map(f64::from),serializer)
+fn serialize_a11y_bounds<S: serde::Serializer>(
+    bounds: &[f32; 4],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serde::Serialize::serialize(&bounds.map(f64::from), serializer)
 }
 #[derive(Debug)]
 pub struct Node {
@@ -109,7 +112,10 @@ struct RasterCache {
 }
 
 #[derive(PartialEq)]
-enum BindingWidgetValue { Text(String), Range(f32) }
+enum BindingWidgetValue {
+    Text(String),
+    Range(f32),
+}
 
 const MAX_UI_ACTIVATIONS: usize = 4096;
 #[derive(Default)]
@@ -119,8 +125,11 @@ struct UiActivations {
 }
 impl UiActivations {
     fn record(&mut self, index: usize) {
-        if self.events.len() >= MAX_UI_ACTIVATIONS { self.overflow = true; }
-        else if !self.overflow { self.events.push(index); }
+        if self.events.len() >= MAX_UI_ACTIVATIONS {
+            self.overflow = true;
+        } else if !self.overflow {
+            self.events.push(index);
+        }
     }
     fn clear(&mut self) {
         self.events.clear();
@@ -169,8 +178,8 @@ pub struct Runtime {
     svet_document: Option<crate::native_document_graph::DocumentGraph>,
     #[cfg(not(target_arch = "wasm32"))]
     native_instance_id: u64,
-    #[cfg(not(target_arch="wasm32"))]
-    native_accessibility_id:Option<u64>,
+    #[cfg(not(target_arch = "wasm32"))]
+    native_accessibility_id: Option<u64>,
 }
 
 fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> {
@@ -201,14 +210,18 @@ fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> 
 }
 impl Runtime {
     /// Identity of the loaded scene, including noneditable accessibility nodes.
-    #[cfg(not(target_arch="wasm32"))]
-    pub fn native_scene_identity(&self)->u64 {self.native_accessibility_id.unwrap_or(self.native_instance_id)}
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_scene_identity(&self) -> u64 {
+        self.native_accessibility_id
+            .unwrap_or(self.native_instance_id)
+    }
 
     /// Scene-local editor identity for native composition ownership. Rebuilding
     /// a Runtime retires its editor session even if key and index are reused.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn native_editor_session(&self) -> Option<(u64, i32)> {
-        (self.text_editing()&&!self.control_readonly(self.focused.unwrap())).then(|| (self.native_instance_id, self.focused_index()))
+        (self.text_editing() && !self.control_readonly(self.focused.unwrap()))
+            .then(|| (self.native_instance_id, self.focused_index()))
     }
 
     pub fn from_source(source: &str) -> Result<Self, String> {
@@ -236,7 +249,10 @@ impl Runtime {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn set_svet_document_scheduling(&mut self, enabled: bool) {
         if enabled && self.svet_document.is_none() {
-            let states = self.ui_document.as_ref().map_or(&[][..], |doc| doc.states.as_slice());
+            let states = self
+                .ui_document
+                .as_ref()
+                .map_or(&[][..], |doc| doc.states.as_slice());
             self.svet_document = Some(crate::native_document_graph::DocumentGraph::new(states));
         } else if !enabled {
             self.svet_document = None;
@@ -260,8 +276,11 @@ impl Runtime {
         };
         let activated = self.last_event.take();
         let model_changed = doc.states != self.ui_binding_states;
-        if self.ui_binding_idle_ready && !model_changed && !self.ui_render_pending
-            && activated.is_none() && self.ui_activations.events.is_empty()
+        if self.ui_binding_idle_ready
+            && !model_changed
+            && !self.ui_render_pending
+            && activated.is_none()
+            && self.ui_activations.events.is_empty()
             && (0..self.control_count()).all(|index| !self.binding_widget_changed(index))
         {
             self.ui_document = Some(doc);
@@ -283,30 +302,37 @@ impl Runtime {
                 }
             }
         };
-        let changed = match doc.sync_runtime_binding_events(self, &self.ui_activations.events, &controls) {
-            Ok(c) => c,
-            Err(e) => {
-                // Binding writes are atomic; an uncommitted activation must
-                // remain available for retry after the metadata is repaired.
-                self.last_event = activated;
-                self.ui_document = Some(doc);
-                return Err(e);
-            }
-        };
-        self.ui_activations.clear();
-        #[cfg(not(target_arch = "wasm32"))]
-        let needs_render = self.svet_document.as_mut().map_or(changed > 0, |graph| graph.reconcile(&doc.states)) || model_changed || self.ui_render_pending;
-        #[cfg(target_arch = "wasm32")]
-        let needs_render = changed > 0 || model_changed || self.ui_render_pending;
-        self.ui_render_pending = needs_render;
-        if needs_render {
-            let (scene_src, templates, controls, logical_end) = match doc.render_scene_with_extents() {
-                Ok(res) => res,
+        let changed =
+            match doc.sync_runtime_binding_events(self, &self.ui_activations.events, &controls) {
+                Ok(c) => c,
                 Err(e) => {
+                    // Binding writes are atomic; an uncommitted activation must
+                    // remain available for retry after the metadata is repaired.
+                    self.last_event = activated;
                     self.ui_document = Some(doc);
                     return Err(e);
                 }
             };
+        self.ui_activations.clear();
+        #[cfg(not(target_arch = "wasm32"))]
+        let needs_render = self
+            .svet_document
+            .as_mut()
+            .map_or(changed > 0, |graph| graph.reconcile(&doc.states))
+            || model_changed
+            || self.ui_render_pending;
+        #[cfg(target_arch = "wasm32")]
+        let needs_render = changed > 0 || model_changed || self.ui_render_pending;
+        self.ui_render_pending = needs_render;
+        if needs_render {
+            let (scene_src, templates, controls, logical_end) =
+                match doc.render_scene_with_extents() {
+                    Ok(res) => res,
+                    Err(e) => {
+                        self.ui_document = Some(doc);
+                        return Err(e);
+                    }
+                };
             let mut next = match Self::from_sources(&scene_src, &templates) {
                 Ok(rt) => rt,
                 Err(e) => {
@@ -321,7 +347,9 @@ impl Runtime {
             next.ui_document = Some(doc);
             #[cfg(not(target_arch = "wasm32"))]
             {
-                if let Some(graph) = &mut self.svet_document { graph.complete(); }
+                if let Some(graph) = &mut self.svet_document {
+                    graph.complete();
+                }
                 next.svet_document = self.svet_document.take();
             }
             *self = next;
@@ -397,7 +425,10 @@ impl Runtime {
                         .iter()
                         .position(|m| {
                             (!m.controls.is_empty()).then_some(m.controls.start)
-                                == node.children.first().and_then(|&cid| self.nodes[cid].control)
+                                == node
+                                    .children
+                                    .first()
+                                    .and_then(|&cid| self.nodes[cid].control)
                         })
                         .unwrap_or(0);
                     let open = self.modal_open.get(modal_idx).copied().unwrap_or(false);
@@ -408,7 +439,11 @@ impl Runtime {
                     a11y_nodes.push(A11yNode {
                         id: node.id,
                         parent: node.parent,
-                        children: if open { node.children.clone() } else { Vec::new() },
+                        children: if open {
+                            node.children.clone()
+                        } else {
+                            Vec::new()
+                        },
                         role: A11yRole::Dialog,
                         key: m_spec.key.clone(),
                         label: m_spec.key.clone(),
@@ -438,7 +473,10 @@ impl Runtime {
                     if focused {
                         focused_node_id = Some(node.id);
                     }
-                    let is_ranged = self.controls.get(idx).is_some_and(|c| c.template.range.is_some());
+                    let is_ranged = self
+                        .controls
+                        .get(idx)
+                        .is_some_and(|c| c.template.range.is_some());
                     let role = if self.control_editable(idx) {
                         A11yRole::TextInput
                     } else if is_ranged {
@@ -459,7 +497,9 @@ impl Runtime {
                             }
                         }
                     }
-                    if self.control_editable(idx){label=self.control_input_label(idx);}
+                    if self.control_editable(idx) {
+                        label = self.control_input_label(idx);
+                    }
                     let value = if self.control_editable(idx) {
                         Some(self.text_value(idx))
                     } else if is_ranged {
@@ -476,7 +516,12 @@ impl Runtime {
                     if !disabled && !blocked {
                         match role {
                             A11yRole::Button => actions.extend(["focus", "click"]),
-                            A11yRole::TextInput => {actions.extend(["focus","set_text_selection"]);if !self.control_readonly(idx){actions.push("set_value");}},
+                            A11yRole::TextInput => {
+                                actions.extend(["focus", "set_text_selection"]);
+                                if !self.control_readonly(idx) {
+                                    actions.push("set_value");
+                                }
+                            }
                             A11yRole::Slider => {
                                 actions.extend(["focus", "increment", "decrement", "set_value"])
                             }
@@ -496,7 +541,10 @@ impl Runtime {
                         focused,
                         disabled,
                         multiline: self.control_multiline(idx),
-                        selection_utf16: self.editors[idx].as_ref().map(|editor|[editor.model.anchor(),editor.model.caret()].map(|at|editor.model.value()[..at].encode_utf16().count() as u32)),
+                        selection_utf16: self.editors[idx].as_ref().map(|editor| {
+                            [editor.model.anchor(), editor.model.caret()]
+                                .map(|at| editor.model.value()[..at].encode_utf16().count() as u32)
+                        }),
                         read_only: self.control_readonly(idx),
                         modal_blocked: blocked,
                         actions,
@@ -526,8 +574,13 @@ impl Runtime {
         self.load_component_native(source, crate::BUTTON_COMPONENT)
     }
     /// Compile a UI project to a portable scene artifact with native Rust errors.
-    pub fn compile_ui_scene_artifact_native(files_json: &str, entry_file: &str, state_json: &str) -> Result<String, String> {
-        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)?;
+    pub fn compile_ui_scene_artifact_native(
+        files_json: &str,
+        entry_file: &str,
+        state_json: &str,
+    ) -> Result<String, String> {
+        let doc =
+            crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)?;
         doc.render_scene_artifact()?.to_json()
     }
 
@@ -539,7 +592,8 @@ impl Runtime {
         entry_file: &str,
         state_json: &str,
     ) -> Result<(), String> {
-        let doc = crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)?;
+        let doc =
+            crate::form_document::Document::from_ui_files_json(files_json, entry_file, state_json)?;
         let (source, templates, controls, logical_end) = doc.render_scene_with_extents()?;
         let mut next = Self::from_sources(&source, &templates)?;
         next.apply_logical_content_end(logical_end);
@@ -566,8 +620,13 @@ impl Runtime {
         Ok(())
     }
     /// Consume the complete Rust Document transport, including non-control layout extents.
-    pub fn from_scene_artifact(artifact: &crate::form_document::SceneArtifact) -> Result<Self, String> {
-        if artifact.logical_content_end.is_some_and(|end| end.iter().any(|v| !v.is_finite() || *v < 0.)) {
+    pub fn from_scene_artifact(
+        artifact: &crate::form_document::SceneArtifact,
+    ) -> Result<Self, String> {
+        if artifact
+            .logical_content_end
+            .is_some_and(|end| end.iter().any(|v| !v.is_finite() || *v < 0.))
+        {
             return Err("Invalid logical content extent".into());
         }
         let mut runtime = Self::from_sources(&artifact.source, &artifact.templates)?;
@@ -576,7 +635,9 @@ impl Runtime {
         }
         for (mapping, control) in artifact.controls.iter().zip(&runtime.controls) {
             if mapping.key != control.scene.button.key {
-                return Err("Scene control mapping key/order does not match rendered controls".into());
+                return Err(
+                    "Scene control mapping key/order does not match rendered controls".into(),
+                );
             }
         }
         if artifact.logical_content_end.is_some() && !runtime.scene.scroll {
@@ -595,7 +656,9 @@ impl Runtime {
         let mut y = scene.padding[0];
         for (index, (spec, component)) in scene.buttons.iter().zip(templates).enumerate() {
             if let Some(m) = modal_of[index] {
-                if scene.modals[m].controls.start == index { y = scene.modals[m].y; }
+                if scene.modals[m].controls.start == index {
+                    y = scene.modals[m].y;
+                }
             }
             // Each leaf needs frame metadata and its own spec, not a temporary
             // deep clone of every sibling (quadratic in the control count).
@@ -603,14 +666,23 @@ impl Runtime {
                 // The frame name and its legacy spelling of clipping are never read on a
                 // control: clipping reaches the renderer as `clip`, so the leaf leaves both
                 // strings empty rather than copying the document's.
-                name: String::new(), width: scene.width, height: scene.height,
-                background: scene.background, overflow: String::new(),
-                clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
-                padding: scene.padding, content_width: scene.content_width,
-                content_height: scene.content_height, gap: scene.gap,
+                name: String::new(),
+                width: scene.width,
+                height: scene.height,
+                background: scene.background,
+                overflow: String::new(),
+                clip: scene.clip,
+                radius: scene.radius,
+                scroll: scene.scroll,
+                padding: scene.padding,
+                content_width: scene.content_width,
+                content_height: scene.content_height,
+                gap: scene.gap,
                 // `from_scene` replaces the spec with the resolved one, so the leaf
                 // carries the document spec by reference instead of copying it.
-                button: markup::ButtonSpec::default(), buttons: Vec::new(), modals: Vec::new(),
+                button: markup::ButtonSpec::default(),
+                buttons: Vec::new(),
+                modals: Vec::new(),
             };
             let mut control = Button::from_scene(leaf, spec, component)?;
             // Defaults in the component can change height: lay out after linking.
@@ -629,9 +701,8 @@ impl Runtime {
             .iter()
             .map(|b| b.scene.button.y + b.scene.button.height + scene.padding[2])
             .fold(scene.height, f32::max);
-        let mut nodes = Vec::with_capacity(
-            1 + usize::from(scene.scroll) + scene.modals.len() + controls.len(),
-        );
+        let mut nodes =
+            Vec::with_capacity(1 + usize::from(scene.scroll) + scene.modals.len() + controls.len());
         let root_children = if scene.scroll {
             1 + scene.modals.len()
         } else {
@@ -695,11 +766,28 @@ impl Runtime {
         for _ in modal_nodes.len()..scene.modals.len() {
             let id = nodes.len();
             nodes[0].children.push(id);
-            nodes.push(Node { id, parent: Some(0), children: vec![], kind: NodeKind::Modal, control: None });
+            nodes.push(Node {
+                id,
+                parent: Some(0),
+                children: vec![],
+                kind: NodeKind::Modal,
+                control: None,
+            });
             modal_nodes.push(id);
         }
-        let editors=controls.iter().map(|c|c.template.inputs.first().map(|input|crate::text_input::Editor::new(input.clone(),c.template.content.clone())).transpose()).collect::<Result<Vec<_>,_>>()?;
-        let mut runtime=Self {
+        let editors = controls
+            .iter()
+            .map(|c| {
+                c.template
+                    .inputs
+                    .first()
+                    .map(|input| {
+                        crate::text_input::Editor::new(input.clone(), c.template.content.clone())
+                    })
+                    .transpose()
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut runtime = Self {
             range_values: vec![None; controls.len()],
             binding_widget_baseline: RefCell::new(Default::default()),
             editors,
@@ -719,7 +807,7 @@ impl Runtime {
             ui_activations: UiActivations::default(),
             scroll: [0.; 2],
             #[cfg(not(target_arch = "wasm32"))]
-            native_accessibility_id:None,
+            native_accessibility_id: None,
             #[cfg(not(target_arch = "wasm32"))]
             native_instance_id: {
                 static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
@@ -787,23 +875,36 @@ impl Runtime {
     }
     /// Re-evaluation keeps gestures attached to the same uniquely keyed control.
     /// Context replacement is cancelled separately by the binding owner.
-    pub(crate) fn preserve_binding_interaction(&mut self, previous:&Runtime) {
+    pub(crate) fn preserve_binding_interaction(&mut self, previous: &Runtime) {
         let matches = self.preserve_interaction_matches(previous);
-        #[cfg(not(target_arch="wasm32"))]
+        #[cfg(not(target_arch = "wasm32"))]
         {
-            let same_structure=self.nodes.len()==previous.nodes.len()&&self.nodes.iter().zip(&previous.nodes).all(|(a,b)|a.parent==b.parent&&a.kind==b.kind&&a.control==b.control);
-            let mut keys=std::collections::BTreeSet::new();
-            let same_controls=self.controls.len()==previous.controls.len()&&matches.iter().enumerate().all(|(i,old)|{
-                let key=self.control_key(i);!key.is_empty()&&keys.insert(key)&&*old==Some(i)
-            });
-            if same_structure&&same_controls {self.native_accessibility_id=Some(previous.native_scene_identity());}
+            let same_structure = self.nodes.len() == previous.nodes.len()
+                && self.nodes.iter().zip(&previous.nodes).all(|(a, b)| {
+                    a.parent == b.parent && a.kind == b.kind && a.control == b.control
+                });
+            let mut keys = std::collections::BTreeSet::new();
+            let same_controls = self.controls.len() == previous.controls.len()
+                && matches.iter().enumerate().all(|(i, old)| {
+                    let key = self.control_key(i);
+                    !key.is_empty() && keys.insert(key) && *old == Some(i)
+                });
+            if same_structure && same_controls {
+                self.native_accessibility_id = Some(previous.native_scene_identity());
+            }
         }
-        for (i,c) in self.controls.iter_mut().enumerate() {
-            let Some(old_index)=matches[i] else {continue};
-            let old=&previous.controls[old_index];
+        for (i, c) in self.controls.iter_mut().enumerate() {
+            let Some(old_index) = matches[i] else {
+                continue;
+            };
+            let old = &previous.controls[old_index];
             if !c.disabled() && c.template.clickable {
-                c.down=old.down;c.keyboard=old.keyboard;c.update_colors();
-                if previous.captured==Some(old_index){self.captured=Some(i);}
+                c.down = old.down;
+                c.keyboard = old.keyboard;
+                c.update_colors();
+                if previous.captured == Some(old_index) {
+                    self.captured = Some(i);
+                }
             }
         }
         let layout_changed = self.width() != previous.width()
@@ -812,26 +913,49 @@ impl Runtime {
             || self.viewport_rect() != previous.viewport_rect()
             || self.content_size() != previous.content_size()
             || self.controls.len() != previous.controls.len()
-            || self.controls.iter().zip(&previous.controls).any(|(a, b)| a.bounds() != b.bounds());
-        self.revision=previous.revision.wrapping_add(1);
-        self.geometry_revision=previous.geometry_revision.wrapping_add(1);
-        self.layout_revision=previous.layout_revision.wrapping_add(u32::from(layout_changed));
+            || self
+                .controls
+                .iter()
+                .zip(&previous.controls)
+                .any(|(a, b)| a.bounds() != b.bounds());
+        self.revision = previous.revision.wrapping_add(1);
+        self.geometry_revision = previous.geometry_revision.wrapping_add(1);
+        self.layout_revision = previous
+            .layout_revision
+            .wrapping_add(u32::from(layout_changed));
     }
     /// Apply model text without creating an undo entry. Replacing a binding or
     /// context resets editing history even when the two records contain equal text.
-    pub fn set_binding_value(&mut self, index: usize, value: &str, reset: bool) -> Result<(), String> {
-        let editor = self.editors.get_mut(index).and_then(Option::as_mut)
+    pub fn set_binding_value(
+        &mut self,
+        index: usize,
+        value: &str,
+        reset: bool,
+    ) -> Result<(), String> {
+        let editor = self
+            .editors
+            .get_mut(index)
+            .and_then(Option::as_mut)
             .ok_or_else(|| format!("Control {index} has no editable value"))?;
-        if !reset && editor.model.value() == value { return Ok(()); }
-        let mut spec = editor.spec.clone(); spec.value = value.into();
+        if !reset && editor.model.value() == value {
+            return Ok(());
+        }
+        let mut spec = editor.spec.clone();
+        spec.value = value.into();
         let mut next = crate::text_input::Editor::new(spec, editor.base.clone())?;
         next.reduced_motion(self.controls[index].reduced_motion);
         if !reset {
             let mut caret = editor.model.caret().min(value.len());
-            while !value.is_char_boundary(caret) { caret -= 1; }
-            next.model.set_selection(caret, caret).map_err(|e| e.to_string())?;
-            let caret=next.model.grapheme_selection().start;
-            next.model.set_selection(caret,caret).map_err(|e|e.to_string())?;
+            while !value.is_char_boundary(caret) {
+                caret -= 1;
+            }
+            next.model
+                .set_selection(caret, caret)
+                .map_err(|e| e.to_string())?;
+            let caret = next.model.grapheme_selection().start;
+            next.model
+                .set_selection(caret, caret)
+                .map_err(|e| e.to_string())?;
         }
         *editor = next;
         self.refresh_editors();
@@ -840,20 +964,42 @@ impl Runtime {
     /// Text bindings target a single text primitive; ambiguous rich content is
     /// rejected instead of silently replacing captions or icons as well.
     pub fn set_binding_text(&mut self, index: usize, value: &str) -> Result<(), String> {
-        let control = self.controls.get_mut(index).ok_or_else(|| format!("Unknown control {index}"))?;
-        let count = usize::from(control.template.text.is_some()) + control.template.content.iter()
-            .filter(|c| matches!(c, crate::template::Content::Text { .. })).count();
-        if count != 1 || self.editors[index].is_some() { return Err(format!("Control {index}: text binding requires exactly one non-editable text primitive")); }
+        let control = self
+            .controls
+            .get_mut(index)
+            .ok_or_else(|| format!("Unknown control {index}"))?;
+        let count = usize::from(control.template.text.is_some())
+            + control
+                .template
+                .content
+                .iter()
+                .filter(|c| matches!(c, crate::template::Content::Text { .. }))
+                .count();
+        if count != 1 || self.editors[index].is_some() {
+            return Err(format!(
+                "Control {index}: text binding requires exactly one non-editable text primitive"
+            ));
+        }
         // The template is shared with the parse cache, so the first write takes a copy.
         // Only the edited control pays, and only once per keystroke it changes.
         let template = Arc::make_mut(&mut control.template);
-        let text = if let Some(text) = &mut template.text { text } else {
-            template.content.iter_mut().find_map(|c| match c {
-                crate::template::Content::Text { text, .. } => Some(text), _ => None,
-            }).unwrap()
+        let text = if let Some(text) = &mut template.text {
+            text
+        } else {
+            template
+                .content
+                .iter_mut()
+                .find_map(|c| match c {
+                    crate::template::Content::Text { text, .. } => Some(text),
+                    _ => None,
+                })
+                .unwrap()
         };
-        if text.text == value { return Ok(()); }
-        text.text = value.into(); control.scene.button.text = value.into();
+        if text.text == value {
+            return Ok(());
+        }
+        text.text = value.into();
+        control.scene.button.text = value.into();
         *control.raster_cache.borrow_mut() = None;
         *control.display_cache.borrow_mut() = None;
         control.visual_revision = control.visual_revision.wrapping_add(1);
@@ -863,48 +1009,74 @@ impl Runtime {
         Ok(())
     }
     pub fn set_binding_disabled(&mut self, index: usize, disabled: bool) -> Result<(), String> {
-        let control = self.controls.get_mut(index).ok_or_else(|| format!("Unknown control {index}"))?;
-        if control.scene.button.disabled == disabled { return Ok(()); }
+        let control = self
+            .controls
+            .get_mut(index)
+            .ok_or_else(|| format!("Unknown control {index}"))?;
+        if control.scene.button.disabled == disabled {
+            return Ok(());
+        }
         control.scene.button.disabled = disabled;
         Arc::make_mut(&mut control.template).props.disabled = disabled;
-        if disabled { control.down = false; control.keyboard = None; }
+        if disabled {
+            control.down = false;
+            control.keyboard = None;
+        }
         control.update_colors();
-        if disabled && self.captured == Some(index) { self.captured = None; }
-        if disabled && self.focused == Some(index) { self.set_focus(None); }
+        if disabled && self.captured == Some(index) {
+            self.captured = None;
+        }
+        if disabled && self.focused == Some(index) {
+            self.set_focus(None);
+        }
         self.revision = self.revision.wrapping_add(1);
         Ok(())
     }
     pub(crate) fn cancel_binding_interaction(&mut self, index: usize) {
         let before = self.child_revision();
         if let Some(control) = self.controls.get_mut(index) {
-            control.down = false; control.keyboard = None; control.update_colors();
+            control.down = false;
+            control.keyboard = None;
+            control.update_colors();
         }
-        if self.captured == Some(index) { self.captured = None; }
-        if let Some(Some(editor)) = self.editors.get_mut(index) { editor.set_preedit(""); }
+        if self.captured == Some(index) {
+            self.captured = None;
+        }
+        if let Some(Some(editor)) = self.editors.get_mut(index) {
+            editor.set_preedit("");
+        }
         self.refresh_editors();
         self.update_revision(before);
     }
     fn refresh_editors(&mut self) {
-        for (i,editor) in self.editors.iter_mut().enumerate() {
-            let content=if let Some(editor)=editor {
-                let focused=self.focused==Some(i)&&!self.controls[i].disabled();
-                if !focused {editor.set_preedit("");}
-                if !editor.needs_content(focused) {continue;}
+        for (i, editor) in self.editors.iter_mut().enumerate() {
+            let content = if let Some(editor) = editor {
+                let focused = self.focused == Some(i) && !self.controls[i].disabled();
+                if !focused {
+                    editor.set_preedit("");
+                }
+                if !editor.needs_content(focused) {
+                    continue;
+                }
                 editor.content(focused)
-            } else if let Some(range)=&self.controls[i].template.range {
-                if self.range_values[i] == Some(range.value) {continue;}
+            } else if let Some(range) = &self.controls[i].template.range {
+                if self.range_values[i] == Some(range.value) {
+                    continue;
+                }
                 self.range_values[i] = Some(range.value);
                 range.content()
-            } else {continue};
-            let control=&mut self.controls[i];
-            if content!=control.template.content {
-                Arc::make_mut(&mut control.template).content=content;
-                *control.raster_cache.borrow_mut()=None;
-                *control.display_cache.borrow_mut()=None;
-                *self.geometry.borrow_mut()=None;
-                self.geometry_revision=self.geometry_revision.wrapping_add(1);
-                control.visual_revision=control.visual_revision.wrapping_add(1);
-                self.revision=self.revision.wrapping_add(1);
+            } else {
+                continue;
+            };
+            let control = &mut self.controls[i];
+            if content != control.template.content {
+                Arc::make_mut(&mut control.template).content = content;
+                *control.raster_cache.borrow_mut() = None;
+                *control.display_cache.borrow_mut() = None;
+                *self.geometry.borrow_mut() = None;
+                self.geometry_revision = self.geometry_revision.wrapping_add(1);
+                control.visual_revision = control.visual_revision.wrapping_add(1);
+                self.revision = self.revision.wrapping_add(1);
             }
         }
     }
@@ -914,14 +1086,21 @@ impl Runtime {
     fn viewport_rect(&self) -> [f32; 4] {
         let p = self.scene.padding;
         if self.scene.scroll {
-            [p[3], p[0], (self.width() - p[1] - p[3]).max(0.), (self.height() - p[0] - p[2]).max(0.)]
+            [
+                p[3],
+                p[0],
+                (self.width() - p[1] - p[3]).max(0.),
+                (self.height() - p[0] - p[2]).max(0.),
+            ]
         } else {
             [0., 0., self.width(), self.height()]
         }
     }
     /// Topmost open layer, if any. It alone receives pointer and keyboard input.
     fn active_modal_index(&self) -> Option<usize> {
-        (0..self.modal_open.len()).rev().find(|&m| self.modal_open[m])
+        (0..self.modal_open.len())
+            .rev()
+            .find(|&m| self.modal_open[m])
     }
     fn visible(&self, index: usize) -> bool {
         self.modal_of[index].is_none_or(|m| self.modal_open[m])
@@ -932,7 +1111,9 @@ impl Runtime {
         self.modal_of[index] == self.active_modal_index()
     }
     fn enabled(&self, index: usize) -> bool {
-        self.reachable(index) && !self.controls[index].disabled() && self.controls[index].template.clickable
+        self.reachable(index)
+            && !self.controls[index].disabled()
+            && self.controls[index].template.clickable
     }
     fn invalidate_layers(&mut self) {
         *self.geometry.borrow_mut() = None;
@@ -947,7 +1128,13 @@ impl Runtime {
         for (i, c) in self.controls.iter_mut().enumerate() {
             let blocked = self.modal_of[i] != active;
             c.keyboard = None;
-            if blocked { c.pointer_interaction(-1., -1., 3); c.reveal_pointer(0., 0., false); } else { c.down = false; c.update_colors(); }
+            if blocked {
+                c.pointer_interaction(-1., -1., 3);
+                c.reveal_pointer(0., 0., false);
+            } else {
+                c.down = false;
+                c.update_colors();
+            }
         }
         self.update_revision(before);
     }
@@ -993,13 +1180,22 @@ impl Runtime {
         let mut hints = None;
         for control in &self.controls {
             let child = control.vector_snapshot_hinted(scale, false, hints, &mut text_scratch);
-            hints = Some(ListHints { commands: child.commands.len(), edges: child.edges.len() });
+            hints = Some(ListHints {
+                commands: child.commands.len(),
+                edges: child.edges.len(),
+            });
             children.push(child);
         }
         let mut list = DisplayList::with_hints(Some(ListHints {
-            commands: children.iter().map(|child| child.commands.len()).sum::<usize>()
+            commands: children
+                .iter()
+                .map(|child| child.commands.len())
+                .sum::<usize>()
                 + STRIDE * 8,
-            edges: children.iter().map(|child| child.edges.len()).sum::<usize>(),
+            edges: children
+                .iter()
+                .map(|child| child.edges.len())
+                .sum::<usize>(),
         }));
         let frame = [0., 0., self.width(), self.height()];
         if self.scene.clip {
@@ -1031,7 +1227,9 @@ impl Runtime {
         let mut reveal_slot = self.controls.len() * 2;
         for c in &self.controls {
             reveal_slots.push(reveal_slot);
-            if c.template.reveal.is_some() { reveal_slot += 2; }
+            if c.template.reveal.is_some() {
+                reveal_slot += 2;
+            }
         }
         let emit = |list: &mut DisplayList, index: usize| {
             let child = &children[index];
@@ -1054,7 +1252,9 @@ impl Runtime {
             list.edges.extend(&child.edges);
         };
         for index in 0..self.controls.len() {
-            if self.modal_of[index].is_none() { emit(&mut list, index); }
+            if self.modal_of[index].is_none() {
+                emit(&mut list, index);
+            }
         }
         if self.scene.scroll {
             list.mark_scrolled(content_start);
@@ -1062,9 +1262,23 @@ impl Runtime {
             list.pop();
         }
         for (m, modal) in self.scene.modals.iter().enumerate() {
-            if !self.modal_open[m] { continue; }
-            list.command(0., frame, modal.backdrop, if self.scene.clip { 0. } else { self.scene.radius }, 0.);
-            for index in modal.controls.clone() { emit(&mut list, index); }
+            if !self.modal_open[m] {
+                continue;
+            }
+            list.command(
+                0.,
+                frame,
+                modal.backdrop,
+                if self.scene.clip {
+                    0.
+                } else {
+                    self.scene.radius
+                },
+                0.,
+            );
+            for index in modal.controls.clone() {
+                emit(&mut list, index);
+            }
         }
         if self.scene.clip {
             list.pop();
@@ -1079,8 +1293,14 @@ impl Runtime {
     }
     fn apply_logical_content_end(&mut self, end: Option<[f64; 2]>) {
         if let Some([right, bottom]) = end {
-            self.scene.content_width = self.scene.content_width.max((right + f64::from(self.scene.padding[1])).min(f64::from(f32::MAX)) as f32);
-            self.scene.content_height = self.scene.content_height.max((bottom + f64::from(self.scene.padding[2])).min(f64::from(f32::MAX)) as f32);
+            self.scene.content_width = self
+                .scene
+                .content_width
+                .max((right + f64::from(self.scene.padding[1])).min(f64::from(f32::MAX)) as f32);
+            self.scene.content_height = self
+                .scene
+                .content_height
+                .max((bottom + f64::from(self.scene.padding[2])).min(f64::from(f32::MAX)) as f32);
         }
     }
     fn content_size(&self) -> [f32; 2] {
@@ -1089,19 +1309,37 @@ impl Runtime {
             self.scene.content_height - self.scene.padding[0] - self.scene.padding[2],
         ]
     }
-    fn raster_cached(&self, w: u32, h: u32, s: f32, background: bool)
-        -> Option<std::cell::RefMut<'_, RasterCache>>
-    {
-        if w == 0 || h == 0 || w > 4096 || h > 4096
-            || w as u64 * h as u64 > 8_388_608 || !s.is_finite() || s <= 0.
+    fn raster_cached(
+        &self,
+        w: u32,
+        h: u32,
+        s: f32,
+        background: bool,
+    ) -> Option<std::cell::RefMut<'_, RasterCache>> {
+        if w == 0
+            || h == 0
+            || w > 4096
+            || h > 4096
+            || w as u64 * h as u64 > 8_388_608
+            || !s.is_finite()
+            || s <= 0.
         {
             return None;
         }
-        let key = RasterKey { width: w, height: h, scale: s, scroll: self.scroll };
+        let key = RasterKey {
+            width: w,
+            height: h,
+            scale: s,
+            scroll: self.scroll,
+        };
         let len = (w * h) as usize;
         let mut stored = self.raster_cache.borrow_mut();
         let cache = stored.get_or_insert_with(|| RasterCache {
-            key, frame: Vec::new(), pixels: Vec::new(), native_pixels: Vec::new(), paint: None,
+            key,
+            frame: Vec::new(),
+            pixels: Vec::new(),
+            native_pixels: Vec::new(),
+            paint: None,
         });
         if cache.key != key || cache.frame.len() != len {
             cache.key = key;
@@ -1134,15 +1372,13 @@ impl Runtime {
                             if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
                                 viewport = 0;
                             } else {
-                                let vertical = ch > v[3]
-                                    && px >= vert_x0
-                                    && py >= vert_y0
-                                    && py < vert_y1;
-                                let horizontal = cw > v[2]
-                                    && py >= horz_y0
-                                    && px >= horz_x0
-                                    && px < horz_x1;
-                                if vertical || horizontal { viewport = 2; }
+                                let vertical =
+                                    ch > v[3] && px >= vert_x0 && py >= vert_y0 && py < vert_y1;
+                                let horizontal =
+                                    cw > v[2] && py >= horz_y0 && px >= horz_x0 && px < horz_x1;
+                                if vertical || horizontal {
+                                    viewport = 2;
+                                }
                             }
                         }
                         let coverage = if flat_frame {
@@ -1159,7 +1395,9 @@ impl Runtime {
         if cache.paint != Some(paint) {
             cache.pixels.fill(0);
             for (i, control) in self.controls.iter().enumerate() {
-                if self.modal_of[i].is_none() { control.composite_content(&mut cache.pixels, w, h, s); }
+                if self.modal_of[i].is_none() {
+                    control.composite_content(&mut cache.pixels, w, h, s);
+                }
             }
             if self.scene.scroll {
                 for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
@@ -1173,11 +1411,17 @@ impl Runtime {
             // Layers sit above the scroll viewport and its bars; the frame's
             // rounded coverage still trims every layer below.
             for (m, modal) in self.scene.modals.iter().enumerate() {
-                if !self.modal_open[m] { continue; }
-                if modal.backdrop[3] > 0 {
-                    for p in cache.pixels.chunks_exact_mut(4) { crate::raster_cache::over(p, &modal.backdrop); }
+                if !self.modal_open[m] {
+                    continue;
                 }
-                for index in modal.controls.clone() { self.controls[index].composite_content(&mut cache.pixels, w, h, s); }
+                if modal.backdrop[3] > 0 {
+                    for p in cache.pixels.chunks_exact_mut(4) {
+                        crate::raster_cache::over(p, &modal.backdrop);
+                    }
+                }
+                for index in modal.controls.clone() {
+                    self.controls[index].composite_content(&mut cache.pixels, w, h, s);
+                }
             }
             if background || self.scene.clip {
                 for (p, &frame) in cache.pixels.chunks_exact_mut(4).zip(&cache.frame) {
@@ -1201,7 +1445,9 @@ impl Runtime {
                             p.fill(0);
                         } else {
                             p[3] = (p[3] as f32 * (cov_int as f32 / 16.)).round() as u8;
-                            if p[3] == 0 { p.fill(0); }
+                            if p[3] == 0 {
+                                p.fill(0);
+                            }
                         }
                     }
                 }
@@ -1209,7 +1455,9 @@ impl Runtime {
             cache.paint = Some(paint);
             cache.native_pixels.clear();
         }
-        Some(std::cell::RefMut::map(stored, |cache| cache.as_mut().unwrap()))
+        Some(std::cell::RefMut::map(stored, |cache| {
+            cache.as_mut().unwrap()
+        }))
     }
     fn raster(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
         if self.controls.len() == 1 && self.scene.modals.is_empty() {
@@ -1219,19 +1467,31 @@ impl Runtime {
                 self.controls[0].content_pixels(w, h, s)
             };
         }
-        self.raster_cached(w, h, s, background).map_or_else(Vec::new, |cache| cache.pixels.clone())
+        self.raster_cached(w, h, s, background)
+            .map_or_else(Vec::new, |cache| cache.pixels.clone())
     }
     /// Paint RGBA into caller-owned storage without allocating an output Vec.
     /// Invalid dimensions/DPI leave the destination unchanged.
-    pub fn paint_rgba(&self, out: &mut [u8], w: u32, h: u32, s: f32,
-        background: bool) -> Result<(), &'static str> {
+    pub fn paint_rgba(
+        &self,
+        out: &mut [u8],
+        w: u32,
+        h: u32,
+        s: f32,
+        background: bool,
+    ) -> Result<(), &'static str> {
         if self.controls.len() == 1 && self.scene.modals.is_empty() {
             return self.controls[0].paint_rgba(out, w, h, s, background);
         }
-        if (w as usize).checked_mul(h as usize).and_then(|n| n.checked_mul(4)) != Some(out.len()) {
+        if (w as usize)
+            .checked_mul(h as usize)
+            .and_then(|n| n.checked_mul(4))
+            != Some(out.len())
+        {
             return Err("Invalid RGBA buffer size");
         }
-        let cache = self.raster_cached(w, h, s, background)
+        let cache = self
+            .raster_cached(w, h, s, background)
             .ok_or("Visible scene exceeds CPU raster budget")?;
         out.copy_from_slice(&cache.pixels);
         Ok(())
@@ -1250,10 +1510,15 @@ impl Runtime {
         if (w as usize).checked_mul(h as usize) != Some(out.len()) {
             return Err("Invalid native buffer size");
         }
-        let mut cache = self.raster_cached(w, h, s, true)
+        let mut cache = self
+            .raster_cached(w, h, s, true)
             .ok_or("Visible scene exceeds CPU raster budget")?;
         if cache.native_pixels.is_empty() {
-            let RasterCache { native_pixels, pixels, .. } = &mut *cache;
+            let RasterCache {
+                native_pixels,
+                pixels,
+                ..
+            } = &mut *cache;
             native_pixels.reserve(pixels.len() / 4);
             native_pixels.extend(pixels.chunks_exact(4).map(|src| {
                 let a = src[3] as u32;
@@ -1271,7 +1536,6 @@ impl Runtime {
         out.copy_from_slice(&cache.native_pixels);
         Ok(())
     }
-
 }
 #[wasm_bindgen]
 impl Runtime {
@@ -1286,14 +1550,20 @@ impl Runtime {
         Self::from_source(crate::EXAMPLE).expect("valid built-in scene")
     }
     pub fn load_component(&mut self, source: &str, component: &str) -> Result<(), JsValue> {
-        self.load_component_native(source, component).map_err(|e| JsValue::from_str(&e))
+        self.load_component_native(source, component)
+            .map_err(|e| JsValue::from_str(&e))
     }
     /// Load a complete artifact atomically through the Rust parser/runtime.
     pub fn load_scene_artifact(&mut self, json: &str) -> Result<(), JsValue> {
-        self.load_scene_artifact_native(json).map_err(|e| JsValue::from_str(&e))
+        self.load_scene_artifact_native(json)
+            .map_err(|e| JsValue::from_str(&e))
     }
     /// Compile a UI project to a versioned transport in Rust for a later runtime load.
-    pub fn compile_ui_scene_artifact(files_json: &str, entry_file: &str, state_json: &str) -> Result<String, JsValue> {
+    pub fn compile_ui_scene_artifact(
+        files_json: &str,
+        entry_file: &str,
+        state_json: &str,
+    ) -> Result<String, JsValue> {
         Self::compile_ui_scene_artifact_native(files_json, entry_file, state_json)
             .map_err(|e| JsValue::from_str(&e))
     }
@@ -1314,10 +1584,13 @@ impl Runtime {
     /// back into the retained Rust `.ui` `Document`, re-rendering the scene while preserving focus
     /// and active text/slider interaction. Returns `true` after a successful scene rebuild.
     pub fn sync_ui_bindings(&mut self) -> Result<bool, JsValue> {
-        self.sync_ui_bindings_native().map_err(|e| JsValue::from_str(&e))
+        self.sync_ui_bindings_native()
+            .map_err(|e| JsValue::from_str(&e))
     }
     /// Number of accepted activations waiting for a successful binding commit.
-    pub fn pending_ui_binding_activations(&self) -> usize { self.ui_activations.events.len() }
+    pub fn pending_ui_binding_activations(&self) -> usize {
+        self.ui_activations.events.len()
+    }
     /// Explicitly discard buffered activations, clearing an overflow refusal.
     /// Widget values remain available for the next binding synchronization.
     pub fn cancel_ui_binding_activations(&mut self) -> usize {
@@ -1333,163 +1606,386 @@ impl Runtime {
             .and_then(|doc| doc.state_json().ok())
             .unwrap_or_else(|| "{}".to_string())
     }
-    pub fn geometry_revision(&self)->u32 {self.geometry_revision}
+    pub fn geometry_revision(&self) -> u32 {
+        self.geometry_revision
+    }
     /// Control bounds change on scroll or source replacement. Paint and
     /// text-content changes do not invalidate these bounds.
-    pub fn layout_revision(&self)->u32 {self.layout_revision}
-    pub fn range_value(&self,i:usize)->f32 {self.controls.get(i).and_then(|c|c.template.range.as_ref()).map_or(f32::NAN,|r|r.value)}
-    pub fn range_key(&mut self,key:&str)->bool {
-        let Some(i)=self.focused else{return false};
-        if self.controls[i].disabled(){return false;}
-        let Some(range)=Arc::make_mut(&mut self.controls[i].template).range.as_mut() else{return false};
-        range.value=match key {
-            "Home"=>0.,"End"=>1.,
-            "ArrowLeft"|"ArrowDown"=>(range.value-0.01).max(0.),
-            "ArrowRight"|"ArrowUp"=>(range.value+0.01).min(1.),
-            "PageDown"=>(range.value-0.1).max(0.),"PageUp"=>(range.value+0.1).min(1.),
-            _=>return false,
-        };
-        self.refresh_editors();true
+    pub fn layout_revision(&self) -> u32 {
+        self.layout_revision
     }
-    pub fn text_editing(&self)->bool {self.focused.is_some_and(|i|self.editors[i].is_some()&&self.enabled(i))}
+    pub fn range_value(&self, i: usize) -> f32 {
+        self.controls
+            .get(i)
+            .and_then(|c| c.template.range.as_ref())
+            .map_or(f32::NAN, |r| r.value)
+    }
+    pub fn range_key(&mut self, key: &str) -> bool {
+        let Some(i) = self.focused else { return false };
+        if self.controls[i].disabled() {
+            return false;
+        }
+        let Some(range) = Arc::make_mut(&mut self.controls[i].template).range.as_mut() else {
+            return false;
+        };
+        range.value = match key {
+            "Home" => 0.,
+            "End" => 1.,
+            "ArrowLeft" | "ArrowDown" => (range.value - 0.01).max(0.),
+            "ArrowRight" | "ArrowUp" => (range.value + 0.01).min(1.),
+            "PageDown" => (range.value - 0.1).max(0.),
+            "PageUp" => (range.value + 0.1).min(1.),
+            _ => return false,
+        };
+        self.refresh_editors();
+        true
+    }
+    pub fn text_editing(&self) -> bool {
+        self.focused
+            .is_some_and(|i| self.editors[i].is_some() && self.enabled(i))
+    }
     /// Whether this control accepts multiline editing; false for noneditors.
-    pub fn control_readonly(&self,i:usize)->bool {self.editors.get(i).and_then(Option::as_ref).is_some_and(|editor|editor.spec.read_only)}
-    pub fn control_multiline(&self,i:usize)->bool {self.editors.get(i).and_then(Option::as_ref).is_some_and(|editor|editor.spec.multiline)}
-    pub fn control_editable(&self,i:usize)->bool {self.editors.get(i).is_some_and(Option::is_some)}
+    pub fn control_readonly(&self, i: usize) -> bool {
+        self.editors
+            .get(i)
+            .and_then(Option::as_ref)
+            .is_some_and(|editor| editor.spec.read_only)
+    }
+    pub fn control_multiline(&self, i: usize) -> bool {
+        self.editors
+            .get(i)
+            .and_then(Option::as_ref)
+            .is_some_and(|editor| editor.spec.multiline)
+    }
+    pub fn control_editable(&self, i: usize) -> bool {
+        self.editors.get(i).is_some_and(Option::is_some)
+    }
     /// Semantic editor epoch; visual caret animation does not change it.
     /// Zero means unavailable/exhausted: consumers must read the model without caching.
-    pub fn text_model_revision(&self)->u32 {self.focused.and_then(|i|self.editors[i].as_ref()).map_or(0,|editor|editor.semantic_revision)}
-    pub fn text_value(&self,i:usize)->String {self.editors.get(i).and_then(Option::as_ref).map_or_else(String::new,|e|e.model.value().into())}
+    pub fn text_model_revision(&self) -> u32 {
+        self.focused
+            .and_then(|i| self.editors[i].as_ref())
+            .map_or(0, |editor| editor.semantic_revision)
+    }
+    pub fn text_value(&self, i: usize) -> String {
+        self.editors
+            .get(i)
+            .and_then(Option::as_ref)
+            .map_or_else(String::new, |e| e.model.value().into())
+    }
     /// Focused anchor/caret in textarea UTF-16 units, with CRLF normalized to LF.
     /// The model keeps its original bytes; empty without a focused editor.
-    pub fn text_selection_utf16(&self)->Vec<u32> {
-        self.focused.and_then(|i|self.editors[i].as_ref()).map_or_else(Vec::new,|editor|{
-            [editor.model.anchor(),editor.model.caret()].into_iter().map(|at|{let prefix=&editor.model.value()[..at];(prefix.encode_utf16().count()-prefix.as_bytes().windows(2).filter(|pair|*pair==b"\r\n").count()) as u32}).collect()
-        })
+    pub fn text_selection_utf16(&self) -> Vec<u32> {
+        self.focused
+            .and_then(|i| self.editors[i].as_ref())
+            .map_or_else(Vec::new, |editor| {
+                [editor.model.anchor(), editor.model.caret()]
+                    .into_iter()
+                    .map(|at| {
+                        let prefix = &editor.model.value()[..at];
+                        (prefix.encode_utf16().count()
+                            - prefix
+                                .as_bytes()
+                                .windows(2)
+                                .filter(|pair| *pair == b"\r\n")
+                                .count()) as u32
+                    })
+                    .collect()
+            })
     }
     /// Replace the entire text value as one undoable semantic action. Invalid,
     /// readonly, disabled, modal-blocked and oversized requests leave focus and
     /// selection unchanged. The host synchronizes bindings after dispatch.
-    pub fn accessibility_set_text_value(&mut self,node_id:usize,value:&str)->bool {
-        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
-        if !self.control_editable(index)||!self.enabled(index)||self.control_readonly(index){return false;}
+    pub fn accessibility_set_text_value(&mut self, node_id: usize, value: &str) -> bool {
+        let Some(index) = self
+            .nodes
+            .get(node_id)
+            .filter(|node| node.id == node_id)
+            .and_then(|node| node.control)
+        else {
+            return false;
+        };
+        if !self.control_editable(index) || !self.enabled(index) || self.control_readonly(index) {
+            return false;
+        }
         // CRLF normalization can at most halve the byte length.
-        if value.len()>crate::text_input::MAX_VALUE_BYTES*2{return false;}
-        let clean=value.replace("\r\n","\n").replace('\r',"\n");
-        let clean=if self.control_multiline(index){clean}else{clean.replace('\n'," ")};
-        if clean.len()>crate::text_input::MAX_VALUE_BYTES{return false;}
-        if !self.focus_control(index){return false;}
-        let editor=self.editors[index].as_mut().unwrap();
+        if value.len() > crate::text_input::MAX_VALUE_BYTES * 2 {
+            return false;
+        }
+        let clean = value.replace("\r\n", "\n").replace('\r', "\n");
+        let clean = if self.control_multiline(index) {
+            clean
+        } else {
+            clean.replace('\n', " ")
+        };
+        if clean.len() > crate::text_input::MAX_VALUE_BYTES {
+            return false;
+        }
+        if !self.focus_control(index) {
+            return false;
+        }
+        let editor = self.editors[index].as_mut().unwrap();
         editor.set_preedit("");
-        if editor.model.value()!=clean {
-            editor.select_original_utf16(0,u32::MAX);
+        if editor.model.value() != clean {
+            editor.select_original_utf16(0, u32::MAX);
             editor.insert(&clean);
         }
-        self.refresh_editors();true
+        self.refresh_editors();
+        true
     }
     /// Set a normalized `[0.0, 1.0]` slider range value via semantic accessibility action.
     /// Accepts values in `[0.0, 1.0]` or percentage `[0.0, 100.0]` (normalized when `> 1.0 && <= 100.0`).
-    pub fn accessibility_set_range_value(&mut self,node_id:usize,value:f64)->bool {
-        if !value.is_finite()||value<0.||value>100.{return false;}
-        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
-        if !self.enabled(index){return false;}
-        if self.controls.get(index).and_then(|c|c.template.range.as_ref()).is_none(){return false;}
-        if !self.focus_control(index){return false;}
-        let normalized=if value>1.{(value/100.).clamp(0.,1.) as f32}else{value.clamp(0.,1.) as f32};
-        if let Some(range)=Arc::make_mut(&mut self.controls[index].template).range.as_mut() {
-            range.value=normalized;
+    pub fn accessibility_set_range_value(&mut self, node_id: usize, value: f64) -> bool {
+        if !value.is_finite() || value < 0. || value > 100. {
+            return false;
         }
-        self.refresh_editors();true
+        let Some(index) = self
+            .nodes
+            .get(node_id)
+            .filter(|node| node.id == node_id)
+            .and_then(|node| node.control)
+        else {
+            return false;
+        };
+        if !self.enabled(index) {
+            return false;
+        }
+        if self
+            .controls
+            .get(index)
+            .and_then(|c| c.template.range.as_ref())
+            .is_none()
+        {
+            return false;
+        }
+        if !self.focus_control(index) {
+            return false;
+        }
+        let normalized = if value > 1. {
+            (value / 100.).clamp(0., 1.) as f32
+        } else {
+            value.clamp(0., 1.) as f32
+        };
+        if let Some(range) = Arc::make_mut(&mut self.controls[index].template)
+            .range
+            .as_mut()
+        {
+            range.value = normalized;
+        }
+        self.refresh_editors();
+        true
     }
     /// Step a slider range control via semantic accessibility increment/decrement action.
-    pub fn accessibility_step_range(&mut self,node_id:usize,delta:f32)->bool {
-        if !delta.is_finite(){return false;}
-        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
-        if !self.enabled(index){return false;}
-        if self.controls.get(index).and_then(|c|c.template.range.as_ref()).is_none(){return false;}
-        if !self.focus_control(index){return false;}
-        if let Some(range)=Arc::make_mut(&mut self.controls[index].template).range.as_mut() {
-            range.value=(range.value+delta).clamp(0.,1.);
+    pub fn accessibility_step_range(&mut self, node_id: usize, delta: f32) -> bool {
+        if !delta.is_finite() {
+            return false;
         }
-        self.refresh_editors();true
+        let Some(index) = self
+            .nodes
+            .get(node_id)
+            .filter(|node| node.id == node_id)
+            .and_then(|node| node.control)
+        else {
+            return false;
+        };
+        if !self.enabled(index) {
+            return false;
+        }
+        if self
+            .controls
+            .get(index)
+            .and_then(|c| c.template.range.as_ref())
+            .is_none()
+        {
+            return false;
+        }
+        if !self.focus_control(index) {
+            return false;
+        }
+        if let Some(range) = Arc::make_mut(&mut self.controls[index].template)
+            .range
+            .as_mut()
+        {
+            range.value = (range.value + delta).clamp(0., 1.);
+        }
+        self.refresh_editors();
+        true
     }
     /// Dismiss an open modal dialog node via semantic accessibility action.
-    pub fn accessibility_dismiss_modal(&mut self,node_id:usize)->bool {
-        let Some(node)=self.nodes.get(node_id).filter(|node|node.id==node_id&&node.kind==NodeKind::Modal) else{return false;};
-        let modal_idx=self.scene.modals.iter().position(|m|{
-            (!m.controls.is_empty()).then_some(m.controls.start)==node.children.first().and_then(|&cid|self.nodes[cid].control)
-        }).unwrap_or(0);
-        if self.active_modal_index()!=Some(modal_idx){return false;}
+    pub fn accessibility_dismiss_modal(&mut self, node_id: usize) -> bool {
+        let Some(node) = self
+            .nodes
+            .get(node_id)
+            .filter(|node| node.id == node_id && node.kind == NodeKind::Modal)
+        else {
+            return false;
+        };
+        let modal_idx = self
+            .scene
+            .modals
+            .iter()
+            .position(|m| {
+                (!m.controls.is_empty()).then_some(m.controls.start)
+                    == node
+                        .children
+                        .first()
+                        .and_then(|&cid| self.nodes[cid].control)
+            })
+            .unwrap_or(0);
+        if self.active_modal_index() != Some(modal_idx) {
+            return false;
+        }
         self.dismiss_modal(modal_idx)
     }
     /// Apply a semantic scroll action on the scene's ScrollView node.
-    pub fn accessibility_scroll(&mut self,node_id:usize,dx:f32,dy:f32)->bool {
-        let Some(node)=self.nodes.get(node_id).filter(|node|node.id==node_id&&node.kind==NodeKind::Scroll) else{return false;};
-        let _=node;
-        if !self.scene.scroll||self.active_modal_index().is_some()||!dx.is_finite()||!dy.is_finite(){return false;}
-        self.scroll(dx,dy);
+    pub fn accessibility_scroll(&mut self, node_id: usize, dx: f32, dy: f32) -> bool {
+        let Some(node) = self
+            .nodes
+            .get(node_id)
+            .filter(|node| node.id == node_id && node.kind == NodeKind::Scroll)
+        else {
+            return false;
+        };
+        let _ = node;
+        if !self.scene.scroll
+            || self.active_modal_index().is_some()
+            || !dx.is_finite()
+            || !dy.is_finite()
+        {
+            return false;
+        }
+        self.scroll(dx, dy);
         true
     }
     /// Accept a semantic text-selection action using snapshot-local node ID and
     /// UTF-16 offsets in the original value (CRLF retained). Readonly permits
     /// selection; disabled, modal-blocked, noneditor and unknown nodes refuse it.
     /// Returns whether accepted, including an already matching selection.
-    pub fn accessibility_set_text_selection(&mut self,node_id:usize,anchor:u32,caret:u32)->bool {
-        let Some(index)=self.nodes.get(node_id).filter(|node|node.id==node_id).and_then(|node|node.control) else{return false;};
-        if !self.control_editable(index)||!self.enabled(index){return false;}
-        if !self.focus_control(index){return false;}
-        let editor=self.editors[index].as_mut().unwrap();
+    pub fn accessibility_set_text_selection(
+        &mut self,
+        node_id: usize,
+        anchor: u32,
+        caret: u32,
+    ) -> bool {
+        let Some(index) = self
+            .nodes
+            .get(node_id)
+            .filter(|node| node.id == node_id)
+            .and_then(|node| node.control)
+        else {
+            return false;
+        };
+        if !self.control_editable(index) || !self.enabled(index) {
+            return false;
+        }
+        if !self.focus_control(index) {
+            return false;
+        }
+        let editor = self.editors[index].as_mut().unwrap();
         editor.set_preedit("");
-        editor.select_original_utf16(anchor,caret);
-        self.refresh_editors();true
+        editor.select_original_utf16(anchor, caret);
+        self.refresh_editors();
+        true
     }
     /// Apply normalized textarea UTF-16 selection, preserving grapheme boundaries.
-    pub fn text_set_selection_utf16(&mut self,anchor:u32,caret:u32)->bool {
-        if !self.text_editing(){return false;}
-        let changed=self.editors[self.focused.unwrap()].as_mut().unwrap().select_utf16(anchor,caret);
-        self.refresh_editors();changed
+    pub fn text_set_selection_utf16(&mut self, anchor: u32, caret: u32) -> bool {
+        if !self.text_editing() {
+            return false;
+        }
+        let changed = self.editors[self.focused.unwrap()]
+            .as_mut()
+            .unwrap()
+            .select_utf16(anchor, caret);
+        self.refresh_editors();
+        changed
     }
-    pub fn text_selected(&self)->String {self.focused.and_then(|i|self.editors[i].as_ref()).map_or_else(String::new,|e|e.model.selected_text().into())}
-    pub fn text_insert(&mut self,text:&str)->bool {
-        if !self.text_editing() || self.control_readonly(self.focused.unwrap()){return false;}
-        self.editors[self.focused.unwrap()].as_mut().unwrap().insert(text); self.refresh_editors();true
+    pub fn text_selected(&self) -> String {
+        self.focused
+            .and_then(|i| self.editors[i].as_ref())
+            .map_or_else(String::new, |e| e.model.selected_text().into())
     }
-    pub fn text_preedit(&mut self,text:&str) {
-        if self.text_editing(){self.editors[self.focused.unwrap()].as_mut().unwrap().set_preedit(text); self.refresh_editors();}
+    pub fn text_insert(&mut self, text: &str) -> bool {
+        if !self.text_editing() || self.control_readonly(self.focused.unwrap()) {
+            return false;
+        }
+        self.editors[self.focused.unwrap()]
+            .as_mut()
+            .unwrap()
+            .insert(text);
+        self.refresh_editors();
+        true
+    }
+    pub fn text_preedit(&mut self, text: &str) {
+        if self.text_editing() {
+            self.editors[self.focused.unwrap()]
+                .as_mut()
+                .unwrap()
+                .set_preedit(text);
+            self.refresh_editors();
+        }
     }
     /// Host-normalized word modifier (Option on macOS, Ctrl on Windows/Linux).
-    pub fn text_word_key(&mut self,key:&str,shift:bool)->bool {
-        if !self.text_editing(){return false;}
-        let handled=self.editors[self.focused.unwrap()].as_mut().unwrap().word_key(key,shift);
-        self.refresh_editors();handled
-    }
-    pub fn text_key(&mut self,key:&str,shift:bool,command:bool)->bool {
-        if !self.text_editing(){return false;}
-        let index=self.focused.unwrap();
-        let multiline=self.control_multiline(index);
-        let handled=self.editors[index].as_mut().unwrap().key(key,shift,command);
+    pub fn text_word_key(&mut self, key: &str, shift: bool) -> bool {
+        if !self.text_editing() {
+            return false;
+        }
+        let handled = self.editors[self.focused.unwrap()]
+            .as_mut()
+            .unwrap()
+            .word_key(key, shift);
         self.refresh_editors();
-        if handled&&key=="Enter"&&!multiline {
-            self.submissions[index]=self.submissions[index].saturating_add(1);
-            self.last_submitted=Some(index);
+        handled
+    }
+    pub fn text_key(&mut self, key: &str, shift: bool, command: bool) -> bool {
+        if !self.text_editing() {
+            return false;
+        }
+        let index = self.focused.unwrap();
+        let multiline = self.control_multiline(index);
+        let handled = self.editors[index]
+            .as_mut()
+            .unwrap()
+            .key(key, shift, command);
+        self.refresh_editors();
+        if handled && key == "Enter" && !multiline {
+            self.submissions[index] = self.submissions[index].saturating_add(1);
+            self.last_submitted = Some(index);
         }
         handled
     }
-    pub fn text_caret_bounds(&self)->Vec<f32> {
-        let Some(i)=self.focused else{return vec![]};let Some(e)=&self.editors[i] else{return vec![]};
-        let mut rect=e.caret_rect();let b=self.controls[i].bounds_rect();rect[0]+=b[0];rect[1]+=b[1];rect.to_vec()
+    pub fn text_caret_bounds(&self) -> Vec<f32> {
+        let Some(i) = self.focused else { return vec![] };
+        let Some(e) = &self.editors[i] else {
+            return vec![];
+        };
+        let mut rect = e.caret_rect();
+        let b = self.controls[i].bounds_rect();
+        rect[0] += b[0];
+        rect[1] += b[1];
+        rect.to_vec()
     }
     /// Number of visual lines produced by soft-wrapping the control's text editor.
-    pub fn text_soft_line_count(&self,i:usize)->usize {
-        self.editors.get(i).and_then(Option::as_ref).map_or(0,|e|e.soft_wrapped_lines().len())
+    pub fn text_soft_line_count(&self, i: usize) -> usize {
+        self.editors
+            .get(i)
+            .and_then(Option::as_ref)
+            .map_or(0, |e| e.soft_wrapped_lines().len())
     }
     /// Hit-test a point inside the focused editor using visual soft-wrapping.
-    pub fn text_hit_soft_wrapped(&mut self,x:f32,y:f32,extend:bool)->bool {
-        let Some(i)=self.focused else{return false;};
-        if !self.text_editing(){return false;}
-        let b=self.controls[i].bounds_rect();
-        self.editors[i].as_mut().unwrap().hit_soft_wrapped(x-b[0],y-b[1],extend);
-        self.refresh_editors();true
+    pub fn text_hit_soft_wrapped(&mut self, x: f32, y: f32, extend: bool) -> bool {
+        let Some(i) = self.focused else {
+            return false;
+        };
+        if !self.text_editing() {
+            return false;
+        }
+        let b = self.controls[i].bounds_rect();
+        self.editors[i]
+            .as_mut()
+            .unwrap()
+            .hit_soft_wrapped(x - b[0], y - b[1], extend);
+        self.refresh_editors();
+        true
     }
     pub fn control_count(&self) -> usize {
         self.controls.len()
@@ -1498,10 +1994,19 @@ impl Runtime {
         self.controls.get(i).map(Button::key).unwrap_or_default()
     }
     /// Stable editor name, separate from current value (label, placeholder, key).
-    pub fn control_input_label(&self,i:usize)->String {
-        self.editors.get(i).and_then(Option::as_ref).map_or_else(String::new,|editor|{
-            if !editor.spec.label.is_empty(){editor.spec.label.clone()}else if !editor.spec.placeholder.is_empty(){editor.spec.placeholder.clone()}else{self.control_key(i)}
-        })
+    pub fn control_input_label(&self, i: usize) -> String {
+        self.editors
+            .get(i)
+            .and_then(Option::as_ref)
+            .map_or_else(String::new, |editor| {
+                if !editor.spec.label.is_empty() {
+                    editor.spec.label.clone()
+                } else if !editor.spec.placeholder.is_empty() {
+                    editor.spec.placeholder.clone()
+                } else {
+                    self.control_key(i)
+                }
+            })
     }
     pub fn control_label(&self, i: usize) -> String {
         self.controls.get(i).map(Button::label).unwrap_or_default()
@@ -1522,7 +2027,10 @@ impl Runtime {
         self.submissions.get(i).copied().unwrap_or(0)
     }
     pub fn submissions(&self) -> u32 {
-        self.submissions.iter().copied().fold(0, u32::saturating_add)
+        self.submissions
+            .iter()
+            .copied()
+            .fold(0, u32::saturating_add)
     }
     pub fn submitted_index(&self) -> i32 {
         self.last_submitted.map_or(-1, |i| i as i32)
@@ -1538,14 +2046,22 @@ impl Runtime {
     }
     /// Layer index of a control, -1 for the base scene.
     pub fn control_modal(&self, i: usize) -> i32 {
-        self.modal_of.get(i).copied().flatten().map_or(-1, |m| m as i32)
+        self.modal_of
+            .get(i)
+            .copied()
+            .flatten()
+            .map_or(-1, |m| m as i32)
     }
     /// Hidden by a closed layer or covered by another layer's backdrop.
     pub fn control_blocked(&self, i: usize) -> bool {
         i >= self.controls.len() || !self.visible(i) || !self.reachable(i)
     }
     pub fn modal_key(&self, m: usize) -> String {
-        self.scene.modals.get(m).map(|s| s.key.clone()).unwrap_or_default()
+        self.scene
+            .modals
+            .get(m)
+            .map(|s| s.key.clone())
+            .unwrap_or_default()
     }
     pub fn modal_is_open(&self, m: usize) -> bool {
         self.modal_open.get(m).copied().unwrap_or(false)
@@ -1554,27 +2070,44 @@ impl Runtime {
         self.scene.modals.get(m).is_some_and(|s| s.dismiss)
     }
     pub fn modal_action(&self, m: usize) -> String {
-        self.scene.modals.get(m).and_then(|s| s.action.clone()).unwrap_or_default()
+        self.scene
+            .modals
+            .get(m)
+            .and_then(|s| s.action.clone())
+            .unwrap_or_default()
     }
     pub fn modal_bounds(&self, m: usize) -> Vec<f32> {
-        self.scene.modals.get(m).map(|s| vec![s.x, s.y, s.width, s.height]).unwrap_or_default()
+        self.scene
+            .modals
+            .get(m)
+            .map(|s| vec![s.x, s.y, s.width, s.height])
+            .unwrap_or_default()
     }
     pub fn active_modal(&self) -> i32 {
         self.active_modal_index().map_or(-1, |m| m as i32)
     }
-    pub fn modal_count(&self) -> usize { self.scene.modals.len() }
+    pub fn modal_count(&self) -> usize {
+        self.scene.modals.len()
+    }
     pub fn open_modal(&mut self, m: usize) -> bool {
-        if m >= self.modal_open.len() || self.modal_open[m] { return false; }
+        if m >= self.modal_open.len() || self.modal_open[m] {
+            return false;
+        }
         self.modal_open[m] = true;
         self.modal_restore[m] = self.focused;
         self.cancel_gestures();
-        let first = self.scene.modals[m].controls.clone().find(|&i| self.enabled(i));
+        let first = self.scene.modals[m]
+            .controls
+            .clone()
+            .find(|&i| self.enabled(i));
         self.set_focus(first);
         self.invalidate_layers();
         true
     }
     pub fn close_modal(&mut self, m: usize) -> bool {
-        if m >= self.modal_open.len() || !self.modal_open[m] { return false; }
+        if m >= self.modal_open.len() || !self.modal_open[m] {
+            return false;
+        }
         self.modal_open[m] = false;
         let restore = self.modal_restore[m].take();
         self.cancel_gestures();
@@ -1586,13 +2119,19 @@ impl Runtime {
     /// Escape or a press on the backdrop: closes the layer and records a
     /// dismissal so hosts can run the layer's `dismissed` handler.
     pub fn dismiss_modal(&mut self, m: usize) -> bool {
-        if m >= self.scene.modals.len() || !self.scene.modals[m].dismiss || !self.close_modal(m) { return false; }
+        if m >= self.scene.modals.len() || !self.scene.modals[m].dismiss || !self.close_modal(m) {
+            return false;
+        }
         self.dismissals = self.dismissals.wrapping_add(1);
         self.last_dismissed = Some(m);
         true
     }
-    pub fn dismiss_count(&self) -> u32 { self.dismissals }
-    pub fn dismissed_index(&self) -> i32 { self.last_dismissed.map_or(-1, |m| m as i32) }
+    pub fn dismiss_count(&self) -> u32 {
+        self.dismissals
+    }
+    pub fn dismissed_index(&self) -> i32 {
+        self.last_dismissed.map_or(-1, |m| m as i32)
+    }
     pub fn event_index(&self) -> i32 {
         self.last_event.map_or(-1, |i| i as i32)
     }
@@ -1615,7 +2154,10 @@ impl Runtime {
         if self.clipped() { "hidden" } else { "visible" }.into()
     }
     pub fn background_color(&self) -> String {
-         { let c=self.scene.background; format!("#{:02x}{:02x}{:02x}{:02x}",c[0],c[1],c[2],c[3]) }
+        {
+            let c = self.scene.background;
+            format!("#{:02x}{:02x}{:02x}{:02x}", c[0], c[1], c[2], c[3])
+        }
     }
     pub fn render_width(&self) -> f32 {
         if self.scene.clip || self.scene.scroll {
@@ -1644,8 +2186,11 @@ impl Runtime {
         // Modal input is isolated from the base scroll container, just as
         // pointer hit testing and keyboard focus are isolated from the base.
         // A refused scroll must also preserve the active modal's press.
-        if !self.scene.scroll || self.active_modal_index().is_some()
-            || !dx.is_finite() || !dy.is_finite() {
+        if !self.scene.scroll
+            || self.active_modal_index().is_some()
+            || !dx.is_finite()
+            || !dy.is_finite()
+        {
             return;
         }
         let v = self.viewport_rect();
@@ -1660,7 +2205,9 @@ impl Runtime {
             self.layout_revision = self.layout_revision.wrapping_add(1);
         }
         for (i, c) in self.controls.iter_mut().enumerate() {
-            if self.modal_of[i].is_some() { continue; }
+            if self.modal_of[i].is_some() {
+                continue;
+            }
             c.scroll_x = self.scroll[0];
             c.scroll_y = self.scroll[1];
         }
@@ -1681,12 +2228,17 @@ impl Runtime {
             return -1;
         }
         let v = self.viewport_rect();
-        let outside_viewport = self.scene.scroll && (x < v[0] || y < v[1] || x >= v[0] + v[2] || y >= v[1] + v[3]);
+        let outside_viewport =
+            self.scene.scroll && (x < v[0] || y < v[1] || x >= v[0] + v[2] || y >= v[1] + v[3]);
         self.controls
             .iter()
             .enumerate()
             .rev()
-            .find(|(i, c)| self.reachable(*i) && !(outside_viewport && self.modal_of[*i].is_none()) && c.hit(x, y))
+            .find(|(i, c)| {
+                self.reachable(*i)
+                    && !(outside_viewport && self.modal_of[*i].is_none())
+                    && c.hit(x, y)
+            })
             .map_or(-1, |(i, _)| i as i32)
     }
     pub fn hit(&self, x: f32, y: f32) -> bool {
@@ -1706,10 +2258,15 @@ impl Runtime {
         self.update_revision(before);
     }
     pub fn focus_control(&mut self, index: usize) -> bool {
-        if index >= self.controls.len() || !self.enabled(index) { return false; }
+        if index >= self.controls.len() || !self.enabled(index) {
+            return false;
+        }
         let before = self.child_revision();
         self.captured = None;
-        for c in &mut self.controls { c.down = false; c.keyboard = None; }
+        for c in &mut self.controls {
+            c.down = false;
+            c.keyboard = None;
+        }
         self.set_focus(Some(index));
         self.update_revision(before);
         true
@@ -1745,17 +2302,25 @@ impl Runtime {
     /// layer even while its text field is being edited.
     pub fn key_event(&mut self, key: u8, pressed: bool, repeat: bool) {
         if key == 3 {
-            if pressed && !repeat { if let Some(m) = self.active_modal_index() { self.dismiss_modal(m); } }
+            if pressed && !repeat {
+                if let Some(m) = self.active_modal_index() {
+                    self.dismiss_modal(m);
+                }
+            }
             return;
         }
-        if self.text_editing(){return;}
+        if self.text_editing() {
+            return;
+        }
         if let Some(i) = self.focused {
             let before = self.child_revision();
             let clicks = self.controls[i].clicks();
             self.controls[i].key_event(key, pressed, repeat);
             if self.controls[i].clicks() != clicks {
                 self.last_event = Some(i);
-                if self.ui_document.is_some() { self.ui_activations.record(i); }
+                if self.ui_document.is_some() {
+                    self.ui_activations.record(i);
+                }
             }
             self.update_revision(before);
         }
@@ -1763,7 +2328,9 @@ impl Runtime {
     pub fn pointer(&mut self, x: f32, y: f32, kind: u8) {
         let before = self.child_revision();
         let active = self.active_modal_index();
-        for (i, c) in self.controls.iter_mut().enumerate() { c.reveal_pointer(x, y, kind != 3 && self.modal_of[i] == active); }
+        for (i, c) in self.controls.iter_mut().enumerate() {
+            c.reveal_pointer(x, y, kind != 3 && self.modal_of[i] == active);
+        }
         let hit = usize::try_from(self.hit_index(x, y)).ok();
         if kind == 1 {
             for c in &mut self.controls {
@@ -1775,7 +2342,9 @@ impl Runtime {
                 if let Some(m) = active {
                     let s = &self.scene.modals[m];
                     let inside = x >= s.x && y >= s.y && x < s.x + s.width && y < s.y + s.height;
-                    if !inside { self.dismiss_modal(m); }
+                    if !inside {
+                        self.dismiss_modal(m);
+                    }
                 }
             }
         }
@@ -1791,14 +2360,20 @@ impl Runtime {
             c.pointer_interaction(px, py, event);
             if c.clicks() != clicks {
                 self.last_event = Some(i);
-                if self.ui_document.is_some() { self.ui_activations.record(i); }
+                if self.ui_document.is_some() {
+                    self.ui_activations.record(i);
+                }
             }
         }
-        if kind==1 || (kind==0 && self.captured.is_some()) {
-            if let Some(i)=self.captured {
-                let b=self.controls[i].bounds_rect();
-                if let Some(editor)=&mut self.editors[i] {editor.hit(x-b[0],y-b[1],kind==0);}
-                if let Some(range)=Arc::make_mut(&mut self.controls[i].template).range.as_mut() {range.value=((x-b[0]-8.)/(b[2]-16.).max(1.)).clamp(0.,1.);}
+        if kind == 1 || (kind == 0 && self.captured.is_some()) {
+            if let Some(i) = self.captured {
+                let b = self.controls[i].bounds_rect();
+                if let Some(editor) = &mut self.editors[i] {
+                    editor.hit(x - b[0], y - b[1], kind == 0);
+                }
+                if let Some(range) = Arc::make_mut(&mut self.controls[i].template).range.as_mut() {
+                    range.value = ((x - b[0] - 8.) / (b[2] - 16.).max(1.)).clamp(0., 1.);
+                }
             }
             self.refresh_editors();
         }
@@ -1816,13 +2391,17 @@ impl Runtime {
         }
     }
     pub fn activate_control(&mut self, i: usize) {
-        if i < self.controls.len() && !self.reachable(i) { return; }
+        if i < self.controls.len() && !self.reachable(i) {
+            return;
+        }
         if let Some(c) = self.controls.get_mut(i) {
             let count = c.clicks();
             c.activate();
             if c.clicks() != count {
                 self.last_event = Some(i);
-                if self.ui_document.is_some() { self.ui_activations.record(i); }
+                if self.ui_document.is_some() {
+                    self.ui_activations.record(i);
+                }
             }
         }
     }
@@ -1833,19 +2412,31 @@ impl Runtime {
             .fold(0, u32::saturating_add)
     }
     pub fn key(&self) -> String {
-        self.controls.get(self.active()).map(Button::key).unwrap_or_default()
+        self.controls
+            .get(self.active())
+            .map(Button::key)
+            .unwrap_or_default()
     }
     pub fn label(&self) -> String {
-        self.controls.get(self.active()).map(Button::label).unwrap_or_default()
+        self.controls
+            .get(self.active())
+            .map(Button::label)
+            .unwrap_or_default()
     }
     pub fn action(&self) -> String {
-        self.controls.get(self.active()).map(Button::action).unwrap_or_default()
+        self.controls
+            .get(self.active())
+            .map(Button::action)
+            .unwrap_or_default()
     }
     pub fn disabled(&self) -> bool {
         self.controls.iter().all(Button::disabled)
     }
     pub fn bounds(&self) -> Vec<f32> {
-        self.controls.get(self.focused.unwrap_or(0)).map(Button::bounds).unwrap_or_else(||vec![0.,0.,self.width(),self.height()])
+        self.controls
+            .get(self.focused.unwrap_or(0))
+            .map(Button::bounds)
+            .unwrap_or_else(|| vec![0., 0., self.width(), self.height()])
     }
     pub fn is_focused(&self) -> bool {
         self.focused.is_some()
@@ -1854,19 +2445,30 @@ impl Runtime {
         self.revision
     }
     pub fn is_animating(&self) -> bool {
-        self.controls.iter().any(Button::is_animating) || self.editors.iter().flatten().any(crate::text_input::Editor::is_animating)
+        self.controls.iter().any(Button::is_animating)
+            || self
+                .editors
+                .iter()
+                .flatten()
+                .any(crate::text_input::Editor::is_animating)
     }
     /// Proximity reaches sibling controls even when the pointer is outside all hits.
     pub fn reveal_pointer(&mut self, x: f32, y: f32, present: bool) {
         let before = self.child_revision();
         let active = self.active_modal_index();
-        for (i, c) in self.controls.iter_mut().enumerate() { c.reveal_pointer(x, y, present && self.modal_of[i] == active); }
+        for (i, c) in self.controls.iter_mut().enumerate() {
+            c.reveal_pointer(x, y, present && self.modal_of[i] == active);
+        }
         self.update_revision(before);
     }
     pub fn set_reduced_motion(&mut self, reduced: bool) {
         let before = self.child_revision();
-        for c in &mut self.controls { c.set_reduced_motion(reduced); }
-        for editor in self.editors.iter_mut().flatten() {editor.reduced_motion(reduced);}
+        for c in &mut self.controls {
+            c.set_reduced_motion(reduced);
+        }
+        for editor in self.editors.iter_mut().flatten() {
+            editor.reduced_motion(reduced);
+        }
         self.refresh_editors();
         self.update_revision(before);
     }
@@ -1875,7 +2477,9 @@ impl Runtime {
         for c in &mut self.controls {
             c.tick(dt);
         }
-        for editor in self.editors.iter_mut().flatten() {editor.tick(dt);}
+        for editor in self.editors.iter_mut().flatten() {
+            editor.tick(dt);
+        }
         self.refresh_editors();
         self.update_revision(before);
         self.is_animating()
@@ -1886,52 +2490,87 @@ impl Runtime {
     fn preserve_interaction_matches(&mut self, previous: &Runtime) -> Vec<Option<usize>> {
         use std::collections::HashMap;
         // Reconcile only unambiguous identities; never transfer a gesture by index.
-        let mut previous_keys: HashMap<&str, Option<usize>> = HashMap::with_capacity(previous.controls.len());
+        let mut previous_keys: HashMap<&str, Option<usize>> =
+            HashMap::with_capacity(previous.controls.len());
         for (i, c) in previous.controls.iter().enumerate() {
             let key = c.scene.button.key.as_str();
             if !key.is_empty() {
-                previous_keys.entry(key).and_modify(|i| *i = None).or_insert(Some(i));
+                previous_keys
+                    .entry(key)
+                    .and_modify(|i| *i = None)
+                    .or_insert(Some(i));
             }
         }
         let matches: Vec<Option<usize>> = {
-            let mut current_counts: HashMap<&str, usize> = HashMap::with_capacity(self.controls.len());
+            let mut current_counts: HashMap<&str, usize> =
+                HashMap::with_capacity(self.controls.len());
             for c in &self.controls {
                 let key = c.scene.button.key.as_str();
                 if !key.is_empty() {
                     *current_counts.entry(key).or_default() += 1;
                 }
             }
-            self.controls.iter().map(|c| {
-                let key=c.scene.button.key.as_str();
-                if current_counts.get(key) == Some(&1) { previous_keys.get(key).copied().flatten() } else { None }
-            }).collect()
+            self.controls
+                .iter()
+                .map(|c| {
+                    let key = c.scene.button.key.as_str();
+                    if current_counts.get(key) == Some(&1) {
+                        previous_keys.get(key).copied().flatten()
+                    } else {
+                        None
+                    }
+                })
+                .collect()
         };
-        self.scroll(previous.scroll[0] - self.scroll[0], previous.scroll[1] - self.scroll[1]);
+        self.scroll(
+            previous.scroll[0] - self.scroll[0],
+            previous.scroll[1] - self.scroll[1],
+        );
         // A layer keeps its runtime open/closed state and focus-restore target
         // while its source still declares the same initial state under one key.
         let mut layers_changed = false;
         for (m, spec) in self.scene.modals.iter().enumerate() {
-            if spec.key.is_empty() { continue; }
-            let Some(old) = previous.scene.modals.iter().position(|p| p.key == spec.key && p.open == spec.open) else { continue };
-            if self.modal_open[m] != previous.modal_open[old] { self.modal_open[m] = previous.modal_open[old]; layers_changed = true; }
-            self.modal_restore[m] = previous.modal_restore[old].and_then(|target| matches.iter().position(|x| *x == Some(target)));
+            if spec.key.is_empty() {
+                continue;
+            }
+            let Some(old) = previous
+                .scene
+                .modals
+                .iter()
+                .position(|p| p.key == spec.key && p.open == spec.open)
+            else {
+                continue;
+            };
+            if self.modal_open[m] != previous.modal_open[old] {
+                self.modal_open[m] = previous.modal_open[old];
+                layers_changed = true;
+            }
+            self.modal_restore[m] = previous.modal_restore[old]
+                .and_then(|target| matches.iter().position(|x| *x == Some(target)));
         }
         self.dismissals = previous.dismissals;
-        if layers_changed { self.invalidate_layers(); }
+        if layers_changed {
+            self.invalidate_layers();
+        }
         let before = self.child_revision();
         let mut focused = None;
         for (i, c) in self.controls.iter_mut().enumerate() {
             if let Some(old) = matches[i] {
                 c.preserve_interaction(&previous.controls[old]);
-                self.submissions[i]=previous.submissions[old];
-                if previous.focused == Some(old) && !c.disabled() && c.template.clickable { focused = Some(i); }
+                self.submissions[i] = previous.submissions[old];
+                if previous.focused == Some(old) && !c.disabled() && c.template.clickable {
+                    focused = Some(i);
+                }
             }
         }
         for i in 0..self.controls.len() {
-            if let Some(old)=matches[i] {
-                if let (Some(next),Some(prev))=(&mut self.editors[i],&previous.editors[old]) {
-                    if (next.spec.value==prev.spec.value || next.spec.value==prev.model.value()) && next.spec.multiline==prev.spec.multiline {
-                        next.model=prev.model.clone();next.invalidate_content();
+            if let Some(old) = matches[i] {
+                if let (Some(next), Some(prev)) = (&mut self.editors[i], &previous.editors[old]) {
+                    if (next.spec.value == prev.spec.value || next.spec.value == prev.model.value())
+                        && next.spec.multiline == prev.spec.multiline
+                    {
+                        next.model = prev.model.clone();
+                        next.invalidate_content();
                     }
                 }
             }
@@ -1966,7 +2605,9 @@ impl Runtime {
     pub fn release_cpu_cache(&self) {
         let had_root = self.raster_cache.borrow_mut().take().is_some();
         if had_root || self.controls.len() == 1 {
-            for control in &self.controls { control.release_cpu_cache(); }
+            for control in &self.controls {
+                control.release_cpu_cache();
+            }
         }
     }
     pub fn gpu_commands(&self, s: f32, b: bool) -> Vec<f32> {
@@ -1993,8 +2634,12 @@ impl Runtime {
     }
 }
 impl RenderScene for Runtime {
-    fn release_cpu_cache(&self) { Runtime::release_cpu_cache(self); }
-    fn gpu_scroll(&self) -> [f32; 2] { self.scroll }
+    fn release_cpu_cache(&self) {
+        Runtime::release_cpu_cache(self);
+    }
+    fn gpu_scroll(&self) -> [f32; 2] {
+        self.scroll
+    }
     fn vector_snapshot(&self, s: f32, b: bool) -> Arc<DisplayList> {
         Runtime::vector_snapshot(self, s, b)
     }
@@ -2006,18 +2651,47 @@ impl RenderScene for Runtime {
     }
     fn gpu_paints_into(&self, out: &mut Vec<f32>) {
         out.clear();
-        let reveal_count = self.controls.iter().filter(|c| c.template.reveal.is_some()).count();
+        let reveal_count = self
+            .controls
+            .iter()
+            .filter(|c| c.template.reveal.is_some())
+            .count();
         out.reserve(self.controls.len() * 8 + reveal_count * 8);
         for c in &self.controls {
-            out.extend(c.fill.color().into_iter().chain(c.border.color()).map(|v| v as f32 / 255.));
+            out.extend(
+                c.fill
+                    .color()
+                    .into_iter()
+                    .chain(c.border.color())
+                    .map(|v| v as f32 / 255.),
+            );
         }
         for c in &self.controls {
-            if c.template.reveal.is_some() { out.extend(c.reveal_paint().gpu()); }
+            if c.template.reveal.is_some() {
+                out.extend(c.reveal_paint().gpu());
+            }
         }
     }
     fn gpu_params_into(&self, w: u32, h: u32, s: f32, o: bool, out: &mut Vec<f32>) {
         out.clear();
-        out.extend_from_slice(&[w as f32, h as f32, s, if o { 1. } else { 0. }, 0., 0., 0., 0., 0., 0., 0., 0., self.scroll[0], self.scroll[1], 0., 0.]);
+        out.extend_from_slice(&[
+            w as f32,
+            h as f32,
+            s,
+            if o { 1. } else { 0. },
+            0.,
+            0.,
+            0.,
+            0.,
+            0.,
+            0.,
+            0.,
+            0.,
+            self.scroll[0],
+            self.scroll[1],
+            0.,
+            0.,
+        ]);
     }
 }
 
@@ -2027,22 +2701,37 @@ mod tests {
     #[test]
     fn disabling_editor_cancels_preedit_capture_and_stale_release() {
         let files=std::collections::BTreeMap::from([("App.ui".into(),"component App { state query: String = 'seed'; Column { width:260; height:120; TextInput { key:'editor'; width:200; height:32; value <-> state.query; } } }".into())]);
-        let mut runtime=Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
-        let bounds=runtime.control_bounds(0);let (x,y)=(bounds[0]+10.,bounds[1]+10.);
-        runtime.pointer(x,y,0);runtime.pointer(x,y,1);
-        assert_eq!(runtime.captured,Some(0));assert!(runtime.text_editing());
-        runtime.text_preedit("未確定");assert!(!runtime.editors[0].as_ref().unwrap().preedit.is_empty());
-        let clicks=runtime.control_clicks(0);
-        runtime.set_binding_disabled(0,true).unwrap();
-        assert!(runtime.captured.is_none());assert_eq!(runtime.focused_index(),-1);
+        let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+        let bounds = runtime.control_bounds(0);
+        let (x, y) = (bounds[0] + 10., bounds[1] + 10.);
+        runtime.pointer(x, y, 0);
+        runtime.pointer(x, y, 1);
+        assert_eq!(runtime.captured, Some(0));
+        assert!(runtime.text_editing());
+        runtime.text_preedit("未確定");
+        assert!(!runtime.editors[0].as_ref().unwrap().preedit.is_empty());
+        let clicks = runtime.control_clicks(0);
+        runtime.set_binding_disabled(0, true).unwrap();
+        assert!(runtime.captured.is_none());
+        assert_eq!(runtime.focused_index(), -1);
         assert!(runtime.editors[0].as_ref().unwrap().preedit.is_empty());
-        assert!(!runtime.controls[0].down);assert!(!runtime.text_insert("blocked"));
-        runtime.set_binding_disabled(0,true).unwrap();
-        runtime.set_binding_disabled(0,false).unwrap();
-        runtime.pointer(x,y,2);assert_eq!(runtime.control_clicks(0),clicks,"release from retired press cannot activate");
-        assert!(runtime.focus_control(0));runtime.text_key("End",false,false);runtime.text_insert("-back");runtime.sync_ui_bindings_native().unwrap();
-        assert_eq!(runtime.text_value(0),"seed-back");
-        let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();assert_eq!(state["query"],"seed-back");
+        assert!(!runtime.controls[0].down);
+        assert!(!runtime.text_insert("blocked"));
+        runtime.set_binding_disabled(0, true).unwrap();
+        runtime.set_binding_disabled(0, false).unwrap();
+        runtime.pointer(x, y, 2);
+        assert_eq!(
+            runtime.control_clicks(0),
+            clicks,
+            "release from retired press cannot activate"
+        );
+        assert!(runtime.focus_control(0));
+        runtime.text_key("End", false, false);
+        runtime.text_insert("-back");
+        runtime.sync_ui_bindings_native().unwrap();
+        assert_eq!(runtime.text_value(0), "seed-back");
+        let state: serde_json::Value = serde_json::from_str(&runtime.ui_state_json()).unwrap();
+        assert_eq!(state["query"], "seed-back");
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -2052,113 +2741,219 @@ mod tests {
             ("App.ui".into(),"component App { state locked: Bool = false; state query: String = 'seed'; Column { width:260; height:160; TextInput { key:'editor'; disabled:state.locked; width:200; height:32; value <-> state.query; } Toggle { key:'lock'; checked <-> state.locked; } } }".into()),
             ("Toggle.component.ui".into(),"component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".into()),
         ]);
-        for svet in [false,true] {
-            let mut runtime=Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();runtime.set_svet_document_scheduling(svet);
-            assert!(runtime.focus_control(0));runtime.text_key("End",false,false);runtime.text_insert("-kept");runtime.text_preedit("未確定");
-            runtime.activate_control(1);assert!(runtime.sync_ui_bindings_native().unwrap());
-            assert!(runtime.control_disabled(0));assert!(!runtime.text_editing());
-            assert!(!runtime.focus_control(0));assert!(!runtime.text_insert("-blocked"));
-            assert_eq!(runtime.text_value(0),"seed-kept");
-            let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();assert_eq!(state["locked"],true);assert_eq!(state["query"],"seed-kept");
-            runtime.activate_control(1);assert!(runtime.sync_ui_bindings_native().unwrap());
-            assert!(!runtime.control_disabled(0));assert!(runtime.focus_control(0));runtime.text_key("End",false,false);runtime.text_insert("-back");runtime.sync_ui_bindings_native().unwrap();
-            let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();assert_eq!(state["locked"],false);assert_eq!(state["query"],"seed-kept-back");
-            assert_eq!(runtime.svet_document_telemetry().is_some(),svet);
+        for svet in [false, true] {
+            let mut runtime =
+                Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+            runtime.set_svet_document_scheduling(svet);
+            assert!(runtime.focus_control(0));
+            runtime.text_key("End", false, false);
+            runtime.text_insert("-kept");
+            runtime.text_preedit("未確定");
+            runtime.activate_control(1);
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert!(runtime.control_disabled(0));
+            assert!(!runtime.text_editing());
+            assert!(!runtime.focus_control(0));
+            assert!(!runtime.text_insert("-blocked"));
+            assert_eq!(runtime.text_value(0), "seed-kept");
+            let state: serde_json::Value = serde_json::from_str(&runtime.ui_state_json()).unwrap();
+            assert_eq!(state["locked"], true);
+            assert_eq!(state["query"], "seed-kept");
+            runtime.activate_control(1);
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+            assert!(!runtime.control_disabled(0));
+            assert!(runtime.focus_control(0));
+            runtime.text_key("End", false, false);
+            runtime.text_insert("-back");
+            runtime.sync_ui_bindings_native().unwrap();
+            let state: serde_json::Value = serde_json::from_str(&runtime.ui_state_json()).unwrap();
+            assert_eq!(state["locked"], false);
+            assert_eq!(state["query"], "seed-kept-back");
+            assert_eq!(runtime.svet_document_telemetry().is_some(), svet);
         }
     }
 
     #[test]
     fn builtin_text_input_disabled_property_controls_input_and_accessibility() {
         let files=std::collections::BTreeMap::from([("App.ui".into(), "component App { state locked: Bool = true; state a: String = 'locked'; state b: String = 'open'; Column { width:260; height:120; TextInput { key:'a'; disabled:state.locked; width:200; height:32; value <-> state.a; } TextInput { key:'b'; width:200; height:32; value <-> state.b; } } }".into())]);
-        let mut runtime=Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
-        assert!(runtime.control_disabled(0));assert!(!runtime.focus_control(0));
+        let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+        assert!(runtime.control_disabled(0));
+        assert!(!runtime.focus_control(0));
         assert!(!runtime.text_insert("blocked"));
-        runtime.focus(true);assert_eq!(runtime.focused_index(),1);
-        runtime.text_key("End",false,false);runtime.text_insert("!");runtime.sync_ui_bindings_native().unwrap();
-        let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();
-        assert_eq!(state["a"],"locked");assert_eq!(state["b"],"open!");
-        let a11y=runtime.accessibility_tree();
-        let locked=a11y.nodes.iter().find(|node|node.key=="a").unwrap();
-        assert!(locked.disabled);assert!(locked.actions.is_empty());
-        runtime.load_ui_files_json_native(&serde_json::to_string(&files).unwrap(),"App.ui",r#"{"locked":false,"a":"locked","b":"open!"}"#).unwrap();
-        assert!(!runtime.control_disabled(0));assert!(runtime.focus_control(0));
-        runtime.text_key("End",false,false);runtime.text_insert("-enabled");runtime.sync_ui_bindings_native().unwrap();
-        let state:serde_json::Value=serde_json::from_str(&runtime.ui_state_json()).unwrap();
-        assert_eq!(state["a"],"locked-enabled");assert_eq!(state["b"],"open!");
-        let a11y=runtime.accessibility_tree();let enabled=a11y.nodes.iter().find(|node|node.key=="a").unwrap();
-        assert!(!enabled.disabled);assert!(enabled.actions.contains(&"set_value"));
+        runtime.focus(true);
+        assert_eq!(runtime.focused_index(), 1);
+        runtime.text_key("End", false, false);
+        runtime.text_insert("!");
+        runtime.sync_ui_bindings_native().unwrap();
+        let state: serde_json::Value = serde_json::from_str(&runtime.ui_state_json()).unwrap();
+        assert_eq!(state["a"], "locked");
+        assert_eq!(state["b"], "open!");
+        let a11y = runtime.accessibility_tree();
+        let locked = a11y.nodes.iter().find(|node| node.key == "a").unwrap();
+        assert!(locked.disabled);
+        assert!(locked.actions.is_empty());
+        runtime
+            .load_ui_files_json_native(
+                &serde_json::to_string(&files).unwrap(),
+                "App.ui",
+                r#"{"locked":false,"a":"locked","b":"open!"}"#,
+            )
+            .unwrap();
+        assert!(!runtime.control_disabled(0));
+        assert!(runtime.focus_control(0));
+        runtime.text_key("End", false, false);
+        runtime.text_insert("-enabled");
+        runtime.sync_ui_bindings_native().unwrap();
+        let state: serde_json::Value = serde_json::from_str(&runtime.ui_state_json()).unwrap();
+        assert_eq!(state["a"], "locked-enabled");
+        assert_eq!(state["b"], "open!");
+        let a11y = runtime.accessibility_tree();
+        let enabled = a11y.nodes.iter().find(|node| node.key == "a").unwrap();
+        assert!(!enabled.disabled);
+        assert!(enabled.actions.contains(&"set_value"));
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn native_project_reload_refuses_atomically_and_keeps_scheduler_choice() {
-        let project = |value: &str| serde_json::to_string(&std::collections::BTreeMap::from([(
+        let project = |value: &str| {
+            serde_json::to_string(&std::collections::BTreeMap::from([(
             "App.ui", format!("component App {{ state query: String = '{value}'; Column {{ width:220; height:100; TextInput {{ key:'editor'; width:200; height:32; value <-> state.query; }} }} }}"),
-        )])).unwrap();
+        )])).unwrap()
+        };
         for svet in [false, true] {
             let mut runtime = Runtime::new();
             runtime.set_svet_document_scheduling(svet);
-            runtime.load_ui_files_json_native(&project("old"), "App.ui", "{}").unwrap();
+            runtime
+                .load_ui_files_json_native(&project("old"), "App.ui", "{}")
+                .unwrap();
             assert_eq!(runtime.svet_document_telemetry().is_some(), svet);
             assert!(runtime.focus_control(0));
             runtime.text_insert("!");
             runtime.sync_ui_bindings_native().unwrap();
             let state = runtime.ui_state_json();
             let text = runtime.text_value(0);
-            let versions = (runtime.revision, runtime.geometry_revision, runtime.layout_revision);
+            let versions = (
+                runtime.revision,
+                runtime.geometry_revision,
+                runtime.layout_revision,
+            );
             for (files, entry, initial) in [
                 ("{", "App.ui", "{}"),
                 ("{}", "missing.ui", "{}"),
-                (r#"{"App.ui":"component App { Missing {} }"}"#, "App.ui", "{}"),
+                (
+                    r#"{"App.ui":"component App { Missing {} }"}"#,
+                    "App.ui",
+                    "{}",
+                ),
                 (project("next").as_str(), "App.ui", "{"),
             ] {
-                assert!(runtime.load_ui_files_json_native(files, entry, initial).is_err());
+                assert!(
+                    runtime
+                        .load_ui_files_json_native(files, entry, initial)
+                        .is_err()
+                );
                 assert_eq!(runtime.ui_state_json(), state);
                 assert_eq!(runtime.text_value(0), text);
                 assert_eq!(runtime.focused_index(), 0);
-                assert_eq!((runtime.revision, runtime.geometry_revision, runtime.layout_revision), versions);
+                assert_eq!(
+                    (
+                        runtime.revision,
+                        runtime.geometry_revision,
+                        runtime.layout_revision
+                    ),
+                    versions
+                );
                 assert_eq!(runtime.svet_document_telemetry().is_some(), svet);
             }
             runtime.text_insert("?");
             runtime.sync_ui_bindings_native().unwrap();
             assert!(runtime.ui_state_json().contains('?'));
-            let before = (runtime.revision, runtime.geometry_revision, runtime.layout_revision);
-            runtime.load_ui_files_json_native(&project("next"), "App.ui", "{}").unwrap();
+            let before = (
+                runtime.revision,
+                runtime.geometry_revision,
+                runtime.layout_revision,
+            );
+            runtime
+                .load_ui_files_json_native(&project("next"), "App.ui", "{}")
+                .unwrap();
             assert_eq!(runtime.text_value(0), "next");
             assert_eq!(runtime.svet_document_telemetry().is_some(), svet);
-            assert_eq!((runtime.revision, runtime.geometry_revision, runtime.layout_revision),
-                (before.0.wrapping_add(1), before.1.wrapping_add(1), before.2.wrapping_add(1)));
+            assert_eq!(
+                (
+                    runtime.revision,
+                    runtime.geometry_revision,
+                    runtime.layout_revision
+                ),
+                (
+                    before.0.wrapping_add(1),
+                    before.1.wrapping_add(1),
+                    before.2.wrapping_add(1)
+                )
+            );
         }
     }
 
     #[test]
     fn native_source_api_refusals_preserve_scene_and_can_recover() {
-        let mut runtime=model();assert!(runtime.focus_control(0));
-        let versions=(runtime.revision,runtime.geometry_revision,runtime.layout_revision);
-        let pixels=runtime.pixels(160,160,1.);
-        for (source,template) in [("component Bad {",VISUAL),(TWO,"component Button {")] {
-            assert!(runtime.load_component_native(source,template).is_err());
-            assert_eq!((runtime.revision,runtime.geometry_revision,runtime.layout_revision),versions);
-            assert_eq!(runtime.focused_index(),0);assert_eq!(runtime.control_count(),2);
-            assert_eq!(runtime.pixels(160,160,1.),pixels);
+        let mut runtime = model();
+        assert!(runtime.focus_control(0));
+        let versions = (
+            runtime.revision,
+            runtime.geometry_revision,
+            runtime.layout_revision,
+        );
+        let pixels = runtime.pixels(160, 160, 1.);
+        for (source, template) in [("component Bad {", VISUAL), (TWO, "component Button {")] {
+            assert!(runtime.load_component_native(source, template).is_err());
+            assert_eq!(
+                (
+                    runtime.revision,
+                    runtime.geometry_revision,
+                    runtime.layout_revision
+                ),
+                versions
+            );
+            assert_eq!(runtime.focused_index(), 0);
+            assert_eq!(runtime.control_count(), 2);
+            assert_eq!(runtime.pixels(160, 160, 1.), pixels);
         }
         assert!(runtime.load_native("invalid markup").is_err());
-        runtime.load_component_native(TWO,VISUAL).unwrap();
-        assert_eq!((runtime.revision,runtime.geometry_revision,runtime.layout_revision),
-            (versions.0.wrapping_add(1),versions.1.wrapping_add(1),versions.2.wrapping_add(1)));
+        runtime.load_component_native(TWO, VISUAL).unwrap();
+        assert_eq!(
+            (
+                runtime.revision,
+                runtime.geometry_revision,
+                runtime.layout_revision
+            ),
+            (
+                versions.0.wrapping_add(1),
+                versions.1.wrapping_add(1),
+                versions.2.wrapping_add(1)
+            )
+        );
         runtime.load_native(crate::EXAMPLE).unwrap();
-        assert!(runtime.control_count()>0);
-        let files=serde_json::to_string(&std::collections::BTreeMap::from([("App.ui",include_str!("../tests/fixtures/svet-native-ime/App.ui"))])).unwrap();
-        for (project,entry,state) in [("{","App.ui","{}"),("{}","missing.ui","{}"),(files.as_str(),"App.ui","{")] {
-            assert!(Runtime::compile_ui_scene_artifact_native(project,entry,state).is_err());
+        assert!(runtime.control_count() > 0);
+        let files = serde_json::to_string(&std::collections::BTreeMap::from([(
+            "App.ui",
+            include_str!("../tests/fixtures/svet-native-ime/App.ui"),
+        )]))
+        .unwrap();
+        for (project, entry, state) in [
+            ("{", "App.ui", "{}"),
+            ("{}", "missing.ui", "{}"),
+            (files.as_str(), "App.ui", "{"),
+        ] {
+            assert!(Runtime::compile_ui_scene_artifact_native(project, entry, state).is_err());
         }
-        let json=Runtime::compile_ui_scene_artifact_native(&files,"App.ui","{}").unwrap();
+        let json = Runtime::compile_ui_scene_artifact_native(&files, "App.ui", "{}").unwrap();
         runtime.load_scene_artifact_native(&json).unwrap();
-        assert_eq!(runtime.text_value(1),"seed-A");assert_eq!(runtime.text_value(2),"seed-B");
+        assert_eq!(runtime.text_value(1), "seed-A");
+        assert_eq!(runtime.text_value(2), "seed-B");
     }
 
-    const TWO:&str="component Demo { Frame { width:120; height:120; padding:10; gap:10; clip:true; Button { key:'first'; width:80; height:35; text:'Первая'; clicked -> actions.first(); } Button { key:'second'; width:80; height:35; text:'Вторая'; clicked -> actions.second(); } } }";
-    const VISUAL:&str="component Button { Rectangle { radius:4; background:Brush { color:#ff0000; hover:#00ff00; pressed:#0000ff; transition:0ms; }; Border { width:2; background:Brush { color:#ffffff; focus:#ffff00; }; } PointerArea { clicked -> events.clicked(); } } }";
+    const TWO: &str = "component Demo { Frame { width:120; height:120; padding:10; gap:10; clip:true; Button { key:'first'; width:80; height:35; text:'Первая'; clicked -> actions.first(); } Button { key:'second'; width:80; height:35; text:'Вторая'; clicked -> actions.second(); } } }";
+    const VISUAL: &str = "component Button { Rectangle { radius:4; background:Brush { color:#ff0000; hover:#00ff00; pressed:#0000ff; transition:0ms; }; Border { width:2; background:Brush { color:#ffffff; focus:#ffff00; }; } PointerArea { clicked -> events.clicked(); } } }";
     fn model() -> Runtime {
         Runtime::from_sources(TWO, VISUAL).unwrap()
     }
@@ -2178,7 +2973,10 @@ mod tests {
             assert!(runtime.text_insert(suffix));
             let value = runtime.text_value(0);
             assert!(runtime.sync_ui_bindings_native().unwrap());
-            assert_eq!(runtime.ui_state_properties()["query"], crate::form_document::Value::Text(value.clone()));
+            assert_eq!(
+                runtime.ui_state_properties()["query"],
+                crate::form_document::Value::Text(value.clone())
+            );
             assert_eq!(runtime.text_value(0), value);
             assert_eq!(runtime.focused_index(), 0);
             assert!(runtime.controls.iter().any(|control| control.template.content.iter().any(|content|
@@ -2203,35 +3001,63 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn retained_document_recovers_after_render_error_without_losing_input() {
-        for (svet, switch, model_fix) in [(false, false), (true, false), (false, true), (true, true)].into_iter().flat_map(|(svet, switch)| [(svet, switch, false), (svet, switch, true)]) {
+        for (svet, switch, model_fix) in
+            [(false, false), (true, false), (false, true), (true, true)]
+                .into_iter()
+                .flat_map(|(svet, switch)| [(svet, switch, false), (svet, switch, true)])
+        {
             let mut files = std::collections::BTreeMap::from([("App.ui".to_string(),
                 "component App { state query: String = 'seed'; state agreed: Bool = false; Column { width:260; height:100; TextInput { key:'editor'; width:200; height:32; value <-> state.query; } Toggle { key:'toggle'; checked <-> state.agreed; } Text { key:'summary'; text: state.query == 'bad' ? [1] : state.query; } } }".to_string())]);
             files.insert("Toggle.component.ui".into(), "component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".into());
-            let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+            let mut runtime =
+                Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
             runtime.set_svet_document_scheduling(svet);
-            let initial_graph = runtime.svet_document_telemetry().map(|t| (t.nodes, t.edges, t.slots));
+            let initial_graph = runtime
+                .svet_document_telemetry()
+                .map(|t| (t.nodes, t.edges, t.slots));
             runtime.set_binding_value(0, "bad", true).unwrap();
             assert!(runtime.sync_ui_bindings_native().is_err());
-            assert_eq!(runtime.ui_state_properties()["query"], crate::form_document::Value::Text("bad".into()));
+            assert_eq!(
+                runtime.ui_state_properties()["query"],
+                crate::form_document::Value::Text("bad".into())
+            );
             assert!(runtime.ui_render_pending);
             // Multiple activations while the template is broken must toggle
             // the current model, rather than the last rendered false value.
             for checked in [true, false] {
                 runtime.activate_control(1);
                 assert!(runtime.sync_ui_bindings_native().is_err());
-                assert_eq!(runtime.ui_state_properties()["agreed"], crate::form_document::Value::Bool(checked));
+                assert_eq!(
+                    runtime.ui_state_properties()["agreed"],
+                    crate::form_document::Value::Bool(checked)
+                );
             }
-            if switch { runtime.set_svet_document_scheduling(!svet); }
+            if switch {
+                runtime.set_svet_document_scheduling(!svet);
+            }
             if model_fix {
-                runtime.ui_document.as_mut().unwrap().states[0].insert("query".into(), crate::form_document::Value::Text("recovered".into()));
-            } else { runtime.set_binding_value(0, "recovered", true).unwrap(); }
+                runtime.ui_document.as_mut().unwrap().states[0].insert(
+                    "query".into(),
+                    crate::form_document::Value::Text("recovered".into()),
+                );
+            } else {
+                runtime.set_binding_value(0, "recovered", true).unwrap();
+            }
             assert!(runtime.sync_ui_bindings_native().unwrap());
-            assert_eq!(runtime.ui_state_properties()["query"], crate::form_document::Value::Text("recovered".into()));
+            assert_eq!(
+                runtime.ui_state_properties()["query"],
+                crate::form_document::Value::Text("recovered".into())
+            );
             assert_eq!(runtime.text_value(0), "recovered");
             assert!(!runtime.ui_render_pending);
             assert!(!runtime.sync_ui_bindings_native().unwrap());
             if !switch {
-                assert_eq!(runtime.svet_document_telemetry().map(|t| (t.nodes, t.edges, t.slots)), initial_graph);
+                assert_eq!(
+                    runtime
+                        .svet_document_telemetry()
+                        .map(|t| (t.nodes, t.edges, t.slots)),
+                    initial_graph
+                );
             }
             if let Some(t) = runtime.svet_document_telemetry() {
                 assert_eq!(t.tracking_depth, 0);
@@ -2243,7 +3069,14 @@ mod tests {
     #[test]
     fn failed_binding_transaction_retries_activation_exactly_once() {
         use crate::form_document::{Properties, Value};
-        for (svet, count) in [(false, 1), (false, 2), (false, 3), (true, 1), (true, 2), (true, 3)] {
+        for (svet, count) in [
+            (false, 1),
+            (false, 2),
+            (false, 3),
+            (true, 1),
+            (true, 2),
+            (true, 3),
+        ] {
             let files = std::collections::BTreeMap::from([
                 ("App.ui".to_string(), "component App { state agreed: Bool = false; state query: String = 'seed'; Column { width:260; height:100; Toggle { checked <-> state.agreed; } TextInput { width:200; height:32; value <-> state.query; } } }".to_string()),
                 ("Toggle.component.ui".to_string(), "component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".to_string()),
@@ -2251,9 +3084,15 @@ mod tests {
             let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
             runtime.set_svet_document_scheduling(svet);
             let document = runtime.ui_document.as_mut().unwrap();
-            let Some(Value::Object(bindings)) = document.root.children[1].props.get_mut("__bindings") else { panic!("editor bindings"); };
+            let Some(Value::Object(bindings)) =
+                document.root.children[1].props.get_mut("__bindings")
+            else {
+                panic!("editor bindings");
+            };
             bindings.insert("value".into(), Value::List(vec![]));
-            for _ in 0..count { runtime.activate_control(0); }
+            for _ in 0..count {
+                runtime.activate_control(0);
+            }
             for _ in 0..2 {
                 assert!(runtime.sync_ui_bindings_native().is_err());
                 assert_eq!(runtime.ui_state_properties()["agreed"], Value::Bool(false));
@@ -2261,14 +3100,24 @@ mod tests {
             }
             assert_eq!(runtime.pending_ui_binding_activations(), count);
             let document = runtime.ui_document.as_mut().unwrap();
-            let Some(Value::Object(bindings)) = document.root.children[1].props.get_mut("__bindings") else { panic!("editor bindings"); };
+            let Some(Value::Object(bindings)) =
+                document.root.children[1].props.get_mut("__bindings")
+            else {
+                panic!("editor bindings");
+            };
             bindings.insert("value".into(), Value::Text("state.query".into()));
             let rendered = runtime.sync_ui_bindings_native().unwrap();
             assert_eq!(rendered, !svet || count % 2 == 1);
-            assert_eq!(runtime.ui_state_properties()["agreed"], Value::Bool(count % 2 == 1));
+            assert_eq!(
+                runtime.ui_state_properties()["agreed"],
+                Value::Bool(count % 2 == 1)
+            );
             assert_eq!(runtime.last_event, None);
             assert!(!runtime.sync_ui_bindings_native().unwrap());
-            assert_eq!(runtime.ui_state_properties()["agreed"], Value::Bool(count % 2 == 1));
+            assert_eq!(
+                runtime.ui_state_properties()["agreed"],
+                Value::Bool(count % 2 == 1)
+            );
         }
     }
     #[cfg(not(target_arch = "wasm32"))]
@@ -2289,7 +3138,11 @@ mod tests {
             for (order, expected) in [([0, 1], true), ([1, 0], false)] {
                 let mut runtime = activation_queue_runtime(svet);
                 let document = runtime.ui_document.as_mut().unwrap();
-                let Some(Value::Object(bindings)) = document.root.children[2].props.get_mut("__bindings") else { panic!("editor bindings"); };
+                let Some(Value::Object(bindings)) =
+                    document.root.children[2].props.get_mut("__bindings")
+                else {
+                    panic!("editor bindings");
+                };
                 bindings.insert("value".into(), Value::List(vec![]));
                 for index in order {
                     runtime.activate_control(index);
@@ -2297,7 +3150,11 @@ mod tests {
                 }
                 assert_eq!(runtime.pending_ui_binding_activations(), 2);
                 let document = runtime.ui_document.as_mut().unwrap();
-                let Some(Value::Object(bindings)) = document.root.children[2].props.get_mut("__bindings") else { panic!("editor bindings"); };
+                let Some(Value::Object(bindings)) =
+                    document.root.children[2].props.get_mut("__bindings")
+                else {
+                    panic!("editor bindings");
+                };
                 bindings.insert("value".into(), Value::Text("state.query".into()));
                 runtime.sync_ui_bindings_native().unwrap();
                 assert_eq!(runtime.ui_state_properties()["flag"], Value::Bool(expected));
@@ -2311,10 +3168,17 @@ mod tests {
     fn activation_queue_overflow_is_bounded_and_requires_explicit_cancellation() {
         use crate::form_document::Value;
         let mut runtime = activation_queue_runtime(true);
-        for _ in 0..=MAX_UI_ACTIVATIONS { runtime.activate_control(0); }
+        for _ in 0..=MAX_UI_ACTIVATIONS {
+            runtime.activate_control(0);
+        }
         assert_eq!(runtime.pending_ui_binding_activations(), MAX_UI_ACTIVATIONS);
         for _ in 0..2 {
-            assert!(runtime.sync_ui_bindings_native().unwrap_err().contains("activation limit"));
+            assert!(
+                runtime
+                    .sync_ui_bindings_native()
+                    .unwrap_err()
+                    .contains("activation limit")
+            );
             assert_eq!(runtime.ui_state_properties()["flag"], Value::Bool(false));
         }
         assert_eq!(runtime.cancel_ui_binding_activations(), MAX_UI_ACTIVATIONS);
@@ -2346,13 +3210,18 @@ mod tests {
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn retained_collection_reorder_during_render_failure_keeps_event_identity() {
-        use crate::form_document::{props, Value};
+        use crate::form_document::{Value, props};
         for svet in [false, true] {
             let files = std::collections::BTreeMap::from([
                 ("App.ui".to_string(), "component App { prop prefix: String = 'row/'; state items: List = []; state broken: Bool = false; Column { width:260; height:140; for item in state.items key props.prefix + item.id { Toggle { checked <-> item.done; } } Text { text:state.broken ? [1] : 'ok'; } } }".to_string()),
                 ("Toggle.component.ui".to_string(), "component Toggle { prop checked: Bool = false; width:100; height:24; Rectangle { PointerArea { clicked -> events.clicked(); } } }".to_string()),
             ]);
-            let item = |id: &str| Value::Object(props(vec![("id", Value::Text(id.into())), ("done", Value::Bool(false))]));
+            let item = |id: &str| {
+                Value::Object(props(vec![
+                    ("id", Value::Text(id.into())),
+                    ("done", Value::Bool(false)),
+                ]))
+            };
             let state = props(vec![("items", Value::List(vec![item("a"), item("b")]))]);
             let mut runtime = Runtime::from_ui_files(&files, "App.ui", &state).unwrap();
             runtime.set_svet_document_scheduling(svet);
@@ -2362,15 +3231,28 @@ mod tests {
             let doc = runtime.ui_document.as_mut().unwrap();
             doc.states[0].insert("items".into(), Value::List(vec![item("b"), item("a")]));
             doc.states[0].insert("broken".into(), Value::Bool(true));
-            for _ in 0..2 { assert!(runtime.sync_ui_bindings_native().is_err()); }
-            assert_eq!(runtime.pending_ui_binding_activations(), 0, "accepted toggle must not replay after render failure");
+            for _ in 0..2 {
+                assert!(runtime.sync_ui_bindings_native().is_err());
+            }
+            assert_eq!(
+                runtime.pending_ui_binding_activations(),
+                0,
+                "accepted toggle must not replay after render failure"
+            );
             let state = runtime.ui_state_properties();
-            let Value::List(items) = &state["items"] else { panic!("items"); };
-            let Value::Object(b) = &items[0] else { panic!("b"); };
-            let Value::Object(a) = &items[1] else { panic!("a"); };
+            let Value::List(items) = &state["items"] else {
+                panic!("items");
+            };
+            let Value::Object(b) = &items[0] else {
+                panic!("b");
+            };
+            let Value::Object(a) = &items[1] else {
+                panic!("a");
+            };
             assert_eq!(b["done"], Value::Bool(false));
             assert_eq!(a["done"], Value::Bool(true));
-            runtime.ui_document.as_mut().unwrap().states[0].insert("broken".into(), Value::Bool(false));
+            runtime.ui_document.as_mut().unwrap().states[0]
+                .insert("broken".into(), Value::Bool(false));
             assert!(runtime.sync_ui_bindings_native().unwrap());
             assert_eq!(runtime.control_key(0), b_key);
             assert_eq!(runtime.control_key(1), a_key);
@@ -2382,9 +3264,14 @@ mod tests {
         use crate::form_document::{Properties, Value};
         let files = std::collections::BTreeMap::from([("App.ui".into(),
             "component App { state contentHeight: Number = 512; state viewWidth: Number = 320; state viewHeight: Number = 300; state items: List = []; Column { width:360; height:400; Scroll { width:state.viewWidth; height:state.viewHeight; Column { width:100; height:state.contentHeight; for item in state.items key item.id { TextInput { width:100; height:32; value <-> item.title; } } } } } }".into())]);
-        let items = (0..16).map(|i| Value::Object(Properties::from([
-            ("id".into(), Value::Text(format!("id{i}"))), ("title".into(), Value::Text("Row".into())),
-        ]))).collect();
+        let items = (0..16)
+            .map(|i| {
+                Value::Object(Properties::from([
+                    ("id".into(), Value::Text(format!("id{i}"))),
+                    ("title".into(), Value::Text("Row".into())),
+                ]))
+            })
+            .collect();
         let state = Properties::from([("items".into(), Value::List(items))]);
         for svet in [false, true] {
             let mut runtime = Runtime::from_ui_files(&files, "App.ui", &state).unwrap();
@@ -2395,24 +3282,40 @@ mod tests {
             assert_eq!(runtime.scroll_offset()[1], 212.);
             let bounds = runtime.control_bounds(0);
             let revision = runtime.layout_revision();
-            runtime.ui_document.as_mut().unwrap().states[0].insert("viewWidth".into(), Value::Number(160.));
+            runtime.ui_document.as_mut().unwrap().states[0]
+                .insert("viewWidth".into(), Value::Number(160.));
             assert!(runtime.sync_ui_bindings_native().unwrap());
             assert_eq!(runtime.viewport(), vec![100., 50., 160., 300.]);
             assert_eq!(runtime.control_bounds(0), bounds);
-            assert_ne!(runtime.layout_revision(), revision, "viewport-only resize must invalidate layout");
+            assert_ne!(
+                runtime.layout_revision(),
+                revision,
+                "viewport-only resize must invalidate layout"
+            );
             assert_eq!(runtime.scroll_offset()[1], 212.);
-            runtime.ui_document.as_mut().unwrap().states[0].insert("viewHeight".into(), Value::Number(400.));
+            runtime.ui_document.as_mut().unwrap().states[0]
+                .insert("viewHeight".into(), Value::Number(400.));
             assert!(runtime.sync_ui_bindings_native().unwrap());
             assert_eq!(runtime.scroll_offset()[1], 112.);
-            runtime.ui_document.as_mut().unwrap().states[0].insert("items".into(), Value::List(vec![]));
+            runtime.ui_document.as_mut().unwrap().states[0]
+                .insert("items".into(), Value::List(vec![]));
             assert!(runtime.sync_ui_bindings_native().unwrap());
             assert_eq!(runtime.control_count(), 0);
-            assert_eq!(runtime.scroll_offset(), vec![0., 112.], "fixed empty layout still occupies content space");
+            assert_eq!(
+                runtime.scroll_offset(),
+                vec![0., 112.],
+                "fixed empty layout still occupies content space"
+            );
             let revision = runtime.layout_revision();
-            runtime.ui_document.as_mut().unwrap().states[0].insert("contentHeight".into(), Value::Number(200.));
+            runtime.ui_document.as_mut().unwrap().states[0]
+                .insert("contentHeight".into(), Value::Number(200.));
             assert!(runtime.sync_ui_bindings_native().unwrap());
             assert_eq!(runtime.scroll_offset(), vec![0., 0.]);
-            assert_ne!(runtime.layout_revision(), revision, "logical extent changes invalidate layout even without controls");
+            assert_ne!(
+                runtime.layout_revision(),
+                revision,
+                "logical extent changes invalidate layout even without controls"
+            );
             assert!(!runtime.sync_ui_bindings_native().unwrap());
         }
     }
@@ -2426,17 +3329,29 @@ mod tests {
             #[cfg(not(target_arch = "wasm32"))]
             runtime.set_svet_document_scheduling(svet);
             let _ = svet;
-            runtime.set_binding_value(0, "Obsolete input", true).unwrap();
+            runtime
+                .set_binding_value(0, "Obsolete input", true)
+                .unwrap();
             let state = &mut runtime.ui_document.as_mut().unwrap().states[0];
             state.insert("mode".into(), Value::Text("b".into()));
             state.insert("broken".into(), Value::Bool(true));
             assert!(runtime.sync_ui_bindings_native().is_err());
-            assert_eq!(runtime.ui_state_properties()["query"], Value::Text("seed".into()));
-            assert_eq!(runtime.ui_state_properties()["other"], Value::Text("Other".into()));
-            runtime.ui_document.as_mut().unwrap().states[0].insert("broken".into(), Value::Bool(false));
+            assert_eq!(
+                runtime.ui_state_properties()["query"],
+                Value::Text("seed".into())
+            );
+            assert_eq!(
+                runtime.ui_state_properties()["other"],
+                Value::Text("Other".into())
+            );
+            runtime.ui_document.as_mut().unwrap().states[0]
+                .insert("broken".into(), Value::Bool(false));
             assert!(runtime.sync_ui_bindings_native().unwrap());
             assert_eq!(runtime.text_value(0), "Other");
-            assert_eq!(runtime.ui_state_properties()["query"], Value::Text("seed".into()));
+            assert_eq!(
+                runtime.ui_state_properties()["query"],
+                Value::Text("seed".into())
+            );
         }
     }
     #[test]
@@ -2450,80 +3365,117 @@ mod tests {
             runtime.set_svet_document_scheduling(svet);
             let _ = svet;
             assert!(!runtime.sync_ui_bindings_native().unwrap());
-            runtime.ui_document.as_mut().unwrap().states[0].insert("query".into(), Value::Text("model".into()));
+            runtime.ui_document.as_mut().unwrap().states[0]
+                .insert("query".into(), Value::Text("model".into()));
             assert!(runtime.sync_ui_bindings_native().unwrap());
             assert_eq!(runtime.text_value(0), "model");
             assert!(!runtime.sync_ui_bindings_native().unwrap());
         }
     }
-    const EDITOR:&str="component Button { Rectangle { ContentInput { width:80; height:30; value:'seed'; } PointerArea { clicked -> events.clicked(); } } }";
+    const EDITOR: &str = "component Button { Rectangle { ContentInput { width:80; height:30; value:'seed'; } PointerArea { clicked -> events.clicked(); } } }";
     #[test]
     fn editor_refresh_tracks_mutations_focus_and_preedit_without_touching_siblings() {
-        let mut r=Runtime::from_sources(TWO,EDITOR).unwrap();
-        let untouched=r.controls[1].vector_snapshot(1.,false);
-        r.focus_control(0);r.set_reduced_motion(true);
-        let focused=r.vector_snapshot(1.,false);let revision=r.geometry_revision();
+        let mut r = Runtime::from_sources(TWO, EDITOR).unwrap();
+        let untouched = r.controls[1].vector_snapshot(1., false);
+        r.focus_control(0);
+        r.set_reduced_motion(true);
+        let focused = r.vector_snapshot(1., false);
+        let revision = r.geometry_revision();
         r.tick(16.);
-        assert_eq!(r.geometry_revision(),revision);
-        assert!(Arc::ptr_eq(&focused,&r.vector_snapshot(1.,false)));
-        r.text_preedit("я");let preedit=r.geometry_revision();
-        assert!(preedit>revision);
-        r.text_preedit("я");assert_eq!(r.geometry_revision(),preedit);
-        r.text_insert("🙂");assert!(r.text_value(0).contains('🙂'));
-        assert!(r.geometry_revision()>preedit);
-        assert!(r.controls[0].template.content.iter().any(|c|matches!(c,crate::template::Content::Text{text,..} if text.text.contains('🙂'))));
-        r.text_key("z",false,true);assert_eq!(r.text_value(0),"seed");
-        r.text_key("y",false,true);assert!(r.text_value(0).contains('🙂'));
-        assert!(Arc::ptr_eq(&untouched,&r.controls[1].vector_snapshot(1.,false)));
-        r.text_preedit("pending");r.focus(false);
+        assert_eq!(r.geometry_revision(), revision);
+        assert!(Arc::ptr_eq(&focused, &r.vector_snapshot(1., false)));
+        r.text_preedit("я");
+        let preedit = r.geometry_revision();
+        assert!(preedit > revision);
+        r.text_preedit("я");
+        assert_eq!(r.geometry_revision(), preedit);
+        r.text_insert("🙂");
+        assert!(r.text_value(0).contains('🙂'));
+        assert!(r.geometry_revision() > preedit);
+        assert!(r.controls[0].template.content.iter().any(
+            |c| matches!(c,crate::template::Content::Text{text,..} if text.text.contains('🙂'))
+        ));
+        r.text_key("z", false, true);
+        assert_eq!(r.text_value(0), "seed");
+        r.text_key("y", false, true);
+        assert!(r.text_value(0).contains('🙂'));
+        assert!(Arc::ptr_eq(
+            &untouched,
+            &r.controls[1].vector_snapshot(1., false)
+        ));
+        r.text_preedit("pending");
+        r.focus(false);
         assert!(r.editors[0].as_ref().unwrap().preedit.is_empty());
         assert!(!r.is_animating());
     }
     #[test]
     fn editor_reconciliation_preserves_committed_history_but_drops_preedit() {
-        let mut previous=Runtime::from_sources(TWO,EDITOR).unwrap();
+        let mut previous = Runtime::from_sources(TWO, EDITOR).unwrap();
         assert!(previous.focus_control(0));
-        previous.text_key("End",false,false);
+        previous.text_key("End", false, false);
         previous.text_insert("—committed");
-        let committed=previous.text_value(0);
-        previous.text_key("a",false,true);
-        let selection=previous.text_selected();
+        let committed = previous.text_value(0);
+        previous.text_key("a", false, true);
+        let selection = previous.text_selected();
         previous.text_preedit("未確定");
-        assert_eq!(previous.editors[0].as_ref().unwrap().preedit,"未確定");
-        let swapped=TWO.replace("'first'","'temporary'").replace("'second'","'first'").replace("'temporary'","'second'");
-        let mut next=Runtime::from_sources(&swapped,EDITOR).unwrap();
+        assert_eq!(previous.editors[0].as_ref().unwrap().preedit, "未確定");
+        let swapped = TWO
+            .replace("'first'", "'temporary'")
+            .replace("'second'", "'first'")
+            .replace("'temporary'", "'second'");
+        let mut next = Runtime::from_sources(&swapped, EDITOR).unwrap();
         next.preserve_interaction(&previous);
-        assert_eq!(next.focused_index(),1);
-        assert_eq!(next.text_value(1),committed);
-        assert_eq!(next.text_selected(),selection);
-        assert!(next.editors.iter().flatten().all(|editor|editor.preedit.is_empty()));
-        assert_eq!(next.text_value(0),"seed");
-        assert!(next.text_key("z",false,true));
-        assert_eq!(next.text_value(1),"seed");
-        assert_eq!(next.text_value(0),"seed");
+        assert_eq!(next.focused_index(), 1);
+        assert_eq!(next.text_value(1), committed);
+        assert_eq!(next.text_selected(), selection);
+        assert!(
+            next.editors
+                .iter()
+                .flatten()
+                .all(|editor| editor.preedit.is_empty())
+        );
+        assert_eq!(next.text_value(0), "seed");
+        assert!(next.text_key("z", false, true));
+        assert_eq!(next.text_value(1), "seed");
+        assert_eq!(next.text_value(0), "seed");
         // Reconciliation is read-only with respect to the previous live scene.
-        assert_eq!(previous.text_value(0),committed);
-        assert_eq!(previous.editors[0].as_ref().unwrap().preedit,"未確定");
-        assert_eq!(previous.text_selected(),selection);
+        assert_eq!(previous.text_value(0), committed);
+        assert_eq!(previous.editors[0].as_ref().unwrap().preedit, "未確定");
+        assert_eq!(previous.text_selected(), selection);
     }
     #[test]
     fn editor_reconciliation_uses_the_same_unique_keys_as_control_state() {
-        let mut previous=Runtime::from_sources(TWO,EDITOR).unwrap();
-        previous.focus_control(0);previous.text_insert("edited");
-        let edited=previous.text_value(0);
-        let swapped=TWO.replace("'first'","'temporary'").replace("'second'","'first'").replace("'temporary'","'second'");
-        let mut next=Runtime::from_sources(&swapped,EDITOR).unwrap();
+        let mut previous = Runtime::from_sources(TWO, EDITOR).unwrap();
+        previous.focus_control(0);
+        previous.text_insert("edited");
+        let edited = previous.text_value(0);
+        let swapped = TWO
+            .replace("'first'", "'temporary'")
+            .replace("'second'", "'first'")
+            .replace("'temporary'", "'second'");
+        let mut next = Runtime::from_sources(&swapped, EDITOR).unwrap();
         next.preserve_interaction(&previous);
-        assert_eq!(next.text_value(1),edited);assert_eq!(next.text_value(0),"seed");
-        assert!(next.controls[1].template.content.iter().any(|c|matches!(c,crate::template::Content::Text{text,..} if text.text==edited)));
-        let unnamed=TWO.replace("key:'first';","").replace("key:'second';","");
-        let mut next=Runtime::from_sources(&unnamed,EDITOR).unwrap();
+        assert_eq!(next.text_value(1), edited);
+        assert_eq!(next.text_value(0), "seed");
+        assert!(
+            next.controls[1]
+                .template
+                .content
+                .iter()
+                .any(|c| matches!(c,crate::template::Content::Text{text,..} if text.text==edited))
+        );
+        let unnamed = TWO.replace("key:'first';", "").replace("key:'second';", "");
+        let mut next = Runtime::from_sources(&unnamed, EDITOR).unwrap();
         next.preserve_interaction(&previous);
-        assert_eq!(next.text_value(0),"seed");assert_eq!(next.text_value(1),"seed");
-        let mut previous=Runtime::from_sources(&unnamed,EDITOR).unwrap();
-        previous.focus_control(0);previous.text_insert("ambiguous");
-        let mut next=Runtime::from_sources(&unnamed,EDITOR).unwrap();next.preserve_interaction(&previous);
-        assert_eq!(next.text_value(0),"seed");assert_eq!(next.text_value(1),"seed");
+        assert_eq!(next.text_value(0), "seed");
+        assert_eq!(next.text_value(1), "seed");
+        let mut previous = Runtime::from_sources(&unnamed, EDITOR).unwrap();
+        previous.focus_control(0);
+        previous.text_insert("ambiguous");
+        let mut next = Runtime::from_sources(&unnamed, EDITOR).unwrap();
+        next.preserve_interaction(&previous);
+        assert_eq!(next.text_value(0), "seed");
+        assert_eq!(next.text_value(1), "seed");
     }
     #[test]
     fn sibling_states_capture_and_events_are_independent() {
@@ -2596,7 +3548,10 @@ mod tests {
         previous.activate_control(1);
         assert!(previous.focus_control(1));
         previous.key_event(1, true, false);
-        let swapped = TWO.replace("'first'", "'temporary'").replace("'second'", "'first'").replace("'temporary'", "'second'");
+        let swapped = TWO
+            .replace("'first'", "'temporary'")
+            .replace("'second'", "'first'")
+            .replace("'temporary'", "'second'");
         let mut next = Runtime::from_sources(&swapped, VISUAL).unwrap();
         next.preserve_interaction(&previous);
         assert_eq!(next.focused_index(), 0);
@@ -2608,7 +3563,11 @@ mod tests {
         assert!(!next.focus_control(99));
         assert_eq!(next.focused_index(), 0);
 
-        let mut disabled = Runtime::from_sources(&TWO.replace("key:'second';", "key:'second'; disabled:true;"), VISUAL).unwrap();
+        let mut disabled = Runtime::from_sources(
+            &TWO.replace("key:'second';", "key:'second'; disabled:true;"),
+            VISUAL,
+        )
+        .unwrap();
         disabled.preserve_interaction(&previous);
         assert_eq!(disabled.focused_index(), -1);
         assert_eq!(disabled.control_clicks(1), 1);
@@ -2618,13 +3577,15 @@ mod tests {
         assert_eq!(passive.focused_index(), -1);
         assert!(!passive.focus_control(1));
 
-        let scroll = TWO.replace("height:120;", "height:70;")
+        let scroll = TWO
+            .replace("height:120;", "height:70;")
             .replace("Button { key:'first'", "Scroll { Button { key:'first'")
             .replace("} } }", "} } } }");
         let mut previous = Runtime::from_sources(&scroll, VISUAL).unwrap();
         previous.scroll(0., 1000.);
         assert_eq!(previous.scroll_offset(), vec![0., 30.]);
-        let mut next = Runtime::from_sources(&scroll.replace("height:70;", "height:95;"), VISUAL).unwrap();
+        let mut next =
+            Runtime::from_sources(&scroll.replace("height:70;", "height:95;"), VISUAL).unwrap();
         next.preserve_interaction(&previous);
         assert_eq!(next.scroll_offset(), vec![0., 5.]);
     }
@@ -2633,7 +3594,12 @@ mod tests {
         let template = VISUAL.replace("Border {", "Reveal { color:#ff8800; } Border {");
         let mut r = Runtime::from_sources(TWO, &template).unwrap();
         let geometry = r.vector_snapshot(1., false);
-        let slots: Vec<_> = geometry.commands.chunks_exact(STRIDE).filter(|c| c[0] == 6.).map(|c| c[14]).collect();
+        let slots: Vec<_> = geometry
+            .commands
+            .chunks_exact(STRIDE)
+            .filter(|c| c[0] == 6.)
+            .map(|c| c[14])
+            .collect();
         assert_eq!(slots, vec![4., 6.]);
         let old = r.gpu_paints();
         r.reveal_pointer(5., 50., true);
@@ -2648,7 +3614,11 @@ mod tests {
         r.pointer(5., 50., 3);
         assert_eq!(r.gpu_paints(), old);
         r.pointer(5., 50., 0);
-        assert_eq!(r.gpu_paints(), paints, "native pointer uses the same proximity state");
+        assert_eq!(
+            r.gpu_paints(),
+            paints,
+            "native pointer uses the same proximity state"
+        );
         assert_eq!(r.clicks(), 0);
     }
     #[test]
@@ -2791,37 +3761,70 @@ mod tests {
         );
         assert!(Button::from_sources(TWO, VISUAL).is_err());
     }
-    const LAYERED:&str="component Demo { Frame { width:200; height:160; padding:10; gap:10; clip:true; Button { key:'base'; width:80; height:30; clicked -> actions.base(); } Modal { key:'ask'; x:20; y:40; width:160; height:80; backdrop:#00000080; dismissed -> actions.cancel(); Button { key:'yes'; width:60; height:24; clicked -> actions.yes(); } Button { key:'no'; width:60; height:24; clicked -> actions.no(); } } } }";
+    const LAYERED: &str = "component Demo { Frame { width:200; height:160; padding:10; gap:10; clip:true; Button { key:'base'; width:80; height:30; clicked -> actions.base(); } Modal { key:'ask'; x:20; y:40; width:160; height:80; backdrop:#00000080; dismissed -> actions.cancel(); Button { key:'yes'; width:60; height:24; clicked -> actions.yes(); } Button { key:'no'; width:60; height:24; clicked -> actions.no(); } } } }";
     #[test]
     fn open_layer_blocks_the_base_scene_traps_focus_and_dismisses_on_escape_or_backdrop() {
         let mut r = Runtime::from_sources(LAYERED, VISUAL).unwrap();
-        assert_eq!((r.control_count(), r.modal_count(), r.active_modal()), (3, 1, 0));
-        assert_eq!(r.nodes().iter().filter(|n| n.kind == NodeKind::Modal).count(), 1);
+        assert_eq!(
+            (r.control_count(), r.modal_count(), r.active_modal()),
+            (3, 1, 0)
+        );
+        assert_eq!(
+            r.nodes()
+                .iter()
+                .filter(|n| n.kind == NodeKind::Modal)
+                .count(),
+            1
+        );
         assert_eq!(r.nodes()[2].children, vec![3, 4]);
-        assert_eq!((r.control_modal(0), r.control_modal(1), r.control_modal(2)), (-1, 0, 0));
+        assert_eq!(
+            (r.control_modal(0), r.control_modal(1), r.control_modal(2)),
+            (-1, 0, 0)
+        );
         assert!(r.control_blocked(0) && !r.control_blocked(1));
         assert_eq!(r.control_bounds(2), vec![20., 74., 60., 24.]);
-        assert_eq!(r.hit_index(30., 20.), -1, "base controls are covered by the backdrop");
+        assert_eq!(
+            r.hit_index(30., 20.),
+            -1,
+            "base controls are covered by the backdrop"
+        );
         assert_eq!(r.hit_index(30., 50.), 1);
         r.pointer(30., 20., 0);
         assert!(!r.control_hovered(0));
         // A press on the surface beside its controls neither clicks nor dismisses.
-        r.pointer(150., 100., 1); r.pointer(150., 100., 2);
+        r.pointer(150., 100., 1);
+        r.pointer(150., 100., 2);
         assert_eq!((r.active_modal(), r.dismiss_count(), r.clicks()), (0, 0, 0));
         r.focus(true);
         assert_eq!(r.focused_index(), 1);
-        assert!(r.focus_next(false)); assert_eq!(r.focused_index(), 2);
-        assert!(r.focus_next(false), "Tab wraps inside the layer instead of leaving the scene");
+        assert!(r.focus_next(false));
+        assert_eq!(r.focused_index(), 2);
+        assert!(
+            r.focus_next(false),
+            "Tab wraps inside the layer instead of leaving the scene"
+        );
         assert_eq!(r.focused_index(), 1);
-        assert!(r.focus_next(true)); assert_eq!(r.focused_index(), 2);
-        r.key_event(2, true, false); r.key_event(2, false, false);
-        assert_eq!((r.control_clicks(2), r.action().as_str()), (1, "actions.no"));
+        assert!(r.focus_next(true));
+        assert_eq!(r.focused_index(), 2);
+        r.key_event(2, true, false);
+        r.key_event(2, false, false);
+        assert_eq!(
+            (r.control_clicks(2), r.action().as_str()),
+            (1, "actions.no")
+        );
         r.activate_control(0);
-        assert_eq!(r.control_clicks(0), 0, "hosts cannot activate a covered control");
+        assert_eq!(
+            r.control_clicks(0),
+            0,
+            "hosts cannot activate a covered control"
+        );
         r.key_event(3, true, true);
         assert_eq!(r.active_modal(), 0, "key repeat never dismisses");
         r.key_event(3, true, false);
-        assert_eq!((r.active_modal(), r.dismiss_count(), r.dismissed_index()), (-1, 1, 0));
+        assert_eq!(
+            (r.active_modal(), r.dismiss_count(), r.dismissed_index()),
+            (-1, 1, 0)
+        );
         assert_eq!(r.modal_action(0), "actions.cancel");
         assert!(!r.modal_is_open(0) && r.control_blocked(1) && !r.control_blocked(0));
         assert_eq!(r.focused_index(), -1);
@@ -2830,34 +3833,62 @@ mod tests {
         r.key_event(3, true, false);
         assert_eq!(r.dismiss_count(), 1);
         assert!(r.focus_control(0));
-        assert!(r.open_modal(0)); assert!(!r.open_modal(0));
+        assert!(r.open_modal(0));
+        assert!(!r.open_modal(0));
         assert_eq!(r.focused_index(), 1, "opening moves focus into the layer");
         assert!(!r.control_hovered(0));
         r.pointer(5., 5., 1);
         assert_eq!((r.active_modal(), r.dismiss_count()), (-1, 2));
-        assert_eq!(r.focused_index(), 0, "closing restores the previously focused control");
+        assert_eq!(
+            r.focused_index(),
+            0,
+            "closing restores the previously focused control"
+        );
         r.pointer(5., 5., 2);
         assert_eq!(r.clicks(), 1);
 
         let fixed = LAYERED.replace("backdrop:#00000080;", "backdrop:#00000080; dismiss:false;");
         let mut r = Runtime::from_sources(&fixed, VISUAL).unwrap();
         assert!(!r.modal_dismissible(0));
-        r.key_event(3, true, false); r.pointer(5., 5., 1); r.pointer(5., 5., 2);
+        r.key_event(3, true, false);
+        r.pointer(5., 5., 1);
+        r.pointer(5., 5., 2);
         assert_eq!((r.active_modal(), r.dismiss_count()), (0, 0));
-        assert!(r.close_modal(0)); assert!(!r.close_modal(0));
+        assert!(r.close_modal(0));
+        assert!(!r.close_modal(0));
         assert_eq!((r.active_modal(), r.dismiss_count()), (-1, 0));
     }
     #[test]
     fn layers_paint_a_backdrop_above_the_base_scene_and_vanish_when_closed() {
         let mut r = Runtime::from_sources(LAYERED, VISUAL).unwrap();
         let open = r.vector_snapshot(1., true);
-        let count = |list: &DisplayList, kind: f32| list.commands.chunks_exact(STRIDE).filter(|c| c[0] == kind).count();
-        let backdrop = open.commands.chunks_exact(STRIDE).find(|c| c[0] == 0. && c[8] == 0. && c[11] < 1.).expect("backdrop fill");
+        let count = |list: &DisplayList, kind: f32| {
+            list.commands
+                .chunks_exact(STRIDE)
+                .filter(|c| c[0] == kind)
+                .count()
+        };
+        let backdrop = open
+            .commands
+            .chunks_exact(STRIDE)
+            .find(|c| c[0] == 0. && c[8] == 0. && c[11] < 1.)
+            .expect("backdrop fill");
         assert_eq!(&backdrop[4..8], &[0., 0., 200., 160.]);
         assert_eq!(count(&open, 4.), 3);
-        let base_shape = open.commands.chunks_exact(STRIDE).position(|c| c[0] == 4.).unwrap();
-        let backdrop_at = open.commands.chunks_exact(STRIDE).position(|c| c[0] == 0. && c[11] < 1.).unwrap();
-        assert!(backdrop_at > base_shape, "the backdrop covers the base scene");
+        let base_shape = open
+            .commands
+            .chunks_exact(STRIDE)
+            .position(|c| c[0] == 4.)
+            .unwrap();
+        let backdrop_at = open
+            .commands
+            .chunks_exact(STRIDE)
+            .position(|c| c[0] == 0. && c[11] < 1.)
+            .unwrap();
+        assert!(
+            backdrop_at > base_shape,
+            "the backdrop covers the base scene"
+        );
         let pixels = r.pixels(200, 160, 1.);
         let at = |p: &[u8], x: usize, y: usize| p[(y * 200 + x) * 4..][..4].to_vec();
         let mut expected = [24, 30, 42, 255];
@@ -2868,7 +3899,11 @@ mod tests {
         assert!(!Arc::ptr_eq(&open, &closed));
         assert_eq!(count(&closed, 4.), 1);
         assert_eq!(at(&r.pixels(200, 160, 1.), 150, 100), vec![24, 30, 42, 255]);
-        assert_eq!(at(&r.pixels(200, 160, 1.), 30, 50), vec![24, 30, 42, 255], "hidden layer controls are not painted");
+        assert_eq!(
+            at(&r.pixels(200, 160, 1.), 30, 50),
+            vec![24, 30, 42, 255],
+            "hidden layer controls are not painted"
+        );
         assert!(r.open_modal(0));
         r.focus(false);
         assert_eq!(r.pixels(200, 160, 1.), pixels);
@@ -2880,9 +3915,13 @@ mod tests {
         assert!(!previous.modal_is_open(0));
         let mut next = Runtime::from_sources(LAYERED, VISUAL).unwrap();
         next.preserve_interaction(&previous);
-        assert!(!next.modal_is_open(0), "a dismissed layer stays closed while its source is unchanged");
+        assert!(
+            !next.modal_is_open(0),
+            "a dismissed layer stays closed while its source is unchanged"
+        );
         assert_eq!(next.dismiss_count(), 1);
-        let closed_source = LAYERED.replace("backdrop:#00000080;", "backdrop:#00000080; open:false;");
+        let closed_source =
+            LAYERED.replace("backdrop:#00000080;", "backdrop:#00000080; open:false;");
         let mut declared = Runtime::from_sources(&closed_source, VISUAL).unwrap();
         assert!(!declared.modal_is_open(0));
         declared.focus_control(0);
@@ -2892,35 +3931,67 @@ mod tests {
         assert!(next.modal_is_open(0));
         assert_eq!(next.focused_index(), 1);
         assert!(next.close_modal(0));
-        assert_eq!(next.focused_index(), 0, "the focus-restore target follows control keys");
+        assert_eq!(
+            next.focused_index(),
+            0,
+            "the focus-restore target follows control keys"
+        );
         let mut reopened = Runtime::from_sources(LAYERED, VISUAL).unwrap();
         reopened.preserve_interaction(&previous);
         let mut flipped = Runtime::from_sources(&closed_source, VISUAL).unwrap();
         flipped.preserve_interaction(&reopened);
-        assert!(!flipped.modal_is_open(0), "a changed declaration wins over runtime state");
+        assert!(
+            !flipped.modal_is_open(0),
+            "a changed declaration wins over runtime state"
+        );
     }
     #[test]
     fn disabled_focus_navigation_and_late_key_release_remain_isolated() {
-        let mut runtime=model();assert!(runtime.focus_control(0));
-        runtime.key_event(1,true,false);runtime.set_binding_disabled(0,true).unwrap();
-        assert_eq!(runtime.focused_index(),-1);
-        runtime.set_binding_disabled(0,false).unwrap();assert!(runtime.focus_control(1));
-        runtime.key_event(1,false,false);assert_eq!(runtime.control_clicks(1),0);
-        assert!(runtime.focus_control(0));runtime.key_event(1,false,false);assert_eq!(runtime.control_clicks(0),0);
-        runtime.key_event(1,true,false);runtime.key_event(1,false,false);assert_eq!(runtime.control_clicks(0),1);
-        runtime.set_binding_disabled(0,true).unwrap();
-        assert!(runtime.focus_next(false));assert_eq!(runtime.focused_index(),1);
-        runtime.focus(false);assert!(runtime.focus_next(true));assert_eq!(runtime.focused_index(),1);
-        runtime.set_binding_disabled(1,true).unwrap();
-        assert!(!runtime.focus_next(false));assert!(!runtime.focus_next(true));runtime.focus(true);assert_eq!(runtime.focused_index(),-1);
+        let mut runtime = model();
+        assert!(runtime.focus_control(0));
+        runtime.key_event(1, true, false);
+        runtime.set_binding_disabled(0, true).unwrap();
+        assert_eq!(runtime.focused_index(), -1);
+        runtime.set_binding_disabled(0, false).unwrap();
+        assert!(runtime.focus_control(1));
+        runtime.key_event(1, false, false);
+        assert_eq!(runtime.control_clicks(1), 0);
+        assert!(runtime.focus_control(0));
+        runtime.key_event(1, false, false);
+        assert_eq!(runtime.control_clicks(0), 0);
+        runtime.key_event(1, true, false);
+        runtime.key_event(1, false, false);
+        assert_eq!(runtime.control_clicks(0), 1);
+        runtime.set_binding_disabled(0, true).unwrap();
+        assert!(runtime.focus_next(false));
+        assert_eq!(runtime.focused_index(), 1);
+        runtime.focus(false);
+        assert!(runtime.focus_next(true));
+        assert_eq!(runtime.focused_index(), 1);
+        runtime.set_binding_disabled(1, true).unwrap();
+        assert!(!runtime.focus_next(false));
+        assert!(!runtime.focus_next(true));
+        runtime.focus(true);
+        assert_eq!(runtime.focused_index(), -1);
 
-        let mut modal=Runtime::from_sources(LAYERED,VISUAL).unwrap();
-        modal.set_binding_disabled(1,true).unwrap();modal.set_binding_disabled(2,true).unwrap();
-        assert!(!modal.focus_control(0),"background cannot receive focus through an empty modal");
-        for reverse in [false,true] {assert!(!modal.focus_next(reverse));assert_eq!(modal.focused_index(),-1);}
-        modal.set_binding_disabled(2,false).unwrap();
-        for reverse in [false,true,false] {assert!(modal.focus_next(reverse));assert_eq!(modal.focused_index(),2);}
-        modal.close_modal(0);assert!(modal.focus_control(0));
+        let mut modal = Runtime::from_sources(LAYERED, VISUAL).unwrap();
+        modal.set_binding_disabled(1, true).unwrap();
+        modal.set_binding_disabled(2, true).unwrap();
+        assert!(
+            !modal.focus_control(0),
+            "background cannot receive focus through an empty modal"
+        );
+        for reverse in [false, true] {
+            assert!(!modal.focus_next(reverse));
+            assert_eq!(modal.focused_index(), -1);
+        }
+        modal.set_binding_disabled(2, false).unwrap();
+        for reverse in [false, true, false] {
+            assert!(modal.focus_next(reverse));
+            assert_eq!(modal.focused_index(), 2);
+        }
+        modal.close_modal(0);
+        assert!(modal.focus_control(0));
     }
 
     #[test]
@@ -2935,14 +4006,32 @@ mod tests {
         assert_eq!(r.control_bounds(1), vec![20., 40., 60., 24.]);
         assert!(r.control_bounds(0)[1] < 10.);
         r.open_modal(0);
-        assert_eq!(r.hit_index(30., 50.), 1, "layer controls ignore the scroll viewport");
-        let offset=r.scroll_offset();let base=r.control_bounds(0);let layer=r.control_bounds(1);
-        r.pointer(30.,50.,1);
-        r.scroll(0.,-20.);
-        assert_eq!(r.scroll_offset(),offset,"active modal blocks background scrolling");
-        assert_eq!(r.control_bounds(0),base);assert_eq!(r.control_bounds(1),layer);
-        r.pointer(30.,50.,2);assert_eq!(r.control_clicks(1),1,"blocked scroll must not cancel modal press");
-        r.close_modal(0);r.scroll(0.,-20.);assert!(r.scroll_offset()[1]<offset[1]);
+        assert_eq!(
+            r.hit_index(30., 50.),
+            1,
+            "layer controls ignore the scroll viewport"
+        );
+        let offset = r.scroll_offset();
+        let base = r.control_bounds(0);
+        let layer = r.control_bounds(1);
+        r.pointer(30., 50., 1);
+        r.scroll(0., -20.);
+        assert_eq!(
+            r.scroll_offset(),
+            offset,
+            "active modal blocks background scrolling"
+        );
+        assert_eq!(r.control_bounds(0), base);
+        assert_eq!(r.control_bounds(1), layer);
+        r.pointer(30., 50., 2);
+        assert_eq!(
+            r.control_clicks(1),
+            1,
+            "blocked scroll must not cancel modal press"
+        );
+        r.close_modal(0);
+        r.scroll(0., -20.);
+        assert!(r.scroll_offset()[1] < offset[1]);
     }
     #[test]
     fn layout_uses_component_defaults_and_single_scene_is_compatible() {
@@ -2987,19 +4076,31 @@ mod raster_tests {
     #[test]
     fn cpu_cache_release_preserves_geometry_and_rebuilds_identical_fallback_pixels() {
         for count in [0, 1, 2] {
-            let source = format!("component Demo {{ Frame {{ width:128; height:96; Scroll {{ {} }} }} }}",
-                "Button { width:150; height:60; }".repeat(count));
+            let source = format!(
+                "component Demo {{ Frame {{ width:128; height:96; Scroll {{ {} }} }} }}",
+                "Button { width:150; height:60; }".repeat(count)
+            );
             let runtime = Runtime::from_sources(&source, TEMPLATE).unwrap();
             let rgba = runtime.pixels(160, 120, 1.25);
             let mut native = vec![0; 160 * 120];
             runtime.paint_native(&mut native, 160, 120, 1.25).unwrap();
-            assert!(runtime.controls.iter().all(|c| c.raster_cache.borrow().is_some()));
+            assert!(
+                runtime
+                    .controls
+                    .iter()
+                    .all(|c| c.raster_cache.borrow().is_some())
+            );
             let geometry = runtime.vector_snapshot(1.25, true);
             let revision = runtime.visual_revision();
             for _ in 0..2 {
                 runtime.release_cpu_cache();
                 assert!(runtime.raster_cache.borrow().is_none());
-                assert!(runtime.controls.iter().all(|c| c.raster_cache.borrow().is_none()));
+                assert!(
+                    runtime
+                        .controls
+                        .iter()
+                        .all(|c| c.raster_cache.borrow().is_none())
+                );
             }
             assert!(Arc::ptr_eq(&geometry, &runtime.vector_snapshot(1.25, true)));
             assert_eq!(runtime.visual_revision(), revision);
@@ -3034,96 +4135,102 @@ mod raster_tests {
     // Previous full-canvas algorithm is an independent oracle for packed leaf
     // compositing, root frame coverage, scrollbars, and background rounding.
     impl Runtime {
-    fn full_canvas_reference(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
-        if self.controls.len() == 1 {
-            return if background {
-                self.controls[0].pixels(w, h, s)
-            } else {
-                self.controls[0].content_pixels(w, h, s)
-            };
-        }
-        if w == 0
-            || h == 0
-            || w > 4096
-            || h > 4096
-            || w as u64 * h as u64 > 8_388_608
-            || !s.is_finite()
-            || s <= 0.
-        {
-            return vec![];
-        }
-        let mut out = vec![0; w as usize * h as usize * 4];
-        for (i, c) in self.controls.iter().enumerate() {
-            if self.modal_of[i].is_some() { continue; }
-            let pixels = c.content_pixels(w, h, s);
-            for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
-                crate::raster_cache::over(dst, src);
+        fn full_canvas_reference(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
+            if self.controls.len() == 1 {
+                return if background {
+                    self.controls[0].pixels(w, h, s)
+                } else {
+                    self.controls[0].content_pixels(w, h, s)
+                };
             }
-        }
-        let v = self.viewport_rect();
-        let [cw, ch] = self.content_size();
-        for y in 0..h {
-            for x in 0..w {
-                let p = &mut out[((y * w + x) * 4) as usize..][..4];
-                let px = (x as f32 + 0.5) / s;
-                let py = (y as f32 + 0.5) / s;
-                if self.scene.scroll {
-                    if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
-                        p.fill(0);
-                    } else {
-                        let vertical = ch > v[3]
-                            && px >= (v[0] + v[2] - 5.).max(v[0])
-                            && py >= v[1] + self.scroll[1] / ch * v[3]
-                            && py < v[1] + (self.scroll[1] + v[3]) / ch * v[3];
-                        let horizontal = cw > v[2]
-                            && py >= (v[1] + v[3] - 5.).max(v[1])
-                            && px >= v[0] + self.scroll[0] / cw * v[2]
-                            && px < v[0] + (self.scroll[0] + v[2]) / cw * v[2];
-                        if vertical || horizontal {
-                            p.copy_from_slice(&[110, 130, 170, 255]);
-                        }
-                    }
+            if w == 0
+                || h == 0
+                || w > 4096
+                || h > 4096
+                || w as u64 * h as u64 > 8_388_608
+                || !s.is_finite()
+                || s <= 0.
+            {
+                return vec![];
+            }
+            let mut out = vec![0; w as usize * h as usize * 4];
+            for (i, c) in self.controls.iter().enumerate() {
+                if self.modal_of[i].is_some() {
+                    continue;
                 }
-            }
-        }
-        for (m, modal) in self.scene.modals.iter().enumerate() {
-            if !self.modal_open[m] { continue; }
-            for p in out.chunks_exact_mut(4) { crate::raster_cache::over(p, &modal.backdrop); }
-            for i in modal.controls.clone() {
-                let pixels = self.controls[i].content_pixels(w, h, s);
+                let pixels = c.content_pixels(w, h, s);
                 for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
                     crate::raster_cache::over(dst, src);
                 }
             }
-        }
-        for y in 0..h {
-            for x in 0..w {
-                let p = &mut out[((y * w + x) * 4) as usize..][..4];
-                let coverage = round_coverage(
-                    x,
-                    y,
-                    s,
-                    [0., 0., self.width(), self.height()],
-                    self.scene.radius,
-                );
-                if background {
-                    let mut bg = self.scene.background;
-                    if !self.scene.clip {
-                        bg[3] = (bg[3] as f32 * coverage).round() as u8;
-                    }
-                    crate::raster_cache::over(&mut bg, p);
-                    p.copy_from_slice(&bg);
-                }
-                if self.scene.clip {
-                    p[3] = (p[3] as f32 * coverage).round() as u8;
-                    if p[3] == 0 {
-                        p.fill(0);
+            let v = self.viewport_rect();
+            let [cw, ch] = self.content_size();
+            for y in 0..h {
+                for x in 0..w {
+                    let p = &mut out[((y * w + x) * 4) as usize..][..4];
+                    let px = (x as f32 + 0.5) / s;
+                    let py = (y as f32 + 0.5) / s;
+                    if self.scene.scroll {
+                        if px < v[0] || py < v[1] || px >= v[0] + v[2] || py >= v[1] + v[3] {
+                            p.fill(0);
+                        } else {
+                            let vertical = ch > v[3]
+                                && px >= (v[0] + v[2] - 5.).max(v[0])
+                                && py >= v[1] + self.scroll[1] / ch * v[3]
+                                && py < v[1] + (self.scroll[1] + v[3]) / ch * v[3];
+                            let horizontal = cw > v[2]
+                                && py >= (v[1] + v[3] - 5.).max(v[1])
+                                && px >= v[0] + self.scroll[0] / cw * v[2]
+                                && px < v[0] + (self.scroll[0] + v[2]) / cw * v[2];
+                            if vertical || horizontal {
+                                p.copy_from_slice(&[110, 130, 170, 255]);
+                            }
+                        }
                     }
                 }
             }
+            for (m, modal) in self.scene.modals.iter().enumerate() {
+                if !self.modal_open[m] {
+                    continue;
+                }
+                for p in out.chunks_exact_mut(4) {
+                    crate::raster_cache::over(p, &modal.backdrop);
+                }
+                for i in modal.controls.clone() {
+                    let pixels = self.controls[i].content_pixels(w, h, s);
+                    for (dst, src) in out.chunks_exact_mut(4).zip(pixels.chunks_exact(4)) {
+                        crate::raster_cache::over(dst, src);
+                    }
+                }
+            }
+            for y in 0..h {
+                for x in 0..w {
+                    let p = &mut out[((y * w + x) * 4) as usize..][..4];
+                    let coverage = round_coverage(
+                        x,
+                        y,
+                        s,
+                        [0., 0., self.width(), self.height()],
+                        self.scene.radius,
+                    );
+                    if background {
+                        let mut bg = self.scene.background;
+                        if !self.scene.clip {
+                            bg[3] = (bg[3] as f32 * coverage).round() as u8;
+                        }
+                        crate::raster_cache::over(&mut bg, p);
+                        p.copy_from_slice(&bg);
+                    }
+                    if self.scene.clip {
+                        p[3] = (p[3] as f32 * coverage).round() as u8;
+                        if p[3] == 0 {
+                            p.fill(0);
+                        }
+                    }
+                }
+            }
+            out
         }
-        out
-    }
     }
 
     const TEMPLATE: &str = "component Button { Rectangle { radius:6.3; background:Brush { color:#273f6077; hover:#a4e173bb; transition:100ms; }; Border { width:1.4; background:#e7cf8199; } Reveal { width:2.3; color:#dd8822aa; } Text { text:'Я'; fontSize:16; color:#ffffffa0; } ContentText { x:-5.8; y:-10.2; width:52.1; height:13.7; text:'Overflow Я'; fontSize:12.5; color:#f8aaffb0; } ContentShape { points:'-7 -3 64.2 4.1 72.5 21.8 -4.3 29.2'; color:#fc345a61; } ContentClip { x:3.7; y:8.3; width:48.6; height:25.2; radius:4.2; } ContentShape { points:'-20 -30 70 -30 70 50 -20 50'; color:#3467af80; } ContentClip { x:7.2; y:12.1; width:23.4; height:19.7; radius:3.1; } ContentShape { points:'-20 -30 70 -30 70 50 -20 50'; color:#ddeeff90; } ContentClipEnd {} ContentClipEnd {} PointerArea { clicked -> events.clicked(); } } }";
@@ -3133,20 +4240,37 @@ mod raster_tests {
             let expected = runtime.full_canvas_reference(width, height, scale, background);
             let actual = runtime.raster(width, height, scale, background);
             if expected != actual {
-                let first = expected.chunks_exact(4).zip(actual.chunks_exact(4)).position(|(a,b)| a != b).unwrap();
-                panic!("pixel ({}, {}) differs at DPI {scale}, background {background}: {:?} != {:?}",
-                    first % width as usize, first / width as usize, &expected[first*4..first*4+4], &actual[first*4..first*4+4]);
+                let first = expected
+                    .chunks_exact(4)
+                    .zip(actual.chunks_exact(4))
+                    .position(|(a, b)| a != b)
+                    .unwrap();
+                panic!(
+                    "pixel ({}, {}) differs at DPI {scale}, background {background}: {:?} != {:?}",
+                    first % width as usize,
+                    first / width as usize,
+                    &expected[first * 4..first * 4 + 4],
+                    &actual[first * 4..first * 4 + 4]
+                );
             }
             assert_eq!(runtime.raster(width, height, scale, background), actual);
             let mut reused = vec![0x99; expected.len()];
-            runtime.paint_rgba(&mut reused, width, height, scale, background).unwrap();
-            assert_eq!(reused, expected, "caller-owned RGBA differs from full-canvas oracle");
+            runtime
+                .paint_rgba(&mut reused, width, height, scale, background)
+                .unwrap();
+            assert_eq!(
+                reused, expected,
+                "caller-owned RGBA differs from full-canvas oracle"
+            );
             if background {
                 let mut native = vec![0; (width * height) as usize];
-                runtime.paint_native(&mut native, width, height, scale).unwrap();
+                runtime
+                    .paint_native(&mut native, width, height, scale)
+                    .unwrap();
                 for (&actual, expected) in native.iter().zip(expected.chunks_exact(4)) {
                     let a = expected[3] as u32;
-                    let c = |k: usize, bg: u32| (expected[k] as u32 * a + bg * (255 - a) + 127) / 255;
+                    let c =
+                        |k: usize, bg: u32| (expected[k] as u32 * a + bg * (255 - a) + 127) / 255;
                     assert_eq!(actual, c(0, 17) << 16 | c(1, 19) << 8 | c(2, 25));
                 }
             }
@@ -3156,8 +4280,14 @@ mod raster_tests {
     #[test]
     fn packed_multicontrol_matches_full_canvas_for_overflow_clips_scroll_and_dpi() {
         for mode in ["overflow:visible;", "clip:true;", "scroll"] {
-            let (props, open, close) = if mode == "scroll" { ("clip:true;", "Scroll {", "}") } else { (mode, "", "") };
-            let source = format!("component Demo {{ Frame {{ width:83.7; height:62.4; padding:5.3; radius:8.1; background:#10203080; {props} {open} Button {{ x:3.7; y:4.2; width:32.2; height:19.7; }} Button {{ x:23.6; y:39.7; width:76.3; height:39.2; }} {close} }} }}");
+            let (props, open, close) = if mode == "scroll" {
+                ("clip:true;", "Scroll {", "}")
+            } else {
+                (mode, "", "")
+            };
+            let source = format!(
+                "component Demo {{ Frame {{ width:83.7; height:62.4; padding:5.3; radius:8.1; background:#10203080; {props} {open} Button {{ x:3.7; y:4.2; width:32.2; height:19.7; }} Button {{ x:23.6; y:39.7; width:76.3; height:39.2; }} {close} }} }}"
+            );
             let mut runtime = Runtime::from_sources(&source, TEMPLATE).unwrap();
             for scale in [1., 1.25, 2.] {
                 assert_reference(&runtime, 176, 152, scale);
@@ -3186,10 +4316,16 @@ mod raster_tests {
             assert_reference(&runtime, 150, 113, scale);
         }
         let open = runtime.content_pixels(120, 90, 1.);
-        assert!(open[(5 * 120 + 5) * 4 + 3] > 0, "layer content paints over the padding outside the viewport");
+        assert!(
+            open[(5 * 120 + 5) * 4 + 3] > 0,
+            "layer content paints over the padding outside the viewport"
+        );
         runtime.close_modal(0);
         assert_reference(&runtime, 150, 113, 1.);
-        assert_eq!(runtime.content_pixels(120, 90, 1.)[(5 * 120 + 5) * 4 + 3], 0);
+        assert_eq!(
+            runtime.content_pixels(120, 90, 1.)[(5 * 120 + 5) * 4 + 3],
+            0
+        );
         assert_ne!(runtime.content_pixels(120, 90, 1.), open);
     }
 
@@ -3212,7 +4348,9 @@ mod raster_tests {
     #[test]
     fn empty_frame_raster_and_native_have_no_child_access() {
         for content in ["", "Scroll {}"] {
-            let source = format!("component Demo {{ Frame {{ width:24; height:18; padding:2; radius:3.3; background:#27486980; {content} }} }}");
+            let source = format!(
+                "component Demo {{ Frame {{ width:24; height:18; padding:2; radius:3.3; background:#27486980; {content} }} }}"
+            );
             let runtime = Runtime::from_sources(&source, TEMPLATE).unwrap();
             assert_eq!(runtime.control_count(), 0);
             assert_reference(&runtime, 40, 30, 1.25);

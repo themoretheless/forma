@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
-use super::{
-    number, parse_svg_shapes, Definition, Document, Expression, Node, Properties, Value,
-};
+use super::{Definition, Document, Expression, Node, Properties, Value, number, parse_svg_shapes};
 
 pub(super) fn doc_value_to_json(v: &Value) -> Result<serde_json::Value, String> {
     Ok(match v {
@@ -135,9 +133,7 @@ fn json_to_doc_value(v: &serde_json::Value) -> Result<Value, String> {
                 for c in cases {
                     let pat =
                         json_to_doc_value(c.get("pattern").unwrap_or(&serde_json::Value::Null))?;
-                    let val = if let Some(props) =
-                        c.get("props").or_else(|| c.get("properties"))
-                    {
+                    let val = if let Some(props) = c.get("props").or_else(|| c.get("properties")) {
                         json_to_doc_value(props)?
                     } else {
                         json_to_doc_value(c.get("value").unwrap_or(&serde_json::Value::Null))?
@@ -192,11 +188,11 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
             .unwrap_or(&serde_json::Value::Null),
     )?;
     props.remove("slot");
-    if let Some(styles_val) = v
-        .get("apply")
-        .or_else(|| v.get("styles"))
-        .or_else(|| props.get("apply").and_then(|_| v.get("props").and_then(|p| p.get("apply"))))
-    {
+    if let Some(styles_val) = v.get("apply").or_else(|| v.get("styles")).or_else(|| {
+        props
+            .get("apply")
+            .and_then(|_| v.get("props").and_then(|p| p.get("apply")))
+    }) {
         props.remove("apply");
         if let Some(arr) = styles_val.as_array() {
             if !arr.is_empty() {
@@ -209,7 +205,10 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
                     ),
                 );
             }
-        } else if let Some(s) = styles_val.as_str().or_else(|| styles_val.get("expr").and_then(|e| e.as_str())) {
+        } else if let Some(s) = styles_val
+            .as_str()
+            .or_else(|| styles_val.get("expr").and_then(|e| e.as_str()))
+        {
             let names: Vec<Value> = s
                 .split(|c: char| c == ',' || c.is_whitespace())
                 .filter(|part| !part.is_empty())
@@ -309,12 +308,19 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
     let action = v
         .get("events")
         .and_then(|e| e.get("clicked").or_else(|| e.get("dismissed")))
-        .and_then(|c| c.as_str().or_else(|| c.get("action").and_then(|a| a.as_str())))
+        .and_then(|c| {
+            c.as_str()
+                .or_else(|| c.get("action").and_then(|a| a.as_str()))
+        })
         .map(String::from);
     let mut children = v
         .get("children")
         .and_then(|c| c.as_array())
-        .map(|arr| arr.iter().map(json_to_doc_node).collect::<Result<Vec<_>, _>>())
+        .map(|arr| {
+            arr.iter()
+                .map(json_to_doc_node)
+                .collect::<Result<Vec<_>, _>>()
+        })
         .transpose()?
         .unwrap_or_default();
     if kind == "If" {
@@ -362,7 +368,11 @@ fn json_to_doc_node(v: &serde_json::Value) -> Result<Node, String> {
                 let br_children = br
                     .get("children")
                     .and_then(|c| c.as_array())
-                    .map(|arr| arr.iter().map(json_to_doc_node).collect::<Result<Vec<_>, _>>())
+                    .map(|arr| {
+                        arr.iter()
+                            .map(json_to_doc_node)
+                            .collect::<Result<Vec<_>, _>>()
+                    })
                     .transpose()?
                     .unwrap_or_default();
                 children.push(Node {
@@ -410,7 +420,10 @@ fn resolve_ui_file<'a>(
     None
 }
 
-fn merge_json_object(target: &mut serde_json::Map<String, serde_json::Value>, source: &serde_json::Value) {
+fn merge_json_object(
+    target: &mut serde_json::Map<String, serde_json::Value>,
+    source: &serde_json::Value,
+) {
     if let Some(obj) = source.as_object() {
         for (k, v) in obj {
             target.insert(k.clone(), v.clone());
@@ -553,7 +566,10 @@ fn apply_slot_overrides(
             .get("props")
             .or_else(|| node.get("properties"))
             .and_then(|p| p.get("slot").or_else(|| p.get("key")))
-            .and_then(|s| s.as_str().or_else(|| s.get("expr").and_then(|e| e.as_str())))
+            .and_then(|s| {
+                s.as_str()
+                    .or_else(|| s.get("expr").and_then(|e| e.as_str()))
+            })
             .map(String::from);
         if let Some(slot) = slot_name {
             if let Some(override_spec) = slots.get(&slot) {
@@ -586,7 +602,9 @@ fn apply_slot_overrides(
                     .get("fileOverride")
                     .and_then(|b| b.as_bool())
                     .unwrap_or(false)
-                    || override_spec.get("fileOverride").is_some_and(|v| v.is_string())
+                    || override_spec
+                        .get("fileOverride")
+                        .is_some_and(|v| v.is_string())
                 {
                     let file_override = override_spec
                         .get("file")
@@ -673,7 +691,11 @@ fn ast_to_definition(ast: &serde_json::Value) -> Result<Definition, String> {
     let nodes = ast
         .get("nodes")
         .and_then(|n| n.as_array())
-        .map(|arr| arr.iter().map(json_to_doc_node).collect::<Result<Vec<_>, _>>())
+        .map(|arr| {
+            arr.iter()
+                .map(json_to_doc_node)
+                .collect::<Result<Vec<_>, _>>()
+        })
         .transpose()?
         .unwrap_or_default();
     Ok(Definition { defaults, nodes })
@@ -754,7 +776,11 @@ pub(super) fn compile_ui_files_to_document(
     let mut scene_nodes = scene_ast
         .get("nodes")
         .and_then(|n| n.as_array())
-        .map(|arr| arr.iter().map(json_to_doc_node).collect::<Result<Vec<_>, _>>())
+        .map(|arr| {
+            arr.iter()
+                .map(json_to_doc_node)
+                .collect::<Result<Vec<_>, _>>()
+        })
         .transpose()?
         .unwrap_or_default();
     if scene_nodes.len() != 1 {
@@ -810,7 +836,10 @@ pub(super) fn compile_ui_files_to_document(
 
     // Merge initial state from `stateDefinitions` defaults + `designs` + `initial_state`
     let mut root_state = Properties::new();
-    if let Some(state_defs) = scene_ast.get("stateDefinitions").and_then(|s| s.as_object()) {
+    if let Some(state_defs) = scene_ast
+        .get("stateDefinitions")
+        .and_then(|s| s.as_object())
+    {
         for (k, spec) in state_defs {
             if let Some(def_val) = spec.get("default").or_else(|| spec.get("defaultValue")) {
                 if !def_val.is_null() {

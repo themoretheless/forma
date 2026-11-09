@@ -1,9 +1,9 @@
 use forma::{
-    display_list::{
-        scrolled_bounds, DisplayList, TileScratch, SCROLL_CONTENT, SCROLL_FACTOR, SCROLL_FIXED,
-        SCROLL_MODE, SCROLL_THUMB_X, SCROLL_THUMB_Y, STRIDE, TILE,
-    },
     Button,
+    display_list::{
+        DisplayList, SCROLL_CONTENT, SCROLL_FACTOR, SCROLL_FIXED, SCROLL_MODE, SCROLL_THUMB_X,
+        SCROLL_THUMB_Y, STRIDE, TILE, TileScratch, scrolled_bounds,
+    },
 };
 use std::sync::Arc;
 
@@ -165,7 +165,10 @@ fn scroll_modes_mark_content_and_thumbs_and_tiles_follow_the_offset() {
     assert_eq!(records[0][SCROLL_MODE], SCROLL_FIXED);
     assert_eq!(records[1][0], 2.);
     assert_eq!(records[1][SCROLL_MODE], SCROLL_FIXED);
-    let content: Vec<_> = records.iter().filter(|c| c[SCROLL_MODE] == SCROLL_CONTENT).collect();
+    let content: Vec<_> = records
+        .iter()
+        .filter(|c| c[SCROLL_MODE] == SCROLL_CONTENT)
+        .collect();
     assert!(content.iter().any(|c| c[0] == 4.), "control body scrolls");
     assert!(content.iter().any(|c| c[0] == 1.), "glyph paths scroll");
     let thumbs: Vec<_> = records.iter().filter(|c| c[0] == 5.).collect();
@@ -176,14 +179,32 @@ fn scroll_modes_mark_content_and_thumbs_and_tiles_follow_the_offset() {
     assert!((thumbs[1][SCROLL_FACTOR] - 40. / 80.).abs() < 1e-6);
     // The binner applies the same offsets as the shader.
     let body = content.iter().find(|c| c[0] == 4.).unwrap();
-    assert_eq!(scrolled_bounds(body, [10., 20.]), [body[4] - 10., body[5] - 20., body[6], body[7]]);
-    assert_eq!(scrolled_bounds(thumbs[0], [10., 20.])[1], thumbs[0][5] + 20. * thumbs[0][SCROLL_FACTOR]);
-    assert_eq!(scrolled_bounds(thumbs[1], [10., 20.])[0], thumbs[1][4] + 10. * thumbs[1][SCROLL_FACTOR]);
+    assert_eq!(
+        scrolled_bounds(body, [10., 20.]),
+        [body[4] - 10., body[5] - 20., body[6], body[7]]
+    );
+    assert_eq!(
+        scrolled_bounds(thumbs[0], [10., 20.])[1],
+        thumbs[0][5] + 20. * thumbs[0][SCROLL_FACTOR]
+    );
+    assert_eq!(
+        scrolled_bounds(thumbs[1], [10., 20.])[0],
+        thumbs[1][4] + 10. * thumbs[1][SCROLL_FACTOR]
+    );
     let list = b.vector_list(1., true);
-    assert_ne!(list.tiles(64, 64, 1., [0.; 2]), list.tiles(64, 64, 1., [0., 40.]));
+    assert_ne!(
+        list.tiles(64, 64, 1., [0.; 2]),
+        list.tiles(64, 64, 1., [0., 40.])
+    );
     // Fixed commands ignore the offset entirely.
-    let fixed = DisplayList { commands: commands[..STRIDE].to_vec(), edges: Vec::new() };
-    assert_eq!(fixed.tiles(64, 64, 1., [0.; 2]), fixed.tiles(64, 64, 1., [30., 40.]));
+    let fixed = DisplayList {
+        commands: commands[..STRIDE].to_vec(),
+        edges: Vec::new(),
+    };
+    assert_eq!(
+        fixed.tiles(64, 64, 1., [0.; 2]),
+        fixed.tiles(64, 64, 1., [30., 40.])
+    );
 }
 #[test]
 fn empty_tiles_do_not_scan_all_glyphs() {
@@ -320,7 +341,9 @@ fn unclipped_flat_binner_is_byte_identical_to_legacy_at_tile_and_dpi_boundaries(
 fn tile_scratch_retains_capacity_and_output_pointer_across_repeated_resize() {
     let list = boundary_scene();
     let mut scratch = TileScratch::default();
-    let pointer = list.tiles_into(3840, 2160, 3., [0.; 2], &mut scratch).as_ptr();
+    let pointer = list
+        .tiles_into(3840, 2160, 3., [0.; 2], &mut scratch)
+        .as_ptr();
     let capacity = scratch.capacity_bytes();
     assert!(capacity > 0);
     for _ in 0..3 {
@@ -341,8 +364,14 @@ fn tile_scratch_retains_capacity_and_output_pointer_across_repeated_resize() {
 fn tile_index_depends_on_grid_dimensions_not_exact_framebuffer_size() {
     let list = boundary_scene();
     for scale in [1., 1.25, 2.] {
-        assert_eq!(list.tiles(33, 65, scale, [0.; 2]), list.tiles(64, 96, scale, [0.; 2]));
-        assert_eq!(list.tiles(3810, 2145, scale, [0.; 2]), list.tiles(3840, 2176, scale, [0.; 2]));
+        assert_eq!(
+            list.tiles(33, 65, scale, [0.; 2]),
+            list.tiles(64, 96, scale, [0.; 2])
+        );
+        assert_eq!(
+            list.tiles(3810, 2145, scale, [0.; 2]),
+            list.tiles(3840, 2176, scale, [0.; 2])
+        );
     }
 }
 

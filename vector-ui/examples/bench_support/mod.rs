@@ -299,9 +299,11 @@ mod tests {
         unsafe {
             let first = allocator.alloc_zeroed(layout);
             assert!(!first.is_null());
-            assert!(std::slice::from_raw_parts(first, 64)
-                .iter()
-                .all(|&byte| byte == 0));
+            assert!(
+                std::slice::from_raw_parts(first, 64)
+                    .iter()
+                    .all(|&byte| byte == 0)
+            );
             let second = allocator.alloc(layout);
             assert!(!second.is_null());
             allocator.dealloc(second, layout);

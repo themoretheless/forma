@@ -1,20 +1,20 @@
-use forma::{
-    frame_stats::{FrameRate, FrameStats},
-    native_window::{apply_egui_frame_bar, build_chooser_runtime, TargetPlatform, UiBackend},
-};
+use forma::native_gpu::{GpuWindow, Presentation};
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+use forma::native_window::apply_mobile_chrome;
 #[cfg(target_os = "ios")]
 use forma::native_window::{
     chooser_ui_for_viewport, two_buttons_ui_for_viewport, two_buttons_ui_for_viewport_with_state,
 };
-#[cfg(not(any(target_os = "ios", target_os = "android")))]
-use forma::native_window::apply_mobile_chrome;
+use forma::{
+    frame_stats::{FrameRate, FrameStats},
+    native_window::{TargetPlatform, UiBackend, apply_egui_frame_bar, build_chooser_runtime},
+};
 use std::{
     collections::HashMap,
     num::NonZeroU32,
     sync::Arc,
     time::{Duration, Instant},
 };
-use forma::native_gpu::{GpuWindow, Presentation};
 use winit::{
     application::ApplicationHandler,
     dpi::LogicalSize,
@@ -25,7 +25,6 @@ use winit::{
 };
 
 const TITLE_INTERVAL: Duration = Duration::from_millis(250);
-
 
 /// Outcome of one software frame, reported instead of applied in place: the pixel buffer
 /// borrows the surface, and Linux keeps that borrow alive until the block ends.
@@ -58,7 +57,7 @@ struct App {
     control: bool,
     alt: bool,
     composing: bool,
-    composition_owner: Option<(u64,i32)>,
+    composition_owner: Option<(u64, i32)>,
     ime_cancelled: bool,
     ime_allowed: bool,
     accessibility: Option<accesskit_winit::Adapter>,
@@ -97,14 +96,30 @@ struct App {
 
 impl App {
     fn observe_ime_owner(&mut self) {
-        standalone_observe_ime(&self.button,&mut self.composing,self.composition_owner,&mut self.ime_cancelled);
+        standalone_observe_ime(
+            &self.button,
+            &mut self.composing,
+            self.composition_owner,
+            &mut self.ime_cancelled,
+        );
     }
-    fn ime_event(&mut self,event:winit::event::Ime) {
-        standalone_ime_event(&mut self.button,&mut self.composing,&mut self.composition_owner,&mut self.ime_cancelled,event);
+    fn ime_event(&mut self, event: winit::event::Ime) {
+        standalone_ime_event(
+            &mut self.button,
+            &mut self.composing,
+            &mut self.composition_owner,
+            &mut self.ime_cancelled,
+            event,
+        );
     }
     fn update_accessibility(&mut self) {
-        if !self.accessibility_active { return; }
-        let scale = self.window.as_ref().map_or(1., |window| window.scale_factor());
+        if !self.accessibility_active {
+            return;
+        }
+        let scale = self
+            .window
+            .as_ref()
+            .map_or(1., |window| window.scale_factor());
         let active_rt = self.chooser.as_ref().unwrap_or(&self.button);
         if let Ok(Some(update)) = self.accessibility_ids.update_if_changed(active_rt, scale) {
             if let Some(adapter) = &mut self.accessibility {
@@ -113,7 +128,9 @@ impl App {
         }
     }
     fn accessibility_action(&mut self, request: &accesskit::ActionRequest) {
-        if request.target_tree != accesskit::TreeId::ROOT { return; }
+        if request.target_tree != accesskit::TreeId::ROOT {
+            return;
+        }
         let pending_ime = self.composing || self.composition_owner.is_some();
         let previous = self.button.native_editor_session();
         let accepted = if let Some(chooser) = &mut self.chooser {
@@ -122,10 +139,21 @@ impl App {
             self.accessibility_ids.apply(&mut self.button, request)
         };
         if self.chooser.is_none() {
-            if (pending_ime && (previous.is_none() || self.button.native_editor_session() != previous))
-                || (accepted && pending_ime && matches!(request.action, accesskit::Action::SetValue | accesskit::Action::SetTextSelection))
+            if (pending_ime
+                && (previous.is_none() || self.button.native_editor_session() != previous))
+                || (accepted
+                    && pending_ime
+                    && matches!(
+                        request.action,
+                        accesskit::Action::SetValue | accesskit::Action::SetTextSelection
+                    ))
             {
-                standalone_cancel_ime(&mut self.button, &mut self.composing, &mut self.composition_owner, &mut self.ime_cancelled);
+                standalone_cancel_ime(
+                    &mut self.button,
+                    &mut self.composing,
+                    &mut self.composition_owner,
+                    &mut self.ime_cancelled,
+                );
             }
             let binding_error = self.button.sync_ui_bindings_native().err();
             self.observe_ime_owner();
@@ -145,7 +173,9 @@ impl App {
 
     fn set_binding_error(&mut self, error: Option<String>) {
         if self.binding_error != error {
-            if let Some(error) = &error { eprintln!("Ошибка bindings: {error}"); }
+            if let Some(error) = &error {
+                eprintln!("Ошибка bindings: {error}");
+            }
             self.binding_error = error;
             self.next_title_update = Instant::now();
         }
@@ -206,7 +236,8 @@ impl App {
 
     fn select_backend(&mut self, backend: UiBackend) {
         self.ui_backend = Some(backend);
-        self.button.set_svet_document_scheduling(backend == UiBackend::Svet);
+        self.button
+            .set_svet_document_scheduling(backend == UiBackend::Svet);
         self.chooser = None;
         self.frame_stats = FrameStats::default();
         self.next_title_update = Instant::now();
@@ -254,16 +285,21 @@ impl App {
             let logical_w = (size.width as f32 / scale).round();
             let logical_h = (size.height as f32 / scale).round();
             if let Some(chooser) = &mut self.chooser {
-                if (chooser.width() - logical_w).abs() > 1.0 || (chooser.height() - logical_h).abs() > 1.0 {
+                if (chooser.width() - logical_w).abs() > 1.0
+                    || (chooser.height() - logical_h).abs() > 1.0
+                {
                     let src = chooser_ui_for_viewport(logical_w, logical_h);
-                    if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
+                    if let Ok(mut next) =
+                        forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT)
+                    {
                         next.preserve_interaction(chooser);
                         *chooser = next;
                     }
                 }
             } else if self.source_path.is_none()
                 && self.project_root.is_none()
-                && ((self.button.width() - logical_w).abs() > 1.0 || (self.button.height() - logical_h).abs() > 1.0)
+                && ((self.button.width() - logical_w).abs() > 1.0
+                    || (self.button.height() - logical_h).abs() > 1.0)
             {
                 let src = two_buttons_ui_for_viewport(logical_w, logical_h);
                 if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
@@ -331,12 +367,7 @@ impl App {
             };
             let scale = window.scale_factor() as f32;
             let error = active_runtime
-                .paint_native(
-                    &mut buffer,
-                    size.width,
-                    size.height,
-                    scale,
-                )
+                .paint_native(&mut buffer, size.width, size.height, scale)
                 .err()
                 .map(str::to_owned);
             if error.is_some() {
@@ -446,7 +477,8 @@ impl App {
             return;
         }
         let popup_source = "component Popup { Frame { width:260; height:110; padding:12; gap:8; Button { key:'popup-action'; width:236; height:38; text:'Нативный попап (F10)'; clicked -> actions.confirm_popup(); } } }";
-        let Ok(popup_runtime) = forma::Runtime::from_sources(popup_source, forma::BUTTON_COMPONENT) else {
+        let Ok(popup_runtime) = forma::Runtime::from_sources(popup_source, forma::BUTTON_COMPONENT)
+        else {
             return;
         };
         let Ok(raw_win) = event_loop.create_window(
@@ -519,7 +551,9 @@ impl App {
             WindowEvent::RedrawRequested => {
                 aux.runtime.tick(16.0);
                 let size = aux.window.inner_size();
-                if let (Some(w), Some(h)) = (NonZeroU32::new(size.width), NonZeroU32::new(size.height)) {
+                if let (Some(w), Some(h)) =
+                    (NonZeroU32::new(size.width), NonZeroU32::new(size.height))
+                {
                     if let Some(gpu) = &mut aux.gpu {
                         let _ = gpu.draw(&aux.runtime, &aux.window);
                     } else if let Some(surface) = &mut aux.surface {
@@ -550,7 +584,11 @@ impl App {
 
 impl ApplicationHandler<accesskit_winit::Event> for App {
     fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
-        if !self.window.as_ref().is_some_and(|window| window.id() == event.window_id) {
+        if !self
+            .window
+            .as_ref()
+            .is_some_and(|window| window.id() == event.window_id)
+        {
             return;
         }
         match event.window_event {
@@ -566,7 +604,10 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 self.accessibility_action(&request);
                 self.update_accessibility();
                 if let Some(window) = &self.window {
-                    let editing = self.button.text_editing() && !self.button.control_readonly(self.button.focused_index().max(0) as usize);
+                    let editing = self.button.text_editing()
+                        && !self
+                            .button
+                            .control_readonly(self.button.focused_index().max(0) as usize);
                     if editing != self.ime_allowed {
                         window.set_ime_allowed(editing);
                         self.ime_allowed = editing;
@@ -598,7 +639,9 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 .create_window(
                     Window::default_attributes()
                         .with_visible(false)
-                        .with_title("Forma · ожидание кадра · F6: платформа · F7: бэкенд · F8: FPS-тест")
+                        .with_title(
+                            "Forma · ожидание кадра · F6: платформа · F7: бэкенд · F8: FPS-тест",
+                        )
                         .with_inner_size(LogicalSize::new(init_w, init_h)),
                 )
                 .unwrap(),
@@ -642,16 +685,21 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             let logical_w = (size.width as f32 / scale).round();
             let logical_h = (size.height as f32 / scale).round();
             if let Some(chooser) = &mut self.chooser {
-                if (chooser.width() - logical_w).abs() > 1.0 || (chooser.height() - logical_h).abs() > 1.0 {
+                if (chooser.width() - logical_w).abs() > 1.0
+                    || (chooser.height() - logical_h).abs() > 1.0
+                {
                     let src = chooser_ui_for_viewport(logical_w, logical_h);
-                    if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
+                    if let Ok(mut next) =
+                        forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT)
+                    {
                         next.preserve_interaction(chooser);
                         *chooser = next;
                     }
                 }
             } else if self.source_path.is_none()
                 && self.project_root.is_none()
-                && ((self.button.width() - logical_w).abs() > 1.0 || (self.button.height() - logical_h).abs() > 1.0)
+                && ((self.button.width() - logical_w).abs() > 1.0
+                    || (self.button.height() - logical_h).abs() > 1.0)
             {
                 let src = two_buttons_ui_for_viewport(logical_w, logical_h);
                 if let Ok(mut next) = forma::Runtime::from_sources(&src, forma::BUTTON_COMPONENT) {
@@ -687,7 +735,12 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
         );
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, window_id: WindowId, event: WindowEvent) {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        window_id: WindowId,
+        event: WindowEvent,
+    ) {
         if self.secondary_windows.contains_key(&window_id) {
             self.handle_secondary_window_event(window_id, event);
             return;
@@ -784,7 +837,9 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     }
                 }
                 WindowEvent::ModifiersChanged(modifiers) => {
-                    self.shift = modifiers.state().shift_key();self.control=modifiers.state().control_key();self.alt=modifiers.state().alt_key();
+                    self.shift = modifiers.state().shift_key();
+                    self.control = modifiers.state().control_key();
+                    self.alt = modifiers.state().alt_key();
                     self.command = if cfg!(target_os = "macos") {
                         modifiers.state().super_key()
                     } else {
@@ -885,13 +940,24 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 let p = position.to_logical::<f32>(window.scale_factor());
                 self.pointer = (p.x, p.y);
                 self.button.pointer(p.x, p.y, 0);
-                let index=self.button.hit_index(p.x,p.y);
-                window.set_cursor(if index>=0 && self.button.control_editable(index as usize) {winit::window::CursorIcon::Text}else{winit::window::CursorIcon::Default});
+                let index = self.button.hit_index(p.x, p.y);
+                window.set_cursor(
+                    if index >= 0 && self.button.control_editable(index as usize) {
+                        winit::window::CursorIcon::Text
+                    } else {
+                        winit::window::CursorIcon::Default
+                    },
+                );
             }
             WindowEvent::CursorLeft { .. } => self.button.pointer(-1., -1., 3),
-            WindowEvent::MouseInput {button:MouseButton::Left,..} if self.inspect_mode => {
-                let index=self.button.hit_index(self.pointer.0,self.pointer.1);
-                if index>=0 {self.button.focus_control(index as usize);}
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                ..
+            } if self.inspect_mode => {
+                let index = self.button.hit_index(self.pointer.0, self.pointer.1);
+                if index >= 0 {
+                    self.button.focus_control(index as usize);
+                }
             }
             WindowEvent::MouseInput {
                 state,
@@ -954,12 +1020,32 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     }
                 }
             }
-            WindowEvent::ModifiersChanged(modifiers) => {self.shift = modifiers.state().shift_key();self.control=modifiers.state().control_key();self.alt=modifiers.state().alt_key();self.command=if cfg!(target_os="macos"){modifiers.state().super_key()}else{modifiers.state().control_key()};},
-            WindowEvent::Ime(event)=>self.ime_event(event),
+            WindowEvent::ModifiersChanged(modifiers) => {
+                self.shift = modifiers.state().shift_key();
+                self.control = modifiers.state().control_key();
+                self.alt = modifiers.state().alt_key();
+                self.command = if cfg!(target_os = "macos") {
+                    modifiers.state().super_key()
+                } else {
+                    modifiers.state().control_key()
+                };
+            }
+            WindowEvent::Ime(event) => self.ime_event(event),
             WindowEvent::KeyboardInput { event, .. } => {
-                if (self.composing || self.composition_owner.is_some()) && event.state==ElementState::Pressed && !event.repeat
-                    && matches!(event.logical_key,Key::Named(NamedKey::Tab|NamedKey::Escape)) {
-                    standalone_cancel_ime(&mut self.button,&mut self.composing,&mut self.composition_owner,&mut self.ime_cancelled);
+                if (self.composing || self.composition_owner.is_some())
+                    && event.state == ElementState::Pressed
+                    && !event.repeat
+                    && matches!(
+                        event.logical_key,
+                        Key::Named(NamedKey::Tab | NamedKey::Escape)
+                    )
+                {
+                    standalone_cancel_ime(
+                        &mut self.button,
+                        &mut self.composing,
+                        &mut self.composition_owner,
+                        &mut self.ime_cancelled,
+                    );
                 }
                 if event.logical_key == Key::Named(NamedKey::F6)
                     && event.state == ElementState::Pressed
@@ -978,12 +1064,22 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     && !event.repeat
                 {
                     self.toggle_detached_popup(event_loop);
-                } else if event.logical_key==Key::Named(NamedKey::F9) && event.state==ElementState::Pressed && !event.repeat {
-                    self.inspect_mode=!self.inspect_mode;
+                } else if event.logical_key == Key::Named(NamedKey::F9)
+                    && event.state == ElementState::Pressed
+                    && !event.repeat
+                {
+                    self.inspect_mode = !self.inspect_mode;
                     self.button.focus(false);
                     self.inspect_report.clear();
                     self.a11y_report.clear();
-                    println!("F9: выбор элемента {}",if self.inspect_mode {"включён"}else{"выключен"});
+                    println!(
+                        "F9: выбор элемента {}",
+                        if self.inspect_mode {
+                            "включён"
+                        } else {
+                            "выключен"
+                        }
+                    );
                 } else if event.logical_key == Key::Named(NamedKey::F8)
                     && event.state == ElementState::Pressed
                     && !event.repeat
@@ -993,22 +1089,58 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     self.next_title_update = Instant::now();
                     self.retry_at = None;
                     window.request_redraw();
-                } else if event.state==ElementState::Pressed && self.button.range_key(&match &event.logical_key {Key::Named(key)=>format!("{key:?}"),_=>String::new()}) {
+                } else if event.state == ElementState::Pressed
+                    && self.button.range_key(&match &event.logical_key {
+                        Key::Named(key) => format!("{key:?}"),
+                        _ => String::new(),
+                    })
+                {
                     // Range navigation belongs to the same runtime as pointer input.
-                } else if self.button.text_editing() && !matches!(event.logical_key, Key::Named(NamedKey::Tab) | Key::Named(NamedKey::Escape)) {
-                    if event.state==ElementState::Pressed && !self.composing && !(cfg!(target_os="macos") && self.control && self.alt) {
-                        let key=match &event.logical_key {
-                            Key::Character(text)=>text.to_string(),
-                            Key::Named(name)=>format!("{name:?}"),_=>String::new(),
+                } else if self.button.text_editing()
+                    && !matches!(
+                        event.logical_key,
+                        Key::Named(NamedKey::Tab) | Key::Named(NamedKey::Escape)
+                    )
+                {
+                    if event.state == ElementState::Pressed
+                        && !self.composing
+                        && !(cfg!(target_os = "macos") && self.control && self.alt)
+                    {
+                        let key = match &event.logical_key {
+                            Key::Character(text) => text.to_string(),
+                            Key::Named(name) => format!("{name:?}"),
+                            _ => String::new(),
                         };
-                        let alt_gr=cfg!(not(target_os="macos")) && self.control && self.alt && event.text.is_some();
-                        let command=self.command && !alt_gr;
-                        let word_modifier=if cfg!(target_os="macos") {self.alt && !command} else {self.control && !self.alt};
-                        let key=if command {forma::native_clipboard::command_key(&event.physical_key,&key)} else {&key};
-                        let word_handled=word_modifier && self.button.text_word_key(&key,self.shift);
-                        let clipboard_handled=!word_handled && command && forma::native_clipboard::handle_key(&mut self.button,&key);
-                        if !word_handled && !clipboard_handled && !self.button.text_key(&key,self.shift,command) && !command {
-                            if let Some(text)=event.text {if !text.chars().any(char::is_control){self.button.text_insert(&text);}}
+                        let alt_gr = cfg!(not(target_os = "macos"))
+                            && self.control
+                            && self.alt
+                            && event.text.is_some();
+                        let command = self.command && !alt_gr;
+                        let word_modifier = if cfg!(target_os = "macos") {
+                            self.alt && !command
+                        } else {
+                            self.control && !self.alt
+                        };
+                        let key = if command {
+                            forma::native_clipboard::command_key(&event.physical_key, &key)
+                        } else {
+                            &key
+                        };
+                        let word_handled =
+                            word_modifier && self.button.text_word_key(&key, self.shift);
+                        let clipboard_handled = !word_handled
+                            && command
+                            && forma::native_clipboard::handle_key(&mut self.button, &key);
+                        if !word_handled
+                            && !clipboard_handled
+                            && !self.button.text_key(&key, self.shift, command)
+                            && !command
+                        {
+                            if let Some(text) = event.text {
+                                if !text.chars().any(char::is_control) {
+                                    self.button.text_insert(&text);
+                                }
+                            }
                         }
                     }
                 } else {
@@ -1034,8 +1166,16 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             WindowEvent::Focused(focused) => {
                 self.button.focus(focused);
                 if !focused {
-                    self.shift=false;self.command=false;self.control=false;self.alt=false;
-                    standalone_cancel_ime(&mut self.button,&mut self.composing,&mut self.composition_owner,&mut self.ime_cancelled);
+                    self.shift = false;
+                    self.command = false;
+                    self.control = false;
+                    self.alt = false;
+                    standalone_cancel_ime(
+                        &mut self.button,
+                        &mut self.composing,
+                        &mut self.composition_owner,
+                        &mut self.ime_cancelled,
+                    );
                     self.button.pointer(-1., -1., 3);
                 }
             }
@@ -1063,10 +1203,42 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             _ => {}
         }
         if self.inspect_mode {
-            let nodes=self.button.nodes().iter().map(|n|format!("{{\"id\":{},\"parent\":{},\"control\":{},\"kind\":\"{:?}\"}}",n.id,n.parent.map_or("null".into(),|v|v.to_string()),n.control.map_or("null".into(),|v|v.to_string()),n.kind)).collect::<Vec<_>>().join(",");
-            let controls=(0..self.button.control_count()).map(|i|format!("{{\"index\":{},\"bounds\":{:?},\"disabled\":{}}}",i,self.button.control_bounds(i),self.button.control_disabled(i))).collect::<Vec<_>>().join(",");
-            let report=format!("{{\"selected\":{},\"nodes\":[{}],\"controls\":[{}]}}",self.button.focused_index(),nodes,controls);
-            if report!=self.inspect_report {println!("FORMA_INSPECT {}",report);self.inspect_report=report;}
+            let nodes = self
+                .button
+                .nodes()
+                .iter()
+                .map(|n| {
+                    format!(
+                        "{{\"id\":{},\"parent\":{},\"control\":{},\"kind\":\"{:?}\"}}",
+                        n.id,
+                        n.parent.map_or("null".into(), |v| v.to_string()),
+                        n.control.map_or("null".into(), |v| v.to_string()),
+                        n.kind
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            let controls = (0..self.button.control_count())
+                .map(|i| {
+                    format!(
+                        "{{\"index\":{},\"bounds\":{:?},\"disabled\":{}}}",
+                        i,
+                        self.button.control_bounds(i),
+                        self.button.control_disabled(i)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            let report = format!(
+                "{{\"selected\":{},\"nodes\":[{}],\"controls\":[{}]}}",
+                self.button.focused_index(),
+                nodes,
+                controls
+            );
+            if report != self.inspect_report {
+                println!("FORMA_INSPECT {}", report);
+                self.inspect_report = report;
+            }
             let a11y = self.button.accessibility_tree_json();
             if a11y != self.a11y_report {
                 println!("FORMA_A11Y {}", a11y);
@@ -1074,10 +1246,21 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             }
         }
         self.observe_ime_owner();
-        let editing=self.button.text_editing()&&!self.button.control_readonly(self.button.focused_index().max(0) as usize);
-        if editing!=self.ime_allowed {window.set_ime_allowed(editing);self.ime_allowed=editing;}
-        let caret=self.button.text_caret_bounds();
-        if caret.len()==4 {window.set_ime_cursor_area(winit::dpi::LogicalPosition::new(caret[0] as f64,caret[1] as f64),LogicalSize::new(caret[2] as f64,caret[3] as f64));}
+        let editing = self.button.text_editing()
+            && !self
+                .button
+                .control_readonly(self.button.focused_index().max(0) as usize);
+        if editing != self.ime_allowed {
+            window.set_ime_allowed(editing);
+            self.ime_allowed = editing;
+        }
+        let caret = self.button.text_caret_bounds();
+        if caret.len() == 4 {
+            window.set_ime_cursor_area(
+                winit::dpi::LogicalPosition::new(caret[0] as f64, caret[1] as f64),
+                LogicalSize::new(caret[2] as f64, caret[3] as f64),
+            );
+        }
         if !redraw {
             let binding_error = self.button.sync_ui_bindings_native().err();
             self.observe_ime_owner();
@@ -1135,9 +1318,13 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 if let Ok(next_files) = collect_ui_project_files(root) {
                     if next_files != self.last_project_files {
                         let prev_state = self.button.ui_state_properties();
-                        if let Ok(mut next_rt) = forma::Runtime::from_ui_files(&next_files, entry, &prev_state) {
+                        if let Ok(mut next_rt) =
+                            forma::Runtime::from_ui_files(&next_files, entry, &prev_state)
+                        {
                             next_rt.preserve_interaction(&self.button);
-                            next_rt.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
+                            next_rt.set_svet_document_scheduling(
+                                self.ui_backend == Some(UiBackend::Svet),
+                            );
                             self.button = next_rt;
                             self.binding_error = None;
                             self.next_title_update = Instant::now();
@@ -1147,7 +1334,9 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                             if let Some(window) = &self.window {
                                 window.request_redraw();
                             }
-                            println!("Hot reload: многофайловый .ui проект перекомпилирован в Rust");
+                            println!(
+                                "Hot reload: многофайловый .ui проект перекомпилирован в Rust"
+                            );
                         }
                     }
                 }
@@ -1165,8 +1354,8 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                 .and_then(|p| std::fs::metadata(p).ok())
                 .and_then(|m| Some((m.modified().ok()?, m.len())));
             let src_meta_changed = cur_src_meta.is_none() || cur_src_meta != self.source_meta;
-            let tpl_meta_changed =
-                self.template_path.is_some() && (cur_tpl_meta.is_none() || cur_tpl_meta != self.template_meta);
+            let tpl_meta_changed = self.template_path.is_some()
+                && (cur_tpl_meta.is_none() || cur_tpl_meta != self.template_meta);
 
             if src_meta_changed || tpl_meta_changed {
                 let next_src = if src_meta_changed {
@@ -1200,7 +1389,8 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     let t = next_tpl.unwrap_or_else(|| self.last_template.clone());
                     if let Ok(mut next_rt) = forma::Runtime::from_sources(&s, &t) {
                         next_rt.preserve_interaction(&self.button);
-                        next_rt.set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
+                        next_rt
+                            .set_svet_document_scheduling(self.ui_backend == Some(UiBackend::Svet));
                         self.button = next_rt;
                         self.binding_error = None;
                         self.next_title_update = Instant::now();
@@ -1240,7 +1430,8 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
             }
         }
         let anim_deadline = anim_active.then_some(now + Duration::from_millis(16));
-        let hot_deadline = (self.source_path.is_some() || self.project_root.is_some()).then_some(self.next_hot_check);
+        let hot_deadline = (self.source_path.is_some() || self.project_root.is_some())
+            .then_some(self.next_hot_check);
         let deadline = self
             .retry_at
             .into_iter()
@@ -1265,12 +1456,19 @@ fn collect_ui_project_files(
             let path = entry.path();
             let name = entry.file_name();
             let name_str = name.to_string_lossy();
-            if name_str.starts_with('.') || name_str == "target" || name_str == "node_modules" || name_str == "dist" {
+            if name_str.starts_with('.')
+                || name_str == "target"
+                || name_str == "node_modules"
+                || name_str == "dist"
+            {
                 continue;
             }
             if path.is_dir() {
                 walk(base, &path, out)?;
-            } else if matches!(path.extension().and_then(|e| e.to_str()), Some("ui" | "svg")) {
+            } else if matches!(
+                path.extension().and_then(|e| e.to_str()),
+                Some("ui" | "svg")
+            ) {
                 if let Ok(rel) = path.strip_prefix(base) {
                     let key = rel
                         .components()
@@ -1304,7 +1502,11 @@ fn resolve_ui_project_root_and_entry(
                     && !k.ends_with(".component.ui")
                     && !k.starts_with("components/")
             })
-            .or_else(|| files.keys().find(|k| k.ends_with(".ui") && !k.ends_with(".design.ui")))?
+            .or_else(|| {
+                files
+                    .keys()
+                    .find(|k| k.ends_with(".ui") && !k.ends_with(".design.ui"))
+            })?
             .clone();
         return Some((root, entry));
     }
@@ -1461,8 +1663,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ui_backend,
         platform,
         chooser,
-        inspect_mode:false,
-        inspect_report:String::new(),
+        inspect_mode: false,
+        inspect_report: String::new(),
         a11y_report: String::new(),
         shift: false,
         command: false,
@@ -1494,7 +1696,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         next_title_update: Instant::now(),
         last_title: String::new(),
         retry_at: None,
-        source_path: if project_root.is_some() { None } else { source_path },
+        source_path: if project_root.is_some() {
+            None
+        } else {
+            source_path
+        },
         template_path,
         source_meta: init_src_meta,
         template_meta: init_tpl_meta,
@@ -1508,114 +1714,302 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn standalone_observe_ime(button:&forma::Runtime,composing:&mut bool,owner:Option<(u64,i32)>,cancelled:&mut bool) {
-    if owner.is_some() && owner!=button.native_editor_session(){*composing=false;*cancelled=true;}
+fn standalone_observe_ime(
+    button: &forma::Runtime,
+    composing: &mut bool,
+    owner: Option<(u64, i32)>,
+    cancelled: &mut bool,
+) {
+    if owner.is_some() && owner != button.native_editor_session() {
+        *composing = false;
+        *cancelled = true;
+    }
 }
 
-fn standalone_cancel_ime(button:&mut forma::Runtime,composing:&mut bool,owner:&mut Option<(u64,i32)>,cancelled:&mut bool) {
-    *composing=false;*owner=None;*cancelled=true;button.text_preedit("");
+fn standalone_cancel_ime(
+    button: &mut forma::Runtime,
+    composing: &mut bool,
+    owner: &mut Option<(u64, i32)>,
+    cancelled: &mut bool,
+) {
+    *composing = false;
+    *owner = None;
+    *cancelled = true;
+    button.text_preedit("");
 }
 
-fn standalone_ime_event(button:&mut forma::Runtime,composing:&mut bool,composition_owner:&mut Option<(u64,i32)>,ime_cancelled:&mut bool,event:winit::event::Ime) {
-        use winit::event::Ime;
-        standalone_observe_ime(button,composing,*composition_owner,ime_cancelled);
-        match event {
-            Ime::Enabled=>{*composing=false;*ime_cancelled=false;*composition_owner=None;}
-            Ime::Disabled=>{*composing=false;*ime_cancelled=true;*composition_owner=None;button.text_preedit("");}
-            Ime::Preedit(text,_)=>{
-                if !text.is_empty() {
-                    *composition_owner=button.native_editor_session();
-                    *ime_cancelled=false;
-                }
-                *composing=!text.is_empty();
-                if composition_owner.is_none() || *composition_owner==button.native_editor_session(){button.text_preedit(&text);}
+fn standalone_ime_event(
+    button: &mut forma::Runtime,
+    composing: &mut bool,
+    composition_owner: &mut Option<(u64, i32)>,
+    ime_cancelled: &mut bool,
+    event: winit::event::Ime,
+) {
+    use winit::event::Ime;
+    standalone_observe_ime(button, composing, *composition_owner, ime_cancelled);
+    match event {
+        Ime::Enabled => {
+            *composing = false;
+            *ime_cancelled = false;
+            *composition_owner = None;
+        }
+        Ime::Disabled => {
+            *composing = false;
+            *ime_cancelled = true;
+            *composition_owner = None;
+            button.text_preedit("");
+        }
+        Ime::Preedit(text, _) => {
+            if !text.is_empty() {
+                *composition_owner = button.native_editor_session();
+                *ime_cancelled = false;
             }
-            Ime::Commit(text)=>{
-                *composing=false;
-                let owner=composition_owner.take();
-                if !*ime_cancelled && (owner.is_none() || owner==button.native_editor_session()) {
-                    if text.is_empty(){button.text_preedit("");}else{button.text_insert(&text);}
+            *composing = !text.is_empty();
+            if composition_owner.is_none() || *composition_owner == button.native_editor_session() {
+                button.text_preedit(&text);
+            }
+        }
+        Ime::Commit(text) => {
+            *composing = false;
+            let owner = composition_owner.take();
+            if !*ime_cancelled && (owner.is_none() || owner == button.native_editor_session()) {
+                if text.is_empty() {
+                    button.text_preedit("");
+                } else {
+                    button.text_insert(&text);
                 }
             }
         }
     }
-
+}
 
 #[cfg(test)]
 mod standalone_ime_tests {
     use super::standalone_ime_event;
     use winit::event::Ime;
-    fn runtime()->forma::Runtime {
+    fn runtime() -> forma::Runtime {
         forma::Runtime::from_sources("component App { Frame { width:240; height:100; Button { key:'first'; } Button { key:'second'; } } }","component Button { Rectangle { ContentInput { value:'seed'; width:200; height:32; } PointerArea { clicked -> events.clicked(); } } }").unwrap()
     }
     #[test]
     fn standalone_ime_rejects_retired_owner_and_allows_fresh_preedit() {
-        let mut rt=runtime();rt.focus_control(0);
-        let(mut composing,mut owner,mut cancelled)=(false,None,false);
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("old".into(),None));
+        let mut rt = runtime();
+        rt.focus_control(0);
+        let (mut composing, mut owner, mut cancelled) = (false, None, false);
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Preedit("old".into(), None),
+        );
         rt.focus_control(1);
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("wrong".into()));
-        assert_eq!(rt.text_value(0),"seed");assert_eq!(rt.text_value(1),"seed");
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("fresh".into(),None));
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("".into(),None));
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("fresh".into()));
-        assert!(rt.text_value(1).contains("fresh"));assert_eq!(rt.text_value(0),"seed");
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Commit("wrong".into()),
+        );
+        assert_eq!(rt.text_value(0), "seed");
+        assert_eq!(rt.text_value(1), "seed");
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Preedit("fresh".into(), None),
+        );
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Preedit("".into(), None),
+        );
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Commit("fresh".into()),
+        );
+        assert!(rt.text_value(1).contains("fresh"));
+        assert_eq!(rt.text_value(0), "seed");
     }
     #[test]
     fn standalone_ime_binding_sync_retires_rebuilt_session_but_not_idle_session() {
         let files=std::collections::BTreeMap::from([("App.ui".into(),"component App { state a: String = 'first'; state b: String = 'second'; Column { width:240; height:140; TextInput { key:'a'; width:200; height:32; value <-> state.a; } TextInput { key:'b'; width:200; height:32; value <-> state.b; } } }".into())]);
-        for svet in [false,true] {
-            let mut rt=forma::Runtime::from_ui_files(&files,"App.ui",&Default::default()).unwrap();
+        for svet in [false, true] {
+            let mut rt =
+                forma::Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
             rt.set_svet_document_scheduling(svet);
-            rt.sync_ui_bindings_native().unwrap();rt.focus_control(0);rt.text_key("End",false,false);
-            let(mut composing,mut owner,mut cancelled)=(false,None,false);
-            standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("pending".into(),None));
-            let original=owner;
-            assert!(!rt.sync_ui_bindings_native().unwrap());assert_eq!(rt.native_editor_session(),original);
-            super::standalone_observe_ime(&rt,&mut composing,owner,&mut cancelled);assert!(composing);assert!(!cancelled);
-            // A sibling binding causes scene reconstruction while preserving focus/key.
-            rt.set_binding_value(1,"updated",false).unwrap();assert!(rt.sync_ui_bindings_native().unwrap());
-            assert_ne!(rt.native_editor_session(),original);assert_eq!(rt.focused_index(),0);
-            super::standalone_observe_ime(&rt,&mut composing,owner,&mut cancelled);assert!(!composing);assert!(cancelled);
-            for text in ["late","again"] {standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit(text.into()));}
-            assert_eq!(rt.text_value(0),"first");assert_eq!(rt.text_value(1),"updated");
-            standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("new".into(),None));
-            standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("新".into()));
             rt.sync_ui_bindings_native().unwrap();
-            assert_eq!(rt.text_value(0),"first新");assert_eq!(rt.text_value(1),"updated");
-            assert!(rt.ui_state_json().contains("first新"));assert!(!rt.ui_state_json().contains("late"));
+            rt.focus_control(0);
+            rt.text_key("End", false, false);
+            let (mut composing, mut owner, mut cancelled) = (false, None, false);
+            standalone_ime_event(
+                &mut rt,
+                &mut composing,
+                &mut owner,
+                &mut cancelled,
+                Ime::Preedit("pending".into(), None),
+            );
+            let original = owner;
+            assert!(!rt.sync_ui_bindings_native().unwrap());
+            assert_eq!(rt.native_editor_session(), original);
+            super::standalone_observe_ime(&rt, &mut composing, owner, &mut cancelled);
+            assert!(composing);
+            assert!(!cancelled);
+            // A sibling binding causes scene reconstruction while preserving focus/key.
+            rt.set_binding_value(1, "updated", false).unwrap();
+            assert!(rt.sync_ui_bindings_native().unwrap());
+            assert_ne!(rt.native_editor_session(), original);
+            assert_eq!(rt.focused_index(), 0);
+            super::standalone_observe_ime(&rt, &mut composing, owner, &mut cancelled);
+            assert!(!composing);
+            assert!(cancelled);
+            for text in ["late", "again"] {
+                standalone_ime_event(
+                    &mut rt,
+                    &mut composing,
+                    &mut owner,
+                    &mut cancelled,
+                    Ime::Commit(text.into()),
+                );
+            }
+            assert_eq!(rt.text_value(0), "first");
+            assert_eq!(rt.text_value(1), "updated");
+            standalone_ime_event(
+                &mut rt,
+                &mut composing,
+                &mut owner,
+                &mut cancelled,
+                Ime::Preedit("new".into(), None),
+            );
+            standalone_ime_event(
+                &mut rt,
+                &mut composing,
+                &mut owner,
+                &mut cancelled,
+                Ime::Commit("新".into()),
+            );
+            rt.sync_ui_bindings_native().unwrap();
+            assert_eq!(rt.text_value(0), "first新");
+            assert_eq!(rt.text_value(1), "updated");
+            assert!(rt.ui_state_json().contains("first新"));
+            assert!(!rt.ui_state_json().contains("late"));
         }
     }
     #[test]
     fn standalone_navigation_cancellation_survives_empty_preedit_and_late_commits() {
-        let mut rt=runtime();rt.focus_control(0);
-        let(mut composing,mut owner,mut cancelled)=(false,None,false);
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("pending".into(),None));
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("".into(),None));
-        assert!(!composing);assert!(owner.is_some());
-        super::standalone_cancel_ime(&mut rt,&mut composing,&mut owner,&mut cancelled);
-        for text in ["late","again"] {standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit(text.into()));}
-        assert_eq!(rt.text_value(0),"seed");assert_eq!(rt.text_value(1),"seed");
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("new".into(),None));
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("new".into()));
+        let mut rt = runtime();
+        rt.focus_control(0);
+        let (mut composing, mut owner, mut cancelled) = (false, None, false);
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Preedit("pending".into(), None),
+        );
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Preedit("".into(), None),
+        );
+        assert!(!composing);
+        assert!(owner.is_some());
+        super::standalone_cancel_ime(&mut rt, &mut composing, &mut owner, &mut cancelled);
+        for text in ["late", "again"] {
+            standalone_ime_event(
+                &mut rt,
+                &mut composing,
+                &mut owner,
+                &mut cancelled,
+                Ime::Commit(text.into()),
+            );
+        }
+        assert_eq!(rt.text_value(0), "seed");
+        assert_eq!(rt.text_value(1), "seed");
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Preedit("new".into(), None),
+        );
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Commit("new".into()),
+        );
         assert!(rt.text_value(0).contains("new"));
     }
     #[test]
     fn standalone_ime_rejects_replacement_and_disabled_commit() {
-        let mut rt=runtime();rt.focus_control(0);
-        let(mut composing,mut owner,mut cancelled)=(false,None,false);
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Preedit("old".into(),None));
-        rt=runtime();rt.focus_control(0);
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("wrong".into()));
-        assert_eq!(rt.text_value(0),"seed");
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Disabled);
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("late".into()));
-        assert_eq!(rt.text_value(0),"seed");
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Enabled);
-        rt.text_key("a",false,true);
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("".into()));
-        assert_eq!(rt.text_value(0),"seed");assert_eq!(rt.text_selected(),"seed");
-        standalone_ime_event(&mut rt,&mut composing,&mut owner,&mut cancelled,Ime::Commit("direct".into()));
-        assert_eq!(rt.text_value(0),"direct");
+        let mut rt = runtime();
+        rt.focus_control(0);
+        let (mut composing, mut owner, mut cancelled) = (false, None, false);
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Preedit("old".into(), None),
+        );
+        rt = runtime();
+        rt.focus_control(0);
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Commit("wrong".into()),
+        );
+        assert_eq!(rt.text_value(0), "seed");
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Disabled,
+        );
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Commit("late".into()),
+        );
+        assert_eq!(rt.text_value(0), "seed");
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Enabled,
+        );
+        rt.text_key("a", false, true);
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Commit("".into()),
+        );
+        assert_eq!(rt.text_value(0), "seed");
+        assert_eq!(rt.text_selected(), "seed");
+        standalone_ime_event(
+            &mut rt,
+            &mut composing,
+            &mut owner,
+            &mut cancelled,
+            Ime::Commit("direct".into()),
+        );
+        assert_eq!(rt.text_value(0), "direct");
     }
 }

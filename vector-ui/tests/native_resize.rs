@@ -75,7 +75,7 @@ fn native_animation_scroll_and_reload_invalidate_correctly() {
         .unwrap();
     b.paint_native(&mut dst, 500, 250, 1.).unwrap();
     assert_ne!(dst, initial);
-    let source="component Demo { Frame { width:64; height:48; radius:12; clip:true; padding:2; background:#12345680; Scroll { Button { width:100; height:60; } } } }";
+    let source = "component Demo { Frame { width:64; height:48; radius:12; clip:true; padding:2; background:#12345680; Scroll { Button { width:100; height:60; } } } }";
     let mut b = Button::from_source(source).unwrap();
     let mut dst = vec![0; 100 * 80];
     b.paint_native(&mut dst, 100, 80, 1.25).unwrap();
@@ -93,8 +93,8 @@ fn native_animation_scroll_and_reload_invalidate_correctly() {
 
 #[test]
 fn overflow_and_nested_clips_survive_retained_bounds() {
-    let source="component Demo { Frame { width:40; height:30; radius:8; padding:0; background:#12345680; Button { width:45; height:35; } } }";
-    let template="component Button { Rectangle { radius:8; background:#ff000080; ContentShape { points:'50 2 77 2 77 20 50 20'; color:#abcdef; } ContentText { x:3; y:40; width:65; height:30; text:'Тест'; color:#ffffffa0; fontSize:16; } ContentClip { x:5; y:5; width:12; height:12; radius:3; } ContentShape { points:'0 0 100 0 100 100 0 100'; color:#ff00ff80; } ContentClipEnd {} } }";
+    let source = "component Demo { Frame { width:40; height:30; radius:8; padding:0; background:#12345680; Button { width:45; height:35; } } }";
+    let template = "component Button { Rectangle { radius:8; background:#ff000080; ContentShape { points:'50 2 77 2 77 20 50 20'; color:#abcdef; } ContentText { x:3; y:40; width:65; height:30; text:'Тест'; color:#ffffffa0; fontSize:16; } ContentClip { x:5; y:5; width:12; height:12; radius:3; } ContentShape { points:'0 0 100 0 100 100 0 100'; color:#ff00ff80; } ContentClipEnd {} } }";
     for clip in [false, true] {
         let source = source.replace("padding:0;", &format!("padding:0; clip:{clip};"));
         compare(

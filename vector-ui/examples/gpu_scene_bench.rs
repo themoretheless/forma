@@ -107,7 +107,10 @@ fn main() {
                 std::hint::black_box((&paint_scratch, &param_scratch));
             }
             let prep = ALLOCATOR.snapshot().delta_since(prep_start);
-            println!("controls={count} warmed scene preparation allocations={} reallocations={} requested_bytes={}",prep.allocations,prep.reallocations,prep.requested_bytes);
+            println!(
+                "controls={count} warmed scene preparation allocations={} reallocations={} requested_bytes={}",
+                prep.allocations, prep.reallocations, prep.requested_bytes
+            );
             let before = renderer.resource_stats();
             let full_bytes = model.gpu_paints().len() * 4;
             let mut phase_allocations = [0u64; 3];
@@ -182,11 +185,29 @@ fn main() {
                 },
                 "sent={sent} full={full_bytes}"
             );
-            println!("controls={count} Rust allocations={} reallocations={} requested_bytes={} live_before={} live_after={} live_delta={} (includes wgpu and timestamp readback; excludes Metal/ObjC allocations)",allocation_delta.allocations,allocation_delta.reallocations,allocation_delta.requested_bytes,memory_before.live_bytes,memory_after.live_bytes,allocation_delta.live_bytes_change);
-            println!("controls={count} allocations by phase pointer/draw-submit/wait-readback={phase_allocations:?}");
+            println!(
+                "controls={count} Rust allocations={} reallocations={} requested_bytes={} live_before={} live_after={} live_delta={} (includes wgpu and timestamp readback; excludes Metal/ObjC allocations)",
+                allocation_delta.allocations,
+                allocation_delta.reallocations,
+                allocation_delta.requested_bytes,
+                memory_before.live_bytes,
+                memory_after.live_bytes,
+                allocation_delta.live_bytes_change
+            );
+            println!(
+                "controls={count} allocations by phase pointer/draw-submit/wait-readback={phase_allocations:?}"
+            );
             cpu.sort_by(f64::total_cmp);
             gpu.sort_by(f64::total_cmp);
-            println!("controls={count} frames={frames} paint_bytes/frame={} full_paint_bytes={full_bytes} CPU_submit_p50/p95={:.3}/{:.3}ms GPU_samples={} GPU_p50/p95={:?}/{:?}ms buffer_allocations=0 geometry_uploads=0",sent/frames as u64,cpu[frames/2],cpu[frames*95/100],gpu.len(),gpu.get(gpu.len()/2),gpu.get(gpu.len()*95/100));
+            println!(
+                "controls={count} frames={frames} paint_bytes/frame={} full_paint_bytes={full_bytes} CPU_submit_p50/p95={:.3}/{:.3}ms GPU_samples={} GPU_p50/p95={:?}/{:?}ms buffer_allocations=0 geometry_uploads=0",
+                sent / frames as u64,
+                cpu[frames / 2],
+                cpu[frames * 95 / 100],
+                gpu.len(),
+                gpu.get(gpu.len() / 2),
+                gpu.get(gpu.len() * 95 / 100)
+            );
         }
     });
 }

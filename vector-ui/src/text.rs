@@ -5,8 +5,8 @@
 //! OpenType kerning, combining diacritics, BiDi/RTL run reordering, and fallback glyph
 //! chains) and compositing below are our own.
 
-use ttf_parser::{Face, GlyphId, OutlineBuilder};
 use std::sync::OnceLock;
+use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 const FONT: &[u8] = include_bytes!("../assets/Ubuntu-Light.ttf");
 const CURVE_TOLERANCE: f32 = 0.15;
@@ -180,10 +180,10 @@ pub fn shape_text(text: &str, font_size: f32) -> Vec<ShapedGlyph> {
         let zero_mod = is_zero_width_modifier(ch);
         let emoji_mod = is_emoji_modifier(ch);
         let combining = is_combining_mark(ch) || zero_mod || emoji_mod;
-        let rtl = is_rtl_char(ch)
-            || (combining && clusters.last().is_some_and(|prev| prev.rtl));
+        let rtl = is_rtl_char(ch) || (combining && clusters.last().is_some_and(|prev| prev.rtl));
         let prev_was_zwj = clusters.last().is_some_and(|prev| {
-            text.get(prev.cluster..byte_idx).is_some_and(|s| s.ends_with('\u{200D}'))
+            text.get(prev.cluster..byte_idx)
+                .is_some_and(|s| s.ends_with('\u{200D}'))
         });
         let prev_was_ri = is_regional_indicator(ch)
             && clusters.last().is_some_and(|prev| {
@@ -197,7 +197,11 @@ pub fn shape_text(text: &str, font_size: f32) -> Vec<ShapedGlyph> {
         let (resolved, advance_units) = resolve_glyph_with_table(ch, table);
         let id = resolved.id;
         let synthetic = (is_fallback && resolved.face == 0) || zero_mod;
-        let raw_adv = if synthetic { table.units_per_em as f32 * 0.6 } else { advance_units };
+        let raw_adv = if synthetic {
+            table.units_per_em as f32 * 0.6
+        } else {
+            advance_units
+        };
         if combining || prev_was_zwj || prev_was_ri {
             let base_adv = clusters
                 .iter()
@@ -211,7 +215,11 @@ pub fn shape_text(text: &str, font_size: f32) -> Vec<ShapedGlyph> {
                 cluster: byte_idx,
                 advance_units: 0.,
                 x_offset_units: if zero_mod { 0. } else { -base_adv * 0.5 },
-                y_offset_units: if is_combining_mark(ch) { table.ascender * 0.15 } else { 0. },
+                y_offset_units: if is_combining_mark(ch) {
+                    table.ascender * 0.15
+                } else {
+                    0.
+                },
                 rtl,
                 combining: true,
                 fallback: is_fallback,
@@ -237,7 +245,11 @@ pub fn shape_text(text: &str, font_size: f32) -> Vec<ShapedGlyph> {
     let len = clusters.len();
     for i in 0..len {
         let ch = text[clusters[i].cluster..].chars().next().unwrap_or(' ');
-        if !is_rtl_char(ch) && !is_strong_ltr_char(ch) && !clusters[i].combining && !ch.is_ascii_digit() {
+        if !is_rtl_char(ch)
+            && !is_strong_ltr_char(ch)
+            && !clusters[i].combining
+            && !ch.is_ascii_digit()
+        {
             let prev_rtl = (0..i)
                 .rev()
                 .find(|&j| {
@@ -266,10 +278,14 @@ pub fn shape_text(text: &str, font_size: f32) -> Vec<ShapedGlyph> {
         if let Some(prev) = prev_base {
             if clusters[prev].rtl == clusters[i].rtl
                 && clusters[prev].font_index == clusters[i].font_index
-                && !clusters[prev].synthetic && !clusters[i].synthetic {
+                && !clusters[prev].synthetic
+                && !clusters[i].synthetic
+            {
                 let pair_face = glyph_face(clusters[i].font_index);
-                let kern = kern_pair_units(pair_face, clusters[prev].glyph_id, clusters[i].glyph_id)
-                    * table.units_per_em as f32 / pair_face.units_per_em() as f32;
+                let kern =
+                    kern_pair_units(pair_face, clusters[prev].glyph_id, clusters[i].glyph_id)
+                        * table.units_per_em as f32
+                        / pair_face.units_per_em() as f32;
                 if kern != 0. {
                     clusters[prev].advance_units = (clusters[prev].advance_units + kern).max(0.);
                 }
@@ -405,8 +421,7 @@ pub fn measure_shaped_text(text: &str, font_size: f32) -> f32 {
             if let Some((p_id, p_font, p_rtl, p_syn, p_adv)) = prev_base {
                 if p_rtl == rtl && p_font == resolved.face && !p_syn && !synthetic {
                     let pair_face = glyph_face(resolved.face);
-                    let kern = kern_pair_units(pair_face, p_id, id)
-                        * table.units_per_em as f32
+                    let kern = kern_pair_units(pair_face, p_id, id) * table.units_per_em as f32
                         / pair_face.units_per_em() as f32;
                     if kern != 0. {
                         total_units += (p_adv + kern).max(0.) - p_adv;
@@ -457,7 +472,11 @@ pub fn wrap_shaped_text(text: &str, font_size: f32, max_width: f32) -> Vec<SoftW
 
 /// Breaks `text` into visual line `(byte_range, width)` pairs constrained by `max_width` logical pixels
 /// without allocating per-line [`ShapedGlyph`] vectors.
-pub fn wrap_text_ranges(text: &str, font_size: f32, max_width: f32) -> Vec<(std::ops::Range<usize>, f32)> {
+pub fn wrap_text_ranges(
+    text: &str,
+    font_size: f32,
+    max_width: f32,
+) -> Vec<(std::ops::Range<usize>, f32)> {
     if !font_size.is_finite() || font_size <= 0. {
         return Vec::new();
     }
@@ -544,7 +563,14 @@ pub fn wrap_text_ranges(text: &str, font_size: f32, max_width: f32) -> Vec<(std:
 
 /// Hit-tests a logical `(x, y)` point against soft-wrapped lines produced by [`wrap_shaped_text`],
 /// returning a grapheme-aligned UTF-8 byte offset in `text`.
-pub fn hit_wrapped_text(text: &str, font_size: f32, max_width: f32, line_height: f32, x: f32, y: f32) -> usize {
+pub fn hit_wrapped_text(
+    text: &str,
+    font_size: f32,
+    max_width: f32,
+    line_height: f32,
+    x: f32,
+    y: f32,
+) -> usize {
     let lines = wrap_text_ranges(text, font_size, max_width);
     if lines.is_empty() {
         return 0;
@@ -566,7 +592,10 @@ fn font() -> &'static Face<'static> {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct FontGlyph { face: u8, id: GlyphId }
+struct FontGlyph {
+    face: u8,
+    id: GlyphId,
+}
 
 /// Return an immutable bundled face corresponding to [`ShapedGlyph::font_index`].
 /// Fallback variable fonts are fixed at weight400, matching shaping/rendering.
@@ -587,7 +616,8 @@ fn glyph_face(index: u8) -> &'static Face<'static> {
         }
         2 => {
             static EMOJI: OnceLock<Face<'static>> = OnceLock::new();
-            EMOJI.get_or_init(|| parsed(include_bytes!("../assets/fallback/FormaEmoji-Regular.ttf")))
+            EMOJI
+                .get_or_init(|| parsed(include_bytes!("../assets/fallback/FormaEmoji-Regular.ttf")))
         }
         _ => font(),
     }
@@ -602,7 +632,13 @@ fn resolve_glyph(ch: char) -> (FontGlyph, f32) {
 fn resolve_glyph_with_table(ch: char, table: &FontTable) -> (FontGlyph, f32) {
     let code = ch as usize;
     if code < 1104 && table.present[code] {
-        return (FontGlyph { face: 0, id: table.glyphs[code] }, table.advances[code]);
+        return (
+            FontGlyph {
+                face: 0,
+                id: table.glyphs[code],
+            },
+            table.advances[code],
+        );
     }
     for index in 0..=2 {
         let face = glyph_face(index);
@@ -611,7 +647,13 @@ fn resolve_glyph_with_table(ch: char, table: &FontTable) -> (FontGlyph, f32) {
             return (FontGlyph { face: index, id }, units);
         }
     }
-    (FontGlyph { face: 0, id: table.glyphs[b'?' as usize] }, table.advances[b'?' as usize])
+    (
+        FontGlyph {
+            face: 0,
+            id: table.glyphs[b'?' as usize],
+        },
+        table.advances[b'?' as usize],
+    )
 }
 
 struct FontTable {
@@ -696,8 +738,14 @@ struct Contours {
 
 impl Contours {
     fn tolerance(&self) -> f32 {
-        #[cfg(test)] { self.tolerance }
-        #[cfg(not(test))] { CURVE_TOLERANCE }
+        #[cfg(test)]
+        {
+            self.tolerance
+        }
+        #[cfg(not(test))]
+        {
+            CURVE_TOLERANCE
+        }
     }
     fn point(&self, x: f32, y: f32) -> Point {
         Point {
@@ -728,7 +776,8 @@ impl Contours {
 
     fn cubic(&mut self, a: Point, b: Point, c: Point, d: Point, depth: u8) {
         if depth >= 12
-            || b.distance_sq_to_segment(a, d).max(c.distance_sq_to_segment(a, d))
+            || b.distance_sq_to_segment(a, d)
+                .max(c.distance_sq_to_segment(a, d))
                 <= self.tolerance() * self.tolerance()
         {
             self.edge(a, d);
@@ -788,15 +837,19 @@ fn glyph(face: &Face<'_>, character: char) -> GlyphId {
     if code < 1104 {
         table.glyphs[code]
     } else {
-        face.glyph_index(character).unwrap_or(table.glyphs[b'?' as usize])
+        face.glyph_index(character)
+            .unwrap_or(table.glyphs[b'?' as usize])
     }
 }
 
-pub fn measure_line(value:&str,font_size:f32)->[f32;2] {
-    if !font_size.is_finite()||font_size<=0.{return [0.;2];}
-    let table=font_table();
-    let height=(table.ascender-table.descender+table.line_gap)*font_size/table.units_per_em as f32;
-    [measure_text(value,font_size),height]
+pub fn measure_line(value: &str, font_size: f32) -> [f32; 2] {
+    if !font_size.is_finite() || font_size <= 0. {
+        return [0.; 2];
+    }
+    let table = font_table();
+    let height =
+        (table.ascender - table.descender + table.line_gap) * font_size / table.units_per_em as f32;
+    [measure_text(value, font_size), height]
 }
 
 fn advance(face: &Face<'_>, glyph: GlyphId) -> f32 {
@@ -832,7 +885,9 @@ pub(crate) fn hit_character(text: &str, font_size: f32, x: f32) -> usize {
     for (offset, ch) in text.char_indices() {
         units += resolve_glyph_with_table(ch, table).1;
         let next = units * font_size / table.units_per_em as f32;
-        if x < (previous + next) * 0.5 { return offset; }
+        if x < (previous + next) * 0.5 {
+            return offset;
+        }
         previous = next;
     }
     text.len()
@@ -840,14 +895,20 @@ pub(crate) fn hit_character(text: &str, font_size: f32, x: f32) -> usize {
 
 /// Hit a user-perceived character using the same unshaped glyph advances as
 /// measure_line, without exposing a caret inside an extended grapheme cluster.
-pub(crate) fn hit_grapheme(text:&str,font_size:f32,x:f32)->usize {
+pub(crate) fn hit_grapheme(text: &str, font_size: f32, x: f32) -> usize {
     use unicode_segmentation::UnicodeSegmentation;
-    let table=font_table();let mut units=0.;let mut previous=0.;
-    for (offset,cluster) in text.grapheme_indices(true) {
-        for ch in cluster.chars() {units+=resolve_glyph_with_table(ch,table).1;}
-        let next=units*font_size/table.units_per_em as f32;
-        if x<(previous+next)*0.5 {return offset;}
-        previous=next;
+    let table = font_table();
+    let mut units = 0.;
+    let mut previous = 0.;
+    for (offset, cluster) in text.grapheme_indices(true) {
+        for ch in cluster.chars() {
+            units += resolve_glyph_with_table(ch, table).1;
+        }
+        let next = units * font_size / table.units_per_em as f32;
+        if x < (previous + next) * 0.5 {
+            return offset;
+        }
+        previous = next;
     }
     text.len()
 }
@@ -864,7 +925,12 @@ impl Iterator for GlyphEdges<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         self.edges.next().map(|&(a, b)| {
-            [a.x / self.scale, a.y / self.scale, b.x / self.scale, b.y / self.scale]
+            [
+                a.x / self.scale,
+                a.y / self.scale,
+                b.x / self.scale,
+                b.y / self.scale,
+            ]
         })
     }
 
@@ -910,27 +976,54 @@ fn glyph_ids(text: &str, ids: &mut Vec<(FontGlyph, f32)>) -> f32 {
 /// Vector contours only: the GPU determines winding and pixel coverage.
 /// One path per glyph keeps work bounded to that glyph's rectangle. Streaming
 /// avoids retaining and allocating a separate temporary path for every glyph.
-pub(crate) fn vector_glyphs(text:&str,font_size:f32,rect:[f32;4],scale:f32,scratch:&mut VectorScratch,mut emit:impl FnMut(GlyphEdges<'_>)) {
-    if rect[2]<=0.||rect[3]<=0.||font_size<=0. {return;}
-    let face=font();
-    let units_to_pixels=font_size*scale/face.units_per_em()as f32;
-    let mut ids=std::mem::take(&mut scratch.ids);
-    let units=glyph_ids(text,&mut ids);
+pub(crate) fn vector_glyphs(
+    text: &str,
+    font_size: f32,
+    rect: [f32; 4],
+    scale: f32,
+    scratch: &mut VectorScratch,
+    mut emit: impl FnMut(GlyphEdges<'_>),
+) {
+    if rect[2] <= 0. || rect[3] <= 0. || font_size <= 0. {
+        return;
+    }
+    let face = font();
+    let units_to_pixels = font_size * scale / face.units_per_em() as f32;
+    let mut ids = std::mem::take(&mut scratch.ids);
+    let units = glyph_ids(text, &mut ids);
     // The same guard and the same summation order as `measure_text`: a non-finite size still
     // measures as zero width, and the outlines below still draw.
-    let width=if font_size.is_finite(){pixels_from_units(units,font_size,face.units_per_em())}else{0.};
-    let origin=Point{x:(rect[0]+rect[2]*0.5-width*0.5)*scale,
-        y:(rect[1]+rect[3]*0.5)*scale+(face.ascender()as f32+face.descender()as f32)*units_to_pixels*0.5};
-    let mut contours=Contours{#[cfg(test)] tolerance:CURVE_TOLERANCE,edges:std::mem::take(&mut scratch.edges),current:origin,start:origin,origin,units_to_pixels};
-    for &(id, adv) in &ids{
+    let width = if font_size.is_finite() {
+        pixels_from_units(units, font_size, face.units_per_em())
+    } else {
+        0.
+    };
+    let origin = Point {
+        x: (rect[0] + rect[2] * 0.5 - width * 0.5) * scale,
+        y: (rect[1] + rect[3] * 0.5) * scale
+            + (face.ascender() as f32 + face.descender() as f32) * units_to_pixels * 0.5,
+    };
+    let mut contours = Contours {
+        #[cfg(test)]
+        tolerance: CURVE_TOLERANCE,
+        edges: std::mem::take(&mut scratch.edges),
+        current: origin,
+        start: origin,
+        origin,
+        units_to_pixels,
+    };
+    for &(id, adv) in &ids {
         let resolved_face = glyph_face(id.face);
         contours.units_to_pixels = font_size * scale / resolved_face.units_per_em() as f32;
-        resolved_face.outline_glyph(id.id,&mut contours);
-        if !contours.edges.is_empty(){
-            emit(GlyphEdges { edges: contours.edges.iter(), scale });
+        resolved_face.outline_glyph(id.id, &mut contours);
+        if !contours.edges.is_empty() {
+            emit(GlyphEdges {
+                edges: contours.edges.iter(),
+                scale,
+            });
             contours.edges.clear();
         }
-        contours.origin.x+=adv*units_to_pixels;
+        contours.origin.x += adv * units_to_pixels;
     }
     scratch.edges = contours.edges;
     scratch.ids = ids;
@@ -963,13 +1056,30 @@ pub fn draw_text(
     rect: [f32; 4],
     color: [u8; 4],
 ) {
-    draw_text_region(pixels,width,height,scale,text,font_size,rect,color,[0,0,width,height]);
+    draw_text_region(
+        pixels,
+        width,
+        height,
+        scale,
+        text,
+        font_size,
+        rect,
+        color,
+        [0, 0, width, height],
+    );
 }
 
 /// Draw into a physical subregion while retaining global contour coordinates.
 pub(crate) fn draw_text_region(
-    pixels:&mut [u8],width:u32,height:u32,scale:f32,text:&str,font_size:f32,
-    rect:[f32;4],color:[u8;4],region:[u32;4],
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+    scale: f32,
+    text: &str,
+    font_size: f32,
+    rect: [f32; 4],
+    color: [u8; 4],
+    region: [u32; 4],
 ) {
     let Some(required) = (region[2] as usize)
         .checked_mul(region[3] as usize)
@@ -977,7 +1087,8 @@ pub(crate) fn draw_text_region(
     else {
         return;
     };
-    if !valid_raster_region(pixels.len(),width,height,region) || pixels.len() < required
+    if !valid_raster_region(pixels.len(), width, height, region)
+        || pixels.len() < required
         || width == 0
         || height == 0
         || color[3] == 0
@@ -1022,7 +1133,8 @@ pub(crate) fn draw_text_region(
     }
     edges.clear();
     let mut contours = Contours {
-        #[cfg(test)] tolerance: CURVE_TOLERANCE,
+        #[cfg(test)]
+        tolerance: CURVE_TOLERANCE,
         edges,
         current: origin,
         start: origin,
@@ -1035,7 +1147,7 @@ pub(crate) fn draw_text_region(
         resolved_face.outline_glyph(glyph.id, &mut contours);
         contours.origin.x += adv * units_to_pixels;
     }
-    rasterize_region(pixels,width,height,region,&contours.edges,clip,color);
+    rasterize_region(pixels, width, height, region, &contours.edges, clip, color);
     CPU_SCRATCH.with(|cell| {
         let mut s = cell.borrow_mut();
         s.ids = ids;
@@ -1086,25 +1198,52 @@ pub(crate) fn rasterize(
     clip: [f32; 4],
     color: [u8; 4],
 ) {
-    if width==0 {return;}
-    let height=(pixels.len()/4/width as usize).min(u32::MAX as usize) as u32;
-    rasterize_region(pixels,width,height,[0,0,width,height],edges,clip,color);
+    if width == 0 {
+        return;
+    }
+    let height = (pixels.len() / 4 / width as usize).min(u32::MAX as usize) as u32;
+    rasterize_region(
+        pixels,
+        width,
+        height,
+        [0, 0, width, height],
+        edges,
+        clip,
+        color,
+    );
 }
 
-fn valid_raster_region(len:usize,width:u32,height:u32,region:[u32;4])->bool {
-    region[2]>0 && region[3]>0
-        && region[0].checked_add(region[2]).is_some_and(|end|end<=width)
-        && region[1].checked_add(region[3]).is_some_and(|end|end<=height)
-        && (region[2] as usize).checked_mul(region[3] as usize).and_then(|n|n.checked_mul(4)).is_some_and(|n|n<=len)
+fn valid_raster_region(len: usize, width: u32, height: u32, region: [u32; 4]) -> bool {
+    region[2] > 0
+        && region[3] > 0
+        && region[0]
+            .checked_add(region[2])
+            .is_some_and(|end| end <= width)
+        && region[1]
+            .checked_add(region[3])
+            .is_some_and(|end| end <= height)
+        && (region[2] as usize)
+            .checked_mul(region[3] as usize)
+            .and_then(|n| n.checked_mul(4))
+            .is_some_and(|n| n <= len)
 }
 
 /// Edges/clip stay in global physical coordinates; only storage indexing is local.
 /// Keep the original horizontal accumulation prefix to preserve f32 rounding.
 pub(crate) fn rasterize_region(
-    pixels:&mut [u8],width:u32,height:u32,region:[u32;4],
-    edges:&[(Point,Point)],clip:[f32;4],color:[u8;4],
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+    region: [u32; 4],
+    edges: &[(Point, Point)],
+    clip: [f32; 4],
+    color: [u8; 4],
 ) {
-    if !valid_raster_region(pixels.len(),width,height,region) || !clip.iter().all(|n|n.is_finite()) {return;}
+    if !valid_raster_region(pixels.len(), width, height, region)
+        || !clip.iter().all(|n| n.is_finite())
+    {
+        return;
+    }
     if edges.is_empty() {
         return;
     }
@@ -1128,7 +1267,8 @@ pub(crate) fn rasterize_region(
     let left = bounds[0].max(clip[0]).floor().max(0.) as usize;
     let top = (bounds[1].max(clip[1]).floor().max(0.) as usize).max(region[1] as usize);
     let right = (bounds[2].min(clip[2]).ceil().max(0.) as usize).min(width as usize);
-    let bottom = (bounds[3].min(clip[3]).ceil().max(0.) as usize).min((region[1]+region[3]) as usize);
+    let bottom =
+        (bounds[3].min(clip[3]).ceil().max(0.) as usize).min((region[1] + region[3]) as usize);
     if left >= right || top >= bottom {
         return;
     }
@@ -1184,15 +1324,18 @@ pub(crate) fn rasterize_region(
         let mut running = 0.;
         for offset in 0..columns {
             running += full[offset];
-            let global_x=left+offset;
-            if global_x<region[0] as usize || global_x>=(region[0]+region[2]) as usize {continue;}
+            let global_x = left + offset;
+            if global_x < region[0] as usize || global_x >= (region[0] + region[2]) as usize {
+                continue;
+            }
             let px = global_x as f32;
             let horizontal = ((px + 1.).min(clip[2]) - px.max(clip[0])).clamp(0., 1.);
             let coverage = (running + area[offset]).abs().min(1.) * horizontal;
             if coverage <= 0. {
                 continue;
             }
-            let pixel = ((y-region[1] as usize)*region[2] as usize+global_x-region[0] as usize)*4;
+            let pixel =
+                ((y - region[1] as usize) * region[2] as usize + global_x - region[0] as usize) * 4;
             blend(&mut pixels[pixel..pixel + 4], color, coverage);
         }
     }
@@ -1233,8 +1376,15 @@ mod tests {
     // Pre-streaming reference: retain each flattened path before the consumer
     // sees any of them. Keep the original physical-origin arithmetic, including
     // its f32 rounding; translating a cached origin-free path is not equivalent.
-    fn collected_vector_glyphs(text: &str, font_size: f32, rect: [f32; 4], scale: f32) -> Vec<Vec<[f32; 4]>> {
-        if rect[2] <= 0. || rect[3] <= 0. || font_size <= 0. { return Vec::new(); }
+    fn collected_vector_glyphs(
+        text: &str,
+        font_size: f32,
+        rect: [f32; 4],
+        scale: f32,
+    ) -> Vec<Vec<[f32; 4]>> {
+        if rect[2] <= 0. || rect[3] <= 0. || font_size <= 0. {
+            return Vec::new();
+        }
         let face = font();
         let units_to_pixels = font_size * scale / face.units_per_em() as f32;
         let origin = Point {
@@ -1243,7 +1393,14 @@ mod tests {
                 + (face.ascender() as f32 + face.descender() as f32) * units_to_pixels * 0.5,
         };
         let mut contours = Contours {
-        #[cfg(test)] tolerance: CURVE_TOLERANCE, edges: Vec::new(), current: origin, start: origin, origin, units_to_pixels };
+            #[cfg(test)]
+            tolerance: CURVE_TOLERANCE,
+            edges: Vec::new(),
+            current: origin,
+            start: origin,
+            origin,
+            units_to_pixels,
+        };
         let mut paths = Vec::new();
         for ch in text.chars() {
             let (resolved, adv) = resolve_glyph(ch);
@@ -1251,7 +1408,13 @@ mod tests {
             contours.units_to_pixels = font_size * scale / resolved_face.units_per_em() as f32;
             resolved_face.outline_glyph(resolved.id, &mut contours);
             if !contours.edges.is_empty() {
-                paths.push(contours.edges.drain(..).map(|(a, b)| [a.x / scale, a.y / scale, b.x / scale, b.y / scale]).collect());
+                paths.push(
+                    contours
+                        .edges
+                        .drain(..)
+                        .map(|(a, b)| [a.x / scale, a.y / scale, b.x / scale, b.y / scale])
+                        .collect(),
+                );
             }
             contours.origin.x += adv * units_to_pixels;
         }
@@ -1261,21 +1424,67 @@ mod tests {
     #[test]
     fn streamed_glyphs_preserve_exact_geometry_and_coverage() {
         let mut scratch = VectorScratch::default();
-        for text in ["", "  ", "Forma ffi", "Привет ОяЖ", "A\u{301}Б🙂", "A你好🙂Б"] {
+        for text in [
+            "",
+            "  ",
+            "Forma ffi",
+            "Привет ОяЖ",
+            "A\u{301}Б🙂",
+            "A你好🙂Б",
+        ] {
             for font_size in [7., 15.5, 31.25] {
                 for scale in [0.75, 1., 1.25, 2., 3.] {
-                    for rect in [[0., 0., 120., 50.], [-21.375, 3.125, 160.5, 45.25], [0.125, -7.75, 100., 40.]] {
+                    for rect in [
+                        [0., 0., 120., 50.],
+                        [-21.375, 3.125, 160.5, 45.25],
+                        [0.125, -7.75, 100., 40.],
+                    ] {
                         let expected = collected_vector_glyphs(text, font_size, rect, scale);
                         let mut actual = Vec::new();
-                        vector_glyphs(text, font_size, rect, scale, &mut scratch, |glyph| actual.push(glyph.collect::<Vec<_>>()));
-                        let bits = |paths: &[Vec<[f32; 4]>]| paths.iter().map(|path| path.iter().map(|edge| edge.map(f32::to_bits)).collect::<Vec<_>>()).collect::<Vec<_>>();
-                        assert_eq!(bits(&actual), bits(&expected), "{text:?}, {font_size}, {scale}, {rect:?}");
+                        vector_glyphs(text, font_size, rect, scale, &mut scratch, |glyph| {
+                            actual.push(glyph.collect::<Vec<_>>())
+                        });
+                        let bits = |paths: &[Vec<[f32; 4]>]| {
+                            paths
+                                .iter()
+                                .map(|path| {
+                                    path.iter()
+                                        .map(|edge| edge.map(f32::to_bits))
+                                        .collect::<Vec<_>>()
+                                })
+                                .collect::<Vec<_>>()
+                        };
+                        assert_eq!(
+                            bits(&actual),
+                            bits(&expected),
+                            "{text:?}, {font_size}, {scale}, {rect:?}"
+                        );
 
                         let raster = |paths: &[Vec<[f32; 4]>]| {
                             let mut pixels = vec![0; 400 * 180 * 4];
                             for path in paths {
-                                let edges: Vec<_> = path.iter().map(|&[x, y, x2, y2]| (Point { x: x * scale, y: y * scale }, Point { x: x2 * scale, y: y2 * scale })).collect();
-                                rasterize(&mut pixels, 400, &edges, [0., 0., 400., 180.], [80, 160, 240, 173]);
+                                let edges: Vec<_> = path
+                                    .iter()
+                                    .map(|&[x, y, x2, y2]| {
+                                        (
+                                            Point {
+                                                x: x * scale,
+                                                y: y * scale,
+                                            },
+                                            Point {
+                                                x: x2 * scale,
+                                                y: y2 * scale,
+                                            },
+                                        )
+                                    })
+                                    .collect();
+                                rasterize(
+                                    &mut pixels,
+                                    400,
+                                    &edges,
+                                    [0., 0., 400., 180.],
+                                    [80, 160, 240, 173],
+                                );
                             }
                             pixels
                         };
@@ -1294,7 +1503,9 @@ mod tests {
                     let mut previous = 0.;
                     for (offset, ch) in value.char_indices() {
                         let next = measure_text(&value[..offset + ch.len_utf8()], size);
-                        if x < (previous + next) * 0.5 { return offset; }
+                        if x < (previous + next) * 0.5 {
+                            return offset;
+                        }
                         previous = next;
                     }
                     value.len()
@@ -1305,7 +1516,8 @@ mod tests {
                 }
                 for (offset, ch) in value.char_indices() {
                     let midpoint = (measure_text(&value[..offset], size)
-                        + measure_text(&value[..offset + ch.len_utf8()], size)) * 0.5;
+                        + measure_text(&value[..offset + ch.len_utf8()], size))
+                        * 0.5;
                     for x in [midpoint - 0.0001, midpoint, midpoint + 0.0001] {
                         assert_eq!(hit_character(value, size, x), reference(x));
                     }
@@ -1316,30 +1528,65 @@ mod tests {
 
     #[test]
     fn shaping_uses_real_fallback_faces_and_does_not_kern_across_fonts() {
-        let text="A你🙂V";let shaped=shape_text(text,28.);
-        assert_eq!(shaped.iter().map(|g|g.font_index).collect::<Vec<_>>(),vec![0,1,2,0]);
-        assert_eq!(shaped.iter().map(|g|g.cluster).collect::<Vec<_>>(),text.char_indices().map(|(i,_)|i).collect::<Vec<_>>());
-        for (glyph,ch) in shaped.iter().zip(text.chars()) {
-            let face=font_face(glyph.font_index).unwrap();assert_eq!(Some(GlyphId(glyph.glyph_id)),face.glyph_index(ch));
-            let expected=advance(face,GlyphId(glyph.glyph_id))*28./face.units_per_em() as f32;
-            assert!((glyph.x_advance-expected).abs()<0.0001);assert_eq!(glyph.fallback,glyph.font_index!=0);
+        let text = "A你🙂V";
+        let shaped = shape_text(text, 28.);
+        assert_eq!(
+            shaped.iter().map(|g| g.font_index).collect::<Vec<_>>(),
+            vec![0, 1, 2, 0]
+        );
+        assert_eq!(
+            shaped.iter().map(|g| g.cluster).collect::<Vec<_>>(),
+            text.char_indices().map(|(i, _)| i).collect::<Vec<_>>()
+        );
+        for (glyph, ch) in shaped.iter().zip(text.chars()) {
+            let face = font_face(glyph.font_index).unwrap();
+            assert_eq!(Some(GlyphId(glyph.glyph_id)), face.glyph_index(ch));
+            let expected =
+                advance(face, GlyphId(glyph.glyph_id)) * 28. / face.units_per_em() as f32;
+            assert!((glyph.x_advance - expected).abs() < 0.0001);
+            assert_eq!(glyph.fallback, glyph.font_index != 0);
         }
-        assert!((measure_shaped_text(text,28.)-measure_text(text,28.)).abs()<0.0001);
+        assert!((measure_shaped_text(text, 28.) - measure_text(text, 28.)).abs() < 0.0001);
         assert!(font_face(3).is_none());
     }
 
     #[test]
     fn portable_faces_render_real_cjk_and_monochrome_emoji() {
-        for (value,index) in [("你",1),("好",1),("🙂",2),("🦀",2)] {
-            let (glyph,units)=resolve_glyph(value.chars().next().unwrap());assert_eq!(glyph.face,index);
-            let face=glyph_face(index);assert_eq!(Some(glyph.id),face.glyph_index(value.chars().next().unwrap()));
-            assert!(units>0.);
-            let expected=advance(face,glyph.id)*28./face.units_per_em() as f32;
-            assert!((measure_text(value,28.)-expected).abs()<0.0001);
-            let render=|text|{let mut pixels=vec![0;100*60*4];draw_text(&mut pixels,100,60,1.,text,28.,[0.,0.,100.,60.],[255;4]);pixels};
-            let pixels=render(value);assert!(pixels.chunks_exact(4).any(|p|p[3]>0));assert_ne!(pixels,render("?"));
-            let mut scratch=VectorScratch::prewarm();let mut count=0;
-            vector_glyphs(value,28.,[0.,0.,100.,60.],1.,&mut scratch,|glyph|{assert!(glyph.edges.count()>0);count+=1;});assert_eq!(count,1);
+        for (value, index) in [("你", 1), ("好", 1), ("🙂", 2), ("🦀", 2)] {
+            let (glyph, units) = resolve_glyph(value.chars().next().unwrap());
+            assert_eq!(glyph.face, index);
+            let face = glyph_face(index);
+            assert_eq!(
+                Some(glyph.id),
+                face.glyph_index(value.chars().next().unwrap())
+            );
+            assert!(units > 0.);
+            let expected = advance(face, glyph.id) * 28. / face.units_per_em() as f32;
+            assert!((measure_text(value, 28.) - expected).abs() < 0.0001);
+            let render = |text| {
+                let mut pixels = vec![0; 100 * 60 * 4];
+                draw_text(
+                    &mut pixels,
+                    100,
+                    60,
+                    1.,
+                    text,
+                    28.,
+                    [0., 0., 100., 60.],
+                    [255; 4],
+                );
+                pixels
+            };
+            let pixels = render(value);
+            assert!(pixels.chunks_exact(4).any(|p| p[3] > 0));
+            assert_ne!(pixels, render("?"));
+            let mut scratch = VectorScratch::prewarm();
+            let mut count = 0;
+            vector_glyphs(value, 28., [0., 0., 100., 60.], 1., &mut scratch, |glyph| {
+                assert!(glyph.edges.count() > 0);
+                count += 1;
+            });
+            assert_eq!(count, 1);
         }
     }
 
@@ -1347,14 +1594,35 @@ mod tests {
     fn missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width() {
         for value in ["\u{10ffff}"] {
             assert!(font().glyph_index(value.chars().next().unwrap()).is_none());
-            let width=measure_text(value,28.);assert!(width>0.,"missing scalar must not collapse to zero width");
-            assert_eq!(width,measure_text("?",28.));
-            assert_eq!(hit_character(value,28.,width*0.25),0);assert_eq!(hit_character(value,28.,width*0.75),value.len());
-            let render=|text|{let mut pixels=vec![0;100*60*4];draw_text(&mut pixels,100,60,1.,text,28.,[0.,0.,100.,60.],[255;4]);pixels};
-            let pixels=render(value);assert!(pixels.chunks_exact(4).any(|p|p[3]>0));assert_eq!(pixels,render("?"));
-            let mut scratch=VectorScratch::prewarm();let mut paths=0;
-            vector_glyphs(value,28.,[0.,0.,100.,60.],1.,&mut scratch,|glyph|{assert!(glyph.edges.count()>0);paths+=1;});
-            assert_eq!(paths,1);
+            let width = measure_text(value, 28.);
+            assert!(width > 0., "missing scalar must not collapse to zero width");
+            assert_eq!(width, measure_text("?", 28.));
+            assert_eq!(hit_character(value, 28., width * 0.25), 0);
+            assert_eq!(hit_character(value, 28., width * 0.75), value.len());
+            let render = |text| {
+                let mut pixels = vec![0; 100 * 60 * 4];
+                draw_text(
+                    &mut pixels,
+                    100,
+                    60,
+                    1.,
+                    text,
+                    28.,
+                    [0., 0., 100., 60.],
+                    [255; 4],
+                );
+                pixels
+            };
+            let pixels = render(value);
+            assert!(pixels.chunks_exact(4).any(|p| p[3] > 0));
+            assert_eq!(pixels, render("?"));
+            let mut scratch = VectorScratch::prewarm();
+            let mut paths = 0;
+            vector_glyphs(value, 28., [0., 0., 100., 60.], 1., &mut scratch, |glyph| {
+                assert!(glyph.edges.count() > 0);
+                paths += 1;
+            });
+            assert_eq!(paths, 1);
         }
     }
 
@@ -1501,7 +1769,8 @@ mod tests {
     fn cubic_contours_are_flattened_into_segments() {
         let origin = Point { x: 0., y: 0. };
         let mut contours = Contours {
-        #[cfg(test)] tolerance: CURVE_TOLERANCE,
+            #[cfg(test)]
+            tolerance: CURVE_TOLERANCE,
             edges: Vec::new(),
             current: origin,
             start: origin,
@@ -1527,7 +1796,10 @@ mod tests {
             hits.clear();
             for &(a, b) in edges {
                 if (a.y <= y && b.y > y) || (b.y <= y && a.y > y) {
-                    hits.push((a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y), if b.y > a.y { 1i32 } else { -1 }));
+                    hits.push((
+                        a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y),
+                        if b.y > a.y { 1i32 } else { -1 },
+                    ));
                 }
             }
             hits.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -1537,7 +1809,8 @@ mod tests {
                     let (x0, x1) = (previous.max(0.), x.min(width as f32));
                     let mut px = x0.floor().max(0.) as usize;
                     while (px as f32) < x1 && px < width {
-                        coverage[(row / ROWS) * width + px] += (x1.min(px as f32 + 1.) - x0.max(px as f32)).max(0.) / ROWS as f32;
+                        coverage[(row / ROWS) * width + px] +=
+                            (x1.min(px as f32 + 1.) - x0.max(px as f32)).max(0.) / ROWS as f32;
                         px += 1;
                     }
                 }
@@ -1553,30 +1826,54 @@ mod tests {
     fn font_flattening_cost_probe() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fallback");
         let candidate_root = std::env::var_os("FORMA_FONT_CANDIDATE_DIR")
-            .map(std::path::PathBuf::from).unwrap_or_else(|| root.clone());
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| root.clone());
         let data = std::fs::read(candidate_root.join("FormaCJK-Regular.ttf")).unwrap();
         let face = Face::parse(&data, 0).unwrap();
-        let glyphs: Vec<_> = "你好世界中文漢字测试".chars().map(|ch| face.glyph_index(ch).unwrap()).collect();
+        let glyphs: Vec<_> = "你好世界中文漢字测试"
+            .chars()
+            .map(|ch| face.glyph_index(ch).unwrap())
+            .collect();
         let mut rows = Vec::new();
         for size in [14_f32, 48., 96.] {
             for pair in 0..8 {
-                let order = if pair % 2 == 0 { [0.15_f32, 0.05, 0.01] } else { [0.01_f32, 0.05, 0.15] };
+                let order = if pair % 2 == 0 {
+                    [0.15_f32, 0.05, 0.01]
+                } else {
+                    [0.01_f32, 0.05, 0.15]
+                };
                 for tolerance in order {
                     let origin = Point { x: 12.5, y: 120.5 };
-                    let mut contours = Contours { tolerance, edges: Vec::new(), current: origin, start: origin, origin, units_to_pixels: size / face.units_per_em() as f32 };
+                    let mut contours = Contours {
+                        tolerance,
+                        edges: Vec::new(),
+                        current: origin,
+                        start: origin,
+                        origin,
+                        units_to_pixels: size / face.units_per_em() as f32,
+                    };
                     let mut pixels = vec![0_u8; 160 * 160 * 4];
                     // Each case has its own warmup; buffers are reused in the timed section.
-                    for &id in &glyphs { face.outline_glyph(id, &mut contours); }
+                    for &id in &glyphs {
+                        face.outline_glyph(id, &mut contours);
+                    }
                     let started = std::time::Instant::now();
                     let mut edges = 0_usize;
                     for _ in 0..8 {
                         for &id in &glyphs {
                             contours.edges.clear();
-                            contours.current = origin; contours.start = origin;
+                            contours.current = origin;
+                            contours.start = origin;
                             face.outline_glyph(std::hint::black_box(id), &mut contours);
                             edges += contours.edges.len();
                             pixels.fill(0);
-                            rasterize(&mut pixels, 160, &contours.edges, [0., 0., 160., 160.], [255; 4]);
+                            rasterize(
+                                &mut pixels,
+                                160,
+                                &contours.edges,
+                                [0., 0., 160., 160.],
+                                [255; 4],
+                            );
                             std::hint::black_box(&pixels);
                         }
                     }
@@ -1584,26 +1881,38 @@ mod tests {
                 }
             }
         }
-        println!("FONT_FLATTENING_COST_REPORT={}",serde_json::json!({"scope":"Manual CPU outline plus raster cost, repeated CJK glyphs, reused buffers; not an application frame/startup benchmark","rows":rows}));
+        println!(
+            "FONT_FLATTENING_COST_REPORT={}",
+            serde_json::json!({"scope":"Manual CPU outline plus raster cost, repeated CJK glyphs, reused buffers; not an application frame/startup benchmark","rows":rows})
+        );
     }
 
     #[test]
     fn static_font_candidates_raster_comparison() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/fallback");
         let candidate_root = std::env::var_os("FORMA_FONT_CANDIDATE_DIR")
-            .map(std::path::PathBuf::from).unwrap_or_else(|| root.clone());
-        let tolerance = std::env::var("FORMA_FONT_RASTER_TOLERANCE").ok()
-            .map(|v| v.parse::<f32>().expect("finite positive tolerance")).unwrap_or(CURVE_TOLERANCE);
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|| root.clone());
+        let tolerance = std::env::var("FORMA_FONT_RASTER_TOLERANCE")
+            .ok()
+            .map(|v| v.parse::<f32>().expect("finite positive tolerance"))
+            .unwrap_or(CURVE_TOLERANCE);
         assert!(tolerance.is_finite() && tolerance > 0.);
         let mut rows = Vec::new();
         for (source, candidate, sample) in [
-            ("NotoSansSC.ttf", "FormaCJK-Regular.ttf", "你好世界中文漢字测试"),
+            (
+                "NotoSansSC.ttf",
+                "FormaCJK-Regular.ttf",
+                "你好世界中文漢字测试",
+            ),
             ("NotoEmoji.ttf", "FormaEmoji-Regular.ttf", "🙂😀❤🚀🌍"),
         ] {
             let a = std::fs::read(root.join(source)).unwrap();
             let b = std::fs::read(candidate_root.join(candidate)).unwrap();
             let mut original = Face::parse(&a, 0).unwrap();
-            original.set_variation(ttf_parser::Tag::from_bytes(b"wght"), 400.).unwrap();
+            original
+                .set_variation(ttf_parser::Tag::from_bytes(b"wght"), 400.)
+                .unwrap();
             let derived = Face::parse(&b, 0).unwrap();
             for size in [9_f32, 14., 24., 48., 96.] {
                 for offset in [0_f32, 0.25, 0.5, 0.75] {
@@ -1613,20 +1922,41 @@ mod tests {
                     let mut glyph_reports = Vec::new();
                     for ch in sample.chars() {
                         let render = |face: &Face<'_>| {
-                            let origin = Point { x: 12. + offset, y: 120. + offset };
+                            let origin = Point {
+                                x: 12. + offset,
+                                y: 120. + offset,
+                            };
                             let mut contours = Contours {
-        #[cfg(test)] tolerance, edges: Vec::new(), current: origin, start: origin, origin, units_to_pixels: size / face.units_per_em() as f32 };
+                                #[cfg(test)]
+                                tolerance,
+                                edges: Vec::new(),
+                                current: origin,
+                                start: origin,
+                                origin,
+                                units_to_pixels: size / face.units_per_em() as f32,
+                            };
                             let id = face.glyph_index(ch).expect("sample coverage");
                             assert!(face.outline_glyph(id, &mut contours).is_some());
                             let mut pixels = vec![0_u8; 160 * 160 * 4];
-                            rasterize(&mut pixels, 160, &contours.edges, [0., 0., 160., 160.], [255; 4]);
+                            rasterize(
+                                &mut pixels,
+                                160,
+                                &contours.edges,
+                                [0., 0., 160., 160.],
+                                [255; 4],
+                            );
                             (pixels, contours.edges.len())
                         };
                         let (before, original_edges) = render(&original);
                         let (after, candidate_edges) = render(&derived);
-                        let (mut glyph_max, mut glyph_changed, mut glyph_error, mut coverage) = (0_u8, 0_usize, 0_u64, 0_u64);
+                        let (mut glyph_max, mut glyph_changed, mut glyph_error, mut coverage) =
+                            (0_u8, 0_usize, 0_u64, 0_u64);
                         let mut worst = serde_json::Value::Null;
-                        for (index,(x,y)) in before.chunks_exact(4).zip(after.chunks_exact(4)).enumerate() {
+                        for (index, (x, y)) in before
+                            .chunks_exact(4)
+                            .zip(after.chunks_exact(4))
+                            .enumerate()
+                        {
                             let error = x[3].abs_diff(y[3]);
                             if error > glyph_max {
                                 glyph_max = error;
@@ -1642,77 +1972,202 @@ mod tests {
                         glyph_reports.push(serde_json::json!({"original_edges":original_edges,"candidate_edges":candidate_edges,"character":ch.to_string(),"codepoint":format!("U+{:04X}",ch as u32),"max_alpha_error":glyph_max,"changed_pixels":glyph_changed,"total_alpha_error":glyph_error,"original_alpha_sum":coverage,"relative_l1_error":glyph_error as f64 / coverage.max(1) as f64,"worst_pixel":worst}));
                     }
                     rows.push(serde_json::json!({"font":candidate,"units_per_em":derived.units_per_em(),"size_px":size,"offset":offset,"glyphs":sample.chars().count(),"max_alpha_error":max_error,"changed_pixels":changed,"total_alpha_error":total_error,"per_glyph":glyph_reports}));
-                    if source == "NotoEmoji.ttf" { assert_eq!(max_error, 0, "emoji raster changed"); }
+                    if source == "NotoEmoji.ttf" {
+                        assert_eq!(max_error, 0, "emoji raster changed");
+                    }
                 }
             }
         }
-        println!("STATIC_FONT_RASTER_REPORT={}", serde_json::json!({"curve_tolerance_px":tolerance,"scope":"Selected glyphs, five pixel sizes and four subpixel offsets through production CPU rasterizer; no full coverage or OS presentation claim","rows":rows}));
+        println!(
+            "STATIC_FONT_RASTER_REPORT={}",
+            serde_json::json!({"curve_tolerance_px":tolerance,"scope":"Selected glyphs, five pixel sizes and four subpixel offsets through production CPU rasterizer; no full coverage or OS presentation claim","rows":rows})
+        );
     }
 
     #[test]
     fn region_raster_matches_full_canvas_for_text_shapes_and_blending() {
-        let (width,height)=(240_u32,140_u32);
-        let regions=[[0,0,1,1],[17,9,83,40],[100,30,70,75],[239,139,1,1],[0,0,240,140]];
-        for scale in [0.75,1.,1.25,2.] {
+        let (width, height) = (240_u32, 140_u32);
+        let regions = [
+            [0, 0, 1, 1],
+            [17, 9, 83, 40],
+            [100, 30, 70, 75],
+            [239, 139, 1, 1],
+            [0, 0, 240, 140],
+        ];
+        for scale in [0.75, 1., 1.25, 2.] {
             for label in ["ОЯg", "你好 мир🙂", "ffi"] {
-                let seed:Vec<u8>=(0..width*height).flat_map(|i|[(i%137) as u8,60,90,111]).collect();
-                let mut full=seed.clone();
-                let rect=[-7.125,3.75,210.25,83.5];
-                let points=[[-40.25,-10.5],[180.5,4.125],[70.25,75.75],[31.5,30.25],[-20.,80.]];
-                draw_text(&mut full,width,height,scale,label,28.5,rect,[80,160,240,173]);
-                crate::shape::draw(&mut full,width,height,scale,&points,[8.125,-3.75],[210,70,30,97]);
+                let seed: Vec<u8> = (0..width * height)
+                    .flat_map(|i| [(i % 137) as u8, 60, 90, 111])
+                    .collect();
+                let mut full = seed.clone();
+                let rect = [-7.125, 3.75, 210.25, 83.5];
+                let points = [
+                    [-40.25, -10.5],
+                    [180.5, 4.125],
+                    [70.25, 75.75],
+                    [31.5, 30.25],
+                    [-20., 80.],
+                ];
+                draw_text(
+                    &mut full,
+                    width,
+                    height,
+                    scale,
+                    label,
+                    28.5,
+                    rect,
+                    [80, 160, 240, 173],
+                );
+                crate::shape::draw(
+                    &mut full,
+                    width,
+                    height,
+                    scale,
+                    &points,
+                    [8.125, -3.75],
+                    [210, 70, 30, 97],
+                );
                 for region in regions {
-                    let [x,y,w,h]=region;
-                    let crop=|pixels:&[u8]|->Vec<u8> {
-                        (y..y+h).flat_map(|row|pixels[((row*width+x)*4) as usize..((row*width+x+w)*4) as usize].iter().copied()).collect()
+                    let [x, y, w, h] = region;
+                    let crop = |pixels: &[u8]| -> Vec<u8> {
+                        (y..y + h)
+                            .flat_map(|row| {
+                                pixels[((row * width + x) * 4) as usize
+                                    ..((row * width + x + w) * 4) as usize]
+                                    .iter()
+                                    .copied()
+                            })
+                            .collect()
                     };
-                    let mut actual=crop(&seed);
-                    draw_text_region(&mut actual,width,height,scale,label,28.5,rect,[80,160,240,173],region);
-                    crate::shape::draw_region(&mut actual,width,height,scale,&points,[8.125,-3.75],[210,70,30,97],region);
-                    assert_eq!(actual,crop(&full),"{label} scale={scale} region={region:?}");
+                    let mut actual = crop(&seed);
+                    draw_text_region(
+                        &mut actual,
+                        width,
+                        height,
+                        scale,
+                        label,
+                        28.5,
+                        rect,
+                        [80, 160, 240, 173],
+                        region,
+                    );
+                    crate::shape::draw_region(
+                        &mut actual,
+                        width,
+                        height,
+                        scale,
+                        &points,
+                        [8.125, -3.75],
+                        [210, 70, 30, 97],
+                        region,
+                    );
+                    assert_eq!(
+                        actual,
+                        crop(&full),
+                        "{label} scale={scale} region={region:?}"
+                    );
                 }
             }
         }
-        let mut untouched=vec![17_u8;16];
-        for region in [[u32::MAX,0,2,2],[0,u32::MAX,2,2],[239,139,2,2],[0,0,0,0],[0,0,240,140]] {
-            draw_text_region(&mut untouched,width,height,1.,"A",20.,[0.,0.,100.,30.],[255;4],region);
-            assert_eq!(untouched,vec![17_u8;16],"invalid region must not write");
+        let mut untouched = vec![17_u8; 16];
+        for region in [
+            [u32::MAX, 0, 2, 2],
+            [0, u32::MAX, 2, 2],
+            [239, 139, 2, 2],
+            [0, 0, 0, 0],
+            [0, 0, 240, 140],
+        ] {
+            draw_text_region(
+                &mut untouched,
+                width,
+                height,
+                1.,
+                "A",
+                20.,
+                [0., 0., 100., 30.],
+                [255; 4],
+                region,
+            );
+            assert_eq!(untouched, vec![17_u8; 16], "invalid region must not write");
         }
     }
 
     #[test]
     fn exact_area_rasterizer_matches_scanline_reference() {
         let (width, height) = (160usize, 48usize);
-        for (text, size, scale) in [("Forma Жg", 17.5, 1.), ("ilj ОБ 0.5", 11., 1.25), ("Привет", 24., 2.)] {
+        for (text, size, scale) in [
+            ("Forma Жg", 17.5, 1.),
+            ("ilj ОБ 0.5", 11., 1.25),
+            ("Привет", 24., 2.),
+        ] {
             let face = font();
             let units_to_pixels = size * scale / face.units_per_em() as f32;
             let origin = Point { x: 3.3, y: 30.7 };
             let mut contours = Contours {
-        #[cfg(test)] tolerance: CURVE_TOLERANCE, edges: Vec::new(), current: origin, start: origin, origin, units_to_pixels };
+                #[cfg(test)]
+                tolerance: CURVE_TOLERANCE,
+                edges: Vec::new(),
+                current: origin,
+                start: origin,
+                origin,
+                units_to_pixels,
+            };
             for ch in text.chars() {
                 let id = glyph(face, ch);
                 face.outline_glyph(id, &mut contours);
                 contours.origin.x += advance(face, id) * units_to_pixels;
             }
             let mut pixels = vec![0u8; width * height * 4];
-            rasterize(&mut pixels, width as u32, &contours.edges, [0., 0., width as f32, height as f32], [255, 255, 255, 255]);
+            rasterize(
+                &mut pixels,
+                width as u32,
+                &contours.edges,
+                [0., 0., width as f32, height as f32],
+                [255, 255, 255, 255],
+            );
             let expected = scanline_reference(width, height, &contours.edges);
             let (mut max, mut covered) = (0u8, 0usize);
             for (i, cov) in expected.iter().enumerate() {
                 let reference = (cov.min(1.) * 255.).round() as u8;
-                if reference > 0 { covered += 1; }
+                if reference > 0 {
+                    covered += 1;
+                }
                 max = max.max(reference.abs_diff(pixels[i * 4 + 3]));
             }
             assert!(covered > 100, "{text}: fixture must rasterize text");
-            assert!(max <= 2, "{text}: max coverage error {max}/255 against the scanline reference");
+            assert!(
+                max <= 2,
+                "{text}: max coverage error {max}/255 against the scanline reference"
+            );
         }
         // Polygons through the shape path: a concave even-odd-compatible shape.
         let mut pixels = vec![0u8; 64 * 64 * 4];
-        crate::shape::draw(&mut pixels, 64, 64, 1.25, &[[4., 4.], [40., 6.], [20., 20.], [44., 44.], [6., 40.]], [1.5, 2.25], [255, 255, 255, 255]);
-        let points: Vec<Point> = [[4., 4.], [40., 6.], [20., 20.], [44., 44.], [6., 40.]].iter().map(|p| Point { x: (p[0] + 1.5) * 1.25, y: (p[1] + 2.25) * 1.25 }).collect();
-        let edges: Vec<_> = (0..points.len()).map(|i| (points[i], points[(i + 1) % points.len()])).collect();
+        crate::shape::draw(
+            &mut pixels,
+            64,
+            64,
+            1.25,
+            &[[4., 4.], [40., 6.], [20., 20.], [44., 44.], [6., 40.]],
+            [1.5, 2.25],
+            [255, 255, 255, 255],
+        );
+        let points: Vec<Point> = [[4., 4.], [40., 6.], [20., 20.], [44., 44.], [6., 40.]]
+            .iter()
+            .map(|p| Point {
+                x: (p[0] + 1.5) * 1.25,
+                y: (p[1] + 2.25) * 1.25,
+            })
+            .collect();
+        let edges: Vec<_> = (0..points.len())
+            .map(|i| (points[i], points[(i + 1) % points.len()]))
+            .collect();
         let expected = scanline_reference(64, 64, &edges);
-        let max = expected.iter().enumerate().map(|(i, cov)| ((cov.min(1.) * 255.).round() as u8).abs_diff(pixels[i * 4 + 3])).max().unwrap();
+        let max = expected
+            .iter()
+            .enumerate()
+            .map(|(i, cov)| ((cov.min(1.) * 255.).round() as u8).abs_diff(pixels[i * 4 + 3]))
+            .max()
+            .unwrap();
         assert!(max <= 2, "shape: max coverage error {max}/255");
     }
 
@@ -1726,7 +2181,9 @@ mod tests {
         assert_eq!(shaped[1].x_advance, 0.);
         assert!(shaped[1].x_offset < 0. && shaped[1].y_offset > 0.);
         assert!(!shaped[2].combining);
-        assert!((measure_shaped_text("A\u{0301}B", 20.) - measure_shaped_text("AB", 20.)).abs() < 0.01);
+        assert!(
+            (measure_shaped_text("A\u{0301}B", 20.) - measure_shaped_text("AB", 20.)).abs() < 0.01
+        );
 
         // 2. BiDi RTL run reordering: Hebrew "אבג" reverses visual order while keeping logical clusters.
         let rtl = shape_text("אבג", 20.);
@@ -1752,7 +2209,9 @@ mod tests {
         assert!(fallback[1].fallback);
         assert_eq!(fallback[1].font_index, 2);
         assert_ne!(fallback[1].glyph_id, 0);
-        let missing=shape_text("\u{10ffff}",20.);assert!(missing[0].fallback);assert_eq!(missing[0].glyph_id,0);
+        let missing = shape_text("\u{10ffff}", 20.);
+        assert!(missing[0].fallback);
+        assert_eq!(missing[0].glyph_id, 0);
         assert!(fallback[1].x_advance > 0.);
     }
 
@@ -1763,15 +2222,26 @@ mod tests {
         let single = "👨";
         let shaped_family = shape_text(family, 24.);
         assert!(!shaped_family[0].combining);
-        assert!(shaped_family[1..].iter().all(|g| g.combining && g.x_advance == 0.));
+        assert!(
+            shaped_family[1..]
+                .iter()
+                .all(|g| g.combining && g.x_advance == 0.)
+        );
         assert!((measure_shaped_text(family, 24.) - measure_shaped_text(single, 24.)).abs() < 0.01);
 
         // Skin-tone modifier ("👍🏽") and keycap ("1\u{fe0f}\u{20e3}") and regional indicator flag ("🇬🇪"):
-        for (cluster, base) in [("👍🏽", "👍"), ("1\u{fe0f}\u{20e3}", "1"), ("🇬🇪", "🇬")] {
+        for (cluster, base) in [("👍🏽", "👍"), ("1\u{fe0f}\u{20e3}", "1"), ("🇬🇪", "🇬")]
+        {
             let sc = shape_text(cluster, 24.);
             assert!(!sc[0].combining);
-            assert!(sc[1..].iter().all(|g| g.combining && g.x_advance == 0.), "{cluster}");
-            assert!((measure_shaped_text(cluster, 24.) - measure_shaped_text(base, 24.)).abs() < 0.01, "{cluster}");
+            assert!(
+                sc[1..].iter().all(|g| g.combining && g.x_advance == 0.),
+                "{cluster}"
+            );
+            assert!(
+                (measure_shaped_text(cluster, 24.) - measure_shaped_text(base, 24.)).abs() < 0.01,
+                "{cluster}"
+            );
         }
 
         // BiDi UAX #9 N1: neutral space between two Hebrew words stays inside the single RTL run
@@ -1793,7 +2263,10 @@ mod tests {
         let wrapped = wrap_shaped_text(text, 16., single_word_w + 2.);
         assert!(wrapped.len() >= 4);
         assert_eq!(&text[wrapped[0].byte_range.clone()], "Hello world ");
-        assert_eq!(&text[wrapped.last().unwrap().byte_range.clone()], "Second line");
+        assert_eq!(
+            &text[wrapped.last().unwrap().byte_range.clone()],
+            "Second line"
+        );
 
         // Emergency grapheme wrap on a narrow width keeps extended grapheme clusters intact.
         let narrow = wrap_shaped_text("A👨‍👩‍👧‍👦B", 20., 5.);
@@ -1807,10 +2280,19 @@ mod tests {
         assert_eq!(hit_second_row, wrapped[1].byte_range.start);
 
         // Zero-allocation `measure_shaped_text` agrees with full `shape_text` sum across scripts.
-        for sample in ["ffi ffl AV To", "אב גד", "你好世界", "👨‍👩‍👧‍👦👍🏽1\u{fe0f}\u{20e3}🇬🇪", "Forma — векторы"] {
+        for sample in [
+            "ffi ffl AV To",
+            "אב גד",
+            "你好世界",
+            "👨‍👩‍👧‍👦👍🏽1\u{fe0f}\u{20e3}🇬🇪",
+            "Forma — векторы",
+        ] {
             let shaped_sum: f32 = shape_text(sample, 18.).iter().map(|g| g.x_advance).sum();
             let fast_measured = measure_shaped_text(sample, 18.);
-            assert!((shaped_sum - fast_measured).abs() < 1e-3, "{sample}: {shaped_sum} vs {fast_measured}");
+            assert!(
+                (shaped_sum - fast_measured).abs() < 1e-3,
+                "{sample}: {shaped_sum} vs {fast_measured}"
+            );
         }
     }
 }

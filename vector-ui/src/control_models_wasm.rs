@@ -385,15 +385,10 @@ impl VirtualListValue {
         self.model.selected().map_or(-1, |i| i as i32)
     }
     pub fn select(&mut self, index: usize) -> Result<i32, JsValue> {
-        self.model
-            .select(index)
-            .map(|i| i as i32)
-            .map_err(js_error)
+        self.model.select(index).map(|i| i as i32).map_err(js_error)
     }
     pub fn move_by(&mut self, delta: i32) -> i32 {
-        self.model
-            .move_by(delta as isize)
-            .map_or(-1, |i| i as i32)
+        self.model.move_by(delta as isize).map_or(-1, |i| i as i32)
     }
 }
 
@@ -477,7 +472,13 @@ pub struct DateTimeValue {
 #[wasm_bindgen]
 impl DateTimeValue {
     #[wasm_bindgen(constructor)]
-    pub fn new(year: i32, month: u8, day: u8, hour: u8, minute: u8) -> Result<DateTimeValue, JsValue> {
+    pub fn new(
+        year: i32,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+    ) -> Result<DateTimeValue, JsValue> {
         Ok(Self {
             model: DateTimeModel::new(year, month, day, hour, minute).map_err(js_error)?,
         })

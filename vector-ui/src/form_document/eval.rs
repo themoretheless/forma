@@ -1,4 +1,4 @@
-use super::{number, props, Expression, Properties, Value};
+use super::{Expression, Properties, Value, number, props};
 
 pub(super) fn lookup(values: &Properties, path: &str) -> Option<Value> {
     if let Some(value) = values.get(path) {
@@ -191,7 +191,7 @@ pub(super) fn eval_mode(
                                     number(expression_number(&left)? * expression_number(&right)?)
                                 }
                                 "/" | "%" if expression_number(&right)? == 0. => {
-                                    return Err("Division by zero".into())
+                                    return Err("Division by zero".into());
                                 }
                                 "/" => {
                                     number(expression_number(&left)? / expression_number(&right)?)
@@ -359,9 +359,8 @@ fn parse_hex_color(value: &Value) -> Result<(u8, u8, u8, u8), String> {
         .trim()
         .strip_prefix('#')
         .ok_or("Color function expects a hex color (#rgb, #rrggbb, or #rrggbbaa)")?;
-    let hex = |slice: &str| {
-        u8::from_str_radix(slice, 16).map_err(|_| String::from("Invalid hex color"))
-    };
+    let hex =
+        |slice: &str| u8::from_str_radix(slice, 16).map_err(|_| String::from("Invalid hex color"));
     match s.len() {
         3 => {
             let r = hex(&s[0..1])?;
@@ -722,7 +721,11 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
                 let dec = (expression_number(&arguments[1])?.max(0.) as usize).min(12);
                 Ok(Value::Text(format!("{n:.dec$}")))
             } else {
-                Ok(Value::Text(if n == 0. { "0".into() } else { n.to_string() }))
+                Ok(Value::Text(if n == 0. {
+                    "0".into()
+                } else {
+                    n.to_string()
+                }))
             }
         }
         "unique" if arguments.len() == 1 || arguments.len() == 2 => {
@@ -932,7 +935,9 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
             let Value::Object(o) = &arguments[0] else {
                 return Err("keys expects an object".into());
             };
-            Ok(Value::List(o.keys().map(|k| Value::Text(k.clone())).collect()))
+            Ok(Value::List(
+                o.keys().map(|k| Value::Text(k.clone())).collect(),
+            ))
         }
         "values" if arguments.len() == 1 => {
             let Value::Object(o) = &arguments[0] else {
@@ -960,9 +965,7 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
                     Value::List(pair) if pair.len() == 2 => {
                         out.insert(pair[0].text()?, pair[1].clone());
                     }
-                    Value::Object(obj)
-                        if obj.contains_key("key") && obj.contains_key("value") =>
-                    {
+                    Value::Object(obj) if obj.contains_key("key") && obj.contains_key("value") => {
                         out.insert(obj["key"].text()?, obj["value"].clone());
                     }
                     _ => return Err("fromEntries expects [key, value] pairs".into()),
@@ -1041,8 +1044,9 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
             } else {
                 let pat = arguments[1].text()?;
                 let s = arguments[0].text()?;
-                let matched = themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat)
-                    .map_err(|e| e.to_string())?;
+                let matched =
+                    themoretheless_tokenizer_forma::evaluate::matches_constraint_pattern(&s, &pat)
+                        .map_err(|e| e.to_string())?;
                 Ok(Value::Bool(matched))
             }
         }
@@ -1150,9 +1154,8 @@ fn call(name: &str, arguments: &[Value]) -> Result<Value, String> {
             } else {
                 0.5
             };
-            let lerp = |c1: u8, c2: u8| -> u8 {
-                (c1 as f64 * (1. - w) + c2 as f64 * w).round() as u8
-            };
+            let lerp =
+                |c1: u8, c2: u8| -> u8 { (c1 as f64 * (1. - w) + c2 as f64 * w).round() as u8 };
             Ok(format_hex_color(
                 lerp(r1, r2),
                 lerp(g1, g2),

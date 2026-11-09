@@ -3,8 +3,11 @@
 //! Inputs come from `node scripts/transport-fixture.mjs`; one JSON object per case.
 mod bench_support;
 use bench_support::CountingAllocator;
-use forma::{markup, template, Runtime};
-use std::{hint::black_box, time::{Duration, Instant}};
+use forma::{Runtime, markup, template};
+use std::{
+    hint::black_box,
+    time::{Duration, Instant},
+};
 
 #[global_allocator]
 static ALLOCATOR: CountingAllocator = CountingAllocator::new();
@@ -32,11 +35,13 @@ fn measure(label: &str, count: usize, ops: usize, mut f: impl FnMut()) {
     let n = (ops - 1) as f64;
     // `allocs_per_op` keeps its historical meaning of allocation attempts, so the separate
     // realloc count is the one that shows a buffer grown by doubling instead of sized at once.
-    println!("{{\"case\":\"{label}\",\"controls\":{count},\"ns_per_op\":{:.1},\"allocs_per_op\":{:.1},\"reallocs_per_op\":{:.1},\"bytes_per_op\":{:.1}}}",
+    println!(
+        "{{\"case\":\"{label}\",\"controls\":{count},\"ns_per_op\":{:.1},\"allocs_per_op\":{:.1},\"reallocs_per_op\":{:.1},\"bytes_per_op\":{:.1}}}",
         elapsed.as_secs_f64() * 1e9 / n,
         (allocations + reallocations) as f64 / n,
         reallocations as f64 / n,
-        bytes as f64 / n);
+        bytes as f64 / n
+    );
 }
 
 fn framed(component: &str) -> Vec<&str> {
@@ -52,8 +57,12 @@ fn framed(component: &str) -> Vec<&str> {
 }
 
 fn main() {
-    let dir = std::env::var("FORMA_TRANSPORT_DIR")
-        .unwrap_or_else(|_| format!("{}/../.forma/perf/template-load", env!("CARGO_MANIFEST_DIR")));
+    let dir = std::env::var("FORMA_TRANSPORT_DIR").unwrap_or_else(|_| {
+        format!(
+            "{}/../.forma/perf/template-load",
+            env!("CARGO_MANIFEST_DIR")
+        )
+    });
     for count in [32usize, 256] {
         let path = format!("{dir}/forma-transport-{count}.txt");
         let text = std::fs::read_to_string(&path).unwrap_or_else(|error| {
@@ -96,12 +105,21 @@ fn main() {
         measure("leaf_scene_build", count, 6, || {
             for _ in 0..count {
                 let leaf = markup::Scene {
-                    name: String::new(), width: scene.width, height: scene.height,
-                    background: scene.background, overflow: String::new(),
-                    clip: scene.clip, radius: scene.radius, scroll: scene.scroll,
-                    padding: scene.padding, content_width: scene.content_width,
-                    content_height: scene.content_height, gap: scene.gap,
-                    button: markup::ButtonSpec::default(), buttons: Vec::new(), modals: Vec::new(),
+                    name: String::new(),
+                    width: scene.width,
+                    height: scene.height,
+                    background: scene.background,
+                    overflow: String::new(),
+                    clip: scene.clip,
+                    radius: scene.radius,
+                    scroll: scene.scroll,
+                    padding: scene.padding,
+                    content_width: scene.content_width,
+                    content_height: scene.content_height,
+                    gap: scene.gap,
+                    button: markup::ButtonSpec::default(),
+                    buttons: Vec::new(),
+                    modals: Vec::new(),
                 };
                 black_box(leaf.width + leaf.button.width);
             }
@@ -140,7 +158,10 @@ fn main() {
             black_box(model.gpu_edges(1., false).len());
             black_box(model.gpu_tiles(900, 600, 1., false).len());
         });
-        println!("{{\"case\":\"input_sizes\",\"controls\":{count},\"document_bytes\":{},\"transport_bytes\":{}}}",
-            source.len(), component.len());
+        println!(
+            "{{\"case\":\"input_sizes\",\"controls\":{count},\"document_bytes\":{},\"transport_bytes\":{}}}",
+            source.len(),
+            component.len()
+        );
     }
 }

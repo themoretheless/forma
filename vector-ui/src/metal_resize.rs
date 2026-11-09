@@ -5,7 +5,7 @@
 #![allow(unexpected_cfgs)]
 use objc::{
     class, msg_send,
-    runtime::{Object, BOOL, YES},
+    runtime::{BOOL, Object, YES},
     sel, sel_impl,
 };
 use winit::{
@@ -110,6 +110,8 @@ pub fn configure(window: &Window) -> Result<(), String> {
             return Err("Metal transactional presentation was not applied".into());
         }
     }
-    println!("Presentation: Metal topLeft + synchronized transaction; implicit resize animations disabled");
+    println!(
+        "Presentation: Metal topLeft + synchronized transaction; implicit resize animations disabled"
+    );
     Ok(())
 }

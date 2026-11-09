@@ -1,4 +1,4 @@
-use super::{boolean, num, number, text, Node, Properties, Value};
+use super::{Node, Properties, Value, boolean, num, number, text};
 
 fn is_color_property(key: &str) -> bool {
     key.as_bytes()
@@ -17,7 +17,11 @@ fn is_color_property(key: &str) -> bool {
         .contains(&key)
 }
 
-pub(super) fn write_property_literal(key: &str, value: &Value, out: &mut String) -> Result<(), String> {
+pub(super) fn write_property_literal(
+    key: &str,
+    value: &Value,
+    out: &mut String,
+) -> Result<(), String> {
     if let Value::Text(text) = value {
         if is_color_property(key)
             && text.starts_with('#')
@@ -271,7 +275,11 @@ pub(super) fn natural(n: &Node, axis: usize) -> Result<f64, String> {
             let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
             let text = text(&n.props, "text", "")?;
             let wrap = boolean(&n.props, "wrap", false)?;
-            let max_w = n.props.get("width").and_then(|v| v.number().ok()).unwrap_or(0.);
+            let max_w = n
+                .props
+                .get("width")
+                .and_then(|v| v.number().ok())
+                .unwrap_or(0.);
             if wrap && max_w > 0. {
                 let lines = crate::text::wrap_text_ranges(&text, fs as f32, max_w as f32);
                 if axis == 1 {

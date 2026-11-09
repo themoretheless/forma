@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use super::{
-    collect_preorder_nodes, doc_props_to_json, enum_value, eval, key_part, lookup, number,
-    scope_mut, Document, Properties, SceneControl, Value,
+    Document, Properties, SceneControl, Value, collect_preorder_nodes, doc_props_to_json,
+    enum_value, eval, key_part, lookup, number, scope_mut,
 };
 
 impl Document {
@@ -58,7 +58,7 @@ impl Document {
             match runtime_keys.get(&control.key) {
                 Some(Some(index)) => bound_controls[*index] = Some(control),
                 Some(None) => {
-                    return Err(format!("Ambiguous runtime binding key: {}", control.key))
+                    return Err(format!("Ambiguous runtime binding key: {}", control.key));
                 }
                 None => {} // Newly inserted controls do not own a live widget yet.
             }
@@ -80,7 +80,8 @@ impl Document {
                 };
                 let Some(&src_node) = preorder_nodes.get(ctrl.node).or_else(|| {
                     preorder_nodes.iter().find(|n| {
-                        n.props.get("__node").and_then(|v| v.number().ok()) == Some(ctrl.node as f64)
+                        n.props.get("__node").and_then(|v| v.number().ok())
+                            == Some(ctrl.node as f64)
                     })
                 }) else {
                     continue;
@@ -251,7 +252,10 @@ fn lookup_binding_value_ref<'a>(value: &'a Value, path: &str) -> Option<&'a Valu
     }
 }
 
-pub(super) fn lookup_binding_mut<'a>(values: &'a mut Properties, path: &str) -> Option<&'a mut Value> {
+pub(super) fn lookup_binding_mut<'a>(
+    values: &'a mut Properties,
+    path: &str,
+) -> Option<&'a mut Value> {
     if values.contains_key(path) {
         return values.get_mut(path);
     }
@@ -359,9 +363,9 @@ fn binding_model_path(
 ) -> Option<String> {
     let path = expression.strip_prefix("state.").unwrap_or(expression);
     if path.is_empty()
-        || !path
-            .split('.')
-            .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+        || !path.split('.').all(|part| {
+            !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
     {
         return None;
     }
@@ -516,9 +520,9 @@ fn direct_binding_key_member<'a>(
         .strip_prefix(item)
         .and_then(|rest| rest.strip_prefix('.'))?;
     (!tail.is_empty()
-        && tail
-            .split('.')
-            .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_'))
+        && tail.split('.').all(|part| {
+            !part.is_empty() && part.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
         && !state.contains_key(expression)
         && !metadata.contains_key(expression)
         && !live_locals.contains_key(expression)
@@ -622,10 +626,7 @@ pub(super) fn resolve_binding_frame(
                 let Value::Object(step) = step else {
                     return Err("Invalid binding Let step".into());
                 };
-                let name = step
-                    .get("name")
-                    .ok_or("Missing binding Let name")?
-                    .text()?;
+                let name = step.get("name").ok_or("Missing binding Let name")?.text()?;
                 let expression = step
                     .get("expression")
                     .ok_or("Missing binding Let expression")?;
@@ -795,8 +796,14 @@ fn resolve_binding_item_inner(
     }
     // Plain item-member keys can be read directly. Preserve evaluator precedence
     // for exact dotted fields, enums, reserved namespaces and computed values.
-    let direct_path =
-        direct_binding_key_member(key_expression, key_scope, metadata, item, state, live_locals);
+    let direct_path = direct_binding_key_member(
+        key_expression,
+        key_scope,
+        metadata,
+        item,
+        state,
+        live_locals,
+    );
     if let Some(member) = direct_path {
         if let Some(keys) = indexes.get(path).and_then(|members| members.get(member)) {
             return Ok(keys.get(&key).map(|index| (path.to_owned(), *index)));

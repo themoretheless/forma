@@ -1,7 +1,5 @@
 //! Native WebGPU/wgpu backend. Uploads vector commands/edges, never RGBA images.
-use crate::{
-    display_list::{DisplayList, RenderScene, TileScratch, PARAMS_LEN, TILE},
-};
+use crate::display_list::{DisplayList, PARAMS_LEN, RenderScene, TILE, TileScratch};
 use std::sync::Arc;
 pub const SHADER: &str = include_str!("vector.wgsl");
 
@@ -106,10 +104,19 @@ pub struct BackendAllocatorStats {
 // One contiguous write bounds the changed words. No temporary diff/range list,
 // and byte offsets remain COPY_BUFFER_ALIGNMENT-aligned (f32 is four bytes).
 fn changed_paint_range(previous: &[f32], next: &[f32]) -> Option<std::ops::Range<usize>> {
-    if previous.len() != next.len() { return Some(0..next.len()); }
-    let first = previous.iter().zip(next).position(|(a,b)| a.to_bits() != b.to_bits())?;
-    let last = previous.iter().zip(next).rposition(|(a,b)| a.to_bits() != b.to_bits()).unwrap();
-    Some(first..last+1)
+    if previous.len() != next.len() {
+        return Some(0..next.len());
+    }
+    let first = previous
+        .iter()
+        .zip(next)
+        .position(|(a, b)| a.to_bits() != b.to_bits())?;
+    let last = previous
+        .iter()
+        .zip(next)
+        .rposition(|(a, b)| a.to_bits() != b.to_bits())
+        .unwrap();
+    Some(first..last + 1)
 }
 
 struct GpuTiming {
@@ -151,12 +158,21 @@ fn storage_capacity(required: u64, current: u64, limit: u64) -> Result<u64, Stri
 // Preserve the first actionable failure; teardown/device-loss callbacks must
 // not overwrite the original validation diagnostic.
 fn record_gpu_fault(fault: &std::sync::Mutex<Option<String>>, error: String) {
-    let mut stored=fault.lock().unwrap_or_else(|poisoned|poisoned.into_inner());
-    if stored.is_none() { *stored=Some(error); }
+    let mut stored = fault
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if stored.is_none() {
+        *stored = Some(error);
+    }
 }
-fn check_gpu_fault(fault: &std::sync::Mutex<Option<String>>) -> Result<(),String> {
-    let stored=fault.lock().map_err(|_|"GPU fault state poisoned".to_owned())?;
-    match stored.as_ref() { Some(error)=>Err(error.clone()),None=>Ok(()) }
+fn check_gpu_fault(fault: &std::sync::Mutex<Option<String>>) -> Result<(), String> {
+    let stored = fault
+        .lock()
+        .map_err(|_| "GPU fault state poisoned".to_owned())?;
+    match stored.as_ref() {
+        Some(error) => Err(error.clone()),
+        None => Ok(()),
+    }
 }
 
 #[cfg(any(feature = "native", test))]
@@ -167,7 +183,10 @@ pub(crate) fn device_queue_idle(device: &wgpu::Device) -> bool {
     }
     #[cfg(target_os = "linux")]
     {
-        matches!(device.poll(wgpu::PollType::Poll), Ok(wgpu::PollStatus::QueueEmpty))
+        matches!(
+            device.poll(wgpu::PollType::Poll),
+            Ok(wgpu::PollStatus::QueueEmpty)
+        )
     }
 }
 
@@ -186,10 +205,12 @@ fn gpu_test_adapter_supported(info: &wgpu::AdapterInfo) -> bool {
         return false;
     }
     // Mesa's lavapipe Vulkan driver commonly identifies the device as llvmpipe.
-    [&info.name, &info.driver, &info.driver_info].iter().any(|value| {
-        let value = value.to_ascii_lowercase();
-        value.contains("lavapipe") || value.contains("llvmpipe")
-    })
+    [&info.name, &info.driver, &info.driver_info]
+        .iter()
+        .any(|value| {
+            let value = value.to_ascii_lowercase();
+            value.contains("lavapipe") || value.contains("llvmpipe")
+        })
 }
 
 #[cfg(test)]
@@ -262,11 +283,11 @@ impl Renderer {
         let fault = std::sync::Arc::new(std::sync::Mutex::new(None));
         let errors = fault.clone();
         device.on_uncaptured_error(std::sync::Arc::new(move |error| {
-            record_gpu_fault(&errors,format!("GPU validation/device error: {error}"));
+            record_gpu_fault(&errors, format!("GPU validation/device error: {error}"));
         }));
         let lost = fault.clone();
         device.set_device_lost_callback(move |reason, message| {
-            record_gpu_fault(&lost,format!("GPU device lost: {reason:?}: {message}"));
+            record_gpu_fault(&lost, format!("GPU device lost: {reason:?}: {message}"));
         });
         // Late registration can immediately deliver an already-lost backend.
         // Refuse setup before creating more device resources in that case.
@@ -478,9 +499,12 @@ impl Renderer {
         #[cfg(target_os = "linux")]
         let (begin, end) = {
             let (send, recv) = std::sync::mpsc::channel();
-            timing.readback.slice(..).map_async(wgpu::MapMode::Read, move |result| {
-                let _ = send.send(result);
-            });
+            timing
+                .readback
+                .slice(..)
+                .map_async(wgpu::MapMode::Read, move |result| {
+                    let _ = send.send(result);
+                });
             self.device
                 .poll(wgpu::PollType::wait_indefinitely())
                 .map_err(|e| e.to_string())?;
@@ -502,8 +526,10 @@ impl Renderer {
     /// Report a latched renderer fault before configuring/acquiring a surface.
     /// Hosts should leave the GPU path when this fails, even if acquisition
     /// would otherwise only produce transient timeouts.
-    pub fn check_health(&self) -> Result<(),String> {
-        self.device.poll(wgpu::PollType::Poll).map_err(|e|format!("GPU health poll: {e:?}"))?;
+    pub fn check_health(&self) -> Result<(), String> {
+        self.device
+            .poll(wgpu::PollType::Poll)
+            .map_err(|e| format!("GPU health poll: {e:?}"))?;
         check_gpu_fault(&self.fault)
     }
 
@@ -545,12 +571,16 @@ impl Renderer {
         // re-bins the retained geometry without any command/edge upload.
         let scroll = model.gpu_scroll();
         let tile_key = (width.div_ceil(TILE), height.div_ceil(TILE), scale, scroll);
-        let tiles_changed=changed || self.tile_key != Some(tile_key);
+        let tiles_changed = changed || self.tile_key != Some(tile_key);
         model.gpu_paints_into(&mut self.paints);
         let paint_range = changed_paint_range(&self.uploaded_paints, &self.paints);
         let paints_changed = self.buffers.len() < 4 || paint_range.is_some();
         {
-            let tiles = if tiles_changed {list.tiles_into(width, height, scale, scroll, &mut self.tile_scratch)}else{&[]};
+            let tiles = if tiles_changed {
+                list.tiles_into(width, height, scale, scroll, &mut self.tile_scratch)
+            } else {
+                &[]
+            };
             let edges = if list.edges.is_empty() {
                 &[0f32; 4][..]
             } else {
@@ -570,14 +600,24 @@ impl Renderer {
             }
             let mut rebind = self.bindings.is_none();
             for (index, payload) in data.iter().enumerate() {
-                if (index<2&&!changed)||(index==2&&!tiles_changed)||(index==3&&!paints_changed) {
+                if (index < 2 && !changed)
+                    || (index == 2 && !tiles_changed)
+                    || (index == 3 && !paints_changed)
+                {
                     continue;
                 }
                 let current = self.buffers.get(index).map_or(0, wgpu::Buffer::size);
                 let capacity = storage_capacity(payload.len() as u64, current, storage_limit)?;
                 if capacity != current {
                     let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
-                        label: Some(["Forma commands", "Forma edges", "Forma tiles", "Forma paints"][index]),
+                        label: Some(
+                            [
+                                "Forma commands",
+                                "Forma edges",
+                                "Forma tiles",
+                                "Forma paints",
+                            ][index],
+                        ),
                         size: capacity,
                         usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
                         mapped_at_creation: false,
@@ -592,16 +632,23 @@ impl Renderer {
                     rebind = true;
                 }
                 let (offset, bytes) = if index == 3 && capacity == current {
-                    let range = paint_range.as_ref().expect("changed paints have a write range");
+                    let range = paint_range
+                        .as_ref()
+                        .expect("changed paints have a write range");
                     (range.start * 4, &payload[range.start * 4..range.end * 4])
-                } else { (0, *payload) };
-                self.queue.write_buffer(&self.buffers[index], offset as u64, bytes);
+                } else {
+                    (0, *payload)
+                };
+                self.queue
+                    .write_buffer(&self.buffers[index], offset as u64, bytes);
                 self.uploaded_bytes += bytes.len() as u64;
             }
             if changed {
                 self.uploads += 1;
             }
-            if tiles_changed { self.tile_uploads += 1; }
+            if tiles_changed {
+                self.tile_uploads += 1;
+            }
             if rebind {
                 self.bindings = Some(self.device.create_bind_group(&wgpu::BindGroupDescriptor {
                     label: Some("Forma vectors"),
@@ -623,7 +670,10 @@ impl Renderer {
                             binding: 3,
                             resource: self.buffers[2].as_entire_binding(),
                         },
-                        wgpu::BindGroupEntry {binding:4,resource:self.buffers[3].as_entire_binding()},
+                        wgpu::BindGroupEntry {
+                            binding: 4,
+                            resource: self.buffers[3].as_entire_binding(),
+                        },
                     ],
                 }));
                 self.bind_group_creations += 1;
@@ -641,7 +691,8 @@ impl Renderer {
             self.params[3] = 2.;
         }
         if self.params != self.uploaded_params {
-            self.queue.write_buffer(&self.uniform, 0, bytemuck::cast_slice(&self.params));
+            self.queue
+                .write_buffer(&self.uniform, 0, bytemuck::cast_slice(&self.params));
             self.uploaded_bytes += std::mem::size_of_val(self.params.as_slice()) as u64;
             self.uploaded_params.clone_from(&self.params);
         }
@@ -686,8 +737,8 @@ impl Renderer {
 
 #[cfg(test)]
 mod tests {
-    use crate::Button;
     use super::*;
+    use crate::Button;
 
     #[test]
     fn invalid_timestamp_pairs_are_unavailable_not_wrapped_durations() {
@@ -768,7 +819,9 @@ mod tests {
         assert!(missing_compute_pipeline_error(
             "In a ComputePass, note: Compute pipeline must be set"
         ));
-        assert!(!missing_compute_pipeline_error("Compute pipeline is invalid"));
+        assert!(!missing_compute_pipeline_error(
+            "Compute pipeline is invalid"
+        ));
         assert!(!missing_compute_pipeline_error("validation failed"));
     }
 
@@ -827,8 +880,11 @@ mod tests {
             let adapter = instance.request_adapter(&Default::default()).await.unwrap();
             let adapter_info = adapter.get_info();
             assert_gpu_test_adapter(&adapter_info);
-            eprintln!("GPU_TEST_ADAPTER {}", serde_json::json!({"test":"profiled-renderer","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
-                "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info}));
+            eprintln!(
+                "GPU_TEST_ADAPTER {}",
+                serde_json::json!({"test":"profiled-renderer","name":adapter_info.name,"vendor":adapter_info.vendor,"device":adapter_info.device,
+                "device_type":format!("{:?}",adapter_info.device_type),"backend":format!("{:?}",adapter_info.backend),"driver":adapter_info.driver,"driver_info":adapter_info.driver_info})
+            );
             let mut renderer = Renderer::new_profiled(&adapter, wgpu::TextureFormat::Rgba8Unorm)
                 .await
                 .unwrap();
@@ -852,7 +908,10 @@ mod tests {
             let target = texture.create_view(&Default::default());
             assert_eq!(renderer.read_gpu_duration_ns().unwrap(), None);
             let initial = renderer.resource_stats();
-            assert_eq!(initial.buffer_bytes, (PARAMS_LEN * 4) as u64 + initial.timing_buffer_bytes);
+            assert_eq!(
+                initial.buffer_bytes,
+                (PARAMS_LEN * 4) as u64 + initial.timing_buffer_bytes
+            );
             assert_eq!(
                 initial.buffer_allocations_total,
                 initial.buffer_count as u64
@@ -863,7 +922,10 @@ mod tests {
                 renderer
                     .draw(&model, &target, 96, 64, 1., true, true)
                     .unwrap();
-                assert!(model.raster_cache.borrow().is_none(), "GPU submission must release CPU rasters");
+                assert!(
+                    model.raster_cache.borrow().is_none(),
+                    "GPU submission must release CPU rasters"
+                );
                 let duration = renderer.read_gpu_duration_ns().unwrap();
                 if !renderer.gpu_timestamps_enabled() {
                     assert_eq!(duration, None);
@@ -874,7 +936,10 @@ mod tests {
                 assert_eq!(renderer.read_gpu_duration_ns().unwrap(), None);
                 let uploaded = renderer.resource_stats().uploaded_bytes_total;
                 if let Some(first) = uploaded_once {
-                    assert_eq!(uploaded, first, "an unchanged frame must not upload any payload");
+                    assert_eq!(
+                        uploaded, first,
+                        "an unchanged frame must not upload any payload"
+                    );
                 }
                 uploaded_once = Some(uploaded);
             }
@@ -907,7 +972,10 @@ mod tests {
                 + stats.cpu_paint_scratch_bytes) as u64;
             match stats.memory_architecture {
                 MemoryArchitecture::Uma => {
-                    assert_eq!(stats.uma_shared_pool_bytes, stats.buffer_bytes + expected_host);
+                    assert_eq!(
+                        stats.uma_shared_pool_bytes,
+                        stats.buffer_bytes + expected_host
+                    );
                     assert_eq!(stats.duma_device_local_bytes, 0);
                     assert_eq!(stats.duma_host_ram_bytes, 0);
                 }
@@ -1074,7 +1142,10 @@ mod tests {
                 .unwrap();
             // Scrolling re-bins tiles and updates the uniform; geometry stays resident.
             assert_eq!(renderer.uploads, before_scroll);
-            assert_eq!(renderer.resource_stats().tile_uploads_total, tiles_before_scroll + 1);
+            assert_eq!(
+                renderer.resource_stats().tile_uploads_total,
+                tiles_before_scroll + 1
+            );
             assert!(renderer.resource_stats().uploaded_bytes_total > params_before_scroll);
             scrolling.scroll(0., 0.);
             let bytes = renderer.resource_stats().uploaded_bytes_total;
@@ -1088,39 +1159,60 @@ mod tests {
                 .poll(wgpu::PollType::wait_indefinitely())
                 .unwrap();
             // Completion service must not require another draw/present.
-            let frames_before_idle=renderer.frames;
-            renderer.device.poll(wgpu::PollType::Wait {submission_index:None,timeout:None}).unwrap();
+            let frames_before_idle = renderer.frames;
+            renderer
+                .device
+                .poll(wgpu::PollType::Wait {
+                    submission_index: None,
+                    timeout: None,
+                })
+                .unwrap();
             assert!(device_queue_idle(&renderer.device));
-            for _ in 0..3 {renderer.check_health().unwrap();}
-            assert_eq!(renderer.frames,frames_before_idle);
+            for _ in 0..3 {
+                renderer.check_health().unwrap();
+            }
+            assert_eq!(renderer.frames, frames_before_idle);
             eprintln!("GPU_IDLE_COMPLETION_RESULT queue_drained=true health_without_draw=true");
             // Finishing an invalid compute dispatch reaches the Device handler;
             // no invalid commands are submitted to hardware. Upstream wgpu defers
             // this validation until finish, while the in-tree backend reports eagerly.
-            let frames_before_fault=renderer.frames;
-            let uploads_before_fault=renderer.resource_stats().uploaded_bytes_total;
-            let mut invalid_encoder=renderer.device.create_command_encoder(&Default::default());
+            let frames_before_fault = renderer.frames;
+            let uploads_before_fault = renderer.resource_stats().uploaded_bytes_total;
+            let mut invalid_encoder = renderer.device.create_command_encoder(&Default::default());
             {
-                let mut pass=invalid_encoder.begin_compute_pass(&Default::default());
-                pass.dispatch_workgroups(1,1,1);
+                let mut pass = invalid_encoder.begin_compute_pass(&Default::default());
+                pass.dispatch_workgroups(1, 1, 1);
             }
             drop(invalid_encoder.finish());
-            let first_error=renderer.check_health().unwrap_err();
+            let first_error = renderer.check_health().unwrap_err();
             assert!(
                 missing_compute_pipeline_error(&first_error),
                 "expected a missing compute pipeline diagnostic, got {first_error}"
             );
             // Device-level descriptor validation follows the same handler and
             // cannot replace the first actionable cause in the renderer latch.
-            let invalid_buffer=renderer.device.create_buffer(&wgpu::BufferDescriptor {
-                label:Some("validation delivery probe"),size:4,usage:wgpu::BufferUsages::empty(),mapped_at_creation:false,
+            let invalid_buffer = renderer.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("validation delivery probe"),
+                size: 4,
+                usage: wgpu::BufferUsages::empty(),
+                mapped_at_creation: false,
             });
             drop(invalid_buffer);
-            assert_eq!(renderer.check_health().unwrap_err(),first_error);
-            assert_eq!(renderer.draw(&model,&target,96,64,1.,true,true).unwrap_err(),first_error);
-            assert_eq!(renderer.frames,frames_before_fault);
-            assert_eq!(renderer.resource_stats().uploaded_bytes_total,uploads_before_fault);
-            eprintln!("GPU_FAULT_LATCH_RESULT encoder_validation_delivered=true first_error_preserved=true submission_blocked=true");
+            assert_eq!(renderer.check_health().unwrap_err(), first_error);
+            assert_eq!(
+                renderer
+                    .draw(&model, &target, 96, 64, 1., true, true)
+                    .unwrap_err(),
+                first_error
+            );
+            assert_eq!(renderer.frames, frames_before_fault);
+            assert_eq!(
+                renderer.resource_stats().uploaded_bytes_total,
+                uploads_before_fault
+            );
+            eprintln!(
+                "GPU_FAULT_LATCH_RESULT encoder_validation_delivered=true first_error_preserved=true submission_blocked=true"
+            );
             println!(
                 "GPU profiling smoke: {stats:?}; allocator={:?}",
                 renderer.backend_allocator_stats()
@@ -1138,16 +1230,18 @@ mod paint_range_tests {
             let old = vec![0f32; length];
             assert_eq!(changed_paint_range(&old, &old), None);
             for index in 0..length {
-                let mut next = old.clone(); next[index] = 1.;
+                let mut next = old.clone();
+                next[index] = 1.;
                 let range = changed_paint_range(&old, &next).unwrap();
-                assert_eq!(range, index..index+1);
-                let mut gpu = old.clone();gpu[range.clone()].copy_from_slice(&next[range]);
+                assert_eq!(range, index..index + 1);
+                let mut gpu = old.clone();
+                gpu[range.clone()].copy_from_slice(&next[range]);
                 assert_eq!(gpu, next);
             }
         }
-        assert_eq!(changed_paint_range(&[0.;8], &[1.;4]), Some(0..4));
-        assert_eq!(changed_paint_range(&[0.;4], &[0.;8]), Some(0..8));
-        assert_eq!(changed_paint_range(&[0.;4], &[1.,0.,0.,2.]), Some(0..4));
+        assert_eq!(changed_paint_range(&[0.; 8], &[1.; 4]), Some(0..4));
+        assert_eq!(changed_paint_range(&[0.; 4], &[0.; 8]), Some(0..8));
+        assert_eq!(changed_paint_range(&[0.; 4], &[1., 0., 0., 2.]), Some(0..4));
         assert_eq!(changed_paint_range(&[0.], &[-0.]), Some(0..1));
         assert_eq!(changed_paint_range(&[f32::NAN], &[f32::NAN]), None);
     }

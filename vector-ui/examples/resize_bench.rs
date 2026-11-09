@@ -45,7 +45,12 @@ fn main() {
             let cold = times[0];
             let mean = times[1..].iter().sum::<f64>() / (times.len() - 1) as f64;
             times[1..].sort_by(f64::total_cmp);
-            println!("{w}x{h} {}: first={cold:.3}ms resize_mean={mean:.3}ms resize_max={:.3}ms raster={:?}",if retained{"retained"}else{"legacy"},times[times.len()-1],b.raster_stats());
+            println!(
+                "{w}x{h} {}: first={cold:.3}ms resize_mean={mean:.3}ms resize_max={:.3}ms raster={:?}",
+                if retained { "retained" } else { "legacy" },
+                times[times.len() - 1],
+                b.raster_stats()
+            );
         }
     }
 }

@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Template {
-    pub props:ButtonSpec,
+    pub props: ButtonSpec,
     pub radius: f32,
     pub fill: Option<Brush>,
     pub border: Option<Border>,
@@ -23,10 +23,19 @@ pub struct Template {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Content {
-    Clip { bounds: [f32;4], radius:f32 },
+    Clip {
+        bounds: [f32; 4],
+        radius: f32,
+    },
     ClipEnd,
-    Text { bounds: [f32;4], text: Text },
-    Shape { points: Vec<[f32;2]>, color: [u8;4] },
+    Text {
+        bounds: [f32; 4],
+        text: Text,
+    },
+    Shape {
+        points: Vec<[f32; 2]>,
+        color: [u8; 4],
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -212,7 +221,7 @@ impl<'a> Lexer<'a> {
                                         return Err(format!(
                                             "Unsupported escape \\{c} (byte {})",
                                             self.offset
-                                        ))
+                                        ));
                                     }
                                     None => return Err(format!("Unclosed string (byte {offset})")),
                                 };
@@ -264,7 +273,7 @@ impl<'a> Lexer<'a> {
             c => {
                 return Err(format!(
                     "Unsupported template character '{c}' (byte {offset})"
-                ))
+                ));
             }
         };
         Ok(Token { kind, offset })
@@ -360,7 +369,7 @@ impl<'a> Parser<'a> {
         Ok(Self {
             lexer,
             current,
-            props:props.clone(),
+            props: props.clone(),
         })
     }
     fn advance(&mut self) -> Result<Kind<'a>, String> {
@@ -419,13 +428,13 @@ impl<'a> Parser<'a> {
                 _ => {
                     return Err(self.error(&format!(
                         "Unknown or non-numeric props reference '{reference}' for {name}"
-                    )))
+                    )));
                 }
             },
             _ => {
                 return Err(self.error(&format!(
                     "'{name}' requires a pixel number or numeric props reference"
-                )))
+                )));
             }
         };
         if !value.is_finite() || value < 0. || value > 4096. || (positive && value == 0.) {
@@ -438,7 +447,13 @@ impl<'a> Parser<'a> {
         Ok(value)
     }
     fn duration(&mut self) -> Result<f32, String> {
-        let value=match &self.current.kind {Kind::Number(v,Unit::Ms)=>*v,Kind::Ident(r) if r=="props.transitionDuration"=>self.props.numbers.transition_duration,_=>return Err(self.error("'transition' requires ms or props.transitionDuration"))};
+        let value = match &self.current.kind {
+            Kind::Number(v, Unit::Ms) => *v,
+            Kind::Ident(r) if r == "props.transitionDuration" => {
+                self.props.numbers.transition_duration
+            }
+            _ => return Err(self.error("'transition' requires ms or props.transitionDuration")),
+        };
         if !(0. ..=2000.).contains(&value) {
             return Err(self.error("'transition' must be between 0ms and 2000ms"));
         }
@@ -461,7 +476,7 @@ impl<'a> Parser<'a> {
                 None => {
                     return Err(self.error(&format!(
                         "Unknown or non-color props reference '{reference}' for {name}"
-                    )))
+                    )));
                 }
             },
             Kind::Hex(raw) => {
@@ -528,7 +543,7 @@ impl<'a> Parser<'a> {
             _ => {
                 return Err(self.error(&format!(
                     "'{name}' requires an unquoted hex color or color props reference"
-                )))
+                )));
             }
         };
         self.advance()?;
@@ -549,11 +564,11 @@ impl<'a> Parser<'a> {
                 _ => {
                     return Err(self.error(&format!(
                         "Unknown or non-string props reference '{reference}' for text"
-                    )))
+                    )));
                 }
             },
             _ => {
-                return Err(self.error("'text' requires a quoted string or string props reference"))
+                return Err(self.error("'text' requires a quoted string or string props reference"));
             }
         };
         self.advance()?;
@@ -601,7 +616,14 @@ impl<'a> Parser<'a> {
             self.advance()?;
             self.brush()
         } else {
-            Ok(Brush { color:self.color("brush")?, hover:None, pressed:None, disabled:None, focus:None, duration_ms:0. })
+            Ok(Brush {
+                color: self.color("brush")?,
+                hover: None,
+                pressed: None,
+                disabled: None,
+                focus: None,
+                duration_ms: 0.,
+            })
         }
     }
     fn border(&mut self) -> Result<Border, String> {
@@ -618,11 +640,15 @@ impl<'a> Parser<'a> {
                     width = self.scalar("width", false)?;
                     self.semi()?;
                 }
-                "background" => { self.colon()?; brush = Some(self.brush_value()?); self.semi()?; },
+                "background" => {
+                    self.colon()?;
+                    brush = Some(self.brush_value()?);
+                    self.semi()?;
+                }
                 _ => {
                     return Err(
                         self.error(&format!("Unsupported Border field or primitive '{name}'"))
-                    )
+                    );
                 }
             }
         }
@@ -654,10 +680,18 @@ impl<'a> Parser<'a> {
                 "stop" | "activeStop" => {
                     let value = match self.current.kind {
                         Kind::Number(value, Unit::Logical) if value > 0. && value <= 1. => value,
-                        _ => return Err(self.error("Reveal stop requires a unitless fraction above 0 and at most 1")),
+                        _ => {
+                            return Err(self.error(
+                                "Reveal stop requires a unitless fraction above 0 and at most 1",
+                            ));
+                        }
                     };
                     self.advance()?;
-                    if name == "stop" { reveal.stop = value; } else { reveal.active_stop = value; }
+                    if name == "stop" {
+                        reveal.stop = value;
+                    } else {
+                        reveal.active_stop = value;
+                    }
                 }
                 _ => return Err(self.error(&format!("Unsupported Reveal field '{name}'"))),
             }
@@ -666,29 +700,67 @@ impl<'a> Parser<'a> {
         self.close()?;
         Ok(reveal)
     }
-    fn range_input(&mut self)->Result<RangeInput,String> {
+    fn range_input(&mut self) -> Result<RangeInput, String> {
         self.open()?;
-        let mut value=0.;let mut minimum=None;let mut maximum=None;let mut seen=SeenFields::default();
-        while self.current.kind!=Kind::Close {
-            let name=self.ident()?;self.unique(&mut seen,&name)?;
-            if name=="value" {self.colon()?;value=self.scalar("value",false)?;self.semi()?;}
-            else if name=="Minimum" || name=="Maximum" {
-                self.open()?;let mut content=Vec::new();let mut depth=0;
-                while self.current.kind!=Kind::Close {
-                    let kind=self.ident()?;
-                    if !matches!(kind.text(),"ContentShape"|"ContentText"|"ContentClip"|"ContentClipEnd"){return Err(self.error("Expected range visual content"));}
-                    if kind=="ContentClip"{depth+=1;}
-                    if kind=="ContentClipEnd"{depth-=1;if depth<0{return Err(self.error("Unmatched range clip"));}}
-                    if content.len()>=4096 || depth>16{return Err(self.error("Range content limit"));}
+        let mut value = 0.;
+        let mut minimum = None;
+        let mut maximum = None;
+        let mut seen = SeenFields::default();
+        while self.current.kind != Kind::Close {
+            let name = self.ident()?;
+            self.unique(&mut seen, &name)?;
+            if name == "value" {
+                self.colon()?;
+                value = self.scalar("value", false)?;
+                self.semi()?;
+            } else if name == "Minimum" || name == "Maximum" {
+                self.open()?;
+                let mut content = Vec::new();
+                let mut depth = 0;
+                while self.current.kind != Kind::Close {
+                    let kind = self.ident()?;
+                    if !matches!(
+                        kind.text(),
+                        "ContentShape" | "ContentText" | "ContentClip" | "ContentClipEnd"
+                    ) {
+                        return Err(self.error("Expected range visual content"));
+                    }
+                    if kind == "ContentClip" {
+                        depth += 1;
+                    }
+                    if kind == "ContentClipEnd" {
+                        depth -= 1;
+                        if depth < 0 {
+                            return Err(self.error("Unmatched range clip"));
+                        }
+                    }
+                    if content.len() >= 4096 || depth > 16 {
+                        return Err(self.error("Range content limit"));
+                    }
                     content.push(self.content(&kind)?);
                 }
-                self.close()?;if depth!=0{return Err(self.error("Unclosed range clip"));}
-                if name=="Minimum"{minimum=Some(content);}else{maximum=Some(content);}
-            }else{return Err(self.error("Unknown RangeInput property"));}
+                self.close()?;
+                if depth != 0 {
+                    return Err(self.error("Unclosed range clip"));
+                }
+                if name == "Minimum" {
+                    minimum = Some(content);
+                } else {
+                    maximum = Some(content);
+                }
+            } else {
+                return Err(self.error("Unknown RangeInput property"));
+            }
         }
         self.close()?;
-        let range=RangeInput{value:value.clamp(0.,1.),minimum:minimum.ok_or("Missing Minimum")?,maximum:maximum.ok_or("Missing Maximum")?};
-        if !range.compatible(){return Err(self.error("Range endpoints must have matching geometry"));}
+        let range = RangeInput {
+            value: value.clamp(0., 1.),
+            minimum: minimum.ok_or("Missing Minimum")?,
+            maximum: maximum.ok_or("Missing Maximum")?,
+        };
+        if !range.compatible() {
+            return Err(self.error("Range endpoints must have matching geometry"));
+        }
         Ok(range)
     }
     fn input(&mut self) -> Result<crate::text_input::Input, String> {
@@ -696,26 +768,50 @@ impl<'a> Parser<'a> {
         let mut input = crate::text_input::Input::default();
         let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
-            let name=self.ident()?; self.unique(&mut seen,&name)?; self.colon()?;
+            let name = self.ident()?;
+            self.unique(&mut seen, &name)?;
+            self.colon()?;
             match name.text() {
-                "x"=>input.bounds[0]=self.scalar("x",false)?,
-                "y"=>input.bounds[1]=self.scalar("y",false)?,
-                "width"=>input.bounds[2]=self.scalar("width",false)?,
-                "height"=>input.bounds[3]=self.scalar("height",false)?,
-                "value"=>input.value=self.text_value()?.into_owned(),
-                "label"=>input.label=self.text_value()?.into_owned(),
-                "placeholder"=>input.placeholder=self.text_value()?.into_owned(),
-                "color"=>input.color=self.color("color")?,
-                "placeholderColor"=>input.placeholder_color=self.color("placeholderColor")?,
-                "fontSize"=>input.font_size=self.scalar("fontSize",true)?,
-                "readOnly"=>{let value=self.ident()?;input.read_only=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
-                "multiline"=>{let value=self.ident()?; input.multiline=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
-                "wrap"=>{let value=self.ident()?; input.wrap=match value.text(){"true"=>true,"false"=>false,_=>return Err(self.error("Expected boolean"))};},
-                _=>return Err(self.error("Unknown ContentInput property")),
+                "x" => input.bounds[0] = self.scalar("x", false)?,
+                "y" => input.bounds[1] = self.scalar("y", false)?,
+                "width" => input.bounds[2] = self.scalar("width", false)?,
+                "height" => input.bounds[3] = self.scalar("height", false)?,
+                "value" => input.value = self.text_value()?.into_owned(),
+                "label" => input.label = self.text_value()?.into_owned(),
+                "placeholder" => input.placeholder = self.text_value()?.into_owned(),
+                "color" => input.color = self.color("color")?,
+                "placeholderColor" => input.placeholder_color = self.color("placeholderColor")?,
+                "fontSize" => input.font_size = self.scalar("fontSize", true)?,
+                "readOnly" => {
+                    let value = self.ident()?;
+                    input.read_only = match value.text() {
+                        "true" => true,
+                        "false" => false,
+                        _ => return Err(self.error("Expected boolean")),
+                    };
+                }
+                "multiline" => {
+                    let value = self.ident()?;
+                    input.multiline = match value.text() {
+                        "true" => true,
+                        "false" => false,
+                        _ => return Err(self.error("Expected boolean")),
+                    };
+                }
+                "wrap" => {
+                    let value = self.ident()?;
+                    input.wrap = match value.text() {
+                        "true" => true,
+                        "false" => false,
+                        _ => return Err(self.error("Expected boolean")),
+                    };
+                }
+                _ => return Err(self.error("Unknown ContentInput property")),
             }
             self.semi()?;
         }
-        self.close()?; Ok(input)
+        self.close()?;
+        Ok(input)
     }
     fn text(&mut self) -> Result<Text, String> {
         self.open()?;
@@ -728,7 +824,10 @@ impl<'a> Parser<'a> {
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
-            if !matches!(name.text(), "text" | "color" | "font.size" | "fontSize" | "wrap") {
+            if !matches!(
+                name.text(),
+                "text" | "color" | "font.size" | "fontSize" | "wrap"
+            ) {
                 return Err(self.error(&format!("Unsupported Text field or primitive '{name}'")));
             }
             self.colon()?;
@@ -778,25 +877,57 @@ impl<'a> Parser<'a> {
     fn rectangle(&mut self) -> Result<Template, String> {
         self.open()?;
         let mut template = Template {
-            props:self.props.clone(),
+            props: self.props.clone(),
             radius: 0.,
             fill: None,
             border: None,
             reveal: None,
             text: None,
             clickable: false,
-            content: Vec::new(), inputs: Vec::new(), range:None,
+            content: Vec::new(),
+            inputs: Vec::new(),
+            range: None,
         };
-        let mut seen = SeenFields::default();let mut clip_depth=0;
+        let mut seen = SeenFields::default();
+        let mut clip_depth = 0;
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
-            if name=="RangeInput" {if template.range.is_some(){return Err(self.error("Duplicate RangeInput"));}template.range=Some(self.range_input()?);continue;}
-            if name=="ContentInput" { template.inputs.push(self.input()?); if template.inputs.len()>1 {return Err(self.error("One TextInput per control is supported"));} continue; }
-            if name=="ContentText"||name=="ContentShape"||name=="ContentClip"||name=="ContentClipEnd" {
-                if name=="ContentClip"{clip_depth+=1;if clip_depth>16{return Err(self.error("Clip nesting limit is 16"));}}
-                if name=="ContentClipEnd"{if clip_depth==0{return Err(self.error("Unmatched clip end"));}clip_depth-=1;}
-                if template.content.len()>=4096 {return Err(self.error("Too many content primitives"));}
-                template.content.push(self.content(&name)?);continue;
+            if name == "RangeInput" {
+                if template.range.is_some() {
+                    return Err(self.error("Duplicate RangeInput"));
+                }
+                template.range = Some(self.range_input()?);
+                continue;
+            }
+            if name == "ContentInput" {
+                template.inputs.push(self.input()?);
+                if template.inputs.len() > 1 {
+                    return Err(self.error("One TextInput per control is supported"));
+                }
+                continue;
+            }
+            if name == "ContentText"
+                || name == "ContentShape"
+                || name == "ContentClip"
+                || name == "ContentClipEnd"
+            {
+                if name == "ContentClip" {
+                    clip_depth += 1;
+                    if clip_depth > 16 {
+                        return Err(self.error("Clip nesting limit is 16"));
+                    }
+                }
+                if name == "ContentClipEnd" {
+                    if clip_depth == 0 {
+                        return Err(self.error("Unmatched clip end"));
+                    }
+                    clip_depth -= 1;
+                }
+                if template.content.len() >= 4096 {
+                    return Err(self.error("Too many content primitives"));
+                }
+                template.content.push(self.content(&name)?);
+                continue;
             }
             self.unique(&mut seen, &name)?;
             match name.text() {
@@ -805,7 +936,11 @@ impl<'a> Parser<'a> {
                     template.radius = self.scalar("radius", false)?;
                     self.semi()?;
                 }
-                "background" => { self.colon()?; template.fill = Some(self.brush_value()?); self.semi()?; },
+                "background" => {
+                    self.colon()?;
+                    template.fill = Some(self.brush_value()?);
+                    self.semi()?;
+                }
                 "Border" => template.border = Some(self.border()?),
                 "Reveal" => template.reveal = Some(self.reveal()?),
                 "Text" => template.text = Some(self.text()?),
@@ -813,72 +948,193 @@ impl<'a> Parser<'a> {
                 _ => {
                     return Err(self.error(&format!(
                         "Unsupported Rectangle field or primitive '{name}'"
-                    )))
+                    )));
                 }
             }
         }
         self.close()?;
-        if clip_depth!=0{return Err(self.error("Unclosed content clip"));}
+        if clip_depth != 0 {
+            return Err(self.error("Unclosed content clip"));
+        }
         Ok(template)
     }
-    fn content(&mut self, kind: &str) -> Result<Content,String> {
+    fn content(&mut self, kind: &str) -> Result<Content, String> {
         self.open()?;
-        if kind=="ContentClipEnd"{self.close()?;return Ok(Content::ClipEnd);}
-        let mut bounds=[0.;4];let mut text=Text{text:String::new(),color:[255;4],font_size:16.};let mut points=None;
-        let mut radius=0.;
-        let mut seen=SeenFields::default();
-        while self.current.kind!=Kind::Close {
-            let name=self.ident()?;self.unique(&mut seen,&name)?;self.colon()?;
-            match (kind,name.text()) {
-                ("ContentText"|"ContentClip","x"|"y")=>{let v=match self.current.kind {Kind::Number(v,Unit::Logical|Unit::Px) if v.is_finite()&&v.abs()<=100_000.=>v,_=>return Err(self.error("Invalid content coordinate"))};bounds[if name=="x"{0}else{1}]=v;self.advance()?;},
-                ("ContentText"|"ContentClip","width"|"height")=>bounds[if name=="width"{2}else{3}]=self.scalar(&name,false)?,
-                ("ContentClip","radius")=>radius=self.scalar(&name,false)?,
-                ("ContentText","text")=>text.text=self.text_value()?.into_owned(),
-                ("ContentText","fontSize")=>text.font_size=self.scalar(&name,true)?,
-                (_,"color")=>text.color=self.color("color")?,
-                ("ContentShape","points")=>{
+        if kind == "ContentClipEnd" {
+            self.close()?;
+            return Ok(Content::ClipEnd);
+        }
+        let mut bounds = [0.; 4];
+        let mut text = Text {
+            text: String::new(),
+            color: [255; 4],
+            font_size: 16.,
+        };
+        let mut points = None;
+        let mut radius = 0.;
+        let mut seen = SeenFields::default();
+        while self.current.kind != Kind::Close {
+            let name = self.ident()?;
+            self.unique(&mut seen, &name)?;
+            self.colon()?;
+            match (kind, name.text()) {
+                ("ContentText" | "ContentClip", "x" | "y") => {
+                    let v = match self.current.kind {
+                        Kind::Number(v, Unit::Logical | Unit::Px)
+                            if v.is_finite() && v.abs() <= 100_000. =>
+                        {
+                            v
+                        }
+                        _ => return Err(self.error("Invalid content coordinate")),
+                    };
+                    bounds[if name == "x" { 0 } else { 1 }] = v;
+                    self.advance()?;
+                }
+                ("ContentText" | "ContentClip", "width" | "height") => {
+                    bounds[if name == "width" { 2 } else { 3 }] = self.scalar(&name, false)?
+                }
+                ("ContentClip", "radius") => radius = self.scalar(&name, false)?,
+                ("ContentText", "text") => text.text = self.text_value()?.into_owned(),
+                ("ContentText", "fontSize") => text.font_size = self.scalar(&name, true)?,
+                (_, "color") => text.color = self.color("color")?,
+                ("ContentShape", "points") => {
                     // One pass straight into pairs: no intermediate scalar vector.
-                    let raw=self.text_value()?;
+                    let raw = self.text_value()?;
                     // Separation bytes only size the allocation; the cap keeps a
                     // hostile literal from reserving more than the limit needs.
-                    let separations=raw.as_bytes().iter().filter(|b| matches!(b, b' '|b'\t'|b'\n'|b'\r')).count();
-                    let mut pairs:Vec<[f32;2]>=Vec::with_capacity((separations/2+2).min(4096));
-                    let mut words=raw.split_whitespace();
-                    while let Some(word)=words.next(){
-                        let next=words.next().ok_or_else(||self.error("Invalid polygon points"))?;
-                        let a=word.parse::<f32>().map_err(|_|self.error("Invalid polygon points"))?;
-                        let b=next.parse::<f32>().map_err(|_|self.error("Invalid polygon points"))?;
-                        if !a.is_finite()||!b.is_finite()||a.abs()>100_000.||b.abs()>100_000.{return Err(self.error("Invalid polygon points"));}
-                        pairs.push([a,b]);
-                        if pairs.len()>4096{return Err(self.error("Invalid polygon points"));}
+                    let separations = raw
+                        .as_bytes()
+                        .iter()
+                        .filter(|b| matches!(b, b' ' | b'\t' | b'\n' | b'\r'))
+                        .count();
+                    let mut pairs: Vec<[f32; 2]> =
+                        Vec::with_capacity((separations / 2 + 2).min(4096));
+                    let mut words = raw.split_whitespace();
+                    while let Some(word) = words.next() {
+                        let next = words
+                            .next()
+                            .ok_or_else(|| self.error("Invalid polygon points"))?;
+                        let a = word
+                            .parse::<f32>()
+                            .map_err(|_| self.error("Invalid polygon points"))?;
+                        let b = next
+                            .parse::<f32>()
+                            .map_err(|_| self.error("Invalid polygon points"))?;
+                        if !a.is_finite()
+                            || !b.is_finite()
+                            || a.abs() > 100_000.
+                            || b.abs() > 100_000.
+                        {
+                            return Err(self.error("Invalid polygon points"));
+                        }
+                        pairs.push([a, b]);
+                        if pairs.len() > 4096 {
+                            return Err(self.error("Invalid polygon points"));
+                        }
                     }
-                    if pairs.len()<3{return Err(self.error("Invalid polygon points"));}
-                    points=Some(pairs);
-                },
-                _=>return Err(self.error(&format!("Unsupported {kind} property {name}"))),
-            }self.semi()?;
-        }self.close()?;
-        if kind=="ContentShape" {Ok(Content::Shape{points:points.ok_or_else(||self.error("Shape requires points"))?,color:text.color})}
-        else {if !seen.contains("width")||!seen.contains("height"){return Err(self.error("Content requires width and height"));}if kind=="ContentClip"{Ok(Content::Clip{bounds,radius})}else{Ok(Content::Text{bounds,text})}}
+                    if pairs.len() < 3 {
+                        return Err(self.error("Invalid polygon points"));
+                    }
+                    points = Some(pairs);
+                }
+                _ => return Err(self.error(&format!("Unsupported {kind} property {name}"))),
+            }
+            self.semi()?;
+        }
+        self.close()?;
+        if kind == "ContentShape" {
+            Ok(Content::Shape {
+                points: points.ok_or_else(|| self.error("Shape requires points"))?,
+                color: text.color,
+            })
+        } else {
+            if !seen.contains("width") || !seen.contains("height") {
+                return Err(self.error("Content requires width and height"));
+            }
+            if kind == "ContentClip" {
+                Ok(Content::Clip { bounds, radius })
+            } else {
+                Ok(Content::Text { bounds, text })
+            }
+        }
     }
     fn template(&mut self) -> Result<Template, String> {
         self.expect(Kind::Ident(Cow::Borrowed("component")), "'component'")?;
-        self.expect(Kind::Ident(Cow::Borrowed("Button")), "Button component name")?;
+        self.expect(
+            Kind::Ident(Cow::Borrowed("Button")),
+            "Button component name",
+        )?;
         self.open()?;
-        let mut seen=SeenFields::default();
+        let mut seen = SeenFields::default();
         while !matches!(&self.current.kind, Kind::Ident(id) if id.text() == "Rectangle") {
-            let name=self.ident()?;let name=if name.text()=="font.size"{Cow::Borrowed("fontSize")}else{name};
-            self.unique(&mut seen,&name)?;self.colon()?;
+            let name = self.ident()?;
+            let name = if name.text() == "font.size" {
+                Cow::Borrowed("fontSize")
+            } else {
+                name
+            };
+            self.unique(&mut seen, &name)?;
+            self.colon()?;
             // Defaults are literals: no ordering-dependent references or cycles.
-            if matches!(&self.current.kind,Kind::Ident(r) if r.starts_with("props.")){return Err(self.error("Component defaults must be literals"));}
-            let apply=!self.props.specified.contains(name.text());
-            match name.text(){
-                "width"|"height"|"radius"|"fontSize"|"borderWidth"=>{let v=self.scalar(&name,matches!(name.text(),"width"|"height"|"fontSize"))?;if apply{match name.text(){"width"=>self.props.width=v,"height"=>self.props.height=v,"radius"=>self.props.radius=v,"fontSize"=>self.props.font_size=v,_=>{self.props.numbers.set(name.text(),v);}}}},
-                "background"|"color"|"hoverBackground"|"pressedBackground"|"disabledBackground"|"borderColor"|"focusBorderColor"=>{let v=self.color(&name)?;if apply{match name.text(){"background"=>self.props.background=v,"color"=>self.props.color=v,_=>{self.props.colors.set(name.text(),v);}}}},
-                "text"=>{let v=self.text_value()?;if apply{self.props.text=v.into_owned();}},
-                "disabled"=>{let v=match &self.current.kind{Kind::Ident(v)if v=="true"=>true,Kind::Ident(v)if v=="false"=>false,_=>return Err(self.error("disabled requires true or false"))};self.advance()?;if apply{self.props.disabled=v;}},
-                "transitionDuration"=>{let v=self.duration()?;if apply{self.props.numbers.transition_duration=v;}},
-                _=>return Err(self.error(&format!("Unsupported component property '{name}'"))),
+            if matches!(&self.current.kind,Kind::Ident(r) if r.starts_with("props.")) {
+                return Err(self.error("Component defaults must be literals"));
+            }
+            let apply = !self.props.specified.contains(name.text());
+            match name.text() {
+                "width" | "height" | "radius" | "fontSize" | "borderWidth" => {
+                    let v = self.scalar(
+                        &name,
+                        matches!(name.text(), "width" | "height" | "fontSize"),
+                    )?;
+                    if apply {
+                        match name.text() {
+                            "width" => self.props.width = v,
+                            "height" => self.props.height = v,
+                            "radius" => self.props.radius = v,
+                            "fontSize" => self.props.font_size = v,
+                            _ => {
+                                self.props.numbers.set(name.text(), v);
+                            }
+                        }
+                    }
+                }
+                "background" | "color" | "hoverBackground" | "pressedBackground"
+                | "disabledBackground" | "borderColor" | "focusBorderColor" => {
+                    let v = self.color(&name)?;
+                    if apply {
+                        match name.text() {
+                            "background" => self.props.background = v,
+                            "color" => self.props.color = v,
+                            _ => {
+                                self.props.colors.set(name.text(), v);
+                            }
+                        }
+                    }
+                }
+                "text" => {
+                    let v = self.text_value()?;
+                    if apply {
+                        self.props.text = v.into_owned();
+                    }
+                }
+                "disabled" => {
+                    let v = match &self.current.kind {
+                        Kind::Ident(v) if v == "true" => true,
+                        Kind::Ident(v) if v == "false" => false,
+                        _ => return Err(self.error("disabled requires true or false")),
+                    };
+                    self.advance()?;
+                    if apply {
+                        self.props.disabled = v;
+                    }
+                }
+                "transitionDuration" => {
+                    let v = self.duration()?;
+                    if apply {
+                        self.props.numbers.transition_duration = v;
+                    }
+                }
+                _ => return Err(self.error(&format!("Unsupported component property '{name}'"))),
             }
             self.semi()?;
         }
@@ -931,7 +1187,9 @@ impl TemplateCache {
     /// Make room for `incoming`, least recently used first. False means the entry does
     /// not fit the budget even when empty; the caller then uses it without caching.
     fn reserve(&mut self, incoming: usize) -> bool {
-        while self.entries + 1 > MAX_PARSED_TEMPLATES || self.live_bytes + incoming > MAX_PARSED_BYTES {
+        while self.entries + 1 > MAX_PARSED_TEMPLATES
+            || self.live_bytes + incoming > MAX_PARSED_BYTES
+        {
             let mut coldest: Option<(u64, u64, usize)> = None;
             for (hash, bucket) in &self.buckets {
                 for (index, entry) in bucket.iter().enumerate() {
@@ -943,7 +1201,10 @@ impl TemplateCache {
             let Some((_, hash, index)) = coldest else {
                 return incoming <= MAX_PARSED_BYTES;
             };
-            let bucket = self.buckets.get_mut(&hash).expect("bucket of the coldest entry");
+            let bucket = self
+                .buckets
+                .get_mut(&hash)
+                .expect("bucket of the coldest entry");
             let removed = bucket.remove(index).weight;
             if bucket.is_empty() {
                 self.buckets.remove(&hash);
@@ -1006,10 +1267,9 @@ fn entry_weight(source: &str, template: &Template) -> usize {
         + props.text.len()
         + props.key.len()
         + content_weight(&template.content)
-        + template
-            .range
-            .as_ref()
-            .map_or(0, |range| content_weight(&range.minimum) + content_weight(&range.maximum))
+        + template.range.as_ref().map_or(0, |range| {
+            content_weight(&range.minimum) + content_weight(&range.maximum)
+        })
         + template.inputs.len() * 64
         + template.text.as_ref().map_or(0, |text| text.text.len())
 }
@@ -1025,7 +1285,9 @@ pub fn parse_cached(source: &str, props: &ButtonSpec) -> Result<Arc<Template>, S
         cache.tick = cache.tick.wrapping_add(1);
         let tick = cache.tick;
         let reused = cache.buckets.get_mut(&hash).and_then(|bucket| {
-            let index = bucket.iter().position(|entry| &entry.source == source && &entry.props == props)?;
+            let index = bucket
+                .iter()
+                .position(|entry| &entry.source == source && &entry.props == props)?;
             bucket[index].used = tick;
             Some(Arc::clone(&bucket[index].template))
         });
@@ -1062,7 +1324,12 @@ pub struct ParseCacheStats {
 pub fn parse_cache_stats() -> ParseCacheStats {
     TEMPLATE_CACHE.with(|cache| {
         let cache = cache.borrow();
-        ParseCacheStats { entries: cache.entries, bytes: cache.live_bytes, hits: cache.hits, misses: cache.misses }
+        ParseCacheStats {
+            entries: cache.entries,
+            bytes: cache.live_bytes,
+            hits: cache.hits,
+            misses: cache.misses,
+        }
     })
 }
 
@@ -1096,7 +1363,11 @@ mod tests {
         assert_eq!(t.text.unwrap().text, "Кнопка");
         assert_eq!(t.border.unwrap().brush.duration_ms, 140.);
         let scene = crate::markup::parse("component Demo { Frame { Button { width: 60; fontSize: 22; text: 'Моя'; borderWidth: 0; hoverBackground: #123456; transitionDuration: 80ms; disabled: false; } } }").unwrap();
-        let t = parse(&source.replace("disabled: false;", "disabled: true;"), &scene.button).unwrap();
+        let t = parse(
+            &source.replace("disabled: false;", "disabled: true;"),
+            &scene.button,
+        )
+        .unwrap();
         assert_eq!(t.props.width, 60.);
         assert!(!t.props.disabled);
         assert_eq!(t.text.as_ref().unwrap().font_size, 22.);
@@ -1109,8 +1380,23 @@ mod tests {
 
     #[test]
     fn invalid_component_defaults_are_diagnostics() {
-        for fields in ["width: 0;", "width: 10; width: 20;", "fontSize: 12; font.size: 14;", "width: props.width;", "unknown: 1;", "disabled: 1;", "transitionDuration: 20;"] {
-            assert!(parse(&format!("component Button {{ {fields} Rectangle {{}} }}"), &props()).is_err(), "{fields}");
+        for fields in [
+            "width: 0;",
+            "width: 10; width: 20;",
+            "fontSize: 12; font.size: 14;",
+            "width: props.width;",
+            "unknown: 1;",
+            "disabled: 1;",
+            "transitionDuration: 20;",
+        ] {
+            assert!(
+                parse(
+                    &format!("component Button {{ {fields} Rectangle {{}} }}"),
+                    &props()
+                )
+                .is_err(),
+                "{fields}"
+            );
         }
     }
     fn body(source: &str) -> Result<Template, String> {
@@ -1121,28 +1407,50 @@ mod tests {
     }
     #[test]
     fn shape_points_boundaries_and_string_escapes() {
-        let shape = |points: &str| body(&format!("ContentShape {{ points: '{points}'; color: #ffffff; }}"));
+        let shape = |points: &str| {
+            body(&format!(
+                "ContentShape {{ points: '{points}'; color: #ffffff; }}"
+            ))
+        };
         assert_eq!(
             shape("0 0 10 0 10 10").unwrap().content[0],
-            Content::Shape { points: vec![[0., 0.], [10., 0.], [10., 10.]], color: [255; 4] }
+            Content::Shape {
+                points: vec![[0., 0.], [10., 0.], [10., 10.]],
+                color: [255; 4]
+            }
         );
         assert_eq!(
             shape("-1.5 -2.25 3 4 5.125 6").unwrap().content[0],
-            Content::Shape { points: vec![[-1.5, -2.25], [3., 4.], [5.125, 6.]], color: [255; 4] }
+            Content::Shape {
+                points: vec![[-1.5, -2.25], [3., 4.], [5.125, 6.]],
+                color: [255; 4]
+            }
         );
         // Tab and newline separators must not change the accepted grammar.
-        assert_eq!(shape("0 0\t10\t0\n10 10").unwrap().content[0], shape("0 0 10 0 10 10").unwrap().content[0]);
+        assert_eq!(
+            shape("0 0\t10\t0\n10 10").unwrap().content[0],
+            shape("0 0 10 0 10 10").unwrap().content[0]
+        );
         for bad in [
             "0 0 10 0",
             "0 0 10 0 10",
             "0 0 10 0 10 x",
             "0 0 10 0 10 100001",
             "0 0 10 0 10 nan",
-            &(0..8194).map(|i| i.to_string()).collect::<Vec<_>>().join(" "),
+            &(0..8194)
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(" "),
         ] {
             assert!(shape(bad).is_err(), "{bad}");
         }
-        let big = shape(&(0..8192).map(|i| i.to_string()).collect::<Vec<_>>().join(" ")).unwrap();
+        let big = shape(
+            &(0..8192)
+                .map(|i| i.to_string())
+                .collect::<Vec<_>>()
+                .join(" "),
+        )
+        .unwrap();
         let Content::Shape { points, .. } = &big.content[0] else {
             panic!("expected a shape")
         };
@@ -1151,7 +1459,14 @@ mod tests {
         let text = body(r#"ContentText { x: 0; y: 0; width: 10; height: 10; text: 'a\'b\nc'; color: #ffffff; }"#).unwrap();
         assert_eq!(
             text.content[0],
-            Content::Text { bounds: [0., 0., 10., 10.], text: Text { text: "a'b\nc".into(), color: [255; 4], font_size: 16. } }
+            Content::Text {
+                bounds: [0., 0., 10., 10.],
+                text: Text {
+                    text: "a'b\nc".into(),
+                    color: [255; 4],
+                    font_size: 16.
+                }
+            }
         );
         assert!(body(r#"ContentText { x: 0; y: 0; width: 10; height: 10; text: 'unclosed; color: #ffffff; }"#).is_err());
         assert!(body("ContentShape { points: \"0 0 1 0 1 1\"; color: #ffffff; }").is_ok());
@@ -1159,9 +1474,9 @@ mod tests {
 
     #[test]
     fn brushes_are_property_values_with_color_shorthand() {
-        let t=body("background: #123456; Border { background: #ffffff; }").unwrap();
-        assert_eq!(t.fill.unwrap().color,[18,52,86,255]);
-        assert_eq!(t.border.unwrap().brush.color,[255;4]);
+        let t = body("background: #123456; Border { background: #ffffff; }").unwrap();
+        assert_eq!(t.fill.unwrap().color, [18, 52, 86, 255]);
+        assert_eq!(t.border.unwrap().brush.color, [255; 4]);
         assert!(body("background: Brush { color:#fff; }").is_err());
         assert!(body("Border { Brush { color:#fff; } }").is_err());
     }
@@ -1174,8 +1489,26 @@ mod tests {
         let r = t.reveal.unwrap();
         assert_eq!(r.width, 2.);
         assert_eq!(r.color, [171, 205, 239, 128]);
-        assert_eq!((r.radius, r.stop, r.active_radius, r.active_stop, r.duration_ms), (100., 0.5, 1200., 1., 0.));
-        for bad in ["stop:0;", "stop:1.1;", "activeStop:60px;", "radius:0;", "width:-1;", "transition:280;", "unknown:1;", "color:#ff0000; color:#ffffff;"] {
+        assert_eq!(
+            (
+                r.radius,
+                r.stop,
+                r.active_radius,
+                r.active_stop,
+                r.duration_ms
+            ),
+            (100., 0.5, 1200., 1., 0.)
+        );
+        for bad in [
+            "stop:0;",
+            "stop:1.1;",
+            "activeStop:60px;",
+            "radius:0;",
+            "width:-1;",
+            "transition:280;",
+            "unknown:1;",
+            "color:#ff0000; color:#ffffff;",
+        ] {
             assert!(body(&format!("Reveal {{ {bad} }}")).is_err(), "{bad}");
         }
         assert!(body("Reveal {} Reveal {}").is_err());
@@ -1221,7 +1554,9 @@ mod tests {
             body("").unwrap(),
             Template {
                 props: props(),
-                content: Vec::new(), inputs: Vec::new(), range:None,
+                content: Vec::new(),
+                inputs: Vec::new(),
+                range: None,
                 radius: 0.,
                 fill: None,
                 border: None,
@@ -1304,7 +1639,10 @@ mod tests {
         }
         for value in ["-1ms", "2001ms", "140", "1px", "1s", "props.radius"] {
             assert!(
-                body(&format!("background: Brush {{ color:#fff; transition:{value}; }};")).is_err(),
+                body(&format!(
+                    "background: Brush {{ color:#fff; transition:{value}; }};"
+                ))
+                .is_err(),
                 "accepted {value}"
             );
         }
@@ -1383,22 +1721,59 @@ mod tests {
     }
 }
 
-#[derive(Debug,Clone,PartialEq)]
-pub struct RangeInput {pub value:f32,pub minimum:Vec<Content>,pub maximum:Vec<Content>}
+#[derive(Debug, Clone, PartialEq)]
+pub struct RangeInput {
+    pub value: f32,
+    pub minimum: Vec<Content>,
+    pub maximum: Vec<Content>,
+}
 impl RangeInput {
-    fn compatible(&self)->bool {
-        self.minimum.len()==self.maximum.len() && self.minimum.iter().zip(&self.maximum).all(|(a,b)|match(a,b){
-            (Content::Shape{points:a,..},Content::Shape{points:b,..})=>a.len()==b.len(),
-            (Content::Clip{..},Content::Clip{..})|(Content::ClipEnd,Content::ClipEnd)|(Content::Text{..},Content::Text{..})=>true,_=>false,
-        })
+    fn compatible(&self) -> bool {
+        self.minimum.len() == self.maximum.len()
+            && self
+                .minimum
+                .iter()
+                .zip(&self.maximum)
+                .all(|(a, b)| match (a, b) {
+                    (Content::Shape { points: a, .. }, Content::Shape { points: b, .. }) => {
+                        a.len() == b.len()
+                    }
+                    (Content::Clip { .. }, Content::Clip { .. })
+                    | (Content::ClipEnd, Content::ClipEnd)
+                    | (Content::Text { .. }, Content::Text { .. }) => true,
+                    _ => false,
+                })
     }
-    pub fn content(&self)->Vec<Content> {
-        let mix=|a:f32,b:f32|a+(b-a)*self.value;
-        self.minimum.iter().zip(&self.maximum).map(|(a,b)|match(a,b){
-            (Content::Shape{points:a,color},Content::Shape{points:b,..})=>Content::Shape{points:a.iter().zip(b).map(|(a,b)|[mix(a[0],b[0]),mix(a[1],b[1])]).collect(),color:*color},
-            (Content::Clip{bounds:a,radius},Content::Clip{bounds:b,..})=>Content::Clip{bounds:std::array::from_fn(|i|mix(a[i],b[i])),radius:*radius},
-            (Content::Text{bounds:a,text},Content::Text{bounds:b,..})=>Content::Text{bounds:std::array::from_fn(|i|mix(a[i],b[i])),text:text.clone()},
-            _=>a.clone(),
-        }).collect()
+    pub fn content(&self) -> Vec<Content> {
+        let mix = |a: f32, b: f32| a + (b - a) * self.value;
+        self.minimum
+            .iter()
+            .zip(&self.maximum)
+            .map(|(a, b)| match (a, b) {
+                (Content::Shape { points: a, color }, Content::Shape { points: b, .. }) => {
+                    Content::Shape {
+                        points: a
+                            .iter()
+                            .zip(b)
+                            .map(|(a, b)| [mix(a[0], b[0]), mix(a[1], b[1])])
+                            .collect(),
+                        color: *color,
+                    }
+                }
+                (Content::Clip { bounds: a, radius }, Content::Clip { bounds: b, .. }) => {
+                    Content::Clip {
+                        bounds: std::array::from_fn(|i| mix(a[i], b[i])),
+                        radius: *radius,
+                    }
+                }
+                (Content::Text { bounds: a, text }, Content::Text { bounds: b, .. }) => {
+                    Content::Text {
+                        bounds: std::array::from_fn(|i| mix(a[i], b[i])),
+                        text: text.clone(),
+                    }
+                }
+                _ => a.clone(),
+            })
+            .collect()
     }
 }

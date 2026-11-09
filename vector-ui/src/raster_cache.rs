@@ -1,6 +1,6 @@
 //! Single-entry, per-instance raster cache. A new model owns a new cache.
 //! Geometry/content depend on viewport, DPI and scroll, not animated colors.
-use crate::{round_coverage, shape, template::Content, text, Button};
+use crate::{Button, round_coverage, shape, template::Content, text};
 
 #[derive(Clone, Copy, PartialEq)]
 struct GeometryKey {
@@ -68,44 +68,97 @@ pub(crate) fn over(dst: &mut [u8], src: &[u8]) {
 
 // Conservative support of geometry plus content, or content alone. Clip
 // markers only remove support; overflowing text/shapes must remain visible.
-fn raster_region(model: &Button, key: GeometryKey, include_geometry: bool) -> [u32;4] {
-    let full=[0,0,key.width,key.height];
-    let b=&model.scene.button;let x=b.x-model.scroll_x;let y=b.y-model.scroll_y;
-    let mut support:Option<[u32;4]>=None;let mut invalid=false;
-    let mut add=|bounds:[f32;4]| {
-        if !bounds.iter().all(|n|n.is_finite()) || bounds[2]<0. || bounds[3]<0. {invalid=true;return;}
-        let physical=[bounds[0]*key.scale,bounds[1]*key.scale,(bounds[0]+bounds[2])*key.scale,(bounds[1]+bounds[3])*key.scale];
-        if !physical.iter().all(|n|n.is_finite()) {invalid=true;return;}
-        let rect=[(physical[0]-1.).floor().clamp(0.,key.width as f32) as u32,
-            (physical[1]-1.).floor().clamp(0.,key.height as f32) as u32,
-            (physical[2]+1.).ceil().clamp(0.,key.width as f32) as u32,
-            (physical[3]+1.).ceil().clamp(0.,key.height as f32) as u32];
-        if rect[0]>=rect[2]||rect[1]>=rect[3] {return;}
-        support=Some(match support {None=>rect,Some(old)=>[old[0].min(rect[0]),old[1].min(rect[1]),old[2].max(rect[2]),old[3].max(rect[3])]});
+fn raster_region(model: &Button, key: GeometryKey, include_geometry: bool) -> [u32; 4] {
+    let full = [0, 0, key.width, key.height];
+    let b = &model.scene.button;
+    let x = b.x - model.scroll_x;
+    let y = b.y - model.scroll_y;
+    let mut support: Option<[u32; 4]> = None;
+    let mut invalid = false;
+    let mut add = |bounds: [f32; 4]| {
+        if !bounds.iter().all(|n| n.is_finite()) || bounds[2] < 0. || bounds[3] < 0. {
+            invalid = true;
+            return;
+        }
+        let physical = [
+            bounds[0] * key.scale,
+            bounds[1] * key.scale,
+            (bounds[0] + bounds[2]) * key.scale,
+            (bounds[1] + bounds[3]) * key.scale,
+        ];
+        if !physical.iter().all(|n| n.is_finite()) {
+            invalid = true;
+            return;
+        }
+        let rect = [
+            (physical[0] - 1.).floor().clamp(0., key.width as f32) as u32,
+            (physical[1] - 1.).floor().clamp(0., key.height as f32) as u32,
+            (physical[2] + 1.).ceil().clamp(0., key.width as f32) as u32,
+            (physical[3] + 1.).ceil().clamp(0., key.height as f32) as u32,
+        ];
+        if rect[0] >= rect[2] || rect[1] >= rect[3] {
+            return;
+        }
+        support = Some(match support {
+            None => rect,
+            Some(old) => [
+                old[0].min(rect[0]),
+                old[1].min(rect[1]),
+                old[2].max(rect[2]),
+                old[3].max(rect[3]),
+            ],
+        });
     };
-    if include_geometry { add([x,y,b.width,b.height]); }
+    if include_geometry {
+        add([x, y, b.width, b.height]);
+    }
     if model.template.text.is_some() {
-        let r=b.radius.min(b.width/2.).min(b.height/2.);
-        add([x+r*0.3,y+r*0.3,b.width-r*0.6,b.height-r*0.6]);
+        let r = b.radius.min(b.width / 2.).min(b.height / 2.);
+        add([
+            x + r * 0.3,
+            y + r * 0.3,
+            b.width - r * 0.6,
+            b.height - r * 0.6,
+        ]);
     }
     for content in &model.template.content {
         match content {
-            Content::Text {bounds,..}=>add([x+bounds[0],y+bounds[1],bounds[2],bounds[3]]),
-            Content::Shape {points,..}=>{
-                if points.is_empty() {continue;}
-                let mut bounds=[f32::INFINITY,f32::INFINITY,f32::NEG_INFINITY,f32::NEG_INFINITY];
-                for point in points {
-                    if !point.iter().all(|n|n.is_finite()) {return full;}
-                    bounds[0]=bounds[0].min(point[0]);bounds[1]=bounds[1].min(point[1]);
-                    bounds[2]=bounds[2].max(point[0]);bounds[3]=bounds[3].max(point[1]);
-                }
-                add([x+bounds[0],y+bounds[1],bounds[2]-bounds[0],bounds[3]-bounds[1]]);
+            Content::Text { bounds, .. } => {
+                add([x + bounds[0], y + bounds[1], bounds[2], bounds[3]])
             }
-            Content::Clip {..}|Content::ClipEnd=>{}
+            Content::Shape { points, .. } => {
+                if points.is_empty() {
+                    continue;
+                }
+                let mut bounds = [
+                    f32::INFINITY,
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                    f32::NEG_INFINITY,
+                ];
+                for point in points {
+                    if !point.iter().all(|n| n.is_finite()) {
+                        return full;
+                    }
+                    bounds[0] = bounds[0].min(point[0]);
+                    bounds[1] = bounds[1].min(point[1]);
+                    bounds[2] = bounds[2].max(point[0]);
+                    bounds[3] = bounds[3].max(point[1]);
+                }
+                add([
+                    x + bounds[0],
+                    y + bounds[1],
+                    bounds[2] - bounds[0],
+                    bounds[3] - bounds[1],
+                ]);
+            }
+            Content::Clip { .. } | Content::ClipEnd => {}
         }
     }
-    if invalid {return full;}
-    support.map_or([0;4],|[x0,y0,x1,y1]|[x0,y0,x1-x0,y1-y0])
+    if invalid {
+        return full;
+    }
+    support.map_or([0; 4], |[x0, y0, x1, y1]| [x0, y0, x1 - x0, y1 - y0])
 }
 
 #[cfg(test)]
@@ -165,15 +218,20 @@ fn frame_x_boundary(width: u32, scale: f32, threshold: f32) -> u32 {
     let (mut lo, mut hi) = (0, width);
     while lo < hi {
         let mid = lo + (hi - lo) / 2;
-        if (mid as f32 + 0.5) / scale >= threshold { hi = mid; }
-        else { lo = mid + 1; }
+        if (mid as f32 + 0.5) / scale >= threshold {
+            hi = mid;
+        } else {
+            lo = mid + 1;
+        }
     }
     lo
 }
 
 fn frame_runs(model: &Button, key: GeometryKey) -> Vec<FrameRun> {
     let mut runs = Vec::new();
-    if key.sparse { return runs; }
+    if key.sparse {
+        return runs;
+    }
     let v = model.viewport_rect();
     let [vx, _, vw, vh] = v;
     let b = &model.scene.button;
@@ -190,19 +248,32 @@ fn frame_runs(model: &Button, key: GeometryKey) -> Vec<FrameRun> {
             }
         }
     }
-    let monotone = key.width >= 64 && model.width().is_finite()
-        && model.height().is_finite() && model.width() > 0. && model.height() > 0.
-        && model.scene.radius.is_finite() && model.scene.radius >= 0.
+    let monotone = key.width >= 64
+        && model.width().is_finite()
+        && model.height().is_finite()
+        && model.width() > 0.
+        && model.height() > 0.
+        && model.scene.radius.is_finite()
+        && model.scene.radius >= 0.
         && v.iter().chain(thresholds.iter()).all(|n| n.is_finite());
     let mut cuts = vec![0, key.width];
     if monotone {
-        cuts.extend(thresholds.iter().map(|&x| frame_x_boundary(key.width, key.scale, x)));
-        cuts.sort_unstable(); cuts.dedup();
+        cuts.extend(
+            thresholds
+                .iter()
+                .map(|&x| frame_x_boundary(key.width, key.scale, x)),
+        );
+        cuts.sort_unstable();
+        cuts.dedup();
     }
     for y in 0..key.height {
         if !monotone {
             for x in 0..key.width {
-                append_frame_run(&mut runs, y * key.width + x + 1, frame_value(model, key, v, x, y));
+                append_frame_run(
+                    &mut runs,
+                    y * key.width + x + 1,
+                    frame_value(model, key, v, x, y),
+                );
             }
             continue;
         }
@@ -216,8 +287,11 @@ fn frame_runs(model: &Button, key: GeometryKey) -> Vec<FrameRun> {
                 let (mut lo, mut hi) = (x + 1, interval[1]);
                 while lo < hi {
                     let mid = lo + (hi - lo) / 2;
-                    if frame_value(model, key, v, mid, y) == value { lo = mid + 1; }
-                    else { hi = mid; }
+                    if frame_value(model, key, v, mid, y) == value {
+                        lo = mid + 1;
+                    } else {
+                        hi = mid;
+                    }
                 }
                 append_frame_run(&mut runs, y * key.width + lo, value);
                 x = lo;
@@ -232,18 +306,22 @@ impl Cache {
         Self::build_with_content_region(model, key, raster_region(model, key, false))
     }
 
-    fn build_with_content_region(model: &Button, key: GeometryKey, content_region: [u32; 4]) -> Self {
+    fn build_with_content_region(
+        model: &Button,
+        key: GeometryKey,
+        content_region: [u32; 4],
+    ) -> Self {
         let GeometryKey {
             width,
             height,
             scale,
             ..
         } = key;
-        let region=raster_region(model,key,true);
-        let [rx,ry,rw,rh]=region;
-        let offscreen=rw==0||rh==0;
-        let len=(rw*rh) as usize;
-        let storage_index=|x:u32,y:u32|((y-ry)*rw+x-rx) as usize;
+        let region = raster_region(model, key, true);
+        let [rx, ry, rw, rh] = region;
+        let offscreen = rw == 0 || rh == 0;
+        let len = (rw * rh) as usize;
+        let storage_index = |x: u32, y: u32| ((y - ry) * rw + x - rx) as usize;
         // Clip markers cannot produce pixels by themselves. A geometry-only
         // control needs no temporary RGBA content layer, even on the dense path.
         let [cx, cy, cw, ch] = content_region;
@@ -263,7 +341,9 @@ impl Cache {
             spans: Vec::new(),
             native_pixels: Vec::new(),
         };
-        if offscreen && key.sparse { return cache; }
+        if offscreen && key.sparse {
+            return cache;
+        }
         let b = &model.scene.button;
         let bx = b.x - model.scroll_x;
         let by = b.y - model.scroll_y;
@@ -280,7 +360,11 @@ impl Cache {
         let center_y = by + half_h;
         let corner_w = half_w - r;
         let corner_h = half_h - r;
-        let reveal_bounds = model.template.reveal.as_ref().map(|_| model.reveal_bounds());
+        let reveal_bounds = model
+            .template
+            .reveal
+            .as_ref()
+            .map(|_| model.reveal_bounds());
         let reveal_r = model
             .template
             .reveal
@@ -299,8 +383,12 @@ impl Cache {
         } else {
             f32::MAX
         }) + 1.0 / scale;
-        let ix0 = ((bx + safe_inset) * scale).ceil().clamp(x0 as f32, x1 as f32) as u32;
-        let iy0 = ((by + safe_inset) * scale).ceil().clamp(y0 as f32, y1 as f32) as u32;
+        let ix0 = ((bx + safe_inset) * scale)
+            .ceil()
+            .clamp(x0 as f32, x1 as f32) as u32;
+        let iy0 = ((by + safe_inset) * scale)
+            .ceil()
+            .clamp(y0 as f32, y1 as f32) as u32;
         let ix1 = ((bx + b.width - safe_inset) * scale)
             .floor()
             .clamp(x0 as f32, x1 as f32) as u32;
@@ -311,15 +399,26 @@ impl Cache {
             let row_inside = y >= iy0 && y < iy1 && ix1 > ix0;
             for x in x0..x1 {
                 if row_inside && x >= ix0 && x < ix1 {
-                    cache.coverage[storage_index(x,y)] = 20;
+                    cache.coverage[storage_index(x, y)] = 20;
                     continue;
                 }
                 if r == 0. {
                     let area = crate::rect_area_coverage(x, y, scale, [bx, by, b.width, b.height]);
-                    let inner = crate::rect_area_coverage(x, y, scale, [bx + bw, by + bw, b.width - 2. * bw, b.height - 2. * bw]);
+                    let inner = crate::rect_area_coverage(
+                        x,
+                        y,
+                        scale,
+                        [bx + bw, by + bw, b.width - 2. * bw, b.height - 2. * bw],
+                    );
                     let band = (area - inner).max(0.);
                     let index = (y * width + x) as usize;
-                    cache.coverage[storage_index(x,y)] = if area == 0. { 0 } else if area == 1. && band == 1. { 24 } else { 20 };
+                    cache.coverage[storage_index(x, y)] = if area == 0. {
+                        0
+                    } else if area == 1. && band == 1. {
+                        24
+                    } else {
+                        20
+                    };
                     if area > 0. && (area < 1. || (band > 0. && band < 1.)) {
                         cache.rect_edges.push((index, area, band));
                     }
@@ -341,7 +440,7 @@ impl Cache {
                             }
                         }
                     }
-                    cache.coverage[storage_index(x,y)] = fill * 5 + border;
+                    cache.coverage[storage_index(x, y)] = fill * 5 + border;
                 }
                 if let Some(r_bounds) = reveal_bounds {
                     let band = crate::reveal::band_coverage(
@@ -372,7 +471,8 @@ impl Cache {
                     b.width - r * 0.6,
                     b.height - r * 0.6,
                 ],
-                t.color,content_region,
+                t.color,
+                content_region,
             );
         }
         let mut groups = Vec::new();
@@ -389,7 +489,8 @@ impl Cache {
                     &t.text,
                     t.font_size,
                     [bx + bounds[0], by + bounds[1], bounds[2], bounds[3]],
-                    t.color,content_region,
+                    t.color,
+                    content_region,
                 ),
                 Content::Shape { points, color } => shape::draw_region(
                     &mut cache.content,
@@ -398,11 +499,15 @@ impl Cache {
                     scale,
                     points,
                     [bx, by],
-                    *color,content_region,
+                    *color,
+                    content_region,
                 ),
                 Content::Clip { bounds, radius } => {
                     let layer = match layers.pop() {
-                        Some(mut layer) => { layer.fill(0); layer }
+                        Some(mut layer) => {
+                            layer.fill(0);
+                            layer
+                        }
                         None => vec![0; content_len * 4],
                     };
                     groups.push((
@@ -416,10 +521,11 @@ impl Cache {
                         // round_coverage has no support outside these bounds;
                         // one physical pixel conservatively includes every AA sample.
                         let [x0, y0, x1, y1] = clip_pixels(bounds, scale, width, height);
-                        let (x0,y0,x1,y1)=(x0.max(cx),y0.max(cy),x1.min(cx+cw),y1.min(cy+ch));
+                        let (x0, y0, x1, y1) =
+                            (x0.max(cx), y0.max(cy), x1.min(cx + cw), y1.min(cy + ch));
                         for y in y0..y1 {
                             for x in x0..x1 {
-                                let i = content_index(x,y)*4;
+                                let i = content_index(x, y) * 4;
                                 if cache.content[i + 3] == 0 {
                                     continue;
                                 }
@@ -454,10 +560,14 @@ impl Cache {
                     .unwrap_or(first);
                 let span = row_start + first..row_start + last + 1;
                 let bytes = span.len() * 4;
-                cache.content.copy_within(span.start * 4..span.end * 4, compacted);
+                cache
+                    .content
+                    .copy_within(span.start * 4..span.end * 4, compacted);
                 compacted += bytes;
-                let global_row=(y+cy as usize)*width as usize+cx as usize;
-                cache.content_spans.push(global_row+first..global_row+last+1);
+                let global_row = (y + cy as usize) * width as usize + cx as usize;
+                cache
+                    .content_spans
+                    .push(global_row + first..global_row + last + 1);
             }
         }
         cache.content.truncate(compacted);
@@ -468,7 +578,7 @@ impl Cache {
             // outside the button, including on rows above/below its rectangle.
             let mut content_spans = cache.content_spans.iter().peekable();
             let mut packed = 0;
-            for y in ry..ry+rh {
+            for y in ry..ry + rh {
                 let row = (y * width) as usize;
                 let mut start = width as usize;
                 let mut end = 0;
@@ -485,8 +595,10 @@ impl Cache {
                 }
                 if start < end {
                     let span = row + start..row + end;
-                    let local_start=storage_index(start as u32,y);
-                    cache.coverage.copy_within(local_start..local_start+span.len(), packed);
+                    let local_start = storage_index(start as u32, y);
+                    cache
+                        .coverage
+                        .copy_within(local_start..local_start + span.len(), packed);
                     packed += span.len();
                     cache.spans.push(span);
                 }
@@ -494,7 +606,11 @@ impl Cache {
             cache.coverage.truncate(packed);
             cache.coverage.shrink_to_fit();
         }
-        let pixel_len = if key.sparse { cache.coverage.len() } else { width as usize * height as usize };
+        let pixel_len = if key.sparse {
+            cache.coverage.len()
+        } else {
+            width as usize * height as usize
+        };
         cache.pixels.resize(pixel_len * 4, 0);
         cache
     }
@@ -532,7 +648,9 @@ impl Cache {
                 dst.copy_from_slice(&palette[self.coverage[packed] as usize]);
                 if let Some(&&(index, area, band)) = rect_edges.peek() {
                     if index == i {
-                        dst.copy_from_slice(&crate::rect_area_paint(key.fill, key.border, area, band));
+                        dst.copy_from_slice(&crate::rect_area_paint(
+                            key.fill, key.border, area, band,
+                        ));
                         rect_edges.next();
                     }
                 }
@@ -548,7 +666,9 @@ impl Cache {
                     if index == i {
                         let x = (i % self.key.width as usize) as f32;
                         let y = (i / self.key.width as usize) as f32;
-                        let mut color = key.reveal.color_at([(x + 0.5) / self.key.scale, (y + 0.5) / self.key.scale]);
+                        let mut color = key
+                            .reveal
+                            .color_at([(x + 0.5) / self.key.scale, (y + 0.5) / self.key.scale]);
                         color[3] = (color[3] as f32 * band).round() as u8;
                         over(dst, &color);
                         reveal_pixels.next();
@@ -570,14 +690,15 @@ impl Cache {
                 packed += span.len();
             }
             for &(i, area, band) in &self.rect_edges {
-                self.pixels[i * 4..i * 4 + 4].copy_from_slice(
-                    &crate::rect_area_paint(key.fill, key.border, area, band));
+                self.pixels[i * 4..i * 4 + 4]
+                    .copy_from_slice(&crate::rect_area_paint(key.fill, key.border, area, band));
             }
             let mut packed = 0;
             for span in &self.content_spans {
                 let bytes = span.len() * 4;
                 for (dst, src) in self.pixels[span.start * 4..span.end * 4]
-                    .chunks_exact_mut(4).zip(self.content[packed..packed + bytes].chunks_exact(4))
+                    .chunks_exact_mut(4)
+                    .zip(self.content[packed..packed + bytes].chunks_exact(4))
                 {
                     over(dst, src);
                 }
@@ -586,7 +707,9 @@ impl Cache {
             for &(i, band) in &self.reveal_pixels {
                 let x = (i % self.key.width as usize) as f32;
                 let y = (i / self.key.width as usize) as f32;
-                let mut color = key.reveal.color_at([(x + 0.5) / self.key.scale, (y + 0.5) / self.key.scale]);
+                let mut color = key
+                    .reveal
+                    .color_at([(x + 0.5) / self.key.scale, (y + 0.5) / self.key.scale]);
                 color[3] = (color[3] as f32 * band).round() as u8;
                 over(&mut self.pixels[i * 4..i * 4 + 4], &color);
             }
@@ -689,12 +812,23 @@ impl Button {
     }
 
     /// Copy RGBA output into caller-owned storage, retaining its allocation.
-    pub fn paint_rgba(&self, dst: &mut [u8], width: u32, height: u32, scale: f32,
-        background: bool) -> Result<(), &'static str> {
-        if (width as usize).checked_mul(height as usize).and_then(|n| n.checked_mul(4)) != Some(dst.len()) {
+    pub fn paint_rgba(
+        &self,
+        dst: &mut [u8],
+        width: u32,
+        height: u32,
+        scale: f32,
+        background: bool,
+    ) -> Result<(), &'static str> {
+        if (width as usize)
+            .checked_mul(height as usize)
+            .and_then(|n| n.checked_mul(4))
+            != Some(dst.len())
+        {
             return Err("Invalid RGBA buffer size");
         }
-        let cache = self.cached(width, height, scale, background, false)
+        let cache = self
+            .cached(width, height, scale, background, false)
             .ok_or("Visible scene exceeds CPU raster budget")?;
         dst.copy_from_slice(&cache.pixels);
         Ok(())
@@ -704,12 +838,16 @@ impl Button {
     /// Root frame clipping and scrollbars are applied once by Runtime.
     pub(crate) fn composite_content(&self, dst: &mut [u8], width: u32, height: u32, scale: f32) {
         debug_assert!(!self.scene.clip && !self.scene.scroll);
-        let Some(cache) = self.cached(width, height, scale, false, true) else { return };
+        let Some(cache) = self.cached(width, height, scale, false, true) else {
+            return;
+        };
         let mut pixels = cache.pixels.as_slice();
         for span in &cache.spans {
             let bytes = span.len() * 4;
             for (dst, src) in dst[span.start * 4..span.end * 4]
-                .chunks_exact_mut(4).zip(pixels[..bytes].chunks_exact(4)) {
+                .chunks_exact_mut(4)
+                .zip(pixels[..bytes].chunks_exact(4))
+            {
                 over(dst, src);
             }
             pixels = &pixels[bytes..];
@@ -746,7 +884,11 @@ impl Button {
             .cached(rw, rh, scale, true, false)
             .ok_or("Visible scene exceeds CPU raster budget")?;
         if cache.native_pixels.is_empty() {
-            let Cache { native_pixels, pixels, .. } = &mut *cache;
+            let Cache {
+                native_pixels,
+                pixels,
+                ..
+            } = &mut *cache;
             native_pixels.reserve(pixels.len() / 4);
             native_pixels.extend(pixels.chunks_exact(4).map(|p| {
                 let a = p[3] as u32;
@@ -822,8 +964,12 @@ fn clip_pixels(bounds: [f32; 4], scale: f32, width: u32, height: u32) -> [u32; 4
     [
         (bounds[0] * scale - 1.).floor().clamp(0., width as f32) as u32,
         (bounds[1] * scale - 1.).floor().clamp(0., height as f32) as u32,
-        ((bounds[0] + bounds[2]) * scale + 1.).ceil().clamp(0., width as f32) as u32,
-        ((bounds[1] + bounds[3]) * scale + 1.).ceil().clamp(0., height as f32) as u32,
+        ((bounds[0] + bounds[2]) * scale + 1.)
+            .ceil()
+            .clamp(0., width as f32) as u32,
+        ((bounds[1] + bounds[3]) * scale + 1.)
+            .ceil()
+            .clamp(0., height as f32) as u32,
     ]
 }
 
@@ -832,71 +978,147 @@ mod tests {
     use super::*;
     #[test]
     fn frame_run_search_matches_every_scalar_sample_at_viewport_and_aa_boundaries() {
-        let mut model=Button::from_sources(
+        let mut model = Button::from_sources(
             "component App { Frame { width:100; height:80; Button { width:160; height:120; } } }",
-            "component Button { Rectangle { background:#abcdef; } }"
-        ).unwrap();
-        let mut seed=7u32;
-        let mut random=|| {seed=seed.wrapping_mul(1664525).wrapping_add(1013904223);seed as f32/u32::MAX as f32};
+            "component Button { Rectangle { background:#abcdef; } }",
+        )
+        .unwrap();
+        let mut seed = 7u32;
+        let mut random = || {
+            seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+            seed as f32 / u32::MAX as f32
+        };
         for case in 0..240 {
-            model.scene.width=0.125+random()*260.;model.scene.height=0.125+random()*120.;
-            model.scene.radius=if case%3==0 {0.} else {random()*200.};
-            model.scene.scroll=case%2==0;
-            model.scene.padding=[random()*20.,random()*20.,random()*20.,random()*20.];
-            model.scene.button.width=random()*400.;model.scene.button.height=random()*300.;
-            model.scroll_x=random()*200.;model.scroll_y=random()*200.;
-            let width=[1,16,63,64,79,128,257][case%7];
-            let height=[1,17,47,96][case%4];
-            let scale=[f32::MIN_POSITIVE,0.000001,0.125,0.75,1.,1.25,2.,3.5,1_000_000.,f32::MAX][case%10];
-            let key=GeometryKey {width,height,scale,scroll:[model.scroll_x,model.scroll_y],sparse:false};
-            let runs=frame_runs(&model,key);let v=model.viewport_rect();
-            let mut start=0;let mut previous=None;
+            model.scene.width = 0.125 + random() * 260.;
+            model.scene.height = 0.125 + random() * 120.;
+            model.scene.radius = if case % 3 == 0 { 0. } else { random() * 200. };
+            model.scene.scroll = case % 2 == 0;
+            model.scene.padding = [
+                random() * 20.,
+                random() * 20.,
+                random() * 20.,
+                random() * 20.,
+            ];
+            model.scene.button.width = random() * 400.;
+            model.scene.button.height = random() * 300.;
+            model.scroll_x = random() * 200.;
+            model.scroll_y = random() * 200.;
+            let width = [1, 16, 63, 64, 79, 128, 257][case % 7];
+            let height = [1, 17, 47, 96][case % 4];
+            let scale = [
+                f32::MIN_POSITIVE,
+                0.000001,
+                0.125,
+                0.75,
+                1.,
+                1.25,
+                2.,
+                3.5,
+                1_000_000.,
+                f32::MAX,
+            ][case % 10];
+            let key = GeometryKey {
+                width,
+                height,
+                scale,
+                scroll: [model.scroll_x, model.scroll_y],
+                sparse: false,
+            };
+            let runs = frame_runs(&model, key);
+            let v = model.viewport_rect();
+            let mut start = 0;
+            let mut previous = None;
             for run in runs {
-                assert!(run.end>start&&run.end<=width*height);
-                assert_ne!(previous,Some(run.value));
+                assert!(run.end > start && run.end <= width * height);
+                assert_ne!(previous, Some(run.value));
                 for i in start..run.end {
-                    assert_eq!(run.value,frame_value(&model,key,v,i%width,i/width),"case={case},pixel={i},scale={scale}");
+                    assert_eq!(
+                        run.value,
+                        frame_value(&model, key, v, i % width, i / width),
+                        "case={case},pixel={i},scale={scale}"
+                    );
                 }
-                start=run.end;previous=Some(run.value);
+                start = run.end;
+                previous = Some(run.value);
             }
-            assert_eq!(start,width*height);
+            assert_eq!(start, width * height);
         }
         // Nonfinite/degenerate geometry uses the original scalar path.
-        for radius in [-1.,f32::NAN,f32::INFINITY] {
-            model.scene.radius=radius;
-            let key=GeometryKey {width:80,height:20,scale:1.25,scroll:[0.;2],sparse:false};
-            let runs=frame_runs(&model,key);let v=model.viewport_rect();let mut expected=Vec::new();
-            for y in 0..20 {for x in 0..80 {append_frame_run(&mut expected,y*80+x+1,frame_value(&model,key,v,x,y));}}
-            assert_eq!(runs,expected);
+        for radius in [-1., f32::NAN, f32::INFINITY] {
+            model.scene.radius = radius;
+            let key = GeometryKey {
+                width: 80,
+                height: 20,
+                scale: 1.25,
+                scroll: [0.; 2],
+                sparse: false,
+            };
+            let runs = frame_runs(&model, key);
+            let v = model.viewport_rect();
+            let mut expected = Vec::new();
+            for y in 0..20 {
+                for x in 0..80 {
+                    append_frame_run(
+                        &mut expected,
+                        y * 80 + x + 1,
+                        frame_value(&model, key, v, x, y),
+                    );
+                }
+            }
+            assert_eq!(runs, expected);
         }
     }
 
     #[test]
     fn uniform_frame_storage_is_constant_size_even_with_offscreen_geometry() {
-        let component="component Button { Rectangle { background:#abcdef; } }";
-        for x in [30,3000] {
-            let source=format!("component App {{ Frame {{ width:800; height:600; Button {{ x:{x}; y:40; width:160; height:80; }} }} }}");
-            let model=Button::from_sources(&source,component).unwrap();
-            let key=GeometryKey {width:1600,height:1200,scale:2.,scroll:[0.;2],sparse:false};
-            FRAME_SAMPLES.with(|samples|samples.set(0));
-            let cache=Cache::build(&model,key);
-            let samples=FRAME_SAMPLES.with(|samples|samples.get());
+        let component = "component Button { Rectangle { background:#abcdef; } }";
+        for x in [30, 3000] {
+            let source = format!(
+                "component App {{ Frame {{ width:800; height:600; Button {{ x:{x}; y:40; width:160; height:80; }} }} }}"
+            );
+            let model = Button::from_sources(&source, component).unwrap();
+            let key = GeometryKey {
+                width: 1600,
+                height: 1200,
+                scale: 2.,
+                scroll: [0.; 2],
+                sparse: false,
+            };
+            FRAME_SAMPLES.with(|samples| samples.set(0));
+            let cache = Cache::build(&model, key);
+            let samples = FRAME_SAMPLES.with(|samples| samples.get());
             eprintln!("uniform1600x1200 frame: {samples} scalar samples instead of1,920,000");
-            assert!(samples<100_000,"uniform frame reverted to per-pixel evaluation: {samples}");
-            assert_eq!(cache.frame,vec![FrameRun {end:1_920_000,value:48}]);
-            if x==30 {
-                FRAME_SAMPLES.with(|samples|samples.set(0));
-                let mut scalar=Vec::new();let v=model.viewport_rect();
-                for py in 0..key.height {for px in 0..key.width {
-                    append_frame_run(&mut scalar,py*key.width+px+1,frame_value(&model,key,v,px,py));
-                }}
-                let scalar_samples=FRAME_SAMPLES.with(|samples|samples.get());
+            assert!(
+                samples < 100_000,
+                "uniform frame reverted to per-pixel evaluation: {samples}"
+            );
+            assert_eq!(
+                cache.frame,
+                vec![FrameRun {
+                    end: 1_920_000,
+                    value: 48
+                }]
+            );
+            if x == 30 {
+                FRAME_SAMPLES.with(|samples| samples.set(0));
+                let mut scalar = Vec::new();
+                let v = model.viewport_rect();
+                for py in 0..key.height {
+                    for px in 0..key.width {
+                        append_frame_run(
+                            &mut scalar,
+                            py * key.width + px + 1,
+                            frame_value(&model, key, v, px, py),
+                        );
+                    }
+                }
+                let scalar_samples = FRAME_SAMPLES.with(|samples| samples.get());
                 eprintln!("scalar reference frame: {scalar_samples} samples");
-                assert_eq!(scalar_samples,1_920_000);
-                assert_eq!(scalar,cache.frame);
+                assert_eq!(scalar_samples, 1_920_000);
+                assert_eq!(scalar, cache.frame);
             }
-            assert!(cache.frame.capacity()*std::mem::size_of::<FrameRun>()<=64);
-            assert_eq!(cache.pixels.len(),1_920_000*4);
+            assert!(cache.frame.capacity() * std::mem::size_of::<FrameRun>() <= 64);
+            assert_eq!(cache.pixels.len(), 1_920_000 * 4);
         }
     }
 
@@ -911,20 +1133,36 @@ mod tests {
         ];
         for component in components {
             let mut model = Button::from_sources(source, component).unwrap();
-            for scroll in [[0.,0.],[27.4,19.8],[300.,300.]] {
-                model.scroll_x=scroll[0]; model.scroll_y=scroll[1];
-                for scale in [0.75,1.,1.25,1.5,2.] {
-                    for sparse in [false,true] {
-                        for background in [false,true] {
-                            let key=GeometryKey {width:240,height:190,scale,scroll,sparse};
-                            let mut actual=Cache::build(&model,key);
-                            let mut full=Cache::build_with_content_region(&model,key,[0,0,240,190]);
-                            let paint=PaintKey {fill:model.fill.color(),border:model.border.color(),
-                                reveal:model.reveal_paint(),background};
-                            actual.paint(&model,paint); full.paint(&model,paint);
-                            assert!(actual.pixels == full.pixels,"scale={scale}, sparse={sparse}, scroll={scroll:?}");
-                            assert_eq!(actual.content_spans,full.content_spans);
-                            assert_eq!(actual.spans,full.spans);
+            for scroll in [[0., 0.], [27.4, 19.8], [300., 300.]] {
+                model.scroll_x = scroll[0];
+                model.scroll_y = scroll[1];
+                for scale in [0.75, 1., 1.25, 1.5, 2.] {
+                    for sparse in [false, true] {
+                        for background in [false, true] {
+                            let key = GeometryKey {
+                                width: 240,
+                                height: 190,
+                                scale,
+                                scroll,
+                                sparse,
+                            };
+                            let mut actual = Cache::build(&model, key);
+                            let mut full =
+                                Cache::build_with_content_region(&model, key, [0, 0, 240, 190]);
+                            let paint = PaintKey {
+                                fill: model.fill.color(),
+                                border: model.border.color(),
+                                reveal: model.reveal_paint(),
+                                background,
+                            };
+                            actual.paint(&model, paint);
+                            full.paint(&model, paint);
+                            assert!(
+                                actual.pixels == full.pixels,
+                                "scale={scale}, sparse={sparse}, scroll={scroll:?}"
+                            );
+                            assert_eq!(actual.content_spans, full.content_spans);
+                            assert_eq!(actual.spans, full.spans);
                             // An offscreen sparse cache returns before compaction;
                             // its unused scratch storage is intentionally different.
                             if !actual.spans.is_empty() {
@@ -944,7 +1182,13 @@ mod tests {
         for scale in [0.75, 1., 1.25, 2.] {
             for sparse in [false, true] {
                 let model = Button::from_sources(source, plain).unwrap();
-                let key = GeometryKey { width:200, height:150, scale, scroll:[0.;2], sparse };
+                let key = GeometryKey {
+                    width: 200,
+                    height: 150,
+                    scale,
+                    scroll: [0.; 2],
+                    sparse,
+                };
                 let mut empty = Cache::build(&model, key);
                 assert_eq!(empty.content.capacity(), 0);
                 // Force the original RGBA-layer path with a zero-alpha shape.
@@ -952,8 +1196,12 @@ mod tests {
                     "component Button { Rectangle { background:#abcdef; ContentShape { points:'0 0 10 0 10 10'; color:#00000000; } } }"
                 ).unwrap();
                 let mut full = Cache::build(&reference, key);
-                let paint = PaintKey { fill:[0xab,0xcd,0xef,255], border:[0;4],
-                    reveal:model.reveal_paint(), background:false };
+                let paint = PaintKey {
+                    fill: [0xab, 0xcd, 0xef, 255],
+                    border: [0; 4],
+                    reveal: model.reveal_paint(),
+                    background: false,
+                };
                 empty.paint(&model, paint);
                 full.paint(&reference, paint);
                 assert_eq!(empty.pixels, full.pixels);
@@ -967,27 +1215,42 @@ mod tests {
     fn offscreen_sparse_cache_has_no_canvas_storage_and_preserves_overflow() {
         let source = "component App { Frame { width:200; height:100; Button { x:500; y:300; width:40; height:30; } } }";
         let plain = "component Button { Rectangle { background:#abcdef; } }";
-        for scale in [0.75,1.,1.25,2.] {
-            let mut model = Button::from_sources(source,plain).unwrap();
-            let mut out = vec![0;200*100*4];
-            model.composite_content(&mut out,200,100,scale);
-            assert!(out.iter().all(|&x|x==0));
+        for scale in [0.75, 1., 1.25, 2.] {
+            let mut model = Button::from_sources(source, plain).unwrap();
+            let mut out = vec![0; 200 * 100 * 4];
+            model.composite_content(&mut out, 200, 100, scale);
+            assert!(out.iter().all(|&x| x == 0));
             {
-                let cache = model.raster_cache.borrow();let cache=cache.as_ref().unwrap();
-                assert_eq!(cache.coverage.capacity()+cache.content.capacity()+cache.pixels.capacity()+cache.frame.capacity(),0);
+                let cache = model.raster_cache.borrow();
+                let cache = cache.as_ref().unwrap();
+                assert_eq!(
+                    cache.coverage.capacity()
+                        + cache.content.capacity()
+                        + cache.pixels.capacity()
+                        + cache.frame.capacity(),
+                    0
+                );
             }
-            model.scroll_x=500.;model.scroll_y=300.;
-            out.fill(0);model.composite_content(&mut out,200,100,scale);
-            assert!(out.chunks_exact(4).any(|p|p[3]>0),"scroll must rebuild the previously empty cache");
+            model.scroll_x = 500.;
+            model.scroll_y = 300.;
+            out.fill(0);
+            model.composite_content(&mut out, 200, 100, scale);
+            assert!(
+                out.chunks_exact(4).any(|p| p[3] > 0),
+                "scroll must rebuild the previously empty cache"
+            );
             // Shape reaches the canvas despite the offscreen parent bounds.
             let overflowing = "component Button { Rectangle { background:#abcdef; ContentShape { points:'-490 -290 -470 -290 -470 -270 -490 -270'; color:#ff0000; } } }";
-            let model = Button::from_sources(source,overflowing).unwrap();
-            out.fill(0);model.composite_content(&mut out,200,100,scale);
-            assert_eq!(out,model.content_pixels(200,100,scale));
-            assert!(out.chunks_exact(4).any(|p|p[3]>0),"overflow must remain visible");
+            let model = Button::from_sources(source, overflowing).unwrap();
+            out.fill(0);
+            model.composite_content(&mut out, 200, 100, scale);
+            assert_eq!(out, model.content_pixels(200, 100, scale));
+            assert!(
+                out.chunks_exact(4).any(|p| p[3] > 0),
+                "overflow must remain visible"
+            );
         }
     }
-
 
     #[test]
     fn packed_leaf_retains_only_local_rows_and_empty_offscreen_leaf_is_valid() {
@@ -1003,11 +1266,25 @@ mod tests {
             let cache = stored.as_ref().unwrap();
             assert!(cache.key.sparse && cache.frame.is_empty());
             assert_eq!(cache.pixels.len(), cache.coverage.len() * 4);
-            assert_eq!(cache.coverage.len(), cache.spans.iter().map(|span| span.len()).sum::<usize>());
-            assert!(cache.coverage.capacity() < 3000, "packed geometry must not retain a full canvas");
-            assert!(cache.pixels.capacity() < 12_000, "packed RGBA must not retain a full canvas");
+            assert_eq!(
+                cache.coverage.len(),
+                cache.spans.iter().map(|span| span.len()).sum::<usize>()
+            );
+            assert!(
+                cache.coverage.capacity() < 3000,
+                "packed geometry must not retain a full canvas"
+            );
+            assert!(
+                cache.pixels.capacity() < 12_000,
+                "packed RGBA must not retain a full canvas"
+            );
             assert!(cache.content.capacity() < 2000);
-            assert!(cache.spans.windows(2).all(|pair| pair[0].end <= pair[1].start));
+            assert!(
+                cache
+                    .spans
+                    .windows(2)
+                    .all(|pair| pair[0].end <= pair[1].start)
+            );
             assert!(cache.spans.iter().all(|span| span.start < span.end && span.start / 1000 == (span.end - 1) / 1000));
         }
         let mut outside = vec![0; 20 * 20 * 4];
@@ -1038,7 +1315,10 @@ mod tests {
         let cache = cache.as_ref().unwrap();
         let retained = cache.content.capacity()
             + cache.content_spans.capacity() * std::mem::size_of::<std::ops::Range<usize>>();
-        assert!(retained < 1024, "a 25-pixel shape must not retain a full-canvas RGBA layer: {retained}");
+        assert!(
+            retained < 1024,
+            "a 25-pixel shape must not retain a full-canvas RGBA layer: {retained}"
+        );
     }
 
     #[test]
@@ -1076,7 +1356,13 @@ mod tests {
                 let actual = model.raster_cached(96, 80, scale, background);
                 for (a, b) in reference.chunks_exact(4).zip(actual.chunks_exact(4)) {
                     for k in 0..4 {
-                        let premul = |p: &[u8]| if k == 3 { p[3] as f32 } else { p[k] as f32 * p[3] as f32 / 255. };
+                        let premul = |p: &[u8]| {
+                            if k == 3 {
+                                p[3] as f32
+                            } else {
+                                p[k] as f32 * p[3] as f32 / 255.
+                            }
+                        };
                         assert!((premul(a) - premul(b)).abs() <= 2., "{a:?} != {b:?}");
                     }
                 }

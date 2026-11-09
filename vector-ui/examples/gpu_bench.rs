@@ -10,10 +10,9 @@ fn main() {
     pollster::block_on(async {
         let instance = wgpu::Instance::default();
         let adapter = instance.request_adapter(&Default::default()).await.unwrap();
-        let mut renderer =
-            forma::gpu::Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)
-                .await
-                .unwrap();
+        let mut renderer = forma::gpu::Renderer::new(&adapter, wgpu::TextureFormat::Rgba8Unorm)
+            .await
+            .unwrap();
         let args: Vec<_> = std::env::args().collect();
         let source = args
             .get(1)

@@ -11,7 +11,7 @@ fn main() {
 }
 #[cfg(feature = "gpu")]
 async fn run() {
-    use forma::{gpu::Renderer, Runtime as Button};
+    use forma::{Runtime as Button, gpu::Renderer};
     let instance = wgpu::Instance::default();
     let adapter = instance
         .request_adapter(&Default::default())
@@ -30,12 +30,16 @@ async fn run() {
         .get(2)
         .map(|p| std::fs::read_to_string(p).unwrap())
         .unwrap_or(forma::BUTTON_COMPONENT.into());
-    let nested="component Demo { Frame { width:64; height:48; radius:12; clip:true; padding:2; background:#12345680; Scroll { Button { width:100; height:60; } } } }";
-    let nested_template="component Button { Rectangle { radius:12; background:#ff000080; Border { width:2; background:#aabbcc80; } ContentClip { x:5; y:2; width:45; height:40; radius:5; } ContentShape { points:'0 0 70 0 70 50 0 50'; color:#abcdef80; } ContentText { x:1; y:2; width:55; height:30; text:'ОБ'; color:#ffffffa0; fontSize:16; } ContentClipEnd {} } }";
+    let nested = "component Demo { Frame { width:64; height:48; radius:12; clip:true; padding:2; background:#12345680; Scroll { Button { width:100; height:60; } } } }";
+    let nested_template = "component Button { Rectangle { radius:12; background:#ff000080; Border { width:2; background:#aabbcc80; } ContentClip { x:5; y:2; width:45; height:40; radius:5; } ContentShape { points:'0 0 70 0 70 50 0 50'; color:#abcdef80; } ContentText { x:1; y:2; width:55; height:30; text:'ОБ'; color:#ffffffa0; fontSize:16; } ContentClipEnd {} } }";
     for (name, source, template) in [
         ("input", source.as_str(), template.as_str()),
         ("nested-scroll", nested, nested_template),
-        ("smooth-corner", "component Demo { Frame { width:64; height:64; padding:0; background:#000000; Button { width:64; height:64; } } }", "component Button { Rectangle { radius:24; background:#ffffff; } }"),
+        (
+            "smooth-corner",
+            "component Demo { Frame { width:64; height:64; padding:0; background:#000000; Button { width:64; height:64; } } }",
+            "component Button { Rectangle { radius:24; background:#ffffff; } }",
+        ),
     ] {
         let mut model = Button::from_sources(source, template).unwrap();
         if model.scrollable() {
@@ -48,7 +52,10 @@ async fn run() {
             (300, 150, 2.),
             (800, 400, 2.),
             (500, 250, 1.25),
-        ].into_iter().enumerate() {
+        ]
+        .into_iter()
+        .enumerate()
+        {
             let texture = renderer.device.create_texture(&wgpu::TextureDescriptor {
                 label: None,
                 size: wgpu::Extent3d {
@@ -117,16 +124,21 @@ async fn run() {
             // Optional exact before/after GPU regression, independent of CPU AA.
             // Records are test artifacts, never consumed by the application.
             if let Ok(dir) = std::env::var("FORMA_GPU_GOLDEN_DIR") {
-                let path=std::path::Path::new(&dir).join(format!("{name}-{case_id}-{w}x{h}.rgba"));
-                let mut packed=Vec::with_capacity((w*h*4)as usize);
-                for y in 0..h as usize {packed.extend_from_slice(&mapped[y*stride as usize..y*stride as usize+w as usize*4]);}
-                if std::env::var("FORMA_GPU_GOLDEN_MODE").as_deref()==Ok("record") {
+                let path =
+                    std::path::Path::new(&dir).join(format!("{name}-{case_id}-{w}x{h}.rgba"));
+                let mut packed = Vec::with_capacity((w * h * 4) as usize);
+                for y in 0..h as usize {
+                    packed.extend_from_slice(
+                        &mapped[y * stride as usize..y * stride as usize + w as usize * 4],
+                    );
+                }
+                if std::env::var("FORMA_GPU_GOLDEN_MODE").as_deref() == Ok("record") {
                     std::fs::create_dir_all(&dir).unwrap();
                     assert!(!path.exists(), "Refusing to overwrite golden {path:?}");
-                    std::fs::write(path,&packed).unwrap();
+                    std::fs::write(path, &packed).unwrap();
                 } else {
-                    let reference=std::fs::read(&path).expect("Recorded GPU golden required");
-                    assert!(packed==reference, "GPU pixels changed against {path:?}");
+                    let reference = std::fs::read(&path).expect("Recorded GPU golden required");
+                    assert!(packed == reference, "GPU pixels changed against {path:?}");
                 }
             }
             if name == "smooth-corner" && s == 1. {
@@ -134,10 +146,15 @@ async fn run() {
                 for y in 0..24usize {
                     for x in 0..24usize {
                         let red = mapped[y * stride as usize + x * 4];
-                        if red > 0 && red < 255 { shades.insert(red); }
+                        if red > 0 && red < 255 {
+                            shades.insert(red);
+                        }
                     }
                 }
-                assert!(shades.len() > 8, "Rounded edge regressed to quantized coverage: {shades:?}");
+                assert!(
+                    shades.len() > 8,
+                    "Rounded edge regressed to quantized coverage: {shades:?}"
+                );
             }
             let expected = model.pixels(w, h, s);
             let mut total = 0u64;

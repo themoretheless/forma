@@ -5,8 +5,11 @@
 mod bench_support;
 use bench_support::CountingAllocator;
 use forma::display_list::DisplayList;
-use forma::{markup::ButtonSpec, template, Runtime};
-use std::{hint::black_box, time::{Duration, Instant}};
+use forma::{Runtime, markup::ButtonSpec, template};
+use std::{
+    hint::black_box,
+    time::{Duration, Instant},
+};
 
 #[global_allocator]
 static ALLOCATOR: CountingAllocator = CountingAllocator::new();
@@ -39,16 +42,32 @@ fn digest(list: &DisplayList) -> u64 {
     hash
 }
 
-fn record(case: &str, count: usize, ops: usize, started: Duration, allocations: u64, bytes: u64, retained: i128) {
+fn record(
+    case: &str,
+    count: usize,
+    ops: usize,
+    started: Duration,
+    allocations: u64,
+    bytes: u64,
+    retained: i128,
+) {
     let n = ops as f64;
-    println!("{{\"case\":\"{case}\",\"controls\":{count},\"ns_per_op\":{:.2},\"alloc_realloc_per_op\":{:.2},\"requested_bytes_per_op\":{:.2},\"live_bytes_change_per_op\":{:.2}}}",
-        started.as_secs_f64() * 1e9 / n, allocations as f64 / n, bytes as f64 / n, retained as f64 / n);
+    println!(
+        "{{\"case\":\"{case}\",\"controls\":{count},\"ns_per_op\":{:.2},\"alloc_realloc_per_op\":{:.2},\"requested_bytes_per_op\":{:.2},\"live_bytes_change_per_op\":{:.2}}}",
+        started.as_secs_f64() * 1e9 / n,
+        allocations as f64 / n,
+        bytes as f64 / n,
+        retained as f64 / n
+    );
 }
 
-
 fn main() {
-    let dir = std::env::var("FORMA_TRANSPORT_DIR")
-        .unwrap_or_else(|_| format!("{}/../.forma/perf/template-load", env!("CARGO_MANIFEST_DIR")));
+    let dir = std::env::var("FORMA_TRANSPORT_DIR").unwrap_or_else(|_| {
+        format!(
+            "{}/../.forma/perf/template-load",
+            env!("CARGO_MANIFEST_DIR")
+        )
+    });
     for count in [1usize, 32, 256] {
         let path = format!("{dir}/forma-transport-{count}.txt");
         let text = std::fs::read_to_string(&path).unwrap_or_else(|error| {
@@ -77,7 +96,15 @@ fn main() {
             elapsed += started.elapsed();
             if round == 1 {
                 let delta = ALLOCATOR.snapshot().delta_since(before);
-                record("parse", count, count, started.elapsed(), delta.allocations + delta.reallocations, delta.requested_bytes, delta.live_bytes_change);
+                record(
+                    "parse",
+                    count,
+                    count,
+                    started.elapsed(),
+                    delta.allocations + delta.reallocations,
+                    delta.requested_bytes,
+                    delta.live_bytes_change,
+                );
             }
         }
         record("parse_total", count, 3 * count, elapsed, 0, 0, 0);
@@ -97,7 +124,15 @@ fn main() {
                     elapsed += started.elapsed();
                     if round == 1 {
                         let delta = ALLOCATOR.snapshot().delta_since(before);
-                        record("clone_cached", count, count, started.elapsed(), delta.allocations + delta.reallocations, delta.requested_bytes, delta.live_bytes_change);
+                        record(
+                            "clone_cached",
+                            count,
+                            count,
+                            started.elapsed(),
+                            delta.allocations + delta.reallocations,
+                            delta.requested_bytes,
+                            delta.live_bytes_change,
+                        );
                     }
                 }
             }
@@ -136,7 +171,10 @@ fn main() {
                 }
             }
             record("numbers", count, 20, elapsed, 0, 0, 0);
-            println!("{{\"case\":\"numbers_info\",\"controls\":{count},\"numbers_per_template\":{},\"digits\":{payload},\"sum\":{sum}}}", numbers.len());
+            println!(
+                "{{\"case\":\"numbers_info\",\"controls\":{count},\"numbers_per_template\":{},\"digits\":{payload},\"sum\":{sum}}}",
+                numbers.len()
+            );
         }
 
         // Whole load: markup parse + per-control template link and geometry.
@@ -147,7 +185,15 @@ fn main() {
             let runtime = Runtime::from_sources(black_box(source), black_box(component)).unwrap();
             let delta = ALLOCATOR.snapshot().delta_since(before);
             if round > 0 {
-                record("load", count, 1, started.elapsed(), delta.allocations + delta.reallocations, delta.requested_bytes, delta.live_bytes_change);
+                record(
+                    "load",
+                    count,
+                    1,
+                    started.elapsed(),
+                    delta.allocations + delta.reallocations,
+                    delta.requested_bytes,
+                    delta.live_bytes_change,
+                );
             }
             assert_eq!(runtime.control_count(), count);
             drop(runtime);
@@ -156,7 +202,9 @@ fn main() {
         // A cache hit end to end: key hash, full key compare, then Template clone.
         {
             template::flush_parse_cache();
-            for t in &templates { drop(template::parse_cached(t, &props).unwrap()); }
+            for t in &templates {
+                drop(template::parse_cached(t, &props).unwrap());
+            }
             let mut elapsed = Duration::ZERO;
             for round in 0..5 {
                 let before = ALLOCATOR.snapshot();
@@ -166,14 +214,24 @@ fn main() {
                 }
                 let delta = ALLOCATOR.snapshot().delta_since(before);
                 if round == 1 {
-                    record("parse_cached", count, count, started.elapsed(), delta.allocations + delta.reallocations, delta.requested_bytes, delta.live_bytes_change);
+                    record(
+                        "parse_cached",
+                        count,
+                        count,
+                        started.elapsed(),
+                        delta.allocations + delta.reallocations,
+                        delta.requested_bytes,
+                        delta.live_bytes_change,
+                    );
                 }
                 elapsed += started.elapsed();
             }
             record("parse_cached_total", count, 4 * count, elapsed, 0, 0, 0);
             let stats = template::parse_cache_stats();
-            println!("{{\"case\":\"cache\",\"controls\":{count},\"entries\":{},\"bytes\":{},\"hits\":{},\"misses\":{}}}",
-                stats.entries, stats.bytes, stats.hits, stats.misses);
+            println!(
+                "{{\"case\":\"cache\",\"controls\":{count},\"entries\":{},\"bytes\":{},\"hits\":{},\"misses\":{}}}",
+                stats.entries, stats.bytes, stats.hits, stats.misses
+            );
         }
 
         // Cold load of the same document: what the cache costs when nothing hits.
@@ -188,7 +246,11 @@ fn main() {
         // Geometry equivalence guard for the parse changes above.
         let runtime = Runtime::from_sources(source, component).unwrap();
         let list = runtime.vector_snapshot(1.25, true);
-        println!("{{\"case\":\"digest\",\"controls\":{count},\"template_bytes\":{template_bytes},\"commands\":{},\"edges\":{},\"hash\":{}}}",
-            list.commands.len(), list.edges.len(), digest(&list) & 0xffff_ffff_ffff_ffff);
+        println!(
+            "{{\"case\":\"digest\",\"controls\":{count},\"template_bytes\":{template_bytes},\"commands\":{},\"edges\":{},\"hash\":{}}}",
+            list.commands.len(),
+            list.edges.len(),
+            digest(&list) & 0xffff_ffff_ffff_ffff
+        );
     }
 }

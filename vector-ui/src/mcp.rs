@@ -5,7 +5,7 @@
 //! UI backends (`egui`/`svet`) and target platforms (`desktop`/`ios`/`android`),
 //! render pixel snapshots, and launch desktop or Android Emulator windows.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::io::{self, BufRead, Write};
 
 /// Runtime state managed by an interactive Forma MCP session.
@@ -28,8 +28,8 @@ impl McpApp {
     pub fn new() -> Self {
         let source = crate::TWO_BUTTONS_EXAMPLE.to_string();
         let template = crate::BUTTON_COMPONENT.to_string();
-        let runtime = crate::Runtime::from_sources(&source, &template)
-            .expect("valid built-in TwoButtons.ui");
+        let runtime =
+            crate::Runtime::from_sources(&source, &template).expect("valid built-in TwoButtons.ui");
         Self {
             runtime,
             source,
@@ -149,7 +149,11 @@ impl McpApp {
                 self.events.push(ev.clone());
                 return Ok(ev);
             }
-            other => return Err(format!("Unknown pointer kind '{other}' (expected move|down|up|cancel|click)")),
+            other => {
+                return Err(format!(
+                    "Unknown pointer kind '{other}' (expected move|down|up|cancel|click)"
+                ));
+            }
         };
         self.runtime.pointer(x, y, code);
         let _ = self.runtime.sync_ui_bindings_native();
@@ -173,10 +177,16 @@ impl McpApp {
         Ok(self.status_json())
     }
 
-    pub fn render_snapshot(&self, width: Option<u32>, height: Option<u32>, scale: Option<f32>) -> Value {
+    pub fn render_snapshot(
+        &self,
+        width: Option<u32>,
+        height: Option<u32>,
+        scale: Option<f32>,
+    ) -> Value {
         let s = scale.unwrap_or(1.0).clamp(0.25, 4.0);
         let w = width.unwrap_or_else(|| (self.runtime.render_width() * s).round().max(1.0) as u32);
-        let h = height.unwrap_or_else(|| (self.runtime.render_height() * s).round().max(1.0) as u32);
+        let h =
+            height.unwrap_or_else(|| (self.runtime.render_height() * s).round().max(1.0) as u32);
         let pixels = self.runtime.pixels(w, h, s);
         let non_empty = pixels.chunks_exact(4).filter(|p| p[3] > 0).count();
         // FNV-1a checksum of RGBA buffer for deterministic snapshot assertions
@@ -261,7 +271,10 @@ impl McpApp {
             }
             "tools/call" => {
                 let name = params.get("name").and_then(Value::as_str).unwrap_or("");
-                let args = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+                let args = params
+                    .get("arguments")
+                    .cloned()
+                    .unwrap_or_else(|| json!({}));
                 match self.call_tool(name, &args) {
                     Ok(val) => Ok(json!({
                         "content": [{
@@ -311,13 +324,23 @@ impl McpApp {
                     .get("key")
                     .and_then(Value::as_str)
                     .map(String::from)
-                    .or_else(|| args.get("index").and_then(Value::as_u64).map(|n| n.to_string()))
+                    .or_else(|| {
+                        args.get("index")
+                            .and_then(Value::as_u64)
+                            .map(|n| n.to_string())
+                    })
                     .ok_or("Provide 'key' (e.g. 'first' or 'second') or 'index' (0, 1)")?;
                 self.click_control(&target)
             }
             "ui_pointer" => {
-                let x = args.get("x").and_then(Value::as_f64).ok_or("Missing numeric 'x'")? as f32;
-                let y = args.get("y").and_then(Value::as_f64).ok_or("Missing numeric 'y'")? as f32;
+                let x = args
+                    .get("x")
+                    .and_then(Value::as_f64)
+                    .ok_or("Missing numeric 'x'")? as f32;
+                let y = args
+                    .get("y")
+                    .and_then(Value::as_f64)
+                    .ok_or("Missing numeric 'y'")? as f32;
                 let kind = args.get("kind").and_then(Value::as_str).unwrap_or("click");
                 self.pointer_event(x, y, kind)
             }
@@ -327,7 +350,8 @@ impl McpApp {
                     return Err("backend must be 'egui', 'svet', or 'ask'".into());
                 }
                 self.backend = b.to_string();
-                self.events.push(json!({"kind": "backend_changed", "backend": b}));
+                self.events
+                    .push(json!({"kind": "backend_changed", "backend": b}));
                 Ok(self.status_json())
             }
             "ui_set_platform" => {
@@ -336,7 +360,8 @@ impl McpApp {
                     return Err("platform must be 'desktop', 'ios', or 'android'".into());
                 }
                 self.platform = p.to_string();
-                self.events.push(json!({"kind": "platform_changed", "platform": p}));
+                self.events
+                    .push(json!({"kind": "platform_changed", "platform": p}));
                 Ok(self.status_json())
             }
             "ui_source_read" => Ok(json!({
@@ -645,15 +670,21 @@ mod tests {
         assert_eq!(click1["clicksAfter"], 1);
         assert_eq!(click1["action"], "actions.first");
 
-        let click2 = app.call_tool("ui_click", &json!({"key": "second"})).unwrap();
+        let click2 = app
+            .call_tool("ui_click", &json!({"key": "second"}))
+            .unwrap();
         assert_eq!(click2["clicksAfter"], 1);
         assert_eq!(click2["action"], "actions.second");
 
-        let status = app.call_tool("ui_set_backend", &json!({"backend": "svet"})).unwrap();
+        let status = app
+            .call_tool("ui_set_backend", &json!({"backend": "svet"}))
+            .unwrap();
         assert_eq!(status["backend"], "svet");
         assert_eq!(status["totalClicks"], 2);
 
-        let status = app.call_tool("ui_set_platform", &json!({"platform": "android"})).unwrap();
+        let status = app
+            .call_tool("ui_set_platform", &json!({"platform": "android"}))
+            .unwrap();
         assert_eq!(status["platform"], "android");
 
         let snap = app.call_tool("ui_render_snapshot", &json!({})).unwrap();

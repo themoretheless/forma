@@ -2,9 +2,9 @@
 mod bench_support;
 use bench_support::CountingAllocator;
 #[cfg(feature = "gpu")]
-use forma::gpu_runtime as wgpu;
-#[cfg(feature = "gpu")]
 use bench_support::ProcessSnapshot;
+#[cfg(feature = "gpu")]
+use forma::gpu_runtime as wgpu;
 #[cfg(feature = "gpu")]
 use std::{hint::black_box, time::Instant};
 
@@ -40,7 +40,7 @@ fn main() {
 
 #[cfg(feature = "gpu")]
 async fn run() {
-    use forma::{gpu::Renderer, Runtime as Button};
+    use forma::{Runtime as Button, gpu::Renderer};
     let args: Vec<_> = std::env::args().collect();
     assert!(
         args.len() == 8,
@@ -238,19 +238,46 @@ async fn run() {
     });
     let uploads = renderer.as_ref().map_or(0, |r| r.uploads) - uploads_before;
     let resource_delta = match (resource_before, resource) {
-        (Some(before), Some(after)) => format!("{{\"memory_architecture\":{:?},\"buffer_allocations\":{},\"buffer_allocation_bytes\":{},\"uploaded_bytes\":{},\"tile_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{},\"cpu_paint_scratch_bytes\":{},\"uma_shared_pool_bytes\":{},\"duma_device_local_bytes\":{},\"duma_host_ram_bytes\":{}}}",after.memory_architecture.as_str(),after.buffer_allocations_total-before.buffer_allocations_total,after.buffer_allocation_bytes_total-before.buffer_allocation_bytes_total,after.uploaded_bytes_total-before.uploaded_bytes_total,after.tile_uploads_total-before.tile_uploads_total,after.cpu_geometry_cache_bytes,after.cpu_shared_geometry_bytes,after.cpu_paint_scratch_bytes,after.uma_shared_pool_bytes,after.duma_device_local_bytes,after.duma_host_ram_bytes),
+        (Some(before), Some(after)) => format!(
+            "{{\"memory_architecture\":{:?},\"buffer_allocations\":{},\"buffer_allocation_bytes\":{},\"uploaded_bytes\":{},\"tile_uploads\":{},\"cpu_geometry_cache_bytes\":{},\"cpu_shared_geometry_bytes\":{},\"cpu_paint_scratch_bytes\":{},\"uma_shared_pool_bytes\":{},\"duma_device_local_bytes\":{},\"duma_host_ram_bytes\":{}}}",
+            after.memory_architecture.as_str(),
+            after.buffer_allocations_total - before.buffer_allocations_total,
+            after.buffer_allocation_bytes_total - before.buffer_allocation_bytes_total,
+            after.uploaded_bytes_total - before.uploaded_bytes_total,
+            after.tile_uploads_total - before.tile_uploads_total,
+            after.cpu_geometry_cache_bytes,
+            after.cpu_shared_geometry_bytes,
+            after.cpu_paint_scratch_bytes,
+            after.uma_shared_pool_bytes,
+            after.duma_device_local_bytes,
+            after.duma_host_ram_bytes
+        ),
         _ => "null".into(),
     };
-    let diagnostics=format!("{{\"timestamp_supported\":{timestamp_supported},\"valid_gpu_samples\":{},\"rss_lifetime_peak_bytes\":{},\"rust_deallocations\":{},\"gpu_phase\":{resource_delta}}}",gpu_ms.len(),process_after.peak_resident_bytes,a.deallocations);
-    println!("{{\"backend\":{backend:?},\"adapter\":{adapter_name:?},\"memory_architecture\":{memory_architecture:?},\"mode\":{mode:?},\"width\":{w},\"height\":{h},\"scale\":2,\"frames\":{actual_frames},\"init_and_warmup_ms\":{init_ms},\"wall_seconds\":{wall_seconds},\"render_throughput_fps\":{},\"completed_ms\":{{\"mean\":{mean},\"p50\":{p50},\"p95\":{p95},\"p99\":{p99}}},\"cpu_submit_ms\":{{\"mean\":{submit_mean},\"p95\":{submit_p95}}},\"cpu_seconds\":{cpu_seconds},\"cpu_percent_one_core\":{},\"rss_initial_bytes\":{},\"rss_before_bytes\":{},\"rss_after_bytes\":{},\"rust_allocations\":{},\"rust_reallocations\":{},\"rust_requested_bytes\":{},\"rust_live_before_bytes\":{},\"rust_live_after_bytes\":{},\"rust_peak_live_bytes\":{},\"owned_gpu_buffer_bytes\":{buffers},\"owned_gpu_buffer_count\":{buffer_count},\"uma_shared_pool_bytes\":{uma_shared_pool_bytes},\"duma_device_local_bytes\":{duma_device_local_bytes},\"duma_host_ram_bytes\":{duma_host_ram_bytes},\"target_payload_bytes\":{target_bytes},\"geometry_uploads\":{uploads},\"gpu_pass\":{gpu},\"diagnostics\":{diagnostics}}}",actual_frames as f64/wall_seconds,cpu_seconds/wall_seconds*100.,process_initial.resident_bytes,process_before.resident_bytes,process_after.resident_bytes,a.allocations,a.reallocations,a.requested_bytes,allocation_before.live_bytes,allocation_after.live_bytes,allocation_after.peak_live_bytes);
+    let diagnostics = format!(
+        "{{\"timestamp_supported\":{timestamp_supported},\"valid_gpu_samples\":{},\"rss_lifetime_peak_bytes\":{},\"rust_deallocations\":{},\"gpu_phase\":{resource_delta}}}",
+        gpu_ms.len(),
+        process_after.peak_resident_bytes,
+        a.deallocations
+    );
+    println!(
+        "{{\"backend\":{backend:?},\"adapter\":{adapter_name:?},\"memory_architecture\":{memory_architecture:?},\"mode\":{mode:?},\"width\":{w},\"height\":{h},\"scale\":2,\"frames\":{actual_frames},\"init_and_warmup_ms\":{init_ms},\"wall_seconds\":{wall_seconds},\"render_throughput_fps\":{},\"completed_ms\":{{\"mean\":{mean},\"p50\":{p50},\"p95\":{p95},\"p99\":{p99}}},\"cpu_submit_ms\":{{\"mean\":{submit_mean},\"p95\":{submit_p95}}},\"cpu_seconds\":{cpu_seconds},\"cpu_percent_one_core\":{},\"rss_initial_bytes\":{},\"rss_before_bytes\":{},\"rss_after_bytes\":{},\"rust_allocations\":{},\"rust_reallocations\":{},\"rust_requested_bytes\":{},\"rust_live_before_bytes\":{},\"rust_live_after_bytes\":{},\"rust_peak_live_bytes\":{},\"owned_gpu_buffer_bytes\":{buffers},\"owned_gpu_buffer_count\":{buffer_count},\"uma_shared_pool_bytes\":{uma_shared_pool_bytes},\"duma_device_local_bytes\":{duma_device_local_bytes},\"duma_host_ram_bytes\":{duma_host_ram_bytes},\"target_payload_bytes\":{target_bytes},\"geometry_uploads\":{uploads},\"gpu_pass\":{gpu},\"diagnostics\":{diagnostics}}}",
+        actual_frames as f64 / wall_seconds,
+        cpu_seconds / wall_seconds * 100.,
+        process_initial.resident_bytes,
+        process_before.resident_bytes,
+        process_after.resident_bytes,
+        a.allocations,
+        a.reallocations,
+        a.requested_bytes,
+        allocation_before.live_bytes,
+        allocation_after.live_bytes,
+        allocation_after.peak_live_bytes
+    );
 }
 
 #[cfg(feature = "gpu")]
-fn make_target(
-    r: &forma::gpu::Renderer,
-    w: u32,
-    h: u32,
-) -> (wgpu::Texture, wgpu::TextureView) {
+fn make_target(r: &forma::gpu::Renderer, w: u32, h: u32) -> (wgpu::Texture, wgpu::TextureView) {
     let texture = r.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("benchmark target"),
         size: wgpu::Extent3d {

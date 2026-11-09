@@ -2,15 +2,22 @@
 //! Surface retries and occlusion are reported to each host's event-loop policy.
 use std::sync::Arc;
 use winit::window::Window;
-#[cfg(target_os="macos")]
-#[path="metal_resize.rs"]
+#[cfg(target_os = "macos")]
+#[path = "metal_resize.rs"]
 mod metal_resize;
 
 /// Show/hide this window's GPU layer when switching presentation paths.
 /// Other platforms use the active surface directly.
-pub fn set_visible(window: &Window, visible: bool) -> Result<(),String> {
-    #[cfg(target_os="macos")] { metal_resize::set_visible(window,visible) }
-    #[cfg(not(target_os="macos"))] { let _=(window,visible);Ok(()) }
+pub fn set_visible(window: &Window, visible: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        metal_resize::set_visible(window, visible)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, visible);
+        Ok(())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -20,7 +27,6 @@ pub enum Presentation {
     Occluded,
     Retry,
 }
-
 
 pub struct GpuWindow {
     surface: wgpu::Surface<'static>,
@@ -72,13 +78,14 @@ impl GpuWindow {
             config,
         })
     }
-    #[cfg(feature="native-test-hooks")]
+    #[cfg(feature = "native-test-hooks")]
     pub(crate) fn inject_device_loss_for_testing(&self) {
-        self.renderer.inject_device_loss_for_testing("injected NativeHost device loss (test hook)".into());
+        self.renderer
+            .inject_device_loss_for_testing("injected NativeHost device loss (test hook)".into());
     }
 
     /// Service completion errors without acquiring a drawable or rendering.
-    pub fn poll_idle(&self) -> Result<bool,String> {
+    pub fn poll_idle(&self) -> Result<bool, String> {
         self.renderer.check_health()?;
         Ok(crate::gpu::device_queue_idle(&self.renderer.device))
     }

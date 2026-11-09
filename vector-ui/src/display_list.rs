@@ -1,6 +1,6 @@
 //! Backend-independent vector commands. No raster buffers, DOM or GPU objects.
 //! Coordinates remain logical; glyph curves are flattened to 0.15 physical px.
-use crate::{template::Content, text, Button};
+use crate::{Button, template::Content, text};
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
@@ -171,7 +171,14 @@ pub(crate) struct CachedList {
     list: Arc<DisplayList>,
 }
 impl DisplayList {
-    pub(crate) fn command(&mut self, kind: f32, bounds: [f32; 4], color: [u8; 4], radius: f32, stroke: f32) {
+    pub(crate) fn command(
+        &mut self,
+        kind: f32,
+        bounds: [f32; 4],
+        color: [u8; 4],
+        radius: f32,
+        stroke: f32,
+    ) {
         self.commands.extend([kind, 0., 0., 0.]);
         self.commands.extend(bounds);
         self.commands.extend(color.map(|v| v as f32 / 255.));
@@ -198,7 +205,12 @@ impl DisplayList {
         if ch > v[3] && v[3] > 0. {
             self.command(
                 5.,
-                [(v[0] + v[2] - 5.).max(v[0]), v[1], 5f32.min(v[2]), v[3] * v[3] / ch],
+                [
+                    (v[0] + v[2] - 5.).max(v[0]),
+                    v[1],
+                    5f32.min(v[2]),
+                    v[3] * v[3] / ch,
+                ],
                 [110, 130, 170, 255],
                 0.,
                 0.,
@@ -210,7 +222,12 @@ impl DisplayList {
         if cw > v[2] && v[2] > 0. {
             self.command(
                 5.,
-                [v[0], (v[1] + v[3] - 5.).max(v[1]), v[2] * v[2] / cw, 5f32.min(v[3])],
+                [
+                    v[0],
+                    (v[1] + v[3] - 5.).max(v[1]),
+                    v[2] * v[2] / cw,
+                    5f32.min(v[3]),
+                ],
                 [110, 130, 170, 255],
                 0.,
                 0.,
@@ -255,7 +272,13 @@ impl DisplayList {
         self.commands[start + 2] = (first_edge / 4) as f32;
         self.commands[start + 3] = ((self.edges.len() - first_edge) / 4) as f32;
     }
-    fn text(&mut self, t: &crate::template::Text, bounds: [f32; 4], scale: f32, scratch: &mut text::VectorScratch) {
+    fn text(
+        &mut self,
+        t: &crate::template::Text,
+        bounds: [f32; 4],
+        scale: f32,
+        scratch: &mut text::VectorScratch,
+    ) {
         if t.color[3] == 0 {
             return;
         }
@@ -316,8 +339,8 @@ impl DisplayList {
             r,
             model.template.border.as_ref().map_or(0., |b| b.width),
         );
-        let offset=out.commands.len()-STRIDE;
-        out.commands[offset+15]=1.; // Independent fill/border paint slots.
+        let offset = out.commands.len() - STRIDE;
+        out.commands[offset + 15] = 1.; // Independent fill/border paint slots.
         if let Some(t) = &model.template.text {
             out.text(
                 t,
@@ -340,12 +363,11 @@ impl DisplayList {
                     text_scratch,
                 ),
                 Content::Shape { points, color } => out.path(
-                    (0..points.len())
-                        .map(|i| {
-                            let a = points[i];
-                            let b = points[(i + 1) % points.len()];
-                            [x + a[0], y + a[1], x + b[0], y + b[1]]
-                        }),
+                    (0..points.len()).map(|i| {
+                        let a = points[i];
+                        let b = points[(i + 1) % points.len()];
+                        [x + a[0], y + a[1], x + b[0], y + b[1]]
+                    }),
                     *color,
                     false,
                 ),
@@ -357,7 +379,13 @@ impl DisplayList {
             }
         }
         if let Some(reveal) = &model.template.reveal {
-            out.command(6., model.content_reveal_bounds(), [0; 4], reveal.target_radius.unwrap_or(r), reveal.width);
+            out.command(
+                6.,
+                model.content_reveal_bounds(),
+                [0; 4],
+                reveal.target_radius.unwrap_or(r),
+                reveal.width,
+            );
             let offset = out.commands.len() - STRIDE;
             out.commands[offset + 14] = 2.; // Reveal data + color, after fill/border.
         }
@@ -503,7 +531,11 @@ impl Button {
                 scale,
                 background,
                 list: Arc::new(DisplayList::build_hinted(
-                    self, scale, background, hints, text_scratch,
+                    self,
+                    scale,
+                    background,
+                    hints,
+                    text_scratch,
                 )),
             });
         }
@@ -561,8 +593,12 @@ impl Button {
         {
             return vec![];
         }
-        self.vector_list(scale, background)
-            .tiles(width, height, scale, [self.scroll_x, self.scroll_y])
+        self.vector_list(scale, background).tiles(
+            width,
+            height,
+            scale,
+            [self.scroll_x, self.scroll_y],
+        )
     }
     // viewport/scale/opaque output, scroll; animated fill and border. Geometry is static.
     pub fn gpu_params(&self, width: u32, height: u32, scale: f32, opaque: bool) -> Vec<f32> {
@@ -580,17 +616,26 @@ pub trait RenderScene {
     fn release_cpu_cache(&self) {}
     /// Logical scroll offset applied by the renderer to `SCROLL_CONTENT`
     /// commands and scrollbar thumbs. Unscrollable scenes return zero.
-    fn gpu_scroll(&self) -> [f32; 2] { [0.; 2] }
-    fn vector_snapshot(&self, scale:f32, background:bool)->Arc<DisplayList>;
-    fn gpu_params(&self, width:u32, height:u32, scale:f32, opaque:bool)->Vec<f32>;
-    fn gpu_paints(&self)->Vec<f32>;
+    fn gpu_scroll(&self) -> [f32; 2] {
+        [0.; 2]
+    }
+    fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList>;
+    fn gpu_params(&self, width: u32, height: u32, scale: f32, opaque: bool) -> Vec<f32>;
+    fn gpu_paints(&self) -> Vec<f32>;
     /// Replace renderer-owned storage while retaining its allocation. Defaults
     /// preserve compatibility with external implementations of RenderScene.
-    fn gpu_params_into(&self, width:u32, height:u32, scale:f32, opaque:bool, out:&mut Vec<f32>) {
+    fn gpu_params_into(
+        &self,
+        width: u32,
+        height: u32,
+        scale: f32,
+        opaque: bool,
+        out: &mut Vec<f32>,
+    ) {
         out.clear();
         out.extend(self.gpu_params(width, height, scale, opaque));
     }
-    fn gpu_paints_into(&self, out:&mut Vec<f32>) {
+    fn gpu_paints_into(&self, out: &mut Vec<f32>) {
         out.clear();
         out.extend(self.gpu_paints());
     }
@@ -598,29 +643,65 @@ pub trait RenderScene {
 /// Uniform layout: viewport(w, h, scale, opaque), fill, border, scroll(x, y, 0, 0).
 pub const PARAMS_LEN: usize = 16;
 impl RenderScene for Button {
-    fn release_cpu_cache(&self) { Button::release_cpu_cache(self); }
-    fn gpu_scroll(&self) -> [f32; 2] { [self.scroll_x, self.scroll_y] }
-    fn vector_snapshot(&self,s:f32,b:bool)->Arc<DisplayList>{Button::vector_snapshot(self,s,b)}
-    fn gpu_params(&self,w:u32,h:u32,s:f32,o:bool)->Vec<f32>{Button::gpu_params(self,w,h,s,o)}
-    fn gpu_paints(&self)->Vec<f32>{Button::gpu_paints(self)}
-    fn gpu_params_into(&self, width:u32, height:u32, scale:f32, opaque:bool, out:&mut Vec<f32>) {
+    fn release_cpu_cache(&self) {
+        Button::release_cpu_cache(self);
+    }
+    fn gpu_scroll(&self) -> [f32; 2] {
+        [self.scroll_x, self.scroll_y]
+    }
+    fn vector_snapshot(&self, s: f32, b: bool) -> Arc<DisplayList> {
+        Button::vector_snapshot(self, s, b)
+    }
+    fn gpu_params(&self, w: u32, h: u32, s: f32, o: bool) -> Vec<f32> {
+        Button::gpu_params(self, w, h, s, o)
+    }
+    fn gpu_paints(&self) -> Vec<f32> {
+        Button::gpu_paints(self)
+    }
+    fn gpu_params_into(
+        &self,
+        width: u32,
+        height: u32,
+        scale: f32,
+        opaque: bool,
+        out: &mut Vec<f32>,
+    ) {
         out.clear();
-        out.extend([width as f32, height as f32, scale, if opaque { 1. } else { 0. }]);
+        out.extend([
+            width as f32,
+            height as f32,
+            scale,
+            if opaque { 1. } else { 0. },
+        ]);
         out.extend(self.fill.color().map(|v| v as f32 / 255.));
         out.extend(self.border.color().map(|v| v as f32 / 255.));
         out.extend([self.scroll_x, self.scroll_y, 0., 0.]);
     }
-    fn gpu_paints_into(&self, out:&mut Vec<f32>) {
+    fn gpu_paints_into(&self, out: &mut Vec<f32>) {
         out.clear();
-        out.extend(self.fill.color().into_iter().chain(self.border.color()).map(|v| v as f32 / 255.));
-        if self.template.reveal.is_some() { out.extend(self.reveal_paint().gpu()); }
+        out.extend(
+            self.fill
+                .color()
+                .into_iter()
+                .chain(self.border.color())
+                .map(|v| v as f32 / 255.),
+        );
+        if self.template.reveal.is_some() {
+            out.extend(self.reveal_paint().gpu());
+        }
     }
 }
 #[wasm_bindgen]
 impl Button {
-    pub fn release_cpu_cache(&self) { self.raster_cache.borrow_mut().take(); }
-    pub fn gpu_paints(&self)->Vec<f32>{
-        let mut paints = Vec::with_capacity(if self.template.reveal.is_some() { 16 } else { 8 });
+    pub fn release_cpu_cache(&self) {
+        self.raster_cache.borrow_mut().take();
+    }
+    pub fn gpu_paints(&self) -> Vec<f32> {
+        let mut paints = Vec::with_capacity(if self.template.reveal.is_some() {
+            16
+        } else {
+            8
+        });
         self.gpu_paints_into(&mut paints);
         paints
     }
