@@ -1432,7 +1432,9 @@ set of browser scenarios, alongside the jsdom regressions.
 
 Public exports resolve to JavaScript and `.d.ts` declarations in `dist/package`:
 `svet-engine`, `svet-engine/reactivity`, `svet-engine/jsx-runtime`,
-`svet-engine/jsx-dev-runtime`, `svet-engine/compiler`, and `svet-engine/server`.
+`svet-engine/jsx-dev-runtime`, `svet-engine/compiler`, `svet-engine/server`,
+`svet-engine/slim` (with `/jsx-runtime`, `/jsx-dev-runtime`, `/reactivity`) and
+`svet-engine/forma-3d`.
 The main and reactivity entries share the same graph implementation. This is an
 ESM package; CommonJS `require()` compatibility is not qualified. Supported Node
 versions follow the declared engine range; the local qualification used 22.23.4.
@@ -1463,6 +1465,69 @@ Configure automatic JSX with `jsxImportSource: "svet-engine"` (TypeScript) or
 `importSource: "svet-engine"` in the bundler. Generated Forma modules now import
 `svet-engine` by default. Internal source demos using an alias can set
 `svetVitePlugin({ runtimeImportSource: "svet" })` explicitly.
+
+## Slim entry and bundle size
+
+`svet-engine` is self-contained: the Rust core travels inside the JavaScript as base64 and
+the 3D Forma tags are registered up front. That is convenient and costs bundle size no
+tree-shaking can recover, because both arrive as side effects. `svet-engine/slim` exports
+the same API without them:
+
+| Left out of `svet-engine/slim` | How to get it back |
+| --- | --- |
+| Embedded WASM core (base64) | `await loadSvetWasm(...)` with `svet-engine/core.wasm` before first use |
+| `Scene3D`, `OrbitCube3D`, `Viewport3D` in `.ui` (and with them `gpu.ts`) | `import 'svet-engine/forma-3d'` |
+| `.ui` source parser, for views compiled at build time | nothing to do: it is included as soon as `compileFormaComponent`, `registerFormaComponent` or `FormaHost` with `source` is used |
+
+```ts
+// boot.ts: load the core, then the application (its modules create signals on import)
+import { loadSvetWasm } from 'svet-engine/slim';
+import wasmUrl from 'svet-engine/core.wasm?url';
+
+await loadSvetWasm(fetch(wasmUrl));
+await import('./main.ts');
+```
+
+```ts
+// vite.config.ts: every route into the engine must be the slim one
+svetVitePlugin({ runtimeImportSource: 'svet-engine/slim' });
+// oxc / tsconfig: jsxImportSource "svet-engine/slim"
+```
+
+`loadSvetWasm` accepts a URL, a `Response` (or a promise of one), bytes or a compiled
+`WebAssembly.Module`. It stream-compiles when the server answers `application/wasm` and
+falls back to buffering otherwise. Using the engine before the core is installed throws an
+error that names `loadSvetWasm`; loading a second, different module is rejected the same
+way as with `installSvetWasmModule`. The page's CSP needs `'wasm-unsafe-eval'` in either mode.
+
+Importing `svet-engine` (or its `jsx-runtime`, `reactivity`, `server`, `server-runtime`
+subpaths) anywhere in the same application brings the embedded core back, so the JSX
+runtime and generated Forma modules have to point at `svet-engine/slim` as well. The slim
+counterparts are `svet-engine/slim/jsx-runtime` and `svet-engine/slim/reactivity`.
+
+Generated `.ui` modules call `instantiateFormaAst`, which never references the parser, and
+`vite build` omits the original `.ui` text from them (`uiSource` is `undefined` there; the
+dev server keeps it). `svetVitePlugin({ embedFormaSource })` and
+`compileFormaToJsModule(source, importSource, { embedSource })` override that default.
+
+An application can also teach Forma its own tags:
+
+```ts
+import { registerFormaElement } from 'svet-engine/slim';
+
+registerFormaElement('MapViewport', ({ props, scope, registerKey }) => {
+  const element = document.createElement('div');
+  // props are raw expressions: evaluate them with evaluateFormaExpression(props.zoom, scope)
+  registerKey('map', element);
+  return element;
+});
+```
+
+Measured on one consumer (a map application with seven precompiled `.ui` views, Vite 8,
+minified): the engine's share of the bundle went from 196 KB to 94 KB and the whole script
+from 332 KB to 233 KB (113 KB to 76 KB gzip), with the 53 KB core (22 KB gzip) fetched as a
+separate, cacheable file. `tests/slim-bundle.test.ts` asserts what each entry does and does
+not carry.
 
 ## GPU resource lifetime and validation
 

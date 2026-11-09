@@ -27,13 +27,6 @@
 
 import { For, h, insertChild, Show } from './dom.ts';
 import {
-  Canvas3D,
-  Viewport3D,
-  createCubeMesh3D,
-  createPerspectiveCamera3D,
-  createTransform3D,
-} from './gpu.ts';
-import {
   batch,
   computed,
   createRoot,
@@ -715,11 +708,47 @@ function sourceChar(s: string, idx: number): string {
 
 const _formaComponentRegistry = new Map<string, string>();
 
+/** What an extension element renderer receives for one `Tag { ... }` occurrence. */
+export interface FormaElementContext {
+  tag: string;
+  /** Raw property expressions of the element, after `apply` styles and `forward props` are merged in. */
+  props: Record<string, string>;
+  /** Evaluation scope for `evaluateFormaExpression` / `evalAstNode`; reads inside effects are tracked. */
+  scope: FormaEvalScope;
+  /** Makes the element reachable through `instance.getElementByKey(key)`. */
+  registerKey(key: string, element: HTMLElement): void;
+}
+export type FormaElementRenderer = (context: FormaElementContext) => Node;
+
+const FORMA_3D_TAGS = new Set(['Scene3D', 'OrbitCube3D', 'Viewport3D']);
+// Shared across copies of the package, like the other cross-copy registries in this file.
+const formaElementHost = globalThis as unknown as Record<symbol, Map<string, FormaElementRenderer> | undefined>;
+const formaElementRenderers: Map<string, FormaElementRenderer> = formaElementHost[Symbol.for('svet.forma.elements.v1')] ??= new Map<string, FormaElementRenderer>();
+
+/**
+ * Registers a renderer for one or more Forma tags that the core runtime does not draw itself.
+ * It runs inside the component's reactive owner, so `effect` and `onCleanup` behave as in built-in elements.
+ * Returns a function that removes the registration.
+ */
+export function registerFormaElement(tags: string | readonly string[], renderer: FormaElementRenderer): () => void {
+  const names = typeof tags === 'string' ? [tags] : [...tags];
+  for (const name of names) {
+    if (!/^[A-Z][A-Za-z0-9_]*$/.test(name)) throw new TypeError(`Invalid Forma element name: ${name}`);
+    formaElementRenderers.set(name, renderer);
+  }
+  return () => {
+    for (const name of names) {
+      if (formaElementRenderers.get(name) === renderer) formaElementRenderers.delete(name);
+    }
+  };
+}
+
 /**
  * Registers a reusable Forma `.ui` component globally so any other `.ui` component
  * can embed `<ComponentName> { propA: ...; }` declaratively.
  */
 export function registerFormaComponent(name: string, uiSource: string): void {
+  formaSourceParser ??= parseFormaSource;
   _formaComponentRegistry.set(name, uiSource);
 }
 
@@ -1311,6 +1340,35 @@ export function compileFormaComponent(
   uiSourceOrAst: string | FormaDocumentAst,
   options?: FormaCompileOptions
 ): FormaRuntimeInstance {
+  formaSourceParser ??= parseFormaSource;
+  return instantiateForma(uiSourceOrAst, options);
+}
+
+/**
+ * Instantiates a component from an AST produced at build time (`compileFormaToJsModule`, the Vite plugin).
+ * Unlike `compileFormaComponent` it never references the `.ui` parser, so a bundle that only ships
+ * precompiled views does not carry it. Child components passed as source text and `hotReload(source)`
+ * still work once anything in the application has pulled the parser in (`compileFormaComponent`,
+ * `registerFormaComponent`, `FormaHost` with `source`); otherwise they must be ASTs.
+ */
+export function instantiateFormaAst(ast: FormaDocumentAst, options?: FormaCompileOptions): FormaRuntimeInstance {
+  if (typeof ast === 'string') throw new TypeError('instantiateFormaAst expects a pre-parsed AST; use compileFormaComponent for source text');
+  return instantiateForma(ast, options);
+}
+
+// Set by the entry points that accept `.ui` source text. The runtime below only reaches the parser through it.
+let formaSourceParser: ((source: string) => FormaDocumentAst) | null = null;
+function formaAstFromSource(source: string): FormaDocumentAst {
+  if (!formaSourceParser) {
+    throw new Error('Forma source text needs the parser: create the component with compileFormaComponent() or pass a pre-parsed AST');
+  }
+  return formaSourceParser(source);
+}
+
+function instantiateForma(
+  uiSourceOrAst: string | FormaDocumentAst,
+  options?: FormaCompileOptions
+): FormaRuntimeInstance {
   let constructing = true, disposed = false;
   const constructionDisposers: Array<() => void> = [];
   const trackConstruction = <T extends { dispose(): void }>(value: T): T => {
@@ -1330,7 +1388,7 @@ export function compileFormaComponent(
   };
   try {
   const initialAst = typeof uiSourceOrAst === 'string'
-    ? parseFormaSource(uiSourceOrAst) : snapshotFormaAst(uiSourceOrAst);
+    ? formaAstFromSource(uiSourceOrAst) : snapshotFormaAst(uiSourceOrAst);
   const componentName = initialAst.componentName;
 
   const tokens: Record<string, any> = {};
@@ -1793,66 +1851,18 @@ export function compileFormaComponent(
       return renderAstChildren(ast.children, locals);
     }
 
-    // Declarative 3D GPU Widget inside Forma `.ui`: `Scene3D { rotX: ...; rotY: ...; rotZ: ...; scale: ...; width: ...; height: ...; }`
-    if (tag === 'Scene3D' || tag === 'OrbitCube3D' || tag === 'Viewport3D') {
-      const widthAst = mergedProps.width ? parseFormaExprAst(mergedProps.width) : null;
-      const heightAst = mergedProps.height ? parseFormaExprAst(mergedProps.height) : null;
-      const rotXAst = mergedProps.rotX ? parseFormaExprAst(mergedProps.rotX) : null;
-      const rotYAst = mergedProps.rotY ? parseFormaExprAst(mergedProps.rotY) : null;
-      const rotZAst = mergedProps.rotZ ? parseFormaExprAst(mergedProps.rotZ) : null;
-      const scaleAst = mergedProps.scale ? parseFormaExprAst(mergedProps.scale) : null;
-      const width = () => (widthAst ? Number(evalAstNode(widthAst, localScope)) || 320 : 320);
-      const height = () => (heightAst ? Number(evalAstNode(heightAst, localScope)) || 180 : 180);
-      const transform = createTransform3D({
-        position: [0, 0, -3.2],
-        rotation: [0.4, 0.6, 0.1],
-        scale: [1, 1, 1],
+    // Elements rendered by an extension module (`registerFormaElement`), e.g. the 3D tags of `forma-3d.ts`.
+    const extensionRenderer = formaElementRenderers.get(tag);
+    if (extensionRenderer) {
+      return extensionRenderer({
+        tag,
+        props: mergedProps,
+        scope: localScope,
+        registerKey: (key, element) => keyedElements.set(key, element),
       });
-      const camera = createPerspectiveCamera3D({
-        fovYRad: Math.PI / 3,
-        aspect: width() / Math.max(1, height()),
-      });
-      effect(() => camera.aspect.set(width() / Math.max(1, height())));
-      const cube = createCubeMesh3D({ size: 1.35, transform, camera });
-      onCleanup(() => {
-        cube.mesh.dispose();
-        camera.dispose();
-        transform.dispose();
-      });
-
-      effect(() => {
-        const rx = rotXAst ? Number(evalAstNode(rotXAst, localScope)) || 0 : 0.4;
-        const ry = rotYAst ? Number(evalAstNode(rotYAst, localScope)) || 0 : 0.6;
-        const rz = rotZAst ? Number(evalAstNode(rotZAst, localScope)) || 0 : 0.1;
-        transform.rotation.set([rx, ry, rz]);
-      });
-
-      if (scaleAst) {
-        effect(() => {
-          const s = Number(evalAstNode(scaleAst, localScope)) || 1;
-          transform.scale.set([s, s, s]);
-        });
-      }
-
-      const canvas = (tag === 'Viewport3D' ? Viewport3D : Canvas3D)({
-        renderMode: mergedProps.renderMode ? String(evaluateFormaExpression(mergedProps.renderMode, localScope)) as 'sync' | 'animation-frame' : undefined,
-        mesh: cube.mesh,
-        edges: cube.edges,
-        faces: cube.faces,
-        width,
-        height,
-        orbitTransform: transform,
-        strokeStyle: mergedProps.strokeColor
-          ? String(evaluateFormaExpression(mergedProps.strokeColor, localScope))
-          : '#38bdf8',
-      });
-      canvas.setAttribute('data-forma-type', tag);
-      if (mergedProps.key) {
-        const keyVal = String(evaluateFormaExpression(mergedProps.key, localScope));
-        canvas.setAttribute('data-forma-key', keyVal);
-        keyedElements.set(keyVal, canvas);
-      }
-      return canvas;
+    }
+    if (FORMA_3D_TAGS.has(tag)) {
+      throw new Error(`Forma <${tag}> needs the 3D module: add \`import 'svet-engine/forma-3d'\` (the default \`svet-engine\` entry does it for you)`);
     }
 
     // Check if `tag` references a registered or passed child Forma `.ui` component!
@@ -1876,7 +1886,7 @@ export function compileFormaComponent(
               locale: locale.peek(),
               components: options?.components,
             })
-          : compileFormaComponent(customCompDef, {
+          : instantiateForma(customCompDef, {
               props: initialChildProps,
               locale: locale.peek(),
               components: options?.components,
@@ -2475,7 +2485,7 @@ export function compileFormaComponent(
       updatingDocument = true;
       try {
         const nextAst = typeof nextUiSourceOrAst === 'string'
-          ? parseFormaSource(nextUiSourceOrAst) : snapshotFormaAst(nextUiSourceOrAst);
+          ? formaAstFromSource(nextUiSourceOrAst) : snapshotFormaAst(nextUiSourceOrAst);
         assertLive();
         const previousAst: FormaDocumentAst = {
           componentName, tokens: { ...tokens }, i18nDictionaries: { ...i18nDictionaries }, styles: { ...styles },
@@ -2959,11 +2969,19 @@ export function validateFormaSource(uiSource: string): FormaValidationReport {
  * Both `uiAst` (`parseFormaSource`) and `uiValidation` (`validateFormaSource`) are computed
  * at build time so the browser runs `compileFormaAst(uiAst, options)` with 0ms of source parsing!
  */
-export function compileFormaToJsModule(uiSource: string, importSource = 'svet-engine'): string {
+export interface FormaModuleOptions {
+  /**
+   * Keep the original `.ui` text in the module as `uiSource` (default). Build tools turn it off for
+   * production output: the runtime only needs `uiAst`, and the text would otherwise ship twice.
+   */
+  embedSource?: boolean;
+}
+
+export function compileFormaToJsModule(uiSource: string, importSource = 'svet-engine', moduleOptions: FormaModuleOptions = {}): string {
   const report = validateFormaSource(uiSource);
   const precompiledAst = (report as FormaValidationReport & { _ast?: FormaDocumentAst })._ast ?? parseFormaSource(uiSource);
-  return `import { compileFormaAst, parseFormaSource } from ${JSON.stringify(importSource)};
-export const uiSource = ${JSON.stringify(uiSource)};
+  return `import { instantiateFormaAst as compileFormaAst } from ${JSON.stringify(importSource)};
+export const uiSource = ${moduleOptions.embedSource === false ? 'undefined' : JSON.stringify(uiSource)};
 export const uiAst = ${JSON.stringify(precompiledAst)};
 export const uiValidation = ${JSON.stringify(report)};
 const _activeInstances = import.meta.hot ? (import.meta.hot.data.instances ??= new Set()) : null;
@@ -3002,7 +3020,7 @@ if (import.meta.hot) {
         const messages = (newMod.uiValidation.diagnostics ?? []).map((item) => item.message).join('; ');
         throw new Error('Invalid Forma HMR module: ' + messages);
       }
-      const nextAst = newMod.uiAst ?? parseFormaSource(newMod.uiSource);
+      const nextAst = newMod.uiAst;
       const instances = [..._activeInstances];
       _hmrAst.value = nextAst;
       let failed = false, failure;

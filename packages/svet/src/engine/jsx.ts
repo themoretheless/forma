@@ -1,0 +1,41 @@
+import { type ChildNodeValue, type Component, type AsyncComponent, Fragment, h } from './dom.ts';
+import { type Signal } from './reactivity.ts';
+
+export { Fragment };
+
+export function jsx(
+  type: string | Component<any> | AsyncComponent<any>,
+  props: Record<string, any> | null,
+  key?: string | number
+): Node {
+  const finalProps = props ? { ...props } : {};
+  if (key !== undefined) {
+    finalProps.key = key;
+  }
+  const children = finalProps.children;
+  delete finalProps.children;
+  if (children !== undefined) {
+    return h(type, finalProps, ...(Array.isArray(children) ? children : [children]));
+  }
+  return h(type, finalProps);
+}
+
+export const jsxs = jsx;
+export const jsxDEV = jsx;
+
+export namespace JSX {
+  export type Element = Node;
+  export type ElementType = string | Component<any> | AsyncComponent<any>;
+  export interface ElementChildrenAttribute {
+    children: {};
+  }
+  export interface IntrinsicElements {
+    [elemName: string]: Record<string, any> & {
+      children?: ChildNodeValue;
+      class?: string | (() => string);
+      className?: string | (() => string);
+      style?: string | Record<string, any> | (() => string | Record<string, any>);
+      model?: Signal<any>;
+    };
+  }
+}

@@ -9,7 +9,7 @@
  *   and O(n log n) Longest Increasing Subsequence (LIS) reconciliation.
  */
 
-import { decodeWasmBinary,WASM_EXPORTS } from './wasm-binary.ts';
+import { WASM_EXPORTS } from './wasm-binary.ts';
 
 export const KIND_SIGNAL = 0;
 export const KIND_COMPUTED = 1;
@@ -147,10 +147,58 @@ export function installSvetWasmModule(module:WebAssembly.Module):void {
   compiledModule=module;
 }
 
+// The base64 copy of the core is not imported here: entries that want the zero-setup behaviour pull in
+// `wasm-embedded.ts`, which registers it. `svet-engine/slim` leaves it out of the bundle entirely.
+let embeddedWasmSource: (() => Uint8Array) | null = null;
+
+/** Internal: registers the embedded copy of the core as the fallback used when no module was installed. */
+export function installEmbeddedSvetWasmSource(decode: () => Uint8Array): void {
+  embeddedWasmSource ??= decode;
+}
+
+/**
+ * Compiles the core from `svet-engine/core.wasm` and installs it. Call it once, before the first signal,
+ * effect or element is created. Needed with `svet-engine/slim`, which ships without the embedded copy;
+ * with the default entry it is optional and lets the browser stream-compile and cache the binary.
+ *
+ * ```ts
+ * import wasmUrl from 'svet-engine/core.wasm?url';
+ * await loadSvetWasm(fetch(wasmUrl));
+ * ```
+ */
+export async function loadSvetWasm(
+  source: string | URL | Response | Promise<Response> | BufferSource | WebAssembly.Module
+): Promise<void> {
+  if (source instanceof WebAssembly.Module) {
+    installSvetWasmModule(source);
+    return;
+  }
+  if (source instanceof ArrayBuffer || ArrayBuffer.isView(source)) {
+    installSvetWasmModule(await WebAssembly.compile(source as BufferSource));
+    return;
+  }
+  const response = await (typeof source === 'string' || source instanceof URL ? fetch(source) : source);
+  if (!response.ok) {
+    throw new Error(`Svet WASM core request failed: ${response.status} ${response.statusText}`.trim());
+  }
+  // `compileStreaming` insists on `application/wasm`; fall back to buffering for servers that send another type.
+  const streamable = typeof WebAssembly.compileStreaming === 'function'
+    && (response.headers.get('content-type') ?? '').toLowerCase().startsWith('application/wasm');
+  installSvetWasmModule(streamable
+    ? await WebAssembly.compileStreaming(response)
+    : await WebAssembly.compile(await response.arrayBuffer()));
+}
+
 function getCompiledModule(): WebAssembly.Module {
   if (!compiledModule) {
-    const bytes = decodeWasmBinary();
-    compiledModule = new WebAssembly.Module(bytes as BufferSource);
+    if (!embeddedWasmSource) {
+      throw new Error(
+        'Svet WASM core is not loaded. `svet-engine/slim` ships without the embedded binary: '
+        + "call `await loadSvetWasm(...)` with `svet-engine/core.wasm` (or `installSvetWasmModule`) before using the engine, "
+        + 'or import `svet-engine` for the self-contained build.'
+      );
+    }
+    compiledModule = new WebAssembly.Module(embeddedWasmSource() as BufferSource);
   }
   return compiledModule;
 }

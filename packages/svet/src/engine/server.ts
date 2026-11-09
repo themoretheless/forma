@@ -1,4 +1,5 @@
 /** Node host for the shared SSR runtime. Import from svet-engine/server. */
+import './wasm-embedded.ts';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {randomUUID} from 'node:crypto';
 import {createSsrRuntime,type SsrRuntimeHost} from './ssr-runtime.ts';
