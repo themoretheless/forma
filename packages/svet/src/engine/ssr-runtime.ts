@@ -64,7 +64,7 @@ export interface SsrRuntimeHost {
   randomUUID(): string;
 }
 export class SsrTimeoutError extends Error {
-  readonly name = 'SsrTimeoutError';
+  override readonly name = 'SsrTimeoutError';
   constructor(readonly timeoutMs: number) {
     super(`SSR request timed out after ${timeoutMs}ms`);
     // Freeze V8 lazy call sites to text; structured frames can retain ALS stores.
