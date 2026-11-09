@@ -5,16 +5,21 @@ import { renderToString, serializeDomNodeToHtml } from '../src/engine';
 
 it('runs request cleanup when a view throws during SSR', () => {
   let cleanups = 0;
-  expect(() => renderToString(() => {
-    onCleanup(() => { cleanups++; });
-    throw new Error('render failure');
-  })).toThrow('render failure');
+  expect(() =>
+    renderToString(() => {
+      onCleanup(() => {
+        cleanups++;
+      });
+      throw new Error('render failure');
+    }),
+  ).toThrow('render failure');
   expect(cleanups).toBe(1);
 });
 
 it('serializes live form state rather than stale default HTML attributes', () => {
   const root = document.createElement('div');
-  root.innerHTML = '<input value="old"><input type="checkbox" checked><textarea>old</textarea><select><option selected>A</option><option>B</option></select>';
+  root.innerHTML =
+    '<input value="old"><input type="checkbox" checked><textarea>old</textarea><select><option selected>A</option><option>B</option></select>';
   root.querySelector('input')!.value = 'new <&"';
   root.querySelector<HTMLInputElement>('[type=checkbox]')!.checked = false;
   root.querySelector('textarea')!.value = '\nnew <&';

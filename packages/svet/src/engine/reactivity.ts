@@ -135,8 +135,11 @@ interface JsReactiveContext {
 // Compatible copies discover one another weakly only when suppressing reads.
 const activeObservationContexts: JsReactiveContext[] = [];
 const observationCopiesKey = Symbol.for('svet.reactivity.observation-copies.v2');
-const observationHost = globalThis as unknown as Record<symbol, Array<WeakRef<JsReactiveContext[]>> | undefined>;
-const observationCopies = observationHost[observationCopiesKey] ??= [];
+const observationHost = globalThis as unknown as Record<
+  symbol,
+  Array<WeakRef<JsReactiveContext[]>> | undefined
+>;
+const observationCopies = (observationHost[observationCopiesKey] ??= []);
 for (let i = observationCopies.length - 1; i >= 0; i--) {
   if (!observationCopies[i].deref()) observationCopies.splice(i, 1);
 }
@@ -156,7 +159,10 @@ type ReactiveHandleRetirement = (owners?: ReactiveResetOwnerRetirements) => void
 type ReactiveDomains = {
   handleRetirements?: WeakMap<object, ReactiveHandleRetirement>;
   rootDisposerCells?: WeakMap<OwnerScope, RootDisposerCell>;
-  batchTransport?: { depth: number; held: Map<SvetWasmExports, { ctx: JsReactiveContext; generation: number }> };
+  batchTransport?: {
+    depth: number;
+    held: Map<SvetWasmExports, { ctx: JsReactiveContext; generation: number }>;
+  };
   bridges?: WeakMap<object, Map<object, ForeignBridge>>;
   sourceBridges?: WeakMap<object, Set<ForeignBridge>>;
   frames: JsReactiveContext[];
@@ -169,28 +175,42 @@ type ReactiveDomains = {
 };
 // Node IDs and generations belong to a native core, not to a module copy.
 const domainHost = globalThis as unknown as Record<symbol, ReactiveDomains | undefined>;
-const reactiveDomains = domainHost[Symbol.for('svet.reactivity.domains.v1')] ??= {
-  frames: [], contexts: new WeakMap(), resetCleanups: new WeakMap(), resetFinalizers: new WeakMap(),
-  retiredCaches: new WeakSet(), cacheRetirements: [],
-};
+const reactiveDomains = (domainHost[Symbol.for('svet.reactivity.domains.v1')] ??= {
+  frames: [],
+  contexts: new WeakMap(),
+  resetCleanups: new WeakMap(),
+  resetFinalizers: new WeakMap(),
+  retiredCaches: new WeakSet(),
+  cacheRetirements: [],
+});
 const reactiveResetCleanups = reactiveDomains.resetCleanups;
 /** Internal external-resource hook, retained for the lifetime of a WASM context. */
 export function registerReactiveResetCleanup(core: SvetWasmExports, cleanup: () => void): void {
   let callbacks = reactiveResetCleanups.get(core);
-  if (!callbacks) { callbacks = new Set(); reactiveResetCleanups.set(core, callbacks); }
+  if (!callbacks) {
+    callbacks = new Set();
+    reactiveResetCleanups.set(core, callbacks);
+  }
   callbacks.add(cleanup);
 }
 
 const reactiveResetFinalizers = reactiveDomains.resetFinalizers;
 /** @internal One-shot notification after old graph storage is fully cleared. */
-export function registerReactiveResetFinalizer(core: SvetWasmExports, finalize: () => void): () => void {
+export function registerReactiveResetFinalizer(
+  core: SvetWasmExports,
+  finalize: () => void,
+): () => void {
   let callbacks = reactiveResetFinalizers.get(core);
-  if (!callbacks) { callbacks = new Set(); reactiveResetFinalizers.set(core, callbacks); }
+  if (!callbacks) {
+    callbacks = new Set();
+    reactiveResetFinalizers.set(core, callbacks);
+  }
   callbacks.add(finalize);
   const registered = callbacks;
   return () => {
     registered.delete(finalize);
-    if (!registered.size && reactiveResetFinalizers.get(core) === registered) reactiveResetFinalizers.delete(core);
+    if (!registered.size && reactiveResetFinalizers.get(core) === registered)
+      reactiveResetFinalizers.delete(core);
   };
 }
 
@@ -199,7 +219,10 @@ let cachedCore: SvetWasmExports | null = null;
 let cachedCtx: JsReactiveContext | null = null;
 const retiredContextCaches = reactiveDomains.retiredCaches;
 const retireLocalCache = (core: SvetWasmExports) => {
-  if (cachedCore === core) { cachedCore = null; cachedCtx = null; }
+  if (cachedCore === core) {
+    cachedCore = null;
+    cachedCtx = null;
+  }
 };
 for (let i = reactiveDomains.cacheRetirements.length - 1; i >= 0; i--) {
   if (!reactiveDomains.cacheRetirements[i].deref()) reactiveDomains.cacheRetirements.splice(i, 1);
@@ -252,14 +275,17 @@ function getJsContext(core: SvetWasmExports = getWasmCore()): JsReactiveContext 
     contextByCore.set(core, ctx);
   }
   ctx.coreRef ??= new WeakRef(core);
-  if (!retiredContextCaches.has(core)) { cachedCore = core; cachedCtx = ctx; }
+  if (!retiredContextCaches.has(core)) {
+    cachedCore = core;
+    cachedCtx = ctx;
+  }
   return ctx;
 }
 
 /** @internal Node adapters can resolve an owner without importing Node in this module. */
 let asyncOwnerResolver: AsyncOwnerResolver | undefined;
 const resolveAsyncOwnerForCopy: AsyncOwnerResolver = core => asyncOwnerResolver?.(core);
-const compatibleOwnerResolvers = reactiveDomains.ownerResolvers ??= [];
+const compatibleOwnerResolvers = (reactiveDomains.ownerResolvers ??= []);
 for (let i = compatibleOwnerResolvers.length - 1; i >= 0; i--) {
   if (!compatibleOwnerResolvers[i].deref()) compatibleOwnerResolvers.splice(i, 1);
 }
@@ -271,14 +297,15 @@ function resolveCurrentOwner(ctx: JsReactiveContext, core: SvetWasmExports): Own
   if (ctx.ownerDepth === 0) {
     const owner = resolveAsyncOwnerForCopy(core);
     if (owner !== undefined) return owner;
-    if (compatibleOwnerResolvers.length > 1) for (const reference of compatibleOwnerResolvers) {
-      const resolve = reference.deref();
-      if (!resolve || resolve === resolveAsyncOwnerForCopy) continue;
-      // Each host resolver validates core/request identity before resolving an
-      // owner or refusing an expired child. Undefined permits the next copy.
-      const foreignOwner = resolve(core);
-      if (foreignOwner !== undefined) return foreignOwner;
-    }
+    if (compatibleOwnerResolvers.length > 1)
+      for (const reference of compatibleOwnerResolvers) {
+        const resolve = reference.deref();
+        if (!resolve || resolve === resolveAsyncOwnerForCopy) continue;
+        // Each host resolver validates core/request identity before resolving an
+        // owner or refusing an expired child. Undefined permits the next copy.
+        const foreignOwner = resolve(core);
+        if (foreignOwner !== undefined) return foreignOwner;
+      }
   }
   return ctx.currentOwner;
 }
@@ -334,17 +361,25 @@ export function disposeTrackedNode(core: SvetWasmExports, id: number): void {
 
 // Compatible copies share one synchronous batch boundary. Native batches keep
 // writes immediately readable while postponing observer delivery in every core.
-const batchTransport = reactiveDomains.batchTransport ??= { depth: 0, held: new Map() };
+const batchTransport = (reactiveDomains.batchTransport ??= { depth: 0, held: new Map() });
 function holdForeignBatch(core: SvetWasmExports, ctx: JsReactiveContext): void {
   const held = batchTransport.held.get(core);
   if (held && held.generation !== ctx.generation) batchTransport.held.delete(core);
-  if (!batchTransport.depth || ctx.batchDepth > 0 || ctx.isRunningEffect || batchTransport.held.has(core)) return;
+  if (
+    !batchTransport.depth ||
+    ctx.batchDepth > 0 ||
+    ctx.isRunningEffect ||
+    batchTransport.held.has(core)
+  )
+    return;
   flushUnlinkedEffectsToWasm(core, ctx);
-  core.svet_batch_start(); ctx.batchDepth++;
+  core.svet_batch_start();
+  ctx.batchDepth++;
   batchTransport.held.set(core, { ctx, generation: ctx.generation });
 }
 function finishForeignBatches(): void {
-  let failed = false, failure: unknown;
+  let failed = false,
+    failure: unknown;
   const deliveries = new Map<SvetWasmExports, number>();
   // Keep transport active while delivery creates downstream writes/bridges.
   batchTransport.depth++;
@@ -368,17 +403,26 @@ function finishForeignBatches(): void {
           });
         } finally {
           if (generation === ctx.generation) {
-            ctx.batchDepth--; remainingDepth = core.svet_batch_end();
+            ctx.batchDepth--;
+            remainingDepth = core.svet_batch_end();
           } else remainingDepth = -1;
         }
         if (remainingDepth === 0) {
-          const count = (deliveries.get(core) ?? 0) + 1; deliveries.set(core, count);
+          const count = (deliveries.get(core) ?? 0) + 1;
+          deliveries.set(core, count);
           if (count > MAX_EFFECT_ITERATIONS) throw new ReactiveStabilizationError(null);
           withWasmCore(core, () => flushEffects());
         }
-      } catch (error) { if (!failed) { failed = true; failure = error; } }
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
     }
-  } finally { batchTransport.depth--; }
+  } finally {
+    batchTransport.depth--;
+  }
   if (failed) throw failure;
 }
 
@@ -388,9 +432,16 @@ type ForeignBridge = {
   seen: boolean;
   close: () => void;
 };
-const observerBridges = reactiveDomains.bridges ??= new WeakMap<object, Map<object, ForeignBridge>>();
-const sourceBridges = reactiveDomains.sourceBridges ??= new WeakMap<object, Set<ForeignBridge>>();
-function refreshForeignTracking(entry: Pick<ComputedEntry, 'depsCount' | 'dep0' | 'dep1' | 'deps'>, ctx: JsReactiveContext, seen?: Set<object>): void {
+const observerBridges = (reactiveDomains.bridges ??= new WeakMap<
+  object,
+  Map<object, ForeignBridge>
+>());
+const sourceBridges = (reactiveDomains.sourceBridges ??= new WeakMap<object, Set<ForeignBridge>>());
+function refreshForeignTracking(
+  entry: Pick<ComputedEntry, 'depsCount' | 'dep0' | 'dep1' | 'deps'>,
+  ctx: JsReactiveContext,
+  seen?: Set<object>,
+): void {
   if (!batchTransport.depth || seen?.has(entry)) return;
   seen ??= new Set();
   seen.add(entry);
@@ -415,40 +466,59 @@ function retireForeignSource(source: object): void {
   for (const bridge of [...(sourceBridges.get(source) ?? [])]) bridge.close();
 }
 /** Native graphs own both dependency edges; the host only forwards source changes. */
-function trackForeignSource<T>(sourceCore: SvetWasmExports, source: ReadonlySignal<T>, sourceVersion?: () => number): void {
+function trackForeignSource<T>(
+  sourceCore: SvetWasmExports,
+  source: ReadonlySignal<T>,
+  sourceVersion?: () => number,
+): void {
   const target = reactiveDomains.frames.at(-1);
   if (!target?.activeEntry || target.activeObserverId < 0) return;
   const targetCore = target.coreRef?.deref();
   if (!targetCore || targetCore === sourceCore) return;
   const observer = target.activeEntry;
   let dependencies = observerBridges.get(observer);
-  if (!dependencies) { dependencies = new Map(); observerBridges.set(observer, dependencies); }
+  if (!dependencies) {
+    dependencies = new Map();
+    observerBridges.set(observer, dependencies);
+  }
   let bridge = dependencies.get(source);
   if (!bridge) {
     const proxy = withWasmCore(targetCore, () => signal(0));
     const sourceCtx = getJsContext(sourceCore);
     sourceCtx.foreignForwarders = (sourceCtx.foreignForwarders ?? 0) + 1;
-    let forwarding: EffectHandle | undefined, closed = false;
+    let forwarding: EffectHandle | undefined,
+      closed = false;
     const unregister: Array<() => void> = [];
-    let initialized = false, previousVersion: number | undefined;
-    let previousFailed = false, failureClock = -1;
+    let initialized = false,
+      previousVersion: number | undefined;
+    let previousFailed = false,
+      failureClock = -1;
     const publish = () => {
       if (closed) return;
       // The forwarding observer must survive a failed computed evaluation. Its
       // target owns error handling and reads/throws through the original getter.
       let failed = false;
-      try { source(); } catch { failed = true; }
+      try {
+        source();
+      } catch {
+        failed = true;
+      }
       const version = sourceVersion?.();
-      const changed = initialized && (failed
-        ? !previousFailed || failureClock !== sourceCtx.globalClock
-        : previousFailed || !sourceVersion || previousVersion !== version);
+      const changed =
+        initialized &&
+        (failed
+          ? !previousFailed || failureClock !== sourceCtx.globalClock
+          : previousFailed || !sourceVersion || previousVersion !== version);
       if (failed) failureClock = sourceCtx.globalClock;
-      previousFailed = failed; previousVersion = version; initialized = true;
+      previousFailed = failed;
+      previousVersion = version;
+      initialized = true;
       if (changed) proxy.update(version => version + 1);
     };
     bridge = {
       refresh: () => runInForeignReactiveCore(sourceCore, publish),
-      proxy, seen: true,
+      proxy,
+      seen: true,
       close: () => {
         if (closed) return;
         closed = true;
@@ -459,23 +529,39 @@ function trackForeignSource<T>(sourceCore: SvetWasmExports, source: ReadonlySign
         subscribers?.delete(bridge!);
         if (!subscribers?.size) sourceBridges.delete(source);
         for (const remove of unregister) remove();
-        try { forwarding?.dispose(); } finally { proxy.dispose(); }
+        try {
+          forwarding?.dispose();
+        } finally {
+          proxy.dispose();
+        }
       },
     };
     dependencies.set(source, bridge);
     let subscribers = sourceBridges.get(source);
-    if (!subscribers) { subscribers = new Set(); sourceBridges.set(source, subscribers); }
+    if (!subscribers) {
+      subscribers = new Set();
+      sourceBridges.set(source, subscribers);
+    }
     subscribers.add(bridge);
-    unregister.push(registerReactiveResetFinalizer(sourceCore, bridge.close),
-      registerReactiveResetFinalizer(targetCore, bridge.close));
+    unregister.push(
+      registerReactiveResetFinalizer(sourceCore, bridge.close),
+      registerReactiveResetFinalizer(targetCore, bridge.close),
+    );
     try {
       // A bridge belongs to its dependency, not a suspended source-core owner.
       const previousOwner = sourceCtx.currentOwner;
-      sourceCtx.currentOwner = null; sourceCtx.ownerDepth++;
+      sourceCtx.currentOwner = null;
+      sourceCtx.ownerDepth++;
       try {
         forwarding = withWasmCore(sourceCore, () => effect(publish));
-      } finally { sourceCtx.ownerDepth--; sourceCtx.currentOwner = previousOwner; }
-    } catch (error) { bridge.close(); throw error; }
+      } finally {
+        sourceCtx.ownerDepth--;
+        sourceCtx.currentOwner = previousOwner;
+      }
+    } catch (error) {
+      bridge.close();
+      throw error;
+    }
   }
   bridge.seen = true;
   // Collection must run in the target domain; no source-core node ID crosses it.
@@ -535,7 +621,7 @@ function commitTrackingFast(
   core: SvetWasmExports,
   ctx: JsReactiveContext,
   targetId: number,
-  entry: EffectEntry | ComputedEntry<any>
+  entry: EffectEntry | ComputedEntry<any>,
 ): void {
   retireForeignTracking(entry);
   if (entry.sourceRetirementVersion !== ctx.sourceRetirementVersion) {
@@ -554,7 +640,8 @@ function commitTrackingFast(
       kept++;
     }
     if (kept !== cur) ctx.activeTopologyChanged = true;
-    cur = kept; ctx.activeCursor = cur;
+    cur = kept;
+    ctx.activeCursor = cur;
   }
   entry.retiredDependencies = null;
   if (cur !== entry.depsCount) {
@@ -629,7 +716,12 @@ function commitTrackingFast(
   }
 }
 
-function setNodeStateFast(core: SvetWasmExports, ctx: JsReactiveContext, id: number, state: number): void {
+function setNodeStateFast(
+  core: SvetWasmExports,
+  ctx: JsReactiveContext,
+  id: number,
+  state: number,
+): void {
   let view = ctx.statesView;
   if (!view || view.buffer !== core.memory.buffer || id >= ctx.statesCap) {
     getNodeStateFast(core, ctx, id);
@@ -657,8 +749,14 @@ function getNodeStateFast(core: SvetWasmExports, ctx: JsReactiveContext, id: num
 let ownerTeardownDepth = 0;
 const retiringOwnerScopes = new WeakSet<OwnerScope>();
 type RootDisposerCell = { core: SvetWasmExports | null; scope: OwnerScope | null };
-const rootDisposerCells = reactiveDomains.rootDisposerCells ??= new WeakMap<OwnerScope, RootDisposerCell>();
-const reactiveHandleRetirements = reactiveDomains.handleRetirements ??= new WeakMap<object, ReactiveHandleRetirement>();
+const rootDisposerCells = (reactiveDomains.rootDisposerCells ??= new WeakMap<
+  OwnerScope,
+  RootDisposerCell
+>());
+const reactiveHandleRetirements = (reactiveDomains.handleRetirements ??= new WeakMap<
+  object,
+  ReactiveHandleRetirement
+>());
 
 function disposeOwnerScope(scope: OwnerScope): void {
   if (scope.disposed) return;
@@ -684,12 +782,17 @@ function disposeOwnerScope(scope: OwnerScope): void {
         const current = frame.scope;
         current.children?.clear();
         for (let i = current.disposables.length - 1; i >= 0; i--) {
-          try { current.disposables[i](); } catch { /* Continue teardown after cleanup failure. */ }
+          try {
+            current.disposables[i]();
+          } catch {
+            /* Continue teardown after cleanup failure. */
+          }
         }
         current.disposables.length = 0;
         const rootCell = rootDisposerCells.get(current);
         if (rootCell) {
-          rootCell.core = null; rootCell.scope = null;
+          rootCell.core = null;
+          rootCell.scope = null;
           rootDisposerCells.delete(current);
         }
         if (current.parent?.children) {
@@ -698,7 +801,9 @@ function disposeOwnerScope(scope: OwnerScope): void {
         }
         frames.pop();
       }
-    } finally { ownerTeardownDepth--; }
+    } finally {
+      ownerTeardownDepth--;
+    }
   });
 }
 
@@ -713,9 +818,11 @@ function addChildScope(parent: OwnerScope, child: OwnerScope): void {
 function createRootDisposer(core: SvetWasmExports, scope: OwnerScope): () => void {
   const cell: RootDisposerCell = { core, scope };
   rootDisposerCells.set(scope, cell);
-  core = null!; scope = null!;
+  core = null!;
+  scope = null!;
   return () => {
-    const currentScope = cell.scope, currentCore = cell.core;
+    const currentScope = cell.scope,
+      currentCore = cell.core;
     if (!currentScope || !currentCore || currentScope.disposed) return;
     runUntrackedInCore(currentCore, () => disposeOwnerScope(currentScope));
   };
@@ -809,7 +916,10 @@ function getCapturedContextGroup(owner: OwnerScope): CapturedContextGroup {
   const existing = capturedContextGroups.get(owner);
   if (existing) return existing;
   const group: CapturedContextGroup = {
-    first: undefined, pending: undefined, slot: -1, draining: false,
+    first: undefined,
+    pending: undefined,
+    slot: -1,
+    draining: false,
     cleanup() {
       if (capturedContextGroups.get(owner) === group) capturedContextGroups.delete(owner);
       group.draining = true;
@@ -817,7 +927,9 @@ function getCapturedContextGroup(owner: OwnerScope): CapturedContextGroup {
         group.first?.();
         if (group.pending) for (const dispose of group.pending) dispose();
       } finally {
-        group.first = undefined; group.pending?.clear(); group.draining = false;
+        group.first = undefined;
+        group.pending?.clear();
+        group.draining = false;
       }
     },
   };
@@ -831,17 +943,30 @@ type CapturedContextState = {
   generation: number;
   group: CapturedContextGroup;
 };
-function isCapturedContextActive(state: CapturedContextState | undefined): state is CapturedContextState {
-  return !!state && state.generation === getReactiveGeneration(state.core) && !isOwnerScopeDisposed(state.owner);
+function isCapturedContextActive(
+  state: CapturedContextState | undefined,
+): state is CapturedContextState {
+  return (
+    !!state &&
+    state.generation === getReactiveGeneration(state.core) &&
+    !isOwnerScopeDisposed(state.owner)
+  );
 }
 
 /** Capture an owned lifetime for explicit synchronous reentry after async work. */
 export function captureReactiveContext(): CapturedReactiveContext {
-  const core = getWasmCore(), ctx = getJsContext(core), owner = resolveCurrentOwner(ctx, core);
+  const core = getWasmCore(),
+    ctx = getJsContext(core),
+    owner = resolveCurrentOwner(ctx, core);
   if (!owner) throw new Error('captureReactiveContext requires an active owner');
   if (isOwnerScopeDisposed(owner)) throw new ReactiveContextDisposedError();
   const group = getCapturedContextGroup(owner);
-  let captured: CapturedContextState | undefined = {core, owner, generation: ctx.generation, group};
+  let captured: CapturedContextState | undefined = {
+    core,
+    owner,
+    generation: ctx.generation,
+    group,
+  };
   const dispose = () => {
     const state = captured;
     captured = undefined;
@@ -853,27 +978,35 @@ export function captureReactiveContext(): CapturedReactiveContext {
       group.pending?.clear();
       if (!state.owner.disposed) {
         const callbacks = state.owner.disposables;
-        const index = callbacks[group.slot] === group.cleanup ? group.slot : callbacks.indexOf(group.cleanup);
+        const index =
+          callbacks[group.slot] === group.cleanup ? group.slot : callbacks.indexOf(group.cleanup);
         if (index >= 0) callbacks.splice(index, 1);
       }
     }
   };
   if (group.first) {
-    const pending = group.pending ??= new Set();
-    pending.add(group.first); pending.add(dispose); group.first = undefined;
+    const pending = (group.pending ??= new Set());
+    pending.add(group.first);
+    pending.add(dispose);
+    group.first = undefined;
   } else if (group.pending?.size) group.pending.add(dispose);
   else {
-    group.first = dispose; group.slot = owner.disposables.length;
+    group.first = dispose;
+    group.slot = owner.disposables.length;
     owner.disposables.push(group.cleanup);
   }
   return {
-    get active() { return isCapturedContextActive(captured); },
+    get active() {
+      return isCapturedContextActive(captured);
+    },
     run<T>(callback: () => T): T {
       const state = captured;
       if (!isCapturedContextActive(state)) throw new ReactiveContextDisposedError();
-      if (typeof callback !== 'function') throw new TypeError('Reactive context callback must be a function');
+      if (typeof callback !== 'function')
+        throw new TypeError('Reactive context callback must be a function');
       return runUntrackedInCore(state.core, () => {
-        if (captured !== state || !isCapturedContextActive(state)) throw new ReactiveContextDisposedError();
+        if (captured !== state || !isCapturedContextActive(state))
+          throw new ReactiveContextDisposedError();
         return runWithCapturedOwner(state.core, state.owner, callback);
       });
     },
@@ -882,12 +1015,21 @@ export function captureReactiveContext(): CapturedReactiveContext {
 }
 
 /** Internal async adapter re-entry after the caller verifies its context generation. */
-export function runWithCapturedOwner<T>(core: SvetWasmExports, owner: OwnerScope | null, fn: () => T): T {
+export function runWithCapturedOwner<T>(
+  core: SvetWasmExports,
+  owner: OwnerScope | null,
+  fn: () => T,
+): T {
   return withWasmCore(core, () => {
-    const ctx = getJsContext(core), previous = ctx.currentOwner, generation = ctx.generation;
+    const ctx = getJsContext(core),
+      previous = ctx.currentOwner,
+      generation = ctx.generation;
     if (isOwnerScopeDisposed(owner)) throw new Error('Reactive owner has been disposed');
-    ctx.currentOwner = owner; ctx.ownerDepth++;
-    try { return fn(); } finally {
+    ctx.currentOwner = owner;
+    ctx.ownerDepth++;
+    try {
+      return fn();
+    } finally {
       ctx.ownerDepth--;
       if (generation === ctx.generation) ctx.currentOwner = previous;
     }
@@ -900,13 +1042,14 @@ export function runWithCapturedOwner<T>(core: SvetWasmExports, owner: OwnerScope
  */
 export function runWithOwnerScope<T>(
   contextEntries: Array<[symbol, any]>,
-  fn: (dispose: () => void) => T
+  fn: (dispose: () => void) => T,
 ): T {
   const core = getWasmCore();
   const ctx = getJsContext(core);
   const previousStoredOwner = ctx.currentOwner;
   const prevOwner = resolveCurrentOwner(ctx, core);
-  if (isOwnerScopeDisposed(prevOwner)) throw new Error('Cannot create child scope in a disposed owner');
+  if (isOwnerScopeDisposed(prevOwner))
+    throw new Error('Cannot create child scope in a disposed owner');
   const generation = ctx.generation;
 
   const contextMap = new Map<symbol, any>(prevOwner?.context);
@@ -915,8 +1058,10 @@ export function runWithOwnerScope<T>(
   }
   // Iterators and tuple getters are user code and can retire this construction.
   // Recheck before attaching a scope or changing the current owner.
-  if (generation !== ctx.generation) throw new Error('Reactive graph reset during owner scope construction');
-  if (isOwnerScopeDisposed(prevOwner)) throw new Error('Cannot create child scope in a disposed owner');
+  if (generation !== ctx.generation)
+    throw new Error('Reactive graph reset during owner scope construction');
+  if (isOwnerScopeDisposed(prevOwner))
+    throw new Error('Cannot create child scope in a disposed owner');
 
   const scope: OwnerScope = {
     disposables: [],
@@ -957,18 +1102,19 @@ export function lookupOwnerContext<T>(key: symbol, defaultValue: T): T {
   return defaultValue;
 }
 
-export type DeepSignalStore<T> = T extends Record<string, any>
-  ? {
-      [K in keyof T]: T[K] extends Record<string, any>
-        ? T[K] extends any[]
-          ? Signal<T[K]>
-          : DeepSignalStore<T[K]>
-        : Signal<T[K]>;
-    } & {
-      snapshot(): T;
-      patch(partial: Record<string, any>): void;
-    }
-  : Signal<T>;
+export type DeepSignalStore<T> =
+  T extends Record<string, any>
+    ? {
+        [K in keyof T]: T[K] extends Record<string, any>
+          ? T[K] extends any[]
+            ? Signal<T[K]>
+            : DeepSignalStore<T[K]>
+          : Signal<T[K]>;
+      } & {
+        snapshot(): T;
+        patch(partial: Record<string, any>): void;
+      }
+    : Signal<T>;
 
 /**
  * Creates a recursively destructurable Deep Signal Store (`createDeepStore`).
@@ -978,7 +1124,7 @@ export type DeepSignalStore<T> = T extends Record<string, any>
 export function createDeepStore<T extends Record<string, any>>(initial: T): DeepSignalStore<T> {
   const store = {} as Record<string, any>;
   const keys = (Object.keys(initial) as Array<keyof T>).filter(
-    (k) => k !== '__proto__' && k !== 'constructor' && k !== 'prototype'
+    k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype',
   );
 
   for (const key of keys) {
@@ -1020,7 +1166,12 @@ export function createDeepStore<T extends Record<string, any>>(initial: T): Deep
           }
           const target = store[k];
           if (!target) continue;
-          if (v !== null && typeof v === 'object' && !Array.isArray(v) && typeof target.patch === 'function') {
+          if (
+            v !== null &&
+            typeof v === 'object' &&
+            !Array.isArray(v) &&
+            typeof target.patch === 'function'
+          ) {
             target.patch(v);
           } else if (typeof target.set === 'function') {
             target.set(v);
@@ -1052,7 +1203,10 @@ export async function runWithAsyncRequestScope<T>(fn: () => T | PromiseLike<T>):
   const ctx = getJsContext(core);
   const previousOwner = ctx.currentOwner;
   const scope: OwnerScope = {
-    disposables: [], children: null, parent: null, disposed: false,
+    disposables: [],
+    children: null,
+    parent: null,
+    disposed: false,
   };
   ctx.currentOwner = scope;
   try {
@@ -1097,39 +1251,80 @@ export class ReactiveCycleError extends Error {
 
 const MAX_EFFECT_ITERATIONS = 100;
 export class ReactiveStabilizationError extends Error {
-  constructor(readonly effectId: number | null, readonly iterations = MAX_EFFECT_ITERATIONS) {
-    super(effectId === null ? `Reactive graph did not stabilize within ${iterations} queued runs per effect` : `Effect ${effectId} did not stabilize within ${iterations} synchronous runs`);
+  constructor(
+    readonly effectId: number | null,
+    readonly iterations = MAX_EFFECT_ITERATIONS,
+  ) {
+    super(
+      effectId === null
+        ? `Reactive graph did not stabilize within ${iterations} queued runs per effect`
+        : `Effect ${effectId} did not stabilize within ${iterations} synchronous runs`,
+    );
     this.name = 'ReactiveStabilizationError';
   }
 }
 
-function requestActiveEffectRerun(core: SvetWasmExports, ctx: JsReactiveContext, source: number): void {
+function requestActiveEffectRerun(
+  core: SvetWasmExports,
+  ctx: JsReactiveContext,
+  source: number,
+): void {
   // untrack suppresses new reads, not writes to an already staged dependency.
   for (const entry of ctx.observerStack) {
-    if (entry.kind !== 2 || entry.disposed || entry.running === 0 || entry.generation !== ctx.generation) continue;
+    if (
+      entry.kind !== 2 ||
+      entry.disposed ||
+      entry.running === 0 ||
+      entry.generation !== ctx.generation
+    )
+      continue;
     const cursor = entry === ctx.activeEntry ? ctx.activeCursor : entry.pausedCursor;
     for (let i = 0; i < cursor; i++) {
       const dependency = i === 0 ? entry.dep0 : i === 1 ? entry.dep1 : entry.deps[i - 2];
       if (entry.retiredDependencies?.has(dependency)) continue;
-      if (dependency === source || (ctx.computedRegistry[dependency] && core.svet_depends_on(dependency, source))) {
-        entry.rerunRequested = true; break;
+      if (
+        dependency === source ||
+        (ctx.computedRegistry[dependency] && core.svet_depends_on(dependency, source))
+      ) {
+        entry.rerunRequested = true;
+        break;
       }
     }
   }
 }
 
 /** Native IDs are reusable slots. Capture JS lifetimes before invoking any callback. */
-function runQueuedEffects(core: SvetWasmExports, ctx: JsReactiveContext, ids: Uint32Array, onRun?: (entry: EffectEntry) => void): void {
+function runQueuedEffects(
+  core: SvetWasmExports,
+  ctx: JsReactiveContext,
+  ids: Uint32Array,
+  onRun?: (entry: EffectEntry) => void,
+): void {
   // Callers pass a private ID copy; capture identities before user code can recycle them.
   const entries = Array.from(ids, id => ctx.effectRegistry[id]);
   const lifetimes = entries.map(entry => entry?.lifetime);
-  let failed = false, failure: unknown;
+  let failed = false,
+    failure: unknown;
   for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i], id = ids[i];
-    if (entry && !entry.disposed && entry.lifetime === lifetimes[i] && entry.generation === ctx.generation &&
-        ctx.effectRegistry[id] === entry && core.svet_get_state(id) !== STATE_CLEAN) {
-      try { onRun?.(entry); entry.run(); }
-      catch (error) { if (!failed) { failed = true; failure = error; } }
+    const entry = entries[i],
+      id = ids[i];
+    if (
+      entry &&
+      !entry.disposed &&
+      entry.lifetime === lifetimes[i] &&
+      entry.generation === ctx.generation &&
+      ctx.effectRegistry[id] === entry &&
+      core.svet_get_state(id) !== STATE_CLEAN
+    ) {
+      try {
+        onRun?.(entry);
+        entry.run();
+      } catch (error) {
+        if (!failed) {
+          failed = true;
+          failure = error;
+        }
+      }
     }
   }
   if (failed) throw failure;
@@ -1178,19 +1373,30 @@ export function triggerNodeWrite(id: number): void {
   }
 }
 export function flushEffects(): void {
-  const core = getWasmCore(), ctx = getJsContext(core);
-  if (ctx.isRunningEffect) { ctx.cascadedDuringEffect = true; return; }
+  const core = getWasmCore(),
+    ctx = getJsContext(core);
+  if (ctx.isRunningEffect) {
+    ctx.cascadedDuringEffect = true;
+    return;
+  }
   if (!batchTransport.depth && ctx.foreignForwarders) {
     // Initial effect execution may queue writes without passing through an
     // external signal setter. Its whole native flush is one delivery boundary.
     batchTransport.depth++;
     let failed = false;
-    try { return flushEffects(); }
-    catch (error) { failed = true; throw error; }
-    finally {
+    try {
+      return flushEffects();
+    } catch (error) {
+      failed = true;
+      throw error;
+    } finally {
       batchTransport.depth--;
       if (failed) {
-        try { finishForeignBatches(); } catch { /* Preserve the source flush error. */ }
+        try {
+          finishForeignBatches();
+        } catch {
+          /* Preserve the source flush error. */
+        }
       } else finishForeignBatches();
     }
   }
@@ -1200,7 +1406,8 @@ export function flushEffects(): void {
   const onRun = (entry: EffectEntry) => {
     let record = runs.get(entry);
     if (!record || record.lifetime !== entry.lifetime) {
-      record = { lifetime: entry.lifetime, count: 0 }; runs.set(entry, record);
+      record = { lifetime: entry.lifetime, count: 0 };
+      runs.set(entry, record);
     }
     if (++record.count >= MAX_EFFECT_ITERATIONS) saturated.set(entry, entry.lifetime);
   };
@@ -1210,22 +1417,32 @@ export function flushEffects(): void {
       const queue = readFlushedEffects(core);
       if (queue.length === 0) break;
       if (queue.length === 1) {
-        const id = queue[0], entry = ctx.effectRegistry[id];
+        const id = queue[0],
+          entry = ctx.effectRegistry[id];
         if (entry && !entry.disposed && core.svet_get_state(id) !== STATE_CLEAN) {
-          onRun(entry); entry.run();
+          onRun(entry);
+          entry.run();
         }
       } else runQueuedEffects(core, ctx, queue.slice(), onRun);
       if (generation !== ctx.generation) break;
       // Check before draining the next native queue so recovery work remains queued.
       for (const [entry, lifetime] of saturated) {
-        if (!entry.disposed && entry.lifetime === lifetime && ctx.effectRegistry[entry.id] === entry &&
-            core.svet_get_state(entry.id) !== STATE_CLEAN && core.svet_pending_effect_count() > 0) {
+        if (
+          !entry.disposed &&
+          entry.lifetime === lifetime &&
+          ctx.effectRegistry[entry.id] === entry &&
+          core.svet_get_state(entry.id) !== STATE_CLEAN &&
+          core.svet_pending_effect_count() > 0
+        ) {
           throw new ReactiveStabilizationError(null);
         }
       }
     }
   } finally {
-    if (generation === ctx.generation) { ctx.isRunningEffect = false; ctx.cascadedDuringEffect = false; }
+    if (generation === ctx.generation) {
+      ctx.isRunningEffect = false;
+      ctx.cascadedDuringEffect = false;
+    }
   }
 }
 
@@ -1238,7 +1455,11 @@ function runInForeignReactiveCore<T>(core: SvetWasmExports, fn: () => T): T {
 export function runUntrackedInCore<T>(core: SvetWasmExports, fn: () => T): T {
   // Preserve ambient resolution: adapters may retire/reset a lifetime here and
   // callers recheck it inside fn. Captured work may also outlive that adapter.
-  try { getWasmCore(); } catch { /* The explicitly selected core may still be live. */ }
+  try {
+    getWasmCore();
+  } catch {
+    /* The explicitly selected core may still be live. */
+  }
   return withWasmCore(core, () => untrack(fn));
 }
 
@@ -1247,13 +1468,14 @@ export function runUntrackedInCore<T>(core: SvetWasmExports, fn: () => T): T {
  */
 export function signal<T>(
   initialValue: T,
-  options?: { equals?: (a: T, b: T) => boolean }
+  options?: { equals?: (a: T, b: T) => boolean },
 ): Signal<T> {
   let core = getWasmCore();
   let ctx = getJsContext(core);
   const generation = ctx.generation;
   let equals = options?.equals ?? Object.is;
-  if (generation !== ctx.generation) throw new Error('Reactive graph reset during signal construction');
+  if (generation !== ctx.generation)
+    throw new Error('Reactive graph reset during signal construction');
   if (typeof equals !== 'function') throw new TypeError('Signal equals must be a function');
   const id = allocateReactiveNode(core, KIND_SIGNAL);
   if (ctx.singleSignalRootId === -1) {
@@ -1269,7 +1491,8 @@ export function signal<T>(
     if (!disposed || activeWrites > 0) return;
     singleSubEffect = null;
     equals = Object.is;
-    core = null!; ctx = null!;
+    core = null!;
+    ctx = null!;
   };
 
   let singleSubEffect: EffectEntry | null | undefined = undefined; // undefined = unknown, null = multiple/none
@@ -1285,7 +1508,12 @@ export function signal<T>(
       const cur = ctx.activeCursor;
       if (cur === 0 && obsEntry.depsCount >= 1 && obsEntry.dep0 === id) {
         ctx.activeCursor = 1;
-      } else if (cur === 1 && obsEntry.depsCount >= 2 && obsEntry.dep1 === id && obsEntry.dep0 !== id) {
+      } else if (
+        cur === 1 &&
+        obsEntry.depsCount >= 2 &&
+        obsEntry.dep1 === id &&
+        obsEntry.dep0 !== id
+      ) {
         ctx.activeCursor = 2;
       } else if (!disposed) {
         trackReadFast(ctx, id);
@@ -1298,7 +1526,10 @@ export function signal<T>(
   (getter as any).__svet_sig = true;
   (getter as any)._tryRegisterDirectUnlinked = (eff: EffectEntry, ver: number): boolean => {
     if (disposed) return false;
-    if (!hasComputedSubscriber && (singleSubEffect === undefined || singleSubEffect === eff || singleSubEffect?.disposed)) {
+    if (
+      !hasComputedSubscriber &&
+      (singleSubEffect === undefined || singleSubEffect === eff || singleSubEffect?.disposed)
+    ) {
       singleSubEffect = eff;
       singleSubEpoch = ver;
       return true;
@@ -1330,62 +1561,88 @@ export function signal<T>(
     if (disposed || generation !== ctx.generation) return;
     activeWrites++;
     try {
-    if (getWasmCore() !== core) return runInForeignReactiveCore(core, () => getter.set(next));
-    // One originating write may fan out through several native cores. Keep all
-    // downstream deliveries in the same boundary even without an explicit batch.
-    if (!batchTransport.depth && !ctx.isRunningEffect && ctx.foreignForwarders) {
-      return batch(() => getter.set(next));
-    }
-    const newValue =
-      typeof next === 'function' ? (next as (prev: T) => T)(currentValue) : next;
-    if (disposed || generation !== ctx.generation) return;
-    if (!equals(currentValue, newValue)) {
-      if (disposed || generation !== ctx.generation) return;
-      holdForeignBatch(core, ctx);
-      currentValue = newValue; valueVersion++;
-      ctx.globalClock++;
-      requestActiveEffectRerun(core, ctx, id);
-      if (ctx.isRunningEffect) {
-        // A write inside a callback queues work after that callback commits.
-        // Unlinked direct subscribers must first become visible to native scheduling.
-        if (singleSubEffect && !singleSubEffect.disposed && !singleSubEffect.wasmLinked &&
-            singleSubEffect.depsCount === 1 && singleSubEffect.dep0 === id) {
-          singleSubEffect.wasmLinked = true;
-          core.svet_link_1(singleSubEffect.id, id);
-        }
-        ctx.cascadedDuringEffect = true;
-        core.svet_trigger_write(id);
-        return;
+      if (getWasmCore() !== core) return runInForeignReactiveCore(core, () => getter.set(next));
+      // One originating write may fan out through several native cores. Keep all
+      // downstream deliveries in the same boundary even without an explicit batch.
+      if (!batchTransport.depth && !ctx.isRunningEffect && ctx.foreignForwarders) {
+        return batch(() => getter.set(next));
       }
-      // A unique terminal subscriber can run directly, but must still track reads:
-      // observing the same sources twice does not prove that future reads are static.
-      if (ctx.batchDepth === 0 && singleSubEffect && !singleSubEffect.disposed) {
-        if (!hasComputedSubscriber && singleSubEffect.depsCount === 1 && singleSubEffect.dep0 === id) {
-          ctx.isRunningEffect = true;
-          try {
-            singleSubEffect.run();
-          } finally {
-            ctx.isRunningEffect = false;
+      const newValue = typeof next === 'function' ? (next as (prev: T) => T)(currentValue) : next;
+      if (disposed || generation !== ctx.generation) return;
+      if (!equals(currentValue, newValue)) {
+        if (disposed || generation !== ctx.generation) return;
+        holdForeignBatch(core, ctx);
+        currentValue = newValue;
+        valueVersion++;
+        ctx.globalClock++;
+        requestActiveEffectRerun(core, ctx, id);
+        if (ctx.isRunningEffect) {
+          // A write inside a callback queues work after that callback commits.
+          // Unlinked direct subscribers must first become visible to native scheduling.
+          if (
+            singleSubEffect &&
+            !singleSubEffect.disposed &&
+            !singleSubEffect.wasmLinked &&
+            singleSubEffect.depsCount === 1 &&
+            singleSubEffect.dep0 === id
+          ) {
+            singleSubEffect.wasmLinked = true;
+            core.svet_link_1(singleSubEffect.id, id);
           }
-          if (ctx.cascadedDuringEffect) {
-            ctx.cascadedDuringEffect = false;
-            flushEffects();
-          }
+          ctx.cascadedDuringEffect = true;
+          core.svet_trigger_write(id);
           return;
         }
-      }
-      const res = core.svet_trigger_and_flush(id);
-      if (res > 0) {
-        const effId = res - 1;
-        const entry = ctx.effectRegistry[effId];
-        if (ctx.batchDepth === 0) {
-          singleSubEffect = entry ?? null;
-          singleSubEpoch = ctx.topologyVersion;
+        // A unique terminal subscriber can run directly, but must still track reads:
+        // observing the same sources twice does not prove that future reads are static.
+        if (ctx.batchDepth === 0 && singleSubEffect && !singleSubEffect.disposed) {
+          if (
+            !hasComputedSubscriber &&
+            singleSubEffect.depsCount === 1 &&
+            singleSubEffect.dep0 === id
+          ) {
+            ctx.isRunningEffect = true;
+            try {
+              singleSubEffect.run();
+            } finally {
+              ctx.isRunningEffect = false;
+            }
+            if (ctx.cascadedDuringEffect) {
+              ctx.cascadedDuringEffect = false;
+              flushEffects();
+            }
+            return;
+          }
         }
-        if (entry && !entry.disposed) {
+        const res = core.svet_trigger_and_flush(id);
+        if (res > 0) {
+          const effId = res - 1;
+          const entry = ctx.effectRegistry[effId];
+          if (ctx.batchDepth === 0) {
+            singleSubEffect = entry ?? null;
+            singleSubEpoch = ctx.topologyVersion;
+          }
+          if (entry && !entry.disposed) {
+            ctx.isRunningEffect = true;
+            try {
+              entry.run();
+            } finally {
+              ctx.isRunningEffect = false;
+            }
+            if (ctx.cascadedDuringEffect) {
+              ctx.cascadedDuringEffect = false;
+              flushEffects();
+            }
+          }
+        } else if (res < 0) {
+          singleSubEffect = null;
+          singleSubEpoch = ctx.topologyVersion;
+          const count = -res;
+          const ptr = core.svet_get_flush_ptr();
+          const copy = new Uint32Array(core.memory.buffer, ptr, count).slice();
           ctx.isRunningEffect = true;
           try {
-            entry.run();
+            runQueuedEffects(core, ctx, copy);
           } finally {
             ctx.isRunningEffect = false;
           }
@@ -1393,28 +1650,11 @@ export function signal<T>(
             ctx.cascadedDuringEffect = false;
             flushEffects();
           }
+        } else if (ctx.batchDepth === 0) {
+          singleSubEffect = null;
+          singleSubEpoch = ctx.topologyVersion;
         }
-      } else if (res < 0) {
-        singleSubEffect = null;
-        singleSubEpoch = ctx.topologyVersion;
-        const count = -res;
-        const ptr = core.svet_get_flush_ptr();
-        const copy = new Uint32Array(core.memory.buffer, ptr, count).slice();
-        ctx.isRunningEffect = true;
-        try {
-          runQueuedEffects(core, ctx, copy);
-        } finally {
-          ctx.isRunningEffect = false;
-        }
-        if (ctx.cascadedDuringEffect) {
-          ctx.cascadedDuringEffect = false;
-          flushEffects();
-        }
-      } else if (ctx.batchDepth === 0) {
-        singleSubEffect = null;
-        singleSubEpoch = ctx.topologyVersion;
       }
-    }
     } finally {
       activeWrites--;
       detachDisposedContext();
@@ -1450,7 +1690,7 @@ export function signal<T>(
  */
 export function computed<T>(
   fn: () => T,
-  options?: { equals?: (a: T, b: T) => boolean }
+  options?: { equals?: (a: T, b: T) => boolean },
 ): ReadonlySignal<T> {
   let core = getWasmCore();
   let ctx = getJsContext(core);
@@ -1460,7 +1700,8 @@ export function computed<T>(
   if (typeof fn !== 'function') throw new TypeError('Computed body must be a function');
   const equals = options?.equals ?? Object.is;
   if (isOwnerScopeDisposed(owner)) throw new Error('Computed owner disposed during construction');
-  if (generation !== ctx.generation) throw new Error('Reactive graph reset during computed construction');
+  if (generation !== ctx.generation)
+    throw new Error('Reactive graph reset during computed construction');
   if (typeof equals !== 'function') throw new TypeError('Computed equals must be a function');
   const id = allocateReactiveNode(core, KIND_COMPUTED);
   let disposed = false;
@@ -1476,8 +1717,12 @@ export function computed<T>(
     dep0: -1,
     dep1: -1,
     depsCount: 0,
-    lastCleanClock: 0, valueVersion: 0,
-    evaluating: false, failed: false, retiredDependencies: null, sourceRetirementVersion: 0,
+    lastCleanClock: 0,
+    valueVersion: 0,
+    evaluating: false,
+    failed: false,
+    retiredDependencies: null,
+    sourceRetirementVersion: 0,
   };
   ctx.computedRegistry[id] = entry;
 
@@ -1485,10 +1730,15 @@ export function computed<T>(
     if (!disposed || entry.evaluating) return;
     entry.compute = undefined as any;
     entry.equals = Object.is;
-    entry.deps.length = 0; entry.dep0 = -1; entry.dep1 = -1; entry.depsCount = 0;
-    fn = null!; options = undefined;
+    entry.deps.length = 0;
+    entry.dep0 = -1;
+    entry.dep1 = -1;
+    entry.depsCount = 0;
+    fn = null!;
+    options = undefined;
     owner = null;
-    core = null!; ctx = null!;
+    core = null!;
+    ctx = null!;
   };
 
   const cycleError = () => {
@@ -1498,7 +1748,8 @@ export function computed<T>(
   };
 
   const evaluateIfNeeded = (): T => {
-    if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation) return entry.value;
+    if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation)
+      return entry.value;
     if (entry.evaluating) throw cycleError();
     refreshForeignTracking(entry, ctx);
     if (entry.initialized && !entry.failed && entry.lastCleanClock === ctx.globalClock) {
@@ -1532,19 +1783,24 @@ export function computed<T>(
 
     const evaluations = ctx.observerStack;
     beginForeignTracking(entry);
-    evaluations.push(entry); enterObservationContext(ctx); entry.evaluating = true;
+    evaluations.push(entry);
+    enterObservationContext(ctx);
+    entry.evaluating = true;
     let succeeded = false;
     try {
       const nextVal = entry.compute();
-      if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation) return entry.value;
+      if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation)
+        return entry.value;
       const changed = !entry.initialized || !entry.equals(entry.value, nextVal);
-      if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation) return entry.value;
+      if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation)
+        return entry.value;
       if (changed) {
         entry.valueVersion++;
         entry.value = nextVal;
         entry.initialized = true;
       }
-      entry.failed = false; succeeded = true;
+      entry.failed = false;
+      succeeded = true;
     } finally {
       try {
         if (generation === ctx.generation) {
@@ -1566,7 +1822,8 @@ export function computed<T>(
           }
         }
       } finally {
-        entry.evaluating = false; entry.retiredDependencies = null;
+        entry.evaluating = false;
+        entry.retiredDependencies = null;
         if (generation === ctx.generation) evaluations.pop();
         leaveObservationContext(ctx);
         detachDisposedContext();
@@ -1577,9 +1834,14 @@ export function computed<T>(
   };
 
   const getter = (() => {
-    if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation) return entry.value;
+    if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation)
+      return entry.value;
     const foreignTarget = reactiveDomains.frames.at(-1);
-    if (foreignTarget?.activeEntry && foreignTarget !== ctx && foreignTarget.activeObserverId >= 0) {
+    if (
+      foreignTarget?.activeEntry &&
+      foreignTarget !== ctx &&
+      foreignTarget.activeObserverId >= 0
+    ) {
       if (entry.evaluating) throw cycleError();
       trackForeignSource(core, getter, () => entry.valueVersion);
       return runInForeignReactiveCore(core, () => getter());
@@ -1604,7 +1866,9 @@ export function computed<T>(
             return entry.value;
           }
         }
-        return getWasmCore() === core ? evaluateIfNeeded() : runInForeignReactiveCore(core, evaluateIfNeeded);
+        return getWasmCore() === core
+          ? evaluateIfNeeded()
+          : runInForeignReactiveCore(core, evaluateIfNeeded);
       }
       const val =
         entry.initialized && !entry.failed && entry.lastCleanClock === ctx.globalClock
@@ -1616,14 +1880,25 @@ export function computed<T>(
       const cur = ctx.activeCursor;
       if (cur === 0 && obsEntry.depsCount >= 1 && obsEntry.dep0 === id) {
         ctx.activeCursor = 1;
-      } else if (cur === 1 && obsEntry.depsCount >= 2 && obsEntry.dep1 === id && obsEntry.dep0 !== id) {
+      } else if (
+        cur === 1 &&
+        obsEntry.depsCount >= 2 &&
+        obsEntry.dep1 === id &&
+        obsEntry.dep0 !== id
+      ) {
         ctx.activeCursor = 2;
       } else if (!disposed && !isOwnerScopeDisposed(owner)) {
         trackReadFast(ctx, id);
       }
       return val;
     } catch (error) {
-      if (!disposed && !isOwnerScopeDisposed(owner) && generation === ctx.generation && ctx.activeObserverId >= 0 && ctx.activeObserverId !== id) {
+      if (
+        !disposed &&
+        !isOwnerScopeDisposed(owner) &&
+        generation === ctx.generation &&
+        ctx.activeObserverId >= 0 &&
+        ctx.activeObserverId !== id
+      ) {
         trackReadFast(ctx, id);
       }
       throw error;
@@ -1633,10 +1908,19 @@ export function computed<T>(
   (getter as any).id = id;
   (getter as any).__svet_cached_value = () => entry.value;
   getter.peek = () => {
-    if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation) return entry.value;
+    if (disposed || isOwnerScopeDisposed(owner) || generation !== ctx.generation)
+      return entry.value;
     if (!entry.evaluating) refreshForeignTracking(entry, ctx);
-    if (!entry.evaluating && entry.initialized && !entry.failed && entry.lastCleanClock === ctx.globalClock) return entry.value;
-    return getWasmCore() === core ? evaluateIfNeeded() : runInForeignReactiveCore(core, evaluateIfNeeded);
+    if (
+      !entry.evaluating &&
+      entry.initialized &&
+      !entry.failed &&
+      entry.lastCleanClock === ctx.globalClock
+    )
+      return entry.value;
+    return getWasmCore() === core
+      ? evaluateIfNeeded()
+      : runInForeignReactiveCore(core, evaluateIfNeeded);
   };
 
   const disposeComputed = (unregisterOwner: boolean) => {
@@ -1665,7 +1949,10 @@ export function computed<T>(
   reactiveHandleRetirements.set(entry, owners => {
     if (owners && !disposed && owner && !owner.disposed) {
       let callbacks = owners.get(owner);
-      if (!callbacks) { callbacks = new Set(); owners.set(owner, callbacks); }
+      if (!callbacks) {
+        callbacks = new Set();
+        owners.set(owner, callbacks);
+      }
       callbacks.add(ownerDisposer);
       disposeComputed(false);
     } else disposeComputed(true);
@@ -1715,20 +2002,36 @@ function recycleEffectEntry(entry: EffectEntry): void {
   entry.retiredDependencies = null;
   entry.sourceRetirementVersion = 0;
   entry.pausedCursor = 0;
-  entry.deps.length = 0; entry.depsCount = 0; entry.dep0 = -1; entry.dep1 = -1;
+  entry.deps.length = 0;
+  entry.depsCount = 0;
+  entry.dep0 = -1;
+  entry.dep1 = -1;
   if (entry.generation !== x.generation) return;
   if (x.effectPool.length < 4096) x.effectPool.push(entry);
-  else if (entry.id >= 0) { entry.core.svet_dispose_node(entry.id); entry.id = -1; }
+  else if (entry.id >= 0) {
+    entry.core.svet_dispose_node(entry.id);
+    entry.id = -1;
+  }
 }
 
-function rearmAfterCleanupFailure(core: SvetWasmExports, ctx: JsReactiveContext, entry: EffectEntry): void {
-  const pending: Array<[number, number]> = [], seen = new Set<ComputedEntry>();
+function rearmAfterCleanupFailure(
+  core: SvetWasmExports,
+  ctx: JsReactiveContext,
+  entry: EffectEntry,
+): void {
+  const pending: Array<[number, number]> = [],
+    seen = new Set<ComputedEntry>();
   const append = (observer: EffectEntry | ComputedEntry) => {
-    for (let i = 0; i < observer.depsCount; i++) pending.push([observer.id, i === 0 ? observer.dep0 : i === 1 ? observer.dep1 : observer.deps[i - 2]]);
+    for (let i = 0; i < observer.depsCount; i++)
+      pending.push([
+        observer.id,
+        i === 0 ? observer.dep0 : i === 1 ? observer.dep1 : observer.deps[i - 2],
+      ]);
   };
   append(entry);
   while (pending.length) {
-    const [parent, source] = pending.pop()!, dependency = ctx.computedRegistry[source];
+    const [parent, source] = pending.pop()!,
+      dependency = ctx.computedRegistry[source];
     // JS dependency snapshots can contain a retired numeric slot. Only current
     // native ancestors may have their cache/state repaired, never replacements.
     if (!dependency || seen.has(dependency) || !core.svet_depends_on(parent, source)) continue;
@@ -1744,25 +2047,61 @@ function rearmAfterCleanupFailure(core: SvetWasmExports, ctx: JsReactiveContext,
 
 function drainEffectCleanups(callbacks: Array<() => void>): void {
   const pending = callbacks.splice(0);
-  let failed = false, failure: unknown;
+  let failed = false,
+    failure: unknown;
   for (let i = pending.length - 1; i >= 0; i--) {
-    try { pending[i](); }
-    catch (error) { if (!failed) {failed = true;failure = error;} }
+    try {
+      pending[i]();
+    } catch (error) {
+      if (!failed) {
+        failed = true;
+        failure = error;
+      }
+    }
   }
   if (failed) throw failure;
 }
 
 function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): EffectEntry {
   const entry: EffectEntry = {
-    kind: 2, id: -1, core, ctx, generation: ctx.generation,
-    userFn: undefined as any, initialized: false, wasmLinked: false,
-    inUnlinkedList: false, disposed: false, owner: null,
-    deps: [], dep0: -1, dep1: -1, depsCount: 0, running: 0, pausedCursor: 0, runVersion: 0, lifetime: 0, rerunRequested: false, retiredDependencies: null, sourceRetirementVersion: 0,
+    kind: 2,
+    id: -1,
+    core,
+    ctx,
+    generation: ctx.generation,
+    userFn: undefined as any,
+    initialized: false,
+    wasmLinked: false,
+    inUnlinkedList: false,
+    disposed: false,
+    owner: null,
+    deps: [],
+    dep0: -1,
+    dep1: -1,
+    depsCount: 0,
+    running: 0,
+    pausedCursor: 0,
+    runVersion: 0,
+    lifetime: 0,
+    rerunRequested: false,
+    retiredDependencies: null,
+    sourceRetirementVersion: 0,
     run: () => {
-      if (entry.disposed || isOwnerScopeDisposed(entry.owner) || entry.generation !== entry.ctx.generation) return;
-      if (entry.running > 0) { entry.rerunRequested = true; return; }
+      if (
+        entry.disposed ||
+        isOwnerScopeDisposed(entry.owner) ||
+        entry.generation !== entry.ctx.generation
+      )
+        return;
+      if (entry.running > 0) {
+        entry.rerunRequested = true;
+        return;
+      }
       entry.running++;
-      const generation = entry.generation, id = entry.id, c = entry.core, x = entry.ctx;
+      const generation = entry.generation,
+        id = entry.id,
+        c = entry.core,
+        x = entry.ctx;
       const effectOwner = entry.owner;
       try {
         let iterations = 0;
@@ -1772,30 +2111,54 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
           const version = ++entry.runVersion;
           if (effectOwner) cleanupEffectOwnerScope(effectOwner);
           // Detach before invoking user code, which may dispose this effect.
-          const cleanup = entry.cleanup; entry.cleanup = undefined;
+          const cleanup = entry.cleanup;
+          entry.cleanup = undefined;
           if (cleanup) {
-            try { untrack(cleanup); }
-            catch (failure) {
-              if (!entry.disposed && !isOwnerScopeDisposed(effectOwner) && generation === x.generation) {
-                try { rearmAfterCleanupFailure(c, x, entry); } catch { /* Preserve the primary cleanup failure. */ }
+            try {
+              untrack(cleanup);
+            } catch (failure) {
+              if (
+                !entry.disposed &&
+                !isOwnerScopeDisposed(effectOwner) &&
+                generation === x.generation
+              ) {
+                try {
+                  rearmAfterCleanupFailure(c, x, entry);
+                } catch {
+                  /* Preserve the primary cleanup failure. */
+                }
               }
               throw failure;
             }
           }
-          if (entry.disposed || isOwnerScopeDisposed(effectOwner) || generation !== x.generation) return;
+          if (entry.disposed || isOwnerScopeDisposed(effectOwner) || generation !== x.generation)
+            return;
 
-          const prevOwner = x.currentOwner, prevObs = x.activeObserverId, prevEntry = x.activeEntry;
-          const prevRunning = x.isRunningEffect, prevCursor = x.activeCursor, prevChanged = x.activeTopologyChanged;
+          const prevOwner = x.currentOwner,
+            prevObs = x.activeObserverId,
+            prevEntry = x.activeEntry;
+          const prevRunning = x.isRunningEffect,
+            prevCursor = x.activeCursor,
+            prevChanged = x.activeTopologyChanged;
           if (prevEntry?.kind === 2) prevEntry.pausedCursor = prevCursor;
           if (effectOwner) x.currentOwner = effectOwner;
           x.ownerDepth++;
           x.isRunningEffect = true;
-          x.activeObserverId = id; x.activeEntry = entry; x.activeCursor = 0;
-          x.activeTopologyChanged = !entry.initialized; entry.initialized = true;
+          x.activeObserverId = id;
+          x.activeEntry = entry;
+          x.activeCursor = 0;
+          x.activeTopologyChanged = !entry.initialized;
+          entry.initialized = true;
           let callbacks: Array<() => void> | undefined;
           const registerCleanup = (callback: () => void) => {
-            if (typeof callback !== 'function') throw new TypeError('Effect cleanup must be a function');
-            if (entry.disposed || isOwnerScopeDisposed(effectOwner) || generation !== x.generation || entry.runVersion !== version) {
+            if (typeof callback !== 'function')
+              throw new TypeError('Effect cleanup must be a function');
+            if (
+              entry.disposed ||
+              isOwnerScopeDisposed(effectOwner) ||
+              generation !== x.generation ||
+              entry.runVersion !== version
+            ) {
               runUntrackedInCore(c, callback);
               return;
             }
@@ -1819,14 +2182,29 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
                 try {
                   if (!entry.disposed) commitTrackingFast(c, x, id, entry);
                 } finally {
-                  x.activeObserverId = prevObs; x.activeEntry = prevEntry; x.activeCursor = prevCursor;
-                  x.activeTopologyChanged = prevChanged; x.currentOwner = prevOwner; x.isRunningEffect = prevRunning;
-                  x.observerStack.pop(); entry.retiredDependencies = null;
+                  x.activeObserverId = prevObs;
+                  x.activeEntry = prevEntry;
+                  x.activeCursor = prevCursor;
+                  x.activeTopologyChanged = prevChanged;
+                  x.currentOwner = prevOwner;
+                  x.isRunningEffect = prevRunning;
+                  x.observerStack.pop();
+                  entry.retiredDependencies = null;
                 }
-              } else { entry.retiredDependencies = null; }
-            } finally { x.ownerDepth--; leaveObservationContext(x); }
+              } else {
+                entry.retiredDependencies = null;
+              }
+            } finally {
+              x.ownerDepth--;
+              leaveObservationContext(x);
+            }
           }
-        } while (entry.rerunRequested && !entry.disposed && !isOwnerScopeDisposed(effectOwner) && generation === x.generation);
+        } while (
+          entry.rerunRequested &&
+          !entry.disposed &&
+          !isOwnerScopeDisposed(effectOwner) &&
+          generation === x.generation
+        );
       } finally {
         entry.running--;
         if (entry.disposed && entry.running === 0) recycleEffectEntry(entry);
@@ -1835,7 +2213,9 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
     handle: undefined as any,
   };
   entry.handle = {
-    get id() { return entry.id; },
+    get id() {
+      return entry.id;
+    },
     dispose() {
       if (entry.disposed) return;
       entry.disposed = true;
@@ -1845,17 +2225,26 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
         effectOwner.disposed = true;
         cleanupEffectOwnerScope(effectOwner);
         if (effectOwner.parent?.children) {
-          effectOwner.parent.children.delete(effectOwner); effectOwner.parent = null;
+          effectOwner.parent.children.delete(effectOwner);
+          effectOwner.parent = null;
         }
       }
-      const cleanup = entry.cleanup; entry.cleanup = undefined;
-      try { if (cleanup) untrack(cleanup); }
-      finally {
-        const x = entry.ctx, c = entry.core, id = entry.id;
+      const cleanup = entry.cleanup;
+      entry.cleanup = undefined;
+      try {
+        if (cleanup) untrack(cleanup);
+      } finally {
+        const x = entry.ctx,
+          c = entry.core,
+          id = entry.id;
         if (entry.generation === x.generation) {
-          x.topologyVersion++; x.effectRegistry[id] = undefined;
+          x.topologyVersion++;
+          x.effectRegistry[id] = undefined;
           if (entry.wasmLinked || x.effectPool.length >= 4096) {
-            if (id >= 0) { c.svet_dispose_node(id); entry.id = -1; }
+            if (id >= 0) {
+              c.svet_dispose_node(id);
+              entry.id = -1;
+            }
           }
         }
         if (entry.running === 0) recycleEffectEntry(entry);
@@ -1867,23 +2256,38 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
 
 /** Reset invalidates scheduling, while registered cleanup remains owner-owned. */
 function createEffectResetRetirement(entry: EffectEntry): () => void {
-  return () => { entry.userFn = undefined as any; };
+  return () => {
+    entry.userFn = undefined as any;
+  };
 }
 
 /** Public effect lifetimes must not retain recycled native entry shells. */
 function createEffectPublicHandle(
-  core: SvetWasmExports, parentOwner: OwnerScope | null, pooledHandle: EffectHandle, id: number,
+  core: SvetWasmExports,
+  parentOwner: OwnerScope | null,
+  pooledHandle: EffectHandle,
+  id: number,
 ): EffectHandle {
-  const cell: { core: SvetWasmExports | null; parentOwner: OwnerScope | null; pooledHandle: EffectHandle | null } = { core, parentOwner, pooledHandle };
-  core = null!; parentOwner = null; pooledHandle = null!;
+  const cell: {
+    core: SvetWasmExports | null;
+    parentOwner: OwnerScope | null;
+    pooledHandle: EffectHandle | null;
+  } = { core, parentOwner, pooledHandle };
+  core = null!;
+  parentOwner = null;
+  pooledHandle = null!;
   const handle: EffectHandle = {
     id,
     dispose() {
-      const currentCore = cell.core, currentOwner = cell.parentOwner, currentHandle = cell.pooledHandle;
+      const currentCore = cell.core,
+        currentOwner = cell.parentOwner,
+        currentHandle = cell.pooledHandle;
       if (!currentCore || !currentHandle) return;
       // Detach before user cleanup: reentry is inert, and thrown cleanup cannot
       // leave a terminal public handle pointing at a core or a recycled shell.
-      cell.core = null; cell.parentOwner = null; cell.pooledHandle = null;
+      cell.core = null;
+      cell.parentOwner = null;
+      cell.pooledHandle = null;
       runUntrackedInCore(currentCore, () => {
         if (currentOwner && !currentOwner.disposed) {
           const index = currentOwner.disposables.indexOf(handle.dispose);
@@ -1903,12 +2307,13 @@ function createEffectPublicHandle(
  * - Recycles its WASM slot ID and JS `EffectEntry` shell back into `free_list` upon `dispose()`.
  */
 export function effect(
-  fn: (onCleanupFn: (cleanupFn: () => void) => void) => void | (() => void)
+  fn: (onCleanupFn: (cleanupFn: () => void) => void) => void | (() => void),
 ): EffectHandle {
   const core = getWasmCore();
   const ctx = getJsContext(core);
   const parentOwner = resolveCurrentOwner(ctx, core);
-  if (isOwnerScopeDisposed(parentOwner)) throw new Error('Cannot create effect in a disposed owner');
+  if (isOwnerScopeDisposed(parentOwner))
+    throw new Error('Cannot create effect in a disposed owner');
   if (typeof fn !== 'function') throw new TypeError('Effect body must be a function');
 
   // Every effect owns resources created during its execution, including effects
@@ -1965,12 +2370,17 @@ export function effect(
   try {
     entry.run();
     if (!ctx.isRunningEffect && ctx.cascadedDuringEffect) {
-      ctx.cascadedDuringEffect = false; flushEffects();
+      ctx.cascadedDuringEffect = false;
+      flushEffects();
     }
   } catch (error) {
     // Initialization did not yield a handle to the caller. Release everything
     // created so far and preserve the initialization error if cleanup also fails.
-    try { handle.dispose(); } catch { /* preserve the original error */ }
+    try {
+      handle.dispose();
+    } catch {
+      /* preserve the original error */
+    }
     throw error;
   }
 
@@ -2004,15 +2414,25 @@ export function batch<T>(fn: () => T): T {
         const remainingDepth = core.svet_batch_end();
         if (remainingDepth === 0) {
           if (bodyFailed) {
-            try { flushEffects(); } catch { /* Preserve the original body failure. */ }
+            try {
+              flushEffects();
+            } catch {
+              /* Preserve the original body failure. */
+            }
           } else flushEffects();
         }
       }
-    } catch (error) { deliveryFailed = true; throw error; }
-    finally {
+    } catch (error) {
+      deliveryFailed = true;
+      throw error;
+    } finally {
       if (--batchTransport.depth === 0) {
         if (bodyFailed || deliveryFailed) {
-          try { finishForeignBatches(); } catch { /* Preserve the primary failure. */ }
+          try {
+            finishForeignBatches();
+          } catch {
+            /* Preserve the primary failure. */
+          }
         } else finishForeignBatches();
       }
     }
@@ -2034,23 +2454,43 @@ export function untrack<T>(fn: () => T): T {
   const generation = ctx.generation;
   ctx.activeObserverId = -1;
   ctx.activeEntry = null;
-  let suspended: Array<{ ctx: JsReactiveContext; generation: number; id: number; entry: EffectEntry | ComputedEntry<any> | null }> | undefined;
+  let suspended:
+    | Array<{
+        ctx: JsReactiveContext;
+        generation: number;
+        id: number;
+        entry: EffectEntry | ComputedEntry<any> | null;
+      }>
+    | undefined;
   for (const other of activeObservationContexts) {
     if (other === ctx || other.activeObserverId < 0) continue;
-    (suspended ??= []).push({ ctx: other, generation: other.generation, id: other.activeObserverId, entry: other.activeEntry });
+    (suspended ??= []).push({
+      ctx: other,
+      generation: other.generation,
+      id: other.activeObserverId,
+      entry: other.activeEntry,
+    });
     if (other.activeEntry?.kind === 2) other.activeEntry.pausedCursor = other.activeCursor;
-    other.activeObserverId = -1; other.activeEntry = null;
+    other.activeObserverId = -1;
+    other.activeEntry = null;
   }
-  if (observationCopies.length > 1) for (const reference of observationCopies) {
-    const contexts = reference.deref();
-    if (!contexts || contexts === activeObservationContexts) continue;
-    for (const other of contexts) {
-      if (other.activeObserverId < 0) continue;
-      (suspended ??= []).push({ ctx: other, generation: other.generation, id: other.activeObserverId, entry: other.activeEntry });
-      if (other.activeEntry?.kind === 2) other.activeEntry.pausedCursor = other.activeCursor;
-      other.activeObserverId = -1; other.activeEntry = null;
+  if (observationCopies.length > 1)
+    for (const reference of observationCopies) {
+      const contexts = reference.deref();
+      if (!contexts || contexts === activeObservationContexts) continue;
+      for (const other of contexts) {
+        if (other.activeObserverId < 0) continue;
+        (suspended ??= []).push({
+          ctx: other,
+          generation: other.generation,
+          id: other.activeObserverId,
+          entry: other.activeEntry,
+        });
+        if (other.activeEntry?.kind === 2) other.activeEntry.pausedCursor = other.activeCursor;
+        other.activeObserverId = -1;
+        other.activeEntry = null;
+      }
     }
-  }
   try {
     return fn();
   } finally {
@@ -2058,12 +2498,14 @@ export function untrack<T>(fn: () => T): T {
       ctx.activeObserverId = prevObs;
       ctx.activeEntry = prevEntry;
     }
-    if (suspended) for (let i = suspended.length - 1; i >= 0; i--) {
-      const saved = suspended[i];
-      if (saved.generation === saved.ctx.generation) {
-        saved.ctx.activeObserverId = saved.id; saved.ctx.activeEntry = saved.entry;
+    if (suspended)
+      for (let i = suspended.length - 1; i >= 0; i--) {
+        const saved = suspended[i];
+        if (saved.generation === saved.ctx.generation) {
+          saved.ctx.activeObserverId = saved.id;
+          saved.ctx.activeEntry = saved.entry;
+        }
       }
-    }
   }
 }
 
@@ -2080,7 +2522,7 @@ export type SignalStore<T extends Record<string, any>> = {
 export function createStore<T extends Record<string, any>>(initial: T): SignalStore<T> {
   const store = {} as Record<string, any>;
   const keys = (Object.keys(initial) as Array<keyof T>).filter(
-    (k) => k !== '__proto__' && k !== 'constructor' && k !== 'prototype'
+    k => k !== '__proto__' && k !== 'constructor' && k !== 'prototype',
   );
 
   for (const key of keys) {
@@ -2150,7 +2592,11 @@ export function resetReactiveSystem(): void {
     callbacks.length = write;
   }
   for (const cleanup of reactiveResetCleanups.get(core) ?? []) {
-    try { cleanup(); } catch { /* Reset must still invalidate graph storage. */ }
+    try {
+      cleanup();
+    } catch {
+      /* Reset must still invalidate graph storage. */
+    }
   }
   core.svet_reset();
   ctx.signalRegistry.length = 0;
@@ -2181,11 +2627,16 @@ export function resetReactiveSystem(): void {
   // start a fresh request or recursively reset; neither joins this old batch.
   const finalizers = reactiveResetFinalizers.get(core);
   reactiveResetFinalizers.delete(core);
-  if (finalizers) withWasmCore(core, () => {
-    for (const finalize of finalizers) {
-      try { finalize(); } catch { /* Continue notifying other retired requests. */ }
-    }
-  });
+  if (finalizers)
+    withWasmCore(core, () => {
+      for (const finalize of finalizers) {
+        try {
+          finalize();
+        } catch {
+          /* Continue notifying other retired requests. */
+        }
+      }
+    });
 }
 
 /**

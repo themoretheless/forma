@@ -1,14 +1,27 @@
 /** @vitest-environment jsdom */
 import { beforeEach, expect, it } from 'vitest';
-import { createRoot, disposeResumedContainer, getGraphTelemetry, resetReactiveSystem, resumeContainer } from '../src/engine';
+import {
+  createRoot,
+  disposeResumedContainer,
+  getGraphTelemetry,
+  resetReactiveSystem,
+  resumeContainer,
+} from '../src/engine';
 
-beforeEach(() => { resetReactiveSystem(); document.body.innerHTML = ''; });
-const snapshot = (bindings?: unknown[]) => JSON.stringify({ signals: { value: 'initial' }, bindings, timestamp: 0 });
+beforeEach(() => {
+  resetReactiveSystem();
+  document.body.innerHTML = '';
+});
+const snapshot = (bindings?: unknown[]) =>
+  JSON.stringify({ signals: { value: 'initial' }, bindings, timestamp: 0 });
 
 it('limits ID bindings to the requested container even with duplicate IDs', () => {
   document.body.innerHTML = '<p id="label">outside</p><section><p id="label">inside</p></section>';
   const container = document.querySelector('section')!;
-  const restored = resumeContainer(container, snapshot([{ elementId: 'label', signal: 'value', type: 'text' }]));
+  const restored = resumeContainer(
+    container,
+    snapshot([{ elementId: 'label', signal: 'value', type: 'text' }]),
+  );
   restored.value.set('updated');
   expect(document.body.firstElementChild!.textContent).toBe('outside');
   expect(container.textContent).toBe('updated');
@@ -42,7 +55,10 @@ it('owner disposal removes resumed event listeners and reactive graph nodes', ()
   const container = document.createElement('div');
   container.innerHTML = '<input data-svet-model="value">';
   let stop!: () => void;
-  const restored = createRoot(dispose => { stop = dispose; return resumeContainer(container, snapshot()); });
+  const restored = createRoot(dispose => {
+    stop = dispose;
+    return resumeContainer(container, snapshot());
+  });
   stop();
   const input = container.querySelector('input')!;
   input.value = 'after disposal';
@@ -55,7 +71,10 @@ it('explicit disposal is idempotent and releases both binding paths', () => {
   for (const table of [false, true]) {
     const container = document.createElement('div');
     container.innerHTML = '<input id="field" data-svet-model="value">';
-    const restored = resumeContainer(container, snapshot(table ? [{ elementId: 'field', signal: 'value', type: 'model' }] : undefined));
+    const restored = resumeContainer(
+      container,
+      snapshot(table ? [{ elementId: 'field', signal: 'value', type: 'model' }] : undefined),
+    );
     disposeResumedContainer(container);
     disposeResumedContainer(container);
     const input = container.querySelector('input')!;
@@ -72,7 +91,10 @@ it('accepts literal unusual IDs in detached containers without selector injectio
   const child = document.createElement('span');
   child.id = 'a"b]\\c';
   container.append(child);
-  const restored = resumeContainer(container, snapshot([{ elementId: child.id, signal: 'value', type: 'text' }]));
+  const restored = resumeContainer(
+    container,
+    snapshot([{ elementId: child.id, signal: 'value', type: 'text' }]),
+  );
   restored.value.set('updated');
   expect(child.textContent).toBe('updated');
   disposeResumedContainer(container);

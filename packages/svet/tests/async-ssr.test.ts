@@ -1,30 +1,47 @@
 /** @vitest-environment jsdom */
 import { beforeEach, expect, it } from 'vitest';
-import { createResource, effect, getGraphTelemetry, getWasmCore, h, onCleanup, resetReactiveSystem, resumeContainer, runWithIsolatedContext, signal } from '../src/engine';
+import {
+  createResource,
+  effect,
+  getGraphTelemetry,
+  getWasmCore,
+  h,
+  onCleanup,
+  resetReactiveSystem,
+  resumeContainer,
+  runWithIsolatedContext,
+  signal,
+} from '../src/engine';
 
 import { renderToStringAsync, runWithIsolatedContextAsync } from '../src/engine/server';
 
 beforeEach(() => resetReactiveSystem());
 function gate() {
   let release!: () => void;
-  const promise = new Promise<void>(resolve => { release = resolve; });
+  const promise = new Promise<void>(resolve => {
+    release = resolve;
+  });
   return { promise, release };
 }
 
 it('isolates genuinely interleaved requests across await boundaries', async () => {
-  const first = gate(), second = gate();
+  const first = gate(),
+    second = gate();
   const defaultCore = getWasmCore();
-  const run = (value: number, wait: Promise<void>) => runWithIsolatedContextAsync(async () => {
-    const core = getWasmCore();
-    const before = signal(value);
-    await wait;
-    expect(getWasmCore()).toBe(core);
-    const after = signal(value + 1);
-    const values: number[] = [];
-    effect(() => { values.push(before() + after()); });
-    before.set(value + 2);
-    return { values, nodes: getGraphTelemetry().nodes, core };
-  });
+  const run = (value: number, wait: Promise<void>) =>
+    runWithIsolatedContextAsync(async () => {
+      const core = getWasmCore();
+      const before = signal(value);
+      await wait;
+      expect(getWasmCore()).toBe(core);
+      const after = signal(value + 1);
+      const values: number[] = [];
+      effect(() => {
+        values.push(before() + after());
+      });
+      before.set(value + 2);
+      return { values, nodes: getGraphTelemetry().nodes, core };
+    });
   const a = run(10, first.promise);
   const b = run(100, second.promise);
   second.release();
@@ -48,7 +65,9 @@ it('cleans up resources created after await on both success and rejection', asyn
     const run = runWithIsolatedContextAsync(async () => {
       await Promise.resolve();
       core = getWasmCore();
-      onCleanup(() => { cleanups++; });
+      onCleanup(() => {
+        cleanups++;
+      });
       createResource(ctx => {
         requestSignal = ctx.signal;
         return new Promise<string>(() => {});
@@ -98,20 +117,25 @@ it('does not let abandoned async work fall back into the default graph', async (
 });
 
 it('renders and resumes independently interleaved async views with escaped snapshots', async () => {
-  const waitA = gate(), waitB = gate();
-  const render = (title: string, wait: Promise<void>) => renderToStringAsync(async () => {
-    const value = signal(title);
-    await wait;
-    const node = h('p', { 'data-svet-text': 'value' }, () => value());
-    return { node, signals: { value } };
-  });
+  const waitA = gate(),
+    waitB = gate();
+  const render = (title: string, wait: Promise<void>) =>
+    renderToStringAsync(async () => {
+      const value = signal(title);
+      await wait;
+      const node = h('p', { 'data-svet-text': 'value' }, () => value());
+      return { node, signals: { value } };
+    });
   const a = render('A </script><img src=x>', waitA.promise);
   const b = render('B & <other>', waitB.promise);
   waitB.release();
   const resultB = await b;
   waitA.release();
   const resultA = await a;
-  for (const [result, title] of [[resultA, 'A </script><img src=x>'], [resultB, 'B & <other>']] as const) {
+  for (const [result, title] of [
+    [resultA, 'A </script><img src=x>'],
+    [resultB, 'B & <other>'],
+  ] as const) {
     expect(result.stateJson).not.toContain('</script>');
     const container = document.createElement('div');
     container.innerHTML = result.html;
@@ -131,13 +155,18 @@ it('aborting a request tears down the graph and closes the context of late work'
   let late!: Promise<unknown>;
   let cleaned = 0;
   let core!: ReturnType<typeof getWasmCore>;
-  const run = runWithIsolatedContextAsync(() => {
-    core = getWasmCore();
-    onCleanup(() => { cleaned++; });
-    signal(10);
-    late = wait.promise.then(() => getWasmCore());
-    return late;
-  }, { signal: controller.signal });
+  const run = runWithIsolatedContextAsync(
+    () => {
+      core = getWasmCore();
+      onCleanup(() => {
+        cleaned++;
+      });
+      signal(10);
+      late = wait.promise.then(() => getWasmCore());
+      return late;
+    },
+    { signal: controller.signal },
+  );
   // The cancellable callback starts in a microtask.
   await Promise.resolve();
   const rejected = expect(run).rejects.toThrow('disconnected');
@@ -155,9 +184,16 @@ it('does not invoke a callback if the request was already aborted', async () => 
   const controller = new AbortController();
   controller.abort(new Error('already cancelled'));
   let called = false;
-  await expect(runWithIsolatedContextAsync(() => { called = true; }, {
-    signal: controller.signal,
-  })).rejects.toThrow('already cancelled');
+  await expect(
+    runWithIsolatedContextAsync(
+      () => {
+        called = true;
+      },
+      {
+        signal: controller.signal,
+      },
+    ),
+  ).rejects.toThrow('already cancelled');
   expect(called).toBe(false);
   expect(getGraphTelemetry().nodes).toBe(0);
 });

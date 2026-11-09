@@ -1,6 +1,6 @@
 //! Owned native graph contexts for window/binding adapters. Values and rendering
 //! remain with the host; dependency discovery and scheduling use ReactiveGraph.
-use crate::{ReactiveGraph, KIND_COMPUTED, KIND_EFFECT, KIND_SIGNAL};
+use crate::{KIND_COMPUTED, KIND_EFFECT, KIND_SIGNAL, ReactiveGraph};
 use std::sync::{Arc, Weak};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -278,7 +278,7 @@ impl Drop for Batch<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::panic::{catch_unwind, AssertUnwindSafe};
+    use std::panic::{AssertUnwindSafe, catch_unwind};
 
     #[test]
     fn contexts_reject_foreign_equal_numeric_ids() {
@@ -357,12 +357,14 @@ mod tests {
             .is_err()
         );
         assert_eq!(graph.telemetry().tracking_depth, 0);
-        assert!(catch_unwind(AssertUnwindSafe(|| graph.batch(|graph| {
-            graph.notify(&source).unwrap();
-            assert_eq!(graph.reset(), Err(Error::ScopeActive));
-            panic!("batch");
-        })))
-        .is_err());
+        assert!(
+            catch_unwind(AssertUnwindSafe(|| graph.batch(|graph| {
+                graph.notify(&source).unwrap();
+                assert_eq!(graph.reset(), Err(Error::ScopeActive));
+                panic!("batch");
+            })))
+            .is_err()
+        );
         assert_eq!(graph.telemetry().batch_depth, 0);
         assert_eq!(graph.take_effects().len(), 1);
         graph.reset().unwrap();

@@ -5,7 +5,21 @@
  * Async request-local context propagation is provided by the separate Node server entry.
  */
 
-import { batch, createRoot, effect, getCurrentOwner, getReactiveGeneration, isOwnerScopeDisposed, runUntrackedInCore, registerReactiveResetFinalizer, onCleanup, resetReactiveSystem, runWithIsolatedContext, signal, type Signal } from './reactivity.ts';
+import {
+  batch,
+  createRoot,
+  effect,
+  getCurrentOwner,
+  getReactiveGeneration,
+  isOwnerScopeDisposed,
+  runUntrackedInCore,
+  registerReactiveResetFinalizer,
+  onCleanup,
+  resetReactiveSystem,
+  runWithIsolatedContext,
+  signal,
+  type Signal,
+} from './reactivity.ts';
 import { getWasmCore, withWasmCore } from './wasm-bridge.ts';
 import { applyAttributeValue, bindProp, captureViewLifetime } from './dom.ts';
 
@@ -74,7 +88,8 @@ function isSafeAttributeBinding(attrName: string, valStr: string): boolean {
  */
 export function serializeDomNodeToHtml(node: Node): string {
   type Frame = { node: Node } | { close: string };
-  const frames: Frame[] = [{ node }], chunks: string[] = [];
+  const frames: Frame[] = [{ node }],
+    chunks: string[] = [];
   const pushChildren = (parent: Node) => {
     for (let child = parent.lastChild; child; child = child.previousSibling) {
       frames.push({ node: child });
@@ -82,7 +97,10 @@ export function serializeDomNodeToHtml(node: Node): string {
   };
   while (frames.length) {
     const frame = frames.pop()!;
-    if ('close' in frame) { chunks.push(frame.close); continue; }
+    if ('close' in frame) {
+      chunks.push(frame.close);
+      continue;
+    }
     const current = frame.node;
     if (current.nodeType === 3) {
       chunks.push(escapeHtml(current.textContent ?? ''));
@@ -96,7 +114,8 @@ export function serializeDomNodeToHtml(node: Node): string {
     } else if (current.nodeType === 11) {
       pushChildren(current);
     } else if (current.nodeType === 1) {
-      const el = current as HTMLElement, tag = el.tagName.toLowerCase();
+      const el = current as HTMLElement,
+        tag = el.tagName.toLowerCase();
       let attrs = '';
       for (let i = 0; i < el.attributes.length; i++) {
         const attr = el.attributes[i];
@@ -106,11 +125,15 @@ export function serializeDomNodeToHtml(node: Node): string {
       }
       if (tag === 'input') {
         const input = el as HTMLInputElement;
-        if (input.type !== 'file' && (input.value || el.hasAttribute('value'))) attrs += ` value="${escapeHtml(input.value)}"`;
+        if (input.type !== 'file' && (input.value || el.hasAttribute('value')))
+          attrs += ` value="${escapeHtml(input.value)}"`;
         if (input.checked) attrs += ' checked=""';
       }
       if (tag === 'option' && (el as HTMLOptionElement).selected) attrs += ' selected=""';
-      if (VOID_ELEMENTS.has(tag)) { chunks.push(`<${tag}${attrs} />`); continue; }
+      if (VOID_ELEMENTS.has(tag)) {
+        chunks.push(`<${tag}${attrs} />`);
+        continue;
+      }
       chunks.push(`<${tag}${attrs}>`);
       if (tag === 'textarea') {
         const value = (el as HTMLTextAreaElement).value;
@@ -131,17 +154,21 @@ export function serializeDomNodeToHtml(node: Node): string {
  */
 export function renderToString(
   view: () => Node,
-  namedSignals?: Record<string, Signal<any>>
+  namedSignals?: Record<string, Signal<any>>,
 ): { html: string; stateJson: string } {
   const assertCallerCurrent = captureViewLifetime();
   assertCallerCurrent();
   return runWithIsolatedContext(() => {
     const core = getWasmCore();
     try {
-      let html = '', stateJson = '{}';
+      let html = '',
+        stateJson = '{}';
       createRoot(dispose => {
         const assertScopeCurrent = captureViewLifetime();
-        const assertCurrent = () => { assertCallerCurrent(); assertScopeCurrent(); };
+        const assertCurrent = () => {
+          assertCallerCurrent();
+          assertScopeCurrent();
+        };
         try {
           assertCurrent();
           const domTree = view();
@@ -153,7 +180,9 @@ export function renderToString(
             assertCurrent();
             html += `<script type="application/svet+json">${stateJson}</script>`;
           }
-        } finally { dispose(); }
+        } finally {
+          dispose();
+        }
       });
       assertCallerCurrent();
       return { html, stateJson };
@@ -206,20 +235,36 @@ export function disposeResumedContainer(container: HTMLElement): void {
  */
 export function resumeContainer(
   container: HTMLElement,
-  snapshotJson: string
+  snapshotJson: string,
 ): Record<string, Signal<any>> {
-  const assertCallerCurrent = captureViewLifetime(), callerOwner = getCurrentOwner(), core = getWasmCore();
+  const assertCallerCurrent = captureViewLifetime(),
+    callerOwner = getCurrentOwner(),
+    core = getWasmCore();
   assertCallerCurrent();
   const parsed = JSON.parse(snapshotJson) as ResumableSnapshot;
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) ||
-      !parsed.signals || typeof parsed.signals !== 'object' || Array.isArray(parsed.signals)) {
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    Array.isArray(parsed) ||
+    !parsed.signals ||
+    typeof parsed.signals !== 'object' ||
+    Array.isArray(parsed.signals)
+  ) {
     throw new TypeError('Invalid Svet snapshot: signals must be an object');
   }
-  if (parsed.bindings !== undefined && (!Array.isArray(parsed.bindings) ||
-      parsed.bindings.some(b => !b || typeof b !== 'object' ||
-        typeof b.elementId !== 'string' || typeof b.signal !== 'string' ||
-        !['text', 'attr', 'model'].includes(b.type) ||
-        (b.type === 'attr' && typeof b.attrName !== 'string')))) {
+  if (
+    parsed.bindings !== undefined &&
+    (!Array.isArray(parsed.bindings) ||
+      parsed.bindings.some(
+        b =>
+          !b ||
+          typeof b !== 'object' ||
+          typeof b.elementId !== 'string' ||
+          typeof b.signal !== 'string' ||
+          !['text', 'attr', 'model'].includes(b.type) ||
+          (b.type === 'attr' && typeof b.attrName !== 'string'),
+      ))
+  ) {
     throw new TypeError('Invalid Svet snapshot: malformed bindings');
   }
 
@@ -229,24 +274,30 @@ export function resumeContainer(
   resumptionAttempts.set(container, attempt);
   let disposeRoot: (() => void) | undefined, assertRootCurrent: (() => void) | undefined;
   let stopped = false;
-  const stop = () => withWasmCore(core, () => {
-    if (stopped) return;
-    stopped = true;
-    if (callerOwner && !callerOwner.disposed) {
-      const index = callerOwner.disposables.indexOf(stop);
-      if (index >= 0) callerOwner.disposables.splice(index, 1);
-    }
-    if (resumedContainers.get(container) === stop) resumedContainers.delete(container);
-    disposeRoot?.();
-  });
+  const stop = () =>
+    withWasmCore(core, () => {
+      if (stopped) return;
+      stopped = true;
+      if (callerOwner && !callerOwner.disposed) {
+        const index = callerOwner.disposables.indexOf(stop);
+        if (index >= 0) callerOwner.disposables.splice(index, 1);
+      }
+      if (resumedContainers.get(container) === stop) resumedContainers.delete(container);
+      disposeRoot?.();
+    });
   const assertCurrent = () => {
     try {
       assertCallerCurrent();
-      if (resumptionAttempts.get(container) !== attempt) throw new Error('Resumption superseded by a newer attempt');
+      if (resumptionAttempts.get(container) !== attempt)
+        throw new Error('Resumption superseded by a newer attempt');
       if (stopped) throw new Error('Resumption disposed during construction');
       assertRootCurrent?.();
     } catch (failure) {
-      try { stop(); } catch { /* Preserve the lifetime/supersession failure. */ }
+      try {
+        stop();
+      } catch {
+        /* Preserve the lifetime/supersession failure. */
+      }
       throw failure;
     }
   };
@@ -268,7 +319,12 @@ export function resumeContainer(
         onCleanup(sig.dispose);
       }
 
-      const bind = (el: HTMLElement, key: string, type: ResumableBinding['type'], attrName?: string) => {
+      const bind = (
+        el: HTMLElement,
+        key: string,
+        type: ResumableBinding['type'],
+        attrName?: string,
+      ) => {
         assertCurrent();
         const sig = restored[key];
         if (!sig) return;
@@ -283,7 +339,8 @@ export function resumeContainer(
         } else if (type === 'attr' && attrName) {
           effect(() => {
             assertCurrent();
-            const value = sig(), safe = isSafeAttributeBinding(attrName, String(value));
+            const value = sig(),
+              safe = isSafeAttributeBinding(attrName, String(value));
             assertCurrent();
             if (safe) applyAttributeValue(el, attrName, value, assertCurrent);
             assertCurrent();
@@ -322,7 +379,8 @@ export function resumeContainer(
           const attrSpec = el.getAttribute('data-svet-attr');
           if (attrSpec) {
             const colon = attrSpec.indexOf(':');
-            if (colon !== -1) bind(el, attrSpec.slice(colon + 1).trim(), 'attr', attrSpec.slice(0, colon).trim());
+            if (colon !== -1)
+              bind(el, attrSpec.slice(colon + 1).trim(), 'attr', attrSpec.slice(0, colon).trim());
           }
           const modelKey = el.getAttribute('data-svet-model');
           if (modelKey) bind(el, modelKey, 'model');
@@ -333,7 +391,11 @@ export function resumeContainer(
     assertCurrent();
     return restored;
   } catch (failure) {
-    try { stop(); } catch { /* Preserve the construction failure. */ }
+    try {
+      stop();
+    } catch {
+      /* Preserve the construction failure. */
+    }
     throw failure;
   }
 }
@@ -361,7 +423,9 @@ export function createServerAction<TArgs, TResult>(options: {
   rpc: (args: TArgs, signal: AbortSignal) => Promise<TResult>;
   optimisticUpdate?: (args: TArgs) => () => void;
 }): ServerAction<TArgs, TResult> {
-  const owner = getCurrentOwner(), core = getWasmCore(), generation = getReactiveGeneration(core);
+  const owner = getCurrentOwner(),
+    core = getWasmCore(),
+    generation = getReactiveGeneration(core);
   if (isOwnerScopeDisposed(owner)) throw new ServerActionDisposedError();
   const pending = signal(false);
   const error = signal<Error | null>(null);
@@ -370,55 +434,87 @@ export function createServerAction<TArgs, TResult>(options: {
   let disposed = false;
   let latestRequest: Request | undefined;
   let unregisterReset: (() => void) | undefined;
-  const isCurrent = () => !disposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
-  const dispose = () => runUntrackedInCore(core, () => {
-    if (disposed) return;
-    disposed = true; latestRequest = undefined;
-    unregisterReset?.(); unregisterReset = undefined;
-    if (owner && !owner.disposed) {
-      const index = owner.disposables.indexOf(dispose);
-      if (index >= 0) owner.disposables.splice(index, 1);
-    }
-    const active = Array.from(requests);
-    requests.clear();
-    const reason = new ServerActionDisposedError();
-    for (const request of active) {
-      request.reject(reason);
-      try { request.controller.abort(reason); } catch { /* Finish every request and signal teardown. */ }
-    }
-    try { pending.set(false); }
-    finally { try { pending.dispose(); } finally { error.dispose(); } }
-  });
+  const isCurrent = () =>
+    !disposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
+  const dispose = () =>
+    runUntrackedInCore(core, () => {
+      if (disposed) return;
+      disposed = true;
+      latestRequest = undefined;
+      unregisterReset?.();
+      unregisterReset = undefined;
+      if (owner && !owner.disposed) {
+        const index = owner.disposables.indexOf(dispose);
+        if (index >= 0) owner.disposables.splice(index, 1);
+      }
+      const active = Array.from(requests);
+      requests.clear();
+      const reason = new ServerActionDisposedError();
+      for (const request of active) {
+        request.reject(reason);
+        try {
+          request.controller.abort(reason);
+        } catch {
+          /* Finish every request and signal teardown. */
+        }
+      }
+      try {
+        pending.set(false);
+      } finally {
+        try {
+          pending.dispose();
+        } finally {
+          error.dispose();
+        }
+      }
+    });
   const assertCurrent = () => {
     if (!isCurrent()) {
-      try { dispose(); } catch { /* Preserve the typed lifetime failure. */ }
+      try {
+        dispose();
+      } catch {
+        /* Preserve the typed lifetime failure. */
+      }
       throw new ServerActionDisposedError();
     }
   };
   onCleanup(dispose);
-  const runCallback = <T>(callback: () => T): T => runUntrackedInCore(core, () => {
-    assertCurrent();
-    return callback();
-  });
-  const normalizeError = (value: unknown): Error => runCallback(() => {
-    if (value instanceof Error) return value;
-    try { return new Error(String(value)); }
-    catch { return new Error('Server action rejected with an unprintable value', { cause: value }); }
-  });
+  const runCallback = <T>(callback: () => T): T =>
+    runUntrackedInCore(core, () => {
+      assertCurrent();
+      return callback();
+    });
+  const normalizeError = (value: unknown): Error =>
+    runCallback(() => {
+      if (value instanceof Error) return value;
+      try {
+        return new Error(String(value));
+      } catch {
+        return new Error('Server action rejected with an unprintable value', { cause: value });
+      }
+    });
 
   const action = (async (args: TArgs): Promise<TResult> => {
     assertCurrent();
     let rejectCancellation!: (error: Error) => void;
-    const cancelled = new Promise<never>((_resolve, reject) => { rejectCancellation = reject; });
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      rejectCancellation = reject;
+    });
     // Disposal may happen synchronously before RPC/race setup.
     void cancelled.catch(() => {});
     const request: Request = { controller: new AbortController(), reject: rejectCancellation };
-    latestRequest = request; requests.add(request);
+    latestRequest = request;
+    requests.add(request);
     unregisterReset ??= registerReactiveResetFinalizer(core, dispose);
     let failed = false;
     let rollback: (() => void) | undefined;
     try {
-      runCallback(() => batch(() => { pending.set(true); error.set(null); }));
+      runCallback(() =>
+        batch(() => {
+          pending.set(true);
+          error.set(null);
+        }),
+      );
       assertCurrent();
       const optimisticUpdate = runCallback(() => options.optimisticUpdate);
       assertCurrent();
@@ -433,15 +529,17 @@ export function createServerAction<TArgs, TResult>(options: {
       // another thenable gets another adapter, without synchronously walking it.
       let adoptedValues: WeakMap<object, object> | undefined;
       const adopt = (value: unknown): unknown => {
-        if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return value;
+        if (value === null || (typeof value !== 'object' && typeof value !== 'function'))
+          return value;
         const adapter: object = new Proxy(Object.create(null), {
           get(_target, key) {
             if (key !== 'then') return undefined;
             const then = runUntrackedInCore(core, () => Reflect.get(value, 'then', value));
-            if (typeof then === 'function') return (resolve: (next: unknown) => void, reject: (reason: unknown) => void) =>
-              runUntrackedInCore(core, () => Reflect.apply(then, value, [
-                (next: unknown) => resolve(adopt(next)), reject,
-              ]));
+            if (typeof then === 'function')
+              return (resolve: (next: unknown) => void, reject: (reason: unknown) => void) =>
+                runUntrackedInCore(core, () =>
+                  Reflect.apply(then, value, [(next: unknown) => resolve(adopt(next)), reject]),
+                );
             // Only terminal object adapters can reach the public return value.
             // Promise/thenable adapters need no reverse entry (or map allocation).
             (adoptedValues ??= new WeakMap()).set(adapter, value);
@@ -455,31 +553,54 @@ export function createServerAction<TArgs, TResult>(options: {
       const adopted = adopt(operation) as Promise<TResult>;
       const result = await runUntrackedInCore(core, () => Promise.race([adopted, cancelled]));
       assertCurrent();
-      return (result !== null && (typeof result === 'object' || typeof result === 'function')
-        ? adoptedValues?.get(result as object) ?? result : result) as TResult;
+      return (
+        result !== null && (typeof result === 'object' || typeof result === 'function')
+          ? (adoptedValues?.get(result as object) ?? result)
+          : result
+      ) as TResult;
     } catch (err) {
       failed = true;
       assertCurrent();
       let failure = normalizeError(err);
       assertCurrent();
       if (rollback) {
-        try { runCallback(rollback); }
-        catch (rollbackError) {
-          failure = new AggregateError([failure, normalizeError(rollbackError)],
-            'Server action and optimistic rollback failed', { cause: failure });
+        try {
+          runCallback(rollback);
+        } catch (rollbackError) {
+          failure = new AggregateError(
+            [failure, normalizeError(rollbackError)],
+            'Server action and optimistic rollback failed',
+            { cause: failure },
+          );
         }
       }
       if (isCurrent() && latestRequest === request) {
-        try { error.set(failure); } catch { /* Observer errors must not replace the action failure. */ }
+        try {
+          error.set(failure);
+        } catch {
+          /* Observer errors must not replace the action failure. */
+        }
       }
       throw failure;
     } finally {
       requests.delete(request);
-      if (!requests.size) { unregisterReset?.(); unregisterReset = undefined; }
+      if (!requests.size) {
+        unregisterReset?.();
+        unregisterReset = undefined;
+      }
       if (isCurrent()) {
-        try { pending.set(requests.size > 0); }
-        catch (observerError) { if (!failed) throw observerError; }
-      } else { try { dispose(); } catch { /* Complete invalidated request finalization. */ } }
+        try {
+          pending.set(requests.size > 0);
+        } catch (observerError) {
+          if (!failed) throw observerError;
+        }
+      } else {
+        try {
+          dispose();
+        } catch {
+          /* Complete invalidated request finalization. */
+        }
+      }
     }
   }) as ServerAction<TArgs, TResult>;
 

@@ -1,6 +1,6 @@
 use crate::{Buffer, BufferInner, BufferUsages, Device, Label};
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 #[derive(Debug, Clone)]
 pub struct BufferInitDescriptor<'a> {

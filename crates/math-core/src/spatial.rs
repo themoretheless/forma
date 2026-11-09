@@ -296,10 +296,7 @@ impl DualQuat {
     pub fn to_rotation_translation(self) -> (Quat, V3) {
         let dq = self.normalize().unwrap_or(Self::IDENTITY);
         let t_quat = dq.dual.mul(dq.real.conjugate());
-        (
-            dq.real,
-            [2.0 * t_quat.x, 2.0 * t_quat.y, 2.0 * t_quat.z],
-        )
+        (dq.real, [2.0 * t_quat.x, 2.0 * t_quat.y, 2.0 * t_quat.z])
     }
 
     /// Transform a 3D point by this dual quaternion.
@@ -352,10 +349,7 @@ impl Ray3 {
         }
         let len = norm(direction);
         if !len.is_finite() || len == 0.0 {
-            return Err(Error::new(
-                "invalid_ray",
-                "Ray3 direction must be non-zero",
-            ));
+            return Err(Error::new("invalid_ray", "Ray3 direction must be non-zero"));
         }
         let dir = unit(direction);
         Ok(Self {
@@ -443,9 +437,12 @@ impl Ray3 {
             if i0 >= vertices.len() || i1 >= vertices.len() || i2 >= vertices.len() {
                 continue;
             }
-            if let Some((t, u, v)) =
-                ray_triangle_intersect_moller_trumbore(self, vertices[i0], vertices[i1], vertices[i2])
-            {
+            if let Some((t, u, v)) = ray_triangle_intersect_moller_trumbore(
+                self,
+                vertices[i0],
+                vertices[i1],
+                vertices[i2],
+            ) {
                 if t < closest_t {
                     closest_t = t;
                     best = Some((tri_idx, t, u, v));
@@ -1054,9 +1051,21 @@ pub fn ray_triangle_intersect_moller_trumbore(
 pub fn symmetric_eigen3(a: M3) -> (V3, M3) {
     // Symmetrize input defensively in case of tiny numerical asymmetry.
     let sym = [
-        [a[0][0], 0.5 * (a[0][1] + a[1][0]), 0.5 * (a[0][2] + a[2][0])],
-        [0.5 * (a[1][0] + a[0][1]), a[1][1], 0.5 * (a[1][2] + a[2][1])],
-        [0.5 * (a[2][0] + a[0][2]), 0.5 * (a[2][1] + a[1][2]), a[2][2]],
+        [
+            a[0][0],
+            0.5 * (a[0][1] + a[1][0]),
+            0.5 * (a[0][2] + a[2][0]),
+        ],
+        [
+            0.5 * (a[1][0] + a[0][1]),
+            a[1][1],
+            0.5 * (a[1][2] + a[2][1]),
+        ],
+        [
+            0.5 * (a[2][0] + a[0][2]),
+            0.5 * (a[2][1] + a[1][2]),
+            a[2][2],
+        ],
     ];
     let (raw_d, raw_v) = crate::linalg::eigen(sym);
     let mut order = [0usize, 1, 2];
@@ -1083,11 +1092,7 @@ pub fn solve_linear_3x3(a: M3, b: V3) -> Option<V3> {
     if !a.iter().flatten().all(|v| v.is_finite()) || !b.iter().all(|v| v.is_finite()) {
         return None;
     }
-    let max_entry = a
-        .iter()
-        .flatten()
-        .map(|v| v.abs())
-        .fold(0.0_f64, f64::max);
+    let max_entry = a.iter().flatten().map(|v| v.abs()).fold(0.0_f64, f64::max);
     if max_entry <= 1e-30 {
         return None;
     }
@@ -1147,11 +1152,7 @@ pub fn evaluate_catmull_rom_3d(p0: V3, p1: V3, p2: V3, p3: V3, t: f64, alpha: f6
     let knot_delta = |pa: V3, pb: V3| -> f64 {
         let d = norm(sub(pb, pa));
         let dt = d.powf(a);
-        if dt.is_finite() && dt > 1e-9 {
-            dt
-        } else {
-            1.0
-        }
+        if dt.is_finite() && dt > 1e-9 { dt } else { 1.0 }
     };
     let t0 = 0.0;
     let t1 = t0 + knot_delta(p0, p1);
@@ -1181,24 +1182,13 @@ pub fn evaluate_catmull_rom_3d(p0: V3, p1: V3, p2: V3, p3: V3, t: f64, alpha: f6
 
 /// Evaluate the first derivative $dC/dt$ (with respect to normalized segment parameter $t \in [0, 1]$)
 /// of a 3D Barry–Goldman Catmull-Rom spline between `p1` and `p2`.
-pub fn evaluate_catmull_rom_tangent_3d(
-    p0: V3,
-    p1: V3,
-    p2: V3,
-    p3: V3,
-    t: f64,
-    alpha: f64,
-) -> V3 {
+pub fn evaluate_catmull_rom_tangent_3d(p0: V3, p1: V3, p2: V3, p3: V3, t: f64, alpha: f64) -> V3 {
     let u = t.clamp(0.0, 1.0);
     let a = alpha.clamp(0.0, 1.0);
     let knot_delta = |pa: V3, pb: V3| -> f64 {
         let d = norm(sub(pb, pa));
         let dt = d.powf(a);
-        if dt.is_finite() && dt > 1e-9 {
-            dt
-        } else {
-            1.0
-        }
+        if dt.is_finite() && dt > 1e-9 { dt } else { 1.0 }
     };
     let t0 = 0.0;
     let t1 = t0 + knot_delta(p0, p1);
@@ -1387,7 +1377,9 @@ mod tests {
     #[test]
     fn ray_aabb_sphere_and_plane_intersections() {
         let ray = Ray3::new([-5.0, 0.5, 0.5], [1.0, 0.0, 0.0]).unwrap();
-        let hit = ray.intersect_aabb([0.0, 0.0, 0.0], [2.0, 1.0, 1.0]).unwrap();
+        let hit = ray
+            .intersect_aabb([0.0, 0.0, 0.0], [2.0, 1.0, 1.0])
+            .unwrap();
         assert!((hit.0 - 5.0).abs() < 1e-12);
         assert!((hit.1 - 7.0).abs() < 1e-12);
 
@@ -1505,14 +1497,14 @@ mod tests {
         let closest = ray.intersect_triangles_closest(&verts, &tris).unwrap();
         assert_eq!(closest.0, 1);
         assert!((closest.1 - 1.5).abs() < 1e-12);
-        assert!(miss_ray.intersect_triangles_closest(&verts, &tris).is_none());
+        assert!(
+            miss_ray
+                .intersect_triangles_closest(&verts, &tris)
+                .is_none()
+        );
 
         // Symmetric 3x3 eigendecomposition sorted descending
-        let cov = [
-            [5.0, 2.0, 0.0],
-            [2.0, 5.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ];
+        let cov = [[5.0, 2.0, 0.0], [2.0, 5.0, 0.0], [0.0, 0.0, 1.0]];
         let (evals, evecs) = symmetric_eigen3(cov);
         assert!((evals[0] - 7.0).abs() < 1e-12);
         assert!((evals[1] - 3.0).abs() < 1e-12);
@@ -1526,11 +1518,7 @@ mod tests {
         }
 
         // 3x3 linear solver with partial pivoting
-        let a = [
-            [0.0, 2.0, 1.0],
-            [1.0, -2.0, -3.0],
-            [-1.0, 1.0, 2.0],
-        ];
+        let a = [[0.0, 2.0, 1.0], [1.0, -2.0, -3.0], [-1.0, 1.0, 2.0]];
         let b = [-8.0, 0.0, 3.0];
         let x = solve_linear_3x3(a, b).unwrap();
         let ax = crate::linalg::mv(a, x);
@@ -1538,11 +1526,7 @@ mod tests {
             assert!((ax[i] - b[i]).abs() < 1e-12);
         }
         // Singular matrix returns None
-        let singular = [
-            [1.0, 2.0, 3.0],
-            [2.0, 4.0, 6.0],
-            [0.0, 1.0, 1.0],
-        ];
+        let singular = [[1.0, 2.0, 3.0], [2.0, 4.0, 6.0], [0.0, 1.0, 1.0]];
         assert!(solve_linear_3x3(singular, [1.0, 2.0, 3.0]).is_none());
     }
 
@@ -1555,8 +1539,8 @@ mod tests {
         let spline = CatmullRomSpline3::centripetal(p0, p1, p2, p3);
         let start = spline.evaluate(0.0);
         let end = spline.evaluate(1.0);
-        assert!(( norm(sub(start, p1)) ) < 1e-12);
-        assert!(( norm(sub(end, p2)) ) < 1e-12);
+        assert!((norm(sub(start, p1))) < 1e-12);
+        assert!((norm(sub(end, p2))) < 1e-12);
 
         // Verify analytical tangent against central finite difference at t = 0.5
         let eps = 1e-6;
@@ -1580,15 +1564,25 @@ mod tests {
             assert!(dot(sub(p, centroid), normal).abs() < 1e-11);
         }
         // Collinear points return None
-        assert!(plane_from_points_pca(&[[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]]).is_none());
+        assert!(
+            plane_from_points_pca(&[[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]]).is_none()
+        );
 
         // 3D Morton code (Z-order curve) encode / decode roundtrip and unit-point quantization
-        for &(x, y, z) in &[(0, 0, 0), (1, 2, 3), (511, 256, 1023), (1023, 1023, 1023), (341, 682, 170)] {
+        for &(x, y, z) in &[
+            (0, 0, 0),
+            (1, 2, 3),
+            (511, 256, 1023),
+            (1023, 1023, 1023),
+            (341, 682, 170),
+        ] {
             let code = morton3d_encode(x, y, z);
             assert_eq!(morton3d_decode(code), (x, y, z));
         }
         assert_eq!(morton3d_from_unit_point([0.0, 0.0, 0.0]), 0);
         assert_eq!(morton3d_from_unit_point([1.0, 1.0, 1.0]), 0x3FFF_FFFF);
-        assert!(morton3d_from_unit_point([0.2, 0.2, 0.2]) < morton3d_from_unit_point([0.8, 0.8, 0.8]));
+        assert!(
+            morton3d_from_unit_point([0.2, 0.2, 0.2]) < morton3d_from_unit_point([0.8, 0.8, 0.8])
+        );
     }
 }

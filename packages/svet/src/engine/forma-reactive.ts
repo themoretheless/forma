@@ -86,7 +86,7 @@ export function flushSpringFrame(steps = 1, dt = 1 / 60): void {
  */
 export function createSpring(
   initialValue: number,
-  options?: { stiffness?: number; damping?: number; precision?: number }
+  options?: { stiffness?: number; damping?: number; precision?: number },
 ): SpringSignal {
   const stiffness = options?.stiffness ?? 170;
   const damping = options?.damping ?? 26;
@@ -136,7 +136,7 @@ export function createSpring(
 
   getter.set = (
     nextTarget: number,
-    setOpts?: { hard?: boolean; steps?: number; animate?: boolean }
+    setOpts?: { hard?: boolean; steps?: number; animate?: boolean },
   ) => {
     if (setOpts?.hard) {
       getter.snap(nextTarget);
@@ -184,7 +184,7 @@ export function createPersistedSignal<T>(
   options?: {
     storage?: Pick<Storage, 'getItem' | 'setItem'>;
     channelName?: string;
-  }
+  },
 ): Signal<T> {
   const storage =
     options?.storage ?? (typeof localStorage !== 'undefined' ? localStorage : undefined);
@@ -302,7 +302,7 @@ export interface FormFieldRule<V = any, AllValues = Record<string, any>> {
   validate?: (value: V, allValues: AllValues) => string | null | undefined;
   validateAsync?: (
     value: V,
-    options: { signal: AbortSignal; allValues: AllValues }
+    options: { signal: AbortSignal; allValues: AllValues },
   ) => Promise<string | null | undefined>;
 }
 
@@ -422,9 +422,8 @@ export function createForm<T extends Record<string, any>>(config: {
         activeControllers.set(key, ctrl);
         asyncValidating[key].set(true);
         const allVals = untrack(() => getAllValuesReactive());
-        rule
-          .validateAsync!(val, { signal: ctrl.signal, allValues: allVals })
-          .then((msg) => {
+        rule.validateAsync!(val, { signal: ctrl.signal, allValues: allVals })
+          .then(msg => {
             if (!ctrl.signal.aborted) {
               batch(() => {
                 asyncErrors[key].set(msg ?? null);
@@ -500,7 +499,7 @@ export function createForm<T extends Record<string, any>>(config: {
         asyncTasks.push(
           rule
             .validateAsync(val, { signal: ctrl.signal, allValues: allVals })
-            .then((msg) => {
+            .then(msg => {
               if (!ctrl.signal.aborted) {
                 batch(() => {
                   asyncErrors[key].set(msg ?? null);
@@ -512,7 +511,7 @@ export function createForm<T extends Record<string, any>>(config: {
               if (!ctrl.signal.aborted) {
                 asyncValidating[key].set(false);
               }
-            })
+            }),
         );
       }
     }

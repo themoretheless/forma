@@ -5,17 +5,19 @@ use raster_core::shaders::{
     SELECTION_OVERLAY_WGSL,
 };
 use raster_core::uniform::{
-    CAP_FLOAT_OFFSET, MORPH_FLOAT_OFFSET, OBJECT_UNIFORM_BYTES, OBJECT_UNIFORM_FLOATS,
-    LIGHT_VP_FLOAT_OFFSET, SCENE_UNIFORM_BYTES, SCENE_UNIFORM_FLOATS, SHADOW_FLOAT_OFFSET,
-    STYLE_FLOAT_OFFSET, ObjectUniform, SceneUniform,
+    CAP_FLOAT_OFFSET, LIGHT_VP_FLOAT_OFFSET, MORPH_FLOAT_OFFSET, OBJECT_UNIFORM_BYTES,
+    OBJECT_UNIFORM_FLOATS, ObjectUniform, SCENE_UNIFORM_BYTES, SCENE_UNIFORM_FLOATS,
+    SHADOW_FLOAT_OFFSET, STYLE_FLOAT_OFFSET, SceneUniform,
 };
 use raster_core::variants::{VertexOutput, immediate_object_shader, instanced_object_shader};
 
 fn validate(name: &str, source: &str) {
     let module = naga::front::wgsl::parse_str(source)
         .unwrap_or_else(|error| panic!("{name}: WGSL parse failed: {error}"));
-    let mut validator =
-        naga::valid::Validator::new(naga::valid::ValidationFlags::all(), naga::valid::Capabilities::all());
+    let mut validator = naga::valid::Validator::new(
+        naga::valid::ValidationFlags::all(),
+        naga::valid::Capabilities::all(),
+    );
     validator
         .validate(&module)
         .unwrap_or_else(|error| panic!("{name}: WGSL validation failed: {error}"));
@@ -49,14 +51,38 @@ fn shipped_shaders_validate_with_naga() {
 
 #[test]
 fn instanced_variants_validate_with_naga() {
-    validate("instanced_mesh", &instanced_object_shader(&expanded(MESH_WGSL), VertexOutput::V));
-    validate("instanced_mesh_pbr", &instanced_object_shader(&expanded(MESH_PBR_WGSL), VertexOutput::V));
-    validate("instanced_mesh_matcap", &instanced_object_shader(&expanded(MESH_MATCAP_WGSL), VertexOutput::V));
-    validate("instanced_mesh_toon", &instanced_object_shader(&expanded(MESH_TOON_WGSL), VertexOutput::V));
-    validate("instanced_mesh_unlit", &instanced_object_shader(&expanded(MESH_UNLIT_WGSL), VertexOutput::V));
-    validate("instanced_mesh_section_cap", &instanced_object_shader(&expanded(MESH_SECTION_CAP_WGSL), VertexOutput::V));
-    validate("instanced_deep_mesh", &instanced_object_shader(&expanded(DEEP_MESH_WGSL), VertexOutput::V));
-    validate("instanced_edge", &instanced_object_shader(&expanded(EDGE_WGSL), VertexOutput::EdgeV));
+    validate(
+        "instanced_mesh",
+        &instanced_object_shader(&expanded(MESH_WGSL), VertexOutput::V),
+    );
+    validate(
+        "instanced_mesh_pbr",
+        &instanced_object_shader(&expanded(MESH_PBR_WGSL), VertexOutput::V),
+    );
+    validate(
+        "instanced_mesh_matcap",
+        &instanced_object_shader(&expanded(MESH_MATCAP_WGSL), VertexOutput::V),
+    );
+    validate(
+        "instanced_mesh_toon",
+        &instanced_object_shader(&expanded(MESH_TOON_WGSL), VertexOutput::V),
+    );
+    validate(
+        "instanced_mesh_unlit",
+        &instanced_object_shader(&expanded(MESH_UNLIT_WGSL), VertexOutput::V),
+    );
+    validate(
+        "instanced_mesh_section_cap",
+        &instanced_object_shader(&expanded(MESH_SECTION_CAP_WGSL), VertexOutput::V),
+    );
+    validate(
+        "instanced_deep_mesh",
+        &instanced_object_shader(&expanded(DEEP_MESH_WGSL), VertexOutput::V),
+    );
+    validate(
+        "instanced_edge",
+        &instanced_object_shader(&expanded(EDGE_WGSL), VertexOutput::EdgeV),
+    );
 }
 
 #[test]
@@ -136,7 +162,16 @@ fn uniform_layout_matches_the_wgsl_contract() {
 
 #[test]
 fn immediate_variant_serves_style_from_immediate_address_space() {
-    for source in [MESH_WGSL, MESH_PBR_WGSL, MESH_MATCAP_WGSL, MESH_TOON_WGSL, MESH_UNLIT_WGSL, MESH_SECTION_CAP_WGSL, DEEP_MESH_WGSL, EDGE_WGSL] {
+    for source in [
+        MESH_WGSL,
+        MESH_PBR_WGSL,
+        MESH_MATCAP_WGSL,
+        MESH_TOON_WGSL,
+        MESH_UNLIT_WGSL,
+        MESH_SECTION_CAP_WGSL,
+        DEEP_MESH_WGSL,
+        EDGE_WGSL,
+    ] {
         let variant = immediate_object_shader(&expanded(source));
         assert!(variant.starts_with("requires immediate_address_space;"));
         assert!(variant.contains("var<immediate> im_style: vec4f;"));
@@ -147,7 +182,10 @@ fn immediate_variant_serves_style_from_immediate_address_space() {
 
 #[test]
 fn instanced_variant_reads_per_instance_records() {
-    for (source, output) in [(MESH_WGSL, VertexOutput::V), (EDGE_WGSL, VertexOutput::EdgeV)] {
+    for (source, output) in [
+        (MESH_WGSL, VertexOutput::V),
+        (EDGE_WGSL, VertexOutput::EdgeV),
+    ] {
         let variant = instanced_object_shader(&expanded(source), output);
         assert!(variant.contains("var<storage, read> objects: array<Obj>;"));
         assert!(variant.contains("@builtin(instance_index) instance: u32"));
@@ -204,8 +242,14 @@ fn generated_variant_goldens_match_the_rust_variants() {
 #[test]
 fn generated_layouts_match_the_layout_table() {
     for (path, generate) in [
-        (raster_core::codegen::layouts_ts_path(), raster_core::codegen::generate_layouts_ts as fn() -> String),
-        (raster_core::codegen::layouts_rs_path(), raster_core::codegen::generate_layouts_rs as fn() -> String),
+        (
+            raster_core::codegen::layouts_ts_path(),
+            raster_core::codegen::generate_layouts_ts as fn() -> String,
+        ),
+        (
+            raster_core::codegen::layouts_rs_path(),
+            raster_core::codegen::generate_layouts_rs as fn() -> String,
+        ),
     ] {
         let generated = generate();
         assert!(!generated.is_empty());

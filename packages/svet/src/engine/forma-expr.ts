@@ -410,7 +410,7 @@ export function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
     }
 
     case 'array':
-      return node.elements.map((el) => evalAstNode(el, scope));
+      return node.elements.map(el => evalAstNode(el, scope));
 
     case 'ident': {
       const name = node.name;
@@ -496,7 +496,7 @@ export function evalAstNode(node: ExprAst, scope: FormaEvalScope): any {
     }
 
     case 'call': {
-      const argVals = node.args.map((a) => evalAstNode(a, scope));
+      const argVals = node.args.map(a => evalAstNode(a, scope));
       if (
         node.callee.type === 'ident' &&
         Object.prototype.hasOwnProperty.call(formaStdlib, node.callee.name)
@@ -606,12 +606,12 @@ export function isStaticFormaExprNode(node: ExprAst, locals?: Record<string, any
     case 'literal':
       return true;
     case 'interp':
-      return node.parts.every((p) => p.literal || isStaticFormaExprNode(p.ast, locals));
+      return node.parts.every(p => p.literal || isStaticFormaExprNode(p.ast, locals));
     case 'call':
       return (
         node.callee.type === 'ident' &&
         Object.prototype.hasOwnProperty.call(formaStdlib, node.callee.name) &&
-        node.args.every((arg) => isStaticFormaExprNode(arg, locals))
+        node.args.every(arg => isStaticFormaExprNode(arg, locals))
       );
     case 'member':
       if (isTokensRoot(node.object)) {
@@ -633,7 +633,7 @@ export function isStaticFormaExprNode(node: ExprAst, locals?: Record<string, any
         isStaticFormaExprNode(node.alternate, locals)
       );
     case 'array':
-      return node.elements.every((el) => isStaticFormaExprNode(el, locals));
+      return node.elements.every(el => isStaticFormaExprNode(el, locals));
     default:
       return false;
   }
@@ -677,7 +677,7 @@ export function compileFormaPatternMatcher(pattern: string): (val: any) => boole
   if (pat === '_') {
     matcher = () => true;
   } else if (pat.includes('|')) {
-    const subMatchers = pat.split('|').map((sub) => compileFormaPatternMatcher(sub.trim()));
+    const subMatchers = pat.split('|').map(sub => compileFormaPatternMatcher(sub.trim()));
     matcher = (actualValue: any) => {
       for (let i = 0; i < subMatchers.length; i++) {
         if (subMatchers[i](actualValue)) return true;

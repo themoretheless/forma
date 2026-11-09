@@ -119,7 +119,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
         'div',
         { className: 'counter-box' },
         h('span', { id: 'val' }, () => `Count is ${count()}`),
-        h('span', { id: 'static' }, 'Static Label')
+        h('span', { id: 'static' }, 'Static Label'),
       );
     }
 
@@ -154,14 +154,14 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
       () =>
         For({
           each: items,
-          keyFn: (item) => item.id,
-          children: (item) => h('li', { 'data-id': String(item.id) }, item.label),
+          keyFn: item => item.id,
+          children: item => h('li', { 'data-id': String(item.id) }, item.label),
         }),
-      container
+      container,
     );
 
     const initialLis = Array.from(container.querySelectorAll('li'));
-    expect(initialLis.map((el) => el.getAttribute('data-id'))).toEqual(['1', '2', '3', '4', '5']);
+    expect(initialLis.map(el => el.getAttribute('data-id'))).toEqual(['1', '2', '3', '4', '5']);
 
     resetDomMutationCount();
 
@@ -176,7 +176,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     expect(getDomMutationCount()).toBe(1);
 
     const updatedLis = Array.from(container.querySelectorAll('li'));
-    expect(updatedLis.map((el) => el.getAttribute('data-id'))).toEqual(['1', '5', '2', '3', '4']);
+    expect(updatedLis.map(el => el.getAttribute('data-id'))).toEqual(['1', '5', '2', '3', '4']);
     expect(updatedLis[0]).toBe(initialLis[0]);
     expect(updatedLis[1]).toBe(initialLis[4]);
   });
@@ -203,12 +203,12 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const likes = signal(10);
 
     const likePost = createServerAction<number, number>({
-      optimisticUpdate: (delta) => {
+      optimisticUpdate: delta => {
         const prev = likes.peek();
         likes.set(prev + delta);
         return () => likes.set(prev);
       },
-      rpc: async (delta) => {
+      rpc: async delta => {
         if (delta < 0) {
           throw new Error('Negative likes rejected by server');
         }
@@ -290,7 +290,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
             return h('p', null, 'Active Branch');
           },
         }),
-      container
+      container,
     );
 
     expect(innerEffectRuns).toBe(1);
@@ -341,9 +341,9 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
           'div',
           null,
           h('input', { id: 'name-input', model: username }),
-          h('button', { id: 'btn', onClick: () => clicks.update((c) => c + 1) }, 'Click')
+          h('button', { id: 'btn', onClick: () => clicks.update(c => c + 1) }, 'Click'),
         ),
-      container
+      container,
     );
 
     const inputEl = container.querySelector('#name-input') as HTMLInputElement;
@@ -415,7 +415,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
           value: 'midnight-blue',
           children: () => h(ThemedModal, null),
         }),
-      appRoot
+      appRoot,
     );
 
     const renderedModal = modalRoot.querySelector('#modal-box');
@@ -441,7 +441,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
               if (shouldFail) reject(new Error('Network timeout'));
               else resolve(v);
             };
-          })
+          }),
       );
       return h('div', { id: 'data-view' }, () => res() ?? 'empty');
     }
@@ -457,7 +457,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
               children: () => h(AsyncChild, null),
             }),
         }),
-      container
+      container,
     );
 
     const fallbackWrapper = container.querySelector('[data-svet-suspense-fallback]') as HTMLElement;
@@ -469,7 +469,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
 
     // Resolve async resource -> Suspense switches to content
     resolveFetch('Hello from Server');
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise(r => setTimeout(r, 10));
 
     expect(fallbackWrapper.style.display).toBe('none');
     expect(contentWrapper.style.display).toBe('contents');
@@ -491,7 +491,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
                   reset();
                 },
               },
-              `Caught: ${err.message}`
+              `Caught: ${err.message}`,
             ),
           children: () => {
             if (crashSignal.peek()) {
@@ -500,7 +500,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
             return h('div', { id: 'healthy' }, 'Recovered UI');
           },
         }),
-      errContainer
+      errContainer,
     );
 
     expect(errContainer.querySelector('#recover')?.textContent).toBe('Caught: Render Crash');
@@ -525,13 +525,13 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
               'div',
               { id: 'page-home' },
               'Home Page',
-              Link({ to: '/users/42', className: 'nav-link', children: 'Go User 42' })
+              Link({ to: '/users/42', className: 'nav-link', children: 'Go User 42' }),
             );
           },
         },
         {
           path: '/users/:id',
-          component: (params) => h('div', { id: 'page-user' }, `User ID: ${params.id}`),
+          component: params => h('div', { id: 'page-user' }, `User ID: ${params.id}`),
         },
       ],
     });
@@ -624,7 +624,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
 
     // Allocate & dispose 500 GPU tensors inside OwnerScopes -> zero unbounded growth in gpu_f32_arena!
     for (let i = 0; i < 500; i++) {
-      createRoot((dispose) => {
+      createRoot(dispose => {
         createGpuTensor(4);
         dispose();
       });
@@ -663,7 +663,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
         { className: 'ssr-card', 'data-svet-attr': 'data-title:title' },
         h('h1', { 'data-svet-text': 'title' }, () => title()),
         h('span', { id: 'cnt', 'data-svet-text': 'count' }, () => count()),
-        h('input', { id: 'inp', 'data-svet-model': 'title', value: title.peek() })
+        h('input', { id: 'inp', 'data-svet-model': 'title', value: title.peek() }),
       );
     });
 
@@ -683,11 +683,9 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     restored.title.set('Svet Edge GPU');
     expect(clientContainer.querySelector('h1')?.textContent).toBe('Svet Edge GPU');
     expect(clientContainer.querySelector('section')?.getAttribute('data-title')).toBe(
-      'Svet Edge GPU'
+      'Svet Edge GPU',
     );
-    expect((clientContainer.querySelector('#inp') as HTMLInputElement).value).toBe(
-      'Svet Edge GPU'
-    );
+    expect((clientContainer.querySelector('#inp') as HTMLInputElement).value).toBe('Svet Edge GPU');
   });
 
   it('21. 3D GPU Scene Graph: Reactive Transform3D Hierarchy, PerspectiveCamera3D & Mesh3D Vertex Transformation in WASM UMA/DUMA Arena', () => {
@@ -1058,7 +1056,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
       itemHeight: 30,
       height: 150, // 5 visible rows
       overscan: 2, // +2 top/bottom -> max 9 rows mounted in DOM!
-      renderItem: (item) => h('span', { className: 'v-row' }, item.title),
+      renderItem: item => h('span', { className: 'v-row' }, item.title),
     });
 
     document.body.appendChild(vList);
@@ -1123,10 +1121,10 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     }));
     const dynList = VirtualList({
       items: varRows,
-      itemHeight: (row) => (row.tall ? 60 : 30), // alternating 30px and 60px (90px per pair)
+      itemHeight: row => (row.tall ? 60 : 30), // alternating 30px and 60px (90px per pair)
       height: 180,
       overscan: 1,
-      renderItem: (r) => h('div', { className: 'dyn-row' }, `Row-${r.id}`),
+      renderItem: r => h('div', { className: 'dyn-row' }, `Row-${r.id}`),
     });
     document.body.appendChild(dynList);
     dynList.scrollToIndex(200); // 100 pairs * 90px = 9000px scrollTop
@@ -1188,10 +1186,9 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
   it('28. Security Hardening: Prevents SSR Script-Breakout XSS, Prototype Pollution, Forma Sandbox Escape, and Unsafe URL Injection', () => {
     // 1. SSR JSON state escaping (`</script>` breakout protection)
     const maliciousSig = signal('</script><script>window.__xss=1</script>');
-    const ssrOut = renderToString(
-      () => h('div', null, () => maliciousSig()),
-      { userBio: maliciousSig }
-    );
+    const ssrOut = renderToString(() => h('div', null, () => maliciousSig()), {
+      userBio: maliciousSig,
+    });
     expect(ssrOut.html).not.toContain('</script><script>');
     expect(ssrOut.stateJson).toContain('\\u003c/script\\u003e');
 
@@ -1231,7 +1228,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
           router,
           fallback: () => Link({ to: 'javascript:alert(1)', children: 'Bad' }),
         }),
-      container
+      container,
     );
     const routerLink = Link({ to: 'javascript:alert(1)', children: 'Bad' }) as HTMLAnchorElement;
     expect(routerLink.getAttribute('href')).toBe('#');
@@ -1258,7 +1255,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
           text: props.badgeText;
           clicked -> events.pillClicked('Клик, подтверждён!', [10, 20, 30]);
         }
-      }`
+      }`,
     );
 
     const parentUi = compileFormaComponent(`
@@ -1312,13 +1309,13 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const items100 = Array.from({ length: 100 }, (_, i) => ({ id: i }));
     const vList = VirtualList({
       items: items100,
-      itemHeight: (item) => {
+      itemHeight: item => {
         heightCalcCalls++;
         return item.id % 2 === 0 ? 25 : 45;
       },
       height: 100,
       overscan: 1,
-      renderItem: (it) => h('span', null, `#${it.id}`),
+      renderItem: it => h('span', null, `#${it.id}`),
     });
     document.body.appendChild(vList);
     expect(heightCalcCalls).toBe(100); // Computed once on initial mount
@@ -1422,21 +1419,21 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
           }
         }
       }`,
-      { viewModel: { customerName: sharedCustomer } }
+      { viewModel: { customerName: sharedCustomer } },
     );
 
     const container = document.createElement('div');
     mount(() => h('div', { id: 'host-box' }, inst.render()), container);
 
     expect(inst.getElementByKey('titleLabel')?.textContent).toBe(
-      'Клиент: Анна Смирнова (Бонусы: 450)'
+      'Клиент: Анна Смирнова (Бонусы: 450)',
     );
 
     // Mutate state before hot-reload
     (inst.getElementByKey('addBtn') as HTMLButtonElement).click();
     sharedCustomer.set('Борис Волков');
     expect(inst.getElementByKey('titleLabel')?.textContent).toBe(
-      'Клиент: Борис Волков (Бонусы: 600)'
+      'Клиент: Борис Волков (Бонусы: 600)',
     );
 
     // Hot-reload the .ui source with a new formula (orders * 500) and updated label template
@@ -1459,7 +1456,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
 
     // Verify DOM updated in-place inside <FormaHost /> AND preserved `customerName = 'Борис Волков'` and `orders = 4` (4 * 500 = 2000)!
     expect(inst.getElementByKey('titleLabel')?.textContent).toBe(
-      'VIP Клиент: Борис Волков [Бонусы: 2000]'
+      'VIP Клиент: Борис Волков [Бонусы: 2000]',
     );
   });
 
@@ -1470,7 +1467,11 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     expect(store.count()).toBe(5);
 
     const deep = createDeepStore({ profile: { name: 'Alice' } });
-    deep.patch(JSON.parse('{"__proto__": {"pollutedDeep": "yes"}, "profile": {"__proto__": {"pollutedSub": "yes"}, "name": "Bob"}}'));
+    deep.patch(
+      JSON.parse(
+        '{"__proto__": {"pollutedDeep": "yes"}, "profile": {"__proto__": {"pollutedSub": "yes"}, "name": "Bob"}}',
+      ),
+    );
     expect(({} as any).pollutedDeep).toBeUndefined();
     expect(({} as any).pollutedSub).toBeUndefined();
     expect(deep.profile.name()).toBe('Bob');
@@ -1511,7 +1512,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
             return h('input', { id: 'persistent-input' });
           },
         }),
-      showBox
+      showBox,
     );
     expect(branchMounts).toBe(1);
     const firstInput = showBox.querySelector('#persistent-input');
@@ -1531,10 +1532,11 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
       () =>
         For({
           each: listSig,
-          keyFn: (it) => it.id,
-          children: (it, idx) => h('span', { className: `item-${it.id}` }, () => `${it.label}@${idx()}`),
+          keyFn: it => it.id,
+          children: (it, idx) =>
+            h('span', { className: `item-${it.id}` }, () => `${it.label}@${idx()}`),
         }),
-      forBox
+      forBox,
     );
     expect(forBox.querySelector('.item-a')?.textContent).toBe('A@0');
     expect(forBox.querySelector('.item-b')?.textContent).toBe('B@1');
@@ -1550,7 +1552,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const svgNode = h(
       'svg',
       { viewBox: '0 0 100 100' },
-      h('circle', { cx: 50, cy: 50, r: 40 })
+      h('circle', { cx: 50, cy: 50, r: 40 }),
     ) as SVGElement;
     expect(svgNode.namespaceURI).toBe('http://www.w3.org/2000/svg');
     expect(svgNode.querySelector('circle')?.namespaceURI).toBe('http://www.w3.org/2000/svg');
@@ -1579,14 +1581,14 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
         abortSig.addEventListener('abort', () => {
           abortedSignals++;
         });
-        await new Promise((r) => setTimeout(r, 15));
+        await new Promise(r => setTimeout(r, 15));
         return `Result:${q}`;
-      }
+      },
     );
     // Immediately switch query before first resolves -> first request is aborted!
     querySig.set('second');
     expect(abortedSignals).toBe(1);
-    await new Promise((r) => setTimeout(r, 25));
+    await new Promise(r => setTimeout(r, 25));
     expect(res()).toBe('Result:second');
 
     // 6. Harmonic Oscillator `createSpring` & Forma `transition { ... }` + `compileFormaToJsModule`
@@ -1647,7 +1649,11 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     form.values.slug.set('svet-forma-2026');
     expect(form.isValid()).toBe(true);
     let submittedData: any = null;
-    expect(form.submit((vals) => { submittedData = vals; })).toBe(true);
+    expect(
+      form.submit(vals => {
+        submittedData = vals;
+      }),
+    ).toBe(true);
     expect(submittedData).toEqual({ age: 25, slug: 'svet-forma-2026' });
 
     // 8. Interactive 3D `orbitTransform` drag & `onVertexPick` ray/screen picking
@@ -1657,7 +1663,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const c3d = Canvas3D({
       mesh: cube3d.mesh,
       orbitTransform: tr3d,
-      onVertexPick: (vIdx) => {
+      onVertexPick: vIdx => {
         pickedVertex = vIdx;
       },
     });
@@ -1699,14 +1705,14 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
       'svg',
       { viewBox: '0 0 100 100' },
       h('title', null, 'Vector Diagram'),
-      h('a', { xlinkHref: 'https://example.com/node' }, h('circle', { cx: 20, cy: 20, r: 10 }))
+      h('a', { xlinkHref: 'https://example.com/node' }, h('circle', { cx: 20, cy: 20, r: 10 })),
     ) as SVGElement;
     expect(svgWithLink.namespaceURI).toBe('http://www.w3.org/2000/svg');
     expect(svgWithLink.querySelector('title')?.namespaceURI).toBe('http://www.w3.org/2000/svg');
     const svgAnchor = svgWithLink.querySelector('a')!;
     expect(svgAnchor.namespaceURI).toBe('http://www.w3.org/2000/svg');
     expect(svgAnchor.getAttributeNS('http://www.w3.org/1999/xlink', 'href')).toBe(
-      'https://example.com/node'
+      'https://example.com/node',
     );
 
     // 3. Shared Batched Spring Ticker: two springs read by one effect trigger the effect only ONCE per frame!
@@ -1741,8 +1747,8 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
         },
         username: {
           required: true,
-          validateAsync: async (val) => {
-            await new Promise((r) => setTimeout(r, 10));
+          validateAsync: async val => {
+            await new Promise(r => setTimeout(r, 10));
             return val === 'taken' ? 'Имя уже занято' : null;
           },
         },
@@ -1774,13 +1780,13 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     const memMap = new Map<string, string>();
     const pSig = createPersistedSignal('svet_clean_key', 'init', {
       storage: {
-        getItem: (k) => memMap.get(k) ?? null,
+        getItem: k => memMap.get(k) ?? null,
         setItem: (k, v) => memMap.set(k, v),
       },
     });
     pSig.dispose();
     window.dispatchEvent(
-      new StorageEvent('storage', { key: 'svet_clean_key', newValue: '"mutated_after_dispose"' })
+      new StorageEvent('storage', { key: 'svet_clean_key', newValue: '"mutated_after_dispose"' }),
     );
     expect(pSig.peek()).toBe('init'); // Listener was cleanly removed!
 
@@ -1788,11 +1794,20 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     // In WebGPU right-handed view space (camera at origin looking down -Z), vertex 0 is at Z = -5 (back)
     // and vertex 1 is at Z = -2 (front, closer to camera -> smaller `ndcZ`)
     const zTr = createTransform3D({ position: [0, 0, 0] });
-    const zCam = createPerspectiveCamera3D({ fovYRad: Math.PI / 3, aspect: 1, near: 0.1, far: 100 });
+    const zCam = createPerspectiveCamera3D({
+      fovYRad: Math.PI / 3,
+      aspect: 1,
+      near: 0.1,
+      far: 100,
+    });
     const zMesh = createMesh3D({
       positions: [
-        0, 0, -5, // index 0: farther from camera (larger ndcZ)
-        0, 0, -2, // index 1: closer to camera (smaller ndcZ)
+        0,
+        0,
+        -5, // index 0: farther from camera (larger ndcZ)
+        0,
+        0,
+        -2, // index 1: closer to camera (smaller ndcZ)
       ],
       transform: zTr,
       camera: zCam,
@@ -1820,7 +1835,7 @@ describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
     expect(advRouter.query()).toEqual({ tab: 'settings', page: '3' });
     expect(advRouter.hash()).toBe('security');
 
-    const removeGuard = advRouter.beforeEach((to) => {
+    const removeGuard = advRouter.beforeEach(to => {
       if (to.path === '/denied') return '/login?redirected=1#auth';
     });
     advRouter.navigate('/denied');

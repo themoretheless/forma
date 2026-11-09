@@ -38,10 +38,16 @@ pub struct ObjectUniform {
 impl ObjectUniform {
     pub const fn new(model: [f32; 16], nmat: [f32; 16], color: [f32; 4]) -> Self {
         Self {
-            model, nmat, color,
-            style: [1.0, 0.0, 0.0, 0.0], morph: [1.0, 0.0, 0.0, 0.0],
-            base_color: [1.0, 1.0, 1.0], metallic: 0.0,
-            emissive: [0.0, 0.0, 0.0], roughness: 0.7, material_id: 0.0,
+            model,
+            nmat,
+            color,
+            style: [1.0, 0.0, 0.0, 0.0],
+            morph: [1.0, 0.0, 0.0, 0.0],
+            base_color: [1.0, 1.0, 1.0],
+            metallic: 0.0,
+            emissive: [0.0, 0.0, 0.0],
+            roughness: 0.7,
+            material_id: 0.0,
         }
     }
 
@@ -67,8 +73,12 @@ impl Default for ObjectUniform {
         // keeps the zero slot-1 morph dummy inert (mix(dummy, pos, 1) = pos),
         // matching the browser renderer's convention.
         Self::new(
-            [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-            [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+            [
+                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+            ],
+            [
+                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+            ],
             [0.8, 0.8, 0.8, 1.0],
         )
     }
@@ -202,7 +212,11 @@ fn look_at_row_major(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [f32; 16]
     let mut xz = up[0] * fz[1] - up[1] * fz[0];
     len = (xx * xx + xy * xy + xz * xz).sqrt();
     if len < 1e-10 {
-        let (ax, ay, az) = if fz[2].abs() > 0.9 { (0.0, 1.0, 0.0) } else { (0.0, 0.0, 1.0) };
+        let (ax, ay, az) = if fz[2].abs() > 0.9 {
+            (0.0, 1.0, 0.0)
+        } else {
+            (0.0, 0.0, 1.0)
+        };
         xx = ay * fz[2] - az * fz[1];
         xy = az * fz[0] - ax * fz[2];
         xz = ax * fz[1] - ay * fz[0];
@@ -215,9 +229,18 @@ fn look_at_row_major(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [f32; 16]
         fz[0] * fx[1] - fz[1] * fx[0],
     ];
     let mut m = [0.0f32; 16];
-    m[0] = fx[0]; m[1] = fx[1]; m[2] = fx[2]; m[3] = -(fx[0] * eye[0] + fx[1] * eye[1] + fx[2] * eye[2]);
-    m[4] = fy[0]; m[5] = fy[1]; m[6] = fy[2]; m[7] = -(fy[0] * eye[0] + fy[1] * eye[1] + fy[2] * eye[2]);
-    m[8] = fz[0]; m[9] = fz[1]; m[10] = fz[2]; m[11] = -(fz[0] * eye[0] + fz[1] * eye[1] + fz[2] * eye[2]);
+    m[0] = fx[0];
+    m[1] = fx[1];
+    m[2] = fx[2];
+    m[3] = -(fx[0] * eye[0] + fx[1] * eye[1] + fx[2] * eye[2]);
+    m[4] = fy[0];
+    m[5] = fy[1];
+    m[6] = fy[2];
+    m[7] = -(fy[0] * eye[0] + fy[1] * eye[1] + fy[2] * eye[2]);
+    m[8] = fz[0];
+    m[9] = fz[1];
+    m[10] = fz[2];
+    m[11] = -(fz[0] * eye[0] + fz[1] * eye[1] + fz[2] * eye[2]);
     m[15] = 1.0;
     m
 }

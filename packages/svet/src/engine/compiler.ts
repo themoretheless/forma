@@ -38,7 +38,16 @@ function children(node: AstNode): AstNode[] {
 }
 
 function unwrap(node: AstNode): AstNode {
-  while (['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'TSTypeAssertion', 'ParenthesizedExpression'].includes(node.type) && isNode(node.expression)) {
+  while (
+    [
+      'TSAsExpression',
+      'TSSatisfiesExpression',
+      'TSNonNullExpression',
+      'TSTypeAssertion',
+      'ParenthesizedExpression',
+    ].includes(node.type) &&
+    isNode(node.expression)
+  ) {
     node = node.expression;
   }
   return node;
@@ -50,9 +59,21 @@ function hasEagerCall(node: AstNode): boolean {
   if (['ObjectMethod', 'ClassMethod'].includes(node.type)) {
     return node.computed === true && isNode(node.key) && hasEagerCall(node.key);
   }
-  if (node.type.startsWith('JSX') || node.type.startsWith('TS') ||
-      ['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(node.type)) return false;
-  if (['CallExpression', 'OptionalCallExpression', 'NewExpression', 'TaggedTemplateExpression'].includes(node.type)) return true;
+  if (
+    node.type.startsWith('JSX') ||
+    node.type.startsWith('TS') ||
+    ['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(node.type)
+  )
+    return false;
+  if (
+    [
+      'CallExpression',
+      'OptionalCallExpression',
+      'NewExpression',
+      'TaggedTemplateExpression',
+    ].includes(node.type)
+  )
+    return true;
   return children(node).some(hasEagerCall);
 }
 
@@ -60,10 +81,19 @@ function shouldWrapExpression(expression: AstNode, parent: AstNode | null): bool
   const node = unwrap(expression);
   if (parent?.type === 'JSXAttribute' && isNode(parent.name)) {
     const name = parent.name.name;
-    if (typeof name === 'string' && (SKIP_ATTRIBUTES.has(name) || (name.startsWith('on') && name.length > 2))) return false;
+    if (
+      typeof name === 'string' &&
+      (SKIP_ATTRIBUTES.has(name) || (name.startsWith('on') && name.length > 2))
+    )
+      return false;
   }
-  if (['CallExpression', 'OptionalCallExpression'].includes(node.type) && isNode(node.callee) &&
-      node.callee.type === 'Identifier' && CONSTRUCTORS.has(String(node.callee.name))) return false;
+  if (
+    ['CallExpression', 'OptionalCallExpression'].includes(node.type) &&
+    isNode(node.callee) &&
+    node.callee.type === 'Identifier' &&
+    CONSTRUCTORS.has(String(node.callee.name))
+  )
+    return false;
   return hasEagerCall(node);
 }
 
@@ -85,7 +115,10 @@ export class SvetJsxCompileError extends SyntaxError {
 export function transformSvetJsxWithMap(source: string, filename = 'component.tsx') {
   const output = new MagicString(source);
   if (!source.includes('<')) {
-    return { code: source, map: output.generateMap({ source: filename, includeContent: true, hires: true }) };
+    return {
+      code: source,
+      map: output.generateMap({ source: filename, includeContent: true, hires: true }),
+    };
   }
   let ast: AstNode;
   try {
@@ -98,11 +131,19 @@ export function transformSvetJsxWithMap(source: string, filename = 'component.ts
     }) as unknown as AstNode;
   } catch (error) {
     const diagnostic = error as { message: string; loc?: { line: number; column: number } };
-    throw new SvetJsxCompileError(diagnostic.message, filename, diagnostic.loc?.line ?? 1, (diagnostic.loc?.column ?? 0) + 1);
+    throw new SvetJsxCompileError(
+      diagnostic.message,
+      filename,
+      diagnostic.loc?.line ?? 1,
+      (diagnostic.loc?.column ?? 0) + 1,
+    );
   }
   const visit = (node: AstNode, parent: AstNode | null) => {
-    if (node.type === 'JSXExpressionContainer' && isNode(node.expression) &&
-        shouldWrapExpression(node.expression, parent)) {
+    if (
+      node.type === 'JSXExpressionContainer' &&
+      isNode(node.expression) &&
+      shouldWrapExpression(node.expression, parent)
+    ) {
       const expression = node.expression;
       if (expression.start != null && expression.end != null) {
         output.appendLeft(expression.start, '() => (');

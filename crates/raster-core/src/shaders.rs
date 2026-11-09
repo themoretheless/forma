@@ -85,7 +85,10 @@ pub const OBJECT_SHADERS: [(&str, &str); OBJECT_SHADER_COUNT] = {
         }
         table_index += 1;
     }
-    assert!(object_index == OBJECT_SHADER_COUNT, "OBJECT_SHADER_COUNT drifted from SHADER_TABLE");
+    assert!(
+        object_index == OBJECT_SHADER_COUNT,
+        "OBJECT_SHADER_COUNT drifted from SHADER_TABLE"
+    );
     out
 };
 

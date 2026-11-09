@@ -9,7 +9,12 @@ use raster_core::wgpu;
 const WIDTH: u32 = 64;
 const HEIGHT: u32 = 64;
 
-const CLEAR: wgpu::Color = wgpu::Color { r: 0.05, g: 0.06, b: 0.08, a: 1.0 };
+const CLEAR: wgpu::Color = wgpu::Color {
+    r: 0.05,
+    g: 0.06,
+    b: 0.08,
+    a: 1.0,
+};
 const CLEAR_BYTES: [u8; 4] = [13, 15, 20, 255];
 
 /// Identity orthographic box over [-1, 1]². The triangle sits on the z = 0
@@ -26,7 +31,11 @@ fn test_scene() -> SceneUniform {
 }
 
 fn morph_frame<'a>(meshes: &'a [&'a raster_core::rasterizer::DrawMesh]) -> Frame<'a> {
-    Frame { clear: CLEAR, meshes, ..Frame::default() }
+    Frame {
+        clear: CLEAR,
+        meshes,
+        ..Frame::default()
+    }
 }
 /// A triangle on the z = 0 plane; the morph source shifts it +0.3 in x, so
 /// weight 0 shows the shifted (source) shape and weight 1 the vertex-buffer
@@ -44,7 +53,12 @@ fn triangle() -> (Vec<f32>, Vec<u32>, Vec<f32>) {
 
 fn pixel(bytes: &[u8], x: u32, y: u32) -> [u8; 4] {
     let start = ((y * WIDTH + x) * 4) as usize;
-    [bytes[start], bytes[start + 1], bytes[start + 2], bytes[start + 3]]
+    [
+        bytes[start],
+        bytes[start + 1],
+        bytes[start + 2],
+        bytes[start + 3],
+    ]
 }
 
 fn red_at(bytes: &[u8], x: u32, y: u32) -> bool {
@@ -74,26 +88,49 @@ fn morph_weight_moves_the_triangle_on_the_gpu() {
     rasterizer.set_scene(&test_scene());
 
     let (vertices, indices, morph) = triangle();
-    let mesh = rasterizer.create_mesh(&vertices, &indices, &colored_uniform(1.0, 0.0, 0.0), Some(&morph));
+    let mesh = rasterizer.create_mesh(
+        &vertices,
+        &indices,
+        &colored_uniform(1.0, 0.0, 0.0),
+        Some(&morph),
+    );
 
     // Weight 0 shows the slot-1 source positions (shifted right).
     rasterizer.set_morph_weight(&mesh, 0.0);
     let at_source = rasterizer.render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]));
-    assert!(red_at(&at_source, 55, 40), "source-only area is covered at weight 0");
-    assert!(background_at(&at_source, 16, 40), "target-only area stays background at weight 0");
+    assert!(
+        red_at(&at_source, 55, 40),
+        "source-only area is covered at weight 0"
+    );
+    assert!(
+        background_at(&at_source, 16, 40),
+        "target-only area stays background at weight 0"
+    );
 
     // Weight 1 shows the vertex-buffer target positions.
     rasterizer.set_morph_weight(&mesh, 1.0);
     let at_target = rasterizer.render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]));
-    assert!(red_at(&at_target, 16, 40), "target-only area is covered at weight 1");
-    assert!(background_at(&at_target, 55, 40), "source-only area returns to background at weight 1");
+    assert!(
+        red_at(&at_target, 16, 40),
+        "target-only area is covered at weight 1"
+    );
+    assert!(
+        background_at(&at_target, 55, 40),
+        "source-only area returns to background at weight 1"
+    );
 
     // Halfway blend: midpoint covered, both extreme-only areas uncovered.
     rasterizer.set_morph_weight(&mesh, 0.5);
     let at_half = rasterizer.render_to_rgba(WIDTH, HEIGHT, &morph_frame(&[&mesh]));
     assert!(red_at(&at_half, 36, 40), "mid blend covers the midpoint");
-    assert!(background_at(&at_half, 16, 40), "left edge retreats at half blend");
-    assert!(background_at(&at_half, 55, 40), "right edge retreats at half blend");
+    assert!(
+        background_at(&at_half, 16, 40),
+        "left edge retreats at half blend"
+    );
+    assert!(
+        background_at(&at_half, 55, 40),
+        "right edge retreats at half blend"
+    );
 }
 
 #[test]
@@ -118,14 +155,23 @@ fn mesh_without_morph_source_draws_its_target_vertices() {
     let first = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
     let second = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
     assert_eq!(first, second, "repeated renders are deterministic");
-    assert!(pixel(&first, 16, 40)[2] > 100, "target triangle covers the left area in blue");
-    assert!(background_at(&first, 55, 40), "source-only area stays background");
+    assert!(
+        pixel(&first, 16, 40)[2] > 100,
+        "target triangle covers the left area in blue"
+    );
+    assert!(
+        background_at(&first, 55, 40),
+        "source-only area stays background"
+    );
 }
 
 #[test]
 fn caller_records_render_and_readback_in_one_submission() {
     let Some(context) = GpuContext::new() else {
-        assert!(std::env::var_os("COMPUTE_REQUIRE_GPU").is_none(), "GPU adapter required");
+        assert!(
+            std::env::var_os("COMPUTE_REQUIRE_GPU").is_none(),
+            "GPU adapter required"
+        );
         return;
     };
     let mut rasterizer = Rasterizer::new(context.clone(), wgpu::TextureFormat::Rgba8Unorm);
@@ -137,8 +183,13 @@ fn caller_records_render_and_readback_in_one_submission() {
     let frame = morph_frame(&meshes);
     let texture = context.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("recorded raster target"),
-        size: wgpu::Extent3d { width: WIDTH, height: HEIGHT, depth_or_array_layers: 1 },
-        mip_level_count: 1, sample_count: 1,
+        size: wgpu::Extent3d {
+            width: WIDTH,
+            height: HEIGHT,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format: wgpu::TextureFormat::Rgba8Unorm,
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
@@ -147,16 +198,39 @@ fn caller_records_render_and_readback_in_one_submission() {
     // WIDTH=64 gives the required 256-byte row alignment.
     let bytes = (WIDTH * HEIGHT * 4) as usize;
     let staging = context.device.create_buffer(&wgpu::BufferDescriptor {
-        label: Some("recorded raster readback"), size: bytes as u64,
+        label: Some("recorded raster readback"),
+        size: bytes as u64,
         usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
         mapped_at_creation: false,
     });
     let mut encoder = context.device.create_command_encoder(&Default::default());
-    rasterizer.record(&mut encoder, &texture.create_view(&Default::default()), WIDTH, HEIGHT, &frame);
+    rasterizer.record(
+        &mut encoder,
+        &texture.create_view(&Default::default()),
+        WIDTH,
+        HEIGHT,
+        &frame,
+    );
     encoder.copy_texture_to_buffer(
-        wgpu::TexelCopyTextureInfo { texture: &texture, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
-        wgpu::TexelCopyBufferInfo { buffer: &staging, layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(WIDTH * 4), rows_per_image: Some(HEIGHT) } },
-        wgpu::Extent3d { width: WIDTH, height: HEIGHT, depth_or_array_layers: 1 },
+        wgpu::TexelCopyTextureInfo {
+            texture: &texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        wgpu::TexelCopyBufferInfo {
+            buffer: &staging,
+            layout: wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(WIDTH * 4),
+                rows_per_image: Some(HEIGHT),
+            },
+        },
+        wgpu::Extent3d {
+            width: WIDTH,
+            height: HEIGHT,
+            depth_or_array_layers: 1,
+        },
     );
     context.queue.submit([encoder.finish()]);
     let rgba = raster_core::gpu_compute::read_buffer(&context.device, &staging, bytes);
@@ -166,14 +240,27 @@ fn caller_records_render_and_readback_in_one_submission() {
 
 #[test]
 fn rgba_readback_handles_padded_rows_and_rejects_invalid_sizes() {
-    let Some(context) = GpuContext::new() else { return };
+    let Some(context) = GpuContext::new() else {
+        return;
+    };
     let mut rasterizer = Rasterizer::new(context, wgpu::TextureFormat::Rgba8Unorm);
-    let frame = Frame { clear: wgpu::Color { r: 0.0, g: 1.0, b: 0.0, a: 1.0 }, ..Frame::default() };
+    let frame = Frame {
+        clear: wgpu::Color {
+            r: 0.0,
+            g: 1.0,
+            b: 0.0,
+            a: 1.0,
+        },
+        ..Frame::default()
+    };
     for (width, height) in [(1, 3), (65, 2)] {
-        let rgba = rasterizer.render_rgba_async(width, height, &frame).unwrap()
-            .wait(std::time::Duration::from_secs(5)).unwrap();
+        let rgba = rasterizer
+            .render_rgba_async(width, height, &frame)
+            .unwrap()
+            .wait(std::time::Duration::from_secs(5))
+            .unwrap();
         assert_eq!(rgba.len(), (width * height * 4) as usize);
-        assert!(rgba.chunks_exact(4).all(|pixel| pixel == [0,255,0,255]));
+        assert!(rgba.chunks_exact(4).all(|pixel| pixel == [0, 255, 0, 255]));
     }
     assert!(rasterizer.try_render_to_rgba(0, 3, &frame).is_err());
     assert!(rasterizer.try_render_to_rgba(u32::MAX, 3, &frame).is_err());

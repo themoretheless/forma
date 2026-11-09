@@ -1,14 +1,15 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {compileComponents as compileLinked,evaluate} from '../src/components.js';
+import { compileComponents as compileLinked, evaluate } from '../src/components.js';
 // Compiler structure tests supply explicit deterministic metrics; integration
 // tests below use the actual Rust font. Production has no guessed-width fallback.
-const compileComponents=(files,entry,state)=>compileLinked(files,entry,state,{measureText:()=>[80,20]});
-import {parse} from '../src/language.js';
-import {flattenSvgPath,svgShapes} from '../src/svg-shapes.js';
-import {parser} from '../src/forma-parser.js';
+const compileComponents = (files, entry, state) =>
+  compileLinked(files, entry, state, { measureText: () => [80, 20] });
+import { parse } from '../src/language.js';
+import { flattenSvgPath, svgShapes } from '../src/svg-shapes.js';
+import { parser } from '../src/forma-parser.js';
 
-const base=`component Button {
+const base = `component Button {
  width: 200; height: 50; text: 'Base'; color: #ffffff; compact: false;
  Rectangle {
  background: Brush { color: #123456; hover: #abcdef; transition: 140ms; };
@@ -17,7 +18,7 @@ const base=`component Button {
  PointerArea { clicked -> events.clicked(); }
  }
 }`;
-const derived=`component ImageButton : Button {
+const derived = `component ImageButton : Button {
  icon: 'assets/search.svg';
  override content: match props.compact {
  true => Image { source: props.icon; width: 20; height: 20; };
@@ -27,105 +28,308 @@ const derived=`component ImageButton : Button {
  };
  };
 }`;
-const svg='<svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="15" y1="15" x2="22" y2="22" stroke="#ffffff" stroke-width="2"/></svg>';
-const files={'components/Button.ui':base,'components/ImageButton.ui':derived,'ui/Demo.ui':`component Demo { Frame { ImageButton { text: 'Search'; clicked -> actions.search(); } } }`,'assets/search.svg':svg};
-test('inheritance, slot override and sibling frames survive compilation',()=>{
- const out=compileComponents(files,'ui/Demo.ui');assert.match(out.source,/Button \{/);assert.match(out.source,/actions.search/);assert.match(out.template,/ContentShape/);assert.match(out.template,/Search/);assert.match(out.template,/badge/);assert.match(out.template,/#123456/);assert.match(out.template,/events.clicked/);
+const svg =
+  '<svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="15" y1="15" x2="22" y2="22" stroke="#ffffff" stroke-width="2"/></svg>';
+const files = {
+  'components/Button.ui': base,
+  'components/ImageButton.ui': derived,
+  'ui/Demo.ui': `component Demo { Frame { ImageButton { text: 'Search'; clicked -> actions.search(); } } }`,
+  'assets/search.svg': svg,
+};
+test('inheritance, slot override and sibling frames survive compilation', () => {
+  const out = compileComponents(files, 'ui/Demo.ui');
+  assert.match(out.source, /Button \{/);
+  assert.match(out.source, /actions.search/);
+  assert.match(out.template, /ContentShape/);
+  assert.match(out.template, /Search/);
+  assert.match(out.template, /badge/);
+  assert.match(out.template, /#123456/);
+  assert.match(out.template, /events.clicked/);
 });
-test('conditional replacement and tuple match',()=>{
- const f={...files,'ui/Demo.ui':files['ui/Demo.ui'].replace("text: 'Search';","text: 'Search'; compact: true;")};const out=compileComponents(f,'ui/Demo.ui');assert.doesNotMatch(out.template,/text: 'Search'/);assert.match(out.template,/badge/);
- const p=parse("component Demo { padding: match (state.compact, state.loading) { (true, _) => 8; (_, false) => 16; _ => 24; }; }");assert.equal(evaluate(p.defaults.padding,{}, {compact:true,loading:false}),8);assert.equal(evaluate(p.defaults.padding,{}, {compact:false,loading:false}),16);
+test('conditional replacement and tuple match', () => {
+  const f = {
+    ...files,
+    'ui/Demo.ui': files['ui/Demo.ui'].replace("text: 'Search';", "text: 'Search'; compact: true;"),
+  };
+  const out = compileComponents(f, 'ui/Demo.ui');
+  assert.doesNotMatch(out.template, /text: 'Search'/);
+  assert.match(out.template, /badge/);
+  const p = parse(
+    'component Demo { padding: match (state.compact, state.loading) { (true, _) => 8; (_, false) => 16; _ => 24; }; }',
+  );
+  assert.equal(evaluate(p.defaults.padding, {}, { compact: true, loading: false }), 8);
+  assert.equal(evaluate(p.defaults.padding, {}, { compact: false, loading: false }), 16);
 });
-test('base.content means the immediate base and never self-recurses',()=>{
- const f={...files,'components/Middle.ui':"component Middle : Button { override content: Text { text: 'Middle'; }; }",'components/ImageButton.ui':"component ImageButton : Middle { override content: match state.loading { true => Text { text: 'Loading'; }; false => base.content; }; }"};
- assert.match(compileComponents(f,'ui/Demo.ui',{loading:false}).template,/Middle/);assert.match(compileComponents(f,'ui/Demo.ui',{loading:true}).template,/Loading/);
+test('base.content means the immediate base and never self-recurses', () => {
+  const f = {
+    ...files,
+    'components/Middle.ui':
+      "component Middle : Button { override content: Text { text: 'Middle'; }; }",
+    'components/ImageButton.ui':
+      "component ImageButton : Middle { override content: match state.loading { true => Text { text: 'Loading'; }; false => base.content; }; }",
+  };
+  assert.match(compileComponents(f, 'ui/Demo.ui', { loading: false }).template, /Middle/);
+  assert.match(compileComponents(f, 'ui/Demo.ui', { loading: true }).template, /Loading/);
 });
-test('unknown slots, inherited tree edits, cycles, missing branches and props fail',()=>{
- for(const source of ["component ImageButton : Button { override absent: Text {}; }","component ImageButton : Button { Frame {} }","component ImageButton : ImageButton {}","component ImageButton : Button { override content: base.badge; }","component ImageButton : Button { override content: match props.compact { true => Text {}; }; }","component ImageButton : Button { override content: Text { text: props.missing; }; }"]){assert.throws(()=>compileComponents({...files,'components/ImageButton.ui':source},'ui/Demo.ui'),undefined,source);}
- assert.throws(()=>compileComponents({...files,'components/ImageButton.ui':"component ImageButton : Button { override content: match state.loading { true => Text {}; }; }"},'ui/Demo.ui'),/state.loading/);
+test('unknown slots, inherited tree edits, cycles, missing branches and props fail', () => {
+  for (const source of [
+    'component ImageButton : Button { override absent: Text {}; }',
+    'component ImageButton : Button { Frame {} }',
+    'component ImageButton : ImageButton {}',
+    'component ImageButton : Button { override content: base.badge; }',
+    'component ImageButton : Button { override content: match props.compact { true => Text {}; }; }',
+    'component ImageButton : Button { override content: Text { text: props.missing; }; }',
+  ]) {
+    assert.throws(
+      () => compileComponents({ ...files, 'components/ImageButton.ui': source }, 'ui/Demo.ui'),
+      undefined,
+      source,
+    );
+  }
+  assert.throws(
+    () =>
+      compileComponents(
+        {
+          ...files,
+          'components/ImageButton.ui':
+            'component ImageButton : Button { override content: match state.loading { true => Text {}; }; }',
+        },
+        'ui/Demo.ui',
+      ),
+    /state.loading/,
+  );
 });
-test('instance overrides base and derived defaults including false and zero',()=>{
- const f={...files,'components/ImageButton.ui':"component ImageButton : Button { width: 180; disabled: true; }",'ui/Demo.ui':"component Demo { Frame { ImageButton { width: 90; disabled: false; borderWidth: 0; } } }"};const out=compileComponents(f,'ui/Demo.ui');assert.match(out.source,/width: 90;/);assert.match(out.source,/disabled: false;/);assert.match(out.source,/borderWidth: 0;/);
+test('instance overrides base and derived defaults including false and zero', () => {
+  const f = {
+    ...files,
+    'components/ImageButton.ui': 'component ImageButton : Button { width: 180; disabled: true; }',
+    'ui/Demo.ui':
+      'component Demo { Frame { ImageButton { width: 90; disabled: false; borderWidth: 0; } } }',
+  };
+  const out = compileComponents(f, 'ui/Demo.ui');
+  assert.match(out.source, /width: 90;/);
+  assert.match(out.source, /disabled: false;/);
+  assert.match(out.source, /borderWidth: 0;/);
 });
-test('editor grammar recognizes inheritance and override match without errors',()=>{
- const errors=[];parser.parse(derived).iterate({enter(n){if(n.type.isError)errors.push(n.from);}});assert.deepEqual(errors,[]);
+test('editor grammar recognizes inheritance and override match without errors', () => {
+  const errors = [];
+  parser.parse(derived).iterate({
+    enter(n) {
+      if (n.type.isError) errors.push(n.from);
+    },
+  });
+  assert.deepEqual(errors, []);
 });
-test('nested Frame clip is emitted around its children',()=>{
- const f={...files,'components/ImageButton.ui':"component ImageButton : Button { override content: Frame { radius: 12; clip: true; Text { text: 'Clipped'; } }; }"};const out=compileComponents(f,'ui/Demo.ui');assert.match(out.template,/ContentClip \{[^}]*radius: 12;/);assert.match(out.template,/Clipped[^]*ContentClipEnd/);
- assert.throws(()=>compileComponents({...f,'components/ImageButton.ui':f['components/ImageButton.ui'].replace('clip: true','clip: 1')},'ui/Demo.ui'),/boolean/);
+test('nested Frame clip is emitted around its children', () => {
+  const f = {
+    ...files,
+    'components/ImageButton.ui':
+      "component ImageButton : Button { override content: Frame { radius: 12; clip: true; Text { text: 'Clipped'; } }; }",
+  };
+  const out = compileComponents(f, 'ui/Demo.ui');
+  assert.match(out.template, /ContentClip \{[^}]*radius: 12;/);
+  assert.match(out.template, /Clipped[^]*ContentClipEnd/);
+  assert.throws(
+    () =>
+      compileComponents(
+        {
+          ...f,
+          'components/ImageButton.ui': f['components/ImageButton.ui'].replace(
+            'clip: true',
+            'clip: 1',
+          ),
+        },
+        'ui/Demo.ui',
+      ),
+    /boolean/,
+  );
 });
-test('SVG subset is vector geometry and rejects scripts, external references and unsupported shapes',()=>{
- const shapes=svgShapes(svg,[10,20,24,24]);assert.ok(shapes.length>10);assert.ok(shapes.every(s=>s.points.every(p=>p.every(Number.isFinite))));
- for(const s of ['<svg viewBox="0 0 24 24"><script/></svg>','<svg viewBox="0 0 24 24"><image href="https://x"/></svg>','<svg viewBox="0 0 24 24"><path d="M0 0h10v10h-10zM2 2h6v6h-6z"/></svg>','<svg viewBox="0 0 24 24"><path d="L1 1"/></svg>','<svg viewBox="0 0 24 24"><text x="1"/></svg>','<svg viewBox="0 0 24 24"><circle r="4" transform="scale(2)"/></svg>'])assert.throws(()=>svgShapes(s,[0,0,24,24]));
+test('SVG subset is vector geometry and rejects scripts, external references and unsupported shapes', () => {
+  const shapes = svgShapes(svg, [10, 20, 24, 24]);
+  assert.ok(shapes.length > 10);
+  assert.ok(shapes.every(s => s.points.every(p => p.every(Number.isFinite))));
+  for (const s of [
+    '<svg viewBox="0 0 24 24"><script/></svg>',
+    '<svg viewBox="0 0 24 24"><image href="https://x"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="M0 0h10v10h-10zM2 2h6v6h-6z"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="L1 1"/></svg>',
+    '<svg viewBox="0 0 24 24"><text x="1"/></svg>',
+    '<svg viewBox="0 0 24 24"><circle r="4" transform="scale(2)"/></svg>',
+  ])
+    assert.throws(() => svgShapes(s, [0, 0, 24, 24]));
 });
 
-test('Modal layers compile after the base scene with surface-relative children',()=>{
- const files={'components/Button.ui':base,'ui/Demo.ui':"component Demo { Frame { width: 400; height: 300; Button { key: 'open'; text: 'Open'; clicked -> actions.open(); } Modal { key: 'ask'; width: 200; height: 100; backdrop: #11223344; dismissed -> actions.cancel(); Button { key: 'yes'; x: 10; y: 20; width: 80; text: 'Yes'; clicked -> actions.yes(); } } } }"};
- const out=compileComponents(files,'ui/Demo.ui');
- assert.match(out.source,/Modal \{ key: 'ask'; x: 100; y: 100; width: 200; height: 100; backdrop: #11223344; dismiss: true; open: true; dismissed -> actions.cancel\(\); Button \{/);
- const layer=out.source.slice(out.source.indexOf('Modal {'));
- assert.match(layer,/key: 'yes'/);assert.match(layer,/x: 10;/);assert.match(layer,/y: 20;/);assert.match(layer,/actions.yes/);
- assert.doesNotMatch(out.source.slice(0,out.source.indexOf('Modal {')),/key: 'yes'/);
- assert.deepEqual(out.previewControls.map(n=>n.props.key),['open','yes']);
- assert.equal(out.previewModals.length,1);assert.equal(out.previewModals[0].props.key,'ask');
- assert.equal(out.template.split('\n').length>2,true,'two controls share one framed template stream');
- for(const bad of ["Modal { Scroll {} }","Modal { foo: 1; }","Modal { dismissed -> events.cancel(); }","Modal { clicked -> actions.a(); }","Modal { Button {} } Button {}","Modal { dismiss: 1; }","Modal { backdrop: 'red'; }"]){
-  assert.throws(()=>compileComponents({...files,'ui/Demo.ui':`component Demo { Frame { ${bad} } }`},'ui/Demo.ui'),undefined,bad);
- }
- const modern={...files,'ui/Demo.ui':"component Demo { Column { width: 400; height: 300; Button { key: 'open'; text: 'Open'; height: 40; } Modal { key: 'ask'; x: 50; y: 40; width: 200; height: 100; Row { gap: 10; Button { key: 'a'; width: 60; height: 30; } Button { key: 'b'; width: 60; height: 30; } } } } }"};
- const laid=compileComponents(modern,'ui/Demo.ui');
- assert.deepEqual(laid.previewControls.map(n=>[n.props.key,n.props.x,n.props.y,n.props.width,n.props.height]),[['open',0,0,400,40],['a',0,0,60,30],['b',70,0,60,30]]);
- assert.match(laid.source,/Modal \{ key: 'ask'; x: 50; y: 40; width: 200; height: 100;/);
+test('Modal layers compile after the base scene with surface-relative children', () => {
+  const files = {
+    'components/Button.ui': base,
+    'ui/Demo.ui':
+      "component Demo { Frame { width: 400; height: 300; Button { key: 'open'; text: 'Open'; clicked -> actions.open(); } Modal { key: 'ask'; width: 200; height: 100; backdrop: #11223344; dismissed -> actions.cancel(); Button { key: 'yes'; x: 10; y: 20; width: 80; text: 'Yes'; clicked -> actions.yes(); } } } }",
+  };
+  const out = compileComponents(files, 'ui/Demo.ui');
+  assert.match(
+    out.source,
+    /Modal \{ key: 'ask'; x: 100; y: 100; width: 200; height: 100; backdrop: #11223344; dismiss: true; open: true; dismissed -> actions.cancel\(\); Button \{/,
+  );
+  const layer = out.source.slice(out.source.indexOf('Modal {'));
+  assert.match(layer, /key: 'yes'/);
+  assert.match(layer, /x: 10;/);
+  assert.match(layer, /y: 20;/);
+  assert.match(layer, /actions.yes/);
+  assert.doesNotMatch(out.source.slice(0, out.source.indexOf('Modal {')), /key: 'yes'/);
+  assert.deepEqual(
+    out.previewControls.map(n => n.props.key),
+    ['open', 'yes'],
+  );
+  assert.equal(out.previewModals.length, 1);
+  assert.equal(out.previewModals[0].props.key, 'ask');
+  assert.equal(
+    out.template.split('\n').length > 2,
+    true,
+    'two controls share one framed template stream',
+  );
+  for (const bad of [
+    'Modal { Scroll {} }',
+    'Modal { foo: 1; }',
+    'Modal { dismissed -> events.cancel(); }',
+    'Modal { clicked -> actions.a(); }',
+    'Modal { Button {} } Button {}',
+    'Modal { dismiss: 1; }',
+    "Modal { backdrop: 'red'; }",
+  ]) {
+    assert.throws(
+      () =>
+        compileComponents(
+          { ...files, 'ui/Demo.ui': `component Demo { Frame { ${bad} } }` },
+          'ui/Demo.ui',
+        ),
+      undefined,
+      bad,
+    );
+  }
+  const modern = {
+    ...files,
+    'ui/Demo.ui':
+      "component Demo { Column { width: 400; height: 300; Button { key: 'open'; text: 'Open'; height: 40; } Modal { key: 'ask'; x: 50; y: 40; width: 200; height: 100; Row { gap: 10; Button { key: 'a'; width: 60; height: 30; } Button { key: 'b'; width: 60; height: 30; } } } } }",
+  };
+  const laid = compileComponents(modern, 'ui/Demo.ui');
+  assert.deepEqual(
+    laid.previewControls.map(n => [
+      n.props.key,
+      n.props.x,
+      n.props.y,
+      n.props.width,
+      n.props.height,
+    ]),
+    [
+      ['open', 0, 0, 400, 40],
+      ['a', 0, 0, 60, 30],
+      ['b', 70, 0, 60, 30],
+    ],
+  );
+  assert.match(laid.source, /Modal \{ key: 'ask'; x: 50; y: 40; width: 200; height: 100;/);
 });
 
-test('SVG path flattens lines, curves and arcs into polygons',()=>{
- // A ring sector, as a sunburst draws it: outer arc, edge, inner arc back, close.
- const sector='<svg viewBox="0 0 200 200"><path fill="#ffffff" d="M100 20A80 80 0 0 1 180 100L140 100A40 40 0 0 0 100 60Z"/></svg>';
- const [shape,...rest]=svgShapes(sector,[0,0,200,200]);assert.equal(rest.length,0);assert.ok(shape.points.length>24);
- for(const [x,y] of shape.points){const r=Math.hypot(x-100,y-100);assert.ok(r>39.9&&r<80.1&&x>=99.999&&y<=100.001,`${x},${y}`);}
- const flat=d=>flattenSvgPath(d,.01);
- assert.deepEqual(flat('M1 2 3 4h2v-1l-1-1zm10 0L20,5'),[{points:[[1,2],[3,4],[5,4],[5,3],[4,2]],closed:true},{points:[[11,2],[20,5]],closed:false}]);
- // Arc flags may be written without separators; too-small radii are scaled up.
- const half=flat('M0 10a10 10 0 0120 0')[0].points;assert.deepEqual(half.at(-1),[20,10]);
- for(const [x,y] of half){assert.ok(Math.abs(Math.hypot(x-10,y-10)-10)<1e-9);assert.ok(y<=10+1e-9);}
- const top=Math.max(...flattenSvgPath('M0 0C0 10 10 10 10 0',.001)[0].points.map(p=>p[1]));assert.ok(Math.abs(top-7.5)<.01);
- const low=Math.min(...flat('M0 0Q5 10 10 0T20 0')[0].points.map(p=>p[1]));assert.ok(Math.abs(low+5)<.01);
- // Stroke without fill: one quad per flattened segment, open paths are not closed.
- assert.equal(svgShapes('<svg viewBox="0 0 24 24"><path fill="none" stroke="#ffffff" stroke-width="2" d="M2 2L20 2L20 20"/></svg>',[0,0,24,24]).length,2);
- for(const d of ['','L1 1','M1','M0 0L1','M0 0A1 1 0 2 0 1 1','M0 0X1 1','M0 0L1e999 0'])assert.throws(()=>flat(d),/SVG path/,d);
+test('SVG path flattens lines, curves and arcs into polygons', () => {
+  // A ring sector, as a sunburst draws it: outer arc, edge, inner arc back, close.
+  const sector =
+    '<svg viewBox="0 0 200 200"><path fill="#ffffff" d="M100 20A80 80 0 0 1 180 100L140 100A40 40 0 0 0 100 60Z"/></svg>';
+  const [shape, ...rest] = svgShapes(sector, [0, 0, 200, 200]);
+  assert.equal(rest.length, 0);
+  assert.ok(shape.points.length > 24);
+  for (const [x, y] of shape.points) {
+    const r = Math.hypot(x - 100, y - 100);
+    assert.ok(r > 39.9 && r < 80.1 && x >= 99.999 && y <= 100.001, `${x},${y}`);
+  }
+  const flat = d => flattenSvgPath(d, 0.01);
+  assert.deepEqual(flat('M1 2 3 4h2v-1l-1-1zm10 0L20,5'), [
+    {
+      points: [
+        [1, 2],
+        [3, 4],
+        [5, 4],
+        [5, 3],
+        [4, 2],
+      ],
+      closed: true,
+    },
+    {
+      points: [
+        [11, 2],
+        [20, 5],
+      ],
+      closed: false,
+    },
+  ]);
+  // Arc flags may be written without separators; too-small radii are scaled up.
+  const half = flat('M0 10a10 10 0 0120 0')[0].points;
+  assert.deepEqual(half.at(-1), [20, 10]);
+  for (const [x, y] of half) {
+    assert.ok(Math.abs(Math.hypot(x - 10, y - 10) - 10) < 1e-9);
+    assert.ok(y <= 10 + 1e-9);
+  }
+  const top = Math.max(...flattenSvgPath('M0 0C0 10 10 10 10 0', 0.001)[0].points.map(p => p[1]));
+  assert.ok(Math.abs(top - 7.5) < 0.01);
+  const low = Math.min(...flat('M0 0Q5 10 10 0T20 0')[0].points.map(p => p[1]));
+  assert.ok(Math.abs(low + 5) < 0.01);
+  // Stroke without fill: one quad per flattened segment, open paths are not closed.
+  assert.equal(
+    svgShapes(
+      '<svg viewBox="0 0 24 24"><path fill="none" stroke="#ffffff" stroke-width="2" d="M2 2L20 2L20 20"/></svg>',
+      [0, 0, 24, 24],
+    ).length,
+    2,
+  );
+  for (const d of ['', 'L1 1', 'M1', 'M0 0L1', 'M0 0A1 1 0 2 0 1 1', 'M0 0X1 1', 'M0 0L1e999 0'])
+    assert.throws(() => flat(d), /SVG path/, d);
 });
 
 // Placed coordinates travel as template text, so full double precision costs bytes,
 // not accuracy. A 1/1000 px grid is three orders below a device pixel.
-test('placed icon geometry is quantized to 1/1000 px',()=>{
- const circle='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffffff"/></svg>';
- const points=svgShapes(circle,[0,0,25,25]).flatMap(s=>s.points);
- assert.ok(points.length>60);
- for(const [a,b] of points){assert.match(String(a),/^-?\d+(\.\d{1,3})?$/);assert.match(String(b),/^-?\d+(\.\d{1,3})?$/);}
- const first=[22*25/24,12*25/24];
- assert.ok(Math.abs(points[0][0]-first[0])<=5e-4&&Math.abs(points[0][1]-first[1])<=5e-4);
+test('placed icon geometry is quantized to 1/1000 px', () => {
+  const circle = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ffffff"/></svg>';
+  const points = svgShapes(circle, [0, 0, 25, 25]).flatMap(s => s.points);
+  assert.ok(points.length > 60);
+  for (const [a, b] of points) {
+    assert.match(String(a), /^-?\d+(\.\d{1,3})?$/);
+    assert.match(String(b), /^-?\d+(\.\d{1,3})?$/);
+  }
+  const first = [(22 * 25) / 24, (12 * 25) / 24];
+  assert.ok(Math.abs(points[0][0] - first[0]) <= 5e-4 && Math.abs(points[0][1] - first[1]) <= 5e-4);
 });
 
-test('multi-control template framing declares exact UTF-8 byte lengths',()=>{
- const out=compileComponents({'components/Button.ui':base,'ui/Scene.ui':`component Scene { Frame { width:900; height:600; Button { text:'Найти \u{1F389}'; } Button { text:'Документы'; } Button { text:'Профиль \u{1F600}'; } Button { text:'Search'; } } }`},'ui/Scene.ui');
- const encoder=new TextEncoder(),decoder=new TextDecoder();
- const prefix='FORMA-TEMPLATES-1\n';
- assert.ok(out.template.startsWith(prefix));
- const bytes=encoder.encode(out.template);
- const parts=[];
- let offset=encoder.encode(prefix).length;
- while(offset<bytes.length){
-  const headerEnd=bytes.indexOf(0x0a,offset);
-  assert.ok(headerEnd>offset,'each part is preceded by a length header');
-  const declared=Number(decoder.decode(bytes.subarray(offset,headerEnd)));
-  const start=headerEnd+1;
-  assert.ok(start+declared<=bytes.length,'declared length stays inside the payload');
-  parts.push(decoder.decode(bytes.subarray(start,start+declared)));
-  offset=start+declared;
- }
- assert.equal(offset,bytes.length,'part lengths cover the whole payload without gaps');
- assert.equal(parts.length,4);
- for(const part of parts)assert.match(part,/^component Button \{ Rectangle \{/);
- assert.ok(parts.some(part=>encoder.encode(part).length===part.length),'an ASCII-only part takes the byte-length fast path');
- assert.ok(parts.some(part=>encoder.encode(part).length>part.length),'framing is exercised by multi-byte text');
+test('multi-control template framing declares exact UTF-8 byte lengths', () => {
+  const out = compileComponents(
+    {
+      'components/Button.ui': base,
+      'ui/Scene.ui': `component Scene { Frame { width:900; height:600; Button { text:'Найти \u{1F389}'; } Button { text:'Документы'; } Button { text:'Профиль \u{1F600}'; } Button { text:'Search'; } } }`,
+    },
+    'ui/Scene.ui',
+  );
+  const encoder = new TextEncoder(),
+    decoder = new TextDecoder();
+  const prefix = 'FORMA-TEMPLATES-1\n';
+  assert.ok(out.template.startsWith(prefix));
+  const bytes = encoder.encode(out.template);
+  const parts = [];
+  let offset = encoder.encode(prefix).length;
+  while (offset < bytes.length) {
+    const headerEnd = bytes.indexOf(0x0a, offset);
+    assert.ok(headerEnd > offset, 'each part is preceded by a length header');
+    const declared = Number(decoder.decode(bytes.subarray(offset, headerEnd)));
+    const start = headerEnd + 1;
+    assert.ok(start + declared <= bytes.length, 'declared length stays inside the payload');
+    parts.push(decoder.decode(bytes.subarray(start, start + declared)));
+    offset = start + declared;
+  }
+  assert.equal(offset, bytes.length, 'part lengths cover the whole payload without gaps');
+  assert.equal(parts.length, 4);
+  for (const part of parts) assert.match(part, /^component Button \{ Rectangle \{/);
+  assert.ok(
+    parts.some(part => encoder.encode(part).length === part.length),
+    'an ASCII-only part takes the byte-length fast path',
+  );
+  assert.ok(
+    parts.some(part => encoder.encode(part).length > part.length),
+    'framing is exercised by multi-byte text',
+  );
 });

@@ -231,8 +231,9 @@ describe('Forma CAD UI regions (open-scad-viewer parity & reactivity)', () => {
     const handle = inst.mount(container);
     try {
       expect(container.querySelectorAll('mark')).toHaveLength(2);
-      const segButtons = () => Array.from(container.querySelectorAll<HTMLButtonElement>('.forma-seg-btn'));
-      expect(segButtons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
+      const segButtons = () =>
+        Array.from(container.querySelectorAll<HTMLButtonElement>('.forma-seg-btn'));
+      expect(segButtons().map(b => b.getAttribute('aria-pressed'))).toEqual(['true', 'false']);
       expect(segButtons()[0].classList.contains('active')).toBe(true);
       expect(segButtons()[1].classList.contains('active')).toBe(false);
 
@@ -242,7 +243,7 @@ describe('Forma CAD UI regions (open-scad-viewer parity & reactivity)', () => {
 
       // Update state reactively via setState()
       inst.setState({ workspaceMode: 'mesh', editorOpen: true });
-      expect(segButtons().map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
+      expect(segButtons().map(b => b.getAttribute('aria-pressed'))).toEqual(['false', 'true']);
       expect(segButtons()[0].classList.contains('active')).toBe(false);
       expect(segButtons()[1].classList.contains('active')).toBe(true);
 
@@ -356,6 +357,6 @@ describe('Forma CAD UI regions (open-scad-viewer parity & reactivity)', () => {
 });
 
 function instClickByText(root: HTMLElement, text: string) {
-  const btn = Array.from(root.querySelectorAll('button')).find((b) => b.textContent === text);
+  const btn = Array.from(root.querySelectorAll('button')).find(b => b.textContent === text);
   btn?.click();
 }

@@ -234,7 +234,7 @@ impl VectorSize {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ArraySize {
-    Constant( std::num::NonZeroU32 ),
+    Constant(std::num::NonZeroU32),
     Dynamic,
 }
 
@@ -294,9 +294,17 @@ pub enum ImageDimension {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ImageClass {
-    Sampled { kind: ScalarKind, multi: bool },
-    Depth { multi: bool },
-    Storage { format: StorageFormat, access: StorageAccess },
+    Sampled {
+        kind: ScalarKind,
+        multi: bool,
+    },
+    Depth {
+        multi: bool,
+    },
+    Storage {
+        format: StorageFormat,
+        access: StorageAccess,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -415,9 +423,7 @@ pub struct Module {
 
 impl Module {
     pub fn to_ctx(&self) -> proc::GlobalCtx<'_> {
-        proc::GlobalCtx {
-            types: &self.types,
-        }
+        proc::GlobalCtx { types: &self.types }
     }
 }
 

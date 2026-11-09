@@ -8,7 +8,7 @@
 в Rust; JavaScript соединяет их с редактором и моделями Studio.
 
 Forma берёт `themoretheless-tokenizer-forma` из точной ревизии `rev` в
-`vector-ui/Cargo.toml`; `vector-ui/Cargo.lock` закрепляет её и для основного crate.
+`crates/forma/Cargo.toml`; `crates/forma/Cargo.lock` закрепляет её и для основного crate.
 Это важно для экспортированных приложений: lockfile path-зависимости они не наследуют.
 JS-пакет `@themoretheless/tokenizer-forma`
 подключается из checkout того же коммита в соседнем каталоге `../tokenizer`:
@@ -17,8 +17,8 @@ JS-пакет `@themoretheless/tokenizer-forma`
 Уже существующий checkout не трогается: `npm run tokenizer -- check` падает,
 если `crates/tokenizer-forma` или `packages/forma` в нём отличаются от
 закреплённой ревизии. Для перехода на новый релиз tokenizer обновите `rev` в
-`vector-ui/Cargo.toml`, затем выполните `cargo update --manifest-path vector-ui/Cargo.toml -p themoretheless-tokenizer-forma`
-(и так же для `vector-ui/examples/*/Cargo.toml`).
+`crates/forma/Cargo.toml`, затем выполните `cargo update --manifest-path crates/forma/Cargo.toml -p themoretheless-tokenizer-forma`
+(и так же для `crates/forma/examples/*/Cargo.toml`).
 Перегенерация редакторского парсера: `npm run generate` в `tokenizer/packages/forma`.
 
 Один и тот же `.ui` разбирается компилятором Studio и генератором Rust-форм.
@@ -263,7 +263,7 @@ component LargeButton : Button {
 
 Для ключа `ContentPresenter` изменяется корень содержимого. Полная замена
 содержимого использует двоеточие: `override content: Text { ... };`.
-Правила и примеры — в [описании наследования](vector-ui/COMPONENTS.md).
+Правила и примеры — в [описании наследования](crates/forma/COMPONENTS.md).
 
 ## Выражения, конвейеры (`|>`) и стандартная библиотека (`stdlib`)
 
@@ -346,7 +346,7 @@ for item in state.items key item.id {
 
 Запись в модель происходит перед событием `changed`; аргументы события
 соответствуют актуальной строке и новому значению. Подробности подписок,
-перепривязки контекста и Rust API — в [BINDINGS.md](vector-ui/BINDINGS.md).
+перепривязки контекста и Rust API — в [BINDINGS.md](crates/forma/BINDINGS.md).
 
 ## Раскладка
 
@@ -396,16 +396,16 @@ Grid {
 раскладке сохраняют свои `x`/`y` относительно слоя. Открытый слой получает весь
 ввод: контролы под backdrop недоступны, Tab ходит по кругу, Escape и нажатие вне
 поверхности вызывают `dismissed`. Подробности и API runtime описаны в
-[README векторного среза](vector-ui/README.md).
+[README векторного среза](crates/forma/README.md).
 
 ## Примеры
 
-Запускаемый [Rust-пример со списком задач](vector-ui/examples/language-app/README.md)
+Запускаемый [Rust-пример со списком задач](crates/forma/examples/language-app/README.md)
 показывает типизированные свойства и события, группы, `forward`, выражения,
 редактирование и перестановку строк, `Row` и `Grid`:
 
 ```sh
-cargo run --locked --manifest-path vector-ui/examples/language-app/Cargo.toml
+cargo run --locked --manifest-path crates/forma/examples/language-app/Cargo.toml
 ```
 
 Обычные `Text` и `TextInput` работают в сцене без файлов компонентов.
@@ -414,8 +414,8 @@ cargo run --locked --manifest-path vector-ui/examples/language-app/Cargo.toml
 Кроме того, в Studio и библиотеке контролов доступны готовые визуальные
 компоненты `Badge`, `Tag`, `Chip`, `Avatar`, `ProgressBar`, `Divider` и `Separator`.
 
-В библиотеке [Alert](vector-ui/controls/components/Alert.ui) использует
-групповой `match`, [TextField](vector-ui/controls/components/TextField.ui) —
-`forward`, [FieldContent](vector-ui/controls/components/FieldContent.ui) —
+В библиотеке [Alert](crates/forma/controls/components/Alert.ui) использует
+групповой `match`, [TextField](crates/forma/controls/components/TextField.ui) —
+`forward`, [FieldContent](crates/forma/controls/components/FieldContent.ui) —
 `Row` с условной иконкой без дублирования поля ввода.
 

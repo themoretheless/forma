@@ -299,9 +299,15 @@ pub fn batched_matmul_f32(
     let a_stride = m.checked_mul(k).ok_or(ComputeError::OutOfBounds)?;
     let b_stride = k.checked_mul(n).ok_or(ComputeError::OutOfBounds)?;
     let c_stride = m.checked_mul(n).ok_or(ComputeError::OutOfBounds)?;
-    let expected_a = batch.checked_mul(a_stride).ok_or(ComputeError::OutOfBounds)?;
-    let expected_b = batch.checked_mul(b_stride).ok_or(ComputeError::OutOfBounds)?;
-    let total_c = batch.checked_mul(c_stride).ok_or(ComputeError::OutOfBounds)?;
+    let expected_a = batch
+        .checked_mul(a_stride)
+        .ok_or(ComputeError::OutOfBounds)?;
+    let expected_b = batch
+        .checked_mul(b_stride)
+        .ok_or(ComputeError::OutOfBounds)?;
+    let total_c = batch
+        .checked_mul(c_stride)
+        .ok_or(ComputeError::OutOfBounds)?;
 
     if a.len() != expected_a {
         return Err(ComputeError::LengthMismatch {
@@ -340,9 +346,19 @@ mod tests {
 
     #[test]
     fn matmul_f32_tiled_8x8_matches_naive_across_tile_and_remainder_shapes() {
-        for (m, k, n) in [(8, 8, 8), (16, 16, 16), (11, 13, 17), (1, 65, 9), (9, 70, 15)] {
-            let a: Vec<f32> = (0..(m * k)).map(|i| ((i % 17) as f32) * 0.25 - 1.5).collect();
-            let b: Vec<f32> = (0..(k * n)).map(|i| ((i % 13) as f32) * 0.5 - 2.0).collect();
+        for (m, k, n) in [
+            (8, 8, 8),
+            (16, 16, 16),
+            (11, 13, 17),
+            (1, 65, 9),
+            (9, 70, 15),
+        ] {
+            let a: Vec<f32> = (0..(m * k))
+                .map(|i| ((i % 17) as f32) * 0.25 - 1.5)
+                .collect();
+            let b: Vec<f32> = (0..(k * n))
+                .map(|i| ((i % 13) as f32) * 0.5 - 2.0)
+                .collect();
             let got = matmul_f32_tiled_8x8(&a, &b, m, k, n);
             assert_eq!(got.len(), m * n);
             for r in 0..m {

@@ -214,8 +214,8 @@ pub(super) fn reference(
                     let k_base = address(&k, &coord_buf);
                     let mut dot = 0.0;
                     for inner in 0..d {
-                        dot += f64::from(query.1[q_base + inner])
-                            * f64::from(key.1[k_base + inner]);
+                        dot +=
+                            f64::from(query.1[q_base + inner]) * f64::from(key.1[k_base + inner]);
                     }
                     *score = dot * scale + bias;
                 }

@@ -1,30 +1,48 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
-import {validateRuns, renderComparison} from '../scripts/compare-bench.mjs';
+import { createHash } from 'node:crypto';
+import { validateRuns, renderComparison } from '../scripts/compare-bench.mjs';
 
 const sha256 = text => createHash('sha256').update(text).digest('hex');
 
 // Entirely in-memory completed runs: no local .forma artifacts, GPU or shell.
 function runFixture(repeats = 3) {
   const metadata = {
-    createdAt: '2026-01-01T00:00:00.000Z', revision: 'before-revision', dirty: false,
-    frames: 20, repeats, platform: 'darwin', osRelease: 'test-os', arch: 'arm64',
-    cpu: 'Synthetic test CPU', logicalCpus: 8, systemRamBytes: 16 * 2 ** 30,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    revision: 'before-revision',
+    dirty: false,
+    frames: 20,
+    repeats,
+    platform: 'darwin',
+    osRelease: 'test-os',
+    arch: 'arm64',
+    cpu: 'Synthetic test CPU',
+    logicalCpus: 8,
+    systemRamBytes: 16 * 2 ** 30,
     rust: 'rustc test-version',
   };
   const results = [];
-  for (const [backend, mode] of [['gpu', 'animation'], ['cpu', 'animation'], ['gpu', 'idle']]) {
+  for (const [backend, mode] of [
+    ['gpu', 'animation'],
+    ['cpu', 'animation'],
+    ['gpu', 'idle'],
+  ]) {
     for (let repetition = 1; repetition <= repeats; repetition++) {
       const idle = mode === 'idle';
       results.push({
-        scene: 'image', backend, mode, repetition, width: 800, height: 400, scale: 2,
+        scene: 'image',
+        backend,
+        mode,
+        repetition,
+        width: 800,
+        height: 400,
+        scale: 2,
         adapter: backend === 'gpu' ? 'Synthetic GPU' : 'CPU retained XRGB',
         frames: idle ? 0 : metadata.frames,
         render_throughput_fps: idle ? 0 : repetition * 100,
-        completed_ms: {p95: idle ? 0 : repetition * 4},
-        cpu_submit_ms: {mean: idle ? 0 : repetition * 2},
-        gpu_pass: backend === 'gpu' && !idle ? {mean_ms: repetition * 2} : null,
+        completed_ms: { p95: idle ? 0 : repetition * 4 },
+        cpu_submit_ms: { mean: idle ? 0 : repetition * 2 },
+        gpu_pass: backend === 'gpu' && !idle ? { mean_ms: repetition * 2 } : null,
         cpu_percent_one_core: idle ? 0 : repetition * 25,
         rss_after_bytes: 32 * 2 ** 20,
         owned_gpu_buffer_bytes: backend === 'gpu' ? 4096 : 0,
@@ -35,7 +53,9 @@ function runFixture(repeats = 3) {
     }
   }
   return {
-    directory: '/synthetic/before', metadata, results,
+    directory: '/synthetic/before',
+    metadata,
+    results,
     fixtures: {
       'image.ui': sha256('component Demo { Frame {} }'),
       'image.template.ui': sha256('component Button { Rectangle {} }'),
@@ -50,7 +70,7 @@ function pair(repeats) {
   after.metadata.createdAt = '2026-01-02T00:00:00.000Z';
   after.metadata.revision = 'after-revision';
   after.metadata.dirty = true;
-  return {before, after};
+  return { before, after };
 }
 
 function caseRows(report, section, match = 'image / gpu / animation') {
@@ -60,37 +80,52 @@ function caseRows(report, section, match = 'image / gpu / animation') {
 }
 
 test('completed matching runs accept different source revisions and preserve inputs', () => {
-  const {before, after} = pair();
-  const original = structuredClone({before, after});
+  const { before, after } = pair();
+  const original = structuredClone({ before, after });
   after.results.reverse(); // Ordering is not part of comparability.
   original.after.results.reverse();
   const groups = validateRuns(before, after);
   assert.equal(groups.beforeGroups.size, 3);
   assert.equal(groups.afterGroups.size, 3);
   renderComparison(before, after);
-  assert.deepEqual({before, after}, original);
+  assert.deepEqual({ before, after }, original);
 });
 
 test('all comparable machine, compiler and sample metadata must match', () => {
-  for (const field of ['frames', 'repeats', 'platform', 'osRelease', 'arch', 'cpu',
-    'logicalCpus', 'systemRamBytes', 'rust']) {
-    const {before, after} = pair();
-    after.metadata[field] = typeof after.metadata[field] === 'number'
-      ? after.metadata[field] + 1 : `${after.metadata[field]}-different`;
-    assert.throws(() => validateRuns(before, after), new RegExp(`metadata\\.${field} differs`), field);
+  for (const field of [
+    'frames',
+    'repeats',
+    'platform',
+    'osRelease',
+    'arch',
+    'cpu',
+    'logicalCpus',
+    'systemRamBytes',
+    'rust',
+  ]) {
+    const { before, after } = pair();
+    after.metadata[field] =
+      typeof after.metadata[field] === 'number'
+        ? after.metadata[field] + 1
+        : `${after.metadata[field]}-different`;
+    assert.throws(
+      () => validateRuns(before, after),
+      new RegExp(`metadata\\.${field} differs`),
+      field,
+    );
   }
-  const {before, after} = pair();
+  const { before, after } = pair();
   delete after.metadata.cpu;
   assert.throws(() => validateRuns(before, after), /invalid metadata\.cpu/);
 });
 
 test('fixture SHA-256 content changes and different fixture sets reject comparisons', () => {
-  const {before, after} = pair();
+  const { before, after } = pair();
   after.fixtures['image.ui'] = sha256('different markup');
   assert.throws(() => validateRuns(before, after), /different SHA-256\/content/);
-  after.fixtures = {...before.fixtures, 'extra.ui': sha256('extra')};
+  after.fixtures = { ...before.fixtures, 'extra.ui': sha256('extra') };
   assert.throws(() => validateRuns(before, after), /fixture file sets differ/);
-  after.fixtures = {...before.fixtures};
+  after.fixtures = { ...before.fixtures };
   delete after.fixtures['image.template.ui'];
   assert.throws(() => validateRuns(before, after), /fixture file sets differ/);
   delete before.fixtures['image.template.ui'];
@@ -98,12 +133,18 @@ test('fixture SHA-256 content changes and different fixture sets reject comparis
 });
 
 test('case mode, target, DPI and adapter identity must match', () => {
-  for (const [field, value] of [['mode', 'resize'], ['width', 900], ['height', 500], ['scale', 1]]) {
-    const {before, after} = pair();
-    for (const row of after.results) if (row.backend === 'gpu' && row.mode === 'animation') row[field] = value;
+  for (const [field, value] of [
+    ['mode', 'resize'],
+    ['width', 900],
+    ['height', 500],
+    ['scale', 1],
+  ]) {
+    const { before, after } = pair();
+    for (const row of after.results)
+      if (row.backend === 'gpu' && row.mode === 'animation') row[field] = value;
     assert.throws(() => validateRuns(before, after), /case sets differ/, field);
   }
-  const {before, after} = pair();
+  const { before, after } = pair();
   for (const row of after.results) if (row.backend === 'gpu') row.adapter = 'Different GPU';
   assert.throws(() => validateRuns(before, after), /adapter differs/);
 });
@@ -112,18 +153,33 @@ test('missing, duplicate and out-of-range repetitions cannot be pooled silently'
   for (const [mutate, error] of [
     [run => run.results.pop(), /incomplete repetitions/],
     [run => run.results.push(structuredClone(run.results[0])), /duplicate repetition/],
-    [run => { run.results[0].repetition = 0; }, /invalid repetition/],
-    [run => { run.results[0].repetition = run.metadata.repeats + 1; }, /invalid repetition/],
-    [run => { run.results[0].frames--; }, /frame count mismatch/],
+    [
+      run => {
+        run.results[0].repetition = 0;
+      },
+      /invalid repetition/,
+    ],
+    [
+      run => {
+        run.results[0].repetition = run.metadata.repeats + 1;
+      },
+      /invalid repetition/,
+    ],
+    [
+      run => {
+        run.results[0].frames--;
+      },
+      /frame count mismatch/,
+    ],
   ]) {
-    const {before, after} = pair();
+    const { before, after } = pair();
     mutate(after);
     assert.throws(() => validateRuns(before, after), error);
   }
 });
 
 test('an entirely missing case and adapter changes inside a case are rejected', () => {
-  const {before, after} = pair();
+  const { before, after } = pair();
   after.results = after.results.filter(row => row.mode !== 'idle');
   assert.throws(() => validateRuns(before, after), /case sets differ/);
   const mismatchedAdapter = structuredClone(before);
@@ -132,7 +188,7 @@ test('an entirely missing case and adapter changes inside a case are rejected', 
 });
 
 test('report contains medians and signed changes for timing, memory and allocations', () => {
-  const {before, after} = pair();
+  const { before, after } = pair();
   for (const row of after.results) {
     row.render_throughput_fps *= 1.25;
     row.completed_ms.p95 *= 0.8;
@@ -160,14 +216,14 @@ test('report contains medians and signed changes for timing, memory and allocati
 });
 
 test('even repeat counts use the arithmetic midpoint of the two central values', () => {
-  const {before, after} = pair(2);
+  const { before, after } = pair(2);
   const [timing] = caseRows(renderComparison(before, after), 'Timing');
   assert.match(timing, /150\.00 → 150\.00 \(0\.0%\)/);
   assert.match(timing, /6\.00 → 6\.00 \(0\.0%\)/);
 });
 
 test('idle renders no per-frame measurements and zero baselines have no percentage ratio', () => {
-  const {before, after} = pair();
+  const { before, after } = pair();
   for (const row of before.results) row.rust_requested_bytes = 0;
   const report = renderComparison(before, after);
   const [timing] = caseRows(report, 'Timing', 'image / gpu / idle');
@@ -179,7 +235,7 @@ test('idle renders no per-frame measurements and zero baselines have no percenta
 });
 
 test('missing or partly unavailable GPU timestamps stay n/a instead of dropping repetitions', () => {
-  const {before, after} = pair();
+  const { before, after } = pair();
   before.results[0].gpu_pass = null;
   const [oneMissing] = caseRows(renderComparison(before, after), 'Timing');
   assert.match(oneMissing, /n\/a → 4\.00 \(n\/a\)/);
@@ -194,14 +250,14 @@ test('missing or partly unavailable GPU timestamps stay n/a instead of dropping 
 
 test('invalid numeric measurements are not formatted as valid benchmark results', () => {
   for (const value of [-1, Number.NaN, Number.POSITIVE_INFINITY, '100']) {
-    const {before, after} = pair();
+    const { before, after } = pair();
     after.results[0].cpu_submit_ms.mean = value;
     assert.throws(() => renderComparison(before, after), /invalid numeric metric/);
   }
 });
 
 test('report discloses background load and non-FPS, allocator and residency limitations', () => {
-  const {before, after} = pair();
+  const { before, after } = pair();
   const report = renderComparison(before, after);
   assert.match(report, /not isolated or load-controlled/);
   assert.match(report, /not proof of causality or statistical significance/);

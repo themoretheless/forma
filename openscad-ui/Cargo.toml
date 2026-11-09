@@ -9,4 +9,4 @@ default = []
 native = ["forma/native"]
 
 [dependencies]
-forma = { path = "../vector-ui" }
+forma = { path = "../crates/forma" }

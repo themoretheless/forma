@@ -1,21 +1,25 @@
 import assert from 'node:assert/strict';
-import {EventEmitter} from 'node:events';
+import { EventEmitter } from 'node:events';
 import test from 'node:test';
-import {createVectorRunner} from '../vector-runner.js';
+import { createVectorRunner } from '../vector-runner.js';
 
 function harness(overrides = {}) {
   const events = [];
-  const calls = {mkdir: [], mkdtemp: [], writes: [], spawns: [], signals: []};
+  const calls = { mkdir: [], mkdtemp: [], writes: [], spawns: [], signals: [] };
   const children = [];
   const dependencies = {
     root: '/project with spaces',
     platform: 'darwin',
-    async mkdir(...args) { calls.mkdir.push(args); },
+    async mkdir(...args) {
+      calls.mkdir.push(args);
+    },
     async mkdtemp(prefix) {
       calls.mkdtemp.push(prefix);
       return `${prefix}${calls.mkdtemp.length}`;
     },
-    async writeFile(...args) { calls.writes.push(args); },
+    async writeFile(...args) {
+      calls.writes.push(args);
+    },
     spawn(...args) {
       calls.spawns.push(args);
       const child = new EventEmitter();
@@ -26,35 +30,61 @@ function harness(overrides = {}) {
       children.push(child);
       return child;
     },
-    kill(...args) { calls.signals.push(args); },
+    kill(...args) {
+      calls.signals.push(args);
+    },
     ...overrides,
   };
-  return {runner: createVectorRunner(event => events.push(event), dependencies), events, calls, children};
+  return {
+    runner: createVectorRunner(event => events.push(event), dependencies),
+    events,
+    calls,
+    children,
+  };
 }
 
 test('vector runner preserves the source in a unique snapshot and passes it to native Cargo', async () => {
-  const {runner, events, calls, children} = harness();
+  const { runner, events, calls, children } = harness();
   const source = "component ButtonDemo { Button { text: 'Найти'; } }";
-  await runner.run({source});
-  assert.deepEqual(calls.writes[0], ['/project with spaces/.forma/vector-1/snapshot.ui', source, 'utf8']);
+  await runner.run({ source });
+  assert.deepEqual(calls.writes[0], [
+    '/project with spaces/.forma/vector-1/snapshot.ui',
+    source,
+    'utf8',
+  ]);
   assert.deepEqual(calls.spawns[0], [
-    'cargo', ['run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml', '--features', 'native', '--', '/project with spaces/.forma/vector-1/snapshot.ui'],
-    {cwd: '/project with spaces', detached: true, stdio: ['ignore', 'pipe', 'pipe']},
+    'cargo',
+    [
+      'run',
+      '--release',
+      '--offline',
+      '--manifest-path',
+      '/project with spaces/crates/forma/Cargo.toml',
+      '--features',
+      'native',
+      '--',
+      '/project with spaces/.forma/vector-1/snapshot.ui',
+    ],
+    { cwd: '/project with spaces', detached: true, stdio: ['ignore', 'pipe', 'pipe'] },
   ]);
   children[0].stdout.emit('data', Buffer.from('window opened'));
   children[0].stderr.emit('data', Buffer.from('compiling'));
   children[0].emit('close', 0, null);
-  assert.deepEqual(events.map(event => event.kind), ['started', 'stdout', 'stderr', 'finished']);
+  assert.deepEqual(
+    events.map(event => event.kind),
+    ['started', 'stdout', 'stderr', 'finished'],
+  );
   assert.equal(events.at(-1).code, 0);
-  await runner.run({source: 'component Other {}'});
+  await runner.run({ source: 'component Other {}' });
   assert.equal(calls.writes[1][0], '/project with spaces/.forma/vector-2/snapshot.ui');
   assert.equal(calls.writes[0][1], source);
   children[1].emit('close', 0, null);
 });
 
 test('vector runner rejects missing, empty, and oversized source before writing or spawning', async () => {
-  const {runner, calls, events} = harness();
-  for (const source of [undefined, 123, '', '  \n ', 'x'.repeat(100_001)]) await runner.run({source});
+  const { runner, calls, events } = harness();
+  for (const source of [undefined, 123, '', '  \n ', 'x'.repeat(100_001)])
+    await runner.run({ source });
   await runner.run();
   assert.equal(calls.mkdir.length, 0);
   assert.equal(calls.spawns.length, 0);
@@ -63,106 +93,125 @@ test('vector runner rejects missing, empty, and oversized source before writing 
 });
 
 test('vector runner is busy from preparation until close and stops the Cargo process group', async () => {
-  const {runner, calls, events, children} = harness();
-  const launching = runner.run({source: 'component Demo {}'});
-  await runner.run({source: 'component Duplicate {}'});
+  const { runner, calls, events, children } = harness();
+  const launching = runner.run({ source: 'component Demo {}' });
+  await runner.run({ source: 'component Duplicate {}' });
   await launching;
   runner.stop();
   runner.stop();
-  await runner.run({source: 'component StillStopping {}'});
+  await runner.run({ source: 'component StillStopping {}' });
   assert.equal(calls.spawns.length, 1);
   assert.deepEqual(calls.signals, [[-100, 'SIGTERM']]);
   assert.equal(events.filter(event => event.kind === 'error').length, 2);
   children[0].emit('close', null, 'SIGTERM');
   assert.equal(events.at(-1).signal, 'SIGTERM');
-  await runner.run({source: 'component Again {}'});
+  await runner.run({ source: 'component Again {}' });
   assert.equal(calls.spawns.length, 2);
   children[1].emit('close', 0, null);
 });
 
 test('stopping during snapshot preparation never spawns a window later', async () => {
   let releaseWrite;
-  const {runner, calls, events} = harness({writeFile: () => new Promise(resolve => { releaseWrite = resolve; })});
-  const launching = runner.run({source: 'component Demo {}'});
+  const { runner, calls, events } = harness({
+    writeFile: () =>
+      new Promise(resolve => {
+        releaseWrite = resolve;
+      }),
+  });
+  const launching = runner.run({ source: 'component Demo {}' });
   runner.stop();
   // Let the two preceding filesystem awaits complete.
   await new Promise(resolve => setImmediate(resolve));
   releaseWrite();
   await launching;
   assert.equal(calls.spawns.length, 0);
-  assert.deepEqual(events.map(event => event.kind), ['finished']);
+  assert.deepEqual(
+    events.map(event => event.kind),
+    ['finished'],
+  );
   assert.equal(events[0].signal, 'SIGTERM');
 });
 
 test('spawn failure and its stale close cannot clear the next running window', async () => {
-  const {runner, calls, children, events} = harness();
-  await runner.run({source: 'component First {}'});
+  const { runner, calls, children, events } = harness();
+  await runner.run({ source: 'component First {}' });
   children[0].pid = undefined;
   children[0].emit('error', new Error('cargo not found'));
-  await runner.run({source: 'component Second {}'});
+  await runner.run({ source: 'component Second {}' });
   children[0].emit('close', -2, null);
   children[0].stdout.emit('data', Buffer.from('stale'));
-  await runner.run({source: 'component Duplicate {}'});
+  await runner.run({ source: 'component Duplicate {}' });
   assert.equal(calls.spawns.length, 2);
   assert.equal(events.filter(event => event.kind === 'finished').length, 1);
-  assert.equal(events.some(event => event.text === 'stale'), false);
+  assert.equal(
+    events.some(event => event.text === 'stale'),
+    false,
+  );
   assert.match(events.at(-1).text, /уже/);
   children[1].emit('close', 0, null);
 });
 
 test('a failed snapshot write releases the busy guard and never invokes Cargo', async () => {
   let shouldFail = true;
-  const {runner, events, calls, children} = harness({async writeFile() {
-    if (shouldFail) throw new Error('disk full');
-  }});
-  await runner.run({source: 'component Demo {}'});
+  const { runner, events, calls, children } = harness({
+    async writeFile() {
+      if (shouldFail) throw new Error('disk full');
+    },
+  });
+  await runner.run({ source: 'component Demo {}' });
   assert.equal(calls.spawns.length, 0);
   assert.ok(events.some(event => event.kind === 'error' && event.text === 'disk full'));
   shouldFail = false;
-  await runner.run({source: 'component Demo {}'});
+  await runner.run({ source: 'component Demo {}' });
   assert.equal(calls.spawns.length, 1);
   children[0].emit('close', 0, null);
 });
 
 test('Windows uses the direct child signal instead of a Unix process group', async () => {
-  const {runner, calls, children} = harness({platform: 'win32'});
-  await runner.run({source: 'component Demo {}'});
+  const { runner, calls, children } = harness({ platform: 'win32' });
+  await runner.run({ source: 'component Demo {}' });
   assert.equal(calls.spawns[0][2].detached, false);
   runner.stop();
   assert.deepEqual(calls.signals, [[100, 'SIGTERM']]);
   children[0].emit('close', null, 'SIGTERM');
 });
 
- test('linked multi-control templates can exceed the source limit and are passed intact', async () => {
-  const {runner,calls,children}=harness();
-  const template='component Template {}\n'.repeat(9000);
-  assert.ok(template.length>100_000);
-  await runner.run({source:'component Catalog {}',template});
-  assert.equal(calls.writes[1][1],template);
-  assert.equal(calls.spawns.length,1);
-  assert.equal(calls.spawns[0][1].at(-1),calls.writes[1][0]);
-  children[0].emit('close',0,null);
+test('linked multi-control templates can exceed the source limit and are passed intact', async () => {
+  const { runner, calls, children } = harness();
+  const template = 'component Template {}\n'.repeat(9000);
+  assert.ok(template.length > 100_000);
+  await runner.run({ source: 'component Catalog {}', template });
+  assert.equal(calls.writes[1][1], template);
+  assert.equal(calls.spawns.length, 1);
+  assert.equal(calls.spawns[0][1].at(-1), calls.writes[1][0]);
+  children[0].emit('close', 0, null);
 });
 
 test('invalid and oversized templates produce specific errors without spawning', async () => {
-  const {runner,calls,events}=harness();
-  for(const template of [42,'','  ','x'.repeat(2_000_001)])
-    await runner.run({source:'component Catalog {}',template});
-  assert.equal(calls.writes.length,0);
-  assert.equal(calls.spawns.length,0);
-  assert.equal(events.length,4);
-  assert.match(events.at(-1).text,/2000000.*2000001/);
+  const { runner, calls, events } = harness();
+  for (const template of [42, '', '  ', 'x'.repeat(2_000_001)])
+    await runner.run({ source: 'component Catalog {}', template });
+  assert.equal(calls.writes.length, 0);
+  assert.equal(calls.spawns.length, 0);
+  assert.equal(events.length, 4);
+  assert.match(events.at(-1).text, /2000000.*2000001/);
 });
 
 test('vector runner prunes oldest snapshot directories beyond the retention limit', async () => {
   const removed = [];
-  const existing = Array.from({length: 18}, (_, i) => `vector-${String(i + 1).padStart(2, '0')}`);
-  const {runner, children} = harness({
-    async readdir() { return [...existing, 'vector-19']; },
-    async rm(target, opts) { removed.push([target, opts]); },
-    async mkdtemp(prefix) { return `${prefix}19`; },
+  const existing = Array.from({ length: 18 }, (_, i) => `vector-${String(i + 1).padStart(2, '0')}`);
+  const { runner, children } = harness({
+    async readdir() {
+      return [...existing, 'vector-19'];
+    },
+    async rm(target, opts) {
+      removed.push([target, opts]);
+    },
+    async mkdtemp(prefix) {
+      return `${prefix}19`;
+    },
   });
-  await runner.run({source: 'component Demo {}'});
+  await runner.run({ source: 'component Demo {}' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(removed.length, 3);
   assert.equal(removed[0][0], '/project with spaces/.forma/vector-01');
@@ -172,50 +221,101 @@ test('vector runner prunes oldest snapshot directories beyond the retention limi
 });
 
 test('vector runner update hot-reloads active window snapshot and rejects invalid updates', async () => {
-  const {runner, calls, children} = harness();
-  assert.equal(await runner.update({source: 'component Idle {}'}), false);
-  await runner.run({source: 'component Initial {}', template: 'component Btn { Frame {} }'});
+  const { runner, calls, children } = harness();
+  assert.equal(await runner.update({ source: 'component Idle {}' }), false);
+  await runner.run({ source: 'component Initial {}', template: 'component Btn { Frame {} }' });
   assert.equal(calls.writes.length, 2);
 
-  assert.equal(await runner.update({source: ''}), false);
-  assert.equal(await runner.update({source: 'x'.repeat(100_001)}), false);
-  assert.equal(await runner.update({source: 'component Next {}', template: ''}), false);
+  assert.equal(await runner.update({ source: '' }), false);
+  assert.equal(await runner.update({ source: 'x'.repeat(100_001) }), false);
+  assert.equal(await runner.update({ source: 'component Next {}', template: '' }), false);
 
-  const ok = await runner.update({source: 'component HotReloaded {}', template: 'component Btn2 { Frame {} }'});
+  const ok = await runner.update({
+    source: 'component HotReloaded {}',
+    template: 'component Btn2 { Frame {} }',
+  });
   assert.equal(ok, true);
   assert.equal(calls.writes.length, 4);
-  assert.deepEqual(calls.writes[2], ['/project with spaces/.forma/vector-1/Button.ui', 'component Btn2 { Frame {} }', 'utf8']);
-  assert.deepEqual(calls.writes[3], ['/project with spaces/.forma/vector-1/snapshot.ui', 'component HotReloaded {}', 'utf8']);
+  assert.deepEqual(calls.writes[2], [
+    '/project with spaces/.forma/vector-1/Button.ui',
+    'component Btn2 { Frame {} }',
+    'utf8',
+  ]);
+  assert.deepEqual(calls.writes[3], [
+    '/project with spaces/.forma/vector-1/snapshot.ui',
+    'component HotReloaded {}',
+    'utf8',
+  ]);
 
   runner.stop();
-  assert.equal(await runner.update({source: 'component AfterStop {}'}), false);
+  assert.equal(await runner.update({ source: 'component AfterStop {}' }), false);
   children[0].emit('close', null, 'SIGTERM');
 });
 
 test('vector runner forwards explicit egui or svet backend flag to native Cargo', async () => {
-  const {runner, calls, children} = harness();
-  await runner.run({source: 'component TwoButtons {}', backend: 'egui'});
+  const { runner, calls, children } = harness();
+  await runner.run({ source: 'component TwoButtons {}', backend: 'egui' });
   assert.deepEqual(calls.spawns[0][1], [
-    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
-    '--features', 'native', '--', '--backend', 'egui', '/project with spaces/.forma/vector-1/snapshot.ui',
+    'run',
+    '--release',
+    '--offline',
+    '--manifest-path',
+    '/project with spaces/crates/forma/Cargo.toml',
+    '--features',
+    'native',
+    '--',
+    '--backend',
+    'egui',
+    '/project with spaces/.forma/vector-1/snapshot.ui',
   ]);
   children[0].emit('close', 0, null);
-  await runner.run({source: 'component TwoButtons {}', backend: 'svet'});
+  await runner.run({ source: 'component TwoButtons {}', backend: 'svet' });
   assert.deepEqual(calls.spawns[1][1], [
-    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
-    '--features', 'native', '--', '--backend', 'svet', '/project with spaces/.forma/vector-2/snapshot.ui',
+    'run',
+    '--release',
+    '--offline',
+    '--manifest-path',
+    '/project with spaces/crates/forma/Cargo.toml',
+    '--features',
+    'native',
+    '--',
+    '--backend',
+    'svet',
+    '/project with spaces/.forma/vector-2/snapshot.ui',
   ]);
   children[1].emit('close', 0, null);
-  await runner.run({source: 'component TwoButtons {}', backend: 'svet', platform: 'ios'});
+  await runner.run({ source: 'component TwoButtons {}', backend: 'svet', platform: 'ios' });
   assert.deepEqual(calls.spawns[2][1], [
-    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
-    '--features', 'native', '--', '--backend', 'svet', '--platform', 'ios', '/project with spaces/.forma/vector-3/snapshot.ui',
+    'run',
+    '--release',
+    '--offline',
+    '--manifest-path',
+    '/project with spaces/crates/forma/Cargo.toml',
+    '--features',
+    'native',
+    '--',
+    '--backend',
+    'svet',
+    '--platform',
+    'ios',
+    '/project with spaces/.forma/vector-3/snapshot.ui',
   ]);
   children[2].emit('close', 0, null);
-  await runner.run({source: 'component TwoButtons {}', backend: 'egui', platform: 'android'});
+  await runner.run({ source: 'component TwoButtons {}', backend: 'egui', platform: 'android' });
   assert.deepEqual(calls.spawns[3][1], [
-    'run', '--release', '--offline', '--manifest-path', '/project with spaces/vector-ui/Cargo.toml',
-    '--features', 'native', '--', '--backend', 'egui', '--platform', 'android', '/project with spaces/.forma/vector-4/snapshot.ui',
+    'run',
+    '--release',
+    '--offline',
+    '--manifest-path',
+    '/project with spaces/crates/forma/Cargo.toml',
+    '--features',
+    'native',
+    '--',
+    '--backend',
+    'egui',
+    '--platform',
+    'android',
+    '/project with spaces/.forma/vector-4/snapshot.ui',
   ]);
   children[3].emit('close', 0, null);
 });

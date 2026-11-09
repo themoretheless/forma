@@ -1,6 +1,6 @@
 // Writes only existing model fields. Repeated elements retain their actual item
 // object in their lexical environment, so a sort cannot redirect an input edit.
-export function writePreviewBinding(state, node, path, value, {createMissing = false} = {}) {
+export function writePreviewBinding(state, node, path, value, { createMissing = false } = {}) {
   const [root, ...parts] = path.split('.');
   let target = root === 'state' ? state : node.environment?.locals?.[root];
   if (!target || !parts.length) throw Error(`Недоступная привязка ${path}`);
@@ -16,7 +16,10 @@ export function writePreviewBinding(state, node, path, value, {createMissing = f
 }
 
 function resolveTarget(state, path) {
-  const parts = String(path ?? '').replace(/^state\./, '').split('.').filter(Boolean);
+  const parts = String(path ?? '')
+    .replace(/^state\./, '')
+    .split('.')
+    .filter(Boolean);
   if (!parts.length) return null;
   const field = parts.pop();
   let target = state;
@@ -36,14 +39,19 @@ export function executePreviewStateAction(state, action, args = [], stateDefault
     Object.assign(state, structuredClone(stateDefaults));
     return { handled: true, log: 'state сброшен к значениям по умолчанию' };
   }
-  if (['toggle', 'set', 'increment', 'decrement', 'push', 'remove', 'clear'].includes(cmd) && typeof args[0] === 'string') {
+  if (
+    ['toggle', 'set', 'increment', 'decrement', 'push', 'remove', 'clear'].includes(cmd) &&
+    typeof args[0] === 'string'
+  ) {
     const loc = resolveTarget(state, args[0]);
     if (!loc) return { handled: false };
     const { target, field, fullPath } = loc;
     if (cmd === 'toggle') target[field] = !target[field];
     else if (cmd === 'set') target[field] = args[1];
-    else if (cmd === 'increment') target[field] = (Number(target[field]) || 0) + (args[1] !== undefined ? Number(args[1]) : 1);
-    else if (cmd === 'decrement') target[field] = (Number(target[field]) || 0) - (args[1] !== undefined ? Number(args[1]) : 1);
+    else if (cmd === 'increment')
+      target[field] = (Number(target[field]) || 0) + (args[1] !== undefined ? Number(args[1]) : 1);
+    else if (cmd === 'decrement')
+      target[field] = (Number(target[field]) || 0) - (args[1] !== undefined ? Number(args[1]) : 1);
     else if (cmd === 'push') {
       const list = Array.isArray(target[field]) ? [...target[field]] : [];
       list.push(args[1]);
@@ -51,9 +59,16 @@ export function executePreviewStateAction(state, action, args = [], stateDefault
     } else if (cmd === 'remove') {
       const list = Array.isArray(target[field]) ? [...target[field]] : [];
       const item = args[1];
-      target[field] = typeof item === 'number' && item >= 0 && item < list.length ? list.filter((_, i) => i !== item) : list.filter(x => x !== item);
+      target[field] =
+        typeof item === 'number' && item >= 0 && item < list.length
+          ? list.filter((_, i) => i !== item)
+          : list.filter(x => x !== item);
     } else if (cmd === 'clear') {
-      target[field] = Array.isArray(target[field]) ? [] : typeof target[field] === 'object' && target[field] !== null ? {} : '';
+      target[field] = Array.isArray(target[field])
+        ? []
+        : typeof target[field] === 'object' && target[field] !== null
+          ? {}
+          : '';
     }
     return { handled: true, log: `${fullPath} = ${JSON.stringify(target[field])}` };
   }
@@ -83,7 +98,10 @@ const KEY_ALIASES = {
 };
 
 export function matchPreviewShortcut(event, combo) {
-  const parts = String(combo ?? '').split('+').map(p => p.trim().toLowerCase()).filter(Boolean);
+  const parts = String(combo ?? '')
+    .split('+')
+    .map(p => p.trim().toLowerCase())
+    .filter(Boolean);
   if (!parts.length) return false;
   const rawKey = parts.at(-1);
   const keyPart = KEY_ALIASES[rawKey] ?? rawKey;
@@ -101,5 +119,3 @@ export function matchPreviewShortcut(event, combo) {
   const actualKey = (event.key || '').toLowerCase();
   return actualKey === keyPart || (KEY_ALIASES[actualKey] ?? actualKey) === keyPart;
 }
-
-

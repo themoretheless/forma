@@ -3,8 +3,8 @@
 use crate::metal::{MetalDevice, ObjCObject};
 use crate::{BindingResource, BufferAddress, BufferBinding, BufferUsages, Label};
 use std::ops::{Bound, Deref, DerefMut, Range, RangeBounds};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct WriteOnly<'a, T: ?Sized> {
     slice: &'a mut T,
@@ -94,8 +94,9 @@ impl<'a> WriteOnly<'a, [u8]> {
         let num_chunks = len / N;
         let split_at = num_chunks * N;
         let (head, tail) = self.slice.split_at_mut(split_at);
-        let chunks =
-            unsafe { std::slice::from_raw_parts_mut(head.as_mut_ptr() as *mut [u8; N], num_chunks) };
+        let chunks = unsafe {
+            std::slice::from_raw_parts_mut(head.as_mut_ptr() as *mut [u8; N], num_chunks)
+        };
         (WriteOnly { slice: chunks }, WriteOnly { slice: tail })
     }
 
@@ -161,8 +162,12 @@ unsafe impl Sync for BufferInner {}
 impl Drop for BufferInner {
     fn drop(&mut self) {
         if self.options != 0xFF {
-            self.device
-                .recycle_buffer(self.size as usize, self.options, self.raw.clone(), self.ptr);
+            self.device.recycle_buffer(
+                self.size as usize,
+                self.options,
+                self.raw.clone(),
+                self.ptr,
+            );
         }
     }
 }
@@ -331,7 +336,10 @@ impl<'a> BufferSlice<'a> {
         if !self.buffer.inner.device.is_last_cmd_completed() {
             self.buffer.inner.device.wait_idle();
         }
-        self.buffer.inner.mapped_ready.store(true, Ordering::Release);
+        self.buffer
+            .inner
+            .mapped_ready
+            .store(true, Ordering::Release);
         callback(Ok(()));
     }
 
