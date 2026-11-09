@@ -41,3 +41,10 @@
 | RUSTSEC-2026-0194, -0195 | quick-xml 0.39.4 | winit → smithay-client-toolkit → wayland-scanner (proc-macro, Linux) | уязвимости разбора XML; у нас разбирает только протокольные файлы Wayland при сборке |
 | RUSTSEC-2026-0192 | ttf-parser 0.25.1 | прямая зависимость `forma` | не поддерживается, обновления нет |
 | RUSTSEC-2026-0370, -0371, -0372 | zvariant, zbus_names, zvariant_derive | accesskit_unix → atspi (Linux) | не поддерживаются, обновления нет |
+
+## Найдено в CI после добавления задачи `crates`
+
+| ID | Место | Статус | Суть |
+|---|---|---|---|
+| C-1 | `crates/gpu-compute/src/backend.rs` тест топологии | исправлено | тест считал, что Metal всегда даёт унифицированную память; код осознанно возвращает её только на Apple Silicon. На Ubuntu-раннере тест падал и сорвал публикацию `v0.3.1` |
+| C-2 | `crates/gpu-compute/tests/profiling.rs` | исправлено | отношение длительностей 8:1 проверяет реальный GPU; на виртуальном GPU macOS-раннера не выполняется. Теперь проверяется только при `COMPUTE_REQUIRE_TIMESTAMPS` (выставляется локальным гейтом на Mac) |

@@ -266,7 +266,12 @@ export function steps({ platform, installedTargets, viteEntry }) {
         name: 'gpu-compute builds and passes on its own lockfile',
         argv: 'cargo',
         args: ['test', '--locked', '--manifest-path', 'crates/gpu-compute/Cargo.toml'],
-        flags: platform === 'darwin' ? { COMPUTE_REQUIRE_GPU: '1' } : undefined,
+        // A developer Mac has real GPU timers, so the profiling duration ratios are checked here;
+        // CI runners have virtualized GPUs and skip them.
+        flags:
+          platform === 'darwin'
+            ? { COMPUTE_REQUIRE_GPU: '1', COMPUTE_REQUIRE_TIMESTAMPS: '1' }
+            : undefined,
       },
       {
         id: 'openscad-sample',
