@@ -954,7 +954,10 @@ impl Runtime {
     pub fn preserve_interaction(&mut self, previous: &Runtime) {
         self.preserve_interaction_matches(previous);
     }
-    pub(super) fn preserve_interaction_matches(&mut self, previous: &Runtime) -> Vec<Option<usize>> {
+    pub(super) fn preserve_interaction_matches(
+        &mut self,
+        previous: &Runtime,
+    ) -> Vec<Option<usize>> {
         use std::collections::HashMap;
         // Reconcile only unambiguous identities; never transfer a gesture by index.
         let mut previous_keys: HashMap<&str, Option<usize>> =
