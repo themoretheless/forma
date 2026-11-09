@@ -49,6 +49,7 @@ import './states-panel.css';
 import { createControlTree } from './control-tree.js';
 import { createStatesPanel } from './states-panel.js';
 import { workspaceSaveStatus } from './workspace-save.js';
+import { escapeHtml as esc, parentDirOf, countLines } from './shared/text.js';
 import { findEntry, stateCreateEdit, stateDeleteEdit, stateRenameEdit } from './design-states.js';
 import { extractElement, moveAmongSiblings, moveIntoContainer } from './element-edit.js';
 import { restoreSelection, selectionIdentities } from './selection-restore.js';
@@ -230,9 +231,6 @@ document.querySelector('#app').innerHTML = `
 <section class="bottom"><div class="bottom-tabs"><button data-tab="problems" class="chosen">Диагностика <span id="problem-count">0</span></button><button data-tab="events">События <span id="event-count">0</span></button><button data-tab="state">Состояние</button><div class="debug-controls"><label><input type="checkbox" id="break"> Break on event</label><button id="continue" disabled>▶ Продолжить</button><button id="reset">↺ Сброс</button></div></div><div id="output"></div></section></main>
 <aside class="inspector"><div class="section-title">ИНСПЕКТОР</div><div id="inspector"><div class="empty-icon">⌖</div><p>Выберите компонент</p><small>Свойства и привязки появятся здесь</small></div><div class="debug-info"><span>UI DEBUGGER</span><p id="debug-status">Готов</p><small>События и состояние дизайн-runtime.<br>Rust / DAP не подключён.</small></div></aside></div>
 <footer><span class="dot"></span><span id="status">Готов</span><span class="footer-right">Forma UI · UTF-8 <span id="position">Ln 1, Col 1</span></span></footer><input type="file" id="upload" accept=".json" hidden>`;
-const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const ESC_RE = /[&<>"']/g;
-const esc = s => String(s ?? '').replace(ESC_RE, c => ESC_MAP[c]);
 // Recovery data is downloadable without parsing or executing its contents.
 {
   const key = storageKey('forma-project');
@@ -338,10 +336,6 @@ function selectTreeRow(targetPath) {
     const p = b.dataset.path ?? b.dataset.folder;
     b.classList.toggle('active', p === selectedTreeItem);
   }
-}
-function parentDirOf(path = '') {
-  const idx = path.lastIndexOf('/');
-  return idx >= 0 ? path.slice(0, idx) : '';
 }
 function selectedTargetDir() {
   if (!selectedTreeItem) return '';
@@ -667,11 +661,6 @@ function open(path) {
   tree();
   refreshControlTree();
   refreshStatesPanel();
-}
-function countLines(text, end = text.length) {
-  let n = 1;
-  for (let i = 0; i < end; i++) if (text.charCodeAt(i) === 10) n++;
-  return n;
 }
 function lines() {
   if (codeEditor) {
