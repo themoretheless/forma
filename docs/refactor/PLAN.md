@@ -4,7 +4,7 @@
 |---|---|
 | 0. Базовая линия | частично: гейт, тесты крейтов, размеры, дубли, циклы и анализ снимков сняты; clippy, покрытие и бенчмарки нет |
 | 1. Фундамент | готово, кроме ESLint и строгих флагов tsconfig для `packages/svet` (там параллельно работает другая сессия) и clippy-ratchet в CI (только локально на macOS) |
-| 2. forma | начат: golden на все builtins, исправлены F-1 (unsafe в `Form::sync`) и F-2 (паника на цвете), диспетчер builtins разбит на 9 модулей, `WidgetState` вместо `Runtime` в документе, единый `blend`, модуль `geometry`; архитектурный тест с 2 известными нарушениями (`display_list`/`raster_cache` → `Button` в корне) |
+| 2. forma | начат: golden на все builtins, исправлены F-1, F-2, F-6; builtins разбиты на 9 модулей; `WidgetState`; единый `blend`; модуль `geometry`; `form_document.rs` 4860 → 548 строк (visual/scene/render/tests), `runtime.rs` 4404 → 1635 (wasm_api/tests); архитектурный тест с 2 известными нарушениями |
 | 3–8 | не начаты (в 6 сделан первый шаг: `raster-core` без лишних `clone`) |
 
 Ниже утверждённый план без изменений; пути `vector-ui/...` в нём читать как `crates/forma/...`.

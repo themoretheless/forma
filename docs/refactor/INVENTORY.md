@@ -6,11 +6,11 @@
 
 | Модуль | Строк | Тестов | Главные запахи | Приоритет | Статус |
 |---|---:|---|---|---|---|
-| crates/forma/src/form_document.rs | 4858 | 56 | модель + раскрытие двух уровней + раскладка + эмиссия текста в одном файле; функции по 150–320 строк | 1 | todo |
-| crates/forma/src/runtime.rs | 4377 | 41 | загрузка, a11y, фокус, растровый кэш, ~120 wasm-методов в одном типе | 1 | todo |
+| crates/forma/src/form_document.rs + visual/scene/render/tests | 548 + 654 + 634 + 465 + 2585 | 56 | разбит по уровням рендера, тесты вынесены; осталось: общие селекторы control-flow для двух уровней, `scene_expand` (~380 строк), `render_scene_with_extents` (~390), `NodeKind` вместо строк | 1 | в работе |
+| crates/forma/src/runtime.rs + wasm_api/tests/raster_tests | 1635 + 1102 + 1369 + 302 | 41 | wasm-фасад и тесты вынесены; осталось: загрузка, a11y, фокус, растровый кэш в одном `impl` | 1 | в работе |
 | crates/forma/src/main.rs | 2015 | 4 | второй оконный хост, `window_event` на сотни строк | 1 | todo |
 | crates/forma/src/native_window.rs | 3164 | 19 | хост + генерация UI + эмуляция платформ + ввод | 1 | todo |
-| crates/forma/src/binding.rs | 1904 | 5 | `Form::sync`/`update` по 220 строк, `unsafe` с пересекающимися `&mut` | 1 | todo |
+| crates/forma/src/binding.rs | 1950 | 6 | `unsafe` убран (F-1); осталось: `Form::sync`/`update` по 220 строк, разбиение на модули | 1 | в работе |
 | crates/forma/src/form_document/eval.rs + eval/builtins/* | 505 + 880 | golden на все builtins, 2 теста цвета | диспетчер builtins разбит на 9 семейств; осталось: `eval_mode` (~280 строк), ошибки строками, тесты путей и операторов | 1 | в работе |
 | crates/forma/src/form_document/{bindings,compiler,layout,contracts,svg}.rs | — | 0 | нет прямых тестов | 1 | todo |
 | crates/forma/src/text.rs | 2298 | 18 | юникод, шейпинг, шрифты, раскладка и растеризатор вместе; цикл с `shape` | 2 | todo |
