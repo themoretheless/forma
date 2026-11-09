@@ -244,6 +244,19 @@ export function steps({ platform, installedTargets, viteEntry }) {
         argv: 'cargo',
         args: ['check', '--locked', '--manifest-path', 'openscad-ui/Cargo.toml'],
       },
+      // Counts come from a macOS build with the native feature, so the comparison is only
+      // meaningful on the platform that recorded the baseline.
+      ...(platform === 'darwin'
+        ? [
+            {
+              id: 'clippy',
+              name: 'Clippy lint debt has not grown (ratchet)',
+              argv: process.execPath,
+              args: ['scripts/clippy-ratchet.mjs'],
+              requiresOutput: true,
+            },
+          ]
+        : []),
       // The WebView host generates its actions module from a fixture, exactly as ci.yml runs it.
       ...(platform === 'darwin'
         ? [
