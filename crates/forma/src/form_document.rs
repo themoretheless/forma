@@ -9,6 +9,7 @@ mod eval;
 mod layout;
 mod properties;
 mod svg;
+mod widget_state;
 
 #[cfg(test)]
 use bindings::{
@@ -26,6 +27,7 @@ use layout::{
 };
 pub use properties::{Properties, PropertyIter};
 use svg::parse_svg_shapes;
+pub use widget_state::WidgetState;
 
 // Evaluation scopes capture immutable model data, unlike the live model map.
 // Their first local mutation gets a shared-root overlay instead of owning it.

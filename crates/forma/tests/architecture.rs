@@ -36,11 +36,7 @@ const LAYERS: &[(&str, u8)] = &[
 ];
 
 /// Upward edges that exist today, as `from -> to`. Remove an entry when its edge is gone.
-const KNOWN_VIOLATIONS: &[&str] = &[
-    "display_list -> lib",
-    "form_document -> runtime",
-    "raster_cache -> lib",
-];
+const KNOWN_VIOLATIONS: &[&str] = &["display_list -> lib", "raster_cache -> lib"];
 
 /// Names in the crate root that are re-exports of a module rather than root items.
 const ROOT_REEXPORTS: &[(&str, &str)] = &[("Runtime", "runtime")];

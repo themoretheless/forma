@@ -2633,6 +2633,29 @@ impl Runtime {
         params
     }
 }
+impl crate::form_document::WidgetState for Runtime {
+    fn control_count(&self) -> usize {
+        Runtime::control_count(self)
+    }
+    fn control_key(&self, index: usize) -> String {
+        Runtime::control_key(self, index)
+    }
+    fn binding_widget_changed(&self, index: usize) -> bool {
+        Runtime::binding_widget_changed(self, index)
+    }
+    fn control_editable(&self, index: usize) -> bool {
+        Runtime::control_editable(self, index)
+    }
+    fn text_value(&self, index: usize) -> String {
+        Runtime::text_value(self, index)
+    }
+    fn range_value(&self, index: usize) -> f32 {
+        Runtime::range_value(self, index)
+    }
+    fn acknowledge_binding_widgets(&self) {
+        Runtime::acknowledge_binding_widgets(self);
+    }
+}
 impl RenderScene for Runtime {
     fn release_cpu_cache(&self) {
         Runtime::release_cpu_cache(self);
