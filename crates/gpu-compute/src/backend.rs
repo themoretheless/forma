@@ -10,15 +10,16 @@
 use crate::GpuContext;
 
 pub use gpu_shader::{
-    compile_shader_multi_target, compile_wgsl_for_target, generate_wgsl_cad_vertex_transform_shader,
+    ComputeShaderTarget, MultiTargetShaderArtifact, compile_shader_multi_target,
+    compile_wgsl_for_target, generate_wgsl_cad_vertex_transform_shader,
     generate_wgsl_parallel_reduction_shader, generate_wgsl_rtx_raytracing_shader,
-    generate_wgsl_tiled_matmul_shader, ComputeShaderTarget, MultiTargetShaderArtifact,
+    generate_wgsl_tiled_matmul_shader,
 };
 pub use wgpu::{
-    backend_label, recommend_workgroup_shape_2d, tuned_workgroup_size, ApiEnvironment,
-    AsdPageBuffer, BackendKind, BackendReport, BackendShaderIr, HardwareExecutionTopology,
-    MemoryArchitecture, MemoryArchitectureProfile, ModernMemoryTech, StorageDirectCapability,
-    SubgroupReport, TargetPlatform, TransferStrategy, UnifiedTransferPlan,
+    ApiEnvironment, AsdPageBuffer, BackendKind, BackendReport, BackendShaderIr,
+    HardwareExecutionTopology, MemoryArchitecture, MemoryArchitectureProfile, ModernMemoryTech,
+    StorageDirectCapability, SubgroupReport, TargetPlatform, TransferStrategy, UnifiedTransferPlan,
+    backend_label, recommend_workgroup_shape_2d, tuned_workgroup_size,
 };
 
 /// Probes the preferred portable compute backend without constructing a
@@ -110,16 +111,34 @@ mod tests {
     fn execution_topology_and_2d_workgroup_recommendations_match_hardware_primitives() {
         let metal_topo = BackendReport::from_wgpu(wgpu::Backend::Metal).execution_topology();
         assert_eq!(metal_topo.memory_architecture, MemoryArchitecture::Uma);
-        assert!(metal_topo.memory_architecture.profile().unified_physical_ram);
-        assert!(metal_topo.memory_architecture.profile().zero_copy_primary_upload);
-        assert!(!metal_topo.memory_architecture.profile().requires_explicit_staging_ring);
+        assert!(
+            metal_topo
+                .memory_architecture
+                .profile()
+                .unified_physical_ram
+        );
+        assert!(
+            metal_topo
+                .memory_architecture
+                .profile()
+                .zero_copy_primary_upload
+        );
+        assert!(
+            !metal_topo
+                .memory_architecture
+                .profile()
+                .requires_explicit_staging_ring
+        );
         assert_eq!(metal_topo.scalar_unit_label, "ALU / Execution Pipeline");
         assert_eq!(metal_topo.simd_width, 32);
         assert_eq!(metal_topo.simd_group_label, "SIMD-group (32 threads)");
         assert_eq!(metal_topo.max_threads_per_block, 1024);
         assert_eq!(metal_topo.local_sram_label, "threadgroup memory");
         assert_eq!(metal_topo.default_local_sram_bytes, 32768);
-        assert_eq!(metal_topo.matrix_coprocessor_label, "simdgroup_matrix (8x8)");
+        assert_eq!(
+            metal_topo.matrix_coprocessor_label,
+            "simdgroup_matrix (8x8)"
+        );
         assert_eq!(metal_topo.matrix_tile_shape, [8, 8, 8]);
         assert_eq!(metal_topo.optimal_1d_workgroup_size, 128);
         assert_eq!(metal_topo.optimal_2d_tile_size, [32, 8]);
@@ -127,14 +146,27 @@ mod tests {
         let vk_topo = BackendReport::from_wgpu(wgpu::Backend::Vulkan).execution_topology();
         assert_eq!(vk_topo.memory_architecture, MemoryArchitecture::Duma);
         assert!(!vk_topo.memory_architecture.profile().unified_physical_ram);
-        assert!(!vk_topo.memory_architecture.profile().zero_copy_primary_upload);
-        assert!(vk_topo.memory_architecture.profile().requires_explicit_staging_ring);
+        assert!(
+            !vk_topo
+                .memory_architecture
+                .profile()
+                .zero_copy_primary_upload
+        );
+        assert!(
+            vk_topo
+                .memory_architecture
+                .profile()
+                .requires_explicit_staging_ring
+        );
         assert_eq!(vk_topo.scalar_unit_label, "CUDA Core / Streaming Processor");
         assert_eq!(vk_topo.simd_width, 32);
         assert_eq!(vk_topo.simd_group_label, "Warp (32 threads)");
         assert_eq!(vk_topo.local_sram_label, "__shared__ memory");
         assert_eq!(vk_topo.default_local_sram_bytes, 49152);
-        assert_eq!(vk_topo.matrix_coprocessor_label, "Tensor Cores (wmma 16x16)");
+        assert_eq!(
+            vk_topo.matrix_coprocessor_label,
+            "Tensor Cores (wmma 16x16)"
+        );
         assert_eq!(vk_topo.matrix_tile_shape, [16, 16, 16]);
         assert_eq!(vk_topo.optimal_1d_workgroup_size, 256);
         assert_eq!(vk_topo.optimal_2d_tile_size, [16, 16]);
@@ -231,7 +263,11 @@ mod tests {
         assert!(artifact.cuda_ptx.contains(".target sm_89"));
         assert!(artifact.glsl.contains("#version 460 core"));
         assert!(artifact.glsl.contains("layout(local_size_x = 128"));
-        assert!(artifact.wgsl.contains("@compute @workgroup_size(128, 1, 1)"));
+        assert!(
+            artifact
+                .wgsl
+                .contains("@compute @workgroup_size(128, 1, 1)")
+        );
     }
 
     #[test]
@@ -280,13 +316,22 @@ mod tests {
         let rtx_artifact =
             compile_shader_multi_target(&rtx_shader).expect("RTX WGSL compiles to all 6 backends");
         assert!(rtx_artifact.msl.contains("kernel void"));
-        assert!(rtx_artifact.glsl.contains("layout(local_size_x = 8, local_size_y = 8"));
+        assert!(
+            rtx_artifact
+                .glsl
+                .contains("layout(local_size_x = 8, local_size_y = 8")
+        );
 
-        let webgpu =
-            wgpu::webgpu::WebGpuDevice::probe_available().expect("Browser WebGPU profile");
-        assert_eq!(webgpu.backend_report().environment, ApiEnvironment::BrowserSandbox);
+        let webgpu = wgpu::webgpu::WebGpuDevice::probe_available().expect("Browser WebGPU profile");
+        assert_eq!(
+            webgpu.backend_report().environment,
+            ApiEnvironment::BrowserSandbox
+        );
         assert_eq!(webgpu.backend_report().shader_ir, BackendShaderIr::Wgsl);
-        assert_eq!(webgpu.storage_direct_capability(), StorageDirectCapability::None);
+        assert_eq!(
+            webgpu.storage_direct_capability(),
+            StorageDirectCapability::None
+        );
         let webgpu_plan = webgpu.transfer_plan(1024 * 1024);
         assert_eq!(webgpu_plan.memory_architecture, MemoryArchitecture::Duma);
         assert_eq!(webgpu_plan.tech, TransferStrategy::DumaRebarWindow);

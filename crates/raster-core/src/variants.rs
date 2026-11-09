@@ -37,20 +37,31 @@ impl VertexOutput {
 pub fn instanced_object_shader(source: &str, output: VertexOutput) -> String {
     let output = output.as_str();
     let replacements: [(&str, &str); 6] = [
-        ("var<uniform> ob: Obj;", "var<storage, read> objects: array<Obj>;"),
+        (
+            "var<uniform> ob: Obj;",
+            "var<storage, read> objects: array<Obj>;",
+        ),
         (
             &format!("struct {output} {{"),
             &format!("struct {output} {{ @location(2) @interpolate(flat) instance: u32,"),
         ),
-        ("@vertex fn vs(", "@vertex fn vs(@builtin(instance_index) instance: u32, "),
+        (
+            "@vertex fn vs(",
+            "@vertex fn vs(@builtin(instance_index) instance: u32, ",
+        ),
         (
             &format!(" -> {output} {{"),
             &format!(" -> {output} {{\n  let ob = objects[instance];"),
         ),
-        (&format!("return {output}("), &format!("return {output}(instance, ")),
+        (
+            &format!("return {output}("),
+            &format!("return {output}(instance, "),
+        ),
         (
             &format!("@fragment fn fs(v: {output}) -> @location(0) vec4f {{"),
-            &format!("@fragment fn fs(v: {output}) -> @location(0) vec4f {{\n  let ob = objects[v.instance];"),
+            &format!(
+                "@fragment fn fs(v: {output}) -> @location(0) vec4f {{\n  let ob = objects[v.instance];"
+            ),
         ),
     ];
     let mut source = source.to_string();

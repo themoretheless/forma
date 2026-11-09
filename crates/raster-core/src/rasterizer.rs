@@ -212,8 +212,16 @@ impl Rasterizer {
             floats[76..92].copy_from_slice(&vp);
             floats[92] = 1.0;
             floats[93] = 1.0 / SHADOW_MAP_SIZE as f32;
-            floats[94] = if scene.shadow_params[2] > 0.0 { scene.shadow_params[2] } else { 0.0015 };
-            floats[95] = if scene.shadow_params[3] > 0.0 { scene.shadow_params[3] } else { 1.0 };
+            floats[94] = if scene.shadow_params[2] > 0.0 {
+                scene.shadow_params[2]
+            } else {
+                0.0015
+            };
+            floats[95] = if scene.shadow_params[3] > 0.0 {
+                scene.shadow_params[3]
+            } else {
+                1.0
+            };
         } else {
             floats[76..92].fill(0.0);
             floats[92] = 0.0;
@@ -249,21 +257,24 @@ impl Rasterizer {
         }
         self.shadows_enabled = enabled;
         if enabled && self.shadow_map.is_none() {
-            let texture = self.context.device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("raster shadow map"),
-                size: wgpu::Extent3d {
-                    width: SHADOW_MAP_SIZE,
-                    height: SHADOW_MAP_SIZE,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Depth32Float,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT
-                    | wgpu::TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            });
+            let texture = self
+                .context
+                .device
+                .create_texture(&wgpu::TextureDescriptor {
+                    label: Some("raster shadow map"),
+                    size: wgpu::Extent3d {
+                        width: SHADOW_MAP_SIZE,
+                        height: SHADOW_MAP_SIZE,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Depth32Float,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+                        | wgpu::TextureUsages::TEXTURE_BINDING,
+                    view_formats: &[],
+                });
             let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
             let bind_group = self
                 .context

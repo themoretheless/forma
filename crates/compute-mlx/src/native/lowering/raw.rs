@@ -153,7 +153,15 @@ pub(in crate::native) fn apply(
                 axis,
                 inclusive,
                 reverse,
-            } => api.cumsum.call(out, inputs[0], *axis, *reverse, *inclusive, output.dtype.raw(), stream),
+            } => api.cumsum.call(
+                out,
+                inputs[0],
+                *axis,
+                *reverse,
+                *inclusive,
+                output.dtype.raw(),
+                stream,
+            ),
             NativeOp::TakeAxis(axis) => (api.take_axis)(out, inputs[0], inputs[1], *axis, stream),
             NativeOp::PutAlongAxis(axis) => {
                 (api.put_along_axis)(out, inputs[0], inputs[1], inputs[2], *axis, stream)

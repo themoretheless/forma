@@ -406,7 +406,12 @@ impl BackendReport {
     #[inline]
     pub const fn memory_architecture(&self) -> MemoryArchitecture {
         match self.kind {
-            BackendKind::Metal if cfg!(all(any(target_os = "macos", target_os = "ios"), target_arch = "aarch64")) => {
+            BackendKind::Metal
+                if cfg!(all(
+                    any(target_os = "macos", target_os = "ios"),
+                    target_arch = "aarch64"
+                )) =>
+            {
                 MemoryArchitecture::Uma
             }
             BackendKind::Vulkan if cfg!(target_os = "android") => MemoryArchitecture::Uma,
@@ -422,7 +427,10 @@ impl BackendReport {
 
     /// Resolves the physical memory architecture (`Uma` vs `Duma`) given the hardware adapter's actual `unified_memory` flag.
     #[inline]
-    pub const fn memory_architecture_for_device(&self, adapter_has_unified_memory: bool) -> MemoryArchitecture {
+    pub const fn memory_architecture_for_device(
+        &self,
+        adapter_has_unified_memory: bool,
+    ) -> MemoryArchitecture {
         if adapter_has_unified_memory {
             MemoryArchitecture::Uma
         } else {

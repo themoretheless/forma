@@ -33,7 +33,11 @@ pub(crate) fn attention_metadata(
     let r = query.shape().rank();
     let row_rank = r - 1;
     let mut metadata: Vec<u64> = Vec::with_capacity(row_rank * 5 + 11);
-    metadata.extend(plan.canonical_output.dims()[..row_rank].iter().map(|&v| v as u64));
+    metadata.extend(
+        plan.canonical_output.dims()[..row_rank]
+            .iter()
+            .map(|&v| v as u64),
+    );
     for (layout, kv) in [(&query, false), (&key, true), (&value, true)] {
         metadata.extend(
             layout.strides()[..row_rank]

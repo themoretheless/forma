@@ -17,9 +17,8 @@ impl VkMemoryPropertyFlags {
     pub const HOST_CACHED_BIT: Self = Self(0x0000_0008);
 
     /// Ideal UMA / ReBAR memory heap: simultaneously device-local, host-visible, and host-coherent.
-    pub const UNIFIED_OR_REBAR_HEAP: Self = Self(
-        Self::DEVICE_LOCAL_BIT.0 | Self::HOST_VISIBLE_BIT.0 | Self::HOST_COHERENT_BIT.0,
-    );
+    pub const UNIFIED_OR_REBAR_HEAP: Self =
+        Self(Self::DEVICE_LOCAL_BIT.0 | Self::HOST_VISIBLE_BIT.0 | Self::HOST_COHERENT_BIT.0);
 }
 
 /// Hardware Vulkan 1.3 device descriptor including Ray Tracing (KHR) and ASD / UMA / dUMA extensions.
@@ -50,7 +49,9 @@ impl VulkanDevice {
         let unified_memory = match platform {
             TargetPlatform::Android | TargetPlatform::Ios => true,
             TargetPlatform::MacOs => cfg!(target_arch = "aarch64"),
-            TargetPlatform::Windows | TargetPlatform::Linux | TargetPlatform::BrowserWebGpu => false,
+            TargetPlatform::Windows | TargetPlatform::Linux | TargetPlatform::BrowserWebGpu => {
+                false
+            }
         };
         Some(Self {
             name: "Vulkan 1.3 Direct Native + KHR RayTracing Adapter".to_string(),

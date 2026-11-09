@@ -67,7 +67,11 @@ fn main() {
         model[5] = 0.35;
         model[12] = gx * 2.2;
         model[13] = gy * 2.2;
-        let mut uniform = ObjectUniform { model, nmat: identity(), ..ObjectUniform::default() };
+        let mut uniform = ObjectUniform {
+            model,
+            nmat: identity(),
+            ..ObjectUniform::default()
+        };
         uniform.color = [
             0.35 + 0.6 * (i as f32 / mesh_count as f32),
             0.5,
@@ -77,13 +81,22 @@ fn main() {
         meshes.push(rasterizer.create_mesh(&vertices, &indices, &uniform, None));
     }
 
-    let clear = wgpu::Color { r: 0.05, g: 0.06, b: 0.08, a: 1.0 };
+    let clear = wgpu::Color {
+        r: 0.05,
+        g: 0.06,
+        b: 0.08,
+        a: 1.0,
+    };
     let mesh_refs: Vec<_> = meshes.iter().collect();
 
     // Warmup.
     for tick in 0..10 {
         animate(&rasterizer, &meshes, tick);
-        let frame = Frame { clear, meshes: &mesh_refs, ..Frame::default() };
+        let frame = Frame {
+            clear,
+            meshes: &mesh_refs,
+            ..Frame::default()
+        };
         let _ = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
     }
 
@@ -91,7 +104,11 @@ fn main() {
     let start = Instant::now();
     for tick in 0..frames {
         animate(&rasterizer, &meshes, tick);
-        let frame = Frame { clear, meshes: &mesh_refs, ..Frame::default() };
+        let frame = Frame {
+            clear,
+            meshes: &mesh_refs,
+            ..Frame::default()
+        };
         let _ = rasterizer.render_to_rgba(WIDTH, HEIGHT, &frame);
     }
     let elapsed = start.elapsed();

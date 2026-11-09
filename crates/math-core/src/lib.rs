@@ -2,7 +2,6 @@
 
 mod acceleration;
 pub mod affine;
-pub mod projective;
 mod bounds;
 mod chamfer;
 mod device;
@@ -14,6 +13,7 @@ mod moments;
 mod nearest_four;
 mod nearest_neighbor;
 mod nearest_two;
+pub mod projective;
 mod registration;
 mod rounding;
 pub use rounding::{next_down, next_up};
@@ -76,8 +76,8 @@ pub mod camera_gestures;
 pub mod orbit_camera;
 pub mod viewport;
 
-pub mod witness_bounds;
 pub mod profile_plane;
+pub mod witness_bounds;
 
 pub mod parallel;
-pub use parallel::{available_threads,par_map,par_map_index,par_try_map};
+pub use parallel::{available_threads, par_map, par_map_index, par_try_map};
