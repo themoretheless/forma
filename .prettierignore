@@ -1,0 +1,31 @@
+# Only hand-written JavaScript and TypeScript is formatted.
+# Generated output, recorded evidence and other languages stay as they are.
+dist/
+public/
+target/
+.forma/
+.release/
+node_modules/
+output/
+docs/
+crates/
+vector-ui/
+native-app/
+openscad-ui/
+studio-ui/
+studio-controls/
+bench/results/
+package-lock.json
+packages/svet/package-lock.json
+packages/svet/dist/
+packages/svet/benchmarks/
+packages/svet/crates/
+packages/svet/src/engine/wasm-binary.ts
+packages/svet/tests/**/fixtures/
+**/*.md
+**/*.ui
+**/*.html
+**/*.json
+**/*.css
+**/*.yml
+**/*.yaml
