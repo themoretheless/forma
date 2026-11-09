@@ -25,3 +25,10 @@
 - Миграция: скрипты и CI, читавшие `crates/forma/Cargo.lock` или `crates/forma/target/...`, должны читать
   `Cargo.lock` и `target/...`. Команды `cargo ... --manifest-path crates/forma/Cargo.toml` продолжают работать.
 - Подробности и исключения: `docs/adr/0001-cargo-workspace.md`.
+
+## 3. Один релизный тег `vX.Y.Z`
+
+- Затронуто: теги `forma-vX.Y.Z` и `studio-vX.Y.Z` больше не запускают публикацию и не двигают ветку `release`;
+  `scripts/versions.mjs check <tag>` принимает только `vX.Y.Z` и требует, чтобы версия совпадала в обоих manifest.
+- Миграция: поднимать версию командой `npm run version:set -- all X.Y.Z`, выпускать тегом `vX.Y.Z`.
+  GitHub Release один, с двумя архивами. Старые теги остаются в истории.

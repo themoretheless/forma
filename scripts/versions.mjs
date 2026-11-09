@@ -52,15 +52,15 @@ export function versions() {
     throw Error('wasm-bindgen must be exactly pinned and match Cargo.lock');
   return { runtime, studio, wasmBindgen };
 }
+// One tag releases the library and Studio together, so both manifests must carry its version.
 export function release(tag, current = versions()) {
-  const match = /^(forma|studio)-v(.+)$/.exec(tag ?? '');
-  if (!match || !validVersion(match[2]))
-    throw Error('Expected forma-vX.Y.Z or studio-vX.Y.Z (optional prerelease)');
-  const [, name, version] = match,
-    component = name === 'forma' ? 'runtime' : 'studio';
-  if (current[component] !== version)
-    throw Error(`Tag ${tag} does not match ${component} manifest version ${current[component]}`);
-  return { component, version, tag, prerelease: version.includes('-') };
+  const match = /^v(.+)$/.exec(tag ?? '');
+  if (!match || !validVersion(match[1])) throw Error('Expected vX.Y.Z (optional prerelease)');
+  const version = match[1];
+  for (const component of ['runtime', 'studio'])
+    if (current[component] !== version)
+      throw Error(`Tag ${tag} does not match ${component} manifest version ${current[component]}`);
+  return { version, tag, prerelease: version.includes('-') };
 }
 function replaceCargo(text, name, version) {
   let found = false;
@@ -77,8 +77,13 @@ function replaceCargo(text, name, version) {
 }
 export function setVersion(component, version) {
   versions(); // Validate all inputs before preparing any writes.
-  if (!['runtime', 'studio'].includes(component) || !validVersion(version))
-    throw Error('set runtime|studio X.Y.Z[-prerelease]');
+  if (!['runtime', 'studio', 'all'].includes(component) || !validVersion(version))
+    throw Error('set all|runtime|studio X.Y.Z[-prerelease]');
+  // A release needs both manifests on one version; `all` moves them together.
+  if (component === 'all') {
+    setVersion('runtime', version);
+    return setVersion('studio', version);
+  }
   const updates = new Map();
   // forma is a workspace member, so its lock entry lives in the root Cargo.lock;
   // native-app stays outside the workspace and keeps its own.

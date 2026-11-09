@@ -3,8 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - forma-v*
-      - studio-v*
+      - v*
 
 permissions:
   contents: read
@@ -15,7 +14,7 @@ concurrency:
 
 jobs:
   validate:
-    name: Validate component tag
+    name: Validate release tag
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
