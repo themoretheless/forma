@@ -96,7 +96,7 @@ function App() {
   // 3. Deterministic Time-Travel Debugger (Undo / Redo / Scrub in O(1))
   const timeTravel = createTimeTravelDebugger(
     { count, multiplier, title },
-    { maxSnapshots: 50, autoRecord: true }
+    { maxSnapshots: 50, autoRecord: true },
   );
 
   // 4. Keyed List reconciled via WASM O(n log n) LIS
@@ -221,8 +221,9 @@ function App() {
       <header>
         <h1>Svet Engine — {title()}</h1>
         <p>
-          Гибридный фреймворк <b>TypeScript + Rust WebAssembly (SIMD128) + GPU (UMA/DUMA) + Forma .ui</b>.
-          Демонстрация реактивных обновлений, списков, Forma .ui и вычислительных примитивов.
+          Гибридный фреймворк{' '}
+          <b>TypeScript + Rust WebAssembly (SIMD128) + GPU (UMA/DUMA) + Forma .ui</b>. Демонстрация
+          реактивных обновлений, списков, Forma .ui и вычислительных примитивов.
         </p>
       </header>
 
@@ -251,7 +252,7 @@ function App() {
           <div>
             <button
               onClick={() => {
-                count.update((c) => c + 1);
+                count.update(c => c + 1);
                 refreshMetrics();
               }}
             >
@@ -260,8 +261,8 @@ function App() {
             <button
               onClick={() => {
                 batch(() => {
-                  count.update((c) => c + 5);
-                  multiplier.update((m) => m + 2);
+                  count.update(c => c + 5);
+                  multiplier.update(m => m + 2);
                 });
                 refreshMetrics();
               }}
@@ -275,8 +276,8 @@ function App() {
           <h2>2. WASM O(n log n) LIS Reconciler</h2>
           <p>Перестановка элементов вычисляет LIS в WASM и двигает ровно 1 DOM-узел:</p>
           <ul className="pill-list">
-            <For each={items} keyFn={(item) => item.id}>
-              {(item) => (
+            <For each={items} keyFn={item => item.id}>
+              {item => (
                 <li>
                   #{item.id}: {item.name}
                 </li>
@@ -418,9 +419,7 @@ function App() {
           </div>
           <textarea
             value={studioSource()}
-            onInput={(e: Event) =>
-              recompileStudioWithHmr((e.target as HTMLTextAreaElement).value)
-            }
+            onInput={(e: Event) => recompileStudioWithHmr((e.target as HTMLTextAreaElement).value)}
             style="width:100%;height:110px;background:#070b14;color:#38bdf8;border:1px solid #23304d;border-radius:6px;font-family:monospace;font-size:11px;padding:6px;margin:6px 0;"
           />
           {studioHostRef}
@@ -433,12 +432,8 @@ function App() {
           </p>
           {virtualListEl}
           <div>
-            <button onClick={() => virtualListEl.scrollToIndex(50_000)}>
-              Jump to Row #50,000
-            </button>
-            <button onClick={() => virtualListEl.scrollToIndex(99_990)}>
-              Jump to Row #99,990
-            </button>
+            <button onClick={() => virtualListEl.scrollToIndex(50_000)}>Jump to Row #50,000</button>
+            <button onClick={() => virtualListEl.scrollToIndex(99_990)}>Jump to Row #99,990</button>
             <button onClick={() => virtualListEl.scrollToIndex(0)}>Jump to Top (#1)</button>
           </div>
         </div>

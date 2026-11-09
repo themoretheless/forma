@@ -92,7 +92,7 @@ export function createTimeTravelDebugger<T extends Record<string, Signal<any>>>(
   options?: {
     maxSnapshots?: number;
     autoRecord?: boolean;
-  }
+  },
 ): TimeTravelDebugger<T> {
   type ValueMap = { [K in keyof T]: ReturnType<T[K]> };
   const maxSnapshots = options?.maxSnapshots ?? 100;
@@ -122,9 +122,10 @@ export function createTimeTravelDebugger<T extends Record<string, Signal<any>>>(
     const currentList = historySig.peek();
     const curIdx = cursorSig.peek();
     // Truncate any future branch if we recorded after an undo
-    const sliced = curIdx >= 0 && curIdx < currentList.length - 1
-      ? currentList.slice(0, curIdx + 1)
-      : [...currentList];
+    const sliced =
+      curIdx >= 0 && curIdx < currentList.length - 1
+        ? currentList.slice(0, curIdx + 1)
+        : [...currentList];
 
     const prevSnap = sliced.length > 0 ? sliced[sliced.length - 1] : undefined;
     const { values, changed } = captureValues(prevSnap?.values);

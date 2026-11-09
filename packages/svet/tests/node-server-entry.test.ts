@@ -23,7 +23,9 @@ it('runs public package exports in real Node without a bundler or a DOM global',
     console.log('server entry verified');
   `;
   const result = spawnSync(process.execPath, ['--input-type=module', '-e', program], {
-    cwd: fileURLToPath(new URL('..', import.meta.url)), encoding: 'utf8', timeout: 10000,
+    cwd: fileURLToPath(new URL('..', import.meta.url)),
+    encoding: 'utf8',
+    timeout: 10000,
   });
   expect(result.error).toBeUndefined();
   expect(result.status, result.stderr).toBe(0);

@@ -14,7 +14,23 @@
  *    and `<select>` values (including `type="checkbox"` and `type="number"`) to a Signal in both directions.
  */
 
-import { batch, createRoot, effect, getCurrentOwner, isOwnerScopeDisposed, getReactiveGeneration, lookupOwnerContext, runWithCapturedOwner, runUntrackedInCore, runWithOwnerScope, onCleanup, type ReadonlySignal, signal, type Signal, untrack } from './reactivity.ts';
+import {
+  batch,
+  createRoot,
+  effect,
+  getCurrentOwner,
+  isOwnerScopeDisposed,
+  getReactiveGeneration,
+  lookupOwnerContext,
+  runWithCapturedOwner,
+  runUntrackedInCore,
+  runWithOwnerScope,
+  onCleanup,
+  type ReadonlySignal,
+  signal,
+  type Signal,
+  untrack,
+} from './reactivity.ts';
 import { computeLisWasm, getWasmCore, withWasmCore } from './wasm-bridge.ts';
 
 export type ReactiveValue<T> = T | ReadonlySignal<T> | (() => T);
@@ -33,10 +49,15 @@ export type ChildNodeValue =
 export type Component<P = Record<string, any>> = (props: P) => Node;
 /** Async function components require Node renderToStringAsync. */
 export type AsyncComponent<P = Record<string, any>> = (props: P) => PromiseLike<Node>;
-type AsyncComponentRenderer = (component: Component<any> | AsyncComponent<any>, props: Record<string | symbol, any>) => Node | undefined;
+type AsyncComponentRenderer = (
+  component: Component<any> | AsyncComponent<any>,
+  props: Record<string | symbol, any>,
+) => Node | undefined;
 let asyncComponentRenderer: AsyncComponentRenderer | undefined;
 /** @internal Installed by the Node SSR entry; inactive outside an async render request. */
-export function installAsyncComponentRenderer(renderer: AsyncComponentRenderer): void { asyncComponentRenderer = renderer; }
+export function installAsyncComponentRenderer(renderer: AsyncComponentRenderer): void {
+  asyncComponentRenderer = renderer;
+}
 
 let domMutationCounter = 0;
 
@@ -71,35 +92,54 @@ const DELEGATED_EVENTS = new Set([
 
 type DelegationArea = HTMLElement | ShadowRoot;
 const delegationAreaKey = Symbol('svet delegation area');
-type DelegatedBinding = { handler: (this: HTMLElement, event: Event) => void; active: boolean; root?: DelegationArea };
+type DelegatedBinding = {
+  handler: (this: HTMLElement, event: Event) => void;
+  active: boolean;
+  root?: DelegationArea;
+};
 const EVENT_PROP_PREFIX = '__svet_evt_';
 // A versioned target-owned registry coordinates independent copies and realms.
 // The native dispatcher invokes each binding's own lifetime/core-aware callback.
 const delegationRegistryKey = Symbol.for('svet.event-delegation.registry.v1');
 type DelegationRegistry = Map<string, { count: number; listener: EventListener }>;
-type DelegationTarget = (Document | DelegationArea) & { [delegationRegistryKey]?: DelegationRegistry };
+type DelegationTarget = (Document | DelegationArea) & {
+  [delegationRegistryKey]?: DelegationRegistry;
+};
 function delegationRegistry(target: Document | DelegationArea): DelegationRegistry {
   const host = target as DelegationTarget;
   let registry = host[delegationRegistryKey];
   if (!registry) {
     registry = new Map();
-    Object.defineProperty(host, delegationRegistryKey, {value: registry, configurable: true});
+    Object.defineProperty(host, delegationRegistryKey, { value: registry, configurable: true });
   }
   return registry;
 }
-function retireDelegationRegistry(target: Document | DelegationArea, registry: DelegationRegistry): void {
+function retireDelegationRegistry(
+  target: Document | DelegationArea,
+  registry: DelegationRegistry,
+): void {
   const host = target as DelegationTarget;
-  if (!registry.size && host[delegationRegistryKey] === registry) delete host[delegationRegistryKey];
+  if (!registry.size && host[delegationRegistryKey] === registry)
+    delete host[delegationRegistryKey];
 }
 
 type AdoptionRoute = { prepare(doc: Document, parent: Node): () => void; settle(): void };
 const adoptionRoutes = new WeakMap<Node, Set<AdoptionRoute>>();
 
 /** @internal Stage document-dependent bindings before native adoption, then reconcile actual placement. */
-export function withDocumentAdoption(parent: Node, child: Node, write: () => void, assertCurrent: () => void): void {
-  const doc = parent.nodeType === 9 ? parent as Document : parent.ownerDocument;
-  if (!doc || child.ownerDocument === doc) { write(); return; }
-  const routes: AdoptionRoute[] = [], pending = [child];
+export function withDocumentAdoption(
+  parent: Node,
+  child: Node,
+  write: () => void,
+  assertCurrent: () => void,
+): void {
+  const doc = parent.nodeType === 9 ? (parent as Document) : parent.ownerDocument;
+  if (!doc || child.ownerDocument === doc) {
+    write();
+    return;
+  }
+  const routes: AdoptionRoute[] = [],
+    pending = [child];
   while (pending.length) {
     assertCurrent();
     const node = pending.pop()!;
@@ -107,19 +147,35 @@ export function withDocumentAdoption(parent: Node, child: Node, write: () => voi
     if (bindings) for (const binding of bindings) routes.push(binding);
     const first = node.firstChild;
     assertCurrent();
-    for (let descendant = first; descendant; descendant = descendant.nextSibling) pending.push(descendant);
+    for (let descendant = first; descendant; descendant = descendant.nextSibling)
+      pending.push(descendant);
   }
   const staged: Array<() => void> = [];
   let failed = false;
   try {
-    for (const route of routes) { assertCurrent(); staged.push(route.prepare(doc, parent)); assertCurrent(); }
-    assertCurrent(); write(); assertCurrent();
-  } catch (failure) { failed = true; throw failure; }
-  finally {
-    let cleanupFailed = false, cleanupFailure: unknown;
+    for (const route of routes) {
+      assertCurrent();
+      staged.push(route.prepare(doc, parent));
+      assertCurrent();
+    }
+    assertCurrent();
+    write();
+    assertCurrent();
+  } catch (failure) {
+    failed = true;
+    throw failure;
+  } finally {
+    let cleanupFailed = false,
+      cleanupFailure: unknown;
     for (const finish of staged) {
-      try { finish(); }
-      catch (failure) { if (!cleanupFailed) { cleanupFailed = true; cleanupFailure = failure; } }
+      try {
+        finish();
+      } catch (failure) {
+        if (!cleanupFailed) {
+          cleanupFailed = true;
+          cleanupFailure = failure;
+        }
+      }
     }
     if (!failed && cleanupFailed) throw cleanupFailure;
   }
@@ -146,17 +202,25 @@ function retainDelegatedListener(doc: Document | DelegationArea, eventName: stri
               if (key === 'currentTarget') return original.currentTarget ? node : null;
               if (key === 'target' && typeof node.getRootNode === 'function') {
                 const root = node.getRootNode();
-                return path.find(candidate => typeof (candidate as Node).getRootNode === 'function' &&
-                  (candidate as Node).getRootNode() === root) ?? original.target;
+                return (
+                  path.find(
+                    candidate =>
+                      typeof (candidate as Node).getRootNode === 'function' &&
+                      (candidate as Node).getRootNode() === root,
+                  ) ?? original.target
+                );
               }
-              if (key === 'stopImmediatePropagation') return () => {
-                immediateStopped = true;
-                original.stopImmediatePropagation();
-              };
+              if (key === 'stopImmediatePropagation')
+                return () => {
+                  immediateStopped = true;
+                  original.stopImmediatePropagation();
+                };
               const value = Reflect.get(original, key, original);
               return typeof value === 'function' ? value.bind(original) : value;
             },
-            set(original, key, value) { return Reflect.set(original, key, value, original); },
+            set(original, key, value) {
+              return Reflect.set(original, key, value, original);
+            },
           });
           for (const binding of Array.from(bindings)) {
             if (entry.count <= 0) return;
@@ -164,7 +228,11 @@ function retainDelegatedListener(doc: Document | DelegationArea, eventName: stri
             const nodeRoot = typeof node.getRootNode === 'function' ? node.getRootNode() : null;
             if (doc.nodeType !== 9) {
               if (binding.root !== doc || nodeRoot !== doc.getRootNode()) continue;
-            } else if (binding.root && path.includes(binding.root) && nodeRoot === binding.root.getRootNode()) {
+            } else if (
+              binding.root &&
+              path.includes(binding.root) &&
+              nodeRoot === binding.root.getRootNode()
+            ) {
               // Its local area already handled this binding. This is based on the
               // current event route, so redispatching the same Event still works.
               continue;
@@ -178,12 +246,17 @@ function retainDelegatedListener(doc: Document | DelegationArea, eventName: stri
     };
     entry = { count: 1, listener };
     events.set(eventName, entry);
-    try { doc.addEventListener(eventName, listener); }
-    catch (failure) {
+    try {
+      doc.addEventListener(eventName, listener);
+    } catch (failure) {
       entry.count = 0;
       if (events.get(eventName) === entry) events.delete(eventName);
       retireDelegationRegistry(doc, events);
-      try { doc.removeEventListener(eventName, listener); } catch { /* Preserve registration failure. */ }
+      try {
+        doc.removeEventListener(eventName, listener);
+      } catch {
+        /* Preserve registration failure. */
+      }
       throw failure;
     }
   } else entry.count++;
@@ -209,21 +282,24 @@ type ModelResetBinding = {
   signal: Signal<any>;
   isCurrent: () => boolean;
   stop: () => void;
-  read: () => {value: unknown; priority: number} | null;
+  read: () => { value: unknown; priority: number } | null;
 };
 const resetBindings = new WeakMap<Element, Set<ModelResetBinding>>();
-const resetRoots = new WeakMap<EventTarget, {count: number; listener: EventListener}>();
+const resetRoots = new WeakMap<EventTarget, { count: number; listener: EventListener }>();
 const pendingResetEvents = new WeakSet<Event>();
 const pendingResetForms = new WeakMap<HTMLFormElement, number>();
 function formControls(form: HTMLFormElement): Element[] {
   // Named controls can shadow form.elements just as they can shadow form.reset.
-  const prototype = form.ownerDocument.defaultView?.HTMLFormElement.prototype ?? globalThis.HTMLFormElement?.prototype;
+  const prototype =
+    form.ownerDocument.defaultView?.HTMLFormElement.prototype ??
+    globalThis.HTMLFormElement?.prototype;
   const getter = prototype && Object.getOwnPropertyDescriptor(prototype, 'elements')?.get;
   return Array.from(getter ? getter.call(form) : form.elements);
 }
 function handleModelReset(event: Event): void {
   const form = event.target as HTMLFormElement | null;
-  if (!form || form.nodeType !== 1 || form.tagName !== 'FORM' || pendingResetEvents.has(event)) return;
+  if (!form || form.nodeType !== 1 || form.tagName !== 'FORM' || pendingResetEvents.has(event))
+    return;
   pendingResetEvents.add(event);
   pendingResetForms.set(form, (pendingResetForms.get(form) ?? 0) + 1);
   queueMicrotask(() => {
@@ -232,41 +308,65 @@ function handleModelReset(event: Event): void {
     if (remaining) pendingResetForms.set(form, remaining);
     else pendingResetForms.delete(form);
     if (event.defaultPrevented) return;
-    const groups = new Map<ReturnType<typeof getWasmCore>, Map<Signal<any>, {binding: ModelResetBinding; value: unknown; priority: number}>>();
+    const groups = new Map<
+      ReturnType<typeof getWasmCore>,
+      Map<Signal<any>, { binding: ModelResetBinding; value: unknown; priority: number }>
+    >();
     // Read all reset values before publishing anything: radio/model effects can
     // otherwise alter the native state of controls not yet visited.
     for (const el of formControls(form)) {
       if ((el as HTMLInputElement).form !== form) continue;
       for (const binding of resetBindings.get(el) ?? []) {
-        if (!binding.isCurrent()) {binding.stop();continue;}
+        if (!binding.isCurrent()) {
+          binding.stop();
+          continue;
+        }
         const next = withWasmCore(binding.core, () => untrack(binding.read));
-        if (!binding.isCurrent()) {binding.stop();continue;}
+        if (!binding.isCurrent()) {
+          binding.stop();
+          continue;
+        }
         if (!next) continue;
         let group = groups.get(binding.core);
-        if (!group) {group = new Map(); groups.set(binding.core, group);}
+        if (!group) {
+          group = new Map();
+          groups.set(binding.core, group);
+        }
         const previous = group.get(binding.signal);
-        if (!previous || next.priority >= previous.priority) group.set(binding.signal, {binding, ...next});
+        if (!previous || next.priority >= previous.priority)
+          group.set(binding.signal, { binding, ...next });
       }
     }
-    for (const [core, group] of groups) withWasmCore(core, () => batch(() => {
-      for (const {binding, value} of group.values()) {
-        if (binding.isCurrent()) binding.signal.set(value);
-        else binding.stop();
-      }
-    }));
+    for (const [core, group] of groups)
+      withWasmCore(core, () =>
+        batch(() => {
+          for (const { binding, value } of group.values()) {
+            if (binding.isCurrent()) binding.signal.set(value);
+            else binding.stop();
+          }
+        }),
+      );
   });
 }
 function retainResetRoot(root: EventTarget): () => void {
   let entry = resetRoots.get(root);
   if (entry) entry.count++;
   else {
-    const listener: EventListener = event => { if (entry && entry.count > 0) handleModelReset(event); };
-    entry = {count: 1, listener}; resetRoots.set(root, entry);
-    try { root.addEventListener('reset', listener, true); }
-    catch (failure) {
+    const listener: EventListener = event => {
+      if (entry && entry.count > 0) handleModelReset(event);
+    };
+    entry = { count: 1, listener };
+    resetRoots.set(root, entry);
+    try {
+      root.addEventListener('reset', listener, true);
+    } catch (failure) {
       entry.count = 0;
       if (resetRoots.get(root) === entry) resetRoots.delete(root);
-      try { root.removeEventListener('reset', listener, true); } catch { /* Preserve registration failure. */ }
+      try {
+        root.removeEventListener('reset', listener, true);
+      } catch {
+        /* Preserve registration failure. */
+      }
       throw failure;
     }
   }
@@ -278,25 +378,37 @@ function retainResetRoot(root: EventTarget): () => void {
     if (retained.count <= 0) return;
     if (--retained.count === 0) {
       if (resetRoots.get(root) === retained) resetRoots.delete(root);
-      try { root.removeEventListener('reset', retained.listener, true); } catch { /* Weak binding lookup still prevents stale publication. */ }
+      try {
+        root.removeEventListener('reset', retained.listener, true);
+      } catch {
+        /* Weak binding lookup still prevents stale publication. */
+      }
     }
   };
 }
 function registerModelReset(el: HTMLElement, binding: ModelResetBinding): () => void {
   let entries = resetBindings.get(el);
-  if (!entries) {entries = new Set();resetBindings.set(el, entries);}
+  if (!entries) {
+    entries = new Set();
+    resetBindings.set(el, entries);
+  }
   entries.add(binding);
-  const roots = new Map<EventTarget, () => void>(), stagedRoots = new Map<EventTarget, number>();
+  const roots = new Map<EventTarget, () => void>(),
+    stagedRoots = new Map<EventTarget, number>();
   const routes = adoptionRoutes.get(el) ?? new Set<AdoptionRoute>();
   let active = true;
   const assertCurrent = () => {
-    if (!active || !binding.isCurrent()) throw new Error('Model binding disposed during document adoption');
+    if (!active || !binding.isCurrent())
+      throw new Error('Model binding disposed during document adoption');
   };
   const retain = (root: EventTarget) => {
     assertCurrent();
     if (roots.has(root)) return;
     const stop = retainResetRoot(root);
-    if (!active || !binding.isCurrent()) { stop(); assertCurrent(); }
+    if (!active || !binding.isCurrent()) {
+      stop();
+      assertCurrent();
+    }
     roots.set(root, stop);
     assertCurrent();
   };
@@ -306,7 +418,9 @@ function registerModelReset(el: HTMLElement, binding: ModelResetBinding): () => 
     if (!entries!.size && resetBindings.get(el) === entries) resetBindings.delete(el);
     routes.delete(route);
     if (!routes.size && adoptionRoutes.get(el) === routes) adoptionRoutes.delete(el);
-    const leases = Array.from(roots.values()); roots.clear(); stagedRoots.clear();
+    const leases = Array.from(roots.values());
+    roots.clear();
+    stagedRoots.clear();
     for (const stop of leases) stop();
   };
   const route: AdoptionRoute = {
@@ -315,43 +429,67 @@ function registerModelReset(el: HTMLElement, binding: ModelResetBinding): () => 
       const unpin = () => {
         for (const root of targets) {
           const count = stagedRoots.get(root) ?? 0;
-          if (count <= 1) stagedRoots.delete(root); else stagedRoots.set(root, count - 1);
+          if (count <= 1) stagedRoots.delete(root);
+          else stagedRoots.set(root, count - 1);
         }
       };
       for (const root of targets) stagedRoots.set(root, (stagedRoots.get(root) ?? 0) + 1);
-      try { for (const root of targets) retain(root); }
-      catch (failure) {
+      try {
+        for (const root of targets) retain(root);
+      } catch (failure) {
         unpin();
-        try { route.settle(); } catch { /* Preserve registration failure. */ }
+        try {
+          route.settle();
+        } catch {
+          /* Preserve registration failure. */
+        }
         throw failure;
       }
       let finished = false;
-      return () => { if (finished) return; finished = true; unpin(); route.settle(); };
+      return () => {
+        if (finished) return;
+        finished = true;
+        unpin();
+        route.settle();
+      };
     },
     settle() {
-      if (!active || !binding.isCurrent()) { release(); return; }
+      if (!active || !binding.isCurrent()) {
+        release();
+        return;
+      }
       const desired = new Set<EventTarget>([el.ownerDocument]);
-      const form = (el as HTMLInputElement).form, root = el.getRootNode();
+      const form = (el as HTMLInputElement).form,
+        root = el.getRootNode();
       if (form) desired.add(form);
       if (root !== el && root.nodeType !== 9) desired.add(root);
       for (const target of desired) retain(target);
       for (const [target, stop] of roots) {
-        if (!desired.has(target) && !stagedRoots.has(target)) { roots.delete(target); stop(); }
+        if (!desired.has(target) && !stagedRoots.has(target)) {
+          roots.delete(target);
+          stop();
+        }
       }
     },
   };
-  routes.add(route); adoptionRoutes.set(el, routes);
+  routes.add(route);
+  adoptionRoutes.set(el, routes);
   try {
     retain(el.ownerDocument);
     const form = (el as HTMLInputElement).form;
     if (form) retain(form);
     return release;
-  } catch (failure) { release(); throw failure; }
+  } catch (failure) {
+    release();
+    throw failure;
+  }
 }
 function retainOwnedResetRoot(root: EventTarget): void {
-  const assertCurrent = captureViewLifetime(), owner = getCurrentOwner();
+  const assertCurrent = captureViewLifetime(),
+    owner = getCurrentOwner();
   assertCurrent();
-  let release: (() => void) | undefined, stopped = false;
+  let release: (() => void) | undefined,
+    stopped = false;
   const stop = () => {
     stopped = true;
     // Registration can synchronously dispose its owner before returning the lease.
@@ -367,7 +505,10 @@ function retainOwnedResetRoot(root: EventTarget): void {
     release = retainResetRoot(root);
     assertCurrent();
     if (stopped) throw new Error('Reset root owner disposed during registration');
-  } catch (failure) {stop();throw failure;}
+  } catch (failure) {
+    stop();
+    throw failure;
+  }
 }
 
 function isMultipleSelect(el: HTMLElement): boolean {
@@ -376,47 +517,78 @@ function isMultipleSelect(el: HTMLElement): boolean {
 }
 function selectedSelectValues(el: HTMLElement): string[] {
   return Array.from((el as unknown as HTMLSelectElement).options)
-    .filter(option => option.selected).map(option => option.value);
+    .filter(option => option.selected)
+    .map(option => option.value);
 }
 
-function synchronizeSelectValue(select: HTMLSelectElement, value: unknown, assertCurrent: () => void): void {
-  assertCurrent();const next = value == null ? '' : String(value);assertCurrent();
-  const options = Array.from(select.options);assertCurrent();let selected = -1;
+function synchronizeSelectValue(
+  select: HTMLSelectElement,
+  value: unknown,
+  assertCurrent: () => void,
+): void {
+  assertCurrent();
+  const next = value == null ? '' : String(value);
+  assertCurrent();
+  const options = Array.from(select.options);
+  assertCurrent();
+  let selected = -1;
   for (let index = 0; index < options.length; index++) {
-    assertCurrent();if (selected < 0 && options[index].value === next) selected = index;assertCurrent();
+    assertCurrent();
+    if (selected < 0 && options[index].value === next) selected = index;
+    assertCurrent();
   }
   // Avoid rewriting an already coherent selection (including default state).
   let coherent = true;
   for (let index = 0; index < options.length; index++) {
-    assertCurrent();if (options[index].selected !== (index === selected)) coherent = false;assertCurrent();
+    assertCurrent();
+    if (options[index].selected !== (index === selected)) coherent = false;
+    assertCurrent();
   }
   if (coherent) return;
   // Clear first: some DOM hosts enforce single selection even when deselecting.
   for (const option of options) {
-    assertCurrent();if (option.selected) { option.selected = false;domMutationCounter++;assertCurrent(); }
+    assertCurrent();
+    if (option.selected) {
+      option.selected = false;
+      domMutationCounter++;
+      assertCurrent();
+    }
   }
   if (selected >= 0) {
-    assertCurrent();options[selected].selected = true;domMutationCounter++;assertCurrent();
+    assertCurrent();
+    options[selected].selected = true;
+    domMutationCounter++;
+    assertCurrent();
   } else if (select.selectedIndex !== -1) {
-    assertCurrent();select.selectedIndex = -1;domMutationCounter++;assertCurrent();
+    assertCurrent();
+    select.selectedIndex = -1;
+    domMutationCounter++;
+    assertCurrent();
   }
 }
 
 function bindModel(el: HTMLElement, sig: Signal<any>): void {
   return runWithOwnerScope([], () => {
-    const owner = getCurrentOwner()!, core = getWasmCore(), generation = getReactiveGeneration(core);
+    const owner = getCurrentOwner()!,
+      core = getWasmCore(),
+      generation = getReactiveGeneration(core);
     const assertLifetime = captureViewLifetime();
     const inputEl = el as HTMLInputElement;
-    let active = true, composing = false, observer: MutationObserver | undefined;
+    let active = true,
+      composing = false,
+      observer: MutationObserver | undefined;
     let synchronizers: Set<() => void> | undefined;
     let releaseReset: (() => void) | undefined;
-    const isCurrent = () => active && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
+    const isCurrent = () =>
+      active && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
     const assertCurrent = () => {
       assertLifetime();
       if (!active) throw new Error('Model binding disposed during construction');
     };
-    const isTextModel = () => el.tagName === 'TEXTAREA' ||
-      (el.tagName === 'INPUT' && ['text', 'search', 'tel', 'url', 'email', 'password'].includes(inputEl.type));
+    const isTextModel = () =>
+      el.tagName === 'TEXTAREA' ||
+      (el.tagName === 'INPUT' &&
+        ['text', 'search', 'tel', 'url', 'email', 'password'].includes(inputEl.type));
     const synchronize = () => {
       assertCurrent();
       const currentVal = sig();
@@ -427,10 +599,16 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
         // null clears; the native setter validates non-null FileList values.
         if (currentVal == null) {
           if (inputEl.value !== '') {
-            assertCurrent(); inputEl.value = ''; domMutationCounter++; assertCurrent();
+            assertCurrent();
+            inputEl.value = '';
+            domMutationCounter++;
+            assertCurrent();
           }
         } else if (inputEl.files !== currentVal) {
-          assertCurrent(); inputEl.files = currentVal; domMutationCounter++; assertCurrent();
+          assertCurrent();
+          inputEl.files = currentVal;
+          domMutationCounter++;
+          assertCurrent();
         }
       } else if (el.tagName === 'SELECT' && isMultipleSelect(el)) {
         const select = el as unknown as HTMLSelectElement;
@@ -441,7 +619,8 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
           assertCurrent();
           if (option.selected !== nextSelected) {
             assertCurrent();
-            const nativeReflection = typeof select.multiple === 'boolean';assertCurrent();
+            const nativeReflection = typeof select.multiple === 'boolean';
+            assertCurrent();
             if (nativeReflection) option.selected = nextSelected;
             else {
               // Attribute-backed DOM hosts may omit multiple reflection and
@@ -449,65 +628,109 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
               if (nextSelected) option.setAttribute('selected', '');
               else option.removeAttribute('selected');
             }
-            domMutationCounter++; assertCurrent();
+            domMutationCounter++;
+            assertCurrent();
           }
         }
       } else if (el.tagName === 'SELECT') {
         synchronizeSelectValue(el as unknown as HTMLSelectElement, currentVal, assertCurrent);
       } else if (inputEl.type === 'checkbox' || inputEl.type === 'radio') {
-        const nextChecked = inputEl.type === 'radio'
-          ? currentVal != null && String(currentVal) === inputEl.value : Boolean(currentVal);
+        const nextChecked =
+          inputEl.type === 'radio'
+            ? currentVal != null && String(currentVal) === inputEl.value
+            : Boolean(currentVal);
         assertCurrent();
         if (inputEl.checked !== nextChecked) {
-          assertCurrent(); inputEl.checked = nextChecked; domMutationCounter++; assertCurrent();
+          assertCurrent();
+          inputEl.checked = nextChecked;
+          domMutationCounter++;
+          assertCurrent();
         }
       } else {
         const nextStr = currentVal == null ? '' : String(currentVal);
         assertCurrent();
         if (inputEl.value !== nextStr) {
-          assertCurrent(); inputEl.value = nextStr; domMutationCounter++; assertCurrent();
+          assertCurrent();
+          inputEl.value = nextStr;
+          domMutationCounter++;
+          assertCurrent();
         }
       }
     };
-    const synchronizeIfCurrent = () => { if (isCurrent()) synchronize(); else cleanup(); };
-    const commitValue = (next: any) => { if (isCurrent()) sig.set(next); else cleanup(); };
+    const synchronizeIfCurrent = () => {
+      if (isCurrent()) synchronize();
+      else cleanup();
+    };
+    const commitValue = (next: any) => {
+      if (isCurrent()) sig.set(next);
+      else cleanup();
+    };
     const updateFromDom = (event: Event) => {
-      if (!isCurrent()) { cleanup(); return; }
-      const isCheckbox = inputEl.type === 'checkbox', isRadio = inputEl.type === 'radio';
+      if (!isCurrent()) {
+        cleanup();
+        return;
+      }
+      const isCheckbox = inputEl.type === 'checkbox',
+        isRadio = inputEl.type === 'radio';
       const isFile = el.tagName === 'INPUT' && inputEl.type === 'file';
-      const eventName = isCheckbox || isRadio || isFile || el.tagName === 'SELECT' ? 'change' : 'input';
-      if (event.type !== eventName || (isTextModel() && (composing || (event as InputEvent).isComposing))) return;
+      const eventName =
+        isCheckbox || isRadio || isFile || el.tagName === 'SELECT' ? 'change' : 'input';
+      if (
+        event.type !== eventName ||
+        (isTextModel() && (composing || (event as InputEvent).isComposing))
+      )
+        return;
       if (el.tagName === 'SELECT' && isMultipleSelect(el)) {
         commitValue(selectedSelectValues(el));
       } else if (isFile) commitValue(inputEl.files);
       else if (isCheckbox) commitValue(inputEl.checked);
-      else if (isRadio) { if (inputEl.checked) commitValue(inputEl.value); }
-      else if (inputEl.type === 'number' || inputEl.type === 'range') commitValue(inputEl.value === '' ? 0 : Number(inputEl.value));
+      else if (isRadio) {
+        if (inputEl.checked) commitValue(inputEl.value);
+      } else if (inputEl.type === 'number' || inputEl.type === 'range')
+        commitValue(inputEl.value === '' ? 0 : Number(inputEl.value));
       else commitValue(inputEl.value);
     };
     const startComposition = () => {
-      if (!isCurrent()) { cleanup(); return; }
+      if (!isCurrent()) {
+        cleanup();
+        return;
+      }
       if (isTextModel()) composing = true;
     };
     const endComposition = () => {
-      if (!isCurrent()) { cleanup(); return; }
+      if (!isCurrent()) {
+        cleanup();
+        return;
+      }
       const wasComposing = composing;
       composing = false;
       if (wasComposing && isTextModel()) commitValue(inputEl.value);
     };
     const listeners: Array<[string, EventListener]> = [
-      ['compositionstart', startComposition], ['compositionend', endComposition],
-      ['input', updateFromDom], ['change', updateFromDom],
+      ['compositionstart', startComposition],
+      ['compositionend', endComposition],
+      ['input', updateFromDom],
+      ['change', updateFromDom],
     ];
     function cleanup() {
-      active = false; composing = false;
+      active = false;
+      composing = false;
       releaseReset?.();
-      try { observer?.disconnect(); } catch { /* Complete the remaining cleanup. */ }
+      try {
+        observer?.disconnect();
+      } catch {
+        /* Complete the remaining cleanup. */
+      }
       for (const [name, listener] of listeners) {
-        try { el.removeEventListener(name, listener); } catch { /* Inactive callbacks cannot publish even if native removal fails. */ }
+        try {
+          el.removeEventListener(name, listener);
+        } catch {
+          /* Inactive callbacks cannot publish even if native removal fails. */
+        }
       }
       synchronizers?.delete(synchronizeIfCurrent);
-      if (synchronizers?.size === 0 && modelSynchronizers.get(el) === synchronizers) modelSynchronizers.delete(el);
+      if (synchronizers?.size === 0 && modelSynchronizers.get(el) === synchronizers)
+        modelSynchronizers.delete(el);
     }
     // Register before initial synchronization or any native registration can reenter.
     onCleanup(cleanup);
@@ -515,13 +738,20 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
       effect(synchronize);
       assertCurrent();
       synchronizers = modelSynchronizers.get(el);
-      if (!synchronizers) { synchronizers = new Set(); modelSynchronizers.set(el, synchronizers); }
+      if (!synchronizers) {
+        synchronizers = new Set();
+        modelSynchronizers.set(el, synchronizers);
+      }
       synchronizers.add(synchronizeIfCurrent);
       if (el.tagName === 'SELECT') {
-        const Observer = el.ownerDocument.defaultView?.MutationObserver ?? globalThis.MutationObserver;
+        const Observer =
+          el.ownerDocument.defaultView?.MutationObserver ?? globalThis.MutationObserver;
         if (Observer) {
           const synchronizeOptions = () => {
-            if (!isCurrent()) {cleanup();return;}
+            if (!isCurrent()) {
+              cleanup();
+              return;
+            }
             if (inputEl.form && pendingResetForms.has(inputEl.form)) {
               // A queued option mutation must not restore the pre-reset model
               // before the reset publication has sampled native defaults.
@@ -532,30 +762,43 @@ function bindModel(el: HTMLElement, sig: Signal<any>): void {
           };
           observer = new Observer(() => withWasmCore(core, () => untrack(synchronizeOptions)));
           assertCurrent();
-          observer.observe(el, {childList: true, subtree: true, characterData: true,
-            attributes: true, attributeFilter: ['value', 'multiple']});
+          observer.observe(el, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ['value', 'multiple'],
+          });
           assertCurrent();
         }
       }
       for (const [name, listener] of listeners) {
-        assertCurrent(); el.addEventListener(name, listener); assertCurrent();
+        assertCurrent();
+        el.addEventListener(name, listener);
+        assertCurrent();
       }
       releaseReset = registerModelReset(el, {
-        core, signal: sig, isCurrent, stop: cleanup,
+        core,
+        signal: sig,
+        isCurrent,
+        stop: cleanup,
         read: () => {
           if (!isCurrent()) return null;
           composing = false;
-          let value: unknown, priority = 1;
+          let value: unknown,
+            priority = 1;
           if (el.tagName === 'SELECT' && isMultipleSelect(el)) {
             value = selectedSelectValues(el);
           } else if (inputEl.type === 'radio') {
             const checked = inputEl.checked;
-            value = checked ? inputEl.value : null; priority = checked ? 2 : 0;
+            value = checked ? inputEl.value : null;
+            priority = checked ? 2 : 0;
           } else if (inputEl.type === 'checkbox') value = inputEl.checked;
           else if (el.tagName === 'INPUT' && inputEl.type === 'file') value = null;
-          else if (inputEl.type === 'number' || inputEl.type === 'range') value = inputEl.value === '' ? 0 : Number(inputEl.value);
+          else if (inputEl.type === 'number' || inputEl.type === 'range')
+            value = inputEl.value === '' ? 0 : Number(inputEl.value);
           else value = inputEl.value;
-          return isCurrent() ? {value, priority} : null;
+          return isCurrent() ? { value, priority } : null;
         },
       });
       assertCurrent();
@@ -580,9 +823,11 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
     assertCallerCurrent();
     return runWithOwnerScope([], () => {
       const assertRefCurrent = captureViewLifetime();
-      assertCallerCurrent(); assertRefCurrent();
+      assertCallerCurrent();
+      assertRefCurrent();
       value(el);
-      assertCallerCurrent(); assertRefCurrent();
+      assertCallerCurrent();
+      assertRefCurrent();
     });
   }
 
@@ -600,26 +845,37 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
   // Event listeners: `onClick`, `onInput`, etc. (with automatic Root Event Delegation)
   if (key.startsWith('on') && key.length > 2 && typeof value === 'function') {
     const eventName = key.slice(2).toLowerCase();
-    const assertCurrent = captureViewLifetime(), owner = getCurrentOwner(), core = getWasmCore();
+    const assertCurrent = captureViewLifetime(),
+      owner = getCurrentOwner(),
+      core = getWasmCore();
     const generation = getReactiveGeneration(core);
-    const isCurrent = () => !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
-    const invoke = (target: HTMLElement, event: Event) => runUntrackedInCore(core, () =>
-      runWithCapturedOwner(core, owner, () => value.call(target, event)));
+    const isCurrent = () =>
+      !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
+    const invoke = (target: HTMLElement, event: Event) =>
+      runUntrackedInCore(core, () =>
+        runWithCapturedOwner(core, owner, () => value.call(target, event)),
+      );
     assertCurrent();
     if (DELEGATED_EVENTS.has(eventName)) {
       const area = lookupOwnerContext<DelegationArea | undefined>(delegationAreaKey, undefined);
       const actualRoot = el.getRootNode();
-      const localRoot = actualRoot.nodeType === 11 && 'host' in actualRoot && (!area || !area.contains(el))
-        ? actualRoot as ShadowRoot : area;
+      const localRoot =
+        actualRoot.nodeType === 11 && 'host' in actualRoot && (!area || !area.contains(el))
+          ? (actualRoot as ShadowRoot)
+          : area;
       const propKey = EVENT_PROP_PREFIX + eventName;
       const bindings: Set<DelegatedBinding> = (el as any)[propKey] ?? new Set();
       (el as any)[propKey] = bindings;
       const binding: DelegatedBinding = {
         handler(this: HTMLElement, event) {
-          if (!binding.active || !isCurrent()) {cleanup();return;}
+          if (!binding.active || !isCurrent()) {
+            cleanup();
+            return;
+          }
           return invoke(this, event);
         },
-        active: true, root: localRoot,
+        active: true,
+        root: localRoot,
       };
       bindings.add(binding);
       const documentLeases = new Map<Document, () => void>();
@@ -630,7 +886,11 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
         assertCurrent();
         if (documentLeases.has(doc)) return;
         const release = retainDelegatedListener(doc, eventName);
-        if (!binding.active || !isCurrent()) { release(); assertCurrent(); throw new Error('Delegated binding disposed'); }
+        if (!binding.active || !isCurrent()) {
+          release();
+          assertCurrent();
+          throw new Error('Delegated binding disposed');
+        }
         documentLeases.set(doc, release);
         assertCurrent();
       };
@@ -639,36 +899,66 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
           stagedDocuments.set(doc, (stagedDocuments.get(doc) ?? 0) + 1);
           const unpin = () => {
             const count = stagedDocuments.get(doc) ?? 0;
-            if (count <= 1) stagedDocuments.delete(doc); else stagedDocuments.set(doc, count - 1);
+            if (count <= 1) stagedDocuments.delete(doc);
+            else stagedDocuments.set(doc, count - 1);
           };
-          try { retainDocument(doc); }
-          catch (failure) {
+          try {
+            retainDocument(doc);
+          } catch (failure) {
             unpin();
-            try { route.settle(); } catch { /* Preserve registration failure. */ }
+            try {
+              route.settle();
+            } catch {
+              /* Preserve registration failure. */
+            }
             throw failure;
           }
           let finished = false;
-          return () => { if (finished) return; finished = true; unpin(); route.settle(); };
+          return () => {
+            if (finished) return;
+            finished = true;
+            unpin();
+            route.settle();
+          };
         },
         settle() {
-          if (!binding.active || !isCurrent()) { cleanup(); return; }
+          if (!binding.active || !isCurrent()) {
+            cleanup();
+            return;
+          }
           const doc = el.ownerDocument;
           retainDocument(doc);
           for (const [other, release] of documentLeases) {
-            if (other !== doc && !stagedDocuments.has(other)) { documentLeases.delete(other); release(); }
+            if (other !== doc && !stagedDocuments.has(other)) {
+              documentLeases.delete(other);
+              release();
+            }
           }
         },
       };
-      routes.add(route); adoptionRoutes.set(el, routes);
+      routes.add(route);
+      adoptionRoutes.set(el, routes);
       const cleanup = () => {
         binding.active = false;
         bindings.delete(binding);
         if (bindings.size === 0 && (el as any)[propKey] === bindings) delete (el as any)[propKey];
-        try { releaseLocal?.(); } catch { /* Complete document cleanup too. */ }
+        try {
+          releaseLocal?.();
+        } catch {
+          /* Complete document cleanup too. */
+        }
         routes.delete(route);
         if (!routes.size && adoptionRoutes.get(el) === routes) adoptionRoutes.delete(el);
-        const leases = Array.from(documentLeases.values()); documentLeases.clear(); stagedDocuments.clear();
-        for (const release of leases) { try { release(); } catch { /* Inactive bindings cannot publish. */ } }
+        const leases = Array.from(documentLeases.values());
+        documentLeases.clear();
+        stagedDocuments.clear();
+        for (const release of leases) {
+          try {
+            release();
+          } catch {
+            /* Inactive bindings cannot publish. */
+          }
+        }
         if (owner && !owner.disposed) {
           const index = owner.disposables.indexOf(cleanup);
           if (index >= 0) owner.disposables.splice(index, 1);
@@ -681,17 +971,27 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
         if (localRoot) releaseLocal = retainDelegatedListener(localRoot, eventName);
         assertCurrent();
         if (!binding.active) throw new Error('Delegated event owner disposed during registration');
-      } catch (failure) {cleanup();throw failure;}
+      } catch (failure) {
+        cleanup();
+        throw failure;
+      }
     } else {
       let active = true;
-      const handler = function(this: HTMLElement, event: Event) {
-        if (!active || !isCurrent()) {cleanup();return;}
+      const handler = function (this: HTMLElement, event: Event) {
+        if (!active || !isCurrent()) {
+          cleanup();
+          return;
+        }
         return invoke(this, event);
       };
       const cleanup = () => {
         active = false;
         // Repeat removal after registration reentry attaches a late listener.
-        try { el.removeEventListener(eventName, handler); } catch { /* Inactive callbacks cannot publish. */ }
+        try {
+          el.removeEventListener(eventName, handler);
+        } catch {
+          /* Inactive callbacks cannot publish. */
+        }
         if (owner && !owner.disposed) {
           const index = owner.disposables.indexOf(cleanup);
           if (index >= 0) owner.disposables.splice(index, 1);
@@ -702,7 +1002,10 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
         el.addEventListener(eventName, handler);
         assertCurrent();
         if (!active) throw new Error('Event owner disposed during registration');
-      } catch (failure) {cleanup();throw failure;}
+      } catch (failure) {
+        cleanup();
+        throw failure;
+      }
     }
     return;
   }
@@ -713,7 +1016,10 @@ export function bindProp(el: HTMLElement, key: string, value: any): void {
       const assertBindingCurrent = captureViewLifetime();
       const apply = () => {
         const assertRunCurrent = captureViewLifetime();
-        const assertCurrent = () => {assertBindingCurrent();assertRunCurrent();};
+        const assertCurrent = () => {
+          assertBindingCurrent();
+          assertRunCurrent();
+        };
         assertCurrent();
         const resolved = isReactiveAccessor(value) ? value() : value;
         assertCurrent();
@@ -735,40 +1041,74 @@ function bindAttribute(el: HTMLElement, key: string, value: any, notifyModel: bo
   let cachedSelectValue = '';
   const apply = () => {
     const assertRunCurrent = captureViewLifetime();
-    const assertCurrent = () => {assertBindingCurrent();assertRunCurrent();};
+    const assertCurrent = () => {
+      assertBindingCurrent();
+      assertRunCurrent();
+    };
     assertCurrent();
     const resolved = isReactiveAccessor(value) ? value() : value;
     assertCurrent();
     const attributeValue = isSelectValue ? (resolved == null ? '' : String(resolved)) : resolved;
-    assertCurrent();if (isSelectValue) cachedSelectValue = attributeValue as string;
+    assertCurrent();
+    if (isSelectValue) cachedSelectValue = attributeValue as string;
     if (notifyModel) applyAttributeValue(el, key, attributeValue, assertCurrent);
     else applyStaticAttribute(el, key, attributeValue, assertCurrent);
   };
   if (isSelectValue) {
-    const core = getWasmCore(), owner = getCurrentOwner(), generation = getReactiveGeneration(core);
+    const core = getWasmCore(),
+      owner = getCurrentOwner(),
+      generation = getReactiveGeneration(core);
     const synchronizers = modelSynchronizers.get(el) ?? new Set<() => void>();
-    let active = true, observer: MutationObserver | undefined;
+    let active = true,
+      observer: MutationObserver | undefined;
     const refresh = () => {
-      if (!active || isOwnerScopeDisposed(owner) || generation !== getReactiveGeneration(core)) return;
-      runWithCapturedOwner(core, owner, () => untrack(() => {
-        assertBindingCurrent();
-        synchronizeSelectValue(el as unknown as HTMLSelectElement, cachedSelectValue, assertBindingCurrent);
-      }));
+      if (!active || isOwnerScopeDisposed(owner) || generation !== getReactiveGeneration(core))
+        return;
+      runWithCapturedOwner(core, owner, () =>
+        untrack(() => {
+          assertBindingCurrent();
+          synchronizeSelectValue(
+            el as unknown as HTMLSelectElement,
+            cachedSelectValue,
+            assertBindingCurrent,
+          );
+        }),
+      );
     };
     const cleanup = () => {
-      active = false;try {observer?.disconnect();} catch {/* Still unlink selection refresh. */}synchronizers.delete(refresh);
-      if (!synchronizers.size && modelSynchronizers.get(el) === synchronizers) modelSynchronizers.delete(el);
+      active = false;
+      try {
+        observer?.disconnect();
+      } catch {
+        /* Still unlink selection refresh. */
+      }
+      synchronizers.delete(refresh);
+      if (!synchronizers.size && modelSynchronizers.get(el) === synchronizers)
+        modelSynchronizers.delete(el);
     };
-    modelSynchronizers.set(el, synchronizers);synchronizers.add(refresh);onCleanup(cleanup);
+    modelSynchronizers.set(el, synchronizers);
+    synchronizers.add(refresh);
+    onCleanup(cleanup);
     try {
-      const Observer = el.ownerDocument.defaultView?.MutationObserver ?? globalThis.MutationObserver;
+      const Observer =
+        el.ownerDocument.defaultView?.MutationObserver ?? globalThis.MutationObserver;
       assertBindingCurrent();
       if (Observer) {
-        observer = new Observer(refresh);assertBindingCurrent();
-        observer.observe(el, {childList: true, subtree: true, characterData: true,
-          attributes: true, attributeFilter: ['value']});assertBindingCurrent();
+        observer = new Observer(refresh);
+        assertBindingCurrent();
+        observer.observe(el, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+          attributes: true,
+          attributeFilter: ['value'],
+        });
+        assertBindingCurrent();
       }
-    } catch (error) {cleanup();throw error;}
+    } catch (error) {
+      cleanup();
+      throw error;
+    }
   }
   if (isReactiveAccessor(value)) {
     runWithOwnerScope([], () => effect(() => runWithOwnerScope([], apply)));
@@ -784,23 +1124,37 @@ function cssPropertyName(name: string): string {
   if (name.startsWith('--')) return name;
   let cached = cssPropertyCache.get(name);
   if (cached !== undefined) return cached;
-  cached = name === 'cssFloat'
-    ? 'float'
-    : name.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`).replace(/^ms-/, '-ms-');
+  cached =
+    name === 'cssFloat'
+      ? 'float'
+      : name.replace(/[A-Z]/g, char => `-${char.toLowerCase()}`).replace(/^ms-/, '-ms-');
   if (cssPropertyCache.size < 1024) cssPropertyCache.set(name, cached);
   return cached;
 }
 
-function applyStyle(el: HTMLElement, styleVal: string | Record<string, any> | undefined, assertCurrent: () => void): void {
+function applyStyle(
+  el: HTMLElement,
+  styleVal: string | Record<string, any> | undefined,
+  assertCurrent: () => void,
+): void {
   assertCurrent();
   if (typeof styleVal === 'string') {
     if (el.style.cssText !== styleVal) {
-      assertCurrent(); el.style.cssText = styleVal; domMutationCounter++; assertCurrent();
+      assertCurrent();
+      el.style.cssText = styleVal;
+      domMutationCounter++;
+      assertCurrent();
     }
-    const properties = new Set(Array.from({ length: el.style.length }, (_, i) => {
-      assertCurrent(); const name = el.style.item(i); assertCurrent(); return name;
-    }));
-    assertCurrent(); managedStyles.set(el, properties);
+    const properties = new Set(
+      Array.from({ length: el.style.length }, (_, i) => {
+        assertCurrent();
+        const name = el.style.item(i);
+        assertCurrent();
+        return name;
+      }),
+    );
+    assertCurrent();
+    managedStyles.set(el, properties);
     return;
   }
   const keys = styleVal ? Object.keys(styleVal) : [];
@@ -809,23 +1163,32 @@ function applyStyle(el: HTMLElement, styleVal: string | Record<string, any> | un
   const nextProperties = new Set<string>();
   for (let i = 0; i < keys.length; i++) {
     const prop = keys[i];
-    assertCurrent(); const raw = (styleVal as Record<string, any>)[prop]; assertCurrent();
+    assertCurrent();
+    const raw = (styleVal as Record<string, any>)[prop];
+    assertCurrent();
     entries[i] = [prop, raw];
     nextProperties.add(cssPropertyName(prop));
   }
   for (const prop of managedStyles.get(el) ?? []) {
     assertCurrent();
     if (!nextProperties.has(prop) && el.style.getPropertyValue(prop)) {
-      assertCurrent(); el.style.removeProperty(prop); domMutationCounter++; assertCurrent();
+      assertCurrent();
+      el.style.removeProperty(prop);
+      domMutationCounter++;
+      assertCurrent();
     }
   }
-  assertCurrent(); managedStyles.set(el, nextProperties);
+  assertCurrent();
+  managedStyles.set(el, nextProperties);
   for (const [prop, rawVal] of entries) {
     assertCurrent();
     if (isReactiveAccessor(rawVal)) {
       effect(() => {
         const assertPropertyCurrent = captureViewLifetime();
-        const assertValueCurrent = () => {assertCurrent();assertPropertyCurrent();};
+        const assertValueCurrent = () => {
+          assertCurrent();
+          assertPropertyCurrent();
+        };
         assertValueCurrent();
         const resolved = rawVal();
         assertValueCurrent();
@@ -838,16 +1201,27 @@ function applyStyle(el: HTMLElement, styleVal: string | Record<string, any> | un
   assertCurrent();
 }
 
-function setStyleProperty(el: HTMLElement, prop: string, val: any, assertCurrent: () => void): void {
+function setStyleProperty(
+  el: HTMLElement,
+  prop: string,
+  val: any,
+  assertCurrent: () => void,
+): void {
   assertCurrent();
   const str = val == null ? '' : String(val);
   assertCurrent();
   if (prop.includes('-')) {
     if (el.style.getPropertyValue(prop) !== str) {
-      assertCurrent(); el.style.setProperty(prop, str); domMutationCounter++; assertCurrent();
+      assertCurrent();
+      el.style.setProperty(prop, str);
+      domMutationCounter++;
+      assertCurrent();
     }
   } else if ((el.style as any)[prop] !== str) {
-    assertCurrent(); (el.style as any)[prop] = str; domMutationCounter++; assertCurrent();
+    assertCurrent();
+    (el.style as any)[prop] = str;
+    domMutationCounter++;
+    assertCurrent();
   }
   assertCurrent();
 }
@@ -867,7 +1241,12 @@ const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink';
 const BOOLEAN_TOKEN_ATTRIBUTES = new Set(['contenteditable', 'draggable', 'spellcheck']);
 
 /** @internal Applies an attribute value without interpreting model/ref/event props. */
-export function applyAttributeValue(el: HTMLElement, key: string, value: unknown, assertCurrent = captureViewLifetime()): void {
+export function applyAttributeValue(
+  el: HTMLElement,
+  key: string,
+  value: unknown,
+  assertCurrent = captureViewLifetime(),
+): void {
   assertCurrent();
   applyStaticAttribute(el, key, value, assertCurrent);
   assertCurrent();
@@ -876,61 +1255,101 @@ export function applyAttributeValue(el: HTMLElement, key: string, value: unknown
   if (name === 'type' || (name === 'value' && (el as HTMLInputElement).type === 'radio')) {
     untrack(() => {
       for (const synchronize of modelSynchronizers.get(el) ?? []) {
-        assertCurrent(); synchronize(); assertCurrent();
+        assertCurrent();
+        synchronize();
+        assertCurrent();
       }
     });
   }
   assertCurrent();
 }
 
-function applyStaticAttribute(el: HTMLElement, key: string, val: any, assertCurrent = captureViewLifetime()): void {
+function applyStaticAttribute(
+  el: HTMLElement,
+  key: string,
+  val: any,
+  assertCurrent = captureViewLifetime(),
+): void {
   assertCurrent();
   const attrName = key === 'className' ? 'class' : key === 'xlinkHref' ? 'xlink:href' : key;
   const lowerAttr = attrName.toLowerCase();
   if (typeof val === 'boolean') {
     if (lowerAttr === 'translate') val = val ? 'yes' : 'no';
-    else if (BOOLEAN_TOKEN_ATTRIBUTES.has(lowerAttr) || lowerAttr.startsWith('aria-') || lowerAttr.startsWith('data-')) val = String(val);
+    else if (
+      BOOLEAN_TOKEN_ATTRIBUTES.has(lowerAttr) ||
+      lowerAttr.startsWith('aria-') ||
+      lowerAttr.startsWith('data-')
+    )
+      val = String(val);
   }
   // Raw string/non-function inline event attributes remain blocked.
   if (lowerAttr.startsWith('on')) return;
   if (attrName === 'value' && el.tagName === 'SELECT') {
-    synchronizeSelectValue(el as unknown as HTMLSelectElement, val, assertCurrent);return;
+    synchronizeSelectValue(el as unknown as HTMLSelectElement, val, assertCurrent);
+    return;
   }
   if (attrName === 'value' && 'value' in el) {
-    assertCurrent(); const str = val == null ? '' : String(val); assertCurrent();
+    assertCurrent();
+    const str = val == null ? '' : String(val);
+    assertCurrent();
     if ((el as HTMLInputElement).value !== str) {
-      assertCurrent(); (el as HTMLInputElement).value = str; domMutationCounter++; assertCurrent();
+      assertCurrent();
+      (el as HTMLInputElement).value = str;
+      domMutationCounter++;
+      assertCurrent();
     }
-    assertCurrent(); return;
+    assertCurrent();
+    return;
   }
   if (attrName === 'checked' && 'checked' in el) {
     const bool = Boolean(val);
     if ((el as HTMLInputElement).checked !== bool) {
-      assertCurrent(); (el as HTMLInputElement).checked = bool; domMutationCounter++; assertCurrent();
+      assertCurrent();
+      (el as HTMLInputElement).checked = bool;
+      domMutationCounter++;
+      assertCurrent();
     }
-    assertCurrent(); return;
+    assertCurrent();
+    return;
   }
   if (val === false || val === null || val === undefined) {
     if (attrName === 'xlink:href' && typeof el.removeAttributeNS === 'function') {
-      assertCurrent(); el.removeAttributeNS(XLINK_NAMESPACE, 'href'); domMutationCounter++; assertCurrent();
+      assertCurrent();
+      el.removeAttributeNS(XLINK_NAMESPACE, 'href');
+      domMutationCounter++;
+      assertCurrent();
     } else if (el.hasAttribute(attrName)) {
-      assertCurrent(); el.removeAttribute(attrName); domMutationCounter++; assertCurrent();
+      assertCurrent();
+      el.removeAttribute(attrName);
+      domMutationCounter++;
+      assertCurrent();
     }
   } else if (val === true) {
     if (!el.hasAttribute(attrName)) {
-      assertCurrent(); el.setAttribute(attrName, ''); domMutationCounter++; assertCurrent();
+      assertCurrent();
+      el.setAttribute(attrName, '');
+      domMutationCounter++;
+      assertCurrent();
     }
   } else {
-    const str = String(val); assertCurrent();
+    const str = String(val);
+    assertCurrent();
     if ((URL_ATTRIBUTES.has(lowerAttr) || lowerAttr === 'xlink:href') && isUnsafeUrl(str)) return;
     if (attrName === 'xlink:href' && typeof el.setAttributeNS === 'function') {
       if (el.getAttributeNS(XLINK_NAMESPACE, 'href') !== str) {
-        assertCurrent(); el.setAttributeNS(XLINK_NAMESPACE, 'xlink:href', str); domMutationCounter++; assertCurrent();
+        assertCurrent();
+        el.setAttributeNS(XLINK_NAMESPACE, 'xlink:href', str);
+        domMutationCounter++;
+        assertCurrent();
       }
-      assertCurrent(); return;
+      assertCurrent();
+      return;
     }
     if (el.getAttribute(attrName) !== str) {
-      assertCurrent(); el.setAttribute(attrName, str); domMutationCounter++; assertCurrent();
+      assertCurrent();
+      el.setAttribute(attrName, str);
+      domMutationCounter++;
+      assertCurrent();
     }
   }
   assertCurrent();
@@ -941,19 +1360,34 @@ function isDomNode(value: unknown): value is Node {
   if (value instanceof Node) return true;
   // Native brand checking works across realms, including nodes adopted into a
   // document whose constructor no longer matches their original prototype.
-  try { Node.prototype.hasChildNodes.call(value); return true; } catch { return false; }
+  try {
+    Node.prototype.hasChildNodes.call(value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function flattenChildValues(values: readonly ChildNodeValue[], cycleMessage: string): ChildNodeValue[] {
+function flattenChildValues(
+  values: readonly ChildNodeValue[],
+  cycleMessage: string,
+): ChildNodeValue[] {
   const flattened: ChildNodeValue[] = [];
   const active = new Set<readonly ChildNodeValue[]>();
-  const stack: Array<{ value: ChildNodeValue; exit?: boolean }> = [{ value: values as ChildNodeValue[] }];
+  const stack: Array<{ value: ChildNodeValue; exit?: boolean }> = [
+    { value: values as ChildNodeValue[] },
+  ];
   while (stack.length) {
-    const frame = stack.pop()!, value = frame.value;
+    const frame = stack.pop()!,
+      value = frame.value;
     if (Array.isArray(value)) {
-      if (frame.exit) { active.delete(value); continue; }
+      if (frame.exit) {
+        active.delete(value);
+        continue;
+      }
       if (active.has(value)) throw new Error(cycleMessage);
-      active.add(value); stack.push({ value, exit: true });
+      active.add(value);
+      stack.push({ value, exit: true });
       const snapshot = Array.from(value);
       for (let i = snapshot.length - 1; i >= 0; i--) stack.push({ value: snapshot[i] });
     } else if (value != null && typeof value !== 'boolean') flattened.push(value);
@@ -961,12 +1395,18 @@ function flattenChildValues(values: readonly ChildNodeValue[], cycleMessage: str
   return flattened;
 }
 
-function dynamicArrayNodes(values: readonly ChildNodeValue[], doc: Document, assertCurrent: () => void): Node[] {
+function dynamicArrayNodes(
+  values: readonly ChildNodeValue[],
+  doc: Document,
+  assertCurrent: () => void,
+): Node[] {
   const flattened = flattenChildValues(values, 'Cyclic dynamic child array');
-  const nodes: Node[] = [], seen = new Set<Node>();
+  const nodes: Node[] = [],
+    seen = new Set<Node>();
   const add = (node: Node) => {
     if (seen.has(node)) throw new Error('Duplicate dynamic child node');
-    seen.add(node); nodes.push(node);
+    seen.add(node);
+    nodes.push(node);
   };
   for (const value of flattened) {
     assertCurrent();
@@ -986,7 +1426,11 @@ function dynamicArrayNodes(values: readonly ChildNodeValue[], doc: Document, ass
 /**
  * Appends a static or reactive child into a parent DOM node or DocumentFragment.
  */
-export function insertChild(parent: Node, child: ChildNodeValue, assertInsertionCurrent?: () => void): void {
+export function insertChild(
+  parent: Node,
+  child: ChildNodeValue,
+  assertInsertionCurrent?: () => void,
+): void {
   if (child === null || child === undefined || typeof child === 'boolean') {
     return;
   }
@@ -1004,117 +1448,256 @@ export function insertChild(parent: Node, child: ChildNodeValue, assertInsertion
   }
 
   if (isDomNode(child)) {
-    assertCurrent(); withDocumentAdoption(parent, child, () => { parent.appendChild(child); }, assertCurrent); domMutationCounter++; assertCurrent();
+    assertCurrent();
+    withDocumentAdoption(
+      parent,
+      child,
+      () => {
+        parent.appendChild(child);
+      },
+      assertCurrent,
+    );
+    domMutationCounter++;
+    assertCurrent();
     return;
   }
 
   if (isReactiveAccessor(child)) {
     const assertParentCurrent = assertCurrent;
-    let currentNode: Node | null = null, textNodeRef: Text | null = null;
-    let marker: Comment | null = null, lastTextStr: string | null = null;
-    let currentFragment: Node | null = null, grouped = false;
+    let currentNode: Node | null = null,
+      textNodeRef: Text | null = null;
+    let marker: Comment | null = null,
+      lastTextStr: string | null = null;
+    let currentFragment: Node | null = null,
+      grouped = false;
     const doc = parent.ownerDocument ?? document;
     let disposeContent: (() => void) | undefined;
-    onCleanup(() => { const dispose = disposeContent; disposeContent = undefined; dispose?.(); });
+    onCleanup(() => {
+      const dispose = disposeContent;
+      disposeContent = undefined;
+      dispose?.();
+    });
 
-    effect(() => createRoot(disposeCandidate => {
-      const publishContent = () => {
-        const previous = disposeContent;
-        disposeContent = disposeCandidate;
-        previous?.();
-        assertCurrent();
-      };
-      const assertEffectCurrent = captureViewLifetime();
-      const assertCurrent = () => { assertParentCurrent(); assertEffectCurrent(); };
-      assertCurrent();
-      const resolved = child();
-      assertCurrent();
-      if (currentFragment && resolved === currentFragment) {
-        disposeCandidate(); assertParentCurrent(); return;
-      }
-      const nativeNode = isDomNode(resolved), array = Array.isArray(resolved);
-      const fragment = nativeNode && resolved.nodeType === 11 ? resolved : null;
-      const text = nativeNode || array ? null : resolved == null || typeof resolved === 'boolean' ? '' : String(resolved);
-      assertCurrent();
-      if (textNodeRef && (typeof resolved === 'string' || typeof resolved === 'number')) {
-        if (lastTextStr !== text) {
-          textNodeRef.nodeValue = text; domMutationCounter++;
-          assertCurrent(); lastTextStr = text;
-        }
-        publishContent(); return;
-      }
-      if (!grouped && nativeNode && currentNode === resolved) {
-        disposeCandidate(); assertParentCurrent(); return;
-      }
-
-      const oldNodes: Node[] = [];
-      if (grouped) {
-        let node = currentNode;
-        while (node && node !== marker) { oldNodes.push(node); node = node.nextSibling; }
-        if (!node || node !== marker) throw new Error('Broken dynamic fragment range');
-      } else if (currentNode) oldNodes.push(currentNode);
-      if (marker && !marker.parentNode) throw new Error('Broken dynamic child anchor');
-      const target = marker?.parentNode ?? currentNode?.parentNode ?? parent;
-      const originalAnchor = marker ?? currentNode?.nextSibling ?? null;
-      const groupNodes = array ? dynamicArrayNodes(resolved, doc, assertCurrent) : fragment ? Array.from(fragment.childNodes) : null;
-      const nextNode = groupNodes ? doc.createComment('svet-dyn-start') : nativeNode ? resolved : doc.createTextNode(text!);
-      const nextNodes = groupNodes ? [nextNode, ...groupNodes] : [nextNode];
-      const origins = nextNodes.map(node => ({ node, parent: node.parentNode, next: node.nextSibling }));
-      const nextSet = new Set(nextNodes);
-      let nextMarker = marker;
-      const needsMarker = (nativeNode || array) && !nextMarker;
-      if (needsMarker) nextMarker = doc.createComment('svet-dyn');
-      const insert = (node: Node, anchor: Node | null) => {
-        assertCurrent(); withDocumentAdoption(target, node, () => { target.insertBefore(node, anchor); }, assertCurrent); domMutationCounter++; assertCurrent();
-      };
-      try {
-        if (needsMarker) insert(nextMarker!, originalAnchor);
-        const anchor = nextMarker ?? originalAnchor;
-        for (const node of nextNodes) insert(node, anchor);
-        for (const node of oldNodes) {
-          if (!nextSet.has(node) && node.parentNode) {
-            assertCurrent(); node.parentNode.removeChild(node); domMutationCounter++; assertCurrent();
-          }
-        }
-        assertCurrent();
-        currentNode = nextNode; currentFragment = fragment; grouped = groupNodes !== null; marker = nextMarker;
-        textNodeRef = nativeNode || array ? null : nextNode as Text; lastTextStr = text;
-      } catch (failure) {
-        let alive = true;
-        try { assertCurrent(); } catch { alive = false; }
-        // Include nodes attached after a synchronous hook invalidated the owner.
-        for (const node of nextNodes) {
-          try { if (node.parentNode) { node.parentNode.removeChild(node); domMutationCounter++; } } catch { /* Best effort. */ }
-        }
-        const restore = (action: () => void) => {
-          if (!alive) return;
-          try { assertCurrent(); action(); assertCurrent(); } catch {
-            try { assertCurrent(); } catch { alive = false; }
-          }
+    effect(() =>
+      createRoot(disposeCandidate => {
+        const publishContent = () => {
+          const previous = disposeContent;
+          disposeContent = disposeCandidate;
+          previous?.();
+          assertCurrent();
         };
-        if (alive) {
-          // Restore candidate origins (including a consumed fragment) for retry.
-          if (fragment) {
-            for (const node of nextNodes.slice(1)) restore(() => { withDocumentAdoption(fragment, node, () => { fragment.appendChild(node); }, assertCurrent); });
-          } else {
-            for (const origin of origins.slice().reverse()) {
-              restore(() => { if (origin.parent) withDocumentAdoption(origin.parent, origin.node, () => { origin.parent!.insertBefore(origin.node, origin.next?.parentNode === origin.parent ? origin.next : null); }, assertCurrent); });
+        const assertEffectCurrent = captureViewLifetime();
+        const assertCurrent = () => {
+          assertParentCurrent();
+          assertEffectCurrent();
+        };
+        assertCurrent();
+        const resolved = child();
+        assertCurrent();
+        if (currentFragment && resolved === currentFragment) {
+          disposeCandidate();
+          assertParentCurrent();
+          return;
+        }
+        const nativeNode = isDomNode(resolved),
+          array = Array.isArray(resolved);
+        const fragment = nativeNode && resolved.nodeType === 11 ? resolved : null;
+        const text =
+          nativeNode || array
+            ? null
+            : resolved == null || typeof resolved === 'boolean'
+              ? ''
+              : String(resolved);
+        assertCurrent();
+        if (textNodeRef && (typeof resolved === 'string' || typeof resolved === 'number')) {
+          if (lastTextStr !== text) {
+            textNodeRef.nodeValue = text;
+            domMutationCounter++;
+            assertCurrent();
+            lastTextStr = text;
+          }
+          publishContent();
+          return;
+        }
+        if (!grouped && nativeNode && currentNode === resolved) {
+          disposeCandidate();
+          assertParentCurrent();
+          return;
+        }
+
+        const oldNodes: Node[] = [];
+        if (grouped) {
+          let node = currentNode;
+          while (node && node !== marker) {
+            oldNodes.push(node);
+            node = node.nextSibling;
+          }
+          if (!node || node !== marker) throw new Error('Broken dynamic fragment range');
+        } else if (currentNode) oldNodes.push(currentNode);
+        if (marker && !marker.parentNode) throw new Error('Broken dynamic child anchor');
+        const target = marker?.parentNode ?? currentNode?.parentNode ?? parent;
+        const originalAnchor = marker ?? currentNode?.nextSibling ?? null;
+        const groupNodes = array
+          ? dynamicArrayNodes(resolved, doc, assertCurrent)
+          : fragment
+            ? Array.from(fragment.childNodes)
+            : null;
+        const nextNode = groupNodes
+          ? doc.createComment('svet-dyn-start')
+          : nativeNode
+            ? resolved
+            : doc.createTextNode(text!);
+        const nextNodes = groupNodes ? [nextNode, ...groupNodes] : [nextNode];
+        const origins = nextNodes.map(node => ({
+          node,
+          parent: node.parentNode,
+          next: node.nextSibling,
+        }));
+        const nextSet = new Set(nextNodes);
+        let nextMarker = marker;
+        const needsMarker = (nativeNode || array) && !nextMarker;
+        if (needsMarker) nextMarker = doc.createComment('svet-dyn');
+        const insert = (node: Node, anchor: Node | null) => {
+          assertCurrent();
+          withDocumentAdoption(
+            target,
+            node,
+            () => {
+              target.insertBefore(node, anchor);
+            },
+            assertCurrent,
+          );
+          domMutationCounter++;
+          assertCurrent();
+        };
+        try {
+          if (needsMarker) insert(nextMarker!, originalAnchor);
+          const anchor = nextMarker ?? originalAnchor;
+          for (const node of nextNodes) insert(node, anchor);
+          for (const node of oldNodes) {
+            if (!nextSet.has(node) && node.parentNode) {
+              assertCurrent();
+              node.parentNode.removeChild(node);
+              domMutationCounter++;
+              assertCurrent();
             }
           }
-          const anchor = nextMarker?.parentNode === target ? nextMarker : originalAnchor?.parentNode === target ? originalAnchor : null;
-          for (const node of oldNodes) restore(() => { withDocumentAdoption(target, node, () => { target.insertBefore(node, anchor); }, assertCurrent); domMutationCounter++; });
-        }
-        if (needsMarker) { try { nextMarker?.parentNode?.removeChild(nextMarker); } catch { /* Best effort. */ } }
-        try { assertCurrent(); } catch { alive = false; }
-        if (!alive) {
-          for (const node of [...oldNodes, ...nextNodes]) {
-            try { node.parentNode?.removeChild(node); } catch { /* Never revive invalidated content. */ }
+          assertCurrent();
+          currentNode = nextNode;
+          currentFragment = fragment;
+          grouped = groupNodes !== null;
+          marker = nextMarker;
+          textNodeRef = nativeNode || array ? null : (nextNode as Text);
+          lastTextStr = text;
+        } catch (failure) {
+          let alive = true;
+          try {
+            assertCurrent();
+          } catch {
+            alive = false;
           }
+          // Include nodes attached after a synchronous hook invalidated the owner.
+          for (const node of nextNodes) {
+            try {
+              if (node.parentNode) {
+                node.parentNode.removeChild(node);
+                domMutationCounter++;
+              }
+            } catch {
+              /* Best effort. */
+            }
+          }
+          const restore = (action: () => void) => {
+            if (!alive) return;
+            try {
+              assertCurrent();
+              action();
+              assertCurrent();
+            } catch {
+              try {
+                assertCurrent();
+              } catch {
+                alive = false;
+              }
+            }
+          };
+          if (alive) {
+            // Restore candidate origins (including a consumed fragment) for retry.
+            if (fragment) {
+              for (const node of nextNodes.slice(1))
+                restore(() => {
+                  withDocumentAdoption(
+                    fragment,
+                    node,
+                    () => {
+                      fragment.appendChild(node);
+                    },
+                    assertCurrent,
+                  );
+                });
+            } else {
+              for (const origin of origins.slice().reverse()) {
+                restore(() => {
+                  if (origin.parent)
+                    withDocumentAdoption(
+                      origin.parent,
+                      origin.node,
+                      () => {
+                        origin.parent!.insertBefore(
+                          origin.node,
+                          origin.next?.parentNode === origin.parent ? origin.next : null,
+                        );
+                      },
+                      assertCurrent,
+                    );
+                });
+              }
+            }
+            const anchor =
+              nextMarker?.parentNode === target
+                ? nextMarker
+                : originalAnchor?.parentNode === target
+                  ? originalAnchor
+                  : null;
+            for (const node of oldNodes)
+              restore(() => {
+                withDocumentAdoption(
+                  target,
+                  node,
+                  () => {
+                    target.insertBefore(node, anchor);
+                  },
+                  assertCurrent,
+                );
+                domMutationCounter++;
+              });
+          }
+          if (needsMarker) {
+            try {
+              nextMarker?.parentNode?.removeChild(nextMarker);
+            } catch {
+              /* Best effort. */
+            }
+          }
+          try {
+            assertCurrent();
+          } catch {
+            alive = false;
+          }
+          if (!alive) {
+            for (const node of [...oldNodes, ...nextNodes]) {
+              try {
+                node.parentNode?.removeChild(node);
+              } catch {
+                /* Never revive invalidated content. */
+              }
+            }
+          }
+          throw failure;
         }
-        throw failure;
-      }
-      publishContent();
-    }));
+        publishContent();
+      }),
+    );
     assertCurrent();
     return;
   }
@@ -1122,7 +1705,10 @@ export function insertChild(parent: Node, child: ChildNodeValue, assertInsertion
   const text = String(child);
   assertCurrent();
   const textNode = document.createTextNode(text);
-  assertCurrent(); parent.appendChild(textNode); domMutationCounter++; assertCurrent();
+  assertCurrent();
+  parent.appendChild(textNode);
+  domMutationCounter++;
+  assertCurrent();
 }
 
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
@@ -1167,7 +1753,7 @@ function upgradeAmbiguousSvgChild(parent: HTMLElement, childNode: Node): Node {
   if (parent.namespaceURI !== SVG_NAMESPACE || parent.tagName.toLowerCase() === 'foreignobject') {
     return childNode;
   }
-  const element = childNode.nodeType === 1 ? childNode as Element : null;
+  const element = childNode.nodeType === 1 ? (childNode as Element) : null;
   if (
     element &&
     element.namespaceURI === HTML_NAMESPACE &&
@@ -1190,7 +1776,7 @@ function upgradeAmbiguousSvgChild(parent: HTMLElement, childNode: Node): Node {
     }
     while (childNode.firstChild) {
       svgClone.appendChild(
-        upgradeAmbiguousSvgChild(svgClone as unknown as HTMLElement, childNode.firstChild)
+        upgradeAmbiguousSvgChild(svgClone as unknown as HTMLElement, childNode.firstChild),
       );
     }
     return svgClone;
@@ -1210,7 +1796,10 @@ export function h(
   assertCallerCurrent();
   return runWithOwnerScope([], () => {
     const assertConstructionCurrent = captureViewLifetime();
-    const assertCurrent = () => {assertCallerCurrent();assertConstructionCurrent();};
+    const assertCurrent = () => {
+      assertCallerCurrent();
+      assertConstructionCurrent();
+    };
     assertCurrent();
     const normalizedProps: Record<string | symbol, any> = {};
     if (props) {
@@ -1223,7 +1812,12 @@ export function h(
         if (!descriptor?.enumerable) continue;
         const value = Reflect.get(props, key);
         assertCurrent();
-        Object.defineProperty(normalizedProps, key, {value, enumerable: true, configurable: true, writable: true});
+        Object.defineProperty(normalizedProps, key, {
+          value,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
       }
     }
     if (children.length > 0) {
@@ -1236,7 +1830,7 @@ export function h(
       if (rendered !== undefined) return rendered;
       const result = untrack(() => type(normalizedProps));
       assertCurrent();
-      const then = untrack(() => result && (result as unknown as {then?: unknown}).then);
+      const then = untrack(() => result && (result as unknown as { then?: unknown }).then);
       assertCurrent();
       if (typeof then === 'function') {
         // Observe an unsupported promise too, so a rejected component does not
@@ -1273,18 +1867,24 @@ export function h(
       if (el.namespaceURI === SVG_NAMESPACE && type !== 'foreignObject') {
         const upgraded = Array.isArray(normalizedProps.children)
           ? normalizedProps.children.map((c: any) =>
-              isDomNode(c) ? upgradeAmbiguousSvgChild(el, c) : c
+              isDomNode(c) ? upgradeAmbiguousSvgChild(el, c) : c,
             )
           : isDomNode(normalizedProps.children)
-          ? upgradeAmbiguousSvgChild(el, normalizedProps.children)
-          : normalizedProps.children;
+            ? upgradeAmbiguousSvgChild(el, normalizedProps.children)
+            : normalizedProps.children;
         insertChild(el, upgraded, assertCurrent);
       } else {
         insertChild(el, normalizedProps.children, assertCurrent);
       }
     }
     if (el.tagName === 'SELECT') {
-      untrack(() => { for (const synchronize of modelSynchronizers.get(el) ?? []) { assertCurrent(); synchronize(); assertCurrent(); } });
+      untrack(() => {
+        for (const synchronize of modelSynchronizers.get(el) ?? []) {
+          assertCurrent();
+          synchronize();
+          assertCurrent();
+        }
+      });
     }
     // A live form owns routing even before it has any modeled controls. Native
     // later insertions/moves must not depend on a mutation-observer checkpoint.
@@ -1299,7 +1899,10 @@ export function Fragment(props: { children?: ChildNodeValue }): DocumentFragment
   assertCallerCurrent();
   return runWithOwnerScope([], () => {
     const assertFragmentCurrent = captureViewLifetime();
-    const assertCurrent = () => {assertCallerCurrent();assertFragmentCurrent();};
+    const assertCurrent = () => {
+      assertCallerCurrent();
+      assertFragmentCurrent();
+    };
     assertCurrent();
     const frag = document.createDocumentFragment();
     assertCurrent();
@@ -1313,17 +1916,23 @@ export function Fragment(props: { children?: ChildNodeValue }): DocumentFragment
 
 /** @internal Captures a view owner and graph generation before user rendering. */
 export function captureViewLifetime(): () => void {
-  const owner = getCurrentOwner(), core = getWasmCore(), generation = getReactiveGeneration(core);
+  const owner = getCurrentOwner(),
+    core = getWasmCore(),
+    generation = getReactiveGeneration(core);
   return () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('View owner disposed during rendering');
-    if (generation !== getReactiveGeneration(core)) throw new Error('Reactive graph reset during view rendering');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('Reactive graph reset during view rendering');
   };
 }
 
 /** @internal Commits a branch with partial-insertion cleanup. */
 export function mountOwnedViewNodes(
-  fragment: DocumentFragment, anchor: Comment, content: ChildNodeValue, assertViewCurrent: () => void,
-  onMutation?: () => void
+  fragment: DocumentFragment,
+  anchor: Comment,
+  content: ChildNodeValue,
+  assertViewCurrent: () => void,
+  onMutation?: () => void,
 ): Node[] {
   const branch = getCurrentOwner();
   const assertCurrent = () => {
@@ -1340,14 +1949,28 @@ export function mountOwnedViewNodes(
     for (const node of nodes) {
       assertCurrent();
       const target = anchor.parentNode ?? fragment;
-      withDocumentAdoption(target, node, () => { target.insertBefore(node, anchor); }, assertCurrent);
+      withDocumentAdoption(
+        target,
+        node,
+        () => {
+          target.insertBefore(node, anchor);
+        },
+        assertCurrent,
+      );
       onMutation?.();
       assertCurrent();
     }
     return nodes;
   } catch (failure) {
     for (const node of nodes) {
-      try { if (node.parentNode) { node.parentNode.removeChild(node); onMutation?.(); } } catch { /* Preserve the insertion failure. */ }
+      try {
+        if (node.parentNode) {
+          node.parentNode.removeChild(node);
+          onMutation?.();
+        }
+      } catch {
+        /* Preserve the insertion failure. */
+      }
     }
     throw failure;
   }
@@ -1378,12 +2001,18 @@ export function Show<T>(props: {
     const isCallbackChild = typeof initialChildren === 'function' && initialChildren.length > 0;
 
     const clearCurrent = () => {
-      activeState = 'none'; lastTruthyVal = undefined;
-      const dispose = disposeBranchScope; disposeBranchScope = null;
+      activeState = 'none';
+      lastTruthyVal = undefined;
+      const dispose = disposeBranchScope;
+      disposeBranchScope = null;
       dispose?.();
-      const nodes = currentNodes; currentNodes = [];
+      const nodes = currentNodes;
+      currentNodes = [];
       for (const node of nodes) {
-        if (node.parentNode) { node.parentNode.removeChild(node); domMutationCounter++; }
+        if (node.parentNode) {
+          node.parentNode.removeChild(node);
+          domMutationCounter++;
+        }
       }
     };
     onCleanup(clearCurrent);
@@ -1392,7 +2021,9 @@ export function Show<T>(props: {
       createRoot(dispose => {
         disposeBranchScope = dispose;
         const content = untrack(factory);
-        currentNodes = mountOwnedViewNodes(frag, anchor, content, assertViewCurrent, () => { domMutationCounter++; });
+        currentNodes = mountOwnedViewNodes(frag, anchor, content, assertViewCurrent, () => {
+          domMutationCounter++;
+        });
       });
     };
 
@@ -1403,7 +2034,12 @@ export function Show<T>(props: {
       const cond = isReactiveAccessor(when) ? when() : when;
       assertViewCurrent();
       const truthy = Boolean(cond);
-      if (truthy && activeState === 'truthy' && (!isCallbackChild || Object.is(lastTruthyVal, cond))) return;
+      if (
+        truthy &&
+        activeState === 'truthy' &&
+        (!isCallbackChild || Object.is(lastTruthyVal, cond))
+      )
+        return;
       if (!truthy && activeState === 'falsy') return;
       clearCurrent();
       assertViewCurrent();
@@ -1411,12 +2047,17 @@ export function Show<T>(props: {
         mountBranch(() => {
           const children = props.children;
           assertViewCurrent();
-          return typeof children === 'function' ? (children as (value: NonNullable<T>) => Node)(cond as NonNullable<T>) : children;
+          return typeof children === 'function'
+            ? (children as (value: NonNullable<T>) => Node)(cond as NonNullable<T>)
+            : children;
         });
       } else {
         const fallback = props.fallback;
         assertViewCurrent();
-        if (fallback !== undefined) mountBranch(() => typeof fallback === 'function' ? (fallback as () => Node)() : fallback);
+        if (fallback !== undefined)
+          mountBranch(() =>
+            typeof fallback === 'function' ? (fallback as () => Node)() : fallback,
+          );
       }
       assertViewCurrent();
       // Only a successfully committed branch may suppress a later same-state run.
@@ -1445,17 +2086,36 @@ export function For<T, K = T>(props: {
   children: (item: T, index: () => number, current: () => T) => Node;
 }): DocumentFragment {
   return runWithOwnerScope([], () => {
-    const assertViewCurrent = captureViewLifetime(), core = getWasmCore();
+    const assertViewCurrent = captureViewLifetime(),
+      core = getWasmCore();
     const frag = document.createDocumentFragment();
     const endMarker = document.createComment('svet-for-end');
     frag.appendChild(endMarker);
-    type MappedRecord = { key: K; item: T; itemSig?: Signal<T>; node: Node; end?: Node; preparedNodes?: Node[]; movingNodes?: Node[]; index: number; indexSig?: Signal<number>; disposeScope: () => void };
-    let currentRecords: MappedRecord[] = [], scratchRecords: MappedRecord[] = [];
+    type MappedRecord = {
+      key: K;
+      item: T;
+      itemSig?: Signal<T>;
+      node: Node;
+      end?: Node;
+      preparedNodes?: Node[];
+      movingNodes?: Node[];
+      index: number;
+      indexSig?: Signal<number>;
+      disposeScope: () => void;
+    };
+    let currentRecords: MappedRecord[] = [],
+      scratchRecords: MappedRecord[] = [];
     const recordMap = new Map<K, MappedRecord>();
     const intKeyTable: Array<MappedRecord | undefined> = [];
     let scratchIndices = new Uint32Array(64);
-    const isIntKey = (key: K): boolean => typeof key === 'number' && key >= 0 && key < 65536 && (key | 0) === key;
-    const removeNode = (node: Node) => { if (node.parentNode) { node.parentNode.removeChild(node); domMutationCounter++; } };
+    const isIntKey = (key: K): boolean =>
+      typeof key === 'number' && key >= 0 && key < 65536 && (key | 0) === key;
+    const removeNode = (node: Node) => {
+      if (node.parentNode) {
+        node.parentNode.removeChild(node);
+        domMutationCounter++;
+      }
+    };
     let updating = false;
     const rowNodes = (rec: MappedRecord): Node[] => {
       if (rec.movingNodes) return rec.movingNodes;
@@ -1472,35 +2132,80 @@ export function For<T, K = T>(props: {
       throw new Error('Broken For row range');
     };
     const clearSnapshots = (records: readonly MappedRecord[]) => {
-      for (const rec of records) { rec.preparedNodes = undefined; rec.movingNodes = undefined; }
+      for (const rec of records) {
+        rec.preparedNodes = undefined;
+        rec.movingNodes = undefined;
+      }
     };
     const discardRows = (records: readonly MappedRecord[]) => {
       for (const rec of records) {
         let nodes: Node[];
-        try { nodes = rowNodes(rec); } catch { nodes = [rec.node, rec.end].filter((node): node is Node => !!node); }
-        try { rec.disposeScope(); } catch { /* Complete remaining row teardown. */ }
-        for (const node of nodes) { try { removeNode(node); } catch { /* Teardown remains best effort. */ } }
+        try {
+          nodes = rowNodes(rec);
+        } catch {
+          nodes = [rec.node, rec.end].filter((node): node is Node => !!node);
+        }
+        try {
+          rec.disposeScope();
+        } catch {
+          /* Complete remaining row teardown. */
+        }
+        for (const node of nodes) {
+          try {
+            removeNode(node);
+          } catch {
+            /* Teardown remains best effort. */
+          }
+        }
       }
       // A synchronous insertion hook may still attach a node after owner cleanup.
       if (!updating) clearSnapshots(records);
     };
     const moveRow = (rec: MappedRecord, parent: Node, anchor: Node) => {
       if (!rec.end) {
-        assertViewCurrent(); withDocumentAdoption(parent, rec.node, () => { parent.insertBefore(rec.node, anchor); }, assertViewCurrent); domMutationCounter++; assertViewCurrent();
+        assertViewCurrent();
+        withDocumentAdoption(
+          parent,
+          rec.node,
+          () => {
+            parent.insertBefore(rec.node, anchor);
+          },
+          assertViewCurrent,
+        );
+        domMutationCounter++;
+        assertViewCurrent();
         return;
       }
       const nodes = rowNodes(rec);
       rec.movingNodes = nodes;
       for (const node of nodes) {
-        assertViewCurrent(); withDocumentAdoption(parent, node, () => { parent.insertBefore(node, anchor); }, assertViewCurrent); domMutationCounter++; assertViewCurrent();
+        assertViewCurrent();
+        withDocumentAdoption(
+          parent,
+          node,
+          () => {
+            parent.insertBefore(node, anchor);
+          },
+          assertViewCurrent,
+        );
+        domMutationCounter++;
+        assertViewCurrent();
       }
-      rec.movingNodes = undefined; rec.preparedNodes = undefined;
+      rec.movingNodes = undefined;
+      rec.preparedNodes = undefined;
     };
     onCleanup(() => {
       const records = currentRecords;
-      currentRecords = []; scratchRecords = []; recordMap.clear(); intKeyTable.length = 0;
+      currentRecords = [];
+      scratchRecords = [];
+      recordMap.clear();
+      intKeyTable.length = 0;
       discardRows(records);
-      try { removeNode(endMarker); } catch { /* Preserve owner teardown. */ }
+      try {
+        removeNode(endMarker);
+      } catch {
+        /* Preserve owner teardown. */
+      }
     });
 
     effect(() => {
@@ -1513,26 +2218,38 @@ export function For<T, K = T>(props: {
       const getKey = props.keyFn ?? ((item: T) => item as unknown as K);
       const render = props.children;
       assertViewCurrent();
-      const keys: K[] = [], seen = new Set<K>();
+      const keys: K[] = [],
+        seen = new Set<K>();
       for (let i = 0; i < items.length; i++) {
         const key = getKey(items[i], i);
         assertViewCurrent();
         if (seen.has(key)) throw new Error('Duplicate For key');
-        seen.add(key); keys.push(key);
+        seen.add(key);
+        keys.push(key);
       }
-      const oldRecords = currentRecords, oldLen = oldRecords.length, nextLen = items.length;
+      const oldRecords = currentRecords,
+        oldLen = oldRecords.length,
+        nextLen = items.length;
       if (scratchIndices.length < nextLen) scratchIndices = new Uint32Array(Math.max(nextLen, 64));
       const oldIndices = scratchIndices;
-      const nextRecords = scratchRecords.length === nextLen ? scratchRecords : new Array<MappedRecord>(nextLen);
-      const created: MappedRecord[] = [], removed: MappedRecord[] = [];
+      const nextRecords =
+        scratchRecords.length === nextLen ? scratchRecords : new Array<MappedRecord>(nextLen);
+      const created: MappedRecord[] = [],
+        removed: MappedRecord[] = [];
       const parent = endMarker.parentNode ?? frag;
-      let anyMovedOrNew = false, prevOldIdx = -1, displacedCount = 0;
-      let firstDisplacedIdx = -1, secondDisplacedIdx = -1, reusedCount = 0, committed = false;
+      let anyMovedOrNew = false,
+        prevOldIdx = -1,
+        displacedCount = 0;
+      let firstDisplacedIdx = -1,
+        secondDisplacedIdx = -1,
+        reusedCount = 0,
+        committed = false;
       updating = true;
       try {
         // Prepare rows without publishing lookup entries or changing existing indexes.
         for (let i = 0; i < nextLen; i++) {
-          const item = items[i], key = keys[i];
+          const item = items[i],
+            key = keys[i];
           const existing = isIntKey(key) ? intKeyTable[key as number] : recordMap.get(key);
           if (existing) {
             reusedCount++;
@@ -1540,7 +2257,10 @@ export function For<T, K = T>(props: {
             oldIndices[i] = oldIdx;
             if (oldIdx < prevOldIdx) {
               anyMovedOrNew = true;
-              const prevWasJump = i >= 2 ? oldIndices[i - 1] > oldIdx && oldIdx > oldIndices[i - 2] : oldIndices[0] > oldIdx && i + 1 < nextLen;
+              const prevWasJump =
+                i >= 2
+                  ? oldIndices[i - 1] > oldIdx && oldIdx > oldIndices[i - 2]
+                  : oldIndices[0] > oldIdx && i + 1 < nextLen;
               const displacedPos = prevWasJump ? i - 1 : i;
               displacedCount++;
               if (displacedCount === 1) firstDisplacedIdx = displacedPos;
@@ -1549,14 +2269,28 @@ export function For<T, K = T>(props: {
             } else prevOldIdx = oldIdx;
             nextRecords[i] = existing;
           } else {
-            oldIndices[i] = NEW_ITEM_MARKER; anyMovedOrNew = true; displacedCount = 999;
-            let rowDispose: (() => void) | undefined, rowDisposed = false;
+            oldIndices[i] = NEW_ITEM_MARKER;
+            anyMovedOrNew = true;
+            displacedCount = 999;
+            let rowDispose: (() => void) | undefined,
+              rowDisposed = false;
             const rec: MappedRecord = {
-              key, item, node: null as unknown as Node, index: i,
+              key,
+              item,
+              node: null as unknown as Node,
+              index: i,
               disposeScope() {
                 if (rowDisposed) return;
                 rowDisposed = true;
-                try { rowDispose?.(); } finally { try { rec.indexSig?.dispose(); } finally { rec.itemSig?.dispose(); } }
+                try {
+                  rowDispose?.();
+                } finally {
+                  try {
+                    rec.indexSig?.dispose();
+                  } finally {
+                    rec.itemSig?.dispose();
+                  }
+                }
               },
             };
             created.push(rec);
@@ -1576,23 +2310,26 @@ export function For<T, K = T>(props: {
               }
               return rec.itemSig();
             };
-            rec.node = untrack(() => createRoot(dispose => {
-              rowDispose = dispose;
-              const node = render(item, index, current);
-              assertViewCurrent();
-              if (node.nodeType === 11) {
-                const start = node.ownerDocument!.createComment('svet-for-row');
-                const end = node.ownerDocument!.createComment('svet-for-row-end');
-                rec.node = start; rec.end = end;
-                rec.preparedNodes = [start, ...Array.from(node.childNodes), end];
-                node.insertBefore(start, node.firstChild);
+            rec.node = untrack(() =>
+              createRoot(dispose => {
+                rowDispose = dispose;
+                const node = render(item, index, current);
                 assertViewCurrent();
-                node.appendChild(end);
-                assertViewCurrent();
-                return start;
-              }
-              return node;
-            }));
+                if (node.nodeType === 11) {
+                  const start = node.ownerDocument!.createComment('svet-for-row');
+                  const end = node.ownerDocument!.createComment('svet-for-row-end');
+                  rec.node = start;
+                  rec.end = end;
+                  rec.preparedNodes = [start, ...Array.from(node.childNodes), end];
+                  node.insertBefore(start, node.firstChild);
+                  assertViewCurrent();
+                  node.appendChild(end);
+                  assertViewCurrent();
+                  return start;
+                }
+                return node;
+              }),
+            );
             assertViewCurrent();
             nextRecords[i] = rec;
           }
@@ -1609,7 +2346,12 @@ export function For<T, K = T>(props: {
           }
         }
         if (anyMovedOrNew) {
-          if (displacedCount > 0 && displacedCount <= 2 && reusedCount === nextLen && oldLen === nextLen) {
+          if (
+            displacedCount > 0 &&
+            displacedCount <= 2 &&
+            reusedCount === nextLen &&
+            oldLen === nextLen
+          ) {
             // Move only displaced rows; fragment rows move their complete live ranges.
             const moveIdx = (idx: number) => {
               const rec = nextRecords[idx];
@@ -1654,7 +2396,8 @@ export function For<T, K = T>(props: {
         // DOM preparation succeeded. Publish records before any teardown callbacks.
         for (let i = 0; i < nextLen; i++) {
           const rec = nextRecords[i];
-          rec.index = i; rec.item = items[i];
+          rec.index = i;
+          rec.item = items[i];
           rec.indexSig?.set(i);
           // A function-valued item is data, never a signal updater.
           rec.itemSig?.set(() => rec.item);
@@ -1667,32 +2410,61 @@ export function For<T, K = T>(props: {
           if (isIntKey(rec.key)) intKeyTable[rec.key as number] = rec;
           else recordMap.set(rec.key, rec);
         }
-        if (nextLen === 0) { recordMap.clear(); intKeyTable.length = 0; }
-        scratchRecords = oldRecords; currentRecords = nextRecords; committed = true;
+        if (nextLen === 0) {
+          recordMap.clear();
+          intKeyTable.length = 0;
+        }
+        scratchRecords = oldRecords;
+        currentRecords = nextRecords;
+        committed = true;
         for (const rec of removed) {
-          const nodes = rowNodes(rec); rec.disposeScope();
+          const nodes = rowNodes(rec);
+          rec.disposeScope();
           for (const node of nodes) removeNode(node);
         }
         clearSnapshots(removed);
         assertViewCurrent();
       } catch (failure) {
         let alive = true;
-        try { assertViewCurrent(); } catch { alive = false; }
+        try {
+          assertViewCurrent();
+        } catch {
+          alive = false;
+        }
         if (!alive) {
-          currentRecords = []; scratchRecords = []; recordMap.clear(); intKeyTable.length = 0;
-          discardRows(oldRecords); discardRows(created);
-          clearSnapshots(oldRecords); clearSnapshots(created);
-          try { removeNode(endMarker); } catch { /* Preserve lifetime failure. */ }
+          currentRecords = [];
+          scratchRecords = [];
+          recordMap.clear();
+          intKeyTable.length = 0;
+          discardRows(oldRecords);
+          discardRows(created);
+          clearSnapshots(oldRecords);
+          clearSnapshots(created);
+          try {
+            removeNode(endMarker);
+          } catch {
+            /* Preserve lifetime failure. */
+          }
         } else if (!committed) {
           scratchRecords = [];
-          discardRows(created); clearSnapshots(created);
+          discardRows(created);
+          clearSnapshots(created);
           // Old rows are still live: restore their exact committed order.
           for (const rec of oldRecords) {
-            try { moveRow(rec, parent, endMarker); } catch { /* Preserve original failure. */ }
+            try {
+              moveRow(rec, parent, endMarker);
+            } catch {
+              /* Preserve original failure. */
+            }
           }
-        } else { discardRows(removed); clearSnapshots(removed); }
+        } else {
+          discardRows(removed);
+          clearSnapshots(removed);
+        }
         throw failure;
-      } finally { updating = false; }
+      } finally {
+        updating = false;
+      }
     });
     assertViewCurrent();
     return frag;
@@ -1713,8 +2485,10 @@ export function mount(view: () => Node, container: HTMLElement | ShadowRoot): { 
   mountAttempts.set(container, attempt);
   let assertRootCurrent!: () => void;
   const assertMountCurrent = () => {
-    assertCallerCurrent(); assertRootCurrent();
-    if (mountAttempts.get(container) !== attempt) throw new Error('Mount superseded by a newer mount');
+    assertCallerCurrent();
+    assertRootCurrent();
+    if (mountAttempts.get(container) !== attempt)
+      throw new Error('Mount superseded by a newer mount');
   };
   let disposeRoot!: () => void;
   let node: Node;
@@ -1729,7 +2503,10 @@ export function mount(view: () => Node, container: HTMLElement | ShadowRoot): { 
       const treeRoot = container.getRootNode();
       if (treeRoot !== container) retainOwnedResetRoot(treeRoot);
       const mountOwner = getCurrentOwner()!;
-      (mountOwner.context ??= new Map()).set(delegationAreaKey, treeRoot.nodeType === 11 && 'host' in treeRoot ? container : undefined);
+      (mountOwner.context ??= new Map()).set(
+        delegationAreaKey,
+        treeRoot.nodeType === 11 && 'host' in treeRoot ? container : undefined,
+      );
       assertMountCurrent();
       const result = view();
       assertMountCurrent();
@@ -1746,13 +2523,27 @@ export function mount(view: () => Node, container: HTMLElement | ShadowRoot): { 
     assertMountCurrent();
     mountedContainers.get(container)?.();
     assertMountCurrent();
-    withDocumentAdoption(container, node, () => { container.replaceChildren(node); }, assertMountCurrent);
+    withDocumentAdoption(
+      container,
+      node,
+      () => {
+        container.replaceChildren(node);
+      },
+      assertMountCurrent,
+    );
     assertMountCurrent();
   } catch (error) {
-    try { disposeRoot(); } catch { /* Preserve the DOM/replacement failure. */ }
+    try {
+      disposeRoot();
+    } catch {
+      /* Preserve the DOM/replacement failure. */
+    }
     for (const prepared of preparedNodes) {
-      try { if (prepared.parentNode === container) container.removeChild(prepared); }
-      catch { /* Preserve the original failure if native rollback also fails. */ }
+      try {
+        if (prepared.parentNode === container) container.removeChild(prepared);
+      } catch {
+        /* Preserve the original failure if native rollback also fails. */
+      }
     }
     throw error;
   }
@@ -1770,7 +2561,9 @@ export function mount(view: () => Node, container: HTMLElement | ShadowRoot): { 
       domFailed = true;
       throw error;
     } finally {
-      try { disposeRoot(); } catch (error) {
+      try {
+        disposeRoot();
+      } catch (error) {
         if (!domFailed) throw error;
       }
     }

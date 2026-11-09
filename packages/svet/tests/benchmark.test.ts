@@ -40,11 +40,7 @@ interface VNode {
   patchFlag?: number;
 }
 
-function vnode(
-  tag: string,
-  props: Record<string, any>,
-  ...children: Array<VNode | string>
-): VNode {
+function vnode(tag: string, props: Record<string, any>, ...children: Array<VNode | string>): VNode {
   return { tag, props, children };
 }
 
@@ -118,10 +114,10 @@ describe('Svet and local algorithm simulations', () => {
           'div',
           { className: 'table' },
           ...rowSignals.map((sig, idx) =>
-            h('div', { className: 'row', 'data-idx': String(idx) }, () => `Row: ${sig()}`)
-          )
+            h('div', { className: 'row', 'data-idx': String(idx) }, () => `Row: ${sig()}`),
+          ),
         ),
-      svetContainer
+      svetContainer,
     );
 
     // Warmup pass for V8 JIT compilation before timing
@@ -148,7 +144,7 @@ describe('Svet and local algorithm simulations', () => {
       vnode(
         'div',
         { class: 'table' },
-        ...vals.map((v, idx) => vnode('div', { class: 'row', 'data-idx': idx }, `Row: ${v}`))
+        ...vals.map((v, idx) => vnode('div', { class: 'row', 'data-idx': idx }, `Row: ${v}`)),
       );
 
     let prevReactTree = renderReactTree(reactValues);
@@ -169,7 +165,7 @@ describe('Svet and local algorithm simulations', () => {
         get(t, p) {
           return Reflect.get(t, p);
         },
-      }
+      },
     );
     const vueTableEl = document.createElement('div');
     for (let i = 0; i < ROW_COUNT; i++) {
@@ -256,7 +252,7 @@ describe('Svet and local algorithm simulations', () => {
             }
             return true;
           },
-        }
+        },
       );
       const effNode: SvelteEffectNode = {
         flags: 0,
@@ -506,13 +502,13 @@ describe('Svet and local algorithm simulations', () => {
     const markSvelteReactions = (d: SvelteDerived, flag: number) => {
       if ((d.flags & 3) === 0) {
         d.flags |= flag;
-        d.reactions.forEach((child) => markSvelteReactions(child, 2));
+        d.reactions.forEach(child => markSvelteReactions(child, 2));
       }
     };
     const t0SvelteDag = performance.now();
     for (let i = 0; i < 5000; i++) {
       svelteRootVal = i + 2;
-      svelteRootReactions.forEach((r) => markSvelteReactions(r, 1));
+      svelteRootReactions.forEach(r => markSvelteReactions(r, 1));
       getSvelteDerived(svL);
       getSvelteDerived(svR);
     }
@@ -540,10 +536,10 @@ describe('Svet and local algorithm simulations', () => {
       () =>
         For({
           each: listSig,
-          keyFn: (item) => item.id,
-          children: (item) => h('li', null, item.text),
+          keyFn: item => item.id,
+          children: item => h('li', null, item.text),
         }),
-      listContainer
+      listContainer,
     );
 
     // Warmup pass for <For> reconciler so V8 JIT compiles the reconciler before timing
@@ -596,7 +592,7 @@ describe('Svet and local algorithm simulations', () => {
       vueMap.set(i, li);
     }
     const t0VueList = performance.now();
-    const vueNewVNodes = reordered.map((it) => vnode('li', { key: it.id }, it.text));
+    const vueNewVNodes = reordered.map(it => vnode('li', { key: it.id }, it.text));
     const keyToNewIndexMap = new Map<number, number>();
     for (let i = 0; i < vueNewVNodes.length; i++) {
       keyToNewIndexMap.set(vueNewVNodes[i].props.key, i);
@@ -690,7 +686,7 @@ describe('Svet and local algorithm simulations', () => {
       const item = svelteMatched[bIdx];
       if (item.idx.v !== bIdx) {
         item.idx.v = bIdx;
-        item.idx.reactions.forEach((r) => r());
+        item.idx.reactions.forEach(r => r());
         stashed.add(item);
       }
       aIdx--;
@@ -796,7 +792,13 @@ describe('Svet and local algorithm simulations', () => {
     const t0SvelteRecycle = performance.now();
     const svelteSourceReactions = new Set<any>();
     for (let i = 0; i < 50000; i++) {
-      const parentBranch = { flags: 64, first: null as any, last: null as any, children: new Set<any>(), cleanups: new Map() };
+      const parentBranch = {
+        flags: 64,
+        first: null as any,
+        last: null as any,
+        children: new Set<any>(),
+        cleanups: new Map(),
+      };
       const effNode = {
         flags: 2,
         deps: new Set([svelteSourceReactions]),
@@ -913,9 +915,9 @@ describe('Svet and local algorithm simulations', () => {
       'div',
       {},
       ...Array.from({ length: 500 }, (_, i) =>
-        vnode('div', { class: 'card' }, vnode('span', {}, `Static Item ${i}`))
+        vnode('div', { class: 'card' }, vnode('span', {}, `Static Item ${i}`)),
       ),
-      vnode('strong', {}, '1025')
+      vnode('strong', {}, '1025'),
     );
     diffReactVNode(hydratedVTree, hydratedVTree, ssrRootReact);
     const hydrateReactMs = performance.now() - t0HydrateReact;

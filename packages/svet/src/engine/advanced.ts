@@ -15,7 +15,14 @@
  *    `OwnerScope` disposal when switching routes.
  */
 
-import { type ChildNodeValue, h, insertChild, captureViewLifetime, mountOwnedViewNodes, withDocumentAdoption } from './dom.ts';
+import {
+  type ChildNodeValue,
+  h,
+  insertChild,
+  captureViewLifetime,
+  mountOwnedViewNodes,
+  withDocumentAdoption,
+} from './dom.ts';
 import {
   batch,
   createRoot,
@@ -49,18 +56,27 @@ export interface SvetContext<T> {
 export function createContext<T>(defaultValue: T): SvetContext<T> {
   const id = Symbol('svet-context');
 
-  const Provider = (props: { value: T; children: ChildNodeValue | (() => Node) }): DocumentFragment => {
+  const Provider = (props: {
+    value: T;
+    children: ChildNodeValue | (() => Node);
+  }): DocumentFragment => {
     const assertCallerCurrent = captureViewLifetime();
     assertCallerCurrent();
     return runWithOwnerScope([], () => {
       const assertConstructionCurrent = captureViewLifetime();
-      const assertConstruction = () => {assertCallerCurrent();assertConstructionCurrent();};
+      const assertConstruction = () => {
+        assertCallerCurrent();
+        assertConstructionCurrent();
+      };
       assertConstruction();
       const value = props.value;
       assertConstruction();
       return runWithOwnerScope([[id, value]], () => {
         const assertProviderCurrent = captureViewLifetime();
-        const assertCurrent = () => {assertConstruction();assertProviderCurrent();};
+        const assertCurrent = () => {
+          assertConstruction();
+          assertProviderCurrent();
+        };
         assertCurrent();
         const children = props.children;
         assertCurrent();
@@ -91,16 +107,21 @@ export function Portal(props: {
   children: ChildNodeValue | (() => Node);
 }): Comment {
   return runWithOwnerScope([], () => {
-    const owner = getCurrentOwner()!, core = getWasmCore(), generation = getReactiveGeneration(core);
+    const owner = getCurrentOwner()!,
+      core = getWasmCore(),
+      generation = getReactiveGeneration(core);
     const assertCurrent = () => {
       if (owner.disposed) throw new Error('Portal construction owner disposed');
-      if (generation !== getReactiveGeneration(core)) throw new Error('Reactive graph reset during portal construction');
+      if (generation !== getReactiveGeneration(core))
+        throw new Error('Reactive graph reset during portal construction');
     };
     const placeholder = document.createComment('svet-portal');
     const container = document.createElement('div');
     container.setAttribute('data-svet-portal', '');
     // Register before user rendering/insertion so partial attachment can be undone.
-    const removeContainer = () => { container.parentNode?.removeChild(container); };
+    const removeContainer = () => {
+      container.parentNode?.removeChild(container);
+    };
     onCleanup(removeContainer);
     try {
       const target = props.mount ?? document.body;
@@ -111,12 +132,23 @@ export function Portal(props: {
       assertCurrent();
       insertChild(container, content, assertCurrent);
       assertCurrent();
-      withDocumentAdoption(target, container, () => { target.appendChild(container); }, assertCurrent);
+      withDocumentAdoption(
+        target,
+        container,
+        () => {
+          target.appendChild(container);
+        },
+        assertCurrent,
+      );
       assertCurrent();
       return placeholder;
     } catch (failure) {
       // An insertion hook can attach after owner cleanup has already run.
-      try { removeContainer(); } catch { /* Preserve the construction failure. */ }
+      try {
+        removeContainer();
+      } catch {
+        /* Preserve the construction failure. */
+      }
       throw failure;
     }
   });
@@ -134,10 +166,15 @@ interface SuspenseController {
 // Built-in protocols must agree across compatible copies sharing an owner/core.
 // User createContext calls intentionally retain unique identities.
 const SuspenseContext: Pick<SvetContext<SuspenseController | null>, 'id' | 'defaultValue'> = {
-  id: Symbol.for('svet.context.suspense.v1'), defaultValue: null,
+  id: Symbol.for('svet.context.suspense.v1'),
+  defaultValue: null,
 } as const;
-const ErrorBoundaryContext: Pick<SvetContext<((err: Error) => void) | null>, 'id' | 'defaultValue'> = {
-  id: Symbol.for('svet.context.error-boundary.v1'), defaultValue: null,
+const ErrorBoundaryContext: Pick<
+  SvetContext<((err: Error) => void) | null>,
+  'id' | 'defaultValue'
+> = {
+  id: Symbol.for('svet.context.error-boundary.v1'),
+  defaultValue: null,
 } as const;
 
 export interface ResourceFetcherContext {
@@ -164,12 +201,15 @@ export interface Resource<T> {
 export function createResource<T, S = true>(
   sourceOrFetcher: (() => S) | ((ctx: ResourceFetcherContext) => PromiseLike<T>),
   maybeFetcher?: (source: S, ctx: ResourceFetcherContext) => PromiseLike<T>,
-  options?: { initialValue?: T }
+  options?: { initialValue?: T },
 ): Resource<T> {
-  const owner = getCurrentOwner(), core = getWasmCore(), generation = getReactiveGeneration(core);
+  const owner = getCurrentOwner(),
+    core = getWasmCore(),
+    generation = getReactiveGeneration(core);
   const assertConstructionCurrent = () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('Resource construction owner disposed');
-    if (generation !== getReactiveGeneration(core)) throw new Error('Resource graph reset during construction');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('Resource graph reset during construction');
   };
   assertConstructionCurrent();
   const hasSource = typeof maybeFetcher === 'function';
@@ -193,41 +233,57 @@ export function createResource<T, S = true>(
   let unregisterReset: (() => void) | null = null;
   let isDisposed = false;
   let sourceObserver: EffectHandle | undefined;
-  const isCurrent = () => !isDisposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
+  const isCurrent = () =>
+    !isDisposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
 
   let pending = false;
   const finishLoading = () => {
     if (!pending) return;
     pending = false;
-    try { loading.set(false); } finally { suspense?.decrement(); }
+    try {
+      loading.set(false);
+    } finally {
+      suspense?.decrement();
+    }
   };
 
-  const abortCurrent = () => runUntrackedInCore(core, () => {
-    const controller = activeAbortController, cancel = activeCancellation;
-    activeAbortController = null;
-    activeCancellation = null;
-    const unregister = unregisterReset;
-    unregisterReset = null;
-    unregister?.();
-    // Settle the public wait independently of an uncooperative fetcher. Clear
-    // both slots before synchronous abort listeners can start a replacement.
-    cancel?.();
-    controller?.abort();
-  });
+  const abortCurrent = () =>
+    runUntrackedInCore(core, () => {
+      const controller = activeAbortController,
+        cancel = activeCancellation;
+      activeAbortController = null;
+      activeCancellation = null;
+      const unregister = unregisterReset;
+      unregisterReset = null;
+      unregister?.();
+      // Settle the public wait independently of an uncooperative fetcher. Clear
+      // both slots before synchronous abort listeners can start a replacement.
+      cancel?.();
+      controller?.abort();
+    });
 
-  const dispose = () => runUntrackedInCore(core, () => {
-    if (isDisposed) return;
-    isDisposed = true; ++fetchVersion;
-    if (owner && !owner.disposed) {
-      const index = owner.disposables.indexOf(dispose);
-      if (index >= 0) owner.disposables.splice(index, 1);
-    }
-    try { abortCurrent(); finishLoading(); }
-    finally {
-      try { sourceObserver?.dispose(); }
-      finally { data.dispose(); loading.dispose(); error.dispose(); }
-    }
-  });
+  const dispose = () =>
+    runUntrackedInCore(core, () => {
+      if (isDisposed) return;
+      isDisposed = true;
+      ++fetchVersion;
+      if (owner && !owner.disposed) {
+        const index = owner.disposables.indexOf(dispose);
+        if (index >= 0) owner.disposables.splice(index, 1);
+      }
+      try {
+        abortCurrent();
+        finishLoading();
+      } finally {
+        try {
+          sourceObserver?.dispose();
+        } finally {
+          data.dispose();
+          loading.dispose();
+          error.dispose();
+        }
+      }
+    });
   onCleanup(dispose);
 
   const performLoad = async (srcVal: S, cancel: () => void): Promise<T | undefined> => {
@@ -244,7 +300,8 @@ export function createResource<T, S = true>(
       abortCurrent();
       if (version === fetchVersion) finishLoading();
     });
-    const requestCurrent = () => isCurrent() && currentVersion === fetchVersion && !controller.signal.aborted;
+    const requestCurrent = () =>
+      isCurrent() && currentVersion === fetchVersion && !controller.signal.aborted;
 
     try {
       if (!pending) {
@@ -299,11 +356,16 @@ export function createResource<T, S = true>(
 
   const load = (srcVal: S): Promise<T | undefined> => {
     let cancel!: () => void;
-    const cancellation = new Promise<undefined>(resolve => { cancel = () => resolve(undefined); });
+    const cancellation = new Promise<undefined>(resolve => {
+      cancel = () => resolve(undefined);
+    });
     // Keep publication in performLoad's direct await continuation, preserving
     // its ordering relative to observers awaiting the fetcher's original Promise.
     // race also observes eventual failures after cancellation has won.
-    return Promise.race([runUntrackedInCore(core, () => performLoad(srcVal, cancel)), cancellation]);
+    return Promise.race([
+      runUntrackedInCore(core, () => performLoad(srcVal, cancel)),
+      cancellation,
+    ]);
   };
 
   try {
@@ -323,7 +385,11 @@ export function createResource<T, S = true>(
     });
     assertConstructionCurrent();
   } catch (failure) {
-    try { dispose(); } catch { /* Preserve source initialization failure. */ }
+    try {
+      dispose();
+    } catch {
+      /* Preserve source initialization failure. */
+    }
     throw failure;
   }
 
@@ -340,15 +406,18 @@ export function createResource<T, S = true>(
   accessor.dispose = dispose;
   accessor.refetch = async () => {
     if (!isCurrent()) return undefined;
-    return runUntrackedInCore(core, () => isCurrent() ? load(sourceFn()) : undefined);
+    return runUntrackedInCore(core, () => (isCurrent() ? load(sourceFn()) : undefined));
   };
-  accessor.mutate = (val: T | undefined) => { if (isCurrent()) data.set(val); };
-  accessor.abort = () => runUntrackedInCore(core, () => {
-    if (isDisposed) return;
-    const version = ++fetchVersion;
-    abortCurrent();
-    if (version === fetchVersion) finishLoading();
-  });
+  accessor.mutate = (val: T | undefined) => {
+    if (isCurrent()) data.set(val);
+  };
+  accessor.abort = () =>
+    runUntrackedInCore(core, () => {
+      if (isDisposed) return;
+      const version = ++fetchVersion;
+      abortCurrent();
+      if (version === fetchVersion) finishLoading();
+    });
 
   return accessor;
 }
@@ -367,10 +436,10 @@ export function Suspense(props: {
     onCleanup(pendingCount.dispose);
     const controller: SuspenseController = {
       increment() {
-        pendingCount.update((c) => c + 1);
+        pendingCount.update(c => c + 1);
       },
       decrement() {
-        pendingCount.update((c) => Math.max(0, c - 1));
+        pendingCount.update(c => Math.max(0, c - 1));
       },
     };
 
@@ -416,7 +485,11 @@ export function Suspense(props: {
       return frag;
     } catch (failure) {
       for (const wrapper of [fallbackWrapper, contentWrapper]) {
-        try { wrapper.parentNode?.removeChild(wrapper); } catch { /* Preserve the construction failure. */ }
+        try {
+          wrapper.parentNode?.removeChild(wrapper);
+        } catch {
+          /* Preserve the construction failure. */
+        }
       }
       throw failure;
     }
@@ -426,7 +499,14 @@ export function Suspense(props: {
 // Keep externally retained callbacks outside the component closure environment.
 function retirableCallback(callback: () => void): { invoke: () => void; dispose: () => void } {
   let active: (() => void) | null = callback;
-  return { invoke: () => { active?.(); }, dispose: () => { active = null; } };
+  return {
+    invoke: () => {
+      active?.();
+    },
+    dispose: () => {
+      active = null;
+    },
+  };
 }
 
 /**
@@ -441,7 +521,10 @@ export function ErrorBoundary(props: {
     const assertViewCurrent = captureViewLifetime();
     const caughtError = signal<Error | null>(null);
     const attemptCounter = signal(0);
-    onCleanup(() => { caughtError.dispose(); attemptCounter.dispose(); });
+    onCleanup(() => {
+      caughtError.dispose();
+      attemptCounter.dispose();
+    });
     const frag = document.createDocumentFragment();
     const anchor = document.createComment('svet-error-boundary');
     frag.appendChild(anchor);
@@ -474,10 +557,12 @@ export function ErrorBoundary(props: {
     const retry = retirableCallback(() => {
       const core = boundaryCore.deref();
       if (!core) return;
-      withWasmCore(core, () => batch(() => {
-        caughtError.set(null);
-        attemptCounter.update((c) => c + 1);
-      }));
+      withWasmCore(core, () =>
+        batch(() => {
+          caughtError.set(null);
+          attemptCounter.update(c => c + 1);
+        }),
+      );
     });
     onCleanup(retry.dispose);
     const reset = retry.invoke;
@@ -490,7 +575,7 @@ export function ErrorBoundary(props: {
       const mountErrorFallback = (errorObj: Error) => {
         assertViewCurrent();
         clearCurrent();
-        createRoot((dispose) => {
+        createRoot(dispose => {
           disposeCurrentScope = dispose;
           const fbNode = untrack(() => props.fallback(errorObj, reset));
           mountSubtree(fbNode);
@@ -500,7 +585,7 @@ export function ErrorBoundary(props: {
       if (err) {
         mountErrorFallback(err);
       } else {
-        createRoot((dispose) => {
+        createRoot(dispose => {
           disposeCurrentScope = dispose;
           try {
             const childNode = runWithOwnerScope(
@@ -509,8 +594,8 @@ export function ErrorBoundary(props: {
                 untrack(() =>
                   typeof props.children === 'function'
                     ? (props.children as () => Node)()
-                    : (props.children as Node)
-                )
+                    : (props.children as Node),
+                ),
             );
             mountSubtree(childNode);
           } catch (syncErr) {
@@ -536,7 +621,12 @@ export interface RouteDefinition {
 
 export type NavigationGuard = (
   to: { path: string; params: Record<string, string>; query: Record<string, string>; hash: string },
-  from: { path: string; params: Record<string, string>; query: Record<string, string>; hash: string }
+  from: {
+    path: string;
+    params: Record<string, string>;
+    query: Record<string, string>;
+    hash: string;
+  },
 ) => boolean | string | void;
 
 export interface RouterInstance {
@@ -557,7 +647,8 @@ export interface RouterInstance {
 }
 
 const RouterContext: Pick<SvetContext<RouterInstance | null>, 'id' | 'defaultValue'> = {
-  id: Symbol.for('svet.context.router.v1'), defaultValue: null,
+  id: Symbol.for('svet.context.router.v1'),
+  defaultValue: null,
 };
 
 function parseUrlParts(rawUrl: string): {
@@ -603,13 +694,14 @@ function parseUrlParts(rawUrl: string): {
 
 function decodeRouteSegment(segment: string): string {
   if (!segment.includes('%')) return segment;
-  try { return decodeURIComponent(segment); } catch { return segment; }
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
-function matchRoutePattern(
-  pattern: string,
-  pathname: string
-): Record<string, string> | null {
+function matchRoutePattern(pattern: string, pathname: string): Record<string, string> | null {
   if (pattern === '*') return {};
   const cleanPath = pathname.split('#')[0].split('?')[0];
   const patternParts = pattern.split('/').filter(Boolean);
@@ -625,7 +717,10 @@ function matchRoutePattern(
     const actual = decodeRouteSegment(pathParts[i]);
     if (p.startsWith(':')) {
       Object.defineProperty(params, p.slice(1), {
-        value: actual, enumerable: true, writable: true, configurable: true,
+        value: actual,
+        enumerable: true,
+        writable: true,
+        configurable: true,
       });
     } else if (decodeRouteSegment(p) !== actual) {
       return null;
@@ -638,20 +733,31 @@ function matchRoutePattern(
 // another router/document are deliberately not assigned a guessed distance.
 const routerHistoryKey = '__svet_router_history__';
 let nextHistoryChain = 0;
-type RouterHistoryPosition = {chain: string; index: number};
+type RouterHistoryPosition = { chain: string; index: number };
 function readRouterHistoryPosition(state: unknown): RouterHistoryPosition | null {
-  const value = state && typeof state === 'object'
-    ? (state as Record<string, unknown>)[routerHistoryKey] : null;
+  const value =
+    state && typeof state === 'object'
+      ? (state as Record<string, unknown>)[routerHistoryKey]
+      : null;
   if (!value || typeof value !== 'object') return null;
-  const {chain, index} = value as RouterHistoryPosition;
-  return typeof chain === 'string' && Number.isSafeInteger(index) && index >= 0 ? {chain, index} : null;
+  const { chain, index } = value as RouterHistoryPosition;
+  return typeof chain === 'string' && Number.isSafeInteger(index) && index >= 0
+    ? { chain, index }
+    : null;
 }
-function stampRouterHistory(state: unknown, position: RouterHistoryPosition): Record<string, unknown> {
+function stampRouterHistory(
+  state: unknown,
+  position: RouterHistoryPosition,
+): Record<string, unknown> {
   // Preserve host object fields. Non-record state is retained in an envelope.
-  const base = state !== null && typeof state === 'object' && !Array.isArray(state)
-    && Object.getPrototypeOf(state) === Object.prototype
-    ? state : {__svet_router_state__: state};
-  return {...base, [routerHistoryKey]: position};
+  const base =
+    state !== null &&
+    typeof state === 'object' &&
+    !Array.isArray(state) &&
+    Object.getPrototypeOf(state) === Object.prototype
+      ? state
+      : { __svet_router_state__: state };
+  return { ...base, [routerHistoryKey]: position };
 }
 
 function routerMatcher(options: { routes: RouteDefinition[] }) {
@@ -669,18 +775,30 @@ function routerMatcher(options: { routes: RouteDefinition[] }) {
       }
       return { route: null, params: {}, pathname, query, hash };
     },
-    retire: () => { liveOptions = null; },
+    retire: () => {
+      liveOptions = null;
+    },
   };
 }
 
 function retirableRouterSignal<T>(source: ReadonlySignal<T>) {
   let current: ReadonlySignal<T> | null = source;
   let value: T;
-  const read = (() => current ? current() : value) as ReadonlySignal<T>;
-  Object.defineProperties(read, {id: {value: source.id}, __svet_sig: {value: true}});
-  read.peek = () => current ? current.peek() : value;
-  const retire = () => { if (current) { value = current.peek(); current = null; } };
-  read.dispose = () => { if (current) { current.dispose(); retire(); } };
+  const read = (() => (current ? current() : value)) as ReadonlySignal<T>;
+  Object.defineProperties(read, { id: { value: source.id }, __svet_sig: { value: true } });
+  read.peek = () => (current ? current.peek() : value);
+  const retire = () => {
+    if (current) {
+      value = current.peek();
+      current = null;
+    }
+  };
+  read.dispose = () => {
+    if (current) {
+      current.dispose();
+      retire();
+    }
+  };
   return { read, retire };
 }
 
@@ -692,25 +810,41 @@ function retirableRouter(implementation: RouterInstance) {
   const hash = retirableRouterSignal(implementation.hash);
   const removers = new Set<() => void>();
   const router: RouterInstance = {
-    path: path.read, params: params.read, query: query.read, hash: hash.read,
+    path: path.read,
+    params: params.read,
+    query: query.read,
+    hash: hash.read,
     navigate: to => current?.navigate(to) ?? false,
     beforeEach: guard => {
       if (!current) return () => {};
       const remover = retirableCallback(current.beforeEach(guard));
       removers.add(remover.dispose);
       return () => {
-        try { remover.invoke(); }
-        finally { remover.dispose(); removers.delete(remover.dispose); }
+        try {
+          remover.invoke();
+        } finally {
+          remover.dispose();
+          removers.delete(remover.dispose);
+        }
       };
     },
     match: implementation.match,
-    dispose: () => { current?.dispose(); },
+    dispose: () => {
+      current?.dispose();
+    },
   };
-  return { router, retire: () => {
-    path.retire(); params.retire(); query.retire(); hash.retire(); current = null;
-    for (const retire of removers) retire();
-    removers.clear();
-  } };
+  return {
+    router,
+    retire: () => {
+      path.retire();
+      params.retire();
+      query.retire();
+      hash.retire();
+      current = null;
+      for (const retire of removers) retire();
+      removers.clear();
+    },
+  };
 }
 
 export function createRouter(options: {
@@ -718,11 +852,14 @@ export function createRouter(options: {
   initialPath?: string;
   beforeEach?: NavigationGuard;
 }): RouterInstance {
-  const owner = getCurrentOwner(), core = getWasmCore(), generation = getReactiveGeneration(core);
+  const owner = getCurrentOwner(),
+    core = getWasmCore(),
+    generation = getReactiveGeneration(core);
   if (isOwnerScopeDisposed(owner)) throw new Error('Router construction owner disposed');
   const browserWindow = typeof window !== 'undefined' ? window : undefined;
   const browserOrigin = browserWindow?.location.origin;
-  const resolutionBase = browserOrigin && browserOrigin !== 'null' ? `${browserOrigin}/` : 'http://svet.invalid/';
+  const resolutionBase =
+    browserOrigin && browserOrigin !== 'null' ? `${browserOrigin}/` : 'http://svet.invalid/';
   const origin = new URL(resolutionBase).origin;
   const normalize = (to: string, base: string): string | null => {
     if (typeof to !== 'string') return null;
@@ -730,11 +867,15 @@ export function createRouter(options: {
       const destination = new URL(to, new URL(base, resolutionBase));
       if (!/^https?:$/.test(destination.protocol) || destination.origin !== origin) return null;
       return `${destination.pathname}${destination.search}${destination.hash}`;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   };
   const initialGuard = options.beforeEach;
-  let disposed = false, navigationVersion = 0;
-  const isCurrent = () => !disposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
+  let disposed = false,
+    navigationVersion = 0;
+  const isCurrent = () =>
+    !disposed && !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core);
   const initialFull =
     options.initialPath ??
     (browserWindow
@@ -756,8 +897,10 @@ export function createRouter(options: {
   let acceptedPosition: RouterHistoryPosition | null = null;
   let acceptedCommit = {};
   let restoring = false;
-  const fullLocation = () => browserWindow
-    ? `${browserWindow.location.pathname}${browserWindow.location.search}${browserWindow.location.hash}` : currentFull;
+  const fullLocation = () =>
+    browserWindow
+      ? `${browserWindow.location.pathname}${browserWindow.location.search}${browserWindow.location.hash}`
+      : currentFull;
   const ownPosition = (state: unknown): RouterHistoryPosition | null => {
     const position = readRouterHistoryPosition(state);
     return position && historyChains.has(position.chain) ? position : null;
@@ -765,7 +908,7 @@ export function createRouter(options: {
   const stampPhysicalEntry = (): RouterHistoryPosition => {
     const chain = `svet:${Date.now()}:${++nextHistoryChain}`;
     historyChains.add(chain);
-    const position = {chain, index: 0};
+    const position = { chain, index: 0 };
     history!.replaceState(stampRouterHistory(history!.state, position), '', fullLocation());
     physicalPosition = position;
     return position;
@@ -821,7 +964,8 @@ export function createRouter(options: {
       if (typeof res === 'string') {
         const redirect = normalize(res, currentFull);
         if (redirect === null) return false;
-        if (redirect !== normalized) return syncPathInternal(redirect, pushHistory, redirectDepth + 1);
+        if (redirect !== normalized)
+          return syncPathInternal(redirect, pushHistory, redirectDepth + 1);
       }
     }
 
@@ -830,7 +974,7 @@ export function createRouter(options: {
       const previous = physicalPosition ?? stampPhysicalEntry();
       // Retain the initial entry as a rollback destination before the first push.
       if (!acceptedPosition) acceptedPosition = previous;
-      const next = {chain: previous.chain, index: previous.index + 1};
+      const next = { chain: previous.chain, index: previous.index + 1 };
       history.pushState(stampRouterHistory({}, next), '', normalized);
       physicalPosition = next;
     } else if (history) {
@@ -842,12 +986,14 @@ export function createRouter(options: {
     currentFull = normalized;
     acceptedPosition = physicalPosition;
     acceptedCommit = {};
-    withWasmCore(core, () => batch(() => {
-      currentPath.set(nextMatch.pathname);
-      currentParams.set(nextMatch.params);
-      currentQuery.set(nextMatch.query);
-      currentHash.set(nextMatch.hash);
-    }));
+    withWasmCore(core, () =>
+      batch(() => {
+        currentPath.set(nextMatch.pathname);
+        currentParams.set(nextMatch.params);
+        currentQuery.set(nextMatch.query);
+        currentHash.set(nextMatch.hash);
+      }),
+    );
     return true;
   };
 
@@ -858,11 +1004,19 @@ export function createRouter(options: {
   const restoreAcceptedEntry = () => {
     if (!isCurrent() || !history) return;
     const target = acceptedPosition;
-    if (target && physicalPosition && target.chain === physicalPosition.chain
-        && target.index !== physicalPosition.index) {
+    if (
+      target &&
+      physicalPosition &&
+      target.chain === physicalPosition.chain &&
+      target.index !== physicalPosition.index
+    ) {
       restoring = true;
-      try { history.go(target.index - physicalPosition.index); }
-      catch (failure) { restoring = false; throw failure; }
+      try {
+        history.go(target.index - physicalPosition.index);
+      } catch (failure) {
+        restoring = false;
+        throw failure;
+      }
     } else {
       // External entries have no trustworthy relative index. Preserve their data
       // and repair the URL in place rather than destroying forward history.
@@ -874,9 +1028,14 @@ export function createRouter(options: {
   const onPopState = () => {
     if (!isCurrent() || !history) return;
     physicalPosition = ownPosition(history.state);
-    if (restoring && acceptedPosition && physicalPosition
-        && acceptedPosition.chain === physicalPosition.chain
-        && acceptedPosition.index === physicalPosition.index && fullLocation() === currentFull) {
+    if (
+      restoring &&
+      acceptedPosition &&
+      physicalPosition &&
+      acceptedPosition.chain === physicalPosition.chain &&
+      acceptedPosition.index === physicalPosition.index &&
+      fullLocation() === currentFull
+    ) {
       restoring = false;
       return; // Compensation is not another guarded navigation.
     }
@@ -885,11 +1044,16 @@ export function createRouter(options: {
       return;
     }
     const previousCommit = acceptedCommit;
-    try { syncPathInternal(fullLocation(), false); }
-    catch (failure) {
+    try {
+      syncPathInternal(fullLocation(), false);
+    } catch (failure) {
       // Native restoration failure must not hide the original guard failure.
       if (acceptedCommit === previousCommit) {
-        try { restoreAcceptedEntry(); } catch { /* Keep the primary transition failure. */ }
+        try {
+          restoreAcceptedEntry();
+        } catch {
+          /* Keep the primary transition failure. */
+        }
       }
       throw failure;
     }
@@ -904,7 +1068,8 @@ export function createRouter(options: {
   let retireHandle: (() => void) | undefined;
   const dispose = () => {
     if (disposed) return;
-    disposed = true; navigationVersion++;
+    disposed = true;
+    navigationVersion++;
     if (owner && !owner.disposed) {
       const index = owner.disposables.indexOf(dispose);
       if (index >= 0) owner.disposables.splice(index, 1);
@@ -979,7 +1144,7 @@ export function RouterView(props: {
       clearRoute();
 
       const { route, params } = router.match(pathname);
-      createRoot((dispose) => {
+      createRoot(dispose => {
         disposeRouteScope = dispose;
         runWithOwnerScope([[RouterContext.id, router]], () => {
           const rendered = untrack(() => {
@@ -1008,7 +1173,9 @@ export function Link(props: {
 }): Node {
   const router = useContext(RouterContext);
   const to = props.to;
-  const unsafe = /^(javascript:|vbscript:|data:text\/html)/i.test(to.replace(/[\u0000-\u0020]+/g, ''));
+  const unsafe = /^(javascript:|vbscript:|data:text\/html)/i.test(
+    to.replace(/[\u0000-\u0020]+/g, ''),
+  );
   const safeHref = unsafe ? '#' : to;
   return h(
     'a',
@@ -1020,22 +1187,33 @@ export function Link(props: {
       rel: props.rel,
       onClick: (e: MouseEvent) => {
         if (e.defaultPrevented) return;
-        if (unsafe) { e.preventDefault(); return; }
+        if (unsafe) {
+          e.preventDefault();
+          return;
+        }
         if (!router || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
         const anchor = e.currentTarget as HTMLAnchorElement | null;
         if (!anchor || anchor.hasAttribute('download')) return;
         const doc = anchor.ownerDocument;
-        const target = anchor.getAttribute('target') || doc.querySelector('base[target]')?.getAttribute('target') || '';
+        const target =
+          anchor.getAttribute('target') ||
+          doc.querySelector('base[target]')?.getAttribute('target') ||
+          '';
         if (target && target.toLowerCase() !== '_self') return;
         const location = doc.defaultView?.location;
         if (!location) return;
         let destination: URL;
-        try { destination = new URL(anchor.href, location.href); } catch { return; }
-        if (!/^https?:$/.test(destination.protocol) || destination.origin !== location.origin) return;
+        try {
+          destination = new URL(anchor.href, location.href);
+        } catch {
+          return;
+        }
+        if (!/^https?:$/.test(destination.protocol) || destination.origin !== location.origin)
+          return;
         e.preventDefault();
         router.navigate(`${destination.pathname}${destination.search}${destination.hash}`);
       },
     },
-    props.children
+    props.children,
   );
 }
