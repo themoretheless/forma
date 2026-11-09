@@ -37,9 +37,9 @@ export interface GpuResidentComputeOptions {
   wgsl: string;
   inputs: readonly (GpuTensorSignal | GpuResidentTensor)[];
   outputLength: number;
-  entryPoint?: string;
+  entryPoint?: string | undefined;
   workgroups?: [number, number?, number?];
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
 }
 export class GpuResidentCapacityError extends Error {
   constructor(

@@ -48,7 +48,7 @@ export interface OwnerScope {
   children: Set<OwnerScope> | null;
   parent: OwnerScope | null;
   disposed: boolean;
-  context?: Map<symbol, any>;
+  context?: Map<symbol, any> | undefined;
 }
 
 type EffectEntry = {
@@ -70,7 +70,7 @@ type EffectEntry = {
   sourceRetirementVersion: number;
   rerunRequested: boolean;
   handle: EffectHandle;
-  cleanup?: () => void;
+  cleanup?: (() => void) | undefined;
   disposed: boolean;
   owner: OwnerScope | null;
   deps: number[];
