@@ -1,0 +1,225 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+float low_arithmetic_product(uint a, uint b, const device uint* p);
+uint result_bits(uint index, const device uint* p, const device uint* left, const device uint* right);
+
+float low_arithmetic_product(uint a, uint b, const device uint* p) {
+
+                                                                             
+                                                                              
+                                                                                 
+                                                                                
+    if (p[6] == 1u) {
+        if ((a & 0x7fffffffu) != 0u && (a & 0x7f800000u) == 0u) {
+            return float_up64(as_type<float>(a)) * as_type<float>(float_down_bits(b, 64u));
+        }
+        if ((b & 0x7fffffffu) != 0u && (b & 0x7f800000u) == 0u) {
+            return as_type<float>(float_down_bits(a, 64u)) * float_up64(as_type<float>(b));
+        }
+    }
+    return as_type<float>(a) * as_type<float>(b);
+}
+
+uint result_bits(uint index, const device uint* p, const device uint* left, const device uint* right) {
+
+    auto remaining = index;
+    auto a_address = p[3];
+    auto b_address = p[4];
+    for (auto axis = p[1]; axis > 0u; axis--) {
+        const auto descriptor = 9u + (axis - 1u) * 3u;
+        const auto coordinate = remaining % p[descriptor];
+        a_address += coordinate * p[descriptor + 1u];
+        b_address += coordinate * p[descriptor + 2u];
+        remaining /= p[descriptor];
+    }
+    const auto a_bits = (left[a_address / 2u] >> ((a_address & 1u) * 16u)) & 65535u;
+    if (p[7] == 0u) { return a_bits ^ 0x8000u; }
+    if (p[7] == 1u) { return a_bits & 0x7fffu; }
+    const auto a = low_decode(a_bits, p[6]);
+    auto result = 0.0;
+    if (p[7] >= 32u) {
+        const auto b_bits = (right[b_address / 2u] >> ((b_address & 1u) * 16u)) & 65535u;
+        const auto b = low_decode(b_bits, p[6]);
+        if (p[7] == 36u) { return low_encode(float_bits_min(a, b), p[6]); }
+        if (p[7] == 37u) { return low_encode(float_bits_max(a, b), p[6]); }
+        const auto x = as_type<float>(a);
+        const auto y = as_type<float>(b);
+        switch (p[7]) {
+case 32u:
+{
+ result = x + y; 
+break;
+}
+case 33u:
+{
+ result = x - y; 
+break;
+}
+case 34u:
+{
+ result = low_arithmetic_product(a, b, p); 
+break;
+}
+default: {
+ result = x / y; 
+break;
+}
+}
+    } else {
+        const auto x = as_type<float>(a);
+        switch (p[7]) {
+case 2u:
+{
+ result = x * x; 
+break;
+}
+case 3u:
+{
+ result = sqrt(x); 
+break;
+}
+case 4u:
+{
+ result = 1.0 / x; 
+break;
+}
+case 5u:
+{
+ result = exp(x); 
+break;
+}
+case 6u:
+{
+ result = log(x); 
+break;
+}
+case 7u:
+{
+ result = sin(x); 
+break;
+}
+default: {
+ result = cos(x); 
+break;
+}
+}
+    }
+    return low_encode(as_type<uint>(result), p[6]);
+}
+
+kernel void _wgpu_entry_main(uint3 gid [[thread_position_in_grid]], const device uint* p [[buffer(0)]], const device uint* left [[buffer(1)]], const device uint* right [[buffer(2)]], device uint* output [[buffer(3)]]) {
+
+    auto index = gid.x;
+    while (index < p[8]) {
+        const auto word = p[5] / 2u + index;
+        auto bits = output[word];
+        for (auto lane = 0u; lane < 2u; lane++) {
+            const auto _wgpu_ident_address = word * 2u + lane;
+            if (_wgpu_ident_address >= p[5] && _wgpu_ident_address - p[5] < p[0]) {
+                const auto value = result_bits(_wgpu_ident_address - p[5], p, left, right);
+                const auto shift = lane * 16u;
+                bits = (bits & ~(65535u << shift)) | (value << shift);
+            }
+        }
+        output[word] = bits;
+        if (p[2] * 256u >= p[8] - index) { break; }
+        index += p[2] * 256u;
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "left": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "output": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "p": (
+            0,
+            0,
+            4,
+            0,
+        ),
+        "right": (
+            2,
+            0,
+            4,
+            2,
+        ),
+    },
+}

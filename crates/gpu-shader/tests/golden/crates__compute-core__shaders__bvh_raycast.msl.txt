@@ -1,0 +1,267 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct RaycastParams {
+    uint num_rays;
+    uint num_nodes;
+    uint root_index;
+    uint _pad0;
+};
+
+struct BvhNode {
+    float min_x;
+    float min_y;
+    float min_z;
+    uint left_or_obj;
+    float max_x;
+    float max_y;
+    float max_z;
+    uint right_or_leaf;
+};
+
+struct RayInput {
+    float ox;
+    float oy;
+    float oz;
+    float t_min;
+    float dx;
+    float dy;
+    float dz;
+    float t_max;
+};
+
+struct RayHitOutput {
+    uint object_id;
+    float t_hit;
+};
+
+constant uint WG = 256;
+
+float slab_test(BvhNode node, float ox, float oy, float oz, float dx, float dy, float dz, float3 inv_dir, float t_min_in, float t_max_in);
+
+float slab_test(BvhNode node, float ox, float oy, float oz, float dx, float dy, float dz, float3 inv_dir, float t_min_in, float t_max_in) {
+
+  auto t_near = t_min_in;
+  auto t_far = t_max_in;
+
+           
+  if (abs(dx) < 1e-12) {
+    if (ox < node.min_x || ox > node.max_x) { return -1.0; }
+  } else {
+    const auto t0 = (node.min_x - ox) * inv_dir.x;
+    const auto t1 = (node.max_x - ox) * inv_dir.x;
+    t_near = max(t_near, min(t0, t1));
+    t_far = min(t_far, max(t0, t1));
+    if (t_near > t_far) { return -1.0; }
+  }
+
+           
+  if (abs(dy) < 1e-12) {
+    if (oy < node.min_y || oy > node.max_y) { return -1.0; }
+  } else {
+    const auto t0 = (node.min_y - oy) * inv_dir.y;
+    const auto t1 = (node.max_y - oy) * inv_dir.y;
+    t_near = max(t_near, min(t0, t1));
+    t_far = min(t_far, max(t0, t1));
+    if (t_near > t_far) { return -1.0; }
+  }
+
+           
+  if (abs(dz) < 1e-12) {
+    if (oz < node.min_z || oz > node.max_z) { return -1.0; }
+  } else {
+    const auto t0 = (node.min_z - oz) * inv_dir.z;
+    const auto t1 = (node.max_z - oz) * inv_dir.z;
+    t_near = max(t_near, min(t0, t1));
+    t_far = min(t_far, max(t0, t1));
+    if (t_near > t_far) { return -1.0; }
+  }
+
+  return t_near;
+}
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], constant RaycastParams& params [[buffer(0)]], const device BvhNode* nodes [[buffer(1)]], const device RayInput* rays [[buffer(2)]], device RayHitOutput* hits [[buffer(3)]]) {
+
+  const auto ray_idx = id.x;
+  if (ray_idx >= params.num_rays) {
+    return;
+  }
+
+  if (params.num_nodes == 0u) {
+    hits[ray_idx] = RayHitOutput{0xFFFFFFFFu, 1e30};
+    return;
+  }
+
+  const auto ray = rays[ray_idx];
+  const auto len_sq = ray.dx * ray.dx + ray.dy * ray.dy + ray.dz * ray.dz;
+  if (len_sq <= 0.0) {
+    hits[ray_idx] = RayHitOutput{0xFFFFFFFFu, 1e30};
+    return;
+  }
+
+  const auto inv_dir = float3(select(0.0, 1.0 / ray.dx, abs(ray.dx) >= 1e-12), select(0.0, 1.0 / ray.dy, abs(ray.dy) >= 1e-12), select(0.0, 1.0 / ray.dz, abs(ray.dz) >= 1e-12));
+  const auto t_min_clamped = max(0.0, ray.t_min);
+
+  auto best_t = ray.t_max;
+  auto best_obj = 0xFFFFFFFFu;
+
+  _wgpu_arr<uint, 32> stack = {};
+  auto stack_ptr = 0u;
+  stack[0] = params.root_index;
+  stack_ptr = 1u;
+
+  while (stack_ptr > 0u) {
+    stack_ptr -= 1u;
+    const auto node_idx = stack[stack_ptr];
+    if (node_idx >= params.num_nodes) {
+      continue;
+    }
+
+    const auto node = nodes[node_idx];
+    const auto t_entry = slab_test(node, ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, inv_dir, t_min_clamped, best_t);
+
+    if (t_entry < 0.0 || t_entry > best_t) {
+      continue;
+    }
+
+    if (node.right_or_leaf == 0xFFFFFFFFu) {
+                  
+      const auto obj_id = node.left_or_obj;
+      if (t_entry < best_t || (t_entry == best_t && obj_id < best_obj)) {
+        best_t = t_entry;
+        best_obj = obj_id;
+      }
+    } else {
+                                                                       
+      const auto left_idx = node.left_or_obj;
+      const auto right_idx = node.right_or_leaf;
+
+      const auto left_node = nodes[left_idx];
+      const auto right_node = nodes[right_idx];
+
+      const auto t_left = slab_test(left_node, ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, inv_dir, t_min_clamped, best_t);
+      const auto t_right = slab_test(right_node, ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, inv_dir, t_min_clamped, best_t);
+
+      const auto hit_left = t_left >= 0.0 && t_left <= best_t;
+      const auto hit_right = t_right >= 0.0 && t_right <= best_t;
+
+      if (hit_left && hit_right) {
+        if (t_left <= t_right) {
+          if (stack_ptr + 2u <= 32u) {
+            stack[stack_ptr] = right_idx;
+            stack[stack_ptr + 1u] = left_idx;
+            stack_ptr += 2u;
+          }
+        } else {
+          if (stack_ptr + 2u <= 32u) {
+            stack[stack_ptr] = left_idx;
+            stack[stack_ptr + 1u] = right_idx;
+            stack_ptr += 2u;
+          }
+        }
+      } else if (hit_left) {
+        if (stack_ptr + 1u <= 32u) {
+          stack[stack_ptr] = left_idx;
+          stack_ptr += 1u;
+        }
+      } else if (hit_right) {
+        if (stack_ptr + 1u <= 32u) {
+          stack[stack_ptr] = right_idx;
+          stack_ptr += 1u;
+        }
+      }
+    }
+  }
+
+  hits[ray_idx] = RayHitOutput{best_obj, best_t};
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "hits": (
+            3,
+            0,
+            8,
+            3,
+        ),
+        "nodes": (
+            1,
+            0,
+            32,
+            1,
+        ),
+        "rays": (
+            2,
+            0,
+            32,
+            2,
+        ),
+    },
+}

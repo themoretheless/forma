@@ -1,0 +1,145 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+using Value = float;
+
+bool compare(float x, float y, const device uint* p);
+
+bool compare(float x, float y, const device uint* p) {
+switch (p[3]) {
+case 0u:
+{
+return x==y;
+break;
+}
+case 1u:
+{
+return x!=y;
+break;
+}
+case 2u:
+{
+return x<y;
+break;
+}
+case 3u:
+{
+return x<=y;
+break;
+}
+case 4u:
+{
+return x>y;
+break;
+}
+default: {
+return x>=y;
+break;
+}
+}}
+
+kernel void _wgpu_entry_main(uint3 gid [[thread_position_in_grid]], const device uint* p [[buffer(0)]], const device float* a [[buffer(1)]], const device float* b [[buffer(2)]], device uint* output [[buffer(3)]]) {
+
+    auto i = gid.x;
+    while (i<p[0]) {auto rem = i;auto aa = p[4];auto bb = p[5];
+        for (auto axis = p[1]; axis>0u; axis--){const auto d = 7u+(axis-1u)*3u;const auto c = rem%p[d];rem/=p[d];aa+=c*p[d+1u];bb+=c*p[d+2u];}
+        output[p[6]+i]=select(0u, 1u, compare(a[aa], b[bb], p));
+        if (p[2]*256u>=p[0]-i) {break;}i+=p[2]*256u;
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "a": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "b": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "output": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "p": (
+            0,
+            0,
+            4,
+            0,
+        ),
+    },
+}

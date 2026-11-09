@@ -1,0 +1,173 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct TrussKernelParams {
+    uint mode;
+    uint num_items;
+    float alpha;
+    float beta;
+};
+
+constant uint WG = 256;
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], constant TrussKernelParams& params [[buffer(0)]], const device uint* csr_row_ptr [[buffer(1)]], const device uint* csr_col_idx [[buffer(2)]], const device float* csr_values [[buffer(3)]], const device float* vec_x [[buffer(4)]], device float* vec_out [[buffer(5)]]) {
+
+  const auto idx = id.x;
+  if (idx >= params.num_items) {
+    return;
+  }
+
+  if (params.mode == 0u) {
+                                                                                                             
+    const auto start = csr_row_ptr[idx];
+    const auto end = csr_row_ptr[idx + 1u];
+    auto sum = 0.0;
+    for (auto k = start; k < end; k++) {
+      const auto col = csr_col_idx[k];
+      sum += csr_values[k] * vec_x[col];
+    }
+    vec_out[idx] = sum;
+    return;
+  }
+
+  if (params.mode == 1u) {
+                                                                                     
+    vec_out[idx] = params.alpha * csr_values[idx] + params.beta * vec_x[idx];
+    return;
+  }
+
+                                                   
+                         
+                                      
+                                      
+                                                       
+                                                            
+                                                            
+  const auto na = csr_col_idx[idx * 2u + 0u];
+  const auto nb = csr_col_idx[idx * 2u + 1u];
+
+  const auto m_base = idx * 6u;
+  const auto dir = float3(csr_values[m_base + 0u], csr_values[m_base + 1u], csr_values[m_base + 2u]);
+  const auto k_axial = csr_values[m_base + 3u];
+  const auto area = max(1e-12, csr_values[m_base + 4u]);
+
+  const auto ua = float3(vec_x[na * 3u + 0u], vec_x[na * 3u + 1u], vec_x[na * 3u + 2u]);
+  const auto ub = float3(vec_x[nb * 3u + 0u], vec_x[nb * 3u + 1u], vec_x[nb * 3u + 2u]);
+
+  const auto elongation = dot(dir, ub - ua);
+  const auto force_n = k_axial * elongation;
+  const auto stress_mpa = force_n / area;
+
+  vec_out[idx * 2u + 0u] = force_n;
+  vec_out[idx * 2u + 1u] = stress_mpa;
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            0,
+            4,
+        ): 4,
+        (
+            0,
+            5,
+        ): 5,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "csr_col_idx": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "csr_row_ptr": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "csr_values": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "vec_out": (
+            5,
+            0,
+            4,
+            5,
+        ),
+        "vec_x": (
+            4,
+            0,
+            4,
+            4,
+        ),
+    },
+}

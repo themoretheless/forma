@@ -1,0 +1,183 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct D64Angle {
+    uint value;
+    uint quadrant;
+};
+
+uint d64_from_i32(int value);
+int d64_trunc_i32(uint value);
+uint d64_exp(uint value);
+uint d64_log(uint value);
+D64Angle d64_angle(uint absolute);
+uint d64_sincos(uint value, bool cosine);
+
+uint d64_from_i32(int value) {
+
+    if (value==0) { return D64(0u); }
+    auto mag = uint(value); auto sign = 0u;
+    if (value<0) { mag=uint(-(value+1))+1u; sign=0x80000000u; }
+    const auto top = 31u-clz(mag);
+    return d64_pack(sign, int(top), w64_shl(D64(mag, 0u), 55u-top));
+}
+
+int d64_trunc_i32(uint value) {
+
+    if (d64_zero(value)) { return 0; }
+    const auto parts = d64_parts(value);
+    if (parts.exponent<0) { return 0; }
+    const auto mag = w64_shr(parts.sig, uint(52-parts.exponent)).x;
+    if ((value.y & 0x80000000u)!=0u) { return -int(mag); }
+    return int(mag);
+}
+
+uint d64_exp(uint value) {
+
+    if (d64_nan(value)) { return d64_quiet(value); }
+    if (d64_lt(d64_from_i32(1024), value)) { return D64(0u, 0x7ff00000u); }
+    if (d64_lt(value, d64_from_i32(-2048))) { return D64(0u); }
+    const auto k = d64_trunc_i32(d64_div(value, D64_LN2));
+    const auto r = d64_sub(d64_sub(value, d64_mul(d64_from_i32(k), D64_LN2_HI)), d64_mul(d64_from_i32(k), D64_LN2_LO));
+    const auto p = d64_parts(d64_exp_poly(r));
+    return d64_pack(0u, p.exponent+k, w64_shl(p.sig, 3u));
+}
+
+uint d64_log(uint value) {
+
+    if (d64_nan(value)) { return d64_quiet(value); }
+    if (d64_zero(value)) { return D64(0u, 0xfff00000u); }
+    if ((value.y & 0x80000000u)!=0u) { return d64_qnan(); }
+    if (d64_inf(value)) { return value; }
+    const auto p = d64_parts(value);
+    auto exponent = p.exponent;
+    auto mantissa = D64(p.sig.x, (p.sig.y & 0xfffffu) | 0x3ff00000u);
+    if (d64_lt(D64_SQRT2, mantissa)) { mantissa.y-=0x100000u; exponent+=1; }
+    const auto z = d64_div(d64_sub(mantissa, D64_ONE), d64_add(mantissa, D64_ONE));
+    const auto small = d64_mul(d64_mul(D64_TWO, z), d64_log_poly(d64_mul(z, z)));
+    const auto k = d64_from_i32(exponent);
+    return d64_add(d64_mul(k, D64_LN2_HI), d64_add(small, d64_mul(k, D64_LN2_LO)));
+}
+
+D64Angle d64_angle(uint absolute) {
+
+    if (d64_lt(absolute, D64_HALF)) { return D64Angle{absolute, 0u}; }
+    const auto p = d64_parts(absolute);
+    const auto mant = _wgpu_arr<uint, 4>{{ p.sig.x & 65535u, p.sig.x >> 16u, p.sig.y & 65535u, p.sig.y >> 16u }};
+    _wgpu_arr<uint, 84> product = {};
+    for (auto i = 0u; i<4u; i+=1u) {
+        auto carry = 0u;
+        for (auto j = 0u; j<80u; j+=1u) {
+            const auto term = mant[i]*D64_TWO_OVER_PI[j]+product[i+j]+carry;
+            product[i+j]=term & 65535u; carry=term>>16u;
+        }
+        product[i+80u]=carry;
+    }
+    const auto point = uint(1332-p.exponent);
+    auto quadrant = ((product[point/16u] >> (point%16u)) & 1u) | (((product[(point+1u)/16u] >> ((point+1u)%16u)) & 1u)<<1u);
+    const auto negative = ((product[(point-1u)/16u] >> ((point-1u)%16u)) & 1u)!=0u;
+                                                                              
+                                                  
+    for (auto i = 0u; i<84u; i+=1u) {
+        if (i>point/16u) { product[i]=0u; }
+        else if (i==point/16u) { product[i]&=(1u << (point%16u))-1u; }
+    }
+    if (negative) {
+        quadrant=(quadrant+1u)&3u;
+        auto borrow = 0u;
+        for (auto i = 0u; i<84u; i+=1u) {
+            auto digit = 0u;
+            if (i==point/16u) { digit=1u << (point%16u); }
+            const auto sub = product[i]+borrow;
+            product[i]=(digit-sub)&65535u;
+            borrow=uint(digit<sub);
+        }
+    }
+    auto leading = int(point)-1;
+    while (true) {
+
+        if (leading<0) { return D64Angle{D64(0u), quadrant}; }
+        if (((product[uint(leading)/16u] >> (uint(leading)%16u)) & 1u)!=0u) { break; }
+        leading-=1;
+    }
+    auto sig = D64(0u);
+    for (auto i = 0u; i<56u; i+=1u) {
+        sig=w64_shl(sig, 1u);
+        const auto pos = leading-int(i);
+        if (pos>=0) { sig.x |= (product[uint(pos)/16u] >> (uint(pos)%16u)) & 1u; }
+    }
+    for (auto i = 0; i<leading-55; i+=1) { sig.x |= (product[uint(i)/16u] >> (uint(i)%16u)) & 1u; }
+    const auto fraction = d64_pack(select(0u, 0x80000000u, negative), leading-int(point), sig);
+    const auto reduced = d64_add(d64_mul(fraction, D64_PIO2), d64_mul(fraction, D64_PIO2_LO));
+    return D64Angle{reduced, quadrant};
+}
+
+uint d64_sincos(uint value, bool cosine) {
+
+    if (d64_nan(value)) { return d64_quiet(value); }
+    if (d64_inf(value)) { return d64_qnan(); }
+    if (d64_zero(value)) { return select(value, D64_ONE, cosine); }
+    const auto angle = d64_angle(d64_abs(value));
+    const auto squared = d64_mul(angle.value, angle.value);
+    const auto sine = d64_mul(angle.value, d64_sin_poly(squared));
+    const auto cosvalue = d64_cos_poly(squared);
+    const auto quadrant = (angle.quadrant+uint(cosine))&3u;
+    auto result = select(sine, cosvalue, (quadrant&1u)!=0u);
+    if (quadrant>=2u) { result=d64_neg(result); }
+    if (!cosine && (value.y & 0x80000000u)!=0u) { result=d64_neg(result); }
+    return result;
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {},
+}

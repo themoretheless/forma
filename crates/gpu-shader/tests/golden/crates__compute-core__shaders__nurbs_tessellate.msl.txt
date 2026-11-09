@@ -1,0 +1,419 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct NurbsUniform {
+    uint degree_u;
+    uint degree_v;
+    uint num_cp_u;
+    uint num_cp_v;
+    uint num_knots_u;
+    uint num_knots_v;
+    uint samples_u;
+    uint samples_v;
+    float u_min;
+    float u_max;
+    float v_min;
+    float v_max;
+    uint is_rational;
+    uint total_vertices;
+    uint total_quads;
+    uint _pad;
+};
+
+struct BasisDeriv {
+    _wgpu_arr<float, 8> basis;
+    _wgpu_arr<float, 8> ders;
+};
+
+uint find_knot_span_u(float u, constant NurbsUniform& params, const device float* knots_u);
+uint find_knot_span_v(float v, constant NurbsUniform& params, const device float* knots_v);
+BasisDeriv eval_basis_u(uint span, float u, constant NurbsUniform& params, const device float* knots_u);
+BasisDeriv eval_basis_v(uint span, float v, constant NurbsUniform& params, const device float* knots_v);
+
+uint find_knot_span_u(float u, constant NurbsUniform& params, const device float* knots_u) {
+
+  const auto p = params.degree_u;
+  const auto n = params.num_cp_u - 1u;
+  if (u >= knots_u[n + 1u]) {
+    return n;
+  }
+  if (u <= knots_u[p]) {
+    return p;
+  }
+  auto low = p;
+  auto high = n + 1u;
+  auto mid = (low + high) / 2u;
+  while (u < knots_u[mid] || u >= knots_u[mid + 1u]) {
+    if (u < knots_u[mid]) {
+      high = mid;
+    } else {
+      low = mid;
+    }
+    mid = (low + high) / 2u;
+  }
+  return mid;
+}
+
+uint find_knot_span_v(float v, constant NurbsUniform& params, const device float* knots_v) {
+
+  const auto q = params.degree_v;
+  const auto m = params.num_cp_v - 1u;
+  if (v >= knots_v[m + 1u]) {
+    return m;
+  }
+  if (v <= knots_v[q]) {
+    return q;
+  }
+  auto low = q;
+  auto high = m + 1u;
+  auto mid = (low + high) / 2u;
+  while (v < knots_v[mid] || v >= knots_v[mid + 1u]) {
+    if (v < knots_v[mid]) {
+      high = mid;
+    } else {
+      low = mid;
+    }
+    mid = (low + high) / 2u;
+  }
+  return mid;
+}
+
+BasisDeriv eval_basis_u(uint span, float u, constant NurbsUniform& params, const device float* knots_u) {
+
+  BasisDeriv res = {};
+  const auto p = params.degree_u;
+  _wgpu_arr<float, 64> ndu = {};                                         
+  _wgpu_arr<float, 8> left = {};
+  _wgpu_arr<float, 8> right = {};
+
+  ndu[0] = 1.0;
+  for (auto j = 1u; j <= p; j++) {
+    left[j] = u - knots_u[span + 1u - j];
+    right[j] = knots_u[span + j] - u;
+    auto saved = 0.0;
+    for (auto r = 0u; r < j; r++) {
+      const auto denom = right[r + 1u] + left[j - r];
+      ndu[j * 8u + r] = denom;
+      auto temp = 0.0;
+      if (abs(denom) > 1e-12) {
+        temp = ndu[r * 8u + (j - 1u)] / denom;
+      }
+      ndu[r * 8u + j] = saved + right[r + 1u] * temp;
+      saved = left[j - r] * temp;
+    }
+    ndu[j * 8u + j] = saved;
+  }
+
+                           
+  for (auto j = 0u; j <= p; j++) {
+    res.basis[j] = ndu[j * 8u + p];
+  }
+
+                             
+                             
+  const auto fp = float(p);
+  for (auto r = 0u; r <= p; r++) {
+    auto d = 0.0;
+    if (r == 0u) {
+      const auto den = ndu[p * 8u + 0u];
+      if (abs(den) > 1e-12) {
+        d = -fp * ndu[0u * 8u + (p - 1u)] / den;
+      }
+    } else if (r == p) {
+      const auto den = ndu[p * 8u + (p - 1u)];
+      if (abs(den) > 1e-12) {
+        d = fp * ndu[(p - 1u) * 8u + (p - 1u)] / den;
+      }
+    } else {
+      const auto den1 = ndu[p * 8u + (r - 1u)];
+      const auto den2 = ndu[p * 8u + r];
+      const auto t1 = select(0.0, fp * ndu[(r - 1u) * 8u + (p - 1u)] / den1, abs(den1) > 1e-12);
+      const auto t2 = select(0.0, fp * ndu[r * 8u + (p - 1u)] / den2, abs(den2) > 1e-12);
+      d = t1 - t2;
+    }
+    res.ders[r] = d;
+  }
+
+  return res;
+}
+
+BasisDeriv eval_basis_v(uint span, float v, constant NurbsUniform& params, const device float* knots_v) {
+
+  BasisDeriv res = {};
+  const auto q = params.degree_v;
+  _wgpu_arr<float, 64> ndu = {};
+  _wgpu_arr<float, 8> left = {};
+  _wgpu_arr<float, 8> right = {};
+
+  ndu[0] = 1.0;
+  for (auto j = 1u; j <= q; j++) {
+    left[j] = v - knots_v[span + 1u - j];
+    right[j] = knots_v[span + j] - v;
+    auto saved = 0.0;
+    for (auto r = 0u; r < j; r++) {
+      const auto denom = right[r + 1u] + left[j - r];
+      ndu[j * 8u + r] = denom;
+      auto temp = 0.0;
+      if (abs(denom) > 1e-12) {
+        temp = ndu[r * 8u + (j - 1u)] / denom;
+      }
+      ndu[r * 8u + j] = saved + right[r + 1u] * temp;
+      saved = left[j - r] * temp;
+    }
+    ndu[j * 8u + j] = saved;
+  }
+
+  for (auto j = 0u; j <= q; j++) {
+    res.basis[j] = ndu[j * 8u + q];
+  }
+
+  const auto fq = float(q);
+  for (auto r = 0u; r <= q; r++) {
+    auto d = 0.0;
+    if (r == 0u) {
+      const auto den = ndu[q * 8u + 0u];
+      if (abs(den) > 1e-12) {
+        d = -fq * ndu[0u * 8u + (q - 1u)] / den;
+      }
+    } else if (r == q) {
+      const auto den = ndu[q * 8u + (q - 1u)];
+      if (abs(den) > 1e-12) {
+        d = fq * ndu[(q - 1u) * 8u + (q - 1u)] / den;
+      }
+    } else {
+      const auto den1 = ndu[q * 8u + (r - 1u)];
+      const auto den2 = ndu[q * 8u + r];
+      const auto t1 = select(0.0, fq * ndu[(r - 1u) * 8u + (q - 1u)] / den1, abs(den1) > 1e-12);
+      const auto t2 = select(0.0, fq * ndu[r * 8u + (q - 1u)] / den2, abs(den2) > 1e-12);
+      d = t1 - t2;
+    }
+    res.ders[r] = d;
+  }
+
+  return res;
+}
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], constant NurbsUniform& params [[buffer(0)]], const device float* knots_u [[buffer(1)]], const device float* knots_v [[buffer(2)]], const device float4* control_points [[buffer(3)]], device float* out_vertices [[buffer(4)]], device uint* out_indices [[buffer(5)]]) {
+
+  const auto iu = id.x;
+  const auto iv = id.y;
+
+                                              
+  if (iu < params.samples_u && iv < params.samples_v) {
+    const auto tu = float(iu) / float(params.samples_u - 1u);
+    const auto tv = float(iv) / float(params.samples_v - 1u);
+
+    const auto u = params.u_min + tu * (params.u_max - params.u_min);
+    const auto v = params.v_min + tv * (params.v_max - params.v_min);
+
+    const auto span_u = find_knot_span_u(u, params, knots_u);
+    const auto span_v = find_knot_span_v(v, params, knots_v);
+
+    const auto bu = eval_basis_u(span_u, u, params, knots_u);
+    const auto bv = eval_basis_v(span_v, v, params, knots_v);
+
+    const auto p = params.degree_u;
+    const auto q = params.degree_v;
+
+    auto pt_homo = float4(0.0);
+    auto du_homo = float4(0.0);
+    auto dv_homo = float4(0.0);
+
+    for (auto r = 0u; r <= p; r++) {
+      const auto cp_x = span_u - p + r;
+      const auto nu = bu.basis[r];
+      const auto dnu = bu.ders[r];
+
+      for (auto s = 0u; s <= q; s++) {
+        const auto cp_y = span_v - q + s;
+        const auto mv = bv.basis[s];
+        const auto dmv = bv.ders[s];
+
+        const auto cp_idx = cp_x + cp_y * params.num_cp_u;
+        auto cp = control_points[cp_idx];
+
+        if (params.is_rational == 0u) {
+          cp.w = 1.0;
+        } else {
+                                                                          
+          cp = float4(cp.x * cp.w, cp.y * cp.w, cp.z * cp.w, cp.w);
+        }
+
+        const auto w_pt = nu * mv;
+        const auto w_du = dnu * mv;
+        const auto w_dv = nu * dmv;
+
+        pt_homo += cp * w_pt;
+        du_homo += cp * w_du;
+        dv_homo += cp * w_dv;
+      }
+    }
+
+    float3 pos = {};
+    float3 du = {};
+    float3 dv = {};
+
+    if (params.is_rational == 0u || abs(pt_homo.w) < 1e-12) {
+      pos = pt_homo.xyz;
+      du = du_homo.xyz;
+      dv = dv_homo.xyz;
+    } else {
+      const auto inv_w = 1.0 / pt_homo.w;
+      pos = pt_homo.xyz * inv_w;
+                                                                     
+      du = (du_homo.xyz - pos * du_homo.w) * inv_w;
+      dv = (dv_homo.xyz - pos * dv_homo.w) * inv_w;
+    }
+
+    auto normal = cross(du, dv);
+    const auto len = length(normal);
+    if (len > 1e-7) {
+      normal = normal / len;
+    } else {
+      normal = float3(0.0, 0.0, 1.0);
+    }
+
+    const auto v_idx = iu + iv * params.samples_u;
+    const auto v_off = v_idx * 8u;
+
+    out_vertices[v_off + 0u] = pos.x;
+    out_vertices[v_off + 1u] = pos.y;
+    out_vertices[v_off + 2u] = pos.z;
+    out_vertices[v_off + 3u] = normal.x;
+    out_vertices[v_off + 4u] = normal.y;
+    out_vertices[v_off + 5u] = normal.z;
+    out_vertices[v_off + 6u] = tu;
+    out_vertices[v_off + 7u] = tv;
+  }
+
+                                      
+  if (iu < (params.samples_u - 1u) && iv < (params.samples_v - 1u)) {
+    const auto q_idx = iu + iv * (params.samples_u - 1u);
+    const auto i_off = q_idx * 6u;
+
+    const auto v00 = iu + iv * params.samples_u;
+    const auto v10 = (iu + 1u) + iv * params.samples_u;
+    const auto v01 = iu + (iv + 1u) * params.samples_u;
+    const auto v11 = (iu + 1u) + (iv + 1u) * params.samples_u;
+
+                                     
+    out_indices[i_off + 0u] = v00;
+    out_indices[i_off + 1u] = v10;
+    out_indices[i_off + 2u] = v01;
+
+                                     
+    out_indices[i_off + 3u] = v10;
+    out_indices[i_off + 4u] = v11;
+    out_indices[i_off + 5u] = v01;
+  }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+        (
+            0,
+            4,
+        ): 4,
+        (
+            0,
+            5,
+        ): 5,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "control_points": (
+            3,
+            0,
+            16,
+            3,
+        ),
+        "knots_u": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "knots_v": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "out_indices": (
+            5,
+            0,
+            4,
+            5,
+        ),
+        "out_vertices": (
+            4,
+            0,
+            4,
+            4,
+        ),
+    },
+}

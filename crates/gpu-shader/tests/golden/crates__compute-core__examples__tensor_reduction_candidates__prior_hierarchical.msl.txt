@@ -1,0 +1,134 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+constant uint WG = 256;
+
+uint decode(uint index, uint start, uint rank, const device uint* params);
+
+uint decode(uint index, uint start, uint rank, const device uint* params) {
+
+    auto remaining = index;
+    auto offset = 0u;
+    for (auto axis = rank; axis > 0u; axis--) {
+        const auto descriptor = start + (axis - 1u) * 2u;
+        offset += (remaining % params[descriptor]) * params[descriptor + 1u];
+        remaining /= params[descriptor];
+    }
+    return offset;
+}
+
+kernel void _wgpu_entry_main(uint3 lid [[thread_position_in_threadgroup]], uint3 wid [[threadgroup_position_in_grid]], const device uint* params [[buffer(0)]], const device float* input [[buffer(1)]], device float* output [[buffer(2)]]) {
+    threadgroup float scratch[256];
+
+    const auto parts = params[7];
+    const auto work_count = params[0] * parts;
+    const auto stride = parts * WG;
+    auto work = wid.x;
+    while (work < work_count) {
+        const auto row = work / parts;
+        const auto part = work % parts;
+        const auto base = params[2] + decode(row, 8u, params[1], params);
+        auto sum = 0.0;
+        auto item = part * WG + lid.x;
+        while (item < params[3]) {
+            sum += input[base + decode(item, 8u + params[1] * 2u, params[4], params)];
+            if (stride >= params[3] - item) { break; }
+            item += stride;
+        }
+        scratch[lid.x] = sum;
+        for (auto step = WG / 2u; step > 0u; step /= 2u) {
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            if (lid.x < step) { scratch[lid.x] += scratch[lid.x + step]; }
+        }
+        if (lid.x == 0u) { output[params[5] + work] = scratch[0]; }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (params[6] >= work_count - work) { break; }
+        work += params[6];
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "input": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "output": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "params": (
+            0,
+            0,
+            4,
+            0,
+        ),
+    },
+}
