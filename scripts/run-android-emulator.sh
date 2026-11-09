@@ -17,9 +17,9 @@ case "${1:-}" in
 esac
 
 echo "[1/5] Сборка Rust libforma.so (arm64-v8a)..."
-(cd "$ROOT_DIR/vector-ui" && ANDROID_NDK_HOME="$ANDROID_NDK_HOME" cargo ndk -t arm64-v8a build --release --offline --lib)
+(cd "$ROOT_DIR/crates/forma" && ANDROID_NDK_HOME="$ANDROID_NDK_HOME" cargo ndk -t arm64-v8a build --release --offline --lib)
 
-WORK_DIR="$ROOT_DIR/vector-ui/target/android-apk"
+WORK_DIR="$ROOT_DIR/target/android-apk"
 rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR/src/dev/forma/app" "$WORK_DIR/classes" "$WORK_DIR/lib/arm64-v8a" "$WORK_DIR/dex"
 
@@ -192,7 +192,7 @@ echo "[2/5] Компиляция Java и D8 DEX..."
 
 echo "[3/5] Упаковка APK (aapt2 + libforma.so)..."
 "$BUILD_TOOLS/aapt2" link -o "$WORK_DIR/unaligned.apk" -I "$PLATFORM_JAR" --manifest "$WORK_DIR/AndroidManifest.xml"
-cp "$ROOT_DIR/vector-ui/target/aarch64-linux-android/release/libforma.so" "$WORK_DIR/lib/arm64-v8a/libforma.so"
+cp "$ROOT_DIR/target/aarch64-linux-android/release/libforma.so" "$WORK_DIR/lib/arm64-v8a/libforma.so"
 (
   cd "$WORK_DIR"
   cp "$WORK_DIR/dex/classes.dex" "$WORK_DIR/classes.dex"
@@ -202,7 +202,7 @@ cp "$ROOT_DIR/vector-ui/target/aarch64-linux-android/release/libforma.so" "$WORK
 
 echo "[4/5] Выравнивание и подпись APK..."
 "$BUILD_TOOLS/zipalign" -f -p 4 "$WORK_DIR/unaligned.apk" "$WORK_DIR/aligned.apk"
-KEYSTORE="$ROOT_DIR/vector-ui/target/debug.keystore"
+KEYSTORE="$ROOT_DIR/target/debug.keystore"
 if [ ! -f "$KEYSTORE" ]; then
   "$JAVA_HOME/bin/keytool" -genkeypair -v -keystore "$KEYSTORE" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1
 fi

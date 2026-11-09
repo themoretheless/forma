@@ -18,6 +18,26 @@
       "types": "./dist/package/jsx-runtime.d.ts",
       "import": "./dist/package/jsx-runtime.js"
     },
+    "./slim": {
+      "types": "./dist/package/slim.d.ts",
+      "import": "./dist/package/slim.js"
+    },
+    "./slim/jsx-runtime": {
+      "types": "./dist/package/slim-jsx-runtime.d.ts",
+      "import": "./dist/package/slim-jsx-runtime.js"
+    },
+    "./slim/jsx-dev-runtime": {
+      "types": "./dist/package/slim-jsx-runtime.d.ts",
+      "import": "./dist/package/slim-jsx-runtime.js"
+    },
+    "./slim/reactivity": {
+      "types": "./dist/package/reactivity.d.ts",
+      "import": "./dist/package/reactivity.js"
+    },
+    "./forma-3d": {
+      "types": "./dist/package/forma-3d.d.ts",
+      "import": "./dist/package/forma-3d.js"
+    },
     "./server": {
       "types": "./dist/package/server.d.ts",
       "import": "./dist/package/server.js"
@@ -27,12 +47,12 @@
       "import": "./dist/package/compiler.js"
     },
     "./reactivity": {
-      "types": "./dist/package/reactivity.d.ts",
-      "import": "./dist/package/reactivity.js"
+      "types": "./dist/package/reactivity-entry.d.ts",
+      "import": "./dist/package/reactivity-entry.js"
     },
     "./server-runtime": {
-      "types": "./dist/package/ssr-runtime.d.ts",
-      "import": "./dist/package/ssr-runtime.js"
+      "types": "./dist/package/ssr-runtime-entry.d.ts",
+      "import": "./dist/package/ssr-runtime-entry.js"
     },
     "./core.wasm": {
       "types": "./dist/package/svet-core.wasm.d.ts",
@@ -68,7 +88,13 @@
     "magic-string": "^1.4.5"
   },
   "sideEffects": [
-    "./dist/package/server.js"
+    "./dist/package/server.js",
+    "./dist/package/index.js",
+    "./dist/package/jsx-runtime.js",
+    "./dist/package/reactivity-entry.js",
+    "./dist/package/ssr-runtime-entry.js",
+    "./dist/package/wasm-embedded.js",
+    "./dist/package/forma-3d.js"
   ],
   "files": [
     "dist/package",

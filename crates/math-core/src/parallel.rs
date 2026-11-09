@@ -111,7 +111,11 @@ where
 }
 
 /// Fallible parallel map over `items`, preserving deterministic first-error semantics.
-pub fn par_try_map<T, R, E, F>(items: &[T], min_chunk: usize, f: F) -> std::result::Result<Vec<R>, E>
+pub fn par_try_map<T, R, E, F>(
+    items: &[T],
+    min_chunk: usize,
+    f: F,
+) -> std::result::Result<Vec<R>, E>
 where
     T: Sync,
     R: Send,

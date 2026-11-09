@@ -3,8 +3,8 @@
 use crate::metal::MetalDevice;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use crate::metal::{
-    metal_msg_send, metal_selectors, MTLClearColor, MTLOrigin, MTLScissorRect, MTLSize,
-    MTLViewport, NSRange,
+    MTLClearColor, MTLOrigin, MTLScissorRect, MTLSize, MTLViewport, NSRange, metal_msg_send,
+    metal_selectors,
 };
 use crate::{
     BindGroup, Buffer, BufferAddress, BufferAsyncError, BufferSlice, ComputePipeline,
@@ -15,8 +15,8 @@ use crate::{
 use crate::{Face, FrontFace};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader::back::msl::{
-    msl_buffer_slot, msl_sampler_slot, msl_texture_slot, MSL_ARRAY_LENGTHS_BUFFER_SLOT,
-    MSL_IMMEDIATE_BUFFER_SLOT, MSL_VERTEX_BUFFER_BASE_SLOT,
+    MSL_ARRAY_LENGTHS_BUFFER_SLOT, MSL_IMMEDIATE_BUFFER_SLOT, MSL_VERTEX_BUFFER_BASE_SLOT,
+    msl_buffer_slot, msl_sampler_slot, msl_texture_slot,
 };
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ffi::c_void;
@@ -302,7 +302,7 @@ pub struct CommandEncoder {
 
 impl CommandEncoder {
     pub(crate) fn record_error(&self, err: Error) {
-        crate::dispatch_error(&self.error_stack,&self.uncaptured_error_handler,err);
+        crate::dispatch_error(&self.error_stack, &self.uncaptured_error_handler, err);
     }
 
     pub fn map_buffer_on_submit<S, F>(
@@ -329,10 +329,10 @@ impl CommandEncoder {
             tw.beginning_of_pass_write_index
                 .map(|i| (tw.query_set.clone(), i))
         });
-        let end_ts = desc
-            .timestamp_writes
-            .as_ref()
-            .and_then(|tw| tw.end_of_pass_write_index.map(|i| (tw.query_set.clone(), i)));
+        let end_ts = desc.timestamp_writes.as_ref().and_then(|tw| {
+            tw.end_of_pass_write_index
+                .map(|i| (tw.query_set.clone(), i))
+        });
         let dispatches = self.device.take_compute_dispatches();
         ComputePass {
             encoder: self,
@@ -364,10 +364,10 @@ impl CommandEncoder {
             tw.beginning_of_pass_write_index
                 .map(|i| (tw.query_set.clone(), i))
         });
-        let end_timestamp = desc
-            .timestamp_writes
-            .as_ref()
-            .and_then(|tw| tw.end_of_pass_write_index.map(|i| (tw.query_set.clone(), i)));
+        let end_timestamp = desc.timestamp_writes.as_ref().and_then(|tw| {
+            tw.end_of_pass_write_index
+                .map(|i| (tw.query_set.clone(), i))
+        });
         let commands = self.device.take_render_cmds();
         RenderPass {
             encoder: self,
@@ -472,10 +472,7 @@ impl CommandEncoder {
     }
 
     pub fn finish(self) -> CommandBuffer {
-        let on_submit_callbacks = self
-            .on_submit_callbacks
-            .into_inner()
-            .unwrap_or_default();
+        let on_submit_callbacks = self.on_submit_callbacks.into_inner().unwrap_or_default();
         CommandBuffer {
             ops: self.ops,
             on_submit_callbacks,
@@ -631,15 +628,7 @@ impl<'a> RenderPass<'a> {
     }
 
     #[inline]
-    pub fn set_viewport(
-        &mut self,
-        x: f32,
-        y: f32,
-        w: f32,
-        h: f32,
-        min_depth: f32,
-        max_depth: f32,
-    ) {
+    pub fn set_viewport(&mut self, x: f32, y: f32, w: f32, h: f32, min_depth: f32, max_depth: f32) {
         self.commands.push(RenderCommand::SetViewport {
             x,
             y,
@@ -727,13 +716,7 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
                 let slot = msl_buffer_slot(*group_idx, *binding) as usize;
                 let dyn_off = dyn_offsets.get(b_idx).unwrap_or(0) as u64;
                 let final_off = (*base_off + dyn_off) as usize;
-                f_set_buf(
-                    enc,
-                    s.set_buffer,
-                    buf.inner.raw.as_ptr(),
-                    final_off,
-                    slot,
-                );
+                f_set_buf(enc, s.set_buffer, buf.inner.raw.as_ptr(), final_off, slot);
                 if slot < 32 {
                     let rem = (*byte_size).saturating_sub(dyn_off);
                     buffer_sizes[slot] = rem as u32;
@@ -784,7 +767,11 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub(crate) unsafe fn encode_non_compute_op(_metal: &MetalDevice, cmd_buf: *mut c_void, op: RecordedOp) {
+pub(crate) unsafe fn encode_non_compute_op(
+    _metal: &MetalDevice,
+    cmd_buf: *mut c_void,
+    op: RecordedOp,
+) {
     let s = metal_selectors();
     let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
         std::mem::transmute(metal_msg_send as *const c_void);
@@ -823,11 +810,7 @@ pub(crate) unsafe fn encode_non_compute_op(_metal: &MetalDevice, cmd_buf: *mut c
             );
             f_void(blit, s.end_encoding);
         }
-        RecordedOp::ClearBuffer {
-            dst,
-            offset,
-            size,
-        } => {
+        RecordedOp::ClearBuffer { dst, offset, size } => {
             if size == 0 {
                 return;
             }
@@ -987,7 +970,11 @@ pub(crate) unsafe fn encode_non_compute_op(_metal: &MetalDevice, cmd_buf: *mut c
 }
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
-pub(crate) unsafe fn encode_render_pass(metal: &MetalDevice, cmd_buf: *mut c_void, mut rp: RenderPassOp) {
+pub(crate) unsafe fn encode_render_pass(
+    metal: &MetalDevice,
+    cmd_buf: *mut c_void,
+    mut rp: RenderPassOp,
+) {
     let s = metal_selectors();
     let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
         std::mem::transmute(metal_msg_send as *const c_void);
@@ -1041,7 +1028,11 @@ pub(crate) unsafe fn encode_render_pass(metal: &MetalDevice, cmd_buf: *mut c_voi
 
     if let Some(dsa) = &rp.depth_stencil_attachment {
         let d_att = f_obj(rpd, s.depth_attachment);
-        f_set_obj(d_att, s.set_attachment_texture, dsa.view.texture.raw.as_ptr());
+        f_set_obj(
+            d_att,
+            s.set_attachment_texture,
+            dsa.view.texture.raw.as_ptr(),
+        );
         f_set_u64(d_att, s.set_level, dsa.view.base_mip_level as u64);
         f_set_u64(d_att, s.set_slice, dsa.view.base_array_layer as u64);
         if let Some(ops) = &dsa.depth_ops {

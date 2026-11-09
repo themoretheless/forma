@@ -35,17 +35,18 @@ test('1. Declarative type constraints (#[range], #[pattern], isValid)', () => {
 
   assert.throws(
     () => compileComponents(files, 'ui/Main.ui', {}, { ...metrics, properties: { progress: 150 } }),
-    /вне допустимого диапазона/
+    /вне допустимого диапазона/,
   );
 
   assert.throws(
     () => compileComponents(files, 'ui/Main.ui', {}, { ...metrics, properties: { label: 'A' } }),
-    /вне допустимого диапазона/
+    /вне допустимого диапазона/,
   );
 
   assert.throws(
-    () => compileComponents(files, 'ui/Main.ui', {}, { ...metrics, properties: { user: { age: 12 } } }),
-    /вне допустимого диапазона/
+    () =>
+      compileComponents(files, 'ui/Main.ui', {}, { ...metrics, properties: { user: { age: 12 } } }),
+    /вне допустимого диапазона/,
   );
 
   const doc = parse(`
@@ -79,7 +80,7 @@ test('1. Declarative type constraints (#[range], #[pattern], isValid)', () => {
   };
   assert.throws(
     () => compileComponents(badFiles, 'ui/Form.ui', {}, metrics),
-    /не соответствует шаблону/
+    /не соответствует шаблону/,
   );
 });
 
@@ -101,7 +102,12 @@ test('2. Component-scoped local state (state name: Type = default;)', () => {
   const closed = expandStructure(doc.nodes, doc.defaults, {}, { stateDefaults });
   assert.equal(closed[0].children[0].props.text, 'Свёрнуто (3)');
 
-  const opened = expandStructure(doc.nodes, doc.defaults, { expanded: true, count: 7 }, { stateDefaults });
+  const opened = expandStructure(
+    doc.nodes,
+    doc.defaults,
+    { expanded: true, count: 7 },
+    { stateDefaults },
+  );
   assert.equal(opened[0].children[0].props.text, 'Открыто (7)');
 });
 
@@ -198,7 +204,10 @@ test('5. Markup-level match inside container children', () => {
   assert.equal(okNodes[0].children[0].props.text, 'Найдено: 5');
 
   const errNodes = expandStructure(doc.nodes, { status: 'error', count: 0 }, {}, {});
-  assert.deepEqual(errNodes[0].children.map(c => c.props.text), ['Ошибка', 'Повторите попытку']);
+  assert.deepEqual(
+    errNodes[0].children.map(c => c.props.text),
+    ['Ошибка', 'Повторите попытку'],
+  );
 
   const emptyNodes = expandStructure(doc.nodes, { status: 'ok', count: 0 }, {}, {});
   assert.equal(emptyNodes[0].children[0].props.text, 'Пусто');
@@ -228,7 +237,12 @@ test('6. Localization & pluralization (i18n and plural)', () => {
   const enExpanded = expandStructure(doc.nodes, { count: 5 }, {}, { i18n: doc.i18n, locale: 'en' });
   assert.equal(enExpanded[0].children[0].props.text, 'Inbox: 5 сообщений (item)');
 
-  const fewExpanded = expandStructure(doc.nodes, { count: 3 }, {}, { i18n: doc.i18n, locale: 'ru' });
+  const fewExpanded = expandStructure(
+    doc.nodes,
+    { count: 3 },
+    {},
+    { i18n: doc.i18n, locale: 'ru' },
+  );
   assert.equal(fewExpanded[0].children[0].props.text, 'Входящие: 3 сообщения (item)');
 });
 
@@ -282,7 +296,7 @@ test('8. Extended stdlib (math, strings, collections/records, color/contrast), u
   const expanded = expandStructure(doc.nodes, doc.defaults, {}, {});
   assert.equal(
     expanded[0].children[0].props.text,
-    '42|24|95|Forma-007-Hello...|123|2|1|ac|fallback:true:true|21:#ff0077'
+    '42|24|95|Forma-007-Hello...|123|2|1|ac|fallback:true:true|21:#ff0077',
   );
 
   const warnings = lintDocument(`
@@ -298,7 +312,8 @@ test('8. Extended stdlib (math, strings, collections/records, color/contrast), u
 });
 
 test('9. Interactive local state mutations, shortcuts, and built-in visual components in HTML preview', async () => {
-  const { executePreviewStateAction, matchPreviewShortcut } = await import('../src/preview-state.js');
+  const { executePreviewStateAction, matchPreviewShortcut } =
+    await import('../src/preview-state.js');
   const { renderHtmlPreview } = await import('../src/html-preview.js');
 
   const model = {
@@ -309,22 +324,40 @@ test('9. Interactive local state mutations, shortcuts, and built-in visual compo
   };
   const defaults = structuredClone(model);
 
-  assert.equal(executePreviewStateAction(model, 'state.toggle', ['active'], defaults).handled, true);
+  assert.equal(
+    executePreviewStateAction(model, 'state.toggle', ['active'], defaults).handled,
+    true,
+  );
   assert.equal(model.active, true);
 
-  assert.equal(executePreviewStateAction(model, 'state.increment', ['count', 5], defaults).handled, true);
+  assert.equal(
+    executePreviewStateAction(model, 'state.increment', ['count', 5], defaults).handled,
+    true,
+  );
   assert.equal(model.count, 15);
 
-  assert.equal(executePreviewStateAction(model, 'state.decrement', ['user.score', 2], defaults).handled, true);
+  assert.equal(
+    executePreviewStateAction(model, 'state.decrement', ['user.score', 2], defaults).handled,
+    true,
+  );
   assert.equal(model.user.score, 3);
 
-  assert.equal(executePreviewStateAction(model, 'state.push', ['items', 'c'], defaults).handled, true);
+  assert.equal(
+    executePreviewStateAction(model, 'state.push', ['items', 'c'], defaults).handled,
+    true,
+  );
   assert.deepEqual(model.items, ['a', 'b', 'c']);
 
-  assert.equal(executePreviewStateAction(model, 'state.remove', ['items', 1], defaults).handled, true);
+  assert.equal(
+    executePreviewStateAction(model, 'state.remove', ['items', 1], defaults).handled,
+    true,
+  );
   assert.deepEqual(model.items, ['a', 'c']);
 
-  assert.equal(executePreviewStateAction(model, 'state.set', ['user.name', 'Grace'], defaults).handled, true);
+  assert.equal(
+    executePreviewStateAction(model, 'state.set', ['user.name', 'Grace'], defaults).handled,
+    true,
+  );
   assert.equal(model.user.name, 'Grace');
 
   assert.equal(executePreviewStateAction(model, 'state.reset', [], defaults).handled, true);
@@ -359,7 +392,13 @@ test('9. Interactive local state mutations, shortcuts, and built-in visual compo
       this.style = {};
       this.children = [];
       this.textContent = '';
-      this.classList = { add() {}, remove() {}, contains() { return false; } };
+      this.classList = {
+        add() {},
+        remove() {},
+        contains() {
+          return false;
+        },
+      };
     }
     append(...nodes) {
       for (const n of nodes) {
@@ -367,17 +406,30 @@ test('9. Interactive local state mutations, shortcuts, and built-in visual compo
         else if (n) this.children.push(n);
       }
     }
-    replaceChildren(...nodes) { this.children = []; this.append(...nodes); }
+    replaceChildren(...nodes) {
+      this.children = [];
+      this.append(...nodes);
+    }
     addEventListener() {}
     removeEventListener() {}
-    contains() { return false; }
-    querySelectorAll() { return []; }
+    contains() {
+      return false;
+    }
+    querySelectorAll() {
+      return [];
+    }
   }
   const prevDoc = globalThis.document;
   globalThis.document = {
     activeElement: null,
     createElement: tag => new FakeEl(tag),
-    createDocumentFragment: () => ({ isFragment: true, children: [], append(...n) { this.children.push(...n); } }),
+    createDocumentFragment: () => ({
+      isFragment: true,
+      children: [],
+      append(...n) {
+        this.children.push(...n);
+      },
+    }),
   };
   try {
     const preview = new FakeEl('div');
@@ -403,4 +455,3 @@ test('9. Interactive local state mutations, shortcuts, and built-in visual compo
     globalThis.document = prevDoc;
   }
 });
-

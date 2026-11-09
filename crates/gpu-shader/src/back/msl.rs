@@ -401,9 +401,7 @@ fn runtime_array_info(module: &Module, ty: Handle<Type>) -> Option<(u32, u32)> {
     }
 }
 
-fn compute_all_function_globals(
-    module: &Module,
-) -> BTreeMap<String, Vec<Handle<GlobalVariable>>> {
+fn compute_all_function_globals(module: &Module) -> BTreeMap<String, Vec<Handle<GlobalVariable>>> {
     let mut map = BTreeMap::new();
     for (_, func) in module.functions.iter() {
         let Some(name) = &func.name else { continue };
@@ -467,22 +465,20 @@ fn msl_global_param_decl(module: &Module, gh: Handle<GlobalVariable>) -> String 
                 }
             }
         }
-        AddressSpace::WorkGroup => {
-            match &module.types[gv.ty].inner {
-                TypeInner::Array {
-                    base,
-                    size: ArraySize::Constant(_),
-                    ..
-                } => {
-                    let elem_ty = msl_type_for_handle(module, *base, false);
-                    format!("threadgroup {elem_ty}* {gname}")
-                }
-                _ => {
-                    let ty = msl_type_for_handle(module, gv.ty, false);
-                    format!("threadgroup {ty}& {gname}")
-                }
+        AddressSpace::WorkGroup => match &module.types[gv.ty].inner {
+            TypeInner::Array {
+                base,
+                size: ArraySize::Constant(_),
+                ..
+            } => {
+                let elem_ty = msl_type_for_handle(module, *base, false);
+                format!("threadgroup {elem_ty}* {gname}")
             }
-        }
+            _ => {
+                let ty = msl_type_for_handle(module, gv.ty, false);
+                format!("threadgroup {ty}& {gname}")
+            }
+        },
         AddressSpace::Private => {
             let ty = msl_type_for_handle(module, gv.ty, false);
             format!("thread {ty}& {gname}")
@@ -577,10 +573,7 @@ fn emit_helper_function(
         params.push("constant uint* _wgpu_buffer_sizes".to_string());
     }
 
-    out.push_str(&format!(
-        "{ret_ty} {fname}({}) {{\n",
-        params.join(", ")
-    ));
+    out.push_str(&format!("{ret_ty} {fname}({}) {{\n", params.join(", ")));
     let body = translate_function_body(
         module,
         &func.body_src,
@@ -758,25 +751,21 @@ fn emit_entry_point(
                     }
                 }
             }
-            AddressSpace::WorkGroup => {
-                match &module.types[gv.ty].inner {
-                    TypeInner::Array {
-                        base,
-                        size: ArraySize::Constant(n),
-                        ..
-                    } => {
-                        let elem_ty = msl_type_for_handle(module, *base, false);
-                        let count = n.get();
-                        preamble.push_str(&format!(
-                            "    threadgroup {elem_ty} {gname}[{count}];\n"
-                        ));
-                    }
-                    _ => {
-                        let ty = msl_type_for_handle(module, gv.ty, false);
-                        preamble.push_str(&format!("    threadgroup {ty} {gname};\n"));
-                    }
+            AddressSpace::WorkGroup => match &module.types[gv.ty].inner {
+                TypeInner::Array {
+                    base,
+                    size: ArraySize::Constant(n),
+                    ..
+                } => {
+                    let elem_ty = msl_type_for_handle(module, *base, false);
+                    let count = n.get();
+                    preamble.push_str(&format!("    threadgroup {elem_ty} {gname}[{count}];\n"));
                 }
-            }
+                _ => {
+                    let ty = msl_type_for_handle(module, gv.ty, false);
+                    preamble.push_str(&format!("    threadgroup {ty} {gname};\n"));
+                }
+            },
             AddressSpace::Private | AddressSpace::Function => {
                 let ty = msl_type_for_handle(module, gv.ty, false);
                 if let Some(init) = &gv.init {
@@ -791,10 +780,9 @@ fn emit_entry_point(
 
     let uses_array_length = func.body_src.contains("arrayLength")
         || func.called_functions.iter().any(|cf| {
-            module
-                .functions
-                .iter()
-                .any(|(_, f)| f.name.as_deref() == Some(cf.as_str()) && f.body_src.contains("arrayLength"))
+            module.functions.iter().any(|(_, f)| {
+                f.name.as_deref() == Some(cf.as_str()) && f.body_src.contains("arrayLength")
+            })
         });
     if uses_array_length {
         params.push(format!(
@@ -1048,13 +1036,8 @@ fn rewrite_statements(
         if let Some(after_if) = strip_kw_token(rest, "if") {
             let cond_len = find_block_open(after_if).unwrap_or(0);
             let cond = after_if[..cond_len].trim();
-            let cond_msl = translate_expr_with_ctx(
-                module,
-                cond,
-                ptr_params,
-                func_globals,
-                binding_map,
-            );
+            let cond_msl =
+                translate_expr_with_ctx(module, cond, ptr_params, func_globals, binding_map);
             let cond_wrapped = if cond_msl.starts_with('(')
                 && find_matching_delim(&cond_msl, '(', ')') == Some(cond_msl.len() - 1)
             {
@@ -1092,13 +1075,8 @@ fn rewrite_statements(
         if let Some(after_while) = strip_kw_token(rest, "while") {
             let cond_len = find_block_open(after_while).unwrap_or(0);
             let cond = after_while[..cond_len].trim();
-            let cond_msl = translate_expr_with_ctx(
-                module,
-                cond,
-                ptr_params,
-                func_globals,
-                binding_map,
-            );
+            let cond_msl =
+                translate_expr_with_ctx(module, cond, ptr_params, func_globals, binding_map);
             let cond_wrapped = if cond_msl.starts_with('(')
                 && find_matching_delim(&cond_msl, '(', ')') == Some(cond_msl.len() - 1)
             {
@@ -1547,7 +1525,10 @@ fn translate_expr_with_ctx(
                         })
                         .collect();
                     if is_array_ctor {
-                        out.push_str(&format!("{msl_ctor}{{{{ {} }}}}", translated_args.join(", ")));
+                        out.push_str(&format!(
+                            "{msl_ctor}{{{{ {} }}}}",
+                            translated_args.join(", ")
+                        ));
                     } else {
                         out.push_str(&format!("{msl_ctor}({})", translated_args.join(", ")));
                     }
@@ -1561,13 +1542,8 @@ fn translate_expr_with_ctx(
         let b = bytes[i];
         if b.is_ascii_alphabetic() || b == b'_' {
             let start = i;
-            let is_member = start > 0
-                && expr[..start]
-                    .trim_end()
-                    .as_bytes()
-                    .last()
-                    .copied()
-                    == Some(b'.');
+            let is_member =
+                start > 0 && expr[..start].trim_end().as_bytes().last().copied() == Some(b'.');
             i += 1;
             while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
                 i += 1;
@@ -1600,14 +1576,8 @@ fn translate_expr_with_ctx(
                             })
                             .collect()
                     };
-                    let call_msl = translate_call(
-                        module,
-                        ident,
-                        &args,
-                        raw_args,
-                        func_globals,
-                        binding_map,
-                    );
+                    let call_msl =
+                        translate_call(module, ident, &args, raw_args, func_globals, binding_map);
                     out.push_str(&call_msl);
                     i = expr.len() - trimmed_after.len() + close_paren + 1;
                     continue;
@@ -1660,7 +1630,9 @@ fn try_match_generic_type_ctor(
     if prev_byte.is_ascii_alphanumeric() || prev_byte == b'_' || prev_byte == b'.' {
         return None;
     }
-    for prefix in ["vec2<", "vec3<", "vec4<", "mat2x2<", "mat3x3<", "mat4x4<", "array<"] {
+    for prefix in [
+        "vec2<", "vec3<", "vec4<", "mat2x2<", "mat3x3<", "mat4x4<", "array<",
+    ] {
         if s.starts_with(prefix) {
             let open_pos = prefix.len() - 1;
             let close_rel = find_matching_delim(&s[open_pos..], '<', '>')?;
@@ -1865,7 +1837,8 @@ fn translate_call(
         "arrayLength" => {
             let arg = raw_args.trim().trim_start_matches('&').trim();
             let base_ident = arg.split('.').next().unwrap_or(arg).trim();
-            if let Some(&(slot, base_off, stride, _)) = binding_map.array_length_slots.get(base_ident)
+            if let Some(&(slot, base_off, stride, _)) =
+                binding_map.array_length_slots.get(base_ident)
             {
                 if base_off > 0 {
                     format!(
@@ -1899,10 +1872,9 @@ fn translate_call(
                     }
                 }
             }
-            let callee_needs_arr_len = module
-                .functions
-                .iter()
-                .any(|(_, f)| f.name.as_deref() == Some(ident) && f.body_src.contains("arrayLength"));
+            let callee_needs_arr_len = module.functions.iter().any(|(_, f)| {
+                f.name.as_deref() == Some(ident) && f.body_src.contains("arrayLength")
+            });
             if callee_needs_arr_len {
                 full_args.push("_wgpu_buffer_sizes".to_string());
             }

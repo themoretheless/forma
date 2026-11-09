@@ -1,6 +1,6 @@
 // The project a fresh Studio opens: design states in Studio, real state and commands in Rust.
-export const sampleProject={
- 'Cargo.toml':`[package]
+export const sampleProject = {
+  'Cargo.toml': `[package]
 name = "forma-knowledge-workspace"
 version = "0.1.0"
 edition = "2021"
@@ -11,9 +11,9 @@ default = []
 native = ["forma/native"]
 
 [dependencies]
-forma = { path = "../vector-ui" }
+forma = { path = "../crates/forma" }
 `,
- 'ui/SearchWindow.ui':`#[design('./SearchWindow.design.ui')]
+  'ui/SearchWindow.ui': `#[design('./SearchWindow.design.ui')]
 component SearchWindow {
     contextType: 'crate::SearchVm';
 
@@ -61,7 +61,7 @@ component SearchWindow {
         }
     }
 }`,
- 'ui/SearchWindow.design.ui':`design SearchWindow {
+  'ui/SearchWindow.design.ui': `design SearchWindow {
     TextInput { key: 'query'; value: ''; }
     Button { key: 'searchButton'; disabled: false; }
     Button { key: 'resetButton'; disabled: false; }
@@ -77,7 +77,7 @@ component SearchWindow {
         Text { key: 'status'; text: 'Ничего не найдено'; }
     }
 }`,
- 'ui/TwoButtons.ui':`component TwoButtons {
+  'ui/TwoButtons.ui': `component TwoButtons {
     Frame {
         width: 380;
         height: 240;
@@ -107,7 +107,7 @@ component SearchWindow {
         }
     }
 }`,
- 'components/Button.ui':`component Button {
+  'components/Button.ui': `component Button {
     width: 456;
     height: 44;
     text: 'Кнопка';
@@ -156,7 +156,7 @@ component SearchWindow {
         }
     }
 }`,
- 'components/TextInput.ui':`component TextInput {
+  'components/TextInput.ui': `component TextInput {
     width: 456;
     height: 42;
     value: '';
@@ -207,7 +207,7 @@ component SearchWindow {
         }
     }
 }`,
- 'src/app.rs':`use crate::forma_generated::SearchWindow;
+  'src/app.rs': `use crate::forma_generated::SearchWindow;
 use forma::binding::Property;
 use std::rc::Rc;
 
@@ -298,7 +298,7 @@ mod tests {
     }
 }
 `,
- 'src/main.rs':`mod app;
+  'src/main.rs': `mod app;
 mod forma_generated;
 
 pub use app::*;
@@ -329,5 +329,6 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 `,
- 'README.md':'# Библиотека знаний\n\nСтартовый проект показывает настоящую связку `.ui ↔ Rust ViewModel`:\n\n- `ui/SearchWindow.ui` привязывает ввод к `SearchVm.query`, статус — к `SearchVm.status`.\n- `clicked -> state.search()` вызывает метод `SearchVm::search` из `src/app.rs`.\n- `ui/SearchWindow.design.ui` задаёт только состояния дизайнера и не заменяет Rust-состояние приложения.\n- `src/main.rs` запускает окно с feature `native`; без неё выполняется headless render.\n- `src/forma_generated.rs` создаётся автоматически при запуске и экспорте.\n\nВ Studio нажмите «▶ Приложение» и выполните поиск. В экспортированном проекте: `cargo run --features native`; тесты ViewModel и headless render: `cargo test`.\n\nWeb/HTML-предпросмотр показывает разметку и дизайн-состояния, но не исполняет Rust-код.\n'
+  'README.md':
+    '# Библиотека знаний\n\nСтартовый проект показывает настоящую связку `.ui ↔ Rust ViewModel`:\n\n- `ui/SearchWindow.ui` привязывает ввод к `SearchVm.query`, статус — к `SearchVm.status`.\n- `clicked -> state.search()` вызывает метод `SearchVm::search` из `src/app.rs`.\n- `ui/SearchWindow.design.ui` задаёт только состояния дизайнера и не заменяет Rust-состояние приложения.\n- `src/main.rs` запускает окно с feature `native`; без неё выполняется headless render.\n- `src/forma_generated.rs` создаётся автоматически при запуске и экспорте.\n\nВ Studio нажмите «▶ Приложение» и выполните поиск. В экспортированном проекте: `cargo run --features native`; тесты ViewModel и headless render: `cargo test`.\n\nWeb/HTML-предпросмотр показывает разметку и дизайн-состояния, но не исполняет Rust-код.\n',
 };

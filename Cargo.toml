@@ -1,0 +1,54 @@
+# One workspace for every crate the repository builds: one lockfile, one target directory and one
+# place for lints and profiles. Decisions and exclusions are explained in docs/adr/0001-cargo-workspace.md.
+[workspace]
+resolver = "2"
+members = [
+    "crates/forma",
+    "crates/forma/examples/binding-app",
+    "crates/forma/examples/language-app",
+    "crates/gpu-shader",
+    "crates/gpu-runtime",
+    "crates/raster-core",
+    "crates/math-core",
+    "crates/math-compute",
+    "crates/tensor-core",
+    "crates/compute-core",
+    "crates/compute-mlx",
+    "crates/compute-cuda",
+    "openscad-ui",
+]
+# The two example apps run Node and the tokenizer package from build.rs, so a plain
+# `cargo build` at the root must not pull them in.
+default-members = [
+    "crates/forma",
+    "crates/gpu-shader",
+    "crates/gpu-runtime",
+    "crates/raster-core",
+    "crates/math-core",
+    "crates/math-compute",
+    "crates/tensor-core",
+    "crates/compute-core",
+    "crates/compute-mlx",
+    "crates/compute-cuda",
+    "openscad-ui",
+]
+exclude = [
+    # generated and checked-out crates, some with path dependencies on crates/forma
+    ".forma",
+    # needs FORMA_ACTIONS at compile time and GTK/WebKit on Linux
+    "native-app",
+    # a self-contained npm package: its wasm bytes are verified against its own lockfile and profile
+    "packages/svet",
+    # its optional native-wgpu feature pulls crates.io wgpu 30, which needs wasm-bindgen >= 0.2.127,
+    # while forma pins wasm-bindgen 0.2.125 for its CLI; as a member it would force that upgrade
+    "crates/gpu-compute",
+    # frozen source snapshots kept as benchmark evidence
+    "crates/compute-core/benchmarks",
+    "crates/compute-mlx/benchmarks",
+    "crates/compute-mlx/qualification",
+]
+
+# Was crates/forma/Cargo.toml [profile.release]: it ships the native runtime and forma.wasm.
+[profile.release]
+codegen-units = 1
+lto = "fat"

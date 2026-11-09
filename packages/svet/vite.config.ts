@@ -7,10 +7,7 @@ export default defineConfig({
   build: { outDir: 'dist/demo' },
   server: {
     fs: {
-      allow: [
-        path.resolve(import.meta.dirname),
-        path.resolve(import.meta.dirname, '../forma'),
-      ],
+      allow: [path.resolve(import.meta.dirname), path.resolve(import.meta.dirname, '../forma')],
     },
   },
   resolve: {

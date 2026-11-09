@@ -41,7 +41,10 @@ const HEADER: &str = "\
 
 /// Escapes a WGSL source for inclusion in a TS template literal.
 fn ts_escape(source: &str) -> String {
-    source.replace('\\', "\\\\").replace('`', "\\`").replace("${", "\\${")
+    source
+        .replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${")
 }
 
 /// Renders the full `sources.ts` content. Shader bodies are emitted with
@@ -51,7 +54,9 @@ fn ts_escape(source: &str) -> String {
 pub fn generate_ts_sources() -> String {
     let mut out = String::from(HEADER);
     for (name, source, doc) in TS_SOURCES {
-        out.push_str(&format!("\n/** {doc} */\nexport const {name} = /* wgsl */`\n"));
+        out.push_str(&format!(
+            "\n/** {doc} */\nexport const {name} = /* wgsl */`\n"
+        ));
         // Emit without the leading/trailing blank lines the .wgsl files carry.
         out.push_str(&ts_escape(expand_chunks(source).trim()));
         out.push_str("`\n");
@@ -60,17 +65,31 @@ pub fn generate_ts_sources() -> String {
         "\n/* ── Shared WGSL chunks (canonical text: crates/raster-core/src/chunks.rs) ── */\n",
     );
     let chunk_exports: [(&str, &str, &str); 4] = [
-        ("SCENE_STRUCT", crate::chunks::SCENE_STRUCT,
-         "Canonical themed Scene struct (object shaders, the grid, and the shadow pass share it)."),
-        ("OBJ_STRUCT", crate::chunks::OBJ_STRUCT,
-         "Canonical Obj struct (one per-object uniform record)."),
-        ("SECTION_CLIP_WGSL", crate::chunks::SECTION_CLIP.trim(),
-         "Section-plane discard shared by object/overlay fragment shaders."),
-        ("SECTION_CAP_WGSL", crate::chunks::SECTION_CAP.trim(),
-         "Epsilon accent: fragments just inside the clip plane shade flat, tinted toward the theme cap color."),
+        (
+            "SCENE_STRUCT",
+            crate::chunks::SCENE_STRUCT,
+            "Canonical themed Scene struct (object shaders, the grid, and the shadow pass share it).",
+        ),
+        (
+            "OBJ_STRUCT",
+            crate::chunks::OBJ_STRUCT,
+            "Canonical Obj struct (one per-object uniform record).",
+        ),
+        (
+            "SECTION_CLIP_WGSL",
+            crate::chunks::SECTION_CLIP.trim(),
+            "Section-plane discard shared by object/overlay fragment shaders.",
+        ),
+        (
+            "SECTION_CAP_WGSL",
+            crate::chunks::SECTION_CAP.trim(),
+            "Epsilon accent: fragments just inside the clip plane shade flat, tinted toward the theme cap color.",
+        ),
     ];
     for (name, text, doc) in chunk_exports {
-        out.push_str(&format!("\n/** {doc} */\nexport const {name} = /* wgsl */`"));
+        out.push_str(&format!(
+            "\n/** {doc} */\nexport const {name} = /* wgsl */`"
+        ));
         out.push_str(&ts_escape(text));
         out.push_str("`\n");
     }
@@ -106,9 +125,19 @@ pub fn variant_goldens() -> Vec<(String, String)> {
     for (name, source) in crate::shaders::OBJECT_SHADERS {
         let expanded = expand_chunks(source);
         let ts_source = format!("\n{}", expanded.trim());
-        goldens.push((format!("immediate:{name}"), immediate_object_shader(&ts_source)));
-        let output = if name == "edge" { VertexOutput::EdgeV } else { VertexOutput::V };
-        goldens.push((format!("instanced:{name}"), instanced_object_shader(&ts_source, output)));
+        goldens.push((
+            format!("immediate:{name}"),
+            immediate_object_shader(&ts_source),
+        ));
+        let output = if name == "edge" {
+            VertexOutput::EdgeV
+        } else {
+            VertexOutput::V
+        };
+        goldens.push((
+            format!("instanced:{name}"),
+            instanced_object_shader(&ts_source, output),
+        ));
     }
     goldens
 }
@@ -171,13 +200,28 @@ const LAYOUTS_RS_HEADER: &str = "\
 //   cargo run --manifest-path crates/Cargo.toml -p raster-core --bin wgsl_export -- --check
 ";
 
-fn generate_layout_ts_object(name: &str, doc: &str, floats: usize, bytes: u64, fields: &[crate::layout::LayoutField]) -> String {
-    let mut out = format!("\n/**\n * {doc}\n */\nexport const {name} = {{\n  floats: {floats},\n  bytes: {bytes},\n");
+fn generate_layout_ts_object(
+    name: &str,
+    doc: &str,
+    floats: usize,
+    bytes: u64,
+    fields: &[crate::layout::LayoutField],
+) -> String {
+    let mut out = format!(
+        "\n/**\n * {doc}\n */\nexport const {name} = {{\n  floats: {floats},\n  bytes: {bytes},\n"
+    );
     for field in fields {
         out.push_str(&format!("  /** {} */\n", field.doc));
-        out.push_str(&format!("  {}FloatOffset: {},\n", field.ts, field.float_offset));
+        out.push_str(&format!(
+            "  {}FloatOffset: {},\n",
+            field.ts, field.float_offset
+        ));
         if field.ts_byte {
-            out.push_str(&format!("  {}ByteOffset: {},\n", field.ts, field.float_offset * 4));
+            out.push_str(&format!(
+                "  {}ByteOffset: {},\n",
+                field.ts,
+                field.float_offset * 4
+            ));
         }
     }
     out.push_str("} as const\n");
@@ -205,12 +249,27 @@ pub fn generate_layouts_ts() -> String {
     out
 }
 
-fn generate_layout_rs_consts(floats: usize, bytes: u64, floats_name: &str, bytes_name: &str, fields: &[crate::layout::LayoutField]) -> String {
-    let mut out = format!("\npub const {floats_name}: usize = {floats};\npub const {bytes_name}: u64 = {bytes};\n");
+fn generate_layout_rs_consts(
+    floats: usize,
+    bytes: u64,
+    floats_name: &str,
+    bytes_name: &str,
+    fields: &[crate::layout::LayoutField],
+) -> String {
+    let mut out = format!(
+        "\npub const {floats_name}: usize = {floats};\npub const {bytes_name}: u64 = {bytes};\n"
+    );
     for field in fields {
         out.push_str(&format!("/// {}\n", field.doc));
-        out.push_str(&format!("pub const {}_FLOAT_OFFSET: usize = {};\n", field.rs, field.float_offset));
-        out.push_str(&format!("pub const {}_BYTE_OFFSET: u64 = {};\n", field.rs, field.float_offset * 4));
+        out.push_str(&format!(
+            "pub const {}_FLOAT_OFFSET: usize = {};\n",
+            field.rs, field.float_offset
+        ));
+        out.push_str(&format!(
+            "pub const {}_BYTE_OFFSET: u64 = {};\n",
+            field.rs,
+            field.float_offset * 4
+        ));
     }
     out
 }
@@ -255,9 +314,15 @@ mod tests {
     fn generated_module_exports_every_source_as_template_literal() {
         let ts = generate_ts_sources();
         for (name, source, _doc) in TS_SOURCES {
-            assert!(ts.contains(&format!("export const {name} = /* wgsl */`")), "missing export {name}");
+            assert!(
+                ts.contains(&format!("export const {name} = /* wgsl */`")),
+                "missing export {name}"
+            );
             let expanded = expand_chunks(source);
-            assert!(ts.contains(expanded.trim()), "{name} body drifted from the expanded WGSL source");
+            assert!(
+                ts.contains(expanded.trim()),
+                "{name} body drifted from the expanded WGSL source"
+            );
         }
         // TS template-literal hazards are escaped.
         assert!(!ts.contains("${"));

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 export DEVELOPER_DIR="/Applications/Xcode-beta.app/Contents/Developer"
 TARGET="aarch64-apple-ios-sim"
-APP_DIR="$ROOT_DIR/vector-ui/target/$TARGET/release/Forma.app"
+APP_DIR="$ROOT_DIR/target/$TARGET/release/Forma.app"
 DEVICE="${FORMA_IOS_DEVICE:-iPhone 17 Pro}"
 
 BACKEND_ARGS=("--platform" "ios")
@@ -15,11 +15,11 @@ elif [ "${1:-}" = "--svet" ]; then
 fi
 
 echo "[1/3] Сборка Forma для iOS Simulator ($TARGET)..."
-cargo build --release --offline --manifest-path "$ROOT_DIR/vector-ui/Cargo.toml" --features native --target "$TARGET"
+cargo build --release --offline --manifest-path "$ROOT_DIR/crates/forma/Cargo.toml" --features native --target "$TARGET"
 
 echo "[2/3] Упаковка и подпись Forma.app..."
 mkdir -p "$APP_DIR"
-cp "$ROOT_DIR/vector-ui/target/$TARGET/release/forma" "$APP_DIR/forma"
+cp "$ROOT_DIR/target/$TARGET/release/forma" "$APP_DIR/forma"
 cat > "$APP_DIR/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

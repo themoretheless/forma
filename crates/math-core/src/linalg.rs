@@ -136,7 +136,10 @@ pub fn eigen<const N: usize>(mut a: [[f64; N]; N]) -> ([f64; N], [[f64; N]; N]) 
         let (c, s) = (theta.cos(), theta.sin());
         let (app, aqq, apq) = (a[p][p], a[q][q], a[p][q]);
         // Symmetric updates read and write both rows and columns.
-        #[allow(clippy::needless_range_loop, reason = "Jacobi rotation updates symmetric matrix entries")]
+        #[allow(
+            clippy::needless_range_loop,
+            reason = "Jacobi rotation updates symmetric matrix entries"
+        )]
         for k in 0..n {
             if k != p && k != q {
                 let (kp, kq) = (a[k][p], a[k][q]);

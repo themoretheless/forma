@@ -8,7 +8,7 @@
         "--release",
         "--offline",
         "--manifest-path",
-        "/Users/themoretheless/Documents/Sources/forma/vector-ui/Cargo.toml",
+        "/Users/themoretheless/Documents/Sources/forma/crates/forma/Cargo.toml",
         "--features",
         "native",
         "--",

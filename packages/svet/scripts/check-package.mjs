@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {createHash} from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -15,7 +15,12 @@ const consumer = join(temporary, 'consumer');
 await mkdir(consumer);
 function run(command, args, cwd = consumer) {
   try {
-    return execFileSync(command, args, { cwd, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 120000 });
+    return execFileSync(command, args, {
+      cwd,
+      encoding: 'utf8',
+      maxBuffer: 10 * 1024 * 1024,
+      timeout: 120000,
+    });
   } catch (error) {
     process.stderr.write(String(error.stdout ?? '') + String(error.stderr ?? ''));
     throw error;
@@ -25,17 +30,41 @@ const node = (args, cwd) => run(process.execPath, args, cwd);
 let passed = false;
 try {
   node(['--test', resolve(root, 'scripts/check-embed-wasm-target.mjs')]);
-  const [packed] = JSON.parse(run('npm', ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', temporary], root));
-  assert(packed.files.every(file => file.path.startsWith('dist/package/') || ['package.json', 'README.md', 'DEVELOPMENT.md'].includes(file.path)), 'unexpected development files in tarball');
+  const [packed] = JSON.parse(
+    run(
+      'npm',
+      ['pack', '--json', '--ignore-scripts', '--loglevel=error', '--pack-destination', temporary],
+      root,
+    ),
+  );
+  assert(
+    packed.files.every(
+      file =>
+        file.path.startsWith('dist/package/') ||
+        ['package.json', 'README.md', 'DEVELOPMENT.md'].includes(file.path),
+    ),
+    'unexpected development files in tarball',
+  );
   assert(packed.files.some(file => file.path === 'dist/package/index.js'));
   assert(packed.files.some(file => file.path === 'dist/package/index.d.ts'));
-  await writeFile(join(consumer, 'package.json'), JSON.stringify({ name: 'svet-clean-consumer', private: true, type: 'module' }));
-  run('npm', ['install', '--no-audit', '--no-fund', '--registry=https://registry.npmjs.org', '--@babel:registry=https://registry.npmjs.org', '--@jridgewell:registry=https://registry.npmjs.org', join(temporary, packed.filename)]);
+  await writeFile(
+    join(consumer, 'package.json'),
+    JSON.stringify({ name: 'svet-clean-consumer', private: true, type: 'module' }),
+  );
+  run('npm', [
+    'install',
+    '--no-audit',
+    '--no-fund',
+    '--registry=https://registry.npmjs.org',
+    '--@babel:registry=https://registry.npmjs.org',
+    '--@jridgewell:registry=https://registry.npmjs.org',
+    join(temporary, packed.filename),
+  ]);
   const installed = join(consumer, 'node_modules/svet-engine');
   const metadata = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
   for (const entry of Object.values(metadata.exports)) {
-    const target=entry.import??entry.default;
-    assert((target.endsWith('.js')||target.endsWith('.wasm')) && entry.types.endsWith('.d.ts'));
+    const target = entry.import ?? entry.default;
+    assert((target.endsWith('.js') || target.endsWith('.wasm')) && entry.types.endsWith('.d.ts'));
     await readFile(join(installed, target));
     await readFile(join(installed, entry.types));
   }
@@ -43,7 +72,9 @@ try {
   const consumerRequire = createRequire(join(consumer, 'package.json'));
   assert.throws(() => consumerRequire.resolve('vite'));
   assert.throws(() => consumerRequire.resolve('typescript'));
-  await writeFile(join(consumer, 'runtime.mjs'), `
+  await writeFile(
+    join(consumer, 'runtime.mjs'),
+    `
     import assert from 'node:assert/strict';
     import {readFile as readWasmAsset} from 'node:fs/promises';
     import {installSvetWasmModule} from 'svet-engine';
@@ -877,128 +908,461 @@ try {
 
 
 
-  `);
+  `,
+  );
   node(['runtime.mjs']);
-  if(process.env.SVET_EDGE_DEPS){
-    node([resolve(root, 'scripts/check-edge-ssr.mjs'), process.env.SVET_EDGE_DEPS, join(consumer, 'edge-ssr.json'), installed]);
-    const edge=JSON.parse(await readFile(join(consumer,'edge-ssr.json'),'utf8'));
-    assert(edge.independentEngineModules>0&&edge.crossCopyOwners?.length===2,'Edge must compile and exercise a second engine copy');
-    assert.deepEqual(edge.retainedUi,{status:'passed',requests:16,retainedReferences:40,nodesAfter:0});assert.equal(edge.retainedUiTargets.targets,32);
-    assert.equal(edge.crossCopyBoundaries.status,'passed');assert.equal(edge.crossCopyBoundaries.cases.length,4);assert.equal(edge.crossCopyBoundaries.nodesAfter,0);
-    for(const row of edge.crossCopyOwners)assert(row.status==='passed'&&row.independentCores===true&&row.requests===4&&row.ownerMatches===4&&row.contexts===1&&row.failedChildCleanups===1&&row.lateRefusals===1&&row.rootOverrides===1&&row.domBindings===2&&row.reactiveDomUpdates===2&&row.eventTeardowns===2&&row.retainedCallbacks===1&&row.nodesAfter===0,'Edge cross-copy owner qualification incomplete');
-    assert.equal(edge.crossCopyOwnerTargets.targets,24);
-    assert.equal(edge.churn?.status,'passed');assert.equal(edge.churn?.concurrency,8);
-    assert.equal(edge.churn?.timeoutTransport,'readable');assert.equal(edge.churn?.diagnosticKeepalive,false);
-    assert(edge.churn.events>=8,'Edge gate must exercise concurrent native timeout streams');
-    if(process.env.SVET_EDGE_GC==='1'){
-      assert.equal(edge.gc?.status,'passed');assert.equal(edge.gc?.allocation.requests,24);
-      assert.deepEqual(edge.gc.withHandles.copyOwners,{targets:24,alive:0,kinds:{core:8,memory:8,signal:4,node:4}});assert.deepEqual(edge.gc.afterRelease.copyOwners,{targets:24,alive:0,kinds:{core:8,memory:8,signal:4,node:4}});
-      const uiTargets={targets:32,alive:0,kinds:{boundaryCore:8,boundaryMemory:8,routerCore:8,routerMemory:8}};assert.deepEqual(edge.gc.withHandles.retainedUi,uiTargets);assert.deepEqual(edge.gc.afterRelease.retainedUi,uiTargets);
-      assert.deepEqual(edge.gc.withHandles.alive,{liveControl:4});assert.deepEqual(edge.gc.afterRelease.alive,{});
-      assert.equal(edge.gc.allocation.ownerTokensHeld,20);assert.equal(edge.gc.allocation.ownerTokensRetired,true);assert.equal(edge.gc.afterRelease.ownerTokensHeld,20);
-      if(process.env.SVET_EDGE_GC_FORCE==='1')assert(edge.gc.gcCommands.length>0&&edge.gc.gcCommands.every(command=>command.status==='acknowledged'),'Inspector GC commands must be acknowledged');
+  if (process.env.SVET_EDGE_DEPS) {
+    node([
+      resolve(root, 'scripts/check-edge-ssr.mjs'),
+      process.env.SVET_EDGE_DEPS,
+      join(consumer, 'edge-ssr.json'),
+      installed,
+    ]);
+    const edge = JSON.parse(await readFile(join(consumer, 'edge-ssr.json'), 'utf8'));
+    assert(
+      edge.independentEngineModules > 0 && edge.crossCopyOwners?.length === 2,
+      'Edge must compile and exercise a second engine copy',
+    );
+    assert.deepEqual(edge.retainedUi, {
+      status: 'passed',
+      requests: 16,
+      retainedReferences: 40,
+      nodesAfter: 0,
+    });
+    assert.equal(edge.retainedUiTargets.targets, 32);
+    assert.equal(edge.crossCopyBoundaries.status, 'passed');
+    assert.equal(edge.crossCopyBoundaries.cases.length, 4);
+    assert.equal(edge.crossCopyBoundaries.nodesAfter, 0);
+    for (const row of edge.crossCopyOwners)
+      assert(
+        row.status === 'passed' &&
+          row.independentCores === true &&
+          row.requests === 4 &&
+          row.ownerMatches === 4 &&
+          row.contexts === 1 &&
+          row.failedChildCleanups === 1 &&
+          row.lateRefusals === 1 &&
+          row.rootOverrides === 1 &&
+          row.domBindings === 2 &&
+          row.reactiveDomUpdates === 2 &&
+          row.eventTeardowns === 2 &&
+          row.retainedCallbacks === 1 &&
+          row.nodesAfter === 0,
+        'Edge cross-copy owner qualification incomplete',
+      );
+    assert.equal(edge.crossCopyOwnerTargets.targets, 24);
+    assert.equal(edge.churn?.status, 'passed');
+    assert.equal(edge.churn?.concurrency, 8);
+    assert.equal(edge.churn?.timeoutTransport, 'readable');
+    assert.equal(edge.churn?.diagnosticKeepalive, false);
+    assert(edge.churn.events >= 8, 'Edge gate must exercise concurrent native timeout streams');
+    if (process.env.SVET_EDGE_GC === '1') {
+      assert.equal(edge.gc?.status, 'passed');
+      assert.equal(edge.gc?.allocation.requests, 24);
+      assert.deepEqual(edge.gc.withHandles.copyOwners, {
+        targets: 24,
+        alive: 0,
+        kinds: { core: 8, memory: 8, signal: 4, node: 4 },
+      });
+      assert.deepEqual(edge.gc.afterRelease.copyOwners, {
+        targets: 24,
+        alive: 0,
+        kinds: { core: 8, memory: 8, signal: 4, node: 4 },
+      });
+      const uiTargets = {
+        targets: 32,
+        alive: 0,
+        kinds: { boundaryCore: 8, boundaryMemory: 8, routerCore: 8, routerMemory: 8 },
+      };
+      assert.deepEqual(edge.gc.withHandles.retainedUi, uiTargets);
+      assert.deepEqual(edge.gc.afterRelease.retainedUi, uiTargets);
+      assert.deepEqual(edge.gc.withHandles.alive, { liveControl: 4 });
+      assert.deepEqual(edge.gc.afterRelease.alive, {});
+      assert.equal(edge.gc.allocation.ownerTokensHeld, 20);
+      assert.equal(edge.gc.allocation.ownerTokensRetired, true);
+      assert.equal(edge.gc.afterRelease.ownerTokensHeld, 20);
+      if (process.env.SVET_EDGE_GC_FORCE === '1')
+        assert(
+          edge.gc.gcCommands.length > 0 &&
+            edge.gc.gcCommands.every(command => command.status === 'acknowledged'),
+          'Inspector GC commands must be acknowledged',
+        );
     }
   }
-  node(['--expose-gc', resolve(root, 'scripts/check-ssr-runtime-package.mjs'), installed, join(consumer, 'ssr-runtime-host.json')]);
-  if(process.env.SVET_REBUILT_WASM)node([resolve(root,'scripts/check-wasm-provenance.mjs'),resolve(process.env.SVET_REBUILT_WASM),join(consumer,'wasm-provenance.json'),installed]);
-  const aotLifecycle=join(consumer,'forma-aot-lifecycle.json');
-  node(['--expose-gc',resolve(root,'scripts/check-forma-aot-lifecycle.mjs'),installed,aotLifecycle]);
-  const aotReport=JSON.parse(await readFile(aotLifecycle,'utf8'));assert.equal(aotReport.status,'passed');assert.equal(aotReport.cases.length,15);assert.deepEqual(aotReport.extensionGc,{targets:6,retained:0,controlsHeld:2,controlsReleased:0});assert.equal(aotReport.retainedTargets,0);assert.deepEqual(aotReport.gc,{targets:8,controlsHeld:4,controlsReleased:0});
-  const formaHandles=join(consumer,'forma-retained-handles.json');
-  node(['--expose-gc',resolve(root,'scripts/check-forma-retained-handles.mjs'),installed,formaHandles]);
-  const formaHandlesGc=JSON.parse(await readFile(formaHandles,'utf8'));
-  assert.equal(formaHandlesGc.status,'passed');
-  assert.deepEqual(formaHandlesGc.retained,Object.fromEntries(['instance','mount-handle','bound-render','button'].map(mode=>[mode,{cores:0,memories:0}])));
-  assert.equal(formaHandlesGc.heldReferences,16);assert.equal(formaHandlesGc.controlsHeld,4);assert.equal(formaHandlesGc.controlsReleased,0);
-  assert.deepEqual(formaHandlesGc.graph,Array(16).fill(0));
-  const formaRawHandles=join(consumer,'forma-raw-handles.json');
-  node(['--expose-gc',resolve(root,'scripts/check-forma-raw-handles.mjs'),installed,formaRawHandles]);
-  const rawHandlesGc=JSON.parse(await readFile(formaRawHandles,'utf8'));
-  assert.equal(rawHandlesGc.status,'passed');
-  assert.deepEqual(rawHandlesGc.retained,Object.fromEntries(['state-signal','prop-signal','computed','signal-peek','action','event-unsubscribe'].map(mode=>[mode,{cores:0,memories:0}])));
-  assert.equal(rawHandlesGc.heldReferences,24);assert.equal(rawHandlesGc.controlsHeld,4);assert.equal(rawHandlesGc.controlsReleased,0);
-  assert.deepEqual(rawHandlesGc.graph,Array(24).fill(0));
-  const rootDisposers=join(consumer,'retained-root-disposers.json');
-  node(['--expose-gc',resolve(root,'scripts/check-retained-root-disposers.mjs'),installed,rootDisposers]);
-  const rootDisposerGc=JSON.parse(await readFile(rootDisposers,'utf8'));
-  assert.equal(rootDisposerGc.status,'passed');
-  assert.deepEqual(rootDisposerGc.retained,Object.fromEntries(['explicit-dispose','construction-throw','construction-dispose','cleanup-throw'].map(mode=>[mode,{cores:0,memories:0}])));
-  assert.equal(rootDisposerGc.heldReferences,16);assert.equal(rootDisposerGc.controlsHeld,4);assert.equal(rootDisposerGc.controlsReleased,0);
-  assert.equal(rootDisposerGc.liveRootControlsHeld,2);assert.equal(rootDisposerGc.liveRootControlsReleased,0);
-  assert.deepEqual(rootDisposerGc.graph,Array(16).fill(0));
-  const resetHandles=join(consumer,'reset-handle-retention.json');
-  node(['--expose-gc',resolve(root,'scripts/check-reset-handle-retention.mjs'),installed,resetHandles]);
-  const resetHandleGc=JSON.parse(await readFile(resetHandles,'utf8'));
-  assert.equal(resetHandleGc.status,'passed');
-  assert.deepEqual(resetHandleGc.retained,Object.fromEntries(['signal','signal-peek','computed','computed-peek','peer-signal','peer-signal-peek','peer-computed','peer-computed-peek'].map(mode=>[mode,{cores:0,memories:0}])));
-  assert.equal(resetHandleGc.heldReferences,32);assert.equal(resetHandleGc.controlsHeld,4);assert.equal(resetHandleGc.controlsReleased,0);
-  assert.deepEqual(resetHandleGc.graph,Array(32).fill(0));
-  const disposedEffects=join(consumer,'disposed-effect-retention.json');
-  node(['--expose-gc',resolve(root,'scripts/check-disposed-effect-retention.mjs'),installed,disposedEffects]);
-  const disposedEffectGc=JSON.parse(await readFile(disposedEffects,'utf8'));
-  assert.equal(disposedEffectGc.status,'passed');
-  assert.deepEqual(disposedEffectGc.retained,Object.fromEntries(['effect-dispose','effect-method','peer-effect-dispose','peer-effect-method'].map(mode=>[mode,{cores:0,memories:0}])));
-  assert.equal(disposedEffectGc.heldReferences,16);assert.equal(disposedEffectGc.controlsHeld,4);assert.equal(disposedEffectGc.controlsReleased,0);
-  assert.deepEqual(disposedEffectGc.graph,Array(16).fill(0));
-  const resetEffectPayloads=join(consumer,'reset-effect-payloads.json');
-  node(['--expose-gc',resolve(root,'scripts/check-reset-effect-payloads.mjs'),installed,resetEffectPayloads]);
-  const resetEffectGc=JSON.parse(await readFile(resetEffectPayloads,'utf8'));
-  assert.equal(resetEffectGc.status,'passed');
-  const resetEffectModes=['effect-handle','effect-method','peer-effect-handle','peer-effect-method'];
-  assert.deepEqual(resetEffectGc.retained,Object.fromEntries(resetEffectModes.map(mode=>[mode,{cores:4,memories:4,bodies:0,cleanups:4}])));
-  assert.deepEqual(resetEffectGc.afterLateDisposal,Object.fromEntries(resetEffectModes.map(mode=>[mode,{cores:0,memories:0,bodies:0,cleanups:0}])));
-  assert.equal(resetEffectGc.heldReferences,16);assert.equal(resetEffectGc.cleanupCalls,16);
-  assert.equal(resetEffectGc.controlsHeld,4);assert.equal(resetEffectGc.controlsReleased,0);
-  assert.deepEqual(resetEffectGc.graph,Array(16).fill(0));
-  const retainedRetry=join(consumer,'retained-boundary-retry.json');
-  node(['--expose-gc',resolve(root,'scripts/check-retained-ui-callbacks.mjs'),installed,retainedRetry]);
-  const retryGc=JSON.parse(await readFile(retainedRetry,'utf8'));assert.equal(retryGc.status,'passed');assert.equal(retryGc.retained.boundary,0);assert.equal(retryGc.retained.router,0);assert.equal(retryGc.handles,12);assert.equal(retryGc.controlsHeld,4);assert.equal(retryGc.controlsReleased,0);
-  const copyManifest=join(consumer,'cross-copy-manifest.json'),copyOwners=join(consumer,'cross-copy-async-owner.json');
-  node([resolve(root,'scripts/prepare-installed-copy-probe.mjs'),installed,copyManifest]);
-  const constructionCopies=join(consumer,'forma-construction-copies.json');
-  node([resolve(root,'scripts/check-forma-construction-copies.mjs'),copyManifest,constructionCopies]);
-  const constructionReport=JSON.parse(await readFile(constructionCopies,'utf8'));
-  assert.equal(constructionReport.status,'passed');assert.equal(constructionReport.cases.length,2);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-ssr-runtime-package.mjs'),
+    installed,
+    join(consumer, 'ssr-runtime-host.json'),
+  ]);
+  if (process.env.SVET_REBUILT_WASM)
+    node([
+      resolve(root, 'scripts/check-wasm-provenance.mjs'),
+      resolve(process.env.SVET_REBUILT_WASM),
+      join(consumer, 'wasm-provenance.json'),
+      installed,
+    ]);
+  const aotLifecycle = join(consumer, 'forma-aot-lifecycle.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-forma-aot-lifecycle.mjs'),
+    installed,
+    aotLifecycle,
+  ]);
+  const aotReport = JSON.parse(await readFile(aotLifecycle, 'utf8'));
+  assert.equal(aotReport.status, 'passed');
+  assert.equal(aotReport.cases.length, 15);
+  assert.deepEqual(aotReport.extensionGc, {
+    targets: 6,
+    retained: 0,
+    controlsHeld: 2,
+    controlsReleased: 0,
+  });
+  assert.equal(aotReport.retainedTargets, 0);
+  assert.deepEqual(aotReport.gc, { targets: 8, controlsHeld: 4, controlsReleased: 0 });
+  const formaHandles = join(consumer, 'forma-retained-handles.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-forma-retained-handles.mjs'),
+    installed,
+    formaHandles,
+  ]);
+  const formaHandlesGc = JSON.parse(await readFile(formaHandles, 'utf8'));
+  assert.equal(formaHandlesGc.status, 'passed');
+  assert.deepEqual(
+    formaHandlesGc.retained,
+    Object.fromEntries(
+      ['instance', 'mount-handle', 'bound-render', 'button'].map(mode => [
+        mode,
+        { cores: 0, memories: 0 },
+      ]),
+    ),
+  );
+  assert.equal(formaHandlesGc.heldReferences, 16);
+  assert.equal(formaHandlesGc.controlsHeld, 4);
+  assert.equal(formaHandlesGc.controlsReleased, 0);
+  assert.deepEqual(formaHandlesGc.graph, Array(16).fill(0));
+  const formaRawHandles = join(consumer, 'forma-raw-handles.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-forma-raw-handles.mjs'),
+    installed,
+    formaRawHandles,
+  ]);
+  const rawHandlesGc = JSON.parse(await readFile(formaRawHandles, 'utf8'));
+  assert.equal(rawHandlesGc.status, 'passed');
+  assert.deepEqual(
+    rawHandlesGc.retained,
+    Object.fromEntries(
+      ['state-signal', 'prop-signal', 'computed', 'signal-peek', 'action', 'event-unsubscribe'].map(
+        mode => [mode, { cores: 0, memories: 0 }],
+      ),
+    ),
+  );
+  assert.equal(rawHandlesGc.heldReferences, 24);
+  assert.equal(rawHandlesGc.controlsHeld, 4);
+  assert.equal(rawHandlesGc.controlsReleased, 0);
+  assert.deepEqual(rawHandlesGc.graph, Array(24).fill(0));
+  const rootDisposers = join(consumer, 'retained-root-disposers.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-retained-root-disposers.mjs'),
+    installed,
+    rootDisposers,
+  ]);
+  const rootDisposerGc = JSON.parse(await readFile(rootDisposers, 'utf8'));
+  assert.equal(rootDisposerGc.status, 'passed');
+  assert.deepEqual(
+    rootDisposerGc.retained,
+    Object.fromEntries(
+      ['explicit-dispose', 'construction-throw', 'construction-dispose', 'cleanup-throw'].map(
+        mode => [mode, { cores: 0, memories: 0 }],
+      ),
+    ),
+  );
+  assert.equal(rootDisposerGc.heldReferences, 16);
+  assert.equal(rootDisposerGc.controlsHeld, 4);
+  assert.equal(rootDisposerGc.controlsReleased, 0);
+  assert.equal(rootDisposerGc.liveRootControlsHeld, 2);
+  assert.equal(rootDisposerGc.liveRootControlsReleased, 0);
+  assert.deepEqual(rootDisposerGc.graph, Array(16).fill(0));
+  const resetHandles = join(consumer, 'reset-handle-retention.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-reset-handle-retention.mjs'),
+    installed,
+    resetHandles,
+  ]);
+  const resetHandleGc = JSON.parse(await readFile(resetHandles, 'utf8'));
+  assert.equal(resetHandleGc.status, 'passed');
+  assert.deepEqual(
+    resetHandleGc.retained,
+    Object.fromEntries(
+      [
+        'signal',
+        'signal-peek',
+        'computed',
+        'computed-peek',
+        'peer-signal',
+        'peer-signal-peek',
+        'peer-computed',
+        'peer-computed-peek',
+      ].map(mode => [mode, { cores: 0, memories: 0 }]),
+    ),
+  );
+  assert.equal(resetHandleGc.heldReferences, 32);
+  assert.equal(resetHandleGc.controlsHeld, 4);
+  assert.equal(resetHandleGc.controlsReleased, 0);
+  assert.deepEqual(resetHandleGc.graph, Array(32).fill(0));
+  const disposedEffects = join(consumer, 'disposed-effect-retention.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-disposed-effect-retention.mjs'),
+    installed,
+    disposedEffects,
+  ]);
+  const disposedEffectGc = JSON.parse(await readFile(disposedEffects, 'utf8'));
+  assert.equal(disposedEffectGc.status, 'passed');
+  assert.deepEqual(
+    disposedEffectGc.retained,
+    Object.fromEntries(
+      ['effect-dispose', 'effect-method', 'peer-effect-dispose', 'peer-effect-method'].map(mode => [
+        mode,
+        { cores: 0, memories: 0 },
+      ]),
+    ),
+  );
+  assert.equal(disposedEffectGc.heldReferences, 16);
+  assert.equal(disposedEffectGc.controlsHeld, 4);
+  assert.equal(disposedEffectGc.controlsReleased, 0);
+  assert.deepEqual(disposedEffectGc.graph, Array(16).fill(0));
+  const resetEffectPayloads = join(consumer, 'reset-effect-payloads.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-reset-effect-payloads.mjs'),
+    installed,
+    resetEffectPayloads,
+  ]);
+  const resetEffectGc = JSON.parse(await readFile(resetEffectPayloads, 'utf8'));
+  assert.equal(resetEffectGc.status, 'passed');
+  const resetEffectModes = [
+    'effect-handle',
+    'effect-method',
+    'peer-effect-handle',
+    'peer-effect-method',
+  ];
+  assert.deepEqual(
+    resetEffectGc.retained,
+    Object.fromEntries(
+      resetEffectModes.map(mode => [mode, { cores: 4, memories: 4, bodies: 0, cleanups: 4 }]),
+    ),
+  );
+  assert.deepEqual(
+    resetEffectGc.afterLateDisposal,
+    Object.fromEntries(
+      resetEffectModes.map(mode => [mode, { cores: 0, memories: 0, bodies: 0, cleanups: 0 }]),
+    ),
+  );
+  assert.equal(resetEffectGc.heldReferences, 16);
+  assert.equal(resetEffectGc.cleanupCalls, 16);
+  assert.equal(resetEffectGc.controlsHeld, 4);
+  assert.equal(resetEffectGc.controlsReleased, 0);
+  assert.deepEqual(resetEffectGc.graph, Array(16).fill(0));
+  const retainedRetry = join(consumer, 'retained-boundary-retry.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-retained-ui-callbacks.mjs'),
+    installed,
+    retainedRetry,
+  ]);
+  const retryGc = JSON.parse(await readFile(retainedRetry, 'utf8'));
+  assert.equal(retryGc.status, 'passed');
+  assert.equal(retryGc.retained.boundary, 0);
+  assert.equal(retryGc.retained.router, 0);
+  assert.equal(retryGc.handles, 12);
+  assert.equal(retryGc.controlsHeld, 4);
+  assert.equal(retryGc.controlsReleased, 0);
+  const copyManifest = join(consumer, 'cross-copy-manifest.json'),
+    copyOwners = join(consumer, 'cross-copy-async-owner.json');
+  node([resolve(root, 'scripts/prepare-installed-copy-probe.mjs'), installed, copyManifest]);
+  const constructionCopies = join(consumer, 'forma-construction-copies.json');
+  node([
+    resolve(root, 'scripts/check-forma-construction-copies.mjs'),
+    copyManifest,
+    constructionCopies,
+  ]);
+  const constructionReport = JSON.parse(await readFile(constructionCopies, 'utf8'));
+  assert.equal(constructionReport.status, 'passed');
+  assert.equal(constructionReport.cases.length, 2);
 
-  const copyRouter=join(consumer,'cross-copy-router.json');
-  node([resolve(root,'scripts/check-cross-copy-router.mjs'),copyRouter,copyManifest]);
-  const routerCopies=JSON.parse(await readFile(copyRouter,'utf8'));assert.equal(routerCopies.status,'passed');assert.equal(routerCopies.cases.length,4);
-  const copyBoundaries=join(consumer,'cross-copy-boundaries.json');
-  node([resolve(root,'scripts/check-cross-copy-boundaries.mjs'),copyBoundaries,copyManifest]);
-  const boundaryReport=JSON.parse(await readFile(copyBoundaries,'utf8'));
-  assert.equal(boundaryReport.status,'passed');assert.equal(boundaryReport.cases.length,4);
-  const bridgeRetention=join(consumer,'cross-core-retention.json');
-  node(['--expose-gc',resolve(root,'scripts/check-cross-core-retention.mjs'),bridgeRetention,copyManifest]);
-  const bridgeGc=JSON.parse(await readFile(bridgeRetention,'utf8'));
-  assert.equal(bridgeGc.status,'passed');assert.equal(bridgeGc.cases.length,9);
-  assert.equal(bridgeGc.liveSubscriptionHeld,3);assert.equal(bridgeGc.liveSubscriptionReleased,0);
-  assert.equal(bridgeGc.retention.targets,440);assert.deepEqual(bridgeGc.retention.alive,[]);
-  assert.equal(bridgeGc.retention.controlsHeld,4);assert.equal(bridgeGc.retention.controlsReleased,0);
-  node(['--expose-gc',resolve(root,'scripts/check-cross-copy-async-owner.mjs'),copyOwners,copyManifest]);
-  const ownerCopies=JSON.parse(await readFile(copyOwners,'utf8'));
-  assert(ownerCopies.status==='passed'&&ownerCopies.cases.length===8&&ownerCopies.gc?.coresCollected===8&&ownerCopies.gc?.memoriesCollected===8&&ownerCopies.gc?.controlsHeld===4&&ownerCopies.gc?.controlsReleased===0,'Cross-copy async ownership/GC qualification failed');
+  const copyRouter = join(consumer, 'cross-copy-router.json');
+  node([resolve(root, 'scripts/check-cross-copy-router.mjs'), copyRouter, copyManifest]);
+  const routerCopies = JSON.parse(await readFile(copyRouter, 'utf8'));
+  assert.equal(routerCopies.status, 'passed');
+  assert.equal(routerCopies.cases.length, 4);
+  const copyBoundaries = join(consumer, 'cross-copy-boundaries.json');
+  node([resolve(root, 'scripts/check-cross-copy-boundaries.mjs'), copyBoundaries, copyManifest]);
+  const boundaryReport = JSON.parse(await readFile(copyBoundaries, 'utf8'));
+  assert.equal(boundaryReport.status, 'passed');
+  assert.equal(boundaryReport.cases.length, 4);
+  const bridgeRetention = join(consumer, 'cross-core-retention.json');
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-cross-core-retention.mjs'),
+    bridgeRetention,
+    copyManifest,
+  ]);
+  const bridgeGc = JSON.parse(await readFile(bridgeRetention, 'utf8'));
+  assert.equal(bridgeGc.status, 'passed');
+  assert.equal(bridgeGc.cases.length, 9);
+  assert.equal(bridgeGc.liveSubscriptionHeld, 3);
+  assert.equal(bridgeGc.liveSubscriptionReleased, 0);
+  assert.equal(bridgeGc.retention.targets, 440);
+  assert.deepEqual(bridgeGc.retention.alive, []);
+  assert.equal(bridgeGc.retention.controlsHeld, 4);
+  assert.equal(bridgeGc.retention.controlsReleased, 0);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/check-cross-copy-async-owner.mjs'),
+    copyOwners,
+    copyManifest,
+  ]);
+  const ownerCopies = JSON.parse(await readFile(copyOwners, 'utf8'));
+  assert(
+    ownerCopies.status === 'passed' &&
+      ownerCopies.cases.length === 8 &&
+      ownerCopies.gc?.coresCollected === 8 &&
+      ownerCopies.gc?.memoriesCollected === 8 &&
+      ownerCopies.gc?.controlsHeld === 4 &&
+      ownerCopies.gc?.controlsReleased === 0,
+    'Cross-copy async ownership/GC qualification failed',
+  );
   node([resolve(root, 'scripts/check-async-components-package.mjs'), installed]);
-  node(['--expose-gc', resolve(root, 'scripts/measure-stream-iterator-retention.mjs'), join(consumer, 'stream-iterator-retention.json'), installed]);
-  node(['--expose-gc', resolve(root, 'scripts/measure-stream-receiver-retention.mjs'), join(consumer, 'stream-receiver-retention.json'), installed]);
-  node(['--expose-gc', resolve(root, 'scripts/measure-async-component-churn.mjs'), join(consumer, 'async-component-retention.json'), '100', 'native', installed]);
-  node(['--expose-gc', resolve(root, 'scripts/soak-async-components.mjs'), join(consumer, 'async-component-concurrent.json'), '1000', 'native', installed]);
-  node([resolve(root, 'scripts/check-async-ssr-http.mjs'), installed, join(consumer, 'async-ssr-http.json'), '4']);
-  node([resolve(root, 'scripts/check-ssr-stream-codec.mjs'), join(consumer, 'ssr-stream-codec.json'), installed]);
-  node([resolve(root, 'scripts/check-ssr-stream-negotiation.mjs'), join(consumer, 'ssr-stream-negotiation.json'), installed]);
-  node([resolve(root, 'scripts/check-ssr-stream-proxy.mjs'), join(consumer, 'ssr-stream-proxy.json'), installed]);
-  node(['--expose-gc', resolve(root, 'scripts/soak-readable-ssr.mjs'), join(consumer, 'readable-ssr-concurrent.json'), '1000', installed]);
-  node(['--expose-gc', resolve(root, 'scripts/measure-ssr-timeout-retention.mjs'), join(consumer, 'ssr-timeout-retention.json'), installed]);
-  node(['--expose-gc', resolve(root, 'scripts/soak-ssr-deadlines.mjs'), join(consumer, 'ssr-deadline-churn.json'), '1000', installed]);
-  node(['--expose-gc', resolve(root, 'scripts/soak-child-deadlines.mjs'), join(consumer, 'child-deadline-churn.json'), '1000', installed]);
-  node(['--expose-gc', resolve(root, 'scripts/measure-readable-ssr-retention.mjs'), join(consumer, 'readable-ssr-retention.json'), installed]);
-  node([resolve(root, 'scripts/check-readable-ssr-http.mjs'), join(consumer, 'readable-ssr-http.json'), installed]);
-  node([resolve(root, 'scripts/check-ssr-stream-gzip-flush.mjs'), join(consumer, 'ssr-stream-gzip-pending-flush.json'), installed]);
-  node([resolve(root, 'scripts/check-ssr-stream-gzip-abort.mjs'), join(consumer, 'ssr-stream-gzip-active-abort.json'), installed]);
-  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-gzip-http.json'), 'identity', 'gzip']);
-  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-codec-gzip-http.json'), 'svet-html-ref-v1', 'gzip']);
-  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-codec-http.json'), 'svet-html-ref-v1']);
-  node([resolve(root, 'scripts/check-ssr-stream-http.mjs'), installed, join(consumer, 'ssr-stream-http.json')]);
-  await writeFile(join(consumer, 'consumer.tsx'), `
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/measure-stream-iterator-retention.mjs'),
+    join(consumer, 'stream-iterator-retention.json'),
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/measure-stream-receiver-retention.mjs'),
+    join(consumer, 'stream-receiver-retention.json'),
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/measure-async-component-churn.mjs'),
+    join(consumer, 'async-component-retention.json'),
+    '100',
+    'native',
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/soak-async-components.mjs'),
+    join(consumer, 'async-component-concurrent.json'),
+    '1000',
+    'native',
+    installed,
+  ]);
+  node([
+    resolve(root, 'scripts/check-async-ssr-http.mjs'),
+    installed,
+    join(consumer, 'async-ssr-http.json'),
+    '4',
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-codec.mjs'),
+    join(consumer, 'ssr-stream-codec.json'),
+    installed,
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-negotiation.mjs'),
+    join(consumer, 'ssr-stream-negotiation.json'),
+    installed,
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-proxy.mjs'),
+    join(consumer, 'ssr-stream-proxy.json'),
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/soak-readable-ssr.mjs'),
+    join(consumer, 'readable-ssr-concurrent.json'),
+    '1000',
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/measure-ssr-timeout-retention.mjs'),
+    join(consumer, 'ssr-timeout-retention.json'),
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/soak-ssr-deadlines.mjs'),
+    join(consumer, 'ssr-deadline-churn.json'),
+    '1000',
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/soak-child-deadlines.mjs'),
+    join(consumer, 'child-deadline-churn.json'),
+    '1000',
+    installed,
+  ]);
+  node([
+    '--expose-gc',
+    resolve(root, 'scripts/measure-readable-ssr-retention.mjs'),
+    join(consumer, 'readable-ssr-retention.json'),
+    installed,
+  ]);
+  node([
+    resolve(root, 'scripts/check-readable-ssr-http.mjs'),
+    join(consumer, 'readable-ssr-http.json'),
+    installed,
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-gzip-flush.mjs'),
+    join(consumer, 'ssr-stream-gzip-pending-flush.json'),
+    installed,
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-gzip-abort.mjs'),
+    join(consumer, 'ssr-stream-gzip-active-abort.json'),
+    installed,
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-http.mjs'),
+    installed,
+    join(consumer, 'ssr-stream-gzip-http.json'),
+    'identity',
+    'gzip',
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-http.mjs'),
+    installed,
+    join(consumer, 'ssr-stream-codec-gzip-http.json'),
+    'svet-html-ref-v1',
+    'gzip',
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-http.mjs'),
+    installed,
+    join(consumer, 'ssr-stream-codec-http.json'),
+    'svet-html-ref-v1',
+  ]);
+  node([
+    resolve(root, 'scripts/check-ssr-stream-http.mjs'),
+    installed,
+    join(consumer, 'ssr-stream-http.json'),
+  ]);
+  await writeFile(
+    join(consumer, 'consumer.tsx'),
+    `
     import { createServerAction, ServerActionDisposedError, type ServerAction, For, Link, createResource, type Resource, h, signal, getGraphTelemetry, createGpuTensor, getGpuTelemetry, configureGpuSubsystem, GpuComputeCapacityError, ReactiveStabilizationError, ReactiveCycleError, dispatchGpuComputeKernel, dispatchGpuComputeKernelAsync, type GpuComputeResult, type Signal, Viewport3D, type Canvas3DProps, createMesh3D, type WebGpuDeviceLike, type VertexPickFrame3D } from 'svet-engine';
     import { captureReactiveContext, ReactiveContextDisposedError, type CapturedReactiveContext, mount, createPerspectiveCamera3D, type PerspectiveCamera3DOptions } from 'svet-engine';
     const captureFactory: () => CapturedReactiveContext = captureReactiveContext;
@@ -1104,63 +1468,183 @@ try {
     void pickMode;
     const dimension: NonNullable<Canvas3DProps['width']> = () => 320;
     void h; void result; void plugin; void computation; void viewport; void dimension; void meshSource;
-  `);
-  await writeFile(join(consumer, 'tsconfig.json'), JSON.stringify({ compilerOptions: { strict: true, noEmit: true, module: 'NodeNext', moduleResolution: 'NodeNext', target: 'ES2022', jsx: 'react-jsx', jsxImportSource: 'svet-engine', skipLibCheck: false, types: [] }, files: ['consumer.tsx'] }));
+  `,
+  );
+  await writeFile(
+    join(consumer, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: {
+        strict: true,
+        noEmit: true,
+        module: 'NodeNext',
+        moduleResolution: 'NodeNext',
+        target: 'ES2022',
+        jsx: 'react-jsx',
+        jsxImportSource: 'svet-engine',
+        skipLibCheck: false,
+        types: [],
+      },
+      files: ['consumer.tsx'],
+    }),
+  );
   node([require.resolve('typescript/bin/tsc'), '-p', 'tsconfig.json']);
-  await writeFile(join(consumer, 'negative.ts'), "import { signal } from 'svet-engine'; const value: number = signal('wrong')();");
-  const negative = await import('node:child_process').then(({ spawnSync }) => spawnSync(process.execPath, [require.resolve('typescript/bin/tsc'), '--noEmit', '--strict', '--module', 'NodeNext', '--moduleResolution', 'NodeNext', '--target', 'ES2022', 'negative.ts'], { cwd: consumer, encoding: 'utf8' }));
+  await writeFile(
+    join(consumer, 'negative.ts'),
+    "import { signal } from 'svet-engine'; const value: number = signal('wrong')();",
+  );
+  const negative = await import('node:child_process').then(({ spawnSync }) =>
+    spawnSync(
+      process.execPath,
+      [
+        require.resolve('typescript/bin/tsc'),
+        '--noEmit',
+        '--strict',
+        '--module',
+        'NodeNext',
+        '--moduleResolution',
+        'NodeNext',
+        '--target',
+        'ES2022',
+        'negative.ts',
+      ],
+      { cwd: consumer, encoding: 'utf8' },
+    ),
+  );
   assert.equal(negative.status, 2);
   assert.match(negative.stdout, /Type 'string' is not assignable to type 'number'/);
-  await writeFile(join(consumer, 'index.html'), '<h1>Installed Svet consumer</h1><h2>JSX counter</h2><div id="app"></div><h2>Forma card</h2><div id="forma"></div><script type="module" src="/main.tsx"></script>');
-  await writeFile(join(consumer, 'Card.ui'), "component ConsumerCard { state count: Number = 1; Column { Text { text: state.count; } Button { text: 'Forma +1'; clicked -> state.increment('count', 1); } } }");
-  await writeFile(join(consumer, 'main.tsx'), `import { mount, signal } from 'svet-engine'; import createCard from './Card.ui'; const count = signal(1); mount(() => <button onClick={() => count.update(n => n + 1)}>Count: {count()}</button>, document.querySelector('#app')); createCard({}).mount(document.querySelector('#forma'));`);
-  const residentPage = (await readFile(join(root, 'tests/browser/gpu-resident-render.html'), 'utf8'))
-    .replace("from '/src/engine/index.ts'", "from 'svet-engine'");
+  await writeFile(
+    join(consumer, 'index.html'),
+    '<h1>Installed Svet consumer</h1><h2>JSX counter</h2><div id="app"></div><h2>Forma card</h2><div id="forma"></div><script type="module" src="/main.tsx"></script>',
+  );
+  await writeFile(
+    join(consumer, 'Card.ui'),
+    "component ConsumerCard { state count: Number = 1; Column { Text { text: state.count; } Button { text: 'Forma +1'; clicked -> state.increment('count', 1); } } }",
+  );
+  await writeFile(
+    join(consumer, 'main.tsx'),
+    `import { mount, signal } from 'svet-engine'; import createCard from './Card.ui'; const count = signal(1); mount(() => <button onClick={() => count.update(n => n + 1)}>Count: {count()}</button>, document.querySelector('#app')); createCard({}).mount(document.querySelector('#forma'));`,
+  );
+  const residentPage = (
+    await readFile(join(root, 'tests/browser/gpu-resident-render.html'), 'utf8')
+  ).replace("from '/src/engine/index.ts'", "from 'svet-engine'");
   assert(!residentPage.includes("from '/src/engine/index.ts'"));
   await writeFile(join(consumer, 'resident-render.html'), residentPage);
-  const recoveryPage = (await readFile(join(root, 'tests/browser/shared-gpu-recovery.html'), 'utf8')).replace("from '/src/engine/index.ts'", "from 'svet-engine'");
+  const recoveryPage = (
+    await readFile(join(root, 'tests/browser/shared-gpu-recovery.html'), 'utf8')
+  ).replace("from '/src/engine/index.ts'", "from 'svet-engine'");
   assert(!recoveryPage.includes("from '/src/engine/index.ts'"));
   await writeFile(join(consumer, 'shared-gpu-recovery.html'), recoveryPage);
-  const matrixCases = JSON.parse(await readFile(join(root, 'tests/browser/browser-matrix-cases.json'), 'utf8'));
-  const matrixPages = ['browser-matrix', ...matrixCases.map(item => item.name), 'resumption-roundtrip', 'server-action-http', 'async-components-roundtrip', 'streaming-roundtrip'];
+  const matrixCases = JSON.parse(
+    await readFile(join(root, 'tests/browser/browser-matrix-cases.json'), 'utf8'),
+  );
+  const matrixPages = [
+    'browser-matrix',
+    ...matrixCases.map(item => item.name),
+    'resumption-roundtrip',
+    'server-action-http',
+    'async-components-roundtrip',
+    'streaming-roundtrip',
+  ];
   for (const name of matrixPages) {
-    const page = (await readFile(join(root, `tests/browser/${name}.html`), 'utf8')).replaceAll("from '/src/engine/index.ts'", "from 'svet-engine'").replaceAll("from '/src/engine/wasm-bridge.ts'", "from 'svet-engine'");
+    const page = (await readFile(join(root, `tests/browser/${name}.html`), 'utf8'))
+      .replaceAll("from '/src/engine/index.ts'", "from 'svet-engine'")
+      .replaceAll("from '/src/engine/wasm-bridge.ts'", "from 'svet-engine'");
     assert(!page.includes('/src/engine/'), 'workspace runtime import in installed fixture');
     await writeFile(join(consumer, `${name}.html`), page);
   }
   await writeFile(join(consumer, 'browser-matrix-cases.json'), JSON.stringify(matrixCases));
-  await writeFile(join(consumer, 'ssr-runtime-import.html'), `<!doctype html><script type="module">import {createSsrRuntime,assertSsrAsyncContextCarrier} from 'svet-engine/server-runtime'; document.body.textContent=typeof createSsrRuntime+':'+typeof assertSsrAsyncContextCarrier;</script>`);
-  const browserEntries = ['ssr-runtime-import.html', 'index.html', 'resident-render.html', 'shared-gpu-recovery.html', ...matrixPages.map(name => `${name}.html`)];
-  await writeFile(join(consumer, 'vite.config.mjs'), `import { svetVitePlugin } from 'svet-engine/compiler'; export default {plugins: [svetVitePlugin()], build: {rollupOptions: {input: ${JSON.stringify(browserEntries)}}}, oxc: {jsx: {runtime: 'automatic', importSource: 'svet-engine'}}};`);
+  await writeFile(
+    join(consumer, 'ssr-runtime-import.html'),
+    `<!doctype html><script type="module">import {createSsrRuntime,assertSsrAsyncContextCarrier} from 'svet-engine/server-runtime'; document.body.textContent=typeof createSsrRuntime+':'+typeof assertSsrAsyncContextCarrier;</script>`,
+  );
+  const browserEntries = [
+    'ssr-runtime-import.html',
+    'index.html',
+    'resident-render.html',
+    'shared-gpu-recovery.html',
+    ...matrixPages.map(name => `${name}.html`),
+  ];
+  await writeFile(
+    join(consumer, 'vite.config.mjs'),
+    `import { svetVitePlugin } from 'svet-engine/compiler'; export default {plugins: [svetVitePlugin()], build: {rollupOptions: {input: ${JSON.stringify(browserEntries)}}}, oxc: {jsx: {runtime: 'automatic', importSource: 'svet-engine'}}};`,
+  );
   node([resolve(root, 'node_modules/vite/bin/vite.js'), 'build']);
   const assets = await readdir(join(consumer, 'dist/assets'));
-  const javascript = await Promise.all(assets.filter(file => file.endsWith('.js')).map(file => readFile(join(consumer, 'dist/assets', file), 'utf8')));
+  const javascript = await Promise.all(
+    assets
+      .filter(file => file.endsWith('.js'))
+      .map(file => readFile(join(consumer, 'dist/assets', file), 'utf8')),
+  );
   assert(javascript.length > 0);
-  assert(javascript.every(code => !code.includes('node:async_hooks')&&!code.includes('node:crypto')), 'Node SSR code leaked into browser output');
+  assert(
+    javascript.every(code => !code.includes('node:async_hooks') && !code.includes('node:crypto')),
+    'Node SSR code leaked into browser output',
+  );
   const sha = data => createHash('sha256').update(data).digest('hex');
   const installedRuntimeSha256 = {};
-  for (const name of (await readdir(join(root, 'dist/package'))).filter(name => name.endsWith('.js')).sort()) {
+  for (const name of (await readdir(join(root, 'dist/package')))
+    .filter(name => name.endsWith('.js'))
+    .sort()) {
     const installed = await readFile(join(consumer, 'node_modules/svet-engine/dist/package', name));
-    assert.deepEqual(installed, await readFile(join(root, 'dist/package', name)), `installed runtime differs: ${name}`);
+    assert.deepEqual(
+      installed,
+      await readFile(join(root, 'dist/package', name)),
+      `installed runtime differs: ${name}`,
+    );
     installedRuntimeSha256[name] = sha(installed);
   }
   const artifactSha256 = {};
   async function scan(directory, prefix = '') {
-    for (const entry of await readdir(directory, {withFileTypes: true})) {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
       if (entry.isDirectory()) await scan(join(directory, entry.name), prefix + entry.name + '/');
       else artifactSha256[prefix + entry.name] = sha(await readFile(join(directory, entry.name)));
     }
   }
   await scan(join(consumer, 'dist'));
   const fixtureSha256 = {};
-  for (const name of matrixPages) fixtureSha256[name + '.html'] = sha(await readFile(join(consumer, name + '.html')));
-  const browserMetadata = {protocol: 'installed-package-browser-v1', createdAt: new Date().toISOString(), node: process.version,
-    packageSha256: sha(await readFile(join(temporary, packed.filename))), installedRuntimeSha256, fixtureSha256, artifactSha256,
-    scope: 'Production browser consumer installed from packed archive; all runtime JS byte-equal to workspace dist/package. Browser execution is a separate gate.'};
-  await writeFile(join(consumer, 'dist/metadata.json'), JSON.stringify(browserMetadata, null, 2) + '\n');
+  for (const name of matrixPages)
+    fixtureSha256[name + '.html'] = sha(await readFile(join(consumer, name + '.html')));
+  const browserMetadata = {
+    protocol: 'installed-package-browser-v1',
+    createdAt: new Date().toISOString(),
+    node: process.version,
+    packageSha256: sha(await readFile(join(temporary, packed.filename))),
+    installedRuntimeSha256,
+    fixtureSha256,
+    artifactSha256,
+    scope:
+      'Production browser consumer installed from packed archive; all runtime JS byte-equal to workspace dist/package. Browser execution is a separate gate.',
+  };
+  await writeFile(
+    join(consumer, 'dist/metadata.json'),
+    JSON.stringify(browserMetadata, null, 2) + '\n',
+  );
   passed = true;
-  const report = { edgeHostQualification: Boolean(process.env.SVET_EDGE_DEPS), node: process.version, platform: process.platform, arch: process.arch, completedAt: new Date().toISOString(), packageFiles: packed.entryCount, unpackedBytes: packed.unpackedSize, consumerDirectory: keep ? consumer : undefined, checks: ['archive allowlist', 'isolated installation', 'native Node ESM exports', 'concurrent SSR', 'sync and async compute fallback', 'compiled Forma import', 'strict JSX declarations without Vite', 'negative type fixture', 'external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build'] };
-  await writeFile(join(root, 'dist/package-verification.json'), JSON.stringify(report, null, 2) + '\n');
+  const report = {
+    edgeHostQualification: Boolean(process.env.SVET_EDGE_DEPS),
+    node: process.version,
+    platform: process.platform,
+    arch: process.arch,
+    completedAt: new Date().toISOString(),
+    packageFiles: packed.entryCount,
+    unpackedBytes: packed.unpackedSize,
+    consumerDirectory: keep ? consumer : undefined,
+    checks: [
+      'archive allowlist',
+      'isolated installation',
+      'native Node ESM exports',
+      'concurrent SSR',
+      'sync and async compute fallback',
+      'compiled Forma import',
+      'strict JSX declarations without Vite',
+      'negative type fixture',
+      'external JSX/Forma/resident-render/recovery/matrix/SSR/HTTP browser build',
+    ],
+  };
+  await writeFile(
+    join(root, 'dist/package-verification.json'),
+    JSON.stringify(report, null, 2) + '\n',
+  );
   console.log(JSON.stringify(report, null, 2));
 } finally {
   if (passed && !keep) await rm(temporary, { recursive: true, force: true });

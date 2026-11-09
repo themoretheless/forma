@@ -102,13 +102,8 @@ impl Backends {
     pub const DX12: Self = Self(1 << 3);
     pub const BROWSER_WEBGPU: Self = Self(1 << 4);
     pub const CUDA: Self = Self(1 << 5);
-    pub const PRIMARY: Self = Self(
-        Self::VULKAN.0
-            | Self::METAL.0
-            | Self::DX12.0
-            | Self::BROWSER_WEBGPU.0
-            | Self::CUDA.0,
-    );
+    pub const PRIMARY: Self =
+        Self(Self::VULKAN.0 | Self::METAL.0 | Self::DX12.0 | Self::BROWSER_WEBGPU.0 | Self::CUDA.0);
 
     pub fn from_env() -> Option<Self> {
         let val = std::env::var("WGPU_BACKEND").ok()?;
@@ -126,11 +121,7 @@ impl Backends {
                 _ => {}
             }
         }
-        if out.is_empty() {
-            None
-        } else {
-            Some(out)
-        }
+        if out.is_empty() { None } else { Some(out) }
     }
 }
 

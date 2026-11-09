@@ -276,13 +276,19 @@ impl<'a> Surface<'a> {
                 crate::TextureFormat::Bgra8UnormSrgb,
                 crate::TextureFormat::Rgba8UnormSrgb,
             ],
-            present_modes: vec![PresentMode::Fifo, PresentMode::Immediate, PresentMode::Mailbox],
+            present_modes: vec![
+                PresentMode::Fifo,
+                PresentMode::Immediate,
+                PresentMode::Mailbox,
+            ],
             alpha_modes: vec![
                 CompositeAlphaMode::Auto,
                 CompositeAlphaMode::Opaque,
                 CompositeAlphaMode::PostMultiplied,
             ],
-            usages: crate::TextureUsages::RENDER_ATTACHMENT | crate::TextureUsages::COPY_SRC | crate::TextureUsages::COPY_DST,
+            usages: crate::TextureUsages::RENDER_ATTACHMENT
+                | crate::TextureUsages::COPY_SRC
+                | crate::TextureUsages::COPY_DST,
         }
     }
 
@@ -312,7 +318,9 @@ impl<'a> Surface<'a> {
                 .as_ref()
                 .map_or(std::ptr::null_mut(), |v| v.as_ptr());
             unsafe {
-                device.metal.configure_metal_layer(layer.as_ptr(), view_ptr, config);
+                device
+                    .metal
+                    .configure_metal_layer(layer.as_ptr(), view_ptr, config);
             }
         }
         if let Ok(mut guard) = self.config.lock() {
@@ -500,31 +508,56 @@ pub(crate) struct ErrorScopeEntry {
     value: Arc<Mutex<ErrorScopeValue>>,
 }
 impl ErrorScopeEntry {
-    pub(crate) fn new(filter:ErrorFilter)->Self {Self {filter,value:Arc::new(Mutex::new(ErrorScopeValue::default()))}}
+    pub(crate) fn new(filter: ErrorFilter) -> Self {
+        Self {
+            filter,
+            value: Arc::new(Mutex::new(ErrorScopeValue::default())),
+        }
+    }
     #[cfg(test)]
-    pub(crate) fn error(&self)->Option<Error> {self.value.lock().unwrap_or_else(|e|e.into_inner()).error.clone()}
-    pub(crate) fn record(&self,error:Error) {
-        let mut value=self.value.lock().unwrap_or_else(|e|e.into_inner());
-        if value.error.is_none() {value.error=Some(error);}
+    pub(crate) fn error(&self) -> Option<Error> {
+        self.value
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .error
+            .clone()
+    }
+    pub(crate) fn record(&self, error: Error) {
+        let mut value = self.value.lock().unwrap_or_else(|e| e.into_inner());
+        if value.error.is_none() {
+            value.error = Some(error);
+        }
     }
 }
 
 pub(crate) struct SubmittedScopes(pub(crate) Vec<ErrorScopeEntry>);
 impl SubmittedScopes {
-    pub(crate) fn capture(entries:&[ErrorScopeEntry])->Self {
-        for entry in entries {entry.value.lock().unwrap_or_else(|e|e.into_inner()).pending+=1;}
+    pub(crate) fn capture(entries: &[ErrorScopeEntry]) -> Self {
+        for entry in entries {
+            entry
+                .value
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .pending += 1;
+        }
         Self(entries.to_vec())
     }
 }
 impl Drop for SubmittedScopes {
     fn drop(&mut self) {
         for entry in &self.0 {
-            let wake={
-                let mut value=entry.value.lock().unwrap_or_else(|e|e.into_inner());
-                value.pending-=1;
-                if value.pending==0 {value.waker.take()} else {None}
+            let wake = {
+                let mut value = entry.value.lock().unwrap_or_else(|e| e.into_inner());
+                value.pending -= 1;
+                if value.pending == 0 {
+                    value.waker.take()
+                } else {
+                    None
+                }
             };
-            if let Some(waker)=wake {waker.wake();}
+            if let Some(waker) = wake {
+                waker.wake();
+            }
         }
     }
 }
@@ -533,40 +566,74 @@ impl Drop for SubmittedScopes {
 struct ScopeServiceState {
     waiting: Vec<std::sync::Weak<Mutex<ErrorScopeValue>>>,
     running: bool,
-    epoch:u64,
+    epoch: u64,
     #[cfg(test)]
-    native_completions:usize,
+    native_completions: usize,
     #[cfg(test)]
-    starts:usize,
+    starts: usize,
 }
-#[derive(Debug,PartialEq,Eq)]
-enum ScopePark { GenerationChanged, Awakened, TimedOut }
+#[derive(Debug, PartialEq, Eq)]
+enum ScopePark {
+    GenerationChanged,
+    Awakened,
+    TimedOut,
+}
 #[derive(Default)]
-pub(crate) struct ScopeCompletionService(Mutex<ScopeServiceState>,std::sync::Condvar);
+pub(crate) struct ScopeCompletionService(Mutex<ScopeServiceState>, std::sync::Condvar);
 impl ScopeCompletionService {
-    fn park_if_unchanged(&self,state:std::sync::MutexGuard<'_,ScopeServiceState>,observed:u64,timeout:std::time::Duration)->ScopePark {
-        if state.epoch!=observed {return ScopePark::GenerationChanged;}
-        let (_state,result)=self.1.wait_timeout(state,timeout).unwrap_or_else(|e|e.into_inner());
-        if result.timed_out() {ScopePark::TimedOut} else {ScopePark::Awakened}
+    fn park_if_unchanged(
+        &self,
+        state: std::sync::MutexGuard<'_, ScopeServiceState>,
+        observed: u64,
+        timeout: std::time::Duration,
+    ) -> ScopePark {
+        if state.epoch != observed {
+            return ScopePark::GenerationChanged;
+        }
+        let (_state, result) = self
+            .1
+            .wait_timeout(state, timeout)
+            .unwrap_or_else(|e| e.into_inner());
+        if result.timed_out() {
+            ScopePark::TimedOut
+        } else {
+            ScopePark::Awakened
+        }
     }
     pub(crate) fn notify(&self) {
-        {let mut state=self.0.lock().unwrap_or_else(|e|e.into_inner());state.epoch=state.epoch.wrapping_add(1);}
+        {
+            let mut state = self.0.lock().unwrap_or_else(|e| e.into_inner());
+            state.epoch = state.epoch.wrapping_add(1);
+        }
         self.1.notify_one();
     }
     pub(crate) fn native_completed(&self) {
-        #[cfg(test)] {self.0.lock().unwrap_or_else(|e|e.into_inner()).native_completions+=1;}
+        #[cfg(test)]
+        {
+            self.0
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .native_completions += 1;
+        }
         self.notify();
     }
     #[cfg(test)]
-    pub(crate) fn native_notifications(&self)->usize {self.0.lock().unwrap().native_completions}
-    fn register(&self,entry:&ErrorScopeEntry,backend:crate::metal::MetalDevice) {
-        let start={
-            let mut state=self.0.lock().unwrap_or_else(|e|e.into_inner());
+    pub(crate) fn native_notifications(&self) -> usize {
+        self.0.lock().unwrap().native_completions
+    }
+    fn register(&self, entry: &ErrorScopeEntry, backend: crate::metal::MetalDevice) {
+        let start = {
+            let mut state = self.0.lock().unwrap_or_else(|e| e.into_inner());
             state.waiting.push(Arc::downgrade(&entry.value));
-            state.epoch=state.epoch.wrapping_add(1);
-            if state.running {false} else {
-                state.running=true;
-                #[cfg(test)] {state.starts+=1;}
+            state.epoch = state.epoch.wrapping_add(1);
+            if state.running {
+                false
+            } else {
+                state.running = true;
+                #[cfg(test)]
+                {
+                    state.starts += 1;
+                }
                 true
             }
         };
@@ -574,31 +641,66 @@ impl ScopeCompletionService {
         if start {
             std::thread::spawn(move || {
                 loop {
-                    let observed=backend.scope_completion_service.0.lock().unwrap_or_else(|e|e.into_inner()).epoch;
+                    let observed = backend
+                        .scope_completion_service
+                        .0
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .epoch;
                     // Reap work that finished since the previous iteration
                     // before deciding whether any scope still needs service.
-                    let _=backend.device_loss_message();
-                    let mut waiting={let mut state=backend.scope_completion_service.0.lock().unwrap_or_else(|e|e.into_inner());std::mem::take(&mut state.waiting)};
+                    let _ = backend.device_loss_message();
+                    let mut waiting = {
+                        let mut state = backend
+                            .scope_completion_service
+                            .0
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        std::mem::take(&mut state.waiting)
+                    };
                     // Upgraded scope/waker destructors run outside service locks.
-                    waiting.retain(|entry|entry.upgrade().is_some_and(|entry| {
-                        let value=entry.lock().unwrap_or_else(|e|e.into_inner());
-                        value.pending!=0 && value.pop_waiting
-                    }));
+                    waiting.retain(|entry| {
+                        entry.upgrade().is_some_and(|entry| {
+                            let value = entry.lock().unwrap_or_else(|e| e.into_inner());
+                            value.pending != 0 && value.pop_waiting
+                        })
+                    });
                     {
-                        let mut state=backend.scope_completion_service.0.lock().unwrap_or_else(|e|e.into_inner());
-                        if state.waiting.is_empty() && waiting.is_empty() {state.running=false;return;}
-                        if state.waiting.is_empty() {state.waiting=waiting;} else {state.waiting.append(&mut waiting);}
+                        let mut state = backend
+                            .scope_completion_service
+                            .0
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        if state.waiting.is_empty() && waiting.is_empty() {
+                            state.running = false;
+                            return;
+                        }
+                        if state.waiting.is_empty() {
+                            state.waiting = waiting;
+                        } else {
+                            state.waiting.append(&mut waiting);
+                        }
                         // Notifications are generation-counted to avoid losing
                         // completion/cancellation between scan and parking.
-                        let _parked=backend.scope_completion_service.park_if_unchanged(state,observed,std::time::Duration::from_millis(16));
+                        let _parked = backend.scope_completion_service.park_if_unchanged(
+                            state,
+                            observed,
+                            std::time::Duration::from_millis(16),
+                        );
                     }
                 }
             });
         }
     }
     #[cfg(test)]
-    pub(crate) fn stats(&self)->(bool,usize,usize,usize) {
-        let state=self.0.lock().unwrap();(state.running,state.starts,state.waiting.len(),state.waiting.capacity())
+    pub(crate) fn stats(&self) -> (bool, usize, usize, usize) {
+        let state = self.0.lock().unwrap();
+        (
+            state.running,
+            state.starts,
+            state.waiting.len(),
+            state.waiting.capacity(),
+        )
     }
 }
 
@@ -608,52 +710,82 @@ pub struct ErrorScopeGuard {
     completion: Option<crate::metal::MetalDevice>,
 }
 impl ErrorScopeGuard {
-    pub(crate) fn push(stack:Arc<Mutex<Vec<ErrorScopeEntry>>>,filter:ErrorFilter)->Self {
-        let entry=ErrorScopeEntry::new(filter);
-        stack.lock().unwrap_or_else(|e|e.into_inner()).push(entry.clone());
-        Self {stack,entry,completion:None}
+    pub(crate) fn push(stack: Arc<Mutex<Vec<ErrorScopeEntry>>>, filter: ErrorFilter) -> Self {
+        let entry = ErrorScopeEntry::new(filter);
+        stack
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(entry.clone());
+        Self {
+            stack,
+            entry,
+            completion: None,
+        }
     }
-    pub(crate) fn with_completion(mut self,backend:crate::metal::MetalDevice)->Self {self.completion=Some(backend);self}
+    pub(crate) fn with_completion(mut self, backend: crate::metal::MetalDevice) -> Self {
+        self.completion = Some(backend);
+        self
+    }
     /// Remove this scope from future submissions and await its captured work.
     pub fn pop(self) -> impl Future<Output = Option<Error>> {
-        self.stack.lock().unwrap_or_else(|e|e.into_inner()).retain(|entry|!Arc::ptr_eq(&entry.value,&self.entry.value));
-        let service=self.completion.as_ref().map(|backend|backend.scope_completion_service.clone());
-        ErrorScopePop {entry:self.entry,completion:self.completion,service,started:false}
+        self.stack
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .retain(|entry| !Arc::ptr_eq(&entry.value, &self.entry.value));
+        let service = self
+            .completion
+            .as_ref()
+            .map(|backend| backend.scope_completion_service.clone());
+        ErrorScopePop {
+            entry: self.entry,
+            completion: self.completion,
+            service,
+            started: false,
+        }
     }
 }
 struct ErrorScopePop {
-    entry:ErrorScopeEntry,
-    completion:Option<crate::metal::MetalDevice>,
-    started:bool,
-    service:Option<Arc<ScopeCompletionService>>,
+    entry: ErrorScopeEntry,
+    completion: Option<crate::metal::MetalDevice>,
+    started: bool,
+    service: Option<Arc<ScopeCompletionService>>,
 }
 impl Drop for ErrorScopePop {
     fn drop(&mut self) {
-        let waker={
-            let mut value=self.entry.value.lock().unwrap_or_else(|e|e.into_inner());
-            value.pop_waiting=false;
+        let waker = {
+            let mut value = self.entry.value.lock().unwrap_or_else(|e| e.into_inner());
+            value.pop_waiting = false;
             value.waker.take()
         };
         // Executor task destructors may reenter GPU APIs.
         drop(waker);
-        if let Some(service)=&self.service {service.notify();}
+        if let Some(service) = &self.service {
+            service.notify();
+        }
     }
 }
 impl Future for ErrorScopePop {
-    type Output=Option<Error>;
-    fn poll(mut self:std::pin::Pin<&mut Self>,cx:&mut std::task::Context<'_>)->std::task::Poll<Self::Output> {
-        let next_waker=cx.waker().clone();
-        let old_waker={
-            let mut value=self.entry.value.lock().unwrap_or_else(|e|e.into_inner());
-            if value.pending==0 {return std::task::Poll::Ready(value.error.take());}
-            value.pop_waiting=true;
+    type Output = Option<Error>;
+    fn poll(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let next_waker = cx.waker().clone();
+        let old_waker = {
+            let mut value = self.entry.value.lock().unwrap_or_else(|e| e.into_inner());
+            if value.pending == 0 {
+                return std::task::Poll::Ready(value.error.take());
+            }
+            value.pop_waiting = true;
             value.waker.replace(next_waker)
         };
         drop(old_waker);
         if !self.started {
-            self.started=true;
-            if let Some(backend)=self.completion.take() {
-                backend.scope_completion_service.register(&self.entry,backend.clone());
+            self.started = true;
+            if let Some(backend) = self.completion.take() {
+                backend
+                    .scope_completion_service
+                    .register(&self.entry, backend.clone());
             }
         }
         std::task::Poll::Pending
@@ -711,34 +843,44 @@ mod scope_signal_tests {
     use super::*;
     #[test]
     fn completion_before_parking_skips_wait_even_when_generation_wraps() {
-        let service=ScopeCompletionService::default();
-        service.0.lock().unwrap().epoch=u64::MAX;
-        let observed=u64::MAX;
+        let service = ScopeCompletionService::default();
+        service.0.lock().unwrap().epoch = u64::MAX;
+        let observed = u64::MAX;
         service.notify();
-        assert_eq!(service.0.lock().unwrap().epoch,0);
-        let state=service.0.lock().unwrap();
-        assert_eq!(service.park_if_unchanged(state,observed,std::time::Duration::from_secs(1)),ScopePark::GenerationChanged);
+        assert_eq!(service.0.lock().unwrap().epoch, 0);
+        let state = service.0.lock().unwrap();
+        assert_eq!(
+            service.park_if_unchanged(state, observed, std::time::Duration::from_secs(1)),
+            ScopePark::GenerationChanged
+        );
     }
     #[test]
     fn notification_after_atomic_unlock_wakes_parked_service() {
-        let service=Arc::new(ScopeCompletionService::default());
-        let waiter=service.clone();
-        let (ready,receive)=std::sync::mpsc::channel();
-        let thread=std::thread::spawn(move || {
-            let state=waiter.0.lock().unwrap();let observed=state.epoch;
+        let service = Arc::new(ScopeCompletionService::default());
+        let waiter = service.clone();
+        let (ready, receive) = std::sync::mpsc::channel();
+        let thread = std::thread::spawn(move || {
+            let state = waiter.0.lock().unwrap();
+            let observed = state.epoch;
             ready.send(()).unwrap();
-            waiter.park_if_unchanged(state,observed,std::time::Duration::from_secs(1))
+            waiter.park_if_unchanged(state, observed, std::time::Duration::from_secs(1))
         });
-        receive.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+        receive
+            .recv_timeout(std::time::Duration::from_secs(1))
+            .unwrap();
         // notify must acquire the same mutex; it cannot race into the gap
         // between the generation check and Condvar's atomic unlock+park.
         service.notify();
-        assert_eq!(thread.join().unwrap(),ScopePark::Awakened);
+        assert_eq!(thread.join().unwrap(), ScopePark::Awakened);
     }
     #[test]
     fn absent_notification_has_an_explicit_timeout_fallback() {
-        let service=ScopeCompletionService::default();
-        let state=service.0.lock().unwrap();let observed=state.epoch;
-        assert_eq!(service.park_if_unchanged(state,observed,std::time::Duration::ZERO),ScopePark::TimedOut);
+        let service = ScopeCompletionService::default();
+        let state = service.0.lock().unwrap();
+        let observed = state.epoch;
+        assert_eq!(
+            service.park_if_unchanged(state, observed, std::time::Duration::ZERO),
+            ScopePark::TimedOut
+        );
     }
 }

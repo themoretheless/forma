@@ -14,7 +14,8 @@ const own = (o, k) => o != null && typeof o === 'object' && Object.hasOwn(o, k);
 const emptyObject = Object.freeze({});
 const emptyArray = Object.freeze([]);
 const structuralTypes = new Set(['Let', 'If', 'Match', 'For']);
-const simpleLiteralExpr = /^(?:#[\da-fA-F]{3,8}|-?\d+(?:\.\d+)?(?:px|ms|s|%|rem|em|vw|vh|ch|fr|deg|rad|turn)?|(?:\d+(?:\.\d+)?)?\*|-|content|auto)$/;
+const simpleLiteralExpr =
+  /^(?:#[\da-fA-F]{3,8}|-?\d+(?:\.\d+)?(?:px|ms|s|%|rem|em|vw|vh|ch|fr|deg|rad|turn)?|(?:\d+(?:\.\d+)?)?\*|-|content|auto)$/;
 const simplePropIdent = /^props\.([A-Za-z_]\w*)$/;
 
 function isTrivialScalar(value) {
@@ -54,13 +55,20 @@ function tryFastPattern(pattern, actual, props, state, environment) {
     const rhs = tryFastEvaluate(cmp.value, props, state, emptyArray, false, environment);
     if (typeof rhs !== 'number' || !Number.isFinite(rhs)) return undefined;
     switch (cmp.op) {
-      case '<': return actual < rhs;
-      case '<=': return actual <= rhs;
-      case '>': return actual > rhs;
-      case '>=': return actual >= rhs;
-      case '==': return actual === rhs;
-      case '!=': return actual !== rhs;
-      default: return undefined;
+      case '<':
+        return actual < rhs;
+      case '<=':
+        return actual <= rhs;
+      case '>':
+        return actual > rhs;
+      case '>=':
+        return actual >= rhs;
+      case '==':
+        return actual === rhs;
+      case '!=':
+        return actual !== rhs;
+      default:
+        return undefined;
     }
   }
   if (own(pattern, 'expression')) {
@@ -145,7 +153,14 @@ function tryFastEvaluate(value, props, state, stack, expandElements, environment
       if (locals && own(locals, key)) return locals[key];
       if (!props || !own(props, key)) return undefined;
       if (stack.includes(key)) return undefined;
-      return tryFastEvaluate(props[key], props, state, [...stack, key], expandElements, environment);
+      return tryFastEvaluate(
+        props[key],
+        props,
+        state,
+        [...stack, key],
+        expandElements,
+        environment,
+      );
     }
     return undefined;
   }
@@ -160,7 +175,14 @@ function tryFastEvaluate(value, props, state, stack, expandElements, environment
   return out;
 }
 
-export function evaluate(value, props, state, stack = emptyArray, expandElements = true, environment = emptyObject) {
+export function evaluate(
+  value,
+  props,
+  state,
+  stack = emptyArray,
+  expandElements = true,
+  environment = emptyObject,
+) {
   const fast = tryFastEvaluate(value, props, state, stack, expandElements, environment);
   if (fast !== undefined) return fast;
   return wasmEvaluate(value, props, state, stack, expandElements, environment);
@@ -171,7 +193,12 @@ export function selectedProperties(groups = emptyArray, props, state, environmen
   return wasmSelectedProperties(groups, props, state, environment);
 }
 
-export function selectedPropertySources(groups = emptyArray, props, state, environment = emptyObject) {
+export function selectedPropertySources(
+  groups = emptyArray,
+  props,
+  state,
+  environment = emptyObject,
+) {
   if (!groups || groups.length === 0) return {};
   return wasmSelectedPropertySources(groups, props, state, environment);
 }
@@ -206,14 +233,32 @@ export function evaluateProperties(node, props, state, environment = emptyObject
   return wasmEvaluateProperties(node, props, state, environment);
 }
 
-export function validateContract(definitions = emptyObject, values, enums = emptyObject, label = 'component') {
+export function validateContract(
+  definitions = emptyObject,
+  values,
+  enums = emptyObject,
+  label = 'component',
+) {
   if (!definitions || Object.keys(definitions).length === 0) return null;
   return wasmValidateContract(definitions, values, enums, label);
 }
 
 const builtinTypes = new Set([
-  'String', 'Bool', 'Boolean', 'Number', 'Int', 'Float', 'Color', 'Length', 'Duration',
-  'Angle', 'Asset', 'List', 'Object', 'Map', 'Any',
+  'String',
+  'Bool',
+  'Boolean',
+  'Number',
+  'Int',
+  'Float',
+  'Color',
+  'Length',
+  'Duration',
+  'Angle',
+  'Asset',
+  'List',
+  'Object',
+  'Map',
+  'Any',
 ]);
 
 export function validateTypeName(type, enums = emptyObject) {
@@ -229,7 +274,13 @@ export function matchesType(value, type, enums = emptyObject) {
   return wasmMatchesType(value, type, enums);
 }
 
-export function expandStructure(nodes, props, state, environment = emptyObject, options = emptyObject) {
+export function expandStructure(
+  nodes,
+  props,
+  state,
+  environment = emptyObject,
+  options = emptyObject,
+) {
   if (Array.isArray(nodes) && nodes.length === 0) return [];
   if (Array.isArray(nodes)) {
     const env =
@@ -250,7 +301,9 @@ export function expandStructure(nodes, props, state, environment = emptyObject, 
         const n = list[i];
         if (!n || structuralTypes.has(n.type)) return undefined;
         if (++count > 16384) return undefined;
-        const values = evaluateProps ? tryFastEvaluateProperties(n, props, state, env) : (n.props ?? {});
+        const values = evaluateProps
+          ? tryFastEvaluateProperties(n, props, state, env)
+          : (n.props ?? {});
         if (values === undefined) return undefined;
         let args = {};
         if (n.eventArgs) {
@@ -272,7 +325,11 @@ export function expandStructure(nodes, props, state, environment = emptyObject, 
         }
         let origins;
         if (trackOrigins) {
-          if (n.matches?.length || n.forward?.length || (n.bindings && Object.keys(n.bindings).length > 0)) {
+          if (
+            n.matches?.length ||
+            n.forward?.length ||
+            (n.bindings && Object.keys(n.bindings).length > 0)
+          ) {
             return undefined;
           }
           const sources = n.propertySources ?? emptyObject;
@@ -290,7 +347,8 @@ export function expandStructure(nodes, props, state, environment = emptyObject, 
             );
           }
         }
-        const recurse = typeof recursiveOpt === 'function' ? recursiveOpt(n) : recursiveOpt !== false;
+        const recurse =
+          typeof recursiveOpt === 'function' ? recursiveOpt(n) : recursiveOpt !== false;
         let children;
         if (!recurse) {
           children = n.children;
@@ -312,8 +370,8 @@ export function expandStructure(nodes, props, state, environment = emptyObject, 
           const path = n.props?.value?.expr;
           result.normalizedRange = Boolean(
             (typeof n.bindings?.value === 'string' && n.bindings.value.length > 0) ||
-              (typeof path === 'string' &&
-                (path.startsWith('state.') || own(env.locals, path.split('.')[0] ?? '')))
+            (typeof path === 'string' &&
+              (path.startsWith('state.') || own(env.locals, path.split('.')[0] ?? ''))),
           );
         }
         result.children = children;

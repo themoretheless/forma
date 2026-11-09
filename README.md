@@ -6,7 +6,7 @@
 от основного проекта. Исходники и инструкция — [studio-controls](studio-controls/README.md).
 
 Оболочка Studio рисует кнопки, вкладки, дерево, поля, уведомления и строку статуса
-из тех же компонентов `vector-ui/controls` через Rust/WASM. Адаптер
+из тех же компонентов `crates/forma/controls` через Rust/WASM. Адаптер
 `src/studio-shell.js` связывает их с существующими командами и состояниями.
 Раскладка панелей, доступность, текстовый ввод/IME и CodeMirror остаются
 в браузере; оформление панелей использует тёмные токены гайдлайна.
@@ -24,7 +24,7 @@
 Видимая оболочка сама написана на Forma: `studio-ui/ui/*.ui` (название проекта,
 вкладки состояний, запуск, угол холста, подсказки, палитра, инспектор свойств,
 дерево контролов) собраны из компонентов
-`vector-ui/controls` и рисуются тем же Rust/WASM runtime, что и пользовательский UI.
+`crates/forma/controls` и рисуются тем же Rust/WASM runtime, что и пользовательский UI.
 `src/forma-shell.js` компилирует каждую область и передаёт ей состояние, клики
 приходят как `actions.<имя>(аргументы)`. Скрытый DOM заголовка остаётся целью команд.
 Инспектор и дерево контролов рисуют то, что отдают `property-inspector.js` и
@@ -41,11 +41,11 @@
 реактивные выражения и интерполяция в обоих видах кавычек, условные ветви,
 коллекции `for … key …` и раскладка Row/Column/Grid/Stack описаны в
 [LANGUAGE.md](LANGUAGE.md). Живые Rust-формы и модели — в
-[BINDINGS.md](vector-ui/BINDINGS.md).
+[BINDINGS.md](crates/forma/BINDINGS.md).
 
 ## CI и релизы
 
-Библиотека Forma и Studio версионируются отдельно: `forma-vX.Y.Z` и `studio-vX.Y.Z`.
+Библиотека Forma и Studio выпускаются вместе одним тегом `vX.Y.Z`; он же переставляет ветку `release`.
 CI проверяет Rust, native-сборки и Studio с настоящим WASM; push релизного тега
 публикует проверенный архив после успеха CI. Команды и ограничения —
 [RELEASING.md](RELEASING.md).
@@ -58,7 +58,7 @@ CI проверяет Rust, native-сборки и Studio с настоящим 
 
 ```toml
 [dependencies]
-forma = { path = "../forma/vector-ui" }
+forma = { path = "../forma/crates/forma" }
 ```
 
 ```rust
@@ -69,18 +69,18 @@ use forma::Runtime;
 компонента. Нативный demo-бинарник также называется `forma`; самостоятельный
 API запуска окна ещё не выделен. WASM-сборка содержит `forma.js` и
 `forma_bg.wasm`. Типизированные формы с генерацией Rust-кода, наблюдаемыми полями,
-заменяемым контекстом и событиями описаны в [привязках](vector-ui/BINDINGS.md).
+заменяемым контекстом и событиями описаны в [привязках](crates/forma/BINDINGS.md).
 Пример: `npm run example:bindings:native` (F2 переключает клиента).
 
-Для фиксированной версии будет доступна git-зависимость по тегу `forma-vX.Y.Z`.
-Релизных тегов пока нет; в crates.io и npm библиотека пока не опубликована.
+Подключается как git-зависимость: `branch = "release"` для последнего выпуска или `tag = "vX.Y.Z"`
+для фиксированного. В crates.io и npm библиотека не опубликована.
 
 ## Каталог контролов
 
 Компонентные `.ui` и SVG покрывают кнопки, выбор, поля, диапазоны, навигацию,
 дерево, таблицу, сообщения и оболочки. Reveal реализован и проверен в общем
 Rust renderer. При `npm run dev` доступен
-[каталог Forma](http://127.0.0.1:5173/vector-ui/examples/controls.html)
+[каталог Forma](http://127.0.0.1:5173/crates/forma/examples/controls.html)
 со светлой/тёмной темой, четырьмя размерами базовых кнопок и экспортом для Studio.
 В галерее Rust-модели подключены к выбору, диапазону и дереву; также работают
 закрытие вкладок, локальные Select/Toast и модальный Dialog на слое `Modal`
@@ -90,19 +90,19 @@ Rust renderer. При `npm run dev` доступен
 
 Полный перенос референса ещё не завершён: RTF, сложный shaping/IME reconversion, accessibility,
 немодальные popup-overlays и native window routing требуют дальнейшей работы.
-Композиция и запуск — в [документации контролов](vector-ui/controls/README.md),
+Композиция и запуск — в [документации контролов](crates/forma/controls/README.md),
 статус по слоям и полный inventory — в
-[карте покрытия](vector-ui/controls/REFERENCE_COVERAGE.md).
+[карте покрытия](crates/forma/controls/REFERENCE_COVERAGE.md).
 
 ## Runtime: несколько контролов
 
 Этап 2б завершён: Frame с несколькими кнопками, независимые hover/focus/click,
 переход фокуса клавиатурой и выбор нужной кнопки в дизайнере. Native и WASM
 используют общий Rust Runtime; renderer получает геометрию и цветовые слоты.
-Пример — `vector-ui/examples/TwoButtons.ui`, при `npm run dev` доступен
-[интерактивный стенд](http://127.0.0.1:5173/vector-ui/examples/runtime.html).
-Статус, проверки и ограничения — [архитектурные этапы](vector-ui/ARCHITECTURE_STEPS.md).
-Для прикладного Rust-кода добавлен [генератор форм и binding runtime](vector-ui/BINDINGS.md).
+Пример — `crates/forma/examples/TwoButtons.ui`, при `npm run dev` доступен
+[интерактивный стенд](http://127.0.0.1:5173/crates/forma/examples/runtime.html).
+Статус, проверки и ограничения — [архитектурные этапы](crates/forma/ARCHITECTURE_STEPS.md).
+Для прикладного Rust-кода добавлен [генератор форм и binding runtime](crates/forma/BINDINGS.md).
 Демонстрационный хост каталога обрабатывает локальное состояние контролов;
 запуск из Studio пока передаёт визуальный снимок.
 
@@ -113,11 +113,11 @@ Rust renderer. При `npm run dev` доступен
 Rust-аллокации, RSS, GPU timestamps и объём GPU-ресурсов. Затем
 `npm run bench:window -- .forma/perf/my-run` открывает временные окна и измеряет
 native present cadence. Методику, ограничения и план оптимизации см. в
-[vector-ui/BENCHMARKS.md](vector-ui/BENCHMARKS.md).
+[crates/forma/BENCHMARKS.md](crates/forma/BENCHMARKS.md).
 
 ## Векторные компоненты
 
-В Forma Studio добавлен режим «Вектор · Rust/WASM». `components/Button.ui` описывает Rectangle, Brush, Border, Text и PointerArea; `ui/VectorButton.ui` задаёт экземпляр. Изменения обоих файлов обновляют canvas прямо в дизайнере. Кнопка «▶ Приложение» в этом режиме передаёт исходную разметку и шаблон native-рендереру, без HTML/WebView. Переходы цветов задаются `transition: 140ms;` в Brush, события передаются через `clicked -> events.clicked();`. Runtime поддерживает один Frame с несколькими контролами, независимыми состояниями и фокусом; визуальное содержимое собирается из вложенных компонентов. Design-данные, ViewModel и прикладной обработчик события ещё не подключены к этому срезу. Подробности и сборка WASM — `vector-ui/README.md`.
+В Forma Studio добавлен режим «Вектор · Rust/WASM». `components/Button.ui` описывает Rectangle, Brush, Border, Text и PointerArea; `ui/VectorButton.ui` задаёт экземпляр. Изменения обоих файлов обновляют canvas прямо в дизайнере. Кнопка «▶ Приложение» в этом режиме передаёт исходную разметку и шаблон native-рендереру, без HTML/WebView. Переходы цветов задаются `transition: 140ms;` в Brush, события передаются через `clicked -> events.clicked();`. Runtime поддерживает один Frame с несколькими контролами, независимыми состояниями и фокусом; визуальное содержимое собирается из вложенных компонентов. Design-данные, ViewModel и прикладной обработчик события ещё не подключены к этому срезу. Подробности и сборка WASM — `crates/forma/README.md`.
 
 ## Дизайн-данные из Rust
 
@@ -331,4 +331,4 @@ Grid), получает контрол без координаты. Перета
 Alt во время переноса временно отключает привязки. Перенос показывает
 будущие границы всех выбранных элементов и изменение координат.
 
-Результаты оптимизации оболочки и методика замеров: [8 сентября 2026](vector-ui/PERFORMANCE_2026_09_08.md).
+Результаты оптимизации оболочки и методика замеров: [8 сентября 2026](crates/forma/PERFORMANCE_2026_09_08.md).

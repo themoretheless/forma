@@ -78,7 +78,10 @@ impl ByteReadback {
     ) -> Result<Self, ReadbackError> {
         Self::range(source, offset, size)?;
         if size == 0 {
-            if !source.usage().intersects(wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::MAP_READ) {
+            if !source
+                .usage()
+                .intersects(wgpu::BufferUsages::COPY_SRC | wgpu::BufferUsages::MAP_READ)
+            {
                 return Err(ReadbackError::MissingUsage);
             }
             return Ok(Self::empty(device));

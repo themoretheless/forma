@@ -74,7 +74,8 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
                 let (name, ty_opt) = if let Some(colon) = lhs.find(':') {
                     let n = lhs[..colon].trim().to_string();
                     let t_str = lhs[colon + 1..].trim();
-                    let th = resolve_or_insert_type(&mut module, &mut type_map, &const_values, t_str);
+                    let th =
+                        resolve_or_insert_type(&mut module, &mut type_map, &const_values, t_str);
                     (n, Some(th))
                 } else {
                     (lhs.to_string(), None)
@@ -344,7 +345,7 @@ fn parse_leading_attributes(mut input: &str) -> Result<(ParsedAttributes, &str),
                             message: format!("unknown builtin `{other}`"),
                             line: 1,
                             column: 1,
-                        })
+                        });
                     }
                 });
             }
@@ -422,7 +423,7 @@ fn parse_global_var(
                             message: format!("invalid storage access mode `{other}`"),
                             line: 1,
                             column: 1,
-                        })
+                        });
                     }
                 };
                 AddressSpace::Storage { access }
@@ -436,7 +437,7 @@ fn parse_global_var(
                     message: format!("unknown address space `{other}`"),
                     line: 1,
                     column: 1,
-                })
+                });
             }
         };
         (Some(space), after_var[close + 1..].trim_start())
@@ -568,10 +569,8 @@ fn parse_function(
     };
 
     // Analyze body for referenced identifiers (globals and function calls)
-    let local_arg_names: BTreeSet<&str> = arguments
-        .iter()
-        .filter_map(|a| a.name.as_deref())
-        .collect();
+    let local_arg_names: BTreeSet<&str> =
+        arguments.iter().filter_map(|a| a.name.as_deref()).collect();
     let (used_globals, called_functions) =
         analyze_identifiers(&body_src, &local_arg_names, global_names);
 
@@ -837,10 +836,7 @@ pub fn resolve_or_insert_type(
         }
     };
 
-    let h = module.types.append(Type {
-        name: None,
-        inner,
-    });
+    let h = module.types.append(Type { name: None, inner });
     type_map.insert(ty_str.to_string(), h);
     h
 }

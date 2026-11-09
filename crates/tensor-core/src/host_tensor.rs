@@ -21,7 +21,10 @@ impl HasShape for Tensor {
 }
 
 impl Tensor {
-    pub fn new(dims: impl Into<Vec<usize>>, data: impl Into<Vec<f32>>) -> Result<Self, TensorError> {
+    pub fn new(
+        dims: impl Into<Vec<usize>>,
+        data: impl Into<Vec<f32>>,
+    ) -> Result<Self, TensorError> {
         let shape = Shape::new(dims)?;
         let data = data.into();
         if data.len() != shape.numel() {
@@ -107,7 +110,11 @@ impl Tensor {
         let eps = epsilon as f64;
         let inv_n = 1.0 / (group_len as f64);
         let mut out = vec![0.0_f32; self.data.len()];
-        for (chunk, out_chunk) in self.data.chunks_exact(group_len).zip(out.chunks_exact_mut(group_len)) {
+        for (chunk, out_chunk) in self
+            .data
+            .chunks_exact(group_len)
+            .zip(out.chunks_exact_mut(group_len))
+        {
             let mut sum = 0.0_f64;
             let mut sum_sq = 0.0_f64;
             for &v in chunk {
@@ -148,7 +155,11 @@ impl Tensor {
         let eps = epsilon as f64;
         let inv_n = 1.0 / (group_len as f64);
         let mut out = vec![0.0_f32; self.data.len()];
-        for (chunk, out_chunk) in self.data.chunks_exact(group_len).zip(out.chunks_exact_mut(group_len)) {
+        for (chunk, out_chunk) in self
+            .data
+            .chunks_exact(group_len)
+            .zip(out.chunks_exact_mut(group_len))
+        {
             let mut sum_sq = 0.0_f64;
             for &v in chunk {
                 let x = v as f64;
@@ -186,7 +197,11 @@ impl Tensor {
         }
         let eps = epsilon as f64;
         let mut out = Vec::with_capacity(out_shape.numel());
-        for (a_chunk, b_chunk) in self.data.chunks(group_len).zip(other.data.chunks(group_len)) {
+        for (a_chunk, b_chunk) in self
+            .data
+            .chunks(group_len)
+            .zip(other.data.chunks(group_len))
+        {
             let mut dot = 0.0_f64;
             let mut norm_a = 0.0_f64;
             let mut norm_b = 0.0_f64;
@@ -470,9 +485,21 @@ impl Tensor {
         let mut logits = vec![0.0_f64; plan.keys];
 
         for b in 0..batch_elems {
-            let qb = if q_batch_elems <= 1 { 0 } else { b % q_batch_elems };
-            let kb = if k_batch_elems <= 1 { 0 } else { b % k_batch_elems };
-            let vb = if v_batch_elems <= 1 { 0 } else { b % v_batch_elems };
+            let qb = if q_batch_elems <= 1 {
+                0
+            } else {
+                b % q_batch_elems
+            };
+            let kb = if k_batch_elems <= 1 {
+                0
+            } else {
+                b % k_batch_elems
+            };
+            let vb = if v_batch_elems <= 1 {
+                0
+            } else {
+                b % v_batch_elems
+            };
 
             for h in 0..plan.query_heads {
                 let kh = h / plan.group_size;
@@ -482,7 +509,8 @@ impl Tensor {
                 let out_head_base = (b * plan.query_heads + h) * plan.queries * plan.value_depth;
 
                 for qi in 0..plan.queries {
-                    let q_row = &q.data[q_head_base + qi * plan.depth..q_head_base + (qi + 1) * plan.depth];
+                    let q_row =
+                        &q.data[q_head_base + qi * plan.depth..q_head_base + (qi + 1) * plan.depth];
                     let mut max_logit = f64::NEG_INFINITY;
                     let max_allowed_j = if causal_mask {
                         qi.min(plan.keys.saturating_sub(1))
@@ -495,7 +523,8 @@ impl Tensor {
                             *logit_slot = f64::NEG_INFINITY;
                             continue;
                         }
-                        let k_row = &k.data[k_head_base + kj * plan.depth..k_head_base + (kj + 1) * plan.depth];
+                        let k_row = &k.data
+                            [k_head_base + kj * plan.depth..k_head_base + (kj + 1) * plan.depth];
                         // 4-wide unrolled FMA dot product for NEON/AVX auto-vectorization
                         let mut acc0 = 0.0_f64;
                         let mut acc1 = 0.0_f64;

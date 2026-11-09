@@ -1,33 +1,38 @@
-import {classify,literalValue} from './property-inspector.js';
-import {sourceNode,propertyEdit} from './property-edit.js';
-import {editElements} from './element-edit.js';
+import { classify, literalValue } from './property-inspector.js';
+import { sourceNode, propertyEdit } from './property-edit.js';
+import { editElements } from './element-edit.js';
 
 // The batch is addressed by the offsets the selection holds, so a row has to describe the same thing
 // in every one of the controls: a name only some of them declare, or one they declare in different
 // shapes (a design token here, a plain number there, an expression bound to state), has no single
 // value to write, so it gets no row.
-export function sharedFields(source,starts){
-  if(starts.length<2)return [];
-  const origins=starts.map(start=>sourceNode(source,start));
-  if(origins.some(origin=>!origin))return [];
-  const firstKeys=Object.keys(origins[0].props).filter(key=>{
-    if(key==='key')return false;
-    for(let i=1;i<origins.length;i++)if(!Object.hasOwn(origins[i].props,key))return false;
+export function sharedFields(source, starts) {
+  if (starts.length < 2) return [];
+  const origins = starts.map(start => sourceNode(source, start));
+  if (origins.some(origin => !origin)) return [];
+  const firstKeys = Object.keys(origins[0].props).filter(key => {
+    if (key === 'key') return false;
+    for (let i = 1; i < origins.length; i++)
+      if (!Object.hasOwn(origins[i].props, key)) return false;
     return true;
   });
-  if(!firstKeys.length)return [];
-  const fields=[];
-  for(const key of firstKeys){
-    const first=classify(source,origins[0],key);
-    if(!first||first.shape!=='literal')continue;
-    let valid=true,sameText=true;
-    for(let i=1;i<origins.length;i++){
-      const read=classify(source,origins[i],key);
-      if(!read||read.shape!=='literal'||read.kind!==first.kind){valid=false;break;}
-      if(read.text!==first.text)sameText=false;
+  if (!firstKeys.length) return [];
+  const fields = [];
+  for (const key of firstKeys) {
+    const first = classify(source, origins[0], key);
+    if (!first || first.shape !== 'literal') continue;
+    let valid = true,
+      sameText = true;
+    for (let i = 1; i < origins.length; i++) {
+      const read = classify(source, origins[i], key);
+      if (!read || read.shape !== 'literal' || read.kind !== first.kind) {
+        valid = false;
+        break;
+      }
+      if (read.text !== first.text) sameText = false;
     }
-    if(!valid)continue;
-    fields.push({key,kind:first.kind,value:first.value,text:sameText?first.text:null});
+    if (!valid) continue;
+    fields.push({ key, kind: first.kind, value: first.value, text: sameText ? first.text : null });
   }
   return fields;
 }
@@ -35,23 +40,37 @@ export function sharedFields(source,starts){
 // step. A property write never takes a control out of the file, so each of them only moves by the text
 // the earlier controls grew or shrank by: the batch reports those offsets in the order the selection
 // handed them over, which is what lets the host point at the same controls again.
-export function sharedEdit(source,starts,key,value){
-  const edits=starts.map(start=>({start,...propertyEdit(source,start,key,value)}));
-  const change=editElements(source,starts,start=>edits.find(edit=>edit.start===start));
-  if(!change)return null;
-  const shift=start=>edits.filter(edit=>edit.from<start).reduce((sum,edit)=>sum+edit.insert.length-(edit.to-edit.from),0);
-  return {...change,starts:starts.map(start=>start+shift(start))};
+export function sharedEdit(source, starts, key, value) {
+  const edits = starts.map(start => ({ start, ...propertyEdit(source, start, key, value) }));
+  const change = editElements(source, starts, start => edits.find(edit => edit.start === start));
+  if (!change) return null;
+  const shift = start =>
+    edits
+      .filter(edit => edit.from < start)
+      .reduce((sum, edit) => sum + edit.insert.length - (edit.to - edit.from), 0);
+  return { ...change, starts: starts.map(start => start + shift(start)) };
 }
-export function createBulkEditor({container,commit,onError=()=>{}}){
-  let current=null;
-  function apply(field,text,input){
-    try{
-      const change=sharedEdit(current.source,current.starts,field.key,literalValue(field,text));
+export function createBulkEditor({ container, commit, onError = () => {} }) {
+  let current = null;
+  function apply(field, text, input) {
+    try {
+      const change = sharedEdit(
+        current.source,
+        current.starts,
+        field.key,
+        literalValue(field, text),
+      );
       input.setCustomValidity('');
       // The row also carries the control the panel above belongs to: the merge knows how far each of
       // the edited controls moved, so the host can keep the whole batch selected instead of losing it.
-      if(change)commit({file:current.path,source:current.source,...change,primary:change.starts[Math.max(0,current.starts.indexOf(current.primary))]});
-    }catch(error){
+      if (change)
+        commit({
+          file: current.path,
+          source: current.source,
+          ...change,
+          primary: change.starts[Math.max(0, current.starts.indexOf(current.primary))],
+        });
+    } catch (error) {
       input.setCustomValidity(error.message);
       input.reportValidity();
       onError(error.message);
@@ -59,35 +78,41 @@ export function createBulkEditor({container,commit,onError=()=>{}}){
   }
   // The rows are rebuilt from the same snapshot the panel above them reads, and they disappear with
   // the batch: a selection of one control is what that panel already edits.
-  function render({path,source,starts,primary,editable}){
+  function render({ path, source, starts, primary, editable }) {
     container.querySelector('.bulk-edit')?.remove();
-    current=null;
-    if(!editable)return;
-    const fields=sharedFields(source,starts);
-    if(!fields.length)return;
-    current={path,source,primary,starts:[...starts],fields};
-    const section=document.createElement('section');section.className='bulk-edit';
-    const heading=document.createElement('div');heading.className='inspector-label';heading.textContent='ПАКЕТНАЯ ПРАВКА';
-    const note=document.createElement('small');note.className='bulk-note';
-    note.textContent=`Значение записывается в разметку всех ${starts.length} выбранных контролов.`;
-    section.append(heading,note);
-    for(const field of fields){
-      const label=document.createElement('label');label.className=`property ${field.kind}`;
-      const name=document.createElement('span');name.textContent=field.key;
+    current = null;
+    if (!editable) return;
+    const fields = sharedFields(source, starts);
+    if (!fields.length) return;
+    current = { path, source, primary, starts: [...starts], fields };
+    const section = document.createElement('section');
+    section.className = 'bulk-edit';
+    const heading = document.createElement('div');
+    heading.className = 'inspector-label';
+    heading.textContent = 'ПАКЕТНАЯ ПРАВКА';
+    const note = document.createElement('small');
+    note.className = 'bulk-note';
+    note.textContent = `Значение записывается в разметку всех ${starts.length} выбранных контролов.`;
+    section.append(heading, note);
+    for (const field of fields) {
+      const label = document.createElement('label');
+      label.className = `property ${field.kind}`;
+      const name = document.createElement('span');
+      name.textContent = field.key;
       label.append(name);
-      const input=document.createElement('input');
-      input.value=field.text??'';
+      const input = document.createElement('input');
+      input.value = field.text ?? '';
       // A batch has no value of its own to show while the controls disagree, so the field starts empty
       // and says why; whatever is typed goes to every one of them.
-      if(field.text===null)input.placeholder='значения различаются';
-      input.setAttribute('aria-label',`${field.key} для ${starts.length} контролов`);
+      if (field.text === null) input.placeholder = 'значения различаются';
+      input.setAttribute('aria-label', `${field.key} для ${starts.length} контролов`);
       // A batch row is not the panel's own field: the bridge finds those by `data-prop`.
-      input.dataset.bulk=field.key;
-      input.onchange=()=>apply(field,input.value,input);
+      input.dataset.bulk = field.key;
+      input.onchange = () => apply(field, input.value, input);
       label.append(input);
       section.append(label);
     }
     container.append(section);
   }
-  return {render};
+  return { render };
 }

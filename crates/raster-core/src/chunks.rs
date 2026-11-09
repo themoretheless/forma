@@ -37,8 +37,7 @@ pub const SCENE_STRUCT: &str = "struct Scene { vp: mat4x4f, eye: vec4f, light: v
 
 /// Short legacy Scene struct: line and selection-overlay shaders never read
 /// past `options`, so they keep the compact declaration.
-pub const SCENE_STRUCT_SHORT: &str =
-    "struct Scene { vp: mat4x4f, eye: vec4f, light: vec4f, ambient: vec4f, section: vec4f, options: vec4f }";
+pub const SCENE_STRUCT_SHORT: &str = "struct Scene { vp: mat4x4f, eye: vec4f, light: vec4f, ambient: vec4f, section: vec4f, options: vec4f }";
 
 /// Canonical Obj struct (one per-object uniform record).
 pub const OBJ_STRUCT: &str = "struct Obj { model: mat4x4f, nmat: mat4x4f, color: vec4f, style: vec4f, morph: vec4f, baseColor: vec3f, metallic: f32, emissive: vec3f, roughness: f32, materialId: f32 }";
@@ -92,9 +91,15 @@ fn shadow_bindings(args: &str) -> String {
     let mut group: Option<&str> = None;
     let mut bindings: Option<(&str, &str)> = None;
     for token in args.split_whitespace() {
-        if let Some(value) = token.strip_prefix("group(").and_then(|t| t.strip_suffix(')')) {
+        if let Some(value) = token
+            .strip_prefix("group(")
+            .and_then(|t| t.strip_suffix(')'))
+        {
             group = Some(value);
-        } else if let Some(value) = token.strip_prefix("bindings(").and_then(|t| t.strip_suffix(')')) {
+        } else if let Some(value) = token
+            .strip_prefix("bindings(")
+            .and_then(|t| t.strip_suffix(')'))
+        {
             let (map, sampler) = value
                 .split_once(',')
                 .unwrap_or_else(|| panic!("@chunk shadow_bindings: malformed bindings({value})"));
@@ -115,11 +120,16 @@ fn shadow_bindings(args: &str) -> String {
 /// Resolves one marker (the text after `// @chunk `) to its expansion.
 fn chunk_text(marker: &str) -> Cow<'static, str> {
     let mut parts = marker.split_whitespace();
-    let name = parts.next().unwrap_or_else(|| panic!("empty @chunk marker"));
+    let name = parts
+        .next()
+        .unwrap_or_else(|| panic!("empty @chunk marker"));
     let args_start = marker[name.len()..].trim_start();
     let has_args = !args_start.is_empty();
     let no_args = |text: &'static str| -> Cow<'static, str> {
-        assert!(!has_args, "@chunk {name}: unexpected arguments '{args_start}'");
+        assert!(
+            !has_args,
+            "@chunk {name}: unexpected arguments '{args_start}'"
+        );
         Cow::Borrowed(text)
     };
     match name {

@@ -1,42 +1,43 @@
 # CI и версии Forma
 
-Один репозиторий, два независимо выпускаемых компонента. Версии не обязаны
-совпадать. Коммит может получить оба тега, если выпускаются оба компонента.
-Текущие `0.1.0` в manifest — начальные версии; опубликованных тегов пока нет.
+Один репозиторий, два компонента, один релиз. Библиотека и Studio выпускаются
+вместе под общим номером и одним тегом `vX.Y.Z`; оба manifest обязаны нести
+эту версию. Тег же переставляет ветку `release`, на которую смотрят
+git-зависимости с `branch = "release"`.
 
-| Компонент | Где хранится версия | Релизный тег | Артефакт GitHub Release |
-|---|---|---|---|
-| Forma (библиотека Rust + WASM) | `vector-ui/Cargo.toml` + Cargo.lock | `forma-v0.1.0` | `forma-0.1.0-wasm.tar.gz` |
-| Studio | `package.json` + package-lock.json | `studio-v0.1.0` | `forma-studio-0.1.0-web.tar.gz` |
+| Компонент | Где хранится версия | Артефакт GitHub Release |
+|---|---|---|
+| Forma (библиотека Rust + WASM) | `crates/forma/Cargo.toml` + корневой `Cargo.lock` | `forma-X.Y.Z-wasm.tar.gz` |
+| Studio | `package.json` + package-lock.json | `forma-studio-X.Y.Z-web.tar.gz` |
+
+До 0.3.0 включительно компоненты выпускались отдельными тегами `forma-vX.Y.Z`
+и `studio-vX.Y.Z`. Эти теги остаются в истории, но больше не являются релизными.
 
 `native-app` — вспомогательный WebView-хост Studio, его версия синхронизируется
 со Studio. Это не третий независимо выпускаемый продукт. Нативный векторный
-пример в `vector-ui` относится к библиотеке Forma. Rust crate и demo-бинарник
+пример в `crates/forma` относится к библиотеке Forma. Rust crate и demo-бинарник
 называются `forma`; WASM-архив содержит `forma.js` и `forma_bg.wasm`.
 Внутреннее имя компонента в командах и metadata остаётся `runtime`.
 
 Manifest хранит версию разработки. Тег фиксирует конкретный выпуск. Версия
 не выводится из количества коммитов; каждому промежуточному коммиту не нужен
 новый номер. Выпущенные теги не перемещаем и не перезаписываем: исправление
-выходит новым номером. Непрефиксные `v0.1.0` не используются, чтобы не смешивать
-истории двух компонентов.
+выходит новым номером.
 
 ## Что повышать
 
-- Исправление renderer, Rust parser, WASM API — Runtime.
-- Изменение редактора, инспектора, MCP, интерфейса Studio — Studio.
-- Изменение формата обмена JS ↔ Rust/WASM — оба компонента.
-- Только документация/CI — обычно без повышения продуктовой версии.
+Номер один на весь релиз: любое изменение библиотеки или Studio повышает его для
+обоих компонентов. Только документация/CI — обычно без повышения версии.
 
 Пока API экспериментальный (`0.x`), совместимые исправления повышают patch,
 новые возможности/несовместимые изменения — minor. Стабильный публичный контракт
 позже обозначим `1.0.0`. Для предварительных выпусков поддерживаются, например,
-`forma-v0.2.0-rc.1` и `studio-v0.3.0-beta.2`; GitHub помечает их prerelease.
+`v0.4.0-rc.1`; GitHub помечает их prerelease.
 Build metadata (`+...`) в номерах релизов не используем; для идентификации
 сборки служит SHA коммита.
 
 Studio всегда собирает и включает WASM из того же checkout. Язык берётся из
-ревизии tokenizer, закреплённой через `rev` в `vector-ui/Cargo.toml` и в lockfiles; её SHA
+ревизии tokenizer, закреплённой через `rev` в `crates/forma/Cargo.toml` и в lockfiles; её SHA
 записывается в `build-info.json` (`tokenizer`), и `package:release` отказывается
 упаковывать WASM, собранный против другой ревизии. В
 `dist/vector-pkg/build-info.json` записаны версии Runtime и Studio, версия
@@ -69,7 +70,7 @@ Runtime (сейчас 0.2.125). Версии GitHub Actions закреплены
 с подходящим adapter:
 
 ```sh
-cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu -- --ignored
+cargo test --locked --manifest-path crates/forma/Cargo.toml --features gpu -- --ignored
 ```
 
 Обычный CI не выдаёт отсутствие GPU за успешную аппаратную проверку. Замеры
@@ -86,9 +87,7 @@ FPS/latency также не являются блокирующей частью
 Команда обновляет manifest и связанные lockfile, не создавая коммит или тег:
 
 ```sh
-npm run version:set -- runtime 0.2.0
-# либо
-npm run version:set -- studio 0.2.0
+npm run version:set -- all 0.4.0
 npm run version:check
 ```
 
@@ -100,29 +99,26 @@ npm run version:check
 Дальше закоммить изменения, дождись CI и слей их в `main`. На нужном коммите:
 
 ```sh
-npm run version:check -- forma-v0.2.0
+npm run version:check -- v0.4.0
 
-git tag -a forma-v0.2.0 -m "Forma 0.2.0"
-git push origin forma-v0.2.0
+git tag -a v0.4.0 -m "Forma 0.4.0"
+git push origin v0.4.0
 ```
-
-Для Studio аналогично `studio-v0.2.0`. Начальный релиз без повышения текущих
-manifest может использовать `forma-v0.1.0` / `studio-v0.1.0`.
 
 **Push тега — команда публикации.** `.github/workflows/release.yml` сначала
 проверяет номер тега, затем заново запускает весь CI для этого коммита. Только
 после успеха всех jobs он скачивает архивы из этого же запуска, проверяет
-SHA-256 и создаёт GitHub Release выбранного компонента. Ничего не пересобирается
+SHA-256 и создаёт один GitHub Release с обоими архивами. Ничего не пересобирается
 между проверкой и публикацией. Ошибка любого обязательного job блокирует выпуск.
-Существующий Release не перезаписывается. Общая метка GitHub `Latest` не меняется,
-поскольку у двух компонентов разные истории выпусков.
+Существующий Release не перезаписывается.
 
 Публикации в crates.io/npm и установки глобальных пакетов нет. Rust-библиотеку
 можно будет подключать к зафиксированному тегу репозитория после его выпуска:
 
 ```toml
 [dependencies]
-forma = { git = "https://github.com/themoretheless/forma", tag = "forma-v0.1.0" }
+forma = { git = "https://github.com/themoretheless/forma", branch = "release" }
+# либо закрепить конкретный выпуск: tag = "v0.4.0"
 ```
 
 В коде библиотека импортируется как `use forma::Runtime;`. Этот пример
@@ -161,10 +157,10 @@ npm run package:release
 
 `npm run build:wasm` supports `CARGO_TARGET_DIR` (relative paths resolve from
 this repository). Both Cargo and wasm-bindgen use that directory; without the
-environment variable the script uses `vector-ui/target`. To verify a build
+environment variable the script uses `target`. To verify a build
 without previous Cargo artifacts, set it to a new empty directory. This still
 uses the installed toolchain and Cargo dependency cache.
 
 Packaging also compares the complete `controls` directory in both runtime and
-Studio output against `vector-ui/controls`. Missing, modified or extra files
+Studio output against `crates/forma/controls`. Missing, modified or extra files
 fail packaging; rebuild WASM and Studio rather than editing generated copies.

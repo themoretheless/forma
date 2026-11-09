@@ -24,14 +24,12 @@ function rgbToHex(r: number, g: number, b: number): string {
   const clampByte = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
   return (
     '#' +
-    [clampByte(r), clampByte(g), clampByte(b)]
-      .map((x) => x.toString(16).padStart(2, '0'))
-      .join('')
+    [clampByte(r), clampByte(g), clampByte(b)].map(x => x.toString(16).padStart(2, '0')).join('')
   );
 }
 
 function relativeLuminance(hex: string): number {
-  const [r, g, b] = parseHexToRgb(hex).map((v) => {
+  const [r, g, b] = parseHexToRgb(hex).map(v => {
     const s = v / 255;
     return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
   });
@@ -55,17 +53,11 @@ export const formaStdlib: Record<string, (...args: any[]) => any> = {
     outMin + ((v - inMin) / (inMax - inMin || 1)) * (outMax - outMin),
   sum: (arr: number[]) => (Array.isArray(arr) ? arr.reduce((a, b) => a + Number(b), 0) : 0),
   avg: (arr: number[]) =>
-    Array.isArray(arr) && arr.length > 0
-      ? arr.reduce((a, b) => a + Number(b), 0) / arr.length
-      : 0,
+    Array.isArray(arr) && arr.length > 0 ? arr.reduce((a, b) => a + Number(b), 0) / arr.length : 0,
 
   // Strings & i18n
   len: (v: any) =>
-    v == null
-      ? 0
-      : typeof v === 'string' || Array.isArray(v)
-        ? v.length
-        : Object.keys(v).length,
+    v == null ? 0 : typeof v === 'string' || Array.isArray(v) ? v.length : Object.keys(v).length,
   trim: (s: string) => String(s ?? '').trim(),
   upper: (s: string) => String(s ?? '').toUpperCase(),
   toUpperCase: (s: string) => String(s ?? '').toUpperCase(),
@@ -114,14 +106,12 @@ export const formaStdlib: Record<string, (...args: any[]) => any> = {
   map: (arr: any[], fieldOrFn: string | ((x: any) => any)) => {
     if (!Array.isArray(arr)) return [];
     if (typeof fieldOrFn === 'function') return arr.map(fieldOrFn);
-    return arr.map((item) => (item && typeof item === 'object' ? item[fieldOrFn] : item));
+    return arr.map(item => (item && typeof item === 'object' ? item[fieldOrFn] : item));
   },
   filter: (arr: any[], fieldOrFn: string | ((x: any) => boolean)) => {
     if (!Array.isArray(arr)) return [];
     if (typeof fieldOrFn === 'function') return arr.filter(fieldOrFn);
-    return arr.filter((item) =>
-      Boolean(item && typeof item === 'object' ? item[fieldOrFn] : item)
-    );
+    return arr.filter(item => Boolean(item && typeof item === 'object' ? item[fieldOrFn] : item));
   },
   unique: (arr: any[]) => (Array.isArray(arr) ? Array.from(new Set(arr)) : []),
   range: (start: number, end: number) =>
@@ -139,7 +129,7 @@ export const formaStdlib: Record<string, (...args: any[]) => any> = {
     (Array.isArray(v) && v.length === 0) ||
     (typeof v === 'object' && Object.keys(v).length === 0),
   isNull: (v: any) => v === null || v === undefined,
-  coalesce: (...args: any[]) => args.find((a) => a !== null && a !== undefined),
+  coalesce: (...args: any[]) => args.find(a => a !== null && a !== undefined),
 
   // WCAG Color Functions
   rgb: (r: number, g: number, b: number) => rgbToHex(r, g, b),
@@ -173,7 +163,7 @@ export const formaStdlib: Record<string, (...args: any[]) => any> = {
  */
 export function transformFormaPipes(expr: string): string {
   if (!expr.includes('|>')) return expr;
-  const stages = expr.split('|>').map((s) => s.trim());
+  const stages = expr.split('|>').map(s => s.trim());
   let acc = stages[0];
   for (let i = 1; i < stages.length; i++) {
     const stage = stages[i];
