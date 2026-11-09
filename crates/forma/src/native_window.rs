@@ -13,7 +13,7 @@ use winit::{
     dpi::{LogicalPosition, LogicalSize},
     event::{ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
-    keyboard::{Key, NamedKey},
+    keyboard::{Key, NamedKey, PhysicalKey},
     window::{Window, WindowId},
 };
 
@@ -69,6 +69,115 @@ pub trait NativeApp {
     /// loop then runs `update` on its own thread and redraws.
     fn on_waker(&self, _waker: NativeWaker) -> Result<(), String> {
         Ok(())
+    }
+
+    /// Sees a key before the runtime does. Return `true` to mark it handled: the
+    /// runtime then receives nothing for this event. Keys the demo host captures
+    /// (see [`HostMode`]) and keys typed on its backend chooser are not offered.
+    fn on_key_event(&mut self, _event: &NativeKeyEvent<'_>) -> Result<bool, String> {
+        Ok(false)
+    }
+
+    /// The window's content area changed. `width` and `height` are logical pixels,
+    /// `scale` is the display scale factor. Called once when the window is created and
+    /// then on every resize or scale change; a minimized window may report zero.
+    fn on_resized(&mut self, _width: f32, _height: f32, _scale: f32) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// The user asked to close the window. Return `false` to keep it open.
+    fn on_close_requested(&mut self) -> Result<bool, String> {
+        Ok(true)
+    }
+
+    /// Pointer input the runtime has no notion of: secondary and middle buttons, and a
+    /// double click of the primary button (reported after the runtime received the
+    /// second press). Not called while the demo's backend chooser is shown.
+    fn on_pointer_event(&mut self, _event: &NativePointerEvent) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// Modifier keys held during an input event. `command` is the platform's shortcut
+/// modifier: Command on macOS, Control elsewhere.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NativeModifiers {
+    pub shift: bool,
+    pub control: bool,
+    pub alt: bool,
+    pub command: bool,
+}
+
+/// Key event offered to [`NativeApp::on_key_event`].
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub struct NativeKeyEvent<'a> {
+    pub logical_key: &'a Key,
+    pub physical_key: &'a PhysicalKey,
+    /// Text the key produces, when it produces any.
+    pub text: Option<&'a str>,
+    pub pressed: bool,
+    pub repeat: bool,
+    pub modifiers: NativeModifiers,
+    /// An input-method composition is in progress; the key usually belongs to it.
+    pub composing: bool,
+}
+
+/// What [`NativeApp::on_pointer_event`] reports.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum NativePointerKind {
+    Secondary { pressed: bool },
+    Middle { pressed: bool },
+    DoubleClick,
+}
+
+/// Pointer event in logical pixels of the window's content area.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct NativePointerEvent {
+    pub kind: NativePointerKind,
+    pub x: f32,
+    pub y: f32,
+    pub modifiers: NativeModifiers,
+}
+
+/// Maps a mouse button to an application pointer event. The primary button belongs to
+/// the runtime; back, forward and other buttons stay unreported.
+fn button_pointer_kind(button: MouseButton, pressed: bool) -> Option<NativePointerKind> {
+    match button {
+        MouseButton::Right => Some(NativePointerKind::Secondary { pressed }),
+        MouseButton::Middle => Some(NativePointerKind::Middle { pressed }),
+        _ => None,
+    }
+}
+
+/// Physical window size to the logical size reported to the application.
+fn logical_size(width: u32, height: u32, scale: f32) -> (f32, f32) {
+    let scale = if scale > 0. { scale } else { 1. };
+    (width as f32 / scale, height as f32 / scale)
+}
+
+const DOUBLE_CLICK_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+const DOUBLE_CLICK_DISTANCE: f32 = 4.;
+
+/// Recognizes a double click from primary presses; winit reports none.
+#[derive(Default)]
+struct ClickTracker {
+    last: Option<(Instant, f32, f32)>,
+}
+
+impl ClickTracker {
+    /// Records a primary press and tells whether it completes a double click. A
+    /// completed pair is consumed, so a third press starts a new one.
+    fn press(&mut self, at: Instant, x: f32, y: f32) -> bool {
+        let double = self.last.is_some_and(|(then, lx, ly)| {
+            at.saturating_duration_since(then) <= DOUBLE_CLICK_INTERVAL
+                && (x - lx).abs() <= DOUBLE_CLICK_DISTANCE
+                && (y - ly).abs() <= DOUBLE_CLICK_DISTANCE
+        });
+        self.last = if double { None } else { Some((at, x, y)) };
+        double
     }
 }
 
@@ -789,6 +898,7 @@ struct NativeHost<A: NativeApp + 'static> {
     ime_cancelled: bool,
     composition_owner: Option<(u64, i32)>,
     blurred_editor: Option<String>,
+    clicks: ClickTracker,
     last_frame: Instant,
 }
 
@@ -1067,6 +1177,70 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             self.update_ime()?;
         }
         Ok(())
+    }
+
+    fn modifiers(&self) -> NativeModifiers {
+        NativeModifiers {
+            shift: self.shift,
+            control: self.control,
+            alt: self.alt,
+            command: self.command,
+        }
+    }
+
+    /// Offers a key to the application ahead of the runtime; `true` means handled.
+    fn offer_key(
+        &mut self,
+        logical_key: &Key,
+        physical_key: &PhysicalKey,
+        text: Option<&str>,
+        pressed: bool,
+        repeat: bool,
+    ) -> Result<bool, String> {
+        let event = NativeKeyEvent {
+            logical_key,
+            physical_key,
+            text,
+            pressed,
+            repeat,
+            modifiers: self.modifiers(),
+            composing: self.composing,
+        };
+        self.app.on_key_event(&event)
+    }
+
+    fn pointer_event(&mut self, kind: NativePointerKind) -> Result<(), String> {
+        let (x, y) = self.pointer;
+        let event = NativePointerEvent {
+            kind,
+            x,
+            y,
+            modifiers: self.modifiers(),
+        };
+        self.app.on_pointer_event(&event)
+    }
+
+    /// Primary button on the application (not the chooser): the runtime gets the
+    /// press or release first, then a completed double click is reported.
+    fn primary_button(&mut self, pressed: bool, at: Instant) -> Result<(), String> {
+        let (x, y) = self.pointer;
+        let kind = if pressed { 1 } else { 2 };
+        self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, kind))?;
+        if pressed && self.clicks.press(at, x, y) {
+            self.pointer_event(NativePointerKind::DoubleClick)?;
+        }
+        Ok(())
+    }
+
+    /// Reports the window's content size to the application.
+    fn report_size(&mut self) -> Result<(), String> {
+        let Some(window) = &self.window else {
+            return Ok(());
+        };
+        let size = window.inner_size();
+        let scale = window.scale_factor() as f32;
+        let (width, height) = logical_size(size.width, size.height, scale);
+        self.app.on_resized(width, height, scale)
     }
 
     fn scheduled_redraw(&mut self, now: Instant) -> (bool, Option<Instant>) {
@@ -1453,6 +1627,15 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             }
             return Ok(());
         }
+        if self.offer_key(
+            &event.logical_key,
+            &event.physical_key,
+            event.text.as_deref(),
+            pressed,
+            event.repeat,
+        )? {
+            return Ok(());
+        }
         let named = match &event.logical_key {
             Key::Named(key) => format!("{key:?}"),
             _ => String::new(),
@@ -1564,11 +1747,14 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     fn event(&mut self, event: WindowEvent, event_loop: &ActiveEventLoop) -> Result<(), String> {
         match event {
             WindowEvent::CloseRequested => {
-                event_loop.exit();
-                return Ok(());
+                if self.app.on_close_requested()? {
+                    event_loop.exit();
+                    return Ok(());
+                }
             }
             WindowEvent::RedrawRequested => return self.draw(),
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                self.report_size()?;
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
@@ -1600,7 +1786,8 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 ..
             } => {
                 let (x, y) = self.pointer;
-                let kind = if state == ElementState::Pressed { 1 } else { 2 };
+                let pressed = state == ElementState::Pressed;
+                let kind = if pressed { 1 } else { 2 };
                 if let Some(chooser) = &mut self.chooser {
                     let before_clicks = chooser.clicks();
                     chooser.pointer(x, y, kind);
@@ -1613,7 +1800,13 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                         self.select_backend(chosen);
                     }
                 } else {
-                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, kind))?;
+                    self.primary_button(pressed, Instant::now())?;
+                }
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let kind = button_pointer_kind(button, state == ElementState::Pressed);
+                if let (Some(kind), None) = (kind, &self.chooser) {
+                    self.pointer_event(kind)?;
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -1863,6 +2056,11 @@ impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
                 self.window = Some(window);
                 self.surface = Some(surface);
                 self.sync_window_title();
+                if let Err(error) = self.report_size() {
+                    eprintln!("{error}");
+                    event_loop.exit();
+                    return;
+                }
                 self.announce_startup();
             }
             Err(error) => {
@@ -1944,6 +2142,7 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         })
         .map_err(|e| e.to_string())
@@ -1990,6 +2189,7 @@ mod tests {
                 ime_cancelled: false,
                 composition_owner: None,
                 blurred_editor: None,
+                clicks: Default::default(),
                 last_frame: Instant::now(),
             };
             let device = winit::event::DeviceId::dummy();
@@ -2076,6 +2276,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         let device = winit::event::DeviceId::dummy();
@@ -2163,6 +2364,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.focus_changed(false).unwrap();
@@ -2240,6 +2442,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.focus_changed(false).unwrap();
@@ -2304,6 +2507,7 @@ mod tests {
                         ime_cancelled: false,
                         composition_owner: None,
                         blurred_editor: None,
+                        clicks: Default::default(),
                         last_frame: Instant::now(),
                     };
                     host.preedit_ime("未確定").unwrap();
@@ -2410,6 +2614,7 @@ mod tests {
                 ime_cancelled: false,
                 composition_owner: None,
                 blurred_editor: None,
+                clicks: Default::default(),
                 last_frame: Instant::now(),
             };
             host.preedit_ime("未確定").unwrap();
@@ -2505,6 +2710,7 @@ mod tests {
                 ime_cancelled: false,
                 composition_owner: None,
                 blurred_editor: None,
+                clicks: Default::default(),
                 last_frame: Instant::now(),
             };
             let clean = host.app.pixels(640, 360, 1.);
@@ -2574,6 +2780,7 @@ mod tests {
                 ime_cancelled: false,
                 composition_owner: owner,
                 blurred_editor: None,
+                clicks: Default::default(),
                 last_frame: Instant::now(),
             };
             if replacement {
@@ -2763,6 +2970,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: owner,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.focus_sensitive_input(&mut |_| {}).unwrap();
@@ -2849,6 +3057,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.focus_sensitive_input(&mut |runtime| {
@@ -2939,6 +3148,7 @@ mod tests {
                 ime_cancelled: false,
                 composition_owner: None,
                 blurred_editor: None,
+                clicks: Default::default(),
                 last_frame: Instant::now(),
             };
             host.focus_changed(false).unwrap();
@@ -3006,6 +3216,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))
@@ -3085,6 +3296,7 @@ mod tests {
                 ime_cancelled: false,
                 composition_owner: None,
                 blurred_editor: None,
+                clicks: Default::default(),
                 last_frame: Instant::now(),
             };
             for (pressed, repeat) in [(false, false), (true, true)] {
@@ -3175,6 +3387,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.focus_changed(false).unwrap();
@@ -3234,6 +3447,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         let deadline = Instant::now() + std::time::Duration::from_secs(30);
@@ -3484,6 +3698,7 @@ mod tests {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         }
     }
@@ -3492,13 +3707,29 @@ mod tests {
     struct Recorder {
         runtime: crate::Runtime,
         updates: u32,
+        /// Keys seen, as (logical key, pressed, modifiers, composing).
+        keys: Vec<(Key, bool, NativeModifiers, bool)>,
+        /// The application's shortcut: command+K is handled, everything else is not.
+        shortcut_hits: u32,
+        pointer: Vec<NativePointerEvent>,
+        sizes: Vec<(f32, f32, f32)>,
+        unsaved: bool,
     }
 
     impl Recorder {
         fn new() -> Self {
+            Self::with_runtime(crate::Runtime::new())
+        }
+
+        fn with_runtime(runtime: crate::Runtime) -> Self {
             Self {
-                runtime: crate::Runtime::new(),
+                runtime,
                 updates: 0,
+                keys: Vec::new(),
+                shortcut_hits: 0,
+                pointer: Vec::new(),
+                sizes: Vec::new(),
+                unsaved: false,
             }
         }
     }
@@ -3514,6 +3745,229 @@ mod tests {
             observer(&self.runtime);
             Ok(())
         }
+
+        fn on_key_event(&mut self, event: &NativeKeyEvent<'_>) -> Result<bool, String> {
+            self.keys.push((
+                event.logical_key.clone(),
+                event.pressed,
+                event.modifiers,
+                event.composing,
+            ));
+            let shortcut = event.pressed
+                && event.modifiers.command
+                && matches!(event.logical_key, Key::Character(c) if c.as_str() == "k");
+            self.shortcut_hits += u32::from(shortcut);
+            Ok(shortcut)
+        }
+
+        fn on_resized(&mut self, width: f32, height: f32, scale: f32) -> Result<(), String> {
+            self.sizes.push((width, height, scale));
+            Ok(())
+        }
+
+        fn on_close_requested(&mut self) -> Result<bool, String> {
+            Ok(!self.unsaved)
+        }
+
+        fn on_pointer_event(&mut self, event: &NativePointerEvent) -> Result<(), String> {
+            self.pointer.push(*event);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn default_hooks_leave_existing_applications_unchanged() {
+        // `Runtime` implements only `update` and `inspect`, like any earlier implementor.
+        let mut app = crate::Runtime::new();
+        let key = Key::Named(NamedKey::F6);
+        let physical = PhysicalKey::Code(winit::keyboard::KeyCode::F6);
+        let event = NativeKeyEvent {
+            logical_key: &key,
+            physical_key: &physical,
+            text: None,
+            pressed: true,
+            repeat: false,
+            modifiers: NativeModifiers::default(),
+            composing: false,
+        };
+        assert_eq!(
+            app.on_key_event(&event),
+            Ok(false),
+            "keys go on to the runtime"
+        );
+        assert_eq!(app.on_close_requested(), Ok(true), "the window closes");
+        assert_eq!(app.on_resized(640., 480., 2.), Ok(()));
+        let pointer = NativePointerEvent {
+            kind: NativePointerKind::DoubleClick,
+            x: 1.,
+            y: 2.,
+            modifiers: NativeModifiers::default(),
+        };
+        assert_eq!(app.on_pointer_event(&pointer), Ok(()));
+    }
+
+    #[test]
+    fn application_sees_keys_first_and_decides_whether_the_runtime_gets_them() {
+        let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+        let physical = PhysicalKey::Code(winit::keyboard::KeyCode::KeyK);
+        let k = Key::Character("k".into());
+
+        // Unhandled: the host goes on to the runtime.
+        assert_eq!(
+            host.offer_key(&k, &physical, Some("k"), true, false),
+            Ok(false)
+        );
+
+        host.command = true;
+        host.shift = true;
+        host.composing = true;
+        assert_eq!(host.offer_key(&k, &physical, None, true, false), Ok(true));
+        assert_eq!(host.offer_key(&k, &physical, None, false, false), Ok(false));
+        assert_eq!(host.app.shortcut_hits, 1);
+
+        // A function key the demo would capture is an ordinary key here.
+        let f7 = Key::Named(NamedKey::F7);
+        assert_eq!(
+            host_shortcut(host.config.mode, &f7, true, false, true),
+            None
+        );
+        let physical = PhysicalKey::Code(winit::keyboard::KeyCode::F7);
+        assert_eq!(host.offer_key(&f7, &physical, None, true, false), Ok(false));
+
+        let held = NativeModifiers {
+            shift: true,
+            control: false,
+            alt: false,
+            command: true,
+        };
+        assert_eq!(
+            host.app.keys,
+            vec![
+                (k.clone(), true, NativeModifiers::default(), false),
+                (k.clone(), true, held, true),
+                (k, false, held, true),
+                (f7, true, held, true),
+            ]
+        );
+        assert_eq!(host.app.updates, 0, "offering a key dispatches nothing");
+    }
+
+    #[test]
+    fn close_request_can_be_vetoed_by_the_application() {
+        let mut app = Recorder::new();
+        assert_eq!(app.on_close_requested(), Ok(true));
+        app.unsaved = true;
+        assert_eq!(app.on_close_requested(), Ok(false));
+    }
+
+    #[test]
+    fn secondary_and_middle_buttons_reach_the_application_with_position() {
+        assert_eq!(
+            button_pointer_kind(MouseButton::Right, true),
+            Some(NativePointerKind::Secondary { pressed: true })
+        );
+        assert_eq!(
+            button_pointer_kind(MouseButton::Middle, false),
+            Some(NativePointerKind::Middle { pressed: false })
+        );
+        for button in [
+            MouseButton::Left,
+            MouseButton::Back,
+            MouseButton::Forward,
+            MouseButton::Other(9),
+        ] {
+            assert_eq!(button_pointer_kind(button, true), None);
+        }
+
+        let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+        host.pointer = (12., 34.);
+        host.alt = true;
+        host.pointer_event(NativePointerKind::Secondary { pressed: true })
+            .unwrap();
+        assert_eq!(
+            host.app.pointer,
+            vec![NativePointerEvent {
+                kind: NativePointerKind::Secondary { pressed: true },
+                x: 12.,
+                y: 34.,
+                modifiers: NativeModifiers {
+                    alt: true,
+                    ..Default::default()
+                },
+            }]
+        );
+        assert_eq!(host.app.updates, 0, "the runtime receives no pointer input");
+    }
+
+    #[test]
+    fn double_click_needs_two_close_presses_in_time_and_space() {
+        let start = Instant::now();
+        let ms = |n| start + std::time::Duration::from_millis(n);
+        let mut clicks = ClickTracker::default();
+        assert!(!clicks.press(ms(0), 10., 10.));
+        assert!(clicks.press(ms(200), 12., 9.));
+        assert!(
+            !clicks.press(ms(300), 12., 9.),
+            "a third press starts a new pair"
+        );
+        assert!(clicks.press(ms(500), 12., 9.));
+
+        assert!(!clicks.press(ms(1000), 10., 10.));
+        assert!(!clicks.press(ms(1501), 10., 10.), "too slow");
+        assert!(!clicks.press(ms(1600), 30., 10.), "too far");
+        assert!(
+            clicks.press(ms(2100), 30., 10.),
+            "the interval is inclusive"
+        );
+    }
+
+    #[test]
+    fn primary_double_click_is_reported_after_the_runtime_got_both_presses() {
+        let runtime = crate::Runtime::from_source(
+            "component Demo { Frame { width:200; height:100; Button { key:'open'; width:180; height:60; } } }",
+        )
+        .unwrap();
+        let b = runtime.control_bounds(0);
+        let mut host = windowless_host(
+            Recorder::with_runtime(runtime),
+            NativeWindowConfig::application("Shelf"),
+        );
+        host.pointer = (b[0] + 20., b[1] + 20.);
+        let start = Instant::now();
+        let ms = |n| start + std::time::Duration::from_millis(n);
+
+        host.primary_button(true, ms(0)).unwrap();
+        host.primary_button(false, ms(50)).unwrap();
+        assert!(
+            host.app.pointer.is_empty(),
+            "a single click is the runtime's"
+        );
+        assert_eq!(host.app.runtime.control_clicks(0), 1);
+
+        host.primary_button(true, ms(150)).unwrap();
+        assert_eq!(host.app.pointer.len(), 1);
+        assert_eq!(host.app.pointer[0].kind, NativePointerKind::DoubleClick);
+        assert_eq!((host.app.pointer[0].x, host.app.pointer[0].y), host.pointer);
+        host.primary_button(false, ms(200)).unwrap();
+        assert_eq!(
+            host.app.runtime.control_clicks(0),
+            2,
+            "the runtime still receives every press and release"
+        );
+        assert_eq!(host.app.pointer.len(), 1, "releases report nothing");
+    }
+
+    #[test]
+    fn resize_reports_logical_size_and_scale() {
+        assert_eq!(logical_size(1600, 1200, 2.), (800., 600.));
+        assert_eq!(logical_size(801, 600, 1.), (801., 600.));
+        assert_eq!(logical_size(0, 0, 1.5), (0., 0.));
+        assert_eq!(logical_size(300, 150, 0.), (300., 150.), "a bad scale is 1");
+
+        // Without a window there is no size to report.
+        let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+        host.report_size().unwrap();
+        assert!(host.app.sizes.is_empty());
     }
 
     #[test]

@@ -190,6 +190,30 @@ run(app, NativeWindowConfig { width: 1280., height: 800., ..NativeWindowConfig::
 поэтому `update` должен забирать все накопленные результаты. `wake()` возвращает
 `false`, когда цикл окна завершён.
 
+#### Обработчики приложения
+
+У всех методов есть реализация по умолчанию, поэтому существующие `NativeApp`
+компилируются и ведут себя как раньше.
+
+| Метод | Когда вызывается | По умолчанию |
+|---|---|---|
+| `on_key_event(&mut self, &NativeKeyEvent) -> Result<bool, String>` | до передачи клавиши в Runtime; `true` — обработано, Runtime её не получит | `false` |
+| `on_resized(&mut self, width, height, scale)` | при создании окна, изменении размера и масштаба; размеры логические | ничего |
+| `on_close_requested(&mut self) -> Result<bool, String>` | запрос закрытия окна; `false` оставляет окно открытым | `true` |
+| `on_pointer_event(&mut self, &NativePointerEvent)` | правая и средняя кнопки, двойной щелчок основной | ничего |
+
+`NativeKeyEvent` несёт логическую и физическую клавиши, текст, `pressed`, `repeat`,
+модификаторы (`command` — Command на macOS и Control на остальных системах) и
+признак `composing`: во время набора через IME клавиша обычно принадлежит методу
+ввода. В режиме `Demo` клавиши, перехваченные хостом, и ввод на экране выбора
+бэкенда приложению не предлагаются.
+
+Runtime по-прежнему получает только основную кнопку. Двойной щелчок сообщается
+после того, как Runtime получил второе нажатие: интервал до 500 мс, смещение до
+4 логических пикселей, третье нажатие начинает новую пару. Координаты событий
+указателя — логические пиксели области содержимого окна. Хост не меняет размер
+корня документа сам: это делает приложение в `on_resized`.
+
 For native source/project operations, use the String-error APIs
 `load_component_native`, `load_native`, `load_ui_files_json_native`,
 `load_scene_artifact_native`, and `compile_ui_scene_artifact_native`.
