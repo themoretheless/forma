@@ -22,8 +22,8 @@
     "version:set": "node scripts/versions.mjs set",
     "package:release": "node scripts/package-release.mjs",
     "gate": "node scripts/full-gate.mjs",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format": "prettier --write . && node scripts/rust-fmt.mjs",
+    "format:check": "prettier --check . && node scripts/rust-fmt.mjs --check"
   },
   "devDependencies": {
     "prettier": "^3.9.10",

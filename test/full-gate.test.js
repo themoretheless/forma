@@ -106,7 +106,13 @@ test('no tracked crate is left out of the gate', () => {
   const ungated = tracked
     .split('\n')
     .filter(file => /(^|\/)Cargo\.toml$/.test(file))
-    .filter(file => !file.startsWith('crates/') && file !== 'openscad-ui/Cargo.toml')
+    // The ten GPU and compute crates have no gate step of their own yet; forma and its examples,
+    // which also live under crates/, do and must stay covered.
+    .filter(
+      file =>
+        (!file.startsWith('crates/') || file.startsWith('crates/forma/')) &&
+        file !== 'openscad-ui/Cargo.toml',
+    )
     .filter(file => !gated.has(file));
   assert.deepEqual(ungated, [], `nothing compiles ${ungated.join(', ')}`);
 });

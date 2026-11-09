@@ -48,6 +48,20 @@ export function steps({ platform, installedTargets, viteEntry }) {
             },
           ]
         : []),
+      // Formatting is checked, not trusted: an unformatted file turns every later diff into noise.
+      {
+        id: 'format-js',
+        name: 'JavaScript and TypeScript are formatted (prettier)',
+        argv: process.execPath,
+        args: ['node_modules/prettier/bin/prettier.cjs', '--check', '--log-level', 'warn', '.'],
+      },
+      {
+        id: 'format-rust',
+        name: 'Every tracked Rust manifest is formatted (rustfmt)',
+        argv: process.execPath,
+        args: ['scripts/rust-fmt.mjs', '--check'],
+        requiresOutput: true,
+      },
       // Every load and compile number in PRODUCTION_READINESS.md was produced by these three, and
       // nothing ran them: the suite covers the APIs they call, so a bench could die on a refactor and
       // the discovery would come mid-measurement. They write into .forma, never into a tracked path.

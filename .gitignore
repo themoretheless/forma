@@ -18,3 +18,5 @@ public/vector-pkg/
 *.key
 
 .release/
+# raster-core tests write frames here when run from the repository root
+/output/
