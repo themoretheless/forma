@@ -12,7 +12,7 @@
    - Global Event Delegation attaches a single listener on `document` for high-frequency events (`click`, `input`, `keydown`, etc.).
 
 2. **Rust WASM Push-Pull Reactive DAG with Slot Recycling ([`crates/svet-wasm/src/lib.rs`](crates/svet-wasm/src/lib.rs))**
-   - Zero JS Garbage Collector pressure: graph nodes, edges, and dirty queues live in flat WebAssembly linear memory (`Vec<u32>`).
+   - Graph nodes, edges, and dirty queues live in flat WebAssembly linear memory (`Vec<u32>`), outside the JS heap. Each signal, computed and effect still has a small JS handle (two objects for a signal, with methods shared through a prototype), so creating them allocates; updating an existing graph does not.
    - Glitch-free hybrid Push-Pull evaluation guarantees diamond dependencies (`A -> (B, C) -> D`) execute downstream effects strictly once per batch.
    - `free_list` slot recycling + hierarchical `OwnerScope` (`createRoot`, `onCleanup`) ensure zero memory growth across long-running SPA sessions.
 
