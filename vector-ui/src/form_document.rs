@@ -15,6 +15,7 @@ use bindings::{
     lookup_binding_mut, lookup_binding_ref, resolve_binding_frame, resolve_binding_item,
     write_collection_item_path, write_state_path, BindingKeyIndexes,
 };
+pub(crate) use bindings::StatePush;
 use compiler::{compile_ui_files_to_document, doc_props_to_json, json_to_doc_props};
 use contracts::check_contracts;
 use eval::{enum_value, eval, expression_number, lookup, pattern_matches};
