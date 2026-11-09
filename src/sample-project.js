@@ -11,7 +11,7 @@ default = []
 native = ["forma/native"]
 
 [dependencies]
-forma = { path = "../vector-ui" }
+forma = { path = "../crates/forma" }
 `,
   'ui/SearchWindow.ui': `#[design('./SearchWindow.design.ui')]
 component SearchWindow {

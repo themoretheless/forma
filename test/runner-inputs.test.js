@@ -79,7 +79,7 @@ test('rust runner enables native only for a native generated-form launch', async
   });
   const files = {
     'Cargo.toml':
-      '[package]\nname="a"\nversion="0.1.0"\n[features]\nnative=["forma/native"]\n[dependencies]\nforma={path="../vector-ui"}\n',
+      '[package]\nname="a"\nversion="0.1.0"\n[features]\nnative=["forma/native"]\n[dependencies]\nforma={path="../crates/forma"}\n',
     'src/main.rs': 'fn main(){}',
     'ui/Form.ui': "component Form { contextType:'crate::Vm'; Frame {} }",
   };

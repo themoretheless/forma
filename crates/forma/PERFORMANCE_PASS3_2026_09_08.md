@@ -91,9 +91,9 @@ Frame 320×160 со Scroll, контролы 640×45 с одной тексто�
 - Scroll внутри вложенных Scroll не поддерживается, как и до изменения.
 
 ```sh
-cargo run --offline --release --manifest-path vector-ui/Cargo.toml --example text_perf
-cargo run --offline --release --manifest-path vector-ui/Cargo.toml --features gpu --example gpu_check
-cargo test --offline --release --manifest-path vector-ui/Cargo.toml --features gpu -- --ignored
+cargo run --offline --release --manifest-path crates/forma/Cargo.toml --example text_perf
+cargo run --offline --release --manifest-path crates/forma/Cargo.toml --features gpu --example gpu_check
+cargo test --offline --release --manifest-path crates/forma/Cargo.toml --features gpu -- --ignored
 ```
 
 # Часть 2: аналитическое покрытие текста на GPU, 8 сентября 2026

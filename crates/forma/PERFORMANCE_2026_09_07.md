@@ -37,7 +37,7 @@ Face, а поиск позиции каретки проходит строку 
 Запуск нового измерителя:
 
 ```sh
-cargo run --offline --release --manifest-path vector-ui/Cargo.toml --example runtime_perf
+cargo run --offline --release --manifest-path crates/forma/Cargo.toml --example runtime_perf
 ```
 
 ## CPU renderer и память

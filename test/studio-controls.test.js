@@ -18,7 +18,7 @@ const read = (root, folders) =>
     ),
   );
 const project = createStudioControlsProject(
-  read('vector-ui/controls', ['components', 'assets']),
+  read('crates/forma/controls', ['components', 'assets']),
   read('studio-controls', ['ui']),
 );
 

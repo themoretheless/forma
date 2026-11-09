@@ -52,9 +52,9 @@ jobs:
             ~/.cargo/bin/wasm-bindgen
             ~/.cargo/bin/wasm-bindgen-test-runner
             ~/.cargo/bin/wasm2es6js
-            vector-ui/target
+            crates/forma/target
             native-app/target
-            vector-ui/examples/binding-app/target
+            crates/forma/examples/binding-app/target
           key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
           restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-
       # The generated-form examples run the JS generator from build.rs, which needs the tokenizer
@@ -70,22 +70,22 @@ jobs:
         run: node scripts/tokenizer.mjs checkout install
       - run: npm ci
       - name: Forma tests (hardware tests remain explicit)
-        run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests
+        run: cargo test --locked --manifest-path crates/forma/Cargo.toml --features gpu --lib --tests
       # Lavapipe gives Linux a software Vulkan adapter, so the GPU renderer tests that need a real
       # device (buffer reuse, CPU/GPU agreement across DPI) run on every PR, not only on a Mac by hand.
       - name: GPU renderer tests on software Vulkan (lavapipe)
         if: runner.os == 'Linux'
         env:
           WGPU_BACKEND: vulkan
-        run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests -- --ignored
+        run: cargo test --locked --manifest-path crates/forma/Cargo.toml --features gpu --lib --tests -- --ignored
       - name: Design runner execution, cleanup and result limits
         run: node --test test/design-data-runner.test.js
       # NativeHost/standalone IME and modifier regressions do not create OS windows.
       # --features gpu above does not compile native_window.rs or the binary tests.
       - name: Native host input and standalone regressions
-        run: cargo test --locked --manifest-path vector-ui/Cargo.toml --features native --lib --bin forma
+        run: cargo test --locked --manifest-path crates/forma/Cargo.toml --features native --lib --bin forma
       - name: Generated forms and native binding example
-        run: cargo test --locked --manifest-path vector-ui/examples/binding-app/Cargo.toml --features native
+        run: cargo test --locked --manifest-path crates/forma/examples/binding-app/Cargo.toml --features native
       - name: Studio legacy WebView host compiles on macOS
         if: runner.os == 'macOS'
         run: cargo check --locked --manifest-path native-app/Cargo.toml
@@ -119,8 +119,8 @@ jobs:
             ~/.cargo/bin/wasm-bindgen
             ~/.cargo/bin/wasm-bindgen-test-runner
             ~/.cargo/bin/wasm2es6js
-            vector-ui/target
-          key: wasm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'vector-ui/Cargo.lock') }}
+            crates/forma/target
+          key: wasm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'crates/forma/Cargo.lock') }}
           restore-keys: wasm-${{ runner.os }}-${{ runner.arch }}-
       - name: Matching wasm-bindgen CLI
         shell: bash
@@ -137,9 +137,9 @@ jobs:
       - name: Native scene artifact and snapshot WASM contracts
         shell: bash
         run: |
-          wasm-bindgen "${CARGO_TARGET_DIR:-vector-ui/target}/wasm32-unknown-unknown/release/forma.wasm" --target nodejs --out-dir "$RUNNER_TEMP/forma-node-contracts"
-          node vector-ui/tests/check-scene-artifact-wasm.cjs "$RUNNER_TEMP/forma-node-contracts" "$RUNNER_TEMP/scene-artifact.json"
-          node vector-ui/tests/check-scene-snapshot-wasm.cjs "$RUNNER_TEMP/forma-node-contracts" "$RUNNER_TEMP/scene-snapshot.json"
+          wasm-bindgen "${CARGO_TARGET_DIR:-crates/forma/target}/wasm32-unknown-unknown/release/forma.wasm" --target nodejs --out-dir "$RUNNER_TEMP/forma-node-contracts"
+          node crates/forma/tests/check-scene-artifact-wasm.cjs "$RUNNER_TEMP/forma-node-contracts" "$RUNNER_TEMP/scene-artifact.json"
+          node crates/forma/tests/check-scene-snapshot-wasm.cjs "$RUNNER_TEMP/forma-node-contracts" "$RUNNER_TEMP/scene-snapshot.json"
       - name: Require WASM integration tests (no missing-asset skips)
         run: node -e "for(const p of ['public/vector-pkg/forma.js','public/vector-pkg/forma_bg.wasm'])require('node:fs').accessSync(p)"
       - run: npm test

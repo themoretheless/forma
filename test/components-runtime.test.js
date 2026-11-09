@@ -12,7 +12,7 @@ test(
       module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
     });
     const read = name =>
-      readFileSync(new URL('../vector-ui/examples/' + name, import.meta.url), 'utf8');
+      readFileSync(new URL('../crates/forma/examples/' + name, import.meta.url), 'utf8');
     const files = {
       'components/Button.ui': read('Button.slots.ui'),
       'components/ImageButton.ui': read('ImageButton.component.ui'),

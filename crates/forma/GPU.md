@@ -59,9 +59,9 @@ stencil и glyph atlas могут быть альтернативами для �
 ## Проверки
 
 ```sh
-cargo test --offline --manifest-path vector-ui/Cargo.toml
-cargo run --offline --manifest-path vector-ui/Cargo.toml --release --features gpu --example gpu_check
-cargo run --offline --manifest-path vector-ui/Cargo.toml --release --features gpu --example gpu_bench
+cargo test --offline --manifest-path crates/forma/Cargo.toml
+cargo run --offline --manifest-path crates/forma/Cargo.toml --release --features gpu --example gpu_check
+cargo run --offline --manifest-path crates/forma/Cargo.toml --release --features gpu --example gpu_bench
 ```
 
 Оба GPU-примера принимают пути к snapshot.ui и раскрытому Button.ui. Они требуют

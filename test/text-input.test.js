@@ -2,15 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { compileComponents } from '../src/components.js';
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 await init({
   module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
 });
 const files = {};
 for (const dir of ['components', 'assets'])
-  for (const file of readdirSync(`vector-ui/controls/${dir}`))
-    files[`${dir}/${file}`] = readFileSync(`vector-ui/controls/${dir}/${file}`, 'utf8');
+  for (const file of readdirSync(`crates/forma/controls/${dir}`))
+    files[`${dir}/${file}`] = readFileSync(`crates/forma/controls/${dir}/${file}`, 'utf8');
 function field(type = 'TextField', props = '') {
   const source = `component Demo { Frame { width:300; height:120; ${type} { key:'editor'; width:240; height:100; value:${type === 'Slider' ? '50%' : "'Привет'"}; ${props} } } }`;
   const compiled = compileComponents(
@@ -115,7 +115,7 @@ test('input pixels and GPU geometry change with text and selection; preedit does
 });
 
 test('gallery export keeps edited field values as native TextInput initial values', async () => {
-  const { catalogProject } = await import('../vector-ui/controls/catalog.js');
+  const { catalogProject } = await import('../crates/forma/controls/catalog.js');
   const project = catalogProject(files, 'dark', 'regular', {
     state: {
       fields: {

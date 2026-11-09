@@ -157,7 +157,7 @@ Node.js из `build.rs`, без новых Rust build-dependencies:
 
 ```sh
 node scripts/generate-form.mjs \
-  --project vector-ui/examples/binding-app \
+  --project crates/forma/examples/binding-app \
   --entry ui/CustomerForm.ui \
   --output /tmp/customer_form.rs
 ```

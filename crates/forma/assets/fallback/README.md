@@ -7,7 +7,7 @@ Each font includes its upstream OFL and METADATA files.
 - NotoSansSC.ttf: 17,772,300 bytes; CJK vector outlines.
 - NotoEmoji.ttf: 1,982,596 bytes; monochrome emoji vector outlines.
 
-`cargo run --offline --locked --manifest-path vector-ui/Cargo.toml --example font_coverage_probe`
+`cargo run --offline --locked --manifest-path crates/forma/Cargo.toml --example font_coverage_probe`
 checks weight400, glyph lookup, positive advances and nonempty outlines for
 sample CJK/emoji scalars. The default simple text renderer now uses Ubuntu,
 then NotoSansSC and the static FormaEmoji derivative. It normalizes advances to primary-font units
@@ -15,12 +15,12 @@ and scales outlines by each selected face's units per em. Native CPU rendering
 and mixed-font caret/vector parity have regression evidence. The shaped API uses the same faces and exposes font_index; full
 language/emoji sequence coverage and colour emoji remain open.
 
-Both fonts add 19,754,896 bytes before compression. Fresh vector-ui WASM Node14/14 and Chromium17/17 passed. Generated module
+Both fonts add 19,754,896 bytes before compression. Fresh crates/forma WASM Node14/14 and Chromium17/17 passed. Generated module
 size is21,828,894bytes (gzip13,246,694bytes). Controlled startup and resolver
 performance, broader font metrics/sequence qualification remain open.
 
 Static weight400 candidates are generated with
-`/path/to/fonttools-venv/bin/python vector-ui/scripts/instance-fallback-fonts.py`
+`/path/to/fonttools-venv/bin/python crates/forma/scripts/instance-fallback-fonts.py`
 using exactly `fonttools==4.68.0`. `STATIC_INSTANCES.json` records source/output
 hashes. Two generations reproduced identical bytes; all cmap tables (including
 UVS data) and glyph order are preserved. The renamed FormaCJK/FormaEmoji

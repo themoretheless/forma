@@ -6,12 +6,12 @@
 
 | Компонент | Где хранится версия | Релизный тег | Артефакт GitHub Release |
 |---|---|---|---|
-| Forma (библиотека Rust + WASM) | `vector-ui/Cargo.toml` + Cargo.lock | `forma-v0.1.0` | `forma-0.1.0-wasm.tar.gz` |
+| Forma (библиотека Rust + WASM) | `crates/forma/Cargo.toml` + Cargo.lock | `forma-v0.1.0` | `forma-0.1.0-wasm.tar.gz` |
 | Studio | `package.json` + package-lock.json | `studio-v0.1.0` | `forma-studio-0.1.0-web.tar.gz` |
 
 `native-app` — вспомогательный WebView-хост Studio, его версия синхронизируется
 со Studio. Это не третий независимо выпускаемый продукт. Нативный векторный
-пример в `vector-ui` относится к библиотеке Forma. Rust crate и demo-бинарник
+пример в `crates/forma` относится к библиотеке Forma. Rust crate и demo-бинарник
 называются `forma`; WASM-архив содержит `forma.js` и `forma_bg.wasm`.
 Внутреннее имя компонента в командах и metadata остаётся `runtime`.
 
@@ -36,7 +36,7 @@ Build metadata (`+...`) в номерах релизов не используе
 сборки служит SHA коммита.
 
 Studio всегда собирает и включает WASM из того же checkout. Язык берётся из
-ревизии tokenizer, закреплённой через `rev` в `vector-ui/Cargo.toml` и в lockfiles; её SHA
+ревизии tokenizer, закреплённой через `rev` в `crates/forma/Cargo.toml` и в lockfiles; её SHA
 записывается в `build-info.json` (`tokenizer`), и `package:release` отказывается
 упаковывать WASM, собранный против другой ревизии. В
 `dist/vector-pkg/build-info.json` записаны версии Runtime и Studio, версия
@@ -69,7 +69,7 @@ Runtime (сейчас 0.2.125). Версии GitHub Actions закреплены
 с подходящим adapter:
 
 ```sh
-cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu -- --ignored
+cargo test --locked --manifest-path crates/forma/Cargo.toml --features gpu -- --ignored
 ```
 
 Обычный CI не выдаёт отсутствие GPU за успешную аппаратную проверку. Замеры
@@ -161,10 +161,10 @@ npm run package:release
 
 `npm run build:wasm` supports `CARGO_TARGET_DIR` (relative paths resolve from
 this repository). Both Cargo and wasm-bindgen use that directory; without the
-environment variable the script uses `vector-ui/target`. To verify a build
+environment variable the script uses `crates/forma/target`. To verify a build
 without previous Cargo artifacts, set it to a new empty directory. This still
 uses the installed toolchain and Cargo dependency cache.
 
 Packaging also compares the complete `controls` directory in both runtime and
-Studio output against `vector-ui/controls`. Missing, modified or extra files
+Studio output against `crates/forma/controls`. Missing, modified or extra files
 fail packaging; rebuild WASM and Studio rather than editing generated copies.

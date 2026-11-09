@@ -1,4 +1,4 @@
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
 
 export function createOpenScadProject(library, sources) {
   const entry = 'ui/OpenScadStudio.ui';

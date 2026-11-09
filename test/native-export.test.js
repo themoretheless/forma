@@ -114,7 +114,7 @@ test('buildNativeRustExport generates a real window and a headless test for a Ru
   assert.equal(bundle.name, 'knowledge-workspace');
   assert.equal(bundle.entry, 'ui/SearchWindow.ui');
   assert.ok(bundle.files['Cargo.toml'].includes('name = "knowledge-workspace"'));
-  assert.ok(bundle.files['Cargo.toml'].includes('forma = { path = "../vector-ui" }'));
+  assert.ok(bundle.files['Cargo.toml'].includes('forma = { path = "../crates/forma" }'));
   assert.ok(bundle.files['Cargo.toml'].includes('native = ["forma/native"]'));
   assert.ok(
     bundle.files['src/ui_bundle.rs'].includes('pub const ENTRY_FILE: &str = "ui/SearchWindow.ui";'),
@@ -146,12 +146,12 @@ test('buildNativeRustExport generates typed bindings and preserves the applicati
   const before = structuredClone(typedProject);
   const bundle = buildNativeRustExport(typedProject, 'ui/Counter.ui', {
     crateName: 'Counter App',
-    formaDependencyPath: '/tmp/forma/vector-ui',
+    formaDependencyPath: '/tmp/forma/crates/forma',
   });
   assert.deepEqual(typedProject, before, 'export must not mutate source project files');
   assert.equal(bundle.name, 'counter-app');
   assert.equal(bundle.files['src/app.rs'], typedProject['src/app.rs']);
-  assert.ok(bundle.files['Cargo.toml'].includes('forma = { path = "/tmp/forma/vector-ui" }'));
+  assert.ok(bundle.files['Cargo.toml'].includes('forma = { path = "/tmp/forma/crates/forma" }'));
   assert.ok(
     bundle.files['Cargo.toml'].includes('serde = "1"'),
     'user dependencies must survive export',
@@ -232,7 +232,7 @@ test(
   rustOptions,
   () => {
     const targetDir = join(mkdtempSync(join(tmpdir(), 'forma-export-target-')), 'target');
-    const formaPath = resolve('vector-ui');
+    const formaPath = resolve('crates/forma');
     compileBundle(
       buildNativeRustExport(runtimeProject, 'ui/SearchWindow.ui', { formaPath }),
       targetDir,

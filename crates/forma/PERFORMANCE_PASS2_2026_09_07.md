@@ -129,8 +129,8 @@ browser layout/paint. Время синтетического дерева не 
   Пользовательские файлы/настройки сохранены, проверочные вкладки закрыты.
 
 ```sh
-cargo run --offline --release --manifest-path vector-ui/Cargo.toml --example multicontrol_perf
-cargo run --offline --release --manifest-path vector-ui/Cargo.toml --example text_perf
+cargo run --offline --release --manifest-path crates/forma/Cargo.toml --example multicontrol_perf
+cargo run --offline --release --manifest-path crates/forma/Cargo.toml --example text_perf
 node --expose-gc scripts/compiler-session-bench.mjs .forma/perf/compiler-session
 node --expose-gc scripts/studio-tools-bench.mjs .forma/perf/studio-tools
 ```

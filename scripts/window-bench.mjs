@@ -23,7 +23,7 @@ run('cargo', [
   '--offline',
   '--release',
   '--manifest-path',
-  'vector-ui/Cargo.toml',
+  'crates/forma/Cargo.toml',
   '--features',
   'native',
   '--example',
@@ -39,7 +39,7 @@ for (let repetition = 1; repetition <= 3; repetition++)
     console.error(`Window ${width}×${height}, 5 seconds, repetition ${repetition}/3`);
     let result;
     try {
-      const lines = run(resolve(root, 'vector-ui/target/release/examples/window_bench'), [
+      const lines = run(resolve(root, 'crates/forma/target/release/examples/window_bench'), [
         resolve(out, 'image.ui'),
         resolve(out, 'image.template.ui'),
         String(width),

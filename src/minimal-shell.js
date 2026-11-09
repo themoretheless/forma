@@ -157,14 +157,12 @@ export function mountMinimalShell(
       search: true,
       placeholder,
       query,
-      items: shown
-        .slice(first, first + visibleRows)
-        .map((item, i) => ({
-          id: first + i,
-          label: item.label,
-          hint: keyText(item.key),
-          active: first + i === index,
-        })),
+      items: shown.slice(first, first + visibleRows).map((item, i) => ({
+        id: first + i,
+        label: item.label,
+        hint: keyText(item.key),
+        active: first + i === index,
+      })),
     };
   }
   function openPalette(kind) {
@@ -435,17 +433,15 @@ export function mountMinimalShell(
       width,
       disabled: layersView.disabled,
       emptyText: layersView.query ? 'Контролы не найдены' : 'Нет контролов',
-      rows: all
-        .slice(first, first + count)
-        .map(row => ({
-          id: row.id,
-          indent: (row.level - 1) * rowIndent,
-          label: row.label,
-          detail: row.detail,
-          branch: row.branch,
-          expanded: row.expanded,
-          selected: row.id === layersView.selectedId,
-        })),
+      rows: all.slice(first, first + count).map(row => ({
+        id: row.id,
+        indent: (row.level - 1) * rowIndent,
+        label: row.label,
+        detail: row.detail,
+        branch: row.branch,
+        expanded: row.expanded,
+        selected: row.id === layersView.selectedId,
+      })),
     });
     regions.layersHeader.update({
       width,

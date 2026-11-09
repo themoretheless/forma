@@ -93,7 +93,7 @@ export default defineConfig({
     target: 'esnext',
     chunkSizeWarningLimit: 600,
     rollupOptions: {
-      input: { studio: 'index.html', controls: 'vector-ui/examples/controls.html' },
+      input: { studio: 'index.html', controls: 'crates/forma/examples/controls.html' },
       output: {
         manualChunks(id) {
           if (id.includes('@codemirror/') || id.includes('@lezer/')) return 'editor';
@@ -130,7 +130,7 @@ export default defineConfig({
             res.end(bytes);
           } catch {
             res.statusCode = 503;
-            res.end('Build vector-ui WASM first');
+            res.end('Build crates/forma WASM first');
           }
         });
         server.middlewares.use('/__forma_tokenizer', async (req, res, next) => {

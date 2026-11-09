@@ -1,16 +1,16 @@
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 import { compileComponents } from '../src/components.js';
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import { shellControl, shellScene } from '../src/studio-shell-controls.js';
 import { createShellPainter } from '../src/studio-shell-painter.js';
-const raw = import.meta.glob('../vector-ui/controls/{components,assets}/*', {
+const raw = import.meta.glob('../crates/forma/controls/{components,assets}/*', {
   query: '?raw',
   import: 'default',
   eager: true,
 });
 const library = materializeTheme(
   Object.fromEntries(
-    Object.entries(raw).map(([k, v]) => [k.slice('../vector-ui/controls/'.length), v]),
+    Object.entries(raw).map(([k, v]) => [k.slice('../crates/forma/controls/'.length), v]),
   ),
   'dark',
 );

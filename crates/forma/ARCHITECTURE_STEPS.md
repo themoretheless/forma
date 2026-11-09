@@ -111,7 +111,7 @@ GPU animation: 43.25 → 44.50 alloc+realloc/кадр; resize: 54.67 → 55.67.
 36 976 байт owned GPU buffers. Это не FPS экрана и не вся VRAM.
 
 Пример: `examples/TwoButtons.ui`; браузерный стенд при запущенном Vite:
-`/vector-ui/examples/runtime.html`.
+`/crates/forma/examples/runtime.html`.
 
 Ограничения этапа: один корневой Frame, вертикальная раскладка с padding/gap,
 до 256 контролов (или один Scroll с ними); шаблоны пока имеют корневой Rectangle.

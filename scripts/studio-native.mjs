@@ -9,7 +9,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileComponents } from '../src/components.js';
 import { parse } from '../src/language.js';
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import { composeStudioWindow, keyText } from '../src/studio-window.js';
 import { sampleProject } from '../src/sample-project.js';
 import { createVectorRunner } from '../vector-runner.js';
@@ -35,7 +35,7 @@ function readTree(base, folders, filter = () => true) {
   for (const folder of folders) walk(path.join(base, folder));
   return out;
 }
-const controlLibrary = readTree(path.join(root, 'vector-ui/controls'), ['components', 'assets']);
+const controlLibrary = readTree(path.join(root, 'crates/forma/controls'), ['components', 'assets']);
 const shellFiles = materializeTheme(
   { ...controlLibrary, ...readTree(path.join(root, 'studio-ui'), ['components', 'ui']) },
   'dark',

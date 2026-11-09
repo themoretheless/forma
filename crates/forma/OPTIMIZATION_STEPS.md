@@ -165,11 +165,11 @@ CPU raster-cache cleanup, glyph cache и небольшие
 
 ```sh
 FORMA_GPU_GOLDEN_DIR=.forma/perf/goldens/image FORMA_GPU_GOLDEN_MODE=record \
-  cargo run --offline --manifest-path vector-ui/Cargo.toml --release --features gpu \
+  cargo run --offline --manifest-path crates/forma/Cargo.toml --release --features gpu \
   --example gpu_check -- path/to/scene.ui path/to/Button.ui
 # После оптимизации, без MODE=record:
 FORMA_GPU_GOLDEN_DIR=.forma/perf/goldens/image \
-  cargo run --offline --manifest-path vector-ui/Cargo.toml --release --features gpu \
+  cargo run --offline --manifest-path crates/forma/Cargo.toml --release --features gpu \
   --example gpu_check -- path/to/scene.ui path/to/Button.ui
 ```
 

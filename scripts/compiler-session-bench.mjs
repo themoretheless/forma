@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 const modulePath = resolve(process.argv[3] ?? 'src/components.js');
 const { compileComponents, createComponentCompiler } = await import(pathToFileURL(modulePath));
 const out = resolve(process.argv[2] ?? '.forma/perf/compiler-session');
-const read = name => readFile(new URL(`../vector-ui/examples/${name}`, import.meta.url), 'utf8');
+const read = name => readFile(new URL(`../crates/forma/examples/${name}`, import.meta.url), 'utf8');
 const components = {
   'components/Button.ui': await read('Button.slots.ui'),
   'components/ImageButton.ui': await read('ImageButton.component.ui'),

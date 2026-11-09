@@ -3,7 +3,7 @@
 From the repository root:
 
 ```sh
-cargo run --offline --manifest-path vector-ui/examples/language-app/Cargo.toml
+cargo run --offline --manifest-path crates/forma/examples/language-app/Cargo.toml
 ```
 
 This headless program generates its Rust form during the build, edits a task,

@@ -4,12 +4,12 @@ import { readFileSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from 'n
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
-import { sections, sectionSource } from '../vector-ui/controls/catalog.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
+import { sections, sectionSource } from '../crates/forma/controls/catalog.js';
 import { prepareFormProject, mapFormDiagnostic } from '../form-project.js';
 import { generateForm } from '../src/form-codegen.js';
 
-const project = resolve('vector-ui/examples/binding-app');
+const project = resolve('crates/forma/examples/binding-app');
 const entry = 'ui/CustomerForm.ui';
 const files = { [entry]: readFileSync(join(project, entry), 'utf8') };
 for (const name of readdirSync(join(project, 'components')))
@@ -179,8 +179,11 @@ test('generated Rust compiles, exercises the renderer, and rejects wrong fields 
     assert.equal(compile(files[entry]).status, 0);
     const catalog = {};
     for (const dir of ['components', 'assets'])
-      for (const name of readdirSync(resolve('vector-ui/controls', dir)))
-        catalog[dir + '/' + name] = readFileSync(resolve('vector-ui/controls', dir, name), 'utf8');
+      for (const name of readdirSync(resolve('crates/forma/controls', dir)))
+        catalog[dir + '/' + name] = readFileSync(
+          resolve('crates/forma/controls', dir, name),
+          'utf8',
+        );
     const themed = materializeTheme(catalog);
     let program = 'pub struct Vm; impl Vm {fn noop(&self){}}\n';
     let checks = '';

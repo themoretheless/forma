@@ -50,7 +50,7 @@ for (const file of runtimeArtifacts)
     )
   )
     throw Error(`Stale Studio runtime: ${file}`);
-const controlsDigest = digestInputs(resolve(root, 'vector-ui/controls'), ['.']);
+const controlsDigest = digestInputs(resolve(root, 'crates/forma/controls'), ['.']);
 for (const directory of ['public/vector-pkg/controls', 'dist/vector-pkg/controls']) {
   if (digestInputs(resolve(root, directory), ['.']) !== controlsDigest)
     throw Error(`Stale or modified runtime controls: ${directory}; rebuild WASM and Studio`);

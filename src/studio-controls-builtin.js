@@ -1,5 +1,5 @@
 import { createStudioControlsProject } from './studio-controls-project.js';
-const library = import.meta.glob('../vector-ui/controls/{components,assets}/*', {
+const library = import.meta.glob('../crates/forma/controls/{components,assets}/*', {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -19,6 +19,6 @@ const paths = (files, prefix) =>
     Object.entries(files).map(([path, source]) => [path.slice(prefix.length), source]),
   );
 export const studioControlsProject = createStudioControlsProject(
-  paths(library, '../vector-ui/controls/'),
+  paths(library, '../crates/forma/controls/'),
   { ...paths(sources, '../studio-controls/'), ...paths(notes, '../studio-controls/') },
 );

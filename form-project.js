@@ -26,7 +26,7 @@ export function prepareFormProject(files, state = {}, { nativeApp = false } = {}
   if (Object.hasOwn(files, 'src/forma_generated.rs'))
     throw Error('src/forma_generated.rs зарезервирован для результата генерации');
   output['src/forma_generated.rs'] = generated;
-  const runtime = fileURLToPath(new URL('./vector-ui', import.meta.url));
+  const runtime = fileURLToPath(new URL('./crates/forma', import.meta.url));
   const manifest = output['Cargo.toml'];
   if (!/^forma\s*=\s*\{[^\n]*\bpath\s*=/m.test(manifest))
     throw Error('Cargo.toml: укажите forma = { path = "…" } в dependencies');

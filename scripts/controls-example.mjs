@@ -3,15 +3,15 @@ import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { compileComponents } from '../src/components.js';
-import { catalogProject } from '../vector-ui/controls/catalog.js';
+import { catalogProject } from '../crates/forma/controls/catalog.js';
 import init, { text_metrics } from '../public/vector-pkg/forma.js';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [theme = 'light', size = 'regular', output = '.forma/controls'] = process.argv.slice(2);
 const files = {};
 for (const folder of ['components', 'assets'])
-  for (const name of readdirSync(resolve(root, 'vector-ui/controls', folder))) {
+  for (const name of readdirSync(resolve(root, 'crates/forma/controls', folder))) {
     files[`${folder}/${name}`] = readFileSync(
-      resolve(root, 'vector-ui/controls', folder, name),
+      resolve(root, 'crates/forma/controls', folder, name),
       'utf8',
     );
   }
@@ -37,5 +37,5 @@ console.log(
   `Forma ${theme}/${size}: ${result.instanceTree.nodes.filter(node => !['Frame', 'Scroll'].includes(node.type)).length} controls → ${directory}`,
 );
 console.log(
-  `Native: cargo run --offline --release --manifest-path vector-ui/Cargo.toml --features native -- ${output}/scene.ui ${output}/template.ui`,
+  `Native: cargo run --offline --release --manifest-path crates/forma/Cargo.toml --features native -- ${output}/scene.ui ${output}/template.ui`,
 );

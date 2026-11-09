@@ -25,7 +25,7 @@ test('a path, registry, moving branch or mismatched tokenizer revision is not a 
     assert.throws(() => lockedTokenizer(entry(source)), /exact tokenizer revision/);
 });
 test('the checked-in lock and Cargo manifest pin the same exact tokenizer revision', () => {
-  const manifest = readFileSync(new URL('../vector-ui/Cargo.toml', import.meta.url), 'utf8');
+  const manifest = readFileSync(new URL('../crates/forma/Cargo.toml', import.meta.url), 'utf8');
   const rev = manifest.match(
     /themoretheless-tokenizer-forma = \{[^\n]*rev = "([0-9a-f]{40})"/,
   )?.[1];

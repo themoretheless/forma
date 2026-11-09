@@ -40,12 +40,12 @@ test('committed manifest and lockfile versions agree', () => {
   assert.match(v.wasmBindgen, /^\d+\.\d+\.\d+$/);
 });
 
-test('gpu-runtime, gpu-shader and gpu-compute resolve cleanly in vector-ui/Cargo.lock without duplicate windows crates', async () => {
+test('gpu-runtime, gpu-shader and gpu-compute resolve cleanly in crates/forma/Cargo.lock without duplicate windows crates', async () => {
   const { readFileSync } = await import('node:fs');
   const { resolve } = await import('node:path');
   const { root } = await import('../scripts/versions.mjs');
   const blocks = new Map(
-    readFileSync(resolve(root, 'vector-ui/Cargo.lock'), 'utf8')
+    readFileSync(resolve(root, 'crates/forma/Cargo.lock'), 'utf8')
       .split('[[package]]')
       .flatMap(block => {
         const name = /^name = "([^"]+)"/m.exec(block)?.[1],
@@ -80,10 +80,10 @@ test('version command updates only its component and all associated lockfiles', 
       'scripts/versions.mjs',
       'package.json',
       'package-lock.json',
-      'vector-ui/Cargo.toml',
-      'vector-ui/Cargo.lock',
-      'vector-ui/examples/binding-app/Cargo.lock',
-      'vector-ui/examples/language-app/Cargo.lock',
+      'crates/forma/Cargo.toml',
+      'crates/forma/Cargo.lock',
+      'crates/forma/examples/binding-app/Cargo.lock',
+      'crates/forma/examples/language-app/Cargo.lock',
       'native-app/Cargo.toml',
       'native-app/Cargo.lock',
     ]) {

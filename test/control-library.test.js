@@ -8,22 +8,22 @@ import {
   themeState,
   materializeTheme,
   contrastRatio,
-} from '../vector-ui/controls/tokens.js';
+} from '../crates/forma/controls/tokens.js';
 import {
   sections,
   sectionSource,
   specimens,
   catalogProject,
-} from '../vector-ui/controls/catalog.js';
+} from '../crates/forma/controls/catalog.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 await init({
   module_or_path: readFileSync(new URL('../public/vector-pkg/forma_bg.wasm', import.meta.url)),
 });
 const files = {};
 for (const dir of ['components', 'assets'])
-  for (const file of readdirSync(new URL(`../vector-ui/controls/${dir}/`, import.meta.url))) {
+  for (const file of readdirSync(new URL(`../crates/forma/controls/${dir}/`, import.meta.url))) {
     files[`${dir}/${file}`] = readFileSync(
-      new URL(`../vector-ui/controls/${dir}/${file}`, import.meta.url),
+      new URL(`../crates/forma/controls/${dir}/${file}`, import.meta.url),
       'utf8',
     );
   }

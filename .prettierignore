@@ -9,7 +9,7 @@ node_modules/
 output/
 docs/
 crates/
-vector-ui/
+crates/forma/
 native-app/
 openscad-ui/
 studio-ui/

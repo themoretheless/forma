@@ -1,4 +1,4 @@
-import shader from '../vector-ui/src/vector.wgsl?raw';
+import shader from '../crates/forma/src/vector.wgsl?raw';
 import { createStoragePool, classifyMemoryArchitecture } from './gpu-buffers.js';
 
 // WebGPU is only a transport/backend. Rust builds all geometry and tile lists;

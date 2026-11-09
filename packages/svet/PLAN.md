@@ -162,7 +162,7 @@ cache memory и latency/RSS/energy остаются открытыми.
      проверить navigation/Shift selection/delete/undo, bindings и untouched rows.
    - Проверить composition/AltGr/VoiceOver guards; различать synthetic DOM events
      и доверенный ввод с клавиатуры. Сохранить JSON, screenshot, hashes и logs.
-   - Standalone `vector-ui/src/main.rs`: word modifier dispatch добавлен,
+   - Standalone `crates/forma/src/main.rs`: word modifier dispatch добавлен,
      включая Ctrl+Option guard, AltGr и blur reset. Native all-targets check,
      Rust word4 и adapter32 проходят; actual standalone OS-window smoke открыт.
    - Перенести evidence из `/tmp`, обновить DEVELOPMENT и qualification JSON.
@@ -354,7 +354,7 @@ ownership/capture/pop/cancellation и targeted lost-wakeup окна провер
 2. [x] Запустить **свежий** native256 probe текущей сборки: GPU→CPU→GPU,
    Unicode edit первой/последней строки, scroll до конца и обратно, exact model,
    сохранность остальных rows, отсутствие GPU errors. Сохранить новые logs и
-   screenshots; проверить `vector-ui/scripts/qualify-native-form.py`.
+   screenshots; проверить `crates/forma/scripts/qualify-native-form.py`.
    Старый native smoke до overlays не закрывает этот пункт.
 3. [x] Перенести финальные raw results из `/tmp` в `packages/svet/benchmarks`,
    сохранить source/binary/WASM hashes и исходники baseline/candidate.
@@ -363,7 +363,7 @@ ownership/capture/pop/cancellation и targeted lost-wakeup окна провер
    `/tmp/svet-property-overlay-{baseline,candidate-final}-{artifact,runtime}.json`.
    Остальные logs: `/tmp/svet-property-overlay-*`; diagnostic iterations
    хранить отдельно от final qualification. Временные файлы могут исчезнуть.
-4. [x] Обновить `SNAPSHOT_STORAGE.md`, `DEVELOPMENT.md`, `vector-ui/README.md`
+4. [x] Обновить `SNAPSHOT_STORAGE.md`, `DEVELOPMENT.md`, `crates/forma/README.md`
    и qualification JSON. Указать materialization boundaries, small-form overhead,
    ограничения allocator/OS evidence и Rust migration: явно указанный
    `btree_map::Iter` заменить на `PropertyIter`/generic iterator.
@@ -660,9 +660,9 @@ locale dictionary/full shaping/IME этим этапом не квалифици
    Rust-сравнение всех glyphs: advances совпадают, topology mismatches нет;
    максимальная ошибка координат CJK 0.49981689453125 font units, emoji 0.
    [Сохранённый отчёт](benchmarks/font-instance-compare-2026-11-03.json).
-   - [x] Повторить `vector-ui/scripts/instance-fallback-fonts.py` с FontTools
+   - [x] Повторить `crates/forma/scripts/instance-fallback-fonts.py` с FontTools
      4.68.0 после добавления проверки всех cmap/UVS; подтвердить сохранение
-     таблиц и воспроизводимые SHA256 из `vector-ui/assets/fallback/STATIC_INSTANCES.json`.
+     таблиц и воспроизводимые SHA256 из `crates/forma/assets/fallback/STATIC_INSTANCES.json`.
      Повторная генерация подтвердила оба hash и все cmap/UVS; exhaustive Rust
      gate прошёл: topology unchanged, advances exact, coordinate error ≤0.5.
      [Evidence](benchmarks/font-instance-reproducibility-2026-11-03.json).
@@ -817,7 +817,7 @@ locale dictionary/full shaping/IME этим этапом не квалифици
   switch, blur/refocus, caret/drag в том же поле и замена модели внутри callback.
 - [ ] Проверить clipboard, accessibility, DPI, несколько окон и вложенные Scroll.
 - [ ] Проверить backend transitions и согласовать поведение reusable NativeHost
-  и отдельного host в `vector-ui/src/main.rs`.
+  и отдельного host в `crates/forma/src/main.rs`.
 
 Уже подтверждено: actual macOS NativeHost input и minimize/reopen; исправлено
 восстановление последнего редактора по stable key. Reorder и повторный blur
@@ -854,7 +854,7 @@ locale dictionary/full shaping/IME этим этапом не квалифици
 - [x] Shaped API использует реальные fallback faces: font_index +font_face,
   normalized advances и same-face-only kerning.239 Rust tests passed,2 ignored.
   Fresh WASM Node14/14,Chromium17/17; CJK/emoji pixels/caret проверены.
-  Generated vector-ui WASM21,828,894bytes,gzip13,246,694bytes.
+  Generated crates/forma WASM21,828,894bytes,gzip13,246,694bytes.
   [Evidence](benchmarks/shaped-real-fonts-qualification-2026-11-03.json).
 - [ ] Проверить broader baselines/metrics, full CJK/emoji sequences/ZWJ, colour
   и full shaping отдельно. Измерить startup/RSS/resolver performance; решить
@@ -933,7 +933,7 @@ locale dictionary/full shaping/IME этим этапом не квалифици
   levels,8/32/96/256 controls,оба schedulers. Svet256 allocations
   1799435→1764767 (-1.93%); per-control snapshots остаются dominant.
   Timing inconclusive: A/A до2.056×. Raw runs/builds/baseline source сохранены,
-  runner vector-ui/scripts/run-layout-edit-pairs.py добавлен.
+  runner crates/forma/scripts/run-layout-edit-pairs.py добавлен.
   [Evidence](benchmarks/layout-edit-paired-qualification-2026-11-03.json).
 - [x] Убрать безусловный clone resolved props перед contracts validation:
   Cow заимствует props, копия нужна только для удаления missing required key.
@@ -1438,9 +1438,9 @@ browser37/37 относятся к предыдущим runtime bytes.
 - [ ] Более широкая expression/property-based matrix, nested aliases,
   actual rebuilt WASM/browser/native-window gates и остальные P2 задачи открыты.
 
-### Rebuilt vector-ui WASM/browser qualification (2026-11-02)
+### Rebuilt crates/forma WASM/browser qualification (2026-11-02)
 
-- [x] Собрать текущий Rust vector-ui release WASM и сгенерировать NodeJS/web
+- [x] Собрать текущий Rust crates/forma release WASM и сгенерировать NodeJS/web
   bindings wasm-bindgen0.2.125. Node:7 artifact checks +7 binding/snapshot cases.
 - [x] Chromium156:10/10 CPU Canvas2D cases, single/chained Let edit,
  24 idle sync в каждом reload-reorder case, Unicode suffix, reload ids[b,a],
@@ -2115,7 +2115,7 @@ native/wasm32 checks. Это ограниченная локальная про�
 
 ### Этап 1. Подключить Svet к настоящим native bindings Forma
 
-- [x] Добавить native dependency `svet-wasm` в `vector-ui` и owned Context
+- [x] Добавить native dependency `svet-wasm` в `crates/forma` и owned Context
   на экземпляр Form; сохранить обычный и wasm backend.
 - [x] Направить изменения Property/Field через signal/effect графа Svet:
   постановка задач, batch dedup, drain и повторное tracking перед обновлением Runtime.
@@ -2139,7 +2139,7 @@ binding replacement и teardown с сохранённым Control. Document rend
 ### Этап 2. Довести native Studio и compiler до end-to-end
 
 - [x] Подключить Svet к пути запуска `studio:native -- --svet`:
-  `vector-ui/src/main.rs`, retained Document/Runtime и render scheduling.
+  `crates/forma/src/main.rs`, retained Document/Runtime и render scheduling.
   Интеграция typed Form сама по себе этот путь не закрывает.
 - [ ] Определить ownership callbacks/values/component scopes, wake/redraw,
   замену документа, закрытие окна и несколько окон на одном потоке.

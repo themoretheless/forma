@@ -28,7 +28,7 @@ const command = (cmd, args) => {
   if (r.status !== 0) throw Error(`${cmd}: ${r.stderr || r.error}`);
   return r.stdout;
 };
-const read = name => readFile(resolve(root, 'vector-ui/examples', name), 'utf8');
+const read = name => readFile(resolve(root, 'crates/forma/examples', name), 'utf8');
 const files = {
   'components/Button.ui': await read('Button.slots.ui'),
   'components/ImageButton.ui': await read('ImageButton.component.ui'),
@@ -61,13 +61,13 @@ command('cargo', [
   '--offline',
   '--release',
   '--manifest-path',
-  'vector-ui/Cargo.toml',
+  'crates/forma/Cargo.toml',
   '--features',
   'gpu',
   '--example',
   'perf_bench',
 ]);
-const binary = resolve(root, 'vector-ui/target/release/examples/perf_bench');
+const binary = resolve(root, 'crates/forma/target/release/examples/perf_bench');
 const binaryHash = async () =>
   createHash('sha256')
     .update(await readFile(binary))

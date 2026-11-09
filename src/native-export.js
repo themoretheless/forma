@@ -83,7 +83,7 @@ export function buildNativeRustExport(files, entryFile, options = {}) {
       .toLowerCase()
       .replace(/[^a-z0-9_-]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'forma-native-export';
-  const formaPath = options.formaPath || options.formaDependencyPath || '../vector-ui';
+  const formaPath = options.formaPath || options.formaDependencyPath || '../crates/forma';
   const document = parse(files[resolvedEntry]);
   const typed = Boolean(document.defaults.contextType);
   if (typed && typeof files['src/app.rs'] !== 'string') {

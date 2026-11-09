@@ -1,4 +1,4 @@
-import { themes } from '../vector-ui/controls/tokens.js';
+import { themes } from '../crates/forma/controls/tokens.js';
 import { serializeValue } from './expressions.js';
 
 export function shellControl({

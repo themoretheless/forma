@@ -1,7 +1,7 @@
 # Forma — библиотека интерфейса
 
 Rust crate называется `forma` и подключается в приложение как библиотека:
-`use forma::Runtime;`. Каталог исходников остаётся `vector-ui`.
+`use forma::Runtime;`. Каталог исходников остаётся `crates/forma`.
 `Runtime::from_sources(scene, template)` принимает разметку и шаблон компонента.
 Пример подключения и схема версий — [README проекта](../README.md#библиотека-forma)
 и [релизы](../RELEASING.md). Нативный demo-бинарник называется `forma`.
@@ -26,8 +26,8 @@ Studio/WASM и native используют общий `Runtime`: один Frame 
 История этапов — [этап 2б](ARCHITECTURE_STEPS.md).
 
 Пример: `examples/TwoButtons.ui`. С запущенным `npm run dev` откройте
-[стенд двух кнопок](http://127.0.0.1:5173/vector-ui/examples/runtime.html).
-Native: `cargo run --offline --release --manifest-path vector-ui/Cargo.toml --features native -- vector-ui/examples/TwoButtons.ui vector-ui/examples/Button.component.ui`
+[стенд двух кнопок](http://127.0.0.1:5173/crates/forma/examples/runtime.html).
+Native: `cargo run --offline --release --manifest-path crates/forma/Cargo.toml --features native -- crates/forma/examples/TwoButtons.ui crates/forma/examples/Button.component.ui`
 (из корня репозитория).
 
 В заголовке native-окна показаны backend, FPS и средний интервал между
@@ -111,13 +111,13 @@ Brush — значение свойства: `Rectangle { background: Brush { co
 
 Одна кнопка: геометрия, покрытие пикселей (4 samples), состояния и hit-test реализованы в Rust без Vello, SVG и HTML-контролов. NativeHost desktop/Svet использует winit + GPU surface/vector Renderer; CPU softbuffer остаётся fallback и compatibility presentation. Web CPU API использует WASM + canvas putImageData. Реальный macOS GPU→CPU→GPU переход проверен отдельно от offscreen GPU tests.
 
-Native: `cargo run --manifest-path vector-ui/Cargo.toml --features native`
+Native: `cargo run --manifest-path crates/forma/Cargo.toml --features native`
 
 Web (из корня репозитория):
 
 ```sh
-cargo build --manifest-path vector-ui/Cargo.toml --target wasm32-unknown-unknown --lib --release
-wasm-bindgen vector-ui/target/wasm32-unknown-unknown/release/forma.wasm --target web --out-dir public/vector-pkg
+cargo build --manifest-path crates/forma/Cargo.toml --target wasm32-unknown-unknown --lib --release
+wasm-bindgen crates/forma/target/wasm32-unknown-unknown/release/forma.wasm --target web --out-dir public/vector-pkg
 npm run dev
 ```
 
@@ -183,7 +183,7 @@ the immutable matching face (fallback weight400). A real fallback glyph has
 its face-local glyph_id; glyph_id0 denotes synthetic unsupported text. Rust
 callers constructing ShapedGlyph must initialize the new font_index field.
 Colour/ZWJ emoji and full shaping are not qualified by scalar-font tests.
-The vector-ui generated WASM with fonts is21,828,894bytes, gzip13,246,694bytes;
+The crates/forma generated WASM with fonts is21,828,894bytes, gzip13,246,694bytes;
 startup and deployment-size optimisation remain separate work.
 
 

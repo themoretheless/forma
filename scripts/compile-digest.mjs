@@ -9,7 +9,7 @@ const root = resolve(import.meta.dirname, '..');
 const { createComponentCompiler, compileComponents } = await import(
   pathToFileURL(resolve(root, 'src/components.js'))
 );
-const read = async name => readFile(resolve(root, 'vector-ui/examples', name), 'utf8');
+const read = async name => readFile(resolve(root, 'crates/forma/examples', name), 'utf8');
 const components = {
   'components/Button.ui': await read('Button.slots.ui'),
   'components/ImageButton.ui': await read('ImageButton.component.ui'),

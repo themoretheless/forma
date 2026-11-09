@@ -23,13 +23,13 @@ if (cli !== `wasm-bindgen ${current.wasmBindgen}`)
     `Install matching CLI: cargo install wasm-bindgen-cli --version ${current.wasmBindgen} --locked`,
   );
 buildTokenizerWasm();
-const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || 'vector-ui/target');
+const targetDir = resolve(root, process.env.CARGO_TARGET_DIR || 'crates/forma/target');
 run('cargo', [
   'build',
   '--locked',
   '--release',
   '--manifest-path',
-  'vector-ui/Cargo.toml',
+  'crates/forma/Cargo.toml',
   '--target',
   'wasm32-unknown-unknown',
   '--lib',
@@ -53,7 +53,7 @@ for (const file of [
   rmSync(resolve(root, 'public/vector-pkg', file), { force: true });
 const controls = resolve(root, 'public/vector-pkg/controls');
 rmSync(controls, { recursive: true, force: true });
-cpSync(resolve(root, 'vector-ui/controls'), controls, { recursive: true });
+cpSync(resolve(root, 'crates/forma/controls'), controls, { recursive: true });
 const commit = run('git', ['rev-parse', 'HEAD'], true);
 const dirty = !!run('git', ['status', '--porcelain', '--untracked-files=normal'], true);
 if (runtimeSourceDigest(root) !== sourceDigest)

@@ -2,7 +2,7 @@ use std::{env, path::PathBuf, process::Command};
 
 fn main() {
     let project = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap());
-    let root = project.join("../../..");
+    let root = project.join("../../../..");
     for path in [
         project.join("ui"),
         project.join("components"),
@@ -16,8 +16,8 @@ fn main() {
         .arg(root.join("scripts/generate-form.mjs"))
         .arg("--project")
         .arg(&project)
-        .args(["--entry", "ui/TaskList.ui", "--output"])
-        .arg(PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("task_list.rs"))
+        .args(["--entry", "ui/CustomerForm.ui", "--output"])
+        .arg(PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("customer_form.rs"))
         .status()
         .expect("Node.js is required to generate the form");
     assert!(status.success(), "Forma form generation failed");

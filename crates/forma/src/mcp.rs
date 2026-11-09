@@ -417,6 +417,7 @@ fn launch_target(backend: &str, platform: &str) -> Result<Value, String> {
         if platform == "android" {
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .parent()
+                .and_then(std::path::Path::parent)
                 .unwrap_or_else(|| std::path::Path::new("."));
             let script = root.join("scripts/run-android-emulator.sh");
             if script.exists() {

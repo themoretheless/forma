@@ -17,7 +17,7 @@ npm run build:wasm
 npm run dev
 ```
 
-Откройте [каталог контролов](http://127.0.0.1:5173/vector-ui/examples/controls.html).
+Откройте [каталог контролов](http://127.0.0.1:5173/crates/forma/examples/controls.html).
 Для `build:wasm` нужен CLI wasm-bindgen 0.2.125, соответствующий зависимости
 Rust: `cargo install wasm-bindgen-cli --version 0.2.125 --locked`.
 
@@ -60,7 +60,7 @@ Dialog — модальный слой `Modal` общего Rust Runtime: backdr
 
 ```sh
 npm run example:controls -- dark touch
-cargo run --offline --release --manifest-path vector-ui/Cargo.toml --features native -- .forma/controls/scene.ui .forma/controls/template.ui
+cargo run --offline --release --manifest-path crates/forma/Cargo.toml --features native -- .forma/controls/scene.ui .forma/controls/template.ui
 ```
 
 `example:controls` принимает тему, размер и необязательный выходной каталог;
@@ -175,7 +175,7 @@ transforms, фильтры, SVG-текст и неподдержанные strok
 
 ```js
 import { compileComponents } from './src/components.js';
-import { materializeTheme } from './vector-ui/controls/tokens.js';
+import { materializeTheme } from './crates/forma/controls/tokens.js';
 
 const entry = 'ui/Demo.ui';
 const files = materializeTheme({ ...libraryFiles, [entry]: source }, 'dark');

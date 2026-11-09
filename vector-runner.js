@@ -139,7 +139,7 @@ export function createVectorRunner(send, dependencies = {}) {
             '--release',
             '--offline',
             '--manifest-path',
-            path.join(root, 'vector-ui/Cargo.toml'),
+            path.join(root, 'crates/forma/Cargo.toml'),
             '--features',
             'native',
             '--',

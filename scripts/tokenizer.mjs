@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { root } from './versions.mjs';
 
 // Rust takes tokenizer-forma from an exact revision: a path dependency's lockfile is not inherited
-// by exported applications. vector-ui/Cargo.lock records the same pin. npm cannot install a package
+// by exported applications. crates/forma/Cargo.lock records the same pin. npm cannot install a package
 // from a subdirectory of a git repository, so the JS adapters and language WASM come from a checkout
 // of that commit next to forma (package.json: file:../tokenizer/packages/forma).
 export const tokenizerDir = resolve(root, process.env.FORMA_TOKENIZER_DIR ?? '../tokenizer');
@@ -12,7 +12,7 @@ const PACKAGE = resolve(tokenizerDir, 'packages/forma');
 const SOURCES = ['crates/tokenizer-forma', 'packages/forma'];
 
 export function lockedTokenizer(
-  lock = readFileSync(resolve(root, 'vector-ui/Cargo.lock'), 'utf8'),
+  lock = readFileSync(resolve(root, 'crates/forma/Cargo.lock'), 'utf8'),
 ) {
   const block = lock
     .split('[[package]]')
@@ -21,7 +21,7 @@ export function lockedTokenizer(
   const version = block?.match(/^version = "([^"]+)"$/m)?.[1];
   if (!source || source[2] !== source[3] || !version)
     throw Error(
-      'vector-ui/Cargo.lock must pin themoretheless-tokenizer-forma to an exact tokenizer revision',
+      'crates/forma/Cargo.lock must pin themoretheless-tokenizer-forma to an exact tokenizer revision',
     );
   return { url: source[1], rev: source[2], version };
 }
@@ -56,7 +56,7 @@ export function checkTokenizer(locked = lockedTokenizer()) {
       .status !== 0;
   if (changed || differs)
     throw Error(
-      `${tokenizerDir}: ${SOURCES.join(' and ')} differ from the locked revision ${locked.rev.slice(0, 8)}; check it out, or update rev in vector-ui/Cargo.toml and refresh the lockfiles`,
+      `${tokenizerDir}: ${SOURCES.join(' and ')} differ from the locked revision ${locked.rev.slice(0, 8)}; check it out, or update rev in crates/forma/Cargo.toml and refresh the lockfiles`,
     );
   const version = JSON.parse(readFileSync(resolve(PACKAGE, 'package.json'), 'utf8')).version;
   if (version !== locked.version)

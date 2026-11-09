@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import init, * as runtime from '../public/vector-pkg/forma.js';
-import { createCatalogSession } from '../vector-ui/controls/catalog-session.js';
-import { sectionSource, sections, catalogProject } from '../vector-ui/controls/catalog.js';
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
+import { createCatalogSession } from '../crates/forma/controls/catalog-session.js';
+import { sectionSource, sections, catalogProject } from '../crates/forma/controls/catalog.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import { compileComponents } from '../src/components.js';
 import { parse } from '../src/language.js';
 await init({
@@ -12,9 +12,9 @@ await init({
 });
 const files = {};
 for (const dir of ['components', 'assets'])
-  for (const name of readdirSync(new URL(`../vector-ui/controls/${dir}/`, import.meta.url)))
+  for (const name of readdirSync(new URL(`../crates/forma/controls/${dir}/`, import.meta.url)))
     files[`${dir}/${name}`] = readFileSync(
-      new URL(`../vector-ui/controls/${dir}/${name}`, import.meta.url),
+      new URL(`../crates/forma/controls/${dir}/${name}`, import.meta.url),
       'utf8',
     );
 const compile = (section, state) =>

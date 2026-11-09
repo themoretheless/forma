@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { compileComponents } from '../src/components.js';
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import { composeStudioWindow, keyText } from '../src/studio-window.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 
@@ -20,7 +20,7 @@ await init({
 });
 const files = materializeTheme(
   {
-    ...read('vector-ui/controls', ['components', 'assets']),
+    ...read('crates/forma/controls', ['components', 'assets']),
     ...read('studio-ui', ['components', 'ui']),
   },
   'dark',

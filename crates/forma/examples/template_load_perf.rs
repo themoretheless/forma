@@ -64,7 +64,7 @@ fn record(
 fn main() {
     let dir = std::env::var("FORMA_TRANSPORT_DIR").unwrap_or_else(|_| {
         format!(
-            "{}/../.forma/perf/template-load",
+            "{}/../../.forma/perf/template-load",
             env!("CARGO_MANIFEST_DIR")
         )
     });

@@ -2,7 +2,7 @@ import { createCacheBudget } from './cache-budget.js';
 import { createComponentCompiler } from './components.js';
 import { loadVectorRuntime } from './vector-preview.js';
 import { shellControl, shellScene } from './studio-shell-controls.js';
-import { materializeTheme, themes } from '../vector-ui/controls/tokens.js';
+import { materializeTheme, themes } from '../crates/forma/controls/tokens.js';
 import './studio-shell.css';
 import { createShellPainter } from './studio-shell-painter.js';
 import { canvasIcon, glyphIcon } from './studio-canvas-icons.js';
@@ -10,7 +10,7 @@ import { createEventScope } from './event-scope.js';
 import { collapseText, glyphPrefix } from './control-label.js';
 import { createKeyedPool } from './keyed-pool.js';
 
-const raw = import.meta.glob('../vector-ui/controls/{components,assets}/*', {
+const raw = import.meta.glob('../crates/forma/controls/{components,assets}/*', {
   query: '?raw',
   import: 'default',
   eager: true,
@@ -18,7 +18,7 @@ const raw = import.meta.glob('../vector-ui/controls/{components,assets}/*', {
 const library = materializeTheme(
   Object.fromEntries(
     Object.entries(raw).map(([path, value]) => [
-      path.slice('../vector-ui/controls/'.length),
+      path.slice('../crates/forma/controls/'.length),
       value,
     ]),
   ),

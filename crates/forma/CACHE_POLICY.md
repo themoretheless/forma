@@ -91,7 +91,7 @@ f32-округления внутри одного текста.
 
 ## Проверка освобождения памяти
 
-`cargo run --offline --release --manifest-path vector-ui/Cargo.toml --example cache_perf`
+`cargo run --offline --release --manifest-path crates/forma/Cargo.toml --example cache_perf`
 строит geometry и CPU raster, вызывает тот же release hook, затем проверяет
 неизменность geometry identity и точное воспроизведение CPU-пикселей.
 Физический буфер 640×360, DPI 1,25; это измерение Rust GlobalAlloc, не RSS/VRAM

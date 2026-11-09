@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { compileComponents } from '../src/components.js';
-import { materializeTheme } from '../vector-ui/controls/tokens.js';
+import { materializeTheme } from '../crates/forma/controls/tokens.js';
 import { shellControl, shellScene } from '../src/studio-shell-controls.js';
 import init, { Runtime, text_metrics } from '../public/vector-pkg/forma.js';
 
@@ -15,9 +15,12 @@ test('Studio shell uses guideline controls and renders their states through shar
   const library = materializeTheme(
     Object.fromEntries(
       ['components', 'assets'].flatMap(folder =>
-        readdirSync(new URL(`../vector-ui/controls/${folder}/`, import.meta.url)).map(name => [
+        readdirSync(new URL(`../crates/forma/controls/${folder}/`, import.meta.url)).map(name => [
           `${folder}/${name}`,
-          readFileSync(new URL(`../vector-ui/controls/${folder}/${name}`, import.meta.url), 'utf8'),
+          readFileSync(
+            new URL(`../crates/forma/controls/${folder}/${name}`, import.meta.url),
+            'utf8',
+          ),
         ]),
       ),
     ),
@@ -131,7 +134,7 @@ test('Studio shell uses guideline controls and renders their states through shar
 test('canvas SVG icons have renderable strokes in the supported subset', () => {
   for (const [, name] of canvasIcons) {
     const svg = readFileSync(
-      new URL(`../vector-ui/controls/assets/${name}.svg`, import.meta.url),
+      new URL(`../crates/forma/controls/assets/${name}.svg`, import.meta.url),
       'utf8',
     );
     assert.ok(svgShapes(svg, [0, 0, 20, 20]).length > 0, name);
@@ -141,7 +144,7 @@ test('canvas SVG icons have renderable strokes in the supported subset', () => {
 test('chrome glyphs the shell font lacks map to renderable icons and keep their label', () => {
   for (const name of glyphIcons.values()) {
     const svg = readFileSync(
-      new URL(`../vector-ui/controls/assets/${name}.svg`, import.meta.url),
+      new URL(`../crates/forma/controls/assets/${name}.svg`, import.meta.url),
       'utf8',
     );
     assert.ok(svgShapes(svg, [0, 0, 20, 20]).length > 0, name);

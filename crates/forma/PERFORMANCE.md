@@ -27,7 +27,7 @@
 ## Воспроизводимый замер
 
 ```sh
-cargo run --offline --manifest-path vector-ui/Cargo.toml --release --example raster_bench
+cargo run --offline --manifest-path crates/forma/Cargo.toml --release --example raster_bench
 ```
 
 Можно добавить два аргумента: пути к скомпилированным scene.ui и Button.ui,
@@ -67,7 +67,7 @@ RGBA, но не включает загрузку в canvas/softbuffer, комп
 маленькой растеризуемой сцены.
 
 ```sh
-cargo run --offline --manifest-path vector-ui/Cargo.toml --release --example resize_bench
+cargo run --offline --manifest-path crates/forma/Cargo.toml --release --example resize_bench
 ```
 
 Встроенная кнопка 400×200, DPI 2, 20 изменений физических размеров окна:

@@ -7,7 +7,7 @@ import { resolve } from 'node:path';
 import { createComponentCompiler } from '../src/components.js';
 
 const out = resolve(process.argv[2] ?? '.forma/perf/template-load');
-const read = name => readFile(new URL(`../vector-ui/examples/${name}`, import.meta.url), 'utf8');
+const read = name => readFile(new URL(`../crates/forma/examples/${name}`, import.meta.url), 'utf8');
 
 const components = {
   'components/Button.ui': await read('Button.slots.ui'),
