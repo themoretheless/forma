@@ -134,6 +134,11 @@ fn collect(dir: &Path, root: &Path, edges: &mut BTreeSet<String>, unknown: &mut 
         if path.extension().is_none_or(|extension| extension != "rs") {
             continue;
         }
+        // Unit-test files may reach across layers to set up fixtures, like inline test modules.
+        let file = path.file_stem().unwrap().to_string_lossy();
+        if file == "tests" || file.ends_with("_tests") {
+            continue;
+        }
         let from = module_of(path.strip_prefix(root).unwrap());
         // The binary is a client of the library, not a layer of it.
         if from == "main" {
