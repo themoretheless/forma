@@ -7,6 +7,7 @@ import { createNativeRunner } from './native-runner.js';
 import { evaluateDesignData } from './design-data-runner.js';
 import { createVectorRunner } from './vector-runner.js';
 import { DEFAULT_BACKEND, DEFAULT_PLATFORM, isBackend, isPlatform } from './protocol/enums.js';
+import { escapesRoot, isInsideDir } from './dev-server/workspace-paths.js';
 import {
   readFile,
   readdir,
@@ -54,7 +55,7 @@ async function resolveWorkspacePath(rel = '') {
   if (clean.includes('\0')) throw Error('Invalid workspace path');
   const full = resolvePath(openScadRoot, clean);
   const diff = relativePath(openScadRoot, full);
-  if (diff.startsWith('..')) throw Error('Invalid workspace path');
+  if (escapesRoot(diff)) throw Error('Invalid workspace path');
   // Walk up to the nearest existing ancestor and verify its realpath stays inside openScadRoot
   let probe = full;
   while (probe !== openScadRoot) {
@@ -63,7 +64,7 @@ async function resolveWorkspacePath(rel = '') {
       if (st.isSymbolicLink()) throw Error('Symlinks are not allowed in workspace');
       const real = await realpath(probe);
       const realDiff = relativePath(openScadRoot, real);
-      if (realDiff.startsWith('..')) throw Error('Workspace path escapes root via symlink');
+      if (escapesRoot(realDiff)) throw Error('Workspace path escapes root via symlink');
       break;
     } catch (e) {
       if (e.code !== 'ENOENT') throw e;
@@ -229,7 +230,7 @@ export default defineConfig({
                 fullTo = await resolveWorkspacePath(to);
               if (fullFrom === openScadRoot || fullTo === openScadRoot)
                 return send(400, { error: 'Cannot move workspace root' });
-              if (fullTo.startsWith(fullFrom + '/'))
+              if (isInsideDir(fullFrom, fullTo))
                 return send(400, { error: 'Нельзя переместить папку внутрь самой себя' });
               await mkdir(dirnamePath(fullTo), { recursive: true });
               await rename(fullFrom, fullTo);
