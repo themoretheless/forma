@@ -3,14 +3,12 @@ import { beforeEach, expect, it } from 'vitest';
 import ts from 'typescript';
 import { parse } from '@babel/parser';
 import { originalPositionFor, TraceMap } from '@jridgewell/trace-mapping';
+import { createRoot, getGraphTelemetry, h, resetReactiveSystem, signal } from '../src/engine';
 import {
-  createRoot,
-  getGraphTelemetry,
-  h,
-  resetReactiveSystem,
-  signal,
-} from '../src/engine';
-import { SvetJsxCompileError, transformSvetJsx, transformSvetJsxWithMap } from '../src/engine/compiler.ts';
+  SvetJsxCompileError,
+  transformSvetJsx,
+  transformSvetJsxWithMap,
+} from '../src/engine/compiler.ts';
 
 beforeEach(() => {
   resetReactiveSystem();
