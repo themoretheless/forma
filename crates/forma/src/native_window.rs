@@ -116,7 +116,14 @@ impl UiBackend {
     /// Resolves backend from CLI flags (`--backend egui|svet`, `--egui`, `--svet`) or `FORMA_BACKEND`.
     /// Returns `None` when interactive selection should be shown (`--ask` or `FORMA_BACKEND=ask`).
     pub fn resolve_from_env_and_args() -> Option<Self> {
-        let mut args = std::env::args().skip(1);
+        Self::resolve(
+            std::env::args().skip(1),
+            std::env::var("FORMA_BACKEND").ok().as_deref(),
+        )
+    }
+
+    fn resolve(args: impl IntoIterator<Item = String>, env: Option<&str>) -> Option<Self> {
+        let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--egui" | "--backend=egui" => return Some(Self::Egui),
@@ -135,14 +142,14 @@ impl UiBackend {
                 _ => {}
             }
         }
-        if let Ok(env_val) = std::env::var("FORMA_BACKEND") {
+        if let Some(env_val) = env {
             if matches!(
                 env_val.trim().to_ascii_lowercase().as_str(),
                 "ask" | "choose"
             ) {
                 return None;
             }
-            if let Some(parsed) = Self::from_arg(&env_val) {
+            if let Some(parsed) = Self::from_arg(env_val) {
                 return Some(parsed);
             }
         }
@@ -358,7 +365,14 @@ impl TargetPlatform {
     /// Resolves target platform from CLI flags (`--platform ios|android|desktop`, `--ios`, `--android`)
     /// or `FORMA_PLATFORM` environment variable.
     pub fn resolve_from_env_and_args() -> Self {
-        let mut args = std::env::args().skip(1);
+        Self::resolve(
+            std::env::args().skip(1),
+            std::env::var("FORMA_PLATFORM").ok().as_deref(),
+        )
+    }
+
+    fn resolve(args: impl IntoIterator<Item = String>, env: Option<&str>) -> Self {
+        let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--ios" | "--platform=ios" => return Self::Ios,
@@ -374,21 +388,21 @@ impl TargetPlatform {
                 _ => {}
             }
         }
-        if let Ok(env_val) = std::env::var("FORMA_PLATFORM") {
-            if let Some(parsed) = Self::from_arg(&env_val) {
+        if let Some(env_val) = env {
+            if let Some(parsed) = Self::from_arg(env_val) {
                 return parsed;
             }
         }
-        #[cfg(target_os = "ios")]
-        {
-            return Self::Ios;
-        }
-        #[cfg(target_os = "android")]
-        {
-            return Self::Android;
-        }
-        #[cfg(not(any(target_os = "ios", target_os = "android")))]
-        {
+        Self::compiled()
+    }
+
+    /// Platform of the compilation target, without consulting the process environment.
+    pub const fn compiled() -> Self {
+        if cfg!(target_os = "ios") {
+            Self::Ios
+        } else if cfg!(target_os = "android") {
+            Self::Android
+        } else {
             Self::Desktop
         }
     }
@@ -498,6 +512,19 @@ pub fn apply_mobile_chrome(
     }
 }
 
+/// Who the native window host serves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum HostMode {
+    /// Demo and probe behaviour: backend chooser when no backend is set, F6/F7 (and the
+    /// test-hook F8/F9) captured by the host, diagnostic title suffix, egui accent bar,
+    /// startup lines on stdout.
+    #[default]
+    Demo,
+    /// An embedding application owns the window: no chooser, no captured function keys,
+    /// the title exactly as configured, no accent bar, nothing printed on stdout.
+    Application,
+}
+
 /// Initial settings for a Forma native window.
 pub struct NativeWindowConfig {
     pub title: String,
@@ -506,6 +533,33 @@ pub struct NativeWindowConfig {
     pub resizable: bool,
     pub backend: Option<UiBackend>,
     pub platform: TargetPlatform,
+    pub mode: HostMode,
+}
+
+impl NativeWindowConfig {
+    /// Settings for an embedding application. Unlike `Default`, this reads neither
+    /// `std::env::args` nor the `FORMA_*` variables: Svet presentation on the platform
+    /// of the compilation target, 800x600, resizable, [`HostMode::Application`].
+    pub fn application(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            width: 800.,
+            height: 600.,
+            resizable: true,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::compiled(),
+            mode: HostMode::Application,
+        }
+    }
+
+    /// Backend the host starts with. `None` shows the backend chooser, which only the
+    /// demo mode has: an application without an explicit backend gets Svet.
+    pub fn resolved_backend(&self) -> Option<UiBackend> {
+        match self.mode {
+            HostMode::Demo => self.backend,
+            HostMode::Application => Some(self.backend.unwrap_or(UiBackend::Svet)),
+        }
+    }
 }
 
 impl Default for NativeWindowConfig {
@@ -517,8 +571,75 @@ impl Default for NativeWindowConfig {
             resizable: true,
             backend: UiBackend::resolve_from_env_and_args(),
             platform: TargetPlatform::resolve_from_env_and_args(),
+            mode: HostMode::Demo,
         }
     }
+}
+
+/// Window title. An application gets its own title untouched; the demo appends the
+/// active backend, the emulated platform and the function-key hints.
+fn window_title(
+    mode: HostMode,
+    title: &str,
+    backend: Option<UiBackend>,
+    platform: TargetPlatform,
+    gpu_active: bool,
+) -> String {
+    if mode == HostMode::Application {
+        return title.to_owned();
+    }
+    let plat_suffix = if platform != TargetPlatform::Desktop {
+        format!(" · {}", platform.short_label())
+    } else {
+        String::new()
+    };
+    match backend {
+        Some(b) => format!(
+            "{} [{}{}] · F6: платформа · F7: бэкенд",
+            title,
+            if gpu_active && b == UiBackend::Svet && platform == TargetPlatform::Desktop {
+                "svet/GPU"
+            } else {
+                b.as_str()
+            },
+            plat_suffix
+        ),
+        None => format!("{title}{plat_suffix} · Выберите бэкенд: [1] egui / [2] svet"),
+    }
+}
+
+/// Function keys the demo host keeps for itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HostShortcut {
+    NextPlatform,
+    ToggleBackend,
+    InjectDeviceLoss,
+}
+
+/// Decides whether a key belongs to the host. In application mode none does, so every
+/// key reaches the application and the runtime.
+fn host_shortcut(
+    mode: HostMode,
+    key: &Key,
+    pressed: bool,
+    repeat: bool,
+    test_hooks: bool,
+) -> Option<HostShortcut> {
+    if mode == HostMode::Application || !pressed || repeat {
+        return None;
+    }
+    match key {
+        Key::Named(NamedKey::F6) => Some(HostShortcut::NextPlatform),
+        Key::Named(NamedKey::F7) => Some(HostShortcut::ToggleBackend),
+        Key::Named(NamedKey::F8) if test_hooks => Some(HostShortcut::InjectDeviceLoss),
+        _ => None,
+    }
+}
+
+/// The egui accent bar marks the demo's compatibility profile; an application frame
+/// is presented as painted.
+fn shows_frame_bar(mode: HostMode, backend: Option<UiBackend>) -> bool {
+    mode == HostMode::Demo && backend == Some(UiBackend::Egui)
 }
 
 #[derive(Clone)]
@@ -652,31 +773,38 @@ impl<A: NativeApp + 'static> NativeHost<A> {
 
     fn sync_window_title(&self) {
         if let Some(window) = &self.window {
-            let plat_suffix = if self.platform != TargetPlatform::Desktop {
-                format!(" · {}", self.platform.short_label())
-            } else {
-                String::new()
-            };
-            let title = match self.backend {
-                Some(b) => format!(
-                    "{} [{}{}] · F6: платформа · F7: бэкенд",
-                    self.config.title,
-                    if self.gpu.is_some()
-                        && b == UiBackend::Svet
-                        && self.platform == TargetPlatform::Desktop
-                    {
-                        "svet/GPU"
-                    } else {
-                        b.as_str()
-                    },
-                    plat_suffix
-                ),
-                None => format!(
-                    "{}{} · Выберите бэкенд: [1] egui / [2] svet",
-                    self.config.title, plat_suffix
-                ),
-            };
-            window.set_title(&title);
+            window.set_title(&window_title(
+                self.config.mode,
+                &self.config.title,
+                self.backend,
+                self.platform,
+                self.gpu.is_some(),
+            ));
+        }
+    }
+
+    /// Startup lines of the demo; an application owns its stdout.
+    fn announce_startup(&self) {
+        if self.config.mode == HostMode::Application {
+            return;
+        }
+        if self.platform != TargetPlatform::Desktop {
+            println!(
+                "Платформа Forma: {} ({}) · F6 — переключить на лету",
+                self.platform.as_str(),
+                self.platform.label()
+            );
+        }
+        if let Some(b) = self.backend {
+            println!(
+                "Запуск Forma на бэкенде: {} ({}) · F6: платформа · F7: бэкенд",
+                b.as_str(),
+                b.label()
+            );
+        } else {
+            println!(
+                "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F6: платформа, F7: бэкенд)"
+            );
         }
     }
 
@@ -826,7 +954,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 .map_err(str::to_owned)?;
         } else {
             animating = paint_app(&self.app, &mut buffer, size.width, size.height, scale)?;
-            if self.backend == Some(UiBackend::Egui) {
+            if shows_frame_bar(self.config.mode, self.backend) {
                 apply_egui_frame_bar(&mut buffer, size.width, size.height);
             }
             apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
@@ -1160,25 +1288,34 @@ impl<A: NativeApp + 'static> NativeHost<A> {
 
     fn keyboard_input(&mut self, event: winit::event::KeyEvent) -> Result<(), String> {
         let pressed = event.state == ElementState::Pressed;
-        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F6) {
-            let next = self.platform.next();
-            self.select_platform(next);
-            return Ok(());
-        }
-        #[cfg(feature = "native-test-hooks")]
-        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F8) {
-            if let Some(gpu) = &self.gpu {
-                gpu.inject_device_loss_for_testing();
+        match host_shortcut(
+            self.config.mode,
+            &event.logical_key,
+            pressed,
+            event.repeat,
+            cfg!(feature = "native-test-hooks"),
+        ) {
+            Some(HostShortcut::NextPlatform) => {
+                let next = self.platform.next();
+                self.select_platform(next);
+                return Ok(());
             }
-            if let Some(window) = &self.window {
-                window.request_redraw();
+            Some(HostShortcut::ToggleBackend) => {
+                let next = self.backend.map_or(UiBackend::Svet, UiBackend::toggle);
+                self.select_backend(next);
+                return Ok(());
             }
-            return Ok(());
-        }
-        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F7) {
-            let next = self.backend.map_or(UiBackend::Svet, UiBackend::toggle);
-            self.select_backend(next);
-            return Ok(());
+            Some(HostShortcut::InjectDeviceLoss) => {
+                #[cfg(feature = "native-test-hooks")]
+                if let Some(gpu) = &self.gpu {
+                    gpu.inject_device_loss_for_testing();
+                }
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+                return Ok(());
+            }
+            None => {}
         }
         if let Some(chooser) = &mut self.chooser {
             if pressed && !event.repeat {
@@ -1430,7 +1567,8 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             WindowEvent::Ime(event) => self.ime_event(event)?,
             #[cfg(feature = "native-test-hooks")]
             WindowEvent::KeyboardInput { event, .. }
-                if event.logical_key == Key::Named(NamedKey::F9) =>
+                if self.config.mode == HostMode::Demo
+                    && event.logical_key == Key::Named(NamedKey::F9) =>
             {
                 if event.state == ElementState::Pressed && !event.repeat {
                     if let Some(gpu) = &self.gpu {
@@ -1611,24 +1749,7 @@ impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for Nati
                 self.window = Some(window);
                 self.surface = Some(surface);
                 self.sync_window_title();
-                if self.platform != TargetPlatform::Desktop {
-                    println!(
-                        "Платформа Forma: {} ({}) · F6 — переключить на лету",
-                        self.platform.as_str(),
-                        self.platform.label()
-                    );
-                }
-                if let Some(b) = self.backend {
-                    println!(
-                        "Запуск Forma на бэкенде: {} ({}) · F6: платформа · F7: бэкенд",
-                        b.as_str(),
-                        b.label()
-                    );
-                } else {
-                    println!(
-                        "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F6: платформа, F7: бэкенд)"
-                    );
-                }
+                self.announce_startup();
             }
             Err(error) => {
                 eprintln!("{error}");
@@ -1665,7 +1786,7 @@ impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for Nati
 
 /// Runs a Forma application with desktop Svet GPU presentation and CPU fallback.
 pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result<(), String> {
-    let backend = config.backend;
+    let backend = config.resolved_backend();
     let platform = config.platform;
     let chooser = if backend.is_none() {
         Some(build_chooser_runtime()?)
@@ -3063,6 +3184,154 @@ mod tests {
             (false, None),
             "completed queue must return to unbounded Wait"
         );
+    }
+
+    #[test]
+    fn application_config_ignores_environment_and_never_asks_for_a_backend() {
+        // `application` takes nothing but the title, so no argument or variable can
+        // reach it; the demo resolvers below are the only readers of either.
+        let config = NativeWindowConfig::application("Shelf");
+        assert_eq!(config.title, "Shelf");
+        assert_eq!(config.mode, HostMode::Application);
+        assert_eq!(config.backend, Some(UiBackend::Svet));
+        assert_eq!(config.platform, TargetPlatform::compiled());
+        assert_eq!(config.resolved_backend(), Some(UiBackend::Svet));
+        assert_eq!(
+            (config.width, config.height, config.resizable),
+            (800., 600., true)
+        );
+
+        // The demo resolution keeps honouring the same arguments and variables.
+        let args = |list: &[&str]| list.iter().map(|arg| arg.to_string()).collect::<Vec<_>>();
+        assert_eq!(UiBackend::resolve(args(&[]), None), None);
+        assert_eq!(
+            UiBackend::resolve(args(&["--egui"]), Some("svet")),
+            Some(UiBackend::Egui)
+        );
+        assert_eq!(
+            UiBackend::resolve(args(&["-b", "svet"]), None),
+            Some(UiBackend::Svet)
+        );
+        assert_eq!(
+            UiBackend::resolve(args(&[]), Some("egui")),
+            Some(UiBackend::Egui)
+        );
+        assert_eq!(UiBackend::resolve(args(&["--ask"]), Some("egui")), None);
+        assert_eq!(UiBackend::resolve(args(&[]), Some("ask")), None);
+        assert_eq!(
+            TargetPlatform::resolve(args(&[]), None),
+            TargetPlatform::compiled()
+        );
+        assert_eq!(
+            TargetPlatform::resolve(args(&["--platform", "android"]), Some("ios")),
+            TargetPlatform::Android
+        );
+        assert_eq!(
+            TargetPlatform::resolve(args(&[]), Some("ios")),
+            TargetPlatform::Ios
+        );
+        assert_eq!(NativeWindowConfig::default().mode, HostMode::Demo);
+
+        // No backend means "show the chooser" for the demo only.
+        let unset = |mode| NativeWindowConfig {
+            backend: None,
+            mode,
+            ..NativeWindowConfig::application("Shelf")
+        };
+        assert_eq!(unset(HostMode::Demo).resolved_backend(), None);
+        assert_eq!(
+            unset(HostMode::Application).resolved_backend(),
+            Some(UiBackend::Svet)
+        );
+        let egui = NativeWindowConfig {
+            backend: Some(UiBackend::Egui),
+            ..NativeWindowConfig::application("Shelf")
+        };
+        assert_eq!(egui.resolved_backend(), Some(UiBackend::Egui));
+    }
+
+    #[test]
+    fn application_title_is_verbatim_and_demo_title_keeps_its_suffix() {
+        for (backend, platform, gpu) in [
+            (Some(UiBackend::Svet), TargetPlatform::Desktop, true),
+            (Some(UiBackend::Egui), TargetPlatform::Ios, false),
+            (None, TargetPlatform::Android, false),
+        ] {
+            assert_eq!(
+                window_title(HostMode::Application, "Shelf", backend, platform, gpu),
+                "Shelf"
+            );
+        }
+        let demo =
+            |backend, platform, gpu| window_title(HostMode::Demo, "Forma", backend, platform, gpu);
+        assert_eq!(
+            demo(Some(UiBackend::Svet), TargetPlatform::Desktop, true),
+            "Forma [svet/GPU] · F6: платформа · F7: бэкенд"
+        );
+        assert_eq!(
+            demo(Some(UiBackend::Svet), TargetPlatform::Desktop, false),
+            "Forma [svet] · F6: платформа · F7: бэкенд"
+        );
+        assert_eq!(
+            demo(Some(UiBackend::Svet), TargetPlatform::Ios, true),
+            "Forma [svet · iOS] · F6: платформа · F7: бэкенд"
+        );
+        assert_eq!(
+            demo(Some(UiBackend::Egui), TargetPlatform::Desktop, true),
+            "Forma [egui] · F6: платформа · F7: бэкенд"
+        );
+        assert_eq!(
+            demo(None, TargetPlatform::Android, false),
+            "Forma · Android · Выберите бэкенд: [1] egui / [2] svet"
+        );
+    }
+
+    #[test]
+    fn function_keys_belong_to_the_demo_host_only() {
+        let key = |named| Key::Named(named);
+        let demo = |named, pressed, repeat, hooks| {
+            host_shortcut(HostMode::Demo, &key(named), pressed, repeat, hooks)
+        };
+        assert_eq!(
+            demo(NamedKey::F6, true, false, false),
+            Some(HostShortcut::NextPlatform)
+        );
+        assert_eq!(
+            demo(NamedKey::F7, true, false, false),
+            Some(HostShortcut::ToggleBackend)
+        );
+        assert_eq!(demo(NamedKey::F8, true, false, false), None);
+        assert_eq!(
+            demo(NamedKey::F8, true, false, true),
+            Some(HostShortcut::InjectDeviceLoss)
+        );
+        // Releases, repeats and other keys were never captured.
+        assert_eq!(demo(NamedKey::F6, false, false, true), None);
+        assert_eq!(demo(NamedKey::F7, true, true, true), None);
+        assert_eq!(demo(NamedKey::F5, true, false, true), None);
+
+        for named in [NamedKey::F6, NamedKey::F7, NamedKey::F8] {
+            assert_eq!(
+                host_shortcut(HostMode::Application, &key(named), true, false, true),
+                None,
+                "{named:?} must reach the application"
+            );
+        }
+    }
+
+    #[test]
+    fn accent_bar_is_painted_for_the_demo_egui_profile_only() {
+        assert!(shows_frame_bar(HostMode::Demo, Some(UiBackend::Egui)));
+        assert!(!shows_frame_bar(HostMode::Demo, Some(UiBackend::Svet)));
+        assert!(!shows_frame_bar(HostMode::Demo, None));
+        assert!(!shows_frame_bar(
+            HostMode::Application,
+            Some(UiBackend::Egui)
+        ));
+        assert!(!shows_frame_bar(
+            HostMode::Application,
+            Some(UiBackend::Svet)
+        ));
     }
 
     #[test]

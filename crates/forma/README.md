@@ -156,6 +156,29 @@ stream beside its fixture state log when `FORMA_NATIVE_INPUT_PROBE_LOG` is set.
 This includes preedit/commit text and is intended for the controlled fixture;
 normal applications need not implement the hook or collect text.
 
+### Хост для приложения
+
+`NativeWindowConfig::default()` рассчитан на демо и пробы: читает `std::env::args`
+и `FORMA_BACKEND` / `FORMA_PLATFORM`, без выбранного бэкенда показывает экран выбора,
+перехватывает F6/F7 (а с `native-test-hooks` ещё F8/F9), дописывает к заголовку
+бэкенд и подсказки, рисует акцентную полосу профиля egui и печатает строки запуска.
+Это режим `HostMode::Demo`, он остаётся значением по умолчанию.
+
+Приложение, встраивающее Forma, берёт `NativeWindowConfig::application("Заголовок")`
+(режим `HostMode::Application`): аргументы и переменные окружения не читаются,
+экрана выбора нет (`backend: None` означает Svet), функциональные клавиши доходят
+до приложения и Runtime, заголовок окна совпадает с `title` дословно, полоса не
+рисуется, в stdout хост ничего не пишет. Остальные поля меняются как обычно:
+
+```rust
+use forma::native_window::{run, NativeWindowConfig};
+
+run(app, NativeWindowConfig { width: 1280., height: 800., ..NativeWindowConfig::application("Shelf") })
+```
+
+Эмуляция мобильной рамки включается только явным `platform: TargetPlatform::Ios`
+или `Android`; `application` ставит платформу цели компиляции.
+
 For native source/project operations, use the String-error APIs
 `load_component_native`, `load_native`, `load_ui_files_json_native`,
 `load_scene_artifact_native`, and `compile_ui_scene_artifact_native`.
