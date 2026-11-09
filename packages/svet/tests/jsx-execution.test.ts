@@ -9,10 +9,8 @@ import {
   h,
   resetReactiveSystem,
   signal,
-  SvetJsxCompileError,
-  transformSvetJsx,
-  transformSvetJsxWithMap,
 } from '../src/engine';
+import { SvetJsxCompileError, transformSvetJsx, transformSvetJsxWithMap } from '../src/engine/compiler.ts';
 
 beforeEach(() => {
   resetReactiveSystem();

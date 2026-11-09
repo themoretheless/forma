@@ -76,16 +76,14 @@
     "test:edge": "npm run build:package && node scripts/check-edge-ssr.mjs"
   },
   "devDependencies": {
+    "@babel/parser": "^8.0.10",
     "@jridgewell/trace-mapping": "^0.3.31",
     "@types/node": "^22.0.0",
     "jsdom": "^30.1.3",
+    "magic-string": "^1.4.5",
     "typescript": "^5.9.3",
     "vite": "^8.3.5",
     "vitest": "^5.0.5"
-  },
-  "dependencies": {
-    "@babel/parser": "^8.0.10",
-    "magic-string": "^1.4.5"
   },
   "sideEffects": [
     "./dist/package/server.js",
@@ -103,5 +101,17 @@
   ],
   "engines": {
     "node": "^22.18.0 || >=24.11.0"
+  },
+  "peerDependencies": {
+    "@babel/parser": "^8.0.10",
+    "magic-string": "^1.4.5"
+  },
+  "peerDependenciesMeta": {
+    "@babel/parser": {
+      "optional": true
+    },
+    "magic-string": {
+      "optional": true
+    }
   }
 }

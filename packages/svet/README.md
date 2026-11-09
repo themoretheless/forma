@@ -1214,9 +1214,15 @@ const { code, map } = transformSvetJsxWithMap(source, '/app/Counter.tsx');
 
 The Vite plugin returns high-resolution source maps for JSX transformations.
 Malformed JSX reports `SvetJsxCompileError` with filename, line, and column. The
-existing `transformSvetJsx(source)` string API and main-entry exports remain
-available. Unused compiler modules can be removed from browser bundles; the Node
-server entry is explicitly marked as having initialization side effects.
+existing `transformSvetJsx(source)` string API remains available from this entry.
+
+`svet-engine/compiler` is the only entry that reaches the compiler. The main
+entry does not re-export it, because it parses with `@babel/parser`: carrying
+that in the main entry put a build-time parser in every application's import
+graph, where a bundler had to shake it out and a plain ESM consumer failed on
+the bare specifier. `@babel/parser` and `magic-string` are optional peers, so an
+application installs them only when it uses this entry. The Node server entry is
+explicitly marked as having initialization side effects.
 
 The compiler treats eager calls conservatively: it does not infer which functions
 are signals. Calls inside lazy JSX expressions must be safe to execute again when
