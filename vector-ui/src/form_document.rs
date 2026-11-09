@@ -9,6 +9,7 @@ mod eval;
 mod layout;
 mod properties;
 mod svg;
+mod svg_path;
 
 #[cfg(test)]
 use bindings::{
@@ -1884,7 +1885,7 @@ impl Document {
         Ok((scene_source, templates, mapping, scroll.then_some(logical_end)))
     }
 
-    /// Parses an SVG document (`svg`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`)
+    /// Parses an SVG document (`svg`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`)
     /// into a vector [`Image`] suitable for `Document.images`.
     pub fn parse_svg_image(svg: &str) -> Result<Image, String> {
         parse_svg_shapes(svg)
