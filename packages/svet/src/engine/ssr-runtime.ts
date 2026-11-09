@@ -944,7 +944,8 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
       controller: ReadableStreamDefaultController<Uint8Array>;
     // Retain the native stream through producer teardown. A host reader can
     // detach during error delivery before its closed observer has resumed.
-    let stream: ReadableStream<Uint8Array> | undefined;
+    // A holder rather than a local: the reference only has to exist, it is never read back.
+    const retained: { stream?: ReadableStream<Uint8Array> | undefined } = {};
     const finish = (mode: 'close' | 'cancel' | 'error', error?: unknown): Promise<void> => {
       if (!active) return Promise.resolve();
       active = false;
@@ -966,10 +967,10 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
       else if (mode === 'error') controller.error(error);
       return Promise.resolve(current?.return?.()).then(
         () => {
-          stream = undefined;
+          retained.stream = undefined;
         },
         failure => {
-          stream = undefined;
+          retained.stream = undefined;
           throw failure;
         },
       );
@@ -980,7 +981,7 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
     const ownerDisposed = () => {
       void finish('error', Error('SSR calling owner disposed')).catch(() => {});
     };
-    return (stream = new ReadableStream<Uint8Array>(
+    return (retained.stream = new ReadableStream<Uint8Array>(
       {
         start(value) {
           controller = value;
