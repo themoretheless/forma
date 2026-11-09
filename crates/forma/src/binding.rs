@@ -1201,32 +1201,23 @@ impl Form {
                     }
                 }
                 if has_control_overrides {
-                    fn collect_nodes_mut<'a>(
-                        node: &'a mut crate::form_document::Node,
-                        out: &mut std::collections::HashMap<
-                            usize,
-                            &'a mut crate::form_document::Node,
-                        >,
-                        count: &mut usize,
-                    ) {
-                        let id = node
-                            .props
-                            .get("__node")
-                            .and_then(|v| v.number().ok())
-                            .map_or(*count, |v| v as usize);
-                        *count += 1;
-                        let ptr = node as *mut crate::form_document::Node;
-                        for child in &mut node.children {
-                            collect_nodes_mut(child, out, count);
-                        }
-                        // SAFETY: `ptr` points to `node` while `children` points to disjoint heap allocations.
-                        out.insert(id, unsafe { &mut *ptr });
-                    }
-                    let mut node_map = std::collections::HashMap::new();
-                    collect_nodes_mut(&mut document.program.root, &mut node_map, &mut 0);
+                    // Controls that override each document node, in control order.
+                    let mut overrides = std::collections::HashMap::<usize, Vec<_>>::new();
                     for control in &self.controls {
                         if let Some(index) = document.nodes.get(&control.index) {
-                            if let Some(node) = node_map.get_mut(index) {
+                            overrides.entry(*index).or_default().push(control);
+                        }
+                    }
+                    let winners = override_targets(&document.program.root);
+                    for_each_node_post_order(
+                        &mut document.program.root,
+                        &mut 0,
+                        &mut 0,
+                        &mut |id, position, node| {
+                            if winners.get(&id) != Some(&position) {
+                                return;
+                            }
+                            for control in overrides.get(&id).map_or(&[][..], Vec::as_slice) {
                                 for (name, input) in control.properties.borrow().iter() {
                                     node.props.insert(name.clone(), input.value());
                                 }
@@ -1256,8 +1247,8 @@ impl Form {
                                     node.props.insert(name.into(), value);
                                 }
                             }
-                        }
-                    }
+                        },
+                    );
                 }
                 let render_res = document.program.render_scene_artifact();
                 if let Some(orig_root) = saved_root.take() {
@@ -1690,6 +1681,53 @@ impl Form {
         Ok(result)
     }
 }
+/// The id a node answers to: its explicit `__node` property, else its preorder position.
+fn node_id(node: &crate::form_document::Node, preorder: usize) -> usize {
+    node.props
+        .get("__node")
+        .and_then(|value| value.number().ok())
+        .map_or(preorder, |v| v as usize)
+}
+
+/// Visits every node after its children, passing its id and its post-order position.
+fn for_each_node_post_order(
+    node: &mut crate::form_document::Node,
+    preorder: &mut usize,
+    postorder: &mut usize,
+    visit: &mut impl FnMut(usize, usize, &mut crate::form_document::Node),
+) {
+    let id = node_id(node, *preorder);
+    *preorder += 1;
+    for child in &mut node.children {
+        for_each_node_post_order(child, preorder, postorder, visit);
+    }
+    let position = *postorder;
+    *postorder += 1;
+    visit(id, position, node);
+}
+
+/// For each node id, the post-order position of the node that receives control overrides.
+/// When several nodes share an id, the last one in post-order wins.
+fn override_targets(root: &crate::form_document::Node) -> std::collections::HashMap<usize, usize> {
+    fn walk(
+        node: &crate::form_document::Node,
+        preorder: &mut usize,
+        postorder: &mut usize,
+        out: &mut std::collections::HashMap<usize, usize>,
+    ) {
+        let id = node_id(node, *preorder);
+        *preorder += 1;
+        for child in &node.children {
+            walk(child, preorder, postorder, out);
+        }
+        out.insert(id, *postorder);
+        *postorder += 1;
+    }
+    let mut out = std::collections::HashMap::new();
+    walk(root, &mut 0, &mut 0, &mut out);
+    out
+}
+
 impl Drop for Form {
     fn drop(&mut self) {
         self.wake.callback.borrow_mut().take();
@@ -1711,6 +1749,67 @@ impl Drop for Form {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn node(
+        kind: &str,
+        explicit_id: Option<f64>,
+        children: Vec<crate::form_document::Node>,
+    ) -> crate::form_document::Node {
+        let mut props = crate::form_document::Properties::new();
+        if let Some(id) = explicit_id {
+            props.insert("__node".into(), crate::form_document::Value::Number(id));
+        }
+        crate::form_document::Node {
+            kind: kind.into(),
+            props,
+            children,
+            action: None,
+        }
+    }
+
+    #[test]
+    fn control_overrides_reach_one_node_per_id_and_the_last_in_post_order_wins() {
+        // Preorder ids: root 0, a 1, a1 2, b 3. `late` claims id 1 explicitly and comes later
+        // in post-order than `a`, so it is the node an override for id 1 must land on.
+        let mut root = node(
+            "root",
+            None,
+            vec![
+                node("a", None, vec![node("a1", None, vec![])]),
+                node("b", None, vec![]),
+                node("late", Some(1.), vec![]),
+            ],
+        );
+        let winners = override_targets(&root);
+        let mut visited = Vec::new();
+        let mut chosen = Vec::new();
+        for_each_node_post_order(&mut root, &mut 0, &mut 0, &mut |id, position, node| {
+            visited.push((node.kind.clone(), id, position));
+            if winners.get(&id) == Some(&position) {
+                chosen.push((id, node.kind.clone()));
+            }
+        });
+        assert_eq!(
+            visited,
+            [
+                ("a1".to_owned(), 2, 0),
+                ("a".to_owned(), 1, 1),
+                ("b".to_owned(), 3, 2),
+                ("late".to_owned(), 1, 3),
+                ("root".to_owned(), 0, 4),
+            ]
+        );
+        chosen.sort();
+        assert_eq!(
+            chosen,
+            [
+                (0, "root".to_owned()),
+                (1, "late".to_owned()),
+                (2, "a1".to_owned()),
+                (3, "b".to_owned())
+            ]
+        );
+    }
 
     #[cfg(not(target_arch = "wasm32"))]
     #[test]
