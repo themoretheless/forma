@@ -270,6 +270,16 @@ pub(crate) enum RecordedOp {
         rows_per_image: Option<u32>,
         size: Extent3d,
     },
+    CopyBufferToTexture {
+        src_buf: Buffer,
+        src_offset: u64,
+        bytes_per_row: u32,
+        rows_per_image: Option<u32>,
+        dst_tex: Texture,
+        dst_mip: u32,
+        dst_origin: Origin3d,
+        size: Extent3d,
+    },
     CopyTextureToTexture {
         src_tex: Texture,
         src_mip: u32,
@@ -427,6 +437,27 @@ impl CommandEncoder {
                 .bytes_per_row
                 .unwrap_or(copy_size.width * source.texture.format.bytes_per_pixel()),
             rows_per_image: destination.layout.rows_per_image,
+            size: copy_size,
+        });
+    }
+
+    pub fn copy_buffer_to_texture(
+        &mut self,
+        source: TexelCopyBufferInfo<'_>,
+        destination: TexelCopyTextureInfo<'_>,
+        copy_size: Extent3d,
+    ) {
+        self.ops.push(RecordedOp::CopyBufferToTexture {
+            src_buf: source.buffer.clone(),
+            src_offset: source.layout.offset,
+            bytes_per_row: source
+                .layout
+                .bytes_per_row
+                .unwrap_or(copy_size.width * destination.texture.format.bytes_per_pixel()),
+            rows_per_image: source.layout.rows_per_image,
+            dst_tex: destination.texture.clone(),
+            dst_mip: destination.mip_level,
+            dst_origin: destination.origin,
             size: copy_size,
         });
     }
@@ -853,8 +884,8 @@ pub(crate) unsafe fn encode_non_compute_op(
                 usize,
                 usize,
             ) = std::mem::transmute(metal_msg_send as *const c_void);
-            let bpr = bytes_per_row as usize;
-            let bpi = rows_per_image.unwrap_or(size.height) as usize * bpr;
+            let (bpr, bpi) =
+                metal_copy_strides(bytes_per_row, rows_per_image, size, src_tex.format, false);
             f_t2b(
                 blit,
                 s.copy_from_texture_to_buffer,
@@ -876,6 +907,72 @@ pub(crate) unsafe fn encode_non_compute_op(
                 bpr,
                 bpi,
             );
+            f_void(blit, s.end_encoding);
+        }
+        RecordedOp::CopyBufferToTexture {
+            src_buf,
+            src_offset,
+            bytes_per_row,
+            rows_per_image,
+            dst_tex,
+            dst_mip,
+            dst_origin,
+            size,
+        } => {
+            let blit = f_obj(cmd_buf, s.blit_command_encoder);
+            let f_b2t: unsafe extern "C" fn(
+                *mut c_void,
+                *mut c_void,
+                *mut c_void,
+                usize,
+                usize,
+                usize,
+                MTLSize,
+                *mut c_void,
+                usize,
+                usize,
+                MTLOrigin,
+            ) = std::mem::transmute(metal_msg_send as *const c_void);
+            let is_3d = dst_tex.dimension == crate::TextureDimension::D3;
+            let (bpr, bpi) = metal_copy_strides(
+                bytes_per_row,
+                rows_per_image,
+                size,
+                dst_tex.format,
+                is_3d || size.depth_or_array_layers > 1,
+            );
+            let (slices, depth) = if is_3d {
+                (1, size.depth_or_array_layers.max(1) as usize)
+            } else {
+                (size.depth_or_array_layers.max(1) as usize, 1)
+            };
+            for slice in 0..slices {
+                f_b2t(
+                    blit,
+                    s.copy_from_buffer_to_texture,
+                    src_buf.inner.raw.as_ptr(),
+                    src_offset as usize + slice * bpi,
+                    bpr,
+                    bpi,
+                    MTLSize {
+                        width: size.width as usize,
+                        height: size.height as usize,
+                        depth,
+                    },
+                    dst_tex.raw.as_ptr(),
+                    if is_3d {
+                        0
+                    } else {
+                        dst_origin.z as usize + slice
+                    },
+                    dst_mip as usize,
+                    MTLOrigin {
+                        x: dst_origin.x as usize,
+                        y: dst_origin.y as usize,
+                        z: if is_3d { dst_origin.z as usize } else { 0 },
+                    },
+                );
+            }
             f_void(blit, s.end_encoding);
         }
         RecordedOp::CopyTextureToTexture {
@@ -1291,4 +1388,31 @@ pub(crate) unsafe fn encode_render_pass(
 
     metal.recycle_render_cmds(commands);
     f_void(enc, s.end_encoding);
+}
+
+/// Metal row and image strides for a buffer<->texture copy of one image.
+///
+/// WebGPU only requires the bytes a copy touches to be in bounds, while Metal validates
+/// `offset + bytesPerImage` against the buffer length. A padded row stride on the last (or
+/// only) row would therefore reject copies that WebGPU accepts, so the image stride is
+/// trimmed to the bytes actually read, and a single row uses its packed width.
+fn metal_copy_strides(
+    bytes_per_row: u32,
+    rows_per_image: Option<u32>,
+    size: Extent3d,
+    format: crate::TextureFormat,
+    multi_image: bool,
+) -> (usize, usize) {
+    let packed_row = size.width as usize * format.bytes_per_pixel() as usize;
+    let mut bpr = bytes_per_row as usize;
+    if size.height <= 1 && packed_row != 0 {
+        bpr = bpr.min(packed_row);
+    }
+    let rows = size.height.max(1) as usize;
+    let bpi = if multi_image {
+        rows_per_image.unwrap_or(size.height) as usize * bpr
+    } else {
+        (rows - 1) * bpr + packed_row.max(1).min(bpr)
+    };
+    (bpr, bpi)
 }

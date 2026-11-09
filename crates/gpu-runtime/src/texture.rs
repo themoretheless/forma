@@ -15,6 +15,7 @@ pub enum TextureDimension {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TextureFormat {
     R8Unorm,
+    R16Uint,
     Rgba8Unorm,
     Rgba8UnormSrgb,
     Bgra8Unorm,
@@ -23,6 +24,8 @@ pub enum TextureFormat {
     Rg32Float,
     Rgba16Float,
     Rgba32Float,
+    /// BC1 block compression, sRGB. Sampled only; never a render target.
+    Bc1RgbaUnormSrgb,
     Depth24Plus,
     Depth32Float,
 }
@@ -30,23 +33,26 @@ pub enum TextureFormat {
 impl TextureFormat {
     pub(crate) const fn to_mtl_pixel_format(self) -> u64 {
         match self {
-            Self::R8Unorm => 10,        // MTLPixelFormatR8Unorm
-            Self::Rgba8Unorm => 70,     // MTLPixelFormatRGBA8Unorm
-            Self::Rgba8UnormSrgb => 71, // MTLPixelFormatRGBA8Unorm_sRGB
-            Self::Bgra8Unorm => 80,     // MTLPixelFormatBGRA8Unorm
-            Self::Bgra8UnormSrgb => 81, // MTLPixelFormatBGRA8Unorm_sRGB
-            Self::R32Float => 55,       // MTLPixelFormatR32Float
-            Self::Rg32Float => 105,     // MTLPixelFormatRG32Float
-            Self::Rgba16Float => 115,   // MTLPixelFormatRGBA16Float
-            Self::Rgba32Float => 125,   // MTLPixelFormatRGBA32Float
-            Self::Depth24Plus => 252,   // MTLPixelFormatDepth32Float
-            Self::Depth32Float => 252,  // MTLPixelFormatDepth32Float
+            Self::R8Unorm => 10,           // MTLPixelFormatR8Unorm
+            Self::R16Uint => 23,           // MTLPixelFormatR16Uint
+            Self::Rgba8Unorm => 70,        // MTLPixelFormatRGBA8Unorm
+            Self::Rgba8UnormSrgb => 71,    // MTLPixelFormatRGBA8Unorm_sRGB
+            Self::Bgra8Unorm => 80,        // MTLPixelFormatBGRA8Unorm
+            Self::Bgra8UnormSrgb => 81,    // MTLPixelFormatBGRA8Unorm_sRGB
+            Self::R32Float => 55,          // MTLPixelFormatR32Float
+            Self::Rg32Float => 105,        // MTLPixelFormatRG32Float
+            Self::Rgba16Float => 115,      // MTLPixelFormatRGBA16Float
+            Self::Rgba32Float => 125,      // MTLPixelFormatRGBA32Float
+            Self::Bc1RgbaUnormSrgb => 131, // MTLPixelFormatBC1_RGBA_sRGB
+            Self::Depth24Plus => 252,      // MTLPixelFormatDepth32Float
+            Self::Depth32Float => 252,     // MTLPixelFormatDepth32Float
         }
     }
 
     pub const fn bytes_per_pixel(self) -> u32 {
         match self {
             Self::R8Unorm => 1,
+            Self::R16Uint => 2,
             Self::Rgba8Unorm
             | Self::Rgba8UnormSrgb
             | Self::Bgra8Unorm
@@ -56,6 +62,8 @@ impl TextureFormat {
             | Self::Depth32Float => 4,
             Self::Rg32Float | Self::Rgba16Float => 8,
             Self::Rgba32Float => 16,
+            // Block compressed: 8 bytes per 4x4 block, so there is no whole byte count per pixel.
+            Self::Bc1RgbaUnormSrgb => 0,
         }
     }
 
@@ -127,14 +135,85 @@ pub struct Texture {
 impl Texture {
     pub fn create_view(&self, desc: &TextureViewDescriptor<'_>) -> TextureView {
         TextureView {
-            texture: self.clone(),
+            texture: self.reinterpreted_as(desc.dimension),
             base_mip_level: desc.base_mip_level,
             base_array_layer: desc.base_array_layer,
         }
     }
 
+    /// The texture seen through a view of `dimension`.
+    ///
+    /// Metal binds textures by type, so a single-layer 2D texture cannot be bound to a
+    /// `texture2d_array` parameter (WebGPU allows this through a `D2Array` view). Such views
+    /// get a Metal texture view of the requested type; every other view shares the texture.
+    fn reinterpreted_as(&self, dimension: Option<crate::TextureViewDimension>) -> Texture {
+        use crate::TextureViewDimension as V;
+        let mtl_type = match (
+            dimension,
+            self.dimension,
+            self.size.depth_or_array_layers,
+            self.sample_count,
+        ) {
+            // MTLTextureType2DArray
+            (Some(V::D2Array), TextureDimension::D2, 1, 1) => 3u64,
+            _ => return self.clone(),
+        };
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        unsafe {
+            use std::ffi::c_void;
+            let s = crate::metal::selectors();
+            #[repr(C)]
+            struct NsRange {
+                location: usize,
+                length: usize,
+            }
+            let f: unsafe extern "C" fn(
+                *mut c_void,
+                *mut c_void,
+                u64,
+                u64,
+                NsRange,
+                NsRange,
+            ) -> *mut c_void = std::mem::transmute(crate::metal::objc_msgSend as *const c_void);
+            let view = f(
+                self.raw.as_ptr(),
+                s.new_texture_view_with_type,
+                self.format.to_mtl_pixel_format(),
+                mtl_type,
+                NsRange {
+                    location: 0,
+                    length: self.mip_level_count.max(1) as usize,
+                },
+                NsRange {
+                    location: 0,
+                    length: 1,
+                },
+            );
+            if let Some(raw) = ObjCObject::from_retained(view) {
+                return Texture {
+                    raw,
+                    ..self.clone()
+                };
+            }
+        }
+        let _ = mtl_type;
+        self.clone()
+    }
+
     pub fn size(&self) -> Extent3d {
         self.size
+    }
+
+    pub fn width(&self) -> u32 {
+        self.size.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.size.height
+    }
+
+    pub fn depth_or_array_layers(&self) -> u32 {
+        self.size.depth_or_array_layers
     }
 
     pub fn format(&self) -> TextureFormat {

@@ -76,6 +76,7 @@ pub struct Selectors {
     pub copy_from_buffer: *mut c_void,
     pub copy_from_texture_to_buffer: *mut c_void,
     pub copy_from_texture_to_texture: *mut c_void,
+    pub copy_from_buffer_to_texture: *mut c_void,
     pub fill_buffer: *mut c_void,
     pub new_counter_sample_buffer: *mut c_void,
     pub sample_counters_in_buffer: *mut c_void,
@@ -88,6 +89,7 @@ pub struct Selectors {
     pub set_mipmap_level_count: *mut c_void,
     pub set_sample_count: *mut c_void,
     pub set_texture_type: *mut c_void,
+    pub new_texture_view_with_type: *mut c_void,
     pub set_array_length: *mut c_void,
     pub set_depth: *mut c_void,
     pub new_texture_with_desc: *mut c_void,
@@ -279,6 +281,9 @@ pub fn selectors() -> &'static Selectors {
         copy_from_texture_to_texture: sel(
             "copyFromTexture:sourceSlice:sourceLevel:sourceOrigin:sourceSize:toTexture:destinationSlice:destinationLevel:destinationOrigin:",
         ),
+        copy_from_buffer_to_texture: sel(
+            "copyFromBuffer:sourceOffset:sourceBytesPerRow:sourceBytesPerImage:sourceSize:toTexture:destinationSlice:destinationLevel:destinationOrigin:",
+        ),
         fill_buffer: sel("fillBuffer:range:value:"),
         new_counter_sample_buffer: sel("newCounterSampleBufferWithDescriptor:error:"),
         sample_counters_in_buffer: sel("sampleCountersInBuffer:atSampleIndex:withBarrier:"),
@@ -290,6 +295,7 @@ pub fn selectors() -> &'static Selectors {
         set_mipmap_level_count: sel("setMipmapLevelCount:"),
         set_sample_count: sel("setSampleCount:"),
         set_texture_type: sel("setTextureType:"),
+        new_texture_view_with_type: sel("newTextureViewWithPixelFormat:textureType:levels:slices:"),
         set_array_length: sel("setArrayLength:"),
         set_depth: sel("setDepth:"),
         new_texture_with_desc: sel("newTextureWithDescriptor:"),
@@ -648,6 +654,8 @@ pub struct MetalDevice {
     pub(crate) compute_dispatches_pool: Arc<Mutex<Vec<Vec<crate::ComputeDispatchOp>>>>,
     pub last_cmd_buf: Arc<Mutex<Option<(ObjCObject, u64)>>>,
     pending_error_checks: Arc<Mutex<Vec<PendingCommand>>>,
+    /// `Queue::on_submitted_work_done` callbacks, run by the next `Device::poll`, as in WebGPU.
+    pub(crate) work_done_callbacks: Arc<Mutex<Vec<WorkDoneCallback>>>,
     backend_device_loss: Arc<Mutex<Option<String>>>,
     pub(crate) pending_compute_ops: Arc<Mutex<PendingCompute>>,
     pub(crate) scope_completion_service: Arc<crate::types::ScopeCompletionService>,
@@ -706,6 +714,7 @@ impl MetalDevice {
                 compute_dispatches_pool: Arc::new(Mutex::new(Vec::with_capacity(8))),
                 last_cmd_buf: Arc::new(Mutex::new(None)),
                 pending_error_checks: Arc::new(Mutex::new(Vec::with_capacity(8))),
+                work_done_callbacks: Arc::new(Mutex::new(Vec::new())),
                 backend_device_loss: Arc::new(Mutex::new(None)),
                 pending_compute_ops: Arc::new(Mutex::new(PendingCompute {
                     ops: Vec::with_capacity(32),
@@ -1348,8 +1357,16 @@ impl MetalDevice {
             fs_ep_raw
         };
 
+        let vs_src = msl_for_pipeline(
+            &desc.vertex.module.msl_source,
+            desc.vertex.compilation_options.constants,
+        );
+        let fs_src = fs_state
+            .map(|fs| msl_for_pipeline(&fs.module.msl_source, fs.compilation_options.constants));
+
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        desc.vertex.module.msl_source.hash(&mut hasher);
+        vs_src.hash(&mut hasher);
+        fs_src.hash(&mut hasher);
         vs_ep.hash(&mut hasher);
         fs_ep.hash(&mut hasher);
         for vb in desc.vertex.buffers.iter().flatten() {
@@ -1416,7 +1433,7 @@ impl MetalDevice {
                 *mut *mut c_void,
             ) -> *mut c_void = std::mem::transmute(objc_msgSend as *const c_void);
             let mut err: *mut c_void = ptr::null_mut();
-            let vs_src_ns = nsstring_from_str(&desc.vertex.module.msl_source);
+            let vs_src_ns = nsstring_from_str(&vs_src);
             let vs_lib_ptr = f_lib(
                 self.raw.as_ptr(),
                 s.new_library_with_source,
@@ -1428,7 +1445,7 @@ impl MetalDevice {
                 panic!(
                     "Vertex MSL compilation failed: {}\n--- MSL ---\n{}",
                     nserror_description(err),
-                    desc.vertex.module.msl_source
+                    vs_src
                 );
             }
             let vs_lib = ObjCObject(vs_lib_ptr);
@@ -1453,13 +1470,11 @@ impl MetalDevice {
             let _fs_lib_holder: Option<ObjCObject>;
             let _fs_fn_holder: Option<ObjCObject>;
             if let Some(fs) = fs_state {
-                let fs_lib = if ptr::eq(
-                    desc.vertex.module.msl_source.as_ptr(),
-                    fs.module.msl_source.as_ptr(),
-                ) {
+                let fs_src = fs_src.as_deref().unwrap_or_default();
+                let fs_lib = if vs_src.as_ref() == fs_src {
                     vs_lib.clone()
                 } else {
-                    let fs_src_ns = nsstring_from_str(&fs.module.msl_source);
+                    let fs_src_ns = nsstring_from_str(fs_src);
                     let p = f_lib(
                         self.raw.as_ptr(),
                         s.new_library_with_source,
@@ -1697,6 +1712,14 @@ impl MetalDevice {
                 || desc.usage.contains(crate::TextureUsages::COPY_SRC)
             {
                 mtl_usage |= 1;
+                // MTLTextureUsagePixelFormatView: lets a single-layer 2D texture be bound
+                // through a 2D-array view (see `Texture::create_view`).
+                if desc.dimension == crate::TextureDimension::D2
+                    && desc.size.depth_or_array_layers == 1
+                    && desc.sample_count <= 1
+                {
+                    mtl_usage |= 0x10;
+                }
             }
             if desc.usage.contains(crate::TextureUsages::STORAGE_BINDING) {
                 mtl_usage |= 2;
@@ -2618,6 +2641,40 @@ mod command_failure_classification_tests {
                 command_failure_error(false, code, "foreign domain".into()),
                 crate::Error::Internal { .. }
             ));
+        }
+    }
+}
+
+/// MSL for one pipeline stage: the module's source with its `override` values applied.
+pub(crate) fn msl_for_pipeline<'a>(
+    msl: &'a str,
+    constants: &[(&str, f64)],
+) -> std::borrow::Cow<'a, str> {
+    if constants.is_empty() {
+        std::borrow::Cow::Borrowed(msl)
+    } else {
+        std::borrow::Cow::Owned(gpu_shader::back::msl::with_pipeline_constants(
+            msl, constants,
+        ))
+    }
+}
+
+pub(crate) type WorkDoneCallback = Box<dyn FnOnce() + Send>;
+
+impl MetalDevice {
+    /// Runs the queued work-done callbacks once all submitted work has completed.
+    pub(crate) fn fire_work_done_callbacks(&self) {
+        if !self.is_last_cmd_completed() {
+            return;
+        }
+        let callbacks = std::mem::take(
+            &mut *self
+                .work_done_callbacks
+                .lock()
+                .unwrap_or_else(|e| e.into_inner()),
+        );
+        for callback in callbacks {
+            callback();
         }
     }
 }

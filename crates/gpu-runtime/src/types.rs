@@ -150,7 +150,7 @@ impl Default for Limits {
             max_vertex_attributes: 16,
             max_vertex_buffer_array_stride: 2048,
             min_uniform_buffer_offset_alignment: 256,
-            min_storage_buffer_offset_alignment: 32,
+            min_storage_buffer_offset_alignment: 256,
             max_inter_stage_shader_components: 60,
             max_color_attachments: 8,
             max_color_attachment_bytes_per_sample: 64,
@@ -171,6 +171,8 @@ pub struct RequestAdapterOptions<'a, 'b> {
     pub power_preference: PowerPreference,
     pub force_fallback_adapter: bool,
     pub compatible_surface: Option<&'a Surface<'b>>,
+    /// Accepted for source compatibility; this runtime reports exact device limits.
+    pub apply_limit_buckets: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
