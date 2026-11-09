@@ -179,6 +179,17 @@ run(app, NativeWindowConfig { width: 1280., height: 800., ..NativeWindowConfig::
 Эмуляция мобильной рамки включается только явным `platform: TargetPlatform::Ios`
 или `Android`; `application` ставит платформу цели компиляции.
 
+#### Пробуждение из рабочего потока
+
+`on_dirty` выдаёт `Box<dyn Fn()>`, привязанный к потоку окна. Для фоновой работы
+хост один раз, при создании окна, вызывает `NativeApp::on_waker(NativeWaker)`.
+`NativeWaker` — `Send + Sync + Clone`; рабочий поток кладёт результат в канал или
+под мьютекс приложения и вызывает `waker.wake()`. Цикл окна на своём потоке
+вызывает `update` (и тогда, когда окно скрыто и кадр не рисуется), затем
+перерисовывает. Вызовы, пришедшие до обслуживания предыдущего, сливаются в один,
+поэтому `update` должен забирать все накопленные результаты. `wake()` возвращает
+`false`, когда цикл окна завершён.
+
 For native source/project operations, use the String-error APIs
 `load_component_native`, `load_native`, `load_ui_files_json_native`,
 `load_scene_artifact_native`, and `compile_ui_scene_artifact_native`.

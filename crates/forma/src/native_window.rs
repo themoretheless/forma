@@ -2,14 +2,17 @@
 
 use std::{
     num::NonZeroU32,
-    sync::{Arc, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Instant,
 };
 use winit::{
     application::ApplicationHandler,
     dpi::{LogicalPosition, LogicalSize},
     event::{ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
     keyboard::{Key, NamedKey},
     window::{Window, WindowId},
 };
@@ -60,6 +63,82 @@ pub trait NativeApp {
         let _ = callback;
         Ok(())
     }
+
+    /// Receives the window's waker once, when the window is created. Keep a clone in
+    /// worker threads and call [`NativeWaker::wake`] after publishing a result: the
+    /// loop then runs `update` on its own thread and redraws.
+    fn on_waker(&self, _waker: NativeWaker) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// Events the host posts to its own loop.
+enum HostEvent {
+    Accessibility(accesskit_winit::Event),
+    Wake,
+}
+
+impl From<accesskit_winit::Event> for HostEvent {
+    fn from(event: accesskit_winit::Event) -> Self {
+        Self::Accessibility(event)
+    }
+}
+
+struct WakerShared {
+    // Whether the proxy is `Sync` differs between winit platforms; the lock makes the
+    // handle `Sync` on all of them.
+    proxy: Mutex<EventLoopProxy<HostEvent>>,
+    pending: AtomicBool,
+}
+
+/// Thread-safe handle that makes the window loop update the application and redraw.
+/// Calls made before the loop has served the previous one are merged into it.
+#[derive(Clone)]
+pub struct NativeWaker {
+    shared: Arc<WakerShared>,
+}
+
+impl NativeWaker {
+    fn new(proxy: EventLoopProxy<HostEvent>) -> Self {
+        Self {
+            shared: Arc::new(WakerShared {
+                proxy: Mutex::new(proxy),
+                pending: AtomicBool::new(false),
+            }),
+        }
+    }
+
+    fn proxy(&self) -> EventLoopProxy<HostEvent> {
+        self.shared
+            .proxy
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    /// Asks the loop to call `NativeApp::update` and redraw. Returns `false` once the
+    /// loop has ended, so a worker can stop.
+    pub fn wake(&self) -> bool {
+        if !begin_wake(&self.shared.pending) {
+            return true;
+        }
+        let sent = self.proxy().send_event(HostEvent::Wake).is_ok();
+        if !sent {
+            self.shared.pending.store(false, Ordering::Release);
+        }
+        sent
+    }
+}
+
+/// Claims the pending wake; `false` means one is already queued and covers this call.
+fn begin_wake(pending: &AtomicBool) -> bool {
+    !pending.swap(true, Ordering::AcqRel)
+}
+
+/// Releases the pending wake before the update it stands for, so a result published
+/// during that update queues the next one.
+fn finish_wake(pending: &AtomicBool) {
+    pending.store(false, Ordering::Release);
 }
 
 impl NativeApp for crate::Runtime {
@@ -686,7 +765,7 @@ struct NativeHost<A: NativeApp + 'static> {
     platform: TargetPlatform,
     chooser: Option<crate::Runtime>,
     accessibility: Option<accesskit_winit::Adapter>,
-    accessibility_proxy: Option<winit::event_loop::EventLoopProxy<accesskit_winit::Event>>,
+    waker: Option<NativeWaker>,
     accessibility_active: bool,
     accessibility_ids: crate::native_accessibility::PublishedTree,
     window: Option<Arc<Window>>,
@@ -968,6 +1047,24 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             // Start-to-start cadence: a costly CPU frame is not delayed again.
             // Input-triggered redraws may still paint before this deadline.
             self.animation_at = Some(now + std::time::Duration::from_nanos(16_666_667));
+        }
+        Ok(())
+    }
+
+    /// A worker thread asked for an update: run it now, even while the window is
+    /// occluded and nothing is drawn. The demo's backend chooser precedes the
+    /// application, which is updated by the first frame after the choice.
+    fn woken(&mut self) -> Result<(), String> {
+        if let Some(waker) = &self.waker {
+            finish_wake(&waker.shared.pending);
+        }
+        if self.chooser.is_some() {
+            return Ok(());
+        }
+        self.app.update(&mut |_| {})?;
+        self.update_accessibility()?;
+        if self.window.is_some() {
+            self.update_ime()?;
         }
         Ok(())
     }
@@ -1603,8 +1700,22 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     }
 }
 
-impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for NativeHost<A> {
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
+impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: HostEvent) {
+        let event = match event {
+            HostEvent::Accessibility(event) => event,
+            HostEvent::Wake => {
+                if let Err(error) = self.woken() {
+                    eprintln!("{error}");
+                    event_loop.exit();
+                    return;
+                }
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+                return;
+            }
+        };
         if !self
             .window
             .as_ref()
@@ -1733,15 +1844,18 @@ impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for Nati
                 let redraw = RedrawHandle::new(&window);
                 self.app
                     .on_dirty(Box::new(move || redraw.request_redraw()))?;
+                if let Some(waker) = &self.waker {
+                    self.app.on_waker(waker.clone())?;
+                }
                 Ok((window, surface))
             };
         match setup() {
             Ok((window, surface)) => {
-                if let Some(proxy) = &self.accessibility_proxy {
+                if let Some(waker) = &self.waker {
                     self.accessibility = Some(accesskit_winit::Adapter::with_event_loop_proxy(
                         event_loop,
                         &window,
-                        proxy.clone(),
+                        waker.proxy(),
                     ));
                 }
                 window.set_visible(true);
@@ -1793,10 +1907,10 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
     } else {
         None
     };
-    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event()
+    let event_loop = EventLoop::<HostEvent>::with_user_event()
         .build()
         .map_err(|e| e.to_string())?;
-    let accessibility_proxy = event_loop.create_proxy();
+    let waker = NativeWaker::new(event_loop.create_proxy());
     event_loop.set_control_flow(ControlFlow::Wait);
     event_loop
         .run_app(&mut NativeHost {
@@ -1806,7 +1920,7 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
             platform,
             chooser,
             accessibility: None,
-            accessibility_proxy: Some(accessibility_proxy),
+            waker: Some(waker),
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -1852,7 +1966,7 @@ mod tests {
                 platform: TargetPlatform::Desktop,
                 chooser: None,
                 accessibility: None,
-                accessibility_proxy: None,
+                waker: None,
                 accessibility_active: false,
                 accessibility_ids: Default::default(),
                 window: None,
@@ -1938,7 +2052,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -2025,7 +2139,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -2102,7 +2216,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -2166,7 +2280,7 @@ mod tests {
                         platform: TargetPlatform::Desktop,
                         chooser: None,
                         accessibility: None,
-                        accessibility_proxy: None,
+                        waker: None,
                         accessibility_active: false,
                         accessibility_ids: Default::default(),
                         window: None,
@@ -2272,7 +2386,7 @@ mod tests {
                 platform: TargetPlatform::Desktop,
                 chooser: None,
                 accessibility: None,
-                accessibility_proxy: None,
+                waker: None,
                 accessibility_active: false,
                 accessibility_ids: Default::default(),
                 window: None,
@@ -2367,7 +2481,7 @@ mod tests {
                 platform: TargetPlatform::Desktop,
                 chooser: None,
                 accessibility: None,
-                accessibility_proxy: None,
+                waker: None,
                 accessibility_active: false,
                 accessibility_ids: Default::default(),
                 window: None,
@@ -2436,7 +2550,7 @@ mod tests {
                 platform: TargetPlatform::Desktop,
                 chooser: None,
                 accessibility: None,
-                accessibility_proxy: None,
+                waker: None,
                 accessibility_active: false,
                 accessibility_ids: Default::default(),
                 window: None,
@@ -2625,7 +2739,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -2711,7 +2825,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -2801,7 +2915,7 @@ mod tests {
                 platform: TargetPlatform::Desktop,
                 chooser: None,
                 accessibility: None,
-                accessibility_proxy: None,
+                waker: None,
                 accessibility_active: false,
                 accessibility_ids: Default::default(),
                 window: None,
@@ -2868,7 +2982,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -2947,7 +3061,7 @@ mod tests {
                 platform: TargetPlatform::Desktop,
                 chooser: None,
                 accessibility: None,
-                accessibility_proxy: None,
+                waker: None,
                 accessibility_active: false,
                 accessibility_ids: Default::default(),
                 window: None,
@@ -3037,7 +3151,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -3096,7 +3210,7 @@ mod tests {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -3332,6 +3446,113 @@ mod tests {
             HostMode::Application,
             Some(UiBackend::Svet)
         ));
+    }
+
+    /// Host without a window, as the loop builds it before `resumed`.
+    fn windowless_host<A: NativeApp + 'static>(
+        app: A,
+        config: NativeWindowConfig,
+    ) -> NativeHost<A> {
+        NativeHost {
+            app,
+            backend: config.resolved_backend(),
+            platform: config.platform,
+            config,
+            chooser: None,
+            accessibility: None,
+            waker: None,
+            accessibility_active: false,
+            accessibility_ids: Default::default(),
+            window: None,
+            surface: None,
+            gpu: None,
+            gpu_attempted: false,
+            retry_at: None,
+            gpu_health_at: None,
+            #[cfg(feature = "native-test-hooks")]
+            idle_loss_for_test: false,
+            occluded: false,
+            animation_at: None,
+            pointer: (0., 0.),
+            touch_last: None,
+            touch_owner: None,
+            shift: false,
+            command: false,
+            control: false,
+            alt: false,
+            composing: false,
+            ime_cancelled: false,
+            composition_owner: None,
+            blurred_editor: None,
+            last_frame: Instant::now(),
+        }
+    }
+
+    /// Application that counts what the host asks of it.
+    struct Recorder {
+        runtime: crate::Runtime,
+        updates: u32,
+    }
+
+    impl Recorder {
+        fn new() -> Self {
+            Self {
+                runtime: crate::Runtime::new(),
+                updates: 0,
+            }
+        }
+    }
+
+    impl NativeApp for Recorder {
+        fn update(&mut self, input: &mut dyn FnMut(&mut crate::Runtime)) -> Result<(), String> {
+            self.updates += 1;
+            input(&mut self.runtime);
+            Ok(())
+        }
+
+        fn inspect(&self, observer: &mut dyn FnMut(&crate::Runtime)) -> Result<(), String> {
+            observer(&self.runtime);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn wake_updates_the_application_even_when_nothing_is_drawn() {
+        let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+        host.occluded = true;
+        host.woken().unwrap();
+        host.woken().unwrap();
+        assert_eq!(host.app.updates, 2, "one update per served wake");
+
+        // The demo chooser precedes the application: it is not updated behind it.
+        host.chooser = Some(build_chooser_runtime().unwrap());
+        host.woken().unwrap();
+        assert_eq!(host.app.updates, 2);
+    }
+
+    #[test]
+    fn default_waker_hook_accepts_and_drops_the_handle() {
+        // Compiles only while `on_waker` keeps a default body for existing implementors.
+        fn hook<A: NativeApp>(app: &A, waker: NativeWaker) -> Result<(), String> {
+            app.on_waker(waker)
+        }
+        let _ = hook::<Recorder>;
+    }
+
+    #[test]
+    fn waker_is_a_cloneable_cross_thread_handle() {
+        fn assert_handle<T: Send + Sync + Clone + 'static>() {}
+        assert_handle::<NativeWaker>();
+    }
+
+    #[test]
+    fn wakes_merge_until_the_loop_serves_them() {
+        let pending = AtomicBool::new(false);
+        assert!(begin_wake(&pending), "first wake posts an event");
+        assert!(!begin_wake(&pending), "a queued wake covers later calls");
+        assert!(!begin_wake(&pending));
+        finish_wake(&pending);
+        assert!(begin_wake(&pending), "a wake after service posts again");
     }
 
     #[test]
