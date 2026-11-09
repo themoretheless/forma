@@ -97,22 +97,33 @@ test('no tracked crate is left out of the gate', () => {
   } catch {
     return; /* a source export without .git has no tracked-file list to read */
   }
+  const PACKAGE_MANIFESTS = {
+    'gpu-shader': 'crates/gpu-shader/Cargo.toml',
+    'gpu-runtime': 'crates/gpu-runtime/Cargo.toml',
+    'raster-core': 'crates/raster-core/Cargo.toml',
+    'osv-math': 'crates/math-core/Cargo.toml',
+    'osv-math-compute': 'crates/math-compute/Cargo.toml',
+    'tensor-core': 'crates/tensor-core/Cargo.toml',
+    'compute-core': 'crates/compute-core/Cargo.toml',
+    'compute-mlx': 'crates/compute-mlx/Cargo.toml',
+    'compute-cuda': 'crates/compute-cuda/Cargo.toml',
+  };
   const gated = new Set();
   // Covered means named by some platform's run: the legacy WebView host is a macOS-only step in
   // ci.yml as well, and the gate inherits that split rather than pretending every host builds it.
   for (const item of [...matrix().list, ...matrix({ platform: 'darwin' }).list])
     for (const [index, arg] of item.args.entries())
       if (arg === '--manifest-path') gated.add(item.args[index + 1]);
+      // A workspace member is named by package, not by manifest path.
+      else if (arg === '-p' && PACKAGE_MANIFESTS[item.args[index + 1]])
+        gated.add(PACKAGE_MANIFESTS[item.args[index + 1]]);
   const ungated = tracked
     .split('\n')
     .filter(file => /(^|\/)Cargo\.toml$/.test(file))
-    // The ten GPU and compute crates have no gate step of their own yet; forma and its examples,
-    // which also live under crates/, do and must stay covered.
-    .filter(
-      file =>
-        (!file.startsWith('crates/') || file.startsWith('crates/forma/')) &&
-        file !== 'openscad-ui/Cargo.toml',
-    )
+    // Frozen source snapshots kept as benchmark evidence are not built by anything, on purpose.
+    .filter(file => !/\/(benchmarks|qualification)\//.test(file))
+    // The root manifest is the workspace itself; its members are covered by name below.
+    .filter(file => file !== 'Cargo.toml')
     .filter(file => !gated.has(file));
   assert.deepEqual(ungated, [], `nothing compiles ${ungated.join(', ')}`);
 });

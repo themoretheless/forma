@@ -18,6 +18,42 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # The GPU and compute crates have suites of their own that the Forma jobs never ran.
+  # Hardware flags are not set here: hosted runners are not known to expose Metal or MLX, so device
+  # tests return early on CI. `npm run gate` on a developer Mac sets the flags and runs them for real.
+  crates:
+    name: Crates / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: rustup show active-toolchain
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            crates/gpu-compute/target
+          key: crates-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'crates/gpu-compute/Cargo.lock') }}
+          restore-keys: crates-${{ runner.os }}-${{ runner.arch }}-
+      - name: Workspace crates
+        run: cargo test --locked -p gpu-shader -p gpu-runtime -p raster-core -p osv-math -p tensor-core -p compute-core -p compute-cuda --features tensor-core/conformance
+      - name: math-compute adapters
+        run: cargo test --locked -p osv-math-compute --features gpu,tensor,tensor-wgsl
+      - name: compute-mlx
+        if: runner.os == 'macOS'
+        run: cargo test --locked -p compute-mlx
+      - name: gpu-compute on its own lockfile
+        run: cargo test --locked --manifest-path crates/gpu-compute/Cargo.toml
   runtime:
     name: Forma / ${{ matrix.os }}
     strategy:
@@ -52,9 +88,8 @@ jobs:
             ~/.cargo/bin/wasm-bindgen
             ~/.cargo/bin/wasm-bindgen-test-runner
             ~/.cargo/bin/wasm2es6js
-            crates/forma/target
+            target
             native-app/target
-            crates/forma/examples/binding-app/target
           key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
           restore-keys: rust-${{ runner.os }}-${{ runner.arch }}-
       # The generated-form examples run the JS generator from build.rs, which needs the tokenizer
@@ -119,8 +154,8 @@ jobs:
             ~/.cargo/bin/wasm-bindgen
             ~/.cargo/bin/wasm-bindgen-test-runner
             ~/.cargo/bin/wasm2es6js
-            crates/forma/target
-          key: wasm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'crates/forma/Cargo.lock') }}
+            target
+          key: wasm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock') }}
           restore-keys: wasm-${{ runner.os }}-${{ runner.arch }}-
       - name: Matching wasm-bindgen CLI
         shell: bash
@@ -137,7 +172,7 @@ jobs:
       - name: Native scene artifact and snapshot WASM contracts
         shell: bash
         run: |
-          wasm-bindgen "${CARGO_TARGET_DIR:-crates/forma/target}/wasm32-unknown-unknown/release/forma.wasm" --target nodejs --out-dir "$RUNNER_TEMP/forma-node-contracts"
+          wasm-bindgen "${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/release/forma.wasm" --target nodejs --out-dir "$RUNNER_TEMP/forma-node-contracts"
           node crates/forma/tests/check-scene-artifact-wasm.cjs "$RUNNER_TEMP/forma-node-contracts" "$RUNNER_TEMP/scene-artifact.json"
           node crates/forma/tests/check-scene-snapshot-wasm.cjs "$RUNNER_TEMP/forma-node-contracts" "$RUNNER_TEMP/scene-snapshot.json"
       - name: Require WASM integration tests (no missing-asset skips)

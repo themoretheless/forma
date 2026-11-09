@@ -11,6 +11,16 @@ import { runtimeSourceDigest, artifactDigests, runtimeArtifacts } from './runtim
 // it came from.
 const CI_TARGETS = ['x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc'];
 const BUNDLED = ['build-info.json', ...runtimeArtifacts];
+// Workspace members besides forma; compute-mlx and math-compute have steps of their own.
+export const WORKSPACE_CRATES = [
+  'gpu-shader',
+  'gpu-runtime',
+  'raster-core',
+  'osv-math',
+  'tensor-core',
+  'compute-core',
+  'compute-cuda',
+];
 export function steps({ platform, installedTargets, viteEntry }) {
   return {
     list: [
@@ -176,6 +186,64 @@ export function steps({ platform, installedTargets, viteEntry }) {
           target,
         ],
       })),
+      // The GPU and compute crates were never built by any gate or CI job. On macOS the hardware
+      // flags are set, because without them every device test returns early and proves nothing.
+      {
+        id: 'crates-test',
+        name: 'GPU and compute crates build and pass their tests',
+        argv: 'cargo',
+        args: [
+          'test',
+          '--locked',
+          ...WORKSPACE_CRATES.flatMap(name => ['-p', name]),
+          '--features',
+          'tensor-core/conformance',
+        ],
+        flags: platform === 'darwin' ? { COMPUTE_REQUIRE_GPU: '1' } : undefined,
+      },
+      {
+        id: 'crates-math-compute',
+        name: 'math-compute adapters pass against their backends',
+        argv: 'cargo',
+        args: [
+          'test',
+          '--locked',
+          '-p',
+          'osv-math-compute',
+          '--features',
+          platform === 'darwin' ? 'gpu,tensor,tensor-wgsl,tensor-mlx' : 'gpu,tensor,tensor-wgsl',
+        ],
+        flags:
+          platform === 'darwin'
+            ? { COMPUTE_REQUIRE_GPU: '1', COMPUTE_REQUIRE_MLX: '1' }
+            : undefined,
+      },
+      // MLX exists on Apple Silicon only; elsewhere the crate has nothing to run against.
+      ...(platform === 'darwin'
+        ? [
+            {
+              id: 'crates-mlx',
+              name: 'compute-mlx passes on the MLX runtime',
+              argv: 'cargo',
+              args: ['test', '--locked', '-p', 'compute-mlx'],
+              flags: { COMPUTE_REQUIRE_MLX: '1' },
+            },
+          ]
+        : []),
+      // gpu-compute stays outside the workspace (see the root Cargo.toml) and has its own lockfile.
+      {
+        id: 'crates-gpu-compute',
+        name: 'gpu-compute builds and passes on its own lockfile',
+        argv: 'cargo',
+        args: ['test', '--locked', '--manifest-path', 'crates/gpu-compute/Cargo.toml'],
+        flags: platform === 'darwin' ? { COMPUTE_REQUIRE_GPU: '1' } : undefined,
+      },
+      {
+        id: 'openscad-sample',
+        name: 'OpenSCAD sample app compiles against forma',
+        argv: 'cargo',
+        args: ['check', '--locked', '--manifest-path', 'openscad-ui/Cargo.toml'],
+      },
       // The WebView host generates its actions module from a fixture, exactly as ci.yml runs it.
       ...(platform === 'darwin'
         ? [
@@ -317,11 +385,13 @@ if (invoked) {
       cwd: root,
       encoding: 'utf8',
       maxBuffer: 64 << 20,
-      env: step.env && {
+      // `env` values are paths resolved against the repository root; `flags` are passed as given.
+      env: (step.env || step.flags) && {
         ...process.env,
         ...Object.fromEntries(
-          Object.entries(step.env).map(([key, value]) => [key, resolve(root, value)]),
+          Object.entries(step.env ?? {}).map(([key, value]) => [key, resolve(root, value)]),
         ),
+        ...step.flags,
       },
     });
     const output = `${run.stdout ?? ''}${run.stderr ?? ''}`;

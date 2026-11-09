@@ -2,8 +2,8 @@ node_modules/
 dist/
 .forma/
 native-app/target/
+/target/
 crates/*/target/
-crates/forma/target/
 crates/forma/examples/*/target/
 packages/svet/crates/svet-wasm/target/
 packages/svet/dist/
