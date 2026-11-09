@@ -11,7 +11,7 @@
  *      keeping DOM node count under ~25 elements even for 100,000+ reactive items!
  */
 
-import { getDomMutationCount, h, insertChild } from './dom.ts';
+import { getDomMutationCount, insertChild } from './dom.ts';
 import { getGpuTelemetry, type GpuDeviceTelemetry } from './gpu.ts';
 import {
   batch,

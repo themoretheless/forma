@@ -25,7 +25,7 @@
  *    - Implements Forma's complete `stdlib`: math (`clamp`, `lerp`, `remap`, `sum`, `avg`), strings & i18n (`plural`, `upper`, `lower`, `capitalize`, `truncate`, `padStart`), collections (`filter`, `map`, `join`, `take`, `skip`, `unique`), and WCAG color functions (`lighten`, `darken`, `alpha`, `luminance`, `contrast`).
  */
 
-import { For, h, insertChild, Show } from './dom.ts';
+import { For, insertChild, Show } from './dom.ts';
 import {
   batch,
   computed,
@@ -128,7 +128,6 @@ import {
   parseFormaExprAst,
   evalAstNode,
   isStaticFormaExprNode,
-  isStaticFormaExpr,
   evaluateFormaExpression,
   compileFormaPatternMatcher,
   doesFormaPatternMatch,
@@ -699,10 +698,6 @@ function findStatementSemicolon(src: string, start: number): number {
     i++;
   }
   return -1;
-}
-
-function sourceChar(s: string, idx: number): string {
-  return s[idx] ?? '';
 }
 
 const _formaComponentRegistry = new Map<string, string>();

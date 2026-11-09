@@ -9,7 +9,6 @@ import {
   effect,
   batch,
   untrack,
-  flushEffects,
   invalidateSingleSignalFastPath,
   allocateReactiveNode,
   getReactiveGeneration,

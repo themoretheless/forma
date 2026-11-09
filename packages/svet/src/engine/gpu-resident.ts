@@ -5,7 +5,7 @@ import {
   isOwnerScopeDisposed,
   runUntrackedInCore,
 } from './reactivity.ts';
-import { getWasmCore, type SvetWasmExports } from './wasm-bridge.ts';
+import { getWasmCore } from './wasm-bridge.ts';
 import {
   gpuState,
   tensorRecords,
