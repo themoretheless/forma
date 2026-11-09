@@ -17,6 +17,8 @@
 
 #[cfg(target_arch = "wasm32")]
 use std::cell::UnsafeCell;
+use std::collections::HashMap;
+use std::hash::{BuildHasher, Hasher};
 
 fn perspective_matrix(fov_y_rad: f32, aspect: f32, near: f32, far: f32) -> Option<[f32; 16]> {
     if ![fov_y_rad, aspect, near, far].iter().all(|v| v.is_finite())
@@ -100,12 +102,53 @@ pub struct ScheduledEffect {
     pub lifetime: u32,
 }
 
+/// Subscriber lists at least this long keep their positions in `sub_index`.
+const SUB_INDEX_THRESHOLD: usize = 16;
+
+/// Hashes one `u64` edge key; the default SipHash costs more than the scan it replaces.
+#[derive(Clone, Copy, Default)]
+pub struct EdgeHashBuilder;
+
+pub struct EdgeHasher(u64);
+
+impl BuildHasher for EdgeHashBuilder {
+    type Hasher = EdgeHasher;
+    fn build_hasher(&self) -> EdgeHasher {
+        EdgeHasher(0)
+    }
+}
+
+impl Hasher for EdgeHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for &byte in bytes {
+            self.write_u64(byte as u64);
+        }
+    }
+    fn write_u64(&mut self, value: u64) {
+        let mixed = (self.0.rotate_left(5) ^ value).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        self.0 = mixed ^ (mixed >> 32);
+    }
+}
+
+#[inline]
+fn edge_key(source: usize, target: u32) -> u64 {
+    ((source as u64) << 32) | target as u64
+}
+
 pub struct ReactiveGraph {
     pub nodes: Vec<Node>,
     /// Forward edges: `subscribers[source_id]` -> list of target node IDs
     pub subscribers: Vec<Vec<u32>>,
     /// Backward edges: `sources[target_id]` -> list of source node IDs
     pub sources: Vec<Vec<u32>>,
+    /// Position of `target` in `subscribers[source]`, kept only for sources
+    /// marked in `sub_indexed`: a signal with thousands of subscribers must
+    /// not scan its list on every link and unlink.
+    sub_index: HashMap<u64, u32, EdgeHashBuilder>,
+    sub_indexed: Vec<bool>,
     /// Contiguous byte array of node states (`STATE_CLEAN`, `STATE_CHECK`, `STATE_DIRTY`, `STATE_DISPOSED`)
     /// exposed directly to JS via zero-copy `Uint8Array` view so JS can check `state === STATE_CLEAN` without FFI!
     pub node_states: Vec<u8>,
@@ -166,6 +209,8 @@ impl ReactiveGraph {
             nodes: Vec::new(),
             subscribers: Vec::new(),
             sources: Vec::new(),
+            sub_index: HashMap::with_hasher(EdgeHashBuilder),
+            sub_indexed: Vec::new(),
             node_states: Vec::new(),
             single_terminal_effect: Vec::new(),
             downstream_computeds: Vec::new(),
@@ -201,6 +246,8 @@ impl ReactiveGraph {
         self.nodes.clear();
         self.subscribers.clear();
         self.sources.clear();
+        self.sub_index.clear();
+        self.sub_indexed.clear();
         self.node_states.clear();
         self.single_terminal_effect.clear();
         self.downstream_computeds.clear();
@@ -1063,7 +1110,7 @@ impl ReactiveGraph {
             self.single_terminal_effect[idx] = u32::MAX;
             self.downstream_computeds[idx].clear();
             self.terminal_cache_epoch[idx] = 0;
-            self.subscribers[idx].clear();
+            self.take_subscribers(idx);
             self.sources[idx].clear();
             return reused_id;
         }
@@ -1082,6 +1129,7 @@ impl ReactiveGraph {
         self.downstream_computeds.push(Vec::new());
         self.terminal_cache_epoch.push(0);
         self.subscribers.push(Vec::with_capacity(4));
+        self.sub_indexed.push(false);
         self.sources.push(Vec::with_capacity(4));
         id
     }
@@ -1119,7 +1167,7 @@ impl ReactiveGraph {
         self.clear_sources(id);
 
         // 2. Sever outgoing edges (this node -> subscribers)
-        let subs = std::mem::take(&mut self.subscribers[idx]);
+        let subs = self.take_subscribers(idx);
         for sub_id in subs {
             let lifetime = self
                 .nodes
@@ -1170,13 +1218,72 @@ impl ReactiveGraph {
         if !self.nodes[s].alive || !self.nodes[t].alive {
             return;
         }
-        if !self.subscribers[s].contains(&target) {
-            self.subscribers[s].push(target);
+        // Both lists hold every edge, so one membership test covers the pair.
+        if !self.has_subscriber(s, target) {
+            debug_assert!(!self.sources[t].contains(&source));
+            self.add_subscriber(s, target);
+            self.sources[t].push(source);
             self.advance_topology_epoch();
         }
-        if !self.sources[t].contains(&source) {
-            self.sources[t].push(source);
+    }
+
+    #[inline]
+    fn has_subscriber(&self, source: usize, target: u32) -> bool {
+        if self.sub_indexed[source] {
+            self.sub_index.contains_key(&edge_key(source, target))
+        } else {
+            self.subscribers[source].contains(&target)
         }
+    }
+
+    /// The caller has checked that the edge is absent.
+    #[inline]
+    fn add_subscriber(&mut self, source: usize, target: u32) {
+        let subs = &mut self.subscribers[source];
+        subs.push(target);
+        if self.sub_indexed[source] {
+            self.sub_index
+                .insert(edge_key(source, target), subs.len() as u32 - 1);
+        } else if subs.len() >= SUB_INDEX_THRESHOLD {
+            self.sub_indexed[source] = true;
+            for (position, &sub) in subs.iter().enumerate() {
+                self.sub_index
+                    .insert(edge_key(source, sub), position as u32);
+            }
+        }
+    }
+
+    /// Removes the edge if present; the list's last entry takes its place.
+    #[inline]
+    fn remove_subscriber(&mut self, source: usize, target: u32) {
+        let Some(subs) = self.subscribers.get_mut(source) else {
+            return;
+        };
+        if !self.sub_indexed[source] {
+            if let Some(position) = subs.iter().position(|&id| id == target) {
+                subs.swap_remove(position);
+            }
+            return;
+        }
+        let Some(position) = self.sub_index.remove(&edge_key(source, target)) else {
+            return;
+        };
+        subs.swap_remove(position as usize);
+        if let Some(&moved) = subs.get(position as usize) {
+            self.sub_index.insert(edge_key(source, moved), position);
+        }
+    }
+
+    /// Empties a subscriber list and drops its index entries.
+    fn take_subscribers(&mut self, source: usize) -> Vec<u32> {
+        let subs = std::mem::take(&mut self.subscribers[source]);
+        if self.sub_indexed[source] {
+            self.sub_indexed[source] = false;
+            for &sub in &subs {
+                self.sub_index.remove(&edge_key(source, sub));
+            }
+        }
+        subs
     }
 
     #[inline]
@@ -1197,11 +1304,7 @@ impl ReactiveGraph {
         }
         let prev_sources = std::mem::take(&mut self.sources[t]);
         for src in prev_sources {
-            if let Some(subs) = self.subscribers.get_mut(src as usize) {
-                if let Some(pos) = subs.iter().position(|&x| x == target) {
-                    subs.swap_remove(pos);
-                }
-            }
+            self.remove_subscriber(src as usize, target);
         }
     }
 
@@ -1271,11 +1374,7 @@ impl ReactiveGraph {
             self.advance_topology_epoch();
             for i in cursor..old_len {
                 let stale_src = self.sources[t][i] as usize;
-                if let Some(subs) = self.subscribers.get_mut(stale_src) {
-                    if let Some(pos) = subs.iter().position(|&id| id == target) {
-                        subs.swap_remove(pos);
-                    }
-                }
+                self.remove_subscriber(stale_src, target);
             }
             self.sources[t].truncate(cursor);
         }
@@ -1310,24 +1409,24 @@ impl ReactiveGraph {
             self.tracking_stack.last_mut().unwrap().1 = cur + 1;
             return;
         }
-        if self.sources[t][..cur].contains(&source) {
-            return;
-        }
-        if let Some(offset) = self.sources[t][cur..].iter().position(|&id| id == source) {
-            self.sources[t].swap(cur, cur + offset);
-            self.tracking_stack.last_mut().unwrap().1 = cur + 1;
-            return;
+        // An edge missing from the source's subscribers is in neither half of
+        // the observer's list, so new dependencies skip both scans.
+        if self.has_subscriber(source as usize, observer) {
+            if self.sources[t][..cur].contains(&source) {
+                return;
+            }
+            if let Some(offset) = self.sources[t][cur..].iter().position(|&id| id == source) {
+                self.sources[t].swap(cur, cur + offset);
+                self.tracking_stack.last_mut().unwrap().1 = cur + 1;
+                return;
+            }
         }
         if cur < self.sources[t].len() {
             let old = self.sources[t][cur] as usize;
-            if let Some(subs) = self.subscribers.get_mut(old) {
-                if let Some(pos) = subs.iter().position(|&id| id == observer) {
-                    subs.swap_remove(pos);
-                }
-            }
+            self.remove_subscriber(old, observer);
             self.sources[t][cur] = source;
-            if !self.subscribers[source as usize].contains(&observer) {
-                self.subscribers[source as usize].push(observer);
+            if !self.has_subscriber(source as usize, observer) {
+                self.add_subscriber(source as usize, observer);
             }
             self.advance_topology_epoch();
         } else {
@@ -3298,6 +3397,51 @@ mod native_abi_thread_tests {
         for thread in threads {
             thread.join().unwrap();
         }
+    }
+    #[test]
+    fn long_subscriber_lists_stay_consistent_through_link_unlink_and_reuse() {
+        let mut g = ReactiveGraph::new();
+        let source = g.create_node(KIND_SIGNAL);
+        let other = g.create_node(KIND_SIGNAL);
+        let effects: Vec<u32> = (0..200).map(|_| g.create_node(KIND_EFFECT)).collect();
+        for &effect in &effects {
+            g.sync_sources(effect, &[source, other, source]);
+        }
+        assert!(g.sub_indexed[source as usize]);
+        assert_eq!(g.subscribers[source as usize].len(), 200);
+        assert_eq!(g.sub_index.len(), 400);
+        let check = |g: &ReactiveGraph| {
+            for node in [source, other] {
+                for (position, &sub) in g.subscribers[node as usize].iter().enumerate() {
+                    assert_eq!(g.sub_index[&edge_key(node as usize, sub)], position as u32);
+                    assert!(g.sources[sub as usize].contains(&node));
+                }
+            }
+        };
+        check(&g);
+        // Unlinking from the middle moves the last subscriber into the hole.
+        for &effect in effects.iter().step_by(3) {
+            g.sync_sources(effect, &[other]);
+        }
+        check(&g);
+        assert_eq!(g.subscribers[source as usize].len(), 133);
+        for &effect in effects.iter().skip(1).step_by(3) {
+            g.dispose_node(effect);
+        }
+        check(&g);
+        assert_eq!(g.subscribers[source as usize].len(), 66);
+        assert_eq!(g.subscribers[other as usize].len(), 133);
+        // Disposing the source drops its index entries; a reused slot starts clean.
+        g.dispose_node(source);
+        assert_eq!(g.sub_index.len(), 133);
+        let reused = g.create_node(KIND_SIGNAL);
+        assert_eq!(reused, source);
+        assert!(!g.sub_indexed[reused as usize] && g.subscribers[reused as usize].is_empty());
+        for &effect in effects.iter().skip(2).step_by(3) {
+            assert_eq!(g.sources[effect as usize], vec![other]);
+        }
+        g.reset();
+        assert!(g.sub_index.is_empty() && g.sub_indexed.is_empty());
     }
 }
 
