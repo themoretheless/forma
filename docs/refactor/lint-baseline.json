@@ -30,9 +30,7 @@
     "clippy::type_complexity": 3,
     "clippy::unnecessary_cast": 1,
     "clippy::unnecessary_map_or": 1,
-    "clippy::unnecessary_unwrap": 1,
-    "dead_code": 1,
-    "unused_imports": 1
+    "clippy::unnecessary_unwrap": 1
   },
   "gpu-runtime": {
     "clippy::arc_with_non_send_sync": 1,
