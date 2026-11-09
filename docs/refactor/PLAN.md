@@ -3,7 +3,7 @@
 | Этап | Состояние |
 |---|---|
 | 0. Базовая линия | частично: гейт, тесты крейтов, размеры, дубли, циклы и анализ снимков сняты; clippy, покрытие и бенчмарки нет |
-| 1. Фундамент | готово, кроме ESLint и строгих флагов tsconfig для `packages/svet` (там параллельно работает другая сессия) и clippy-ratchet в CI (только локально на macOS) |
+| 1. Фундамент | готово: формат, ESLint (корень и svet), clippy, `cargo deny`, слои крейтов, workspace, крейты/Android/iOS/wasm в гейте, архитектурные тесты; строгий tsconfig svet включён целиком, кроме `noUncheckedIndexedAccess`, который ведётся ratchet-ом по файлам (741 находка, расти не может) |
 | 2. forma | начат: golden на все builtins, исправлены F-1, F-2, F-6; builtins разбиты на 9 модулей; `WidgetState`; единый `blend`; модуль `geometry`; `form_document.rs` 4860 → 548 строк, `runtime.rs` 4404 → 1635, `control_state` разбит на 14 файлов, `binding.rs` без `ModelValue` и тестов, тесты всех крупных модулей вынесены в отдельные файлы; осталось: логические изменения (NodeKind, общие селекторы control-flow, разбиение `scene_expand`/`render_scene_with_extents`, `Form::sync`/`update`), слияние оконных хостов |
 | 3–4 | не начаты |
 | 5. GPU-крейты | начат: golden WGSL→MSL по 123 шейдерам репозитория в `gpu-shader` (раньше тестов не было) |
