@@ -10,7 +10,7 @@
 | F-3 | `crates/forma/src/form_document.rs:513-529, 1071-1085, 1197-1206, 1311-1323` | подозрение | три разных правила раскрытия детей `let`; `let` внутри `empty {}` не виден соседям |
 | F-4 | `crates/forma/src/main.rs:917-956` | расхождение подтверждено чтением | медленный touch-drag теряет движение; исправлено только в `native_window.rs` |
 | F-5 | `scripts/runtime-digest.mjs:15-19` | подтверждено чтением | `TwoButtons.ui` встраивается в wasm, но не входит в дайджест |
-| F-6 | CI и `scripts/full-gate.mjs` | подтверждено чтением | ветки `cfg(target_os = "android")` и iOS нигде не компилируются |
+| F-6 | CI и `scripts/full-gate.mjs` | исправлено в гейте | ветки Android и iOS компилируются шагами `mobile-android` и `mobile-ios` (при установленных targets); в CI их по-прежнему нет |
 | F-7 | `crates/forma/src/lib.rs:237` и `runtime.rs:1651-1657` | расхождение | разные границы прокрутки у `Button` и `Runtime` |
 | F-8 | `crates/forma/src/binding.rs:1639-1658` | не проверено | записи применяются последовательно через `?`; поздняя ошибка оставляет ранние записи |
 | S-1 | `src/main.js:138` `persist()` | подтверждено чтением | статус «сохранено» при HTTP-ошибке и при сбое сети |

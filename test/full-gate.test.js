@@ -16,8 +16,13 @@ test('the gate covers every runner platform CI uses', () => {
     ids.filter(id => id.startsWith('native-')),
     ['native-host', 'native-x86_64-unknown-linux-gnu'],
   );
-  assert.equal(skipped.length, 1);
-  assert.match(skipped[0].reason, /rustup target add/);
+  // Windows plus both mobile targets are missing from this matrix's installed list.
+  assert.deepEqual(skipped.map(step => step.id).sort(), [
+    'mobile-android',
+    'mobile-ios',
+    'native-x86_64-pc-windows-msvc',
+  ]);
+  for (const missing of skipped) assert.match(missing.reason, /rustup target add/);
   assert.equal(
     new Set([...ids, ...skipped.map(step => step.id)]).size,
     ids.length + skipped.length,
@@ -35,6 +40,18 @@ test('the gate covers every runner platform CI uses', () => {
   assert.equal(
     list.every(step => step.id !== step.name),
     true,
+  );
+});
+test('platform code without a CI runner is compiled when its target is installed', () => {
+  const ids = matrix({
+    installedTargets: [...TARGETS, 'aarch64-linux-android', 'aarch64-apple-ios-sim'],
+  }).list.map(item => item.id);
+  for (const id of ['wasm-lib', 'mobile-android', 'mobile-ios']) assert.ok(ids.includes(id), id);
+  assert.deepEqual(
+    step('mobile-ios', {
+      installedTargets: ['aarch64-apple-ios-sim'],
+    }).args.slice(-2),
+    ['--target', 'aarch64-apple-ios-sim'],
   );
 });
 test('the host compiles what no CI runner compiles', () => {
