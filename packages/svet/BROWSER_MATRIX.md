@@ -558,9 +558,9 @@ loss remain open.
 [HMR evidence](benchmarks/owner-reset-browser-hmr-qualification-2026-11-02.json).
 
 
-## 2026-11-02 — rebuilt Rust vector-ui WASM execution
+## 2026-11-02 — rebuilt Rust crates/forma WASM execution
 
-Current vector-ui release WASM (idle guard and borrowed alias resolver) rebuilt
+Current crates/forma release WASM (idle guard and borrowed alias resolver) rebuilt
 with wasm-bindgen0.2.125 NodeJS/web bindings. Node passes7 artifact +7 binding
 snapshot/reload cases. Chromium156 passes10/10 CPU Canvas2D checks. Single and
 chained alias cases perform24 idle sync calls, Unicode input, reload with reversed

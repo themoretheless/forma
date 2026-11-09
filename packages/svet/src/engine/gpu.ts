@@ -26,9 +26,20 @@ import {
   triggerNodeWrite,
   disposeTrackedNode,
 } from './reactivity.ts';
-import { getWasmCore, withWasmCore, withoutAsyncCoreContext, KIND_SIGNAL, type SvetWasmExports } from './wasm-bridge.ts';
-import { residentVertexRecord, assertResidentRecord, snapshotResidentVertices,
-  type GpuResidentTensor, type GpuResidentRecord } from './gpu-resident-bridge.ts';
+import {
+  getWasmCore,
+  withWasmCore,
+  withoutAsyncCoreContext,
+  KIND_SIGNAL,
+  type SvetWasmExports,
+} from './wasm-bridge.ts';
+import {
+  residentVertexRecord,
+  assertResidentRecord,
+  snapshotResidentVertices,
+  type GpuResidentTensor,
+  type GpuResidentRecord,
+} from './gpu-resident-bridge.ts';
 
 export type MemoryArchitecture = 'UMA' | 'DUMA';
 
@@ -79,7 +90,7 @@ export interface WebGpuQueueLike {
     bufferOffset: number,
     data: BufferSource | SharedArrayBuffer,
     dataOffset?: number,
-    size?: number
+    size?: number,
   ): void;
   submit?(commandBuffers: any[]): void;
   onSubmittedWorkDone?(): PromiseLike<void>;
@@ -100,7 +111,12 @@ export interface WebGpuDeviceLike {
   popErrorScope?(): PromiseLike<{ message: string } | null>;
   lost?: PromiseLike<{ reason?: string; message?: string }>;
   destroy?(): void;
-  limits?: { maxComputeWorkgroupsPerDimension?: number; maxBufferSize?: number; maxStorageBufferBindingSize?: number; maxTextureDimension2D?: number };
+  limits?: {
+    maxComputeWorkgroupsPerDimension?: number;
+    maxBufferSize?: number;
+    maxStorageBufferBindingSize?: number;
+    maxTextureDimension2D?: number;
+  };
 }
 
 export interface GpuSubsystemConfig {
@@ -114,7 +130,10 @@ export interface GpuSubsystemConfig {
 
 interface GpuState {
   renderers: Set<(reset: boolean) => void>;
-  configurationCleanup: { owner: NonNullable<ReturnType<typeof getCurrentOwner>>; callback: () => void } | null;
+  configurationCleanup: {
+    owner: NonNullable<ReturnType<typeof getCurrentOwner>>;
+    callback: () => void;
+  } | null;
   lossSubscription: { device: WebGpuDeviceLike; reference: WeakRef<GpuState> } | null;
   contextLifetime: AbortController;
   lifetime: AbortController;
@@ -142,21 +161,40 @@ function unregisterConfiguration(state: GpuState): void {
 }
 function notifyRenderers(state: GpuState, reset = false): void {
   for (const listener of Array.from(state.renderers)) {
-    try { listener(reset); } catch { /* one renderer must not prevent other cleanup */ }
+    try {
+      listener(reset);
+    } catch {
+      /* one renderer must not prevent other cleanup */
+    }
   }
 }
 function detachDevice(state: GpuState, reason: Error, notify = true): void {
   unregisterConfiguration(state);
   state.lifetime.abort(reason);
   if (state.lossSubscription) {
-    deviceLossHubs.get(state.lossSubscription.device)?.states.delete(state.lossSubscription.reference);
+    deviceLossHubs
+      .get(state.lossSubscription.device)
+      ?.states.delete(state.lossSubscription.reference);
     state.lossSubscription = null;
   }
-  const buffer = state.buffer, device = state.device, owned = state.ownsDevice;
-  state.buffer = null; state.bufferSize = 0; state.forceUpload = true; state.device = null; state.ownsDevice = false;
-  try { if (notify) notifyRenderers(state); } finally {
-    try { buffer?.destroy?.(); } finally {
-      if (owned && device) { computePipelineCaches.delete(device); device.destroy?.(); }
+  const buffer = state.buffer,
+    device = state.device,
+    owned = state.ownsDevice;
+  state.buffer = null;
+  state.bufferSize = 0;
+  state.forceUpload = true;
+  state.device = null;
+  state.ownsDevice = false;
+  try {
+    if (notify) notifyRenderers(state);
+  } finally {
+    try {
+      buffer?.destroy?.();
+    } finally {
+      if (owned && device) {
+        computePipelineCaches.delete(device);
+        device.destroy?.();
+      }
     }
   }
 }
@@ -169,12 +207,21 @@ function subscribeDeviceLoss(device: WebGpuDeviceLike, hub: DeviceLossHub): void
     for (const reference of Array.from(hub.states)) {
       const state = reference.deref();
       if (state?.device === device) {
-        try { detachDevice(state, new Error(`GPU device lost: ${message}`)); } catch { /* notify other contexts too */ }
+        try {
+          detachDevice(state, new Error(`GPU device lost: ${message}`));
+        } catch {
+          /* notify other contexts too */
+        }
       } else hub.states.delete(reference);
     }
   };
   withoutAsyncCoreContext(() => {
-    Promise.resolve(device.lost!).then(info => lost(info.message || info.reason || 'unknown'), error => lost(String(error))).catch(() => {});
+    Promise.resolve(device.lost!)
+      .then(
+        info => lost(info.message || info.reason || 'unknown'),
+        error => lost(String(error)),
+      )
+      .catch(() => {});
   });
 }
 function watchDeviceLoss(state: GpuState): void {
@@ -182,11 +229,17 @@ function watchDeviceLoss(state: GpuState): void {
   if (!device?.lost || state.lossSubscription?.device === device) return;
   let hub = deviceLossHubs.get(device);
   if (!hub) {
-    hub = { states: new Set() }; deviceLossHubs.set(device, hub); subscribeDeviceLoss(device, hub);
+    hub = { states: new Set() };
+    deviceLossHubs.set(device, hub);
+    subscribeDeviceLoss(device, hub);
   }
-  if (hub.message !== undefined) { detachDevice(state, new Error(`GPU device lost: ${hub.message}`)); return; }
+  if (hub.message !== undefined) {
+    detachDevice(state, new Error(`GPU device lost: ${hub.message}`));
+    return;
+  }
   for (const reference of hub.states) if (!reference.deref()) hub.states.delete(reference);
-  const reference = new WeakRef(state); hub.states.add(reference);
+  const reference = new WeakRef(state);
+  hub.states.add(reference);
   state.lossSubscription = { device, reference };
 }
 function resetGpuState(state: GpuState, core: SvetWasmExports): void {
@@ -196,16 +249,40 @@ function resetGpuState(state: GpuState, core: SvetWasmExports): void {
   state.lifetime = new AbortController();
   state.contextLifetime = new AbortController();
   const buffer = state.buffer;
-  Object.assign(state, { generation: getReactiveGeneration(core), buffer: null, bufferSize: 0, forceUpload: true,
-    lastBytes: 0, syncCount: 0, totalBytes: 0 });
+  Object.assign(state, {
+    generation: getReactiveGeneration(core),
+    buffer: null,
+    bufferSize: 0,
+    forceUpload: true,
+    lastBytes: 0,
+    syncCount: 0,
+    totalBytes: 0,
+  });
   buffer?.destroy?.();
 }
 function gpuState(core = getWasmCore()): GpuState {
   const generation = getReactiveGeneration(core);
   let state = gpuStates.get(core);
   if (!state) {
-    state = { renderers: new Set(), configurationCleanup: null, lossSubscription: null, contextLifetime: new AbortController(), lifetime: new AbortController(), version: 0, initializationVersion: 0, ownsDevice: false, generation, architecture: 'UMA', device: null, buffer: null, bufferSize: 0,
-      forceUpload: true, lastBytes: 0, syncCount: 0, totalBytes: 0 };
+    state = {
+      renderers: new Set(),
+      configurationCleanup: null,
+      lossSubscription: null,
+      contextLifetime: new AbortController(),
+      lifetime: new AbortController(),
+      version: 0,
+      initializationVersion: 0,
+      ownsDevice: false,
+      generation,
+      architecture: 'UMA',
+      device: null,
+      buffer: null,
+      bufferSize: 0,
+      forceUpload: true,
+      lastBytes: 0,
+      syncCount: 0,
+      totalBytes: 0,
+    };
     gpuStates.set(core, state);
     const created = state;
     registerReactiveResetCleanup(core, () => resetGpuState(created, core));
@@ -217,31 +294,48 @@ function gpuState(core = getWasmCore()): GpuState {
 export function configureGpuSubsystem(config: GpuSubsystemConfig = {}): GpuDeviceTelemetry {
   const owner = getCurrentOwner();
   if (isOwnerScopeDisposed(owner)) throw new Error('GPU configuration owner disposed');
-  const core = getWasmCore(), generation = getReactiveGeneration(core), state = gpuState(core);
+  const core = getWasmCore(),
+    generation = getReactiveGeneration(core),
+    state = gpuState(core);
   const initialization = state.initializationVersion;
   // Read user-controlled fields once before publishing any configuration change.
-  config = { architecture: config.architecture, device: config.device,
-    maxPendingComputeBytes: config.maxPendingComputeBytes, maxResidentComputeBytes: config.maxResidentComputeBytes };
-  if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during configuration');
+  config = {
+    architecture: config.architecture,
+    device: config.device,
+    maxPendingComputeBytes: config.maxPendingComputeBytes,
+    maxResidentComputeBytes: config.maxResidentComputeBytes,
+  };
+  if (generation !== getReactiveGeneration(core))
+    throw new Error('GPU context reset during configuration');
   if (isOwnerScopeDisposed(owner)) throw new Error('GPU configuration owner disposed');
-  if (initialization !== state.initializationVersion) throw new Error('GPU configuration changed during configuration');
-  if (config.architecture !== undefined && config.architecture !== 'UMA' && config.architecture !== 'DUMA') {
+  if (initialization !== state.initializationVersion)
+    throw new Error('GPU configuration changed during configuration');
+  if (
+    config.architecture !== undefined &&
+    config.architecture !== 'UMA' &&
+    config.architecture !== 'DUMA'
+  ) {
     throw new TypeError('Invalid GPU memory architecture');
   }
   const budgetDevice = config.device === undefined ? state.device : config.device;
   for (const key of ['maxPendingComputeBytes', 'maxResidentComputeBytes'] as const) {
     const value = config[key];
     if (value === undefined) continue;
-    if (!Number.isSafeInteger(value) || value < 0) throw new RangeError(`${key} must be a nonnegative safe integer`);
+    if (!Number.isSafeInteger(value) || value < 0)
+      throw new RangeError(`${key} must be a nonnegative safe integer`);
     if (!budgetDevice) throw new Error('A GPU device is required to configure a compute budget');
   }
-  if (config.maxPendingComputeBytes !== undefined) computeSnapshotBudgets.set(budgetDevice!, config.maxPendingComputeBytes);
-  if (config.maxResidentComputeBytes !== undefined) residentComputeBudgets.set(budgetDevice!, config.maxResidentComputeBytes);
+  if (config.maxPendingComputeBytes !== undefined)
+    computeSnapshotBudgets.set(budgetDevice!, config.maxPendingComputeBytes);
+  if (config.maxResidentComputeBytes !== undefined)
+    residentComputeBudgets.set(budgetDevice!, config.maxResidentComputeBytes);
   unregisterConfiguration(state);
   state.initializationVersion++;
   if (config.architecture) state.architecture = config.architecture;
   else if (!config.device) {
-    const appleHint = typeof navigator !== 'undefined' && /Mac|Apple/.test(navigator.platform || navigator.userAgent || '');
+    const appleHint =
+      typeof navigator !== 'undefined' &&
+      /Mac|Apple/.test(navigator.platform || navigator.userAgent || '');
     state.architecture = appleHint ? 'UMA' : 'DUMA';
   }
   const deviceChanged = config.device !== undefined && config.device !== state.device;
@@ -267,7 +361,9 @@ export function configureGpuSubsystem(config: GpuSubsystemConfig = {}): GpuDevic
 
 export function resetGpuTelemetry(): void {
   const state = gpuState();
-  state.lastBytes = 0; state.syncCount = 0; state.totalBytes = 0;
+  state.lastBytes = 0;
+  state.syncCount = 0;
+  state.totalBytes = 0;
 }
 
 const tensorRecords = new WeakMap<GpuTensorSignal, { core: SvetWasmExports; revision: number }>();
@@ -281,16 +377,19 @@ function reviseTensor(tensor: GpuTensorSignal): void {
  * Zero JS Heap array copies: `tensor()` and `tensor.view()` return a direct `Float32Array` view over WASM memory.
  */
 export function createGpuTensor(initialOrLength: number | ArrayLike<number>): GpuTensorSignal {
-  const core = getWasmCore(), owner = getCurrentOwner();
+  const core = getWasmCore(),
+    owner = getCurrentOwner();
   const generation = getReactiveGeneration(core);
   const assertConstructionCurrent = () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('GPU tensor construction owner disposed');
-    if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during tensor initialization');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('GPU context reset during tensor initialization');
   };
   assertConstructionCurrent();
   const length = typeof initialOrLength === 'number' ? initialOrLength : initialOrLength.length;
   assertConstructionCurrent();
-  if (!Number.isInteger(length) || length < 0 || length > core.svet_gpu_get_arena_limit_f32()) throw new RangeError('Invalid GPU tensor length');
+  if (!Number.isInteger(length) || length < 0 || length > core.svet_gpu_get_arena_limit_f32())
+    throw new RangeError('Invalid GPU tensor length');
   // Snapshot before arena allocation: input may borrow WASM memory that arena
   // growth detaches, and ArrayLike getters may throw or reset the graph.
   let initialValues: Float32Array | undefined;
@@ -306,8 +405,10 @@ export function createGpuTensor(initialOrLength: number | ArrayLike<number>): Gp
   invalidateSingleSignalFastPath();
   let disposed = false;
   const assertLive = () => {
-    if (disposed || isOwnerScopeDisposed(owner) || generation !== getReactiveGeneration(core)) throw new Error('GPU tensor has been disposed or invalidated');
-    if (getWasmCore() !== core) throw new Error('GPU tensor belongs to a different reactive context');
+    if (disposed || isOwnerScopeDisposed(owner) || generation !== getReactiveGeneration(core))
+      throw new Error('GPU tensor has been disposed or invalidated');
+    if (getWasmCore() !== core)
+      throw new Error('GPU tensor belongs to a different reactive context');
   };
 
   let cachedBuffer: ArrayBufferLike | null = null;
@@ -357,7 +458,14 @@ export function createGpuTensor(initialOrLength: number | ArrayLike<number>): Gp
   getter.write = (values: ArrayLike<number>, startIndex = 0) => {
     assertLive();
     const sourceLength = values.length;
-    if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex > length || !Number.isInteger(sourceLength) || sourceLength < 0) throw new RangeError('Invalid GPU tensor write range');
+    if (
+      !Number.isInteger(startIndex) ||
+      startIndex < 0 ||
+      startIndex > length ||
+      !Number.isInteger(sourceLength) ||
+      sourceLength < 0
+    )
+      throw new RangeError('Invalid GPU tensor write range');
     const writeLen = Math.min(sourceLength, length - startIndex);
     if (writeLen <= 0) return;
 
@@ -381,7 +489,8 @@ export function createGpuTensor(initialOrLength: number | ArrayLike<number>): Gp
 
   getter.setAt = (index: number, value: number) => {
     assertLive();
-    if (!Number.isInteger(index) || index < 0 || index >= length) throw new RangeError('Invalid GPU tensor index');
+    if (!Number.isInteger(index) || index < 0 || index >= length)
+      throw new RangeError('Invalid GPU tensor index');
     const next = Math.fround(value);
     // Numeric conversion can dispose/reallocate the tensor or grow WASM memory.
     // Validate lifetime and acquire the current buffer only after it completes.
@@ -402,7 +511,8 @@ export function createGpuTensor(initialOrLength: number | ArrayLike<number>): Gp
       const index = owner.disposables.indexOf(cleanup);
       if (index >= 0) owner.disposables.splice(index, 1);
     }
-    cachedArray = null; cachedBuffer = null;
+    cachedArray = null;
+    cachedBuffer = null;
     reviseTensor(getter);
     if (generation !== getReactiveGeneration(core)) return;
     core.svet_gpu_free_f32(offset, length);
@@ -435,14 +545,22 @@ export function syncGpuArena(): {
     const buffer = state.device.createBuffer({ size: arenaBytes, usage: 0x80 | 0x08 | 0x04 });
     if (!buffer) throw new Error('GPU buffer allocation failed');
     state.buffer?.destroy?.();
-    state.buffer = buffer; state.bufferSize = arenaBytes; state.forceUpload = true;
+    state.buffer = buffer;
+    state.bufferSize = arenaBytes;
+    state.forceUpload = true;
   }
   if (state.device && state.forceUpload && arenaBytes) core.svet_gpu_mark_dirty(0, arenaBytes / 4);
   const minFloat = core.svet_gpu_get_dirty_min() >>> 0;
   const maxFloat = core.svet_gpu_get_dirty_max();
   state.lastBytes = 0;
   if (minFloat >= maxFloat || minFloat === 0xffffffff) {
-    return { architecture: state.architecture, dirtyFloatMin: 0, dirtyFloatMax: 0, bytesTransferred: 0, spansTransferred: 0 };
+    return {
+      architecture: state.architecture,
+      dirtyFloatMin: 0,
+      dirtyFloatMax: 0,
+      bytesTransferred: 0,
+      spansTransferred: 0,
+    };
   }
   let spansCount = 0;
   try {
@@ -483,8 +601,13 @@ export function syncGpuArena(): {
   } finally {
     state.syncCount++;
   }
-  return { architecture: state.architecture, dirtyFloatMin: minFloat, dirtyFloatMax: maxFloat,
-    bytesTransferred: state.lastBytes, spansTransferred: spansCount };
+  return {
+    architecture: state.architecture,
+    dirtyFloatMin: minFloat,
+    dirtyFloatMax: maxFloat,
+    bytesTransferred: state.lastBytes,
+    spansTransferred: spansCount,
+  };
 }
 
 /**
@@ -495,7 +618,7 @@ export function executeGpuVectorFma(
   input: GpuTensorSignal,
   output: GpuTensorSignal,
   scale: number,
-  bias: number
+  bias: number,
 ): void {
   const core = getWasmCore();
   const len = Math.min(input.length, output.length);
@@ -523,25 +646,46 @@ export interface WebGpuComputeDispatchOptions {
 /** Snapshot enumerable metadata, stopping between user-controlled accesses. */
 function snapshotGpuOptionMetadata<T extends object>(options: T, assertCurrent: () => void): T {
   const snapshot = {} as T;
-  const keys = Reflect.ownKeys(options); assertCurrent();
+  const keys = Reflect.ownKeys(options);
+  assertCurrent();
   for (const key of keys) {
-    const descriptor = Reflect.getOwnPropertyDescriptor(options, key); assertCurrent();
+    const descriptor = Reflect.getOwnPropertyDescriptor(options, key);
+    assertCurrent();
     if (!descriptor?.enumerable) continue;
-    const value = Reflect.get(options, key); assertCurrent();
-    Object.defineProperty(snapshot, key, {value, enumerable: true, writable: true, configurable: true});
+    const value = Reflect.get(options, key);
+    assertCurrent();
+    Object.defineProperty(snapshot, key, {
+      value,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return snapshot;
 }
 
-function snapshotGpuComputeOptions<T extends WebGpuComputeDispatchOptions>(options: T, assertCurrent: () => void): T {
+function snapshotGpuComputeOptions<T extends WebGpuComputeDispatchOptions>(
+  options: T,
+  assertCurrent: () => void,
+): T {
   const snapshot = snapshotGpuOptionMetadata(options, assertCurrent);
   // The previous entry also accepted inherited/nonenumerable inputs.
-  const inputs = Object.hasOwn(snapshot, 'inputs') ? snapshot.inputs : Reflect.get(options, 'inputs');
+  const inputs = Object.hasOwn(snapshot, 'inputs')
+    ? snapshot.inputs
+    : Reflect.get(options, 'inputs');
   assertCurrent();
   const copied: GpuTensorSignal[] = [];
-  for (const tensor of inputs) { assertCurrent(); copied.push(tensor); }
+  for (const tensor of inputs) {
+    assertCurrent();
+    copied.push(tensor);
+  }
   assertCurrent();
-  Object.defineProperty(snapshot, 'inputs', {value: copied, enumerable: true, writable: true, configurable: true});
+  Object.defineProperty(snapshot, 'inputs', {
+    value: copied,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
   return snapshot;
 }
 
@@ -553,13 +697,23 @@ function snapshotGpuComputeOptions<T extends WebGpuComputeDispatchOptions>(optio
 export async function initWebGpuHardware(): Promise<GpuDeviceTelemetry> {
   const owner = getCurrentOwner();
   if (isOwnerScopeDisposed(owner)) throw new Error('GPU initialization owner disposed');
-  const core = getWasmCore(), state = gpuState(core);
-  const generation = getReactiveGeneration(core), initialization = ++state.initializationVersion;
-  const current = () => !isOwnerScopeDisposed(owner) && generation === getReactiveGeneration(core) && state.initializationVersion === initialization;
+  const core = getWasmCore(),
+    state = gpuState(core);
+  const generation = getReactiveGeneration(core),
+    initialization = ++state.initializationVersion;
+  const current = () =>
+    !isOwnerScopeDisposed(owner) &&
+    generation === getReactiveGeneration(core) &&
+    state.initializationVersion === initialization;
   let created: WebGpuDeviceLike | undefined;
   const releaseCreated = () => {
-    const device = created; created = undefined;
-    try { device?.destroy?.(); } catch { /* Preserve cancellation/fallback when device teardown fails. */ }
+    const device = created;
+    created = undefined;
+    try {
+      device?.destroy?.();
+    } catch {
+      /* Preserve cancellation/fallback when device teardown fails. */
+    }
   };
   try {
     const gpu = typeof navigator !== 'undefined' ? (navigator as any).gpu : undefined;
@@ -571,12 +725,18 @@ export async function initWebGpuHardware(): Promise<GpuDeviceTelemetry> {
       const unifiedHint = !adapter.isFallbackAdapter && /apple|unified|arm/.test(hint);
       if (!current()) throw new Error('GPU initialization cancelled');
       created = await adapter.requestDevice();
-      if (!created || !created.createBuffer || !created.queue) throw new Error('Invalid GPU device returned by initialization');
+      if (!created || !created.createBuffer || !created.queue)
+        throw new Error('Invalid GPU device returned by initialization');
       if (!current()) throw new Error('GPU initialization cancelled');
       return runWithCapturedOwner(core, owner, () => {
-        const report = configureGpuSubsystem({ architecture: unifiedHint ? 'UMA' : 'DUMA', device: created });
-        if (state.device === created) { state.ownsDevice = true; created = undefined; }
-        else releaseCreated();
+        const report = configureGpuSubsystem({
+          architecture: unifiedHint ? 'UMA' : 'DUMA',
+          device: created,
+        });
+        if (state.device === created) {
+          state.ownsDevice = true;
+          created = undefined;
+        } else releaseCreated();
         return report;
       });
     }
@@ -591,14 +751,20 @@ export async function initWebGpuHardware(): Promise<GpuDeviceTelemetry> {
  * WGSL execution is not implemented by this synchronous compatibility entry.
  */
 export function dispatchGpuComputeKernel(options: WebGpuComputeDispatchOptions): void {
-  const core = getWasmCore(), generation = getReactiveGeneration(core), owner = getCurrentOwner();
+  const core = getWasmCore(),
+    generation = getReactiveGeneration(core),
+    owner = getCurrentOwner();
   const assertContext = () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('GPU computation owner disposed');
-    if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during computation');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('GPU context reset during computation');
   };
   assertContext();
   options = snapshotGpuComputeOptions(options, assertContext);
-  if (!options.fallbackKernel) throw new Error('Synchronous compute requires a fallbackKernel; use dispatchGpuComputeKernelAsync for WGSL');
+  if (!options.fallbackKernel)
+    throw new Error(
+      'Synchronous compute requires a fallbackKernel; use dispatchGpuComputeKernelAsync for WGSL',
+    );
   const inputViews = options.inputs.map(t => t().slice());
   const workingOutput = options.output.peek().slice();
   const record = tensorRecords.get(options.output);
@@ -607,16 +773,21 @@ export function dispatchGpuComputeKernel(options: WebGpuComputeDispatchOptions):
   const revision = record.revision;
   const returned: unknown = runUntrackedInCore(core, () => {
     assertContext();
-    return runWithCapturedOwner(core, owner, () => options.fallbackKernel!(inputViews, workingOutput));
+    return runWithCapturedOwner(core, owner, () =>
+      options.fallbackKernel!(inputViews, workingOutput),
+    );
   });
   const then = returned == null ? undefined : (returned as PromiseLike<unknown>).then;
   if (typeof then === 'function') {
     // Cache the user accessor once and preserve its receiver during native
     // assimilation. Observe late rejection without exposing working arrays.
-    void Promise.resolve({then: then.bind(returned)}).catch(() => {});
-    throw new TypeError('Synchronous compute received an asynchronous callback; use dispatchGpuComputeKernelAsync');
+    void Promise.resolve({ then: then.bind(returned) }).catch(() => {});
+    throw new TypeError(
+      'Synchronous compute received an asynchronous callback; use dispatchGpuComputeKernelAsync',
+    );
   }
-  if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during computation');
+  if (generation !== getReactiveGeneration(core))
+    throw new Error('GPU context reset during computation');
   if (isOwnerScopeDisposed(owner)) throw new Error('GPU computation owner disposed');
   if (record.revision !== revision) throw new Error('GPU output changed during computation');
   options.output.write(workingOutput);
@@ -629,7 +800,10 @@ export interface GpuComputeChainStage {
   /** Private stage output length in floats; defaults to the final tensor length. */
   outputLength?: number;
 }
-export interface AsyncWebGpuComputeDispatchOptions extends Omit<WebGpuComputeDispatchOptions, 'fallbackKernel'> {
+export interface AsyncWebGpuComputeDispatchOptions extends Omit<
+  WebGpuComputeDispatchOptions,
+  'fallbackKernel'
+> {
   /** Entry point defaults to main. Inputs use bindings 0..N-1, output uses N. */
   entryPoint?: string;
   signal?: AbortSignal;
@@ -642,7 +816,12 @@ export interface AsyncWebGpuComputeDispatchOptions extends Omit<WebGpuComputeDis
   /** When hardware is absent, this callback implements the entire chain. */
   fallbackKernel?: (inputs: Float32Array[], output: Float32Array) => void | PromiseLike<void>;
 }
-export interface GpuComputeResult { backend: 'webgpu' | 'fallback'; elements: number; uploadedBytes: number; readbackBytes: number }
+export interface GpuComputeResult {
+  backend: 'webgpu' | 'fallback';
+  elements: number;
+  uploadedBytes: number;
+  readbackBytes: number;
+}
 
 /** An admission failure; no tensor snapshots or output revisions were reserved. */
 export class GpuComputeCapacityError extends Error {
@@ -653,12 +832,15 @@ export class GpuComputeCapacityError extends Error {
     /** Null when the count limit rejects before tensor inspection. */
     readonly requestedSnapshotBytes: number | null = null,
   ) {
-    super(reason === 'count' ? 'WebGPU compute queue is full (32 pending computations)' : 'WebGPU compute snapshot byte budget exceeded');
+    super(
+      reason === 'count'
+        ? 'WebGPU compute queue is full (32 pending computations)'
+        : 'WebGPU compute snapshot byte budget exceeded',
+    );
     this.name = 'GpuComputeCapacityError';
     this.queue = Object.freeze({ ...queue });
   }
 }
-
 
 const computeQueues = new WeakMap<WebGpuDeviceLike, Promise<void>>();
 type ComputePipelineCache = { entries: Map<string, any>; keyBytes: number };
@@ -667,15 +849,23 @@ const MAX_COMPUTE_PIPELINES = 32;
 const MAX_COMPUTE_PIPELINE_KEY_BYTES = 1024 * 1024;
 function computePipelineKey(wgsl: string, entryPoint: string, namespace = ''): string | undefined {
   // Do not coerce user objects or retain unbounded shader source in cache keys.
-  if (typeof wgsl !== 'string' || typeof entryPoint !== 'string' ||
-      (wgsl.length + entryPoint.length) * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES) return;
+  if (
+    typeof wgsl !== 'string' ||
+    typeof entryPoint !== 'string' ||
+    (wgsl.length + entryPoint.length) * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES
+  )
+    return;
   const key = `${namespace}${entryPoint.length}:${entryPoint}${wgsl}`;
   return key.length * 2 <= MAX_COMPUTE_PIPELINE_KEY_BYTES ? key : undefined;
 }
 function findComputePipeline(device: WebGpuDeviceLike, key: string | undefined): any {
   if (key === undefined) return;
-  const cache = computePipelineCaches.get(device), pipeline = cache?.entries.get(key);
-  if (pipeline) { cache!.entries.delete(key); cache!.entries.set(key, pipeline); }
+  const cache = computePipelineCaches.get(device),
+    pipeline = cache?.entries.get(key);
+  if (pipeline) {
+    cache!.entries.delete(key);
+    cache!.entries.set(key, pipeline);
+  }
   return pipeline;
 }
 function forgetComputePipeline(device: WebGpuDeviceLike, key: string | undefined): void {
@@ -683,15 +873,26 @@ function forgetComputePipeline(device: WebGpuDeviceLike, key: string | undefined
   const cache = computePipelineCaches.get(device);
   if (cache?.entries.delete(key)) cache.keyBytes -= key.length * 2;
 }
-function retainComputePipeline(device: WebGpuDeviceLike, key: string | undefined, pipeline: any): void {
+function retainComputePipeline(
+  device: WebGpuDeviceLike,
+  key: string | undefined,
+  pipeline: any,
+): void {
   if (key === undefined || deviceLossHubs.get(device)?.message !== undefined) return;
   let cache = computePipelineCaches.get(device);
-  if (!cache) { cache = { entries: new Map(), keyBytes: 0 }; computePipelineCaches.set(device, cache); }
+  if (!cache) {
+    cache = { entries: new Map(), keyBytes: 0 };
+    computePipelineCaches.set(device, cache);
+  }
   forgetComputePipeline(device, key);
-  while (cache.entries.size >= MAX_COMPUTE_PIPELINES || cache.keyBytes + key.length * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES) {
+  while (
+    cache.entries.size >= MAX_COMPUTE_PIPELINES ||
+    cache.keyBytes + key.length * 2 > MAX_COMPUTE_PIPELINE_KEY_BYTES
+  ) {
     forgetComputePipeline(device, cache.entries.keys().next().value!);
   }
-  cache.entries.set(key, pipeline); cache.keyBytes += key.length * 2;
+  cache.entries.set(key, pipeline);
+  cache.keyBytes += key.length * 2;
 }
 // Includes running work and cancelled entries whose queue closures still retain snapshots.
 const pendingComputations = new WeakMap<WebGpuDeviceLike, number>();
@@ -700,33 +901,48 @@ const pendingSnapshotBytes = new WeakMap<WebGpuDeviceLike, number>();
 const computeSnapshotBudgets = new WeakMap<WebGpuDeviceLike, number>();
 const DEFAULT_COMPUTE_SNAPSHOT_BUDGET = 256 * 1024 * 1024;
 const residentComputeBudgets = new WeakMap<WebGpuDeviceLike, number>();
-const residentComputeUsage = new WeakMap<WebGpuDeviceLike, {bytes: number; count: number}>();
+const residentComputeUsage = new WeakMap<WebGpuDeviceLike, { bytes: number; count: number }>();
 function computeQueueTelemetry(device: WebGpuDeviceLike | null): GpuComputeQueueTelemetry {
   return {
-    pendingComputeCount: device ? pendingComputations.get(device) ?? 0 : 0,
-    pendingComputeSnapshotBytes: device ? pendingSnapshotBytes.get(device) ?? 0 : 0,
+    pendingComputeCount: device ? (pendingComputations.get(device) ?? 0) : 0,
+    pendingComputeSnapshotBytes: device ? (pendingSnapshotBytes.get(device) ?? 0) : 0,
     maxPendingComputeCount: MAX_PENDING_COMPUTATIONS,
-    maxPendingComputeBytes: device ? computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET : DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
+    maxPendingComputeBytes: device
+      ? (computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET)
+      : DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
   };
 }
 
 /** @internal Reserve before copying host data; retain queued credits until drainage. */
 function reserveGpuComputeAdmission(device: WebGpuDeviceLike, snapshotBytes: number): () => void {
   const pending = pendingComputations.get(device) ?? 0;
-  if (pending >= MAX_PENDING_COMPUTATIONS) throw new GpuComputeCapacityError('count', computeQueueTelemetry(device));
+  if (pending >= MAX_PENDING_COMPUTATIONS)
+    throw new GpuComputeCapacityError('count', computeQueueTelemetry(device));
   const retained = pendingSnapshotBytes.get(device) ?? 0;
-  if (!Number.isSafeInteger(snapshotBytes) || snapshotBytes < 0 ||
-      snapshotBytes > (computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET) - retained) {
-    throw new GpuComputeCapacityError('snapshot-bytes', computeQueueTelemetry(device), snapshotBytes);
+  if (
+    !Number.isSafeInteger(snapshotBytes) ||
+    snapshotBytes < 0 ||
+    snapshotBytes >
+      (computeSnapshotBudgets.get(device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET) - retained
+  ) {
+    throw new GpuComputeCapacityError(
+      'snapshot-bytes',
+      computeQueueTelemetry(device),
+      snapshotBytes,
+    );
   }
-  pendingComputations.set(device, pending + 1); pendingSnapshotBytes.set(device, retained + snapshotBytes);
+  pendingComputations.set(device, pending + 1);
+  pendingSnapshotBytes.set(device, retained + snapshotBytes);
   let released = false;
   return () => {
-    if (released) return; released = true;
+    if (released) return;
+    released = true;
     const remaining = pendingComputations.get(device)! - 1;
     const bytes = pendingSnapshotBytes.get(device)! - snapshotBytes;
-    if (remaining) pendingComputations.set(device, remaining); else pendingComputations.delete(device);
-    if (bytes) pendingSnapshotBytes.set(device, bytes); else pendingSnapshotBytes.delete(device);
+    if (remaining) pendingComputations.set(device, remaining);
+    else pendingComputations.delete(device);
+    if (bytes) pendingSnapshotBytes.set(device, bytes);
+    else pendingSnapshotBytes.delete(device);
   };
 }
 
@@ -746,8 +962,11 @@ async function waitForGpu<T>(promise: PromiseLike<T>, signals: AbortSignal[]): P
       remove.push(() => signal.removeEventListener('abort', abort));
     }
   });
-  try { return await Promise.race([operation, cancelled]); }
-  finally { for (const cleanup of remove) cleanup(); }
+  try {
+    return await Promise.race([operation, cancelled]);
+  } finally {
+    for (const cleanup of remove) cleanup();
+  }
 }
 
 /**
@@ -756,25 +975,36 @@ async function waitForGpu<T>(promise: PromiseLike<T>, signals: AbortSignal[]): P
  * supply workgroups when the shader uses a different workgroup size.
  * Missing compute support uses an explicit host fallback, never a silent no-op.
  */
-export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeDispatchOptions): Promise<GpuComputeResult> {
-  const core = getWasmCore(), generation = getReactiveGeneration(core), owner = getCurrentOwner();
+export async function dispatchGpuComputeKernelAsync(
+  options: AsyncWebGpuComputeDispatchOptions,
+): Promise<GpuComputeResult> {
+  const core = getWasmCore(),
+    generation = getReactiveGeneration(core),
+    owner = getCurrentOwner();
   const assertContext = () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('GPU computation owner disposed');
-    if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during computation');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('GPU context reset during computation');
   };
   assertContext();
   options = snapshotGpuComputeOptions(options, assertContext);
   const chain: GpuComputeChainStage[] = [];
   if (options.chain !== undefined) {
-    if (!Array.isArray(options.chain)) throw new RangeError('GPU compute chain supports at most 31 additional stages');
+    if (!Array.isArray(options.chain))
+      throw new RangeError('GPU compute chain supports at most 31 additional stages');
     const length = options.chain.length;
     assertContext();
-    if (!Number.isInteger(length) || length < 0 || length > 31) throw new RangeError('GPU compute chain supports at most 31 additional stages');
+    if (!Number.isInteger(length) || length < 0 || length > 31)
+      throw new RangeError('GPU compute chain supports at most 31 additional stages');
     for (const value of options.chain) {
       assertContext();
-      if (chain.length >= 31) throw new RangeError('GPU compute chain supports at most 31 additional stages');
+      if (chain.length >= 31)
+        throw new RangeError('GPU compute chain supports at most 31 additional stages');
       const stage = snapshotGpuOptionMetadata(value, assertContext);
-      if (typeof stage.wgsl !== 'string' || (stage.entryPoint !== undefined && typeof stage.entryPoint !== 'string')) {
+      if (
+        typeof stage.wgsl !== 'string' ||
+        (stage.entryPoint !== undefined && typeof stage.entryPoint !== 'string')
+      ) {
         throw new TypeError('Invalid GPU compute chain shader or entry point');
       }
       chain.push(stage);
@@ -785,22 +1015,33 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
   assertContext();
   const state = gpuState(core);
   const admissionDevice = state.device;
-  const hardware = admissionDevice?.createComputePipeline && admissionDevice.createShaderModule &&
-    admissionDevice.createBindGroup && admissionDevice.createBuffer && admissionDevice.createCommandEncoder && admissionDevice.queue.submit;
+  const hardware =
+    admissionDevice?.createComputePipeline &&
+    admissionDevice.createShaderModule &&
+    admissionDevice.createBindGroup &&
+    admissionDevice.createBuffer &&
+    admissionDevice.createCommandEncoder &&
+    admissionDevice.queue.submit;
   assertContext();
   let releaseAdmission = () => {};
   if (hardware) {
     const pending = pendingComputations.get(admissionDevice!) ?? 0;
-    if (pending >= MAX_PENDING_COMPUTATIONS) throw new GpuComputeCapacityError('count', computeQueueTelemetry(admissionDevice!));
+    if (pending >= MAX_PENDING_COMPUTATIONS)
+      throw new GpuComputeCapacityError('count', computeQueueTelemetry(admissionDevice!));
     let snapshotBytes = 0;
     for (const tensor of [...options.inputs, options.output]) {
-      if (tensorRecords.get(tensor)?.core !== core) throw new Error('GPU tensor belongs to a different reactive context');
+      if (tensorRecords.get(tensor)?.core !== core)
+        throw new Error('GPU tensor belongs to a different reactive context');
       snapshotBytes += tensor.length * Float32Array.BYTES_PER_ELEMENT;
     }
     const retained = pendingSnapshotBytes.get(admissionDevice!) ?? 0;
     const budget = computeSnapshotBudgets.get(admissionDevice!) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET;
     if (!Number.isSafeInteger(snapshotBytes) || snapshotBytes > budget - retained) {
-      throw new GpuComputeCapacityError('snapshot-bytes', computeQueueTelemetry(admissionDevice!), snapshotBytes);
+      throw new GpuComputeCapacityError(
+        'snapshot-bytes',
+        computeQueueTelemetry(admissionDevice!),
+        snapshotBytes,
+      );
     }
     pendingSnapshotBytes.set(admissionDevice!, retained + snapshotBytes);
     pendingComputations.set(admissionDevice!, pending + 1);
@@ -819,75 +1060,141 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
   let enqueued = false;
   try {
     const inputViews = options.inputs.map(tensor => {
-      if (tensorRecords.get(tensor)?.core !== core) throw new Error('GPU tensor belongs to a different reactive context');
+      if (tensorRecords.get(tensor)?.core !== core)
+        throw new Error('GPU tensor belongs to a different reactive context');
       return tensor().slice();
     });
     const outputRecord = tensorRecords.get(options.output);
-    if (outputRecord?.core !== core) throw new Error('GPU output belongs to a different reactive context');
+    if (outputRecord?.core !== core)
+      throw new Error('GPU output belongs to a different reactive context');
     const workingOutput = options.output.peek().slice();
     const candidate = state.device;
-    const kernels = [{ wgsl: options.wgsl, entryPoint: options.entryPoint, workgroups: options.workgroups, outputLength: options.outputLength }, ...chain];
+    const kernels = [
+      {
+        wgsl: options.wgsl,
+        entryPoint: options.entryPoint,
+        workgroups: options.workgroups,
+        outputLength: options.outputLength,
+      },
+      ...chain,
+    ];
     const outputLengths = kernels.map(kernel => {
       const length = kernel.outputLength ?? workingOutput.length;
       // GPU-only intermediates are independent of the WASM arena limit.
-      if (!Number.isSafeInteger(length) || length < 0 || length > Math.floor(Number.MAX_SAFE_INTEGER / Float32Array.BYTES_PER_ELEMENT)) {
+      if (
+        !Number.isSafeInteger(length) ||
+        length < 0 ||
+        length > Math.floor(Number.MAX_SAFE_INTEGER / Float32Array.BYTES_PER_ELEMENT)
+      ) {
         throw new RangeError('Invalid GPU compute stage outputLength');
       }
       return length;
     });
-    if (outputLengths.at(-1) !== workingOutput.length) throw new RangeError('Final GPU compute stage must match output tensor length');
+    if (outputLengths.at(-1) !== workingOutput.length)
+      throw new RangeError('Final GPU compute stage must match output tensor length');
     const outputByteLengths = outputLengths.map(length => length * Float32Array.BYTES_PER_ELEMENT);
     const maxOutputBytes = Math.max(...outputByteLengths);
     const initialOutputBytes = Math.min(workingOutput.byteLength, outputByteLengths[0]);
     const dimensions: number[][] = [];
-    if (candidate?.createComputePipeline && candidate.createShaderModule && candidate.createBindGroup &&
-        candidate.createBuffer && candidate.createCommandEncoder && candidate.queue.submit) {
+    if (
+      candidate?.createComputePipeline &&
+      candidate.createShaderModule &&
+      candidate.createBindGroup &&
+      candidate.createBuffer &&
+      candidate.createCommandEncoder &&
+      candidate.queue.submit
+    ) {
       for (let stage = 0; stage < kernels.length; stage++) {
         const kernel = kernels[stage];
         const groups = kernel.workgroups ?? [Math.ceil(outputLengths[stage] / 64), 1, 1];
         if (!Array.isArray(groups)) throw new RangeError('Invalid GPU workgroup dimensions');
-        const length = groups.length; assertContext();
-        if (!Number.isInteger(length) || length < 1 || length > 3) throw new RangeError('Invalid GPU workgroup dimensions');
+        const length = groups.length;
+        assertContext();
+        if (!Number.isInteger(length) || length < 1 || length > 3)
+          throw new RangeError('Invalid GPU workgroup dimensions');
         const counts: number[] = [];
-        for (let i = 0; i < 3; i++) { const count = groups[i]; assertContext(); counts.push(i === 0 ? count! : count ?? 1); }
-        if (counts.some(n => !Number.isInteger(n) || n < 1 || n > (candidate.limits?.maxComputeWorkgroupsPerDimension ?? 65535))) {
+        for (let i = 0; i < 3; i++) {
+          const count = groups[i];
+          assertContext();
+          counts.push(i === 0 ? count! : (count ?? 1));
+        }
+        if (
+          counts.some(
+            n =>
+              !Number.isInteger(n) ||
+              n < 1 ||
+              n > (candidate.limits?.maxComputeWorkgroupsPerDimension ?? 65535),
+          )
+        ) {
           throw new RangeError('Invalid GPU workgroup count');
         }
         dimensions.push(counts);
       }
       for (const byteLength of [...inputViews.map(view => view.byteLength), ...outputByteLengths]) {
-        if (!byteLength || byteLength > (candidate.limits?.maxBufferSize ?? Infinity) ||
-            byteLength > (candidate.limits?.maxStorageBufferBindingSize ?? Infinity)) throw new RangeError('Invalid GPU storage binding size');
+        if (
+          !byteLength ||
+          byteLength > (candidate.limits?.maxBufferSize ?? Infinity) ||
+          byteLength > (candidate.limits?.maxStorageBufferBindingSize ?? Infinity)
+        )
+          throw new RangeError('Invalid GPU storage binding size');
       }
-    } else if (!options.fallbackKernel) throw new Error('WebGPU compute is unavailable and no fallbackKernel was supplied');
+    } else if (!options.fallbackKernel)
+      throw new Error('WebGPU compute is unavailable and no fallbackKernel was supplied');
     assertContext();
     const revision = ++outputRecord.revision;
     const cancellation = new AbortController();
     const cancel = () => cancellation.abort(new Error('GPU computation owner disposed'));
     if (owner && !owner.disposed) owner.disposables.push(cancel);
-    const signals = [cancellation.signal, state.contextLifetime.signal, ...(options.signal ? [options.signal] : [])];
+    const signals = [
+      cancellation.signal,
+      state.contextLifetime.signal,
+      ...(options.signal ? [options.signal] : []),
+    ];
     const assertCurrent = () => {
       if (isOwnerScopeDisposed(owner)) throw new Error('GPU computation owner disposed');
       checkGpuSignals(signals);
-      if (generation !== getReactiveGeneration(core)) throw new Error('GPU context reset during computation');
-      if (outputRecord.revision !== revision) throw new Error('GPU output changed during computation');
+      if (generation !== getReactiveGeneration(core))
+        throw new Error('GPU context reset during computation');
+      if (outputRecord.revision !== revision)
+        throw new Error('GPU output changed during computation');
     };
-    const publish = (values: Float32Array, backend: GpuComputeResult['backend']) => runUntrackedInCore(core, () => {
-      assertCurrent();
-      options.output.write(values);
-      return { backend, elements: values.length,
-        uploadedBytes: backend === 'webgpu' ? inputViews.reduce((sum, input) => sum + input.byteLength, initialOutputBytes) : 0,
-        readbackBytes: backend === 'webgpu' ? values.byteLength : 0 };
-    });
+    const publish = (values: Float32Array, backend: GpuComputeResult['backend']) =>
+      runUntrackedInCore(core, () => {
+        assertCurrent();
+        options.output.write(values);
+        return {
+          backend,
+          elements: values.length,
+          uploadedBytes:
+            backend === 'webgpu'
+              ? inputViews.reduce((sum, input) => sum + input.byteLength, initialOutputBytes)
+              : 0,
+          readbackBytes: backend === 'webgpu' ? values.byteLength : 0,
+        };
+      });
     try {
       const device = state.device;
-      if (!device?.createComputePipeline || !device.createShaderModule || !device.createBindGroup ||
-          !device.createBuffer || !device.createCommandEncoder || !device.queue.submit) {
-        if (!options.fallbackKernel) throw new Error('WebGPU compute is unavailable and no fallbackKernel was supplied');
-        await waitForGpu(Promise.resolve().then(() => runUntrackedInCore(core, () => {
-          assertCurrent();
-          return runWithCapturedOwner(core, owner, () => options.fallbackKernel!(inputViews, workingOutput));
-        })), signals);
+      if (
+        !device?.createComputePipeline ||
+        !device.createShaderModule ||
+        !device.createBindGroup ||
+        !device.createBuffer ||
+        !device.createCommandEncoder ||
+        !device.queue.submit
+      ) {
+        if (!options.fallbackKernel)
+          throw new Error('WebGPU compute is unavailable and no fallbackKernel was supplied');
+        await waitForGpu(
+          Promise.resolve().then(() =>
+            runUntrackedInCore(core, () => {
+              assertCurrent();
+              return runWithCapturedOwner(core, owner, () =>
+                options.fallbackKernel!(inputViews, workingOutput),
+              );
+            }),
+          ),
+          signals,
+        );
         return publish(workingOutput, 'fallback');
       }
       const lifetime = state.lifetime;
@@ -898,30 +1205,52 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
         assertCurrent();
         const buffers: any[] = [];
         const scopes: Array<'validation' | 'out-of-memory' | 'internal'> = [];
-        let mapped = false, staging: any, result: Float32Array | undefined;
+        let mapped = false,
+          staging: any,
+          result: Float32Array | undefined;
         const pipelines: Array<{ key: string | undefined; pipeline: any }> = [];
-        let failed = false, failure: unknown;
+        let failed = false,
+          failure: unknown;
         try {
           if (device.pushErrorScope && device.popErrorScope) {
-            for (const filter of ['validation', 'out-of-memory', 'internal'] as const) { device.pushErrorScope(filter); scopes.push(filter); }
+            for (const filter of ['validation', 'out-of-memory', 'internal'] as const) {
+              device.pushErrorScope(filter);
+              scopes.push(filter);
+            }
           }
           for (const kernel of kernels) {
             const entryPoint = kernel.entryPoint ?? 'main';
             const key = computePipelineKey(kernel.wgsl, entryPoint);
-            let pipeline = findComputePipeline(device, key)
-              ?? (key === undefined ? undefined : pipelines.find(item => item.key === key)?.pipeline);
+            let pipeline =
+              findComputePipeline(device, key) ??
+              (key === undefined ? undefined : pipelines.find(item => item.key === key)?.pipeline);
             // Remember attempted keys as well, so a later failure evicts all
             // pipelines used by this transaction before any result is published.
-            const record = { key, pipeline }; pipelines.push(record);
+            const record = { key, pipeline };
+            pipelines.push(record);
             if (!pipeline) {
               const shader = device.createShaderModule!({ code: kernel.wgsl });
               if (shader.getCompilationInfo) {
-                const info = await waitForGpu(shader.getCompilationInfo() as PromiseLike<{ messages: Array<{ type: string; message: string; lineNum: number; linePos: number }> }>, signals);
+                const info = await waitForGpu(
+                  shader.getCompilationInfo() as PromiseLike<{
+                    messages: Array<{
+                      type: string;
+                      message: string;
+                      lineNum: number;
+                      linePos: number;
+                    }>;
+                  }>,
+                  signals,
+                );
                 const error = info.messages.find(message => message.type === 'error');
-                if (error) throw new Error(`WGSL ${error.lineNum}:${error.linePos}: ${error.message}`);
+                if (error)
+                  throw new Error(`WGSL ${error.lineNum}:${error.linePos}: ${error.message}`);
               }
               assertCurrent();
-              pipeline = device.createComputePipeline!({ layout: 'auto', compute: { module: shader, entryPoint } });
+              pipeline = device.createComputePipeline!({
+                layout: 'auto',
+                compute: { module: shader, entryPoint },
+              });
               record.pipeline = pipeline;
             }
           }
@@ -930,11 +1259,15 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
           const storage = views.map((view, binding) => {
             const isOutput = binding === inputViews.length;
             const size = isOutput ? outputByteLengths[0] : view.byteLength;
-            const buffer = device.createBuffer!({ size: isOutput ? maxOutputBytes : size, usage: 0x80 | 0x08 | (isOutput ? 0x04 : 0) });
+            const buffer = device.createBuffer!({
+              size: isOutput ? maxOutputBytes : size,
+              usage: 0x80 | 0x08 | (isOutput ? 0x04 : 0),
+            });
             if (!buffer) throw new Error('GPU compute buffer allocation failed');
             buffers.push(buffer);
             const uploaded = Math.min(view.byteLength, size);
-            if (uploaded) device.queue.writeBuffer(buffer, 0, view.buffer, view.byteOffset, uploaded);
+            if (uploaded)
+              device.queue.writeBuffer(buffer, 0, view.buffer, view.byteOffset, uploaded);
             return { binding, resource: { buffer, size } };
           });
           staging = device.createBuffer!({ size: workingOutput.byteLength, usage: 0x01 | 0x08 });
@@ -954,15 +1287,23 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
             let entries = storage;
             if (i > 0) {
               const copiedBytes = Math.min(outputByteLengths[i - 1], outputByteLengths[i]);
-              if (outputByteLengths[i] > copiedBytes) encoder.clearBuffer(alternate, copiedBytes, outputByteLengths[i] - copiedBytes);
+              if (outputByteLengths[i] > copiedBytes)
+                encoder.clearBuffer(alternate, copiedBytes, outputByteLengths[i] - copiedBytes);
               encoder.copyBufferToBuffer(previous, 0, alternate, 0, copiedBytes);
               entries = [previous, alternate].map((buffer, binding) => ({
-                binding, resource: { buffer, size: outputByteLengths[i - 1 + binding] },
+                binding,
+                resource: { buffer, size: outputByteLengths[i - 1 + binding] },
               }));
             }
-            const group = device.createBindGroup!({ layout: pipeline.getBindGroupLayout(0), entries });
+            const group = device.createBindGroup!({
+              layout: pipeline.getBindGroupLayout(0),
+              entries,
+            });
             const pass = encoder.beginComputePass();
-            pass.setPipeline(pipeline); pass.setBindGroup(0, group); pass.dispatchWorkgroups(...dimensions[i]); pass.end();
+            pass.setPipeline(pipeline);
+            pass.setBindGroup(0, group);
+            pass.dispatchWorkgroups(...dimensions[i]);
+            pass.end();
             if (i > 0) [previous, alternate] = [alternate, previous];
           }
           encoder.copyBufferToBuffer(previous, 0, staging, 0, workingOutput.byteLength);
@@ -970,10 +1311,30 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
           await waitForGpu(staging.mapAsync(0x01, 0, workingOutput.byteLength), signals);
           mapped = true;
           result = new Float32Array(staging.getMappedRange(0, workingOutput.byteLength)).slice();
-        } catch (error) { failed = true; failure = error; }
-        finally {
-          if (mapped) { try { staging.unmap(); } catch (error) { if (!failed) { failed = true; failure = error; } } }
-          for (const buffer of buffers) { try { buffer.destroy?.(); } catch (error) { if (!failed) { failed = true; failure = error; } } }
+        } catch (error) {
+          failed = true;
+          failure = error;
+        } finally {
+          if (mapped) {
+            try {
+              staging.unmap();
+            } catch (error) {
+              if (!failed) {
+                failed = true;
+                failure = error;
+              }
+            }
+          }
+          for (const buffer of buffers) {
+            try {
+              buffer.destroy?.();
+            } catch (error) {
+              if (!failed) {
+                failed = true;
+                failure = error;
+              }
+            }
+          }
           if (scopes.length) {
             // Pop the whole group synchronously before awaiting any result.
             const results = scopes.reverse().map(filter => {
@@ -981,13 +1342,24 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
                 return Promise.resolve(device.popErrorScope!()).then(error => {
                   if (error) throw new Error(`WebGPU ${filter}: ${error.message}`);
                 });
-              } catch (error) { return Promise.reject(error); }
+              } catch (error) {
+                return Promise.reject(error);
+              }
             });
-            try { await waitForGpu(Promise.all(results), signals); }
-            catch (error) { if (!failed) { failed = true; failure = error; } }
+            try {
+              await waitForGpu(Promise.all(results), signals);
+            } catch (error) {
+              if (!failed) {
+                failed = true;
+                failure = error;
+              }
+            }
           }
         }
-        if (failed) { for (const { key } of pipelines) forgetComputePipeline(device, key); throw failure; }
+        if (failed) {
+          for (const { key } of pipelines) forgetComputePipeline(device, key);
+          throw failure;
+        }
         assertCurrent();
         // Error scopes must finish successfully before publishing to this cache.
         for (const { key, pipeline } of pipelines) retainComputePipeline(device, key, pipeline);
@@ -999,11 +1371,20 @@ export async function dispatchGpuComputeKernelAsync(options: AsyncWebGpuComputeD
       const tail = queued.then(releaseAdmission, releaseAdmission);
       enqueued = true;
       computeQueues.set(device, tail);
-      void tail.then(() => { if (computeQueues.get(device) === tail) computeQueues.delete(device); });
-      try { return await waitForGpu(queued, signals); }
-      catch (error) {
+      void tail.then(() => {
+        if (computeQueues.get(device) === tail) computeQueues.delete(device);
+      });
+      try {
+        return await waitForGpu(queued, signals);
+      } catch (error) {
         // If work started, cancellation settles only after its resources are freed.
-        if (started) { try { await queued; } catch { /* preserve cancellation */ } }
+        if (started) {
+          try {
+            await queued;
+          } catch {
+            /* preserve cancellation */
+          }
+        }
         throw error;
       }
     } finally {
@@ -1020,14 +1401,21 @@ export function getGpuTelemetry(): GpuDeviceTelemetry {
   const core = getWasmCore();
   const state = gpuState(core);
   const floatCount = core.svet_gpu_get_arena_len();
-  return { architecture: state.architecture, webgpuAvailable: state.device !== null,
-    arenaFloatCount: floatCount, arenaByteLength: floatCount * 4,
-    lastSyncBytesTransferred: state.lastBytes, totalSyncCount: state.syncCount,
+  return {
+    architecture: state.architecture,
+    webgpuAvailable: state.device !== null,
+    arenaFloatCount: floatCount,
+    arenaByteLength: floatCount * 4,
+    lastSyncBytesTransferred: state.lastBytes,
+    totalSyncCount: state.syncCount,
     totalBytesTransferred: state.totalBytes,
-    residentComputeBytes: state.device ? residentComputeUsage.get(state.device)?.bytes ?? 0 : 0,
-    residentComputeCount: state.device ? residentComputeUsage.get(state.device)?.count ?? 0 : 0,
-    maxResidentComputeBytes: state.device ? residentComputeBudgets.get(state.device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET : DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
-    ...computeQueueTelemetry(state.device) };
+    residentComputeBytes: state.device ? (residentComputeUsage.get(state.device)?.bytes ?? 0) : 0,
+    residentComputeCount: state.device ? (residentComputeUsage.get(state.device)?.count ?? 0) : 0,
+    maxResidentComputeBytes: state.device
+      ? (residentComputeBudgets.get(state.device) ?? DEFAULT_COMPUTE_SNAPSHOT_BUDGET)
+      : DEFAULT_COMPUTE_SNAPSHOT_BUDGET,
+    ...computeQueueTelemetry(state.device),
+  };
 }
 
 // ============================================================================
@@ -1053,15 +1441,25 @@ function ownSceneDisposal(cleanup: () => void): () => void {
   return dispose;
 }
 
-type SceneDisposable = {dispose(): void};
+type SceneDisposable = { dispose(): void };
 /** Release unpublished scene resources while preserving the initialization failure. */
-function constructSceneResource<T>(build: (retain: <R extends SceneDisposable>(resource: R) => R) => T): T {
+function constructSceneResource<T>(
+  build: (retain: <R extends SceneDisposable>(resource: R) => R) => T,
+): T {
   const resources: SceneDisposable[] = [];
-  const retain = <R extends SceneDisposable>(resource: R): R => { resources.push(resource); return resource; };
-  try { return build(retain); }
-  catch (failure) {
+  const retain = <R extends SceneDisposable>(resource: R): R => {
+    resources.push(resource);
+    return resource;
+  };
+  try {
+    return build(retain);
+  } catch (failure) {
     for (let i = resources.length - 1; i >= 0; i--) {
-      try { resources[i].dispose(); } catch { /* Continue releasing partial state. */ }
+      try {
+        resources[i].dispose();
+      } catch {
+        /* Continue releasing partial state. */
+      }
     }
     throw failure;
   }
@@ -1090,16 +1488,23 @@ export function createTransform3D(options?: {
   scale?: Vec3Tuple;
   parent?: ReactiveTransform3D;
 }): ReactiveTransform3D {
-  const core = getWasmCore(), generation = getReactiveGeneration(core), owner = getCurrentOwner();
+  const core = getWasmCore(),
+    generation = getReactiveGeneration(core),
+    owner = getCurrentOwner();
   const assertCurrent = () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('Transform construction owner disposed');
-    if (generation !== getReactiveGeneration(core)) throw new Error('Transform context reset during construction');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('Transform context reset during construction');
   };
   assertCurrent();
   options = options ? snapshotGpuOptionMetadata(options, assertCurrent) : undefined;
-  const initialPosition = options?.position, initialRotation = options?.rotation, initialScale = options?.scale;
+  const initialPosition = options?.position,
+    initialRotation = options?.rotation,
+    initialScale = options?.scale;
   const parentMatrix = options?.parent?.worldMatrix;
-  assertCurrent(); parentMatrix?.peek(); assertCurrent();
+  assertCurrent();
+  parentMatrix?.peek();
+  assertCurrent();
 
   return constructSceneResource(retain => {
     const position = retain(signal<Vec3Tuple>(initialPosition ?? [0, 0, 0]));
@@ -1107,32 +1512,53 @@ export function createTransform3D(options?: {
     const scale = retain(signal<Vec3Tuple>(initialScale ?? [1, 1, 1]));
     const localMatrix = retain(createGpuTensor(16));
     const worldMatrix = retain(createGpuTensor(16));
-    const computation = retain(effect(() => {
-      const [tx, ty, tz] = position();
-      const [rx, ry, rz] = rotation();
-      const [sx, sy, sz] = scale();
-      // Complete user-controlled iteration/coercion before any native matrix write.
-      const values = [tx, ty, tz, rx, ry, rz, sx, sy, sz].map(value => Math.fround(value));
-      assertCurrent(); localMatrix.peek(); worldMatrix.peek(); parentMatrix?.();
-      assertCurrent(); localMatrix.peek(); worldMatrix.peek();
-      core.svet_gpu_mat4_compose_trs(localMatrix.offset, ...values as [number, number, number, number, number, number, number, number, number]);
-      reviseTensor(localMatrix);
-      triggerNodeWrite(localMatrix.id);
-      localMatrix.peek(); worldMatrix.peek(); parentMatrix?.peek();
-      if (parentMatrix) core.svet_gpu_mat4_mul(parentMatrix.offset, localMatrix.offset, worldMatrix.offset);
-      else {
-        worldMatrix.view().set(localMatrix.view());
-        core.svet_gpu_mark_dirty(worldMatrix.offset, 16);
-      }
-      reviseTensor(worldMatrix);
-      triggerNodeWrite(worldMatrix.id);
-    }));
+    const computation = retain(
+      effect(() => {
+        const [tx, ty, tz] = position();
+        const [rx, ry, rz] = rotation();
+        const [sx, sy, sz] = scale();
+        // Complete user-controlled iteration/coercion before any native matrix write.
+        const values = [tx, ty, tz, rx, ry, rz, sx, sy, sz].map(value => Math.fround(value));
+        assertCurrent();
+        localMatrix.peek();
+        worldMatrix.peek();
+        parentMatrix?.();
+        assertCurrent();
+        localMatrix.peek();
+        worldMatrix.peek();
+        core.svet_gpu_mat4_compose_trs(
+          localMatrix.offset,
+          ...(values as [number, number, number, number, number, number, number, number, number]),
+        );
+        reviseTensor(localMatrix);
+        triggerNodeWrite(localMatrix.id);
+        localMatrix.peek();
+        worldMatrix.peek();
+        parentMatrix?.peek();
+        if (parentMatrix)
+          core.svet_gpu_mat4_mul(parentMatrix.offset, localMatrix.offset, worldMatrix.offset);
+        else {
+          worldMatrix.view().set(localMatrix.view());
+          core.svet_gpu_mark_dirty(worldMatrix.offset, 16);
+        }
+        reviseTensor(worldMatrix);
+        triggerNodeWrite(worldMatrix.id);
+      }),
+    );
     assertCurrent();
     return {
-      position, rotation, scale, localMatrix, worldMatrix,
+      position,
+      rotation,
+      scale,
+      localMatrix,
+      worldMatrix,
       dispose: ownSceneDisposal(() => {
-        computation.dispose(); localMatrix.dispose(); worldMatrix.dispose();
-        position.dispose(); rotation.dispose(); scale.dispose();
+        computation.dispose();
+        localMatrix.dispose();
+        worldMatrix.dispose();
+        position.dispose();
+        rotation.dispose();
+        scale.dispose();
       }),
     };
   });
@@ -1160,51 +1586,67 @@ export interface PerspectiveCamera3D {
  * Creates a reactive 3D Perspective Camera (`fovYRad`, `aspect`, `near`, `far`)
  * whose 16-float `projectionMatrix` is computed in WASM linear memory (`depth [0, 1]` WebGPU standard).
  */
-export function createPerspectiveCamera3D(options?: PerspectiveCamera3DOptions): PerspectiveCamera3D {
-  const core = getWasmCore(), generation = getReactiveGeneration(core), owner = getCurrentOwner();
+export function createPerspectiveCamera3D(
+  options?: PerspectiveCamera3DOptions,
+): PerspectiveCamera3D {
+  const core = getWasmCore(),
+    generation = getReactiveGeneration(core),
+    owner = getCurrentOwner();
   const validate = (values: number[]) => {
-    if (!values.every(value => typeof value === 'number' && Number.isFinite(value)) ||
-        !core.svet_gpu_valid_perspective(values[0], values[1], values[2], values[3])) {
+    if (
+      !values.every(value => typeof value === 'number' && Number.isFinite(value)) ||
+      !core.svet_gpu_valid_perspective(values[0], values[1], values[2], values[3])
+    ) {
       throw new RangeError('Invalid PerspectiveCamera3D projection parameters');
     }
   };
   const assertCurrent = () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('Camera construction owner disposed');
-    if (generation !== getReactiveGeneration(core)) throw new Error('Camera context reset during construction');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('Camera context reset during construction');
   };
   assertCurrent();
   const read = (key: keyof PerspectiveCamera3DOptions, fallback: number) => {
-    const value = options?.[key] ?? fallback; assertCurrent(); return value;
+    const value = options?.[key] ?? fallback;
+    assertCurrent();
+    return value;
   };
-  const initial = [read('fovYRad', Math.PI / 3), read('aspect', 16 / 9), read('near', 0.1), read('far', 1000)];
-  validate(initial); assertCurrent();
+  const initial = [
+    read('fovYRad', Math.PI / 3),
+    read('aspect', 16 / 9),
+    read('near', 0.1),
+    read('far', 1000),
+  ];
+  validate(initial);
+  assertCurrent();
   return constructSceneResource(retain => {
-    const fovYRad = retain(signal(initial[0])), aspect = retain(signal(initial[1])), near = retain(signal(initial[2])), far = retain(signal(initial[3]));
+    const fovYRad = retain(signal(initial[0])),
+      aspect = retain(signal(initial[1])),
+      near = retain(signal(initial[2])),
+      far = retain(signal(initial[3]));
     const projectionMatrix = retain(createGpuTensor(16));
 
     const parameters = [fovYRad, aspect, near, far];
     const setters = parameters.map(parameter => parameter.set);
     parameters.forEach((parameter, index) => {
-      parameter.set = next => setters[index](previous => {
-        const value = typeof next === 'function' ? next(previous) : next;
-        projectionMatrix.peek();
-        const candidate = parameters.map(parameter => parameter.peek()); candidate[index] = value;
-        validate(candidate);
-        return value;
-      });
+      parameter.set = next =>
+        setters[index](previous => {
+          const value = typeof next === 'function' ? next(previous) : next;
+          projectionMatrix.peek();
+          const candidate = parameters.map(parameter => parameter.peek());
+          candidate[index] = value;
+          validate(candidate);
+          return value;
+        });
     });
 
-    const computation = retain(effect(() => {
-      core.svet_gpu_mat4_perspective(
-        projectionMatrix.offset,
-        fovYRad(),
-        aspect(),
-        near(),
-        far()
-      );
-      reviseTensor(projectionMatrix);
-      triggerNodeWrite(projectionMatrix.id);
-    }));
+    const computation = retain(
+      effect(() => {
+        core.svet_gpu_mat4_perspective(projectionMatrix.offset, fovYRad(), aspect(), near(), far());
+        reviseTensor(projectionMatrix);
+        triggerNodeWrite(projectionMatrix.id);
+      }),
+    );
     assertCurrent();
 
     return {
@@ -1215,9 +1657,14 @@ export function createPerspectiveCamera3D(options?: PerspectiveCamera3DOptions):
       projectionMatrix,
       setProjection(options) {
         projectionMatrix.peek();
-        const candidate = [options.fovYRad ?? fovYRad.peek(), options.aspect ?? aspect.peek(),
-          options.near ?? near.peek(), options.far ?? far.peek()];
-        validate(candidate); projectionMatrix.peek();
+        const candidate = [
+          options.fovYRad ?? fovYRad.peek(),
+          options.aspect ?? aspect.peek(),
+          options.near ?? near.peek(),
+          options.far ?? far.peek(),
+        ];
+        validate(candidate);
+        projectionMatrix.peek();
         batch(() => setters.forEach((set, index) => set(candidate[index])));
       },
       dispose: ownSceneDisposal(() => {
@@ -1249,8 +1696,15 @@ export interface Mesh3D {
   dispose(): void;
 }
 
-function copyMeshIndices(values: ArrayLike<number> | undefined, vertexCount: number, indexFormat: 'uint16' | 'uint32', maxIndexBytes: number, assertCurrent: () => void): Uint16Array | Uint32Array | undefined {
-  if (indexFormat !== 'uint16' && indexFormat !== 'uint32') throw new RangeError('Invalid Mesh3D index format');
+function copyMeshIndices(
+  values: ArrayLike<number> | undefined,
+  vertexCount: number,
+  indexFormat: 'uint16' | 'uint32',
+  maxIndexBytes: number,
+  assertCurrent: () => void,
+): Uint16Array | Uint32Array | undefined {
+  if (indexFormat !== 'uint16' && indexFormat !== 'uint32')
+    throw new RangeError('Invalid Mesh3D index format');
   const maxIndex = indexFormat === 'uint32' ? 0xffffffff : 65535;
   let indices: Uint16Array | Uint32Array | undefined;
   if (values) {
@@ -1284,7 +1738,7 @@ function copyMeshIndices(values: ArrayLike<number> | undefined, vertexCount: num
  */
 export function createMesh3D(options: {
   positions: ArrayLike<number>; // [x0,y0,z0, x1,y1,z1, ...] (3 floats per vertex)
-  indices?: ArrayLike<number>;  // Optional triangle indices (3 per triangle)
+  indices?: ArrayLike<number>; // Optional triangle indices (3 per triangle)
   /** Defaults to uint16; select uint32 explicitly for indices above 65535. */
   indexFormat?: 'uint16' | 'uint32';
   /** Per-snapshot CPU index byte budget; defaults to the native arena byte limit
@@ -1293,21 +1747,29 @@ export function createMesh3D(options: {
   transform: ReactiveTransform3D;
   camera?: PerspectiveCamera3D;
 }): Mesh3D {
-  const core = getWasmCore(), generation = getReactiveGeneration(core), owner = getCurrentOwner();
+  const core = getWasmCore(),
+    generation = getReactiveGeneration(core),
+    owner = getCurrentOwner();
   const assertConstruction = () => {
     if (isOwnerScopeDisposed(owner)) throw new Error('Mesh3D construction owner disposed');
-    if (generation !== getReactiveGeneration(core)) throw new Error('Mesh3D context reset during construction');
+    if (generation !== getReactiveGeneration(core))
+      throw new Error('Mesh3D context reset during construction');
   };
   assertConstruction();
   options = snapshotGpuOptionMetadata(options, assertConstruction);
-  const maxIndexBytes = options.maxIndexBytes ?? core.svet_gpu_get_arena_limit_f32() * Float32Array.BYTES_PER_ELEMENT;
+  const maxIndexBytes =
+    options.maxIndexBytes ?? core.svet_gpu_get_arena_limit_f32() * Float32Array.BYTES_PER_ELEMENT;
   if (!Number.isSafeInteger(maxIndexBytes) || maxIndexBytes < 0) {
     throw new RangeError('Mesh3D maxIndexBytes must be a nonnegative safe integer');
   }
   const worldMatrix = options.transform.worldMatrix;
-  assertConstruction(); worldMatrix.peek(); assertConstruction();
+  assertConstruction();
+  worldMatrix.peek();
+  assertConstruction();
   const projectionMatrix = options.camera?.projectionMatrix;
-  assertConstruction(); projectionMatrix?.peek(); assertConstruction();
+  assertConstruction();
+  projectionMatrix?.peek();
+  assertConstruction();
   const positionLength = options.positions.length;
   assertConstruction();
   if (!Number.isSafeInteger(positionLength) || positionLength < 0 || positionLength % 3 !== 0) {
@@ -1320,52 +1782,86 @@ export function createMesh3D(options: {
     throw new RangeError('Mesh3D storage exceeds GPU tensor arena capacity');
   }
   let indexFormat = options.indexFormat ?? 'uint16';
-  const indices = copyMeshIndices(options.indices, vertexCount, indexFormat, maxIndexBytes, assertConstruction);
+  const indices = copyMeshIndices(
+    options.indices,
+    vertexCount,
+    indexFormat,
+    maxIndexBytes,
+    assertConstruction,
+  );
   const homogeneous = new Float32Array(vertexCount * 4);
   for (let i = 0; i < vertexCount; i++) {
     for (let axis = 0; axis < 3; axis++) {
       const value = Math.fround(options.positions[i * 3 + axis]);
       assertConstruction();
-      if (!Number.isFinite(value)) throw new RangeError('Mesh3D positions must be finite float32 values');
+      if (!Number.isFinite(value))
+        throw new RangeError('Mesh3D positions must be finite float32 values');
       homogeneous[i * 4 + axis] = value;
     }
     homogeneous[i * 4 + 3] = 1.0;
   }
   // Borrowed dependency access above may be instrumented by user code.
-  worldMatrix.peek(); projectionMatrix?.peek(); assertConstruction();
+  worldMatrix.peek();
+  projectionMatrix?.peek();
+  assertConstruction();
   return constructSceneResource(retain => {
     const vertices = retain(createGpuTensor(homogeneous));
     const transformedVertices = retain(createGpuTensor(vertexCount * 4));
     const mvpMatrix = retain(createGpuTensor(16));
-    const computation = retain(effect(() => {
-      worldMatrix(); vertices(); projectionMatrix?.();
-      assertConstruction(); vertices.peek(); transformedVertices.peek(); mvpMatrix.peek();
-      worldMatrix.peek(); projectionMatrix?.peek();
-      if (projectionMatrix) {
-        core.svet_gpu_mat4_mul(projectionMatrix.offset, worldMatrix.offset, mvpMatrix.offset);
-      } else {
-        const source = worldMatrix.view();
-        assertConstruction(); worldMatrix.peek(); mvpMatrix.view().set(source);
-        core.svet_gpu_mark_dirty(mvpMatrix.offset, 16);
-      }
-      reviseTensor(mvpMatrix);
-      triggerNodeWrite(mvpMatrix.id);
-      assertConstruction(); mvpMatrix.peek(); vertices.peek(); transformedVertices.peek();
-      core.svet_gpu_transform_positions_vec4(mvpMatrix.offset, vertices.offset, transformedVertices.offset, vertexCount);
-      reviseTensor(transformedVertices);
-      triggerNodeWrite(transformedVertices.id);
-    }));
+    const computation = retain(
+      effect(() => {
+        worldMatrix();
+        vertices();
+        projectionMatrix?.();
+        assertConstruction();
+        vertices.peek();
+        transformedVertices.peek();
+        mvpMatrix.peek();
+        worldMatrix.peek();
+        projectionMatrix?.peek();
+        if (projectionMatrix) {
+          core.svet_gpu_mat4_mul(projectionMatrix.offset, worldMatrix.offset, mvpMatrix.offset);
+        } else {
+          const source = worldMatrix.view();
+          assertConstruction();
+          worldMatrix.peek();
+          mvpMatrix.view().set(source);
+          core.svet_gpu_mark_dirty(mvpMatrix.offset, 16);
+        }
+        reviseTensor(mvpMatrix);
+        triggerNodeWrite(mvpMatrix.id);
+        assertConstruction();
+        mvpMatrix.peek();
+        vertices.peek();
+        transformedVertices.peek();
+        core.svet_gpu_transform_positions_vec4(
+          mvpMatrix.offset,
+          vertices.offset,
+          transformedVertices.offset,
+          vertexCount,
+        );
+        reviseTensor(transformedVertices);
+        triggerNodeWrite(transformedVertices.id);
+      }),
+    );
     assertConstruction();
     const topology = retain(signal<Uint16Array | Uint32Array | undefined>(indices));
-    let disposed = false, topologyVersion = 0;
+    let disposed = false,
+      topologyVersion = 0;
     const assertLive = () => {
-      if (disposed || isOwnerScopeDisposed(owner) || generation !== getReactiveGeneration(core)) throw new Error('Mesh3D has been disposed or invalidated');
+      if (disposed || isOwnerScopeDisposed(owner) || generation !== getReactiveGeneration(core))
+        throw new Error('Mesh3D has been disposed or invalidated');
       if (getWasmCore() !== core) throw new Error('Mesh3D belongs to a different reactive context');
     };
     return {
       vertexCount,
-      get maxIndexBytes() { return maxIndexBytes; },
-      get indices() { assertLive(); return topology(); },
+      get maxIndexBytes() {
+        return maxIndexBytes;
+      },
+      get indices() {
+        assertLive();
+        return topology();
+      },
       updateIndices(values, format = indexFormat) {
         assertLive();
         const version = topologyVersion;
@@ -1377,12 +1873,20 @@ export function createMesh3D(options: {
         assertCandidate();
         // Failed candidates never advance the commit version. Observers may
         // publish another topology during set; no older state is written after it.
-        topologyVersion++; indexFormat = format; topology.set(next);
+        topologyVersion++;
+        indexFormat = format;
+        topology.set(next);
       },
-      vertices, transformedVertices, mvpMatrix,
+      vertices,
+      transformedVertices,
+      mvpMatrix,
       dispose: ownSceneDisposal(() => {
-        disposed = true; topology.dispose(); computation.dispose();
-        vertices.dispose(); transformedVertices.dispose(); mvpMatrix.dispose();
+        disposed = true;
+        topology.dispose();
+        computation.dispose();
+        vertices.dispose();
+        transformedVertices.dispose();
+        mvpMatrix.dispose();
       }),
     };
   });
@@ -1403,19 +1907,44 @@ export function createCubeMesh3D(options: {
 } {
   const s = (options.size ?? 1.2) * 0.5;
   const positions = [
-    -s, -s, -s,
-     s, -s, -s,
-     s,  s, -s,
-    -s,  s, -s,
-    -s, -s,  s,
-     s, -s,  s,
-     s,  s,  s,
-    -s,  s,  s,
+    -s,
+    -s,
+    -s,
+    s,
+    -s,
+    -s,
+    s,
+    s,
+    -s,
+    -s,
+    s,
+    -s,
+    -s,
+    -s,
+    s,
+    s,
+    -s,
+    s,
+    s,
+    s,
+    s,
+    -s,
+    s,
+    s,
   ];
   const edges: Array<[number, number]> = [
-    [0, 1], [1, 2], [2, 3], [3, 0],
-    [4, 5], [5, 6], [6, 7], [7, 4],
-    [0, 4], [1, 5], [2, 6], [3, 7],
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
   ];
   const faces: Array<[number, number, number, number]> = [
     [0, 1, 2, 3], // Back
@@ -1427,12 +1956,42 @@ export function createCubeMesh3D(options: {
   ];
   // 12 triangles (36 uint16 indices) for hardware WebGPU `triangle-list` + `drawIndexed`
   const indices = new Uint16Array([
-    0, 1, 2,  0, 2, 3, // Back
-    4, 5, 6,  4, 6, 7, // Front
-    0, 1, 5,  0, 5, 4, // Bottom
-    3, 2, 6,  3, 6, 7, // Top
-    0, 3, 7,  0, 7, 4, // Left
-    1, 2, 6,  1, 6, 5, // Right
+    0,
+    1,
+    2,
+    0,
+    2,
+    3, // Back
+    4,
+    5,
+    6,
+    4,
+    6,
+    7, // Front
+    0,
+    1,
+    5,
+    0,
+    5,
+    4, // Bottom
+    3,
+    2,
+    6,
+    3,
+    6,
+    7, // Top
+    0,
+    3,
+    7,
+    0,
+    7,
+    4, // Left
+    1,
+    2,
+    6,
+    1,
+    6,
+    5, // Right
   ]);
   const mesh = createMesh3D({
     positions,
@@ -1479,23 +2038,46 @@ export function pickNearestVertex3D(
     maxRadiusPx?: number;
     /** Indexed triangles occlude candidates by default; none preserves through-surface picking. */
     occlusion?: 'indexed' | 'none';
-  }
+  },
 ): { vertexIndex: number; distancePx: number; ndcZ: number } | null {
   const core = getWasmCore();
   mesh.transformedVertices();
   const vw = options?.viewportWidth ?? 360;
   const vh = options?.viewportHeight ?? 200;
   const maxRadius = options?.maxRadiusPx ?? 28;
-  if (![vw,vh,clickX,clickY,maxRadius].every(Number.isFinite) || vw <= 0 || vh <= 0 || maxRadius < 0) return null;
+  if (
+    ![vw, vh, clickX, clickY, maxRadius].every(Number.isFinite) ||
+    vw <= 0 ||
+    vh <= 0 ||
+    maxRadius < 0
+  )
+    return null;
 
   const indices = mesh.indices;
   let pickedIdx: number;
   if (options?.occlusion !== 'none' && indices?.length) {
     const pointer = core.svet_prepare_gpu_pick_indices(indices.length) >>> 0;
     new Uint32Array(core.memory.buffer, pointer, indices.length).set(indices);
-    pickedIdx = core.svet_gpu_pick_visible_vertex_3d(mesh.transformedVertices.offset, mesh.vertexCount, indices.length, vw, vh, clickX, clickY, maxRadius);
+    pickedIdx = core.svet_gpu_pick_visible_vertex_3d(
+      mesh.transformedVertices.offset,
+      mesh.vertexCount,
+      indices.length,
+      vw,
+      vh,
+      clickX,
+      clickY,
+      maxRadius,
+    );
   } else {
-    pickedIdx = core.svet_gpu_pick_nearest_vertex_3d(mesh.transformedVertices.offset, mesh.vertexCount, vw, vh, clickX, clickY, maxRadius);
+    pickedIdx = core.svet_gpu_pick_nearest_vertex_3d(
+      mesh.transformedVertices.offset,
+      mesh.vertexCount,
+      vw,
+      vh,
+      clickX,
+      clickY,
+      maxRadius,
+    );
   }
   if (pickedIdx < 0 || pickedIdx >= mesh.vertexCount) {
     return null;
@@ -1543,7 +2125,13 @@ interface VertexPickSnapshot3D extends VertexPickFrame3D {
   indices?: Uint16Array | Uint32Array;
   vertexCount: number;
 }
-function pickFrameSnapshot(core: SvetWasmExports, frame: VertexPickSnapshot3D, x: number, y: number, occlude: boolean) {
+function pickFrameSnapshot(
+  core: SvetWasmExports,
+  frame: VertexPickSnapshot3D,
+  x: number,
+  y: number,
+  occlude: boolean,
+) {
   if (!frame.vertexCount) return null;
   const pointer = core.svet_prepare_gpu_pick_vertices(frame.vertices.length) >>> 0;
   if (!pointer) throw new RangeError('Vertex picking scratch capacity exceeded');
@@ -1552,11 +2140,26 @@ function pickFrameSnapshot(core: SvetWasmExports, frame: VertexPickSnapshot3D, x
     const indexPointer = core.svet_prepare_gpu_pick_indices(frame.indices.length) >>> 0;
     new Uint32Array(core.memory.buffer, indexPointer, frame.indices.length).set(frame.indices);
   }
-  const index = core.svet_gpu_pick_snapshot_3d(frame.vertexCount, frame.indices?.length ?? 0, occlude ? 1 : 0, frame.width, frame.height, x, y, 28);
+  const index = core.svet_gpu_pick_snapshot_3d(
+    frame.vertexCount,
+    frame.indices?.length ?? 0,
+    occlude ? 1 : 0,
+    frame.width,
+    frame.height,
+    x,
+    y,
+    28,
+  );
   if (index < 0 || index >= frame.vertexCount) return null;
-  const base = index * 4, w = frame.vertices[base + 3];
-  const px = frame.width * 0.5 * (1 + frame.vertices[base] / w), py = frame.height * 0.5 * (1 - frame.vertices[base + 1] / w);
-  return { vertexIndex: index, distancePx: Math.hypot(px-x,py-y), ndcZ: frame.vertices[base + 2] / w };
+  const base = index * 4,
+    w = frame.vertices[base + 3];
+  const px = frame.width * 0.5 * (1 + frame.vertices[base] / w),
+    py = frame.height * 0.5 * (1 - frame.vertices[base + 1] / w);
+  return {
+    vertexIndex: index,
+    distancePx: Math.hypot(px - x, py - y),
+    ndcZ: frame.vertices[base + 2] / w,
+  };
 }
 
 export interface Canvas3DProps {
@@ -1583,7 +2186,12 @@ export interface Canvas3DProps {
   /** Initial draw is immediate; later updates can be coalesced with GPU backpressure. */
   renderMode?: 'sync' | 'animation-frame';
   /** Numeric hit plus source identity/dimensions of the last drawn/submitted frame. */
-  onVertexPick?: (vertexIndex: number, distancePx: number, ndcZ: number, frame: VertexPickFrame3D) => void;
+  onVertexPick?: (
+    vertexIndex: number,
+    distancePx: number,
+    ndcZ: number,
+    frame: VertexPickFrame3D,
+  ) => void;
 }
 
 export function Canvas3D(props: Canvas3DProps): HTMLCanvasElement {
@@ -1598,44 +2206,76 @@ export function Viewport3D(props: Canvas3DProps): HTMLDivElement {
   const primary = createCanvas3D(props, { viewport, fallback });
   fallback.style.cssText = primary.style.cssText;
   // createCanvas3D selects visibility during its initial synchronous render.
-  primary.style.display = viewport.dataset.renderBackend === 'webgpu-depth24plus' ? 'block' : 'none';
+  primary.style.display =
+    viewport.dataset.renderBackend === 'webgpu-depth24plus' ? 'block' : 'none';
   fallback.style.display = viewport.dataset.renderBackend === 'canvas2d-zsort' ? 'block' : 'none';
   viewport.style.width = `${primary.width + 2}px`;
   viewport.append(primary, fallback);
   return viewport;
 }
 
-type RenderValidationTarget = { settle(frame: number, error: { message: string } | null): void; queue(frame: number, error: { message: string } | null): void };
-function observeRenderValidation(results: Array<{ filter: string; result: PromiseLike<{ message: string } | null> }>, target: WeakRef<RenderValidationTarget>, frame: number): void {
-  let remaining = results.length, failed = false;
+type RenderValidationTarget = {
+  settle(frame: number, error: { message: string } | null): void;
+  queue(frame: number, error: { message: string } | null): void;
+};
+function observeRenderValidation(
+  results: Array<{ filter: string; result: PromiseLike<{ message: string } | null> }>,
+  target: WeakRef<RenderValidationTarget>,
+  frame: number,
+): void {
+  let remaining = results.length,
+    failed = false;
   const fail = (filter: string, message: string) => {
     if (failed) return;
     failed = true;
-    target.deref()?.settle(frame, { message: filter === 'validation' ? message : `${filter}: ${message}` });
+    target
+      .deref()
+      ?.settle(frame, { message: filter === 'validation' ? message : `${filter}: ${message}` });
   };
   withoutAsyncCoreContext(() => {
     for (const { filter, result } of results) {
-      Promise.resolve(result).then(error => {
-        if (error) fail(filter, error.message);
-        else if (--remaining === 0 && !failed) target.deref()?.settle(frame, null);
-      }, error => fail(filter, error instanceof Error ? error.message : String(error))).catch(() => {});
+      Promise.resolve(result)
+        .then(
+          error => {
+            if (error) fail(filter, error.message);
+            else if (--remaining === 0 && !failed) target.deref()?.settle(frame, null);
+          },
+          error => fail(filter, error instanceof Error ? error.message : String(error)),
+        )
+        .catch(() => {});
     }
   });
 }
 
-function observeRenderQueue(result: PromiseLike<void>, target: WeakRef<RenderValidationTarget>, frame: number): void {
+function observeRenderQueue(
+  result: PromiseLike<void>,
+  target: WeakRef<RenderValidationTarget>,
+  frame: number,
+): void {
   withoutAsyncCoreContext(() => {
-    Promise.resolve(result).then(() => target.deref()?.queue(frame, null),
-      error => target.deref()?.queue(frame, { message: error instanceof Error ? error.message : String(error) })).catch(() => {});
+    Promise.resolve(result)
+      .then(
+        () => target.deref()?.queue(frame, null),
+        error =>
+          target
+            .deref()
+            ?.queue(frame, { message: error instanceof Error ? error.message : String(error) }),
+      )
+      .catch(() => {});
   });
 }
 
-function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElement; fallback: HTMLCanvasElement }): HTMLCanvasElement {
-  const renderOwner = getCurrentOwner(), renderGeneration = getReactiveGeneration();
-  const currentMesh = () => typeof props.mesh === 'function' ? props.mesh() : props.mesh;
-  const currentResident = () => typeof props.gpuVertices === 'function' ? props.gpuVertices() : props.gpuVertices ?? null;
+function createCanvas3D(
+  props: Canvas3DProps,
+  surfaces?: { viewport: HTMLDivElement; fallback: HTMLCanvasElement },
+): HTMLCanvasElement {
+  const renderOwner = getCurrentOwner(),
+    renderGeneration = getReactiveGeneration();
+  const currentMesh = () => (typeof props.mesh === 'function' ? props.mesh() : props.mesh);
+  const currentResident = () =>
+    typeof props.gpuVertices === 'function' ? props.gpuVertices() : (props.gpuVertices ?? null);
   const dimension = (value: number | (() => number) | undefined, fallback: number) => {
-    const result = typeof value === 'function' ? value() : value ?? fallback;
+    const result = typeof value === 'function' ? value() : (value ?? fallback);
     if (!Number.isInteger(result) || result < 1 || result > 0xffffffff) {
       throw new RangeError('Canvas3D dimensions must be positive uint32 integers');
     }
@@ -1643,7 +2283,12 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   };
   let width = untrack(() => dimension(props.width, 360));
   let height = untrack(() => dimension(props.height, 200));
-  if (props.renderMode !== undefined && props.renderMode !== 'sync' && props.renderMode !== 'animation-frame') throw new RangeError('Invalid renderMode');
+  if (
+    props.renderMode !== undefined &&
+    props.renderMode !== 'sync' &&
+    props.renderMode !== 'animation-frame'
+  )
+    throw new RangeError('Invalid renderMode');
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -1656,7 +2301,10 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   canvas.setAttribute('data-svet-canvas3d', 'true');
   const interaction: HTMLElement = surfaces?.viewport ?? canvas;
   const view = canvas.ownerDocument.defaultView;
-  if (surfaces) { surfaces.fallback.width = width; surfaces.fallback.height = height; }
+  if (surfaces) {
+    surfaces.fallback.width = width;
+    surfaces.fallback.height = height;
+  }
   const selectBackend = (backend: string) => {
     if (backend === 'unavailable') clearPickFrame();
     canvas.dataset.renderBackend = backend;
@@ -1672,17 +2320,33 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   function clearPickFrame() {
     if (pendingPick) {
       pendingPick.abort(new Error('GPU pick frame retired'));
-      for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) surface.dataset.pickReadback = 'cancelled';
+      for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas])
+        surface.dataset.pickReadback = 'cancelled';
     }
-    pendingPick = null; pickSnapshot = null;
+    pendingPick = null;
+    pickSnapshot = null;
   }
   let pickSequence = 0;
-  const capturePickFrame = (mesh: Mesh3D, vertices: Float32Array | null, indices: Mesh3D['indices'],
-    backend: VertexPickFrame3D['backend'], resident?: GpuResidentTensor) => {
+  const capturePickFrame = (
+    mesh: Mesh3D,
+    vertices: Float32Array | null,
+    indices: Mesh3D['indices'],
+    backend: VertexPickFrame3D['backend'],
+    resident?: GpuResidentTensor,
+  ) => {
     clearPickFrame();
     if (!props.onVertexPick) return;
-    pickSnapshot = { mesh, id: ++pickSequence, width, height, backend, vertexCount: mesh.vertexCount,
-      vertices: vertices?.slice() ?? new Float32Array(0), resident, indices: indices?.slice() };
+    pickSnapshot = {
+      mesh,
+      id: ++pickSequence,
+      width,
+      height,
+      backend,
+      vertexCount: mesh.vertexCount,
+      vertices: vertices?.slice() ?? new Float32Array(0),
+      resident,
+      indices: indices?.slice(),
+    };
   };
 
   if (props.orbitTransform) {
@@ -1716,7 +2380,11 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       const factor = e.deltaY < 0 ? 1.08 : 0.92;
       const [sx, sy, sz] = tr.scale.peek();
       const clamped = Math.max(0.2, Math.min(5.0, sx * factor));
-      tr.scale.set([clamped, Math.max(0.2, Math.min(5.0, sy * factor)), Math.max(0.2, Math.min(5.0, sz * factor))]);
+      tr.scale.set([
+        clamped,
+        Math.max(0.2, Math.min(5.0, sy * factor)),
+        Math.max(0.2, Math.min(5.0, sz * factor)),
+      ]);
     };
 
     interaction.addEventListener('mousedown', onDown);
@@ -1736,44 +2404,91 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     const onClickPick = (e: MouseEvent) => {
       const frame = pickSnapshot;
       if (!frame) return;
-      const pickingCanvas = surfaces && canvas.style.display === 'none' ? surfaces.fallback : canvas;
+      const pickingCanvas =
+        surfaces && canvas.style.display === 'none' ? surfaces.fallback : canvas;
       const rect = pickingCanvas.getBoundingClientRect();
       const clickX = (e.clientX - rect.left) * (rect.width ? frame.width / rect.width : 1);
       const clickY = (e.clientY - rect.top) * (rect.height ? frame.height / rect.height : 1);
-      const occlusion = props.pickOcclusion ?? (frame.backend === 'webgpu-depth24plus' ? 'indexed' : 'none');
+      const occlusion =
+        props.pickOcclusion ?? (frame.backend === 'webgpu-depth24plus' ? 'indexed' : 'none');
       const publishPick = (vertices: Float32Array) => {
-        if (rendererDisposed || pickSnapshot !== frame || renderGeneration !== getReactiveGeneration(renderCore) || isOwnerScopeDisposed(renderOwner)) return;
-        const hit = withWasmCore(renderCore, () => pickFrameSnapshot(renderCore, {...frame, vertices}, clickX, clickY, occlusion === 'indexed'));
+        if (
+          rendererDisposed ||
+          pickSnapshot !== frame ||
+          renderGeneration !== getReactiveGeneration(renderCore) ||
+          isOwnerScopeDisposed(renderOwner)
+        )
+          return;
+        const hit = withWasmCore(renderCore, () =>
+          pickFrameSnapshot(
+            renderCore,
+            { ...frame, vertices },
+            clickX,
+            clickY,
+            occlusion === 'indexed',
+          ),
+        );
         if (hit) {
-          const { vertices: _vertices, resident: _resident, indices: _indices, vertexCount: _count, ...sourceInfo } = frame;
-          const info: VertexPickFrame3D = frame.resident ? {...sourceInfo, gpuVertices: frame.resident} : sourceInfo;
-          runUntrackedInCore(renderCore, () => runWithCapturedOwner(renderCore, renderOwner, () => {
-            const callback = props.onVertexPick;
-            if (!rendererDisposed && pickSnapshot === frame && !isOwnerScopeDisposed(renderOwner)) {
-              callback?.(hit.vertexIndex, hit.distancePx, hit.ndcZ, info);
-            }
-          }));
+          const {
+            vertices: _vertices,
+            resident: _resident,
+            indices: _indices,
+            vertexCount: _count,
+            ...sourceInfo
+          } = frame;
+          const info: VertexPickFrame3D = frame.resident
+            ? { ...sourceInfo, gpuVertices: frame.resident }
+            : sourceInfo;
+          runUntrackedInCore(renderCore, () =>
+            runWithCapturedOwner(renderCore, renderOwner, () => {
+              const callback = props.onVertexPick;
+              if (
+                !rendererDisposed &&
+                pickSnapshot === frame &&
+                !isOwnerScopeDisposed(renderOwner)
+              ) {
+                callback?.(hit.vertexIndex, hit.distancePx, hit.ndcZ, info);
+              }
+            }),
+          );
         }
       };
-      if (!frame.resident) { publishPick(frame.vertices); return; }
-      pendingPick?.abort(new Error('GPU pick superseded'));
-      const cancellation = new AbortController(); pendingPick = cancellation;
-      for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) {
-        surface.dataset.pickReadback = 'pending'; delete surface.dataset.pickError;
+      if (!frame.resident) {
+        publishPick(frame.vertices);
+        return;
       }
-      const request = runUntrackedInCore(renderCore, () => runWithCapturedOwner(renderCore, renderOwner,
-        () => snapshotResidentVertices(frame.resident!, cancellation.signal)));
-      void request.then(vertices => {
-        if (pendingPick !== cancellation || cancellation.signal.aborted) return;
-        publishPick(vertices);
-        if (pendingPick !== cancellation || cancellation.signal.aborted || rendererDisposed) return;
-        for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) surface.dataset.pickReadback = 'passed';
-      }).catch(error => {
-        if (pendingPick !== cancellation || cancellation.signal.aborted || rendererDisposed) return;
-        for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) {
-          surface.dataset.pickReadback = 'failed'; surface.dataset.pickError = String(error);
-        }
-      }).finally(() => { if (pendingPick === cancellation) pendingPick = null; });
+      pendingPick?.abort(new Error('GPU pick superseded'));
+      const cancellation = new AbortController();
+      pendingPick = cancellation;
+      for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) {
+        surface.dataset.pickReadback = 'pending';
+        delete surface.dataset.pickError;
+      }
+      const request = runUntrackedInCore(renderCore, () =>
+        runWithCapturedOwner(renderCore, renderOwner, () =>
+          snapshotResidentVertices(frame.resident!, cancellation.signal),
+        ),
+      );
+      void request
+        .then(vertices => {
+          if (pendingPick !== cancellation || cancellation.signal.aborted) return;
+          publishPick(vertices);
+          if (pendingPick !== cancellation || cancellation.signal.aborted || rendererDisposed)
+            return;
+          for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas])
+            surface.dataset.pickReadback = 'passed';
+        })
+        .catch(error => {
+          if (pendingPick !== cancellation || cancellation.signal.aborted || rendererDisposed)
+            return;
+          for (const surface of surfaces ? [canvas, surfaces.viewport] : [canvas]) {
+            surface.dataset.pickReadback = 'failed';
+            surface.dataset.pickError = String(error);
+          }
+        })
+        .finally(() => {
+          if (pendingPick === cancellation) pendingPick = null;
+        });
     };
     interaction.addEventListener('click', onClickPick);
     onCleanup(() => interaction.removeEventListener('click', onClickPick));
@@ -1792,34 +2507,64 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
   let renderFormat = 'bgra8unorm';
   let webgpuDepthView: any = null;
   let webgpuDepthTexture: any = null;
-  let depthWidth = 0, depthHeight = 0;
+  let depthWidth = 0,
+    depthHeight = 0;
   const renderCore = getWasmCore();
   const renderState = gpuState(renderCore);
   let renderDevice: WebGpuDeviceLike | null = null;
-  let renderEpoch = 0, validationFloor = 0, lastValidatedFrame = 0, rendererDisposed = false;
-  const scheduledMode = props.renderMode === 'animation-frame' && Boolean(view?.requestAnimationFrame);
-  let frameRequest: number | null = null, dirty = false, initialDraw = true;
+  let renderEpoch = 0,
+    validationFloor = 0,
+    lastValidatedFrame = 0,
+    rendererDisposed = false;
+  const scheduledMode =
+    props.renderMode === 'animation-frame' && Boolean(view?.requestAnimationFrame);
+  let frameRequest: number | null = null,
+    dirty = false,
+    initialDraw = true;
   let drainingFrame: number | null = null;
   let submission: { frame: number; queueDone: boolean; validationDone: boolean } | null = null;
-  const cancelFrameRequest = () => { if (frameRequest !== null) view?.cancelAnimationFrame(frameRequest); frameRequest = null; };
+  const cancelFrameRequest = () => {
+    if (frameRequest !== null) view?.cancelAnimationFrame(frameRequest);
+    frameRequest = null;
+  };
   const scheduleLatest = () => {
-    if (!scheduledMode || rendererDisposed || !dirty || submission || drainingFrame !== null || frameRequest !== null) return;
+    if (
+      !scheduledMode ||
+      rendererDisposed ||
+      !dirty ||
+      submission ||
+      drainingFrame !== null ||
+      frameRequest !== null
+    )
+      return;
     frameRequest = view!.requestAnimationFrame(() => {
       frameRequest = null;
       if (rendererDisposed || submission || drainingFrame !== null || !dirty) return;
       dirty = false;
-      try { withWasmCore(renderCore, () => untrack(() => draw())); }
-      catch (error) { releaseRenderResources(); setValidation('failed', String(error)); selectBackend('unavailable'); }
+      try {
+        withWasmCore(renderCore, () => untrack(() => draw()));
+      } catch (error) {
+        releaseRenderResources();
+        setValidation('failed', String(error));
+        selectBackend('unavailable');
+      }
     });
   };
   const finishSubmission = () => {
-    if (submission?.queueDone && submission.validationDone) { submission = null; scheduleLatest(); }
+    if (submission?.queueDone && submission.validationDone) {
+      submission = null;
+      scheduleLatest();
+    }
   };
   const failFrame = (message: string, queueFinished = false) => {
     if (!queueFinished && submission && !submission.queueDone) drainingFrame = submission.frame;
-    releaseRenderResources(); setValidation('failed', message);
-    try { withWasmCore(renderCore, () => untrack(() => draw(true))); }
-    catch { selectBackend('unavailable'); }
+    releaseRenderResources();
+    setValidation('failed', message);
+    try {
+      withWasmCore(renderCore, () => untrack(() => draw(true)));
+    } catch {
+      selectBackend('unavailable');
+    }
     scheduleLatest();
   };
   const setValidation = (status: string, message?: string) => {
@@ -1829,30 +2574,46 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       else delete surface.dataset.renderError;
     }
   };
-  const validationTarget: RenderValidationTarget = { settle(frame, error) {
-    if (rendererDisposed || frame <= validationFloor) return;
-    if (!error) {
-      lastValidatedFrame = Math.max(lastValidatedFrame, frame);
-      if (frame === renderEpoch) setValidation('passed');
-      if (submission?.frame === frame) { submission.validationDone = true; finishSubmission(); }
-      return;
-    }
-    // Do not hide a failing stream merely because another frame is pending.
-    if (frame <= lastValidatedFrame) return;
-    failFrame(error.message);
-  }, queue(frame, error) {
-    if (rendererDisposed) return;
-    if (drainingFrame === frame) { drainingFrame = null; scheduleLatest(); return; }
-    if (submission?.frame !== frame || frame <= validationFloor) return;
-    if (error) { failFrame(`GPU queue: ${error.message}`, true); return; }
-    submission.queueDone = true; finishSubmission();
-  } };
+  const validationTarget: RenderValidationTarget = {
+    settle(frame, error) {
+      if (rendererDisposed || frame <= validationFloor) return;
+      if (!error) {
+        lastValidatedFrame = Math.max(lastValidatedFrame, frame);
+        if (frame === renderEpoch) setValidation('passed');
+        if (submission?.frame === frame) {
+          submission.validationDone = true;
+          finishSubmission();
+        }
+        return;
+      }
+      // Do not hide a failing stream merely because another frame is pending.
+      if (frame <= lastValidatedFrame) return;
+      failFrame(error.message);
+    },
+    queue(frame, error) {
+      if (rendererDisposed) return;
+      if (drainingFrame === frame) {
+        drainingFrame = null;
+        scheduleLatest();
+        return;
+      }
+      if (submission?.frame !== frame || frame <= validationFloor) return;
+      if (error) {
+        failFrame(`GPU queue: ${error.message}`, true);
+        return;
+      }
+      submission.queueDone = true;
+      finishSubmission();
+    },
+  };
   const validationReference = new WeakRef(validationTarget);
   let selectedResident: GpuResidentRecord | null = null;
   let releaseResidentWatch = () => {};
   const watchResident = (record: GpuResidentRecord | null) => {
     if (selectedResident === record) return;
-    releaseResidentWatch(); releaseResidentWatch = () => {}; selectedResident = record;
+    releaseResidentWatch();
+    releaseResidentWatch = () => {};
+    selectedResident = record;
     if (!record) return;
     const stop = () => {
       if (rendererDisposed) return;
@@ -1860,28 +2621,56 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       // after the retired frame's queue completion has been observed.
       failFrame('Resident vertices disposed');
     };
-    record.lifetime.signal.addEventListener('abort', stop, {once: true});
+    record.lifetime.signal.addEventListener('abort', stop, { once: true });
     releaseResidentWatch = () => record.lifetime.signal.removeEventListener('abort', stop);
   };
   const releaseRenderResources = () => {
-    releaseResidentWatch(); releaseResidentWatch = () => {}; selectedResident = null;
+    releaseResidentWatch();
+    releaseResidentWatch = () => {};
+    selectedResident = null;
     validationFloor = ++renderEpoch;
     clearPickFrame();
     submission = null;
     const resources = [webgpuVertexBuffer, webgpuIndexBuffer, webgpuDepthTexture];
     const ctx = webgpuCtx;
-    webgpuVertexBuffer = webgpuIndexBuffer = webgpuDepthTexture = webgpuDepthView = webgpuPipeline = webgpuCtx = null;
-    webgpuInitialized = false; renderDevice = null; webgpuIndexCount = 0;
-    webgpuIndexCapacity = 0; uploadedIndices = null; pipelineIndexed = null;
-    depthWidth = depthHeight = 0; webgpuVertexCapacity = 0;
-    for (const resource of resources) { try { resource?.destroy?.(); } catch { /* finish releasing other allocations */ } }
-    try { ctx?.unconfigure?.(); } catch { /* device may already be lost */ }
+    webgpuVertexBuffer =
+      webgpuIndexBuffer =
+      webgpuDepthTexture =
+      webgpuDepthView =
+      webgpuPipeline =
+      webgpuCtx =
+        null;
+    webgpuInitialized = false;
+    renderDevice = null;
+    webgpuIndexCount = 0;
+    webgpuIndexCapacity = 0;
+    uploadedIndices = null;
+    pipelineIndexed = null;
+    depthWidth = depthHeight = 0;
+    webgpuVertexCapacity = 0;
+    for (const resource of resources) {
+      try {
+        resource?.destroy?.();
+      } catch {
+        /* finish releasing other allocations */
+      }
+    }
+    try {
+      ctx?.unconfigure?.();
+    } catch {
+      /* device may already be lost */
+    }
   };
   let webgpuInitialized = false;
   let lastRenderFailure: string | undefined;
 
-  const tryRenderWebGpu = (clipVerts: Float32Array | null, mesh: Mesh3D, indices: Mesh3D['indices'],
-    resident: GpuResidentRecord | null = null, residentHandle?: GpuResidentTensor): boolean => {
+  const tryRenderWebGpu = (
+    clipVerts: Float32Array | null,
+    mesh: Mesh3D,
+    indices: Mesh3D['indices'],
+    resident: GpuResidentRecord | null = null,
+    residentHandle?: GpuResidentTensor,
+  ): boolean => {
     lastRenderFailure = undefined;
     const activeDevice = renderState.device;
     if (activeDevice !== renderDevice) releaseRenderResources();
@@ -1895,7 +2684,8 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     try {
       if (activeDevice.pushErrorScope && activeDevice.popErrorScope) {
         for (const filter of ['validation', 'out-of-memory', 'internal'] as const) {
-          activeDevice.pushErrorScope(filter); scopes.push(filter);
+          activeDevice.pushErrorScope(filter);
+          scopes.push(filter);
         }
         setValidation('pending');
       } else setValidation('unsupported');
@@ -1912,7 +2702,8 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       if (!webgpuInitialized) {
         const ctx = (canvas as any).getContext?.('webgpu');
         if (!ctx) return false;
-        webgpuCtx = ctx; renderDevice = activeDevice;
+        webgpuCtx = ctx;
+        renderDevice = activeDevice;
         const format =
           (typeof navigator !== 'undefined' &&
             (navigator as any).gpu?.getPreferredCanvasFormat?.()) ||
@@ -1926,28 +2717,38 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
         webgpuInitialized = true;
       }
       if (resident && webgpuVertexBuffer) {
-        webgpuVertexBuffer.destroy?.(); webgpuVertexBuffer = null; webgpuVertexCapacity = 0;
+        webgpuVertexBuffer.destroy?.();
+        webgpuVertexBuffer = null;
+        webgpuVertexCapacity = 0;
       }
       if (!resident && (!webgpuVertexBuffer || vertexBytes > webgpuVertexCapacity)) {
         const capacity = Math.max(64, vertexBytes);
         const next = activeDevice.createBuffer?.({ size: capacity, usage: 0x0020 | 0x0008 });
         if (!next) throw new Error('Incomplete render resources');
         const previous = webgpuVertexBuffer;
-        webgpuVertexBuffer = next; webgpuVertexCapacity = capacity;
+        webgpuVertexBuffer = next;
+        webgpuVertexCapacity = capacity;
         previous?.destroy?.();
       }
       if (!webgpuDepthView || depthWidth !== width || depthHeight !== height) {
         const texture = activeDevice.createTexture?.({
-          size: [width, height, 1], format: 'depth24plus', usage: 0x10,
+          size: [width, height, 1],
+          format: 'depth24plus',
+          usage: 0x10,
         });
         let view: any;
         try {
           view = texture?.createView?.();
           if (!view) throw new Error('Incomplete depth attachment');
-        } catch (error) { texture?.destroy?.(); throw error; }
+        } catch (error) {
+          texture?.destroy?.();
+          throw error;
+        }
         const previous = webgpuDepthTexture;
-        webgpuDepthTexture = texture; webgpuDepthView = view;
-        depthWidth = width; depthHeight = height;
+        webgpuDepthTexture = texture;
+        webgpuDepthView = view;
+        depthWidth = width;
+        depthHeight = height;
         previous?.destroy?.();
       }
 
@@ -1993,7 +2794,8 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
             const next = activeDevice.createBuffer?.({ size: capacity, usage: 0x0010 | 0x0008 });
             if (!next) throw new Error('Unable to allocate index buffer');
             const previous = webgpuIndexBuffer;
-            webgpuIndexBuffer = next; webgpuIndexCapacity = capacity;
+            webgpuIndexBuffer = next;
+            webgpuIndexCapacity = capacity;
             previous?.destroy?.();
           }
           if (alignedBytes) {
@@ -2003,15 +2805,22 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
           }
           webgpuIndexCount = indices.length;
         } else {
-          webgpuIndexBuffer?.destroy?.(); webgpuIndexBuffer = null;
-          webgpuIndexCapacity = 0; webgpuIndexCount = 0;
+          webgpuIndexBuffer?.destroy?.();
+          webgpuIndexBuffer = null;
+          webgpuIndexCapacity = 0;
+          webgpuIndexCount = 0;
         }
         uploadedIndices = indices;
       }
 
-      if (!resident) activeDevice.queue.writeBuffer(
-        webgpuVertexBuffer, 0, clipVerts!.buffer, clipVerts!.byteOffset, vertexBytes
-      );
+      if (!resident)
+        activeDevice.queue.writeBuffer(
+          webgpuVertexBuffer,
+          0,
+          clipVerts!.buffer,
+          clipVerts!.byteOffset,
+          vertexBytes,
+        );
       const encoder = activeDevice.createCommandEncoder?.();
       if (!encoder) throw new Error('Missing GPU command encoder');
 
@@ -2039,22 +2848,32 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       pass.setPipeline(webgpuPipeline);
       pass.setVertexBuffer(0, vertexBuffer);
       if (webgpuIndexBuffer && pass.setIndexBuffer && pass.drawIndexed) {
-        pass.setIndexBuffer(webgpuIndexBuffer, indices?.BYTES_PER_ELEMENT === 4 ? 'uint32' : 'uint16');
+        pass.setIndexBuffer(
+          webgpuIndexBuffer,
+          indices?.BYTES_PER_ELEMENT === 4 ? 'uint32' : 'uint16',
+        );
         pass.drawIndexed(webgpuIndexCount, 1, 0, 0, 0);
       } else {
         pass.draw(mesh.vertexCount, 1, 0, 0);
       }
       pass.end();
       if (!activeDevice.queue.submit) throw new Error('Missing GPU queue submit');
-      if (scheduledMode && !activeDevice.queue.onSubmittedWorkDone) throw new Error('GPU queue completion is unavailable');
-      if (scheduledMode) submission = { frame, queueDone: false, validationDone: scopes.length === 0 };
+      if (scheduledMode && !activeDevice.queue.onSubmittedWorkDone)
+        throw new Error('GPU queue completion is unavailable');
+      if (scheduledMode)
+        submission = { frame, queueDone: false, validationDone: scopes.length === 0 };
       if (resident) assertResidentRecord(resident);
       activeDevice.queue.submit([encoder.finish()]);
       if (resident) {
         assertResidentRecord(resident);
-        if (isOwnerScopeDisposed(renderOwner) || renderGeneration !== getReactiveGeneration(renderCore)) throw new Error('Resident renderer lifetime ended');
+        if (
+          isOwnerScopeDisposed(renderOwner) ||
+          renderGeneration !== getReactiveGeneration(renderCore)
+        )
+          throw new Error('Resident renderer lifetime ended');
       }
-      if (scheduledMode) observeRenderQueue(activeDevice.queue.onSubmittedWorkDone!(), validationReference, frame);
+      if (scheduledMode)
+        observeRenderQueue(activeDevice.queue.onSubmittedWorkDone!(), validationReference, frame);
       selectBackend('webgpu-depth24plus');
       capturePickFrame(mesh, clipVerts, indices, 'webgpu-depth24plus', residentHandle);
       return true;
@@ -2066,8 +2885,11 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     } finally {
       if (scopes.length) {
         const results = scopes.reverse().map(filter => {
-          try { return { filter, result: activeDevice.popErrorScope!() }; }
-          catch (error) { return { filter, result: Promise.reject(error) }; }
+          try {
+            return { filter, result: activeDevice.popErrorScope!() };
+          } catch (error) {
+            return { filter, result: Promise.reject(error) };
+          }
         });
         observeRenderValidation(results, validationReference, frame);
       }
@@ -2076,29 +2898,46 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
 
   let screenCoords = new Float32Array(0);
   const draw = (force2d = false) => {
-    const nextWidth = dimension(props.width, 360), nextHeight = dimension(props.height, 200);
+    const nextWidth = dimension(props.width, 360),
+      nextHeight = dimension(props.height, 200);
     if (nextWidth !== width || nextHeight !== height) {
       clearPickFrame();
-      width = nextWidth; height = nextHeight;
+      width = nextWidth;
+      height = nextHeight;
       for (const surface of surfaces ? [canvas, surfaces.fallback] : [canvas]) {
-        surface.width = width; surface.height = height;
-        surface.style.width = `${width}px`; surface.style.height = `${height}px`;
+        surface.width = width;
+        surface.height = height;
+        surface.style.width = `${width}px`;
+        surface.style.height = `${height}px`;
       }
       if (surfaces) surfaces.viewport.style.width = `${width + 2}px`;
     }
-    const mesh = currentMesh(), residentHandle = currentResident();
+    const mesh = currentMesh(),
+      residentHandle = currentResident();
     const indices = mesh.indices;
     if (residentHandle) {
       // A resident frame has no authoritative host replica for forced recovery.
       // Keep the original GPU diagnostic rather than replacing it with a fallback error.
-      if (force2d) { selectBackend('unavailable'); return; }
+      if (force2d) {
+        selectBackend('unavailable');
+        return;
+      }
       try {
-        const resident = residentVertexRecord(residentHandle, renderCore, renderState.device, mesh.vertexCount);
+        const resident = residentVertexRecord(
+          residentHandle,
+          renderCore,
+          renderState.device,
+          mesh.vertexCount,
+        );
         if (tryRenderWebGpu(null, mesh, indices, resident, residentHandle)) return;
-        throw new Error(lastRenderFailure ?? 'Resident vertices require an available WebGPU renderer');
+        throw new Error(
+          lastRenderFailure ?? 'Resident vertices require an available WebGPU renderer',
+        );
       } catch (error) {
-        releaseRenderResources(); setValidation('failed', error instanceof Error ? error.message : String(error));
-        selectBackend('unavailable'); return;
+        releaseRenderResources();
+        setValidation('failed', error instanceof Error ? error.message : String(error));
+        selectBackend('unavailable');
+        return;
       }
     }
     watchResident(null);
@@ -2133,11 +2972,22 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
         const index = indices[i];
         if (!Number.isInteger(index) || index < 0 || index >= count) return [];
       }
-      const size = renderCore.svet_gpu_clip_primitive_3d(mesh.transformedVertices.offset, count,
-        indices[0], indices[1], indices[2] ?? 0, indices[3] ?? 0, indices.length);
+      const size = renderCore.svet_gpu_clip_primitive_3d(
+        mesh.transformedVertices.offset,
+        count,
+        indices[0],
+        indices[1],
+        indices[2] ?? 0,
+        indices[3] ?? 0,
+        indices.length,
+      );
       if (size === 0) return [];
       // Clipping may grow WASM memory; construct the view after the call.
-      const data = new Float32Array(renderCore.memory.buffer, renderCore.svet_gpu_clip_output_ptr() >>> 0, size * 4);
+      const data = new Float32Array(
+        renderCore.memory.buffer,
+        renderCore.svet_gpu_clip_output_ptr() >>> 0,
+        size * 4,
+      );
       const points: Array<[number, number, number]> = new Array(size);
       for (let i = 0; i < size; i++) {
         const w = data[i * 4 + 3];
@@ -2163,17 +3013,22 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       ctx.fillStyle = props.fillStyle ?? 'rgba(56, 189, 248, 0.14)';
       for (let i = 0; i < sortedFaces.length; i++) {
         const points = sortedFaces[i].points;
-        ctx.beginPath(); ctx.moveTo(points[0][0], points[0][1]);
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
         for (let j = 1; j < points.length; j++) ctx.lineTo(points[j][0], points[j][1]);
-        ctx.closePath(); ctx.fill();
+        ctx.closePath();
+        ctx.fill();
       }
     }
     if (props.edges?.length) {
-      ctx.strokeStyle = props.strokeStyle ?? '#38bdf8'; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.strokeStyle = props.strokeStyle ?? '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
       for (let i = 0; i < props.edges.length; i++) {
         const points = clipPrimitive(props.edges[i]);
         if (points.length !== 2) continue;
-        ctx.moveTo(points[0][0], points[0][1]); ctx.lineTo(points[1][0], points[1][1]);
+        ctx.moveTo(points[0][0], points[0][1]);
+        ctx.lineTo(points[1][0], points[1][1]);
       }
       ctx.stroke();
     }
@@ -2184,8 +3039,22 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
       ctx.fillStyle = props.pointColor ?? '#34d399';
       for (let i = 0; i < count; i++) {
         const base = i * 4;
-        const x = markerVertices[base], y = markerVertices[base + 1], z = markerVertices[base + 2], w = markerVertices[base + 3];
-        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) || !Number.isFinite(w) || w <= 0 || Math.abs(x) > w || Math.abs(y) > w || z < 0 || z > w) continue;
+        const x = markerVertices[base],
+          y = markerVertices[base + 1],
+          z = markerVertices[base + 2],
+          w = markerVertices[base + 3];
+        if (
+          !Number.isFinite(x) ||
+          !Number.isFinite(y) ||
+          !Number.isFinite(z) ||
+          !Number.isFinite(w) ||
+          w <= 0 ||
+          Math.abs(x) > w ||
+          Math.abs(y) > w ||
+          z < 0 ||
+          z > w
+        )
+          continue;
         const px = screenCoords[i * 2];
         const py = screenCoords[i * 2 + 1];
         ctx.beginPath();
@@ -2196,37 +3065,63 @@ function createCanvas3D(props: Canvas3DProps, surfaces?: { viewport: HTMLDivElem
     capturePickFrame(mesh, mesh.transformedVertices.view(), indices, 'canvas2d-zsort');
   };
   const render = () => {
-    if (!scheduledMode) { draw(); return; }
+    if (!scheduledMode) {
+      draw();
+      return;
+    }
     // Track the latest sources now; the deferred draw runs without graph tracking.
     const mesh = currentMesh();
     if (!currentResident()) mesh.transformedVertices();
     mesh.indices;
-    dimension(props.width, 360); dimension(props.height, 200);
-    if (initialDraw) { initialDraw = false; draw(); return; }
-    dirty = true; scheduleLatest();
+    dimension(props.width, 360);
+    dimension(props.height, 200);
+    if (initialDraw) {
+      initialDraw = false;
+      draw();
+      return;
+    }
+    dirty = true;
+    scheduleLatest();
   };
   const stopRender = effect(render);
   const onDeviceChange = (reset: boolean) => {
-    cancelFrameRequest(); dirty = false; drainingFrame = null;
+    cancelFrameRequest();
+    dirty = false;
+    drainingFrame = null;
     releaseRenderResources();
     setValidation('inactive');
     if (reset) {
       validationTarget.settle = validationTarget.queue = () => {};
       rendererDisposed = true;
       selectBackend('unavailable');
-      stopRender.dispose(); renderState.renderers.delete(onDeviceChange); return;
+      stopRender.dispose();
+      renderState.renderers.delete(onDeviceChange);
+      return;
     }
-    try { withWasmCore(renderCore, () => untrack(() => draw())); }
-    catch (error) { setValidation('failed', error instanceof Error ? error.message : String(error)); selectBackend('unavailable'); }
+    try {
+      withWasmCore(renderCore, () => untrack(() => draw()));
+    } catch (error) {
+      setValidation('failed', error instanceof Error ? error.message : String(error));
+      selectBackend('unavailable');
+    }
   };
   const disposeRenderer = () => {
-    validationTarget.settle = validationTarget.queue = () => {}; rendererDisposed = true;
-    cancelFrameRequest(); dirty = false; drainingFrame = null; renderState.renderers.delete(onDeviceChange);
-    releaseRenderResources(); setValidation('disposed');
+    validationTarget.settle = validationTarget.queue = () => {};
+    rendererDisposed = true;
+    cancelFrameRequest();
+    dirty = false;
+    drainingFrame = null;
+    renderState.renderers.delete(onDeviceChange);
+    releaseRenderResources();
+    setValidation('disposed');
   };
   if (isOwnerScopeDisposed(renderOwner) || renderGeneration !== getReactiveGeneration(renderCore)) {
-    disposeRenderer(); selectBackend('unavailable');
-  } else { renderState.renderers.add(onDeviceChange); onCleanup(disposeRenderer); }
+    disposeRenderer();
+    selectBackend('unavailable');
+  } else {
+    renderState.renderers.add(onDeviceChange);
+    onCleanup(disposeRenderer);
+  }
 
   return canvas;
 }
@@ -2296,6 +3191,18 @@ export function GpuSparkline(props: {
 }
 
 // Internal executor primitives shared with immutable resident-result operations.
-export { gpuState, tensorRecords, computeQueues, computePipelineKey, findComputePipeline,
-  forgetComputePipeline, retainComputePipeline, snapshotGpuOptionMetadata, waitForGpu,
-  checkGpuSignals, reserveGpuComputeAdmission, residentComputeBudgets, residentComputeUsage };
+export {
+  gpuState,
+  tensorRecords,
+  computeQueues,
+  computePipelineKey,
+  findComputePipeline,
+  forgetComputePipeline,
+  retainComputePipeline,
+  snapshotGpuOptionMetadata,
+  waitForGpu,
+  checkGpuSignals,
+  reserveGpuComputeAdmission,
+  residentComputeBudgets,
+  residentComputeUsage,
+};

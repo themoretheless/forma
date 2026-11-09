@@ -3,9 +3,13 @@ import { batch, computed, effect, resetReactiveSystem, signal } from '../src/eng
 beforeEach(() => resetReactiveSystem());
 
 it('tracks effect branches after repeated executions with unchanged dependencies', () => {
-  const chooseA = signal(true), a = signal(0), b = signal(10);
+  const chooseA = signal(true),
+    a = signal(0),
+    b = signal(10);
   const values: number[] = [];
-  const handle = effect(() => { values.push(chooseA() ? a() : b()); });
+  const handle = effect(() => {
+    values.push(chooseA() ? a() : b());
+  });
   a.set(1);
   a.set(2);
   chooseA.set(false);
@@ -16,10 +20,14 @@ it('tracks effect branches after repeated executions with unchanged dependencies
 });
 
 it('tracks computed branches after repeated executions with unchanged dependencies', () => {
-  const chooseA = signal(true), a = signal(0), b = signal(10);
-  const value = computed(() => chooseA() ? a() : b());
+  const chooseA = signal(true),
+    a = signal(0),
+    b = signal(10);
+  const value = computed(() => (chooseA() ? a() : b()));
   const values: number[] = [];
-  const handle = effect(() => { values.push(value()); });
+  const handle = effect(() => {
+    values.push(value());
+  });
   a.set(1);
   a.set(2);
   chooseA.set(false);
@@ -31,9 +39,12 @@ it('tracks computed branches after repeated executions with unchanged dependenci
 });
 
 it('tracks newly introduced dependencies in a formerly single-source effect', () => {
-  const enabled = signal(false), value = signal(1);
+  const enabled = signal(false),
+    value = signal(1);
   const values: number[] = [];
-  const handle = effect(() => { values.push(enabled() ? value() : 0); });
+  const handle = effect(() => {
+    values.push(enabled() ? value() : 0);
+  });
   enabled.set(true);
   value.set(2);
   expect(values).toEqual([0, 1, 2]);
@@ -41,10 +52,19 @@ it('tracks newly introduced dependencies in a formerly single-source effect', ()
 });
 
 it('does not subscribe an outer effect to the internal sources of a computed', () => {
-  const inner = signal(0), outer = signal(0);
-  let computes = 0, runs = 0;
-  const value = computed(() => { computes++; return Math.floor(inner() / 2); });
-  const handle = effect(() => { outer(); value(); runs++; });
+  const inner = signal(0),
+    outer = signal(0);
+  let computes = 0,
+    runs = 0;
+  const value = computed(() => {
+    computes++;
+    return Math.floor(inner() / 2);
+  });
+  const handle = effect(() => {
+    outer();
+    value();
+    runs++;
+  });
   inner.set(2);
   inner.set(4);
   outer.set(1);
@@ -69,14 +89,21 @@ it('does not return a stale cached value after a computed throws', () => {
 });
 
 it('matches a reference model across batched branch changes and a computed diamond', () => {
-  const select = signal(true), a = signal(0), b = signal(10);
-  const left = computed(() => select() ? a() : b());
-  const right = computed(() => select() ? b() * 2 : a() * 3);
+  const select = signal(true),
+    a = signal(0),
+    b = signal(10);
+  const left = computed(() => (select() ? a() : b()));
+  const right = computed(() => (select() ? b() * 2 : a() * 3));
   const total = computed(() => left() + right());
   const observed: number[] = [];
-  const handle = effect(() => { observed.push(total()); });
+  const handle = effect(() => {
+    observed.push(total());
+  });
   let seed = 246813579;
-  const next = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed; };
+  const next = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed;
+  };
   for (let i = 0; i < 200; i++) {
     const priorRuns = observed.length;
     batch(() => {
@@ -90,5 +117,7 @@ it('matches a reference model across batched branch changes and a computed diamo
     expect(observed.length - priorRuns).toBeLessThanOrEqual(1);
   }
   handle.dispose();
-  total.dispose(); left.dispose(); right.dispose();
+  total.dispose();
+  left.dispose();
+  right.dispose();
 });

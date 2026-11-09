@@ -1,0 +1,11 @@
+# Formatting-only commits. Use with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# Format svet-wasm with rustfmt and re-embed the wasm binary
+5343025727535bf5f2a60bd0566d45c290560865
+# Format the forma crate, its examples and native-app with rustfmt
+a1be09891d00d957bd3108da411f861e48510ceb
+# Format the ten crates with rustfmt
+73629d948ea87880b172793a82d3a4fa573989d0
+# Format svet sources, tests and scripts with Prettier
+636f942e03f642cb79690693f63cd2eb7b1971f9
+# Format Studio JavaScript with Prettier
+e752167e33a36b8c07fa010bc4cf5ab33c1a9c9f

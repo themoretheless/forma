@@ -1,6 +1,12 @@
-import {test} from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import {CASES, FRAMES, REPEATS, makeSchedule, summarizePairs} from '../scripts/interleave-bench.mjs';
+import {
+  CASES,
+  FRAMES,
+  REPEATS,
+  makeSchedule,
+  summarizePairs,
+} from '../scripts/interleave-bench.mjs';
 
 test('interleaved schedule contains 48 unique adjacent balanced A/B runs', () => {
   const schedule = makeSchedule();
@@ -24,15 +30,22 @@ test('interleaved schedule contains 48 unique adjacent balanced A/B runs', () =>
   }
   for (let caseIndex = 0; caseIndex < CASES.length; caseIndex++) {
     const pairs = schedule.filter(row => row.caseIndex === caseIndex && row.position === 1);
-    assert.deepEqual(pairs.map(row => row.repetition), [1, 2, 3, 4]);
+    assert.deepEqual(
+      pairs.map(row => row.repetition),
+      [1, 2, 3, 4],
+    );
     assert.equal(pairs.filter(row => row.order === 'AB').length, 2);
     assert.equal(pairs.filter(row => row.order === 'BA').length, 2);
   }
 });
 
 test('summary uses median of paired changes, not ratio of independent medians', () => {
-  const pairs = [[1, 2], [2, 4], [100, 100], [200, 200]]
-    .map(([a, b]) => ({A: {value: a}, B: {value: b}}));
+  const pairs = [
+    [1, 2],
+    [2, 4],
+    [100, 100],
+    [200, 200],
+  ].map(([a, b]) => ({ A: { value: a }, B: { value: b } }));
   const summary = summarizePairs(pairs, row => row.value);
   assert.equal(summary.aMedian, 51);
   assert.equal(summary.bMedian, 52);
@@ -46,20 +59,29 @@ test('summary uses median of paired changes, not ratio of independent medians', 
 
 test('missing or invalid members invalidate the whole metric instead of dropping pairs', () => {
   for (const value of [null, undefined, Number.NaN, Number.POSITIVE_INFINITY, -1, '1']) {
-    const pairs = [{A: {value: 1}, B: {value: 2}}, {A: {value: 3}, B: {value}}];
-    assert.equal(summarizePairs(pairs, row => row.value), null);
+    const pairs = [
+      { A: { value: 1 }, B: { value: 2 } },
+      { A: { value: 3 }, B: { value } },
+    ];
+    assert.equal(
+      summarizePairs(pairs, row => row.value),
+      null,
+    );
   }
 });
 
 test('zero A baseline retains absolute measurements but has no percentage ratio', () => {
-  const summary = summarizePairs([
-    {A: {value: 0}, B: {value: 2}},
-    {A: {value: 2}, B: {value: 4}},
-  ], row => row.value);
+  const summary = summarizePairs(
+    [
+      { A: { value: 0 }, B: { value: 2 } },
+      { A: { value: 2 }, B: { value: 4 } },
+    ],
+    row => row.value,
+  );
   assert.equal(summary.aMedian, 1);
   assert.equal(summary.bMedian, 3);
   assert.equal(summary.pairedMedianPercent, null);
   assert.equal(summary.pairedRangePercent, null);
-  const zeroAfter = summarizePairs([{A: {value: 2}, B: {value: 0}}], row => row.value);
+  const zeroAfter = summarizePairs([{ A: { value: 2 }, B: { value: 0 } }], row => row.value);
   assert.equal(zeroAfter.pairedMedianPercent, -100);
 });

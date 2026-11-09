@@ -1,46 +1,57 @@
-use tao::{event::{Event,WindowEvent},event_loop::{ControlFlow,EventLoopBuilder},window::WindowBuilder};
+use tao::{
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoopBuilder},
+    window::WindowBuilder,
+};
 use wry::WebViewBuilder;
 
 // The runner supplies the current project's actions.rs at compilation time.
-mod actions { include!(env!("FORMA_ACTIONS")); }
+mod actions {
+    include!(env!("FORMA_ACTIONS"));
+}
 
-fn main() -> Result<(),Box<dyn std::error::Error>> {
-    let filename=std::env::args().nth(1).ok_or("Expected UI snapshot path")?;
-    let snapshot:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(&filename)?)?;
-    let html=snapshot["html"].as_str().ok_or("Missing HTML")?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let filename = std::env::args().nth(1).ok_or("Expected UI snapshot path")?;
+    let snapshot: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&filename)?)?;
+    let html = snapshot["html"].as_str().ok_or("Missing HTML")?;
     // Runtime defaults belong to Rust, never to a designer scenario.
-    let mut state=actions::SearchState {
-        query:String::new(),
-        loading:false,
-        status:String::from("Готов к поиску"),
+    let mut state = actions::SearchState {
+        query: String::new(),
+        loading: false,
+        status: String::from("Готов к поиску"),
     };
-    let mut events=EventLoopBuilder::<String>::with_user_event().build();
-    #[cfg(target_os="macos")]
+    let mut events = EventLoopBuilder::<String>::with_user_event().build();
+    #[cfg(target_os = "macos")]
     {
-        use tao::platform::macos::{EventLoopExtMacOS,ActivationPolicy};
+        use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
         events.set_activation_policy(ActivationPolicy::Regular);
         events.set_dock_visibility(true);
         events.set_activate_ignoring_other_apps(true);
     }
-    let proxy=events.create_proxy();
-    let watch_proxy=events.create_proxy();
-    let watch_path=filename.clone();
+    let proxy = events.create_proxy();
+    let watch_proxy = events.create_proxy();
+    let watch_path = filename.clone();
     std::thread::spawn(move || {
-        let mut last_raw=std::fs::read_to_string(&watch_path).unwrap_or_default();
-        let mut last_mtime=std::fs::metadata(&watch_path).and_then(|m|m.modified()).ok();
+        let mut last_raw = std::fs::read_to_string(&watch_path).unwrap_or_default();
+        let mut last_mtime = std::fs::metadata(&watch_path)
+            .and_then(|m| m.modified())
+            .ok();
         loop {
             std::thread::sleep(std::time::Duration::from_millis(120));
-            let cur_mtime=std::fs::metadata(&watch_path).and_then(|m|m.modified()).ok();
-            if cur_mtime.is_some() && cur_mtime==last_mtime {
+            let cur_mtime = std::fs::metadata(&watch_path)
+                .and_then(|m| m.modified())
+                .ok();
+            if cur_mtime.is_some() && cur_mtime == last_mtime {
                 continue;
             }
-            if let Ok(next_raw)=std::fs::read_to_string(&watch_path) {
-                last_mtime=cur_mtime;
-                if next_raw!=last_raw && !next_raw.trim().is_empty() {
-                    if let Ok(parsed)=serde_json::from_str::<serde_json::Value>(&next_raw) {
-                        if let Some(body_html)=parsed["bodyHtml"].as_str() {
-                            last_raw=next_raw;
-                            let msg=serde_json::json!({"kind":"hot_reload","bodyHtml":body_html}).to_string();
+            if let Ok(next_raw) = std::fs::read_to_string(&watch_path) {
+                last_mtime = cur_mtime;
+                if next_raw != last_raw && !next_raw.trim().is_empty() {
+                    if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&next_raw) {
+                        if let Some(body_html) = parsed["bodyHtml"].as_str() {
+                            last_raw = next_raw;
+                            let msg = serde_json::json!({"kind":"hot_reload","bodyHtml":body_html})
+                                .to_string();
                             if watch_proxy.send_event(msg).is_err() {
                                 break;
                             }
@@ -50,14 +61,24 @@ fn main() -> Result<(),Box<dyn std::error::Error>> {
             }
         }
     });
-    let window=WindowBuilder::new().with_title("Forma — приложение").with_inner_size(tao::dpi::LogicalSize::new(760.,820.)).build(&events)?;
-    let builder=WebViewBuilder::new().with_html(html)
-        .with_navigation_handler(|url|url=="about:blank")
-        .with_ipc_handler(move |request|{let _=proxy.send_event(request.body().clone());});
-    #[cfg(any(target_os="macos",target_os="windows"))]
-    let webview=builder.build(&window)?;
-    #[cfg(target_os="linux")]
-    let webview={use tao::platform::unix::WindowExtUnix;use wry::WebViewBuilderExtUnix;builder.build_gtk(window.default_vbox().unwrap())?};
+    let window = WindowBuilder::new()
+        .with_title("Forma — приложение")
+        .with_inner_size(tao::dpi::LogicalSize::new(760., 820.))
+        .build(&events)?;
+    let builder = WebViewBuilder::new()
+        .with_html(html)
+        .with_navigation_handler(|url| url == "about:blank")
+        .with_ipc_handler(move |request| {
+            let _ = proxy.send_event(request.body().clone());
+        });
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    let webview = builder.build(&window)?;
+    #[cfg(target_os = "linux")]
+    let webview = {
+        use tao::platform::unix::WindowExtUnix;
+        use wry::WebViewBuilderExtUnix;
+        builder.build_gtk(window.default_vbox().unwrap())?
+    };
     println!("Native window opened");
     events.run(move |event,_,flow| {
         *flow=ControlFlow::Wait;

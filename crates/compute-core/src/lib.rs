@@ -57,10 +57,10 @@ pub use scratch::{ScratchArray, ScratchPool, ScratchPoolStats};
 pub use tensor::{GpuLowTensor, GpuTensor, TensorComputeError};
 pub use tensor_core;
 
-pub use selection::CompactedArray;
 pub use scan::{
     compact_if_u32, exclusive_scan_u32, inclusive_scan_u32, radix_sort_by_key_u32, radix_sort_u32,
 };
+pub use selection::CompactedArray;
 
 pub use kernel::{BindingInfo, KernelBindingError};
 pub use kernel_cache::{KernelCache, KernelCacheStats};

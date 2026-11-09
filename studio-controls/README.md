@@ -5,7 +5,7 @@
 
 `ui/StudioControls.ui` — общий стенд. Файлы Toolbar, Tabs, Tree, Inspector,
 Toggles и Diagnostics показывают каждую группу отдельно: откройте файл и
-нажмите «Показать UI». Используются непосредственно компоненты из `vector-ui/controls`: PrimaryButton,
+нажмите «Показать UI». Используются непосредственно компоненты из `crates/forma/controls`: PrimaryButton,
 SecondaryButton, IconButton, TabButton, TreeItem, TextField, SearchField,
 Checkbox, TableRow, Alert и StatusBar. Их палитра, размеры, состояния и Reveal
 берутся из Unified Style Guide через общую библиотеку. Самостоятельной темы

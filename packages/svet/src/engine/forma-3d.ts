@@ -5,7 +5,13 @@
  * It is the only link between Forma and `gpu.ts`, so a `.ui` application without 3D widgets that uses
  * `svet-engine/slim` does not carry the GPU module. The default `svet-engine` entry imports it.
  */
-import { Canvas3D, Viewport3D, createCubeMesh3D, createPerspectiveCamera3D, createTransform3D } from './gpu.ts';
+import {
+  Canvas3D,
+  Viewport3D,
+  createCubeMesh3D,
+  createPerspectiveCamera3D,
+  createTransform3D,
+} from './gpu.ts';
 import { effect, onCleanup } from './reactivity.ts';
 import { evalAstNode, evaluateFormaExpression, parseFormaExprAst } from './forma-expr.ts';
 import { registerFormaElement, type FormaElementContext } from './forma.ts';
@@ -52,7 +58,9 @@ function renderForma3d({ tag, props, scope, registerKey }: FormaElementContext):
   }
 
   const canvas = (tag === 'Viewport3D' ? Viewport3D : Canvas3D)({
-    renderMode: props.renderMode ? String(evaluateFormaExpression(props.renderMode, scope)) as 'sync' | 'animation-frame' : undefined,
+    renderMode: props.renderMode
+      ? (String(evaluateFormaExpression(props.renderMode, scope)) as 'sync' | 'animation-frame')
+      : undefined,
     mesh: cube.mesh,
     edges: cube.edges,
     faces: cube.faces,

@@ -36,19 +36,19 @@ component UsersView {
   };
 
   const compiled = compileComponents({ 'main.ui': source }, 'main.ui', state, metrics);
-  const texts = compiled.previewNodes[0].children.filter(v => v.type === 'Text').map(v => v.props.text);
-  assert.deepEqual(texts, [
-    '3:Анна,Борис,Вера:true:false',
-    '1:Борис',
-    '2:Вера',
-  ]);
+  const texts = compiled.previewNodes[0].children
+    .filter(v => v.type === 'Text')
+    .map(v => v.props.text);
+  assert.deepEqual(texts, ['3:Анна,Борис,Вера:true:false', '1:Борис', '2:Вера']);
 
   // When all items are filtered out by `where`, `empty` block should render
   const emptyState = {
     users: [{ id: 'a', name: 'Анна', score: 10, active: false, admin: false }],
   };
   const compiledEmpty = compileComponents({ 'main.ui': source }, 'main.ui', emptyState, metrics);
-  const emptyTexts = compiledEmpty.previewNodes[0].children.filter(v => v.type === 'Text').map(v => v.props.text);
+  const emptyTexts = compiledEmpty.previewNodes[0].children
+    .filter(v => v.type === 'Text')
+    .map(v => v.props.text);
   assert.deepEqual(emptyTexts, ['1:Анна:false:false', 'Никого нет']);
 });
 
@@ -76,7 +76,9 @@ component OrderList {
     ],
   };
   const compiled = compileComponents({ 'main.ui': source }, 'main.ui', state, metrics);
-  const texts = compiled.previewNodes[0].children.filter(v => v.type === 'Text').map(v => v.props.text);
+  const texts = compiled.previewNodes[0].children
+    .filter(v => v.type === 'Text')
+    .map(v => v.props.text);
   assert.deepEqual(texts, ['МОНИТОР: 220']);
 });
 
@@ -255,7 +257,7 @@ test('8. Canonical formatter (formatSource) and static linter (lintDocument)', (
   const messy = `component   Demo{prop unusedProp:String='hi';let unusedLet=1+2;let usedLet=10;shortcut 'CmdOrCtrl+S' -> actions.save();shortcut 'CmdOrCtrl+S' -> actions.saveAgain();Column{width:360;height:220;Text{text:match usedLet { _ => 'first'; 10 => 'unreachable'; };}}}`;
   const formatted = formatSource(messy);
   assert.ok(formatted.includes('component Demo {\n'));
-  assert.ok(formatted.includes('  prop unusedProp: String = \'hi\';'));
+  assert.ok(formatted.includes("  prop unusedProp: String = 'hi';"));
   // Formatted code parses identically
   const parsed = parse(formatted);
   assert.equal(parsed.name, 'Demo');

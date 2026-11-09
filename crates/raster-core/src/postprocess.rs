@@ -196,12 +196,7 @@ pub fn compute_ssao_ao(
 /// Apply a 3x3 Sobel edge silhouette detector to a single-channel depth or luminance image.
 ///
 /// Returns edge magnitude normalized to `[0.0, 1.0]` per pixel (`1.0` where gradient >= `threshold`).
-pub fn sobel_edge_outline(
-    channel: &[f32],
-    width: u32,
-    height: u32,
-    threshold: f32,
-) -> Vec<f32> {
+pub fn sobel_edge_outline(channel: &[f32], width: u32, height: u32, threshold: f32) -> Vec<f32> {
     let w = width as usize;
     let h = height as usize;
     let total = w.saturating_mul(h);
@@ -376,11 +371,7 @@ pub fn compute_normal_map_from_depth(
 
 /// Fast Approximate Anti-Aliasing (FXAA) screen-space pass based on Rec. 709 luma contrast
 /// detection and local gradient blending.
-pub fn fxaa_luma_antialias(
-    rgba: &[[f32; 4]],
-    width: usize,
-    height: usize,
-) -> Vec<[f32; 4]> {
+pub fn fxaa_luma_antialias(rgba: &[[f32; 4]], width: usize, height: usize) -> Vec<[f32; 4]> {
     let total = width.saturating_mul(height);
     if rgba.len() < total || width < 3 || height < 3 {
         return rgba.to_vec();
@@ -459,7 +450,8 @@ pub fn fxaa_luma_antialias(
             };
 
             // Subpixel aliasing factor from 3x3 box average vs center luma
-            let l_avg = (2.0 * (l_n + l_s + l_w + l_e) + (l_nw + l_ne + l_sw + l_se)) * (1.0 / 12.0);
+            let l_avg =
+                (2.0 * (l_n + l_s + l_w + l_e) + (l_nw + l_ne + l_sw + l_se)) * (1.0 / 12.0);
             let subpix = ((l_avg - l_m).abs() / l_range.max(1e-6)).clamp(0.0, 1.0);
             let blend = (0.25 + 0.5 * subpix).clamp(0.0, 0.75);
             let inv_blend = 1.0 - blend;
@@ -478,11 +470,7 @@ pub fn fxaa_luma_antialias(
 
 /// Apply Krzysztof Narkowicz's ACES filmic HDR tone-mapping curve followed by gamma correction
 /// (`pow(1.0 / gamma)`), returning display-referred `[R, G, B]` in `[0.0, 1.0]`.
-pub fn tone_map_aces_filmic(
-    hdr_rgb: &[[f32; 3]],
-    exposure: f32,
-    gamma: f32,
-) -> Vec<[f32; 3]> {
+pub fn tone_map_aces_filmic(hdr_rgb: &[[f32; 3]], exposure: f32, gamma: f32) -> Vec<[f32; 3]> {
     const A: f32 = 2.51;
     const B: f32 = 0.03;
     const C: f32 = 2.43;
@@ -814,7 +802,9 @@ mod tests {
         }
         let sloped = compute_normal_map_from_depth(&depth, 5, 5, std::f32::consts::FRAC_PI_3);
         let center_n = sloped[2 * 5 + 2];
-        let norm = (center_n[0] * center_n[0] + center_n[1] * center_n[1] + center_n[2] * center_n[2]).sqrt();
+        let norm =
+            (center_n[0] * center_n[0] + center_n[1] * center_n[1] + center_n[2] * center_n[2])
+                .sqrt();
         assert!((norm - 1.0).abs() < 1e-5);
         assert!(center_n[0] < -0.1);
         assert!(center_n[2] > 0.0);

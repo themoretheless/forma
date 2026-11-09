@@ -6,7 +6,7 @@ export { Fragment };
 export function jsx(
   type: string | Component<any> | AsyncComponent<any>,
   props: Record<string, any> | null,
-  key?: string | number
+  key?: string | number,
 ): Node {
   const finalProps = props ? { ...props } : {};
   if (key !== undefined) {

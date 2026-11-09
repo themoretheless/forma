@@ -4,7 +4,7 @@
 use crate::chunks::expand_chunks;
 use crate::shaders::{
     DEEP_MESH_WGSL, EDGE_WGSL, GRID_WGSL, LINE_WGSL, MESH_SECTION_CAP_WGSL, MESH_SHADOW_WGSL,
-    MESH_VERTEX_STRIDE, MORPH_VERTEX_STRIDE, MESH_WGSL, SELECTION_OVERLAY_WGSL,
+    MESH_VERTEX_STRIDE, MESH_WGSL, MORPH_VERTEX_STRIDE, SELECTION_OVERLAY_WGSL,
 };
 use crate::uniform::OBJECT_UNIFORM_BYTES;
 use crate::variants::{VertexOutput, instanced_object_shader};
@@ -42,8 +42,16 @@ fn mesh_vbl() -> VertexBufferLayout<'static> {
         array_stride: MESH_VERTEX_STRIDE,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &[
-            VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 0, shader_location: 0 },
-            VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 12, shader_location: 1 },
+            VertexAttribute {
+                format: wgpu::VertexFormat::Float32x3,
+                offset: 0,
+                shader_location: 0,
+            },
+            VertexAttribute {
+                format: wgpu::VertexFormat::Float32x3,
+                offset: 12,
+                shader_location: 1,
+            },
         ],
     }
 }
@@ -64,7 +72,11 @@ fn edge_slot0_vbl() -> VertexBufferLayout<'static> {
     VertexBufferLayout {
         array_stride: MESH_VERTEX_STRIDE,
         step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &[VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 0, shader_location: 0 }],
+        attributes: &[VertexAttribute {
+            format: wgpu::VertexFormat::Float32x3,
+            offset: 0,
+            shader_location: 0,
+        }],
     }
 }
 
@@ -72,7 +84,11 @@ fn edge_morph_vbl() -> VertexBufferLayout<'static> {
     VertexBufferLayout {
         array_stride: MORPH_VERTEX_STRIDE,
         step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &[VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 0, shader_location: 1 }],
+        attributes: &[VertexAttribute {
+            format: wgpu::VertexFormat::Float32x3,
+            offset: 0,
+            shader_location: 1,
+        }],
     }
 }
 
@@ -81,8 +97,16 @@ fn line_vbl() -> VertexBufferLayout<'static> {
         array_stride: 28,
         step_mode: wgpu::VertexStepMode::Vertex,
         attributes: &[
-            VertexAttribute { format: wgpu::VertexFormat::Float32x3, offset: 0, shader_location: 0 },
-            VertexAttribute { format: wgpu::VertexFormat::Float32x4, offset: 12, shader_location: 1 },
+            VertexAttribute {
+                format: wgpu::VertexFormat::Float32x3,
+                offset: 0,
+                shader_location: 0,
+            },
+            VertexAttribute {
+                format: wgpu::VertexFormat::Float32x4,
+                offset: 12,
+                shader_location: 1,
+            },
         ],
     }
 }
@@ -91,7 +115,11 @@ fn grid_vbl() -> VertexBufferLayout<'static> {
     VertexBufferLayout {
         array_stride: 8,
         step_mode: wgpu::VertexStepMode::Vertex,
-        attributes: &[VertexAttribute { format: wgpu::VertexFormat::Float32x2, offset: 0, shader_location: 0 }],
+        attributes: &[VertexAttribute {
+            format: wgpu::VertexFormat::Float32x2,
+            offset: 0,
+            shader_location: 0,
+        }],
     }
 }
 
@@ -227,19 +255,47 @@ impl RasterPipelines {
         };
 
         let mesh_mod = module(device, "mesh", &expand_chunks(MESH_WGSL));
-        let cap_mod = module(device, "mesh section cap", &expand_chunks(MESH_SECTION_CAP_WGSL));
+        let cap_mod = module(
+            device,
+            "mesh section cap",
+            &expand_chunks(MESH_SECTION_CAP_WGSL),
+        );
         let deep_mod = module(device, "deep mesh", &expand_chunks(DEEP_MESH_WGSL));
         let edge_mod = module(device, "edge", &expand_chunks(EDGE_WGSL));
         let line_mod = module(device, "line", &expand_chunks(LINE_WGSL));
         let grid_mod = module(device, "grid", &expand_chunks(GRID_WGSL));
-        let overlay_mod = module(device, "selection overlay", &expand_chunks(SELECTION_OVERLAY_WGSL));
+        let overlay_mod = module(
+            device,
+            "selection overlay",
+            &expand_chunks(SELECTION_OVERLAY_WGSL),
+        );
         let shadow_mod = module(device, "mesh shadow", &expand_chunks(MESH_SHADOW_WGSL));
-        let instanced_mesh_mod = module(device, "instanced mesh", &instanced_object_shader(&expand_chunks(MESH_WGSL), VertexOutput::V));
-        let instanced_edge_mod = module(device, "instanced edge", &instanced_object_shader(&expand_chunks(EDGE_WGSL), VertexOutput::EdgeV));
+        let instanced_mesh_mod = module(
+            device,
+            "instanced mesh",
+            &instanced_object_shader(&expand_chunks(MESH_WGSL), VertexOutput::V),
+        );
+        let instanced_edge_mod = module(
+            device,
+            "instanced edge",
+            &instanced_object_shader(&expand_chunks(EDGE_WGSL), VertexOutput::EdgeV),
+        );
 
-        let opaque_target = || Some(ColorTargetState { format, blend: None, write_mask: ColorWrites::ALL });
-        let mesh_primitive = PrimitiveState { cull_mode: None, ..PrimitiveState::default() };
-        let line_primitive = PrimitiveState { topology: wgpu::PrimitiveTopology::LineList, ..PrimitiveState::default() };
+        let opaque_target = || {
+            Some(ColorTargetState {
+                format,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            })
+        };
+        let mesh_primitive = PrimitiveState {
+            cull_mode: None,
+            ..PrimitiveState::default()
+        };
+        let line_primitive = PrimitiveState {
+            topology: wgpu::PrimitiveTopology::LineList,
+            ..PrimitiveState::default()
+        };
 
         let mesh_opaque = device.create_render_pipeline(&RenderPipelineDescriptor {
             label: Some("mesh opaque"),
@@ -279,7 +335,10 @@ impl RasterPipelines {
             }),
             // Front-face culling draws only the back faces: after the clipped
             // surface pass, the surviving interior fragments form the cap.
-            primitive: PrimitiveState { cull_mode: Some(wgpu::Face::Front), ..PrimitiveState::default() },
+            primitive: PrimitiveState {
+                cull_mode: Some(wgpu::Face::Front),
+                ..PrimitiveState::default()
+            },
             depth_stencil: Some(depth.clone()),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -301,7 +360,10 @@ impl RasterPipelines {
                 targets: &[Some(transparent_target(format))],
             }),
             primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState { depth_write_enabled: Some(false), ..depth.clone() }),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                depth_write_enabled: Some(false),
+                ..depth.clone()
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -417,7 +479,11 @@ impl RasterPipelines {
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
                 targets: &[Some(transparent_target(format))],
             }),
-            primitive: PrimitiveState { topology: wgpu::PrimitiveTopology::TriangleList, cull_mode: None, ..PrimitiveState::default() },
+            primitive: PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                cull_mode: None,
+                ..PrimitiveState::default()
+            },
             depth_stencil: Some(depth.clone()),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
@@ -439,7 +505,10 @@ impl RasterPipelines {
                 targets: &[Some(transparent_target(format))],
             }),
             primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState { depth_write_enabled: Some(false), ..depth.clone() }),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                depth_write_enabled: Some(false),
+                ..depth.clone()
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,
@@ -505,7 +574,10 @@ impl RasterPipelines {
                 targets: &[Some(transparent_target(format))],
             }),
             primitive: mesh_primitive,
-            depth_stencil: Some(wgpu::DepthStencilState { depth_write_enabled: Some(false), ..depth.clone() }),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                depth_write_enabled: Some(false),
+                ..depth.clone()
+            }),
             multisample: wgpu::MultisampleState::default(),
             multiview_mask: None,
             cache: None,

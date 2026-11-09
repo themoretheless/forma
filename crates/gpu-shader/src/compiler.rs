@@ -95,12 +95,8 @@ pub fn compile_shader_multi_target(wgsl_source: &str) -> Result<MultiTargetShade
         &crate::back::msl::Options::default(),
         &crate::back::msl::PipelineOptions::default(),
     )?;
-    let spirv_words = crate::back::spv::write_words(
-        &module,
-        &info,
-        &crate::back::spv::Options::default(),
-        None,
-    )?;
+    let spirv_words =
+        crate::back::spv::write_words(&module, &info, &crate::back::spv::Options::default(), None)?;
     let hlsl = crate::back::hlsl::write_string(
         &module,
         &info,

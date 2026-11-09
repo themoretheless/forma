@@ -18,7 +18,9 @@ let workDir: string;
 async function bundle(entry: 'index.js' | 'slim.js'): Promise<string> {
   const engine = pathToFileURL(join(dist, entry)).href;
   const file = join(workDir, `${entry}.consumer.mjs`);
-  await writeFile(file, `
+  await writeFile(
+    file,
+    `
     import { instantiateFormaAst, signal, h, mount } from ${JSON.stringify(engine)};
     const ast = ${JSON.stringify({ componentName: 'Card' })};
     export function start(root) {
@@ -26,14 +28,18 @@ async function bundle(entry: 'index.js' | 'slim.js'): Promise<string> {
       mount(() => h('button', { onClick: () => count.set(count() + 1) }, () => String(count())), root);
       return instantiateFormaAst(ast);
     }
-  `);
+  `,
+  );
   const result = await build({
     configFile: false,
     logLevel: 'silent',
     build: { write: false, minify: false, lib: { entry: file, formats: ['es'] } },
   });
   const outputs = Array.isArray(result) ? result : [result];
-  return outputs.flatMap((item) => ('output' in item ? item.output : [])).map((chunk) => ('code' in chunk ? chunk.code : '')).join('\n');
+  return outputs
+    .flatMap(item => ('output' in item ? item.output : []))
+    .map(chunk => ('code' in chunk ? chunk.code : ''))
+    .join('\n');
 }
 
 describe('bundle contents', () => {

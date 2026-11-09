@@ -7342,7 +7342,7 @@ binds source/CI hashes to native tests/example and unchanged web artifact eviden
 
 ## Native Forma binding scheduler — 2026-11-02
 
-`vector-ui` now depends on the local Svet Rust crate only on native targets.
+`crates/forma` now depends on the local Svet Rust crate only on native targets.
 Each opt-in Form owns a Context with one signal/effect pair per live Field.
 Property callbacks notify graph sources; sync drains and re-tracks effects
 before dirtying fields and updating Runtime. Identity-safe job lookup avoids
@@ -7524,7 +7524,7 @@ large-model time/peak memory and the full conflict matrix remain open.
 
 ## Binding allocation experiment — 2026-11-02
 
-Added `vector-ui/examples/binding_sync_bench.rs`: public Document sync on
+Added `crates/forma/examples/binding_sync_bench.rs`: public Document sync on
 8/32/96 keyed text editors with seven alternating noop/one-edit samples. An
 initial transaction-local key-index cache failed to demonstrate a stable speed
 win and regressed small cases; it was removed. Those A/B/A/B raw results remain
@@ -7555,7 +7555,7 @@ member preservation. Source archive, hashes, raw data and build logs:
 Reproduce the retained workload from the repository root:
 
 ```sh
-CARGO_TARGET_DIR=/tmp/forma-binding-bench cargo run --locked --release --manifest-path vector-ui/Cargo.toml --example binding_sync_bench
+CARGO_TARGET_DIR=/tmp/forma-binding-bench cargo run --locked --release --manifest-path crates/forma/Cargo.toml --example binding_sync_bench
 ```
 
 Use a quiet host for timing qualification; allocation counters are calling-
@@ -10007,9 +10007,9 @@ qualification remain open.
 [Qualification](benchmarks/native-alias-boundaries-qualification-2026-11-02.json).
 
 
-## 2026-11-02 — rebuilt Rust vector-ui WASM execution
+## 2026-11-02 — rebuilt Rust crates/forma WASM execution
 
-Current vector-ui release WASM (idle guard and borrowed alias resolver) rebuilt
+Current crates/forma release WASM (idle guard and borrowed alias resolver) rebuilt
 with wasm-bindgen0.2.125 NodeJS/web bindings. Node passes7 artifact +7 binding
 snapshot/reload cases. Chromium156 passes10/10 CPU Canvas2D checks. Single and
 chained alias cases perform24 idle sync calls, Unicode input, reload with reversed
@@ -10176,7 +10176,7 @@ presentation callback остаётся открытой: snapshot caret тогд
 ### Read-only NativeApp inspection — 2026-11-03
 
 NativeApp.inspect — обязательный read-only observer retained Runtime. Runtime,
-probe и test wrapper реализуют его; миграция документирована в vector-ui README.
+probe и test wrapper реализуют его; миграция документирована в crates/forma README.
 IME presentation больше не вызывает update, получает caret после завершённой
 замены Runtime и не очищает preedit нового редактора. Regression проверяет
 call count0, exact caret, unchanged pixels, inspect error и owner retirement.
@@ -10520,7 +10520,7 @@ ShapedGlyph получил font_index; font_face предоставляет matc
 face weight400. Actual CJK/emoji glyph id и normalized advance берутся из
 общего resolver; kerning разрешён только внутри одного face и направления,
 synthetic glyph0 сохранён для неподдерживаемых scalar.239 Rust tests passed,
-2 GPU ignored. Fresh release vector-ui WASM Node14/14 и Chromium17/17 passed;
+2 GPU ignored. Fresh release crates/forma WASM Node14/14 и Chromium17/17 passed;
 CPU CJK/emoji frames просмотрены, pixels/caret/simple-shape samples проверены.
 Module21,828,894bytes,gzip13,246,694bytes. Bundle дедуплицирует Node/web WASM
 через tar hardlink. Full shaping/ZWJ/colour/broader baselines и controlled
@@ -10959,7 +10959,7 @@ other schedulers/platforms,true CJK IME and latency gates remain open.
 Recheck the saved journals with:
 
 ```sh
-python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/native-large-raw-2026-11-03 /tmp/svet-native-large-recheck.json
+python3 crates/forma/scripts/qualify-native-form.py packages/svet/benchmarks/native-large-raw-2026-11-03 /tmp/svet-native-large-recheck.json
 ```
 
 
@@ -11002,7 +11002,7 @@ resource/RSS plateau,other platforms and broader PLAN remain open.
 The saved256 journal can be checked independently:
 
 ```sh
-python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/frame-runs-native-raw-2026-11-03 /tmp/svet-frame-runs-recheck.json --counts 256 --extra-roundtrips-256 0
+python3 crates/forma/scripts/qualify-native-form.py packages/svet/benchmarks/frame-runs-native-raw-2026-11-03 /tmp/svet-frame-runs-recheck.json --counts 256 --extra-roundtrips-256 0
 ```
 
 
@@ -11043,7 +11043,7 @@ RSS/lifecycle plateau and other platforms/schedulers remain open.
 [Qualification](benchmarks/frame-spans-qualification-2026-11-03.json).
 
 ```sh
-python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/frame-spans-native-raw-2026-11-03 /tmp/svet-frame-spans-recheck.json --counts 256 --extra-roundtrips-256 0
+python3 crates/forma/scripts/qualify-native-form.py packages/svet/benchmarks/frame-spans-native-raw-2026-11-03 /tmp/svet-frame-spans-recheck.json --counts 256 --extra-roundtrips-256 0
 ```
 
 ## Scope overlay qualification — 2026-11-03
@@ -11054,7 +11054,7 @@ and final AB/BA pair directories preserve measured results and source hashes.
 Fresh actual native256 journal verified with:
 
 ```sh
-python3 vector-ui/scripts/qualify-native-form.py packages/svet/benchmarks/property-overlay-native-raw-2026-11-03 packages/svet/benchmarks/property-overlay-native-qualification-2026-11-03.json --counts 256 --extra-roundtrips-256 0
+python3 crates/forma/scripts/qualify-native-form.py packages/svet/benchmarks/property-overlay-native-raw-2026-11-03 packages/svet/benchmarks/property-overlay-native-qualification-2026-11-03.json --counts 256 --extra-roundtrips-256 0
 ```
 
 Exact model/unchanged rows, maximum scroll9334 and final0, CPU/GPU presents
@@ -11073,9 +11073,9 @@ cache release/reconstruction and unchanged destination on invalid DPI passed.
 The independent full-canvas oracle now also validates this path.
 
 ```sh
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --lib --test runtime_allocations
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path vector-ui/Cargo.toml --features native --all-targets
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path vector-ui/Cargo.toml --target wasm32-unknown-unknown
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/forma/Cargo.toml --lib --test runtime_allocations
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path crates/forma/Cargo.toml --features native --all-targets
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path crates/forma/Cargo.toml --target wasm32-unknown-unknown
 ```
 
 192 lib tests +17 allocation tests passed;1 ignored.
@@ -11092,8 +11092,8 @@ owned RGBA equivalence and XRGB compositing; final model checks every row/ID.
 One warm lifecycle precedes3 measured lifecycles per configuration.
 
 ```sh
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo run --manifest-path vector-ui/Cargo.toml --release --example binding_sync_bench -- --cpu-lifecycle > /tmp/svet-cpu-lifecycle-final.json
-python3 vector-ui/scripts/qualify-cpu-lifecycle.py /tmp/svet-cpu-lifecycle-final.json /tmp/svet-cpu-lifecycle-summary.json
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo run --manifest-path crates/forma/Cargo.toml --release --example binding_sync_bench -- --cpu-lifecycle > /tmp/svet-cpu-lifecycle-final.json
+python3 crates/forma/scripts/qualify-cpu-lifecycle.py /tmp/svet-cpu-lifecycle-final.json /tmp/svet-cpu-lifecycle-summary.json
 ```
 
 All24 measured lifecycles (768 edit frames) pass. Late16-edit live bytes are
@@ -11121,8 +11121,8 @@ explicit profiled renderer smoke passed on Apple M4 Max/Metal.
 ```sh
 CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml distinct_logical_devices -- --ignored --nocapture
 CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml --lib
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --features native --lib
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --features gpu profiled_renderer_reports_owned_buffers_and_reuses_them -- --ignored --nocapture
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/forma/Cargo.toml --features native --lib
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/forma/Cargo.toml --features gpu profiled_renderer_reports_owned_buffers_and_reuses_them -- --ignored --nocapture
 ```
 
 [Evidence](benchmarks/queue-identity-qualification-2026-11-03.json). Non-loss
@@ -11151,8 +11151,8 @@ Metal renderer smoke passed. [Evidence](benchmarks/command-error-qualification-2
 ```sh
 CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml --lib
 CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/gpu-runtime/Cargo.toml --lib -- --ignored --nocapture
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --features native --lib
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path vector-ui/Cargo.toml --features native --all-targets
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/forma/Cargo.toml --features native --lib
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo check --manifest-path crates/forma/Cargo.toml --features native --all-targets
 ```
 
 Remaining: OOM-specific classification, physical fault/error-code coverage, idle
@@ -11239,7 +11239,7 @@ checks without intervening new frames.
 [Evidence](benchmarks/idle-wakeup-qualification-2026-11-03.json).
 
 ```sh
-python3 vector-ui/scripts/qualify-idle-wakeup.py packages/svet/benchmarks/idle-wakeup-raw-2026-11-03.jsonl.gz /tmp/svet-idle-wakeup-summary.json
+python3 crates/forma/scripts/qualify-idle-wakeup.py packages/svet/benchmarks/idle-wakeup-raw-2026-11-03.jsonl.gz /tmp/svet-idle-wakeup-summary.json
 ```
 
 This measures recorded health checks/presents, not all event-loop wakeups or
@@ -11336,8 +11336,8 @@ Both complete raw series, source/binary hashes and build logs are preserved in
 [qualification](benchmarks/scope-backoff-qualification-2026-11-03.json).
 
 ```sh
-cargo run --manifest-path vector-ui/Cargo.toml --release --features gpu --example gpu_scope_bench
-python3 vector-ui/scripts/qualify-gpu-scopes.py BASELINE_BINARY CANDIDATE_BINARY OUTPUT_DIR
+cargo run --manifest-path crates/forma/Cargo.toml --release --features gpu --example gpu_scope_bench
+python3 crates/forma/scripts/qualify-gpu-scopes.py BASELINE_BINARY CANDIDATE_BINARY OUTPUT_DIR
 ```
 
 Next: stabilize control timing and increase warmup/samples before accepting
@@ -11477,7 +11477,7 @@ previous native/WASM qualification snapshot; no production code changed.
 [Evidence](benchmarks/grapheme-conformance-qualification-2026-11-03.json).
 
 ```sh
-CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path vector-ui/Cargo.toml --test grapheme_conformance --test grapheme_edit
+CARGO_TARGET_DIR=/tmp/svet-native-development cargo test --manifest-path crates/forma/Cargo.toml --test grapheme_conformance --test grapheme_edit
 ```
 
 The fixture is offline and version/count pinned. Passing this finite corpus
@@ -11540,8 +11540,8 @@ in browser-word-* benchmark artifacts. Synthetic DOM input only; trusted OS
 keyboard/IME and GPU presentation are not qualified by this probe.
 
 Reproduce with a fresh wasm-bindgen web bundle:
-`python3 vector-ui/scripts/serve-word-browser.py --wasm-dir /path/to/web-bundle --result /tmp/word-browser.json`,
-then open `/vector-ui/tests/preview-word-browser.html` on localhost:8769.
+`python3 crates/forma/scripts/serve-word-browser.py --wasm-dir /path/to/web-bundle --result /tmp/word-browser.json`,
+then open `/crates/forma/tests/preview-word-browser.html` on localhost:8769.
 Owned probe tab and server were closed.
 
 
@@ -12478,7 +12478,7 @@ speech/marked-text IME and latency/RSS/energy remain open.
 
 - **Native Accessibility (`AccessKit`)**:
   - Extended `Runtime` and `native_accessibility` with semantic actions for `A11yRole::Slider` (`Action::Increment`, `Action::Decrement`, `Action::SetValue` accepting normalized `[0.0, 1.0]` or percentage strings), `A11yRole::ScrollView` (`Action::ScrollUp`/`ScrollDown`/`ScrollLeft`/`ScrollRight` isolated under active modals), and `A11yRole::Dialog` (`Action::Collapse` dismissal and `accesskit::Live::Polite` live-region announcements for screen-reader speech output).
-  - Integrated `accesskit_winit::Adapter` and `PublishedTree` into the standalone `forma` binary (`vector-ui/src/main.rs`), cancelling active IME composition when an accepted `SetValue` or `SetTextSelection` action mutates the active editor.
+  - Integrated `accesskit_winit::Adapter` and `PublishedTree` into the standalone `forma` binary (`crates/forma/src/main.rs`), cancelling active IME composition when an accepted `SetValue` or `SetTextSelection` action mutates the active editor.
   - Added a `450ms` timeout with child-process reaping in `native_clipboard.rs` so external clipboard helpers (`pbpaste`/`pbcopy`/`wl-paste`/`xclip`/`xsel`/`powershell`) never block the UI thread.
 - **Text Completeness (`text.rs`, `control_state.rs`, `text_input.rs`, `runtime.rs`)**:
   - Added zero-advance cluster attachment in `shape_text` for ZWJ emoji sequences (`👨‍👩‍👧‍👦`), Fitzpatrick skin-tone modifiers (`👍🏽`), keycap sequences (`1️⃣`), regional indicator flag pairs (`🇬🇪`), and variation selectors (`VS1..=VS16`, `VS17..=VS256`).
@@ -12486,7 +12486,7 @@ speech/marked-text IME and latency/RSS/energy remain open.
   - Added dictionary-backed CJK/Thai compound word segmentation (`segment_words_dictionary`, `move_words_dictionary`, `backspace_word_dictionary`, `delete_word_dictionary`) in `control_state.rs` while preserving 100% Unicode 17 `UAX #29` conformance.
   - Added visual soft-wrapping layout and hit-testing (`SoftWrappedLine`, `wrap_shaped_text`, `hit_wrapped_text`, `Editor::soft_wrapped_lines`/`hit_soft_wrapped`, `Runtime::text_soft_line_count`/`text_hit_soft_wrapped`).
 - **Release & Gate Verification**:
-  - `cargo test --locked --manifest-path vector-ui/Cargo.toml --features native --lib --tests --bin forma`: 248 unit tests and all integration test suites pass.
-  - `cargo test --locked --manifest-path vector-ui/Cargo.toml --features gpu --lib --tests -- --ignored`: all 9 hardware Metal GPU tests pass.
+  - `cargo test --locked --manifest-path crates/forma/Cargo.toml --features native --lib --tests --bin forma`: 248 unit tests and all integration test suites pass.
+  - `cargo test --locked --manifest-path crates/forma/Cargo.toml --features gpu --lib --tests -- --ignored`: all 9 hardware Metal GPU tests pass.
   - `npm --prefix packages/svet test` (113 files / 1507 tests), `npm --prefix packages/svet run test:package` (62 files, isolated consumer install & build), and `npm --prefix packages/svet run test:actions` (4 HTTP abort/streaming tests) pass.
   - `npm run gate`: all 15 gate checks pass (`tokenizer`, `version-check`, `studio-js` 585/585, `studio-build`, JS compiler/session/tools benches, `runtime-gpu`, `svet-wasm` 66/66, `binding-native`, `language-example`, `native-host`, `native-x86_64-unknown-linux-gnu`, `native-x86_64-pc-windows-msvc`, `studio-legacy`, and `wasm-provenance`).

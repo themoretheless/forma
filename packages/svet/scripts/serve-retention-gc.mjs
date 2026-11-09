@@ -1,11 +1,60 @@
-import {createServer} from 'vite';
-import {readFile,writeFile} from 'node:fs/promises';
-import {createHash} from 'node:crypto';
-import {resolve} from 'node:path';
-import {fileURLToPath} from 'node:url';
-const root=fileURLToPath(new URL('..',import.meta.url)),output=process.argv[2];
-if(!output)throw Error('Usage: serve-retention-gc.mjs OUTPUT_JSON');
-const manifest={};for(const file of ['tests/browser/retention-gc.html','dist/package/index.js','dist/package/dom.js','dist/package/stream.js'])manifest[file]=createHash('sha256').update(await readFile(resolve(root,file))).digest('hex');
-const server=await createServer({root,configFile:false,optimizeDeps:{noDiscovery:true,include:[]},server:{host:'127.0.0.1',port:4217,strictPort:true},plugins:[{name:'gc-report',configureServer(server){server.middlewares.use('/__gc_result',async(req,res)=>{if(req.method!=='POST'){res.statusCode=405;return res.end();}try{let body='';for await(const part of req){body+=part;if(body.length>65536)throw Error('Report too large');}const report=JSON.parse(body);await writeFile(resolve(output),JSON.stringify({...report,manifest,recordedAt:new Date().toISOString()},null,2)+'\n');res.end('saved');}catch(error){res.statusCode=400;res.end(String(error));}});}}]});
-await server.listen();console.log('http://127.0.0.1:4217/tests/browser/retention-gc.html');
-for(const event of ['SIGINT','SIGTERM'])process.once(event,()=>server.close());
+import { createServer } from 'vite';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const root = fileURLToPath(new URL('..', import.meta.url)),
+  output = process.argv[2];
+if (!output) throw Error('Usage: serve-retention-gc.mjs OUTPUT_JSON');
+const manifest = {};
+for (const file of [
+  'tests/browser/retention-gc.html',
+  'dist/package/index.js',
+  'dist/package/dom.js',
+  'dist/package/stream.js',
+])
+  manifest[file] = createHash('sha256')
+    .update(await readFile(resolve(root, file)))
+    .digest('hex');
+const server = await createServer({
+  root,
+  configFile: false,
+  optimizeDeps: { noDiscovery: true, include: [] },
+  server: { host: '127.0.0.1', port: 4217, strictPort: true },
+  plugins: [
+    {
+      name: 'gc-report',
+      configureServer(server) {
+        server.middlewares.use('/__gc_result', async (req, res) => {
+          if (req.method !== 'POST') {
+            res.statusCode = 405;
+            return res.end();
+          }
+          try {
+            let body = '';
+            for await (const part of req) {
+              body += part;
+              if (body.length > 65536) throw Error('Report too large');
+            }
+            const report = JSON.parse(body);
+            await writeFile(
+              resolve(output),
+              JSON.stringify(
+                { ...report, manifest, recordedAt: new Date().toISOString() },
+                null,
+                2,
+              ) + '\n',
+            );
+            res.end('saved');
+          } catch (error) {
+            res.statusCode = 400;
+            res.end(String(error));
+          }
+        });
+      },
+    },
+  ],
+});
+await server.listen();
+console.log('http://127.0.0.1:4217/tests/browser/retention-gc.html');
+for (const event of ['SIGINT', 'SIGTERM']) process.once(event, () => server.close());

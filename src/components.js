@@ -1,52 +1,94 @@
 // Component linking is shared by Studio preview and native launch. It emits the
 // same concrete primitive template; there is no DOM rendering of button content.
-import {parse,validateDesign,designStatePatch} from './language.js';
-import {designReference,readDesignData} from './design-data.js';
-import {propertyOrigins} from './property-origins.js';
-import {similarName,sourceError} from './diagnostics.js';
-import {parseSvgShapes,placeSvgShapes} from './svg-shapes.js';
-import {attachSources,createElementTree} from './element-tree.js';
-import {createCacheBudget} from './cache-budget.js';
-import {evaluate,evaluateProperties,selectedProperties,selectedPropertySources,validateContract,validateTypeName,matchesType,expandStructure} from './component-semantics.js';
-import {containerTypes,arrange,naturalContainer,intrinsicLength,length,constrained} from './component-layout.js';
-export {evaluate} from './component-semantics.js';
+import { parse, validateDesign, designStatePatch } from './language.js';
+import { designReference, readDesignData } from './design-data.js';
+import { propertyOrigins } from './property-origins.js';
+import { similarName, sourceError } from './diagnostics.js';
+import { parseSvgShapes, placeSvgShapes } from './svg-shapes.js';
+import { attachSources, createElementTree } from './element-tree.js';
+import { createCacheBudget } from './cache-budget.js';
+import {
+  evaluate,
+  evaluateProperties,
+  selectedProperties,
+  selectedPropertySources,
+  validateContract,
+  validateTypeName,
+  matchesType,
+  expandStructure,
+} from './component-semantics.js';
+import {
+  containerTypes,
+  arrange,
+  naturalContainer,
+  intrinsicLength,
+  length,
+  constrained,
+} from './component-layout.js';
+export { evaluate } from './component-semantics.js';
 
-const own=(o,k)=>Object.hasOwn(o,k);
+const own = (o, k) => Object.hasOwn(o, k);
 // Compiling clones a cached parse and the linked definitions on every run, and
 // those graphs are plain object/array/scalar data. Copying them recursively with
 // an identity map keeps shared subgraphs shared, the way structuredClone did,
 // without paying the structured-clone setup on the hot path.
-const isPlain=value=>{
-  if(value===null||typeof value!=='object')return false;
-  const prototype=Object.getPrototypeOf(value);
-  return prototype===Object.prototype||prototype===null;
+const isPlain = value => {
+  if (value === null || typeof value !== 'object') return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 };
-function copyData(value,seen){
-  if(value===null||typeof value!=='object')return value;
-  const known=seen.get(value);
-  if(known!==undefined)return known;
-  if(Array.isArray(value)){const out=[];seen.set(value,out);for(const item of value)out.push(copyData(item,seen));return out;}
-  if(!isPlain(value))return structuredClone(value);
-  const out={};seen.set(value,out);
-  for(const key of Object.keys(value))out[key]=copyData(value[key],seen);
+function copyData(value, seen) {
+  if (value === null || typeof value !== 'object') return value;
+  const known = seen.get(value);
+  if (known !== undefined) return known;
+  if (Array.isArray(value)) {
+    const out = [];
+    seen.set(value, out);
+    for (const item of value) out.push(copyData(item, seen));
+    return out;
+  }
+  if (!isPlain(value)) return structuredClone(value);
+  const out = {};
+  seen.set(value, out);
+  for (const key of Object.keys(value)) out[key] = copyData(value[key], seen);
   return out;
 }
-const clone=value=>typeof value==='object'&&value!==null?copyData(value,new WeakMap()):value;
-export const standard=new Set('key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration transition'.split(' '));
-export const layoutProps=new Set('key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight transition'.split(' '));
-const visualTypes=new Set([...containerTypes,'Text','TextInput','Image','Rectangle']);
-const primitiveTypes=new Set([...visualTypes,'ContentPresenter','Brush','Border','Reveal','PointerArea','ContentText','ContentShape','ContentClip','ContentClipEnd']);
+const clone = value =>
+  typeof value === 'object' && value !== null ? copyData(value, new WeakMap()) : value;
+export const standard = new Set(
+  'key x y width height text fontSize font.size color radius disabled background hoverBackground pressedBackground disabledBackground borderWidth borderColor focusBorderColor transitionDuration transition'.split(
+    ' ',
+  ),
+);
+export const layoutProps = new Set(
+  'key cell row column row.span column.span width height minWidth maxWidth minHeight maxHeight transition'.split(
+    ' ',
+  ),
+);
+const visualTypes = new Set([...containerTypes, 'Text', 'TextInput', 'Image', 'Rectangle']);
+const primitiveTypes = new Set([
+  ...visualTypes,
+  'ContentPresenter',
+  'Brush',
+  'Border',
+  'Reveal',
+  'PointerArea',
+  'ContentText',
+  'ContentShape',
+  'ContentClip',
+  'ContentClipEnd',
+]);
 // Scene-level text controls use the same primitive rendering as component
 // content. A project may replace these defaults with components/Text*.ui.
-const builtinSources={
-  Text:`component Text {
+const builtinSources = {
+  Text: `component Text {
     width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff; wrap: false;
     background: #00000000; borderWidth: 0; radius: 0;
     Rectangle { background: props.background;
       Text { text: props.text; color: props.color; fontSize: props.fontSize; wrap: props.wrap; }
     }
   }`,
-  TextInput:`component TextInput {
+  TextInput: `component TextInput {
     width: 240; height: 38; value: ''; placeholder: ''; multiline: false;
     text: props.value; fontSize: 15; color: #ffffff; placeholderColor: #999999;
     background: #00000000; borderWidth: 0; radius: 0;
@@ -56,689 +98,1659 @@ const builtinSources={
     }
   }`,
 };
-export const contentProps=new Map(Object.entries({Frame:['columns','rows','gap','padding','clip','radius'],Row:['gap','padding','clip','radius'],Column:['gap','padding','clip','radius'],Grid:['columns','rows','gap','padding','clip','radius'],Stack:['gap','padding','clip','radius'],Rectangle:['background','radius'],TextInput:['value','placeholder','color','placeholderColor','fontSize','multiline'],Text:['text','color','fontSize','font.size','wrap'],Image:['source','color']}).map(([type,props])=>[type,new Set([...layoutProps,...props])]));
-const templateEncoder=new TextEncoder();
+export const contentProps = new Map(
+  Object.entries({
+    Frame: ['columns', 'rows', 'gap', 'padding', 'clip', 'radius'],
+    Row: ['gap', 'padding', 'clip', 'radius'],
+    Column: ['gap', 'padding', 'clip', 'radius'],
+    Grid: ['columns', 'rows', 'gap', 'padding', 'clip', 'radius'],
+    Stack: ['gap', 'padding', 'clip', 'radius'],
+    Rectangle: ['background', 'radius'],
+    TextInput: ['value', 'placeholder', 'color', 'placeholderColor', 'fontSize', 'multiline'],
+    Text: ['text', 'color', 'fontSize', 'font.size', 'wrap'],
+    Image: ['source', 'color'],
+  }).map(([type, props]) => [type, new Set([...layoutProps, ...props])]),
+);
+const templateEncoder = new TextEncoder();
 // Templates are framed by their UTF-8 byte length. Encoding a ~7 KB icon template
 // only to read that length allocated the bytes again for every instance, and
 // generated templates are ASCII, where the JS length already is the byte length.
-const asciiTemplate=/^[\0-\x7f]*$/;
-const templateByteLength=text=>asciiTemplate.test(text)?text.length:templateEncoder.encode(text).length;
-const fallback={width:260,height:70,text:'',fontSize:20,color:{expr:'#14213b'},radius:16,disabled:false,background:{expr:'#8ca5ff'},hoverBackground:{expr:'#a8baff'},pressedBackground:{expr:'#6a83da'},disabledBackground:{expr:'#596273'},borderWidth:1,borderColor:{expr:'#bed0ff'},focusBorderColor:{expr:'#ffffff'},transitionDuration:{expr:'140ms'}};
-function visit(nodes,fn){for(const n of nodes){fn(n);visit(n.children??[],fn);visit(n.elseChildren??[],fn);visit(n.emptyChildren??[],fn);if(n.branches)for(const b of n.branches)visit(b.children??[],fn);}}
-function substitute(v,key,base){
-  if(v?.expr?.startsWith('base.')){if(v.expr!==`base.${key}`)throw Error(`В override ${key} допустим только base.${key}`);return clone(base);}
-  if(Array.isArray(v))return v.map(x=>substitute(x,key,base));
-  if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,substitute(x,key,base)]));
+const asciiTemplate = /^[\0-\x7f]*$/;
+const templateByteLength = text =>
+  asciiTemplate.test(text) ? text.length : templateEncoder.encode(text).length;
+const fallback = {
+  width: 260,
+  height: 70,
+  text: '',
+  fontSize: 20,
+  color: { expr: '#14213b' },
+  radius: 16,
+  disabled: false,
+  background: { expr: '#8ca5ff' },
+  hoverBackground: { expr: '#a8baff' },
+  pressedBackground: { expr: '#6a83da' },
+  disabledBackground: { expr: '#596273' },
+  borderWidth: 1,
+  borderColor: { expr: '#bed0ff' },
+  focusBorderColor: { expr: '#ffffff' },
+  transitionDuration: { expr: '140ms' },
+};
+function visit(nodes, fn) {
+  for (const n of nodes) {
+    fn(n);
+    visit(n.children ?? [], fn);
+    visit(n.elseChildren ?? [], fn);
+    visit(n.emptyChildren ?? [], fn);
+    if (n.branches) for (const b of n.branches) visit(b.children ?? [], fn);
+  }
+}
+function substitute(v, key, base) {
+  if (v?.expr?.startsWith('base.')) {
+    if (v.expr !== `base.${key}`) throw Error(`В override ${key} допустим только base.${key}`);
+    return clone(base);
+  }
+  if (Array.isArray(v)) return v.map(x => substitute(x, key, base));
+  if (v && typeof v === 'object')
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, substitute(x, key, base)]));
   return v;
 }
-function literal(v){
-  if(v?.expr)return v.expr;
-  if(v?.type)return `${v.type} { ${Object.entries(v.props).map(([k,x])=>`${k}: ${literal(x)};`).join(' ')} ${(v.children??[]).map(serialize).join(' ')} }`;
-  if(Array.isArray(v))return v.map(literal).join(' ');
-  if(typeof v==='string')return `'${v.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n')}'`;
-  if(typeof v==='number'&&!Number.isFinite(v))throw Error('Нечисловой размер');
-  if(typeof v==='number'||typeof v==='boolean')return String(v);
+function literal(v) {
+  if (v?.expr) return v.expr;
+  if (v?.type)
+    return `${v.type} { ${Object.entries(v.props)
+      .map(([k, x]) => `${k}: ${literal(x)};`)
+      .join(' ')} ${(v.children ?? []).map(serialize).join(' ')} }`;
+  if (Array.isArray(v)) return v.map(literal).join(' ');
+  if (typeof v === 'string')
+    return `'${v.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`;
+  if (typeof v === 'number' && !Number.isFinite(v)) throw Error('Нечисловой размер');
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   throw Error('Значение не удалось вычислить');
 }
-function serialize(n){return serializeNode(n,false);}
-function serializeNode(n,omitKeys){if(Object.keys(n.bindings??{}).length||Object.keys(n.slots??{}).length)throw Error(`Необработанная привязка или override в ${n.type}`);const keepTransition=n.type==='Brush'||n.type==='Reveal';return `${n.type} { ${Object.entries(n.props).filter(([k])=>!(omitKeys&&k==='key')&&(keepTransition||k!=='transition')).map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${Object.entries(n.events??{}).map(([k,v])=>`${k} -> ${v}();`).join(' ')} ${(n.children??[]).map(child=>serializeNode(child,omitKeys)).join(' ')} }`;}
-const num=(v,label)=>{if(typeof v==='object'&&v?.expr?.endsWith('px'))v=Number(v.expr.slice(0,-2));if(typeof v!=='number'||!Number.isFinite(v)||v<0||v>4096)throw Error(`${label}: ожидается размер 0…4096`);return v;};
-const color=v=>v?.expr??v;
-function insets(v=0){const a=Array.isArray(v)?v:[v];if(a.length<1||a.length>4)throw Error('padding: от 1 до 4 размеров');const x=a.map(v=>num(v,'padding'));return x.length===1?[x[0],x[0],x[0],x[0]]:x.length===2?[x[0],x[1],x[0],x[1]]:x.length===3?[x[0],x[1],x[2],x[1]]:x;}
-function tracks(v){return v===undefined?[{expr:'*'}]:Array.isArray(v)?v:[v];}
-function cell(n,axis,count){const c=n.props.cell;if(c&&(!Array.isArray(c)||c.length!==2||own(n.props,'row')||own(n.props,'column')))throw Error('cell: ожидаются row column без отдельных row/column');const v=c?.[axis==='rows'?0:1]??n.props[axis==='rows'?'row':'column'];if(v===undefined)return null;if(!Number.isInteger(v)||v<1||v>count)throw Error(`Ячейка за пределами ${axis}`);return v-1;}
-function gap(p){const a=Array.isArray(p.gap)?p.gap:[p.gap??0,p.gap??0];if(a.length!==2)throw Error('gap: один или два размера');return a.map(v=>num(v,'gap'));}
-function wrapLines(text,fontSize,maxWidth,metrics){
-  const raw=String(text??'').split('\n');
-  if(!Number.isFinite(maxWidth)||maxWidth<=0)return raw;
-  const out=[];
-  for(const paragraph of raw){
-    const words=paragraph.split(' ');
-    let current=words[0]??'';
-    for(let i=1;i<words.length;i++){
-      const word=words[i],candidate=current?`${current} ${word}`:word;
-      if(metrics.measureText(candidate,fontSize)[0]<=maxWidth)current=candidate;
-      else{out.push(current);current=word;}
+function serialize(n) {
+  return serializeNode(n, false);
+}
+function serializeNode(n, omitKeys) {
+  if (Object.keys(n.bindings ?? {}).length || Object.keys(n.slots ?? {}).length)
+    throw Error(`Необработанная привязка или override в ${n.type}`);
+  const keepTransition = n.type === 'Brush' || n.type === 'Reveal';
+  return `${n.type} { ${Object.entries(n.props)
+    .filter(([k]) => !(omitKeys && k === 'key') && (keepTransition || k !== 'transition'))
+    .map(([k, v]) => `${k}: ${literal(v)};`)
+    .join(' ')} ${Object.entries(n.events ?? {})
+    .map(([k, v]) => `${k} -> ${v}();`)
+    .join(' ')} ${(n.children ?? []).map(child => serializeNode(child, omitKeys)).join(' ')} }`;
+}
+const num = (v, label) => {
+  if (typeof v === 'object' && v?.expr?.endsWith('px')) v = Number(v.expr.slice(0, -2));
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0 || v > 4096)
+    throw Error(`${label}: ожидается размер 0…4096`);
+  return v;
+};
+const color = v => v?.expr ?? v;
+function insets(v = 0) {
+  const a = Array.isArray(v) ? v : [v];
+  if (a.length < 1 || a.length > 4) throw Error('padding: от 1 до 4 размеров');
+  const x = a.map(v => num(v, 'padding'));
+  return x.length === 1
+    ? [x[0], x[0], x[0], x[0]]
+    : x.length === 2
+      ? [x[0], x[1], x[0], x[1]]
+      : x.length === 3
+        ? [x[0], x[1], x[2], x[1]]
+        : x;
+}
+function tracks(v) {
+  return v === undefined ? [{ expr: '*' }] : Array.isArray(v) ? v : [v];
+}
+function cell(n, axis, count) {
+  const c = n.props.cell;
+  if (c && (!Array.isArray(c) || c.length !== 2 || own(n.props, 'row') || own(n.props, 'column')))
+    throw Error('cell: ожидаются row column без отдельных row/column');
+  const v = c?.[axis === 'rows' ? 0 : 1] ?? n.props[axis === 'rows' ? 'row' : 'column'];
+  if (v === undefined) return null;
+  if (!Number.isInteger(v) || v < 1 || v > count) throw Error(`Ячейка за пределами ${axis}`);
+  return v - 1;
+}
+function gap(p) {
+  const a = Array.isArray(p.gap) ? p.gap : [p.gap ?? 0, p.gap ?? 0];
+  if (a.length !== 2) throw Error('gap: один или два размера');
+  return a.map(v => num(v, 'gap'));
+}
+function wrapLines(text, fontSize, maxWidth, metrics) {
+  const raw = String(text ?? '').split('\n');
+  if (!Number.isFinite(maxWidth) || maxWidth <= 0) return raw;
+  const out = [];
+  for (const paragraph of raw) {
+    const words = paragraph.split(' ');
+    let current = words[0] ?? '';
+    for (let i = 1; i < words.length; i++) {
+      const word = words[i],
+        candidate = current ? `${current} ${word}` : word;
+      if (metrics.measureText(candidate, fontSize)[0] <= maxWidth) current = candidate;
+      else {
+        out.push(current);
+        current = word;
+      }
     }
     out.push(current);
   }
   return out;
 }
-function natural(n,axis,metrics){
-  const key=axis===0?'width':'height',p=n.props;
-  if(p[key]!==undefined&&!intrinsicLength(p[key])&&!/[*%]$/.test(p[key]?.expr??''))return constrained(num(p[key],key),p,axis,4096);
-  if(containerTypes.has(n.type)&&n.type!=='Frame')return naturalContainer(n,axis,(child,dimension)=>natural(child,dimension,metrics));
-  if(n.type==='Text'){
-    if(p.wrap!==undefined&&typeof p.wrap!=='boolean')throw Error('Text.wrap ожидает boolean');
-    const fs=num(p.fontSize??p['font.size']??16,'fontSize');if(!metrics?.measureText)throw Error('Размер текста по контенту требует метрик Rust runtime');
-    const wrapW=p.wrap&&axis===1&&typeof p.width==='number'?num(p.width,'width'):null;
-    const lines=wrapW!==null?wrapLines(p.text,fs,wrapW,metrics):String(p.text??'').split('\n');
-    const size=lines.length===1?metrics.measureText(lines[0],fs)[axis]:axis===1?lines.length*fs*1.5:Math.max(...lines.map(line=>metrics.measureText(line,fs)[0]));
-    if(!Number.isFinite(size)||size<0)throw Error('Некорректные метрики текста');return size;
+function natural(n, axis, metrics) {
+  const key = axis === 0 ? 'width' : 'height',
+    p = n.props;
+  if (p[key] !== undefined && !intrinsicLength(p[key]) && !/[*%]$/.test(p[key]?.expr ?? ''))
+    return constrained(num(p[key], key), p, axis, 4096);
+  if (containerTypes.has(n.type) && n.type !== 'Frame')
+    return naturalContainer(n, axis, (child, dimension) => natural(child, dimension, metrics));
+  if (n.type === 'Text') {
+    if (p.wrap !== undefined && typeof p.wrap !== 'boolean')
+      throw Error('Text.wrap ожидает boolean');
+    const fs = num(p.fontSize ?? p['font.size'] ?? 16, 'fontSize');
+    if (!metrics?.measureText) throw Error('Размер текста по контенту требует метрик Rust runtime');
+    const wrapW =
+      p.wrap && axis === 1 && typeof p.width === 'number' ? num(p.width, 'width') : null;
+    const lines =
+      wrapW !== null ? wrapLines(p.text, fs, wrapW, metrics) : String(p.text ?? '').split('\n');
+    const size =
+      lines.length === 1
+        ? metrics.measureText(lines[0], fs)[axis]
+        : axis === 1
+          ? lines.length * fs * 1.5
+          : Math.max(...lines.map(line => metrics.measureText(line, fs)[0]));
+    if (!Number.isFinite(size) || size < 0) throw Error('Некорректные метрики текста');
+    return size;
   }
-  if(n.type==='TextInput')return axis===0?80:Number(p.fontSize??15)*1.5;
-  if(n.type==='Image')return 20;
-  if(n.type==='Rectangle')return Math.max(0,...n.children.filter(c=>visualTypes.has(c.type)).map(c=>natural(c,axis,metrics)));
-  if(n.type==='Frame'){
-    const ts=tracks(p[axis===0?'columns':'rows']),g=gap(p)[axis===0?1:0],pad=insets(p.padding);
-    return ts.reduce((s,t,i)=>s+(typeof t==='number'?num(t,key):Math.max(0,...n.children.filter(c=>cell(c,axis===0?'columns':'rows',ts.length)===i||ts.length===1).map(c=>natural(c,axis,metrics)))),0)+g*(ts.length-1)+pad[axis===0?1:0]+pad[axis===0?3:2];
-  }throw Error(`Контент ${n.type} пока не поддерживается`);
+  if (n.type === 'TextInput') return axis === 0 ? 80 : Number(p.fontSize ?? 15) * 1.5;
+  if (n.type === 'Image') return 20;
+  if (n.type === 'Rectangle')
+    return Math.max(
+      0,
+      ...n.children.filter(c => visualTypes.has(c.type)).map(c => natural(c, axis, metrics)),
+    );
+  if (n.type === 'Frame') {
+    const ts = tracks(p[axis === 0 ? 'columns' : 'rows']),
+      g = gap(p)[axis === 0 ? 1 : 0],
+      pad = insets(p.padding);
+    return (
+      ts.reduce(
+        (s, t, i) =>
+          s +
+          (typeof t === 'number'
+            ? num(t, key)
+            : Math.max(
+                0,
+                ...n.children
+                  .filter(
+                    c =>
+                      cell(c, axis === 0 ? 'columns' : 'rows', ts.length) === i || ts.length === 1,
+                  )
+                  .map(c => natural(c, axis, metrics)),
+              )),
+        0,
+      ) +
+      g * (ts.length - 1) +
+      pad[axis === 0 ? 1 : 0] +
+      pad[axis === 0 ? 3 : 2]
+    );
+  }
+  throw Error(`Контент ${n.type} пока не поддерживается`);
 }
-function sizes(n,axis,available,metrics){
-  const name=axis===0?'columns':'rows',ts=tracks(n.props[name]),g=gap(n.props)[axis===0?1:0];let weight=0;
-  const result=ts.map((t,i)=>{const x=t?.expr??t;if(typeof x==='number')return num(x,name);if(x==='-'||x==='content'||x==='auto')return Math.max(0,...n.children.filter(c=>cell(c,name,ts.length)===i||ts.length===1).map(c=>natural(c,axis,metrics)));if(typeof x==='string'&&/^(?:\d+(?:\.\d+)?)?\*$/.test(x)){const w=x==='*'?1:Number(x.slice(0,-1));if(w<=0)throw Error('Вес * должен быть положительным');weight+=w;return {w};}if(typeof x==='string'&&/^\d+(?:\.\d+)?%$/.test(x))return available*Number(x.slice(0,-1))/100;throw Error(`Неподдерживаемый размер ${x}`);});
-  const remaining=Math.max(0,available-g*(ts.length-1)-result.reduce((s,v)=>s+(typeof v==='number'?v:0),0));return result.map(v=>typeof v==='number'?v:remaining*v.w/weight);
+function sizes(n, axis, available, metrics) {
+  const name = axis === 0 ? 'columns' : 'rows',
+    ts = tracks(n.props[name]),
+    g = gap(n.props)[axis === 0 ? 1 : 0];
+  let weight = 0;
+  const result = ts.map((t, i) => {
+    const x = t?.expr ?? t;
+    if (typeof x === 'number') return num(x, name);
+    if (x === '-' || x === 'content' || x === 'auto')
+      return Math.max(
+        0,
+        ...n.children
+          .filter(c => cell(c, name, ts.length) === i || ts.length === 1)
+          .map(c => natural(c, axis, metrics)),
+      );
+    if (typeof x === 'string' && /^(?:\d+(?:\.\d+)?)?\*$/.test(x)) {
+      const w = x === '*' ? 1 : Number(x.slice(0, -1));
+      if (w <= 0) throw Error('Вес * должен быть положительным');
+      weight += w;
+      return { w };
+    }
+    if (typeof x === 'string' && /^\d+(?:\.\d+)?%$/.test(x))
+      return (available * Number(x.slice(0, -1))) / 100;
+    throw Error(`Неподдерживаемый размер ${x}`);
+  });
+  const remaining = Math.max(
+    0,
+    available -
+      g * (ts.length - 1) -
+      result.reduce((s, v) => s + (typeof v === 'number' ? v : 0), 0),
+  );
+  return result.map(v => (typeof v === 'number' ? v : (remaining * v.w) / weight));
 }
-function flatten(n,box,files,output,metrics){
+function flatten(n, box, files, output, metrics) {
   // Keys belong to the inspector snapshot. Lowering must not mutate that tree.
-  const p=own(n.props,'key')?Object.fromEntries(Object.entries(n.props).filter(([k])=>k!=='key')):n.props,allowed=contentProps.get(n.type)??layoutProps;
-  for(const k of Object.keys(p))if(!allowed.has(k))throw Error(`${n.type}.${k} пока не поддерживается в контенте`);
-  if(Object.keys(n.events??{}).length||Object.keys(n.bindings??{}).length)throw Error('Контент кнопки пока не содержит отдельных интерактивных элементов');
-  let [x,y,w,h]=box;const nw=constrained(p.width===undefined?w:length(p.width,w,intrinsicLength(p.width)?natural({...n,props:{...p,width:undefined}},0,metrics):0,'width'),p,0,w),nh=constrained(p.height===undefined?h:length(p.height,h,intrinsicLength(p.height)?natural({...n,props:{...p,width:nw,height:undefined}},1,metrics):0,'height'),p,1,h);x+=(w-nw)/2;y+=(h-nh)/2;w=nw;h=nh;
-  const visual=metrics.visuals?{id:metrics.visuals.length,parent:metrics.parentVisual??null,type:n.type,source:n.source,propertySources:n.propertySources,propertyOrigins:n.propertyOrigins,props:p,bounds:[x,y,w,h]}:null;
-  if(visual)metrics.visuals.push(visual);
-  const childMetrics=visual?{...metrics,parentVisual:visual.id}:metrics;
-  if(n.type==='Rectangle'){
-    const radius=num(p.radius??0,'radius');
-    if(p.background!==undefined&&!(typeof color(p.background)==='string'&&/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(color(p.background))))throw Error('Rectangle.background в контенте принимает только hex; Brush и его состояния пока не поддерживаются');
+  const p = own(n.props, 'key')
+      ? Object.fromEntries(Object.entries(n.props).filter(([k]) => k !== 'key'))
+      : n.props,
+    allowed = contentProps.get(n.type) ?? layoutProps;
+  for (const k of Object.keys(p))
+    if (!allowed.has(k)) throw Error(`${n.type}.${k} пока не поддерживается в контенте`);
+  if (Object.keys(n.events ?? {}).length || Object.keys(n.bindings ?? {}).length)
+    throw Error('Контент кнопки пока не содержит отдельных интерактивных элементов');
+  let [x, y, w, h] = box;
+  const nw = constrained(
+      p.width === undefined
+        ? w
+        : length(
+            p.width,
+            w,
+            intrinsicLength(p.width)
+              ? natural({ ...n, props: { ...p, width: undefined } }, 0, metrics)
+              : 0,
+            'width',
+          ),
+      p,
+      0,
+      w,
+    ),
+    nh = constrained(
+      p.height === undefined
+        ? h
+        : length(
+            p.height,
+            h,
+            intrinsicLength(p.height)
+              ? natural({ ...n, props: { ...p, width: nw, height: undefined } }, 1, metrics)
+              : 0,
+            'height',
+          ),
+      p,
+      1,
+      h,
+    );
+  x += (w - nw) / 2;
+  y += (h - nh) / 2;
+  w = nw;
+  h = nh;
+  const visual = metrics.visuals
+    ? {
+        id: metrics.visuals.length,
+        parent: metrics.parentVisual ?? null,
+        type: n.type,
+        source: n.source,
+        propertySources: n.propertySources,
+        propertyOrigins: n.propertyOrigins,
+        props: p,
+        bounds: [x, y, w, h],
+      }
+    : null;
+  if (visual) metrics.visuals.push(visual);
+  const childMetrics = visual ? { ...metrics, parentVisual: visual.id } : metrics;
+  if (n.type === 'Rectangle') {
+    const radius = num(p.radius ?? 0, 'radius');
+    if (
+      p.background !== undefined &&
+      !(
+        typeof color(p.background) === 'string' &&
+        /^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(color(p.background))
+      )
+    )
+      throw Error(
+        'Rectangle.background в контенте принимает только hex; Brush и его состояния пока не поддерживаются',
+      );
     // A native clip rounds an ordinary polygon without a new Rust primitive.
     // Children share this bounded surface; use a Frame child for grid layout.
     output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: ${radius}; }`);
-    if(p.background!==undefined&&(metrics.preserveEmptyGeometry||(w>0&&h>0)))output.push(`ContentShape { points: '${x} ${y} ${x+w} ${y} ${x+w} ${y+h} ${x} ${y+h}'; color: ${color(p.background)}; }`);
-    for(const child of n.children)flatten(child,[x,y,w,h],files,output,childMetrics);
-    output.push('ContentClipEnd {}');return;
+    if (p.background !== undefined && (metrics.preserveEmptyGeometry || (w > 0 && h > 0)))
+      output.push(
+        `ContentShape { points: '${x} ${y} ${x + w} ${y} ${x + w} ${y + h} ${x} ${y + h}'; color: ${color(p.background)}; }`,
+      );
+    for (const child of n.children) flatten(child, [x, y, w, h], files, output, childMetrics);
+    output.push('ContentClipEnd {}');
+    return;
   }
-  if(containerTypes.has(n.type)&&n.type!=='Frame'){
-    if(p.clip!==undefined&&typeof p.clip!=='boolean')throw Error(`${n.type}.clip ожидает boolean`);
-    if(p.clip)output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: ${num(p.radius??0,'radius')}; }`);
-    const layout=arrange(n,[x,y,w,h],(child,axis)=>natural(child,axis,metrics));
-    if(visual&&layout.grid)visual.grid=layout.grid;
-    n.children.forEach((child,index)=>flatten({...child,props:{...child.props,width:layout.boxes[index][2],height:layout.boxes[index][3]}},layout.boxes[index],files,output,childMetrics));
-    if(p.clip)output.push('ContentClipEnd {}');return;
+  if (containerTypes.has(n.type) && n.type !== 'Frame') {
+    if (p.clip !== undefined && typeof p.clip !== 'boolean')
+      throw Error(`${n.type}.clip ожидает boolean`);
+    if (p.clip)
+      output.push(
+        `ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: ${num(p.radius ?? 0, 'radius')}; }`,
+      );
+    const layout = arrange(n, [x, y, w, h], (child, axis) => natural(child, axis, metrics));
+    if (visual && layout.grid) visual.grid = layout.grid;
+    n.children.forEach((child, index) =>
+      flatten(
+        {
+          ...child,
+          props: { ...child.props, width: layout.boxes[index][2], height: layout.boxes[index][3] },
+        },
+        layout.boxes[index],
+        files,
+        output,
+        childMetrics,
+      ),
+    );
+    if (p.clip) output.push('ContentClipEnd {}');
+    return;
   }
-  if(n.type==='Frame'){
-    if(p.clip!==undefined&&typeof p.clip!=='boolean')throw Error('Frame.clip ожидает boolean');
-    const radius=num(p.radius??0,'radius');
-    if(p.clip)output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: ${radius}; }`);
-    const pad=insets(p.padding);x+=pad[3];y+=pad[0];w=Math.max(0,w-pad[1]-pad[3]);h=Math.max(0,h-pad[0]-pad[2]);
-    const cols=sizes(n,0,w,metrics),rows=sizes(n,1,h,metrics),g=gap(p);
-    if(visual)visual.grid={bounds:[x,y,w,h],columns:cols,rows,gap:g};
-    for(const c of n.children){const ci=cell(c,'columns',cols.length),ri=cell(c,'rows',rows.length);flatten(c,[ci===null?x:x+cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1],ri===null?y:y+rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0],ci===null?w:cols[ci],ri===null?h:rows[ri]],files,output,childMetrics);}if(p.clip)output.push('ContentClipEnd {}');return;
+  if (n.type === 'Frame') {
+    if (p.clip !== undefined && typeof p.clip !== 'boolean')
+      throw Error('Frame.clip ожидает boolean');
+    const radius = num(p.radius ?? 0, 'radius');
+    if (p.clip)
+      output.push(
+        `ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: ${radius}; }`,
+      );
+    const pad = insets(p.padding);
+    x += pad[3];
+    y += pad[0];
+    w = Math.max(0, w - pad[1] - pad[3]);
+    h = Math.max(0, h - pad[0] - pad[2]);
+    const cols = sizes(n, 0, w, metrics),
+      rows = sizes(n, 1, h, metrics),
+      g = gap(p);
+    if (visual) visual.grid = { bounds: [x, y, w, h], columns: cols, rows, gap: g };
+    for (const c of n.children) {
+      const ci = cell(c, 'columns', cols.length),
+        ri = cell(c, 'rows', rows.length);
+      flatten(
+        c,
+        [
+          ci === null ? x : x + cols.slice(0, ci).reduce((a, b) => a + b, 0) + ci * g[1],
+          ri === null ? y : y + rows.slice(0, ri).reduce((a, b) => a + b, 0) + ri * g[0],
+          ci === null ? w : cols[ci],
+          ri === null ? h : rows[ri],
+        ],
+        files,
+        output,
+        childMetrics,
+      );
+    }
+    if (p.clip) output.push('ContentClipEnd {}');
+    return;
   }
-  if(n.children?.length)throw Error(`${n.type} не принимает дочерние элементы`);
-  if(n.type==='TextInput'){
-    output.push(`ContentInput { x: ${x}; y: ${y}; width: ${w}; height: ${h}; value: ${literal(String(p.value??''))}; placeholder: ${literal(String(p.placeholder??''))}; color: ${literal(p.color??{expr:'#ffffff'})}; placeholderColor: ${literal(p.placeholderColor??{expr:'#999999'})}; fontSize: ${num(p.fontSize??15,'fontSize')}; multiline: ${Boolean(p.multiline)}; }`);return;
+  if (n.children?.length) throw Error(`${n.type} не принимает дочерние элементы`);
+  if (n.type === 'TextInput') {
+    output.push(
+      `ContentInput { x: ${x}; y: ${y}; width: ${w}; height: ${h}; value: ${literal(String(p.value ?? ''))}; placeholder: ${literal(String(p.placeholder ?? ''))}; color: ${literal(p.color ?? { expr: '#ffffff' })}; placeholderColor: ${literal(p.placeholderColor ?? { expr: '#999999' })}; fontSize: ${num(p.fontSize ?? 15, 'fontSize')}; multiline: ${Boolean(p.multiline)}; }`,
+    );
+    return;
   }
-  if(n.type==='Text'){
-    if(p.wrap!==undefined&&typeof p.wrap!=='boolean')throw Error('Text.wrap ожидает boolean');
-    const text=String(p.text??''),fontSize=num(p.fontSize??p['font.size']??16,'fontSize');
-    if(p.wrap&&!metrics?.measureText)throw Error('Перенос текста требует метрик Rust runtime');
-    const lines=p.wrap?wrapLines(text,fontSize,w,metrics):text.split('\n');
-    if(lines.length===1)output.push(`ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(lines[0])}; color: ${literal(p.color??{expr:'#ffffff'})}; fontSize: ${fontSize}; }`);
+  if (n.type === 'Text') {
+    if (p.wrap !== undefined && typeof p.wrap !== 'boolean')
+      throw Error('Text.wrap ожидает boolean');
+    const text = String(p.text ?? ''),
+      fontSize = num(p.fontSize ?? p['font.size'] ?? 16, 'fontSize');
+    if (p.wrap && !metrics?.measureText) throw Error('Перенос текста требует метрик Rust runtime');
+    const lines = p.wrap ? wrapLines(text, fontSize, w, metrics) : text.split('\n');
+    if (lines.length === 1)
+      output.push(
+        `ContentText { x: ${x}; y: ${y}; width: ${w}; height: ${h}; text: ${literal(lines[0])}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize}; }`,
+      );
     else {
-      if(!metrics?.measureText)throw Error('Многострочный текст требует метрик Rust runtime');
+      if (!metrics?.measureText) throw Error('Многострочный текст требует метрик Rust runtime');
       output.push(`ContentClip { x: ${x}; y: ${y}; width: ${w}; height: ${h}; radius: 0; }`);
-      lines.forEach((line,i)=>output.push(`ContentText { x: ${x}; y: ${y+i*fontSize*1.5}; width: ${metrics.measureText(line,fontSize)[0]}; height: ${fontSize*1.5}; text: ${literal(line)}; color: ${literal(p.color??{expr:'#ffffff'})}; fontSize: ${fontSize}; }`));
+      lines.forEach((line, i) =>
+        output.push(
+          `ContentText { x: ${x}; y: ${y + i * fontSize * 1.5}; width: ${metrics.measureText(line, fontSize)[0]}; height: ${fontSize * 1.5}; text: ${literal(line)}; color: ${literal(p.color ?? { expr: '#ffffff' })}; fontSize: ${fontSize}; }`,
+        ),
+      );
       output.push('ContentClipEnd {}');
     }
     return;
   }
-  if(n.type==='Image'){
-    if(typeof p.source!=='string'||!own(files,p.source))throw Error(`SVG-файл не найден в проекте: ${p.source}`);
-    const content=metrics.imageContent(files[p.source],[x,y,w,h],color(p.color??'#ffffff'));
-    if(content)output.push(content);return;
+  if (n.type === 'Image') {
+    if (typeof p.source !== 'string' || !own(files, p.source))
+      throw Error(`SVG-файл не найден в проекте: ${p.source}`);
+    const content = metrics.imageContent(
+      files[p.source],
+      [x, y, w, h],
+      color(p.color ?? '#ffffff'),
+    );
+    if (content) output.push(content);
+    return;
   }
   throw Error(`Неподдерживаемый контент ${n.type}`);
 }
 
-const readDocument=(source,path,fragment=false)=>attachSources(parse(source,{fragment}),path);
+const readDocument = (source, path, fragment = false) =>
+  attachSources(parse(source, { fragment }), path);
 
 // A session retains parsed documents and definition-only linked templates under
 // one budget. State, callbacks, expansion and compiled output stay per-compile.
-export function createComponentCompiler({cache:storage=createCacheBudget()}={}){
-  let linkedHits=0,linkedMisses=0;
-  function read(source,path,fragment=false){
-    const key=(fragment?'compiler:fragment:':'compiler:document:')+path,previous=storage.get(key);
-    const document=previous?.source===source?previous.document:readDocument(source,path,fragment);
-    if(previous?.document!==document)storage.set(key,{source,document});
+export function createComponentCompiler({ cache: storage = createCacheBudget() } = {}) {
+  let linkedHits = 0,
+    linkedMisses = 0;
+  function read(source, path, fragment = false) {
+    const key = (fragment ? 'compiler:fragment:' : 'compiler:document:') + path,
+      previous = storage.get(key);
+    const document =
+      previous?.source === source ? previous.document : readDocument(source, path, fragment);
+    if (previous?.document !== document) storage.set(key, { source, document });
     return document;
   }
-  const links={
-    get(name,files){
-      const saved=storage.get('compiler:linked:'+name);
-      let valid=!!saved;
-      if(saved)for(const [path,source]of saved.dependencies)if(files[path]!==source){valid=false;break;}
-      if(valid){
-        linkedHits++;return {...saved,linked:clone(saved.linked)};
+  const links = {
+    get(name, files) {
+      const saved = storage.get('compiler:linked:' + name);
+      let valid = !!saved;
+      if (saved)
+        for (const [path, source] of saved.dependencies)
+          if (files[path] !== source) {
+            valid = false;
+            break;
+          }
+      if (valid) {
+        linkedHits++;
+        return { ...saved, linked: clone(saved.linked) };
       }
-      if(saved)storage.delete('compiler:linked:'+name);
-      linkedMisses++;return null;
+      if (saved) storage.delete('compiler:linked:' + name);
+      linkedMisses++;
+      return null;
     },
-    set(name,linked,dependencies,depth){storage.set('compiler:linked:'+name,{linked:clone(linked),dependencies,depth});},
+    set(name, linked, dependencies, depth) {
+      storage.set('compiler:linked:' + name, { linked: clone(linked), dependencies, depth });
+    },
   };
-  const run=(files,entry,state={},metrics={})=>compile(files,entry,state,metrics,read,links);
-  run.cacheStats=()=>({...storage.snapshot(),linkedHits,linkedMisses});
+  const run = (files, entry, state = {}, metrics = {}) =>
+    compile(files, entry, state, metrics, read, links);
+  run.cacheStats = () => ({ ...storage.snapshot(), linkedHits, linkedMisses });
   return run;
 }
 
-export function compileComponents(files,entry,state={},metrics={}){return compile(files,entry,state,metrics,readDocument);}
+export function compileComponents(files, entry, state = {}, metrics = {}) {
+  return compile(files, entry, state, metrics, readDocument);
+}
 // Controls in runtime order: base scene (optionally inside one Scroll), then
 // the children of every Modal layer. Hosts index Rust controls by this order.
-export function sceneControlNodes(rootOrChildren){
-  const children=Array.isArray(rootOrChildren)?rootOrChildren:(rootOrChildren?.children??[]);
-  const base=children.filter(n=>n.type!=='Modal'),modals=children.filter(n=>n.type==='Modal');
-  const controls=base[0]?.type==='Scroll'?base[0].children:base;
-  return [...controls,...modals.flatMap(m=>m.children??[])];
+export function sceneControlNodes(rootOrChildren) {
+  const children = Array.isArray(rootOrChildren)
+    ? rootOrChildren
+    : (rootOrChildren?.children ?? []);
+  const base = children.filter(n => n.type !== 'Modal'),
+    modals = children.filter(n => n.type === 'Modal');
+  const controls = base[0]?.type === 'Scroll' ? base[0].children : base;
+  return [...controls, ...modals.flatMap(m => m.children ?? [])];
 }
-function sceneModalNodes(rootOrChildren){
-  const children=Array.isArray(rootOrChildren)?rootOrChildren:(rootOrChildren?.children??[]);
-  return children.filter(n=>n.type==='Modal');
+function sceneModalNodes(rootOrChildren) {
+  const children = Array.isArray(rootOrChildren)
+    ? rootOrChildren
+    : (rootOrChildren?.children ?? []);
+  return children.filter(n => n.type === 'Modal');
 }
-const modalProps=new Set(['key','x','y','width','height','backdrop','dismiss','open']);
+const modalProps = new Set(['key', 'x', 'y', 'width', 'height', 'backdrop', 'dismiss', 'open']);
 // Definition linking is also consumed by Rust code generation. It deliberately
 // runs before evaluating props/state so generated forms retain dependencies.
-export function linkComponentDefinitions(files){
-  const entry='__forma_definitions.ui';
-  return compile({...files,[entry]:'component Definitions { Frame {} }'},entry,{}, {definitionsOnly:true},readDocument);
+export function linkComponentDefinitions(files) {
+  const entry = '__forma_definitions.ui';
+  return compile(
+    { ...files, [entry]: 'component Definitions { Frame {} }' },
+    entry,
+    {},
+    { definitionsOnly: true },
+    readDocument,
+  );
 }
-function compile(files,entry,state,metrics,read,links){
+function compile(files, entry, state, metrics, read, links) {
   // Measurement and lowered SVG geometry are deterministic within one compile.
   // Keep these caches local so edits, state, fonts and metrics callbacks are
   // re-read on the next compilation, without retaining large output strings.
-  const textSizes=new Map(),images=new Map(),parsedIcons=new Map(),measureText=metrics.measureText,metricsContext=metrics;
+  const textSizes = new Map(),
+    images = new Map(),
+    parsedIcons = new Map(),
+    measureText = metrics.measureText,
+    metricsContext = metrics;
   // Parsed icon geometry is compile-local and bounded like the output strings below.
-  const iconGeometryBudget=1_000_000;
-  let imageUnits=0,iconGeometryUnits=0;
-  metrics={...metrics,
-    measureText:measureText?function(text,size){
-      let byText=textSizes.get(size);if(!byText){byText=new Map();textSizes.set(size,byText);}
-      if(!byText.has(text)){const measured=measureText.call(metricsContext,text,size);byText.set(text,[measured[0],measured[1]]);}
-      return byText.get(text);
-    }:undefined,
-    imageContent(source,box,currentColor){
-      let byBox=images.get(source);const key=`${box[0]},${box[1]},${box[2]},${box[3]},${currentColor}`;
-      if(byBox?.has(key))return byBox.get(key);
-      const cached=parsedIcons.get(source);
+  const iconGeometryBudget = 1_000_000;
+  let imageUnits = 0,
+    iconGeometryUnits = 0;
+  metrics = {
+    ...metrics,
+    measureText: measureText
+      ? function (text, size) {
+          let byText = textSizes.get(size);
+          if (!byText) {
+            byText = new Map();
+            textSizes.set(size, byText);
+          }
+          if (!byText.has(text)) {
+            const measured = measureText.call(metricsContext, text, size);
+            byText.set(text, [measured[0], measured[1]]);
+          }
+          return byText.get(text);
+        }
+      : undefined,
+    imageContent(source, box, currentColor) {
+      let byBox = images.get(source);
+      const key = `${box[0]},${box[1]},${box[2]},${box[3]},${currentColor}`;
+      if (byBox?.has(key)) return byBox.get(key);
+      const cached = parsedIcons.get(source);
       let parsed;
-      if(cached?.color===currentColor)parsed=cached.parsed;
-      else{parsed=parseSvgShapes(source,currentColor);if(iconGeometryUnits<=iconGeometryBudget){parsedIcons.set(source,{color:currentColor,parsed});iconGeometryUnits+=parsed.shapes.reduce((total,shape)=>total+shape.points.length*16,64);}}
-      const content=placeSvgShapes(parsed,box).map(s=>{let pts='';for(let i=0;i<s.points.length;i++)pts+=(i?' ':'')+s.points[i][0]+' '+s.points[i][1];return `ContentShape { points: '${pts}'; color: ${s.color}; }`;}).join(' ');
-      if(imageUnits+content.length<=1_000_000){if(!byBox){byBox=new Map();images.set(source,byBox);}byBox.set(key,content);imageUnits+=content.length;}
+      if (cached?.color === currentColor) parsed = cached.parsed;
+      else {
+        parsed = parseSvgShapes(source, currentColor);
+        if (iconGeometryUnits <= iconGeometryBudget) {
+          parsedIcons.set(source, { color: currentColor, parsed });
+          iconGeometryUnits += parsed.shapes.reduce(
+            (total, shape) => total + shape.points.length * 16,
+            64,
+          );
+        }
+      }
+      const content = placeSvgShapes(parsed, box)
+        .map(s => {
+          let pts = '';
+          for (let i = 0; i < s.points.length; i++)
+            pts += (i ? ' ' : '') + s.points[i][0] + ' ' + s.points[i][1];
+          return `ContentShape { points: '${pts}'; color: ${s.color}; }`;
+        })
+        .join(' ');
+      if (imageUnits + content.length <= 1_000_000) {
+        if (!byBox) {
+          byBox = new Map();
+          images.set(source, byBox);
+        }
+        byBox.set(key, content);
+        imageUnits += content.length;
+      }
       return content;
     },
   };
-  const document=read(files[entry],entry);let scene=clone(document.nodes);
-  if(document.designs?.length&&metricsContext.designMode!==false){
-    const merged={overrides:{},states:[]};
-    const baseDir=entry.includes('/')?entry.slice(0,entry.lastIndexOf('/')+1):'';
-    for(const ref of document.designs){
-      const designPath=baseDir+String(ref).replace(/^\.\//,'');
-      if(!own(files,designPath))throw Error(`Дизайн-файл не найден: ${designPath}`);
-      const design=read(files[designPath],designPath);
-      if(Object.keys(design.overrides??{}).length||(design.states?.length??0)){
-        validateDesign(document,design);
-        for(const [key,props]of Object.entries(design.overrides??{})){
-          if(own(merged.overrides,key))throw Error(`Повторный дизайн-key ${key}`);
-          merged.overrides[key]=props;
+  const document = read(files[entry], entry);
+  let scene = clone(document.nodes);
+  if (document.designs?.length && metricsContext.designMode !== false) {
+    const merged = { overrides: {}, states: [] };
+    const baseDir = entry.includes('/') ? entry.slice(0, entry.lastIndexOf('/') + 1) : '';
+    for (const ref of document.designs) {
+      const designPath = baseDir + String(ref).replace(/^\.\//, '');
+      if (!own(files, designPath)) throw Error(`Дизайн-файл не найден: ${designPath}`);
+      const design = read(files[designPath], designPath);
+      if (Object.keys(design.overrides ?? {}).length || (design.states?.length ?? 0)) {
+        validateDesign(document, design);
+        for (const [key, props] of Object.entries(design.overrides ?? {})) {
+          if (own(merged.overrides, key)) throw Error(`Повторный дизайн-key ${key}`);
+          merged.overrides[key] = props;
         }
-        for(const s of design.states??[]){
-          if(merged.states.some(other=>other.name===s.name))throw Error(`Повторное состояние ${s.name}`);
-          merged.states.push({...s,file:designPath});
+        for (const s of design.states ?? []) {
+          if (merged.states.some(other => other.name === s.name))
+            throw Error(`Повторное состояние ${s.name}`);
+          merged.states.push({ ...s, file: designPath });
         }
       }
     }
-    const activeState=metricsContext.designState===undefined?(merged.states[0]?.name??null):metricsContext.designState;
-    const designPatch=designStatePatch(merged,activeState);
-    const resolveDesignValue=value=>{
-      const ref=designReference(value);
-      if(ref)return readDesignData(ref);
-      if(Array.isArray(value))return value.map(resolveDesignValue);
-      if(value&&typeof value==='object'&&!own(value,'expr'))return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,resolveDesignValue(v)]));
+    const activeState =
+      metricsContext.designState === undefined
+        ? (merged.states[0]?.name ?? null)
+        : metricsContext.designState;
+    const designPatch = designStatePatch(merged, activeState);
+    const resolveDesignValue = value => {
+      const ref = designReference(value);
+      if (ref) return readDesignData(ref);
+      if (Array.isArray(value)) return value.map(resolveDesignValue);
+      if (value && typeof value === 'object' && !own(value, 'expr'))
+        return Object.fromEntries(
+          Object.entries(value).map(([k, v]) => [k, resolveDesignValue(v)]),
+        );
       return value;
     };
-    visit(scene,n=>{
-      const key=n.props?.key;
-      if(typeof key==='string'&&own(designPatch,key)){
-        const resolvedPatch=Object.fromEntries(Object.entries(designPatch[key]).map(([k,v])=>[k,resolveDesignValue(v)]));
-        n.props={...n.props,...resolvedPatch};
-        if(n.bindings)for(const k of Object.keys(resolvedPatch))delete n.bindings[k];
+    visit(scene, n => {
+      const key = n.props?.key;
+      if (typeof key === 'string' && own(designPatch, key)) {
+        const resolvedPatch = Object.fromEntries(
+          Object.entries(designPatch[key]).map(([k, v]) => [k, resolveDesignValue(v)]),
+        );
+        n.props = { ...n.props, ...resolvedPatch };
+        if (n.bindings) for (const k of Object.keys(resolvedPatch)) delete n.bindings[k];
       }
     });
   }
   metricsContext.transformScene?.(scene);
-  visit(scene,n=>{const patch=metricsContext.instanceProps?.(n);if(patch)n.props={...n.props,...patch};});
-  const contracts=new WeakMap();
-  const cache=new Map(),loading=[],dependencies=new Map(),depths=new Map();
-  function link(name){
-    if(cache.has(name)){
-      if(loading.length+depths.get(name)>32)throw Error('Глубина наследования компонентов превышает 32');
+  visit(scene, n => {
+    const patch = metricsContext.instanceProps?.(n);
+    if (patch) n.props = { ...n.props, ...patch };
+  });
+  const contracts = new WeakMap();
+  const cache = new Map(),
+    loading = [],
+    dependencies = new Map(),
+    depths = new Map();
+  function link(name) {
+    if (cache.has(name)) {
+      if (loading.length + depths.get(name) > 32)
+        throw Error('Глубина наследования компонентов превышает 32');
       return cache.get(name);
     }
-    if(loading.includes(name))throw Error(`Цикл наследования: ${[...loading,name].join(' → ')}`);
-    if(loading.length>=32)throw Error('Глубина наследования компонентов превышает 32');
-    const saved=links?.get(name,files);
-    if(saved){
-      if(loading.length+saved.depth>32)throw Error('Глубина наследования компонентов превышает 32');
-      cache.set(name,saved.linked);dependencies.set(name,saved.dependencies);depths.set(name,saved.depth);return saved.linked;
+    if (loading.includes(name)) throw Error(`Цикл наследования: ${[...loading, name].join(' → ')}`);
+    if (loading.length >= 32) throw Error('Глубина наследования компонентов превышает 32');
+    const saved = links?.get(name, files);
+    if (saved) {
+      if (loading.length + saved.depth > 32)
+        throw Error('Глубина наследования компонентов превышает 32');
+      cache.set(name, saved.linked);
+      dependencies.set(name, saved.dependencies);
+      depths.set(name, saved.depth);
+      return saved.linked;
     }
-    const path=`components/${name}.ui`,source=own(files,path)?files[path]:builtinSources[name];if(source===undefined)throw Error(`Компонент не найден: ${path}`);
-    const inputs=links?new Map([[path,files[path]]]):null;
-    const c=read(source,path);if(c.name!==name)throw Error(`${path}: ожидался component ${name}`);if(c.designs.length)throw Error('Дизайн-атрибут компонента пока не поддерживается векторным runtime');loading.push(name);
-    const linked=c.base?clone(link(c.base)):{nodes:[],defaults:{}};
-    if(links&&c.base)for(const [file,source]of dependencies.get(c.base))inputs.set(file,source);
-    if(c.base&&c.nodes.length)throw Error('Наследник меняет визуальное дерево через override');
-    if(!c.base)linked.nodes=clone(c.nodes);
-    linked.defaults={...linked.defaults,...clone(c.defaults)};
-    linked.defaultSources={...linked.defaultSources,...Object.fromEntries(Object.entries(c.defaultRanges??{}).map(([key,range])=>[key,{file:path,...range,label:c.name}]))};
-    linked.propDefinitions={...linked.propDefinitions,...clone(c.propDefinitions??{})};
-    linked.stateDefinitions={...linked.stateDefinitions,...clone(c.stateDefinitions??{})};
-    linked.eventDefinitions={...linked.eventDefinitions,...clone(c.eventDefinitions??{})};
-    linked.enums={...linked.enums};
-    linked.tokens={...linked.tokens};
-    linked.i18n={...linked.i18n};
-    linked.styles={...linked.styles};
-    if(c.uses?.length){
-      const resolveRel=(basePath,rel)=>{
-        const parts=basePath.includes('/')?basePath.split('/').slice(0,-1):[];
-        for(const p of String(rel).split('/')){if(!p||p==='.')continue;if(p==='..')parts.pop();else parts.push(p);}
+    const path = `components/${name}.ui`,
+      source = own(files, path) ? files[path] : builtinSources[name];
+    if (source === undefined) throw Error(`Компонент не найден: ${path}`);
+    const inputs = links ? new Map([[path, files[path]]]) : null;
+    const c = read(source, path);
+    if (c.name !== name) throw Error(`${path}: ожидался component ${name}`);
+    if (c.designs.length)
+      throw Error('Дизайн-атрибут компонента пока не поддерживается векторным runtime');
+    loading.push(name);
+    const linked = c.base ? clone(link(c.base)) : { nodes: [], defaults: {} };
+    if (links && c.base)
+      for (const [file, source] of dependencies.get(c.base)) inputs.set(file, source);
+    if (c.base && c.nodes.length) throw Error('Наследник меняет визуальное дерево через override');
+    if (!c.base) linked.nodes = clone(c.nodes);
+    linked.defaults = { ...linked.defaults, ...clone(c.defaults) };
+    linked.defaultSources = {
+      ...linked.defaultSources,
+      ...Object.fromEntries(
+        Object.entries(c.defaultRanges ?? {}).map(([key, range]) => [
+          key,
+          { file: path, ...range, label: c.name },
+        ]),
+      ),
+    };
+    linked.propDefinitions = { ...linked.propDefinitions, ...clone(c.propDefinitions ?? {}) };
+    linked.stateDefinitions = { ...linked.stateDefinitions, ...clone(c.stateDefinitions ?? {}) };
+    linked.eventDefinitions = { ...linked.eventDefinitions, ...clone(c.eventDefinitions ?? {}) };
+    linked.enums = { ...linked.enums };
+    linked.tokens = { ...linked.tokens };
+    linked.i18n = { ...linked.i18n };
+    linked.styles = { ...linked.styles };
+    if (c.uses?.length) {
+      const resolveRel = (basePath, rel) => {
+        const parts = basePath.includes('/') ? basePath.split('/').slice(0, -1) : [];
+        for (const p of String(rel).split('/')) {
+          if (!p || p === '.') continue;
+          if (p === '..') parts.pop();
+          else parts.push(p);
+        }
         return parts.join('/');
       };
-      for(const u of c.uses){
-        const uPath=resolveRel(path,u);
-        if(!own(files,uPath))throw Error(`Импортируемый файл не найден: ${uPath}`);
-        inputs?.set(uPath,files[uPath]);
-        const uDoc=read(files[uPath],uPath);
-        Object.assign(linked.enums,clone(uDoc.enums??{}),clone(uDoc.structs??{}));
-        if(uDoc.structConstraints)linked.enums._structConstraints={...(linked.enums._structConstraints??{}),...clone(uDoc.structConstraints)};
-        Object.assign(linked.tokens,clone(uDoc.tokens??{}));
-        Object.assign(linked.i18n,clone(uDoc.i18n??{}));
-        Object.assign(linked.styles,clone(uDoc.styles??{}));
+      for (const u of c.uses) {
+        const uPath = resolveRel(path, u);
+        if (!own(files, uPath)) throw Error(`Импортируемый файл не найден: ${uPath}`);
+        inputs?.set(uPath, files[uPath]);
+        const uDoc = read(files[uPath], uPath);
+        Object.assign(linked.enums, clone(uDoc.enums ?? {}), clone(uDoc.structs ?? {}));
+        if (uDoc.structConstraints)
+          linked.enums._structConstraints = {
+            ...(linked.enums._structConstraints ?? {}),
+            ...clone(uDoc.structConstraints),
+          };
+        Object.assign(linked.tokens, clone(uDoc.tokens ?? {}));
+        Object.assign(linked.i18n, clone(uDoc.i18n ?? {}));
+        Object.assign(linked.styles, clone(uDoc.styles ?? {}));
       }
     }
-    Object.assign(linked.enums,clone(c.enums??{}),clone(c.structs??{}));
-    if(c.structConstraints&&Object.keys(c.structConstraints).length)linked.enums._structConstraints={...(linked.enums._structConstraints??{}),...clone(c.structConstraints)};
-    Object.assign(linked.tokens,clone(c.tokens??{}));
-    Object.assign(linked.i18n,clone(c.i18n??{}));
-    Object.assign(linked.styles,clone(c.styles??{}));
-    linked.slotDefinitions={...linked.slotDefinitions,...clone(c.slotDefinitions??{})};
-    linked.matches=[...(linked.matches??[]),...clone(c.matches??[])];
-    for(const definition of Object.values(linked.propDefinitions))validateTypeName(definition.type,linked.enums);
-    for(const definition of Object.values(linked.stateDefinitions))validateTypeName(definition.type,linked.enums);
-    for(const args of Object.values(linked.eventDefinitions))for(const arg of args)validateTypeName(arg.type,linked.enums);
-    if(c.forward?.length)throw Error('forward применяется к дочернему элементу, не к объявлению component');
-    const presenters=new Map();visit(linked.nodes,n=>{if(n.type==='ContentPresenter'){const key=n.props.key;if(typeof key!=='string'||!key)throw Error('ContentPresenter требует key');if(presenters.has(key))throw Error(`Повторная точка расширения ${key}`);presenters.set(key,n);}});
-    const patchProperties=(target,patch,key)=>{
-      if(patch.base||patch.children.length||patch.matches?.length||patch.forward?.length||Object.keys(patch.slots).length||Object.keys(patch.events).length||Object.keys(patch.bindings).length)throw Error('Блок override переопределяет только свойства');
-      if(own(patch.props,'key'))throw Error('override не меняет key целевого элемента');
-      const allowed=contentProps.get(target.type);
-      if(allowed&&target.type!=='Rectangle')for(const name of Object.keys(patch.props))if(!allowed.has(name)){
-        const suggestion=similarName(name,allowed);
-        throw sourceError(`override ${key}: узел ${target.type} не поддерживает свойство ${name}.${suggestion?` Возможно, вы имели в виду ${suggestion}.`:''}`,patch.propertySources?.[name]??patch.source,target.source);
+    Object.assign(linked.enums, clone(c.enums ?? {}), clone(c.structs ?? {}));
+    if (c.structConstraints && Object.keys(c.structConstraints).length)
+      linked.enums._structConstraints = {
+        ...(linked.enums._structConstraints ?? {}),
+        ...clone(c.structConstraints),
+      };
+    Object.assign(linked.tokens, clone(c.tokens ?? {}));
+    Object.assign(linked.i18n, clone(c.i18n ?? {}));
+    Object.assign(linked.styles, clone(c.styles ?? {}));
+    linked.slotDefinitions = { ...linked.slotDefinitions, ...clone(c.slotDefinitions ?? {}) };
+    linked.matches = [...(linked.matches ?? []), ...clone(c.matches ?? [])];
+    for (const definition of Object.values(linked.propDefinitions))
+      validateTypeName(definition.type, linked.enums);
+    for (const definition of Object.values(linked.stateDefinitions))
+      validateTypeName(definition.type, linked.enums);
+    for (const args of Object.values(linked.eventDefinitions))
+      for (const arg of args) validateTypeName(arg.type, linked.enums);
+    if (c.forward?.length)
+      throw Error('forward применяется к дочернему элементу, не к объявлению component');
+    const presenters = new Map();
+    visit(linked.nodes, n => {
+      if (n.type === 'ContentPresenter') {
+        const key = n.props.key;
+        if (typeof key !== 'string' || !key) throw Error('ContentPresenter требует key');
+        if (presenters.has(key)) throw Error(`Повторная точка расширения ${key}`);
+        presenters.set(key, n);
       }
-      Object.assign(target.props,clone(patch.props));
-      target.propertySources={...target.propertySources,...Object.fromEntries(Object.entries(patch.propertySources??{}).map(([name,origin])=>[name,{...origin,label:`${c.name} · override ${key}`}]))};
+    });
+    const patchProperties = (target, patch, key) => {
+      if (
+        patch.base ||
+        patch.children.length ||
+        patch.matches?.length ||
+        patch.forward?.length ||
+        Object.keys(patch.slots).length ||
+        Object.keys(patch.events).length ||
+        Object.keys(patch.bindings).length
+      )
+        throw Error('Блок override переопределяет только свойства');
+      if (own(patch.props, 'key')) throw Error('override не меняет key целевого элемента');
+      const allowed = contentProps.get(target.type);
+      if (allowed && target.type !== 'Rectangle')
+        for (const name of Object.keys(patch.props))
+          if (!allowed.has(name)) {
+            const suggestion = similarName(name, allowed);
+            throw sourceError(
+              `override ${key}: узел ${target.type} не поддерживает свойство ${name}.${suggestion ? ` Возможно, вы имели в виду ${suggestion}.` : ''}`,
+              patch.propertySources?.[name] ?? patch.source,
+              target.source,
+            );
+          }
+      Object.assign(target.props, clone(patch.props));
+      target.propertySources = {
+        ...target.propertySources,
+        ...Object.fromEntries(
+          Object.entries(patch.propertySources ?? {}).map(([name, origin]) => [
+            name,
+            { ...origin, label: `${c.name} · override ${key}` },
+          ]),
+        ),
+      };
     };
-    for(const [key,value] of Object.entries(c.slots)){
-      if(value?.propertyOverride){
-        if(!c.base)throw Error('override требует базового компонента');
-        const targets=[],keys=[];
-        const find=value=>{if(!value||typeof value!=='object')return;if(value.type&&typeof value.props?.key==='string'){keys.push(value.props.key);if(value.props.key===key)targets.push(value);}for(const child of Object.values(value))find(child);};
+    for (const [key, value] of Object.entries(c.slots)) {
+      if (value?.propertyOverride) {
+        if (!c.base) throw Error('override требует базового компонента');
+        const targets = [],
+          keys = [];
+        const find = value => {
+          if (!value || typeof value !== 'object') return;
+          if (value.type && typeof value.props?.key === 'string') {
+            keys.push(value.props.key);
+            if (value.props.key === key) targets.push(value);
+          }
+          for (const child of Object.values(value)) find(child);
+        };
         find(linked.nodes);
-        if(targets.length!==1){const suggestion=similarName(key,keys);throw sourceError(`override ${key}: ожидался один элемент, найдено ${targets.length}.${!targets.length&&suggestion?` Возможно, вы имели в виду ${suggestion}.`:''}`,value.patch.source);}
-        const target=targets[0];
-        if(target.type==='ContentPresenter'){
-          const content=target.props.content??(target.children.length===1?target.children[0]:{type:'Frame',props:{},children:target.children});
-          const patchContent=content=>{
-            if(content?.type&&content.props){patchProperties(content,value.patch,key);return;}
-            if(content?.match!==undefined){for(const branch of content.branches)patchContent(branch.value);return;}
+        if (targets.length !== 1) {
+          const suggestion = similarName(key, keys);
+          throw sourceError(
+            `override ${key}: ожидался один элемент, найдено ${targets.length}.${!targets.length && suggestion ? ` Возможно, вы имели в виду ${suggestion}.` : ''}`,
+            value.patch.source,
+          );
+        }
+        const target = targets[0];
+        if (target.type === 'ContentPresenter') {
+          const content =
+            target.props.content ??
+            (target.children.length === 1
+              ? target.children[0]
+              : { type: 'Frame', props: {}, children: target.children });
+          const patchContent = content => {
+            if (content?.type && content.props) {
+              patchProperties(content, value.patch, key);
+              return;
+            }
+            if (content?.match !== undefined) {
+              for (const branch of content.branches) patchContent(branch.value);
+              return;
+            }
             throw Error(`override ${key}: для изменения свойств содержимое должно быть элементом`);
           };
-          patchContent(content);target.props.content=content;target.children=[];
-        }else patchProperties(target,value.patch,key);
+          patchContent(content);
+          target.props.content = content;
+          target.children = [];
+        } else patchProperties(target, value.patch, key);
         continue;
       }
-      if(value?.fileOverride){
-        if(!c.base)throw Error('override требует базового компонента');
-        const targets=[];visit(linked.nodes,n=>{if(n.props.key===key)targets.push(n);});
-        if(targets.length!==1)throw Error(`override ${key}: ожидался один элемент, найдено ${targets.length}`);
-        const target=targets[0],parts=path.split('/').slice(0,-1);
-        if(value.file.startsWith('/')||value.file.includes('\\'))throw Error('override from: требуется относительный путь проекта');
-        for(const part of value.file.split('/')){
-          if(!part||part==='.')continue;
-          if(part==='..'){if(!parts.length)throw Error('override from: выход за пределы проекта');parts.pop();}else parts.push(part);
+      if (value?.fileOverride) {
+        if (!c.base) throw Error('override требует базового компонента');
+        const targets = [];
+        visit(linked.nodes, n => {
+          if (n.props.key === key) targets.push(n);
+        });
+        if (targets.length !== 1)
+          throw Error(`override ${key}: ожидался один элемент, найдено ${targets.length}`);
+        const target = targets[0],
+          parts = path.split('/').slice(0, -1);
+        if (value.file.startsWith('/') || value.file.includes('\\'))
+          throw Error('override from: требуется относительный путь проекта');
+        for (const part of value.file.split('/')) {
+          if (!part || part === '.') continue;
+          if (part === '..') {
+            if (!parts.length) throw Error('override from: выход за пределы проекта');
+            parts.pop();
+          } else parts.push(part);
         }
-        const file=parts.join('/');if(!own(files,file))throw Error(`Файл override не найден: ${file}`);
-        inputs?.set(file,files[file]);
-        const patch=read(files[file],file,true).nodes[0];
-        if(patch.type!==target.type)throw Error(`override ${key}: ожидался ${target.type}, получен ${patch.type} в ${file}`);
-        for(const p of [patch,value.patch].filter(Boolean)){
-          patchProperties(target,p,key);
+        const file = parts.join('/');
+        if (!own(files, file)) throw Error(`Файл override не найден: ${file}`);
+        inputs?.set(file, files[file]);
+        const patch = read(files[file], file, true).nodes[0];
+        if (patch.type !== target.type)
+          throw Error(`override ${key}: ожидался ${target.type}, получен ${patch.type} в ${file}`);
+        for (const p of [patch, value.patch].filter(Boolean)) {
+          patchProperties(target, p, key);
         }
         continue;
       }
-      const target=presenters.get(key);if(!target)throw Error(`Нет точки расширения ${key} в ${name}`);
-      if(!c.base)throw Error('override требует базового компонента');
-      const base=target.props.content??(target.children.length===1?target.children[0]:{type:'Frame',props:{},children:target.children});
-      target.props.content=substitute(value,key,base);target.children=[];
+      const target = presenters.get(key);
+      if (!target) throw Error(`Нет точки расширения ${key} в ${name}`);
+      if (!c.base) throw Error('override требует базового компонента');
+      const base =
+        target.props.content ??
+        (target.children.length === 1
+          ? target.children[0]
+          : { type: 'Frame', props: {}, children: target.children });
+      target.props.content = substitute(value, key, base);
+      target.children = [];
     }
-    const depth=1+(c.base?depths.get(c.base):0);
-    loading.pop();cache.set(name,linked);if(links)dependencies.set(name,inputs);depths.set(name,depth);
-    links?.set(name,linked,inputs,depth);return linked;
+    const depth = 1 + (c.base ? depths.get(c.base) : 0);
+    loading.pop();
+    cache.set(name, linked);
+    if (links) dependencies.set(name, inputs);
+    depths.set(name, depth);
+    links?.set(name, linked, inputs, depth);
+    return linked;
   }
-  if(metricsContext.definitionsOnly){
-    for(const name of Object.keys(builtinSources))link(name);
-    for(const path of Object.keys(files)){const match=/^components\/([A-Za-z_][\w]*)\.ui$/.exec(path);if(match)link(match[1]);}
-    return {definitions:Object.fromEntries(cache),fallback};
+  if (metricsContext.definitionsOnly) {
+    for (const name of Object.keys(builtinSources)) link(name);
+    for (const path of Object.keys(files)) {
+      const match = /^components\/([A-Za-z_][\w]*)\.ui$/.exec(path);
+      if (match) link(match[1]);
+    }
+    return { definitions: Object.fromEntries(cache), fallback };
   }
-  const enums={};
-  const tokens={};
-  const i18n={};
-  const styles={};
-  if(document.uses?.length){
-    const resolveRel=(basePath,rel)=>{
-      const parts=basePath.includes('/')?basePath.split('/').slice(0,-1):[];
-      for(const p of String(rel).split('/')){if(!p||p==='.')continue;if(p==='..')parts.pop();else parts.push(p);}
+  const enums = {};
+  const tokens = {};
+  const i18n = {};
+  const styles = {};
+  if (document.uses?.length) {
+    const resolveRel = (basePath, rel) => {
+      const parts = basePath.includes('/') ? basePath.split('/').slice(0, -1) : [];
+      for (const p of String(rel).split('/')) {
+        if (!p || p === '.') continue;
+        if (p === '..') parts.pop();
+        else parts.push(p);
+      }
       return parts.join('/');
     };
-    for(const u of document.uses){
-      const uPath=resolveRel(entry,u);
-      if(!own(files,uPath))throw Error(`Импортируемый файл не найден: ${uPath}`);
-      const uDoc=read(files[uPath],uPath);
-      Object.assign(enums,uDoc.enums??{},uDoc.structs??{});
-      if(uDoc.structConstraints)enums._structConstraints={...(enums._structConstraints??{}),...clone(uDoc.structConstraints)};
-      Object.assign(tokens,uDoc.tokens??{});
-      Object.assign(i18n,uDoc.i18n??{});
-      Object.assign(styles,uDoc.styles??{});
+    for (const u of document.uses) {
+      const uPath = resolveRel(entry, u);
+      if (!own(files, uPath)) throw Error(`Импортируемый файл не найден: ${uPath}`);
+      const uDoc = read(files[uPath], uPath);
+      Object.assign(enums, uDoc.enums ?? {}, uDoc.structs ?? {});
+      if (uDoc.structConstraints)
+        enums._structConstraints = {
+          ...(enums._structConstraints ?? {}),
+          ...clone(uDoc.structConstraints),
+        };
+      Object.assign(tokens, uDoc.tokens ?? {});
+      Object.assign(i18n, uDoc.i18n ?? {});
+      Object.assign(styles, uDoc.styles ?? {});
     }
   }
-  Object.assign(enums,document.enums,document.structs);
-  if(document.structConstraints&&Object.keys(document.structConstraints).length)enums._structConstraints={...(enums._structConstraints??{}),...clone(document.structConstraints)};
-  Object.assign(tokens,document.tokens);
-  Object.assign(i18n,document.i18n);
-  Object.assign(styles,document.styles);
-  visit(scene,node=>{if(!primitiveTypes.has(node.type)&&!['Scroll','Modal','If','For','Let','Match'].includes(node.type)){
-    const definition=link(node.type);
-    for(const [name,variants]of Object.entries(definition.enums??{})){
-      if(name==='_structConstraints'){enums._structConstraints={...(enums._structConstraints??{}),...variants};continue;}
-      if(own(enums,name)&&JSON.stringify(enums[name])!==JSON.stringify(variants))throw Error(`Конфликт enum ${name}`);
-      enums[name]=variants;
+  Object.assign(enums, document.enums, document.structs);
+  if (document.structConstraints && Object.keys(document.structConstraints).length)
+    enums._structConstraints = {
+      ...(enums._structConstraints ?? {}),
+      ...clone(document.structConstraints),
+    };
+  Object.assign(tokens, document.tokens);
+  Object.assign(i18n, document.i18n);
+  Object.assign(styles, document.styles);
+  visit(scene, node => {
+    if (
+      !primitiveTypes.has(node.type) &&
+      !['Scroll', 'Modal', 'If', 'For', 'Let', 'Match'].includes(node.type)
+    ) {
+      const definition = link(node.type);
+      for (const [name, variants] of Object.entries(definition.enums ?? {})) {
+        if (name === '_structConstraints') {
+          enums._structConstraints = { ...(enums._structConstraints ?? {}), ...variants };
+          continue;
+        }
+        if (own(enums, name) && JSON.stringify(enums[name]) !== JSON.stringify(variants))
+          throw Error(`Конфликт enum ${name}`);
+        enums[name] = variants;
+      }
+      for (const [name, val] of Object.entries(definition.tokens ?? {})) {
+        if (!own(tokens, name)) tokens[name] = val;
+      }
+      for (const [name, val] of Object.entries(definition.i18n ?? {})) {
+        if (!own(i18n, name)) i18n[name] = val;
+      }
+      for (const [name, val] of Object.entries(definition.styles ?? {})) {
+        if (!own(styles, name)) styles[name] = val;
+      }
     }
-    for(const [name,val]of Object.entries(definition.tokens??{})){
-      if(!own(tokens,name))tokens[name]=val;
-    }
-    for(const [name,val]of Object.entries(definition.i18n??{})){
-      if(!own(i18n,name))i18n[name]=val;
-    }
-    for(const [name,val]of Object.entries(definition.styles??{})){
-      if(!own(styles,name))styles[name]=val;
-    }
-  }});
-  const rawRootProps=scene[0]?.props??{};
-  const vpW=typeof rawRootProps.width==='number'?rawRootProps.width:Number(metricsContext.viewport?.width??360);
-  const vpH=typeof rawRootProps.height==='number'?rawRootProps.height:Number(metricsContext.viewport?.height??220);
-  const viewport={width:vpW,height:vpH,compact:vpW<640};
-  const stateDefaults=Object.fromEntries(Object.entries(document.stateDefinitions??{}).filter(([,d])=>d.default!==undefined).map(([k,d])=>[k,d.default]));
-  const environment={enums,tokens,i18n,styles,stateDefaults,locale:metricsContext.locale??null,viewport};
-  const documentProps={...document.defaults,...metricsContext.properties};
-  for(const [key,definition]of Object.entries(document.propDefinitions??{}))if(definition.required&&!own(documentProps,key))throw Error(`${document.name}: обязательное свойство ${key} не задано`);
-  Object.assign(documentProps,selectedProperties(document.matches,documentProps,state,environment),metricsContext.properties);
-  validateContract(document.propDefinitions,Object.fromEntries(Object.entries(documentProps).map(([key,value])=>[key,evaluate(value,documentProps,state,[key],false,environment)])),enums,document.name);
-  if(document.forward?.length)throw Error('forward применяется к дочернему элементу, не к объявлению component');
-  const documentSources={...Object.fromEntries(Object.entries(document.defaultRanges??{}).map(([key,range])=>[key,{file:entry,...range,label:document.name}])),...selectedPropertySources(document.matches,documentProps,state,environment)};
-  scene=expandStructure(scene,documentProps,state,environment,{trackOrigins:true,propertySources:documentSources,recursive:node=>containerTypes.has(node.type)||node.type==='Scroll'||node.type==='Modal'});
-  const instanceTree=createElementTree(scene);
-  visit(scene,n=>{if(Object.keys(n.slots??{}).length)throw Error('override объявляется в наследнике component');});
-  if(scene.length!==1||!containerTypes.has(scene[0].type))throw Error('Ожидается один корневой Frame, Row, Column, Grid или Stack');
-  let instances=[];
-  let expandedCount=0;
-  function rejectInteraction(n){
-    if(n.type==='PointerArea'||Object.keys(n.events??{}).length||Object.keys(n.bindings??{}).length)throw Error(`Вложенный визуальный компонент не содержит интерактивных элементов: ${n.type}`);
+  });
+  const rawRootProps = scene[0]?.props ?? {};
+  const vpW =
+    typeof rawRootProps.width === 'number'
+      ? rawRootProps.width
+      : Number(metricsContext.viewport?.width ?? 360);
+  const vpH =
+    typeof rawRootProps.height === 'number'
+      ? rawRootProps.height
+      : Number(metricsContext.viewport?.height ?? 220);
+  const viewport = { width: vpW, height: vpH, compact: vpW < 640 };
+  const stateDefaults = Object.fromEntries(
+    Object.entries(document.stateDefinitions ?? {})
+      .filter(([, d]) => d.default !== undefined)
+      .map(([k, d]) => [k, d.default]),
+  );
+  const environment = {
+    enums,
+    tokens,
+    i18n,
+    styles,
+    stateDefaults,
+    locale: metricsContext.locale ?? null,
+    viewport,
+  };
+  const documentProps = { ...document.defaults, ...metricsContext.properties };
+  for (const [key, definition] of Object.entries(document.propDefinitions ?? {}))
+    if (definition.required && !own(documentProps, key))
+      throw Error(`${document.name}: обязательное свойство ${key} не задано`);
+  Object.assign(
+    documentProps,
+    selectedProperties(document.matches, documentProps, state, environment),
+    metricsContext.properties,
+  );
+  validateContract(
+    document.propDefinitions,
+    Object.fromEntries(
+      Object.entries(documentProps).map(([key, value]) => [
+        key,
+        evaluate(value, documentProps, state, [key], false, environment),
+      ]),
+    ),
+    enums,
+    document.name,
+  );
+  if (document.forward?.length)
+    throw Error('forward применяется к дочернему элементу, не к объявлению component');
+  const documentSources = {
+    ...Object.fromEntries(
+      Object.entries(document.defaultRanges ?? {}).map(([key, range]) => [
+        key,
+        { file: entry, ...range, label: document.name },
+      ]),
+    ),
+    ...selectedPropertySources(document.matches, documentProps, state, environment),
+  };
+  scene = expandStructure(scene, documentProps, state, environment, {
+    trackOrigins: true,
+    propertySources: documentSources,
+    recursive: node =>
+      containerTypes.has(node.type) || node.type === 'Scroll' || node.type === 'Modal',
+  });
+  const instanceTree = createElementTree(scene);
+  visit(scene, n => {
+    if (Object.keys(n.slots ?? {}).length)
+      throw Error('override объявляется в наследнике component');
+  });
+  if (scene.length !== 1 || !containerTypes.has(scene[0].type))
+    throw Error('Ожидается один корневой Frame, Row, Column, Grid или Stack');
+  let instances = [];
+  let expandedCount = 0;
+  function rejectInteraction(n) {
+    if (
+      n.type === 'PointerArea' ||
+      Object.keys(n.events ?? {}).length ||
+      Object.keys(n.bindings ?? {}).length
+    )
+      throw Error(`Вложенный визуальный компонент не содержит интерактивных элементов: ${n.type}`);
   }
-  function instantiate(instance,top,parents=[]){
-    if(instance.normalizedRange&&typeof instance.props.value==='number')instance={...instance,props:{...instance.props,value:{expr:`${instance.props.value*100}%`}}};
-    if(parents.includes(instance.type))throw Error(`Цикл композиции: ${[...parents,instance.type].join(' → ')}`);
-    if(parents.length>=32)throw Error('Глубина композиции компонентов превышает 32');
-    if(!top)rejectInteraction(instance);
-    const linked=link(instance.type);
-    let contract=contracts.get(linked);if(!contract){
-     let hasContent=false;const presenterKeys=new Set(Object.keys(linked.slotDefinitions??{}));
-     visit(linked.nodes,n=>{if(n.type==='ContentPresenter'){if(n.props.key==='content')hasContent=true;if(typeof n.props.key==='string')presenterKeys.add(n.props.key);}});
-     const groupedNames=new Set((linked.matches??[]).flatMap(group=>group.branches.flatMap(branch=>Object.keys(branch.props))));
-     contract={hasContent,presenterKeys,groupedNames};contracts.set(linked,contract);
+  function instantiate(instance, top, parents = []) {
+    if (instance.normalizedRange && typeof instance.props.value === 'number')
+      instance = {
+        ...instance,
+        props: { ...instance.props, value: { expr: `${instance.props.value * 100}%` } },
+      };
+    if (parents.includes(instance.type))
+      throw Error(`Цикл композиции: ${[...parents, instance.type].join(' → ')}`);
+    if (parents.length >= 32) throw Error('Глубина композиции компонентов превышает 32');
+    if (!top) rejectInteraction(instance);
+    const linked = link(instance.type);
+    let contract = contracts.get(linked);
+    if (!contract) {
+      let hasContent = false;
+      const presenterKeys = new Set(Object.keys(linked.slotDefinitions ?? {}));
+      visit(linked.nodes, n => {
+        if (n.type === 'ContentPresenter') {
+          if (n.props.key === 'content') hasContent = true;
+          if (typeof n.props.key === 'string') presenterKeys.add(n.props.key);
+        }
+      });
+      const groupedNames = new Set(
+        (linked.matches ?? []).flatMap(group =>
+          group.branches.flatMap(branch => Object.keys(branch.props)),
+        ),
+      );
+      contract = { hasContent, presenterKeys, groupedNames };
+      contracts.set(linked, contract);
     }
-    const {hasContent,presenterKeys,groupedNames}=contract;
-    if(instance.children.length&&!hasContent)throw Error('Для дочернего контента нужен ContentPresenter с key: content');
-    for(const k of Object.keys(instance.props))if(!(top?standard:layoutProps).has(k)&&!layoutProps.has(k)&&!own(linked.defaults,k)&&!own(linked.propDefinitions??{},k)&&!presenterKeys.has(k)&&!groupedNames.has(k)&&!(k==='font.size'&&own(linked.defaults,'fontSize')))throw Error(`Неизвестное свойство ${instance.type}.${k}`);
-    if(instance.props['font.size']!==undefined&&instance.props.fontSize!==undefined)throw Error('fontSize и font.size — одно свойство');
+    const { hasContent, presenterKeys, groupedNames } = contract;
+    if (instance.children.length && !hasContent)
+      throw Error('Для дочернего контента нужен ContentPresenter с key: content');
+    for (const k of Object.keys(instance.props))
+      if (
+        !(top ? standard : layoutProps).has(k) &&
+        !layoutProps.has(k) &&
+        !own(linked.defaults, k) &&
+        !own(linked.propDefinitions ?? {}, k) &&
+        !presenterKeys.has(k) &&
+        !groupedNames.has(k) &&
+        !(k === 'font.size' && own(linked.defaults, 'fontSize'))
+      )
+        throw Error(`Неизвестное свойство ${instance.type}.${k}`);
+    if (instance.props['font.size'] !== undefined && instance.props.fontSize !== undefined)
+      throw Error('fontSize и font.size — одно свойство');
     // A visual instance never inherits its caller's props or button fallbacks.
     // Arguments and supplied children have already been resolved in the caller.
-    const rawSlotFills={};
-    for(const key of presenterKeys)if(own(instance.props,key)&&instance.props[key]?.slotParams?.length)rawSlotFills[key]=instance.props[key];
-    const props={...(top?fallback:{}),...linked.defaults,...instance.props};
-    const compStateDefaults=Object.fromEntries(Object.entries(linked.stateDefinitions??{}).filter(([,d])=>d.default!==undefined).map(([k,d])=>[k,d.default]));
-    const env={...instance.environment,viewport,enums:{...enums,...linked.enums},tokens:{...tokens,...linked.tokens},i18n:{...i18n,...linked.i18n},styles:{...styles,...linked.styles},stateDefaults:{...stateDefaults,...compStateDefaults},locals:instance.environment?.locals};
-    Object.assign(props,selectedProperties(linked.matches,props,state,env),instance.props);
-    for(const [key,definition]of Object.entries(linked.propDefinitions??{}))if(definition.required&&!own(linked.defaults,key)&&!own(instance.props,key))throw Error(`${instance.type}: обязательное свойство ${key} не задано`);
-    if(instance.props['font.size']!==undefined)props.fontSize=instance.props['font.size'];
-    const sources={...linked.defaultSources,...selectedPropertySources(linked.matches,props,state,env),...instance.propertySources};
-    const scope={props,sources,traces:instance.propertyOrigins??{},instance,rawSlotFills,top,environment:env,parents:[...parents,instance.type]};
-    const resolved={};for(const key of Object.keys(props)){if(own(rawSlotFills,key)){resolved[key]=rawSlotFills[key];continue;}resolved[key]=expandValue(props[key],scope,0,[key]);}
-    validateContract(linked.propDefinitions,resolved,env.enums,instance.type);
-    const roots=expandChildren(linked.nodes,scope,0);
-    if(roots.length!==1||(top?roots[0].type!=='Rectangle':!visualTypes.has(roots[0].type)))throw Error(top?'Базовая кнопка требует один Rectangle':'Визуальный компонент требует один Frame, Text, Image или Rectangle');
-    if(!top){
-      visit(roots,n=>{rejectInteraction(n);if(!visualTypes.has(n.type))throw Error(`Неподдерживаемый визуальный примитив ${n.type}`);});
-      // Keep defining-file origins, and use the caller's origin for layout edits.
-      const root=roots[0];
-      if(own(instance.props,'cell')&&(own(instance.props,'row')||own(instance.props,'column')))throw Error('cell: ожидаются row column без отдельных row/column');
-      if(['cell','row','column'].some(key=>own(instance.props,key))){root.propertySources={...root.propertySources};for(const key of ['cell','row','column']){delete root.props[key];delete root.propertySources[key];}}
-      for(const key of layoutProps)if(own(instance.props,key)){
-        root.props[key]=resolved[key];
-        if(instance.propertySources?.[key])root.propertySources={...root.propertySources,[key]:clone(instance.propertySources[key])};
+    const rawSlotFills = {};
+    for (const key of presenterKeys)
+      if (own(instance.props, key) && instance.props[key]?.slotParams?.length)
+        rawSlotFills[key] = instance.props[key];
+    const props = { ...(top ? fallback : {}), ...linked.defaults, ...instance.props };
+    const compStateDefaults = Object.fromEntries(
+      Object.entries(linked.stateDefinitions ?? {})
+        .filter(([, d]) => d.default !== undefined)
+        .map(([k, d]) => [k, d.default]),
+    );
+    const env = {
+      ...instance.environment,
+      viewport,
+      enums: { ...enums, ...linked.enums },
+      tokens: { ...tokens, ...linked.tokens },
+      i18n: { ...i18n, ...linked.i18n },
+      styles: { ...styles, ...linked.styles },
+      stateDefaults: { ...stateDefaults, ...compStateDefaults },
+      locals: instance.environment?.locals,
+    };
+    Object.assign(props, selectedProperties(linked.matches, props, state, env), instance.props);
+    for (const [key, definition] of Object.entries(linked.propDefinitions ?? {}))
+      if (definition.required && !own(linked.defaults, key) && !own(instance.props, key))
+        throw Error(`${instance.type}: обязательное свойство ${key} не задано`);
+    if (instance.props['font.size'] !== undefined) props.fontSize = instance.props['font.size'];
+    const sources = {
+      ...linked.defaultSources,
+      ...selectedPropertySources(linked.matches, props, state, env),
+      ...instance.propertySources,
+    };
+    const scope = {
+      props,
+      sources,
+      traces: instance.propertyOrigins ?? {},
+      instance,
+      rawSlotFills,
+      top,
+      environment: env,
+      parents: [...parents, instance.type],
+    };
+    const resolved = {};
+    for (const key of Object.keys(props)) {
+      if (own(rawSlotFills, key)) {
+        resolved[key] = rawSlotFills[key];
+        continue;
       }
+      resolved[key] = expandValue(props[key], scope, 0, [key]);
     }
-    const origins={};for(const key of Object.keys(props)){const value=props[key];origins[key]=instance.propertyOrigins?.[key]??propertyOrigins(value,sources[key],props,sources,{},new Set([key]));}
-    return {roots,resolved,origins};
-  }
-  function expandValue(value,scope,depth,stack=[]){
-    const result=evaluate(value,scope.props,state,stack,false,scope.environment);
-    return result?.type?expand(result,scope,depth+1):result;
-  }
-  function expandChildren(nodes,scope,depth){
-    return expandStructure(nodes,scope.props,state,scope.environment,{recursive:false,evaluateProps:false}).map(node=>expand(node,{...scope,environment:node.environment},depth+1));
-  }
-  function expand(n,scope,depth){
-    if(Object.keys(n.bindings??{}).length)throw Error('Вложенные двусторонние привязки пока не поддерживаются; задайте привязку на экземпляре контрола');
-    if(depth>64||++expandedCount>16384)throw Error('Превышен предел глубины или размера визуальной композиции');
-    if(n.expandedVisual)return clone(n);
-    if(Object.keys(n.slots??{}).length)throw Error('override объявляется в наследнике component');
-    if(!scope.top)rejectInteraction(n);
-    if(n.type==='ContentPresenter'){
-      if(Object.keys(n.props).some(k=>!['key','content'].includes(k)))throw Error('ContentPresenter принимает key и content');
-      let content=n.props.content??(n.children.length===1?n.children[0]:{type:'Frame',props:{},children:n.children});
-      const slotKey=n.props.key;
-      let slotScope=scope;
-      if(scope.instance.children.length&&slotKey==='content'){
-        if(own(scope.instance.props,'content'))throw Error('Задайте content или дочерние элементы');
-        content={type:'Frame',props:{},children:scope.instance.children};
-      }else if(typeof slotKey==='string'&&own(scope.instance.props,slotKey)){
-        content=scope.rawSlotFills?.[slotKey]??scope.instance.props[slotKey];
+    validateContract(linked.propDefinitions, resolved, env.enums, instance.type);
+    const roots = expandChildren(linked.nodes, scope, 0);
+    if (
+      roots.length !== 1 ||
+      (top ? roots[0].type !== 'Rectangle' : !visualTypes.has(roots[0].type))
+    )
+      throw Error(
+        top
+          ? 'Базовая кнопка требует один Rectangle'
+          : 'Визуальный компонент требует один Frame, Text, Image или Rectangle',
+      );
+    if (!top) {
+      visit(roots, n => {
+        rejectInteraction(n);
+        if (!visualTypes.has(n.type)) throw Error(`Неподдерживаемый визуальный примитив ${n.type}`);
+      });
+      // Keep defining-file origins, and use the caller's origin for layout edits.
+      const root = roots[0];
+      if (
+        own(instance.props, 'cell') &&
+        (own(instance.props, 'row') || own(instance.props, 'column'))
+      )
+        throw Error('cell: ожидаются row column без отдельных row/column');
+      if (['cell', 'row', 'column'].some(key => own(instance.props, key))) {
+        root.propertySources = { ...root.propertySources };
+        for (const key of ['cell', 'row', 'column']) {
+          delete root.props[key];
+          delete root.propertySources[key];
+        }
       }
-      if(n.slotArgs?.length){
-        const slotLocals={...(scope.environment?.locals??{})};
-        const fillParams=content?.slotParams??[];
-        n.slotArgs.forEach((arg,idx)=>{
-          const val=evaluate(arg.value,scope.props,state,[],false,scope.environment);
-          slotLocals[arg.name]=val;
-          if(fillParams[idx])slotLocals[fillParams[idx]]=val;
+      for (const key of layoutProps)
+        if (own(instance.props, key)) {
+          root.props[key] = resolved[key];
+          if (instance.propertySources?.[key])
+            root.propertySources = {
+              ...root.propertySources,
+              [key]: clone(instance.propertySources[key]),
+            };
+        }
+    }
+    const origins = {};
+    for (const key of Object.keys(props)) {
+      const value = props[key];
+      origins[key] =
+        instance.propertyOrigins?.[key] ??
+        propertyOrigins(value, sources[key], props, sources, {}, new Set([key]));
+    }
+    return { roots, resolved, origins };
+  }
+  function expandValue(value, scope, depth, stack = []) {
+    const result = evaluate(value, scope.props, state, stack, false, scope.environment);
+    return result?.type ? expand(result, scope, depth + 1) : result;
+  }
+  function expandChildren(nodes, scope, depth) {
+    return expandStructure(nodes, scope.props, state, scope.environment, {
+      recursive: false,
+      evaluateProps: false,
+    }).map(node => expand(node, { ...scope, environment: node.environment }, depth + 1));
+  }
+  function expand(n, scope, depth) {
+    if (Object.keys(n.bindings ?? {}).length)
+      throw Error(
+        'Вложенные двусторонние привязки пока не поддерживаются; задайте привязку на экземпляре контрола',
+      );
+    if (depth > 64 || ++expandedCount > 16384)
+      throw Error('Превышен предел глубины или размера визуальной композиции');
+    if (n.expandedVisual) return clone(n);
+    if (Object.keys(n.slots ?? {}).length)
+      throw Error('override объявляется в наследнике component');
+    if (!scope.top) rejectInteraction(n);
+    if (n.type === 'ContentPresenter') {
+      if (Object.keys(n.props).some(k => !['key', 'content'].includes(k)))
+        throw Error('ContentPresenter принимает key и content');
+      let content =
+        n.props.content ??
+        (n.children.length === 1
+          ? n.children[0]
+          : { type: 'Frame', props: {}, children: n.children });
+      const slotKey = n.props.key;
+      let slotScope = scope;
+      if (scope.instance.children.length && slotKey === 'content') {
+        if (own(scope.instance.props, 'content'))
+          throw Error('Задайте content или дочерние элементы');
+        content = { type: 'Frame', props: {}, children: scope.instance.children };
+      } else if (typeof slotKey === 'string' && own(scope.instance.props, slotKey)) {
+        content = scope.rawSlotFills?.[slotKey] ?? scope.instance.props[slotKey];
+      }
+      if (n.slotArgs?.length) {
+        const slotLocals = { ...(scope.environment?.locals ?? {}) };
+        const fillParams = content?.slotParams ?? [];
+        n.slotArgs.forEach((arg, idx) => {
+          const val = evaluate(arg.value, scope.props, state, [], false, scope.environment);
+          slotLocals[arg.name] = val;
+          if (fillParams[idx]) slotLocals[fillParams[idx]] = val;
         });
-        slotScope={...scope,environment:{...scope.environment,locals:slotLocals}};
-        if(content?.expandedVisual){content={...content,expandedVisual:false};}
+        slotScope = { ...scope, environment: { ...scope.environment, locals: slotLocals } };
+        if (content?.expandedVisual) {
+          content = { ...content, expandedVisual: false };
+        }
       }
-      const result=expandValue(content,slotScope,depth);
-      if(!result?.type)throw Error('override должен вернуть элемент или base.content');
+      const result = expandValue(content, slotScope, depth);
+      if (!result?.type) throw Error('override должен вернуть элемент или base.content');
       return result;
     }
-    const sources={...selectedPropertySources(n.matches,scope.props,state,scope.environment),...n.propertySources};
-    const raw={...Object.fromEntries((n.forward??[]).map(key=>[key,{expr:`props.${key}`}])) ,...selectedProperties(n.matches,scope.props,state,scope.environment),...n.props};
-    const origins=Object.fromEntries(Object.entries(raw).map(([key,value])=>[key,propertyOrigins(value,sources[key],scope.props,scope.sources,scope.traces)]));
-    const slotFillKeys=new Set();
-    for(const [k,v] of Object.entries(n.props??{}))if(v?.slotParams?.length)slotFillKeys.add(k);
-    const evalNode=slotFillKeys.size?{...n,props:Object.fromEntries(Object.entries(n.props).filter(([k])=>!slotFillKeys.has(k)))}:n;
-    const evaluated=evaluateProperties(evalNode,scope.props,state,scope.environment);
-    const expandedProps={};for(const key of Object.keys(evaluated)){const value=evaluated[key];expandedProps[key]=value?.type?expand(value,scope,depth+1):value;}
-    for(const k of slotFillKeys)expandedProps[k]=n.props[k];
-    const node={...n,props:expandedProps,propertySources:sources,propertyOrigins:origins,children:expandChildren(n.children??[],scope,depth),forward:[],matches:[]};
-    if(!primitiveTypes.has(n.type))return instantiate(node,false,scope.parents).roots[0];
-    return {...node,expandedVisual:true};
+    const sources = {
+      ...selectedPropertySources(n.matches, scope.props, state, scope.environment),
+      ...n.propertySources,
+    };
+    const raw = {
+      ...Object.fromEntries((n.forward ?? []).map(key => [key, { expr: `props.${key}` }])),
+      ...selectedProperties(n.matches, scope.props, state, scope.environment),
+      ...n.props,
+    };
+    const origins = Object.fromEntries(
+      Object.entries(raw).map(([key, value]) => [
+        key,
+        propertyOrigins(value, sources[key], scope.props, scope.sources, scope.traces),
+      ]),
+    );
+    const slotFillKeys = new Set();
+    for (const [k, v] of Object.entries(n.props ?? {}))
+      if (v?.slotParams?.length) slotFillKeys.add(k);
+    const evalNode = slotFillKeys.size
+      ? {
+          ...n,
+          props: Object.fromEntries(Object.entries(n.props).filter(([k]) => !slotFillKeys.has(k))),
+        }
+      : n;
+    const evaluated = evaluateProperties(evalNode, scope.props, state, scope.environment);
+    const expandedProps = {};
+    for (const key of Object.keys(evaluated)) {
+      const value = evaluated[key];
+      expandedProps[key] = value?.type ? expand(value, scope, depth + 1) : value;
+    }
+    for (const k of slotFillKeys) expandedProps[k] = n.props[k];
+    const node = {
+      ...n,
+      props: expandedProps,
+      propertySources: sources,
+      propertyOrigins: origins,
+      children: expandChildren(n.children ?? [], scope, depth),
+      forward: [],
+      matches: [],
+    };
+    if (!primitiveTypes.has(n.type)) return instantiate(node, false, scope.parents).roots[0];
+    return { ...node, expandedVisual: true };
   }
-  const visualNodes=[];
-  const root=scene[0],rootProps=root.props;
-  const modalNodes=sceneModalNodes(root),children=root.children.filter(n=>n.type!=='Modal');
-  if(modalNodes.length&&root.children.slice(-modalNodes.length).some(n=>n.type!=='Modal'))throw Error('Modal размещается после контролов сцены');
-  const scroll=children.length===1&&children[0].type==='Scroll'?children[0]:null;
-  instances=scroll?scroll.children:children;
-  let rootWidth=constrained(length(rootProps.width??360,360,360,'width'),rootProps,0,360),rootHeight=constrained(length(rootProps.height??220,220,220,'height'),rootProps,1,220);
+  const visualNodes = [];
+  const root = scene[0],
+    rootProps = root.props;
+  const modalNodes = sceneModalNodes(root),
+    children = root.children.filter(n => n.type !== 'Modal');
+  if (modalNodes.length && root.children.slice(-modalNodes.length).some(n => n.type !== 'Modal'))
+    throw Error('Modal размещается после контролов сцены');
+  const scroll = children.length === 1 && children[0].type === 'Scroll' ? children[0] : null;
+  instances = scroll ? scroll.children : children;
+  let rootWidth = constrained(length(rootProps.width ?? 360, 360, 360, 'width'), rootProps, 0, 360),
+    rootHeight = constrained(
+      length(rootProps.height ?? 220, 220, 220, 'height'),
+      rootProps,
+      1,
+      220,
+    );
   // `width: content` / `height: content` on the root fits the frame to what it holds, so a shell
   // region or popup is exactly as large as its controls instead of the 360×220 default.
-  const intrinsicCache=new WeakMap();
-  if(containerTypes.has(root.type)){
-    const fit={...root,children,layoutKind:root.type==='Frame'&&rootProps.columns===undefined&&rootProps.rows===undefined?'Column':root.type};
-    if(own(rootProps,'width')&&intrinsicLength(rootProps.width))rootWidth=naturalContainer(fit,0,intrinsicScene);
-    if(own(rootProps,'height')&&intrinsicLength(rootProps.height))rootHeight=naturalContainer(fit,1,intrinsicScene);
+  const intrinsicCache = new WeakMap();
+  if (containerTypes.has(root.type)) {
+    const fit = {
+      ...root,
+      children,
+      layoutKind:
+        root.type === 'Frame' && rootProps.columns === undefined && rootProps.rows === undefined
+          ? 'Column'
+          : root.type,
+    };
+    if (own(rootProps, 'width') && intrinsicLength(rootProps.width))
+      rootWidth = naturalContainer(fit, 0, intrinsicScene);
+    if (own(rootProps, 'height') && intrinsicLength(rootProps.height))
+      rootHeight = naturalContainer(fit, 1, intrinsicScene);
   }
   // A modal layer is a positioned surface over the whole frame. Children are
   // laid out inside it and emitted with coordinates relative to the surface.
-  const modals=modalNodes.map(node=>{
-    const p=node.props;
-    for(const k of Object.keys(p))if(!modalProps.has(k))throw Error(`Modal.${k} не поддерживается`);
-    for(const [event,action]of Object.entries(node.events??{})){
-      if(event!=='dismissed')throw Error(`Modal: обработчик ${event} не поддерживается; используйте dismissed`);
-      if(!/^actions\.[A-Za-z_]\w*$/.test(action)||node.eventArgs?.[event]?.length)throw Error('Modal.dismissed требует actions.<имя>() без аргументов');
+  const modals = modalNodes.map(node => {
+    const p = node.props;
+    for (const k of Object.keys(p))
+      if (!modalProps.has(k)) throw Error(`Modal.${k} не поддерживается`);
+    for (const [event, action] of Object.entries(node.events ?? {})) {
+      if (event !== 'dismissed')
+        throw Error(`Modal: обработчик ${event} не поддерживается; используйте dismissed`);
+      if (!/^actions\.[A-Za-z_]\w*$/.test(action) || node.eventArgs?.[event]?.length)
+        throw Error('Modal.dismissed требует actions.<имя>() без аргументов');
     }
-    if(Object.keys(node.bindings??{}).length)throw Error('Modal не поддерживает привязки');
-    if(p.key!==undefined&&(typeof p.key!=='string'||!p.key))throw Error('Modal.key ожидает непустую строку');
-    for(const k of ['dismiss','open'])if(p[k]!==undefined&&typeof p[k]!=='boolean')throw Error(`Modal.${k} ожидает boolean`);
-    const backdrop=color(p.backdrop??'#00000080');
-    if(typeof backdrop!=='string'||!/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(backdrop))throw Error('Modal.backdrop принимает hex-цвет');
-    const width=num(p.width??320,'Modal.width'),height=num(p.height??200,'Modal.height');
-    const x=p.x===undefined?Math.max(0,Math.round((rootWidth-width)/2)):num(p.x,'Modal.x'),y=p.y===undefined?Math.max(0,Math.round((rootHeight-height)/2)):num(p.y,'Modal.y');
-    for(const child of node.children)if(['Scroll','Modal'].includes(child.type))throw Error(`Modal не содержит ${child.type}`);
-    return {node,box:[x,y,width,height],backdrop,controls:node.children};
+    if (Object.keys(node.bindings ?? {}).length) throw Error('Modal не поддерживает привязки');
+    if (p.key !== undefined && (typeof p.key !== 'string' || !p.key))
+      throw Error('Modal.key ожидает непустую строку');
+    for (const k of ['dismiss', 'open'])
+      if (p[k] !== undefined && typeof p[k] !== 'boolean')
+        throw Error(`Modal.${k} ожидает boolean`);
+    const backdrop = color(p.backdrop ?? '#00000080');
+    if (typeof backdrop !== 'string' || !/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.test(backdrop))
+      throw Error('Modal.backdrop принимает hex-цвет');
+    const width = num(p.width ?? 320, 'Modal.width'),
+      height = num(p.height ?? 200, 'Modal.height');
+    const x =
+        p.x === undefined ? Math.max(0, Math.round((rootWidth - width) / 2)) : num(p.x, 'Modal.x'),
+      y =
+        p.y === undefined
+          ? Math.max(0, Math.round((rootHeight - height) / 2))
+          : num(p.y, 'Modal.y');
+    for (const child of node.children)
+      if (['Scroll', 'Modal'].includes(child.type)) throw Error(`Modal не содержит ${child.type}`);
+    return { node, box: [x, y, width, height], backdrop, controls: node.children };
   });
-  const rootVisual={id:-1,parent:null,control:-1,type:root.type,source:root.source,propertySources:root.propertySources,props:clone(rootProps),bounds:[0,0,rootWidth,rootHeight]};
-  let modern=root.type!=='Frame';
-  for(const n of [...instances,...modals.flatMap(m=>m.controls)])if(containerTypes.has(n.type)||['minWidth','maxWidth','minHeight','maxHeight'].some(key=>own(n.props,key))||['width','height'].some(key=>own(n.props,key)&&intrinsicLength(n.props[key])))modern=true;
-  const previewNodes=scene;
+  const rootVisual = {
+    id: -1,
+    parent: null,
+    control: -1,
+    type: root.type,
+    source: root.source,
+    propertySources: root.propertySources,
+    props: clone(rootProps),
+    bounds: [0, 0, rootWidth, rootHeight],
+  };
+  let modern = root.type !== 'Frame';
+  for (const n of [...instances, ...modals.flatMap(m => m.controls)])
+    if (
+      containerTypes.has(n.type) ||
+      ['minWidth', 'maxWidth', 'minHeight', 'maxHeight'].some(key => own(n.props, key)) ||
+      ['width', 'height'].some(key => own(n.props, key) && intrinsicLength(n.props[key]))
+    )
+      modern = true;
+  const previewNodes = scene;
   // A container paints no box of its own, but the layout still measured one for it, and that box is
   // what a designer means when they pick up a panel. It travels beside the drawn controls so the
   // canvas can measure, grab and move a container by the extent it actually has.
-  const previewContainers=[];
-  function intrinsicScene(node,axis){
-    const key=axis===0?'width':'height',value=node.props[key];
-    if(value!==undefined&&!intrinsicLength(value)&&!/[\*%]$/.test(value?.expr??''))return constrained(length(value,axis===0?rootWidth:rootHeight,0),node.props,axis,axis===0?rootWidth:rootHeight);
-    if(containerTypes.has(node.type))return naturalContainer({...node,layoutKind:node.type==='Frame'&&node.props.columns===undefined&&node.props.rows===undefined?'Column':node.type},axis,intrinsicScene);
-    let inst=intrinsicCache.get(node);
-    if(!inst){inst=instantiate(node,true);intrinsicCache.set(node,inst);}
-    const {roots,resolved}=inst;
-    if(intrinsicLength(resolved[key]))return constrained(natural(roots[0],axis,metrics),node.props,axis,axis===0?rootWidth:rootHeight);
-    return constrained(length(resolved[key],axis===0?rootWidth:rootHeight,0),node.props,axis,axis===0?rootWidth:rootHeight);
+  const previewContainers = [];
+  function intrinsicScene(node, axis) {
+    const key = axis === 0 ? 'width' : 'height',
+      value = node.props[key];
+    if (value !== undefined && !intrinsicLength(value) && !/[\*%]$/.test(value?.expr ?? ''))
+      return constrained(
+        length(value, axis === 0 ? rootWidth : rootHeight, 0),
+        node.props,
+        axis,
+        axis === 0 ? rootWidth : rootHeight,
+      );
+    if (containerTypes.has(node.type))
+      return naturalContainer(
+        {
+          ...node,
+          layoutKind:
+            node.type === 'Frame' &&
+            node.props.columns === undefined &&
+            node.props.rows === undefined
+              ? 'Column'
+              : node.type,
+        },
+        axis,
+        intrinsicScene,
+      );
+    let inst = intrinsicCache.get(node);
+    if (!inst) {
+      inst = instantiate(node, true);
+      intrinsicCache.set(node, inst);
+    }
+    const { roots, resolved } = inst;
+    if (intrinsicLength(resolved[key]))
+      return constrained(
+        natural(roots[0], axis, metrics),
+        node.props,
+        axis,
+        axis === 0 ? rootWidth : rootHeight,
+      );
+    return constrained(
+      length(resolved[key], axis === 0 ? rootWidth : rootHeight, 0),
+      node.props,
+      axis,
+      axis === 0 ? rootWidth : rootHeight,
+    );
   }
-  function layoutScene(node,box,output,frame=[0,0,0,0]){
-    if(!containerTypes.has(node.type)){
+  function layoutScene(node, box, output, frame = [0, 0, 0, 0]) {
+    if (!containerTypes.has(node.type)) {
       // A flow container measures a child's own `x`/`y` from its outer corner and percentages
       // against its outer size, so a tool that writes a coordinate needs that box next to the drawn
       // one. The page corner is just the case where the two frames coincide.
-      output.push({...node,props:{...node.props,x:box[0],y:box[1],width:box[2],height:box[3]},coordinateBox:frame});return;
+      output.push({
+        ...node,
+        props: { ...node.props, x: box[0], y: box[1], width: box[2], height: box[3] },
+        coordinateBox: frame,
+      });
+      return;
     }
-    if(node!==root&&node.props.clip)throw Error('Обрезка вложенного контейнера сцены пока не поддерживается; используйте clip корневого Frame');
+    if (node !== root && node.props.clip)
+      throw Error(
+        'Обрезка вложенного контейнера сцены пока не поддерживается; используйте clip корневого Frame',
+      );
     let layout;
-    if(node.type==='Frame'&&(node.props.columns!==undefined||node.props.rows!==undefined)){
-      const pad=insets(node.props.padding),g=gap(node.props),inside=[box[0]+pad[3],box[1]+pad[0],Math.max(0,box[2]-pad[1]-pad[3]),Math.max(0,box[3]-pad[0]-pad[2])];
-      const measured={...node,children:node.children.map(child=>({...child,props:{...child.props,width:intrinsicScene(child,0),height:intrinsicScene(child,1)}}))};
-      const cols=sizes(measured,0,inside[2],metrics),rows=sizes(measured,1,inside[3],metrics);
-      layout={grid:{bounds:inside,columns:cols,rows,gap:g},boxes:node.children.map(child=>{const ci=cell(child,'columns',cols.length),ri=cell(child,'rows',rows.length);return [inside[0]+(ci===null?0:cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1]),inside[1]+(ri===null?0:rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0]),ci===null?inside[2]:cols[ci],ri===null?inside[3]:rows[ri]];})};
-    }else layout=arrange(node,box,intrinsicScene,{scene:true});
-    if(node===root&&layout.grid)rootVisual.grid=layout.grid;
-    node.children.forEach((child,index)=>{
-      if(containerTypes.has(child.type))previewContainers.push({start:child.start,bounds:layout.boxes[index],coordinateBox:box});
-      layoutScene(child,layout.boxes[index],output,box);
+    if (
+      node.type === 'Frame' &&
+      (node.props.columns !== undefined || node.props.rows !== undefined)
+    ) {
+      const pad = insets(node.props.padding),
+        g = gap(node.props),
+        inside = [
+          box[0] + pad[3],
+          box[1] + pad[0],
+          Math.max(0, box[2] - pad[1] - pad[3]),
+          Math.max(0, box[3] - pad[0] - pad[2]),
+        ];
+      const measured = {
+        ...node,
+        children: node.children.map(child => ({
+          ...child,
+          props: {
+            ...child.props,
+            width: intrinsicScene(child, 0),
+            height: intrinsicScene(child, 1),
+          },
+        })),
+      };
+      const cols = sizes(measured, 0, inside[2], metrics),
+        rows = sizes(measured, 1, inside[3], metrics);
+      layout = {
+        grid: { bounds: inside, columns: cols, rows, gap: g },
+        boxes: node.children.map(child => {
+          const ci = cell(child, 'columns', cols.length),
+            ri = cell(child, 'rows', rows.length);
+          return [
+            inside[0] +
+              (ci === null ? 0 : cols.slice(0, ci).reduce((a, b) => a + b, 0) + ci * g[1]),
+            inside[1] +
+              (ri === null ? 0 : rows.slice(0, ri).reduce((a, b) => a + b, 0) + ri * g[0]),
+            ci === null ? inside[2] : cols[ci],
+            ri === null ? inside[3] : rows[ri],
+          ];
+        }),
+      };
+    } else layout = arrange(node, box, intrinsicScene, { scene: true });
+    if (node === root && layout.grid) rootVisual.grid = layout.grid;
+    node.children.forEach((child, index) => {
+      if (containerTypes.has(child.type))
+        previewContainers.push({
+          start: child.start,
+          bounds: layout.boxes[index],
+          coordinateBox: box,
+        });
+      layoutScene(child, layout.boxes[index], output, box);
     });
   }
-  if(modern){
-    const output=[];
-    layoutScene(scroll?{...scroll,type:'Column'}:{...root,children},[0,0,rootWidth,rootHeight],output);
-    instances=output;
-    for(const modal of modals){
-      const laid=[];
-      layoutScene({...modal.node,type:'Column',props:{}},modal.box,laid);
-      modal.controls=laid.map(n=>({...n,props:{...n.props,x:n.props.x-modal.box[0],y:n.props.y-modal.box[1]}}));
+  if (modern) {
+    const output = [];
+    layoutScene(
+      scroll ? { ...scroll, type: 'Column' } : { ...root, children },
+      [0, 0, rootWidth, rootHeight],
+      output,
+    );
+    instances = output;
+    for (const modal of modals) {
+      const laid = [];
+      layoutScene({ ...modal.node, type: 'Column', props: {} }, modal.box, laid);
+      modal.controls = laid.map(n => ({
+        ...n,
+        props: { ...n.props, x: n.props.x - modal.box[0], y: n.props.y - modal.box[1] },
+      }));
     }
-    rootProps.width=rootWidth;rootProps.height=rootHeight;rootProps.padding=0;rootProps.gap=0;
-    for(const key of ['columns','rows','minWidth','maxWidth','minHeight','maxHeight'])delete rootProps[key];
-  }else if(rootProps.columns!==undefined||rootProps.rows!==undefined){
-    const pad=insets(rootProps.padding),g=gap(rootProps);
-    const resolvedChildren=instances.map(n=>{const control=clone(n);for(const key of ['cell','row','column'])delete control.props[key];const {resolved}=instantiate(control,true);return {...n,props:{...n.props,width:resolved.width,height:resolved.height}};});
-    const layout={...root,children:resolvedChildren};
-    const cols=sizes(layout,0,Math.max(0,rootWidth-pad[1]-pad[3]),metrics),rows=sizes(layout,1,Math.max(0,rootHeight-pad[0]-pad[2]),metrics);
-    rootVisual.grid={bounds:[pad[3],pad[0],rootWidth-pad[1]-pad[3],rootHeight-pad[0]-pad[2]],columns:cols,rows,gap:g};
-    instances.forEach(n=>{
-      const ci=cell(n,'columns',cols.length),ri=cell(n,'rows',rows.length);
-      n.props.x=pad[3]+(ci===null?0:cols.slice(0,ci).reduce((a,b)=>a+b,0)+ci*g[1]);
-      n.props.y=pad[0]+(ri===null?0:rows.slice(0,ri).reduce((a,b)=>a+b,0)+ri*g[0]);
-      if(n.props.width===undefined)n.props.width=ci===null?rootVisual.grid.bounds[2]:cols[ci];
-      if(n.props.height===undefined)n.props.height=ri===null?rootVisual.grid.bounds[3]:rows[ri];
-      for(const key of ['cell','row','column'])delete n.props[key];
+    rootProps.width = rootWidth;
+    rootProps.height = rootHeight;
+    rootProps.padding = 0;
+    rootProps.gap = 0;
+    for (const key of ['columns', 'rows', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight'])
+      delete rootProps[key];
+  } else if (rootProps.columns !== undefined || rootProps.rows !== undefined) {
+    const pad = insets(rootProps.padding),
+      g = gap(rootProps);
+    const resolvedChildren = instances.map(n => {
+      const control = clone(n);
+      for (const key of ['cell', 'row', 'column']) delete control.props[key];
+      const { resolved } = instantiate(control, true);
+      return { ...n, props: { ...n.props, width: resolved.width, height: resolved.height } };
     });
-    delete rootProps.columns;delete rootProps.rows;rootProps.gap=0;
-  }
-  const layered=modals.flatMap(m=>m.controls);
-  if(instances.length+layered.length>1024||[...instances,...layered].some(n=>['Frame','Scroll','Modal'].includes(n.type)))throw Error('Frame принимает 0…1024 контролов либо один Scroll с контролами');
-  visualNodes.push(rootVisual);
-  function compileInstance(instance,index){
-  for(const [event,action]of Object.entries(instance.events??{})){
-    if(!action.startsWith('events.'))continue;
-    const name=action.slice(7),signature=document.eventDefinitions?.[name],args=instance.eventArgs?.[event]??[];
-    if(!signature){
-      if(Object.keys(document.eventDefinitions??{}).length||Array.isArray(document.defaults.events)){
-        if(!document.defaults.events?.includes(name))throw Error(`Событие ${name} не объявлено`);
-      }
-      if(args.length)throw Error(`Для аргументов events.${name} требуется объявление event`);
-    }else{
-      if(signature.length!==args.length)throw Error(`events.${name}: ожидалось ${signature.length} аргументов, получено ${args.length}`);
-      signature.forEach((arg,i)=>{validateTypeName(arg.type,enums);if(!matchesType(args[i],arg.type,enums))throw Error(`events.${name}.${arg.name}: ожидался ${arg.type}`);});
-    }
-  }
-  const {roots,resolved,origins}=instantiate(instance,true);
-  let rangeMetadata='';
-  if(instance.type==='Slider'){
-    const endpoint=value=>{
-      const result=instantiate({...instance,props:{...instance.props,value:{expr:value+'%'}}},true);
-      const content=[];
-      for(const child of result.roots[0].children)if(visualTypes.has(child.type))flatten(child,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,content,{...metrics,preserveEmptyGeometry:true});
-      return content.join(' ');
+    const layout = { ...root, children: resolvedChildren };
+    const cols = sizes(layout, 0, Math.max(0, rootWidth - pad[1] - pad[3]), metrics),
+      rows = sizes(layout, 1, Math.max(0, rootHeight - pad[0] - pad[2]), metrics);
+    rootVisual.grid = {
+      bounds: [pad[3], pad[0], rootWidth - pad[1] - pad[3], rootHeight - pad[0] - pad[2]],
+      columns: cols,
+      rows,
+      gap: g,
     };
-    rangeMetadata=`RangeInput { value: ${parseFloat(resolved.value?.expr??resolved.value??50)/100}; Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
+    instances.forEach(n => {
+      const ci = cell(n, 'columns', cols.length),
+        ri = cell(n, 'rows', rows.length);
+      n.props.x =
+        pad[3] + (ci === null ? 0 : cols.slice(0, ci).reduce((a, b) => a + b, 0) + ci * g[1]);
+      n.props.y =
+        pad[0] + (ri === null ? 0 : rows.slice(0, ri).reduce((a, b) => a + b, 0) + ri * g[0]);
+      if (n.props.width === undefined)
+        n.props.width = ci === null ? rootVisual.grid.bounds[2] : cols[ci];
+      if (n.props.height === undefined)
+        n.props.height = ri === null ? rootVisual.grid.bounds[3] : rows[ri];
+      for (const key of ['cell', 'row', 'column']) delete n.props[key];
+    });
+    delete rootProps.columns;
+    delete rootProps.rows;
+    rootProps.gap = 0;
   }
-  const root=roots[0],out=[],visuals=[];let body='';
-  for(const n of root.children){if(visualTypes.has(n.type)){flatten(n,[0,0,num(resolved.width,'width'),num(resolved.height,'height')],files,out,{...metrics,visuals});}else body+=serializeNode(n,true);}
-  const sourceNode={...instance,type:'Button',bindings:{},events:instance.events.clicked?{clicked:instance.events.clicked}:{},props:Object.fromEntries(Object.entries(resolved).filter(([k])=>standard.has(k)&&k!=='font.size'&&k!=='transition')),children:[]};
-  const template=`component Button { Rectangle { ${Object.entries(root.props).filter(([k])=>k!=='key'&&k!=='transition').map(([k,v])=>`${k}: ${literal(v)};`).join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
-  visualNodes.push({id:-2,parent:null,control:index,type:instance.type,source:instance.source,props:resolved,propertyOrigins:origins,bounds:[0,0,num(resolved.width,'width'),num(resolved.height,'height')]},...visuals.map(v=>({...v,parent:v.parent??-2,control:index})));
-  return {template,treeRoots:roots,sourceNode};
+  const layered = modals.flatMap(m => m.controls);
+  if (
+    instances.length + layered.length > 1024 ||
+    [...instances, ...layered].some(n => ['Frame', 'Scroll', 'Modal'].includes(n.type))
+  )
+    throw Error('Frame принимает 0…1024 контролов либо один Scroll с контролами');
+  visualNodes.push(rootVisual);
+  function compileInstance(instance, index) {
+    for (const [event, action] of Object.entries(instance.events ?? {})) {
+      if (!action.startsWith('events.')) continue;
+      const name = action.slice(7),
+        signature = document.eventDefinitions?.[name],
+        args = instance.eventArgs?.[event] ?? [];
+      if (!signature) {
+        if (
+          Object.keys(document.eventDefinitions ?? {}).length ||
+          Array.isArray(document.defaults.events)
+        ) {
+          if (!document.defaults.events?.includes(name))
+            throw Error(`Событие ${name} не объявлено`);
+        }
+        if (args.length) throw Error(`Для аргументов events.${name} требуется объявление event`);
+      } else {
+        if (signature.length !== args.length)
+          throw Error(
+            `events.${name}: ожидалось ${signature.length} аргументов, получено ${args.length}`,
+          );
+        signature.forEach((arg, i) => {
+          validateTypeName(arg.type, enums);
+          if (!matchesType(args[i], arg.type, enums))
+            throw Error(`events.${name}.${arg.name}: ожидался ${arg.type}`);
+        });
+      }
+    }
+    const { roots, resolved, origins } = instantiate(instance, true);
+    let rangeMetadata = '';
+    if (instance.type === 'Slider') {
+      const endpoint = value => {
+        const result = instantiate(
+          { ...instance, props: { ...instance.props, value: { expr: value + '%' } } },
+          true,
+        );
+        const content = [];
+        for (const child of result.roots[0].children)
+          if (visualTypes.has(child.type))
+            flatten(
+              child,
+              [0, 0, num(resolved.width, 'width'), num(resolved.height, 'height')],
+              files,
+              content,
+              { ...metrics, preserveEmptyGeometry: true },
+            );
+        return content.join(' ');
+      };
+      rangeMetadata = `RangeInput { value: ${parseFloat(resolved.value?.expr ?? resolved.value ?? 50) / 100}; Minimum { ${endpoint(0)} } Maximum { ${endpoint(100)} } }`;
+    }
+    const root = roots[0],
+      out = [],
+      visuals = [];
+    let body = '';
+    for (const n of root.children) {
+      if (visualTypes.has(n.type)) {
+        flatten(
+          n,
+          [0, 0, num(resolved.width, 'width'), num(resolved.height, 'height')],
+          files,
+          out,
+          { ...metrics, visuals },
+        );
+      } else body += serializeNode(n, true);
+    }
+    const sourceNode = {
+      ...instance,
+      type: 'Button',
+      bindings: {},
+      events: instance.events.clicked ? { clicked: instance.events.clicked } : {},
+      props: Object.fromEntries(
+        Object.entries(resolved).filter(
+          ([k]) => standard.has(k) && k !== 'font.size' && k !== 'transition',
+        ),
+      ),
+      children: [],
+    };
+    const template = `component Button { Rectangle { ${Object.entries(root.props)
+      .filter(([k]) => k !== 'key' && k !== 'transition')
+      .map(([k, v]) => `${k}: ${literal(v)};`)
+      .join(' ')} ${body} ${out.join(' ')} ${rangeMetadata} } }`;
+    visualNodes.push(
+      {
+        id: -2,
+        parent: null,
+        control: index,
+        type: instance.type,
+        source: instance.source,
+        props: resolved,
+        propertyOrigins: origins,
+        bounds: [0, 0, num(resolved.width, 'width'), num(resolved.height, 'height')],
+      },
+      ...visuals.map(v => ({ ...v, parent: v.parent ?? -2, control: index })),
+    );
+    return { template, treeRoots: roots, sourceNode };
   }
-  const controls=[...instances,...layered].map(compileInstance);
-  const templateTree=createElementTree(controls.flatMap(c=>c.treeRoots));
-  const sourceControls=controls.slice(0,instances.length).map(c=>c.sourceNode);
-  let offset=instances.length;
-  const sourceModals=modals.map(modal=>{
-    const count=modal.controls.length,children=controls.slice(offset,offset+count).map(c=>c.sourceNode);offset+=count;
-    const p=modal.node.props,props={...(p.key!==undefined?{key:p.key}:{}),x:modal.box[0],y:modal.box[1],width:modal.box[2],height:modal.box[3],backdrop:{expr:modal.backdrop},dismiss:p.dismiss??true,open:p.open??true};
-    return {type:'Modal',props,events:{...modal.node.events},children,bindings:{}};
+  const controls = [...instances, ...layered].map(compileInstance);
+  const templateTree = createElementTree(controls.flatMap(c => c.treeRoots));
+  const sourceControls = controls.slice(0, instances.length).map(c => c.sourceNode);
+  let offset = instances.length;
+  const sourceModals = modals.map(modal => {
+    const count = modal.controls.length,
+      children = controls.slice(offset, offset + count).map(c => c.sourceNode);
+    offset += count;
+    const p = modal.node.props,
+      props = {
+        ...(p.key !== undefined ? { key: p.key } : {}),
+        x: modal.box[0],
+        y: modal.box[1],
+        width: modal.box[2],
+        height: modal.box[3],
+        backdrop: { expr: modal.backdrop },
+        dismiss: p.dismiss ?? true,
+        open: p.open ?? true,
+      };
+    return { type: 'Modal', props, events: { ...modal.node.events }, children, bindings: {} };
   });
-  const sourceScene=[{...root,type:'Frame',children:[...(scroll?[{...scroll,children:sourceControls}]:sourceControls),...sourceModals]}];
+  const sourceScene = [
+    {
+      ...root,
+      type: 'Frame',
+      children: [
+        ...(scroll ? [{ ...scroll, children: sourceControls }] : sourceControls),
+        ...sourceModals,
+      ],
+    },
+  ];
   // Byte-length framing keeps arbitrary Unicode and quoted template text intact.
-  const template=controls.length===1?controls[0].template:'FORMA-TEMPLATES-1\n'+controls.map(c=>`${templateByteLength(c.template)}\n${c.template}`).join('');
-  const shortcuts=(document.shortcuts??[]).map(s=>({...s,args:(s.args??[]).map(a=>evaluate(a,documentProps,state,[],false,environment)),argExpressions:s.args??[]}));
-  return {source:`component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,template,instanceTree,templateTree,visualNodes,previewNodes,previewControls:[...instances,...layered],previewModals:modals.map(m=>m.node),previewContainers,shortcuts};
+  const template =
+    controls.length === 1
+      ? controls[0].template
+      : 'FORMA-TEMPLATES-1\n' +
+        controls.map(c => `${templateByteLength(c.template)}\n${c.template}`).join('');
+  const shortcuts = (document.shortcuts ?? []).map(s => ({
+    ...s,
+    args: (s.args ?? []).map(a => evaluate(a, documentProps, state, [], false, environment)),
+    argExpressions: s.args ?? [],
+  }));
+  return {
+    source: `component ${document.name} { ${sourceScene.map(serialize).join(' ')} }`,
+    template,
+    instanceTree,
+    templateTree,
+    visualNodes,
+    previewNodes,
+    previewControls: [...instances, ...layered],
+    previewModals: modals.map(m => m.node),
+    previewContainers,
+    shortcuts,
+  };
 }

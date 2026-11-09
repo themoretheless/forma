@@ -3,9 +3,21 @@ import { beforeEach, expect, it } from 'vitest';
 import ts from 'typescript';
 import { parse } from '@babel/parser';
 import { originalPositionFor, TraceMap } from '@jridgewell/trace-mapping';
-import { createRoot, getGraphTelemetry, h, resetReactiveSystem, signal, SvetJsxCompileError, transformSvetJsx, transformSvetJsxWithMap } from '../src/engine';
+import {
+  createRoot,
+  getGraphTelemetry,
+  h,
+  resetReactiveSystem,
+  signal,
+  SvetJsxCompileError,
+  transformSvetJsx,
+  transformSvetJsxWithMap,
+} from '../src/engine';
 
-beforeEach(() => { resetReactiveSystem(); document.body.innerHTML = ''; });
+beforeEach(() => {
+  resetReactiveSystem();
+  document.body.innerHTML = '';
+});
 
 it('executes compiled JSX with adjacent children, styles, attributes and preserved events', () => {
   const source = `
@@ -15,7 +27,12 @@ it('executes compiled JSX with adjacent children, styles, attributes and preserv
   `;
   const compiled = transformSvetJsx(source);
   const javascript = ts.transpileModule(compiled, {
-    compilerOptions: { jsx: ts.JsxEmit.React, jsxFactory: 'h', target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
+    compilerOptions: {
+      jsx: ts.JsxEmit.React,
+      jsxFactory: 'h',
+      target: ts.ScriptTarget.ES2022,
+      module: ts.ModuleKind.None,
+    },
   }).outputText;
   let stop!: () => void;
   const app = createRoot(dispose => {
@@ -24,7 +41,9 @@ it('executes compiled JSX with adjacent children, styles, attributes and preserv
   });
   document.body.append(app.node);
   expect(app.node.textContent).toBe('1ready');
-  app.count.set(2); app.label.set('done'); app.color.set('blue');
+  app.count.set(2);
+  app.label.set('done');
+  app.color.set('blue');
   expect(app.node.textContent).toBe('2done');
   expect(app.node.title).toBe('done');
   expect(app.node.style.color).toBe('blue');
@@ -36,7 +55,8 @@ it('executes compiled JSX with adjacent children, styles, attributes and preserv
 });
 
 it('preserves lazy callback shape and transforms template substitutions and optional calls', () => {
-  const source = 'const node = <Widget value={api?.read?.()} text={`Hello ${name()}`} render={(() => name()) as () => string} />;';
+  const source =
+    'const node = <Widget value={api?.read?.()} text={`Hello ${name()}`} render={(() => name()) as () => string} />;';
   const code = transformSvetJsx(source);
   expect(code).toContain('value={() => (api?.read?.())}');
   expect(code).toContain('text={() => (`Hello ${name()}`)}');
@@ -45,7 +65,8 @@ it('preserves lazy callback shape and transforms template substitutions and opti
 });
 
 it('leaves spreads and constructor helpers intact while transforming nested JSX', () => {
-  const source = 'const node = <div {...props()}>{For({each: rows, children: row => <span>{row.label()}</span>})}</div>;';
+  const source =
+    'const node = <div {...props()}>{For({each: rows, children: row => <span>{row.label()}</span>})}</div>;';
   const code = transformSvetJsx(source);
   expect(code).toContain('{...props()}');
   expect(code).toContain('{For(');
@@ -58,7 +79,9 @@ it('maps an original expression through inserted thunk code', () => {
   const { code, map } = transformSvetJsxWithMap(source, '/app/Counter.tsx');
   const column = code.split('\n')[1].indexOf('count');
   expect(originalPositionFor(new TraceMap(map.toString()), { line: 2, column })).toMatchObject({
-    source: '/app/Counter.tsx', line: 2, column: 3,
+    source: '/app/Counter.tsx',
+    line: 2,
+    column: 3,
   });
   expect(map.sourcesContent).toEqual([source]);
 });

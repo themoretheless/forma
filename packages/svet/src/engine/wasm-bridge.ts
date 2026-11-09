@@ -68,7 +68,7 @@ export interface SvetWasmExports {
     dstOffset: number,
     len: number,
     scale: number,
-    bias: number
+    bias: number,
   ): void;
   // 3D Scene Graph Linear Memory Math Kernels
   svet_gpu_mat4_mul(aOffset: number, bOffset: number, dstOffset: number): void;
@@ -81,7 +81,7 @@ export interface SvetWasmExports {
     fovYRad: number,
     aspect: number,
     near: number,
-    far: number
+    far: number,
   ): void;
   svet_gpu_mat4_compose_trs(
     dstOffset: number,
@@ -93,20 +93,46 @@ export interface SvetWasmExports {
     rz: number,
     sx: number,
     sy: number,
-    sz: number
+    sz: number,
   ): void;
   svet_gpu_transform_positions_vec4(
     matOffset: number,
     vertsOffset: number,
     dstOffset: number,
-    vertexCount: number
+    vertexCount: number,
   ): void;
-  svet_gpu_clip_primitive_3d(offset: number, count: number, a: number, b: number, c: number, d: number, size: number): number;
+  svet_gpu_clip_primitive_3d(
+    offset: number,
+    count: number,
+    a: number,
+    b: number,
+    c: number,
+    d: number,
+    size: number,
+  ): number;
   svet_gpu_clip_output_ptr(): number;
   svet_prepare_gpu_pick_vertices(length: number): number;
-  svet_gpu_pick_snapshot_3d(count: number, indices: number, occlude: number, vw: number, vh: number, x: number, y: number, radius: number): number;
+  svet_gpu_pick_snapshot_3d(
+    count: number,
+    indices: number,
+    occlude: number,
+    vw: number,
+    vh: number,
+    x: number,
+    y: number,
+    radius: number,
+  ): number;
   svet_prepare_gpu_pick_indices(length: number): number;
-  svet_gpu_pick_visible_vertex_3d(offset: number, count: number, indices: number, vw: number, vh: number, x: number, y: number, radius: number): number;
+  svet_gpu_pick_visible_vertex_3d(
+    offset: number,
+    count: number,
+    indices: number,
+    vw: number,
+    vh: number,
+    x: number,
+    y: number,
+    radius: number,
+  ): number;
   svet_gpu_pick_nearest_vertex_3d(
     clipVertsOffset: number,
     vertexCount: number,
@@ -114,7 +140,7 @@ export interface SvetWasmExports {
     viewportH: number,
     clickX: number,
     clickY: number,
-    maxRadiusPx: number
+    maxRadiusPx: number,
   ): number;
 }
 
@@ -123,7 +149,7 @@ let defaultCore: SvetWasmExports | null = null;
 // Explicit synchronous scopes select one native core across compatible copies.
 // Only live calls are stored; async continuations use their host carrier again.
 const coreOverrideHost = globalThis as unknown as Record<symbol, SvetWasmExports[] | undefined>;
-const coreOverrides = coreOverrideHost[Symbol.for('svet.wasm-core.overrides.v1')] ??= [];
+const coreOverrides = (coreOverrideHost[Symbol.for('svet.wasm-core.overrides.v1')] ??= []);
 let asyncCoreResolver: (() => SvetWasmExports | undefined) | undefined;
 let escapeAsyncContext: (<T>(callback: () => T) => T) | undefined;
 
@@ -133,18 +159,31 @@ export function withoutAsyncCoreContext<T>(callback: () => T): T {
 }
 
 /** Internal adapter hook; the browser entry has no Node dependency. */
-export function installAsyncCoreResolver(resolver: () => SvetWasmExports | undefined, escape?: <T>(callback: () => T) => T): void {
+export function installAsyncCoreResolver(
+  resolver: () => SvetWasmExports | undefined,
+  escape?: <T>(callback: () => T) => T,
+): void {
   asyncCoreResolver = resolver;
   escapeAsyncContext = escape;
 }
 
 /** Install this package's precompiled asset before any core is created. */
-export function installSvetWasmModule(module:WebAssembly.Module):void {
-  if(!(module instanceof WebAssembly.Module))throw TypeError('Expected a precompiled Svet WebAssembly.Module');
-  if(compiledModule){if(compiledModule===module)return;throw Error('Svet WASM module is already initialized');}
-  const actual=WebAssembly.Module.exports(module).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
-  if(WebAssembly.Module.imports(module).length||JSON.stringify(actual)!==JSON.stringify(WASM_EXPORTS))throw TypeError('Incompatible Svet WASM export shape');
-  compiledModule=module;
+export function installSvetWasmModule(module: WebAssembly.Module): void {
+  if (!(module instanceof WebAssembly.Module))
+    throw TypeError('Expected a precompiled Svet WebAssembly.Module');
+  if (compiledModule) {
+    if (compiledModule === module) return;
+    throw Error('Svet WASM module is already initialized');
+  }
+  const actual = WebAssembly.Module.exports(module).sort((a, b) =>
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+  );
+  if (
+    WebAssembly.Module.imports(module).length ||
+    JSON.stringify(actual) !== JSON.stringify(WASM_EXPORTS)
+  )
+    throw TypeError('Incompatible Svet WASM export shape');
+  compiledModule = module;
 }
 
 // The base64 copy of the core is not imported here: entries that want the zero-setup behaviour pull in
@@ -167,7 +206,7 @@ export function installEmbeddedSvetWasmSource(decode: () => Uint8Array): void {
  * ```
  */
 export async function loadSvetWasm(
-  source: string | URL | Response | Promise<Response> | BufferSource | WebAssembly.Module
+  source: string | URL | Response | Promise<Response> | BufferSource | WebAssembly.Module,
 ): Promise<void> {
   if (source instanceof WebAssembly.Module) {
     installSvetWasmModule(source);
@@ -177,25 +216,32 @@ export async function loadSvetWasm(
     installSvetWasmModule(await WebAssembly.compile(source as BufferSource));
     return;
   }
-  const response = await (typeof source === 'string' || source instanceof URL ? fetch(source) : source);
+  const response = await (typeof source === 'string' || source instanceof URL
+    ? fetch(source)
+    : source);
   if (!response.ok) {
-    throw new Error(`Svet WASM core request failed: ${response.status} ${response.statusText}`.trim());
+    throw new Error(
+      `Svet WASM core request failed: ${response.status} ${response.statusText}`.trim(),
+    );
   }
   // `compileStreaming` insists on `application/wasm`; fall back to buffering for servers that send another type.
-  const streamable = typeof WebAssembly.compileStreaming === 'function'
-    && (response.headers.get('content-type') ?? '').toLowerCase().startsWith('application/wasm');
-  installSvetWasmModule(streamable
-    ? await WebAssembly.compileStreaming(response)
-    : await WebAssembly.compile(await response.arrayBuffer()));
+  const streamable =
+    typeof WebAssembly.compileStreaming === 'function' &&
+    (response.headers.get('content-type') ?? '').toLowerCase().startsWith('application/wasm');
+  installSvetWasmModule(
+    streamable
+      ? await WebAssembly.compileStreaming(response)
+      : await WebAssembly.compile(await response.arrayBuffer()),
+  );
 }
 
 function getCompiledModule(): WebAssembly.Module {
   if (!compiledModule) {
     if (!embeddedWasmSource) {
       throw new Error(
-        'Svet WASM core is not loaded. `svet-engine/slim` ships without the embedded binary: '
-        + "call `await loadSvetWasm(...)` with `svet-engine/core.wasm` (or `installSvetWasmModule`) before using the engine, "
-        + 'or import `svet-engine` for the self-contained build.'
+        'Svet WASM core is not loaded. `svet-engine/slim` ships without the embedded binary: ' +
+          'call `await loadSvetWasm(...)` with `svet-engine/core.wasm` (or `installSvetWasmModule`) before using the engine, ' +
+          'or import `svet-engine` for the self-contained build.',
       );
     }
     compiledModule = new WebAssembly.Module(embeddedWasmSource() as BufferSource);

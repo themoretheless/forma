@@ -25,7 +25,7 @@ BINDINGS и карте покрытия; их совместимость с вы
 
 Рабочее дерево было чистым, HEAD faa750f. Version check прошёл.
 Production build прошёл. Rust `cargo test --locked --offline --manifest-path
-vector-ui/Cargo.toml --features gpu --lib --tests`: 127 passed, 2 ignored.
+crates/forma/Cargo.toml --features gpu --lib --tests`: 127 passed, 2 ignored.
 Ignored hardware checks ещё предстоит отдельно оценить/выполнить.
 
 Исправлены незащищённые обращения к localStorage/sessionStorage: доступ может
@@ -119,8 +119,8 @@ origin. Он не доказывает отсутствие GPU pixel regression
 
 ## Metal multi-control benchmark
 
-Добавлен `vector-ui/examples/gpu_scene_bench.rs`. Команда:
-`cargo run --locked --offline --release --manifest-path vector-ui/Cargo.toml --features gpu --example gpu_scene_bench`.
+Добавлен `crates/forma/examples/gpu_scene_bench.rs`. Команда:
+`cargo run --locked --offline --release --manifest-path crates/forma/Cargo.toml --features gpu --example gpu_scene_bench`.
 Apple M5 / Metal, target 1000×2560, 20 кадров прогрева и 200 измерений на сцену.
 Плоские кнопки 1000×10; hover первой чередуется с выходом указателя.
 Весь набор видим в target. Timestamp query измеряет render pass, CPU submit
@@ -238,7 +238,7 @@ SHA-256 всех 114 файлов dist полностью совпадают с 
 
 Исправлен build:wasm: Cargo и wasm-bindgen теперь используют один targetDir;
 раньше CARGO_TARGET_DIR мог направить Cargo в новый каталог, но wasm-bindgen
-читал старый vector-ui/target. Проверен запуск с
+читал старый crates/forma/target. Проверен запуск с
 CARGO_TARGET_DIR=/private/tmp/forma-clean-wasm-target и CARGO_NET_OFFLINE=true.
 Зависимости и runtime скомпилированы за 13.69 s. Все четыре generated JS/WASM/d.ts
 артефакта побайтно совпадают с предыдущими; SHA-256 WASM:
@@ -252,7 +252,7 @@ package:release прошли. Пакеты локальные, dirty=true; оп�
 
 ## Проверка библиотеки контролов при упаковке
 
-package:release теперь сравнивает digest всей vector-ui/controls с копиями
+package:release теперь сравнивает digest всей crates/forma/controls с копиями
 public/vector-pkg/controls и dist/vector-pkg/controls. Ранее сверялись только
 четыре JS/WASM/d.ts файла, что пропускало устаревшие или лишние контролы.
 Проверка отказа: отдельный новый probe-файл последовательно добавлен в каждую
@@ -520,7 +520,7 @@ A/B), 264 из 265 tests passed, build прошёл. WASM-тесты не про
 ## Латентность ввода в Studio: базовые замеры (не изменено ни одного пути)
 
 Замерен реальный браузерный путь «нажатие → Live preview обновлён» на сцене из
-256 экземпляров ImageButton (fixture собирается из vector-ui/examples, WebGPU
+256 экземпляров ImageButton (fixture собирается из crates/forma/examples, WebGPU
 бэкенд, Vite dev, один и тот же процесс браузера). Таймеры расставлены
 временным инструментарием внутри compile/render/vector-preview.render; после
 замера файлы восстановлены из снимков, рабочее дерево не изменено.
@@ -754,7 +754,7 @@ Node-разбиение компиляции (256 экземпляров, мед
 в браузере). Дедупликация транспорта внутри `FORMA-TEMPLATES-1` измерена и
 отвергнута (0 %), поэтому единственная доступная мишень — сам разбор.
 
-Инструмент. Новый нативный бенч `vector-ui/examples/template_load_perf.rs`
+Инструмент. Новый нативный бенч `crates/forma/examples/template_load_perf.rs`
 читает настоящий транспорт, который выдаёт Studio: `node
 scripts/transport-fixture.mjs` (тот же fixture, что
 `scripts/compiler-session-bench.mjs`) кладёт в `.forma/perf/template-load/`
@@ -769,7 +769,7 @@ scripts/transport-fixture.mjs` (тот же fixture, что
 разбор приходилось 877 аллокаций. Разбор — около 96 % времени загрузки: `load`
 и `parse` различались только обвязкой сцены.
 
-Изменения в `vector-ui/src/template.rs`, контракт транспорта не тронут:
+Изменения в `crates/forma/src/template.rs`, контракт транспорта не тронут:
 - литералы без escape-последовательностей собираются одним байтовым сканом и
   одним копированием среза, а не посимвольным `push` в растущий `String`;
 - `ContentShape { points }` разбирается одним проходом: убран
@@ -958,7 +958,7 @@ JS-сериализация (~32 мс), то есть `FORMA-TEMPLATES-2`.
    определения не была горячим местом, а без неё каждый экземпляр попадает в `clone(n)`
    уже развернутого визуала (`components.js:402`) — работа переезжает, а не исчезает.
    Копия на hit к тому же сознательное решение, зафиксированное в
-   `vector-ui/CACHE_POLICY.md`: выдавать отдельную копию, чтобы мутация визуального
+   `crates/forma/CACHE_POLICY.md`: выдавать отдельную копию, чтобы мутация визуального
    snapshot вызывающим кодом не отравила следующие компиляции.
 2. Альтернативы проверке ASCII для длины транспорта: `TextEncoder.encodeInto` в
    переиспользуемый буфер — 0,824 мс против 0,405 мс на текущий regex по 256 шаблонам;
@@ -971,25 +971,25 @@ JS-сериализация (~32 мс), то есть `FORMA-TEMPLATES-2`.
 Вывод: внутри действующего контракта `FORMA-TEMPLATES-1` JS-фаза уперлась в
 неустранимое — 1,76 МБ строк транспорта и копирование дерева снимков. Крупнейший
 остаток теперь нативный, и его потолок измерен, а не оценён (проба `clone_cached` и
-`parse_repeat` в `vector-ui/examples/template_load_perf.rs`, нативный release, 256
+`parse_repeat` в `crates/forma/examples/template_load_perf.rs`, нативный release, 256
 контролов): разбор стоит 25,2 мкс на шаблон против 1,31 мкс на клон уже разобранного
 `Template` — 6,45 мс из 6,95 мс загрузки, то есть 93 %. Одно нажатие меняет текст одного
 шаблона из 256, поэтому кэш разбора по содержимому даёт 255 клонов плюс один разбор:
 0,33 + 0,03 ≈ 0,36 мс вместо 6,95 мс (−95 %). Аллокаций на попадании 76 против 163 на
 разборе и 91 471 на всю загрузку. Ограничения проекта для такого кэша: ключ обязан
-сверять полный текст, а не только короткий хеш (`vector-ui/CACHE_POLICY.md`), кэш должен
+сверять полный текст, а не только короткий хеш (`crates/forma/CACHE_POLICY.md`), кэш должен
 жить вне `Runtime` (Studio пересоздаёт объект `Runtime` на каждое нажатие —
 `src/vector-preview.js:400`), сохранное определение отдаётся копией, и он попадает в
 известную дыру бюджетов: native-кэш не ограничен единым бюджетом сцены.
 
 ## Кэш разбора шаблонов по содержимому в Rust
 
-Описанный выше кэш реализован: `template::parse_cached` в `vector-ui/src/template.rs` и
-единственный вызов из `Button::from_scene` (`vector-ui/src/lib.rs:100`). Ключ — полный
+Описанный выше кэш реализован: `template::parse_cached` в `crates/forma/src/template.rs` и
+единственный вызов из `Button::from_scene` (`crates/forma/src/lib.rs:100`). Ключ — полный
 текст шаблона плюс весь `ButtonSpec`: 64-битный свёрточный хеш текста выбирает только
 корзину, попадание требует совпадения строк и всех полей спека, как того требует
 `CACHE_POLICY.md`. Хранимая запись отдаётся клонированием, поэтому правка
-`control.template.content` (`vector-ui/src/runtime.rs:282`) не отравляет следующий
+`control.template.content` (`crates/forma/src/runtime.rs:282`) не отравляет следующий
 запрос. Кэш thread-local и живёт дольше `Runtime`: Studio пересоздаёт объект раннера на
 каждое нажатие. Бюджет — 1 024 записи или 16 MiB расчётного веса, вытеснение по
 давности использования, слишком большая запись возвращается без сохранения. Ошибки
@@ -1023,7 +1023,7 @@ debounce, поэтому фаза компиляции сократилась с
 в браузере доминирует JS-фаза. Побочный и более заметный для ввода результат — длинных
 задач (≥50 мс) в этом окне до правки 14 из 20 отборов, после — 0 из 20.
 
-Тест `vector-ui/tests/template_parse_cache.rs` (7 случаев) проверяет: равенство кэшированного
+Тест `crates/forma/tests/template_parse_cache.rs` (7 случаев) проверяет: равенство кэшированного
 разбора обычному, повторный разбор при другом спеке и при другом тексте, независимость
 попадания от правок предыдущего вызова, отсутствие кэширования ошибок, сохранение
 собственных свойств у контролов, которые делят один компонент, и соблюдение лимита записей.
@@ -1085,7 +1085,7 @@ wasm-bindgen: транспорт фикстуры на 256 контролах ч
 
 ## Заимствование токенов в разборе документа (Rust, `bd3b304`)
 
-Атрибуция остатка нативной загрузки (`vector-ui/examples/runtime_load_phases.rs`,
+Атрибуция остатка нативной загрузки (`crates/forma/examples/runtime_load_phases.rs`,
 фикстура 256 контролов): `Runtime::from_sources` стоил 64 847 аллокаций на компилейт,
 из них 20 272 (31 %) — `markup::parse` документа, 23 808 — выдача кэшированного
 `Template`, 6 656 × 3 — глубокие клоны `ButtonSpec` на контрол. Лексер документа брал
@@ -1109,7 +1109,7 @@ wasm-bindgen: транспорт фикстуры на 256 контролах ч
 байты транспорта тоже.
 
 Страж — тест `document_markup_parse_pays_only_for_owned_property_values` в
-`vector-ui/tests/runtime_allocations.rs`: линейность 32 → 128 контролов и потолок
+`crates/forma/tests/runtime_allocations.rs`: линейность 32 → 128 контролов и потолок
 25 аллокаций на контрол. На прежнем коде он падает (3 379 против 2 344 на 128
 контролах). Пройдены 144 нативных теста и 269 из 270 JS-тестов (падает только
 `version command`, как на чистом HEAD). Логи:
@@ -1131,7 +1131,7 @@ wasm-bindgen: транспорт фикстуры на 256 контролах ч
 чистая стоимость. Оставили `buttons: Vec::new()`.
 
 Замер на фикстуре 256 контролов (`cargo run --release --example
-runtime_load_phases`, `vector-ui/examples/runtime_load_phases.rs`):
+runtime_load_phases`, `crates/forma/examples/runtime_load_phases.rs`):
 
 | метрика | до | после |
 | --- | --- | --- |
@@ -1280,7 +1280,7 @@ c.template.content.clone())` в `src/runtime.rs:163`: глубокая копи�
 (1: 1375888489770191918, 32: 4896571815845383841, 256: 2260981288911909770), пиксели
 900×600 при `FORMASAMPLES=5` — `edab4d6b52948a5d` в обеих сборках, транспорт
 идентичен. Пройдены 144 нативных и 269 из 270 JS-тестов на пересобранном пакете.
-Бюджеты аллокаций в `vector-ui/tests/runtime_allocations.rs` спущены до 65 на контрол
+Бюджеты аллокаций в `crates/forma/tests/runtime_allocations.rs` спущены до 65 на контрол
 для сборки сцены (стало 59,1, было 76,2) и до 18 для разбора (стало 14,3, было 18,3) —
 оба падают на прежнем коде. Логи:
 `.forma/verification/pipeline/2026-09-25-specified-bitset/`.
@@ -1326,7 +1326,7 @@ c.template.content.clone())` в `src/runtime.rs:163`: глубокая копи�
 900×600 при `FORMASAMPLES=5` — `edab4d6b52948a5d` в обеих сборках, транспорт идентичен
 (219 760 и 1 758 124 байт), `forma.js` байт-в-байт тот же. Пройдены 144 нативных и 269 из
 270 JS-тестов (падает только известный `version command`). Бюджеты в
-`vector-ui/tests/runtime_allocations.rs` спущены до 14 аллокаций на контрол для сборки
+`crates/forma/tests/runtime_allocations.rs` спущены до 14 аллокаций на контрол для сборки
 сцены (стало 11,8) и до 6 для разбора документа (стало 5,2) — проверено, что на прежнем
 коде (7 571 и 1 828) оба падают. Логи:
 `.forma/verification/pipeline/2026-09-25-prop-name-maps/`.
@@ -1484,7 +1484,7 @@ CPU-растр при этом 0,09…0,15 мс, `tick` ≤ 0,015 мс, так �
 с собственного пустого скача для флэттенга глифов. Профилировщик здесь бессилен: после fat LTO
 93 % сэмплов лежат в `main`.
 
-Правка (`vector-ui/src/display_list.rs`, `vector-ui/src/runtime.rs`): сцена строит детские списки
+Правка (`crates/forma/src/display_list.rs`, `crates/forma/src/runtime.rs`): сцена строит детские списки
 до слияния, поэтому второй и каждый следующий контрол получает подсказку ёмкости от соседа и
 выделяется одним `with_capacity`; слитый буфер резервируется точно по сумме детей плюс семь записей
 самой сцены; скач флэттенга один на всю сборку; тайлер резервирует `ranges` по числу команд и
@@ -1525,7 +1525,7 @@ Node-процессе и порядок сторон чередуется каж
 `hint_reserve_audit.rs`, раздел «Аудит запаса» в `README.md`).
 
 Гарантия от возврата: тест `transport_sizes_control_buffers_instead_of_growing_them`
-(`vector-ui/tests/runtime_allocations.rs`) считает попытки аллокации вокруг целого транспорта новой
+(`crates/forma/tests/runtime_allocations.rs`) считает попытки аллокации вокруг целого транспорта новой
 модели на 128 контролах и держит бюджет 28 аллокаций на контрол для сцены с длинными подписями. На
 сборке до правки он падает (5 634 попытки вместо 3 064), на текущей проходит; весь нативный прогон —
 146 тестов зелёные.
@@ -1637,7 +1637,7 @@ wgpu на запись в буфер красок, а не хранение Form
 пересборки (`forma.js a24489f4…`, `forma_bg.wasm 897aebd5…`, оба `.d.ts`), `sourceDigest 78398c80…`
 не изменился, а штамп коммита в `public/vector-pkg/build-info.json` перестал отставать — раньше там
 лежал `7697e3a`, хотя с тех пор в дерево вошли два коммита. Расхождение безвредное и ожидаемое:
-`runtimeSourceDigest` покрывает `vector-ui/src`, assets, два `.ui`-примера и сборочные скрипты, а
+`runtimeSourceDigest` покрывает `crates/forma/src`, assets, два `.ui`-примера и сборочные скрипты, а
 правки `7b8c3c3` и `d9bfc0b` жили в `examples/*.rs` и `scripts/versions.mjs`. То есть пакет, который
 мы мерили, — это и есть пакет с финального коммита, и это теперь видно из штампа, а не из памяти.
 

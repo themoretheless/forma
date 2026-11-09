@@ -1,99 +1,215 @@
-import shader from '../vector-ui/src/vector.wgsl?raw';
-import {createStoragePool,classifyMemoryArchitecture} from './gpu-buffers.js';
+import shader from '../crates/forma/src/vector.wgsl?raw';
+import { createStoragePool, classifyMemoryArchitecture } from './gpu-buffers.js';
 
 // WebGPU is only a transport/backend. Rust builds all geometry and tile lists;
 // the identical WGSL is used by native wgpu. No canvas bitmap is uploaded.
-export async function createGpuPainter(canvas,onFailure){
-  if(!navigator.gpu)throw Error('WebGPU недоступен в этом браузере');
-  const adapter=await navigator.gpu.requestAdapter();
-  if(!adapter)throw Error('Не найден WebGPU adapter');
-  let adapterInfo=adapter.info??null;
-  if(!adapterInfo&&typeof adapter.requestAdapterInfo==='function'){
-    try{adapterInfo=await adapter.requestAdapterInfo();}catch{adapterInfo=null;}
+export async function createGpuPainter(canvas, onFailure) {
+  if (!navigator.gpu) throw Error('WebGPU недоступен в этом браузере');
+  const adapter = await navigator.gpu.requestAdapter();
+  if (!adapter) throw Error('Не найден WebGPU adapter');
+  let adapterInfo = adapter.info ?? null;
+  if (!adapterInfo && typeof adapter.requestAdapterInfo === 'function') {
+    try {
+      adapterInfo = await adapter.requestAdapterInfo();
+    } catch {
+      adapterInfo = null;
+    }
   }
-  const memoryArchitecture=classifyMemoryArchitecture(adapterInfo);
-  const device=await adapter.requestDevice();
-  const context=canvas.getContext('webgpu');
-  if(!context){device.destroy();throw Error('WebGPU canvas недоступен');}
-  const format=navigator.gpu.getPreferredCanvasFormat();
-  let disposed=false,bindGroup,modelKey=null,scaleKey=null,tilesXKey=0,tilesYKey=0,scrollXKey=0,scrollYKey=0,layoutKey=null,geometryKey=null,visualKey=null,widthKey=0,heightKey=0;
-  let uploads=0,frames=0;
-  const fail=error=>{if(!disposed)onFailure(error instanceof Error?error:Error(String(error)));};
-  device.lost.then(info=>fail(Error(`GPU device lost: ${info.message}`)));
-  device.addEventListener('uncapturederror',event=>fail(event.error));
-  let pipeline,uniform;
-  try{
-    const module=device.createShaderModule({code:shader,label:'Forma vector'});
-    pipeline=await device.createRenderPipelineAsync({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
-    context.configure({device,format,alphaMode:'premultiplied'});
+  const memoryArchitecture = classifyMemoryArchitecture(adapterInfo);
+  const device = await adapter.requestDevice();
+  const context = canvas.getContext('webgpu');
+  if (!context) {
+    device.destroy();
+    throw Error('WebGPU canvas недоступен');
+  }
+  const format = navigator.gpu.getPreferredCanvasFormat();
+  let disposed = false,
+    bindGroup,
+    modelKey = null,
+    scaleKey = null,
+    tilesXKey = 0,
+    tilesYKey = 0,
+    scrollXKey = 0,
+    scrollYKey = 0,
+    layoutKey = null,
+    geometryKey = null,
+    visualKey = null,
+    widthKey = 0,
+    heightKey = 0;
+  let uploads = 0,
+    frames = 0;
+  const fail = error => {
+    if (!disposed) onFailure(error instanceof Error ? error : Error(String(error)));
+  };
+  device.lost.then(info => fail(Error(`GPU device lost: ${info.message}`)));
+  device.addEventListener('uncapturederror', event => fail(event.error));
+  let pipeline, uniform;
+  try {
+    const module = device.createShaderModule({ code: shader, label: 'Forma vector' });
+    pipeline = await device.createRenderPipelineAsync({
+      layout: 'auto',
+      vertex: { module, entryPoint: 'vs' },
+      fragment: { module, entryPoint: 'fs', targets: [{ format }] },
+      primitive: { topology: 'triangle-list' },
+    });
+    context.configure({ device, format, alphaMode: 'premultiplied' });
     // viewport, fill, border, scroll: 16 floats. Older 12-float params leave scroll at zero.
-    uniform=device.createBuffer({size:64,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
-  }catch(error){disposed=true;try{context.unconfigure();}finally{device.destroy();}throw error;}
-  const pool=createStoragePool(device,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST);
-  const validate=data=>{if(data&&(!data.byteLength||data.byteLength%4||data.byteLength>device.limits.maxStorageBufferBindingSize))throw Error('Vector scene exceeds GPU storage budget');};
+    uniform = device.createBuffer({
+      size: 64,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+  } catch (error) {
+    disposed = true;
+    try {
+      context.unconfigure();
+    } finally {
+      device.destroy();
+    }
+    throw error;
+  }
+  const pool = createStoragePool(device, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+  const validate = data => {
+    if (
+      data &&
+      (!data.byteLength ||
+        data.byteLength % 4 ||
+        data.byteLength > device.limits.maxStorageBufferBindingSize)
+    )
+      throw Error('Vector scene exceeds GPU storage budget');
+  };
   return {
-    draw(model,width,height,scale){
-      if(disposed)throw Error('GPU painter disposed');
-      const tilesX=Math.ceil(width/32),tilesY=Math.ceil(height/32),layout=model.layout_revision?.();
+    draw(model, width, height, scale) {
+      if (disposed) throw Error('GPU painter disposed');
+      const tilesX = Math.ceil(width / 32),
+        tilesY = Math.ceil(height / 32),
+        layout = model.layout_revision?.();
       // New runtimes expose a scalar layout version. Older adapters retain the
       // exact scroll comparison, without trusting a hash or visual revision.
-      const scroll=layout===undefined?model.scroll_offset():null;
-      if(!Number.isInteger(width)||!Number.isInteger(height)||width<=0||height<=0||!Number.isFinite(scale)||scale<=0)throw Error('Invalid GPU viewport/DPI');
-      if(width>device.limits.maxTextureDimension2D||height>device.limits.maxTextureDimension2D)throw Error('GPU canvas exceeds texture limit');
-      const geometry=model.geometry_revision?.(),visual=model.visual_revision?.();
+      const scroll = layout === undefined ? model.scroll_offset() : null;
+      if (
+        !Number.isInteger(width) ||
+        !Number.isInteger(height) ||
+        width <= 0 ||
+        height <= 0 ||
+        !Number.isFinite(scale) ||
+        scale <= 0
+      )
+        throw Error('Invalid GPU viewport/DPI');
+      if (
+        width > device.limits.maxTextureDimension2D ||
+        height > device.limits.maxTextureDimension2D
+      )
+        throw Error('GPU canvas exceeds texture limit');
+      const geometry = model.geometry_revision?.(),
+        visual = model.visual_revision?.();
       // A legacy leaf only exposes a visual version, which can also mean load().
       // Without either version, conservatively reload instead of caching forever.
-      const geometryChanged=geometry===undefined?(visual===undefined||visualKey!==visual):geometryKey!==geometry;
-      const changed=modelKey!==model||scaleKey!==scale||geometryChanged;
+      const geometryChanged =
+        geometry === undefined
+          ? visual === undefined || visualKey !== visual
+          : geometryKey !== geometry;
+      const changed = modelKey !== model || scaleKey !== scale || geometryChanged;
       // Scroll is a uniform plus re-binned tiles; commands/edges stay resident.
-      const scrolled=layoutKey!==layout||(scroll&&(scrollXKey!==scroll[0]||scrollYKey!==scroll[1]));
-      const tilesChanged=changed||scrolled||tilesXKey!==tilesX||tilesYKey!==tilesY;
+      const scrolled =
+        layoutKey !== layout || (scroll && (scrollXKey !== scroll[0] || scrollYKey !== scroll[1]));
+      const tilesChanged = changed || scrolled || tilesXKey !== tilesX || tilesYKey !== tilesY;
       // Older scene adapters without a revision retain their eager upload path.
-      const paintsChanged=changed||visual===undefined||visualKey!==visual;
-      const paramsChanged=paintsChanged||scrolled||widthKey!==width||heightKey!==height;
-      try{
-        const tiles=tilesChanged?model.gpu_tiles(width,height,scale,false):null;
-        const commands=changed?model.gpu_commands(scale,false):null;
-        let edges=changed?model.gpu_edges(scale,false):null;
-        if(edges&&!edges.length)edges=new Float32Array(4);
-        const paints=paintsChanged?model.gpu_paints():null;
-        validate(commands);validate(edges);validate(tiles);validate(paints);
+      const paintsChanged = changed || visual === undefined || visualKey !== visual;
+      const paramsChanged = paintsChanged || scrolled || widthKey !== width || heightKey !== height;
+      try {
+        const tiles = tilesChanged ? model.gpu_tiles(width, height, scale, false) : null;
+        const commands = changed ? model.gpu_commands(scale, false) : null;
+        let edges = changed ? model.gpu_edges(scale, false) : null;
+        if (edges && !edges.length) edges = new Float32Array(4);
+        const paints = paintsChanged ? model.gpu_paints() : null;
+        validate(commands);
+        validate(edges);
+        validate(tiles);
+        validate(paints);
         // Invalidate immediately: a later upload can fail after an old buffer
         // was destroyed. A retry must never keep its stale bind group.
-        if(commands&&pool.update(0,commands))bindGroup=null;
-        if(edges&&pool.update(1,edges))bindGroup=null;
-        if(tiles&&pool.update(2,tiles))bindGroup=null;
-        if(paints&&pool.update(3,paints,true,changed))bindGroup=null;
-        if(!bindGroup)bindGroup=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},...pool.buffers.map((buffer,i)=>({binding:i+1,resource:{buffer}}))]});
-        if(canvas.width!==width)canvas.width=width;if(canvas.height!==height)canvas.height=height;
-        if(paramsChanged)device.queue.writeBuffer(uniform,0,model.gpu_params(width,height,scale,false));
-        const encoder=device.createCommandEncoder();
-        const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),clearValue:{r:0,g:0,b:0,a:0},loadOp:'clear',storeOp:'store'}]});
-        pass.setPipeline(pipeline);pass.setBindGroup(0,bindGroup);pass.draw(3);pass.end();device.queue.submit([encoder.finish()]);frames++;
+        if (commands && pool.update(0, commands)) bindGroup = null;
+        if (edges && pool.update(1, edges)) bindGroup = null;
+        if (tiles && pool.update(2, tiles)) bindGroup = null;
+        if (paints && pool.update(3, paints, true, changed)) bindGroup = null;
+        if (!bindGroup)
+          bindGroup = device.createBindGroup({
+            layout: pipeline.getBindGroupLayout(0),
+            entries: [
+              { binding: 0, resource: { buffer: uniform } },
+              ...pool.buffers.map((buffer, i) => ({ binding: i + 1, resource: { buffer } })),
+            ],
+          });
+        if (canvas.width !== width) canvas.width = width;
+        if (canvas.height !== height) canvas.height = height;
+        if (paramsChanged)
+          device.queue.writeBuffer(uniform, 0, model.gpu_params(width, height, scale, false));
+        const encoder = device.createCommandEncoder();
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view: context.getCurrentTexture().createView(),
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: 'clear',
+              storeOp: 'store',
+            },
+          ],
+        });
+        pass.setPipeline(pipeline);
+        pass.setBindGroup(0, bindGroup);
+        pass.draw(3);
+        pass.end();
+        device.queue.submit([encoder.finish()]);
+        frames++;
         model.release_cpu_cache?.();
-        modelKey=model;geometryKey=geometry;layoutKey=layout;scaleKey=scale;tilesXKey=tilesX;tilesYKey=tilesY;if(scroll){scrollXKey=scroll[0];scrollYKey=scroll[1];}visualKey=visual;widthKey=width;heightKey=height;if(changed)uploads++;
-      }catch(error){
+        modelKey = model;
+        geometryKey = geometry;
+        layoutKey = layout;
+        scaleKey = scale;
+        tilesXKey = tilesX;
+        tilesYKey = tilesY;
+        if (scroll) {
+          scrollXKey = scroll[0];
+          scrollYKey = scroll[1];
+        }
+        visualKey = visual;
+        widthKey = width;
+        heightKey = height;
+        if (changed) uploads++;
+      } catch (error) {
         // A partial upload may overwrite retained buffers even if no buffer
         // grew. Retrying either the new or the previous model must restore all
         // payloads instead of treating the previous keys as a complete scene.
-        modelKey=null;
+        modelKey = null;
         throw error;
       }
     },
     memoryArchitecture,
-    maxTextureDimension2D:Math.min(8192,device.limits.maxTextureDimension2D||8192),
-    snapshot(){
-      const s=pool.snapshot();
+    maxTextureDimension2D: Math.min(8192, device.limits.maxTextureDimension2D || 8192),
+    snapshot() {
+      const s = pool.snapshot();
       return {
-        backend:'webgpu-vector',
+        backend: 'webgpu-vector',
         memoryArchitecture,
         uploads,
         frames,
         ...s,
-        umaSharedPoolBytes:memoryArchitecture==='UMA'?s.bufferBytes:0,
-        dumaDeviceLocalBytes:memoryArchitecture==='DUMA'?s.bufferBytes:0,
+        umaSharedPoolBytes: memoryArchitecture === 'UMA' ? s.bufferBytes : 0,
+        dumaDeviceLocalBytes: memoryArchitecture === 'DUMA' ? s.bufferBytes : 0,
       };
     },
-    destroy(){if(disposed)return;disposed=true;modelKey=null;bindGroup=null;try{pool.destroy();uniform.destroy();context.unconfigure();}finally{device.destroy();}},
+    destroy() {
+      if (disposed) return;
+      disposed = true;
+      modelKey = null;
+      bindGroup = null;
+      try {
+        pool.destroy();
+        uniform.destroy();
+        context.unconfigure();
+      } finally {
+        device.destroy();
+      }
+    },
   };
 }

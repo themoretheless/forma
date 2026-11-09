@@ -23,13 +23,17 @@ describe('svet-engine/slim', () => {
   });
 
   it('rejects a failed core request before installing anything', async () => {
-    await expect(loadSvetWasm(new Response('nope', { status: 404, statusText: 'Not Found' }))).rejects.toThrow(/404/);
+    await expect(
+      loadSvetWasm(new Response('nope', { status: 404, statusText: 'Not Found' })),
+    ).rejects.toThrow(/404/);
     expect(() => signal(1)).toThrow(/loadSvetWasm/);
   });
 
   it('starts from the standalone binary served with a non-wasm content type', async () => {
     const bytes = decodeWasmBinary();
-    await loadSvetWasm(new Response(bytes as BodyInit, { headers: { 'content-type': 'application/octet-stream' } }));
+    await loadSvetWasm(
+      new Response(bytes as BodyInit, { headers: { 'content-type': 'application/octet-stream' } }),
+    );
     const count = signal(1);
     count.set(2);
     expect(count()).toBe(2);
@@ -67,7 +71,9 @@ describe('svet-engine/slim', () => {
   it('explains how to enable 3D tags, then renders them once the module is imported', async () => {
     const SCENE = `component Scene { Column { Scene3D { key: 'viewport'; width: 120; height: 80; } } }`;
     const host = document.createElement('div');
-    expect(() => instantiateFormaAst(parseFormaSource(SCENE)).mount(host)).toThrow(/svet-engine\/forma-3d/);
+    expect(() => instantiateFormaAst(parseFormaSource(SCENE)).mount(host)).toThrow(
+      /svet-engine\/forma-3d/,
+    );
 
     await import('../src/engine/forma-3d');
     const view = instantiateFormaAst(parseFormaSource(SCENE));
@@ -102,12 +108,16 @@ describe('svet-engine/slim', () => {
     expect(plainHost.querySelector('section')).toBeNull();
     plainMounted.unmount();
     plain.dispose();
-    expect(() => registerFormaElement('lowercase', () => document.createElement('div'))).toThrow(/Invalid Forma element name/);
+    expect(() => registerFormaElement('lowercase', () => document.createElement('div'))).toThrow(
+      /Invalid Forma element name/,
+    );
   });
 
   it('generates modules that import only the AST runtime and can omit the source text', () => {
     const withSource = compileFormaToJsModule(CARD, 'svet-engine/slim');
-    expect(withSource).toContain('import { instantiateFormaAst as compileFormaAst } from "svet-engine/slim";');
+    expect(withSource).toContain(
+      'import { instantiateFormaAst as compileFormaAst } from "svet-engine/slim";',
+    );
     expect(withSource).not.toContain('parseFormaSource');
     expect(withSource).toContain(`export const uiSource = ${JSON.stringify(CARD)};`);
 

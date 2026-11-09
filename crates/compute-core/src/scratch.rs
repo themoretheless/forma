@@ -115,11 +115,19 @@ impl<'a> ScratchPool<'a> {
                 | wgpu::BufferUsages::COPY_DST,
         )?;
         let array = self.runtime.import_buffer(buffer.clone(), len)?;
-        self.slots
-            .insert(name.to_owned(), Slot { buffer, generation: 1 });
+        self.slots.insert(
+            name.to_owned(),
+            Slot {
+                buffer,
+                generation: 1,
+            },
+        );
         self.reserved = reserved;
         self.misses += 1;
-        Ok(ScratchArray { array, generation: 1 })
+        Ok(ScratchArray {
+            array,
+            generation: 1,
+        })
     }
 }
 

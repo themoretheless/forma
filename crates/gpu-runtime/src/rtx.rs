@@ -150,8 +150,7 @@ impl RtxCapabilities {
                 backend,
                 tier: RtxTier::HardwareRtxPipeline,
                 rt_core_label: "Vulkan KHR Ray Tracing + RT Cores",
-                acceleration_structure_api:
-                    "VK_KHR_acceleration_structure + VK_KHR_ray_tracing_pipeline",
+                acceleration_structure_api: "VK_KHR_acceleration_structure + VK_KHR_ray_tracing_pipeline",
                 max_recursion_depth: 31,
                 max_instance_count: 1 << 24,
                 supports_inline_ray_query: true,

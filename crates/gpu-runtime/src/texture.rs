@@ -30,17 +30,17 @@ pub enum TextureFormat {
 impl TextureFormat {
     pub(crate) const fn to_mtl_pixel_format(self) -> u64 {
         match self {
-            Self::R8Unorm => 10,          // MTLPixelFormatR8Unorm
-            Self::Rgba8Unorm => 70,       // MTLPixelFormatRGBA8Unorm
-            Self::Rgba8UnormSrgb => 71,   // MTLPixelFormatRGBA8Unorm_sRGB
-            Self::Bgra8Unorm => 80,       // MTLPixelFormatBGRA8Unorm
-            Self::Bgra8UnormSrgb => 81,   // MTLPixelFormatBGRA8Unorm_sRGB
-            Self::R32Float => 55,         // MTLPixelFormatR32Float
-            Self::Rg32Float => 105,       // MTLPixelFormatRG32Float
-            Self::Rgba16Float => 115,     // MTLPixelFormatRGBA16Float
-            Self::Rgba32Float => 125,     // MTLPixelFormatRGBA32Float
-            Self::Depth24Plus => 252,     // MTLPixelFormatDepth32Float
-            Self::Depth32Float => 252,    // MTLPixelFormatDepth32Float
+            Self::R8Unorm => 10,        // MTLPixelFormatR8Unorm
+            Self::Rgba8Unorm => 70,     // MTLPixelFormatRGBA8Unorm
+            Self::Rgba8UnormSrgb => 71, // MTLPixelFormatRGBA8Unorm_sRGB
+            Self::Bgra8Unorm => 80,     // MTLPixelFormatBGRA8Unorm
+            Self::Bgra8UnormSrgb => 81, // MTLPixelFormatBGRA8Unorm_sRGB
+            Self::R32Float => 55,       // MTLPixelFormatR32Float
+            Self::Rg32Float => 105,     // MTLPixelFormatRG32Float
+            Self::Rgba16Float => 115,   // MTLPixelFormatRGBA16Float
+            Self::Rgba32Float => 125,   // MTLPixelFormatRGBA32Float
+            Self::Depth24Plus => 252,   // MTLPixelFormatDepth32Float
+            Self::Depth32Float => 252,  // MTLPixelFormatDepth32Float
         }
     }
 

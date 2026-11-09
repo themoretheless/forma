@@ -61,7 +61,9 @@ impl Index<Handle<GlobalVariable>> for FunctionInfo {
 
     #[inline]
     fn index(&self, handle: Handle<GlobalVariable>) -> &Self::Output {
-        self.globals.get(handle.index()).unwrap_or(&GlobalUse::EMPTY)
+        self.globals
+            .get(handle.index())
+            .unwrap_or(&GlobalUse::EMPTY)
     }
 }
 

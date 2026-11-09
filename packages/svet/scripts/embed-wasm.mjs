@@ -11,7 +11,9 @@ const outPath = path.resolve(__dirname, '../src/engine/wasm-binary.ts');
 
 const bytes = fs.readFileSync(wasmPath);
 const base64 = bytes.toString('base64');
-const wasmExports = WebAssembly.Module.exports(new WebAssembly.Module(bytes)).sort((a,b)=>a.name<b.name?-1:a.name>b.name?1:0);
+const wasmExports = WebAssembly.Module.exports(new WebAssembly.Module(bytes)).sort((a, b) =>
+  a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+);
 
 const content = `// AUTO-GENERATED FILE — DO NOT EDIT MANUALLY
 // Built from crates/svet-wasm/src/lib.rs (${bytes.length} bytes)

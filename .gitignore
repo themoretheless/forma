@@ -3,8 +3,8 @@ dist/
 .forma/
 native-app/target/
 crates/*/target/
-vector-ui/target/
-vector-ui/examples/*/target/
+crates/forma/target/
+crates/forma/examples/*/target/
 packages/svet/crates/svet-wasm/target/
 packages/svet/dist/
 packages/svet/node_modules/
@@ -18,3 +18,5 @@ public/vector-pkg/
 *.key
 
 .release/
+# raster-core tests write frames here when run from the repository root
+/output/
