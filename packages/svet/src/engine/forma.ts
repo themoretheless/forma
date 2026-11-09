@@ -1350,48 +1350,70 @@ function parseMatchArms(
   return arms;
 }
 
-export function doesFormaPatternMatch(pattern: string, actualValue: any): boolean {
+const _patternMatcherCache = new Map<string, (val: any) => boolean>();
+
+export function compileFormaPatternMatcher(pattern: string): (val: any) => boolean {
+  let cached = _patternMatcherCache.get(pattern);
+  if (cached) return cached;
+
   const pat = pattern.trim();
-  if (pat === '_') return true;
+  let matcher: (val: any) => boolean;
 
-  // OR patterns: `'loading' | 'pending'`
-  if (pat.includes('|')) {
-    return pat
-      .split('|')
-      .some((sub) => doesFormaPatternMatch(sub.trim(), actualValue));
+  if (pat === '_') {
+    matcher = () => true;
+  } else if (pat.includes('|')) {
+    const subMatchers = pat.split('|').map((sub) => compileFormaPatternMatcher(sub.trim()));
+    matcher = (actualValue: any) => {
+      for (let i = 0; i < subMatchers.length; i++) {
+        if (subMatchers[i](actualValue)) return true;
+      }
+      return false;
+    };
+  } else {
+    const incRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.=(-?\d+(?:\.\d+)?)$/);
+    if (incRange) {
+      const min = Number(incRange[1]);
+      const max = Number(incRange[2]);
+      matcher = (actualValue: any) =>
+        typeof actualValue === 'number' && actualValue >= min && actualValue <= max;
+    } else {
+      const excRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$/);
+      if (excRange) {
+        const min = Number(excRange[1]);
+        const max = Number(excRange[2]);
+        matcher = (actualValue: any) =>
+          typeof actualValue === 'number' && actualValue >= min && actualValue < max;
+      } else if (
+        (pat.startsWith("'") && pat.endsWith("'")) ||
+        (pat.startsWith('"') && pat.endsWith('"'))
+      ) {
+        const expected = pat.slice(1, -1);
+        matcher = (actualValue: any) => String(actualValue) === expected;
+      } else if (pat.includes('.')) {
+        const shortVariant = pat.split('.').pop()!;
+        matcher = (actualValue: any) => {
+          const str = String(actualValue);
+          return str === pat || str === shortVariant;
+        };
+      } else if (/^-?\d+(\.\d+)?$/.test(pat)) {
+        const expectedNum = Number(pat);
+        matcher = (actualValue: any) => Number(actualValue) === expectedNum;
+      } else if (pat === 'true') {
+        matcher = (actualValue: any) => actualValue === true;
+      } else if (pat === 'false') {
+        matcher = (actualValue: any) => actualValue === false;
+      } else {
+        matcher = (actualValue: any) => String(actualValue) === pat;
+      }
+    }
   }
 
-  // Inclusive range: `1..=5`
-  const incRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.=(-?\d+(?:\.\d+)?)$/);
-  if (incRange && typeof actualValue === 'number') {
-    return actualValue >= Number(incRange[1]) && actualValue <= Number(incRange[2]);
-  }
+  _patternMatcherCache.set(pattern, matcher);
+  return matcher;
+}
 
-  // Exclusive range: `0..10`
-  const excRange = pat.match(/^(-?\d+(?:\.\d+)?)\.\.(-?\d+(?:\.\d+)?)$/);
-  if (excRange && typeof actualValue === 'number') {
-    return actualValue >= Number(excRange[1]) && actualValue < Number(excRange[2]);
-  }
-
-  // String literal `'error'` or `"error"`
-  if ((pat.startsWith("'") && pat.endsWith("'")) || (pat.startsWith('"') && pat.endsWith('"'))) {
-    return String(actualValue) === pat.slice(1, -1);
-  }
-
-  // Enum variant `Tone.Danger` -> matches `'Danger'` or `'Tone.Danger'`
-  if (pat.includes('.')) {
-    const shortVariant = pat.split('.').pop()!;
-    return String(actualValue) === pat || String(actualValue) === shortVariant;
-  }
-
-  // Numeric or boolean literal
-  if (/^-?\d+(\.\d+)?$/.test(pat)) {
-    return Number(actualValue) === Number(pat);
-  }
-  if (pat === 'true') return actualValue === true;
-  if (pat === 'false') return actualValue === false;
-
-  return String(actualValue) === pat;
+export function doesFormaPatternMatch(pattern: string, actualValue: any): boolean {
+  return compileFormaPatternMatcher(pattern)(actualValue);
 }
 
 function parseElementInterior(tag: string, interior: string): FormaAstNode {
@@ -2439,6 +2461,14 @@ export function compileFormaComponent(
   const baseScopeWithLocals = (locals?: Record<string, any>): FormaEvalScope =>
     locals === undefined ? evalScope : { ...evalScope, locals };
 
+  const renderAstChildren = (children: FormaAstNode[], locals?: Record<string, any>): DocumentFragment => {
+    const frag = document.createDocumentFragment();
+    for (let i = 0; i < children.length; i++) {
+      insertChild(frag, renderAstNode(children[i], locals));
+    }
+    return frag;
+  };
+
   const renderAstNode = (ast: FormaAstNode, locals?: Record<string, any>): Node => {
     assertLive();
     const localScope = baseScopeWithLocals(locals);
@@ -2452,11 +2482,7 @@ export function compileFormaComponent(
         insertChild(frag, node);
         return frag;
       }
-      const frag = document.createDocumentFragment();
-      for (const ch of ast.children) {
-        insertChild(frag, renderAstNode(ch, locals));
-      }
-      return frag;
+      return renderAstChildren(ast.children, locals);
     }
 
     if (ast.kind === 'contentPresenter') {
@@ -2467,11 +2493,7 @@ export function compileFormaComponent(
         insertChild(frag, node);
         return frag;
       }
-      const frag = document.createDocumentFragment();
-      for (const ch of ast.children) {
-        insertChild(frag, renderAstNode(ch, locals));
-      }
-      return frag;
+      return renderAstChildren(ast.children, locals);
     }
 
     if (ast.kind === 'match') {
@@ -2493,12 +2515,20 @@ export function compileFormaComponent(
       };
 
       const matchAst = parseFormaExprAst(ast.matchExpr!);
+      const compiledArms = (ast.matchArms ?? []).map((arm) => ({
+        arm,
+        matches: compileFormaPatternMatcher(arm.pattern),
+      }));
       effect(() => {
         const val = evalAstNode(matchAst, localScope);
         clearArm();
-        const matchedArm = (ast.matchArms ?? []).find((arm) =>
-          doesFormaPatternMatch(arm.pattern, val)
-        );
+        let matchedArm: (typeof compiledArms)[number]['arm'] | undefined;
+        for (let i = 0; i < compiledArms.length; i++) {
+          if (compiledArms[i].matches(val)) {
+            matchedArm = compiledArms[i].arm;
+            break;
+          }
+        }
         if (matchedArm && matchedArm.childNodes.length > 0) {
           createRoot((dispose) => {
             disposeArm = dispose;
@@ -2523,22 +2553,10 @@ export function compileFormaComponent(
       const condAst = parseFormaExprAst(ast.conditionExpr!);
       return Show({
         when: () => Boolean(evalAstNode(condAst, localScope)),
-        children: () => {
-          const frag = document.createDocumentFragment();
-          for (const ch of ast.children) {
-            insertChild(frag, renderAstNode(ch, locals));
-          }
-          return frag;
-        },
+        children: () => renderAstChildren(ast.children, locals),
         fallback:
           ast.elseChildren && ast.elseChildren.length > 0
-            ? () => {
-                const frag = document.createDocumentFragment();
-                for (const ch of ast.elseChildren!) {
-                  insertChild(frag, renderAstNode(ch, locals));
-                }
-                return frag;
-              }
+            ? () => renderAstChildren(ast.elseChildren!, locals)
             : undefined,
       });
     }
@@ -2560,13 +2578,7 @@ export function compileFormaComponent(
         when: () => listAccessor().length > 0,
         fallback:
           ast.emptyChildren && ast.emptyChildren.length > 0
-            ? () => {
-                const frag = document.createDocumentFragment();
-                for (const ch of ast.emptyChildren!) {
-                  insertChild(frag, renderAstNode(ch, locals));
-                }
-                return frag;
-              }
+            ? () => renderAstChildren(ast.emptyChildren!, locals)
             : undefined,
         children: () =>
           For({
@@ -2578,14 +2590,11 @@ export function compileFormaComponent(
                 }
               : (_item, idx) => idx,
             children: (_item, _index, current) => {
-              const frag = document.createDocumentFragment();
               const childLocals = locals
                 ? Object.defineProperties({}, Object.getOwnPropertyDescriptors(locals))
                 : {};
               Object.defineProperty(childLocals, itemVar, { get: current, enumerable: true, configurable: true });
-              for (const ch of ast.children) {
-                insertChild(frag, renderAstNode(ch, childLocals));
-              }
+              const frag = renderAstChildren(ast.children, childLocals);
               return frag.childNodes.length === 1 ? frag.firstChild! : frag;
             },
           }),
@@ -2622,21 +2631,19 @@ export function compileFormaComponent(
         insertChild(frag, node);
         return frag;
       }
-      const frag = document.createDocumentFragment();
-      for (const ch of ast.children) {
-        insertChild(frag, renderAstNode(ch, locals));
-      }
-      return frag;
+      return renderAstChildren(ast.children, locals);
     }
 
     // Declarative 3D GPU Widget inside Forma `.ui`: `Scene3D { rotX: ...; rotY: ...; rotZ: ...; scale: ...; width: ...; height: ...; }`
     if (tag === 'Scene3D' || tag === 'OrbitCube3D' || tag === 'Viewport3D') {
-      const width = () => mergedProps.width
-        ? Number(evaluateFormaExpression(mergedProps.width, localScope)) || 320
-        : 320;
-      const height = () => mergedProps.height
-        ? Number(evaluateFormaExpression(mergedProps.height, localScope)) || 180
-        : 180;
+      const widthAst = mergedProps.width ? parseFormaExprAst(mergedProps.width) : null;
+      const heightAst = mergedProps.height ? parseFormaExprAst(mergedProps.height) : null;
+      const rotXAst = mergedProps.rotX ? parseFormaExprAst(mergedProps.rotX) : null;
+      const rotYAst = mergedProps.rotY ? parseFormaExprAst(mergedProps.rotY) : null;
+      const rotZAst = mergedProps.rotZ ? parseFormaExprAst(mergedProps.rotZ) : null;
+      const scaleAst = mergedProps.scale ? parseFormaExprAst(mergedProps.scale) : null;
+      const width = () => (widthAst ? Number(evalAstNode(widthAst, localScope)) || 320 : 320);
+      const height = () => (heightAst ? Number(evalAstNode(heightAst, localScope)) || 180 : 180);
       const transform = createTransform3D({
         position: [0, 0, -3.2],
         rotation: [0.4, 0.6, 0.1],
@@ -2655,21 +2662,15 @@ export function compileFormaComponent(
       });
 
       effect(() => {
-        const rx = mergedProps.rotX
-          ? Number(evaluateFormaExpression(mergedProps.rotX, localScope)) || 0
-          : 0.4;
-        const ry = mergedProps.rotY
-          ? Number(evaluateFormaExpression(mergedProps.rotY, localScope)) || 0
-          : 0.6;
-        const rz = mergedProps.rotZ
-          ? Number(evaluateFormaExpression(mergedProps.rotZ, localScope)) || 0
-          : 0.1;
+        const rx = rotXAst ? Number(evalAstNode(rotXAst, localScope)) || 0 : 0.4;
+        const ry = rotYAst ? Number(evalAstNode(rotYAst, localScope)) || 0 : 0.6;
+        const rz = rotZAst ? Number(evalAstNode(rotZAst, localScope)) || 0 : 0.1;
         transform.rotation.set([rx, ry, rz]);
       });
 
-      if (mergedProps.scale) {
+      if (scaleAst) {
         effect(() => {
-          const s = Number(evaluateFormaExpression(mergedProps.scale, localScope)) || 1;
+          const s = Number(evalAstNode(scaleAst, localScope)) || 1;
           transform.scale.set([s, s, s]);
         });
       }
@@ -2700,9 +2701,12 @@ export function compileFormaComponent(
       options?.components?.[tag] ?? _formaComponentRegistry.get(tag);
     if (customCompDef) {
       const initialChildProps: Record<string, any> = {};
+      const parsedChildProps: Array<[string, ExprAst]> = [];
       for (const [pKey, pExpr] of Object.entries(mergedProps)) {
         if (pKey === 'key') continue;
-        initialChildProps[pKey] = untrack(() => evaluateFormaExpression(pExpr, localScope));
+        const pAst = parseFormaExprAst(pExpr);
+        parsedChildProps.push([pKey, pAst]);
+        initialChildProps[pKey] = untrack(() => evalAstNode(pAst, localScope));
       }
 
       const childOwner = getCurrentOwner();
@@ -2734,11 +2738,10 @@ export function compileFormaComponent(
       effect(() => {
         childInst.locale.set(locale());
       });
-      for (const [pKey, pExpr] of Object.entries(mergedProps)) {
-        if (pKey === 'key') continue;
+      for (const [pKey, pAst] of parsedChildProps) {
         if (pKey in childInst.props) {
           effect(() => {
-            const nextVal = evaluateFormaExpression(pExpr, localScope);
+            const nextVal = evalAstNode(pAst, localScope);
             childInst.props[pKey].set(nextVal);
           });
         }
@@ -2874,23 +2877,28 @@ export function compileFormaComponent(
       el.setAttribute('aria-hidden', 'true');
       const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
       const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const sizeAst = mergedProps.size ? parseFormaExprAst(mergedProps.size) : null;
+      const strokeWidthAst = mergedProps.strokeWidth ? parseFormaExprAst(mergedProps.strokeWidth) : null;
+      const fillAst = mergedProps.fill ? parseFormaExprAst(mergedProps.fill) : null;
+      const path1Ast = mergedProps.path ? parseFormaExprAst(mergedProps.path) : null;
+      const path2Ast = mergedProps.path2 ? parseFormaExprAst(mergedProps.path2) : null;
       const applySvg = () => {
-        const size = Number(mergedProps.size ? evaluateFormaExpression(mergedProps.size, localScope) : 15) || 15;
-        const strokeWidth = Number(mergedProps.strokeWidth ? evaluateFormaExpression(mergedProps.strokeWidth, localScope) : 2) || 2;
-        const fill = String(mergedProps.fill ? evaluateFormaExpression(mergedProps.fill, localScope) ?? 'none' : 'none');
+        const size = Number(sizeAst ? evalAstNode(sizeAst, localScope) : 15) || 15;
+        const strokeWidth = Number(strokeWidthAst ? evalAstNode(strokeWidthAst, localScope) : 2) || 2;
+        const fill = String(fillAst ? evalAstNode(fillAst, localScope) ?? 'none' : 'none');
         el.setAttribute('width', String(size));
         el.setAttribute('height', String(size));
         el.setAttribute('fill', fill);
         el.setAttribute('stroke', fill === 'currentColor' ? 'none' : 'currentColor');
         el.setAttribute('stroke-width', String(strokeWidth));
-        const d1 = mergedProps.path ? evaluateFormaExpression(mergedProps.path, localScope) : null;
+        const d1 = path1Ast ? evalAstNode(path1Ast, localScope) : null;
         if (d1) {
           path1.setAttribute('d', String(d1));
           if (!path1.parentNode) el.appendChild(path1);
         } else if (path1.parentNode) {
           path1.parentNode.removeChild(path1);
         }
-        const d2 = mergedProps.path2 ? evaluateFormaExpression(mergedProps.path2, localScope) : null;
+        const d2 = path2Ast ? evalAstNode(path2Ast, localScope) : null;
         if (d2) {
           path2.setAttribute('d', String(d2));
           if (!path2.parentNode) el.appendChild(path2);
@@ -2898,8 +2906,8 @@ export function compileFormaComponent(
           path2.parentNode.removeChild(path2);
         }
       };
-      const allSvgStatic = ['size', 'strokeWidth', 'fill', 'path', 'path2'].every(
-        (k) => !mergedProps[k] || isStaticFormaExpr(mergedProps[k], locals)
+      const allSvgStatic = [sizeAst, strokeWidthAst, fillAst, path1Ast, path2Ast].every(
+        (astNode) => !astNode || isStaticFormaExprNode(astNode, locals)
       );
       if (allSvgStatic) applySvg();
       else effect(applySvg);
@@ -3201,17 +3209,27 @@ export function compileFormaComponent(
         childAst.matchArms.every((a) => a.childNodes.length === 0)
       ) {
         const propMatchAst = parseFormaExprAst(childAst.matchExpr!);
+        const compiledPropArms = childAst.matchArms.map((a) => ({
+          matches: compileFormaPatternMatcher(a.pattern),
+          assignments: Object.entries(a.propertyAssignments).map(
+            ([pKey, pExpr]) => [pKey, parseFormaExprAst(pExpr)] as [string, ExprAst]
+          ),
+        }));
         effect(() => {
           const val = evalAstNode(propMatchAst, localScope);
-          const arm = childAst.matchArms!.find((a) => doesFormaPatternMatch(a.pattern, val));
-          if (arm) {
-            for (const [pKey, pExpr] of Object.entries(arm.propertyAssignments)) {
-              const resolved = evaluateFormaExpression(pExpr, localScope);
-              if (pKey === 'background') el.style.background = String(resolved ?? '');
-              else if (pKey === 'color') el.style.color = String(resolved ?? '');
-              else if (pKey === 'borderColor') el.style.borderColor = String(resolved ?? '');
-              else if (pKey === 'text') el.textContent = String(resolved ?? '');
-              else el.setAttribute(`data-${pKey.toLowerCase()}`, String(resolved ?? ''));
+          for (let i = 0; i < compiledPropArms.length; i++) {
+            const arm = compiledPropArms[i];
+            if (arm.matches(val)) {
+              for (let j = 0; j < arm.assignments.length; j++) {
+                const [pKey, pAst] = arm.assignments[j];
+                const resolved = evalAstNode(pAst, localScope);
+                if (pKey === 'background') el.style.background = String(resolved ?? '');
+                else if (pKey === 'color') el.style.color = String(resolved ?? '');
+                else if (pKey === 'borderColor') el.style.borderColor = String(resolved ?? '');
+                else if (pKey === 'text') el.textContent = String(resolved ?? '');
+                else el.setAttribute(`data-${pKey.toLowerCase()}`, String(resolved ?? ''));
+              }
+              break;
             }
           }
         });
