@@ -703,7 +703,8 @@ function decodeRouteSegment(segment: string): string {
 
 function matchRoutePattern(pattern: string, pathname: string): Record<string, string> | null {
   if (pattern === '*') return {};
-  const cleanPath = pathname.split('#')[0].split('?')[0];
+  // split always yields at least one element.
+  const cleanPath = pathname.split('#')[0]!.split('?')[0]!;
   const patternParts = pattern.split('/').filter(Boolean);
   const pathParts = cleanPath.split('/').filter(Boolean);
 
@@ -713,8 +714,9 @@ function matchRoutePattern(pattern: string, pathname: string): Record<string, st
 
   const params: Record<string, string> = {};
   for (let i = 0; i < patternParts.length; i++) {
-    const p = patternParts[i];
-    const actual = decodeRouteSegment(pathParts[i]);
+    // Both lists have the same length, checked above.
+    const p = patternParts[i]!;
+    const actual = decodeRouteSegment(pathParts[i]!);
     if (p.startsWith(':')) {
       Object.defineProperty(params, p.slice(1), {
         value: actual,

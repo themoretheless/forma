@@ -251,7 +251,8 @@ function publishResident(
     lifetime: new AbortController(),
     readSnapshot: readGpuResidentSnapshot,
   };
-  const lifetimeSignals = [ctx.signals[1], ctx.signals[2]];
+  // The device and context lifetimes are always the second and third signals.
+  const lifetimeSignals = [ctx.signals[1]!, ctx.signals[2]!];
   const subscriptions: Array<() => void> = [];
   const dispose = () => {
     // Also unlink registrations added during reentrant lifetime cancellation.
