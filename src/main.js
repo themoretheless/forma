@@ -48,6 +48,7 @@ import './property-inspector.css';
 import './states-panel.css';
 import { createControlTree } from './control-tree.js';
 import { createStatesPanel } from './states-panel.js';
+import { workspaceSaveStatus } from './workspace-save.js';
 import { findEntry, stateCreateEdit, stateDeleteEdit, stateRenameEdit } from './design-states.js';
 import { extractElement, moveAmongSiblings, moveIntoContainer } from './element-edit.js';
 import { restoreSelection, selectionIdentities } from './selection-restore.js';
@@ -304,8 +305,14 @@ function persist() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: files[active] }),
       })
-        .then(() => saveStatus('saved', 'Сохранено (open-scad-viewer)'))
-        .catch(() => saveStatus('saved', 'Сохранено'));
+        .then(
+          response => response,
+          error => error,
+        )
+        .then(outcome => {
+          const { status, text } = workspaceSaveStatus(outcome, 'open-scad-viewer');
+          saveStatus(status, text);
+        });
       return;
     }
     if (directoryHandle) {
