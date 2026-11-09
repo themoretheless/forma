@@ -1,8 +1,8 @@
 // Builds a standalone native Rust application bundle (map of relative paths -> file contents).
 // `cargo run --features native` opens a real window; `cargo test` stays headless.
 
-import {parse} from './language.js';
-import {generateForm} from './form-codegen.js';
+import { parse } from './language.js';
+import { generateForm } from './form-codegen.js';
 
 function updateTomlSection(manifest, name, update) {
   const header = new RegExp(`^\\[${name}\\][ \\t]*(?:#.*)?$`, 'm').exec(manifest);
@@ -22,7 +22,9 @@ function setTomlValue(body, key, value) {
   if (pattern.test(body)) {
     const line = body.match(pattern)[0];
     if (key === 'forma' && line.includes('{') && !line.includes('}')) {
-      throw new Error('Cargo.toml: многострочная зависимость forma не поддерживается; используйте одну строку');
+      throw new Error(
+        'Cargo.toml: многострочная зависимость forma не поддерживается; используйте одну строку',
+      );
     }
     return body.replace(pattern, `${key} = ${value}`);
   }
@@ -43,21 +45,26 @@ function nativeCargoManifest(source, appName, formaPath) {
     if (/^[ \t]*native[ \t]*=/m.test(next) && !current) {
       throw new Error('Cargo.toml: feature native должна быть однострочным массивом');
     }
-    const features = current?.[1].split(',').map(value => value.trim()).filter(Boolean) ?? [];
+    const features =
+      current?.[1]
+        .split(',')
+        .map(value => value.trim())
+        .filter(Boolean) ?? [];
     if (!features.includes('"forma/native"')) features.push('"forma/native"');
     next = setTomlValue(next, 'native', `[${features.join(', ')}]`);
     if (!/^[ \t]*default[ \t]*=/m.test(next)) next = setTomlValue(next, 'default', '[]');
     return next;
   });
   return updateTomlSection(manifest, 'dependencies', body =>
-    setTomlValue(body, 'forma', `{ path = ${JSON.stringify(formaPath)} }`)
+    setTomlValue(body, 'forma', `{ path = ${JSON.stringify(formaPath)} }`),
   );
 }
 
 export function buildNativeRustExport(files, entryFile, options = {}) {
   if (!files || typeof files !== 'object') throw new Error('Передайте файлы проекта');
   const uiEntries = Object.entries(files).filter(
-    ([path, content]) => typeof content === 'string' && (path.endsWith('.ui') || path.endsWith('.svg'))
+    ([path, content]) =>
+      typeof content === 'string' && (path.endsWith('.ui') || path.endsWith('.svg')),
   );
   const forms = uiEntries.filter(([path]) => path.endsWith('.ui'));
   if (!forms.length) throw new Error('В проекте нет .ui файлов для экспорта');
@@ -65,21 +72,23 @@ export function buildNativeRustExport(files, entryFile, options = {}) {
   const resolvedEntry =
     entryFile && files[entryFile]
       ? entryFile
-      : forms.find(([p]) => !p.endsWith('.design.ui') && !p.startsWith('components/'))?.[0] ??
+      : (forms.find(([p]) => !p.endsWith('.design.ui') && !p.startsWith('components/'))?.[0] ??
         forms.find(([p]) => !p.endsWith('.design.ui'))?.[0] ??
-        forms[0][0];
-  if (!resolvedEntry.endsWith('.ui')) throw new Error('Входной файл native-экспорта должен быть .ui');
+        forms[0][0]);
+  if (!resolvedEntry.endsWith('.ui'))
+    throw new Error('Входной файл native-экспорта должен быть .ui');
 
-  const appName = String(options.name || options.crateName || 'forma-native-export')
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'forma-native-export';
+  const appName =
+    String(options.name || options.crateName || 'forma-native-export')
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'forma-native-export';
   const formaPath = options.formaPath || options.formaDependencyPath || '../vector-ui';
   const document = parse(files[resolvedEntry]);
   const typed = Boolean(document.defaults.contextType);
   if (typed && typeof files['src/app.rs'] !== 'string') {
     throw new Error(
-      'Для формы с contextType нужен src/app.rs с функцией create_form(), которая создаёт ViewModel, форму и регистрирует обработчики'
+      'Для формы с contextType нужен src/app.rs с функцией create_form(), которая создаёт ViewModel, форму и регистрирует обработчики',
     );
   }
   if (typed && Object.hasOwn(files, 'src/forma_generated.rs')) {
@@ -89,7 +98,9 @@ export function buildNativeRustExport(files, entryFile, options = {}) {
     throw new Error('src/ui_bundle.rs зарезервирован для результата генерации');
   }
 
-  const generated = typed ? generateForm(files, resolvedEntry, {state: options.state ?? {}, nativeApp: true}) : null;
+  const generated = typed
+    ? generateForm(files, resolvedEntry, { state: options.state ?? {}, nativeApp: true })
+    : null;
   const out = {};
   for (const [path, content] of Object.entries(files)) {
     if (typeof content === 'string') out[path] = content;
@@ -144,7 +155,10 @@ mod tests {
   } else {
     const embeddedFilesCode = uiEntries
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([path]) => `    files.insert(${JSON.stringify(path)}.to_string(), include_str!(${JSON.stringify('../' + path)}).to_string());`)
+      .map(
+        ([path]) =>
+          `    files.insert(${JSON.stringify(path)}.to_string(), include_str!(${JSON.stringify('../' + path)}).to_string());`,
+      )
       .join('\n');
 
     out['src/ui_bundle.rs'] = `use std::collections::BTreeMap;
@@ -354,18 +368,19 @@ else
 fi
 `;
 
-  out['.mcp.json'] = JSON.stringify(
-    {
-      mcpServers: {
-        [appName]: {
-          command: 'cargo',
-          args: ['run', '--quiet', '--offline', '--', '--mcp'],
+  out['.mcp.json'] =
+    JSON.stringify(
+      {
+        mcpServers: {
+          [appName]: {
+            command: 'cargo',
+            args: ['run', '--quiet', '--offline', '--', '--mcp'],
+          },
         },
       },
-    },
-    null,
-    2
-  ) + '\n';
+      null,
+      2,
+    ) + '\n';
 
   const typedReadme = typed
     ? `\n## ViewModel и обработчики\n\nФорма генерируется в \`src/forma_generated.rs\`. Пользовательский \`src/app.rs\` сохраняется и должен экспортировать \`create_form()\`: она создаёт ViewModel и форму, регистрирует обработчики \`on_…\` и возвращает форму. Типизированные \`state.method()\` и \`events.name()\` выполняются через эти bindings во время обработки native-ввода.\n`

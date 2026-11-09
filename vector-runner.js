@@ -1,7 +1,7 @@
-import {spawn} from 'node:child_process';
-import {mkdir, mkdtemp, readdir, rename, rm, writeFile} from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { mkdir, mkdtemp, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import {fileURLToPath} from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const projectRoot = fileURLToPath(new URL('./', import.meta.url));
 const maxSourceLength = 100_000;
@@ -31,7 +31,12 @@ export function createVectorRunner(send, dependencies = {}) {
     clearTimeout(job.killTimer);
     if (active !== job) return;
     active = null;
-    send({kind: 'finished', code, signal, text: `Векторное окно закрыто: ${signal ?? code ?? 'ошибка запуска'}`});
+    send({
+      kind: 'finished',
+      code,
+      signal,
+      text: `Векторное окно закрыто: ${signal ?? code ?? 'ошибка запуска'}`,
+    });
   }
 
   function kill(job, signal) {
@@ -44,42 +49,69 @@ export function createVectorRunner(send, dependencies = {}) {
         job.child.kill(signal);
       }
     } catch (error) {
-      if (error.code !== 'ESRCH') send({kind: 'error', text: `Не удалось остановить векторное окно: ${error.message}`});
+      if (error.code !== 'ESRCH')
+        send({ kind: 'error', text: `Не удалось остановить векторное окно: ${error.message}` });
     }
   }
 
   function pruneSnapshots(snapshotsRoot, keepDirectory) {
-    Promise.resolve(readDirectory(snapshotsRoot)).then(entries => {
-      const existing = (entries ?? []).filter(name => name.startsWith('vector-') && path.join(snapshotsRoot, name) !== keepDirectory).sort();
-      while (existing.length >= maxSnapshots) {
-        const stale = existing.shift();
-        Promise.resolve(removeDirectory(path.join(snapshotsRoot, stale), {recursive: true, force: true})).catch(() => {});
-      }
-    }).catch(() => {});
+    Promise.resolve(readDirectory(snapshotsRoot))
+      .then(entries => {
+        const existing = (entries ?? [])
+          .filter(
+            name => name.startsWith('vector-') && path.join(snapshotsRoot, name) !== keepDirectory,
+          )
+          .sort();
+        while (existing.length >= maxSnapshots) {
+          const stale = existing.shift();
+          Promise.resolve(
+            removeDirectory(path.join(snapshotsRoot, stale), { recursive: true, force: true }),
+          ).catch(() => {});
+        }
+      })
+      .catch(() => {});
   }
 
   return {
-    async run({source, template, backend, platform: targetPlatform} = {}) {
+    async run({ source, template, backend, platform: targetPlatform } = {}) {
       if (active) {
-        send({kind: 'error', text: 'Векторное окно уже запускается или запущено. Сначала остановите его.'});
+        send({
+          kind: 'error',
+          text: 'Векторное окно уже запускается или запущено. Сначала остановите его.',
+        });
         return;
       }
       if (typeof source !== 'string' || !source.trim() || source.length > maxSourceLength) {
-        send({kind: 'error', text: `Нужна непустая разметка .ui размером не больше ${maxSourceLength} символов`});
+        send({
+          kind: 'error',
+          text: `Нужна непустая разметка .ui размером не больше ${maxSourceLength} символов`,
+        });
         return;
       }
       if (template !== undefined && (typeof template !== 'string' || !template.trim())) {
-        send({kind: 'error', text: 'Нужен непустой шаблон компонентов Forma'}); return;
+        send({ kind: 'error', text: 'Нужен непустой шаблон компонентов Forma' });
+        return;
       }
       if (template !== undefined && template.length > maxTemplateLength) {
-        send({kind: 'error', text: `Шаблон компонентов превышает лимит ${maxTemplateLength} символов (${template.length})`}); return;
+        send({
+          kind: 'error',
+          text: `Шаблон компонентов превышает лимит ${maxTemplateLength} символов (${template.length})`,
+        });
+        return;
       }
 
-      const job = {child: null, stopped: false, finished: false, killTimer: null, snapshot: null, component: null};
+      const job = {
+        child: null,
+        stopped: false,
+        finished: false,
+        killTimer: null,
+        snapshot: null,
+        component: null,
+      };
       active = job;
       try {
         const snapshotsRoot = path.join(root, '.forma');
-        await makeDirectory(snapshotsRoot, {recursive: true});
+        await makeDirectory(snapshotsRoot, { recursive: true });
         const directory = await makeTemporaryDirectory(path.join(snapshotsRoot, 'vector-'));
         const snapshot = path.join(directory, 'snapshot.ui');
         job.snapshot = snapshot;
@@ -94,39 +126,61 @@ export function createVectorRunner(send, dependencies = {}) {
           return;
         }
 
-        send({kind: 'started', text: 'Сборка векторного окна из разметки Forma Studio…'});
+        send({ kind: 'started', text: 'Сборка векторного окна из разметки Forma Studio…' });
         const backendArgs = backend === 'egui' || backend === 'svet' ? ['--backend', backend] : [];
-        const platformArgs = targetPlatform === 'ios' || targetPlatform === 'android' ? ['--platform', targetPlatform] : [];
-        const child = spawnProcess('cargo', [
-          'run', '--release', '--offline', '--manifest-path', path.join(root, 'vector-ui/Cargo.toml'),
-          '--features', 'native', '--', ...backendArgs, ...platformArgs, snapshot, ...(template === undefined ? [] : [component]),
-        ], {cwd: root, detached: grouped, stdio: ['ignore', 'pipe', 'pipe']});
+        const platformArgs =
+          targetPlatform === 'ios' || targetPlatform === 'android'
+            ? ['--platform', targetPlatform]
+            : [];
+        const child = spawnProcess(
+          'cargo',
+          [
+            'run',
+            '--release',
+            '--offline',
+            '--manifest-path',
+            path.join(root, 'vector-ui/Cargo.toml'),
+            '--features',
+            'native',
+            '--',
+            ...backendArgs,
+            ...platformArgs,
+            snapshot,
+            ...(template === undefined ? [] : [component]),
+          ],
+          { cwd: root, detached: grouped, stdio: ['ignore', 'pipe', 'pipe'] },
+        );
         job.child = child;
         for (const channel of ['stdout', 'stderr']) {
           child[channel].on('data', data => {
-            if (active === job && !job.finished) send({kind: channel, text: data.toString()});
+            if (active === job && !job.finished) send({ kind: channel, text: data.toString() });
           });
         }
         child.once('error', error => {
           if (active !== job || job.finished) return;
-          send({kind: 'error', text: error.message});
+          send({ kind: 'error', text: error.message });
           // A failed spawn has no process to wait for. Its later close event is stale.
           if (!child.pid) finish(job, null, null);
         });
         child.once('close', (code, signal) => finish(job, code, signal));
       } catch (error) {
         if (active === job && !job.finished) {
-          send({kind: 'error', text: error.message});
+          send({ kind: 'error', text: error.message });
           finish(job, null, null);
         }
       }
     },
 
-    async update({source, template} = {}) {
+    async update({ source, template } = {}) {
       const job = active;
       if (!job || job.stopped || job.finished || !job.snapshot) return false;
-      if (typeof source !== 'string' || !source.trim() || source.length > maxSourceLength) return false;
-      if (template !== undefined && (typeof template !== 'string' || !template.trim() || template.length > maxTemplateLength)) return false;
+      if (typeof source !== 'string' || !source.trim() || source.length > maxSourceLength)
+        return false;
+      if (
+        template !== undefined &&
+        (typeof template !== 'string' || !template.trim() || template.length > maxTemplateLength)
+      )
+        return false;
       try {
         if (template !== undefined && job.component) {
           if (renameFile) {

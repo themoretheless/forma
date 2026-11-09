@@ -50,7 +50,11 @@ function createFakeDom() {
     }
     removeEventListener(type, fn) {
       const list = this.listeners.get(type);
-      if (list) this.listeners.set(type, list.filter(item => item !== fn));
+      if (list)
+        this.listeners.set(
+          type,
+          list.filter(item => item !== fn),
+        );
     }
     dispatchEvent(event) {
       const list = this.listeners.get(event.type) ?? [];
@@ -128,9 +132,14 @@ test('1. computed let bindings inside component work with bare names and props.*
         width: totalWidth; height: 120;
         PriceCard { key: 'card'; price: 50; qty: 4; }
       }
-    }`
+    }`,
   };
-  const compiled = compileComponents(files, 'ui/Main.ui', {}, { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] });
+  const compiled = compileComponents(
+    files,
+    'ui/Main.ui',
+    {},
+    { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] },
+  );
   assert.match(compiled.template, /Итого: 200\.00/);
   assert.equal(compiled.visualNodes[0].bounds[2], 260);
 });
@@ -188,23 +197,61 @@ test('3. named slots (slot header / @header { ... }) work alongside default cont
       Frame {
         HostButton { key: 'btn'; }
       }
-    }`
+    }`,
   };
-  const compiled = compileComponents(files, 'ui/App.ui', {}, { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] });
+  const compiled = compileComponents(
+    files,
+    'ui/App.ui',
+    {},
+    { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] },
+  );
   assert.match(compiled.template, /Custom Header/);
   assert.match(compiled.template, /Default Body/);
   assert.doesNotMatch(compiled.template, /Default Header/);
 });
 
 test('4. expanded standard library pure functions and pipe operator |>', () => {
-  assert.equal(resolve(parse(`component X { v: '  hello forma  ' |> trim |> upper; }`).defaults.v, {}), 'HELLO FORMA');
-  assert.equal(resolve(parse(`component X { v: 'Hello World' |> lower |> replace('world', 'forma'); }`).defaults.v, {}), 'hello forma');
-  assert.equal(resolve(parse(`component X { v: contains('forma studio', 'studio') && startsWith('forma', 'fo') && endsWith('forma', 'ma'); }`).defaults.v, {}), true);
+  assert.equal(
+    resolve(parse(`component X { v: '  hello forma  ' |> trim |> upper; }`).defaults.v, {}),
+    'HELLO FORMA',
+  );
+  assert.equal(
+    resolve(
+      parse(`component X { v: 'Hello World' |> lower |> replace('world', 'forma'); }`).defaults.v,
+      {},
+    ),
+    'hello forma',
+  );
+  assert.equal(
+    resolve(
+      parse(
+        `component X { v: contains('forma studio', 'studio') && startsWith('forma', 'fo') && endsWith('forma', 'ma'); }`,
+      ).defaults.v,
+      {},
+    ),
+    true,
+  );
   assert.equal(resolve(parse(`component X { v: contains([1, 2, 3], 2); }`).defaults.v, {}), true);
-  assert.equal(resolve(parse(`component X { v: 'a,b,c,d' |> split(',') |> reverse |> take(3) |> join('-'); }`).defaults.v, {}), 'd-c-b');
-  assert.equal(resolve(parse(`component X { v: [10, 20, 30, 40] |> skip(1) |> take(2) |> sum; }`).defaults.v, {}), 50);
+  assert.equal(
+    resolve(
+      parse(`component X { v: 'a,b,c,d' |> split(',') |> reverse |> take(3) |> join('-'); }`)
+        .defaults.v,
+      {},
+    ),
+    'd-c-b',
+  );
+  assert.equal(
+    resolve(
+      parse(`component X { v: [10, 20, 30, 40] |> skip(1) |> take(2) |> sum; }`).defaults.v,
+      {},
+    ),
+    50,
+  );
   assert.equal(resolve(parse(`component X { v: slice('abcdef', 1, 4); }`).defaults.v, {}), 'bcd');
-  assert.equal(resolve(parse(`component X { v: formatNumber(12.3456, 2); }`).defaults.v, {}), '12.35');
+  assert.equal(
+    resolve(parse(`component X { v: formatNumber(12.3456, 2); }`).defaults.v, {}),
+    '12.35',
+  );
   assert.deepEqual(resolve(parse(`component X { v: range(2, 5); }`).defaults.v, {}), [2, 3, 4]);
 });
 
@@ -229,9 +276,14 @@ test('5. design tokens (tokens { ... } and tokens.*) resolve in HTML and Vector 
         padding: tokens.space.pad;
         ThemedBox { key: 'box'; }
       }
-    }`
+    }`,
   };
-  const compiled = compileComponents(files, 'ui/Main.ui', {}, { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] });
+  const compiled = compileComponents(
+    files,
+    'ui/Main.ui',
+    {},
+    { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] },
+  );
   assert.match(compiled.template, /#123456/);
   assert.match(compiled.template, /#fedcba/);
   assert.equal(compiled.previewControls[0].props.x, 16);
@@ -291,8 +343,19 @@ test('7. keyboard shortcuts and TextInput submitted event trigger actions in int
       onChange() {},
     });
     const input = preview.querySelector('input');
-    input.dispatchEvent({ type: 'keydown', key: 'Enter', preventDefault() {}, stopPropagation() {} });
-    preview.dispatchEvent({ type: 'keydown', key: 'k', ctrlKey: true, preventDefault() {}, stopPropagation() {} });
+    input.dispatchEvent({
+      type: 'keydown',
+      key: 'Enter',
+      preventDefault() {},
+      stopPropagation() {},
+    });
+    preview.dispatchEvent({
+      type: 'keydown',
+      key: 'k',
+      ctrlKey: true,
+      preventDefault() {},
+      stopPropagation() {},
+    });
     assert.deepEqual(fired, [
       { action: 'actions.submitQuery', kind: 'submitted', args: ['forma'] },
       { action: 'actions.openSearch', kind: 'shortcut', args: ['quick'] },
@@ -327,9 +390,14 @@ test('8. struct declarations and List<T> type contracts validate nested objects 
           tags: ['admin', 'core'];
         }
       }
-    }`
+    }`,
   };
-  const compiled = compileComponents(validFiles, 'ui/Main.ui', {}, { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] });
+  const compiled = compileComponents(
+    validFiles,
+    'ui/Main.ui',
+    {},
+    { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] },
+  );
   assert.match(compiled.template, /Alice \(admin\/core\)/);
 
   const invalidStructFiles = {
@@ -341,11 +409,17 @@ test('8. struct declarations and List<T> type contracts validate nested objects 
           user: { name: 'Alice'; age: 'not-an-int'; };
         }
       }
-    }`
+    }`,
   };
   assert.throws(
-    () => compileComponents(invalidStructFiles, 'ui/Main.ui', {}, { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] }),
-    /UserBadge\.user: ожидался User/
+    () =>
+      compileComponents(
+        invalidStructFiles,
+        'ui/Main.ui',
+        {},
+        { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] },
+      ),
+    /UserBadge\.user: ожидался User/,
   );
 
   const invalidListFiles = {
@@ -358,10 +432,16 @@ test('8. struct declarations and List<T> type contracts validate nested objects 
           tags: ['ok', 42];
         }
       }
-    }`
+    }`,
   };
   assert.throws(
-    () => compileComponents(invalidListFiles, 'ui/Main.ui', {}, { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] }),
-    /UserBadge\.tags: ожидался List<String>/
+    () =>
+      compileComponents(
+        invalidListFiles,
+        'ui/Main.ui',
+        {},
+        { measureText: (t, s) => [t.length * s * 0.6, s * 1.2] },
+      ),
+    /UserBadge\.tags: ожидался List<String>/,
   );
 });
