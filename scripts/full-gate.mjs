@@ -36,6 +36,7 @@ export const WORKSPACE_CRATES = [
   'tensor-core',
   'compute-core',
   'compute-cuda',
+  'memory-budget',
 ];
 export function steps({ platform, installedTargets, viteEntry }) {
   return {

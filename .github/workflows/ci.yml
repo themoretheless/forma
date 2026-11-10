@@ -47,7 +47,7 @@ jobs:
           key: crates-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'Cargo.lock', 'crates/gpu-compute/Cargo.lock', 'crates/gpu-kit/Cargo.lock') }}
           restore-keys: crates-${{ runner.os }}-${{ runner.arch }}-
       - name: Workspace crates
-        run: cargo test --locked -p gpu-shader -p gpu-runtime -p raster-core -p osv-math -p tensor-core -p compute-core -p compute-cuda --features tensor-core/conformance
+        run: cargo test --locked -p gpu-shader -p gpu-runtime -p raster-core -p osv-math -p tensor-core -p compute-core -p compute-cuda -p memory-budget --features tensor-core/conformance
       - name: math-compute adapters
         run: cargo test --locked -p osv-math-compute --features gpu,tensor,tensor-wgsl
       - name: compute-mlx
