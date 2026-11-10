@@ -1406,6 +1406,8 @@ impl MetalDevice {
             if let Some((pso, dss)) = cache.get(&cache_key) {
                 return crate::RenderPipeline {
                     pso: pso.clone(),
+                    vertex_bindings: desc.vertex.module.bindings.clone(),
+                    fragment_bindings: fs_state.map(|fs| fs.module.bindings.clone()),
                     depth_stencil_state: dss.clone(),
                     primitive: desc.primitive,
                     depth_bias: desc
@@ -1652,6 +1654,8 @@ impl MetalDevice {
             }
             crate::RenderPipeline {
                 pso,
+                vertex_bindings: desc.vertex.module.bindings.clone(),
+                fragment_bindings: fs_state.map(|fs| fs.module.bindings.clone()),
                 depth_stencil_state,
                 primitive: desc.primitive,
                 depth_bias: desc
