@@ -31,6 +31,10 @@ impl<V> Entry<V> {
     fn expired(&self, now: Instant) -> bool {
         self.deadline.is_some_and(|v| now >= v)
     }
+    /// An entry with a deadline is only ever checked with a clock reading.
+    fn expired_at(&self, now: Option<Instant>) -> bool {
+        now.is_some_and(|now| self.expired(now))
+    }
 }
 /// Single-owner, byte-weighted LRU with independently optional count and TTL limits.
 /// Membership weights do not account for external owners; managed `SharedBuffer`
@@ -56,6 +60,11 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
             && limits
                 .max_entries
                 .is_none_or(|max| self.entries.len() <= max)
+    }
+    /// The current time, read only when a TTL limit or a live deadline can use it.
+    /// `Instant::now` panics on `wasm32-unknown-unknown`, so a cache without TTL never reads it.
+    fn ttl_now(&self) -> Option<Instant> {
+        (self.limits.ttl.is_some() || self.deadline_entries > 0).then(Instant::now)
     }
     /// Keeps `next_expiry` at the earliest deadline a pruner still has to visit.
     fn note_deadline(&mut self, deadline: Instant) {
@@ -105,12 +114,12 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
             self.limits = limits;
             return Some(Vec::new());
         }
-        let now = Instant::now();
+        let now = self.ttl_now();
         let mut candidates: Vec<_> = self
             .entries
             .iter()
             .filter(|(key, _)| !self.protected.contains(*key))
-            .map(|(key, entry)| (!entry.expired(now), entry.last_used, key.clone()))
+            .map(|(key, entry)| (!entry.expired_at(now), entry.last_used, key.clone()))
             .collect();
         candidates.sort_unstable_by_key(|entry| (entry.0, entry.1));
         let mut victims = Vec::new();
@@ -302,10 +311,11 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
             })
             .collect()
     }
-    fn deadline(&self, now: Instant) -> Result<Option<Instant>, ()> {
-        match self.limits.ttl {
-            Some(ttl) => now.checked_add(ttl).map(Some).ok_or(()),
-            None => Ok(None),
+    fn deadline(&self, now: Option<Instant>) -> Result<Option<Instant>, ()> {
+        match (self.limits.ttl, now) {
+            (Some(ttl), Some(now)) => now.checked_add(ttl).map(Some).ok_or(()),
+            (Some(_), None) => Err(()),
+            (None, _) => Ok(None),
         }
     }
     /// Conservative count-only admission check without eviction or recency changes.
@@ -337,11 +347,13 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
     }
     /// Plain insertion can evict protected entries; use `insert_prefetch` for pin-aware admission.
     pub fn insert(&mut self, key: K, value: V, weight: u64) -> bool {
-        self.insert_at(key, value, weight, Instant::now(), false)
+        let now = self.ttl_now();
+        self.insert_at_collect(key, value, weight, now, false, &mut Vec::new())
     }
     /// Rejected pin-aware admission preserves every existing value and recency.
     pub fn insert_prefetch(&mut self, key: K, value: V, weight: u64) -> bool {
-        self.insert_at(key, value, weight, Instant::now(), true)
+        let now = self.ttl_now();
+        self.insert_at_collect(key, value, weight, now, true, &mut Vec::new())
     }
     pub fn insert_prefetch_with_evictions(
         &mut self,
@@ -350,16 +362,16 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         weight: u64,
     ) -> (bool, Vec<(K, V)>) {
         let mut evicted = Vec::new();
-        let admitted =
-            self.insert_at_collect(key, value, weight, Instant::now(), true, &mut evicted);
+        let now = self.ttl_now();
+        let admitted = self.insert_at_collect(key, value, weight, now, true, &mut evicted);
         (admitted, evicted)
     }
     pub fn take_lru(&mut self) -> Option<(K, V)> {
-        let now = Instant::now();
         if self.deadline_entries == 0 {
             let key = self.evictable.first_key_value()?.1.clone();
             return self.remove(&key).map(|value| (key, value));
         }
+        let now = Instant::now();
         let key = self
             .entries
             .iter()
@@ -368,15 +380,16 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
             .map(|(k, _)| k.clone())?;
         self.remove(&key).map(|value| (key, value))
     }
+    #[cfg(test)]
     fn insert_at(&mut self, key: K, value: V, weight: u64, now: Instant, pin_aware: bool) -> bool {
-        self.insert_at_collect(key, value, weight, now, pin_aware, &mut Vec::new())
+        self.insert_at_collect(key, value, weight, Some(now), pin_aware, &mut Vec::new())
     }
     fn insert_at_collect(
         &mut self,
         key: K,
         value: V,
         weight: u64,
-        now: Instant,
+        now: Option<Instant>,
         pin_aware: bool,
         evicted: &mut Vec<(K, V)>,
     ) -> bool {
@@ -415,7 +428,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
                 self.entries
                     .iter()
                     .filter(|(k, _)| *k != &key && (!pin_aware || !self.protected.contains(*k)))
-                    .map(|(k, v)| (!v.expired(now), v.last_used, k.clone(), v.weight))
+                    .map(|(k, v)| (!v.expired_at(now), v.last_used, k.clone(), v.weight))
                     .collect()
             }
         } else {
@@ -1214,8 +1227,8 @@ mod limit_tests {
         assert!(cache.insert_at("old", 1, 2, now, true));
         cache.limits.ttl = Some(Duration::MAX);
         let mut victims = Vec::new();
-        assert!(!cache.insert_at_collect("new", 2, 2, now, true, &mut victims));
-        assert!(!cache.insert_at_collect("old", 3, 2, now, true, &mut victims));
+        assert!(!cache.insert_at_collect("new", 2, 2, Some(now), true, &mut victims));
+        assert!(!cache.insert_at_collect("old", 3, 2, Some(now), true, &mut victims));
         assert!(victims.is_empty());
         assert_eq!(cache.resident_weight(), 2);
         assert_eq!(cache.get_at(&"old", now), Some(&1));
