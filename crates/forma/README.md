@@ -145,8 +145,48 @@ backdrop над сценой (CPU и GPU), не даёт контролам по
 `dismissed_index` и `modal_action` позволяют хосту выполнить обработчик
 `dismissed`. Web-хост передаёт Escape (код клавиши 3) и нажатия по backdrop,
 native-окно — Escape и щелчки мыши; события выводятся в журнал так же, как `clicked`.
-Anchor-позиционирование немодальных popup, задержки tooltip и очереди toast в
-слой не входят.
+Немодальные popup описаны ниже; очереди toast в слой не входят.
+
+### Немодальные popup, меню и подсказки
+
+Слой `Modal` превращается в popup, привязанный к контролу, вызовом из Rust:
+
+```rust
+use forma::runtime::{Placement, PopupKind, PopupSpec};
+runtime.set_popup("menu", PopupSpec::new("file", PopupKind::Menu))?;
+runtime.set_popup("tip", PopupSpec::new("help", PopupKind::Tooltip).delay_ms(400.))?;
+runtime.set_popup("card", PopupSpec::new("other", PopupKind::Popup).placement(Placement::Right))?;
+runtime.open_popup("menu"); // close_popup, toggle_popup, popup_open, popup_bounds, popup_placement
+```
+
+- Положение: со стороны `placement` от границ контрола-якоря (`Below` по
+  умолчанию, отступ `offset`), выравнивание по началу якоря. Если сторона не
+  помещается в кадр, а противоположная помещается, popup переворачивается;
+  затем он прижимается к границам кадра. Положение пересчитывается при каждом
+  открытии и при прокрутке базовой сцены. Дети слоя переносятся вместе с ним.
+- Popup не рисует backdrop и не блокирует сцену: остальные контролы получают
+  hover, нажатия, фокус и прокрутку. Нажатие вне поверхности и вне якоря
+  закрывает popup и всё равно достаётся контролу под указателем; нажатие на
+  якорь не закрывает, чтобы приложение могло переключать popup по `clicked`.
+  Escape закрывает верхний popup. Закрытие по нажатию или Escape, как у
+  модального слоя, увеличивает `dismiss_count` и выставляет `dismissed_index`.
+- `Menu` и `Select` при открытии фокусируют первый пункт; стрелки вверх/вниз
+  (коды `key_event` 4 и 5, native-окно передаёт их само) переводят фокус по
+  кругу; Enter или щелчок по пункту активирует его и закрывает меню; закрытие
+  возвращает фокус якорю. Стрелка вниз на сфокусированном якоре открывает меню.
+- `Tooltip` открывается, когда указатель пробыл над якорем `delay_ms`
+  (по умолчанию 500 мс). Задержка идёт в `tick`, а `is_animating` остаётся
+  `true`, пока она не истекла, поэтому хост просто продолжает обычный цикл
+  перерисовки. Подсказка закрывается при уходе с якоря, нажатии и Escape, не
+  получает фокус и не перехватывает указатель.
+- `open_modal`, `close_modal` и `dismiss_modal` для такого слоя работают как
+  для popup. Настройка переживает пересборку сцены (`preserve_interaction`)
+  по ключам слоя и якоря.
+- Не сделано: объявление popup в `.ui` — Rust-компилятор `.ui` пока не
+  создаёт слоёв `Modal`, поэтому статические `Tooltip`, `MenuItem`,
+  `SelectTrigger` и `Toast` из `controls/` к слою ещё не подключены; WASM-хост
+  Studio не передаёт стрелки; очередь toast; роли popup/menu в дереве
+  доступности (слой виден там как диалог).
 
 Brush — значение свойства: `Rectangle { background: Brush { color: props.background; hover: #a8baff; transition: 140ms; }; }`. У Border используется `background: Brush { color: #bed0ff; };`. Одноцветные сокращения: `background: #8ca5ff;`, `background: #bed0ff;`. Самостоятельные дочерние узлы Brush больше не принимаются.
 
