@@ -60,6 +60,18 @@ impl Runtime {
         self.sync_ui_bindings_native()
             .map_err(|e| JsValue::from_str(&e))
     }
+    /// Replaces the named root state fields of the retained `.ui` document from a JSON object and
+    /// synchronizes once, keeping focus, text and scroll. Returns `true` after a scene rebuild.
+    pub fn set_ui_state_json(&mut self, state_json: &str) -> Result<bool, JsValue> {
+        self.set_ui_state_json_native(state_json)
+            .map_err(|e| JsValue::from_str(&e))
+    }
+    /// Sets individual state paths (`{"user.name":"Ada","items.2.done":true}`) of the retained
+    /// `.ui` document and synchronizes once. Returns `true` after a scene rebuild.
+    pub fn patch_ui_state_json(&mut self, patch_json: &str) -> Result<bool, JsValue> {
+        self.patch_ui_state_json_native(patch_json)
+            .map_err(|e| JsValue::from_str(&e))
+    }
     /// Number of accepted activations waiting for a successful binding commit.
     pub fn pending_ui_binding_activations(&self) -> usize {
         self.ui_activations.events.len()

@@ -16,6 +16,8 @@ mod svg_path;
 mod visual;
 mod widget_state;
 
+pub(crate) use bindings::StatePush;
+
 #[cfg(test)]
 use bindings::{
     BindingKeyIndexes, lookup_binding_mut, lookup_binding_ref, resolve_binding_frame,

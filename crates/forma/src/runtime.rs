@@ -35,7 +35,7 @@ struct GeometryCache {
     list: Arc<DisplayList>,
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, PartialEq)]
 enum BindingWidgetValue {
     Text(String),
     Range(f32),
@@ -283,6 +283,74 @@ impl Runtime {
             self.ui_document = Some(doc);
             Ok(false)
         }
+    }
+
+    /// Replaces root state fields of the retained `.ui` document with application values, then
+    /// synchronizes like [`Self::sync_ui_bindings_native`]: one rebuild at most, with focus, text,
+    /// undo history and scroll offset kept. Fields that are not named keep their value, so state
+    /// owned by the screen itself survives. Text the user typed since the last synchronization
+    /// still wins for the field it is bound to. Returns `Ok(false)` when nothing was rebuilt.
+    /// A refused push changes nothing: state, pending input and the scene stay as they were.
+    pub fn set_ui_state_properties(
+        &mut self,
+        state: &crate::form_document::Properties,
+    ) -> Result<bool, String> {
+        self.push_ui_state(crate::form_document::StatePush::fields(state.clone()))
+    }
+
+    /// [`Self::set_ui_state_properties`] for a JSON object, converted like the initial state of
+    /// [`Self::load_ui_files_json_native`].
+    pub fn set_ui_state_json_native(&mut self, state_json: &str) -> Result<bool, String> {
+        self.push_ui_state(crate::form_document::StatePush::from_json(
+            state_json, false,
+        )?)
+    }
+
+    /// Sets individual state paths from a JSON object such as
+    /// `{"user.name":"Ada","items.2.done":true}`, with the guarantees of
+    /// [`Self::set_ui_state_properties`]. A path steps through objects by field name and through
+    /// lists by index; missing objects are created, a missing list item is an error.
+    pub fn patch_ui_state_json_native(&mut self, patch_json: &str) -> Result<bool, String> {
+        self.push_ui_state(crate::form_document::StatePush::from_json(
+            patch_json, true,
+        )?)
+    }
+
+    fn push_ui_state(&mut self, push: crate::form_document::StatePush) -> Result<bool, String> {
+        let Some(doc) = self.ui_document.as_mut() else {
+            return Err("UI state requires a document loaded from .ui files".into());
+        };
+        if doc.states.is_empty() {
+            doc.states.push(Default::default());
+        }
+        let mut pushed = doc.states[0].clone();
+        push.apply(&mut pushed)?;
+        // Synchronization commits input before it renders. Everything it may
+        // consume is kept, so a scene that refuses the push loses nothing.
+        let state = std::mem::replace(&mut doc.states[0], pushed);
+        let baseline = self.binding_widget_baseline.borrow().clone();
+        let (events, last_event) = (self.ui_activations.events.clone(), self.last_event);
+        let (pending, idle) = (self.ui_render_pending, self.ui_binding_idle_ready);
+        let result = self.sync_ui_bindings_native();
+        if result.is_err() {
+            // A failed synchronization never replaces this Runtime.
+            if let Some(doc) = self.ui_document.as_mut() {
+                doc.states[0] = state;
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(graph) = &mut self.svet_document {
+                    graph.reconcile(&doc.states);
+                    if !pending {
+                        graph.complete();
+                    }
+                }
+            }
+            *self.binding_widget_baseline.borrow_mut() = baseline;
+            self.ui_activations.events = events;
+            self.last_event = last_event;
+            self.ui_render_pending = pending;
+            self.ui_binding_idle_ready = idle;
+        }
+        result
     }
 
     /// Returns the retained `.ui` `Document` state map (if loaded via `from_ui_files`), or empty map.

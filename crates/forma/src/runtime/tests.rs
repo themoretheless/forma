@@ -665,6 +665,223 @@ fn retained_model_change_rebuilds_without_widget_input() {
         assert!(!runtime.sync_ui_bindings_native().unwrap());
     }
 }
+fn pushed_state_runtime() -> Runtime {
+    let files = std::collections::BTreeMap::from([("App.ui".to_string(),
+        "component App { state title: String = 'Old'; state note: String = 'draft'; state user: Object = { name: 'Ada' }; state items: List = []; Column { width:360; height:400; Scroll { width:320; height:300; Column { width:200; height:900; Text { key:'title'; text: state.title; } Text { key:'user'; text: state.user.name; } TextInput { key:'note'; width:200; height:32; value <-> state.note; } for item in state.items key item.id { Text { text: item.label; } } } } } }".to_string())]);
+    Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap()
+}
+fn static_labels(runtime: &Runtime) -> Vec<String> {
+    runtime
+        .accessibility_tree()
+        .nodes
+        .into_iter()
+        .filter(|node| node.role == A11yRole::StaticText)
+        .map(|node| node.label)
+        .collect()
+}
+fn state_json(runtime: &Runtime) -> serde_json::Value {
+    serde_json::from_str(&runtime.ui_state_json()).unwrap()
+}
+#[test]
+fn pushed_state_updates_text_and_collections() {
+    use crate::form_document::{Properties, Value};
+    for svet in [false, true] {
+        let mut runtime = pushed_state_runtime();
+        #[cfg(not(target_arch = "wasm32"))]
+        runtime.set_svet_document_scheduling(svet);
+        let _ = svet;
+        assert_eq!(static_labels(&runtime), ["Old", "Ada"]);
+        assert!(runtime.set_ui_state_json_native(r#"{"title":"New","items":[{"id":"a","label":"First"},{"id":"b","label":"Second"}]}"#).unwrap());
+        assert_eq!(static_labels(&runtime), ["New", "Ada", "First", "Second"]);
+        // Fields that were not named, including the screen's own, are kept.
+        assert_eq!(state_json(&runtime)["note"], "draft");
+        assert_eq!(runtime.text_value(2), "draft");
+        assert!(
+            runtime
+                .patch_ui_state_json_native(
+                    r#"{"user.name":"Grace","items.1.label":"Other","extra.depth.flag":true}"#
+                )
+                .unwrap()
+        );
+        assert_eq!(static_labels(&runtime), ["New", "Grace", "First", "Other"]);
+        assert_eq!(state_json(&runtime)["extra"]["depth"]["flag"], true);
+        let state = Properties::from([
+            (
+                "items".to_string(),
+                Value::List(vec![Value::Object(Properties::from([
+                    ("id".to_string(), Value::Text("b".into())),
+                    ("label".to_string(), Value::Text("Only".into())),
+                ]))]),
+            ),
+            ("note".to_string(), Value::Text("pushed".into())),
+        ]);
+        assert!(runtime.set_ui_state_properties(&state).unwrap());
+        assert_eq!(static_labels(&runtime), ["New", "Grace", "Only"]);
+        assert_eq!(runtime.text_value(2), "pushed");
+        assert!(!runtime.sync_ui_bindings_native().unwrap());
+    }
+}
+#[test]
+fn pushed_state_keeps_focus_caret_undo_and_scroll() {
+    for synchronized in [true, false] {
+        let mut runtime = pushed_state_runtime();
+        runtime.scroll(0., 40.);
+        assert!(runtime.focus_control(2));
+        runtime.text_key("End", false, false);
+        runtime.text_insert("-x");
+        runtime.text_key("ArrowLeft", false, false);
+        let selection = runtime.text_selection_utf16();
+        if synchronized {
+            assert!(runtime.sync_ui_bindings_native().unwrap());
+        }
+        let revision = runtime.revision;
+        assert!(
+            runtime
+                .set_ui_state_json_native(r#"{"title":"New","items":[{"id":"a","label":"First"}]}"#)
+                .unwrap()
+        );
+        assert_ne!(runtime.revision, revision);
+        assert_eq!(static_labels(&runtime), ["New", "Ada", "First"]);
+        assert_eq!(runtime.focused_index(), 2);
+        assert_eq!(runtime.text_value(2), "draft-x");
+        assert_eq!(
+            state_json(&runtime)["note"],
+            "draft-x",
+            "typed text reaches the model with the push"
+        );
+        assert_eq!(runtime.text_selection_utf16(), selection);
+        assert_eq!(runtime.scroll_offset(), vec![0., 40.]);
+        assert!(runtime.text_key("z", false, true));
+        assert_eq!(runtime.text_value(2), "draft");
+    }
+}
+#[test]
+fn refused_state_push_changes_nothing() {
+    let mut empty = Runtime::new();
+    assert!(empty.set_ui_state_json_native("{}").is_err());
+    assert!(empty.patch_ui_state_json_native("{}").is_err());
+    for svet in [false, true] {
+        let mut runtime = pushed_state_runtime();
+        #[cfg(not(target_arch = "wasm32"))]
+        runtime.set_svet_document_scheduling(svet);
+        let _ = svet;
+        assert!(
+            runtime
+                .set_ui_state_json_native(r#"{"items":[{"id":"a","label":"First"}]}"#)
+                .unwrap()
+        );
+        // Input that is not synchronized yet must survive every refusal.
+        assert!(runtime.focus_control(2));
+        runtime.text_key("End", false, false);
+        runtime.text_insert("-y");
+        let (state, labels, revision) = (
+            state_json(&runtime),
+            static_labels(&runtime),
+            runtime.revision,
+        );
+        let deep = format!("{{\"{}\":1}}", vec!["a"; 65].join("."));
+        let nested = format!("{{\"title\":{}1{}}}", "[".repeat(200), "]".repeat(200));
+        let rows = |count: usize| {
+            serde_json::json!({"title": "Lost", "items": (0..count).map(|i| serde_json::json!({"id": format!("r{i}"), "label": "Row"})).collect::<Vec<_>>()}).to_string()
+        };
+        for refused in [
+            "{",
+            "",
+            "[1]",
+            "\"title\"",
+            "{\"title\":\"A\"} tail",
+            nested.as_str(),
+            // A text field cannot display a list, so the scene refuses the value.
+            r#"{"title":[1]}"#,
+            // More controls and more scene nodes than one scene admits.
+            rows(1_100).as_str(),
+            rows(20_000).as_str(),
+        ] {
+            assert!(
+                runtime.set_ui_state_json_native(refused).is_err(),
+                "{:.40}",
+                refused
+            );
+            assert_eq!(state_json(&runtime), state);
+        }
+        for refused in [
+            "{",
+            "[]",
+            r#"{"":1}"#,
+            r#"{"user..name":1}"#,
+            r#"{".title":1}"#,
+            r#"{"title.":1}"#,
+            deep.as_str(),
+            r#"{"title.length":1}"#,
+            r#"{"items.1.label":"x"}"#,
+            r#"{"items.x.label":"x"}"#,
+            r#"{"items.0.label.text":"x"}"#,
+            // Every path of a patch is applied, or none of them.
+            r#"{"title":"Lost","items.9":1}"#,
+            r#"{"title":"Lost","user.name":[1]}"#,
+        ] {
+            assert!(
+                runtime.patch_ui_state_json_native(refused).is_err(),
+                "{:.40}",
+                refused
+            );
+            assert_eq!(state_json(&runtime), state);
+        }
+        assert_eq!(static_labels(&runtime), labels);
+        assert_eq!(runtime.revision, revision);
+        assert_eq!(runtime.text_value(2), "draft-y");
+        assert!(runtime.sync_ui_bindings_native().unwrap());
+        assert_eq!(state_json(&runtime)["note"], "draft-y");
+        assert!(!runtime.sync_ui_bindings_native().unwrap());
+    }
+}
+#[test]
+fn unchanged_state_push_does_not_rebuild() {
+    for svet in [false, true] {
+        let mut runtime = pushed_state_runtime();
+        #[cfg(not(target_arch = "wasm32"))]
+        runtime.set_svet_document_scheduling(svet);
+        let _ = svet;
+        assert!(
+            runtime
+                .set_ui_state_json_native(r#"{"title":"New","items":[{"id":"a","label":"First"}]}"#)
+                .unwrap()
+        );
+        let (revision, geometry, layout) = (
+            runtime.revision,
+            runtime.geometry_revision,
+            runtime.layout_revision,
+        );
+        #[cfg(not(target_arch = "wasm32"))]
+        let identity = runtime.native_instance_id;
+        assert!(
+            !runtime
+                .set_ui_state_json_native(r#"{"title":"New","items":[{"id":"a","label":"First"}]}"#)
+                .unwrap()
+        );
+        assert!(!runtime.set_ui_state_json_native("{}").unwrap());
+        assert!(
+            !runtime
+                .patch_ui_state_json_native(r#"{"user.name":"Ada","items.0.label":"First"}"#)
+                .unwrap()
+        );
+        assert!(
+            !runtime
+                .set_ui_state_properties(&runtime.ui_state_properties())
+                .unwrap()
+        );
+        assert_eq!(
+            (
+                runtime.revision,
+                runtime.geometry_revision,
+                runtime.layout_revision
+            ),
+            (revision, geometry, layout)
+        );
+        #[cfg(not(target_arch = "wasm32"))]
+        assert_eq!(runtime.native_instance_id, identity);
+    }
+}
 const EDITOR: &str = "component Button { Rectangle { ContentInput { width:80; height:30; value:'seed'; } PointerArea { clicked -> events.clicked(); } } }";
 #[test]
 fn editor_refresh_tracks_mutations_focus_and_preedit_without_touching_siblings() {
