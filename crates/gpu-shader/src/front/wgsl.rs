@@ -749,13 +749,7 @@ pub fn resolve_or_insert_type(
             class: ImageClass::Depth { multi: false },
         },
         _ if ty_str.starts_with("texture_2d_array<") || ty_str.starts_with("texture_cube<") => {
-            let kind = if ty_str.contains("u32") {
-                ScalarKind::Uint
-            } else if ty_str.contains("i32") {
-                ScalarKind::Sint
-            } else {
-                ScalarKind::Float
-            };
+            let kind = sampled_kind(ty_str);
             let cube = ty_str.starts_with("texture_cube<");
             TypeInner::Image {
                 dim: if cube {
@@ -768,13 +762,7 @@ pub fn resolve_or_insert_type(
             }
         }
         _ if ty_str.starts_with("texture_2d<") => {
-            let kind = if ty_str.contains("u32") {
-                ScalarKind::Uint
-            } else if ty_str.contains("i32") {
-                ScalarKind::Sint
-            } else {
-                ScalarKind::Float
-            };
+            let kind = sampled_kind(ty_str);
             TypeInner::Image {
                 dim: ImageDimension::D2,
                 arrayed: false,
@@ -782,13 +770,7 @@ pub fn resolve_or_insert_type(
             }
         }
         _ if ty_str.starts_with("texture_3d<") => {
-            let kind = if ty_str.contains("u32") {
-                ScalarKind::Uint
-            } else if ty_str.contains("i32") {
-                ScalarKind::Sint
-            } else {
-                ScalarKind::Float
-            };
+            let kind = sampled_kind(ty_str);
             TypeInner::Image {
                 dim: ImageDimension::D3,
                 arrayed: false,
@@ -862,6 +844,17 @@ pub fn resolve_or_insert_type(
     let h = module.types.append(Type { name: None, inner });
     type_map.insert(ty_str.to_string(), h);
     h
+}
+
+/// The scalar kind a sampled texture type such as `texture_2d<u32>` reads.
+fn sampled_kind(ty_str: &str) -> ScalarKind {
+    if ty_str.contains("u32") {
+        ScalarKind::Uint
+    } else if ty_str.contains("i32") {
+        ScalarKind::Sint
+    } else {
+        ScalarKind::Float
+    }
 }
 
 pub fn eval_u32_const_expr(expr: &str, const_values: &BTreeMap<String, u32>) -> Option<u32> {

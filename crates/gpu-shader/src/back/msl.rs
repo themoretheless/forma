@@ -664,10 +664,7 @@ fn emit_entry_point(
         out.push_str(&format!("struct {stage_in_struct_name} {{\n"));
         for (idx, arg) in func.arguments.iter().enumerate() {
             if let Some(Binding::Location { location, .. }) = arg.binding {
-                let aname = arg
-                    .name
-                    .as_deref()
-                    .map_or_else(|| format!("arg_{idx}"), |n| msl_escape_ident(n).to_string());
+                let aname = msl_arg_name(arg.name.as_deref(), idx);
                 let aty = msl_type_for_handle(module, arg.ty, false);
                 out.push_str(&format!("    {aty} {aname} [[attribute({location})]];\n"));
             }
@@ -719,10 +716,7 @@ fn emit_entry_point(
     }
 
     for (idx, arg) in func.arguments.iter().enumerate() {
-        let aname = arg
-            .name
-            .as_deref()
-            .map_or_else(|| format!("arg_{idx}"), |n| msl_escape_ident(n).to_string());
+        let aname = msl_arg_name(arg.name.as_deref(), idx);
         let aty = msl_type_for_handle(module, arg.ty, false);
         match arg.binding {
             Some(Binding::Location { .. }) if has_vertex_input_attrs => {
@@ -871,6 +865,11 @@ fn emit_entry_point(
     );
     out.push_str(&body);
     out.push_str("}\n\n");
+}
+
+/// The MSL name of an entry-point argument: its escaped WGSL name, or `arg_N` when unnamed.
+fn msl_arg_name(name: Option<&str>, idx: usize) -> String {
+    name.map_or_else(|| format!("arg_{idx}"), |n| msl_escape_ident(n).to_string())
 }
 
 pub fn msl_type_for_handle(module: &Module, handle: Handle<Type>, packed_vec3: bool) -> String {
