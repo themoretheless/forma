@@ -850,9 +850,12 @@ trait CollectionWrite {
         value: &crate::form_document::Value,
     ) -> Result<Option<Box<dyn FnOnce()>>, String>;
 }
+type CollectionItemSetter<T> =
+    Rc<dyn Fn(&mut T, &[usize], &crate::form_document::Value) -> Result<(), String>>;
+
 struct CollectionField<T> {
     field: Field<Vec<T>>,
-    set: Rc<dyn Fn(&mut T, &[usize], &crate::form_document::Value) -> Result<(), String>>,
+    set: CollectionItemSetter<T>,
 }
 impl<T: Clone + PartialEq + 'static> CollectionWrite for CollectionField<T> {
     fn epoch(&self) -> u64 {

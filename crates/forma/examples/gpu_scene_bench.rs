@@ -80,13 +80,12 @@ fn main() {
                 view_formats: &[],
             });
             let view = texture.create_view(&Default::default());
+            let vp = forma::gpu::Viewport::new(1000, 2560, 1.);
             let mut cpu = Vec::with_capacity(frames);
             let mut gpu = Vec::with_capacity(frames);
             for i in 0..20 {
                 model.pointer(if i % 2 == 0 { 50. } else { -1. }, 5., 0);
-                renderer
-                    .draw(&model, &view, 1000, 2560, 1., true, false)
-                    .unwrap();
+                renderer.draw(&model, &view, vp, true, false).unwrap();
                 renderer
                     .device
                     .poll(wgpu::PollType::wait_indefinitely())
@@ -126,9 +125,7 @@ fn main() {
                 let after_pointer = ALLOCATOR.snapshot();
                 phase_allocations[0] += after_pointer.allocations - phase_start.allocations;
                 let started = std::time::Instant::now();
-                renderer
-                    .draw(&model, &view, 1000, 2560, 1., true, false)
-                    .unwrap();
+                renderer.draw(&model, &view, vp, true, false).unwrap();
                 let after_draw = ALLOCATOR.snapshot();
                 phase_allocations[1] += after_draw.allocations - after_pointer.allocations;
                 cpu.push(started.elapsed().as_secs_f64() * 1000.);

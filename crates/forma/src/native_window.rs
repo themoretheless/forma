@@ -1577,28 +1577,27 @@ impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for Nati
             .chooser
             .as_ref()
             .map_or(plat_h, |c| c.render_height().max(plat_h));
-        let setup =
-            || -> Result<(Arc<Window>, softbuffer::Surface<Arc<Window>, Arc<Window>>), String> {
-                let window = Arc::new(
-                    event_loop
-                        .create_window(
-                            Window::default_attributes()
-                                .with_visible(false)
-                                .with_title(self.config.title.clone())
-                                .with_inner_size(LogicalSize::new(init_w, init_h))
-                                .with_resizable(self.config.resizable),
-                        )
-                        .map_err(|e| e.to_string())?,
-                );
-                let context =
-                    softbuffer::Context::new(window.clone()).map_err(|e| e.to_string())?;
-                let surface = softbuffer::Surface::new(&context, window.clone())
-                    .map_err(|e| e.to_string())?;
-                let redraw = RedrawHandle::new(&window);
-                self.app
-                    .on_dirty(Box::new(move || redraw.request_redraw()))?;
-                Ok((window, surface))
-            };
+        type CpuWindowSurface = (Arc<Window>, softbuffer::Surface<Arc<Window>, Arc<Window>>);
+        let setup = || -> Result<CpuWindowSurface, String> {
+            let window = Arc::new(
+                event_loop
+                    .create_window(
+                        Window::default_attributes()
+                            .with_visible(false)
+                            .with_title(self.config.title.clone())
+                            .with_inner_size(LogicalSize::new(init_w, init_h))
+                            .with_resizable(self.config.resizable),
+                    )
+                    .map_err(|e| e.to_string())?,
+            );
+            let context = softbuffer::Context::new(window.clone()).map_err(|e| e.to_string())?;
+            let surface =
+                softbuffer::Surface::new(&context, window.clone()).map_err(|e| e.to_string())?;
+            let redraw = RedrawHandle::new(&window);
+            self.app
+                .on_dirty(Box::new(move || redraw.request_redraw()))?;
+            Ok((window, surface))
+        };
         match setup() {
             Ok((window, surface)) => {
                 if let Some(proxy) = &self.accessibility_proxy {

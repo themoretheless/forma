@@ -307,6 +307,12 @@ impl Button {
     }
 }
 
+impl Default for Button {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl Button {
     #[wasm_bindgen(constructor)]
@@ -665,10 +671,7 @@ impl Button {
         if let Some(t) = &self.template.text {
             text::draw_text_in(
                 t.family,
-                &mut out,
-                width,
-                height,
-                scale,
+                &mut text::RasterCanvas::full(&mut out, width, height, scale),
                 &t.text,
                 t.font_size,
                 [
@@ -716,10 +719,7 @@ impl Button {
                 }
                 template::Content::Text { bounds, text: t } => text::draw_text_in(
                     t.family,
-                    &mut out,
-                    width,
-                    height,
-                    scale,
+                    &mut text::RasterCanvas::full(&mut out, width, height, scale),
                     &t.text,
                     t.font_size,
                     [b.x + bounds[0], b.y + bounds[1], bounds[2], bounds[3]],

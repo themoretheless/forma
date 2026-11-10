@@ -200,10 +200,7 @@ fn portable_faces_render_real_cjk_and_monochrome_emoji() {
         let render = |text| {
             let mut pixels = vec![0; 100 * 60 * 4];
             draw_text(
-                &mut pixels,
-                100,
-                60,
-                1.,
+                &mut RasterCanvas::full(&mut pixels, 100, 60, 1.),
                 text,
                 28.,
                 [0., 0., 100., 60.],
@@ -244,10 +241,7 @@ fn missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width() {
     let render = |text| {
         let mut pixels = vec![0; 100 * 60 * 4];
         draw_text(
-            &mut pixels,
-            100,
-            60,
-            1.,
+            &mut RasterCanvas::full(&mut pixels, 100, 60, 1.),
             text,
             28.,
             [0., 0., 100., 60.],
@@ -282,10 +276,7 @@ fn draws_cyrillic_font_outlines_with_antialiasing() {
     assert!(face.glyph_index('я').is_some());
     let mut pixels = vec![0; 180 * 60 * 4];
     draw_text(
-        &mut pixels,
-        180,
-        60,
-        1.,
+        &mut RasterCanvas::full(&mut pixels, 180, 60, 1.),
         "Привет",
         28.,
         [0., 0., 180., 60.],
@@ -305,10 +296,7 @@ fn draws_cyrillic_font_outlines_with_antialiasing() {
 fn clips_oversized_text_to_label_rectangle() {
     let mut pixels = vec![0; 40 * 30 * 4];
     draw_text(
-        &mut pixels,
-        40,
-        30,
-        1.,
+        &mut RasterCanvas::full(&mut pixels, 40, 30, 1.),
         "ННННННН",
         35.,
         [10., 10., 20., 10.],
@@ -328,10 +316,7 @@ fn clips_oversized_text_to_label_rectangle() {
 fn handles_tiny_canvas_and_invalid_inputs_without_out_of_bounds_writes() {
     let mut pixels = [0; 4];
     draw_text(
-        &mut pixels,
-        1,
-        1,
-        2.,
+        &mut RasterCanvas::full(&mut pixels, 1, 1, 2.),
         "Я",
         80.,
         [-10., -10., 30., 30.],
@@ -339,10 +324,7 @@ fn handles_tiny_canvas_and_invalid_inputs_without_out_of_bounds_writes() {
     );
     let before = pixels;
     draw_text(
-        &mut pixels,
-        1,
-        1,
-        1.,
+        &mut RasterCanvas::full(&mut pixels, 1, 1, 1.),
         "Я",
         80.,
         [10., 10., 30., 30.],
@@ -350,20 +332,14 @@ fn handles_tiny_canvas_and_invalid_inputs_without_out_of_bounds_writes() {
     );
     assert_eq!(pixels, before);
     draw_text(
-        &mut pixels,
-        100,
-        100,
-        1.,
+        &mut RasterCanvas::full(&mut pixels, 100, 100, 1.),
         "Я",
         80.,
         [0., 0., 30., 30.],
         [255; 4],
     );
     draw_text(
-        &mut pixels,
-        1,
-        1,
-        f32::NAN,
+        &mut RasterCanvas::full(&mut pixels, 1, 1, f32::NAN),
         "Я",
         80.,
         [0., 0., 30., 30.],
@@ -376,10 +352,7 @@ fn handles_tiny_canvas_and_invalid_inputs_without_out_of_bounds_writes() {
 fn honors_source_alpha_on_transparent_destination() {
     let mut pixels = vec![0; 100 * 50 * 4];
     draw_text(
-        &mut pixels,
-        100,
-        50,
-        1.,
+        &mut RasterCanvas::full(&mut pixels, 100, 50, 1.),
         "Ж",
         38.,
         [0., 0., 100., 50.],
@@ -397,10 +370,7 @@ fn honors_source_alpha_on_transparent_destination() {
 fn winding_fill_preserves_cyrillic_letter_counter() {
     let mut pixels = vec![0; 100 * 100 * 4];
     draw_text(
-        &mut pixels,
-        100,
-        100,
-        1.,
+        &mut RasterCanvas::full(&mut pixels, 100, 100, 1.),
         "О",
         70.,
         [0., 0., 100., 100.],
@@ -658,10 +628,7 @@ fn region_raster_matches_full_canvas_for_text_shapes_and_blending() {
                 [-20., 80.],
             ];
             draw_text(
-                &mut full,
-                width,
-                height,
-                scale,
+                &mut RasterCanvas::full(&mut full, width, height, scale),
                 label,
                 28.5,
                 rect,
@@ -691,25 +658,17 @@ fn region_raster_matches_full_canvas_for_text_shapes_and_blending() {
                 let mut actual = crop(&seed);
                 draw_text_region(
                     FontFamily::Sans,
-                    &mut actual,
-                    width,
-                    height,
-                    scale,
+                    &mut RasterCanvas::subregion(&mut actual, width, height, scale, region),
                     label,
                     28.5,
                     rect,
                     [80, 160, 240, 173],
-                    region,
                 );
                 crate::shape::draw_region(
-                    &mut actual,
-                    width,
-                    height,
-                    scale,
+                    &mut RasterCanvas::subregion(&mut actual, width, height, scale, region),
                     &points,
                     [8.125, -3.75],
                     [210, 70, 30, 97],
-                    region,
                 );
                 assert_eq!(
                     actual,
@@ -729,15 +688,11 @@ fn region_raster_matches_full_canvas_for_text_shapes_and_blending() {
     ] {
         draw_text_region(
             FontFamily::Sans,
-            &mut untouched,
-            width,
-            height,
-            1.,
+            &mut RasterCanvas::subregion(&mut untouched, width, height, 1., region),
             "A",
             20.,
             [0., 0., 100., 30.],
             [255; 4],
-            region,
         );
         assert_eq!(untouched, vec![17_u8; 16], "invalid region must not write");
     }
@@ -999,10 +954,7 @@ fn cpu_and_vector_paths_draw_the_selected_face() {
         let mut pixels = vec![0_u8; 160 * 40 * 4];
         draw_text_in(
             family,
-            &mut pixels,
-            160,
-            40,
-            1.,
+            &mut RasterCanvas::full(&mut pixels, 160, 40, 1.),
             "Rg0",
             24.,
             [0., 0., 160., 40.],
@@ -1015,10 +967,7 @@ fn cpu_and_vector_paths_draw_the_selected_face() {
     assert_ne!(sans, mono);
     let mut direct = vec![0_u8; 160 * 40 * 4];
     draw_text(
-        &mut direct,
-        160,
-        40,
-        1.,
+        &mut RasterCanvas::full(&mut direct, 160, 40, 1.),
         "Rg0",
         24.,
         [0., 0., 160., 40.],

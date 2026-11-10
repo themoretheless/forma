@@ -136,9 +136,11 @@ impl GpuWindow {
         self.renderer.draw(
             button,
             &frame.texture.create_view(&Default::default()),
-            target_size.width,
-            target_size.height,
-            window.scale_factor() as f32,
+            crate::gpu::Viewport::new(
+                target_size.width,
+                target_size.height,
+                window.scale_factor() as f32,
+            ),
             true,
             true,
         )?;

@@ -38,6 +38,14 @@ pub struct Frame<'a> {
     pub overlay: Option<&'a OverlayBatch>,
 }
 
+#[derive(Clone, Copy)]
+struct ShadowVpCache {
+    light: [f32; 3],
+    center: [f32; 3],
+    radius: f32,
+    vp: [f32; 16],
+}
+
 pub struct Rasterizer {
     format: wgpu::TextureFormat,
     pub context: GpuContext,
@@ -66,8 +74,8 @@ pub struct Rasterizer {
     shadow_active: bool,
     /// Mirrors `SceneUniform.options.x`; gates the section-cap pass.
     section_enabled: bool,
-    /// Cached key-light orthographic VP `(light, center, radius, vp)` to avoid recomputing when unchanged.
-    cached_shadow_vp: Option<([f32; 3], [f32; 3], f32, [f32; 16])>,
+    /// Cached key-light orthographic VP to avoid recomputing when unchanged.
+    cached_shadow_vp: Option<ShadowVpCache>,
     /// Last uploaded scene uniform floats to skip redundant GPU queue writes.
     last_scene_floats: Option<[f32; SCENE_UNIFORM_FLOATS]>,
 }
@@ -196,16 +204,21 @@ impl Rasterizer {
             let (center, radius) = self.shadow_bounds.unwrap();
             let light_dir = [scene.light[0], scene.light[1], scene.light[2]];
             let vp = match self.cached_shadow_vp {
-                Some((cached_light, cached_center, cached_radius, cached_vp))
-                    if cached_light == light_dir
-                        && cached_center == center
-                        && cached_radius == radius =>
+                Some(cached)
+                    if cached.light == light_dir
+                        && cached.center == center
+                        && cached.radius == radius =>
                 {
-                    cached_vp
+                    cached.vp
                 }
                 _ => {
                     let computed = shadow_light_vp(light_dir, center, radius);
-                    self.cached_shadow_vp = Some((light_dir, center, radius, computed));
+                    self.cached_shadow_vp = Some(ShadowVpCache {
+                        light: light_dir,
+                        center,
+                        radius,
+                        vp: computed,
+                    });
                     computed
                 }
             };
@@ -438,15 +451,7 @@ impl Rasterizer {
             }
 
             for draw in frame.meshes.iter().filter(|d| !d.transparent) {
-                self.draw_mesh_with(
-                    &mut pass,
-                    &self.pipelines.mesh_opaque,
-                    &draw.vertex_buffer,
-                    draw.index_count,
-                    &draw.bind_group,
-                    draw.morph_source.as_ref(),
-                    &draw.index_buffer,
-                );
+                self.draw_mesh_with(&mut pass, &self.pipelines.mesh_opaque, draw);
             }
 
             if self.section_enabled {
@@ -454,15 +459,7 @@ impl Rasterizer {
                 // front-culled cap pipeline. The interior back faces of closed
                 // solids survive and read as a filled, unlit cut surface.
                 for draw in frame.meshes.iter().filter(|d| !d.transparent) {
-                    self.draw_mesh_with(
-                        &mut pass,
-                        &self.pipelines.section_cap,
-                        &draw.vertex_buffer,
-                        draw.index_count,
-                        &draw.bind_group,
-                        draw.morph_source.as_ref(),
-                        &draw.index_buffer,
-                    );
+                    self.draw_mesh_with(&mut pass, &self.pipelines.section_cap, draw);
                 }
             }
 
@@ -485,29 +482,13 @@ impl Rasterizer {
             }
 
             for draw in frame.meshes.iter().filter(|d| d.transparent) {
-                self.draw_mesh_with(
-                    &mut pass,
-                    &self.pipelines.mesh_transparent,
-                    &draw.vertex_buffer,
-                    draw.index_count,
-                    &draw.bind_group,
-                    draw.morph_source.as_ref(),
-                    &draw.index_buffer,
-                );
+                self.draw_mesh_with(&mut pass, &self.pipelines.mesh_transparent, draw);
             }
 
             if let Some((deep_mesh, deep_edges)) = frame.deep {
                 // Deep selection is an x-ray overlay: depth compare Always with
                 // alpha blend, drawn after the meshes so it bleeds through.
-                self.draw_mesh_with(
-                    &mut pass,
-                    &self.pipelines.deep_mesh,
-                    &deep_mesh.vertex_buffer,
-                    deep_mesh.index_count,
-                    &deep_mesh.bind_group,
-                    deep_mesh.morph_source.as_ref(),
-                    &deep_mesh.index_buffer,
-                );
+                self.draw_mesh_with(&mut pass, &self.pipelines.deep_mesh, deep_mesh);
                 self.draw_edges_with(
                     &mut pass,
                     &self.pipelines.deep_edge,
@@ -540,25 +521,21 @@ impl Rasterizer {
         &self,
         pass: &mut wgpu::RenderPass<'p>,
         pipeline: &'p wgpu::RenderPipeline,
-        vertex_buffer: &'p wgpu::Buffer,
-        index_count: u32,
-        bind_group: &'p wgpu::BindGroup,
-        morph_source: Option<&'p wgpu::Buffer>,
-        index_buffer: &'p wgpu::Buffer,
+        draw: &'p DrawMesh,
     ) {
         pass.set_pipeline(pipeline);
-        pass.set_bind_group(1, bind_group, &[]);
+        pass.set_bind_group(1, &draw.bind_group, &[]);
         // Mesh-surface shaders sample the shadow map at group(2); the dummy
         // binding is inert while shadows are inactive, and pipelines whose
         // shader does not declare group(2) simply ignore it.
         pass.set_bind_group(2, self.active_shadow_bg(), &[]);
-        pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-        match morph_source {
+        pass.set_vertex_buffer(0, draw.vertex_buffer.slice(..));
+        match &draw.morph_source {
             Some(source) => pass.set_vertex_buffer(1, source.slice(..)),
             None => pass.set_vertex_buffer(1, self.morph_dummy.slice(..)),
         }
-        pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-        pass.draw_indexed(0..index_count, 0, 0..1);
+        pass.set_index_buffer(draw.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        pass.draw_indexed(0..draw.index_count, 0, 0..1);
     }
 
     fn draw_edges_with<'p>(

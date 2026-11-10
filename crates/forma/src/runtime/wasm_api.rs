@@ -4,6 +4,12 @@
 
 use super::*;
 
+impl Default for Runtime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl Runtime {
     /// Exports the AccessKit-compatible semantic accessibility tree as a compact JSON snapshot.

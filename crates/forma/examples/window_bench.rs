@@ -440,9 +440,7 @@ mod native {
             self.renderer.draw(
                 model,
                 &frame.texture.create_view(&Default::default()),
-                size.width,
-                size.height,
-                scale as f32,
+                forma::gpu::Viewport::new(size.width, size.height, scale as f32),
                 true,
                 true,
             )?;

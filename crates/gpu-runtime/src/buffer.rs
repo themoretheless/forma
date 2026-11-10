@@ -209,19 +209,27 @@ impl Buffer {
     /// Zero-copy UMA direct slice view into unified memory without map_async overhead
     #[inline]
     pub fn uma_slice(&self) -> &[u8] {
+        if self.inner.ptr.is_null() {
+            return &[];
+        }
         if !self.inner.device.is_last_cmd_completed() {
             self.inner.device.wait_idle();
         }
-        unsafe { std::slice::from_raw_parts(self.inner.ptr, self.inner.size as usize) }
+        let len = usize::try_from(self.inner.size).unwrap_or(0);
+        unsafe { std::slice::from_raw_parts(self.inner.ptr, len) }
     }
 
     /// Zero-copy UMA direct mutable slice into unified memory
     #[inline]
     pub fn uma_slice_mut(&mut self) -> &mut [u8] {
+        if self.inner.ptr.is_null() {
+            return &mut [];
+        }
         if !self.inner.device.is_last_cmd_completed() {
             self.inner.device.wait_idle();
         }
-        unsafe { std::slice::from_raw_parts_mut(self.inner.ptr, self.inner.size as usize) }
+        let len = usize::try_from(self.inner.size).unwrap_or(0);
+        unsafe { std::slice::from_raw_parts_mut(self.inner.ptr, len) }
     }
 
     #[inline]
@@ -345,29 +353,44 @@ impl<'a> BufferSlice<'a> {
 
     #[inline]
     pub fn get_mapped_range(&self) -> BufferView<'a> {
+        if self.buffer.inner.ptr.is_null() {
+            return BufferView { slice: &[] };
+        }
         if !self.buffer.inner.device.is_last_cmd_completed() {
             self.buffer.inner.device.wait_idle();
         }
-        let slice = unsafe {
-            std::slice::from_raw_parts(
-                self.buffer.inner.ptr.add(self.offset as usize),
-                self.size as usize,
-            )
+        let end = self.offset.checked_add(self.size);
+        let (Some(end), Ok(offset), Ok(len)) = (
+            end.filter(|&end| end <= self.buffer.inner.size),
+            usize::try_from(self.offset),
+            usize::try_from(self.size),
+        ) else {
+            return BufferView { slice: &[] };
         };
+        let _ = end;
+        let slice = unsafe { std::slice::from_raw_parts(self.buffer.inner.ptr.add(offset), len) };
         BufferView { slice }
     }
 
     #[inline]
     pub fn get_mapped_range_mut(&self) -> WriteOnly<'a, [u8]> {
+        if self.buffer.inner.ptr.is_null() {
+            return WriteOnly::new(&mut []);
+        }
         if !self.buffer.inner.device.is_last_cmd_completed() {
             self.buffer.inner.device.wait_idle();
         }
-        let slice = unsafe {
-            std::slice::from_raw_parts_mut(
-                self.buffer.inner.ptr.add(self.offset as usize),
-                self.size as usize,
-            )
+        let end = self.offset.checked_add(self.size);
+        let (Some(end), Ok(offset), Ok(len)) = (
+            end.filter(|&end| end <= self.buffer.inner.size),
+            usize::try_from(self.offset),
+            usize::try_from(self.size),
+        ) else {
+            return WriteOnly::new(&mut []);
         };
+        let _ = end;
+        let slice =
+            unsafe { std::slice::from_raw_parts_mut(self.buffer.inner.ptr.add(offset), len) };
         WriteOnly::new(slice)
     }
 }

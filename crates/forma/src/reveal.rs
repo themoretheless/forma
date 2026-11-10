@@ -417,7 +417,13 @@ mod tests {
                             let mut model =
                                 crate::Runtime::from_sources(&source, &template).unwrap();
                             renderer
-                                .draw(&model, &view, w, h, scale, false, false)
+                                .draw(
+                                    &model,
+                                    &view,
+                                    crate::gpu::Viewport::new(w, h, scale),
+                                    false,
+                                    false,
+                                )
                                 .unwrap();
                             let uploads = renderer.uploads;
                             match state {
@@ -444,7 +450,13 @@ mod tests {
                                 _ => {}
                             }
                             renderer
-                                .draw(&model, &view, w, h, scale, false, false)
+                                .draw(
+                                    &model,
+                                    &view,
+                                    crate::gpu::Viewport::new(w, h, scale),
+                                    false,
+                                    false,
+                                )
                                 .unwrap();
                             assert_eq!(
                                 renderer.uploads, uploads,
@@ -485,22 +497,24 @@ mod tests {
                                 .poll(wgpu::PollType::wait_indefinitely())
                                 .unwrap();
                             recv.recv().unwrap().unwrap();
-                            let mapped = readback.slice(..).get_mapped_range();
                             let cpu = model.content_pixels(w, h, scale);
                             let mut max_error = 0;
-                            for y in 0..h as usize {
-                                for x in 0..w as usize {
-                                    let p = &cpu[(y * w as usize + x) * 4..][..4];
-                                    for k in 0..4 {
-                                        let expected = if k == 3 {
-                                            p[k]
-                                        } else {
-                                            ((p[k] as u32 * p[3] as u32 + 127) / 255) as u8
-                                        };
-                                        max_error = max_error.max(
-                                            expected
-                                                .abs_diff(mapped[y * stride as usize + x * 4 + k]),
-                                        );
+                            {
+                                let mapped = readback.slice(..).get_mapped_range();
+                                for y in 0..h as usize {
+                                    for x in 0..w as usize {
+                                        let p = &cpu[(y * w as usize + x) * 4..][..4];
+                                        for k in 0..4 {
+                                            let expected = if k == 3 {
+                                                p[k]
+                                            } else {
+                                                ((p[k] as u32 * p[3] as u32 + 127) / 255) as u8
+                                            };
+                                            max_error =
+                                                max_error.max(expected.abs_diff(
+                                                    mapped[y * stride as usize + x * 4 + k],
+                                                ));
+                                        }
                                     }
                                 }
                             }
@@ -510,7 +524,6 @@ mod tests {
                             );
                             comparisons += 1;
                             max_observed_error = max_observed_error.max(max_error);
-                            drop(mapped);
                             readback.unmap();
                         }
                     }

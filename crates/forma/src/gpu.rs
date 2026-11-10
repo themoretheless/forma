@@ -247,6 +247,25 @@ pub struct Renderer {
     bind_group_creations: u64,
     timing: Option<GpuTiming>,
 }
+/// Physical render target dimensions and DPI scale for a single [`Renderer::draw`] pass.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Viewport {
+    pub width: u32,
+    pub height: u32,
+    pub scale: f32,
+}
+
+impl Viewport {
+    #[inline]
+    pub const fn new(width: u32, height: u32, scale: f32) -> Self {
+        Self {
+            width,
+            height,
+            scale,
+        }
+    }
+}
+
 impl Renderer {
     pub async fn new(adapter: &wgpu::Adapter, format: wgpu::TextureFormat) -> Result<Self, String> {
         Self::new_with_profiling(adapter, format, false).await
@@ -545,12 +564,15 @@ impl Renderer {
         &mut self,
         model: &impl RenderScene,
         target: &wgpu::TextureView,
-        width: u32,
-        height: u32,
-        scale: f32,
+        viewport: Viewport,
         background: bool,
         opaque: bool,
     ) -> Result<(), String> {
+        let Viewport {
+            width,
+            height,
+            scale,
+        } = viewport;
         self.check_health()?;
         if width == 0
             || height == 0

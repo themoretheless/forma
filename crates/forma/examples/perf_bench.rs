@@ -122,8 +122,14 @@ async fn run() {
             if mode == "resize" {
                 *target = Some(make_target(r, cw, ch));
             }
-            r.draw(model, &target.as_ref().unwrap().1, cw, ch, 2., true, true)
-                .unwrap();
+            r.draw(
+                model,
+                &target.as_ref().unwrap().1,
+                forma::gpu::Viewport::new(cw, ch, 2.),
+                true,
+                true,
+            )
+            .unwrap();
         } else {
             model
                 .paint_native(&mut host[..(cw * ch) as usize], cw, ch, 2.)
@@ -187,31 +193,16 @@ async fn run() {
                 .unwrap();
             let size = target.as_ref().unwrap().0.size();
             let timing_target = make_target(&r, size.width, size.height);
+            let timing_vp = forma::gpu::Viewport::new(size.width, size.height, 2.);
             // A different profiled renderer: primary measurements match normal app mode.
-            r.draw(
-                &model,
-                &timing_target.1,
-                size.width,
-                size.height,
-                2.,
-                true,
-                true,
-            )
-            .unwrap();
+            r.draw(&model, &timing_target.1, timing_vp, true, true)
+                .unwrap();
             r.device.poll(wgpu::PollType::wait_indefinitely()).unwrap();
             if r.gpu_timestamps_enabled() {
                 timestamp_supported = true;
                 for _ in 0..30 {
-                    r.draw(
-                        &model,
-                        &timing_target.1,
-                        size.width,
-                        size.height,
-                        2.,
-                        true,
-                        true,
-                    )
-                    .unwrap();
+                    r.draw(&model, &timing_target.1, timing_vp, true, true)
+                        .unwrap();
                     if let Some(ns) = r.read_gpu_duration_ns().unwrap() {
                         gpu_ms.push(ns / 1e6);
                     }

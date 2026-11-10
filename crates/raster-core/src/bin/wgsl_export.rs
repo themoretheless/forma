@@ -7,7 +7,9 @@
 
 use raster_core::codegen;
 
-const GENERATED: [(&str, fn() -> String, fn() -> std::path::PathBuf); 4] = [
+type GeneratedTarget = (&'static str, fn() -> String, fn() -> std::path::PathBuf);
+
+const GENERATED: [GeneratedTarget; 4] = [
     (
         "sources",
         codegen::generate_ts_sources,

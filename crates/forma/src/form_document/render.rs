@@ -2,6 +2,8 @@
 
 use super::*;
 
+pub(crate) type RenderedSceneParts = (String, String, Vec<SceneControl>, Option<[f64; 2]>);
+
 impl Document {
     /// Re-evaluate the retained program. The binding owner keeps the last valid scene on error.
     pub fn render(&self) -> Result<(String, String), String> {
@@ -76,9 +78,7 @@ impl Document {
         })
     }
     /// Runtime metadata retains logical layout bounds that serialized control leaves cannot express.
-    pub(crate) fn render_scene_with_extents(
-        &self,
-    ) -> Result<(String, String, Vec<SceneControl>, Option<[f64; 2]>), String> {
+    pub(crate) fn render_scene_with_extents(&self) -> Result<RenderedSceneParts, String> {
         let mut walk = scene::SceneWalk::root();
         let mut expanded = self.scene_expand(
             &self.root,
@@ -189,10 +189,12 @@ impl Document {
                 positioned,
                 precomputed,
                 scroll_viewport.unwrap_or([0., 0., width, height]),
-                &mut instances,
                 true,
-                &mut logical_end,
-                scroll,
+                &mut scene::ScenePositionTarget {
+                    instances: &mut instances,
+                    logical_end: &mut logical_end,
+                    scroll_content: scroll,
+                },
             )?;
             for key in ["columns", "rows", "padding", "gap"] {
                 root.props.remove(key);
