@@ -10,6 +10,7 @@ license = "MIT"
 wgpu = { package = "gpu-runtime", path = "../gpu-runtime", version = "0.1.0" }
 gpu-compute = { path = "../gpu-compute", version = "0.1.0" }
 tensor-core = { path = "../tensor-core", version = "0.1.0" }
+memory-budget = { path = "../memory-budget", version = "0.1.0" }
 naga = { package = "gpu-shader", path = "../gpu-shader", version = "0.1.0" }
 
 [dev-dependencies]

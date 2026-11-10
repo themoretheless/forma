@@ -1,15 +1,12 @@
 use crate::{Binding, Kernel, KernelError, gpu_compute::GpuContext};
-use std::{collections::HashMap, sync::Arc};
+use memory_budget::{CacheLimits, WeightedLru};
+use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Key {
     source: String,
     entry: String,
     bindings: Vec<Binding>,
-}
-struct Cached {
-    kernel: Arc<Kernel>,
-    used_at: u64,
 }
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,9 +23,8 @@ pub struct KernelCacheStats {
 /// not total GPU memory. Failed compilations neither occupy nor evict entries.
 pub struct KernelCache {
     context: GpuContext,
-    entries: HashMap<Key, Cached>,
-    capacity: usize,
-    clock: u64,
+    // Keys are shared so recency updates clone a pointer, not the shader source.
+    entries: WeightedLru<Arc<Key>, Arc<Kernel>>,
     stats: KernelCacheStats,
 }
 impl KernelCache {
@@ -36,9 +32,11 @@ impl KernelCache {
     pub fn new(context: &GpuContext, capacity: usize) -> Self {
         Self {
             context: context.clone(),
-            entries: HashMap::with_capacity(capacity.min(64)),
-            capacity,
-            clock: 0,
+            entries: WeightedLru::with_limits(CacheLimits {
+                max_bytes: u64::MAX,
+                max_entries: Some(capacity),
+                ttl: None,
+            }),
             stats: KernelCacheStats::default(),
         }
     }
@@ -88,21 +86,19 @@ impl KernelCache {
         bindings: &[Binding],
         selected: Option<u32>,
     ) -> Result<Arc<Kernel>, KernelError> {
-        let key = Key {
+        let key = Arc::new(Key {
             source: source.to_owned(),
             entry: entry.to_owned(),
             bindings: bindings.to_vec(),
-        };
-        self.clock = self.clock.saturating_add(1);
-        if let Some(cached) = self.entries.get_mut(&key) {
-            if selected.is_some_and(|s| s != cached.kernel.workgroup_size()) {
+        });
+        if let Some(kernel) = self.entries.get(&key) {
+            if selected.is_some_and(|s| s != kernel.workgroup_size()) {
                 return Err(KernelError {
                     message: "tuning anchor does not control the entry point".into(),
                 });
             }
-            cached.used_at = self.clock;
             self.stats.hits += 1;
-            return Ok(cached.kernel.clone());
+            return Ok(kernel.clone());
         }
         self.stats.misses += 1;
         let kernel = Kernel::from_context(&self.context, label, source, entry, bindings)?;
@@ -112,25 +108,11 @@ impl KernelCache {
             });
         }
         let kernel = Arc::new(kernel);
-        if self.capacity != 0 {
-            if self.entries.len() == self.capacity {
-                let oldest = self
-                    .entries
-                    .iter()
-                    .min_by_key(|(_, entry)| entry.used_at)
-                    .map(|(key, _)| key.clone())
-                    .expect("nonempty cache");
-                self.entries.remove(&oldest);
-                self.stats.evictions += 1;
-            }
-            self.entries.insert(
-                key,
-                Cached {
-                    kernel: kernel.clone(),
-                    used_at: self.clock,
-                },
-            );
-        }
+        // Capacity zero rejects the insert, which keeps compilation checked but uncached.
+        let (_, evicted) = self
+            .entries
+            .insert_prefetch_with_evictions(key, kernel.clone(), 1);
+        self.stats.evictions += evicted.len() as u64;
         Ok(kernel)
     }
 }
