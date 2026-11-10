@@ -867,7 +867,7 @@ checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
 name = "forma"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "accesskit",
  "accesskit_winit",
@@ -1756,13 +1756,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "openscad-forma-studio"
-version = "0.2.0"
-dependencies = [
- "forma",
-]
-
-[[package]]
 name = "orbclient"
 version = "0.3.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2394,7 +2387,7 @@ checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
 
 [[package]]
 name = "svet-wasm"
-version = "0.1.0"
+version = "0.3.5"
 
 [[package]]
 name = "syn"

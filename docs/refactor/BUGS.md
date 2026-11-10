@@ -17,8 +17,8 @@
 | S-2 | `src/main.js:209-211` | подозрение | `.ui` из разных папок с одним именем сливаются в `ui/<basename>` |
 | S-3 | `mcp/smoke.js` | исправлено | сверял число инструментов с устаревшей константой 34 (фактически 45; README писал 44). Теперь сверяет список имён с таблицей `mcp/server.js`; README исправлен. Сам smoke требует запущенной Studio и в гейте не выполняется |
 | S-4 | `packages/svet/scripts/check-wasm-provenance.mjs` | подтверждено чтением | хэширует только `lib.rs` |
-| S-5 | `vite.config.js` workspace API | исправлено (тест `test/workspace-paths.test.js`) | проверка `startsWith('..')` отвергала законные имена вроде `..config`; проверка «папка внутрь самой себя» сравнивала строки с разделителем `/` и не работала на Windows. Теперь обе сравнивают сегменты пути (`dev-server/workspace-paths.js`) |
-| S-6 | `src/main.js` `duplicateTreeItem` | подозрение | redo использует старый путь дубликата |
+| S-5 | `vite.config.js` workspace API | снято | был исправлен, затем файловый API удалён вместе с интеграцией OpenSCAD (MIGRATIONS, раздел 4) |
+| S-6 | `src/main.js` `duplicateTreeItem` | снято | подозрение касалось ветки, где имя дубликата выбирал сервер рабочей папки; ветка удалена вместе с файловым API |
 | S-7 | `src/components.js:74` `literal` | не проверено | не экранирует `\r`, `\t`, `${` |
 | S-8 | `packages/svet/package.json` `sideEffects` | латентно | не перечислены модули с регистрацией при импорте |
 | G-1 | `crates/gpu-runtime/src/metal.rs:2104,2168` | подозрение | `objc_msgSend` с возвратом `CGRect` на x86_64 требует `_stret` |

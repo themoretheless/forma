@@ -273,12 +273,6 @@ export function steps({ platform, installedTargets, viteEntry }) {
             ? { COMPUTE_REQUIRE_GPU: '1', COMPUTE_REQUIRE_TIMESTAMPS: '1' }
             : undefined,
       },
-      {
-        id: 'openscad-sample',
-        name: 'OpenSCAD sample app compiles against forma',
-        argv: 'cargo',
-        args: ['check', '--locked', '--manifest-path', 'openscad-ui/Cargo.toml'],
-      },
       // Needs `cargo install cargo-deny`; a missing tool fails the step instead of skipping it.
       {
         id: 'deny',

@@ -41,10 +41,10 @@ const shellFiles = materializeTheme(
 );
 const rawProject = projectDir
   ? readTree(path.resolve(projectDir), ['.'], name => /\.(ui|svg)$/.test(name))
-  : readTree(path.join(root, 'openscad-ui'), ['ui'], name => /\.(ui|svg)$/.test(name));
+  : readTree(path.join(root, 'studio-controls'), ['ui'], name => /\.(ui|svg)$/.test(name));
 const project = materializeTheme({ ...controlLibrary, ...rawProject }, 'dark');
-const entry = rawProject['ui/OpenScadStudio.ui']
-  ? 'ui/OpenScadStudio.ui'
+const entry = rawProject['ui/StudioControls.ui']
+  ? 'ui/StudioControls.ui'
   : (Object.keys(rawProject).find(
       p =>
         p.endsWith('.ui') &&
@@ -58,7 +58,7 @@ const entry = rawProject['ui/OpenScadStudio.ui']
         /^component\s/m.test(project[p].replace(/^#.*$/gm, '')),
     ));
 if (!entry) throw Error('В проекте нет .ui компонента');
-const title = projectDir ? path.basename(path.resolve(projectDir)) : 'open-scad-viewer';
+const title = projectDir ? path.basename(path.resolve(projectDir)) : 'studio-controls';
 
 // Design states of the entry, as Studio's state tabs list them.
 const states = [{ name: 'Базовые значения', state: {} }];
