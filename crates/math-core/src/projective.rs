@@ -82,11 +82,15 @@ pub fn orientation(mut matrix: AffineMatrix) -> Option<bool> {
             negative = !negative;
         }
         negative ^= matrix[column][column].is_sign_negative();
-        for row in column + 1..4 {
-            let factor = matrix[row][column] / matrix[column][column];
-            for k in column + 1..4 {
-                matrix[row][k] -= factor * matrix[column][k];
-                if !matrix[row][k].is_finite() {
+        let pivot_row = matrix[column];
+        for row_vals in matrix.iter_mut().skip(column + 1) {
+            let factor = row_vals[column] / pivot_row[column];
+            for (val, &piv) in row_vals[column + 1..]
+                .iter_mut()
+                .zip(&pivot_row[column + 1..])
+            {
+                *val -= factor * piv;
+                if !val.is_finite() {
                     return None;
                 }
             }

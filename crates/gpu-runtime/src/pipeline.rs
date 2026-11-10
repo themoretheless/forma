@@ -142,21 +142,11 @@ pub struct BindGroup {
     pub(crate) samplers: Arc<[(u32, Sampler)]>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PipelineLayoutDescriptor<'a> {
     pub label: Label<'a>,
     pub bind_group_layouts: &'a [Option<&'a BindGroupLayout>],
     pub immediate_size: u32,
-}
-
-impl Default for PipelineLayoutDescriptor<'_> {
-    fn default() -> Self {
-        Self {
-            label: None,
-            bind_group_layouts: &[],
-            immediate_size: 0,
-        }
-    }
 }
 
 #[derive(Clone, Debug)]

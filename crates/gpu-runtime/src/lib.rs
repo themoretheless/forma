@@ -217,9 +217,11 @@ impl Adapter {
         if metal.has_unified_memory {
             features |= Features::MAPPABLE_PRIMARY_BUFFERS;
         }
-        let mut limits = Limits::default();
-        limits.max_buffer_size = metal.max_buffer_length;
-        limits.max_storage_buffer_binding_size = metal.max_buffer_length;
+        let limits = Limits {
+            max_buffer_size: metal.max_buffer_length,
+            max_storage_buffer_binding_size: metal.max_buffer_length,
+            ..Limits::default()
+        };
         Self {
             metal,
             info,

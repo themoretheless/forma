@@ -195,10 +195,9 @@ impl Document {
                 for (key, contract) in contracts {
                     if matches!(contract,Value::Object(contract) if contract.get("required")==Some(&Value::Bool(true)))
                         && !values.contains_key(key)
+                        && contract_values.contains_key(key)
                     {
-                        if contract_values.contains_key(key) {
-                            contract_values.to_mut().remove(key);
-                        }
+                        contract_values.to_mut().remove(key);
                     }
                 }
             }
@@ -341,7 +340,7 @@ impl Document {
                             .props
                             .get("key")
                             .ok_or("For requires a key")?
-                            .evaluate(&scope, &local)?,
+                            .evaluate(&scope, local)?,
                     )?;
                     if !keys.insert(key.clone()) {
                         return Err("Duplicate collection key".into());

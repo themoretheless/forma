@@ -218,38 +218,37 @@ fn portable_faces_render_real_cjk_and_monochrome_emoji() {
 
 #[test]
 fn missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width() {
-    for value in ["\u{10ffff}"] {
-        assert!(font().glyph_index(value.chars().next().unwrap()).is_none());
-        let width = measure_text(value, 28.);
-        assert!(width > 0., "missing scalar must not collapse to zero width");
-        assert_eq!(width, measure_text("?", 28.));
-        assert_eq!(hit_character(value, 28., width * 0.25), 0);
-        assert_eq!(hit_character(value, 28., width * 0.75), value.len());
-        let render = |text| {
-            let mut pixels = vec![0; 100 * 60 * 4];
-            draw_text(
-                &mut pixels,
-                100,
-                60,
-                1.,
-                text,
-                28.,
-                [0., 0., 100., 60.],
-                [255; 4],
-            );
-            pixels
-        };
-        let pixels = render(value);
-        assert!(pixels.chunks_exact(4).any(|p| p[3] > 0));
-        assert_eq!(pixels, render("?"));
-        let mut scratch = VectorScratch::prewarm();
-        let mut paths = 0;
-        vector_glyphs(value, 28., [0., 0., 100., 60.], 1., &mut scratch, |glyph| {
-            assert!(glyph.edges.count() > 0);
-            paths += 1;
-        });
-        assert_eq!(paths, 1);
-    }
+    let value = "\u{10ffff}";
+    assert!(font().glyph_index(value.chars().next().unwrap()).is_none());
+    let width = measure_text(value, 28.);
+    assert!(width > 0., "missing scalar must not collapse to zero width");
+    assert_eq!(width, measure_text("?", 28.));
+    assert_eq!(hit_character(value, 28., width * 0.25), 0);
+    assert_eq!(hit_character(value, 28., width * 0.75), value.len());
+    let render = |text| {
+        let mut pixels = vec![0; 100 * 60 * 4];
+        draw_text(
+            &mut pixels,
+            100,
+            60,
+            1.,
+            text,
+            28.,
+            [0., 0., 100., 60.],
+            [255; 4],
+        );
+        pixels
+    };
+    let pixels = render(value);
+    assert!(pixels.chunks_exact(4).any(|p| p[3] > 0));
+    assert_eq!(pixels, render("?"));
+    let mut scratch = VectorScratch::prewarm();
+    let mut paths = 0;
+    vector_glyphs(value, 28., [0., 0., 100., 60.], 1., &mut scratch, |glyph| {
+        assert!(glyph.edges.count() > 0);
+        paths += 1;
+    });
+    assert_eq!(paths, 1);
 }
 
 #[test]

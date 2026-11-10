@@ -71,10 +71,11 @@ fn background_at(bytes: &[u8], x: u32, y: u32) -> bool {
 }
 
 fn colored_uniform(r: f32, g: f32, b: f32) -> ObjectUniform {
-    let mut uniform = ObjectUniform::default();
-    uniform.color = [r, g, b, 1.0];
-    uniform.style = [1.0, 0.0, 0.0, 0.0];
-    uniform
+    ObjectUniform {
+        color: [r, g, b, 1.0],
+        style: [1.0, 0.0, 0.0, 0.0],
+        ..ObjectUniform::default()
+    }
 }
 
 #[test]

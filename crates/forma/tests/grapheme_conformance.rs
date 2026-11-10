@@ -102,12 +102,7 @@ fn unicode17_arbitrary_scalar_offsets_snap_using_full_string_context() {
             model.move_graphemes(-1, false);
             assert_eq!(
                 model.caret(),
-                bounds
-                    .iter()
-                    .copied()
-                    .filter(|&b| b < at)
-                    .next_back()
-                    .unwrap_or(0),
+                bounds.iter().copied().rfind(|&b| b < at).unwrap_or(0),
                 "left line{line} byte{at}"
             );
             model.set_selection(at, at).unwrap();

@@ -106,7 +106,7 @@ pub struct Runtime {
     native_accessibility_id: Option<u64>,
 }
 
-fn templates<'a>(source: &'a str, count: usize) -> Result<Vec<&'a str>, String> {
+fn templates(source: &str, count: usize) -> Result<Vec<&str>, String> {
     let Some(mut rest) = source.strip_prefix("FORMA-TEMPLATES-1\n") else {
         return Ok(vec![source; count]);
     };

@@ -335,10 +335,9 @@ impl Document {
                 for (key, contract) in contracts {
                     if matches!(contract,Value::Object(contract) if contract.get("required")==Some(&Value::Bool(true)))
                         && !supplied.contains(key)
+                        && contract_values.contains_key(key)
                     {
-                        if contract_values.contains_key(key) {
-                            contract_values.to_mut().remove(key);
-                        }
+                        contract_values.to_mut().remove(key);
                     }
                 }
             }

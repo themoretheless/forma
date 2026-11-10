@@ -664,9 +664,9 @@ impl Aabb3 {
         if !point.iter().all(|v| v.is_finite()) {
             return;
         }
-        for i in 0..3 {
-            self.min[i] = self.min[i].min(point[i]);
-            self.max[i] = self.max[i].max(point[i]);
+        for ((min_v, max_v), p) in self.min.iter_mut().zip(self.max.iter_mut()).zip(point) {
+            *min_v = min_v.min(p);
+            *max_v = max_v.max(p);
         }
     }
 

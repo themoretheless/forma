@@ -438,7 +438,7 @@ impl<'a> Parser<'a> {
                 )));
             }
         };
-        if !value.is_finite() || value < 0. || value > 4096. || (positive && value == 0.) {
+        if !value.is_finite() || !(0. ..=4096.).contains(&value) || (positive && value == 0.) {
             return Err(self.error(&format!(
                 "'{name}' must be finite, {} and at most 4096",
                 if positive { "positive" } else { "non-negative" }

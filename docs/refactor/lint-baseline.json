@@ -1,69 +1,25 @@
 {
-  "compute-core": {
-    "clippy::manual_contains": 2,
-    "clippy::needless_borrow": 1,
-    "clippy::needless_late_init": 1,
-    "clippy::redundant_closure": 1,
-    "clippy::unnecessary_cast": 1
-  },
   "forma": {
-    "clippy::collapsible_if": 6,
     "clippy::drop_non_drop": 2,
-    "clippy::explicit_auto_deref": 1,
-    "clippy::filter_map_bool_then": 1,
-    "clippy::filter_next": 1,
-    "clippy::for_kv_map": 1,
-    "clippy::identity_op": 1,
-    "clippy::manual_contains": 1,
-    "clippy::manual_is_multiple_of": 4,
-    "clippy::manual_range_contains": 4,
-    "clippy::mem_replace_option_with_some": 1,
-    "clippy::needless_borrow": 9,
-    "clippy::needless_lifetimes": 1,
-    "clippy::needless_range_loop": 5,
-    "clippy::needless_return": 1,
     "clippy::new_without_default": 2,
-    "clippy::op_ref": 1,
-    "clippy::ptr_arg": 1,
-    "clippy::single_element_loop": 1,
     "clippy::too_many_arguments": 7,
-    "clippy::type_complexity": 3,
-    "clippy::unnecessary_cast": 1,
-    "clippy::unnecessary_map_or": 1,
-    "clippy::unnecessary_unwrap": 1
+    "clippy::type_complexity": 3
   },
   "gpu-runtime": {
     "clippy::arc_with_non_send_sync": 1,
-    "clippy::derivable_impls": 1,
-    "clippy::field_reassign_with_default": 1,
-    "clippy::manual_div_ceil": 1,
-    "clippy::manual_is_multiple_of": 1,
     "clippy::missing_safety_doc": 9,
     "clippy::not_unsafe_ptr_arg_deref": 1,
     "clippy::type_complexity": 2
   },
   "gpu-shader": {
-    "clippy::collapsible_match": 2,
-    "clippy::let_and_return": 1,
-    "clippy::manual_is_multiple_of": 1,
-    "clippy::match_like_matches_macro": 1,
     "clippy::only_used_in_recursion": 1
   },
   "math-core": {
-    "clippy::needless_range_loop": 4,
+    "clippy::needless_range_loop": 2,
     "clippy::should_implement_trait": 2
   },
   "raster-core": {
-    "clippy::approx_constant": 8,
-    "clippy::assign_op_pattern": 1,
-    "clippy::default_constructed_unit_structs": 2,
-    "clippy::doc_lazy_continuation": 4,
-    "clippy::field_reassign_with_default": 1,
-    "clippy::identity_op": 3,
     "clippy::too_many_arguments": 1,
     "clippy::type_complexity": 2
-  },
-  "tensor-core": {
-    "clippy::needless_range_loop": 1
   }
 }

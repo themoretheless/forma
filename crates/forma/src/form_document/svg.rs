@@ -71,7 +71,8 @@ fn parse_svg_points(raw: &str) -> Result<Vec<[f64; 2]>, String> {
                 .map_err(|_| "Invalid SVG points".to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
-    if values.len() < 4 || values.len() % 2 != 0 || values.iter().any(|n| !n.is_finite()) {
+    if values.len() < 4 || !values.len().is_multiple_of(2) || values.iter().any(|n| !n.is_finite())
+    {
         return Err("Invalid SVG points".into());
     }
     Ok(values.chunks_exact(2).map(|c| [c[0], c[1]]).collect())

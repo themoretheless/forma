@@ -250,7 +250,7 @@ fn main() {
             "{{\"case\":\"digest\",\"controls\":{count},\"template_bytes\":{template_bytes},\"commands\":{},\"edges\":{},\"hash\":{}}}",
             list.commands.len(),
             list.edges.len(),
-            digest(&list) & 0xffff_ffff_ffff_ffff
+            digest(&list)
         );
     }
 }

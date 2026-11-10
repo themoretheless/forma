@@ -973,14 +973,12 @@ fn validate_syntax(clean: &str) -> Result<(), ParseError> {
                     });
                 }
             }
-            ']' => {
-                if stack.pop().map(|(c, _, _)| c) != Some('[') {
-                    return Err(ParseError {
-                        message: "unmatched ']'".to_string(),
-                        line,
-                        column: col,
-                    });
-                }
+            ']' if stack.pop().map(|(c, _, _)| c) != Some('[') => {
+                return Err(ParseError {
+                    message: "unmatched ']'".to_string(),
+                    line,
+                    column: col,
+                });
             }
             _ => {}
         }
@@ -1093,10 +1091,8 @@ pub fn find_top_level_char(s: &str, target: char) -> Option<usize> {
                     angle += 1;
                 }
             }
-            '>' => {
-                if angle > 0 {
-                    angle -= 1;
-                }
+            '>' if angle > 0 => {
+                angle -= 1;
             }
             _ => {}
         }
@@ -1126,10 +1122,8 @@ pub fn split_comma_top_level(s: &str) -> Vec<&str> {
                     angle += 1;
                 }
             }
-            '>' => {
-                if angle > 0 {
-                    angle -= 1;
-                }
+            '>' if angle > 0 => {
+                angle -= 1;
             }
             ',' if paren == 0 && bracket == 0 && brace == 0 && angle == 0 => {
                 res.push(&s[start..idx]);

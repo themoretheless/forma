@@ -355,7 +355,7 @@ fn rich_text_code_editor_datetime_and_command_palette_models_preserve_invariants
     assert_eq!(dt.format_date(), "2024-02-29");
     dt.step_days(1);
     assert_eq!(dt.format_date(), "2024-03-01");
-    assert!(dt.calendar_grid().iter().any(|&d| d == 31));
+    assert!(dt.calendar_grid().contains(&31));
 
     let mut palette = CommandPaletteModel::new(vec![
         CommandItem {

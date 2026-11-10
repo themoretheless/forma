@@ -71,13 +71,13 @@ async fn run() {
                 [true, false]
             } {
                 let (device, queue, buffer) = &contexts[usize::from(explicit_wait)];
-                queue.write_buffer(&buffer, 0, &sentinel);
+                queue.write_buffer(buffer, 0, &sentinel);
                 let start = Instant::now();
                 let guards: Vec<_> = (0..scopes)
                     .map(|_| device.push_error_scope(wgpu::ErrorFilter::Internal))
                     .collect();
                 let mut encoder = device.create_command_encoder(&Default::default());
-                encoder.clear_buffer(&buffer, 0, None);
+                encoder.clear_buffer(buffer, 0, None);
                 queue.submit([encoder.finish()]);
                 let mut futures: Vec<_> = guards
                     .into_iter()

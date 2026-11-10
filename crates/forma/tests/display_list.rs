@@ -135,7 +135,7 @@ fn every_tile_keeps_balanced_clips_and_painter_order() {
             if kind == 3. {
                 depth -= 1;
             }
-            assert!(depth >= 0 && depth < 32);
+            assert!((0..32).contains(&depth));
         }
         assert_eq!(depth, 0);
     }

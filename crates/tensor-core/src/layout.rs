@@ -70,9 +70,9 @@ impl Layout {
         }
         let dims = self.shape.dims();
         let mut end = self.offset;
-        for i in 0..dims.len() {
-            let delta = self.strides[i]
-                .checked_mul(dims[i] - 1)
+        for (&dim, &stride) in dims.iter().zip(self.strides.iter()) {
+            let delta = stride
+                .checked_mul(dim - 1)
                 .ok_or(TensorError::LayoutOverflow)?;
             end = end.checked_add(delta).ok_or(TensorError::LayoutOverflow)?;
         }

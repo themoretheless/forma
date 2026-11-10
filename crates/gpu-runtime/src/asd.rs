@@ -36,7 +36,7 @@ impl AsdPageBuffer {
 
     pub fn new_zeroed(byte_len: usize) -> Self {
         let page_size = Self::native_page_size();
-        let aligned_capacity = ((byte_len.max(1) + page_size - 1) / page_size) * page_size;
+        let aligned_capacity = byte_len.max(1).div_ceil(page_size) * page_size;
         let layout = std::alloc::Layout::from_size_align(aligned_capacity, page_size)
             .expect("valid page-aligned layout");
         let raw = unsafe { std::alloc::alloc_zeroed(layout) };

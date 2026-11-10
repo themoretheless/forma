@@ -147,7 +147,7 @@ pub(super) fn matches_contract_type(value: &Value, ty: &str, enums: Option<&Valu
                         matches!(value, Value::Text(actual) if actual.len() == ty.len() + 1 + variant.len()
                             && actual.starts_with(ty)
                             && actual.as_bytes()[ty.len()] == b'.'
-                            && &actual[ty.len() + 1..] == variant)
+                            && actual[ty.len() + 1..] == *variant)
                     })
                 }),
                 Some(Value::Object(fields)) => {

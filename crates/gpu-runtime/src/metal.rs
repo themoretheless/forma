@@ -1029,7 +1029,7 @@ impl MetalDevice {
             f_set_bool(
                 cpd.as_ptr(),
                 s.set_thread_group_size_is_multiple,
-                wg_total >= 32 && wg_total % 32 == 0,
+                wg_total >= 32 && wg_total.is_multiple_of(32),
             );
 
             let f_pso_desc: unsafe extern "C" fn(

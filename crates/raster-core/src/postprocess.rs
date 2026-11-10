@@ -141,15 +141,16 @@ pub fn compute_ssao_ao(
     }
 
     // 8-tap radial spiral offsets in [-1, 1]^2
+    const DIAG: f32 = std::f32::consts::FRAC_1_SQRT_2;
     const OFFSETS: [(f32, f32); 8] = [
         (1.0, 0.0),
         (-1.0, 0.0),
         (0.0, 1.0),
         (0.0, -1.0),
-        (0.7071, 0.7071),
-        (-0.7071, 0.7071),
-        (0.7071, -0.7071),
-        (-0.7071, -0.7071),
+        (DIAG, DIAG),
+        (-DIAG, DIAG),
+        (DIAG, -DIAG),
+        (-DIAG, -DIAG),
     ];
 
     let r = radius_px as f32;
@@ -183,7 +184,7 @@ pub fn compute_ssao_ao(
                 let sample_d = depth[sy * w + sx];
                 let diff = center_d - sample_d;
                 if diff > bias && diff < range_limit {
-                    occluded = diff.mul_add(-inv_range_limit, 1.0) + occluded;
+                    occluded += diff.mul_add(-inv_range_limit, 1.0);
                 }
             }
             let occ_norm = occluded * intensity_scale;
@@ -765,7 +766,7 @@ mod tests {
         // Column 2 straddles the 0->1 step
         assert_eq!(edges[2 * 5 + 2], 1.0);
         // Column 0 is inside uniform region
-        assert_eq!(edges[2 * 5 + 0], 0.0);
+        assert_eq!(edges[2 * 5], 0.0);
     }
 
     #[test]
@@ -840,9 +841,9 @@ mod tests {
         // Center pixel increases above 5.0
         assert!(bloomed[2 * 5 + 2][0] > 5.0);
         // Immediate neighbor (2, 1) receives bloom halo above its 0.2 base
-        assert!(bloomed[1 * 5 + 2][0] > 0.3);
+        assert!(bloomed[5 + 2][0] > 0.3);
         // Far corner (0, 0) receives much less than immediate neighbor
-        assert!(bloomed[0][0] < bloomed[1 * 5 + 2][0]);
+        assert!(bloomed[0][0] < bloomed[5 + 2][0]);
 
         // Hi-Z conservative max-depth mip pyramid level
         let depth_4x4 = [

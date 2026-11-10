@@ -150,12 +150,10 @@ impl StorageAccess {
 
     #[inline]
     pub fn contains(self, other: Self) -> bool {
-        match (self, other) {
-            (Self::ReadWrite, _) => true,
-            (Self::Read, Self::Read) => true,
-            (Self::Write, Self::Write) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (Self::ReadWrite, _) | (Self::Read, Self::Read) | (Self::Write, Self::Write)
+        )
     }
 }
 

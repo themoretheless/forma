@@ -1056,15 +1056,14 @@ fn translate_function_body(
     binding_map: &BindingMap,
     direct_out_struct: Option<&str>,
 ) -> String {
-    let rewritten = rewrite_statements(
+    rewrite_statements(
         module,
         body,
         ptr_params,
         func_globals,
         binding_map,
         direct_out_struct,
-    );
-    rewritten
+    )
 }
 
 fn rewrite_statements(

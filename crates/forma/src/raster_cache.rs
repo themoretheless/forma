@@ -358,7 +358,7 @@ impl Cache {
             .as_ref()
             .map_or(r, |rev| rev.target_radius.unwrap_or(r));
         let reveal_w = model.template.reveal.as_ref().map_or(0., |rev| rev.width);
-        let default_reveal_bounds = model.template.reveal.as_ref().map_or(true, |rev| {
+        let default_reveal_bounds = model.template.reveal.as_ref().is_none_or(|rev| {
             rev.target_x.is_none()
                 && rev.target_y.is_none()
                 && rev.target_width.is_none()
@@ -617,10 +617,12 @@ impl Cache {
             for b in 0..=f {
                 let a = (fa * (f - b) as f32 + (fa * (1. - ba) + ba) * b as f32) / 4.;
                 if a > 0. {
-                    for k in 0..3 {
-                        palette[f * 5 + b][k] = ((key.fill[k] as f32 * fa * (f - b) as f32
-                            + (key.fill[k] as f32 * fa * (1. - ba) + key.border[k] as f32 * ba)
-                                * b as f32)
+                    for (chan, (&fill_c, &border_c)) in palette[f * 5 + b][..3]
+                        .iter_mut()
+                        .zip(key.fill[..3].iter().zip(&key.border[..3]))
+                    {
+                        *chan = ((fill_c as f32 * fa * (f - b) as f32
+                            + (fill_c as f32 * fa * (1. - ba) + border_c as f32 * ba) * b as f32)
                             / 4.
                             / a)
                             .round() as u8;

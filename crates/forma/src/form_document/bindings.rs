@@ -76,10 +76,13 @@ impl Document {
             let end = activated_index.map_or(bound_controls.len(), |index| {
                 index.saturating_add(1).min(bound_controls.len())
             });
-            for idx in start..end {
-                let Some(ctrl) = bound_controls[idx] else {
-                    continue;
-                };
+            for (idx, ctrl) in bound_controls
+                .iter()
+                .enumerate()
+                .take(end)
+                .skip(start)
+                .filter_map(|(idx, slot)| slot.as_ref().map(|ctrl| (idx, ctrl)))
+            {
                 let Some(&src_node) = preorder_nodes.get(ctrl.node).or_else(|| {
                     preorder_nodes.iter().find(|n| {
                         n.props.get("__node").and_then(|v| v.number().ok())

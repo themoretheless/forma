@@ -255,7 +255,7 @@ pub fn radix_sort_u32(values: &[u32]) -> Vec<u32> {
             counts[bucket] += 1;
         }
         // If all elements fall into a single bucket in this byte, skip the scatter pass
-        if counts.iter().any(|&c| c == n) {
+        if counts.contains(&n) {
             continue;
         }
         let mut offsets = [0_usize; 256];
@@ -296,7 +296,7 @@ pub fn radix_sort_by_key_u32<T: Copy>(keys: &[u32], payloads: &[T]) -> (Vec<u32>
             let bucket = ((k >> shift) & 0xFF) as usize;
             counts[bucket] += 1;
         }
-        if counts.iter().any(|&c| c == n) {
+        if counts.contains(&n) {
             continue;
         }
         let mut offsets = [0_usize; 256];

@@ -55,11 +55,11 @@ mod probe {
             let value = unsafe { usage.assume_init() }.ru_maxrss as u64;
             #[cfg(target_os = "macos")]
             {
-                return Some(value);
+                Some(value)
             }
             #[cfg(not(target_os = "macos"))]
             {
-                return Some(value * 1024);
+                Some(value * 1024)
             }
         }
         #[cfg(not(unix))]

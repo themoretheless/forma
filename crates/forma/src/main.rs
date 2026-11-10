@@ -879,11 +879,10 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                         if event.logical_key == Key::Named(NamedKey::Tab)
                             && pressed
                             && !event.repeat
+                            && !chooser.focus_next(self.shift)
                         {
-                            if !chooser.focus_next(self.shift) {
-                                chooser.focus(false);
-                                chooser.focus_next(self.shift);
-                            }
+                            chooser.focus(false);
+                            chooser.focus_next(self.shift);
                         }
                         let key = match event.logical_key {
                             Key::Named(NamedKey::Space) => 1,
@@ -1127,13 +1126,13 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                             &key
                         };
                         let word_handled =
-                            word_modifier && self.button.text_word_key(&key, self.shift);
+                            word_modifier && self.button.text_word_key(key, self.shift);
                         let clipboard_handled = !word_handled
                             && command
-                            && forma::native_clipboard::handle_key(&mut self.button, &key);
+                            && forma::native_clipboard::handle_key(&mut self.button, key);
                         if !word_handled
                             && !clipboard_handled
-                            && !self.button.text_key(&key, self.shift, command)
+                            && !self.button.text_key(key, self.shift, command)
                             && !command
                         {
                             if let Some(text) = event.text {
@@ -1153,11 +1152,10 @@ impl ApplicationHandler<accesskit_winit::Event> for App {
                     if event.logical_key == Key::Named(NamedKey::Tab)
                         && event.state == ElementState::Pressed
                         && !event.repeat
+                        && !self.button.focus_next(self.shift)
                     {
-                        if !self.button.focus_next(self.shift) {
-                            self.button.focus(false);
-                            self.button.focus_next(self.shift);
-                        }
+                        self.button.focus(false);
+                        self.button.focus_next(self.shift);
                     }
                     self.button
                         .key_event(key, event.state == ElementState::Pressed, event.repeat);

@@ -474,10 +474,10 @@ fn analytic_text_coverage_matches_supersampled_reference() {
                         previous = x;
                     }
                 }
-                for (pixel, &cov) in coverage.iter().enumerate() {
+                for (&cov, px) in coverage.iter().zip(value.iter_mut()) {
                     let cov = cov.min(1.);
-                    for k in 0..3 {
-                        value[pixel][k] = cov + (1. - cov) * value[pixel][k];
+                    for chan in px.iter_mut() {
+                        *chan = cov + (1. - cov) * *chan;
                     }
                 }
             }
