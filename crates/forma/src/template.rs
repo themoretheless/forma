@@ -1181,7 +1181,7 @@ pub const MAX_PARSED_TEMPLATES: usize = 1_024;
 pub const MAX_PARSED_BYTES: usize = 16 * 1024 * 1024;
 
 struct ParsedTemplate {
-    hash: u64,
+    id: u64,
     source: String,
     props: ButtonSpec,
     template: Arc<Template>,
@@ -1191,10 +1191,11 @@ struct ParsedTemplate {
 /// builds a new `Runtime` for every keystroke. The hash only selects candidates: reuse
 /// still requires the whole template text and the whole spec to compare equal, so a
 /// short hash is never the sole proof of equality (`CACHE_POLICY.md`). Controls of one
-/// document share their template text, so one hash can index many specs.
+/// document share their template text, so one hash can hold many specs.
 struct TemplateCache {
-    lru: WeightedLru<u64, ParsedTemplate>,
-    by_hash: HashMap<u64, Vec<u64>>,
+    by_hash: HashMap<u64, Vec<ParsedTemplate>>,
+    /// Recency and limits per template id; the value is the hash that holds the template.
+    lru: WeightedLru<u64, u64>,
     next_id: u64,
     hits: u64,
     misses: u64,
@@ -1203,12 +1204,12 @@ struct TemplateCache {
 impl TemplateCache {
     fn new() -> Self {
         Self {
+            by_hash: HashMap::new(),
             lru: WeightedLru::with_limits(CacheLimits {
                 max_bytes: MAX_PARSED_BYTES as u64,
                 max_entries: Some(MAX_PARSED_TEMPLATES),
                 ttl: None,
             }),
-            by_hash: HashMap::new(),
             next_id: 0,
             hits: 0,
             misses: 0,
@@ -1216,32 +1217,37 @@ impl TemplateCache {
     }
 
     fn get(&mut self, hash: u64, source: &str, props: &ButtonSpec) -> Option<Arc<Template>> {
-        let lru = &self.lru;
-        let id = *self.by_hash.get(&hash)?.iter().find(|id| {
-            lru.peek(id)
-                .is_some_and(|entry| entry.source == source && &entry.props == props)
-        })?;
-        self.lru.get(&id).map(|entry| Arc::clone(&entry.template))
+        let entry = self
+            .by_hash
+            .get(&hash)?
+            .iter()
+            .find(|entry| entry.source == source && &entry.props == props)?;
+        self.lru.get(&entry.id);
+        Some(Arc::clone(&entry.template))
     }
 
-    /// Caches `entry`, evicting least recently used templates first. An entry that does
-    /// not fit the budget even when the cache is empty is used without caching.
-    fn insert(&mut self, entry: ParsedTemplate, weight: usize) {
-        let (id, hash) = (self.next_id, entry.hash);
+    /// Caches a parsed template, evicting least recently used templates first. One that
+    /// does not fit the budget even when the cache is empty is used without caching.
+    fn insert(&mut self, hash: u64, source: &str, props: &ButtonSpec, template: &Arc<Template>) {
+        let id = self.next_id;
         self.next_id += 1;
-        let (admitted, evicted) = self
-            .lru
-            .insert_prefetch_with_evictions(id, entry, weight as u64);
-        for (victim, entry) in evicted {
-            if let Some(ids) = self.by_hash.get_mut(&entry.hash) {
-                ids.retain(|&other| other != victim);
-                if ids.is_empty() {
-                    self.by_hash.remove(&entry.hash);
+        let weight = entry_weight(source, template) as u64;
+        let (admitted, evicted) = self.lru.insert_prefetch_with_evictions(id, hash, weight);
+        for (victim, victim_hash) in evicted {
+            if let Some(entries) = self.by_hash.get_mut(&victim_hash) {
+                entries.retain(|entry| entry.id != victim);
+                if entries.is_empty() {
+                    self.by_hash.remove(&victim_hash);
                 }
             }
         }
         if admitted {
-            self.by_hash.entry(hash).or_default().push(id);
+            self.by_hash.entry(hash).or_default().push(ParsedTemplate {
+                id,
+                source: source.to_owned(),
+                props: props.clone(),
+                template: Arc::clone(template),
+            });
         }
     }
 
@@ -1316,16 +1322,7 @@ pub fn parse_cached(source: &str, props: &ButtonSpec) -> Result<Arc<Template>, S
         }
         let template = Arc::new(parse(source, props)?);
         cache.misses += 1;
-        let weight = entry_weight(source, &template);
-        cache.insert(
-            ParsedTemplate {
-                hash,
-                source: source.to_owned(),
-                props: props.clone(),
-                template: Arc::clone(&template),
-            },
-            weight,
-        );
+        cache.insert(hash, source, props, &template);
         Ok(template)
     })
 }

@@ -17,7 +17,7 @@ impl Document {
         runtime: &impl WidgetState,
         activated_index: Option<usize>,
     ) -> Result<usize, String> {
-        let (_, _, controls) = self.render_scene()?;
+        let controls = self.binding_scene_controls()?;
         self.sync_runtime_bindings_from_scene(runtime, activated_index, &controls)
     }
 

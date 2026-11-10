@@ -25,6 +25,11 @@ struct Entry<V> {
     value: V,
     weight: u64,
     last_used: u64,
+    /// This entry's key in `evictable`. Hits only advance `last_used`, so the rank can lag
+    /// behind it until `settle` moves the entry to its real position.
+    rank: u64,
+    /// Whether the key is already in `touched`, so a hot entry is queued once per settle.
+    queued: bool,
     deadline: Option<Instant>,
 }
 impl<V> Entry<V> {
@@ -47,6 +52,8 @@ pub struct WeightedLru<K, V> {
     clock: u64,
     protected: HashSet<K>,
     evictable: BTreeMap<u64, K>,
+    // Keys hit since the last `settle`; their `evictable` rank may be stale.
+    touched: Vec<K>,
     limits: CacheLimits,
     // Track live deadlines so removing the last TTL entry restores indexed eviction.
     deadline_entries: usize,
@@ -70,6 +77,24 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
     fn note_deadline(&mut self, deadline: Instant) {
         self.next_expiry = Some(self.next_expiry.map_or(deadline, |next| next.min(deadline)));
     }
+    /// Moves every entry hit since the last call to its real recency rank, so `evictable`
+    /// iterates in exact least-recently-used order again. Each hit costs at most one move.
+    fn settle(&mut self) {
+        // Reuse the list's allocation: a hit after settling must not allocate.
+        let mut touched = std::mem::take(&mut self.touched);
+        for key in touched.drain(..) {
+            let Some(entry) = self.entries.get_mut(&key) else {
+                continue;
+            };
+            entry.queued = false;
+            if entry.rank != entry.last_used && !self.protected.contains(&key) {
+                self.evictable.remove(&entry.rank);
+                self.evictable.insert(entry.last_used, key);
+                entry.rank = entry.last_used;
+            }
+        }
+        self.touched = touched;
+    }
     pub fn new(capacity: u64) -> Self {
         Self::with_limits(CacheLimits::bytes(capacity))
     }
@@ -81,6 +106,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
             clock: 0,
             protected: HashSet::new(),
             evictable: BTreeMap::new(),
+            touched: Vec::new(),
             limits,
             deadline_entries: 0,
             next_expiry: None,
@@ -151,8 +177,9 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
     }
     pub fn pin(&mut self, key: &K) -> bool {
         if self.entries.contains_key(key) {
-            self.evictable.remove(&self.entries[key].last_used);
-            self.protected.insert(key.clone());
+            if self.protected.insert(key.clone()) {
+                self.evictable.remove(&self.entries[key].rank);
+            }
             true
         } else {
             false
@@ -160,9 +187,10 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
     }
     pub fn unpin(&mut self, key: &K) {
         if self.protected.remove(key)
-            && let Some(entry) = self.entries.get(key)
+            && let Some(entry) = self.entries.get_mut(key)
         {
-            self.evictable.insert(entry.last_used, key.clone());
+            entry.rank = entry.last_used;
+            self.evictable.insert(entry.rank, key.clone());
             if let Some(deadline) = entry.deadline {
                 self.note_deadline(deadline);
             }
@@ -174,10 +202,11 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         (!entry.expired_at(self.ttl_now())).then_some(&entry.value)
     }
     pub fn get(&mut self, key: &K) -> Option<&V> {
-        if self
-            .entries
-            .get(key)
-            .is_some_and(|entry| entry.deadline.is_some())
+        if self.deadline_entries > 0
+            && self
+                .entries
+                .get(key)
+                .is_some_and(|entry| entry.deadline.is_some())
         {
             self.get_at(key, Instant::now())
         } else {
@@ -202,9 +231,13 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
                 .collect();
             ordered.sort_unstable_by_key(|v| v.0);
             self.evictable.clear();
+            self.touched.clear();
             for (index, (_, key)) in ordered.into_iter().enumerate() {
                 let rank = index as u64 + 1;
-                self.entries.get_mut(&key).unwrap().last_used = rank;
+                let entry = self.entries.get_mut(&key).unwrap();
+                entry.last_used = rank;
+                entry.rank = rank;
+                entry.queued = false;
                 if !self.protected.contains(&key) {
                     self.evictable.insert(rank, key);
                 }
@@ -213,22 +246,28 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         }
         self.clock += 1;
     }
+    /// A hit is one hash lookup: it advances the clock and remembers the key for `settle`
+    /// instead of moving it in `evictable`.
     fn get_live(&mut self, key: &K) -> Option<&V> {
-        // Repeated access to the most recent entry changes no eviction order.
-        if self
-            .entries
-            .get(key)
-            .is_some_and(|entry| entry.last_used == self.clock)
-        {
-            return self.entries.get(key).map(|entry| &entry.value);
+        // Each live entry is queued at most once; only keys of removed entries can pile
+        // up, so settle when they outnumber the live ones. Renumbering needs the whole
+        // cache; both run before the lookup.
+        if self.touched.len() > 2 * self.entries.len() + 16 {
+            self.settle();
         }
-        self.next_clock();
+        if self.clock == u64::MAX {
+            self.next_clock();
+        }
         let entry = self.entries.get_mut(key)?;
-        if !self.protected.contains(key) {
-            self.evictable.remove(&entry.last_used);
-            self.evictable.insert(self.clock, key.clone());
+        // Repeated access to the most recent entry changes no eviction order.
+        if entry.last_used != self.clock {
+            self.clock += 1;
+            entry.last_used = self.clock;
+            if !entry.queued && (self.protected.is_empty() || !self.protected.contains(key)) {
+                entry.queued = true;
+                self.touched.push(key.clone());
+            }
         }
-        entry.last_used = self.clock;
         Some(&entry.value)
     }
     /// Transfers expired unprotected values to the caller without cloning them.
@@ -373,6 +412,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
     }
     pub fn take_lru(&mut self) -> Option<(K, V)> {
         if self.deadline_entries == 0 {
+            self.settle();
             let key = self.evictable.first_key_value()?.1.clone();
             return self.remove(&key).map(|value| (key, value));
         }
@@ -414,6 +454,9 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
             .map_or(0, |max| remaining.saturating_add(1).saturating_sub(max));
         // Build the eviction plan once. Re-scanning the HashMap for each victim
         // makes a large admission quadratic in the number of resident entries.
+        if pin_aware && slots <= 1 && self.deadline_entries == 0 && (required > 0 || slots > 0) {
+            self.settle();
+        }
         let single = if pin_aware && slots <= 1 && self.deadline_entries == 0 {
             self.evictable
                 .iter()
@@ -457,7 +500,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         let mut victims = victims.into_iter();
         self.next_clock();
         if let Some(previous) = self.entries.remove(&key) {
-            self.evictable.remove(&previous.last_used);
+            self.evictable.remove(&previous.rank);
             self.resident -= previous.weight;
             self.deadline_entries -= usize::from(previous.deadline.is_some());
         }
@@ -485,6 +528,8 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
                 value,
                 weight,
                 last_used: self.clock,
+                rank: self.clock,
+                queued: false,
                 deadline,
             },
         );
@@ -502,7 +547,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
     }
     pub fn remove(&mut self, key: &K) -> Option<V> {
         let entry = self.entries.remove(key)?;
-        self.evictable.remove(&entry.last_used);
+        self.evictable.remove(&entry.rank);
         self.resident -= entry.weight;
         self.deadline_entries -= usize::from(entry.deadline.is_some());
         self.protected.remove(key);
@@ -532,6 +577,87 @@ mod tests {
         assert_eq!(cache.limits().max_entries, Some(2));
         assert!(cache.insert(3, 30, 8));
         assert_eq!(cache.take_lru(), Some((3, 30)));
+    }
+    #[test]
+    fn lazy_recency_matches_an_exact_lru_model() {
+        // Reference: keys least recently used first, plus the pinned set.
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        let mut next = move |bound: u64| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state % bound
+        };
+        for capacity in [1_u64, 2, 3, 8] {
+            let mut cache = WeightedLru::new(capacity);
+            let mut order: Vec<u64> = Vec::new();
+            let mut pinned = std::collections::HashSet::new();
+            let touch = |order: &mut Vec<u64>, key: u64| {
+                order.retain(|&k| k != key);
+                order.push(key);
+            };
+            for step in 0..20_000 {
+                let key = next(12);
+                match next(6) {
+                    0 | 1 => {
+                        let hit = cache.get(&key).copied();
+                        assert_eq!(hit.is_some(), order.contains(&key), "step {step}");
+                        if hit.is_some() {
+                            touch(&mut order, key);
+                        }
+                    }
+                    2 => {
+                        let (admitted, mut evicted) =
+                            cache.insert_prefetch_with_evictions(key, key * 10, 1);
+                        let expected = if order.contains(&key) || (order.len() as u64) < capacity {
+                            Some(None)
+                        } else {
+                            order
+                                .iter()
+                                .find(|k| !pinned.contains(*k))
+                                .map(|&victim| Some(victim))
+                        };
+                        assert_eq!(admitted, expected.is_some(), "step {step}");
+                        if let Some(victim) = expected.flatten() {
+                            assert_eq!(evicted.pop(), Some((victim, victim * 10)), "step {step}");
+                            order.retain(|&k| k != victim);
+                        }
+                        assert!(evicted.is_empty(), "step {step}");
+                        if admitted {
+                            touch(&mut order, key);
+                        }
+                    }
+                    3 => {
+                        assert_eq!(cache.pin(&key), order.contains(&key), "step {step}");
+                        if order.contains(&key) {
+                            pinned.insert(key);
+                        }
+                    }
+                    4 => {
+                        cache.unpin(&key);
+                        pinned.remove(&key);
+                    }
+                    _ => {
+                        if next(2) == 0 {
+                            let expected = order.iter().copied().find(|k| !pinned.contains(k));
+                            assert_eq!(
+                                cache.take_lru(),
+                                expected.map(|k| (k, k * 10)),
+                                "step {step}"
+                            );
+                            if let Some(k) = expected {
+                                order.retain(|&o| o != k);
+                            }
+                        } else {
+                            assert_eq!(cache.remove(&key).is_some(), order.contains(&key));
+                            order.retain(|&k| k != key);
+                            pinned.remove(&key);
+                        }
+                    }
+                }
+                assert_eq!(cache.len(), order.len(), "step {step}");
+            }
+        }
     }
     #[test]
     fn peek_reads_without_touching_recency() {

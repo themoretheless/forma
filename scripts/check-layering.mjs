@@ -9,6 +9,7 @@ export const ALLOWED = {
   'tensor-core': [],
   'osv-math': [],
   'memory-budget': [],
+  'swap-store': ['memory-budget'],
   'gpu-runtime': ['gpu-shader'],
   'gpu-compute': ['gpu-runtime', 'gpu-shader'],
   'raster-core': ['gpu-compute', 'gpu-runtime', 'gpu-shader'],

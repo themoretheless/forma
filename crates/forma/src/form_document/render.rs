@@ -241,6 +241,8 @@ impl Document {
         let mut mapping = Vec::with_capacity(instances.len());
         let mut source_controls = Vec::with_capacity(instances.len());
         let mut templates = String::with_capacity(32 + instances.len() * 256);
+        let mut content = String::with_capacity(256);
+        let mut template = String::with_capacity(320);
         templates.push_str("FORMA-TEMPLATES-1\n");
         for (mut instance, precomputed_visual) in instances {
             let event_args = match instance.props.get("__event_args") {
@@ -278,7 +280,7 @@ impl Document {
                 Some(Value::Object(state)) => state,
                 _ => &empty,
             };
-            let mut content = String::with_capacity(128);
+            content.clear();
             // Measure the same children with resolved instance properties,
             // then restore rectangle properties before flattening/serialization.
             std::mem::swap(&mut visual.props, &mut resolved);
@@ -338,15 +340,10 @@ impl Document {
                 }
                 content.push_str("} ");
             }
-            let rectangle = Node {
-                kind: visual.kind.clone(),
-                props: visual.props.clone(),
-                children: Vec::new(),
-                action: visual.action.clone(),
-            };
-            let mut template = String::with_capacity(64 + content.len());
+            visual.children.clear();
+            template.clear();
             template.push_str("component Button { ");
-            serialize_into(&rectangle, &mut template)?;
+            serialize_into(&visual, &mut template)?;
             template.pop();
             template.push_str(&content);
             template.push_str(" } }");

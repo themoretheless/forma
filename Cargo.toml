@@ -4,6 +4,7 @@
 resolver = "2"
 members = [
     "crates/memory-budget",
+    "crates/swap-store",
     "crates/forma",
     "crates/forma/examples/binding-app",
     "crates/forma/examples/language-app",
@@ -21,6 +22,7 @@ members = [
 # `cargo build` at the root must not pull them in.
 default-members = [
     "crates/memory-budget",
+    "crates/swap-store",
     "crates/forma",
     "crates/gpu-shader",
     "crates/gpu-runtime",
