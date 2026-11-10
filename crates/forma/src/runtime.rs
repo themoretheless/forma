@@ -9,11 +9,13 @@ use std::{cell::RefCell, sync::Arc};
 use wasm_bindgen::prelude::*;
 
 mod a11y;
+mod links;
 mod modal;
 mod raster;
 mod wasm_api;
 
 pub use a11y::{A11yNode, A11yRole, A11yTree};
+pub use links::{MAX_TEXT_LINK_EVENTS, TextLinkEvent};
 use raster::RasterCache;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,6 +115,7 @@ pub struct Runtime {
     scroll: [f32; 2],
     canvases: std::collections::BTreeMap<String, CanvasEntry>,
     canvas_input: CanvasInput,
+    text_links: links::TextLinkInput,
     revision: u32,
     geometry_revision: u32,
     layout_revision: u32,
@@ -638,6 +641,7 @@ impl Runtime {
             scroll: [0.; 2],
             canvases: Default::default(),
             canvas_input: CanvasInput::default(),
+            text_links: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
             native_accessibility_id: None,
             #[cfg(not(target_arch = "wasm32"))]

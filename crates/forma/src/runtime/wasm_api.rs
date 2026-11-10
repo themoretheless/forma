@@ -864,6 +864,7 @@ impl Runtime {
             self.captured = None;
         }
         self.route_canvas_pointer(x, y, kind, hit);
+        self.route_link_pointer(x, y, kind, hit);
         self.update_revision(before);
     }
     pub fn activate(&mut self) {

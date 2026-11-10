@@ -2751,6 +2751,38 @@ fn text_runs_compile_to_styled_fragments_backgrounds_and_links() {
 }
 
 #[test]
+fn text_runs_activate_links_through_the_pointer_path() {
+    let (scene, templates) = runs_scene(RUNS_TEXT).unwrap();
+    let mut runtime = crate::Runtime::from_sources(&scene, &templates).unwrap();
+    let b = runtime.control_bounds(0);
+    // Third line (y 48..72), first 50 px: the link fragment.
+    let (lx, ly) = (b[0] + 10., b[1] + 60.);
+    assert_eq!(runtime.text_link_at(lx, ly).as_deref(), Some("docs"));
+    assert_eq!(runtime.text_link_at(b[0] + 10., b[1] + 10.), None);
+    runtime.pointer(lx, ly, 1);
+    runtime.pointer(lx, ly, 2);
+    assert_eq!(
+        runtime.take_text_link_events(),
+        vec![crate::runtime::TextLinkEvent {
+            key: "t".into(),
+            link: "docs".into()
+        }]
+    );
+    assert!(runtime.take_text_link_events().is_empty());
+    // Press on the link, release elsewhere: no activation.
+    runtime.pointer(lx, ly, 1);
+    runtime.pointer(b[0] + 10., b[1] + 10., 2);
+    // Press elsewhere, release on the link: no activation either.
+    runtime.pointer(b[0] + 10., b[1] + 10., 1);
+    runtime.pointer(lx, ly, 2);
+    assert!(runtime.take_text_link_events().is_empty());
+    // The passive Text stays non-interactive: links add no click or focus.
+    assert!(!runtime.control_interactive(0));
+    assert_eq!(runtime.clicks(), 0);
+    assert_eq!(runtime.text_link_events_dropped(), 0);
+}
+
+#[test]
 fn text_runs_from_state_and_plain_text_weight() {
     let mut files: BTreeMap<String, String> = BTreeMap::new();
     files.insert(
