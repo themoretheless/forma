@@ -266,7 +266,14 @@ export function steps({ platform, installedTargets, viteEntry }) {
         id: 'crates-gpu-kit',
         name: 'gpu-kit builds and passes on its own lockfile',
         argv: 'cargo',
-        args: ['test', '--locked', '--manifest-path', 'crates/gpu-kit/Cargo.toml'],
+        // Its GPU render tests are #[ignore]d for machines without a GPU; a Mac has Metal.
+        args: [
+          'test',
+          '--locked',
+          '--manifest-path',
+          'crates/gpu-kit/Cargo.toml',
+          ...(platform === 'darwin' ? ['--', '--include-ignored'] : []),
+        ],
       },
       // gpu-compute stays outside the workspace (see the root Cargo.toml) and has its own lockfile.
       {
