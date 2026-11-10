@@ -18,11 +18,12 @@ impl Runtime {
             .unwrap_or(0)
     }
 
-    /// Topmost open layer, if any. It alone receives pointer and keyboard input.
+    /// Topmost open blocking layer, if any. It alone receives pointer and keyboard input,
+    /// together with popups opened above it. Popup layers never block (see `popup.rs`).
     pub(super) fn active_modal_index(&self) -> Option<usize> {
         (0..self.modal_open.len())
             .rev()
-            .find(|&m| self.modal_open[m])
+            .find(|&m| self.modal_open[m] && !self.is_popup(m))
     }
 
     pub(super) fn visible(&self, index: usize) -> bool {
@@ -32,7 +33,10 @@ impl Runtime {
     /// Reachable controls belong to the active layer; everything else is
     /// blocked by the backdrop and neither hit, hovered nor focusable.
     pub(super) fn reachable(&self, index: usize) -> bool {
-        self.modal_of[index] == self.active_modal_index()
+        match self.modal_of[index] {
+            Some(m) if self.is_popup(m) => self.popup_reachable(m),
+            owner => owner == self.active_modal_index(),
+        }
     }
 
     pub(super) fn enabled(&self, index: usize) -> bool {

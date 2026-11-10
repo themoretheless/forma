@@ -10,10 +10,12 @@ use wasm_bindgen::prelude::*;
 
 mod a11y;
 mod modal;
+mod popup;
 mod raster;
 mod wasm_api;
 
 pub use a11y::{A11yNode, A11yRole, A11yTree};
+pub use popup::{Placement, PopupKind, PopupSpec};
 use raster::RasterCache;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,6 +115,7 @@ pub struct Runtime {
     scroll: [f32; 2],
     canvases: std::collections::BTreeMap<String, CanvasEntry>,
     canvas_input: CanvasInput,
+    popups: popup::Popups,
     revision: u32,
     geometry_revision: u32,
     layout_revision: u32,
@@ -638,6 +641,7 @@ impl Runtime {
             scroll: [0.; 2],
             canvases: Default::default(),
             canvas_input: CanvasInput::default(),
+            popups: Default::default(),
             #[cfg(not(target_arch = "wasm32"))]
             native_accessibility_id: None,
             #[cfg(not(target_arch = "wasm32"))]
