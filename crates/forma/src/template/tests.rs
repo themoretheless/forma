@@ -88,6 +88,35 @@ fn font_family_selects_the_face_and_rejects_unknown_names() {
     ));
 }
 #[test]
+fn font_weight_selects_the_bold_face() {
+    use crate::text::FontFamily;
+    let label = |source: &str| body(source).map(|t| t.text.unwrap().family);
+    assert_eq!(
+        label("Text { text:'x'; fontWeight: bold; }").unwrap(),
+        FontFamily::SansBold
+    );
+    // Weight applies after the family, whatever the field order.
+    assert_eq!(
+        label("Text { text:'x'; fontWeight: 'bold'; fontFamily: sans; }").unwrap(),
+        FontFamily::SansBold
+    );
+    assert_eq!(
+        label("Text { text:'x'; fontWeight: bold; fontFamily: mono; }").unwrap(),
+        FontFamily::Mono
+    );
+    assert!(label("Text { text:'x'; fontWeight: heavy; }").is_err());
+    // `sans-bold` is a compiled-scene name only.
+    assert!(label("Text { text:'x'; fontFamily: 'sans-bold'; }").is_err());
+    let content = body(
+        "ContentText { x: 0; y: 0; width: 10; height: 10; text: 'a'; color: #ffffff; fontFamily: 'sans-bold'; }",
+    )
+    .unwrap();
+    assert!(matches!(
+        &content.content[0],
+        Content::Text { text, .. } if text.family == FontFamily::SansBold
+    ));
+}
+#[test]
 fn shape_points_boundaries_and_string_escapes() {
     let shape = |points: &str| {
         body(&format!(

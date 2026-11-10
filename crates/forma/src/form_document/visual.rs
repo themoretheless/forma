@@ -581,11 +581,7 @@ impl Document {
                 let color = text_ref(&n.props, "color", "#ffffff")?;
                 let wrap = boolean(&n.props, "wrap", false)?;
                 let family = font_family(&n.props)?;
-                // The default family is left implicit, so existing scenes stay byte-identical.
-                let family_field = match family {
-                    crate::text::FontFamily::Sans => String::new(),
-                    other => format!(" fontFamily:{};", other.as_str()),
-                };
+                let family_field = family_field(family);
                 if wrap && w > 0. {
                     let wrapped =
                         crate::text::wrap_text_ranges_in(family, &value, fs as f32, w as f32);

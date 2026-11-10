@@ -10,8 +10,9 @@ use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 const FONT: &[u8] = include_bytes!("../assets/Ubuntu-Light.ttf");
 const MONO: &[u8] = include_bytes!("../assets/mono/IBMPlexMono-Regular.ttf");
+const BOLD: &[u8] = include_bytes!("../assets/bold/Ubuntu-Bold.ttf");
 
-/// Primary face of a passive text run. Fallback faces are shared by both families.
+/// Primary face of a passive text run. Fallback faces are shared by every family.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum FontFamily {
     /// Ubuntu Light, the default interface face.
@@ -19,10 +20,33 @@ pub enum FontFamily {
     Sans,
     /// IBM Plex Mono Regular, for code and aligned columns.
     Mono,
+    /// Ubuntu Bold: `Sans` with `fontWeight: bold`. Markup selects it through the weight,
+    /// not through `fontFamily`.
+    SansBold,
+}
+
+/// Weight requested by markup (`fontWeight`). Only the sans family has a bold face; a bold
+/// monospace run keeps IBM Plex Mono Regular.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum FontWeight {
+    #[default]
+    Regular,
+    Bold,
+}
+
+impl FontWeight {
+    /// Markup name: `regular` (also `normal`) or `bold`.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "regular" | "normal" => Some(Self::Regular),
+            "bold" => Some(Self::Bold),
+            _ => None,
+        }
+    }
 }
 
 impl FontFamily {
-    /// Markup name: `sans` or `mono`.
+    /// Markup name: `sans` or `mono`. The bold face is chosen by [`FontFamily::with_weight`].
     pub fn from_name(name: &str) -> Option<Self> {
         match name {
             "sans" => Some(Self::Sans),
@@ -30,10 +54,27 @@ impl FontFamily {
             _ => None,
         }
     }
+    /// Name in compiled scene text (`ContentText { fontFamily: ... }`): the markup names plus
+    /// `sans-bold`.
+    pub fn from_scene_name(name: &str) -> Option<Self> {
+        match name {
+            "sans-bold" => Some(Self::SansBold),
+            other => Self::from_name(other),
+        }
+    }
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Sans => "sans",
             Self::Mono => "mono",
+            Self::SansBold => "sans-bold",
+        }
+    }
+    /// The face for `weight`: `Sans` and `SansBold` switch, `Mono` has one weight.
+    pub fn with_weight(self, weight: FontWeight) -> Self {
+        match (self, weight) {
+            (Self::Sans | Self::SansBold, FontWeight::Bold) => Self::SansBold,
+            (Self::Sans | Self::SansBold, FontWeight::Regular) => Self::Sans,
+            (Self::Mono, _) => Self::Mono,
         }
     }
     /// Index of the family's primary face, as used by [`font_face`].
@@ -41,6 +82,7 @@ impl FontFamily {
         match self {
             Self::Sans => 0,
             Self::Mono => 3,
+            Self::SansBold => 4,
         }
     }
 }
@@ -51,7 +93,8 @@ const CURVE_TOLERANCE: f32 = 0.15;
 pub struct ShapedGlyph {
     /// Resolved font glyph identifier (`GlyphId(0)` when synthesized by the fallback chain).
     pub glyph_id: u16,
-    /// Bundled face: 0=Ubuntu, 1=NotoSansSC, 2=NotoEmoji, 3=IBM Plex Mono; see [`font_face`].
+    /// Bundled face: 0=Ubuntu, 1=NotoSansSC, 2=NotoEmoji, 3=IBM Plex Mono, 4=Ubuntu Bold;
+    /// see [`font_face`].
     /// Shaping itself only produces 0..=2: the monospace face is not shaped.
     pub font_index: u8,
     /// Logical UTF-8 byte offset of the cluster start in the source string.
@@ -516,8 +559,8 @@ pub fn wrap_text_ranges(
     wrap_text_ranges_in(FontFamily::Sans, text, font_size, max_width)
 }
 
-/// [`wrap_text_ranges`] for a chosen family. The monospace face is measured by plain
-/// advances, the same sum its renderer uses: it has no ligatures or kerning to shape.
+/// [`wrap_text_ranges`] for a chosen family. The monospace and bold faces are measured by plain
+/// advances, the same sum their renderer uses: shaping covers the default face only.
 pub fn wrap_text_ranges_in(
     family: FontFamily,
     text: &str,
@@ -529,7 +572,7 @@ pub fn wrap_text_ranges_in(
     }
     let measure_shaped_text = |value: &str, size: f32| match family {
         FontFamily::Sans => measure_shaped_text(value, size),
-        FontFamily::Mono => measure_text_in(family, value, size),
+        FontFamily::Mono | FontFamily::SansBold => measure_text_in(family, value, size),
     };
     let unbounded = !max_width.is_finite() || max_width <= 0.;
     let mut result = Vec::new();
@@ -651,7 +694,7 @@ struct FontGlyph {
 /// Return an immutable bundled face corresponding to [`ShapedGlyph::font_index`].
 /// Fallback variable fonts are fixed at weight400, matching shaping/rendering.
 pub fn font_face(index: u8) -> Option<&'static Face<'static>> {
-    (index <= 3).then(|| glyph_face(index))
+    (index <= 4).then(|| glyph_face(index))
 }
 
 fn glyph_face(index: u8) -> &'static Face<'static> {
@@ -673,6 +716,10 @@ fn glyph_face(index: u8) -> &'static Face<'static> {
         3 => {
             static MONO_FACE: OnceLock<Face<'static>> = OnceLock::new();
             MONO_FACE.get_or_init(|| Face::parse(MONO, 0).expect("embedded monospace font"))
+        }
+        4 => {
+            static BOLD_FACE: OnceLock<Face<'static>> = OnceLock::new();
+            BOLD_FACE.get_or_init(|| Face::parse(BOLD, 0).expect("embedded bold font"))
         }
         _ => font(),
     }
@@ -731,9 +778,11 @@ fn font_table() -> &'static FontTable {
 fn font_table_for(family: FontFamily) -> &'static FontTable {
     static SANS: OnceLock<FontTable> = OnceLock::new();
     static MONO_TABLE: OnceLock<FontTable> = OnceLock::new();
+    static BOLD_TABLE: OnceLock<FontTable> = OnceLock::new();
     let cell = match family {
         FontFamily::Sans => &SANS,
         FontFamily::Mono => &MONO_TABLE,
+        FontFamily::SansBold => &BOLD_TABLE,
     };
     cell.get_or_init(|| {
         let primary = family.primary();

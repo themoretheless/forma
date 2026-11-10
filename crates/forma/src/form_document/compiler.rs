@@ -740,7 +740,7 @@ fn builtin_definitions() -> &'static [(&'static str, Definition); 3] {
             [
                 (
                     "Text",
-                    "component Text { width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff; wrap: false; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; Text { text: props.text; color: props.color; fontSize: props.fontSize; wrap: props.wrap; } } }",
+                    "component Text { width: 260; height: 30; text: ''; fontSize: 16; color: #ffffff; wrap: false; fontFamily: 'sans'; fontWeight: 'regular'; background: #00000000; borderWidth: 0; radius: 0; Rectangle { background: props.background; Text { text: props.text; color: props.color; fontSize: props.fontSize; wrap: props.wrap; fontFamily: props.fontFamily; fontWeight: props.fontWeight; } } }",
                 ),
                 (
                     "TextInput",

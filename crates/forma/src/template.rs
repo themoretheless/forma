@@ -852,6 +852,18 @@ impl<'a> Parser<'a> {
         self.advance()?;
         Ok(family)
     }
+    /// Compiled scene face: [`Self::font_family`] names plus `sans-bold`.
+    fn scene_font_family(&mut self) -> Result<crate::text::FontFamily, String> {
+        let family = match &self.current.kind {
+            Kind::Ident(name) => crate::text::FontFamily::from_scene_name(name.text()),
+            Kind::String(name) => crate::text::FontFamily::from_scene_name(name),
+            _ => None,
+        };
+        let family =
+            family.ok_or_else(|| self.error("'fontFamily' requires sans, mono or sans-bold"))?;
+        self.advance()?;
+        Ok(family)
+    }
     fn text(&mut self) -> Result<Text, String> {
         self.open()?;
         let mut text = Text {
@@ -861,12 +873,21 @@ impl<'a> Parser<'a> {
             family: Default::default(),
         };
         let mut seen = SeenFields::default();
+        let mut weight = crate::text::FontWeight::Regular;
         while self.current.kind != Kind::Close {
             let name = self.ident()?;
             self.unique(&mut seen, &name)?;
             if !matches!(
                 name.text(),
-                "text" | "color" | "font.size" | "fontSize" | "font.family" | "fontFamily" | "wrap"
+                "text"
+                    | "color"
+                    | "font.size"
+                    | "fontSize"
+                    | "font.family"
+                    | "fontFamily"
+                    | "font.weight"
+                    | "fontWeight"
+                    | "wrap"
             ) {
                 return Err(self.error(&format!("Unsupported Text field or primitive '{name}'")));
             }
@@ -876,6 +897,17 @@ impl<'a> Parser<'a> {
                 "color" => text.color = self.color("color")?,
                 "font.size" | "fontSize" => text.font_size = self.scalar("fontSize", true)?,
                 "font.family" | "fontFamily" => text.family = self.font_family()?,
+                "font.weight" | "fontWeight" => {
+                    let w = match &self.current.kind {
+                        Kind::Ident(name) => crate::text::FontWeight::from_name(name.text()),
+                        Kind::String(name) => crate::text::FontWeight::from_name(name),
+                        _ => None,
+                    };
+                    weight = w.ok_or_else(|| {
+                        self.error("Unsupported fontWeight: requires regular or bold")
+                    })?;
+                    self.advance()?;
+                }
                 "wrap" => {
                     let v = self.ident()?;
                     if !matches!(v.text(), "true" | "false" | "props.wrap") {
@@ -887,6 +919,7 @@ impl<'a> Parser<'a> {
             self.semi()?;
         }
         self.close()?;
+        text.family = text.family.with_weight(weight);
         Ok(text)
     }
     fn pointer_area(&mut self) -> Result<bool, String> {
@@ -1066,7 +1099,7 @@ impl<'a> Parser<'a> {
                 ("ContentClip", "radius") => radius = self.scalar(&name, false)?,
                 ("ContentText", "text") => text.text = self.text_value()?.into_owned(),
                 ("ContentText", "fontSize") => text.font_size = self.scalar(&name, true)?,
-                ("ContentText", "fontFamily") => text.family = self.font_family()?,
+                ("ContentText", "fontFamily") => text.family = self.scene_font_family()?,
                 (_, "color") => text.color = self.color("color")?,
                 ("ContentShape", "points") => {
                     // One pass straight into pairs: no intermediate scalar vector.

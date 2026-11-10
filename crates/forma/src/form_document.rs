@@ -285,11 +285,27 @@ fn num(p: &Properties, key: &str, default: f64) -> Result<f64, String> {
 fn boolean(p: &Properties, key: &str, default: bool) -> Result<bool, String> {
     p.get(key).map_or(Ok(default), Value::boolean)
 }
-/// `fontFamily` (or `font.family`) of a passive Text: `'sans'` by default, or `'mono'`.
+/// `fontFamily` (or `font.family`) of a passive Text: `'sans'` by default, or `'mono'`,
+/// combined with `fontWeight` (or `font.weight`): `'regular'` by default, or `'bold'`.
 fn font_family(p: &Properties) -> Result<crate::text::FontFamily, String> {
     let name = text(p, "fontFamily", &text(p, "font.family", "sans")?)?;
-    crate::text::FontFamily::from_name(&name)
-        .ok_or_else(|| format!("Text.fontFamily expects 'sans' or 'mono', got '{name}'"))
+    let family = crate::text::FontFamily::from_name(&name)
+        .ok_or_else(|| format!("Text.fontFamily expects 'sans' or 'mono', got '{name}'"))?;
+    Ok(family.with_weight(font_weight(p)?))
+}
+/// ` fontFamily:...;` for compiled scene text; empty for the default face, so existing scenes
+/// stay byte-identical. `sans-bold` is quoted: it is not a bare identifier.
+fn family_field(family: crate::text::FontFamily) -> String {
+    match family {
+        crate::text::FontFamily::Sans => String::new(),
+        crate::text::FontFamily::Mono => " fontFamily:mono;".into(),
+        crate::text::FontFamily::SansBold => " fontFamily:'sans-bold';".into(),
+    }
+}
+fn font_weight(p: &Properties) -> Result<crate::text::FontWeight, String> {
+    let name = text(p, "fontWeight", &text(p, "font.weight", "regular")?)?;
+    crate::text::FontWeight::from_name(&name)
+        .ok_or_else(|| format!("Text.fontWeight expects 'regular' or 'bold', got '{name}'"))
 }
 fn text(p: &Properties, key: &str, default: &str) -> Result<String, String> {
     p.get(key).map_or(Ok(default.into()), Value::text)
