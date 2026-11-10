@@ -1346,7 +1346,7 @@ pub(crate) fn rasterize_region(
     });
 }
 
-fn blend(pixel: &mut [u8], color: [u8; 4], coverage: f32) {
+pub(crate) fn blend(pixel: &mut [u8], color: [u8; 4], coverage: f32) {
     if pixel[3] == 0 {
         let a = (color[3] as f32 * coverage).round() as u8;
         if a > 0 {

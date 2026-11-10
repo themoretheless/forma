@@ -4,6 +4,7 @@ pub mod markup;
 pub mod runtime;
 pub use runtime::Runtime;
 pub mod binding;
+pub mod canvas;
 pub mod control_models_wasm;
 pub mod control_state;
 pub mod display_list;
