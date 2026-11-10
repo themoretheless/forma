@@ -49,8 +49,8 @@ mod test_support;
 
 pub use backend::{BackendError, GpuBackend, GpuVendor};
 pub use material_render::{
-    MaterialAlpha, MaterialDraw, MaterialParameters, MaterialRenderError, MaterialRenderer,
-    MaterialVertex,
+    MaterialAlpha, MaterialDraw, MaterialParameters, MaterialRaster, MaterialRenderError,
+    MaterialRenderer, MaterialVertex,
 };
 pub use material_texture::{
     MaterialSampler, MaterialTexture, MaterialTextureError, MaterialTextureUploader,

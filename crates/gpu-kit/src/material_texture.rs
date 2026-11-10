@@ -169,11 +169,12 @@ impl MaterialTextureUploader {
         };
         self.upload_bytes(
             budget,
-            size,
-            pixels,
-            format,
-            usize::from(srgb),
-            srgb,
+            Texels {
+                size,
+                pixels,
+                format,
+                color_role: srgb,
+            },
             sampler,
             &mut cancelled,
         )
@@ -224,11 +225,12 @@ impl MaterialTextureUploader {
         }
         self.upload_bytes(
             budget,
-            size,
-            bytemuck::cast_slice(&linear),
-            wgpu::TextureFormat::Rgba32Float,
-            2,
-            srgb,
+            Texels {
+                size,
+                pixels: bytemuck::cast_slice(&linear),
+                format: wgpu::TextureFormat::Rgba32Float,
+                color_role: srgb,
+            },
             sampler,
             &mut cancelled,
         )
@@ -237,14 +239,16 @@ impl MaterialTextureUploader {
     fn upload_bytes(
         &self,
         budget: &MemoryBudget,
-        size: [u32; 2],
-        pixels: &[u8],
-        format: wgpu::TextureFormat,
-        pipeline_index: usize,
-        color_role: bool,
+        texels: Texels,
         sampler: MaterialSampler,
         cancelled: &mut impl FnMut() -> bool,
     ) -> Result<MaterialTexture, MaterialTextureError> {
+        let Texels {
+            size,
+            pixels,
+            format,
+            color_role,
+        } = texels;
         let texel_bytes = if format == wgpu::TextureFormat::Rgba32Float {
             16
         } else {
@@ -319,7 +323,7 @@ impl MaterialTextureUploader {
         );
         if mip_count > 1 {
             let pipeline =
-                self.pipelines[pipeline_index].get_or_init(|| mip_pipeline(device, format));
+                self.pipelines[mip_slot(format)].get_or_init(|| mip_pipeline(device, format));
             generate_mips(device, queue, &texture, pipeline, mip_count, cancelled)?;
         }
         if cancelled() {
@@ -334,6 +338,24 @@ impl MaterialTextureUploader {
             owner: self.owner.clone(),
             color_role,
         })
+    }
+}
+
+/// Base-level texels of one upload, already in the texture's storage format.
+struct Texels<'a> {
+    size: [u32; 2],
+    pixels: &'a [u8],
+    format: wgpu::TextureFormat,
+    color_role: bool,
+}
+
+/// The uploader's lazy mip pipeline for each texture format it writes.
+fn mip_slot(format: wgpu::TextureFormat) -> usize {
+    match format {
+        wgpu::TextureFormat::Rgba8Unorm => 0,
+        wgpu::TextureFormat::Rgba8UnormSrgb => 1,
+        wgpu::TextureFormat::Rgba32Float => 2,
+        _ => unreachable!("material textures are RGBA8 or RGBA32Float"),
     }
 }
 
@@ -684,13 +706,13 @@ mod tests {
             // First footprint contains source codes 0,1,256,257. All are in
             // the linear toe for sRGB; independent average is exactly 128.5 codes.
             let average = 128.5 / 65535.;
-            for c in 0..4 {
+            for (c, &value) in mip.iter().take(4).enumerate() {
                 let expected = if srgb && c != 3 {
                     average / 12.92
                 } else {
                     average
                 };
-                assert!((f64::from(mip[c]) - expected).abs() < 1e-9);
+                assert!((f64::from(value) - expected).abs() < 1e-9);
             }
             eprintln!(
                 "16bit srgb={srgb}: all 65536 codes roundtrip, first mip={:?}",

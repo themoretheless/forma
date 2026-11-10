@@ -61,6 +61,27 @@ pub enum MaterialAlpha {
     Mask,
     Blend,
 }
+/// Fixed-function state of a draw; each combination has its own lazily built pipeline.
+#[derive(Debug, Clone, Copy)]
+pub struct MaterialRaster {
+    pub alpha: MaterialAlpha,
+    pub double_sided: bool,
+    /// Clockwise front faces, for mirrored scene transforms.
+    pub clockwise: bool,
+}
+impl MaterialRaster {
+    const COMBINATIONS: usize = 12;
+    fn alpha_mode(self) -> usize {
+        match self.alpha {
+            MaterialAlpha::Opaque => 0,
+            MaterialAlpha::Mask => 1,
+            MaterialAlpha::Blend => 2,
+        }
+    }
+    fn pipeline_index(self) -> usize {
+        self.alpha_mode() + 3 * usize::from(self.double_sided) + 6 * usize::from(self.clockwise)
+    }
+}
 #[derive(Debug, thiserror::Error)]
 pub enum MaterialRenderError {
     #[error("invalid material geometry, parameters or output target")]
@@ -77,7 +98,7 @@ pub enum MaterialRenderError {
 pub struct MaterialRenderer {
     uploader: MaterialTextureUploader,
     target: wgpu::TextureFormat,
-    pipelines: [OnceLock<wgpu::RenderPipeline>; 12],
+    pipelines: [OnceLock<wgpu::RenderPipeline>; MaterialRaster::COMBINATIONS],
     owner: Arc<()>,
 }
 #[derive(Debug)]
@@ -130,9 +151,7 @@ impl MaterialRenderer {
         vertices: &[MaterialVertex],
         mut p: MaterialParameters,
         textures: [&MaterialTexture; 5],
-        alpha: MaterialAlpha,
-        double_sided: bool,
-        clockwise: bool,
+        raster: MaterialRaster,
         mut cancelled: impl FnMut() -> bool,
     ) -> Result<MaterialDraw, MaterialRenderError> {
         if cancelled() {
@@ -151,7 +170,7 @@ impl MaterialRenderer {
         let device = self.uploader.device();
         let bytes = std::mem::size_of_val(vertices) as u64;
         if vertices.is_empty()
-            || vertices.len() % 3 != 0
+            || !vertices.len().is_multiple_of(3)
             || vertices.len() > u32::MAX as usize
             || bytes > device.limits().max_buffer_size
         {
@@ -188,20 +207,14 @@ impl MaterialRenderer {
         {
             return Err(MaterialRenderError::Invalid);
         }
-        let mode = match alpha {
-            MaterialAlpha::Opaque => 0,
-            MaterialAlpha::Mask => 1,
-            MaterialAlpha::Blend => 2,
-        };
-        p.alpha[1] = mode as f32;
-        p.alpha[3] = if double_sided { 1. } else { 0. };
-        let index = mode + 3 * usize::from(double_sided) + 6 * usize::from(clockwise);
+        p.alpha[1] = raster.alpha_mode() as f32;
+        p.alpha[3] = if raster.double_sided { 1. } else { 0. };
+        let index = raster.pipeline_index();
         let credit = Arc::new(budget.try_reserve(bytes + size_of::<MaterialParameters>() as u64)?);
         if cancelled() {
             return Err(MaterialRenderError::Cancelled);
         }
-        let pipeline = self.pipelines[index]
-            .get_or_init(|| pipeline(device, self.target, alpha, double_sided, clockwise));
+        let pipeline = self.pipelines[index].get_or_init(|| pipeline(device, self.target, raster));
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("material triangle vertices"),
             contents: bytemuck::cast_slice(vertices),
@@ -310,9 +323,7 @@ impl MaterialRenderer {
 fn pipeline(
     device: &wgpu::Device,
     target: wgpu::TextureFormat,
-    alpha: MaterialAlpha,
-    double_sided: bool,
-    clockwise: bool,
+    raster: MaterialRaster,
 ) -> wgpu::RenderPipeline {
     let module = wgsl_module(
         device,
@@ -320,7 +331,7 @@ fn pipeline(
         include_str!("../shaders/material_view.wgsl"),
     );
     let attributes = wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x3,2=>Float32x4,3=>Float32x4,4=>Float32x2,5=>Float32x2,6=>Float32x2,7=>Float32x2,8=>Float32x2];
-    let blend = matches!(alpha, MaterialAlpha::Blend);
+    let blend = matches!(raster.alpha, MaterialAlpha::Blend);
     render_pipeline(
         device,
         PipelineSpec {
@@ -332,12 +343,12 @@ fn pipeline(
                 attributes: &attributes,
             })],
             primitive: wgpu::PrimitiveState {
-                front_face: if clockwise {
+                front_face: if raster.clockwise {
                     wgpu::FrontFace::Cw
                 } else {
                     wgpu::FrontFace::Ccw
                 },
-                cull_mode: if double_sided {
+                cull_mode: if raster.double_sided {
                     None
                 } else {
                     Some(wgpu::Face::Back)
@@ -444,7 +455,18 @@ mod tests {
             (MaterialAlpha::Blend, [71, 99, 137, 64]),
         ] {
             let draw = renderer
-                .prepare(&budget, &vertices, p, neutral, mode, false, false, || false)
+                .prepare(
+                    &budget,
+                    &vertices,
+                    p,
+                    neutral,
+                    MaterialRaster {
+                        alpha: mode,
+                        double_sided: false,
+                        clockwise: false,
+                    },
+                    || false,
+                )
                 .unwrap();
             let actual = render(&draw);
             for c in 0..4 {
@@ -463,9 +485,11 @@ mod tests {
                 &vertices,
                 cutoff,
                 neutral,
-                MaterialAlpha::Mask,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Mask,
+                    double_sided: false,
+                    clockwise: false,
+                },
                 || false,
             )
             .unwrap();
@@ -478,9 +502,11 @@ mod tests {
                 &vertices,
                 cutoff,
                 neutral,
-                MaterialAlpha::Mask,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Mask,
+                    double_sided: false,
+                    clockwise: false,
+                },
                 || false,
             )
             .unwrap();
@@ -496,9 +522,11 @@ mod tests {
                 &vertices,
                 p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false,
+                },
                 || false,
             )
             .unwrap();
@@ -534,9 +562,11 @@ mod tests {
                     &mapped,
                     normal_p,
                     neutral,
-                    MaterialAlpha::Opaque,
-                    false,
-                    false,
+                    MaterialRaster {
+                        alpha: MaterialAlpha::Opaque,
+                        double_sided: false,
+                        clockwise: false,
+                    },
                     || false,
                 )
                 .unwrap();
@@ -576,9 +606,11 @@ mod tests {
                 &vertices,
                 p,
                 [&color16, &data16, &data16, &data16, &color16],
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false,
+                },
                 || false,
             )
             .unwrap();
@@ -599,9 +631,11 @@ mod tests {
                     &backwards,
                     p,
                     neutral,
-                    MaterialAlpha::Opaque,
-                    double,
-                    clockwise,
+                    MaterialRaster {
+                        alpha: MaterialAlpha::Opaque,
+                        double_sided: double,
+                        clockwise,
+                    },
                     || false,
                 )
                 .unwrap();
@@ -641,9 +675,11 @@ mod tests {
                 &vertices,
                 hdr_p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false,
+                },
                 || false,
             )
             .unwrap();
@@ -688,9 +724,11 @@ mod tests {
                 &vertices,
                 p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false
+                },
                 || false
             ),
             Err(MaterialRenderError::Memory(_))
@@ -703,9 +741,11 @@ mod tests {
                 &vertices,
                 p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false,
+                },
                 || false,
             )
             .unwrap();
@@ -723,9 +763,11 @@ mod tests {
                 &vertices,
                 p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false
+                },
                 || {
                     checks += 1;
                     checks == 4
@@ -740,9 +782,11 @@ mod tests {
                 &vertices,
                 p,
                 [&white; 5],
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false
+                },
                 || false
             ),
             Err(MaterialRenderError::Invalid)
@@ -755,9 +799,11 @@ mod tests {
                 &invalid,
                 p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false
+                },
                 || false
             ),
             Err(MaterialRenderError::Invalid)
@@ -769,9 +815,11 @@ mod tests {
                 &invalid,
                 p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false
+                },
                 || false
             ),
             Err(MaterialRenderError::Invalid)
@@ -788,9 +836,11 @@ mod tests {
                 &vertices,
                 p,
                 neutral,
-                MaterialAlpha::Opaque,
-                false,
-                false,
+                MaterialRaster {
+                    alpha: MaterialAlpha::Opaque,
+                    double_sided: false,
+                    clockwise: false
+                },
                 || false
             ),
             Err(MaterialRenderError::Owner)
