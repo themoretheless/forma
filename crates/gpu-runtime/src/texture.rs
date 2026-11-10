@@ -67,7 +67,7 @@ impl TextureFormat {
         }
     }
 
-    pub const fn is_srgb(self) -> bool {
+    pub const fn is_srgb(&self) -> bool {
         matches!(self, Self::Rgba8UnormSrgb | Self::Bgra8UnormSrgb)
     }
 }

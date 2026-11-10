@@ -874,6 +874,11 @@ impl Queue {
             .submit_with_error_sink(command_buffers, Some(self.error_sink.capture()))
     }
 
+    /// Presents a surface texture; same as [`SurfaceTexture::present`].
+    pub fn present(&self, surface_texture: SurfaceTexture) {
+        surface_texture.present();
+    }
+
     pub fn on_submitted_work_done<F>(&self, callback: F)
     where
         F: FnOnce() + Send + 'static,

@@ -177,6 +177,10 @@ pub struct RequestAdapterOptions<'a, 'b> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PresentMode {
+    /// Vsync where available (`Fifo` on Metal).
+    AutoVsync,
+    /// No vsync where available (`Immediate` on Metal).
+    AutoNoVsync,
     #[default]
     Fifo,
     FifoRelaxed,
@@ -194,9 +198,77 @@ pub enum CompositeAlphaMode {
     Inherit,
 }
 
+/// Color space a surface presents in. Mirrors `wgpu::SurfaceColorSpace`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum SurfaceColorSpace {
+    /// Extended linear sRGB for `Rgba16Float`, sRGB otherwise.
+    #[default]
+    Auto,
+    Srgb,
+    ExtendedSrgbLinear,
+    DisplayP3,
+    Bt2100Pq,
+    Bt2100Hlg,
+    ExtendedSrgb,
+    ExtendedDisplayP3,
+}
+
+impl SurfaceColorSpace {
+    pub const fn to_color_spaces(self) -> Option<crate::SurfaceColorSpaces> {
+        use crate::SurfaceColorSpaces as S;
+        match self {
+            Self::Auto => None,
+            Self::Srgb => Some(S::SRGB),
+            Self::ExtendedSrgbLinear => Some(S::EXTENDED_SRGB_LINEAR),
+            Self::DisplayP3 => Some(S::DISPLAY_P3),
+            Self::Bt2100Pq => Some(S::BT2100_PQ),
+            Self::Bt2100Hlg => Some(S::BT2100_HLG),
+            Self::ExtendedSrgb => Some(S::EXTENDED_SRGB),
+            Self::ExtendedDisplayP3 => Some(S::EXTENDED_DISPLAY_P3),
+        }
+    }
+
+    pub const fn is_hdr(self) -> bool {
+        matches!(
+            self,
+            Self::ExtendedSrgbLinear
+                | Self::ExtendedSrgb
+                | Self::ExtendedDisplayP3
+                | Self::Bt2100Pq
+                | Self::Bt2100Hlg
+        )
+    }
+
+    /// `Auto` resolved for `format`.
+    pub const fn resolve(self, format: crate::TextureFormat) -> Self {
+        match (self, format) {
+            (Self::Auto, crate::TextureFormat::Rgba16Float) => Self::ExtendedSrgbLinear,
+            (Self::Auto, _) => Self::Srgb,
+            (other, _) => other,
+        }
+    }
+}
+
+/// HDR state of the display showing a surface, as Extended Dynamic Range headroom: the largest
+/// linear value above 1.0 (SDR white) the display shows now, and the most it could show.
+/// `None` when it cannot be read (no window, or not on the main thread).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct DisplayHdrInfo {
+    pub headroom: Option<f32>,
+    pub potential_headroom: Option<f32>,
+}
+
+/// Color spaces a surface can present one format in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SurfaceFormatCapabilities {
+    pub format: crate::TextureFormat,
+    pub color_spaces: crate::SurfaceColorSpaces,
+}
+
 #[derive(Debug, Clone)]
 pub struct SurfaceCapabilities {
     pub formats: Vec<crate::TextureFormat>,
+    pub format_capabilities: Vec<SurfaceFormatCapabilities>,
     pub present_modes: Vec<PresentMode>,
     pub alpha_modes: Vec<CompositeAlphaMode>,
     pub usages: crate::TextureUsages,
@@ -212,6 +284,7 @@ pub struct SurfaceConfiguration {
     pub desired_maximum_frame_latency: u32,
     pub alpha_mode: CompositeAlphaMode,
     pub view_formats: Vec<crate::TextureFormat>,
+    pub color_space: SurfaceColorSpace,
 }
 
 pub struct SurfaceTexture {
@@ -271,14 +344,37 @@ pub struct Surface<'a> {
 
 impl<'a> Surface<'a> {
     pub fn get_capabilities(&self, _adapter: &crate::Adapter) -> SurfaceCapabilities {
+        use crate::SurfaceColorSpaces as S;
+        let formats = vec![
+            crate::TextureFormat::Bgra8Unorm,
+            crate::TextureFormat::Rgba8Unorm,
+            crate::TextureFormat::Bgra8UnormSrgb,
+            crate::TextureFormat::Rgba8UnormSrgb,
+            crate::TextureFormat::Rgba16Float,
+        ];
+        let format_capabilities = formats
+            .iter()
+            .map(|&format| SurfaceFormatCapabilities {
+                format,
+                color_spaces: if format == crate::TextureFormat::Rgba16Float {
+                    S::SRGB
+                        | S::DISPLAY_P3
+                        | S::EXTENDED_SRGB_LINEAR
+                        | S::EXTENDED_SRGB
+                        | S::EXTENDED_DISPLAY_P3
+                        | S::BT2100_PQ
+                        | S::BT2100_HLG
+                } else {
+                    S::SRGB | S::DISPLAY_P3
+                },
+            })
+            .collect();
         SurfaceCapabilities {
-            formats: vec![
-                crate::TextureFormat::Bgra8Unorm,
-                crate::TextureFormat::Rgba8Unorm,
-                crate::TextureFormat::Bgra8UnormSrgb,
-                crate::TextureFormat::Rgba8UnormSrgb,
-            ],
+            formats,
+            format_capabilities,
             present_modes: vec![
+                PresentMode::AutoVsync,
+                PresentMode::AutoNoVsync,
                 PresentMode::Fifo,
                 PresentMode::Immediate,
                 PresentMode::Mailbox,
@@ -292,6 +388,15 @@ impl<'a> Surface<'a> {
                 | crate::TextureUsages::COPY_SRC
                 | crate::TextureUsages::COPY_DST,
         }
+    }
+
+    /// Reads the HDR headroom of the screen showing this surface. Call on the main thread.
+    pub fn display_hdr_info(&self, _adapter: &crate::Adapter) -> DisplayHdrInfo {
+        #[cfg(target_os = "macos")]
+        if let Some(view) = &self.metal_view {
+            return unsafe { crate::metal::display_hdr_info(view.as_ptr()) };
+        }
+        DisplayHdrInfo::default()
     }
 
     pub fn get_default_config(
@@ -309,6 +414,7 @@ impl<'a> Surface<'a> {
             desired_maximum_frame_latency: 2,
             alpha_mode: CompositeAlphaMode::Auto,
             view_formats: Vec::new(),
+            color_space: SurfaceColorSpace::Auto,
         })
     }
 

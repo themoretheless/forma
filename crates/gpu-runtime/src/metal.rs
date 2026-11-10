@@ -25,7 +25,17 @@ extern "C" {
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "CoreGraphics", kind = "framework")]
-extern "C" {}
+extern "C" {
+    fn CGColorSpaceCreateWithName(name: *const c_void) -> *mut c_void;
+    fn CGColorSpaceRelease(space: *mut c_void);
+    static kCGColorSpaceSRGB: *const c_void;
+    static kCGColorSpaceDisplayP3: *const c_void;
+    static kCGColorSpaceExtendedLinearSRGB: *const c_void;
+    static kCGColorSpaceExtendedSRGB: *const c_void;
+    static kCGColorSpaceExtendedDisplayP3: *const c_void;
+    static kCGColorSpaceITUR_2100_PQ: *const c_void;
+    static kCGColorSpaceITUR_2100_HLG: *const c_void;
+}
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 #[link(name = "QuartzCore", kind = "framework")]
@@ -2443,7 +2453,9 @@ impl MetalDevice {
         {
             let vsync = matches!(
                 config.present_mode,
-                crate::PresentMode::Fifo | crate::PresentMode::FifoRelaxed
+                crate::PresentMode::AutoVsync
+                    | crate::PresentMode::Fifo
+                    | crate::PresentMode::FifoRelaxed
             );
             f_set_bool(layer_ptr, s.set_display_sync_enabled, vsync);
             let f_set_f64: unsafe extern "C" fn(*mut c_void, *mut c_void, f64) =
@@ -2473,6 +2485,47 @@ impl MetalDevice {
                 height: config.height.max(1) as f64,
             },
         );
+        Self::configure_layer_color_space(layer_ptr, config);
+    }
+
+    /// Applies the configured color space; HDR spaces also request extended range output.
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    unsafe fn configure_layer_color_space(
+        layer_ptr: *mut c_void,
+        config: &crate::SurfaceConfiguration,
+    ) {
+        use crate::SurfaceColorSpace as C;
+        let space = config.color_space.resolve(config.format);
+        let name = match space {
+            C::Auto | C::Srgb => kCGColorSpaceSRGB,
+            C::DisplayP3 => kCGColorSpaceDisplayP3,
+            C::ExtendedSrgbLinear => kCGColorSpaceExtendedLinearSRGB,
+            C::ExtendedSrgb => kCGColorSpaceExtendedSRGB,
+            C::ExtendedDisplayP3 => kCGColorSpaceExtendedDisplayP3,
+            C::Bt2100Pq => kCGColorSpaceITUR_2100_PQ,
+            C::Bt2100Hlg => kCGColorSpaceITUR_2100_HLG,
+        };
+        let f_set_obj: unsafe extern "C" fn(*mut c_void, *mut c_void, *mut c_void) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let f_set_bool: unsafe extern "C" fn(*mut c_void, *mut c_void, bool) =
+            std::mem::transmute(objc_msgSend as *const c_void);
+        let color_space = CGColorSpaceCreateWithName(name);
+        if !color_space.is_null() {
+            f_set_obj(
+                layer_ptr,
+                sel_registerName(c"setColorspace:".as_ptr()),
+                color_space,
+            );
+            CGColorSpaceRelease(color_space);
+        }
+        #[cfg(target_os = "macos")]
+        f_set_bool(
+            layer_ptr,
+            sel_registerName(c"setWantsExtendedDynamicRangeContent:".as_ptr()),
+            space.is_hdr(),
+        );
+        #[cfg(not(target_os = "macos"))]
+        let _ = f_set_bool;
     }
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -2676,5 +2729,37 @@ impl MetalDevice {
         for callback in callbacks {
             callback();
         }
+    }
+}
+
+/// EDR headroom of the screen hosting `view` (an `NSView`). AppKit is main-thread only.
+#[cfg(target_os = "macos")]
+pub(crate) unsafe fn display_hdr_info(view: *mut c_void) -> crate::DisplayHdrInfo {
+    let f_obj: unsafe extern "C" fn(*mut c_void, *mut c_void) -> *mut c_void =
+        std::mem::transmute(objc_msgSend as *const c_void);
+    let f_f64: unsafe extern "C" fn(*mut c_void, *mut c_void) -> f64 =
+        std::mem::transmute(objc_msgSend as *const c_void);
+    let f_bool: unsafe extern "C" fn(*mut c_void, *mut c_void) -> bool =
+        std::mem::transmute(objc_msgSend as *const c_void);
+    let ns_thread = objc_getClass(c"NSThread".as_ptr());
+    if view.is_null()
+        || ns_thread.is_null()
+        || !f_bool(ns_thread, sel_registerName(c"isMainThread".as_ptr()))
+    {
+        return crate::DisplayHdrInfo::default();
+    }
+    let window = f_obj(view, sel_registerName(c"window".as_ptr()));
+    let screen = if window.is_null() {
+        ptr::null_mut()
+    } else {
+        f_obj(window, sel_registerName(c"screen".as_ptr()))
+    };
+    if screen.is_null() {
+        return crate::DisplayHdrInfo::default();
+    }
+    let read = |name: &std::ffi::CStr| Some(f_f64(screen, sel_registerName(name.as_ptr())) as f32);
+    crate::DisplayHdrInfo {
+        headroom: read(c"maximumExtendedDynamicRangeColorComponentValue"),
+        potential_headroom: read(c"maximumPotentialExtendedDynamicRangeColorComponentValue"),
     }
 }
