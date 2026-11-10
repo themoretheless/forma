@@ -2,14 +2,15 @@ import { spawnSync } from 'node:child_process';
 import { execFileSync } from 'node:child_process';
 import { root } from './versions.mjs';
 
-// There is no Cargo workspace yet, so `cargo fmt --all` has nothing to walk: every tracked
-// manifest is formatted on its own. Frozen source snapshots kept as benchmark evidence are not
+// Not every crate is a workspace member (gpu-compute, svet-wasm and native-app are not), so
+// `cargo fmt --all` would miss them: every tracked package manifest is formatted on its own.
+// The root manifest is virtual and has no sources of its own. Frozen source snapshots kept as benchmark evidence are not
 // part of any build and stay byte-for-byte as recorded.
 const EVIDENCE = /\/(benchmarks|qualification)\//;
 export const manifests = () =>
   execFileSync('git', ['ls-files', '*Cargo.toml'], { cwd: root, encoding: 'utf8' })
     .split('\n')
-    .filter(file => file && !EVIDENCE.test(file));
+    .filter(file => file && file !== 'Cargo.toml' && !EVIDENCE.test(file));
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const check = process.argv.includes('--check');

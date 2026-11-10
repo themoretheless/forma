@@ -1,6 +1,6 @@
 # osv-math-compute
 
-Architecture and crate boundaries: [GPU library design](../../docs/design/gpu-library-architecture.md).
+Architecture and crate boundaries: GPU library design (`docs/design/gpu-library-architecture.md` in the upstream open-scad-viewer repository; not included here).
 
 Device backends (wgpu, CUDA, tensor/MLX) for the CPU-only `osv-math` kernels.
 `osv-math` declares the `DeviceKernels` port; this crate implements it.
@@ -31,7 +31,7 @@ and sums must fit f64. This is not an arbitrary-range robust statistics API.
 Migration remains in progress: nearest/Chamfer, `MathGpuProgram` recording,
 legacy CUDA geometry adapters and browser session methods still use their
 existing f32 paths. MLX does not yet implement the binary64 tensor contract.
-See the [qualification report](../../docs/qualification/software-binary64-2026-09-27.md).
+See the qualification report (`docs/qualification/software-binary64-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 ## Resident geometry through WGSL, CUDA and MLX
 

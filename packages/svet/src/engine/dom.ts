@@ -95,7 +95,7 @@ const delegationAreaKey = Symbol('svet delegation area');
 type DelegatedBinding = {
   handler: (this: HTMLElement, event: Event) => void;
   active: boolean;
-  root?: DelegationArea;
+  root?: DelegationArea | undefined;
 };
 const EVENT_PROP_PREFIX = '__svet_evt_';
 // A versioned target-owned registry coordinates independent copies and realms.
@@ -2097,8 +2097,8 @@ export function For<T, K = T>(props: {
       itemSig?: Signal<T>;
       node: Node;
       end?: Node;
-      preparedNodes?: Node[];
-      movingNodes?: Node[];
+      preparedNodes?: Node[] | undefined;
+      movingNodes?: Node[] | undefined;
       index: number;
       indexSig?: Signal<number>;
       disposeScope: () => void;

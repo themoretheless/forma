@@ -1,0 +1,134 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct V {
+    float4 p [[position]];
+    float4 near [[user(loc0)]];
+    float4 far [[user(loc1)]];
+};
+
+struct F {
+    float4 color [[color(0)]];
+    float depth [[depth(any)]];
+};
+
+float lineMask(float2 _wgpu_ident_coord, float2 width);
+
+float lineMask(float2 _wgpu_ident_coord, float2 width) {
+
+  const auto g = abs(fract(_wgpu_ident_coord - 0.5) - 0.5) / max(width, float2(0.000001));
+  return 1.0 - min(min(g.x, g.y), 1.0);
+}
+
+struct _wgpu_vs_StageIn {
+    float2 corner [[attribute(0)]];
+};
+
+vertex V vs(_wgpu_vs_StageIn _stage_in [[stage_in]]) {
+    float2 corner = _stage_in.corner;
+
+  return V{float4(corner, 0.0, 1.0), sc.inverseVP * float4(corner, 0.0, 1.0), sc.inverseVP * float4(corner, 1.0, 1.0)};
+}
+
+fragment F fs(V v [[stage_in]]) {
+
+  const auto near = v.near.xyz / v.near.w;
+  const auto far = v.far.xyz / v.far.w;
+  const auto ray = far - near;
+  const auto dz = select(-1.0, 1.0, ray.z >= 0.0) * max(abs(ray.z), 0.000001);
+  const auto t = -near.z / dz;
+  const auto world = near + t * ray;
+  const auto pixelWidth = max(fwidth(world.xy), float2(0.000001));
+                                                                           
+                                                                            
+  const auto level = max(0.0, log2(max(pixelWidth.x, pixelWidth.y) * 8.0 / sc.options.y) / log2(10.0));
+  const auto step = sc.options.y * pow(10.0, floor(level));
+  const auto blend = fract(level);
+  const auto minor = lineMask(world.xy / step, pixelWidth / step);
+  const auto major = lineMask(world.xy / (step * 10.0), pixelWidth / (step * 10.0));
+  const auto coarse = lineMask(world.xy / (step * 100.0), pixelWidth / (step * 100.0));
+  auto alpha = max(max(minor * 0.28 * (1.0 - blend), major * mix(0.55, 0.28, blend)), coarse * 0.55 * blend);
+  auto color = sc.gridColor;
+                                                                             
+                                                                       
+  const auto shadow = shadowFactor(float3(world.xy, 0.02));
+  color = color * shadow;
+  const auto axisW = pixelWidth * 1.2;
+  if (abs(world.y) < axisW.y) { color = float3(0.95, 0.18, 0.16); alpha = max(alpha, 0.9); }
+  if (abs(world.x) < axisW.x) { color = float3(0.2, 0.85, 0.25); alpha = max(alpha, 0.9); }
+  const auto clip = sc.vp * float4(world.xy, 0.0, 1.0);
+  const auto depth = clip.z / clip.w;
+  if (abs(ray.z) < 0.000001 || t < 0.0 || depth < 0.0 || alpha < 0.004) { discard_fragment(); }
+                                                                              
+  return F{float4(color, alpha), min(depth, 0.999999)};
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {},
+}

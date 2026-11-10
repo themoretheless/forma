@@ -48,7 +48,7 @@ export interface OwnerScope {
   children: Set<OwnerScope> | null;
   parent: OwnerScope | null;
   disposed: boolean;
-  context?: Map<symbol, any>;
+  context?: Map<symbol, any> | undefined;
 }
 
 type EffectEntry = {
@@ -74,7 +74,7 @@ type EffectEntry = {
   sourceRetirementVersion: number;
   rerunRequested: boolean;
   handle: EffectHandle;
-  cleanup?: () => void;
+  cleanup?: (() => void) | undefined;
   disposed: boolean;
   owner: OwnerScope | null;
   deps: number[];
@@ -691,7 +691,7 @@ function commitTrackingFast(
   // Auto-bind direct 1-dependency effect to its source signal on the very first run!
   if (entry.kind === 2 && cur === 1 && !entry.wasmLinked && ctx.batchDepth === 0) {
     const sig = ctx.signalRegistry[entry.dep0];
-    if (sig && tryRegisterDirectUnlinked(sig, entry, ctx.topologyVersion)) {
+    if (sig && tryRegisterDirectUnlinked(sig, entry)) {
       if (!entry.inUnlinkedList) {
         entry.inUnlinkedList = true;
         ctx.unlinkedEffects.push(entry);
@@ -703,26 +703,26 @@ function commitTrackingFast(
     // A computed node depends on these sources, so invalidate any direct-only effect cache on them
     if (cur >= 1) {
       const s0 = ctx.signalRegistry[entry.dep0];
-      if (s0) invalidateDirectEffect(s0, ctx.topologyVersion, true);
+      if (s0) invalidateDirectEffect(s0, true);
     }
     if (cur >= 2) {
       const s1 = ctx.signalRegistry[entry.dep1];
-      if (s1) invalidateDirectEffect(s1, ctx.topologyVersion, true);
+      if (s1) invalidateDirectEffect(s1, true);
     }
     for (let i = 2; i < cur; i++) {
       const sN = ctx.signalRegistry[entry.deps[i - 2]];
-      if (sN) invalidateDirectEffect(sN, ctx.topologyVersion, true);
+      if (sN) invalidateDirectEffect(sN, true);
     }
   } else if (entry.kind === 2 && cur >= 1) {
     const s0 = ctx.signalRegistry[entry.dep0];
-    if (s0) invalidateDirectEffect(s0, ctx.topologyVersion);
+    if (s0) invalidateDirectEffect(s0);
     if (cur >= 2) {
       const s1 = ctx.signalRegistry[entry.dep1];
-      if (s1) invalidateDirectEffect(s1, ctx.topologyVersion);
+      if (s1) invalidateDirectEffect(s1);
     }
     for (let i = 2; i < cur; i++) {
       const sN = ctx.signalRegistry[entry.deps[i - 2]];
-      if (sN) invalidateDirectEffect(sN, ctx.topologyVersion);
+      if (sN) invalidateDirectEffect(sN);
     }
   }
   if (entry.kind === 2) {
@@ -1509,7 +1509,6 @@ type SignalState<T = any> = {
   activeWrites: number;
   /** undefined = unknown, null = multiple/none */
   singleSubEffect: EffectEntry | null | undefined;
-  singleSubEpoch: number;
   hasComputedSubscriber: boolean;
   getter: Signal<T>;
   retire: ReactiveEntryRetirement;
@@ -1534,26 +1533,23 @@ function linkDirectSubscriber(st: SignalState): void {
   }
 }
 
-function tryRegisterDirectUnlinked(st: SignalState, eff: EffectEntry, ver: number): boolean {
+function tryRegisterDirectUnlinked(st: SignalState, eff: EffectEntry): boolean {
   if (st.disposed) return false;
   const direct = st.singleSubEffect;
   if (!st.hasComputedSubscriber && (direct === undefined || direct === eff || direct?.disposed)) {
     st.singleSubEffect = eff;
-    st.singleSubEpoch = ver;
     return true;
   }
   linkDirectSubscriber(st);
   st.singleSubEffect = null;
-  st.singleSubEpoch = ver;
   return false;
 }
 
-function invalidateDirectEffect(st: SignalState, ver: number, isComputed = false): void {
+function invalidateDirectEffect(st: SignalState, isComputed = false): void {
   if (st.disposed) return;
   if (isComputed) st.hasComputedSubscriber = true;
   linkDirectSubscriber(st);
   st.singleSubEffect = null;
-  st.singleSubEpoch = ver;
 }
 
 function runWrittenEffects(ctx: JsReactiveContext, run: () => void): void {
@@ -1618,17 +1614,14 @@ function writeSignal<T>(st: SignalState<T>, next: T | ((prev: T) => T)): void {
       const entry = ctx.effectRegistry[res - 1];
       if (ctx.batchDepth === 0) {
         st.singleSubEffect = entry ?? null;
-        st.singleSubEpoch = ctx.topologyVersion;
       }
       if (entry && !entry.disposed) runWrittenEffects(ctx, entry.run);
     } else if (res < 0) {
       st.singleSubEffect = null;
-      st.singleSubEpoch = ctx.topologyVersion;
       const copy = new Uint32Array(core.memory.buffer, core.svet_get_flush_ptr(), -res).slice();
       runWrittenEffects(ctx, () => runQueuedEffects(core, ctx, copy));
     } else if (ctx.batchDepth === 0) {
       st.singleSubEffect = null;
-      st.singleSubEpoch = ctx.topologyVersion;
     }
   } finally {
     st.activeWrites--;
@@ -1742,7 +1735,6 @@ export function signal<T>(
     disposed: false,
     activeWrites: 0,
     singleSubEffect: undefined,
-    singleSubEpoch: -1,
     hasComputedSubscriber: false,
     getter,
     retire: retireSignalOnReset,

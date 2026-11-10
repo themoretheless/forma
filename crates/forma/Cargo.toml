@@ -1,7 +1,8 @@
 [package]
 name = "forma"
-version = "0.3.0"
+version = "0.3.5"
 edition = "2021"
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -47,9 +48,5 @@ objc = { version = "0.2", optional = true }
 
 # The runtime is compute-bound on every keystroke: it parses the document and frames the
 # template transport in one pass, so whole-program inlining matters more than build time.
-[profile.release]
-codegen-units = 1
-lto = "fat"
-
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 svet-wasm = { path = "../../packages/svet/crates/svet-wasm" }

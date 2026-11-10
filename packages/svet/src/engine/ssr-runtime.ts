@@ -30,9 +30,9 @@ import {
 
 export interface SsrRequestOptions {
   /** Abort on disconnect or a host-controlled deadline. Awaited user work must honor it too. */
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
   /** Optional timeout timer in integer milliseconds (1..2147483647); cannot preempt synchronous work. */
-  timeoutMs?: number;
+  timeoutMs?: number | undefined;
 }
 
 export interface AsyncSsrView {
@@ -42,9 +42,9 @@ export interface AsyncSsrView {
 
 export interface SsrStreamOptions extends SsrRequestOptions {
   /** Encoded payload limit for each shell, patch or final snapshot (default 8 MiB). */
-  maxChunkBytes?: number;
+  maxChunkBytes?: number | undefined;
   /** Maximum async boundaries created by one stream (default 1024). */
-  maxBoundaries?: number;
+  maxBoundaries?: number | undefined;
 }
 
 export interface SsrReadableStreamOptions extends SsrStreamOptions {
@@ -64,7 +64,7 @@ export interface SsrRuntimeHost {
   randomUUID(): string;
 }
 export class SsrTimeoutError extends Error {
-  readonly name = 'SsrTimeoutError';
+  override readonly name = 'SsrTimeoutError';
   constructor(readonly timeoutMs: number) {
     super(`SSR request timed out after ${timeoutMs}ms`);
     // Freeze V8 lazy call sites to text; structured frames can retain ALS stores.
@@ -132,12 +132,12 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
     throw Error('Svet SSR context carriers must be independent');
   initialized = true;
   const randomUUID = () => host.randomUUID();
-  type RequestContext = { core?: SvetWasmExports; closed: boolean };
+  type RequestContext = { core?: SvetWasmExports | undefined; closed: boolean };
   const requestByCore = new WeakMap<SvetWasmExports, RequestContext>();
   type AsyncOwnerContext = {
     request: RequestContext;
-    core?: SvetWasmExports;
-    owner?: OwnerScope;
+    core?: SvetWasmExports | undefined;
+    owner?: OwnerScope | undefined;
     generation: number;
     closed: boolean;
   };
@@ -179,7 +179,7 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
     fail: (failure: unknown) => void;
   };
   type AsyncRenderSession = {
-    stream?: StreamPublication;
+    stream?: StreamPublication | undefined;
     pending: Set<Promise<void>>;
     failed: boolean;
     failure?: unknown;
@@ -527,7 +527,7 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
 
   /** One-slot rendezvous queue. Return/cancellation also wakes an outstanding next(). */
   class SsrChunkChannel {
-    private slot?: { chunk: SsrStreamChunk; consumed: () => void };
+    private slot?: { chunk: SsrStreamChunk; consumed: () => void } | undefined;
     private changed: Promise<void>;
     private wake!: () => void;
     private ended = false;
@@ -594,7 +594,7 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
    * One chunk is queued; return() or the host AbortSignal closes request ownership.
    */
   interface StreamIteratorSlot {
-    current?: AsyncIterableIterator<SsrStreamChunk>;
+    current?: AsyncIterableIterator<SsrStreamChunk> | undefined;
     terminal: boolean;
     failed: boolean;
     failure?: unknown;
@@ -944,7 +944,8 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
       controller: ReadableStreamDefaultController<Uint8Array>;
     // Retain the native stream through producer teardown. A host reader can
     // detach during error delivery before its closed observer has resumed.
-    let stream: ReadableStream<Uint8Array> | undefined;
+    // A holder rather than a local: the reference only has to exist, it is never read back.
+    const retained: { stream?: ReadableStream<Uint8Array> | undefined } = {};
     const finish = (mode: 'close' | 'cancel' | 'error', error?: unknown): Promise<void> => {
       if (!active) return Promise.resolve();
       active = false;
@@ -966,10 +967,10 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
       else if (mode === 'error') controller.error(error);
       return Promise.resolve(current?.return?.()).then(
         () => {
-          stream = undefined;
+          retained.stream = undefined;
         },
         failure => {
-          stream = undefined;
+          retained.stream = undefined;
           throw failure;
         },
       );
@@ -980,7 +981,7 @@ export function createSsrRuntime(host: SsrRuntimeHost) {
     const ownerDisposed = () => {
       void finish('error', Error('SSR calling owner disposed')).catch(() => {});
     };
-    return (stream = new ReadableStream<Uint8Array>(
+    return (retained.stream = new ReadableStream<Uint8Array>(
       {
         start(value) {
           controller = value;

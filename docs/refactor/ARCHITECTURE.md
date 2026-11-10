@@ -6,11 +6,13 @@
 ## Сделано
 
 - Каталог ядра называется так же, как пакет: `crates/forma`.
+- Корневой Cargo workspace: один lock, один `target/`, общий профиль `release`; `gpu-compute` и `svet-wasm` вне его (ADR 0001).
+- Все крейты собираются и тестируются гейтом и CI.
+- Один релизный тег `vX.Y.Z` на библиотеку и Studio.
 - Единый стиль: rustfmt (style edition 2024, ширина 100) и Prettier (ширина 100); проверка в гейте и в CI.
 
 ## Не сделано
 
-- Корневой Cargo workspace, общий lock и `target/`.
 - Слои внутри `crates/forma/src`, `packages/svet/src/engine`, Studio `src/`; архитектурные тесты.
 - Линтеры (clippy ratchet, ESLint), `cargo deny`, проверка слоёв крейтов, крейты `crates/*` в гейте и CI.
 - `protocol/`, `dev-server/`, единая таблица MCP-инструментов.

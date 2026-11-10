@@ -66,7 +66,10 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
                 let target = after_alias[eq_pos + 1..].trim().to_string();
                 module.aliases.insert(name, target);
             }
-        } else if let Some(after_const) = strip_keyword(rest, "const") {
+        } else if let Some((after_const, is_override)) = strip_keyword(rest, "const")
+            .map(|r| (r, false))
+            .or_else(|| strip_keyword(rest, "override").map(|r| (r, true)))
+        {
             let after_const = after_const.trim().trim_end_matches(';').trim();
             if let Some(eq_pos) = after_const.find('=') {
                 let lhs = after_const[..eq_pos].trim();
@@ -81,14 +84,15 @@ pub fn parse_str(source: &str) -> Result<Module, ParseError> {
                     (lhs.to_string(), None)
                 };
                 let val = eval_u32_const_expr(rhs, &const_values);
-                if let Some(v) = val {
+                if let (Some(v), false) = (val, is_override) {
                     const_values.insert(name.clone(), v);
                 }
                 module.constants.append(Constant {
                     name: Some(name),
                     ty: ty_opt,
                     expr_src: rhs.to_string(),
-                    u32_value: val,
+                    u32_value: if is_override { None } else { val },
+                    is_override,
                 });
             }
         }
@@ -744,6 +748,25 @@ pub fn resolve_or_insert_type(
             arrayed: false,
             class: ImageClass::Depth { multi: false },
         },
+        _ if ty_str.starts_with("texture_2d_array<") || ty_str.starts_with("texture_cube<") => {
+            let kind = if ty_str.contains("u32") {
+                ScalarKind::Uint
+            } else if ty_str.contains("i32") {
+                ScalarKind::Sint
+            } else {
+                ScalarKind::Float
+            };
+            let cube = ty_str.starts_with("texture_cube<");
+            TypeInner::Image {
+                dim: if cube {
+                    ImageDimension::Cube
+                } else {
+                    ImageDimension::D2
+                },
+                arrayed: !cube,
+                class: ImageClass::Sampled { kind, multi: false },
+            }
+        }
         _ if ty_str.starts_with("texture_2d<") => {
             let kind = if ty_str.contains("u32") {
                 ScalarKind::Uint

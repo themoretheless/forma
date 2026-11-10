@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { transformSvetJsx } from '../src/engine';
+import { transformSvetJsx } from '../src/engine/compiler.ts';
 
 it('transforms every adjacent JSX expression rather than only the first', () => {
   expect(transformSvetJsx('const node = <p>{first()}{second()}</p>;')).toBe(

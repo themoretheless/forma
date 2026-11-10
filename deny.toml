@@ -1,0 +1,61 @@
+# Supply-chain policy for the workspace: where code may come from, which licences are accepted
+# and which duplicate or banned crates are tolerated. Checked by `cargo deny check` in the gate.
+[graph]
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-pc-windows-msvc",
+    "wasm32-unknown-unknown",
+    "aarch64-apple-ios",
+    "aarch64-linux-android",
+]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Each entry is a known finding that is accepted for now, with the reason; see docs/refactor/BUGS.md.
+ignore = [
+    # quick-xml 0.39 reaches us only through wayland-scanner, which parses the Wayland protocol
+    # files shipped with the crates at build time: no untrusted XML is involved.
+    { id = "RUSTSEC-2026-0194", reason = "build-time parser of trusted protocol XML (wayland-scanner)" },
+    { id = "RUSTSEC-2026-0195", reason = "build-time parser of trusted protocol XML (wayland-scanner)" },
+    # A direct dependency of forma for font parsing; the advisory offers no upgrade.
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained, no upgrade available" },
+    # Pulled in by the Linux accessibility stack (accesskit over zbus); no upgrade available.
+    { id = "RUSTSEC-2026-0370", reason = "zvariant unmaintained, transitive via accesskit on Linux" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names unmaintained, transitive via accesskit on Linux" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive unmaintained, transitive via accesskit on Linux" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "CC0-1.0",
+    "BSL-1.0",
+    "0BSD",
+]
+
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/themoretheless/tokenizer"]

@@ -4,16 +4,14 @@ import { resolve } from 'node:path';
 import { root } from './versions.mjs';
 
 // Rust takes tokenizer-forma from an exact revision: a path dependency's lockfile is not inherited
-// by exported applications. crates/forma/Cargo.lock records the same pin. npm cannot install a package
+// by exported applications. The workspace Cargo.lock records the same pin. npm cannot install a package
 // from a subdirectory of a git repository, so the JS adapters and language WASM come from a checkout
 // of that commit next to forma (package.json: file:../tokenizer/packages/forma).
 export const tokenizerDir = resolve(root, process.env.FORMA_TOKENIZER_DIR ?? '../tokenizer');
 const PACKAGE = resolve(tokenizerDir, 'packages/forma');
 const SOURCES = ['crates/tokenizer-forma', 'packages/forma'];
 
-export function lockedTokenizer(
-  lock = readFileSync(resolve(root, 'crates/forma/Cargo.lock'), 'utf8'),
-) {
+export function lockedTokenizer(lock = readFileSync(resolve(root, 'Cargo.lock'), 'utf8')) {
   const block = lock
     .split('[[package]]')
     .find(entry => /^name = "themoretheless-tokenizer-forma"$/m.test(entry));
@@ -21,7 +19,7 @@ export function lockedTokenizer(
   const version = block?.match(/^version = "([^"]+)"$/m)?.[1];
   if (!source || source[2] !== source[3] || !version)
     throw Error(
-      'crates/forma/Cargo.lock must pin themoretheless-tokenizer-forma to an exact tokenizer revision',
+      'Cargo.lock must pin themoretheless-tokenizer-forma to an exact tokenizer revision',
     );
   return { url: source[1], rev: source[2], version };
 }

@@ -164,7 +164,7 @@ export function createLayoutInspector({
             ? `translateX(${drag.delta * drag.scale}px)`
             : `translateY(${drag.delta * drag.scale}px)`;
         };
-        handle.onpointerup = e => {
+        handle.onpointerup = () => {
           if (drag?.handle !== handle) return;
           const d = drag;
           drag = null;

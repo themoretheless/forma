@@ -12,7 +12,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const e = await import(pathToFileURL(resolve(root, 'dist/package/reactivity.js')));
+const e = await import(pathToFileURL(resolve(root, 'dist/package/reactivity-entry.js')));
 const option = (name, fallback) => {
   const at = process.argv.indexOf(name);
   return at < 0 ? fallback : process.argv[at + 1];
@@ -64,7 +64,7 @@ const cases = [
     n => {
       const sources = signals(n);
       e.effect(() => {
-        for (const source of sources) source() + source();
+        for (const source of sources) void (source() + source());
       });
       return () => {
         for (let round = 1; round <= 5; round++) sources[0].set(-round);

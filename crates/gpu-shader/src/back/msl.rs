@@ -3,8 +3,8 @@ use crate::proc::compute_type_layout;
 use crate::valid::ModuleInfo;
 use crate::{
     AddressSpace, ArraySize, Binding, BuiltIn, EntryPoint, Function, GlobalVariable, Handle,
-    ImageClass, Interpolation, Module, Scalar, ScalarKind, ShaderStage, StorageAccess, Type,
-    TypeInner, VectorSize,
+    ImageClass, ImageDimension, Interpolation, Module, Scalar, ScalarKind, ShaderStage,
+    StorageAccess, Type, TypeInner, VectorSize,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -97,6 +97,22 @@ inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
 inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
 inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
 inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
 template<typename T, uint N>
 struct _wgpu_arr {
     T inner[N];
@@ -162,7 +178,9 @@ struct _wgpu_arr {
                         };
                         // Note: for fragment return structs `@location(0)` is `[[color(0)]]`, while for vertex output / fragment input it's `[[user(locN)]]`.
                         // Determine whether this struct is used only as fragment return:
-                        if is_fragment_return_struct(module, struct_handle) {
+                        if is_vertex_input_struct(module, struct_handle) {
+                            format!(" [[attribute({location})]]")
+                        } else if is_fragment_return_struct(module, struct_handle) {
                             format!(" [[color({location})]]")
                         } else {
                             format!(" [[user(loc{location})]]{flat_str}")
@@ -237,7 +255,14 @@ struct _wgpu_arr {
             "uint".to_string()
         };
         let expr_msl = translate_expr(module, &c.expr_src, &BTreeSet::new(), &BTreeMap::new());
-        out.push_str(&format!("constant {ty_str} {name} = {expr_msl};\n"));
+        if c.is_override {
+            let mac = override_macro(name);
+            out.push_str(&format!(
+                "#ifndef {mac}\n#define {mac} {expr_msl}\n#endif\nconstant {ty_str} {name} = {ty_str}({mac});\n"
+            ));
+        } else {
+            out.push_str(&format!("constant {ty_str} {name} = {expr_msl};\n"));
+        }
     }
     if !module.constants.is_empty() {
         out.push('\n');
@@ -350,6 +375,29 @@ fn emit_padding_fields(out: &mut String, mut gap: u32, pad_idx: &mut u32) {
         *pad_idx += 1;
         gap -= 1;
     }
+}
+
+/// Preprocessor macro holding the value of WGSL `override NAME`. A runtime applies pipeline
+/// constants by defining it ahead of the generated source; see [`with_pipeline_constants`].
+pub fn override_macro(name: &str) -> String {
+    format!("_WGPU_OVERRIDE_{name}")
+}
+
+/// Prefixes `msl` with definitions for the given pipeline-overridable constants.
+pub fn with_pipeline_constants(msl: &str, constants: &[(&str, f64)]) -> String {
+    let mut out = String::with_capacity(msl.len() + constants.len() * 48);
+    for (name, value) in constants {
+        // `{:?}` keeps a decimal point so the literal is a float and casts to the declared type.
+        out.push_str(&format!("#define {} {value:?}\n", override_macro(name)));
+    }
+    out.push_str(msl);
+    out
+}
+
+fn is_vertex_input_struct(module: &Module, handle: Handle<Type>) -> bool {
+    module.entry_points.iter().any(|ep| {
+        ep.stage == ShaderStage::Vertex && ep.function.arguments.iter().any(|a| a.ty == handle)
+    })
 }
 
 fn is_fragment_return_struct(module: &Module, handle: Handle<Type>) -> bool {
@@ -610,7 +658,10 @@ fn emit_entry_point(
         out.push_str(&format!("struct {stage_in_struct_name} {{\n"));
         for (idx, arg) in func.arguments.iter().enumerate() {
             if let Some(Binding::Location { location, .. }) = arg.binding {
-                let aname = arg.name.clone().unwrap_or_else(|| format!("arg_{idx}"));
+                let aname = arg
+                    .name
+                    .as_deref()
+                    .map_or_else(|| format!("arg_{idx}"), |n| msl_escape_ident(n).to_string());
                 let aty = msl_type_for_handle(module, arg.ty, false);
                 out.push_str(&format!("    {aty} {aname} [[attribute({location})]];\n"));
             }
@@ -662,7 +713,10 @@ fn emit_entry_point(
     }
 
     for (idx, arg) in func.arguments.iter().enumerate() {
-        let aname = arg.name.clone().unwrap_or_else(|| format!("arg_{idx}"));
+        let aname = arg
+            .name
+            .as_deref()
+            .map_or_else(|| format!("arg_{idx}"), |n| msl_escape_ident(n).to_string());
         let aty = msl_type_for_handle(module, arg.ty, false);
         match arg.binding {
             Some(Binding::Location { .. }) if has_vertex_input_attrs => {
@@ -871,12 +925,19 @@ pub fn msl_type_for_handle(module: &Module, handle: Handle<Type>, packed_vec3: b
             };
             format!("{qual} {elem}*")
         }
-        TypeInner::Image { dim, class, .. } => {
-            let dim_str = match dim {
-                crate::ImageDimension::D1 => "1d",
-                crate::ImageDimension::D2 => "2d",
-                crate::ImageDimension::D3 => "3d",
-                crate::ImageDimension::Cube => "cube",
+        TypeInner::Image {
+            dim,
+            arrayed,
+            class,
+        } => {
+            let dim_str = match (dim, arrayed) {
+                (crate::ImageDimension::D1, false) => "1d",
+                (crate::ImageDimension::D1, true) => "1d_array",
+                (crate::ImageDimension::D2, false) => "2d",
+                (crate::ImageDimension::D2, true) => "2d_array",
+                (crate::ImageDimension::D3, _) => "3d",
+                (crate::ImageDimension::Cube, false) => "cube",
+                (crate::ImageDimension::Cube, true) => "cube_array",
             };
             match class {
                 ImageClass::Depth { .. } => format!("depth{dim_str}<float>"),
@@ -1773,6 +1834,8 @@ fn translate_call(
         "countOneBits" => format!("popcount({})", args.join(", ")),
         "reverseBits" => format!("reverse_bits({})", args.join(", ")),
         "degrees" => format!("_wgpu_degrees({})", args.join(", ")),
+        "frexp" => format!("_wgpu_frexp({})", args.join(", ")),
+        "modf" => format!("_wgpu_modf({})", args.join(", ")),
         "radians" => format!("_wgpu_radians({})", args.join(", ")),
         "dpdx" => format!("dfdx({})", args.join(", ")),
         "dpdy" => format!("dfdy({})", args.join(", ")),
@@ -1829,8 +1892,60 @@ fn translate_call(
         "textureLoad" => {
             let tex = args.first().map(|s| s.as_str()).unwrap_or("tex");
             let coords = args.get(1).map(|s| s.as_str()).unwrap_or("uint2(0)");
-            let lod = args.get(2).map(|s| s.as_str()).unwrap_or("0");
-            format!("{tex}.read(uint2({coords}), uint({lod}))")
+            let image = module
+                .global_variables
+                .iter()
+                .find(|(_, g)| g.name.as_deref() == Some(tex.trim()))
+                .and_then(|(_, g)| match &module.types[g.ty].inner {
+                    TypeInner::Image {
+                        dim,
+                        arrayed,
+                        class,
+                    } => Some((*dim, *arrayed, *class)),
+                    _ => None,
+                });
+            // A texture passed through a helper parameter has no global to inspect; WGSL's
+            // only four-argument form is the arrayed one.
+            let (dim, arrayed, class) = image.unwrap_or((
+                ImageDimension::D2,
+                args.len() == 4,
+                ImageClass::Sampled {
+                    kind: ScalarKind::Float,
+                    multi: false,
+                },
+            ));
+            let arg = |i: usize| args.get(i).map(|s| s.as_str()).unwrap_or("0");
+            match (dim, arrayed, class) {
+                (_, _, ImageClass::Storage { .. }) if arrayed => {
+                    format!("{tex}.read(uint2({coords}), uint({}))", arg(2))
+                }
+                (ImageDimension::D1, _, ImageClass::Storage { .. }) => {
+                    format!("{tex}.read(uint({coords}))")
+                }
+                (ImageDimension::D3, _, ImageClass::Storage { .. }) => {
+                    format!("{tex}.read(uint3({coords}))")
+                }
+                (_, _, ImageClass::Storage { .. }) => format!("{tex}.read(uint2({coords}))"),
+                (
+                    _,
+                    _,
+                    ImageClass::Sampled { multi: true, .. } | ImageClass::Depth { multi: true },
+                ) => {
+                    format!("{tex}.read(uint2({coords}), uint({}))", arg(2))
+                }
+                (_, true, _) => format!(
+                    "{tex}.read(uint2({coords}), uint({}), uint({}))",
+                    arg(2),
+                    arg(3)
+                ),
+                (ImageDimension::D1, _, _) => {
+                    format!("{tex}.read(uint({coords}), uint({}))", arg(2))
+                }
+                (ImageDimension::D3, _, _) => {
+                    format!("{tex}.read(uint3({coords}), uint({}))", arg(2))
+                }
+                _ => format!("{tex}.read(uint2({coords}), uint({}))", arg(2)),
+            }
         }
 
         // Runtime-sized array length

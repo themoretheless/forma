@@ -10,7 +10,33 @@ import { runtimeSourceDigest, artifactDigests, runtimeArtifacts } from './runtim
 // step: the whole matrix, one exit code, and an environment block so a printed result says where
 // it came from.
 const CI_TARGETS = ['x86_64-unknown-linux-gnu', 'x86_64-pc-windows-msvc'];
+// Platform code no CI runner builds: the Android JNI module and the iOS branches of the binary.
+// Nothing compiled them, so they could rot unseen. Each runs when its target is installed.
+const MOBILE_TARGETS = [
+  {
+    target: 'aarch64-linux-android',
+    id: 'mobile-android',
+    name: 'Android library (JNI entry points) compiles',
+    args: ['--lib'],
+  },
+  {
+    target: 'aarch64-apple-ios-sim',
+    id: 'mobile-ios',
+    name: 'iOS simulator binary compiles',
+    args: ['--features', 'native', '--bin', 'forma'],
+  },
+];
 const BUNDLED = ['build-info.json', ...runtimeArtifacts];
+// Workspace members besides forma; compute-mlx and math-compute have steps of their own.
+export const WORKSPACE_CRATES = [
+  'gpu-shader',
+  'gpu-runtime',
+  'raster-core',
+  'osv-math',
+  'tensor-core',
+  'compute-core',
+  'compute-cuda',
+];
 export function steps({ platform, installedTargets, viteEntry }) {
   return {
     list: [
@@ -55,11 +81,25 @@ export function steps({ platform, installedTargets, viteEntry }) {
         argv: process.execPath,
         args: ['node_modules/prettier/bin/prettier.cjs', '--check', '--log-level', 'warn', '.'],
       },
+      // Findings that predate the linter are listed in eslint-suppressions.json; a new one fails.
+      {
+        id: 'lint-js',
+        name: 'JavaScript passes ESLint (suppressions may only shrink)',
+        argv: process.execPath,
+        args: ['node_modules/eslint/bin/eslint.js', '--max-warnings', '0', '.'],
+      },
       {
         id: 'format-rust',
         name: 'Every tracked Rust manifest is formatted (rustfmt)',
         argv: process.execPath,
         args: ['scripts/rust-fmt.mjs', '--check'],
+        requiresOutput: true,
+      },
+      {
+        id: 'layering',
+        name: 'Workspace crates depend only on the layers below them',
+        argv: process.execPath,
+        args: ['scripts/check-layering.mjs'],
         requiresOutput: true,
       },
       // Every load and compile number in PRODUCTION_READINESS.md was produced by these three, and
@@ -176,6 +216,98 @@ export function steps({ platform, installedTargets, viteEntry }) {
           target,
         ],
       })),
+      // The GPU and compute crates were never built by any gate or CI job. On macOS the hardware
+      // flags are set, because without them every device test returns early and proves nothing.
+      {
+        id: 'crates-test',
+        name: 'GPU and compute crates build and pass their tests',
+        argv: 'cargo',
+        args: [
+          'test',
+          '--locked',
+          ...WORKSPACE_CRATES.flatMap(name => ['-p', name]),
+          '--features',
+          'tensor-core/conformance',
+        ],
+        flags: platform === 'darwin' ? { COMPUTE_REQUIRE_GPU: '1' } : undefined,
+      },
+      {
+        id: 'crates-math-compute',
+        name: 'math-compute adapters pass against their backends',
+        argv: 'cargo',
+        args: [
+          'test',
+          '--locked',
+          '-p',
+          'osv-math-compute',
+          '--features',
+          platform === 'darwin' ? 'gpu,tensor,tensor-wgsl,tensor-mlx' : 'gpu,tensor,tensor-wgsl',
+        ],
+        flags:
+          platform === 'darwin'
+            ? { COMPUTE_REQUIRE_GPU: '1', COMPUTE_REQUIRE_MLX: '1' }
+            : undefined,
+      },
+      // MLX exists on Apple Silicon only; elsewhere the crate has nothing to run against.
+      ...(platform === 'darwin'
+        ? [
+            {
+              id: 'crates-mlx',
+              name: 'compute-mlx passes on the MLX runtime',
+              argv: 'cargo',
+              args: ['test', '--locked', '-p', 'compute-mlx'],
+              flags: { COMPUTE_REQUIRE_MLX: '1' },
+            },
+          ]
+        : []),
+      // gpu-compute stays outside the workspace (see the root Cargo.toml) and has its own lockfile.
+      {
+        id: 'crates-gpu-compute',
+        name: 'gpu-compute builds and passes on its own lockfile',
+        argv: 'cargo',
+        args: ['test', '--locked', '--manifest-path', 'crates/gpu-compute/Cargo.toml'],
+        // A developer Mac has real GPU timers, so the profiling duration ratios are checked here;
+        // CI runners have virtualized GPUs and skip them.
+        flags:
+          platform === 'darwin'
+            ? { COMPUTE_REQUIRE_GPU: '1', COMPUTE_REQUIRE_TIMESTAMPS: '1' }
+            : undefined,
+      },
+      // Needs `cargo install cargo-deny`; a missing tool fails the step instead of skipping it.
+      {
+        id: 'deny',
+        name: 'Dependency sources, licences and advisories pass the policy (cargo-deny)',
+        argv: 'cargo',
+        args: ['deny', '--locked', 'check'],
+      },
+      // Counts come from a macOS build with the native feature, so the comparison is only
+      // meaningful on the platform that recorded the baseline.
+      ...(platform === 'darwin'
+        ? [
+            {
+              id: 'clippy',
+              name: 'Clippy lint debt has not grown (ratchet)',
+              argv: process.execPath,
+              args: ['scripts/clippy-ratchet.mjs'],
+              requiresOutput: true,
+            },
+          ]
+        : []),
+      // The library half of forma.wasm, checked without the release build that build:wasm does.
+      {
+        id: 'wasm-lib',
+        name: 'Library compiles for wasm32',
+        argv: 'cargo',
+        args: ['check', '--locked', '-p', 'forma', '--lib', '--target', 'wasm32-unknown-unknown'],
+      },
+      ...MOBILE_TARGETS.filter(({ target }) => installedTargets.includes(target)).map(
+        ({ target, id, name, args }) => ({
+          id,
+          name,
+          argv: 'cargo',
+          args: ['check', '--locked', '-p', 'forma', ...args, '--target', target],
+        }),
+      ),
       // The WebView host generates its actions module from a fixture, exactly as ci.yml runs it.
       ...(platform === 'darwin'
         ? [
@@ -190,6 +322,9 @@ export function steps({ platform, installedTargets, viteEntry }) {
         : []),
     ],
     skipped: [
+      ...MOBILE_TARGETS.filter(({ target }) => !installedTargets.includes(target)).map(
+        ({ target, id }) => ({ id, reason: `not installed; rustup target add ${target}` }),
+      ),
       ...CI_TARGETS.filter(target => !installedTargets.includes(target)).map(target => ({
         id: `native-${target}`,
         reason: `not installed; rustup target add ${target}`,
@@ -317,11 +452,13 @@ if (invoked) {
       cwd: root,
       encoding: 'utf8',
       maxBuffer: 64 << 20,
-      env: step.env && {
+      // `env` values are paths resolved against the repository root; `flags` are passed as given.
+      env: (step.env || step.flags) && {
         ...process.env,
         ...Object.fromEntries(
-          Object.entries(step.env).map(([key, value]) => [key, resolve(root, value)]),
+          Object.entries(step.env ?? {}).map(([key, value]) => [key, resolve(root, value)]),
         ),
+        ...step.flags,
       },
     });
     const output = `${run.stdout ?? ''}${run.stderr ?? ''}`;

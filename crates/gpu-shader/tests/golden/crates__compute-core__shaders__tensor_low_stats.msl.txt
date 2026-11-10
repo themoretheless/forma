@@ -1,0 +1,127 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+uint low_stats_extra();
+float2 low_extrema(float2 a, float2 b);
+bool low_needs_lift(float2 extrema);
+float low_coordinate(float x, bool lifted);
+uint low_restore(uint bits, bool lifted, uint power);
+float low_normalized(float centered, float variance, float scale, float sqrt_epsilon, bool lifted);
+
+uint low_stats_extra() {
+ return 13u + 3u * (params[1] + params[4]); }
+
+float2 low_extrema(float2 a, float2 b) {
+
+    return as_type<float2>(uint2(float_bits_min(as_type<uint>(a.x), as_type<uint>(b.x)), float_bits_max(as_type<uint>(a.y), as_type<uint>(b.y))));
+}
+
+bool low_needs_lift(float2 extrema) {
+
+    const auto magnitude = max(as_type<uint>(extrema.x) & 0x7fffffffu, as_type<uint>(extrema.y) & 0x7fffffffu);
+    return params[low_stats_extra() + 1u] >= 3u && magnitude < 0x1f800000u;
+}
+
+float low_coordinate(float x, bool lifted) {
+
+    if (lifted) { return float_up64(x); }
+    return x;
+}
+
+uint low_restore(uint bits, bool lifted, uint power) {
+
+    if (lifted) { return float_down_bits(bits, power); }
+    return bits;
+}
+
+float low_normalized(float centered, float variance, float scale, float sqrt_epsilon, bool lifted) {
+
+    if (scale == 0.0) { return 0.0; }
+    if (lifted) {
+                                                                             
+                                                                            
+                                                                  
+        const auto ratio = as_type<float>(low_restore(as_type<uint>(scale / sqrt_epsilon), true, 64u));
+        if (ratio >= 1.0) {
+            const auto inverse = 1.0 / ratio;
+            return centered / sqrt(variance + inverse * inverse);
+        }
+        return centered * ratio / sqrt(1.0 + variance * ratio * ratio);
+    }
+    if (scale >= sqrt_epsilon) {
+        const auto ratio = sqrt_epsilon / scale;
+        return centered / sqrt(variance + ratio * ratio);
+    }
+    const auto ratio = scale / sqrt_epsilon;
+    return centered * ratio / sqrt(1.0 + variance * ratio * ratio);
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {},
+}

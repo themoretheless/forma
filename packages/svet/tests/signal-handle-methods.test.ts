@@ -31,8 +31,9 @@ it('returns the same function on every access and keeps signals apart', () => {
   expect(a.set).not.toBe(b.set);
   a.set('changed');
   expect([a.peek(), b.peek()]).toEqual(['changed', 'b']);
-  expect((a as any).__svet_sig).toBe(true);
-  expect((a as any).__svet_cached_value).toBe(a.peek);
+  const internals = a as unknown as Record<string, unknown>;
+  expect(internals.__svet_sig).toBe(true);
+  expect(internals.__svet_cached_value).toBe(a.peek);
   expect(typeof a.id).toBe('number');
   expect(a.id).not.toBe(b.id);
 });
@@ -52,7 +53,7 @@ it('routes update through a replaced set, and a replaced dispose does not affect
   expect(size()).toBe(5);
 
   let called = 0;
-  (size as any).dispose = () => {
+  (size as unknown as { dispose: () => void }).dispose = () => {
     called++;
   };
   resetReactiveSystem();
