@@ -540,6 +540,9 @@ pub struct RenderPipelineDescriptor<'a> {
 #[derive(Clone)]
 pub struct RenderPipeline {
     pub(crate) pso: Arc<ObjCObject>,
+    /// Texture/sampler slots of the vertex and fragment shaders (see `msl::write_string`).
+    pub(crate) vertex_bindings: Arc<BindingMap>,
+    pub(crate) fragment_bindings: Option<Arc<BindingMap>>,
     pub(crate) depth_stencil_state: Option<Arc<ObjCObject>>,
     pub(crate) primitive: PrimitiveState,
     pub(crate) depth_bias: DepthBiasState,

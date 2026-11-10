@@ -16,7 +16,7 @@ use crate::{Face, FrontFace};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader::back::msl::{
     MSL_ARRAY_LENGTHS_BUFFER_SLOT, MSL_IMMEDIATE_BUFFER_SLOT, MSL_VERTEX_BUFFER_BASE_SLOT,
-    msl_buffer_slot, msl_sampler_slot, msl_texture_slot,
+    msl_buffer_slot,
 };
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ffi::c_void;
@@ -753,13 +753,16 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
                     buffer_sizes[slot] = rem as u32;
                 }
             }
+            let map = &d.pipeline.bindings;
             for (binding, tex) in bg.textures.iter() {
-                let slot = msl_texture_slot(*group_idx, *binding) as usize;
-                f_set_tex(enc, s.set_texture, tex.raw.as_ptr(), slot);
+                if let Some(&slot) = map.textures.get(&(*group_idx, *binding)) {
+                    f_set_tex(enc, s.set_texture, tex.raw.as_ptr(), slot as usize);
+                }
             }
             for (binding, samp) in bg.samplers.iter() {
-                let slot = msl_sampler_slot(*group_idx, *binding) as usize;
-                f_set_samp(enc, s.set_sampler_state, samp.raw.as_ptr(), slot);
+                if let Some(&slot) = map.samplers.get(&(*group_idx, *binding)) {
+                    f_set_samp(enc, s.set_sampler_state, samp.raw.as_ptr(), slot as usize);
+                }
             }
         }
 
@@ -1196,10 +1199,50 @@ pub(crate) unsafe fn encode_render_pass(
 
     let mut current_primitive_type = 3u64; // MTLPrimitiveTypeTriangle
     let mut active_index_buffer: Option<(Buffer, IndexFormat, u64)> = None;
+    // Texture and sampler slots belong to each stage's shader, so they are bound against the
+    // current pipeline; groups set before a pipeline are bound when it arrives.
+    let mut current_pipeline: Option<RenderPipeline> = None;
+    let mut bound_groups: std::collections::BTreeMap<u32, BindGroup> = Default::default();
+    let bind_render_handles = |index: u32, bind_group: &BindGroup, pipe: &RenderPipeline| {
+        for (binding, tex) in bind_group.textures.iter() {
+            if let Some(&slot) = pipe.vertex_bindings.textures.get(&(index, *binding)) {
+                f_set_tex(enc, s.set_vertex_texture, tex.raw.as_ptr(), slot as usize);
+            }
+            if let Some(map) = &pipe.fragment_bindings {
+                if let Some(&slot) = map.textures.get(&(index, *binding)) {
+                    f_set_tex(enc, s.set_fragment_texture, tex.raw.as_ptr(), slot as usize);
+                }
+            }
+        }
+        for (binding, samp) in bind_group.samplers.iter() {
+            if let Some(&slot) = pipe.vertex_bindings.samplers.get(&(index, *binding)) {
+                f_set_samp(
+                    enc,
+                    s.set_vertex_sampler_state,
+                    samp.raw.as_ptr(),
+                    slot as usize,
+                );
+            }
+            if let Some(map) = &pipe.fragment_bindings {
+                if let Some(&slot) = map.samplers.get(&(index, *binding)) {
+                    f_set_samp(
+                        enc,
+                        s.set_fragment_sampler_state,
+                        samp.raw.as_ptr(),
+                        slot as usize,
+                    );
+                }
+            }
+        }
+    };
 
     for cmd in commands.drain(..) {
         match cmd {
             RenderCommand::SetPipeline(pipe) => {
+                for (index, bind_group) in &bound_groups {
+                    bind_render_handles(*index, bind_group, &pipe);
+                }
+                current_pipeline = Some(pipe.clone());
                 f_set_pso(enc, s.set_render_pipeline_state, pipe.pso.as_ptr());
                 if let Some(dss) = &pipe.depth_stencil_state {
                     f_set_dss(enc, s.set_depth_stencil_state, dss.as_ptr());
@@ -1250,16 +1293,10 @@ pub(crate) unsafe fn encode_render_pass(
                         slot,
                     );
                 }
-                for (binding, tex) in bind_group.textures.iter() {
-                    let slot = msl_texture_slot(index, *binding) as usize;
-                    f_set_tex(enc, s.set_vertex_texture, tex.raw.as_ptr(), slot);
-                    f_set_tex(enc, s.set_fragment_texture, tex.raw.as_ptr(), slot);
+                if let Some(pipe) = &current_pipeline {
+                    bind_render_handles(index, &bind_group, pipe);
                 }
-                for (binding, samp) in bind_group.samplers.iter() {
-                    let slot = msl_sampler_slot(index, *binding) as usize;
-                    f_set_samp(enc, s.set_vertex_sampler_state, samp.raw.as_ptr(), slot);
-                    f_set_samp(enc, s.set_fragment_sampler_state, samp.raw.as_ptr(), slot);
-                }
+                bound_groups.insert(index, bind_group);
             }
             RenderCommand::SetVertexBuffer {
                 slot,

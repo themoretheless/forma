@@ -88,7 +88,7 @@ struct _wgpu_fs_StageOut {
     float4 value [[color(0)]];
 };
 
-fragment _wgpu_fs_StageOut fs(V v [[stage_in]], texture2d<float> matcapTex [[texture(16)]], sampler matcapSampler [[sampler(9)]]) {
+fragment _wgpu_fs_StageOut fs(V v [[stage_in]], texture2d<float> matcapTex [[texture(0)]], sampler matcapSampler [[sampler(0)]]) {
 
                         
                                                                      
@@ -135,13 +135,13 @@ BindingMap {
         (
             2,
             0,
-        ): 16,
+        ): 0,
     },
     samplers: {
         (
             2,
             1,
-        ): 9,
+        ): 0,
     },
     immediate_slot: None,
     array_length_slots: {},

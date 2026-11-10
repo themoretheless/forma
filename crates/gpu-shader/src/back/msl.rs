@@ -277,6 +277,31 @@ struct _wgpu_arr {
         array_length_slots: BTreeMap::new(),
     };
 
+    // Textures and samplers take consecutive slots in (group, binding) order. Metal has 16
+    // sampler slots per stage, so a formula over group/binding numbers would collide.
+    let mut handle_bindings: Vec<(u32, u32, bool)> = module
+        .global_variables
+        .iter()
+        .filter_map(|(_, gv)| {
+            let rb = gv.binding?;
+            match module.types[gv.ty].inner {
+                TypeInner::Image { .. } => Some((rb.group, rb.binding, false)),
+                TypeInner::Sampler { .. } => Some((rb.group, rb.binding, true)),
+                _ => None,
+            }
+        })
+        .collect();
+    handle_bindings.sort_unstable();
+    for (group, binding, sampler) in handle_bindings {
+        let map = if sampler {
+            &mut binding_map.samplers
+        } else {
+            &mut binding_map.textures
+        };
+        let slot = map.len() as u32;
+        map.insert((group, binding), slot);
+    }
+
     for (_, gv) in module.global_variables.iter() {
         match gv.space {
             AddressSpace::Uniform | AddressSpace::Storage { .. } => {
@@ -295,25 +320,6 @@ struct _wgpu_arr {
             }
             AddressSpace::Immediate | AddressSpace::PushConstant => {
                 binding_map.immediate_slot = Some(MSL_IMMEDIATE_BUFFER_SLOT);
-            }
-            AddressSpace::Handle => {
-                if let Some(rb) = gv.binding {
-                    match module.types[gv.ty].inner {
-                        TypeInner::Image { .. } => {
-                            binding_map.textures.insert(
-                                (rb.group, rb.binding),
-                                msl_texture_slot(rb.group, rb.binding),
-                            );
-                        }
-                        TypeInner::Sampler { .. } => {
-                            binding_map.samplers.insert(
-                                (rb.group, rb.binding),
-                                msl_sampler_slot(rb.group, rb.binding),
-                            );
-                        }
-                        _ => {}
-                    }
-                }
             }
             _ => {}
         }
@@ -792,12 +798,12 @@ fn emit_entry_point(
                 if let Some(rb) = gv.binding {
                     match module.types[gv.ty].inner {
                         TypeInner::Image { .. } => {
-                            let slot = msl_texture_slot(rb.group, rb.binding);
+                            let slot = binding_map.textures[&(rb.group, rb.binding)];
                             let ty = msl_type_for_handle(module, gv.ty, false);
                             params.push(format!("{ty} {gname} [[texture({slot})]]"));
                         }
                         TypeInner::Sampler { .. } => {
-                            let slot = msl_sampler_slot(rb.group, rb.binding);
+                            let slot = binding_map.samplers[&(rb.group, rb.binding)];
                             let ty = msl_type_for_handle(module, gv.ty, false);
                             params.push(format!("{ty} {gname} [[sampler({slot})]]"));
                         }
