@@ -28,6 +28,92 @@ struct Parameters {
     view: [f32; 4],
 }
 
+/// Centres source coordinates on their bounding box and scales them into the unit sphere,
+/// in float64 so huge or tiny source units survive until the final float32 conversion.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ModelFit {
+    min: [f64; 3],
+    /// Rebase at half scale when a full extent overflows f64.
+    halve: bool,
+    scale: f64,
+    center: [f64; 3],
+    radius: f64,
+}
+
+impl ModelFit {
+    /// Bounds exactly `count` finite vertices, checking `cancelled` every 1024 triangles.
+    /// Returns `None` for empty geometry.
+    fn measure<T: Copy + Into<f64>>(
+        triangles: impl Iterator<Item = [[T; 3]; 3]>,
+        count: usize,
+        cancelled: &mut impl FnMut() -> bool,
+    ) -> Result<Option<Self>, ModelUploadError> {
+        let mut visited = 0;
+        let mut min = [f64::INFINITY; 3];
+        let mut max = [f64::NEG_INFINITY; 3];
+        for (index, triangle) in triangles.enumerate() {
+            if index % 1024 == 0 && cancelled() {
+                return Err(ModelUploadError::Cancelled);
+            }
+            for source_vertex in triangle {
+                let vertex: [f64; 3] = source_vertex.map(Into::into);
+                if visited == count {
+                    return Err(ModelUploadError::GeometryLimit);
+                }
+                for axis in 0..3 {
+                    if !vertex[axis].is_finite() {
+                        return Err(ModelUploadError::InvalidCoordinates);
+                    }
+                    min[axis] = min[axis].min(vertex[axis]);
+                    max[axis] = max[axis].max(vertex[axis]);
+                }
+                visited += 1;
+            }
+        }
+        if visited != count {
+            return Err(ModelUploadError::GeometryLimit);
+        }
+        if count == 0 {
+            return Ok(None);
+        }
+        // Rebase in scaled local coordinates. This avoids both overflowing
+        // opposite-sign f64 bounds and underflowing half-extents near zero.
+        let halve = (0..3).any(|axis| !(max[axis] - min[axis]).is_finite());
+        let mut fit = Self {
+            min,
+            halve,
+            scale: 1.,
+            center: [0.; 3],
+            radius: 1.,
+        };
+        let extents = std::array::from_fn::<_, 3, _>(|axis| fit.rebase(max[axis], axis));
+        let scale = extents.into_iter().fold(0_f64, f64::max);
+        fit.scale = if scale > 0. { scale } else { 1. };
+        fit.center = extents.map(|v| v / fit.scale * 0.5);
+        let radius = fit.center.into_iter().fold(0_f64, f64::hypot);
+        fit.radius = if radius > 0. { radius } else { 1. };
+        Ok(Some(fit))
+    }
+
+    fn rebase(&self, value: f64, axis: usize) -> f64 {
+        if self.halve {
+            value * 0.5 - self.min[axis] * 0.5
+        } else {
+            value - self.min[axis]
+        }
+    }
+
+    /// The GPU position of a source vertex, or `None` when it is not finite.
+    fn place(&self, vertex: [f64; 3]) -> Option<[f32; 3]> {
+        let placed = std::array::from_fn::<_, 3, _>(|axis| {
+            ((self.rebase(vertex[axis], axis) / self.scale - self.center[axis]) / self.radius)
+                as f32
+        });
+        (vertex.iter().all(|v| v.is_finite()) && placed.iter().all(|v| v.is_finite()))
+            .then_some(placed)
+    }
+}
+
 /// Prepared geometry owns its GPU allocation and admission credit until installed or dropped.
 /// Prepare and install with the same wgpu device.
 #[derive(Debug)]
@@ -205,31 +291,7 @@ impl ModelRenderer {
         {
             return Err(ModelUploadError::GeometryLimit);
         }
-        let mut visited = 0;
-        let mut bounds = [[f64::INFINITY; 3], [f64::NEG_INFINITY; 3]];
-        for (index, triangle) in triangles.clone().enumerate() {
-            if index % 1024 == 0 && cancelled() {
-                return Err(ModelUploadError::Cancelled);
-            }
-            for source_vertex in triangle {
-                let vertex = source_vertex.map(Into::into);
-                if visited == count {
-                    return Err(ModelUploadError::GeometryLimit);
-                }
-                for axis in 0..3 {
-                    if !vertex[axis].is_finite() {
-                        return Err(ModelUploadError::InvalidCoordinates);
-                    }
-                    bounds[0][axis] = bounds[0][axis].min(f64::from(vertex[axis]));
-                    bounds[1][axis] = bounds[1][axis].max(f64::from(vertex[axis]));
-                }
-                visited += 1;
-            }
-        }
-        if visited != count {
-            return Err(ModelUploadError::GeometryLimit);
-        }
-        if count == 0 {
+        let Some(fit) = ModelFit::measure(triangles.clone(), count, &mut cancelled)? else {
             return Ok(PreparedModelUpload {
                 owner: None,
                 vertices: None,
@@ -237,24 +299,7 @@ impl ModelRenderer {
                 vertex_count: 0,
                 budget: budget.cloned(),
             });
-        }
-        // Rebase in scaled local coordinates. This avoids both overflowing
-        // opposite-sign f64 bounds and underflowing half-extents near zero.
-        let full_extents = std::array::from_fn::<_, 3, _>(|axis| bounds[1][axis] - bounds[0][axis]);
-        let halve = full_extents.iter().any(|v| !v.is_finite());
-        let difference = |value: f64, axis: usize| {
-            if halve {
-                value * 0.5 - bounds[0][axis] * 0.5
-            } else {
-                value - bounds[0][axis]
-            }
         };
-        let extents = std::array::from_fn::<_, 3, _>(|axis| difference(bounds[1][axis], axis));
-        let scale = extents.into_iter().fold(0_f64, f64::max);
-        let scale = if scale > 0. { scale } else { 1. };
-        let center = extents.map(|v| v / scale * 0.5);
-        let radius = center.into_iter().fold(0_f64, f64::hypot);
-        let divisor = if radius > 0. { radius } else { 1. };
         let reservation = budget.map(|budget| budget.try_reserve(bytes)).transpose()?;
         if cancelled() {
             return Err(ModelUploadError::Cancelled);
@@ -275,16 +320,9 @@ impl ModelRenderer {
                     return Err(ModelUploadError::Cancelled);
                 }
                 for source_vertex in triangle {
-                    let vertex = source_vertex.map(Into::into);
-                    if !vertex.iter().all(|v| v.is_finite()) {
-                        return Err(ModelUploadError::InvalidCoordinates);
-                    }
-                    let normalized = std::array::from_fn::<_, 3, _>(|axis| {
-                        ((difference(vertex[axis], axis) / scale - center[axis]) / divisor) as f32
-                    });
-                    if !normalized.iter().all(|v| v.is_finite()) {
-                        return Err(ModelUploadError::InvalidCoordinates);
-                    }
+                    let normalized = fit
+                        .place(source_vertex.map(Into::into))
+                        .ok_or(ModelUploadError::InvalidCoordinates)?;
                     if offset + 12 > mapped.len() {
                         return Err(ModelUploadError::GeometryLimit);
                     }
@@ -461,8 +499,64 @@ impl ModelRenderer {
 }
 #[cfg(test)]
 mod tests {
+    use super::{ModelFit, ModelUploadError};
     use crate::test_support::validate_wgsl;
     use crate::wgpu;
+
+    fn measure(triangles: &[[[f64; 3]; 3]]) -> Result<Option<ModelFit>, ModelUploadError> {
+        ModelFit::measure(triangles.iter().copied(), triangles.len() * 3, &mut || {
+            false
+        })
+    }
+
+    #[test]
+    fn fit_centres_and_scales_into_the_unit_sphere() {
+        let fit = measure(&[[[10., 20., 30.], [12., 20., 30.], [10., 24., 31.]]])
+            .unwrap()
+            .unwrap();
+        let corners = [[10., 20., 30.], [12., 24., 31.]].map(|v| fit.place(v).unwrap());
+        // Opposite bounding-box corners land symmetric about the origin on the unit sphere.
+        for (low, high) in corners[0].iter().zip(corners[1]) {
+            assert!((low + high).abs() < 1e-6);
+        }
+        let length = corners[1].iter().map(|v| v * v).sum::<f32>().sqrt();
+        assert!((length - 1.).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fit_survives_extents_that_overflow_f64() {
+        let fit = measure(&[[[-f64::MAX, 0., 0.], [f64::MAX, 0., 0.], [0., 1., 0.]]])
+            .unwrap()
+            .unwrap();
+        assert!(fit.halve);
+        let ends = [[-f64::MAX, 0., 0.], [f64::MAX, 0., 0.]].map(|v| fit.place(v).unwrap());
+        assert!((ends[0][0] + 1.).abs() < 1e-6 && (ends[1][0] - 1.).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fit_rejects_invalid_counts_coordinates_and_cancellation() {
+        assert_eq!(measure(&[]).unwrap(), None);
+        assert!(matches!(
+            measure(&[[[f64::NAN, 0., 0.], [0.; 3], [0.; 3]]]),
+            Err(ModelUploadError::InvalidCoordinates)
+        ));
+        let one = [[[0.; 3]; 3]];
+        assert!(matches!(
+            ModelFit::measure(one.iter().copied(), 2, &mut || false),
+            Err(ModelUploadError::GeometryLimit)
+        ));
+        assert!(matches!(
+            ModelFit::measure(one.iter().copied(), 4, &mut || false),
+            Err(ModelUploadError::GeometryLimit)
+        ));
+        assert!(matches!(
+            ModelFit::measure(one.iter().copied(), 3, &mut || true),
+            Err(ModelUploadError::Cancelled)
+        ));
+        let fit = measure(&one).unwrap().unwrap();
+        assert_eq!(fit.place([0.; 3]), Some([0.; 3]));
+        assert_eq!(fit.place([f64::INFINITY, 0., 0.]), None);
+    }
     #[test]
     fn model_shader_validates() {
         validate_wgsl(
