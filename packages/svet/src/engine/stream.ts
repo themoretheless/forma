@@ -23,9 +23,9 @@ const receivers = new WeakMap<HTMLElement, { dispose: () => void }>();
 /** Owns partial DOM and final resumed bindings; dispose or parent teardown closes it. */
 export function createSsrStreamReceiver(
   container: HTMLElement,
-  options: { maxChunkBytes?: number } = {},
+  options: { maxChunkBytes?: number | undefined } = {},
 ): SsrStreamReceiver {
-  const slot: { current?: SsrStreamReceiver } = {};
+  const slot: { current?: SsrStreamReceiver | undefined } = {};
   slot.current = createReceiver(container, options, () => {
     slot.current = undefined;
   });
@@ -33,7 +33,7 @@ export function createSsrStreamReceiver(
 }
 // Keep the public handle in a separate closure from DOM, context and cleanup state.
 // Teardown clears the only edge from a caller-retained handle to that state.
-function receiverHandle(slot: { current?: SsrStreamReceiver }): SsrStreamReceiver {
+function receiverHandle(slot: { current?: SsrStreamReceiver | undefined }): SsrStreamReceiver {
   return {
     get active() {
       return slot.current?.active ?? false;
@@ -55,7 +55,7 @@ function receiverHandle(slot: { current?: SsrStreamReceiver }): SsrStreamReceive
 }
 function createReceiver(
   container: HTMLElement,
-  options: { maxChunkBytes?: number },
+  options: { maxChunkBytes?: number | undefined },
   release: () => void,
 ): SsrStreamReceiver {
   const assertCaller = captureViewLifetime();

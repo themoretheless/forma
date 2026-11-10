@@ -57,11 +57,11 @@ import {
   signal,
   Suspense,
   syncGpuArena,
-  transformSvetJsx,
   useContext,
   validateFormaSource,
   VirtualList,
 } from '../src/engine';
+import { transformSvetJsx } from '../src/engine/compiler.ts';
 
 describe('Svet Engine (TypeScript + Rust WASM Core)', () => {
   beforeEach(() => {

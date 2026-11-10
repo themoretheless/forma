@@ -11,7 +11,7 @@
  *      keeping DOM node count under ~25 elements even for 100,000+ reactive items!
  */
 
-import { getDomMutationCount, h, insertChild } from './dom.ts';
+import { getDomMutationCount, insertChild } from './dom.ts';
 import { getGpuTelemetry, type GpuDeviceTelemetry } from './gpu.ts';
 import {
   batch,
@@ -266,7 +266,8 @@ export interface VirtualListProps<T> {
   style?: Partial<CSSStyleDeclaration> | string;
 }
 
-export interface VirtualListHandle<T> extends HTMLElement {
+// The item type is kept for callers that name it; the handle itself does not depend on it.
+export interface VirtualListHandle<_T = unknown> extends HTMLElement {
   /** Programmatically scrolls to a specific item index and updates the rendered window immediately */
   scrollToIndex(index: number): void;
   /** Returns the currently rendered `[startIndex, endIndex)` range */

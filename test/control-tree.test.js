@@ -82,7 +82,7 @@ test('unfiltered collapsed branches are not traversed', () => {
     id: 'child',
     label: 'Child',
     get children() {
-      assert.fail('collapsed descendants should not be visited');
+      return assert.fail('collapsed descendants should not be visited');
     },
   };
   const roots = [{ id: 'root', label: 'Root', children: [leaf] }];
@@ -362,7 +362,6 @@ test('a drop between siblings hands both source offsets over and leaves no marke
 test('a row outside the dragged control’s group never opens a slot', t => {
   const { list, calls } = dragTree(t);
   const button = list.children[2],
-    row = list.children[6],
     frame = list.children[1],
     deep = list.children[4];
   list.dispatch('dragstart', button, {});

@@ -110,22 +110,22 @@ mod tests {
     #[test]
     fn execution_topology_and_2d_workgroup_recommendations_match_hardware_primitives() {
         let metal_topo = BackendReport::from_wgpu(wgpu::Backend::Metal).execution_topology();
-        // Metal reports unified memory only when the host is Apple Silicon; elsewhere the
-        // static classification falls back to discrete memory (see `memory_architecture`).
+        // Metal reports unified memory only on Apple Silicon; on any other host the same report
+        // describes a discrete GPU.
         let apple_silicon = cfg!(all(
             any(target_os = "macos", target_os = "ios"),
             target_arch = "aarch64"
         ));
-        let expected_metal_memory = if apple_silicon {
+        let expected = if apple_silicon {
             MemoryArchitecture::Uma
         } else {
             MemoryArchitecture::Duma
         };
-        assert_eq!(metal_topo.memory_architecture, expected_metal_memory);
-        let metal_memory = metal_topo.memory_architecture.profile();
-        assert_eq!(metal_memory.unified_physical_ram, apple_silicon);
-        assert_eq!(metal_memory.zero_copy_primary_upload, apple_silicon);
-        assert_eq!(metal_memory.requires_explicit_staging_ring, !apple_silicon);
+        assert_eq!(metal_topo.memory_architecture, expected);
+        let profile = metal_topo.memory_architecture.profile();
+        assert_eq!(profile.unified_physical_ram, apple_silicon);
+        assert_eq!(profile.zero_copy_primary_upload, apple_silicon);
+        assert_eq!(profile.requires_explicit_staging_ring, !apple_silicon);
         assert_eq!(metal_topo.scalar_unit_label, "ALU / Execution Pipeline");
         assert_eq!(metal_topo.simd_width, 32);
         assert_eq!(metal_topo.simd_group_label, "SIMD-group (32 threads)");
@@ -269,12 +269,19 @@ mod tests {
 
     #[test]
     fn opengl_vulkan_and_rtx_raytracing_subsystems_work() {
-        let gl = wgpu::opengl::OpenGlDevice::probe_available().expect("OpenGL device profile");
+        // None of these backends is implemented: probing finds no device on any platform, and the
+        // derived planning helpers are exercised on the static reference profiles instead.
+        assert!(wgpu::opengl::OpenGlDevice::probe_available().is_none());
+        assert!(wgpu::vulkan::VulkanDevice::probe_available().is_none());
+        assert!(wgpu::webgpu::WebGpuDevice::probe_available().is_none());
+        assert!(wgpu::dx12::Dx12Device::probe_available().is_none());
+
+        let gl = wgpu::opengl::OpenGlDevice::reference_profile();
         assert!(gl.supports_compute_shaders);
         assert!(gl.supports_persistent_coherent_mapping);
         assert_ne!(gl.recommended_buffer_storage_flags(), 0);
 
-        let vk = wgpu::vulkan::VulkanDevice::probe_available().expect("Vulkan 1.3 device profile");
+        let vk = wgpu::vulkan::VulkanDevice::reference_profile();
         assert_eq!(vk.api_version.0, 1);
         assert_eq!(vk.api_version.1, 3);
         assert!(vk.supports_ray_tracing_pipeline);
@@ -319,7 +326,7 @@ mod tests {
                 .contains("layout(local_size_x = 8, local_size_y = 8")
         );
 
-        let webgpu = wgpu::webgpu::WebGpuDevice::probe_available().expect("Browser WebGPU profile");
+        let webgpu = wgpu::webgpu::WebGpuDevice::reference_profile();
         assert_eq!(
             webgpu.backend_report().environment,
             ApiEnvironment::BrowserSandbox

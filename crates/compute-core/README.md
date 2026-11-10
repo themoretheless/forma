@@ -21,12 +21,12 @@ This does not yet implement the f64 indexing/scatter extension traits,
 prepared recording, neural-network operations or a browser async tensor API.
 The shader arithmetic source is separately exported for composition.
 
-[Implementation and qualification](../../docs/qualification/software-binary64-2026-09-27.md).
+Implementation and qualification (`docs/qualification/software-binary64-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 
-Architecture and crate boundaries: [GPU library design](../../docs/design/gpu-library-architecture.md).
+Architecture and crate boundaries: GPU library design (`docs/design/gpu-library-architecture.md` in the upstream open-scad-viewer repository; not included here).
 Measured dot/sum improvements, subgroup experiments and covariance precision:
-[reduction qualification](../../docs/qualification/shader-compute-reductions-2026-09-27.md).
+reduction qualification (`docs/qualification/shader-compute-reductions-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 Runtime library for WGSL compute kernels — the compute counterpart of
 `raster-core`. Domain kernels (math-core, photogrammetry-core, geometry-bridge)
@@ -87,7 +87,7 @@ at host readback; the recorded WGSL API also compiles for WASM and exposes
 nonblocking readback. Browser execution requires separate qualification.
 
 Coverage, numerical limits and hardware evidence are tracked in the
-[tensor backend design](../../docs/design/tensor-backends-2026-09-27.md).
+tensor backend design (`docs/design/tensor-backends-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 ### f16 and bf16 storage
 
@@ -155,7 +155,7 @@ and one final cast for low results. Packed input loads share the stable f32
 traversal and planner. Row summaries keep small BF16 coordinates in scaled
 units so meaningful normalization results survive input subnormal handling.
 No full f32 input, shifted-input or centered-input temporary is created.
-See [low statistics qualification](../../docs/qualification/tensor-low-statistics-2026-09-27.md).
+See low statistics qualification (`docs/qualification/tensor-low-statistics-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 `TensorLowAttentionBackend` adds the same masked attention geometry for matching
 f16/BF16 Q/K/V, with f32 output or one final low cast. Additive masks remain f32.
@@ -165,7 +165,7 @@ of BF16 subnormal operands and large finite partners. Both outputs have `_into`
 variants with ownership, alias, offset and transactional-recording checks.
 The direct path removes operand temporaries; measured speed depends on shape
 and dtype. See [matched timings](benchmarks/tensor-low-attention.md) and
-[low attention qualification](../../docs/qualification/tensor-low-attention-2026-09-27.md).
+low attention qualification (`docs/qualification/tensor-low-attention-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 ### Statistics and attention
 

@@ -305,7 +305,7 @@ export function expandStructure(
           ? tryFastEvaluateProperties(n, props, state, env)
           : (n.props ?? {});
         if (values === undefined) return undefined;
-        let args = {};
+        const args = {};
         if (n.eventArgs) {
           const eventKeys = Object.keys(n.eventArgs);
           if (eventKeys.length > 0) {

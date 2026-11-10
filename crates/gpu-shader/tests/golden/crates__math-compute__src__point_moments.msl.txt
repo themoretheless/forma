@@ -1,0 +1,174 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct Params {
+    uint point_count;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
+};
+
+constant uint WG = 256;
+
+kernel void _wgpu_entry_main(uint3 gid [[thread_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]], uint3 wid [[threadgroup_position_in_grid]], constant Params& params [[buffer(0)]], const device float* points [[buffer(1)]], device float* out [[buffer(2)]]) {
+    threadgroup float sx[256];
+    threadgroup float sy[256];
+    threadgroup float sz[256];
+    threadgroup float sxx[256];
+    threadgroup float sxy[256];
+    threadgroup float sxz[256];
+    threadgroup float syy[256];
+    threadgroup float syz[256];
+    threadgroup float szz[256];
+
+    const auto i = gid.x;
+    auto x = 0.0;
+    auto y = 0.0;
+    auto z = 0.0;
+    if (i < params.point_count) {
+        const auto base = i * 3u;
+        x = points[base];
+        y = points[base + 1u];
+        z = points[base + 2u];
+    }
+    sx[lid.x] = x;
+    sy[lid.x] = y;
+    sz[lid.x] = z;
+    sxx[lid.x] = x * x;
+    sxy[lid.x] = x * y;
+    sxz[lid.x] = x * z;
+    syy[lid.x] = y * y;
+    syz[lid.x] = y * z;
+    szz[lid.x] = z * z;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    auto stride = WG / 2u;
+    while (true) {
+
+        if (stride == 0u) {
+            break;
+        }
+        if (lid.x < stride) {
+            sx[lid.x] += sx[lid.x + stride];
+            sy[lid.x] += sy[lid.x + stride];
+            sz[lid.x] += sz[lid.x + stride];
+            sxx[lid.x] += sxx[lid.x + stride];
+            sxy[lid.x] += sxy[lid.x + stride];
+            sxz[lid.x] += sxz[lid.x + stride];
+            syy[lid.x] += syy[lid.x + stride];
+            syz[lid.x] += syz[lid.x + stride];
+            szz[lid.x] += szz[lid.x + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        stride = stride / 2u;
+    }
+
+    if (lid.x == 0u) {
+        const auto base = wid.x * 9u;
+        out[base] = sx[0];
+        out[base + 1u] = sy[0];
+        out[base + 2u] = sz[0];
+        out[base + 3u] = sxx[0];
+        out[base + 4u] = sxy[0];
+        out[base + 5u] = sxz[0];
+        out[base + 6u] = syy[0];
+        out[base + 7u] = syz[0];
+        out[base + 8u] = szz[0];
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "out": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "points": (
+            1,
+            0,
+            4,
+            1,
+        ),
+    },
+}

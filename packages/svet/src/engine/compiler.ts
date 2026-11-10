@@ -216,7 +216,7 @@ export function svetVitePlugin(options: SvetVitePluginOptions = {}) {
       }
     },
     transform(code: string, id: string) {
-      const cleanId = id.split('?')[0];
+      const cleanId = id.split('?')[0]!;
       // 1. Direct import of Forma `.ui` files: `import CustomerCardUi from './CustomerCard.ui'`
       // Pre-parses `uiAst` and `uiValidation` at build time (True AOT — 0ms runtime source parsing!)
       if (cleanId.endsWith('.ui')) {

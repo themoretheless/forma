@@ -35,6 +35,31 @@ pub mod util;
 pub mod vulkan;
 pub mod webgpu;
 
+/// `Debug` for GPU handles whose contents are opaque backend objects.
+macro_rules! impl_opaque_debug {
+    ($($ty:ty => $name:literal),+ $(,)?) => {
+        $(impl std::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.debug_struct($name).finish_non_exhaustive()
+            }
+        })+
+    };
+}
+
+impl_opaque_debug!(
+    TextureView => "TextureView",
+    Sampler => "Sampler",
+    QuerySet => "QuerySet",
+    ShaderModule => "ShaderModule",
+    ComputePipeline => "ComputePipeline",
+    RenderPipeline => "RenderPipeline",
+    BindGroup => "BindGroup",
+    Adapter => "Adapter",
+    Instance => "Instance",
+    CommandBuffer => "CommandBuffer",
+    SurfaceTexture => "SurfaceTexture",
+);
+
 pub use asd::*;
 pub use buffer::*;
 pub use command::*;
@@ -82,6 +107,15 @@ impl Default for Instance {
 impl Instance {
     pub fn new(desc: InstanceDescriptor) -> Self {
         Self { desc }
+    }
+
+    /// Backends this build can drive. Only Metal has an implementation in this runtime.
+    pub fn enabled_backend_features() -> Backends {
+        if cfg!(any(target_os = "macos", target_os = "ios")) {
+            Backends::METAL
+        } else {
+            Backends::empty()
+        }
     }
 
     pub fn enumerate_adapters(&self, backends: Backends) -> impl Future<Output = Vec<Adapter>> {
@@ -196,6 +230,11 @@ impl Adapter {
 
     pub fn get_info(&self) -> AdapterInfo {
         self.info.clone()
+    }
+
+    /// A surface is presentable when it is backed by a Metal layer.
+    pub fn is_surface_supported(&self, surface: &Surface<'_>) -> bool {
+        surface.metal_layer.is_some()
     }
 
     pub fn features(&self) -> Features {
@@ -493,7 +532,10 @@ impl Device {
     pub fn poll(&self, poll_type: PollType) -> Result<PollStatus, PollError> {
         self.refresh_device_loss();
         match poll_type {
-            PollType::Poll => Ok(PollStatus::Poll),
+            PollType::Poll => {
+                self.metal.fire_work_done_callbacks();
+                Ok(PollStatus::Poll)
+            }
             PollType::Wait {
                 submission_index,
                 timeout,
@@ -511,6 +553,7 @@ impl Device {
                 }
                 self.metal.wait_idle();
                 self.refresh_device_loss();
+                self.metal.fire_work_done_callbacks();
                 Ok(PollStatus::WaitSucceeded)
             }
         }
@@ -718,7 +761,14 @@ impl Device {
         let wg_total = wg_size[0].max(1) * wg_size[1].max(1) * wg_size[2].max(1);
         let pso = self
             .metal
-            .compile_compute_pipeline(&desc.module.msl_source, msl_ep_name, wg_total)
+            .compile_compute_pipeline(
+                &metal::msl_for_pipeline(
+                    &desc.module.msl_source,
+                    desc.compilation_options.constants,
+                ),
+                msl_ep_name,
+                wg_total,
+            )
             .expect("Metal compute pipeline compilation failed");
 
         ComputePipeline {
@@ -824,12 +874,20 @@ impl Queue {
             .submit_with_error_sink(command_buffers, Some(self.error_sink.capture()))
     }
 
+    /// Presents a surface texture; same as [`SurfaceTexture::present`].
+    pub fn present(&self, surface_texture: SurfaceTexture) {
+        surface_texture.present();
+    }
+
     pub fn on_submitted_work_done<F>(&self, callback: F)
     where
         F: FnOnce() + Send + 'static,
     {
-        self.metal.wait_idle();
-        callback();
+        self.metal
+            .work_done_callbacks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(Box::new(callback));
     }
 
     pub fn get_timestamp_period(&self) -> f32 {

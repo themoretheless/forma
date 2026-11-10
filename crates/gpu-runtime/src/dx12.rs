@@ -7,17 +7,9 @@ pub struct Dx12Device {
 }
 
 impl Dx12Device {
+    /// Finds a real Direct3D 12 adapter. The backend is not implemented yet, so this always
+    /// returns `None`; it used to report a fabricated adapter on every Windows machine.
     pub fn probe_available() -> Option<Self> {
-        #[cfg(target_os = "windows")]
-        {
-            Some(Self {
-                name: "Direct3D 12 Native Adapter".to_string(),
-                unified_memory: false,
-            })
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            None
-        }
+        None
     }
 }

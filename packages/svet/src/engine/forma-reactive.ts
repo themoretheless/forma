@@ -297,7 +297,7 @@ export interface FormFieldRule<V = any, AllValues = Record<string, any>> {
   max?: number;
   minLength?: number;
   maxLength?: number;
-  range?: [number, number];
+  range?: [number, number] | undefined;
   pattern?: RegExp;
   validate?: (value: V, allValues: AllValues) => string | null | undefined;
   validateAsync?: (

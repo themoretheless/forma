@@ -1,4 +1,4 @@
-import { EditorView, ViewPlugin, Decoration } from '@codemirror/view';
+import { ViewPlugin, Decoration } from '@codemirror/view';
 import { rainbowBrackets } from './brackets.js';
 
 const COMMENT = '#66757d';

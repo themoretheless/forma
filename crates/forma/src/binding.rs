@@ -9,6 +9,9 @@ use std::{
 };
 
 /// Disconnects a listener on drop. Keeping a subscription never keeps its source alive.
+mod model_value;
+pub use model_value::{ModelNumber, ModelValue, decode};
+
 pub struct Subscription(Option<Box<dyn FnOnce()>>);
 impl Drop for Subscription {
     fn drop(&mut self) {
@@ -766,80 +769,6 @@ impl<C: 'static> Control<C> {
     }
 }
 
-/// Values available to generated expressions. Numeric fields remain typed in Rust.
-pub trait ModelValue: Clone + PartialEq + Default + 'static {
-    fn to_value(&self) -> crate::form_document::Value;
-    fn from_value(value: &crate::form_document::Value) -> Result<Self, String> {
-        Err(format!(
-            "Cannot decode {value:?} as {}",
-            std::any::type_name::<Self>()
-        ))
-    }
-}
-pub fn decode<T: ModelValue>(value: &crate::form_document::Value) -> Result<T, String> {
-    T::from_value(value)
-}
-
-impl ModelValue for String {
-    fn to_value(&self) -> crate::form_document::Value {
-        crate::form_document::Value::Text(self.clone())
-    }
-    fn from_value(value: &crate::form_document::Value) -> Result<Self, String> {
-        if let crate::form_document::Value::Text(value) = value {
-            Ok(value.clone())
-        } else {
-            Err("Expected String event argument".into())
-        }
-    }
-}
-impl<T: ModelValue> ModelValue for Option<T> {
-    fn to_value(&self) -> crate::form_document::Value {
-        self.as_ref()
-            .map(ModelValue::to_value)
-            .unwrap_or(crate::form_document::Value::Null)
-    }
-    fn from_value(value: &crate::form_document::Value) -> Result<Self, String> {
-        if matches!(value, crate::form_document::Value::Null) {
-            Ok(None)
-        } else {
-            T::from_value(value).map(Some)
-        }
-    }
-}
-impl<T: ModelValue> ModelValue for BTreeMap<String, T> {
-    fn to_value(&self) -> crate::form_document::Value {
-        crate::form_document::Value::Object(
-            self.iter()
-                .map(|(k, v)| (k.clone(), v.to_value()))
-                .collect(),
-        )
-    }
-}
-impl<T: ModelValue> ModelValue for Vec<T> {
-    fn to_value(&self) -> crate::form_document::Value {
-        crate::form_document::Value::List(self.iter().map(ModelValue::to_value).collect())
-    }
-}
-impl ModelValue for bool {
-    fn to_value(&self) -> crate::form_document::Value {
-        crate::form_document::Value::Bool(*self)
-    }
-    fn from_value(value: &crate::form_document::Value) -> Result<Self, String> {
-        value.boolean()
-    }
-}
-macro_rules! numbers { ($($t:ty),*) => {$ (impl ModelValue for $t {
-    fn to_value(&self)->crate::form_document::Value { crate::form_document::Value::Number(*self as f64) }
-    fn from_value(value: &crate::form_document::Value) -> Result<Self, String> {
-        let n=value.number()?; let result=n as $t;
-        if result as f64 != n { return Err(format!("Number {n} cannot be represented as {}", stringify!($t))); }
-        Ok(result)
-    }
-})*}; }
-numbers!(f64, f32, i32, u32, i64, u64, usize);
-pub trait ModelNumber: ModelValue {}
-macro_rules! numeric {($($t:ty),*)=>{$(impl ModelNumber for $t {})*};}
-numeric!(f64, f32, i32, u32, i64, u64, usize);
 trait Input {
     fn present(&self) -> bool;
     fn dirty(&self) -> bool;
@@ -1201,32 +1130,23 @@ impl Form {
                     }
                 }
                 if has_control_overrides {
-                    fn collect_nodes_mut<'a>(
-                        node: &'a mut crate::form_document::Node,
-                        out: &mut std::collections::HashMap<
-                            usize,
-                            &'a mut crate::form_document::Node,
-                        >,
-                        count: &mut usize,
-                    ) {
-                        let id = node
-                            .props
-                            .get("__node")
-                            .and_then(|v| v.number().ok())
-                            .map_or(*count, |v| v as usize);
-                        *count += 1;
-                        let ptr = node as *mut crate::form_document::Node;
-                        for child in &mut node.children {
-                            collect_nodes_mut(child, out, count);
-                        }
-                        // SAFETY: `ptr` points to `node` while `children` points to disjoint heap allocations.
-                        out.insert(id, unsafe { &mut *ptr });
-                    }
-                    let mut node_map = std::collections::HashMap::new();
-                    collect_nodes_mut(&mut document.program.root, &mut node_map, &mut 0);
+                    // Controls that override each document node, in control order.
+                    let mut overrides = std::collections::HashMap::<usize, Vec<_>>::new();
                     for control in &self.controls {
                         if let Some(index) = document.nodes.get(&control.index) {
-                            if let Some(node) = node_map.get_mut(index) {
+                            overrides.entry(*index).or_default().push(control);
+                        }
+                    }
+                    let winners = override_targets(&document.program.root);
+                    for_each_node_post_order(
+                        &mut document.program.root,
+                        &mut 0,
+                        &mut 0,
+                        &mut |id, position, node| {
+                            if winners.get(&id) != Some(&position) {
+                                return;
+                            }
+                            for control in overrides.get(&id).map_or(&[][..], Vec::as_slice) {
                                 for (name, input) in control.properties.borrow().iter() {
                                     node.props.insert(name.clone(), input.value());
                                 }
@@ -1256,8 +1176,8 @@ impl Form {
                                     node.props.insert(name.into(), value);
                                 }
                             }
-                        }
-                    }
+                        },
+                    );
                 }
                 let render_res = document.program.render_scene_artifact();
                 if let Some(orig_root) = saved_root.take() {
@@ -1690,6 +1610,53 @@ impl Form {
         Ok(result)
     }
 }
+/// The id a node answers to: its explicit `__node` property, else its preorder position.
+fn node_id(node: &crate::form_document::Node, preorder: usize) -> usize {
+    node.props
+        .get("__node")
+        .and_then(|value| value.number().ok())
+        .map_or(preorder, |v| v as usize)
+}
+
+/// Visits every node after its children, passing its id and its post-order position.
+fn for_each_node_post_order(
+    node: &mut crate::form_document::Node,
+    preorder: &mut usize,
+    postorder: &mut usize,
+    visit: &mut impl FnMut(usize, usize, &mut crate::form_document::Node),
+) {
+    let id = node_id(node, *preorder);
+    *preorder += 1;
+    for child in &mut node.children {
+        for_each_node_post_order(child, preorder, postorder, visit);
+    }
+    let position = *postorder;
+    *postorder += 1;
+    visit(id, position, node);
+}
+
+/// For each node id, the post-order position of the node that receives control overrides.
+/// When several nodes share an id, the last one in post-order wins.
+fn override_targets(root: &crate::form_document::Node) -> std::collections::HashMap<usize, usize> {
+    fn walk(
+        node: &crate::form_document::Node,
+        preorder: &mut usize,
+        postorder: &mut usize,
+        out: &mut std::collections::HashMap<usize, usize>,
+    ) {
+        let id = node_id(node, *preorder);
+        *preorder += 1;
+        for child in &node.children {
+            walk(child, preorder, postorder, out);
+        }
+        out.insert(id, *postorder);
+        *postorder += 1;
+    }
+    let mut out = std::collections::HashMap::new();
+    walk(root, &mut 0, &mut 0, &mut out);
+    out
+}
+
 impl Drop for Form {
     fn drop(&mut self) {
         self.wake.callback.borrow_mut().take();
@@ -1709,196 +1676,4 @@ impl Drop for Form {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg(not(target_arch = "wasm32"))]
-    #[test]
-    fn svet_bindings_drive_runtime_and_release_retained_control() {
-        let mut form = Form::new(
-            "component Demo { Frame { width:100; height:60; Button { width:80; height:40; } } }",
-            "component Button { Rectangle { ContentInput { width:80; height:30; value:'seed'; } PointerArea { clicked -> events.clicked(); } } }",
-        ).unwrap();
-        let control = form.add_control(0, Context::new(Rc::new(()))).unwrap();
-        let property = Property::new("first".to_string());
-        control.bind_value(property.clone());
-        form.set_svet_bindings(true);
-        form.sync().unwrap();
-        assert_eq!(form.runtime().text_value(0), "first");
-        assert_eq!(form.svet_binding_telemetry().unwrap().nodes, 2);
-        property.set("second".into());
-        property.set("third".into());
-        let binding = control
-            .state
-            .bindings
-            .borrow()
-            .get(&Target::Value)
-            .unwrap()
-            .clone();
-        assert!(!binding.dirty(), "only graph drain may dirty this binding");
-        form.sync().unwrap();
-        assert_eq!(form.runtime().text_value(0), "third");
-        form.update(|runtime| {
-            runtime.focus_control(0);
-            runtime.text_insert("!");
-        })
-        .unwrap();
-        assert_eq!(property.get(), form.runtime().text_value(0));
-        assert!(property.get().contains('!'));
-        property.set("pending".into());
-        form.set_svet_bindings(false);
-        form.sync().unwrap();
-        assert_eq!(form.runtime().text_value(0), "pending");
-        form.set_svet_bindings(true);
-        drop(binding);
-        property.set("stale".into());
-        let replacement = Property::new("replacement".to_string());
-        control.bind_value(replacement.clone());
-        assert_eq!(form.svet_binding_telemetry().unwrap().nodes, 2);
-        form.sync().unwrap();
-        assert_eq!(form.runtime().text_value(0), "replacement");
-        property.set("retired".into());
-        assert!(!form.is_dirty());
-        let wake = form.wake.clone();
-        drop(form);
-        assert!(wake.native.borrow().graph.is_none());
-        assert!(wake.native.borrow().fields.is_empty());
-        assert!(replacement.0.listeners.borrow().is_empty());
-        drop(control);
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    #[test]
-    fn svet_scheduler_deduplicates_and_isolates_forms() {
-        let wake = Rc::new(Wake::default());
-        let property = Property::new(0);
-        let field = Field::explicit(property.clone(), wake.clone());
-        wake.native.borrow_mut().enable(true);
-        field.0.dirty.set(false);
-        for value in 1..100 {
-            property.set(value);
-        }
-        assert!(!field.0.dirty.get());
-        assert_eq!(wake.native.borrow_mut().drain(), 1);
-        assert!(field.0.dirty.get());
-        field.0.dirty.set(false);
-        property.set(100);
-        assert_eq!(wake.native.borrow_mut().drain(), 1);
-        let other = Rc::new(Wake::default());
-        let other_field = Field::explicit(Property::new(0), other.clone());
-        other.native.borrow_mut().enable(true);
-        other_field.0.dirty.set(false);
-        property.set(101);
-        assert_eq!(other.native.borrow_mut().drain(), 0);
-        drop(field);
-        assert_eq!(wake.native.borrow_mut().drain(), 0);
-        assert_eq!(
-            wake.native
-                .borrow()
-                .graph
-                .as_ref()
-                .unwrap()
-                .telemetry()
-                .nodes,
-            0
-        );
-        assert!(!other_field.0.dirty.get());
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    #[test]
-    fn svet_context_replacement_and_reentrant_wake_preserve_latest_value() {
-        struct Model {
-            value: Property<i32>,
-        }
-        let first = Rc::new(Model {
-            value: Property::new(1),
-        });
-        let second = Rc::new(Model {
-            value: Property::new(2),
-        });
-        let context = Context::new(first.clone());
-        let wake = Rc::new(Wake::default());
-        let field = Field::path(&context, |model| model.value.clone(), wake.clone());
-        wake.native.borrow_mut().enable(true);
-        field.0.dirty.set(false);
-        wake.pending.set(false);
-        let weak = Rc::downgrade(&wake);
-        let property = first.value.clone();
-        *wake.callback.borrow_mut() = Some(Rc::new(move || {
-            // Arbitrary host notification must run outside the graph RefCell borrow.
-            assert_eq!(
-                weak.upgrade()
-                    .unwrap()
-                    .native
-                    .borrow()
-                    .graph
-                    .as_ref()
-                    .unwrap()
-                    .telemetry()
-                    .nodes,
-                2
-            );
-            property.set(3);
-        }));
-        first.value.set(4);
-        assert_eq!(wake.native.borrow_mut().drain(), 1);
-        assert_eq!(field.get(), Some(3));
-        context.set(second.clone());
-        assert_eq!(wake.native.borrow_mut().drain(), 1);
-        assert_eq!(field.get(), Some(2));
-        field.0.dirty.set(false);
-        first.value.set(10);
-        assert_eq!(wake.native.borrow_mut().drain(), 0);
-        assert!(!field.0.dirty.get());
-        second.value.set(20);
-        assert_eq!(wake.native.borrow_mut().drain(), 1);
-        assert_eq!(field.get(), Some(20));
-    }
-
-    #[test]
-    fn property_notifications_allow_reentrant_writes_and_disconnect_on_drop() {
-        let property = Property::new(0);
-        let observed = Rc::new(RefCell::new(Vec::new()));
-        let values = observed.clone();
-        let subscription = property.subscribe(move |value| values.borrow_mut().push(value));
-        assert!(!property.set(0));
-        assert!(property.set(1));
-        drop(subscription);
-        property.set(2);
-        assert_eq!(*observed.borrow(), vec![1]);
-
-        let weak = Rc::downgrade(&property.0);
-        let listener = property.subscribe(move |value| {
-            if value == 3 {
-                Property(weak.upgrade().unwrap()).set(4);
-            }
-        });
-        property.set(3);
-        assert_eq!(property.get(), 4);
-        drop(listener);
-    }
-
-    #[test]
-    fn inherited_context_tracks_replacements_while_overridden_and_releases_sources() {
-        struct Model;
-        let first = Rc::new(Model);
-        let second = Rc::new(Model);
-        let local = Rc::new(Model);
-        let first_weak = Rc::downgrade(&first);
-        let second_weak = Rc::downgrade(&second);
-        let root = Context::new(first.clone());
-        let child = Context::child(&root);
-        child.set(local.clone());
-        root.set(second.clone());
-        assert!(Rc::ptr_eq(&child.get().unwrap(), &local));
-        child.inherit();
-        assert!(Rc::ptr_eq(&child.get().unwrap(), &second));
-        drop(first);
-        assert!(first_weak.upgrade().is_none());
-        drop(second);
-        drop(root);
-        drop(child);
-        assert!(second_weak.upgrade().is_none());
-    }
-}
+mod tests;
