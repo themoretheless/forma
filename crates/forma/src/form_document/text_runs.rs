@@ -229,3 +229,118 @@ pub(super) fn flatten(
         out.push_str("ContentClipEnd {} ");
     }
 }
+
+/// One run for [`TextRuns`]: text plus the optional fields of a `runs` item.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TextRun {
+    text: String,
+    color: Option<String>,
+    bold: Option<bool>,
+    mono: bool,
+    background: Option<String>,
+    link: Option<String>,
+}
+
+impl TextRun {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self {
+            text: text.into(),
+            ..Self::default()
+        }
+    }
+    /// `#rrggbb` or `#rrggbbaa`.
+    pub fn color(mut self, color: impl Into<String>) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+    pub fn bold(mut self) -> Self {
+        self.bold = Some(true);
+        self
+    }
+    /// Regular weight even inside a bold Text.
+    pub fn regular(mut self) -> Self {
+        self.bold = Some(false);
+        self
+    }
+    pub fn mono(mut self) -> Self {
+        self.mono = true;
+        self
+    }
+    /// `#rrggbb` or `#rrggbbaa`, painted under the run's fragments.
+    pub fn background(mut self, color: impl Into<String>) -> Self {
+        self.background = Some(color.into());
+        self
+    }
+    /// Activation queues a `TextLinkEvent` carrying `id`.
+    pub fn link(mut self, id: impl Into<String>) -> Self {
+        self.link = Some(id.into());
+        self
+    }
+    fn into_value(self) -> Value {
+        let mut item = Properties::from([("text".to_string(), Value::Text(self.text))]);
+        let mut set = |key: &str, value: Option<String>| {
+            if let Some(value) = value {
+                item.insert(key.into(), Value::Text(value));
+            }
+        };
+        set("color", self.color);
+        set(
+            "fontWeight",
+            self.bold
+                .map(|bold| if bold { "bold" } else { "regular" }.into()),
+        );
+        set("fontFamily", self.mono.then(|| "mono".into()));
+        set("background", self.background);
+        set("link", self.link);
+        Value::Object(item)
+    }
+}
+
+/// Builds the value of `Text { runs: ...; }` from Rust, for example a state field pushed with
+/// `Runtime::set_ui_state_properties`:
+///
+/// ```
+/// use forma::form_document::{Properties, TextRun, TextRuns};
+/// let runs = TextRuns::new()
+///     .text("Найдено в ")
+///     .bold("wiki.md")
+///     .run(TextRun::new(" fn main").mono().background("#202020"))
+///     .link(" открыть", "open:42");
+/// let state = Properties::from([("snippet".to_string(), runs.into_value())]);
+/// assert!(state.get("snippet").is_some());
+/// ```
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TextRuns(Vec<TextRun>);
+
+impl TextRuns {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn run(mut self, run: TextRun) -> Self {
+        self.0.push(run);
+        self
+    }
+    /// A run with the Text's own style.
+    pub fn text(self, text: impl Into<String>) -> Self {
+        self.run(TextRun::new(text))
+    }
+    pub fn bold(self, text: impl Into<String>) -> Self {
+        self.run(TextRun::new(text).bold())
+    }
+    pub fn mono(self, text: impl Into<String>) -> Self {
+        self.run(TextRun::new(text).mono())
+    }
+    pub fn link(self, text: impl Into<String>, id: impl Into<String>) -> Self {
+        self.run(TextRun::new(text).link(id))
+    }
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// The list value `runs` expects.
+    pub fn into_value(self) -> Value {
+        Value::List(self.0.into_iter().map(TextRun::into_value).collect())
+    }
+}

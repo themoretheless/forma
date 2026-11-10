@@ -1583,3 +1583,31 @@ fn accessibility_tree_exports_semantic_roles_focus_and_modal_blocking() {
     assert!(json.contains("\"role\":\"Dialog\""));
     assert!(json.contains("\"focusedId\":3"));
 }
+#[test]
+fn pushed_text_runs_restyle_a_text_and_label_it_for_accessibility() {
+    use crate::form_document::{Properties, TextRun, TextRuns};
+    let files = std::collections::BTreeMap::from([("App.ui".to_string(),
+        "component App { state snippet: List = []; Column { width:360; height:200; Text { key:'hit'; width: 300; runs: state.snippet; } } }".to_string())]);
+    let mut runtime = Runtime::from_ui_files(&files, "App.ui", &Default::default()).unwrap();
+    let runs = TextRuns::new()
+        .text("found in ")
+        .bold("wiki.md")
+        .run(TextRun::new(" open").color("#6fa8ff").link("open:42"));
+    assert_eq!(runs.len(), 3);
+    let state = Properties::from([("snippet".to_string(), runs.into_value())]);
+    assert!(runtime.set_ui_state_properties(&state).unwrap());
+    assert_eq!(static_labels(&runtime), ["found in wiki.md open"]);
+    let b = runtime.control_bounds(0);
+    let right = b[0]
+        + crate::text::measure_text("found in ", 16.)
+        + crate::text::measure_text_in(crate::text::FontFamily::SansBold, "wiki.md", 16.)
+        + 10.;
+    let y = b[1] + b[3] / 2.;
+    assert_eq!(runtime.text_link_at(right, y).as_deref(), Some("open:42"));
+    runtime.pointer(right, y, 1);
+    runtime.pointer(right, y, 2);
+    let events = runtime.take_text_link_events();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].link, "open:42");
+    assert_eq!(events[0].key, "hit");
+}

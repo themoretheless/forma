@@ -14,6 +14,7 @@ mod scene;
 mod svg;
 mod svg_path;
 mod text_runs;
+pub use text_runs::{TextRun, TextRuns};
 mod visual;
 mod widget_state;
 
