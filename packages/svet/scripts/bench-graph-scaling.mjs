@@ -12,7 +12,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const e = await import(pathToFileURL(resolve(root, 'dist/package/reactivity.js')));
+const e = await import(pathToFileURL(resolve(root, 'dist/package/reactivity-entry.js')));
 const option = (name, fallback) => {
   const at = process.argv.indexOf(name);
   return at < 0 ? fallback : process.argv[at + 1];
