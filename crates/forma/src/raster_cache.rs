@@ -1,21 +1,23 @@
 //! Single-entry, per-instance raster cache. A new model owns a new cache.
 //! Geometry/content depend on viewport, DPI and scroll, not animated colors.
-use crate::{Button, geometry::round_coverage, shape, template::Content, text};
+use crate::{
+    display_list::ControlView, geometry::round_coverage, markup, shape, template::Content, text,
+};
 
 #[derive(Clone, Copy, PartialEq)]
-struct GeometryKey {
-    width: u32,
-    height: u32,
-    scale: f32,
-    scroll: [f32; 2],
-    sparse: bool,
+pub(crate) struct GeometryKey {
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    pub(crate) scale: f32,
+    pub(crate) scroll: [f32; 2],
+    pub(crate) sparse: bool,
 }
 #[derive(Clone, Copy, PartialEq)]
-struct PaintKey {
-    fill: [u8; 4],
-    border: [u8; 4],
-    reveal: crate::reveal::Paint,
-    background: bool,
+pub(crate) struct PaintKey {
+    pub(crate) fill: [u8; 4],
+    pub(crate) border: [u8; 4],
+    pub(crate) reveal: crate::reveal::Paint,
+    pub(crate) background: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,7 +28,7 @@ struct FrameRun {
 }
 
 pub(crate) struct Cache {
-    key: GeometryKey,
+    pub(crate) key: GeometryKey,
     // Four original coverage samples: fill_count * 5 + border_count.
     coverage: Vec<u8>,
     // Precise outer/border boundary coverage for square rectangles. Canvas
@@ -40,12 +42,12 @@ pub(crate) struct Cache {
     content: Vec<u8>,
     // One span per nonempty row; content is compacted to these spans after build.
     content_spans: Vec<std::ops::Range<usize>>,
-    paint: Option<PaintKey>,
-    pixels: Vec<u8>,
+    pub(crate) paint: Option<PaintKey>,
+    pub(crate) pixels: Vec<u8>,
     // Packed pixels retain their original canvas indices, so fractional DPI
     // and overflowing content use exactly the same coverage samples.
-    spans: Vec<std::ops::Range<usize>>,
-    native_pixels: Vec<u32>,
+    pub(crate) spans: Vec<std::ops::Range<usize>>,
+    pub(crate) native_pixels: Vec<u32>,
 }
 
 /// Straight-alpha source-over, same rounding as the outline renderer.
@@ -53,7 +55,7 @@ pub(crate) use crate::blend::over;
 
 // Conservative support of geometry plus content, or content alone. Clip
 // markers only remove support; overflowing text/shapes must remain visible.
-fn raster_region(model: &Button, key: GeometryKey, include_geometry: bool) -> [u32; 4] {
+fn raster_region(model: ControlView<'_>, key: GeometryKey, include_geometry: bool) -> [u32; 4] {
     let full = [0, 0, key.width, key.height];
     let b = &model.scene.button;
     let x = b.x - model.scroll_x;
@@ -149,7 +151,7 @@ fn raster_region(model: &Button, key: GeometryKey, include_geometry: bool) -> [u
 #[cfg(test)]
 thread_local! { static FRAME_SAMPLES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
 
-fn frame_value(model: &Button, key: GeometryKey, v: [f32; 4], x: u32, y: u32) -> u8 {
+fn frame_value(model: ControlView<'_>, key: GeometryKey, v: [f32; 4], x: u32, y: u32) -> u8 {
     #[cfg(test)]
     FRAME_SAMPLES.with(|count| count.set(count.get() + 1));
     let [vx, vy, vw, vh] = v;
@@ -212,7 +214,7 @@ fn frame_x_boundary(width: u32, scale: f32, threshold: f32) -> u32 {
     lo
 }
 
-fn frame_runs(model: &Button, key: GeometryKey) -> Vec<FrameRun> {
+fn frame_runs(model: ControlView<'_>, key: GeometryKey) -> Vec<FrameRun> {
     let mut runs = Vec::new();
     if key.sparse {
         return runs;
@@ -287,12 +289,12 @@ fn frame_runs(model: &Button, key: GeometryKey) -> Vec<FrameRun> {
 }
 
 impl Cache {
-    fn build(model: &Button, key: GeometryKey) -> Self {
+    pub(crate) fn build(model: ControlView<'_>, key: GeometryKey) -> Self {
         Self::build_with_content_region(model, key, raster_region(model, key, false))
     }
 
     fn build_with_content_region(
-        model: &Button,
+        model: ControlView<'_>,
         key: GeometryKey,
         content_region: [u32; 4],
     ) -> Self {
@@ -356,7 +358,7 @@ impl Cache {
             .as_ref()
             .map_or(r, |rev| rev.target_radius.unwrap_or(r));
         let reveal_w = model.template.reveal.as_ref().map_or(0., |rev| rev.width);
-        let default_reveal_bounds = model.template.reveal.as_ref().map_or(true, |rev| {
+        let default_reveal_bounds = model.template.reveal.as_ref().is_none_or(|rev| {
             rev.target_x.is_none()
                 && rev.target_y.is_none()
                 && rev.target_width.is_none()
@@ -607,7 +609,7 @@ impl Cache {
         cache
     }
 
-    fn paint(&mut self, model: &Button, key: PaintKey) {
+    pub(crate) fn paint(&mut self, scene: &markup::Scene, key: PaintKey) {
         // Only 15 combinations are possible; evaluate color mixing once for each,
         // instead of four samples and square roots for every pixel on every frame.
         let mut palette = [[0u8; 4]; 25];
@@ -617,10 +619,12 @@ impl Cache {
             for b in 0..=f {
                 let a = (fa * (f - b) as f32 + (fa * (1. - ba) + ba) * b as f32) / 4.;
                 if a > 0. {
-                    for k in 0..3 {
-                        palette[f * 5 + b][k] = ((key.fill[k] as f32 * fa * (f - b) as f32
-                            + (key.fill[k] as f32 * fa * (1. - ba) + key.border[k] as f32 * ba)
-                                * b as f32)
+                    for (chan, (&fill_c, &border_c)) in palette[f * 5 + b][..3]
+                        .iter_mut()
+                        .zip(key.fill[..3].iter().zip(&key.border[..3]))
+                    {
+                        *chan = ((fill_c as f32 * fa * (f - b) as f32
+                            + (fill_c as f32 * fa * (1. - ba) + border_c as f32 * ba) * b as f32)
                             / 4.
                             / a)
                             .round() as u8;
@@ -722,8 +726,8 @@ impl Cache {
                 let frame_coverage = frame & 31;
                 let coverage = frame_coverage as f32 / 16.;
                 if key.background {
-                    let mut background = model.scene.background;
-                    if !model.scene.clip {
+                    let mut background = scene.background;
+                    if !scene.clip {
                         background[3] = (background[3] as f32 * coverage).round() as u8;
                     }
                     for dst in pixels.chunks_exact_mut(4) {
@@ -736,7 +740,7 @@ impl Cache {
                         }
                     }
                 }
-                if model.scene.clip && frame_coverage != 16 {
+                if scene.clip && frame_coverage != 16 {
                     for dst in pixels.chunks_exact_mut(4) {
                         dst[3] = (dst[3] as f32 * coverage).round() as u8;
                         if dst[3] == 0 {
@@ -751,196 +755,7 @@ impl Cache {
     }
 }
 
-impl Button {
-    fn cached(
-        &self,
-        width: u32,
-        height: u32,
-        scale: f32,
-        background: bool,
-        sparse: bool,
-    ) -> Option<std::cell::RefMut<'_, Cache>> {
-        if !valid_raster_size(width, height) || !scale.is_finite() || scale <= 0. {
-            return None;
-        }
-        let geometry = GeometryKey {
-            width,
-            height,
-            scale,
-            scroll: [self.scroll_x, self.scroll_y],
-            sparse,
-        };
-        let paint = PaintKey {
-            fill: self.fill.color(),
-            border: self.border.color(),
-            reveal: self.reveal_paint(),
-            background,
-        };
-        let mut stored = self.raster_cache.borrow_mut();
-        if stored.as_ref().is_none_or(|cache| cache.key != geometry) {
-            *stored = Some(Cache::build(self, geometry));
-            self.raster_builds
-                .set(self.raster_builds.get().wrapping_add(1));
-        }
-        let cache = stored.as_mut().unwrap();
-        if cache.paint != Some(paint) {
-            cache.paint(self, paint);
-            self.raster_paints
-                .set(self.raster_paints.get().wrapping_add(1));
-        }
-        Some(std::cell::RefMut::map(stored, |cache| {
-            cache.as_mut().unwrap()
-        }))
-    }
-
-    pub(crate) fn raster_cached(
-        &self,
-        width: u32,
-        height: u32,
-        scale: f32,
-        background: bool,
-    ) -> Vec<u8> {
-        self.cached(width, height, scale, background, false)
-            .map_or_else(Vec::new, |cache| cache.pixels.clone())
-    }
-
-    /// Copy RGBA output into caller-owned storage, retaining its allocation.
-    pub fn paint_rgba(
-        &self,
-        dst: &mut [u8],
-        width: u32,
-        height: u32,
-        scale: f32,
-        background: bool,
-    ) -> Result<(), &'static str> {
-        if (width as usize)
-            .checked_mul(height as usize)
-            .and_then(|n| n.checked_mul(4))
-            != Some(dst.len())
-        {
-            return Err("Invalid RGBA buffer size");
-        }
-        let cache = self
-            .cached(width, height, scale, background, false)
-            .ok_or("Visible scene exceeds CPU raster budget")?;
-        dst.copy_from_slice(&cache.pixels);
-        Ok(())
-    }
-
-    /// Composite a leaf without allocating/copying a transparent full canvas.
-    /// Root frame clipping and scrollbars are applied once by Runtime.
-    pub(crate) fn composite_content(&self, dst: &mut [u8], width: u32, height: u32, scale: f32) {
-        debug_assert!(!self.scene.clip && !self.scene.scroll);
-        let Some(cache) = self.cached(width, height, scale, false, true) else {
-            return;
-        };
-        let mut pixels = cache.pixels.as_slice();
-        for span in &cache.spans {
-            let bytes = span.len() * 4;
-            for (dst, src) in dst[span.start * 4..span.end * 4]
-                .chunks_exact_mut(4)
-                .zip(pixels[..bytes].chunks_exact(4))
-            {
-                over(dst, src);
-            }
-            pixels = &pixels[bytes..];
-        }
-    }
-
-    /// Paint into the host-owned XRGB buffer without a full-window RGBA copy.
-    /// The current runtime has fixed logical layout: resizing the host does not
-    /// change it. Keep that scene cached at native DPI and crop/copy on resize.
-    /// This intentionally does not stretch content or lower quality while dragging.
-    pub fn paint_native(
-        &self,
-        dst: &mut [u32],
-        width: u32,
-        height: u32,
-        scale: f32,
-    ) -> Result<(), &'static str> {
-        let len = (width as usize)
-            .checked_mul(height as usize)
-            .ok_or("Native buffer size overflow")?;
-        if width == 0 || height == 0 || len != dst.len() || !scale.is_finite() || scale <= 0. {
-            return Err("Invalid native buffer or DPI");
-        }
-        let [right, bottom] = self.paint_extent();
-        let mut rw = (right * scale).ceil().max(1.) as u32;
-        let mut rh = (bottom * scale).ceil().max(1.) as u32;
-        // Do not allocate an unbounded offscreen scene. For oversized content,
-        // retain only the visible portion (the existing raster safety limit).
-        if !valid_raster_size(rw, rh) {
-            rw = rw.min(width);
-            rh = rh.min(height);
-        }
-        let mut cache = self
-            .cached(rw, rh, scale, true, false)
-            .ok_or("Visible scene exceeds CPU raster budget")?;
-        if cache.native_pixels.is_empty() {
-            let Cache {
-                native_pixels,
-                pixels,
-                ..
-            } = &mut *cache;
-            native_pixels.reserve(pixels.len() / 4);
-            native_pixels.extend(pixels.chunks_exact(4).map(|p| {
-                let a = p[3] as u32;
-                if a == 255 {
-                    ((p[0] as u32) << 16) | ((p[1] as u32) << 8) | (p[2] as u32)
-                } else if a == 0 {
-                    0x111319
-                } else {
-                    let c = |k: usize, bg: u32| (p[k] as u32 * a + bg * (255 - a) + 127) / 255;
-                    (c(0, 17) << 16) | (c(1, 19) << 8) | c(2, 25)
-                }
-            }));
-        }
-        let pixels = &cache.native_pixels;
-        let copy_width = width.min(rw) as usize;
-        let copy_height = height.min(rh) as usize;
-        for y in 0..copy_height {
-            let row = &mut dst[y * width as usize..(y + 1) * width as usize];
-            row[..copy_width]
-                .copy_from_slice(&pixels[y * rw as usize..y * rw as usize + copy_width]);
-            row[copy_width..].fill(0x111319);
-        }
-        dst[copy_height * width as usize..].fill(0x111319);
-        Ok(())
-    }
-
-    // Conservative bounds include overflowing template primitives, not just the
-    // Button box. Clip/Scroll restrict them to the root viewport. Text already
-    // clips itself to its own bounds; an extra pixel covers fractional edges.
-    fn paint_extent(&self) -> [f32; 2] {
-        let mut extent = [self.width(), self.height()];
-        if self.scene.clip || self.scene.scroll {
-            return extent;
-        }
-        let b = &self.scene.button;
-        let x = b.x - self.scroll_x;
-        let y = b.y - self.scroll_y;
-        extent[0] = extent[0].max(x + b.width);
-        extent[1] = extent[1].max(y + b.height);
-        for content in &self.template.content {
-            match content {
-                Content::Text { bounds, .. } => {
-                    extent[0] = extent[0].max(x + bounds[0] + bounds[2] + 1.);
-                    extent[1] = extent[1].max(y + bounds[1] + bounds[3] + 1.);
-                }
-                Content::Shape { points, .. } => {
-                    for p in points {
-                        extent[0] = extent[0].max(x + p[0]);
-                        extent[1] = extent[1].max(y + p[1]);
-                    }
-                }
-                _ => {}
-            }
-        }
-        extent
-    }
-}
-
-fn valid_raster_size(width: u32, height: u32) -> bool {
+pub(crate) fn valid_raster_size(width: u32, height: u32) -> bool {
     width > 0
         && height > 0
         && width <= 4096

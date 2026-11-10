@@ -593,8 +593,9 @@ impl Renderer {
                 bytemuck::cast_slice(&self.paints),
             ];
             let limits = self.device.limits();
-            let storage_limit =
-                (limits.max_storage_buffer_binding_size as u64).min(limits.max_buffer_size);
+            let storage_limit = limits
+                .max_storage_buffer_binding_size
+                .min(limits.max_buffer_size);
             if data.iter().any(|d| d.len() as u64 > storage_limit) {
                 return Err("Vector scene exceeds GPU storage budget".into());
             }

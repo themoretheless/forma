@@ -546,7 +546,7 @@ fn cpu_lifecycle_probe() {
                 let mut rgba = vec![0; 300 * 400 * 4];
                 let mut native = vec![0; 300 * 400];
                 let mut live_by_edit = [0i128; 32];
-                for edit in 0..32 {
+                for (edit, slot) in live_by_edit.iter_mut().enumerate() {
                     let index = if edit % 2 == 0 { 0 } else { count - 1 };
                     let value = format!("edit-{edit:04} — 你好 мир🙂");
                     runtime.set_binding_value(index, &value, true).unwrap();
@@ -568,7 +568,7 @@ fn cpu_lifecycle_probe() {
                         assert_eq!(xrgb, c(0, 17) << 16 | c(1, 19) << 8 | c(2, 25));
                     }
                     drop(value);
-                    live_by_edit[edit] = LIVE_DELTA.with(|v| v.get().unwrap_or(0));
+                    *slot = LIVE_DELTA.with(|v| v.get().unwrap_or(0));
                 }
                 let model = runtime.ui_state_properties();
                 let Value::List(items) = &model["items"] else {

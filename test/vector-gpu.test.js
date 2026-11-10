@@ -133,7 +133,7 @@ async function fixture(t, beforeCreate = () => {}) {
     GPUBufferUsage: { UNIFORM: 1, COPY_DST: 2, STORAGE: 4 },
   }))
     Object.defineProperty(globalThis, name, { value, configurable: true });
-  let painter;
+  let painter = null;
   t.after(() => {
     try {
       painter?.destroy();

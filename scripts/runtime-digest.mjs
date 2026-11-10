@@ -29,6 +29,7 @@ export function runtimeSourceDigest(root) {
     'crates/forma/controls',
     'crates/forma/examples/Button.ui',
     'crates/forma/examples/Button.component.ui',
+    'crates/forma/examples/TwoButtons.ui',
     'scripts/build-wasm.mjs',
     'scripts/runtime-digest.mjs',
     'scripts/tokenizer.mjs',

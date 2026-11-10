@@ -1,5 +1,10 @@
 use crate::{Binding, Kernel, KernelError, gpu_compute::GpuContext};
-use std::{collections::HashMap, sync::Arc};
+use memory_budget::{CacheLimits, WeightedLru};
+use std::{
+    collections::HashMap,
+    hash::{BuildHasher, Hash, Hasher},
+    sync::Arc,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 struct Key {
@@ -7,9 +12,11 @@ struct Key {
     entry: String,
     bindings: Vec<Binding>,
 }
-struct Cached {
-    kernel: Arc<Kernel>,
-    used_at: u64,
+
+impl Key {
+    fn matches(&self, source: &str, entry: &str, bindings: &[Binding]) -> bool {
+        self.entry == entry && self.bindings.as_slice() == bindings && self.source == source
+    }
 }
 
 #[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,9 +33,11 @@ pub struct KernelCacheStats {
 /// not total GPU memory. Failed compilations neither occupy nor evict entries.
 pub struct KernelCache {
     context: GpuContext,
-    entries: HashMap<Key, Cached>,
-    capacity: usize,
-    clock: u64,
+    // Keys are shared so recency updates clone a pointer, not the shader source.
+    entries: WeightedLru<Arc<Key>, Arc<Kernel>>,
+    // Borrowed lookup index so cache hits never allocate Strings, Vec<Binding> or Arc<Key>.
+    index: HashMap<u64, Vec<Arc<Key>>>,
+    hasher: std::collections::hash_map::RandomState,
     stats: KernelCacheStats,
 }
 impl KernelCache {
@@ -36,9 +45,13 @@ impl KernelCache {
     pub fn new(context: &GpuContext, capacity: usize) -> Self {
         Self {
             context: context.clone(),
-            entries: HashMap::with_capacity(capacity.min(64)),
-            capacity,
-            clock: 0,
+            entries: WeightedLru::with_limits(CacheLimits {
+                max_bytes: u64::MAX,
+                max_entries: Some(capacity),
+                ttl: None,
+            }),
+            index: HashMap::with_capacity(capacity.min(64)),
+            hasher: std::collections::hash_map::RandomState::new(),
             stats: KernelCacheStats::default(),
         }
     }
@@ -58,6 +71,15 @@ impl KernelCache {
     /// Clears retained pipelines; outstanding handles remain usable.
     pub fn clear(&mut self) {
         self.entries.clear();
+        self.index.clear();
+    }
+
+    fn key_hash(&self, source: &str, entry: &str, bindings: &[Binding]) -> u64 {
+        let mut state = self.hasher.build_hasher();
+        source.hash(&mut state);
+        entry.hash(&mut state);
+        bindings.hash(&mut state);
+        state.finish()
     }
 
     pub fn get(
@@ -88,21 +110,24 @@ impl KernelCache {
         bindings: &[Binding],
         selected: Option<u32>,
     ) -> Result<Arc<Kernel>, KernelError> {
-        let key = Key {
-            source: source.to_owned(),
-            entry: entry.to_owned(),
-            bindings: bindings.to_vec(),
-        };
-        self.clock = self.clock.saturating_add(1);
-        if let Some(cached) = self.entries.get_mut(&key) {
-            if selected.is_some_and(|s| s != cached.kernel.workgroup_size()) {
+        let hash = self.key_hash(source, entry, bindings);
+        let existing_key = self
+            .index
+            .get(&hash)
+            .and_then(|bucket| bucket.iter().find(|k| k.matches(source, entry, bindings)))
+            .cloned();
+        if let Some(kernel) = existing_key
+            .as_ref()
+            .and_then(|key| self.entries.get(key))
+            .cloned()
+        {
+            if selected.is_some_and(|s| s != kernel.workgroup_size()) {
                 return Err(KernelError {
                     message: "tuning anchor does not control the entry point".into(),
                 });
             }
-            cached.used_at = self.clock;
             self.stats.hits += 1;
-            return Ok(cached.kernel.clone());
+            return Ok(kernel);
         }
         self.stats.misses += 1;
         let kernel = Kernel::from_context(&self.context, label, source, entry, bindings)?;
@@ -112,25 +137,32 @@ impl KernelCache {
             });
         }
         let kernel = Arc::new(kernel);
-        if self.capacity != 0 {
-            if self.entries.len() == self.capacity {
-                let oldest = self
-                    .entries
-                    .iter()
-                    .min_by_key(|(_, entry)| entry.used_at)
-                    .map(|(key, _)| key.clone())
-                    .expect("nonempty cache");
-                self.entries.remove(&oldest);
-                self.stats.evictions += 1;
-            }
-            self.entries.insert(
-                key,
-                Cached {
-                    kernel: kernel.clone(),
-                    used_at: self.clock,
-                },
+        let key = Arc::new(Key {
+            source: source.to_owned(),
+            entry: entry.to_owned(),
+            bindings: bindings.to_vec(),
+        });
+        // Capacity zero rejects the insert, which keeps compilation checked but uncached.
+        let (inserted, evicted) =
+            self.entries
+                .insert_prefetch_with_evictions(key.clone(), kernel.clone(), 1);
+        for (evicted_key, _) in &evicted {
+            let evicted_hash = self.key_hash(
+                &evicted_key.source,
+                &evicted_key.entry,
+                &evicted_key.bindings,
             );
+            if let Some(bucket) = self.index.get_mut(&evicted_hash) {
+                bucket.retain(|k| !Arc::ptr_eq(k, evicted_key));
+                if bucket.is_empty() {
+                    self.index.remove(&evicted_hash);
+                }
+            }
         }
+        if inserted {
+            self.index.entry(hash).or_default().push(key);
+        }
+        self.stats.evictions += evicted.len() as u64;
         Ok(kernel)
     }
 }

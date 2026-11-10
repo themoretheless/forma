@@ -397,12 +397,12 @@ impl PublishedTree {
         }
         // Text-position IDs describe one value, not merely one line number.
         for node in &snapshot.nodes {
-            if node.role == A11yRole::TextInput {
-                if self.text_values.get(&node.id) != node.value.as_ref() {
-                    self.ids.retain(|key, _| {
-                        key.0 >> 63 == 0 || ((key.0 & !(1u64 << 63)) >> 32) != node.id as u64
-                    });
-                }
+            if node.role == A11yRole::TextInput
+                && self.text_values.get(&node.id) != node.value.as_ref()
+            {
+                self.ids.retain(|key, _| {
+                    key.0 >> 63 == 0 || ((key.0 & !(1u64 << 63)) >> 32) != node.id as u64
+                });
             }
         }
         self.text_values = snapshot

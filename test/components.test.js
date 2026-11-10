@@ -6,7 +6,7 @@ import { compileComponents as compileLinked, evaluate } from '../src/components.
 const compileComponents = (files, entry, state) =>
   compileLinked(files, entry, state, { measureText: () => [80, 20] });
 import { parse } from '../src/language.js';
-import { svgShapes } from '../src/svg-shapes.js';
+import { flattenSvgPath, svgShapes } from '../src/svg-shapes.js';
 import { parser } from '../src/forma-parser.js';
 
 const base = `component Button {
@@ -151,7 +151,9 @@ test('SVG subset is vector geometry and rejects scripts, external references and
   for (const s of [
     '<svg viewBox="0 0 24 24"><script/></svg>',
     '<svg viewBox="0 0 24 24"><image href="https://x"/></svg>',
-    '<svg viewBox="0 0 24 24"><path d="M0 0L1 1"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="M0 0h10v10h-10zM2 2h6v6h-6z"/></svg>',
+    '<svg viewBox="0 0 24 24"><path d="L1 1"/></svg>',
+    '<svg viewBox="0 0 24 24"><text x="1"/></svg>',
     '<svg viewBox="0 0 24 24"><circle r="4" transform="scale(2)"/></svg>',
   ])
     assert.throws(() => svgShapes(s, [0, 0, 24, 24]));
@@ -227,6 +229,60 @@ test('Modal layers compile after the base scene with surface-relative children',
   assert.match(laid.source, /Modal \{ key: 'ask'; x: 50; y: 40; width: 200; height: 100;/);
 });
 
+test('SVG path flattens lines, curves and arcs into polygons', () => {
+  // A ring sector, as a sunburst draws it: outer arc, edge, inner arc back, close.
+  const sector =
+    '<svg viewBox="0 0 200 200"><path fill="#ffffff" d="M100 20A80 80 0 0 1 180 100L140 100A40 40 0 0 0 100 60Z"/></svg>';
+  const [shape, ...rest] = svgShapes(sector, [0, 0, 200, 200]);
+  assert.equal(rest.length, 0);
+  assert.ok(shape.points.length > 24);
+  for (const [x, y] of shape.points) {
+    const r = Math.hypot(x - 100, y - 100);
+    assert.ok(r > 39.9 && r < 80.1 && x >= 99.999 && y <= 100.001, `${x},${y}`);
+  }
+  const flat = d => flattenSvgPath(d, 0.01);
+  assert.deepEqual(flat('M1 2 3 4h2v-1l-1-1zm10 0L20,5'), [
+    {
+      points: [
+        [1, 2],
+        [3, 4],
+        [5, 4],
+        [5, 3],
+        [4, 2],
+      ],
+      closed: true,
+    },
+    {
+      points: [
+        [11, 2],
+        [20, 5],
+      ],
+      closed: false,
+    },
+  ]);
+  // Arc flags may be written without separators; too-small radii are scaled up.
+  const half = flat('M0 10a10 10 0 0120 0')[0].points;
+  assert.deepEqual(half.at(-1), [20, 10]);
+  for (const [x, y] of half) {
+    assert.ok(Math.abs(Math.hypot(x - 10, y - 10) - 10) < 1e-9);
+    assert.ok(y <= 10 + 1e-9);
+  }
+  const top = Math.max(...flattenSvgPath('M0 0C0 10 10 10 10 0', 0.001)[0].points.map(p => p[1]));
+  assert.ok(Math.abs(top - 7.5) < 0.01);
+  const low = Math.min(...flat('M0 0Q5 10 10 0T20 0')[0].points.map(p => p[1]));
+  assert.ok(Math.abs(low + 5) < 0.01);
+  // Stroke without fill: one quad per flattened segment, open paths are not closed.
+  assert.equal(
+    svgShapes(
+      '<svg viewBox="0 0 24 24"><path fill="none" stroke="#ffffff" stroke-width="2" d="M2 2L20 2L20 20"/></svg>',
+      [0, 0, 24, 24],
+    ).length,
+    2,
+  );
+  for (const d of ['', 'L1 1', 'M1', 'M0 0L1', 'M0 0A1 1 0 2 0 1 1', 'M0 0X1 1', 'M0 0L1e999 0'])
+    assert.throws(() => flat(d), /SVG path/, d);
+});
+
 // Placed coordinates travel as template text, so full double precision costs bytes,
 // not accuracy. A 1/1000 px grid is three orders below a device pixel.
 test('placed icon geometry is quantized to 1/1000 px', () => {
@@ -276,4 +332,22 @@ test('multi-control template framing declares exact UTF-8 byte lengths', () => {
     parts.some(part => encoder.encode(part).length > part.length),
     'framing is exercised by multi-byte text',
   );
+});
+
+test('template string literal serialization escapes CR, tab, and interpolation markers round-trip', () => {
+  const special = "line1\r\n\tcol2 '${notExpr}' \\end";
+  const out = compileComponents(
+    {
+      'components/Button.ui': base,
+      'ui/Scene.ui':
+        "component Scene { state label: String = ''; Frame { Button { text: state.label; } } }",
+    },
+    'ui/Scene.ui',
+    { label: special },
+  );
+  assert.doesNotMatch(out.source, /\r|\t/);
+  assert.doesNotMatch(out.template, /\r|\t/);
+  assert.ok(out.source.includes("\\r\\n\\tcol2 \\'\\${notExpr}\\' \\\\end"));
+  const reparsed = parse(out.source);
+  assert.equal(reparsed.nodes[0].children[0].props.text, special);
 });

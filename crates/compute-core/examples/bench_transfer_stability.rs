@@ -279,7 +279,7 @@ fn main() {
                             let raw = ticket.wait(WAIT).unwrap();
                             decode_f32(&raw)
                         } else {
-                            ticket.wait_with(WAIT, |mapped| decode_f32(mapped)).unwrap()
+                            ticket.wait_with(WAIT, decode_f32).unwrap()
                         }
                     }
                 };

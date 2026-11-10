@@ -764,9 +764,8 @@ test('a custom drag focuses its control before start and survives synchronous va
     { ...button, key: 'range', bounds: [60, 10, 30, 30] },
   ];
   const calls = [];
-  let view,
-    value = 0;
-  view = fixture(t, controls, false, {
+  let value = 0;
+  const view = fixture(t, controls, false, {
     onControlPointer(phase, { node, x, y, width, height }) {
       calls.push({
         phase,
@@ -946,9 +945,8 @@ test('a touch custom drag keeps focus and capture across value rerenders without
     { ...button, key: 'range', bounds: [60, 10, 30, 30] },
   ];
   const calls = [];
-  let view,
-    value = 0;
-  view = fixture(t, controls, false, {
+  let value = 0;
+  const view = fixture(t, controls, false, {
     onControlPointer(phase) {
       calls.push({
         phase,
@@ -1365,8 +1363,8 @@ test('DOM selection import ignores mirrors, stale values and active composition'
   model.text_editing = () => true;
   model.text_caret_bounds = () => [0, 0, 1, 20];
   model.text_value = () => 'A😀é';
-  let current = [5, 5],
-    calls = [];
+  let current = [5, 5];
+  const calls = [];
   model.text_selection_utf16 = () => current;
   model.text_set_selection_utf16 = (a, c) => {
     calls.push([a, c]);

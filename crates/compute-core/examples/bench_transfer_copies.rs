@@ -146,7 +146,6 @@ fn main() {
                 )
                 .unwrap();
                 ticket.submitted(context.queue.submit([encoder.finish()]));
-                let cpu_us;
                 // Return a fingerprint of output outside the decoder timing so correctness
                 // checking cannot dominate or be optimized away from just one variant.
                 enum Output {
@@ -200,7 +199,7 @@ fn main() {
                     };
                     (result, copy_us + micros(decode))
                 };
-                cpu_us = copy_us;
+                let cpu_us = copy_us;
                 let total_us = micros(started);
                 match result {
                     Output::F32(values) => assert_eq!(values, data),

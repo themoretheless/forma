@@ -44,24 +44,15 @@ impl Document {
         for node in nodes {
             match node.kind.as_str() {
                 "If" => {
-                    let condition = node
-                        .props
-                        .get("condition")
-                        .ok_or("If requires a condition")?
-                        .evaluate(props, &current_state)?
-                        .boolean()?;
-                    if condition {
-                        let body_children: Vec<&Node> =
-                            node.children.iter().filter(|n| n.kind != "Else").collect();
+                    if control_flow::evaluate_if_condition(node, props, &current_state)? {
                         result.extend(self.expand_sequence(
-                            body_children.iter().copied(),
+                            control_flow::if_then_children(node),
                             props,
                             &current_state,
                             parents,
                             depth + 1,
                         )?);
-                    } else if let Some(else_node) = node.children.iter().find(|n| n.kind == "Else")
-                    {
+                    } else if let Some(else_node) = control_flow::if_else_node(node) {
                         result.extend(self.expand_sequence(
                             &else_node.children,
                             props,
@@ -72,19 +63,12 @@ impl Document {
                     }
                 }
                 "For" => {
-                    let Value::List(items) = node
-                        .props
-                        .get("collection")
-                        .ok_or("For requires a collection")?
-                        .evaluate(props, &current_state)?
-                    else {
-                        return Err("For expects a list".into());
-                    };
-                    let item = text(&node.props, "item", "item")?;
+                    let (items, item) =
+                        control_flow::evaluate_for_header(node, props, &current_state)?;
                     let idx_key = format!("__index.{item}");
                     let mut keys = std::collections::BTreeSet::new();
                     if items.is_empty() {
-                        if let Some(empty) = node.children.iter().find(|n| n.kind == "Empty") {
+                        if let Some(empty) = control_flow::for_empty_node(node) {
                             result.extend(self.expand_sequence(
                                 &empty.children,
                                 props,
@@ -94,8 +78,6 @@ impl Document {
                             )?);
                         }
                     }
-                    let body_children: Vec<&Node> =
-                        node.children.iter().filter(|n| n.kind != "Empty").collect();
                     for (index, value) in items.into_iter().enumerate() {
                         let mut state = current_state.as_ref().scoped_clone();
                         state.insert(item.clone(), value);
@@ -111,7 +93,7 @@ impl Document {
                             return Err("Duplicate collection key".into());
                         }
                         result.extend(self.expand_sequence(
-                            body_children.iter().copied(),
+                            control_flow::for_body_children(node),
                             props,
                             &state,
                             parents,
@@ -121,20 +103,21 @@ impl Document {
                 }
                 "Else" | "Empty" => {}
                 "Let" => {
-                    let name = text(&node.props, "name", "")?;
-                    if !name.is_empty() {
-                        if let Some(val_expr) = node.props.get("value") {
-                            let val = val_expr.evaluate(props, &current_state)?;
+                    if let Some((name, val, _)) =
+                        control_flow::evaluate_let_binding(node, props, &current_state)?
+                    {
+                        if node.children.is_empty() {
                             scope_mut(&mut current_state).insert(name, val);
-                            if !node.children.is_empty() {
-                                result.extend(self.expand_sequence(
-                                    &node.children,
-                                    props,
-                                    &current_state,
-                                    parents,
-                                    depth + 1,
-                                )?);
-                            }
+                        } else {
+                            let mut scoped = current_state.as_ref().scoped_clone();
+                            scoped.insert(name, val);
+                            result.extend(self.expand_sequence(
+                                &node.children,
+                                props,
+                                &scoped,
+                                parents,
+                                depth + 1,
+                            )?);
                         }
                     }
                 }
@@ -145,28 +128,15 @@ impl Document {
                         .ok_or("Match requires a subject")?
                         .evaluate(props, &current_state)?;
                     for branch in &node.children {
-                        if branch.kind != "Branch" {
-                            continue;
-                        }
-                        let pat = branch
-                            .props
-                            .get("pattern")
-                            .ok_or("Match branch requires a pattern")?;
-                        if pattern_matches(pat, &subject, props, &current_state, &mut Vec::new())? {
-                            let guard_ok = match branch.props.get("guard") {
-                                Some(g) => g.evaluate(props, &current_state)?.boolean()?,
-                                None => true,
-                            };
-                            if guard_ok {
-                                result.extend(self.expand_sequence(
-                                    &branch.children,
-                                    props,
-                                    &current_state,
-                                    parents,
-                                    depth + 1,
-                                )?);
-                                break;
-                            }
+                        if control_flow::branch_matches(branch, &subject, props, &current_state)? {
+                            result.extend(self.expand_sequence(
+                                &branch.children,
+                                props,
+                                &current_state,
+                                parents,
+                                depth + 1,
+                            )?);
+                            break;
                         }
                     }
                 }
@@ -365,10 +335,9 @@ impl Document {
                 for (key, contract) in contracts {
                     if matches!(contract,Value::Object(contract) if contract.get("required")==Some(&Value::Bool(true)))
                         && !supplied.contains(key)
+                        && contract_values.contains_key(key)
                     {
-                        if contract_values.contains_key(key) {
-                            contract_values.to_mut().remove(key);
-                        }
+                        contract_values.to_mut().remove(key);
                     }
                 }
             }

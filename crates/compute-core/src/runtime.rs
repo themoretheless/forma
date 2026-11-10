@@ -110,7 +110,7 @@ impl ComputeRuntime {
         let limits = &self.context.limits;
         let limit = limits
             .max_buffer_size
-            .min(limits.max_storage_buffer_binding_size as u64)
+            .min(limits.max_storage_buffer_binding_size)
             .min(u64::from(u32::MAX) * 4);
         if bytes > limit {
             return Err(ComputeError::TooLarge { bytes, limit });

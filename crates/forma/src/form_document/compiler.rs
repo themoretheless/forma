@@ -557,7 +557,7 @@ fn substitute_base_slot(
 }
 
 fn apply_slot_overrides(
-    nodes: &mut Vec<serde_json::Value>,
+    nodes: &mut [serde_json::Value],
     slots: &serde_json::Map<String, serde_json::Value>,
     files: &BTreeMap<String, String>,
 ) -> Result<(), String> {
@@ -758,7 +758,7 @@ fn builtin_definitions() -> &'static [(&'static str, Definition); 3] {
                 (name, def)
             })
         });
-    &*BUILTINS
+    &BUILTINS
 }
 
 pub(super) fn compile_ui_files_to_document(
@@ -807,11 +807,9 @@ pub(super) fn compile_ui_files_to_document(
     let mut definitions = BTreeMap::new();
     let mut pending = std::collections::BTreeSet::new();
     collect_component_names(&root, &mut pending);
-    for (path, _) in files {
-        if path.ends_with(".component.ui") {
-            if let Some(stem) = path.strip_suffix(".component.ui") {
-                pending.insert(stem.to_string());
-            }
+    for path in files.keys() {
+        if let Some(stem) = path.strip_suffix(".component.ui") {
+            pending.insert(stem.to_string());
         }
     }
     let mut visited = std::collections::BTreeSet::new();

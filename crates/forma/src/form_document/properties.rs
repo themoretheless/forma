@@ -149,9 +149,10 @@ impl Properties {
         }
         let layer = self.overlay_mut();
         let old = match layer.changes.entry(key) {
-            btree_map::Entry::Occupied(mut entry) => {
-                std::mem::replace(entry.get_mut(), Some(Arc::new(value))).map(Arc::unwrap_or_clone)
-            }
+            btree_map::Entry::Occupied(mut entry) => entry
+                .get_mut()
+                .replace(Arc::new(value))
+                .map(Arc::unwrap_or_clone),
             btree_map::Entry::Vacant(entry) => {
                 let old = layer.base.get::<str>(entry.key().as_str()).cloned();
                 entry.insert(Some(Arc::new(value)));
@@ -343,10 +344,8 @@ impl Properties {
                         layer
                             .base
                             .iter()
-                            .filter_map(|(key, value)| {
-                                (!layer.changes.contains_key(key))
-                                    .then(|| (key.clone(), value.clone()))
-                            })
+                            .filter(|(key, _)| !layer.changes.contains_key(*key))
+                            .map(|(key, value)| (key.clone(), value.clone()))
                             .collect()
                     };
                     for (key, value) in layer.changes {

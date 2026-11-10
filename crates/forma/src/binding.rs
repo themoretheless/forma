@@ -1281,18 +1281,11 @@ impl Form {
                 }
             }
             let mut disabled = self.disabled(control);
-            if self.document.is_some()
-                && (control.present)()
-                && !control.bindings.borrow().contains_key(&Target::Disabled)
-            {
-                disabled = self
-                    .document
-                    .as_ref()
-                    .unwrap()
-                    .base_disabled
-                    .get(*index)
-                    .copied()
-                    .unwrap_or(true);
+            if let Some(doc) = &self.document {
+                if (control.present)() && !control.bindings.borrow().contains_key(&Target::Disabled)
+                {
+                    disabled = doc.base_disabled.get(*index).copied().unwrap_or(true);
+                }
             }
             self.runtime.set_binding_disabled(*index, disabled)?;
         }

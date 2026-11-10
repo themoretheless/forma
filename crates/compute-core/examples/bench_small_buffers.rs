@@ -86,7 +86,7 @@ fn main() {
                 let mut ticket = gpu_compute::ByteReadback::copy_buffer(
                     &c.device,
                     &mut encoder,
-                    &b,
+                    b,
                     0,
                     bytes as u64,
                 )

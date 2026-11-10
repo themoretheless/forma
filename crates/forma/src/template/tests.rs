@@ -139,7 +139,7 @@ fn shape_points_boundaries_and_string_escapes() {
     assert_eq!(points.len(), 4096);
     // Escaped literals keep working; the escape-free path borrows the source.
     let text = body(
-        r#"ContentText { x: 0; y: 0; width: 10; height: 10; text: 'a\'b\nc'; color: #ffffff; }"#,
+        r#"ContentText { x: 0; y: 0; width: 10; height: 10; text: 'a\'b\nc\r\t\${x}'; color: #ffffff; }"#,
     )
     .unwrap();
     assert_eq!(
@@ -147,7 +147,7 @@ fn shape_points_boundaries_and_string_escapes() {
         Content::Text {
             bounds: [0., 0., 10., 10.],
             text: Text {
-                text: "a'b\nc".into(),
+                text: "a'b\nc\r\t${x}".into(),
                 color: [255; 4],
                 font_size: 16.,
                 family: Default::default(),

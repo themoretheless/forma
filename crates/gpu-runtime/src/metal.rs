@@ -1029,7 +1029,7 @@ impl MetalDevice {
             f_set_bool(
                 cpd.as_ptr(),
                 s.set_thread_group_size_is_multiple,
-                wg_total >= 32 && wg_total % 32 == 0,
+                wg_total >= 32 && wg_total.is_multiple_of(32),
             );
 
             let f_pso_desc: unsafe extern "C" fn(
@@ -1406,6 +1406,8 @@ impl MetalDevice {
             if let Some((pso, dss)) = cache.get(&cache_key) {
                 return crate::RenderPipeline {
                     pso: pso.clone(),
+                    vertex_bindings: desc.vertex.module.bindings.clone(),
+                    fragment_bindings: fs_state.map(|fs| fs.module.bindings.clone()),
                     depth_stencil_state: dss.clone(),
                     primitive: desc.primitive,
                     depth_bias: desc
@@ -1652,6 +1654,8 @@ impl MetalDevice {
             }
             crate::RenderPipeline {
                 pso,
+                vertex_bindings: desc.vertex.module.bindings.clone(),
+                fragment_bindings: fs_state.map(|fs| fs.module.bindings.clone()),
                 depth_stencil_state,
                 primitive: desc.primitive,
                 depth_bias: desc
@@ -1907,10 +1911,7 @@ impl MetalDevice {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         unsafe {
             let s = selectors();
-            let bpr = data_layout
-                .bytes_per_row
-                .unwrap_or(size.width * texture.texture.format.bytes_per_pixel())
-                as usize;
+            let bpr = data_layout.row_stride(size.width, texture.texture.format) as usize;
             let bpi = data_layout
                 .rows_per_image
                 .map(|r| r as usize * bpr)
@@ -1928,31 +1929,22 @@ impl MetalDevice {
                     usize,
                     usize,
                 ) = std::mem::transmute(objc_msgSend as *const c_void);
-                let depth = if texture.texture.dimension == crate::TextureDimension::D3 {
-                    size.depth_or_array_layers.max(1) as usize
-                } else {
-                    1usize
-                };
-                let slices = if texture.texture.dimension == crate::TextureDimension::D3 {
-                    1usize
-                } else {
-                    size.depth_or_array_layers.max(1) as usize
-                };
-                for slice_idx in 0..slices {
+                let slices = crate::texture::CopySlices::new(
+                    texture.texture.dimension,
+                    texture.origin.z,
+                    size.depth_or_array_layers,
+                );
+                for slice_idx in 0..slices.count {
                     let region = MTLRegion {
                         origin: MTLOrigin {
                             x: texture.origin.x as usize,
                             y: texture.origin.y as usize,
-                            z: if texture.texture.dimension == crate::TextureDimension::D3 {
-                                texture.origin.z as usize
-                            } else {
-                                0
-                            },
+                            z: slices.region_z(),
                         },
                         size: MTLSize {
                             width: size.width as usize,
                             height: size.height as usize,
-                            depth,
+                            depth: slices.depth,
                         },
                     };
                     let slice_ptr = (src_ptr as *const u8).add(slice_idx * bpi) as *const c_void;
@@ -1961,11 +1953,7 @@ impl MetalDevice {
                         s.replace_region,
                         region,
                         texture.mip_level as usize,
-                        if texture.texture.dimension == crate::TextureDimension::D3 {
-                            0
-                        } else {
-                            texture.origin.z as usize + slice_idx
-                        },
+                        slices.array_slice(slice_idx),
                         slice_ptr,
                         bpr,
                         bpi,

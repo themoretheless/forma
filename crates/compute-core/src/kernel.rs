@@ -56,7 +56,14 @@ impl Kernel {
         entry: &str,
         bindings: &[Binding],
     ) -> Result<Self, KernelError> {
-        Self::compile(device, label, wgsl.to_owned(), entry, bindings, None)
+        Self::compile(
+            device,
+            label,
+            std::borrow::Cow::Borrowed(wgsl),
+            entry,
+            bindings,
+            None,
+        )
     }
 
     /// Compiles `wgsl` after substituting the `WG` anchor with `workgroup_size`
@@ -73,11 +80,11 @@ impl Kernel {
         Self::compile(device, label, source, entry, bindings, Some(selected))
     }
 
-    pub(crate) fn tuned_source(
+    pub(crate) fn tuned_source<'a>(
         device: &Device,
-        wgsl: &str,
+        wgsl: &'a str,
         requested: u32,
-    ) -> Result<(String, u32), KernelError> {
+    ) -> Result<(std::borrow::Cow<'a, str>, u32), KernelError> {
         if !requested.is_power_of_two() {
             return Err(KernelError {
                 message: format!("workgroup size {requested} is not a power of two"),
@@ -92,15 +99,19 @@ impl Kernel {
         while selected > max_size {
             selected /= 2;
         }
+        if !wgsl.contains(WG_ANCHOR) {
+            return Err(KernelError {
+                message: format!("WG anchor ({WG_ANCHOR}) missing from kernel source"),
+            });
+        }
         let source = if selected == 256 {
-            wgsl.to_owned()
+            std::borrow::Cow::Borrowed(wgsl)
         } else {
-            if !wgsl.contains(WG_ANCHOR) {
-                return Err(KernelError {
-                    message: format!("WG anchor ({WG_ANCHOR}) missing from kernel source"),
-                });
-            }
-            wgsl.replacen(WG_ANCHOR, &format!("const WG: u32 = {selected};"), 1)
+            std::borrow::Cow::Owned(wgsl.replacen(
+                WG_ANCHOR,
+                &format!("const WG: u32 = {selected};"),
+                1,
+            ))
         };
         Ok((source, selected))
     }
@@ -121,7 +132,7 @@ impl Kernel {
     fn compile(
         device: &Device,
         label: &str,
-        source: String,
+        source: std::borrow::Cow<'_, str>,
         entry: &str,
         bindings: &[Binding],
         selected: Option<u32>,
@@ -140,7 +151,7 @@ impl Kernel {
         let scope = device.push_error_scope(wgpu::ErrorFilter::Validation);
         let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some(label),
-            source: wgpu::ShaderSource::Wgsl(source.clone().into()),
+            source: wgpu::ShaderSource::Wgsl(std::borrow::Cow::Borrowed(source.as_ref())),
         });
         let entries: Vec<wgpu::BindGroupLayoutEntry> = bindings
             .iter()
@@ -182,7 +193,7 @@ impl Kernel {
         }
         Ok(Self {
             label: label.to_string(),
-            source,
+            source: source.into_owned(),
             entry: entry.to_string(),
             bindings: bindings.to_vec(),
             pipeline,

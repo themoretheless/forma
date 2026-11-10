@@ -107,7 +107,8 @@ export function gridPlacement(node) {
   for (const { row, column, rs, cs } of requested)
     if (row !== undefined && column !== undefined) occupy(row, column, rs, cs);
   for (const request of requested) {
-    let { row, column, rs, cs } = request;
+    let { row, column } = request;
+    const { rs, cs } = request;
     const available = (r, col) => {
       for (let y = r; y < r + rs; y++)
         for (let x = col; x < col + cs; x++) if (occupied.has((y << 16) | x)) return false;

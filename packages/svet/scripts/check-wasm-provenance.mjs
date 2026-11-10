@@ -1,12 +1,25 @@
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 const [rebuilt, output, installation] = process.argv.slice(2);
 assert(rebuilt && output, 'Expected REBUILT_WASM REPORT [INSTALLED_PACKAGE]');
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..'),
   hash = bytes => createHash('sha256').update(bytes).digest('hex');
+async function collectRustSources(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const full = resolve(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectRustSources(full)));
+    } else if (entry.isFile() && entry.name.endsWith('.rs')) {
+      files.push(relative(root, full).replace(/\\/g, '/'));
+    }
+  }
+  return files.sort();
+}
 const report = {
   status: 'failed',
   rebuilt: resolve(rebuilt),
@@ -16,8 +29,9 @@ const report = {
     'Byte/export identity of caller-rebuilt WASM, checked-in embedded source and optional installed public asset/runtime. Caller must first build current Rust sources with locked pinned toolchain.',
 };
 try {
+  const rustSources = await collectRustSources(resolve(root, 'crates/svet-wasm/src'));
   for (const file of [
-    'crates/svet-wasm/src/lib.rs',
+    ...rustSources,
     'crates/svet-wasm/Cargo.toml',
     'crates/svet-wasm/Cargo.lock',
     '../../rust-toolchain.toml',

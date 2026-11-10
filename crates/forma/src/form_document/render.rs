@@ -11,15 +11,14 @@ impl Document {
     /// Current control identity without visual instantiation/layout/serialization.
     /// A failed visual must not authorize bindings from a branch no longer selected.
     pub(crate) fn binding_scene_controls(&self) -> Result<Vec<SceneControl>, String> {
-        let mut node_index = 0usize;
+        let mut walk = scene::SceneWalk::root();
         let mut expanded = self.scene_expand(
             &self.root,
             &Properties::new(),
             "",
             &Properties::new(),
             0,
-            &mut 16_384,
-            &mut node_index,
+            &mut walk,
         )?;
         if expanded.len() != 1 || !is_layout(&expanded[0].kind) {
             return Err("A scene requires one layout root".into());
@@ -80,15 +79,14 @@ impl Document {
     pub(crate) fn render_scene_with_extents(
         &self,
     ) -> Result<(String, String, Vec<SceneControl>, Option<[f64; 2]>), String> {
-        let mut node_index = 0usize;
+        let mut walk = scene::SceneWalk::root();
         let mut expanded = self.scene_expand(
             &self.root,
             &Properties::new(),
             "",
             &Properties::new(),
             0,
-            &mut 16_384,
-            &mut node_index,
+            &mut walk,
         )?;
         if expanded.len() != 1 {
             return Err("A scene requires one layout root".into());

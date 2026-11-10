@@ -84,12 +84,12 @@ impl Default for ObjectUniform {
     }
 }
 
-/// Scene uniform: view-projection (16) + eye (4) + light (4) + ambient (4)
-/// + section (4) + options (4) + inverse view-projection (16) + theme block
-/// (selection/hover/edge/xray/grid/cap colors, 3 floats + pad each = 24)
-/// + shadow block (light view-projection 16 + params 4) = 96 floats = 384
-/// bytes. The theme tail starts at float 52 and the shadow tail at float 76,
-/// so legacy field offsets are unchanged; shaders that do not read the theme
+/// Scene uniform: view-projection (16) + eye (4) + light (4) + ambient (4) +
+/// section (4) + options (4) + inverse view-projection (16) + theme block
+/// (selection/hover/edge/xray/grid/cap colors, 3 floats + pad each = 24) +
+/// shadow block (light view-projection 16 + params 4) = 96 floats = 384 bytes.
+/// The theme tail starts at float 52 and the shadow tail at float 76, so
+/// legacy field offsets are unchanged; shaders that do not read the theme
 /// simply bind a smaller struct view of the same buffer.
 ///
 /// `shadow_params` = (enabled, 1/map size, depth bias, strength); enabled 0

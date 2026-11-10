@@ -26,7 +26,7 @@ const movedIn = page
     "Text { text: 'Подпись'; }\n            Button { key: 'last'; text: 'Ещё'; height: 44; }",
   );
 // The column stepped out of the group: the block it held is gone, the one outside it is not.
-const withoutColumn = page.replace(/ +Column \{[\s\S]*?\n        \}\n/, '');
+const withoutColumn = page.replace(/ +Column \{[\s\S]*?\n {8}\}\n/, '');
 // A keyless control the file moved to another slot: a look-alike there must not answer for it.
 const textMovedOut = page
   .replace("            Text { text: 'Подпись'; }\n", '')

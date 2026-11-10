@@ -185,7 +185,7 @@ mod native {
             // Reverse the hover target every 80 ms to maintain an active visual
             // workload; tick uses elapsed wall time, not a synthetic fixed delta.
             let begin = Instant::now();
-            let hover = ((now - warmup_start).as_millis() / 80) % 2 == 0;
+            let hover = ((now - warmup_start).as_millis() / 80).is_multiple_of(2);
             self.model.pointer(
                 if hover { self.pointer_inside[0] } else { -1. },
                 self.pointer_inside[1],

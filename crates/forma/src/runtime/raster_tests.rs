@@ -1,4 +1,6 @@
 use super::*;
+use crate::geometry::round_coverage;
+
 #[test]
 fn cpu_cache_release_preserves_geometry_and_rebuilds_identical_fallback_pixels() {
     for count in [0, 1, 2] {

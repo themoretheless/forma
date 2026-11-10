@@ -205,6 +205,29 @@ fn cache_keys_use_compiled_contract_and_eviction_preserves_live_kernels() {
         .get("zero capacity", SCALE_ADD_WGSL, "main", &LAYOUT)
         .unwrap();
     assert!(no_cache.is_empty());
+
+    // Tuned 256-wide lookup reuses the borrowed WGSL key without re-compiling.
+    let mut tuned_cache = KernelCache::new(&c, 4);
+    let wg256 = tuned_cache
+        .get_with_workgroup_size("wg256", SCALE_ADD_WGSL, "main", &LAYOUT, 256)
+        .unwrap();
+    let plain = tuned_cache
+        .get("plain", SCALE_ADD_WGSL, "main", &LAYOUT)
+        .unwrap();
+    assert!(Arc::ptr_eq(&wg256, &plain));
+    assert_eq!(tuned_cache.stats().hits, 1);
+    assert_eq!(tuned_cache.stats().misses, 1);
+    assert!(
+        tuned_cache
+            .get_with_workgroup_size(
+                "missing anchor",
+                "@compute @workgroup_size(256) fn main() {}",
+                "main",
+                &[],
+                256,
+            )
+            .is_err()
+    );
 }
 
 #[test]

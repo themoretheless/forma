@@ -529,7 +529,7 @@ test('declaring twice from one panel puts both statements after the last one', t
     { gap: frame.props.gap, width: frame.props.width, height: frame.props.height },
     { gap: 8, width: 240, height: 40 },
   );
-  assert.match(files[panelFile], /gap: 8;\n        width: 240;\n        height: 40;\n    }/);
+  assert.match(files[panelFile], /gap: 8;\n {8}width: 240;\n {8}height: 40;\n {4}}/);
   // The rows still on screen describe the file before these statements, so a removal reaches
   // the fresh source rather than the offsets the panel was rendered with.
   const gapRow = [...container.querySelectorAll('label.property')].find(

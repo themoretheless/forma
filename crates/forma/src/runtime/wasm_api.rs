@@ -203,7 +203,7 @@ impl Runtime {
     /// Set a normalized `[0.0, 1.0]` slider range value via semantic accessibility action.
     /// Accepts values in `[0.0, 1.0]` or percentage `[0.0, 100.0]` (normalized when `> 1.0 && <= 100.0`).
     pub fn accessibility_set_range_value(&mut self, node_id: usize, value: f64) -> bool {
-        if !value.is_finite() || value < 0. || value > 100. {
+        if !value.is_finite() || !(0. ..=100.).contains(&value) {
             return false;
         }
         let Some(index) = self
@@ -287,18 +287,7 @@ impl Runtime {
         else {
             return false;
         };
-        let modal_idx = self
-            .scene
-            .modals
-            .iter()
-            .position(|m| {
-                (!m.controls.is_empty()).then_some(m.controls.start)
-                    == node
-                        .children
-                        .first()
-                        .and_then(|&cid| self.nodes[cid].control)
-            })
-            .unwrap_or(0);
+        let modal_idx = self.modal_index_for_node(node);
         if self.active_modal_index() != Some(modal_idx) {
             return false;
         }
@@ -1033,9 +1022,9 @@ impl Runtime {
                 }
             }
         }
-        for i in 0..self.controls.len() {
-            if let Some(old) = matches[i] {
-                if let (Some(next), Some(prev)) = (&mut self.editors[i], &previous.editors[old]) {
+        for (editor, matched) in self.editors.iter_mut().zip(&matches) {
+            if let Some(old) = *matched {
+                if let (Some(next), Some(prev)) = (editor, &previous.editors[old]) {
                     if (next.spec.value == prev.spec.value || next.spec.value == prev.model.value())
                         && next.spec.multiline == prev.spec.multiline
                     {

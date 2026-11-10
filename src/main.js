@@ -17,21 +17,11 @@ import { createLatestOnly } from './latest-only.js';
 import { createIdeCommands } from './mcp-commands.js';
 import { renderHtmlPreview } from './html-preview.js';
 import { mountDevBridge } from './dev-bridge.js';
-const studioEvents = createStudioEvents();
-const requestedProject = new URLSearchParams(location.search).get('project');
-const isStudioControls = requestedProject === 'studio-controls';
-const storageKey = name => (isStudioControls ? name + ':studio-controls-guide' : name);
 import { designPreset, collectionScenario } from './design-presets.js';
-let designPresetName = 'original',
-  nativeSource = null;
 import { createLayoutInspector } from './layout-inspector.js';
-let layoutInspector,
-  lastVisuals = [],
-  sourceDiagnostic = null;
 import { createCanvasTools } from './canvas-tools.js';
 import { createElementTools } from './element-tools.js';
 import './canvas-tools.css';
-let canvasTools, elementTools;
 import './style.css';
 import './selection.css';
 import './vector-artboard.css';
@@ -50,7 +40,7 @@ import { mountEditor } from './editor.js';
 import { detectTokenizerLanguage } from './tokenizer-highlight.js';
 import { createPropertyInspector } from './property-inspector.js';
 import { createBulkEditor } from './bulk-edit.js';
-import { designReferencesInFiles } from './design-data.js';
+import { designReferencesInFiles, setDesignData, designReferences } from './design-data.js';
 import { insertableControls } from './control-catalog.js';
 import { createSpacingOverlay } from './spacing-overlay.js';
 import { nativeSnapshot } from './native-snapshot.js';
@@ -63,7 +53,25 @@ import {
   executePreviewStateAction,
   matchPreviewShortcut,
 } from './preview-state.js';
-let previewRefreshPending = false,
+import { createCacheBudget } from './cache-budget.js';
+import {
+  parse,
+  resolve,
+  validateDesign,
+  designStatePatch,
+  formatSource,
+  lintDocument,
+} from './language.js';
+
+const studioEvents = createStudioEvents();
+const requestedProject = new URLSearchParams(location.search).get('project');
+const isStudioControls = requestedProject === 'studio-controls';
+const storageKey = name => (isStudioControls ? name + ':studio-controls-guide' : name);
+let designPresetName = 'original',
+  nativeSource = null,
+  lastVisuals = [],
+  sourceDiagnostic = null,
+  previewRefreshPending = false,
   lastPreviewControls = [];
 function schedulePreviewRefresh() {
   if (previewRefreshPending) return;
@@ -80,18 +88,11 @@ function schedulePreviewRefresh() {
     output();
   });
 }
-import { createCacheBudget } from './cache-budget.js';
 const studioCache = createCacheBudget();
 const compileComponents = createComponentCompiler({ cache: studioCache });
-import { setDesignData, designReferences } from './design-data.js';
-let codeEditor, propertyInspector;
-let spacingOverlay;
-let vectorPreview;
-let controlTree,
-  bulkEditor,
+let vectorPreview,
   selectedPath = null,
   inspectorNote = '';
-let statesPanel;
 // The design files the entry resolves, in reference order and relative to the entry's folder: the
 // states panel authors the first of them, while a state row switches by name across all of them.
 let designFiles = [];
@@ -101,14 +102,6 @@ let renderer =
   isStudioControls || readStorage('localStorage', storageKey('forma-renderer')) === 'vector'
     ? 'vector'
     : 'html';
-import {
-  parse,
-  resolve,
-  validateDesign,
-  designStatePatch,
-  formatSource,
-  lintDocument,
-} from './language.js';
 
 const initialProject = isStudioControls ? studioControlsProject : sampleProject;
 let files = restoreProject(
@@ -218,9 +211,7 @@ let directoryHandle = null,
   directorySavedFiles = {},
   selectedTreeItem = active,
   treeFilter = '',
-  draggedTreePath = null,
-  dragExpandTimer = 0;
-const expandedDirs = new Set();
+  draggedTreePath = null;
 function resetProjectEditing() {
   clearTimeout(saveTimer);
   clearTimeout(compileTimer);
@@ -255,22 +246,11 @@ function selectTreeRow(targetPath) {
   selectedTreeItem = targetPath;
   document.body.classList.toggle('is-ui-file', !!targetPath?.endsWith('.ui'));
   for (const b of $('tree').querySelectorAll('.file')) {
-    const p = b.dataset.path ?? b.dataset.folder;
-    b.classList.toggle('active', p === selectedTreeItem);
+    b.classList.toggle('active', b.dataset.path === selectedTreeItem);
   }
 }
 function selectedTargetDir() {
-  if (!selectedTreeItem) return '';
-  const btn = $('tree').querySelector(`.file[data-folder="${CSS.escape(selectedTreeItem)}"]`);
-  if (btn || expandedDirs.has(selectedTreeItem)) return selectedTreeItem;
-  return parentDirOf(selectedTreeItem);
-}
-function toggleFolder(folder) {
-  const nowExpanded = !expandedDirs.has(folder);
-  if (nowExpanded) {
-    expandedDirs.add(folder);
-  } else expandedDirs.delete(folder);
-  tree(true);
+  return selectedTreeItem ? parentDirOf(selectedTreeItem) : '';
 }
 async function activateTreeFile(path) {
   selectTreeRow(path);
@@ -344,28 +324,11 @@ async function moveTreeItem(fromPath, targetDir) {
   }
 }
 function bindTreeEvents(scope = $('tree')) {
-  scope.querySelectorAll('[data-folder]').forEach(b => {
-    const isArrowClick = e => {
-      const level = Number(b.getAttribute('aria-level') ?? 1);
-      return e.clientX - b.getBoundingClientRect().left <= 18 + (level - 1) * 12;
-    };
-    b.onclick = async e => {
-      const folder = b.dataset.folder;
-      selectTreeRow(folder);
-      if (isArrowClick(e)) await toggleFolder(folder, b);
-    };
-    b.ondblclick = async e => {
-      if (isArrowClick(e)) return;
-      const folder = b.dataset.folder;
-      selectTreeRow(folder);
-      await toggleFolder(folder, b);
-    };
-  });
   scope.querySelectorAll('[data-path]').forEach(b => {
     b.onclick = () => activateTreeFile(b.dataset.path);
   });
   scope.querySelectorAll('.file').forEach(b => {
-    const itemPath = b.dataset.path ?? b.dataset.folder;
+    const itemPath = b.dataset.path;
     b.ondragstart = e => {
       draggedTreePath = itemPath;
       b.classList.add('dragging');
@@ -374,7 +337,6 @@ function bindTreeEvents(scope = $('tree')) {
     };
     b.ondragend = () => {
       draggedTreePath = null;
-      clearTimeout(dragExpandTimer);
       b.classList.remove('dragging');
       $('tree').classList.remove('drop-root');
       $('tree')
@@ -383,42 +345,23 @@ function bindTreeEvents(scope = $('tree')) {
     };
     b.ondragover = e => {
       if (!draggedTreePath) return;
-      const targetFolder = b.dataset.folder ?? parentDirOf(b.dataset.path);
+      const targetFolder = parentDirOf(b.dataset.path);
       if (targetFolder === draggedTreePath || targetFolder.startsWith(draggedTreePath + '/'))
         return;
       e.preventDefault();
       e.stopPropagation();
       e.dataTransfer.dropEffect = 'move';
       $('tree').classList.remove('drop-root');
-      const highlightRow = b.dataset.folder
-        ? b
-        : $('tree').querySelector(`.file[data-folder="${CSS.escape(targetFolder)}"]`);
       $('tree')
         .querySelectorAll('.drop-target')
-        .forEach(el => {
-          if (el !== highlightRow) el.classList.remove('drop-target');
-        });
-      if (highlightRow) {
-        highlightRow.classList.add('drop-target');
-        if (b.dataset.folder && !expandedDirs.has(b.dataset.folder) && !dragExpandTimer) {
-          dragExpandTimer = setTimeout(() => {
-            dragExpandTimer = 0;
-            toggleFolder(b.dataset.folder, b);
-          }, 480);
-        }
-      } else $('tree').classList.add('drop-root');
-    };
-    b.ondragleave = () => {
-      clearTimeout(dragExpandTimer);
-      dragExpandTimer = 0;
+        .forEach(el => el.classList.remove('drop-target'));
+      $('tree').classList.add('drop-root');
     };
     b.ondrop = async e => {
       e.preventDefault();
       e.stopPropagation();
-      clearTimeout(dragExpandTimer);
-      dragExpandTimer = 0;
       const from = draggedTreePath || e.dataTransfer.getData('text/plain');
-      const targetFolder = b.dataset.folder ?? parentDirOf(b.dataset.path);
+      const targetFolder = parentDirOf(b.dataset.path);
       $('tree').classList.remove('drop-root');
       $('tree')
         .querySelectorAll('.drop-target')
@@ -1113,9 +1056,7 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
   let anchorBtn = null,
     indent = 0;
   if (inputMode === 'rename') {
-    anchorBtn = $('tree').querySelector(
-      `.file[data-path="${CSS.escape(targetPath)}"],.file[data-folder="${CSS.escape(targetPath)}"]`,
-    );
+    anchorBtn = $('tree').querySelector(`.file[data-path="${CSS.escape(targetPath)}"]`);
     if (anchorBtn) {
       const lvl = Number(anchorBtn.getAttribute('aria-level') ?? 1);
       indent = (lvl - 1) * 12;
@@ -1125,18 +1066,8 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
     }
   }
   if (!row.isConnected) {
-    const folderBtn = dir
-      ? $('tree').querySelector(`.file[data-folder="${CSS.escape(dir)}"]`)
-      : null;
-    const childrenBox = folderBtn?.nextElementSibling?.querySelector('.folder-children-inner');
-    if (childrenBox) {
-      const lvl = Number(folderBtn.getAttribute('aria-level') ?? 1);
-      row.style.paddingLeft = 8 + lvl * 12 + 'px';
-      childrenBox.prepend(row);
-    } else {
-      row.style.paddingLeft = '8px';
-      $('tree').prepend(row);
-    }
+    row.style.paddingLeft = '8px';
+    $('tree').prepend(row);
   }
   input.focus();
   const dotIdx = initialName.lastIndexOf('.');
@@ -1187,10 +1118,6 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
   input.onblur = () => commit();
 }
 async function createInTree(kind = 'file', baseDir = selectedTargetDir()) {
-  if (baseDir && !expandedDirs.has(baseDir)) {
-    expandedDirs.add(baseDir);
-    tree(true);
-  }
   startTreeInlineInput({ mode: kind === 'folder' ? 'new-folder' : 'new-file', dir: baseDir });
 }
 async function duplicateTreeItem(targetPath = selectedTreeItem) {
@@ -1218,15 +1145,6 @@ async function deleteTreeItem(targetPath = selectedTreeItem) {
 }
 async function locateActiveInTree() {
   if (!active) return;
-  const parts = active.split('/');
-  if (parts.length > 1) {
-    let cur = '';
-    for (let i = 0; i < parts.length - 1; i++) {
-      cur = cur ? `${cur}/${parts[i]}` : parts[i];
-      expandedDirs.add(cur);
-    }
-    tree(true);
-  }
   selectTreeRow(active);
   const btn = $('tree').querySelector(`.file[data-path="${CSS.escape(active)}"]`);
   btn?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -1234,11 +1152,7 @@ async function locateActiveInTree() {
 $('new').onclick = () => createInTree('file');
 if ($('new-folder')) $('new-folder').onclick = () => createInTree('folder');
 if ($('tree-locate')) $('tree-locate').onclick = () => locateActiveInTree();
-if ($('tree-collapse-all'))
-  $('tree-collapse-all').onclick = () => {
-    expandedDirs.clear();
-    tree(true);
-  };
+if ($('tree-collapse-all')) $('tree-collapse-all').onclick = () => tree(true);
 const treeSearchBar = $('tree-search-bar'),
   treeSearchInput = $('tree-search-input'),
   treeSearchToggle = $('tree-search-toggle'),
@@ -1299,10 +1213,9 @@ $('tree').ondrop = async e => {
 $('tree').oncontextmenu = e => {
   e.preventDefault();
   const btn = e.target.closest('.file');
-  const itemPath = btn ? (btn.dataset.path ?? btn.dataset.folder) : null;
-  const isFolder = !!btn?.dataset.folder;
+  const itemPath = btn ? btn.dataset.path : null;
   if (itemPath) selectTreeRow(itemPath);
-  const targetDir = itemPath ? (isFolder ? itemPath : parentDirOf(itemPath)) : '';
+  const targetDir = itemPath ? parentDirOf(itemPath) : '';
   if (!treeContextMenu) {
     treeContextMenu = document.createElement('div');
     treeContextMenu.className = 'tree-context-menu';
@@ -1342,7 +1255,6 @@ $('tree').oncontextmenu = e => {
             $('status').textContent = `Скопировано: ${itemPath}`;
           } catch {}
         } else if (cmd === 'collapse-all') {
-          expandedDirs.clear();
           tree(true);
         } else if (cmd === 'delete' && itemPath) await deleteTreeItem(itemPath);
       }),
@@ -1354,40 +1266,26 @@ $('tree').onkeydown = async e => {
     b => !b.hidden && b.offsetParent !== null,
   );
   if (!visibleRows.length) return;
-  const idx = visibleRows.findIndex(b => (b.dataset.path ?? b.dataset.folder) === selectedTreeItem);
+  const idx = visibleRows.findIndex(b => b.dataset.path === selectedTreeItem);
   const curBtn = idx >= 0 ? visibleRows[idx] : visibleRows[0];
-  const curPath = curBtn ? (curBtn.dataset.path ?? curBtn.dataset.folder) : null;
+  const curPath = curBtn ? curBtn.dataset.path : null;
   if (e.key === 'ArrowDown') {
     e.preventDefault();
     const next = visibleRows[Math.min(visibleRows.length - 1, idx + 1)] ?? visibleRows[0];
-    const p = next.dataset.path ?? next.dataset.folder;
-    selectTreeRow(p);
+    selectTreeRow(next.dataset.path);
     next.scrollIntoView({ block: 'nearest' });
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
     const prev = visibleRows[Math.max(0, idx - 1)] ?? visibleRows[0];
-    const p = prev.dataset.path ?? prev.dataset.folder;
-    selectTreeRow(p);
+    selectTreeRow(prev.dataset.path);
     prev.scrollIntoView({ block: 'nearest' });
-  } else if (e.key === 'ArrowRight' && curBtn?.dataset.folder) {
-    e.preventDefault();
-    if (!expandedDirs.has(curBtn.dataset.folder)) await toggleFolder(curBtn.dataset.folder, curBtn);
-    else if (visibleRows[idx + 1]) {
-      const p = visibleRows[idx + 1].dataset.path ?? visibleRows[idx + 1].dataset.folder;
-      selectTreeRow(p);
-    }
   } else if (e.key === 'ArrowLeft' && curPath) {
     e.preventDefault();
-    if (curBtn?.dataset.folder && expandedDirs.has(curBtn.dataset.folder))
-      await toggleFolder(curBtn.dataset.folder, curBtn);
-    else {
-      const parent = parentDirOf(curPath);
-      if (parent) selectTreeRow(parent);
-    }
-  } else if (e.key === 'Enter' && curBtn) {
+    const parent = parentDirOf(curPath);
+    if (parent) selectTreeRow(parent);
+  } else if (e.key === 'Enter' && curBtn?.dataset.path) {
     e.preventDefault();
-    if (curBtn.dataset.folder) await toggleFolder(curBtn.dataset.folder, curBtn);
-    else if (curBtn.dataset.path) await activateTreeFile(curBtn.dataset.path);
+    await activateTreeFile(curBtn.dataset.path);
   } else if (e.key === 'F2' && curPath) {
     e.preventDefault();
     startTreeInlineInput({ mode: 'rename', targetPath: curPath });
@@ -1413,7 +1311,6 @@ $('open-folder').onclick = async () => {
     directoryHandle = handle;
     directorySavedFiles = { ...data };
     files = data;
-    expandedDirs.clear();
     if ($('project-switcher-label')) $('project-switcher-label').textContent = handle.name;
     const titleNode = document.querySelector('.project-title')?.childNodes?.[0];
     if (titleNode?.nodeType === 3) titleNode.textContent = handle.name + ' ';
@@ -1526,7 +1423,7 @@ codeEvents.listen($('code'), 'input', () => {
   highlightSource();
   document.querySelectorAll('.ui-node.selected').forEach(el => el.classList.remove('selected'));
 });
-controlTree = createControlTree({
+const controlTree = createControlTree({
   explorer: document.querySelector('.explorer'),
   toolbar: document.querySelector('.preview-tools'),
   onSelect: selectTreeControl,
@@ -1541,7 +1438,7 @@ controlTree = createControlTree({
 });
 // Mounting after the tree puts the state list underneath it, and both read the same compiled
 // switcher: a row is the preview's active state, never a second source of truth.
-statesPanel = createStatesPanel({
+const statesPanel = createStatesPanel({
   explorer: document.querySelector('.explorer'),
   onActivate: name => {
     if (name === null) {
@@ -1558,7 +1455,7 @@ statesPanel = createStatesPanel({
   onRename: (name, newName) => designStateEdit(source => stateRenameEdit(source, name, newName)),
   onDelete: name => designStateEdit(source => stateDeleteEdit(source, name)),
 });
-codeEditor = mountEditor($('code'), { getProject: () => ({ files, path: active }) });
+const codeEditor = mountEditor($('code'), { getProject: () => ({ files, path: active }) });
 // A panel edit of one file: the guard rejects a change computed against text the editor has
 // already moved past, and the reselect walks the AST the new compile yields.
 function commitSource({ file, source, from, to, insert, reselect, after }) {
@@ -1648,7 +1545,7 @@ async function extractTreeControl({ path, start, node }) {
     $('caption').textContent = e.message;
   }
 }
-propertyInspector = createPropertyInspector({
+const propertyInspector = createPropertyInspector({
   container: $('inspector'),
   designTokens: () => designReferencesInFiles(files),
   // The inspector renders from a snapshot of the source, so both hooks below read the file as it
@@ -1658,7 +1555,7 @@ propertyInspector = createPropertyInspector({
   commit: commitSource,
   onError: reportError,
 });
-canvasTools = createCanvasTools({
+const canvasTools = createCanvasTools({
   viewport: $('canvas'),
   artboard: $('preview'),
   toolbar: document.querySelector('.preview-tools'),
@@ -1715,7 +1612,7 @@ presetPicker.onchange = () => {
   refreshStatesPanel();
   output();
 };
-layoutInspector = createLayoutInspector({
+const layoutInspector = createLayoutInspector({
   viewport: $('canvas'),
   artboard: $('preview'),
   toolbar: document.querySelector('.canvas-tools'),
@@ -1803,7 +1700,7 @@ function domLayoutSnapshot() {
     containers,
   };
 }
-elementTools = createElementTools({
+const elementTools = createElementTools({
   viewport: $('canvas'),
   artboard: $('preview'),
   toolbar: document.querySelector('.canvas-tools'),
@@ -1899,7 +1796,7 @@ elementTools = createElementTools({
 // common. Their write spans the batch, so the offsets it reports are what keeps the selection alive:
 // the handoff to the reselected control leaves the panel holding one control, and the batch is put
 // back over it before the rows are drawn again.
-bulkEditor = createBulkEditor({
+const bulkEditor = createBulkEditor({
   container: $('inspector'),
   commit: ({ file, source, primary, ...change }) =>
     commitSource({
@@ -1914,7 +1811,7 @@ bulkEditor = createBulkEditor({
     }),
   onError: reportError,
 });
-spacingOverlay = createSpacingOverlay($('canvas'), () =>
+const spacingOverlay = createSpacingOverlay($('canvas'), () =>
   mode === 'design' && selectedPath === entry ? selected : null,
 );
 open(active);
@@ -2177,6 +2074,7 @@ const ideCommand = createIdeCommands({
   resetProjectEditing,
   dispatch,
   liveSource,
+  nativeSnapshot,
   propertyInput: name =>
     Array.from(document.querySelectorAll('[data-prop]')).find(el => el.dataset.prop === name),
 });

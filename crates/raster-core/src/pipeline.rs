@@ -250,7 +250,7 @@ impl RasterPipelines {
             format: wgpu::TextureFormat::Depth24Plus,
             depth_write_enabled: Some(true),
             depth_compare: Some(CompareFunction::Less),
-            stencil: wgpu::StencilState::default(),
+            stencil: wgpu::StencilState,
             bias: wgpu::DepthBiasState::default(),
         };
 
@@ -530,7 +530,7 @@ impl RasterPipelines {
                 format: wgpu::TextureFormat::Depth32Float,
                 depth_write_enabled: Some(true),
                 depth_compare: Some(CompareFunction::Less),
-                stencil: wgpu::StencilState::default(),
+                stencil: wgpu::StencilState,
                 bias: wgpu::DepthBiasState::default(),
             }),
             multisample: wgpu::MultisampleState::default(),

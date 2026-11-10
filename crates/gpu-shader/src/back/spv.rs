@@ -40,7 +40,7 @@ pub fn write_words(
         words.push(w);
         i += 4;
     }
-    if bytes.len() % 4 == 0 {
+    if bytes.len().is_multiple_of(4) {
         words.push(0);
     }
     Ok(words)

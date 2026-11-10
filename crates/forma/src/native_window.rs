@@ -1269,13 +1269,13 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                     &key
                 };
                 self.app.update(&mut |runtime| {
-                    let word_handled = word_modifier && runtime.text_word_key(&key, shift);
+                    let word_handled = word_modifier && runtime.text_word_key(key, shift);
                     let clipboard_handled = !word_handled
                         && command
-                        && crate::native_clipboard::handle_key(runtime, &key);
+                        && crate::native_clipboard::handle_key(runtime, key);
                     if !word_handled
                         && !clipboard_handled
-                        && !runtime.text_key(&key, shift, command)
+                        && !runtime.text_key(key, shift, command)
                         && !command
                     {
                         if let Some(text) = &event.text {
@@ -1316,11 +1316,13 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             if cancel_composition {
                 runtime.text_preedit("");
             }
-            if *logical_key == Key::Named(NamedKey::Tab) && pressed && !repeat {
-                if !runtime.focus_next(shift) {
-                    runtime.focus(false);
-                    runtime.focus_next(shift);
-                }
+            if *logical_key == Key::Named(NamedKey::Tab)
+                && pressed
+                && !repeat
+                && !runtime.focus_next(shift)
+            {
+                runtime.focus(false);
+                runtime.focus_next(shift);
             }
             runtime.key_event(key, pressed, repeat);
         })?;

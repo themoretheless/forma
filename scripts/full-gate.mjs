@@ -36,6 +36,7 @@ export const WORKSPACE_CRATES = [
   'tensor-core',
   'compute-core',
   'compute-cuda',
+  'memory-budget',
 ];
 export function steps({ platform, installedTargets, viteEntry }) {
   return {
@@ -260,6 +261,20 @@ export function steps({ platform, installedTargets, viteEntry }) {
             },
           ]
         : []),
+      // gpu-kit stays outside the workspace for the same reason and has its own lockfile.
+      {
+        id: 'crates-gpu-kit',
+        name: 'gpu-kit builds and passes on its own lockfile',
+        argv: 'cargo',
+        // Its GPU render tests are #[ignore]d for machines without a GPU; a Mac has Metal.
+        args: [
+          'test',
+          '--locked',
+          '--manifest-path',
+          'crates/gpu-kit/Cargo.toml',
+          ...(platform === 'darwin' ? ['--', '--include-ignored'] : []),
+        ],
+      },
       // gpu-compute stays outside the workspace (see the root Cargo.toml) and has its own lockfile.
       {
         id: 'crates-gpu-compute',

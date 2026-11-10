@@ -16,7 +16,7 @@ const wasmExports = WebAssembly.Module.exports(new WebAssembly.Module(bytes)).so
 );
 
 const content = `// AUTO-GENERATED FILE — DO NOT EDIT MANUALLY
-// Built from crates/svet-wasm/src/lib.rs (${bytes.length} bytes)
+// Built from crates/svet-wasm/src (${bytes.length} bytes)
 
 export const WASM_BASE64: string = "${base64}";
 export const WASM_EXPORTS = ${JSON.stringify(wasmExports)} as const;

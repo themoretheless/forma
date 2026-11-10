@@ -1,6 +1,6 @@
 {
   "name": "svet-engine",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Svet: reactive TypeScript + Rust WebAssembly UI framework",
   "type": "module",
   "main": "./dist/package/index.js",
@@ -71,6 +71,7 @@
     "test:actions": "npm run build:package && node --test scripts/check-action-http.mjs",
     "dev:actions": "node scripts/serve-action-browser.mjs",
     "dev:resume": "npm run build:package && node scripts/serve-resumption-browser.mjs",
+    "bench:scaling": "npm run build:package && node scripts/bench-graph-scaling.mjs",
     "bench:adoption:prepare": "node scripts/prepare-adoption-bench.mjs",
     "bench:resident-app:prepare": "node scripts/prepare-resident-app-bench.mjs",
     "test:edge": "npm run build:package && node scripts/check-edge-ssr.mjs",

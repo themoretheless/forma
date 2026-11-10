@@ -144,8 +144,9 @@ impl Default for Limits {
             max_storage_textures_per_shader_stage: 8,
             max_uniform_buffers_per_shader_stage: 12,
             max_uniform_buffer_binding_size: 65536,
-            max_storage_buffer_binding_size: 1 << 30,
-            max_buffer_size: 1 << 31,
+            // WebGPU defaults; request `Adapter::limits()` for what the hardware allows.
+            max_storage_buffer_binding_size: 128 << 20,
+            max_buffer_size: 256 << 20,
             max_vertex_buffers: 8,
             max_vertex_attributes: 16,
             max_vertex_buffer_array_stride: 2048,

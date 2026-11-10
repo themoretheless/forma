@@ -406,9 +406,9 @@ mod banded_tests {
         let rhs: [f64; N] = std::array::from_fn(|_| lcg(&mut state));
         let expected = solve(dense, rhs).unwrap();
         let mut packed = vec![0.; N * N];
-        for i in 0..N {
-            for j in 0..(N - i) {
-                packed[i * N + j] = dense[i][i + j];
+        for (i, row) in dense.iter().enumerate() {
+            for (j, &val) in row[i..].iter().enumerate() {
+                packed[i * N + j] = val;
             }
         }
         let mut b = rhs.to_vec();

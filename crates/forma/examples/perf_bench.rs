@@ -55,7 +55,9 @@ async fn run() {
     let w: u32 = args[5].parse().unwrap();
     let h: u32 = args[6].parse().unwrap();
     let frames: usize = args[7].parse().unwrap();
-    assert!(frames >= 20 && frames <= 10000 && w >= 320 && h >= 200 && w <= 4096 && h <= 2160);
+    assert!(
+        (20..=10000).contains(&frames) && (320..=4096).contains(&w) && (200..=2160).contains(&h)
+    );
     let process_initial = ProcessSnapshot::capture().unwrap();
     let init = Instant::now();
     let mut model = Button::from_sources(&source, &template).unwrap();
@@ -88,9 +90,9 @@ async fn run() {
     let tick = |i: usize, model: &mut Button| {
         if mode == "animation" {
             // Reverse every 4 frames: the entire measured phase stays animated.
-            if i % 4 == 0 {
+            if i.is_multiple_of(4) {
                 model.pointer(
-                    if i % 8 == 0 {
+                    if i.is_multiple_of(8) {
                         bounds[0] + bounds[2] * 0.5
                     } else {
                         -1.

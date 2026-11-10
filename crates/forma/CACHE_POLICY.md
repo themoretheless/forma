@@ -40,7 +40,7 @@
 | Paint | Visual version; native также сравнивает подготовленные параметры (включая scroll) | Текущий кадр |
 | Canvas tools bounds | Model identity и layout version | Один immutable snapshot |
 | CPU raster | Размеры, DPI, scroll, paint revision / параметры | Текущий размер; освобождается при переходе на GPU |
-| Разбор шаблона (`template::parse_cached`) | Полный текст шаблона + весь `ButtonSpec`; хеш только выбирает корзину | До 1 024 записей или 16 MiB расчётного веса, thread-local, давность использования |
+| Разбор шаблона (`template::parse_cached`) | Полный текст шаблона + весь `ButtonSpec`; хеш только выбирает корзину | До 1 024 записей или 16 MiB расчётного веса, thread-local, `memory_budget::WeightedLru` (давность использования) |
 
 SVG-лимит в UTF-16 единицах ограничивает строки, а не точное число байтов heap.
 Общий LRU учитывает оценку вложенных объектов, массивов, строк и dependency maps,

@@ -2629,3 +2629,91 @@ fn wrapped_text_component_emits_multiline_content_and_measures_height() {
     let runtime = crate::Runtime::from_sources(&scene_src, &templates).unwrap();
     assert_eq!(runtime.control_count(), 1);
 }
+
+#[test]
+fn let_inside_empty_for_branch_and_block_let_scoping_match_between_visual_and_scene() {
+    let control = || node("Control", vec![("text", expr("state.msg"))], vec![]);
+    let mut doc = document(root(vec![
+        node(
+            "Let",
+            vec![("name", string("msg")), ("value", string("scoped"))],
+            vec![control()],
+        ),
+        control(),
+        node(
+            "For",
+            vec![
+                ("item", string("item")),
+                ("collection", expr("state.items")),
+                ("key", expr("item.id")),
+            ],
+            vec![
+                control(),
+                node(
+                    "Empty",
+                    vec![],
+                    vec![
+                        node(
+                            "Let",
+                            vec![("name", string("msg")), ("value", string("empty-fallback"))],
+                            vec![],
+                        ),
+                        control(),
+                    ],
+                ),
+            ],
+        ),
+    ]));
+    doc.states = vec![props(vec![
+        ("msg", string("outer")),
+        ("items", Value::List(vec![])),
+    ])];
+    let (_, _, snapshots) = doc.render_scene().unwrap();
+    let scene_texts: Vec<_> = snapshots
+        .iter()
+        .map(|c| c.state["msg"].text().unwrap())
+        .collect();
+    assert_eq!(scene_texts, ["scoped", "outer", "empty-fallback"]);
+
+    // Verify visual expansion follows the exact same scoping rules.
+    let label = || node("Text", vec![("text", expr("state.msg"))], vec![]);
+    let visual_nodes = vec![
+        node(
+            "Let",
+            vec![("name", string("msg")), ("value", string("scoped"))],
+            vec![label()],
+        ),
+        label(),
+        node(
+            "For",
+            vec![
+                ("item", string("item")),
+                ("collection", expr("state.items")),
+                ("key", expr("item.id")),
+            ],
+            vec![
+                label(),
+                node(
+                    "Empty",
+                    vec![],
+                    vec![
+                        node(
+                            "Let",
+                            vec![("name", string("msg")), ("value", string("empty-fallback"))],
+                            vec![],
+                        ),
+                        label(),
+                    ],
+                ),
+            ],
+        ),
+    ];
+    let visual_expanded = doc
+        .expand_sequence(&visual_nodes, &Properties::new(), &doc.states[0], &[], 0)
+        .unwrap();
+    let visual_texts: Vec<_> = visual_expanded
+        .iter()
+        .map(|n| n.props["text"].text().unwrap())
+        .collect();
+    assert_eq!(visual_texts, ["scoped", "outer", "empty-fallback"]);
+}

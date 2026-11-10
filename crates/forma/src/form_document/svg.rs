@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use super::Image;
+use super::svg_path::{flatten_svg_path, overlapping_contours};
 
 fn parse_svg_attrs(raw: &str) -> BTreeMap<String, String> {
     let mut attrs = BTreeMap::new();
@@ -70,7 +71,8 @@ fn parse_svg_points(raw: &str) -> Result<Vec<[f64; 2]>, String> {
                 .map_err(|_| "Invalid SVG points".to_string())
         })
         .collect::<Result<Vec<_>, _>>()?;
-    if values.len() < 4 || values.len() % 2 != 0 || values.iter().any(|n| !n.is_finite()) {
+    if values.len() < 4 || !values.len().is_multiple_of(2) || values.iter().any(|n| !n.is_finite())
+    {
         return Err("Invalid SVG points".into());
     }
     Ok(values.chunks_exact(2).map(|c| [c[0], c[1]]).collect())
@@ -100,6 +102,17 @@ fn svg_stroke_segment(a: [f64; 2], b: [f64; 2], width: f64) -> Option<Vec<[f64; 
         [b[0] - nx, b[1] - ny],
         [a[0] - nx, a[1] - ny],
     ])
+}
+
+fn svg_view_box(root: &BTreeMap<String, String>) -> Vec<f64> {
+    root.get("viewBox")
+        .map(|s| {
+            s.split(|c: char| c.is_ascii_whitespace() || c == ',')
+                .filter(|p| !p.is_empty())
+                .filter_map(|p| p.parse::<f64>().ok())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
@@ -145,6 +158,38 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
             "stroke-width",
             svg_num(root_ref, "stroke-width", 2.0)?,
         )?;
+        if tag == "path" {
+            let view = svg_view_box(root_ref);
+            let extent = if view.len() == 4 {
+                view[2].max(view[3])
+            } else {
+                24.0
+            };
+            let tolerance = (extent / 2048.0).max(1e-6);
+            let subpaths =
+                flatten_svg_path(attrs.get("d").map(String::as_str).unwrap_or(""), tolerance)?;
+            if fill != "none" {
+                if overlapping_contours(&subpaths) {
+                    return Err("SVG path contours overlap; holes are not supported yet".into());
+                }
+                for sub in subpaths.iter().filter(|sub| sub.points.len() > 2) {
+                    shapes.push((sub.points.clone(), fill.to_string()));
+                }
+            }
+            if stroke != "none" && sw > 0.0 {
+                for sub in &subpaths {
+                    let count = sub.points.len();
+                    for i in 0..count - usize::from(!sub.closed) {
+                        if let Some(quad) =
+                            svg_stroke_segment(sub.points[i], sub.points[(i + 1) % count], sw)
+                        {
+                            shapes.push((quad, stroke.to_string()));
+                        }
+                    }
+                }
+            }
+            continue;
+        }
         let points = match tag {
             "rect" => {
                 let x = svg_num(&attrs, "x", 0.0)?;
@@ -196,15 +241,7 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
         }
     }
     let root = root_attrs.ok_or("Expected <svg> root")?;
-    let view: Vec<f64> = root
-        .get("viewBox")
-        .map(|s| {
-            s.split(|c: char| c.is_ascii_whitespace() || c == ',')
-                .filter(|p| !p.is_empty())
-                .filter_map(|p| p.parse::<f64>().ok())
-                .collect()
-        })
-        .unwrap_or_default();
+    let view = svg_view_box(&root);
     let width = if view.len() == 4 {
         view[2]
     } else {
@@ -223,4 +260,27 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
         height,
         shapes,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_viewbox_shapes_and_strokes_and_rejects_empty_svg() {
+        let img = parse_svg_shapes(
+            r##"<svg viewBox="0 0 32 16">
+                <rect x="2" y="3" width="10" height="8" fill="#ff0000" />
+                <line x1="0" y1="0" x2="10" y2="0" stroke="currentColor" stroke-width="2" />
+            </svg>"##,
+        )
+        .unwrap();
+        assert_eq!((img.width, img.height), (32.0, 16.0));
+        assert_eq!(img.shapes.len(), 2);
+        assert_eq!(img.shapes[0].1, "#ff0000");
+        assert_eq!(img.shapes[1].1, "currentColor");
+
+        assert!(parse_svg_shapes("<svg viewBox='0 0 10 10'></svg>").is_err());
+        assert!(parse_svg_shapes("<rect width='10' height='10'/>").is_err());
+    }
 }
