@@ -11,6 +11,7 @@ mod properties;
 mod render;
 mod scene;
 mod svg;
+mod svg_path;
 mod visual;
 mod widget_state;
 
@@ -450,7 +451,7 @@ fn is_layout(kind: &str) -> bool {
     ["Frame", "Row", "Column", "Grid", "Stack", "Scroll"].contains(&kind)
 }
 impl Document {
-    /// Parses an SVG document (`svg`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`)
+    /// Parses an SVG document (`svg`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`)
     /// into a vector [`Image`] suitable for `Document.images`.
     pub fn parse_svg_image(svg: &str) -> Result<Image, String> {
         parse_svg_shapes(svg)
