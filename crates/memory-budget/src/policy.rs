@@ -50,6 +50,17 @@ pub struct WeightedLru<K, V> {
     next_expiry: Option<Instant>,
 }
 impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
+    /// Whether the resident bytes and entry count already satisfy `limits`.
+    fn fits(&self, limits: &CacheLimits) -> bool {
+        self.resident <= limits.max_bytes
+            && limits
+                .max_entries
+                .is_none_or(|max| self.entries.len() <= max)
+    }
+    /// Keeps `next_expiry` at the earliest deadline a pruner still has to visit.
+    fn note_deadline(&mut self, deadline: Instant) {
+        self.next_expiry = Some(self.next_expiry.map_or(deadline, |next| next.min(deadline)));
+    }
     pub fn new(capacity: u64) -> Self {
         Self::with_limits(CacheLimits::bytes(capacity))
     }
@@ -89,11 +100,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         }
         // Policy changes do not rewrite existing TTL deadlines. When membership
         // already fits, there are no victims to plan or keys to clone/sort.
-        if self.resident <= limits.max_bytes
-            && limits
-                .max_entries
-                .is_none_or(|max| self.entries.len() <= max)
-        {
+        if self.fits(&limits) {
             self.capacity = limits.max_bytes;
             self.limits = limits;
             return Some(Vec::new());
@@ -108,11 +115,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         candidates.sort_unstable_by_key(|entry| (entry.0, entry.1));
         let mut victims = Vec::new();
         for (_, _, key) in candidates {
-            if self.resident <= limits.max_bytes
-                && limits
-                    .max_entries
-                    .is_none_or(|max| self.entries.len() <= max)
-            {
+            if self.fits(&limits) {
                 break;
             }
             victims.push((
@@ -152,7 +155,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         {
             self.evictable.insert(entry.last_used, key.clone());
             if let Some(deadline) = entry.deadline {
-                self.next_expiry = Some(self.next_expiry.map_or(deadline, |old| old.min(deadline)));
+                self.note_deadline(deadline);
             }
         }
     }
@@ -236,7 +239,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         if !keys.is_empty() {
             // Until every planned entry is removed, a cancelled/overlapping
             // pruner must still be able to discover the remaining entries.
-            self.next_expiry = Some(self.next_expiry.map_or(cutoff, |next| next.min(cutoff)));
+            self.note_deadline(cutoff);
         }
         keys
     }
@@ -454,7 +457,7 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         self.deadline_entries += usize::from(deadline.is_some());
         if !self.protected.contains(&key) {
             if let Some(deadline) = deadline {
-                self.next_expiry = Some(self.next_expiry.map_or(deadline, |old| old.min(deadline)));
+                self.note_deadline(deadline);
             }
             self.evictable.insert(self.clock, key.clone());
         }
