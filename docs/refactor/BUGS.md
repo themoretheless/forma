@@ -12,7 +12,7 @@
 | F-5 | `scripts/runtime-digest.mjs` | исправлено (`c71b10d`, тест `test/runtime-digest.test.js`) | `crates/forma/examples/TwoButtons.ui` включён в `runtimeSourceDigest` наравне с остальными встраиваемыми `.ui` |
 | F-6 | CI и `scripts/full-gate.mjs` | исправлено в гейте | ветки Android и iOS компилируются шагами `mobile-android` и `mobile-ios` (при установленных targets); в CI их по-прежнему нет |
 | F-7 | `crates/forma/src/lib.rs:237` и `runtime.rs:1651-1657` | расхождение | разные границы прокрутки у `Button` и `Runtime` |
-| F-8 | `crates/forma/src/binding.rs:1639-1658` | не проверено | записи применяются последовательно через `?`; поздняя ошибка оставляет ранние записи |
+| F-8 | `crates/forma/src/binding.rs` `Form::update` / `prepare_write` | исправлено (`dbe362a`, тест `failed_batch_binding_write_leaves_earlier_properties_and_collections_unchanged`) | пакетная запись биндингов валидируется и готовит отложенные мутации (`prepare_number` / `prepare_write`) до первого изменения свойств или коллекций; при ошибке ранние поля остаются нетронутыми |
 | S-1 | `src/main.js` `persist()` | исправлено (тест `test/workspace-save.test.js`) | при HTTP-ошибке и сбое сети статус утверждал, что файл записан в проект. Проект к этому моменту уже в хранилище браузера, так что правка не терялась, но и на диск не попадала. Теперь статус говорит «Сохранено в браузере (запись в проект не удалась…)» |
 | S-2 | `src/main.js:209-211` | подозрение | `.ui` из разных папок с одним именем сливаются в `ui/<basename>` |
 | S-3 | `mcp/smoke.js` | исправлено | сверял число инструментов с устаревшей константой 34 (фактически 45; README писал 44). Теперь сверяет список имён с таблицей `mcp/server.js`; README исправлен. Сам smoke требует запущенной Studio и в гейте не выполняется |
@@ -23,13 +23,13 @@
 | S-8 | `packages/svet/package.json` `sideEffects` | латентно | не перечислены модули с регистрацией при импорте |
 | G-1 | `crates/gpu-runtime/src/metal.rs:2104,2168` | подозрение | `objc_msgSend` с возвратом `CGRect` на x86_64 требует `_stret` |
 | G-2 | `crates/gpu-runtime/src/lib.rs:541-566, 656` | подозрение | ошибки валидации и MSL проглатываются, затем `expect` |
-| G-3 | `crates/gpu-runtime/src/metal.rs:914-918` | подозрение | кэш пайплайнов по одному 64-битному хэшу без сравнения исходника |
-| G-4 | `crates/gpu-runtime/src/metal.rs:744,777` | подозрение | оборачивается возможно nil-буфер |
-| G-5 | `crates/gpu-runtime/src/lib.rs:728` | подозрение | `offset + len` без проверки переполнения |
+| G-3 | `crates/gpu-runtime/src/metal.rs` `ComputePipelineCacheKey` / `RenderPipelineCacheKey` | исправлено (`42fcd08`, тест `pipeline_cache_keys_distinguish_blend_sample_count_and_threadgroup_multiple`) | кэш compute и render пайплайнов индексируется полными дескрипторами (исходник MSL, точка входа, кратность workgroup 32, буферы вершин, `ColorTargetState` с `BlendState`, depth/stencil и `sample_count`) вместо 64-битного хэша |
+| G-4 | `crates/gpu-runtime/src/{metal,lib,util,buffer}.rs` | исправлено (`42fcd08`, тест `oversized_buffer_and_overflowing_write_offsets_fail_safely`) | `alloc_buffer` / `alloc_buffer_with_bytes` проверяют переполнение выравнивания и возвращают `Option`, не вызывая `contents` на `nil` и не помещая пустой указатель в `buffer_pool`; `Device::create_buffer` / `create_buffer_init` фиксируют `Error::OutOfMemory`, а `uma_slice*` и `get_mapped_range*` безопасно возвращают `&[]` |
+| G-5 | `crates/gpu-runtime/src/{lib,metal,buffer}.rs` | исправлено (`42fcd08`, тест `oversized_buffer_and_overflowing_write_offsets_fail_safely`) | `Queue::write_buffer`, `Queue::write_buffer_with` и `BufferSlice::get_mapped_range*` проверяют границы через `offset.checked_add(...)` без переполнения `u64`/`usize` |
 | G-6 | `crates/gpu-runtime/src/{vulkan,opengl,webgpu,dx12}.rs` | исправлено частично | `probe_available()` больше не выдаёт выдуманные устройства: возвращает `None`, а статическое описание профиля доступно как `reference_profile()`. Не исправлено: `lib.rs:169-178` по-прежнему заявляет у Metal-адаптера возможности ray tracing без реализации |
 | G-7 | `crates/gpu-shader/src/front/wgsl.rs:848-877, 801` | подозрение | вычисление констант без вычитания, деление не той ассоциативности, неизвестная длина массива = 1 |
 | G-8 | `crates/gpu-shader/src/front/wgsl.rs:834-837` | подозрение | неизвестный тип превращается в `u32` |
-| G-9 | `crates/gpu-shader/src/front/wgsl.rs:108,114,131` | подтверждено чтением | позиция `ParseError` всегда 1:1 |
+| G-9 | `crates/gpu-shader/src/front/wgsl.rs` `parse_error_at` | исправлено (`42fcd08`, тест `parse_errors_report_exact_line_and_column`) | `split_top_level_items` возвращает заимствованные срезы `&str` внутри `clean`, а все ошибки разбора вычисляют точные 1-базовые `(line, column)` по смещению среза |
 | G-10 | `crates/gpu-shader/src/back/msl.rs:1878` | подозрение | `arrayLength` угадывается |
 
 ## Зависимости (cargo-deny)
