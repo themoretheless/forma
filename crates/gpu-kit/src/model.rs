@@ -1,4 +1,7 @@
 //! Orthographic neutral-material triangle rendering, separate from raster color management.
+use crate::pipeline::{
+    DEPTH_FORMAT, PipelineSpec, color_target, depth_test, render_pipeline, wgsl_module,
+};
 use crate::wgpu;
 use bytemuck::{Pod, Zeroable};
 use thiserror::Error;
@@ -90,72 +93,31 @@ impl ModelRenderer {
             target.is_srgb() || target == wgpu::TextureFormat::Rgba16Float,
             "model target must be sRGB or linear RGBA16Float"
         );
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Rrrah model shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/model_view.wgsl").into()),
-        });
-        let layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: Some("Rrrah model layout"),
-            entries: &[wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: None,
-                },
-                count: None,
-            }],
-        });
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: None,
-            bind_group_layouts: &[Some(&layout)],
-            immediate_size: 0,
-        });
-        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Rrrah model pipeline"),
-            layout: Some(&pipeline_layout),
-            vertex: wgpu::VertexState {
+        let shader = wgsl_module(
+            device,
+            "model shader",
+            include_str!("../shaders/model_view.wgsl"),
+        );
+        let pipeline = render_pipeline(
+            device,
+            PipelineSpec {
+                label: "model pipeline",
                 module: &shader,
-                entry_point: Some("vs_main"),
                 buffers: &[Some(wgpu::VertexBufferLayout {
                     array_stride: 12,
                     step_mode: wgpu::VertexStepMode::Vertex,
-                    attributes: &[wgpu::VertexAttribute {
-                        format: wgpu::VertexFormat::Float32x3,
-                        offset: 0,
-                        shader_location: 0,
-                    }],
+                    attributes: &wgpu::vertex_attr_array![0 => Float32x3],
                 })],
-                compilation_options: Default::default(),
+                primitive: wgpu::PrimitiveState {
+                    cull_mode: None,
+                    ..Default::default()
+                },
+                depth: Some(depth_test(true)),
+                target: color_target(target, None),
             },
-            primitive: wgpu::PrimitiveState {
-                cull_mode: None,
-                ..Default::default()
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: wgpu::TextureFormat::Depth32Float,
-                depth_write_enabled: Some(true),
-                depth_compare: Some(wgpu::CompareFunction::Less),
-                stencil: Default::default(),
-                bias: Default::default(),
-            }),
-            multisample: Default::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: target,
-                    blend: None,
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: Default::default(),
-            }),
-            multiview_mask: None,
-            cache: None,
-        });
+        );
         let uniform = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Rrrah model view"),
+            label: Some("model view"),
             contents: bytemuck::bytes_of(&Parameters {
                 view: [1., 0., 0., 1.],
             }),
@@ -163,7 +125,7 @@ impl ModelRenderer {
         });
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
-            layout: &layout,
+            layout: &pipeline.get_bind_group_layout(0),
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: uniform.as_entire_binding(),
@@ -298,7 +260,7 @@ impl ModelRenderer {
             return Err(ModelUploadError::Cancelled);
         }
         let buffer = device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Rrrah model vertices"),
+            label: Some("model vertices"),
             size: bytes,
             usage: wgpu::BufferUsages::VERTEX,
             mapped_at_creation: true,
@@ -423,7 +385,7 @@ impl ModelRenderer {
             .map(|budget| budget.try_reserve(u64::from(size[0]) * u64::from(size[1]) * 4))
             .transpose()?;
         let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Rrrah model depth"),
+            label: Some("model depth"),
             size: wgpu::Extent3d {
                 width: size[0],
                 height: size[1],
@@ -432,7 +394,7 @@ impl ModelRenderer {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
+            format: DEPTH_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
@@ -462,7 +424,7 @@ impl ModelRenderer {
             return;
         };
         let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Rrrah model viewport"),
+            label: Some("model viewport"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: target,
                 depth_slice: None,

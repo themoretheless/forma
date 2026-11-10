@@ -43,6 +43,7 @@ mod backend;
 mod material_render;
 mod material_texture;
 mod model;
+mod pipeline;
 
 pub use backend::{BackendError, GpuBackend, GpuVendor};
 pub use material_render::{

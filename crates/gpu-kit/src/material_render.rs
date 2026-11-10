@@ -1,4 +1,5 @@
 //! Immutable material draws, separate from scene decoding and visible publication.
+use crate::pipeline::{PipelineSpec, color_target, depth_test, render_pipeline, wgsl_module};
 use crate::wgpu;
 use crate::{GpuResourceLease, MaterialTexture, MaterialTextureUploader};
 use bytemuck::{Pod, Zeroable};
@@ -313,63 +314,40 @@ fn pipeline(
     double_sided: bool,
     clockwise: bool,
 ) -> wgpu::RenderPipeline {
-    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("glTF material lighting"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/material_view.wgsl").into()),
-    });
+    let module = wgsl_module(
+        device,
+        "glTF material lighting",
+        include_str!("../shaders/material_view.wgsl"),
+    );
     let attributes = wgpu::vertex_attr_array![0=>Float32x3,1=>Float32x3,2=>Float32x4,3=>Float32x4,4=>Float32x2,5=>Float32x2,6=>Float32x2,7=>Float32x2,8=>Float32x2];
     let blend = matches!(alpha, MaterialAlpha::Blend);
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("material renderer"),
-        layout: None,
-        vertex: wgpu::VertexState {
+    render_pipeline(
+        device,
+        PipelineSpec {
+            label: "material renderer",
             module: &module,
-            entry_point: Some("vs_main"),
             buffers: &[Some(wgpu::VertexBufferLayout {
                 array_stride: size_of::<MaterialVertex>() as u64,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &attributes,
             })],
-            compilation_options: Default::default(),
-        },
-        primitive: wgpu::PrimitiveState {
-            front_face: if clockwise {
-                wgpu::FrontFace::Cw
-            } else {
-                wgpu::FrontFace::Ccw
-            },
-            cull_mode: if double_sided {
-                None
-            } else {
-                Some(wgpu::Face::Back)
-            },
-            ..Default::default()
-        },
-        depth_stencil: Some(wgpu::DepthStencilState {
-            format: wgpu::TextureFormat::Depth32Float,
-            depth_write_enabled: Some(!blend),
-            depth_compare: Some(wgpu::CompareFunction::Less),
-            stencil: Default::default(),
-            bias: Default::default(),
-        }),
-        multisample: Default::default(),
-        fragment: Some(wgpu::FragmentState {
-            module: &module,
-            entry_point: Some("fs_main"),
-            targets: &[Some(wgpu::ColorTargetState {
-                format: target,
-                blend: if blend {
-                    Some(wgpu::BlendState::ALPHA_BLENDING)
+            primitive: wgpu::PrimitiveState {
+                front_face: if clockwise {
+                    wgpu::FrontFace::Cw
                 } else {
-                    None
+                    wgpu::FrontFace::Ccw
                 },
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            compilation_options: Default::default(),
-        }),
-        multiview_mask: None,
-        cache: None,
-    })
+                cull_mode: if double_sided {
+                    None
+                } else {
+                    Some(wgpu::Face::Back)
+                },
+                ..Default::default()
+            },
+            depth: Some(depth_test(!blend)),
+            target: color_target(target, blend.then_some(wgpu::BlendState::ALPHA_BLENDING)),
+        },
+    )
 }
 
 #[cfg(test)]
@@ -447,7 +425,7 @@ mod tests {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
+            format: crate::pipeline::DEPTH_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });
@@ -728,7 +706,7 @@ mod tests {
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
+            format: crate::pipeline::DEPTH_FORMAT,
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             view_formats: &[],
         });

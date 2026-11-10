@@ -1,4 +1,5 @@
 //! Material texture upload; color is linearized before filtering, with linear alpha.
+use crate::pipeline::{PipelineSpec, color_target, render_pipeline, wgsl_module};
 use crate::wgpu;
 use memory_budget::{MemoryBudget, Reservation};
 use std::sync::{Arc, OnceLock};
@@ -337,35 +338,22 @@ impl MaterialTextureUploader {
 }
 
 fn mip_pipeline(device: &wgpu::Device, format: wgpu::TextureFormat) -> wgpu::RenderPipeline {
-    let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: Some("material linear mip filter"),
-        source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/material_mip.wgsl").into()),
-    });
-    device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("material mip generation"),
-        layout: None,
-        vertex: wgpu::VertexState {
+    let module = wgsl_module(
+        device,
+        "material linear mip filter",
+        include_str!("../shaders/material_mip.wgsl"),
+    );
+    render_pipeline(
+        device,
+        PipelineSpec {
+            label: "material mip generation",
             module: &module,
-            entry_point: Some("vs_main"),
             buffers: &[],
-            compilation_options: Default::default(),
+            primitive: Default::default(),
+            depth: None,
+            target: color_target(format, None),
         },
-        primitive: Default::default(),
-        depth_stencil: None,
-        multisample: Default::default(),
-        fragment: Some(wgpu::FragmentState {
-            module: &module,
-            entry_point: Some("fs_main"),
-            targets: &[Some(wgpu::ColorTargetState {
-                format,
-                blend: None,
-                write_mask: wgpu::ColorWrites::ALL,
-            })],
-            compilation_options: Default::default(),
-        }),
-        multiview_mask: None,
-        cache: None,
-    })
+    )
 }
 
 fn generate_mips(
