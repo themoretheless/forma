@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 mod bindings;
 mod compiler;
 mod contracts;
+mod control_flow;
 mod eval;
 mod layout;
 mod properties;

@@ -1,4 +1,6 @@
 use super::*;
+use crate::Button;
+
 #[test]
 fn frame_run_search_matches_every_scalar_sample_at_viewport_and_aa_boundaries() {
     let mut model = Button::from_sources(
@@ -47,7 +49,8 @@ fn frame_run_search_matches_every_scalar_sample_at_viewport_and_aa_boundaries() 
             scroll: [model.scroll_x, model.scroll_y],
             sparse: false,
         };
-        let runs = frame_runs(&model, key);
+        let view = model.control_view();
+        let runs = frame_runs(view, key);
         let v = model.viewport_rect();
         let mut start = 0;
         let mut previous = None;
@@ -57,7 +60,7 @@ fn frame_run_search_matches_every_scalar_sample_at_viewport_and_aa_boundaries() 
             for i in start..run.end {
                 assert_eq!(
                     run.value,
-                    frame_value(&model, key, v, i % width, i / width),
+                    frame_value(view, key, v, i % width, i / width),
                     "case={case},pixel={i},scale={scale}"
                 );
             }
@@ -76,7 +79,8 @@ fn frame_run_search_matches_every_scalar_sample_at_viewport_and_aa_boundaries() 
             scroll: [0.; 2],
             sparse: false,
         };
-        let runs = frame_runs(&model, key);
+        let view = model.control_view();
+        let runs = frame_runs(view, key);
         let v = model.viewport_rect();
         let mut expected = Vec::new();
         for y in 0..20 {
@@ -84,7 +88,7 @@ fn frame_run_search_matches_every_scalar_sample_at_viewport_and_aa_boundaries() 
                 append_frame_run(
                     &mut expected,
                     y * 80 + x + 1,
-                    frame_value(&model, key, v, x, y),
+                    frame_value(view, key, v, x, y),
                 );
             }
         }
@@ -108,7 +112,8 @@ fn uniform_frame_storage_is_constant_size_even_with_offscreen_geometry() {
             sparse: false,
         };
         FRAME_SAMPLES.with(|samples| samples.set(0));
-        let cache = Cache::build(&model, key);
+        let view = model.control_view();
+        let cache = Cache::build(view, key);
         let samples = FRAME_SAMPLES.with(|samples| samples.get());
         eprintln!("uniform1600x1200 frame: {samples} scalar samples instead of1,920,000");
         assert!(
@@ -131,7 +136,7 @@ fn uniform_frame_storage_is_constant_size_even_with_offscreen_geometry() {
                     append_frame_run(
                         &mut scalar,
                         py * key.width + px + 1,
-                        frame_value(&model, key, v, px, py),
+                        frame_value(view, key, v, px, py),
                     );
                 }
             }
@@ -169,17 +174,18 @@ fn cropped_content_matches_full_canvas_storage_exactly() {
                             scroll,
                             sparse,
                         };
-                        let mut actual = Cache::build(&model, key);
+                        let view = model.control_view();
+                        let mut actual = Cache::build(view, key);
                         let mut full =
-                            Cache::build_with_content_region(&model, key, [0, 0, 240, 190]);
+                            Cache::build_with_content_region(view, key, [0, 0, 240, 190]);
                         let paint = PaintKey {
                             fill: model.fill.color(),
                             border: model.border.color(),
                             reveal: model.reveal_paint(),
                             background,
                         };
-                        actual.paint(&model, paint);
-                        full.paint(&model, paint);
+                        actual.paint(&model.scene, paint);
+                        full.paint(&model.scene, paint);
                         assert!(
                             actual.pixels == full.pixels,
                             "scale={scale}, sparse={sparse}, scroll={scroll:?}"
@@ -212,21 +218,21 @@ fn geometry_only_content_matches_transparent_layer_reference() {
                 scroll: [0.; 2],
                 sparse,
             };
-            let mut empty = Cache::build(&model, key);
+            let mut empty = Cache::build(model.control_view(), key);
             assert_eq!(empty.content.capacity(), 0);
             // Force the original RGBA-layer path with a zero-alpha shape.
             let reference = Button::from_sources(source,
                     "component Button { Rectangle { background:#abcdef; ContentShape { points:'0 0 10 0 10 10'; color:#00000000; } } }"
                 ).unwrap();
-            let mut full = Cache::build(&reference, key);
+            let mut full = Cache::build(reference.control_view(), key);
             let paint = PaintKey {
                 fill: [0xab, 0xcd, 0xef, 255],
                 border: [0; 4],
                 reveal: model.reveal_paint(),
                 background: false,
             };
-            empty.paint(&model, paint);
-            full.paint(&reference, paint);
+            empty.paint(&model.scene, paint);
+            full.paint(&reference.scene, paint);
             assert_eq!(empty.pixels, full.pixels);
             assert_eq!(empty.spans, full.spans);
             assert_eq!(empty.frame, full.frame);

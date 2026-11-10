@@ -452,3 +452,69 @@ pub(super) fn sizes(n: &Node, axis: usize, available: f64) -> Result<Vec<f64>, S
     }
     Ok(values)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::form_document::props;
+
+    #[test]
+    fn insets_and_gaps_expand_shorthands_and_reject_invalid_counts() {
+        assert_eq!(insets(None).unwrap(), [0.; 4]);
+        assert_eq!(insets(Some(&Value::Number(8.))).unwrap(), [8.; 4]);
+        assert_eq!(
+            insets(Some(&Value::List(vec![
+                Value::Number(4.),
+                Value::Number(10.)
+            ])))
+            .unwrap(),
+            [4., 10., 4., 10.]
+        );
+        assert_eq!(
+            insets(Some(&Value::List(vec![
+                Value::Number(1.),
+                Value::Number(2.),
+                Value::Number(3.),
+            ])))
+            .unwrap(),
+            [1., 2., 3., 2.]
+        );
+        assert!(insets(Some(&Value::List(vec![]))).is_err());
+
+        let g = props(vec![(
+            "gap",
+            Value::List(vec![Value::Number(6.), Value::Number(12.)]),
+        )]);
+        assert_eq!(gaps(&g).unwrap(), [6., 12.]);
+    }
+
+    #[test]
+    fn weighted_tracks_honor_min_max_constraints() {
+        let row = Node {
+            kind: "Frame".into(),
+            props: props(vec![
+                (
+                    "columns",
+                    Value::List(vec![Value::Expr("*".into()), Value::Expr("*".into())]),
+                ),
+                ("__linear_axis", Value::Number(0.)),
+            ]),
+            children: vec![
+                Node {
+                    kind: "Rectangle".into(),
+                    props: props(vec![("maxWidth", Value::Number(40.))]),
+                    children: vec![],
+                    action: None,
+                },
+                Node {
+                    kind: "Rectangle".into(),
+                    props: Properties::new(),
+                    children: vec![],
+                    action: None,
+                },
+            ],
+            action: None,
+        };
+        assert_eq!(sizes(&row, 0, 200.).unwrap(), vec![40., 160.]);
+    }
+}

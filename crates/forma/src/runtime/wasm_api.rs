@@ -287,18 +287,7 @@ impl Runtime {
         else {
             return false;
         };
-        let modal_idx = self
-            .scene
-            .modals
-            .iter()
-            .position(|m| {
-                (!m.controls.is_empty()).then_some(m.controls.start)
-                    == node
-                        .children
-                        .first()
-                        .and_then(|&cid| self.nodes[cid].control)
-            })
-            .unwrap_or(0);
+        let modal_idx = self.modal_index_for_node(node);
         if self.active_modal_index() != Some(modal_idx) {
             return false;
         }

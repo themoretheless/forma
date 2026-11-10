@@ -3,6 +3,20 @@
 
 use super::*;
 
+pub(super) struct SceneWalk {
+    pub(super) budget: usize,
+    pub(super) node_index: usize,
+}
+
+impl SceneWalk {
+    pub(super) fn root() -> Self {
+        Self {
+            budget: 16_384,
+            node_index: 0,
+        }
+    }
+}
+
 impl Document {
     pub(super) fn scene_properties(
         &self,
@@ -65,6 +79,62 @@ impl Document {
         }
         Ok(result)
     }
+    fn scene_expand_sequence_step(
+        &self,
+        child: &Node,
+        state: &mut std::borrow::Cow<'_, Properties>,
+        prefix: &str,
+        scope: &Properties,
+        depth: usize,
+        walk: &mut SceneWalk,
+        out: &mut Vec<Node>,
+    ) -> Result<(), String> {
+        if child.kind == "Let" {
+            let mut child_node_index = walk.node_index;
+            count_scene_subtree(child, &mut child_node_index, depth)?;
+            if walk.budget == 0 {
+                return Err("Scene exceeds 16384 nodes".into());
+            }
+            walk.budget -= 1;
+            let mut inner_walk = SceneWalk {
+                budget: walk.budget,
+                node_index: walk.node_index + 1,
+            };
+            walk.node_index = child_node_index;
+            if let Some((name, value, expression)) =
+                control_flow::evaluate_let_binding(child, scope, state)?
+            {
+                if child.children.is_empty() {
+                    insert_scene_lexical(scope_mut(state), name, value, expression, scope);
+                } else {
+                    let mut block_state = state.as_ref().scoped_clone();
+                    insert_scene_lexical(&mut block_state, name, value, expression, scope);
+                    out.extend(self.scene_expand_sequence(
+                        &child.children,
+                        &block_state,
+                        prefix,
+                        scope,
+                        depth + 1,
+                        &mut inner_walk,
+                    )?);
+                }
+            } else if !child.children.is_empty() {
+                out.extend(self.scene_expand_sequence(
+                    &child.children,
+                    state,
+                    prefix,
+                    scope,
+                    depth + 1,
+                    &mut inner_walk,
+                )?);
+            }
+            walk.budget = inner_walk.budget;
+        } else {
+            out.extend(self.scene_expand(child, state, prefix, scope, depth, walk)?);
+        }
+        Ok(())
+    }
+
     pub(super) fn scene_expand_sequence<'a>(
         &self,
         children: impl IntoIterator<Item = &'a Node>,
@@ -72,42 +142,14 @@ impl Document {
         prefix: &str,
         scope: &Properties,
         depth: usize,
-        budget: &mut usize,
-        node_index: &mut usize,
+        walk: &mut SceneWalk,
     ) -> Result<Vec<Node>, String> {
         let mut state = std::borrow::Cow::Borrowed(inherited);
         let mut out = Vec::new();
         for child in children {
-            if child.kind == "Let" {
-                let mut child_node_index = *node_index;
-                count_scene_subtree(child, &mut child_node_index, depth)?;
-                if *budget == 0 {
-                    return Err("Scene exceeds 16384 nodes".into());
-                }
-                *budget -= 1;
-                let mut seq_index = *node_index + 1;
-                *node_index = child_node_index;
-                let name = text(&child.props, "name", "")?;
-                if !name.is_empty() {
-                    if let Some(expression) = child.props.get("value") {
-                        let value = expression.evaluate(scope, &state)?;
-                        insert_scene_lexical(scope_mut(&mut state), name, value, expression, scope);
-                    }
-                }
-                out.extend(self.scene_expand_sequence(
-                    &child.children,
-                    &state,
-                    prefix,
-                    scope,
-                    depth + 1,
-                    budget,
-                    &mut seq_index,
-                )?);
-            } else {
-                out.extend(
-                    self.scene_expand(child, &state, prefix, scope, depth, budget, node_index)?,
-                );
-            }
+            self.scene_expand_sequence_step(
+                child, &mut state, prefix, scope, depth, walk, &mut out,
+            )?;
         }
         Ok(out)
     }
@@ -118,17 +160,16 @@ impl Document {
         prefix: &str,
         inherited_props: &Properties,
         depth: usize,
-        budget: &mut usize,
-        node_index: &mut usize,
+        walk: &mut SceneWalk,
     ) -> Result<Vec<Node>, String> {
-        let start_node_index = *node_index;
+        let start_node_index = walk.node_index;
         let mut subtree_end = start_node_index;
         count_scene_subtree(node, &mut subtree_end, depth)?;
-        *node_index = subtree_end;
-        if *budget == 0 {
+        walk.node_index = subtree_end;
+        if walk.budget == 0 {
             return Err("Scene exceeds 16384 nodes".into());
         }
-        *budget -= 1;
+        walk.budget -= 1;
         let id = match node.props.get("__node") {
             Some(v) => v.number()? as usize,
             None => start_node_index,
@@ -171,60 +212,58 @@ impl Document {
         }
         match node.kind.as_str() {
             "If" => {
-                let condition = node
-                    .props
-                    .get("condition")
-                    .ok_or("If requires a condition")?
-                    .evaluate(&scope, &state)?
-                    .boolean()?;
-                let mut child_idx = start_node_index + 1;
-                if condition {
-                    let mut then_nodes = Vec::with_capacity(node.children.len());
+                let condition = control_flow::evaluate_if_condition(node, &scope, &state)?;
+                let mut child_walk = SceneWalk {
+                    budget: walk.budget,
+                    node_index: start_node_index + 1,
+                };
+                let res = if condition {
+                    let mut seq_state = std::borrow::Cow::Borrowed(state.as_ref());
+                    let mut out = Vec::new();
                     for child in &node.children {
                         if child.kind == "Else" {
-                            count_scene_subtree(child, &mut child_idx, depth + 1)?;
+                            count_scene_subtree(child, &mut child_walk.node_index, depth + 1)?;
                         } else {
-                            then_nodes.push(child);
+                            self.scene_expand_sequence_step(
+                                child,
+                                &mut seq_state,
+                                prefix,
+                                &scope,
+                                depth + 1,
+                                &mut child_walk,
+                                &mut out,
+                            )?;
                         }
                     }
-                    self.scene_expand_sequence(
-                        then_nodes,
-                        &state,
-                        prefix,
-                        &scope,
-                        depth + 1,
-                        budget,
-                        &mut child_idx,
-                    )
+                    Ok(out)
                 } else {
+                    let mut out = Vec::new();
                     for child in &node.children {
                         if child.kind == "Else" {
-                            let mut else_idx = child_idx + 1;
-                            return self.scene_expand_sequence(
+                            let mut else_walk = SceneWalk {
+                                budget: child_walk.budget,
+                                node_index: child_walk.node_index + 1,
+                            };
+                            out = self.scene_expand_sequence(
                                 &child.children,
                                 &state,
                                 prefix,
                                 &scope,
                                 depth + 1,
-                                budget,
-                                &mut else_idx,
-                            );
+                                &mut else_walk,
+                            )?;
+                            child_walk.budget = else_walk.budget;
+                            break;
                         }
-                        count_scene_subtree(child, &mut child_idx, depth + 1)?;
+                        count_scene_subtree(child, &mut child_walk.node_index, depth + 1)?;
                     }
-                    Ok(Vec::new())
-                }
+                    Ok(out)
+                };
+                walk.budget = child_walk.budget;
+                res
             }
             "For" => {
-                let Value::List(items) = node
-                    .props
-                    .get("collection")
-                    .ok_or("For requires a collection")?
-                    .evaluate(&scope, &state)?
-                else {
-                    return Err("For expects a list".into());
-                };
-                let item = text(&node.props, "item", "item")?;
+                let (items, item) = control_flow::evaluate_for_header(node, &scope, &state)?;
                 let collection_expr = node.props.get("collection").and_then(|v| v.text().ok());
                 let mut out = Vec::new();
                 let mut keys = std::collections::BTreeSet::new();
@@ -232,18 +271,19 @@ impl Document {
                     let mut child_idx = start_node_index + 1;
                     for child in &node.children {
                         if child.kind == "Empty" {
-                            let mut empty_idx = child_idx + 1;
-                            for empty_child in &child.children {
-                                out.extend(self.scene_expand(
-                                    empty_child,
-                                    &state,
-                                    prefix,
-                                    &scope,
-                                    depth + 1,
-                                    budget,
-                                    &mut empty_idx,
-                                )?);
-                            }
+                            let mut empty_walk = SceneWalk {
+                                budget: walk.budget,
+                                node_index: child_idx + 1,
+                            };
+                            out.extend(self.scene_expand_sequence(
+                                &child.children,
+                                &state,
+                                prefix,
+                                &scope,
+                                depth + 1,
+                                &mut empty_walk,
+                            )?);
+                            walk.budget = empty_walk.budget;
                             break;
                         }
                         count_scene_subtree(child, &mut child_idx, depth + 1)?;
@@ -270,8 +310,6 @@ impl Document {
                     format!("__binding_key_expr.{item}"),
                     format!("__binding_key_scope.{item}"),
                 ];
-                let body_children: Vec<&Node> =
-                    node.children.iter().filter(|n| n.kind != "Empty").collect();
                 for (index, value) in items.into_iter().enumerate() {
                     let local = scope_mut(&mut local);
                     // Key evaluation sees the inherited metadata, never the
@@ -355,40 +393,61 @@ impl Document {
                     local.set("__binding_frames".into(), Value::List(frames));
                     local.set("__binding_active".into(), Value::Object(active));
                     let prefix = format!("{prefix}@{id}:{key}/");
-                    let mut iter_idx = start_node_index + 1;
-                    out.extend(self.scene_expand_sequence(
-                        body_children.iter().copied(),
-                        local,
-                        &prefix,
-                        &scope,
-                        depth + 1,
-                        budget,
-                        &mut iter_idx,
-                    )?);
+                    let mut iter_walk = SceneWalk {
+                        budget: walk.budget,
+                        node_index: start_node_index + 1,
+                    };
+                    let mut iter_state = std::borrow::Cow::Borrowed(&*local);
+                    for body_child in &node.children {
+                        if body_child.kind == "Empty" {
+                            count_scene_subtree(body_child, &mut iter_walk.node_index, depth + 1)?;
+                        } else {
+                            self.scene_expand_sequence_step(
+                                body_child,
+                                &mut iter_state,
+                                &prefix,
+                                &scope,
+                                depth + 1,
+                                &mut iter_walk,
+                                &mut out,
+                            )?;
+                        }
+                    }
+                    walk.budget = iter_walk.budget;
                 }
                 Ok(out)
             }
             "Else" | "Empty" => Ok(Vec::new()),
             "Let" => {
-                let name = text(&node.props, "name", "")?;
                 let mut out = Vec::new();
-                if !name.is_empty() {
-                    if let Some(val_expr) = node.props.get("value") {
-                        let val = val_expr.evaluate(&scope, &state)?;
-                        let mut next_state = state.as_ref().scoped_clone();
-                        insert_scene_lexical(&mut next_state, name, val, val_expr, &scope);
-                        let mut child_idx = start_node_index + 1;
-                        out.extend(self.scene_expand_sequence(
-                            &node.children,
-                            &next_state,
-                            prefix,
-                            &scope,
-                            depth + 1,
-                            budget,
-                            &mut child_idx,
-                        )?);
-                    }
+                let mut child_walk = SceneWalk {
+                    budget: walk.budget,
+                    node_index: start_node_index + 1,
+                };
+                if let Some((name, val, val_expr)) =
+                    control_flow::evaluate_let_binding(node, &scope, &state)?
+                {
+                    let mut next_state = state.as_ref().scoped_clone();
+                    insert_scene_lexical(&mut next_state, name, val, val_expr, &scope);
+                    out.extend(self.scene_expand_sequence(
+                        &node.children,
+                        &next_state,
+                        prefix,
+                        &scope,
+                        depth + 1,
+                        &mut child_walk,
+                    )?);
+                } else if !node.children.is_empty() {
+                    out.extend(self.scene_expand_sequence(
+                        &node.children,
+                        &state,
+                        prefix,
+                        &scope,
+                        depth + 1,
+                        &mut child_walk,
+                    )?);
                 }
+                walk.budget = child_walk.budget;
                 Ok(out)
             }
             "Match" => {
@@ -402,31 +461,21 @@ impl Document {
                 for branch in &node.children {
                     let branch_start = child_idx;
                     count_scene_subtree(branch, &mut child_idx, depth + 1)?;
-                    if branch.kind != "Branch" {
-                        continue;
-                    }
-                    let pat = branch
-                        .props
-                        .get("pattern")
-                        .ok_or("Match branch requires a pattern")?;
-                    if pattern_matches(pat, &subject, &scope, &state, &mut Vec::new())? {
-                        let guard_ok = match branch.props.get("guard") {
-                            Some(g) => g.evaluate(&scope, &state)?.boolean()?,
-                            None => true,
+                    if control_flow::branch_matches(branch, &subject, &scope, &state)? {
+                        let mut branch_walk = SceneWalk {
+                            budget: walk.budget,
+                            node_index: branch_start + 1,
                         };
-                        if guard_ok {
-                            let mut branch_body_idx = branch_start + 1;
-                            out.extend(self.scene_expand_sequence(
-                                &branch.children,
-                                &state,
-                                prefix,
-                                &scope,
-                                depth + 1,
-                                budget,
-                                &mut branch_body_idx,
-                            )?);
-                            break;
-                        }
+                        out.extend(self.scene_expand_sequence(
+                            &branch.children,
+                            &state,
+                            prefix,
+                            &scope,
+                            depth + 1,
+                            &mut branch_walk,
+                        )?);
+                        walk.budget = branch_walk.budget;
+                        break;
                     }
                 }
                 Ok(out)
@@ -467,16 +516,19 @@ impl Document {
                     }
                     output.children = annotated_children;
                 } else {
-                    let mut child_idx = start_node_index + 1;
+                    let mut child_walk = SceneWalk {
+                        budget: walk.budget,
+                        node_index: start_node_index + 1,
+                    };
                     output.children = self.scene_expand_sequence(
                         &node.children,
                         &state,
                         prefix,
                         &scope,
                         depth + 1,
-                        budget,
-                        &mut child_idx,
+                        &mut child_walk,
                     )?;
+                    walk.budget = child_walk.budget;
                 }
                 // Children and resolved properties no longer borrow this scope.
                 // Move a local owned state into its public control snapshot;

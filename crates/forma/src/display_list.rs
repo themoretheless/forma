@@ -1,8 +1,56 @@
 //! Backend-independent vector commands. No raster buffers, DOM or GPU objects.
 //! Coordinates remain logical; glyph curves are flattened to 0.15 physical px.
-use crate::{Button, template::Content, text};
+use crate::{markup, template, template::Content, text};
 use std::sync::Arc;
-use wasm_bindgen::prelude::*;
+
+/// Read-only L2 projection of a control's scene geometry, template and scroll state.
+/// Keeps `display_list` and `raster_cache` independent of the L3 `Button` widget.
+#[derive(Clone, Copy)]
+pub(crate) struct ControlView<'a> {
+    pub(crate) scene: &'a markup::Scene,
+    pub(crate) template: &'a template::Template,
+    pub(crate) scroll_x: f32,
+    pub(crate) scroll_y: f32,
+}
+
+impl ControlView<'_> {
+    pub(crate) fn width(self) -> f32 {
+        self.scene.width
+    }
+    pub(crate) fn height(self) -> f32 {
+        self.scene.height
+    }
+    pub(crate) fn viewport_rect(self) -> [f32; 4] {
+        let p = self.scene.padding;
+        if self.scene.scroll {
+            [
+                p[3],
+                p[0],
+                (self.width() - p[1] - p[3]).max(0.),
+                (self.height() - p[0] - p[2]).max(0.),
+            ]
+        } else {
+            [0., 0., self.width(), self.height()]
+        }
+    }
+    pub(crate) fn reveal_bounds(self) -> [f32; 4] {
+        let b = &self.scene.button;
+        let bounds = [b.x - self.scroll_x, b.y - self.scroll_y, b.width, b.height];
+        self.template
+            .reveal
+            .as_ref()
+            .map_or(bounds, |spec| spec.bounds(bounds))
+    }
+    /// Reveal bounds in unscrolled content coordinates for the vector list.
+    pub(crate) fn content_reveal_bounds(self) -> [f32; 4] {
+        let b = &self.scene.button;
+        let bounds = [b.x, b.y, b.width, b.height];
+        self.template
+            .reveal
+            .as_ref()
+            .map_or(bounds, |spec| spec.bounds(bounds))
+    }
+}
 
 pub const TILE: u32 = 32;
 // Five vec4 records: kind/rule/edge range, bounds, color, radius/stroke, scroll.
@@ -67,7 +115,7 @@ impl DisplayList {
 
     /// Estimate the command and edge buffers from the control's template so the first
     /// control in a scene does not double its vectors from zero.
-    fn estimate_hints(model: &Button, background: bool) -> ListHints {
+    fn estimate_hints(model: ControlView<'_>, background: bool) -> ListHints {
         let mut commands = 1
             + usize::from(model.scene.clip) * 2
             + usize::from(background)
@@ -166,9 +214,9 @@ fn union_tiles(a: [u32; 4], b: [u32; 4]) -> [u32; 4] {
 }
 
 pub(crate) struct CachedList {
-    scale: f32,
-    background: bool,
-    list: Arc<DisplayList>,
+    pub(crate) scale: f32,
+    pub(crate) background: bool,
+    pub(crate) list: Arc<DisplayList>,
 }
 impl DisplayList {
     pub(crate) fn command(
@@ -288,15 +336,11 @@ impl DisplayList {
         });
         self.pop();
     }
-    pub fn build(model: &Button, scale: f32, background: bool) -> Self {
-        let mut scratch = text::VectorScratch::prewarm();
-        Self::build_hinted(model, scale, background, None, &mut scratch)
-    }
     /// `scratch` carries the per-glyph flattening buffer. A scene that builds hundreds of
     /// near-identical control lists hands it over once so the buffer grows a single time
     /// instead of starting empty for every control.
-    fn build_hinted(
-        model: &Button,
+    pub(crate) fn build_hinted(
+        model: ControlView<'_>,
         scale: f32,
         background: bool,
         hints: Option<ListHints>,
@@ -514,100 +558,6 @@ impl DisplayList {
         &scratch.data
     }
 }
-impl Button {
-    fn ensure_vector_list(
-        &self,
-        scale: f32,
-        background: bool,
-        hints: Option<ListHints>,
-        text_scratch: &mut text::VectorScratch,
-    ) {
-        let mut cache = self.display_cache.borrow_mut();
-        if cache
-            .as_ref()
-            .is_none_or(|c| c.scale != scale || c.background != background)
-        {
-            *cache = Some(CachedList {
-                scale,
-                background,
-                list: Arc::new(DisplayList::build_hinted(
-                    self,
-                    scale,
-                    background,
-                    hints,
-                    text_scratch,
-                )),
-            });
-        }
-    }
-
-    /// Borrowed view retained for existing Rust callers and WASM serialization.
-    pub fn vector_list(&self, scale: f32, background: bool) -> std::cell::Ref<'_, DisplayList> {
-        let mut scratch = text::VectorScratch::prewarm();
-        self.ensure_vector_list(scale, background, None, &mut scratch);
-        std::cell::Ref::map(self.display_cache.borrow(), |c| {
-            c.as_ref().unwrap().list.as_ref()
-        })
-    }
-
-    /// Immutable shared geometry identity. Cloning a cached handle does not allocate
-    /// or copy commands/edges. Holding the previous handle prevents address reuse,
-    /// allowing renderers to detect replacement with `Arc::ptr_eq` without an ABA bug.
-    /// Color animations and scroll keep the same snapshot; DPI, background and loading
-    /// another source/component replace it. Future geometry setters must invalidate
-    /// the display cache instead of mutating a published snapshot.
-    pub fn vector_snapshot(&self, scale: f32, background: bool) -> Arc<DisplayList> {
-        let mut scratch = text::VectorScratch::prewarm();
-        self.vector_snapshot_hinted(scale, background, None, &mut scratch)
-    }
-
-    /// Same snapshot with a capacity head start and a shared flattening buffer. A scene that
-    /// asks for hundreds of near-identical control lists uses these to allocate each list at
-    /// its final size instead of doubling into it.
-    pub(crate) fn vector_snapshot_hinted(
-        &self,
-        scale: f32,
-        background: bool,
-        hints: Option<ListHints>,
-        text_scratch: &mut text::VectorScratch,
-    ) -> Arc<DisplayList> {
-        self.ensure_vector_list(scale, background, hints, text_scratch);
-        Arc::clone(&self.display_cache.borrow().as_ref().unwrap().list)
-    }
-}
-#[wasm_bindgen]
-impl Button {
-    pub fn gpu_commands(&self, scale: f32, background: bool) -> Vec<f32> {
-        self.vector_list(scale, background).commands.clone()
-    }
-    pub fn gpu_edges(&self, scale: f32, background: bool) -> Vec<f32> {
-        self.vector_list(scale, background).edges.clone()
-    }
-    pub fn gpu_tiles(&self, width: u32, height: u32, scale: f32, background: bool) -> Vec<u32> {
-        if width == 0
-            || height == 0
-            || width > 8192
-            || height > 8192
-            || !scale.is_finite()
-            || scale <= 0.
-        {
-            return vec![];
-        }
-        self.vector_list(scale, background).tiles(
-            width,
-            height,
-            scale,
-            [self.scroll_x, self.scroll_y],
-        )
-    }
-    // viewport/scale/opaque output, scroll; animated fill and border. Geometry is static.
-    pub fn gpu_params(&self, width: u32, height: u32, scale: f32, opaque: bool) -> Vec<f32> {
-        let mut params = Vec::with_capacity(PARAMS_LEN);
-        self.gpu_params_into(width, height, scale, opaque, &mut params);
-        params
-    }
-}
-
 /// The renderer consumes only immutable geometry and paint slots, never controls
 /// or interaction state. Both the legacy leaf and the scene runtime implement it.
 pub trait RenderScene {
@@ -642,67 +592,3 @@ pub trait RenderScene {
 }
 /// Uniform layout: viewport(w, h, scale, opaque), fill, border, scroll(x, y, 0, 0).
 pub const PARAMS_LEN: usize = 16;
-impl RenderScene for Button {
-    fn release_cpu_cache(&self) {
-        Button::release_cpu_cache(self);
-    }
-    fn gpu_scroll(&self) -> [f32; 2] {
-        [self.scroll_x, self.scroll_y]
-    }
-    fn vector_snapshot(&self, s: f32, b: bool) -> Arc<DisplayList> {
-        Button::vector_snapshot(self, s, b)
-    }
-    fn gpu_params(&self, w: u32, h: u32, s: f32, o: bool) -> Vec<f32> {
-        Button::gpu_params(self, w, h, s, o)
-    }
-    fn gpu_paints(&self) -> Vec<f32> {
-        Button::gpu_paints(self)
-    }
-    fn gpu_params_into(
-        &self,
-        width: u32,
-        height: u32,
-        scale: f32,
-        opaque: bool,
-        out: &mut Vec<f32>,
-    ) {
-        out.clear();
-        out.extend([
-            width as f32,
-            height as f32,
-            scale,
-            if opaque { 1. } else { 0. },
-        ]);
-        out.extend(self.fill.color().map(|v| v as f32 / 255.));
-        out.extend(self.border.color().map(|v| v as f32 / 255.));
-        out.extend([self.scroll_x, self.scroll_y, 0., 0.]);
-    }
-    fn gpu_paints_into(&self, out: &mut Vec<f32>) {
-        out.clear();
-        out.extend(
-            self.fill
-                .color()
-                .into_iter()
-                .chain(self.border.color())
-                .map(|v| v as f32 / 255.),
-        );
-        if self.template.reveal.is_some() {
-            out.extend(self.reveal_paint().gpu());
-        }
-    }
-}
-#[wasm_bindgen]
-impl Button {
-    pub fn release_cpu_cache(&self) {
-        self.raster_cache.borrow_mut().take();
-    }
-    pub fn gpu_paints(&self) -> Vec<f32> {
-        let mut paints = Vec::with_capacity(if self.template.reveal.is_some() {
-            16
-        } else {
-            8
-        });
-        self.gpu_paints_into(&mut paints);
-        paints
-    }
-}

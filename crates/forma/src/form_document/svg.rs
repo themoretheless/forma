@@ -260,3 +260,26 @@ pub(super) fn parse_svg_shapes(svg: &str) -> Result<Image, String> {
         shapes,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_viewbox_shapes_and_strokes_and_rejects_empty_svg() {
+        let img = parse_svg_shapes(
+            r##"<svg viewBox="0 0 32 16">
+                <rect x="2" y="3" width="10" height="8" fill="#ff0000" />
+                <line x1="0" y1="0" x2="10" y2="0" stroke="currentColor" stroke-width="2" />
+            </svg>"##,
+        )
+        .unwrap();
+        assert_eq!((img.width, img.height), (32.0, 16.0));
+        assert_eq!(img.shapes.len(), 2);
+        assert_eq!(img.shapes[0].1, "#ff0000");
+        assert_eq!(img.shapes[1].1, "currentColor");
+
+        assert!(parse_svg_shapes("<svg viewBox='0 0 10 10'></svg>").is_err());
+        assert!(parse_svg_shapes("<rect width='10' height='10'/>").is_err());
+    }
+}

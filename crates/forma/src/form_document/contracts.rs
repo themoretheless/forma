@@ -260,3 +260,68 @@ pub(super) fn check_contracts(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::form_document::props;
+
+    #[test]
+    fn validates_unions_generics_optional_and_value_constraints() {
+        validate_contract_type_name("List<String | Number>?", None).unwrap();
+        validate_contract_type_name("Record<String, Color>", None).unwrap();
+        assert!(validate_contract_type_name("Record<String>", None).is_err());
+        assert!(validate_contract_type_name("UnknownType", None).is_err());
+
+        assert!(matches_contract_type(&Value::Null, "List<Number>?", None));
+        assert!(matches_contract_type(
+            &Value::List(vec![Value::Number(1.), Value::Text("a".into())]),
+            "List<Number | String>",
+            None
+        ));
+        assert!(matches_contract_type(
+            &Value::Text("#ff00aa".into()),
+            "Color",
+            None
+        ));
+        assert!(!matches_contract_type(
+            &Value::Text("red".into()),
+            "Color",
+            None
+        ));
+    }
+
+    #[test]
+    fn check_contracts_enforces_required_and_range_bounds() {
+        let contracts = Value::Object(props(vec![(
+            "opacity",
+            Value::Object(props(vec![
+                ("required", Value::Bool(true)),
+                ("type", Value::Text("Number".into())),
+                (
+                    "constraints",
+                    Value::Object(props(vec![(
+                        "range",
+                        Value::List(vec![Value::Number(0.), Value::Number(1.)]),
+                    )])),
+                ),
+            ])),
+        )]));
+
+        assert!(
+            check_contracts("Badge", Some(&contracts), None, &Properties::new())
+                .unwrap_err()
+                .contains("Missing required property Badge.opacity")
+        );
+
+        let ok_vals = props(vec![("opacity", Value::Number(0.5))]);
+        check_contracts("Badge", Some(&contracts), None, &ok_vals).unwrap();
+
+        let bad_vals = props(vec![("opacity", Value::Number(1.5))]);
+        assert!(
+            check_contracts("Badge", Some(&contracts), None, &bad_vals)
+                .unwrap_err()
+                .contains("out of range")
+        );
+    }
+}

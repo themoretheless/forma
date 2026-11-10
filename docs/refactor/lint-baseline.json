@@ -26,7 +26,7 @@
     "clippy::op_ref": 1,
     "clippy::ptr_arg": 1,
     "clippy::single_element_loop": 1,
-    "clippy::too_many_arguments": 8,
+    "clippy::too_many_arguments": 7,
     "clippy::type_complexity": 3,
     "clippy::unnecessary_cast": 1,
     "clippy::unnecessary_map_or": 1,
