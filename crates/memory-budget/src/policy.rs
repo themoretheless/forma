@@ -168,6 +168,11 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
             }
         }
     }
+    /// Reads a live value without changing recency.
+    pub fn peek(&self, key: &K) -> Option<&V> {
+        let entry = self.entries.get(key)?;
+        (!entry.expired_at(self.ttl_now())).then_some(&entry.value)
+    }
     pub fn get(&mut self, key: &K) -> Option<&V> {
         if self
             .entries
@@ -485,6 +490,16 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
         );
         true
     }
+    /// Drops every entry and pin, keeping the limits. Returns the values so a caller can
+    /// release them outside a lock.
+    pub fn clear(&mut self) -> Vec<(K, V)> {
+        let cleared = std::mem::replace(self, Self::with_limits(self.limits));
+        cleared
+            .entries
+            .into_iter()
+            .map(|(key, entry)| (key, entry.value))
+            .collect()
+    }
     pub fn remove(&mut self, key: &K) -> Option<V> {
         let entry = self.entries.remove(key)?;
         self.evictable.remove(&entry.last_used);
@@ -498,6 +513,36 @@ impl<K: Clone + Eq + Hash, V> WeightedLru<K, V> {
 #[cfg(test)]
 mod tests {
     use super::WeightedLru;
+    #[test]
+    fn clear_drops_entries_and_pins_but_keeps_limits() {
+        let limits = super::CacheLimits {
+            max_bytes: 8,
+            max_entries: Some(2),
+            ttl: None,
+        };
+        let mut cache = WeightedLru::with_limits(limits);
+        assert!(cache.insert(1, 10, 3));
+        assert!(cache.insert(2, 20, 3));
+        assert!(cache.pin(&1));
+        let mut cleared = cache.clear();
+        cleared.sort_unstable();
+        assert_eq!(cleared, [(1, 10), (2, 20)]);
+        assert!(cache.is_empty());
+        assert_eq!(cache.resident_weight(), 0);
+        assert_eq!(cache.limits().max_entries, Some(2));
+        assert!(cache.insert(3, 30, 8));
+        assert_eq!(cache.take_lru(), Some((3, 30)));
+    }
+    #[test]
+    fn peek_reads_without_touching_recency() {
+        let mut cache = WeightedLru::new(2);
+        assert!(cache.insert(1, 10, 1));
+        assert!(cache.insert(2, 20, 1));
+        assert_eq!(cache.peek(&1), Some(&10));
+        assert_eq!(cache.peek(&3), None);
+        // 1 stays least recently used despite the peek.
+        assert_eq!(cache.take_lru(), Some((1, 10)));
+    }
     #[test]
     fn limit_update_matrix_is_atomic_preserves_pins_and_fixed_deadlines() {
         use super::CacheLimits;
