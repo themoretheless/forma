@@ -28,6 +28,17 @@ pub mod wgpu {
 
 pub use memory_budget;
 
+/// Whether a float that reaches a shader is finite and within the range the shaders accept.
+pub(crate) fn finite_bounded(value: f32) -> bool {
+    value.is_finite() && value.abs() <= 1e15
+}
+
+/// Whether a 2D texture extent is non-empty and within the device's 2D texture limit.
+pub(crate) fn extent_fits(device: &wgpu::Device, size: [u32; 2]) -> bool {
+    let max = device.limits().max_texture_dimension_2d;
+    size.iter().all(|&n| n > 0 && n <= max)
+}
+
 mod backend;
 mod material_render;
 mod material_texture;

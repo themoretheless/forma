@@ -162,7 +162,7 @@ impl MaterialRenderer {
             }
             if bytemuck::cast_slice::<MaterialVertex, f32>(chunk)
                 .iter()
-                .any(|v| !v.is_finite() || v.abs() > 1e15)
+                .any(|&v| !crate::finite_bounded(v))
                 || chunk.iter().any(|v| ![0., -1., 1.].contains(&v.tangent[3]))
             {
                 return Err(MaterialRenderError::Invalid);
@@ -170,7 +170,7 @@ impl MaterialRenderer {
         }
         if bytemuck::cast_slice::<MaterialParameters, f32>(&[p])
             .iter()
-            .any(|v| !v.is_finite() || v.abs() > 1e15)
+            .any(|&v| !crate::finite_bounded(v))
             || p.base_color
                 .iter()
                 .chain(p.emissive[..3].iter())
@@ -261,7 +261,7 @@ impl MaterialRenderer {
         let frame = Frame { clip, eye };
         if bytemuck::cast_slice::<Frame, f32>(&[frame])
             .iter()
-            .any(|v| !v.is_finite() || v.abs() > 1e15)
+            .any(|&v| !crate::finite_bounded(v))
             || eye[3] < 0.
         {
             return Err(MaterialRenderError::Invalid);

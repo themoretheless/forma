@@ -405,10 +405,7 @@ impl ModelRenderer {
         size: [u32; 2],
     ) -> Result<(), ModelUploadError> {
         let device = &self.device;
-        if size.contains(&0)
-            || size
-                .iter()
-                .any(|v| *v > device.limits().max_texture_dimension_2d)
+        if !crate::extent_fits(device, size)
             || u64::from(size[0]) * u64::from(size[1]) * 4 > crate::MAX_EAGER_ATLAS_BYTES
         {
             return Err(ModelUploadError::GeometryLimit);

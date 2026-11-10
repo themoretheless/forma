@@ -202,12 +202,7 @@ impl MaterialTextureUploader {
         }
         sampler.descriptor()?;
         let samples = (u64::from(size[0]) * u64::from(size[1])).checked_mul(4);
-        if size.contains(&0)
-            || size
-                .iter()
-                .any(|&n| n > self.device.limits().max_texture_dimension_2d)
-            || samples != Some(pixels.len() as u64)
-        {
+        if !crate::extent_fits(&self.device, size) || samples != Some(pixels.len() as u64) {
             return Err(MaterialTextureError::InvalidLayout);
         }
         let mut linear = budget.try_buffer(pixels.len(), 0f32)?;
@@ -261,10 +256,7 @@ impl MaterialTextureUploader {
         }
         let descriptor = sampler.descriptor()?;
         let [width, height] = size;
-        if width == 0
-            || height == 0
-            || width > device.limits().max_texture_dimension_2d
-            || height > device.limits().max_texture_dimension_2d
+        if !crate::extent_fits(device, size)
             || u64::from(width) * u64::from(height) * texel_bytes != pixels.len() as u64
         {
             return Err(MaterialTextureError::InvalidLayout);
