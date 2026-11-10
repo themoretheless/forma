@@ -54,6 +54,16 @@ jobs:
         run: cargo test --locked -p compute-mlx
       - name: gpu-compute on its own lockfile
         run: cargo test --locked --manifest-path crates/gpu-compute/Cargo.toml
+      # The lint baseline was recorded on macOS with forma's native feature; Linux resolves a
+      # different wgpu and would report different counts, so the ratchet runs on macOS only.
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        if: runner.os == 'macOS'
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Clippy lint debt has not grown
+        if: runner.os == 'macOS'
+        run: node scripts/clippy-ratchet.mjs
   runtime:
     name: Forma / ${{ matrix.os }}
     strategy:
@@ -178,6 +188,7 @@ jobs:
       - name: Require WASM integration tests (no missing-asset skips)
         run: node -e "for(const p of ['public/vector-pkg/forma.js','public/vector-pkg/forma_bg.wasm'])require('node:fs').accessSync(p)"
       - run: npm run format:check
+      - run: npm run lint
       - run: npm test
       - run: npm run build
       - run: npm run package:release
@@ -213,6 +224,10 @@ jobs:
         run: |
           cargo build --locked --manifest-path crates/svet-wasm/Cargo.toml --target wasm32-unknown-unknown --release
           node scripts/check-wasm-provenance.mjs "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/svet_wasm.wasm" "${{ runner.temp }}/svet-wasm-provenance.json"
+      - name: ESLint (suppressed findings may only shrink)
+        run: npm run lint
+      - name: Unchecked indexed access has not grown
+        run: npm run typecheck:indexed
       - name: Build WASM, ESM package and demo
         run: npm run build
       - name: Engine and native Node regressions

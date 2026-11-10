@@ -55,7 +55,7 @@ export function assertSsrStreamResponse(
   if (response.headers.get(SSR_STREAM_VERSION_HEADER)?.trim() !== String(SSR_STREAM_VERSION))
     throw Error('Unsupported SSR stream HTTP version');
   if (
-    response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() !==
+    response.headers.get('content-type')?.split(';', 1)[0]!.trim().toLowerCase() !==
     SSR_STREAM_CONTENT_TYPE
   )
     throw Error('Invalid SSR stream HTTP content type');

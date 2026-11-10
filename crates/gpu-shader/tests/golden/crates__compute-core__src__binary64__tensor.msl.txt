@@ -1,0 +1,331 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+constant uint WG = 256;
+
+uint d64_index(uint linear, uint start, uint rank, uint offset, const device uint* f64_meta);
+uint d64_min(uint a, uint b);
+uint d64_max(uint a, uint b);
+uint d64_binary(uint a, uint b, uint op);
+uint d64_unary(uint a, uint op);
+uint d64_identity(uint op);
+uint d64_fold(uint a, uint b, uint op);
+
+uint d64_index(uint linear, uint start, uint rank, uint offset, const device uint* f64_meta) {
+
+    auto remaining = linear; auto _wgpu_ident_address = offset;
+    for (auto axis = rank; axis>0u; axis-=1u) {
+        const auto n = f64_meta[start+axis-1u];
+        _wgpu_ident_address+=(remaining%n)*f64_meta[start+rank+axis-1u]; remaining/=n;
+    }
+    return _wgpu_ident_address;
+}
+
+uint d64_min(uint a, uint b) {
+
+    if (d64_nan(a)) { return d64_quiet(a); }
+    if (d64_nan(b)) { return d64_quiet(b); }
+    if (d64_zero(a) && d64_zero(b)) { return D64(0u, (a.y|b.y)&0x80000000u); }
+    return select(b, a, d64_lt(a, b));
+}
+
+uint d64_max(uint a, uint b) {
+
+    if (d64_nan(a)) { return d64_quiet(a); }
+    if (d64_nan(b)) { return d64_quiet(b); }
+    if (d64_zero(a) && d64_zero(b)) { return D64(0u, a.y&b.y&0x80000000u); }
+    return select(a, b, d64_lt(a, b));
+}
+
+uint d64_binary(uint a, uint b, uint op) {
+
+    switch (op) {
+case 0u:
+{
+ return d64_add(a, b); 
+break;
+}
+case 1u:
+{
+ return d64_sub(a, b); 
+break;
+}
+case 2u:
+{
+ return d64_mul(a, b); 
+break;
+}
+case 3u:
+{
+ return d64_div(a, b); 
+break;
+}
+case 4u:
+{
+ return d64_min(a, b); 
+break;
+}
+default: {
+ return d64_max(a, b); 
+break;
+}
+}
+}
+
+uint d64_unary(uint a, uint op) {
+
+    switch (op) {
+case 0u:
+{
+ return d64_neg(a); 
+break;
+}
+case 1u:
+{
+ return d64_abs(a); 
+break;
+}
+case 2u:
+{
+ return d64_mul(a, a); 
+break;
+}
+case 3u:
+{
+ return d64_sqrt(a); 
+break;
+}
+case 4u:
+{
+ return d64_div(D64_ONE, a); 
+break;
+}
+case 5u:
+{
+ return d64_exp(a); 
+break;
+}
+case 6u:
+{
+ return d64_log(a); 
+break;
+}
+case 7u:
+{
+ return d64_sincos(a, false); 
+break;
+}
+case 8u:
+{
+ return d64_sincos(a, true); 
+break;
+}
+default: {
+ return a; 
+break;
+}
+}
+}
+
+uint d64_identity(uint op) {
+
+    switch (op) {
+case 1u:
+{
+ return D64_ONE; 
+break;
+}
+case 2u:
+{
+ return D64(0u, 0x7ff00000u); 
+break;
+}
+case 3u:
+{
+ return D64(0u, 0xfff00000u); 
+break;
+}
+default: {
+ return D64(0u); 
+break;
+}
+}
+}
+
+uint d64_fold(uint a, uint b, uint op) {
+
+    switch (op) {
+case 1u:
+{
+ return d64_mul(a, b); 
+break;
+}
+case 2u:
+{
+ return d64_min(a, b); 
+break;
+}
+case 3u:
+{
+ return d64_max(a, b); 
+break;
+}
+default: {
+ return d64_add(a, b); 
+break;
+}
+}
+}
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], uint lane [[thread_index_in_threadgroup]], uint3 group [[threadgroup_position_in_grid]], uint3 groups [[threadgroups_per_grid]], const device uint* f64_a [[buffer(0)]], const device uint* f64_b [[buffer(1)]], device uint* f64_output [[buffer(2)]], const device uint* f64_meta [[buffer(3)]]) {
+    threadgroup uint f64_shared[256];
+
+    const auto mode = f64_meta[0]; const auto op = f64_meta[1]; const auto count = f64_meta[2];
+    const auto ar = f64_meta[3]; const auto br = f64_meta[4]; const auto ao = f64_meta[5]; const auto bo = f64_meta[6];
+    const auto inner = f64_meta[7]; const auto rows = f64_meta[8]; const auto cols = f64_meta[9];
+    const auto bm = 10u+2u*ar;
+    if (mode==2u) {
+        for (auto i = group.x; i<count; i+=groups.x) {
+            const auto base = d64_index(i, 10u, ar, ao, f64_meta);
+            auto sum = d64_identity(op);
+            for (auto r = lane; r<inner; r+=WG) { sum=d64_fold(sum, f64_a[base+d64_index(r, bm, br, 0u, f64_meta)], op); }
+            f64_shared[lane]=sum;
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            for (auto width = WG/2u; width>0u; width/=2u) {
+                if (lane<width) { f64_shared[lane]=d64_fold(f64_shared[lane], f64_shared[lane+width], op); }
+                threadgroup_barrier(mem_flags::mem_threadgroup);
+            }
+            if (lane==0u) { f64_output[i]=f64_shared[0]; }
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+        }
+        return;
+    }
+    for (auto i = id.x; i<count; i+=groups.x*WG) {
+        if (mode==3u) {
+            const auto row = (i/cols)%rows; const auto batch = i/cols/rows; const auto col = i%cols;
+            auto sum = D64(0u);
+            for (auto r = 0u; r<inner; r+=1u) {
+                const auto a = f64_a[d64_index((batch*rows+row)*inner+r, 10u, ar, ao, f64_meta)];
+                const auto b = f64_b[d64_index((batch*inner+r)*cols+col, bm, br, bo, f64_meta)];
+                sum=d64_add(sum, d64_mul(a, b));
+            }
+            f64_output[i]=sum;
+        } else {
+            const auto a = f64_a[d64_index(i, 10u, ar, ao, f64_meta)];
+            if (mode==0u) { f64_output[i]=d64_unary(a, op); }
+            else { f64_output[i]=d64_binary(a, f64_b[d64_index(i, bm, br, bo, f64_meta)], op); }
+        }
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "f64_a": (
+            0,
+            0,
+            4,
+            0,
+        ),
+        "f64_b": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "f64_meta": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "f64_output": (
+            2,
+            0,
+            4,
+            2,
+        ),
+    },
+}

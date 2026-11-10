@@ -36,7 +36,7 @@ test('move preserves events and labels, adds missing coordinates and clamps to o
 test('copy/paste renames collisions while preserving strings and events; deletion removes exactly one node', () => {
   const text = copyElement(sample, first(sample).start);
   let s = apply(sample, insertElement(sample, first(sample).start, text));
-  let ns = parse(s).nodes[0].children;
+  const ns = parse(s).nodes[0].children;
   assert.deepEqual(
     ns.map(n => n.props.key),
     ['a', 'a_3', 'a_2'],

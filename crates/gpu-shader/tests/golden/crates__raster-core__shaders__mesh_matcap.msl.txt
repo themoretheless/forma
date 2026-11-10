@@ -1,0 +1,148 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct V {
+    float4 p [[position]];
+    float3 n [[user(loc0)]];
+    float3 w [[user(loc1)]];
+};
+
+struct _wgpu_vs_StageIn {
+    float3 pos [[attribute(0)]];
+    float3 norm [[attribute(1)]];
+    float3 fromPos [[attribute(2)]];
+};
+
+vertex V vs(_wgpu_vs_StageIn _stage_in [[stage_in]]) {
+    float3 pos = _stage_in.pos;
+    float3 norm = _stage_in.norm;
+    float3 fromPos = _stage_in.fromPos;
+
+  const auto local = mix(fromPos, pos, ob.morph.x);
+  const auto wp = (ob.model * float4(local, 1)).xyz;
+  const auto wn = normalize((ob.nmat * float4(norm, 0)).xyz);
+  return V{sc.vp * float4(wp, 1), wn, wp};
+}
+
+struct _wgpu_fs_StageOut {
+    float4 value [[color(0)]];
+};
+
+fragment _wgpu_fs_StageOut fs(V v [[stage_in]], texture2d<float> matcapTex [[texture(16)]], sampler matcapSampler [[sampler(9)]]) {
+
+                        
+                                                                     
+                                                                       
+                                                                              
+                                                        
+  const auto shadow = shadowFactor(v.w);
+                       
+  const auto N = normalize(v.n);
+  const auto V2 = normalize(sc.eye.xyz - v.w);
+                                                                        
+                                                                 
+  const auto upRef = select(float3(0.0, 1.0, 0.0), float3(0.0, 0.0, 1.0), abs(V2.y) > 0.99);
+  const auto right = normalize(cross(upRef, V2));
+  const auto camUp = cross(V2, right);
+  const auto m = float2(dot(N, right), dot(N, camUp));
+  const auto selected = mix(ob.color.rgb, sc.selectionColor, ob.style.y * 0.48);
+  const auto base = mix(selected, sc.hoverColor, ob.style.w * 0.38) * ob.baseColor;
+  if (uint2(matcapTex.get_width(), matcapTex.get_height()).x > 1u) {
+                                                                          
+                                                        
+    const auto uv = m * 0.5 + float2(0.5, 0.5);
+    const auto captured = matcapTex.sample(matcapSampler, uv, level(0.0)).rgb;
+    return _wgpu_fs_StageOut{float4(captured * base + ob.emissive, ob.style.x)};
+  }
+                             
+  const auto key = clamp(dot(m, float2(-0.35, 0.55)) * 0.5 + 0.55, 0.0, 1.0);
+                                                            
+  const auto rim = pow(1.0 - clamp(abs(dot(N, V2)), 0.0, 1.0), 2.5);
+                                                                  
+  const auto blob = m - float2(-0.3, 0.45);
+  const auto spec = exp(-dot(blob, blob) * 18.0) * mix(1.0, 0.4, clamp(ob.metallic, 0.0, 1.0));
+  const auto c = base * (0.25 * shadow + 0.75 * key)
+    + float3(0.9, 0.95, 1.0) * rim * 0.35
+    + float3(spec) * 0.6 + ob.emissive;
+  return _wgpu_fs_StageOut{float4(c, ob.style.x)};
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {
+        (
+            2,
+            0,
+        ): 16,
+    },
+    samplers: {
+        (
+            2,
+            1,
+        ): 9,
+    },
+    immediate_slot: None,
+    array_length_slots: {},
+}

@@ -219,6 +219,16 @@ pub enum VertexFormat {
 }
 
 impl VertexFormat {
+    /// Size of one attribute of this format in bytes.
+    pub const fn size(self) -> u64 {
+        match self {
+            Self::Float32 | Self::Uint32 | Self::Sint32 => 4,
+            Self::Float32x2 | Self::Uint32x2 | Self::Sint32x2 => 8,
+            Self::Float32x3 | Self::Uint32x3 | Self::Sint32x3 => 12,
+            Self::Float32x4 | Self::Uint32x4 | Self::Sint32x4 => 16,
+        }
+    }
+
     pub(crate) const fn to_mtl(self) -> u64 {
         match self {
             Self::Float32 => 28,   // MTLVertexFormatFloat
@@ -242,6 +252,39 @@ pub struct VertexAttribute {
     pub format: VertexFormat,
     pub offset: BufferAddress,
     pub shader_location: u32,
+}
+
+/// Packs `(shader_location, format)` pairs into tightly laid out attributes.
+/// Backs [`vertex_attr_array!`](crate::vertex_attr_array).
+#[doc(hidden)]
+pub const fn vertex_attr_array_from<const N: usize>(
+    items: [(u32, VertexFormat); N],
+) -> [VertexAttribute; N] {
+    let mut out = [VertexAttribute {
+        format: VertexFormat::Float32,
+        offset: 0,
+        shader_location: 0,
+    }; N];
+    let mut offset = 0;
+    let mut i = 0;
+    while i < N {
+        out[i] = VertexAttribute {
+            format: items[i].1,
+            offset,
+            shader_location: items[i].0,
+        };
+        offset += items[i].1.size();
+        i += 1;
+    }
+    out
+}
+
+/// Builds a `[VertexAttribute; N]` with consecutive offsets: `vertex_attr_array![0 => Float32x3, 1 => Float32x2]`.
+#[macro_export]
+macro_rules! vertex_attr_array {
+    ($($location:expr => $format:ident),* $(,)?) => {
+        $crate::vertex_attr_array_from([$(($location, $crate::VertexFormat::$format)),*])
+    };
 }
 
 #[derive(Debug, Clone, Copy)]

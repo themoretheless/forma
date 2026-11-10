@@ -14,7 +14,7 @@ f16/BF16 input and weights directly and reduces into f32. The low-result method
 casts that result once; no complete expanded operand or im2col tensor is built.
 The result remains lazy and resident. This requires the existing custom Metal
 ABI; reusable MLX programs do not yet expose convolution. See the
-[shared contract and qualification](../../docs/qualification/tensor-convolution-2026-09-27.md).
+shared contract and qualification (`docs/qualification/tensor-convolution-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 ### Libraries and device
 
@@ -131,13 +131,13 @@ invalid count. Replace selects the last valid logical index deterministically.
 Low arithmetic scatter creates freshly zeroed atomic lists on every replay.
 Compound recording rolls back both values and counts if validation fails.
 
-The [compiled indexing qualification](../../docs/qualification/tensor-mlx-index-programs-2026-09-27.md)
+The compiled indexing qualification (`docs/qualification/tensor-mlx-index-programs-2026-09-27.md` in the upstream open-scad-viewer repository; not included here)
 records native checks with compilation enabled and disabled. Reused tracing
 does not establish fixed device allocations or a performance improvement.
 
 #### Compiled statistics and attention
 
-See the [compiled statistics and attention qualification](../../docs/qualification/tensor-prepared-statistics-2026-09-27.md) for current checks and hardware limits.
+See the compiled statistics and attention qualification (`docs/qualification/tensor-prepared-statistics-2026-09-27.md` in the upstream open-scad-viewer repository; not included here) for current checks and hardware limits.
 
 `softmax`, `log_softmax`, `logsumexp`, `moments`, `layer_norm` and `attention`
 share declarative lowering with the eager API. Their low variants retain native
@@ -325,7 +325,7 @@ The C API normally exits on errors. This adapter installs a process-wide error c
 
 ## Validation and remaining scope
 
-The [current compiled-indexing qualification](../../docs/qualification/tensor-mlx-index-programs-2026-09-27.md) records 138 passing top-level tests (nine unit and 129 integration entries, including one marker-only child entry), all 18 new tests with compilation disabled, and the executed public indexing example.
+The current compiled-indexing qualification (`docs/qualification/tensor-mlx-index-programs-2026-09-27.md` in the upstream open-scad-viewer repository; not included here) records 138 passing top-level tests (nine unit and 129 integration entries, including one marker-only child entry), all 18 new tests with compilation disabled, and the executed public indexing example.
 
 At the earlier typed-program checkpoint, ninety-eight integration tests passed on the actual Metal runtime, including the shared tensor, indexing, reduction, scatter, low-precision, statistics, attention, low-arithmetic, low-indexing, low-scatter, low-statistics and low-attention conformance suites. They cover all canonical arithmetic/comparison operations, strided views, lazy input lifetime, vector/batched matmul, empty tensors/reductions, u32 sum/product wrapping, invalid ownership/dtypes/shapes, scans with 131,075 elements, reductions with 131,077 elements, device gather and stable compaction. Scatter checks include all five modes, 65,539 duplicate indices, repeated deterministic replacement through strided views, broadcast updates, invalid indices, exact u32 values, and empty/scalar cases. Low-precision checks cover all 65,536 raw patterns for each dtype, every finite value's exact round-trip, every positive rounding boundary and its negative mirror, and strided/vector/batched/partial-tile matmul. Statistics checks include arbitrary/strided/broadcast axes, long groups with 131,077 elements, huge common offsets, ±f32::MAX, overflowing raw variance, and the smallest positive epsilon. Attention checks include native general/vector/full/two-pass shapes, GQA, different value depths, strided broadcast masks, signed causal extremes, all-masked rows, scale-overflow avoidance, constant MAX values, and 4,097-key tails. Low arithmetic checks additionally exhaust finite sign/extrema payloads, exact BF16 subnormals and signed zeros through a 131,077-element f32 partial hierarchy, every reduction-axis subset, scalar/empty/broadcast inputs, deferred input lifetime, and a 65,537-row bounded-grid dispatch. Low indexing checks compare all 65,536 raw patterns under all six IEEE comparisons, preserve every payload through strided gather and compaction, and test all scan modes at 255/256/257, 511/512/513 and 131,077 elements, sparse compaction, device chains, and 65,537 independent rows. Six unit tests verify a missing-library error, recovery after an actual MLX-C reshape error on a CPU stream, checked/padded scatter-list allocation, panic containment with local cleanup, actual C closure callback error/recovery, and rollback after a partially recorded typed operation fails. The ten compiled-program integration entries include one marker-only child entry; the disabled-mode test separately launches that child for three native executions. The nineteen typed-program tests cover all low raw payloads, every cast rounding boundary inside the graph, intermediate low rounding, exact u32 arithmetic/branching, f32 reduction/matmul outputs, changed strides, resource lifetime and signature errors. All nineteen also passed in a separate `MLX_DISABLE_COMPILE=1` process. [Original tensor output](qualification/native-metal.txt), [indexing qualification](qualification/index-metal.txt), [reduction/vector qualification](qualification/reduction-metal.txt), [scatter qualification](qualification/scatter-metal.txt), [low-precision qualification](qualification/low-metal.txt), [statistics qualification](qualification/statistics-metal.txt), [attention qualification](qualification/attention-metal.txt), [low-arithmetic qualification](qualification/low-ops-metal.txt), [low-indexing qualification](qualification/low-index-metal.txt), [low-scatter qualification](qualification/low-scatter-metal.txt), [low-statistics qualification](qualification/low-statistics-metal.txt), [low-attention qualification](qualification/low-attention-metal.txt), [complete low-matmul qualification](qualification/low-matmul-metal.txt), [original f32 compiled-program qualification](qualification/compiled-metal.txt), [complete typed-program qualification](qualification/compiled-typed-metal.txt).
 
