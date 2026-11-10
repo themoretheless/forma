@@ -12,7 +12,7 @@ export const ALLOWED = {
   'gpu-runtime': ['gpu-shader'],
   'gpu-compute': ['gpu-runtime', 'gpu-shader'],
   'raster-core': ['gpu-compute', 'gpu-runtime', 'gpu-shader'],
-  'compute-core': ['gpu-compute', 'gpu-runtime', 'gpu-shader', 'tensor-core'],
+  'compute-core': ['gpu-compute', 'gpu-runtime', 'gpu-shader', 'memory-budget', 'tensor-core'],
   'compute-mlx': ['tensor-core'],
   'compute-cuda': ['gpu-compute', 'tensor-core'],
   'osv-math-compute': [
@@ -23,7 +23,7 @@ export const ALLOWED = {
     'compute-cuda',
     'compute-mlx',
   ],
-  forma: ['gpu-runtime', 'gpu-compute', 'gpu-shader', 'svet-wasm'],
+  forma: ['gpu-runtime', 'gpu-compute', 'gpu-shader', 'memory-budget', 'svet-wasm'],
   'forma-binding-example': ['forma'],
   'forma-language-example': ['forma'],
 };

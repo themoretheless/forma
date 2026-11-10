@@ -23,7 +23,7 @@
     "clippy::needless_range_loop": 5,
     "clippy::needless_return": 1,
     "clippy::new_without_default": 2,
-    "clippy::op_ref": 2,
+    "clippy::op_ref": 1,
     "clippy::ptr_arg": 1,
     "clippy::single_element_loop": 1,
     "clippy::too_many_arguments": 8,

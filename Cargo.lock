@@ -554,6 +554,7 @@ dependencies = [
  "gpu-compute",
  "gpu-runtime",
  "gpu-shader",
+ "memory-budget",
  "tensor-core",
 ]
 
@@ -876,6 +877,7 @@ dependencies = [
  "gpu-runtime",
  "gpu-shader",
  "libc",
+ "memory-budget",
  "objc",
  "pollster",
  "serde",

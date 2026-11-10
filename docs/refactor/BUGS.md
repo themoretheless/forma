@@ -53,5 +53,5 @@
 
 | ID | Место | Статус | Суть |
 |---|---|---|---|
-| R-1 | `crates/memory-budget/src/policy.rs` | исправлено (1e7d43d) | `WeightedLru` вызывал `Instant::now()` на каждой вставке, `set_limits` и `take_lru` даже без TTL; на `wasm32-unknown-unknown` это паника. Мешало перевести `TemplateCache` в `forma` на общий кэш |
+| R-1 | `crates/memory-budget/src/policy.rs` | исправлено (1e7d43d) | `WeightedLru` вызывал `Instant::now()` на каждой вставке, `set_limits` и `take_lru` даже без TTL; на `wasm32-unknown-unknown` это паника. Мешало перевести `TemplateCache` в `forma` на общий кэш; перевод сделан |
 | R-2 | `gpu_shader::back::msl::with_pipeline_constants` | открыто, низкий | значение override печатается через `{:?}`: `NaN` и `inf` дают неверный MSL, и пайплайн падает на компиляции Metal вместо проверки значения, как в WebGPU. Имя константы не проверяется: неизвестное имя молча игнорируется, имя с недопустимыми символами ломает `#define`. Требует теста и решения, где отклонять (создание пайплайна) |

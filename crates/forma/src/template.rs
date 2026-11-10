@@ -2,6 +2,7 @@
 //! The host supplies the bounds; every painted primitive comes from this file.
 
 use crate::markup::ButtonSpec;
+use memory_budget::{CacheLimits, WeightedLru};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -1163,68 +1164,78 @@ pub const MAX_PARSED_TEMPLATES: usize = 1_024;
 pub const MAX_PARSED_BYTES: usize = 16 * 1024 * 1024;
 
 struct ParsedTemplate {
+    hash: u64,
     source: String,
     props: ButtonSpec,
     template: Arc<Template>,
-    weight: usize,
-    used: u64,
 }
 
 /// Thread-local and process-wide rather than owned by `Runtime`, because the preview
-/// builds a new `Runtime` for every keystroke. The hash only selects a bucket: reuse
+/// builds a new `Runtime` for every keystroke. The hash only selects candidates: reuse
 /// still requires the whole template text and the whole spec to compare equal, so a
-/// short hash is never the sole proof of equality (`CACHE_POLICY.md`).
+/// short hash is never the sole proof of equality (`CACHE_POLICY.md`). Controls of one
+/// document share their template text, so one hash can index many specs.
 struct TemplateCache {
-    buckets: HashMap<u64, Vec<ParsedTemplate>>,
-    entries: usize,
-    live_bytes: usize,
-    tick: u64,
+    lru: WeightedLru<u64, ParsedTemplate>,
+    by_hash: HashMap<u64, Vec<u64>>,
+    next_id: u64,
     hits: u64,
     misses: u64,
 }
 
 impl TemplateCache {
-    /// Make room for `incoming`, least recently used first. False means the entry does
-    /// not fit the budget even when empty; the caller then uses it without caching.
-    fn reserve(&mut self, incoming: usize) -> bool {
-        while self.entries + 1 > MAX_PARSED_TEMPLATES
-            || self.live_bytes + incoming > MAX_PARSED_BYTES
-        {
-            let mut coldest: Option<(u64, u64, usize)> = None;
-            for (hash, bucket) in &self.buckets {
-                for (index, entry) in bucket.iter().enumerate() {
-                    if coldest.is_none_or(|(used, ..)| entry.used < used) {
-                        coldest = Some((entry.used, *hash, index));
-                    }
+    fn new() -> Self {
+        Self {
+            lru: WeightedLru::with_limits(CacheLimits {
+                max_bytes: MAX_PARSED_BYTES as u64,
+                max_entries: Some(MAX_PARSED_TEMPLATES),
+                ttl: None,
+            }),
+            by_hash: HashMap::new(),
+            next_id: 0,
+            hits: 0,
+            misses: 0,
+        }
+    }
+
+    fn get(&mut self, hash: u64, source: &str, props: &ButtonSpec) -> Option<Arc<Template>> {
+        let lru = &self.lru;
+        let id = *self.by_hash.get(&hash)?.iter().find(|id| {
+            lru.peek(id)
+                .is_some_and(|entry| entry.source == source && &entry.props == props)
+        })?;
+        self.lru.get(&id).map(|entry| Arc::clone(&entry.template))
+    }
+
+    /// Caches `entry`, evicting least recently used templates first. An entry that does
+    /// not fit the budget even when the cache is empty is used without caching.
+    fn insert(&mut self, entry: ParsedTemplate, weight: usize) {
+        let (id, hash) = (self.next_id, entry.hash);
+        self.next_id += 1;
+        let (admitted, evicted) = self
+            .lru
+            .insert_prefetch_with_evictions(id, entry, weight as u64);
+        for (victim, entry) in evicted {
+            if let Some(ids) = self.by_hash.get_mut(&entry.hash) {
+                ids.retain(|&other| other != victim);
+                if ids.is_empty() {
+                    self.by_hash.remove(&entry.hash);
                 }
             }
-            let Some((_, hash, index)) = coldest else {
-                return incoming <= MAX_PARSED_BYTES;
-            };
-            let bucket = self
-                .buckets
-                .get_mut(&hash)
-                .expect("bucket of the coldest entry");
-            let removed = bucket.remove(index).weight;
-            if bucket.is_empty() {
-                self.buckets.remove(&hash);
-            }
-            self.entries -= 1;
-            self.live_bytes -= removed;
         }
-        true
+        if admitted {
+            self.by_hash.entry(hash).or_default().push(id);
+        }
+    }
+
+    fn clear(&mut self) {
+        self.lru.clear();
+        self.by_hash.clear();
     }
 }
 
 thread_local! {
-    static TEMPLATE_CACHE: RefCell<TemplateCache> = RefCell::new(TemplateCache {
-        buckets: HashMap::new(),
-        entries: 0,
-        live_bytes: 0,
-        tick: 0,
-        hits: 0,
-        misses: 0,
-    });
+    static TEMPLATE_CACHE: RefCell<TemplateCache> = RefCell::new(TemplateCache::new());
 }
 
 fn key_hash(source: &str) -> u64 {
@@ -1282,33 +1293,22 @@ pub fn parse_cached(source: &str, props: &ButtonSpec) -> Result<Arc<Template>, S
     let hash = key_hash(source);
     TEMPLATE_CACHE.with(|cell| {
         let mut cache = cell.borrow_mut();
-        cache.tick = cache.tick.wrapping_add(1);
-        let tick = cache.tick;
-        let reused = cache.buckets.get_mut(&hash).and_then(|bucket| {
-            let index = bucket
-                .iter()
-                .position(|entry| &entry.source == source && &entry.props == props)?;
-            bucket[index].used = tick;
-            Some(Arc::clone(&bucket[index].template))
-        });
-        if let Some(template) = reused {
+        if let Some(template) = cache.get(hash, source, props) {
             cache.hits += 1;
             return Ok(template);
         }
         let template = Arc::new(parse(source, props)?);
         cache.misses += 1;
         let weight = entry_weight(source, &template);
-        if cache.reserve(weight) {
-            cache.buckets.entry(hash).or_default().push(ParsedTemplate {
+        cache.insert(
+            ParsedTemplate {
+                hash,
                 source: source.to_owned(),
                 props: props.clone(),
                 template: Arc::clone(&template),
-                weight,
-                used: tick,
-            });
-            cache.entries += 1;
-            cache.live_bytes += weight;
-        }
+            },
+            weight,
+        );
         Ok(template)
     })
 }
@@ -1325,8 +1325,8 @@ pub fn parse_cache_stats() -> ParseCacheStats {
     TEMPLATE_CACHE.with(|cache| {
         let cache = cache.borrow();
         ParseCacheStats {
-            entries: cache.entries,
-            bytes: cache.live_bytes,
+            entries: cache.lru.len(),
+            bytes: cache.lru.resident_weight() as usize,
             hits: cache.hits,
             misses: cache.misses,
         }
@@ -1335,10 +1335,7 @@ pub fn parse_cache_stats() -> ParseCacheStats {
 
 pub fn flush_parse_cache() {
     TEMPLATE_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        cache.buckets.clear();
-        cache.entries = 0;
-        cache.live_bytes = 0;
+        cache.borrow_mut().clear();
     });
 }
 
