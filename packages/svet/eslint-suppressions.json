@@ -135,7 +135,7 @@
   },
   "src/engine/reactivity.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 31
+      "count": 30
     },
     "no-unsafe-finally": {
       "count": 1

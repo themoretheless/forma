@@ -623,7 +623,10 @@ function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   }
   if (seen === null && arrIdx >= SEEN_DEPS_THRESHOLD) {
     seen = entry.seenDeps = new Set();
-    for (let i = 0; i < arrIdx; i++) seen.add(deps[i]);
+    for (let i = 0; i < arrIdx; i++) {
+      const dep = deps[i];
+      if (dep !== undefined) seen.add(dep);
+    }
   }
   if (seen !== null) {
     if (seen.has(sourceId)) return;
@@ -1660,7 +1663,8 @@ const signalMethods: Record<string, (st: SignalState) => unknown> = {
   dispose: st => () => disposeSignal(st),
   __svet_cached_value: st => st.getter.peek,
 };
-for (const name of Object.keys(signalMethods)) {
+// Entries, not keys: each accessor closes over its own factory, so no lookup can miss.
+for (const [name, makeMethod] of Object.entries(signalMethods)) {
   const own = (handle: object, value: unknown) =>
     Object.defineProperty(handle, name, {
       value,
@@ -1670,10 +1674,10 @@ for (const name of Object.keys(signalMethods)) {
     });
   Object.defineProperty(signalPrototype, name, {
     configurable: true,
-    get(this: any) {
-      const st: SignalState | undefined = this[SIGNAL_STATE];
+    get(this: { [SIGNAL_STATE]?: SignalState }) {
+      const st = this[SIGNAL_STATE];
       if (!st) return undefined;
-      const method = signalMethods[name](st);
+      const method = makeMethod(st);
       own(this, method);
       return method;
     },
