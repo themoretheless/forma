@@ -23,6 +23,16 @@ pub struct Template {
     /// Rectangle reserved for application geometry (`Canvas {}`), relative to
     /// the control. Geometry comes from the application at runtime.
     pub canvas: Option<CanvasSlot>,
+    /// Link regions of styled text runs (`ContentLink`), relative to the control. They draw
+    /// nothing; the runtime hit-tests them and queues a link event.
+    pub links: Vec<TextLink>,
+}
+
+/// `ContentLink { x; y; width; height; link: 'id'; }`: one placed fragment of a link run.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextLink {
+    pub bounds: [f32; 4],
+    pub id: String,
 }
 
 /// `Canvas { x; y; width; height; }` inside a control template. Omitted width
@@ -968,6 +978,43 @@ impl<'a> Parser<'a> {
         self.close()?;
         Ok(slot)
     }
+    fn link(&mut self) -> Result<TextLink, String> {
+        self.open()?;
+        let mut link = TextLink {
+            bounds: [0.; 4],
+            id: String::new(),
+        };
+        let mut seen = SeenFields::default();
+        while self.current.kind != Kind::Close {
+            let name = self.ident()?;
+            self.unique(&mut seen, &name)?;
+            self.colon()?;
+            match name.text() {
+                "x" | "y" => {
+                    let v = match self.current.kind {
+                        Kind::Number(v, Unit::Logical | Unit::Px)
+                            if v.is_finite() && v.abs() <= 100_000. =>
+                        {
+                            v
+                        }
+                        _ => return Err(self.error("Invalid content coordinate")),
+                    };
+                    link.bounds[if name == "x" { 0 } else { 1 }] = v;
+                    self.advance()?;
+                }
+                "width" => link.bounds[2] = self.scalar("width", false)?,
+                "height" => link.bounds[3] = self.scalar("height", false)?,
+                "link" => link.id = self.text_value()?.into_owned(),
+                _ => return Err(self.error(&format!("Unsupported ContentLink property {name}"))),
+            }
+            self.semi()?;
+        }
+        self.close()?;
+        if link.id.is_empty() {
+            return Err(self.error("ContentLink requires a link id"));
+        }
+        Ok(link)
+    }
     fn rectangle(&mut self) -> Result<Template, String> {
         self.open()?;
         let mut template = Template {
@@ -982,6 +1029,7 @@ impl<'a> Parser<'a> {
             inputs: Vec::new(),
             range: None,
             canvas: None,
+            links: Vec::new(),
         };
         let mut seen = SeenFields::default();
         let mut clip_depth = 0;
@@ -999,6 +1047,13 @@ impl<'a> Parser<'a> {
                     return Err(self.error("One Canvas per control is supported"));
                 }
                 template.canvas = Some(self.canvas_slot()?);
+                continue;
+            }
+            if name == "ContentLink" {
+                if template.links.len() >= 4096 {
+                    return Err(self.error("Too many link regions"));
+                }
+                template.links.push(self.link()?);
                 continue;
             }
             if name == "ContentInput" {

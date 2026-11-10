@@ -117,6 +117,22 @@ fn font_weight_selects_the_bold_face() {
     ));
 }
 #[test]
+fn link_regions_parse() {
+    let content =
+        body("ContentLink { x: -2; y: 4; width: 30; height: 12; link: 'docs'; }").unwrap();
+    assert_eq!(
+        content.links,
+        vec![TextLink {
+            bounds: [-2., 4., 30., 12.],
+            id: "docs".into()
+        }]
+    );
+    assert!(body("ContentLink { x: 0; y: 0; width: 1; height: 1; }").is_err());
+    assert!(
+        body("ContentLink { x: 0; y: 0; width: 1; height: 1; link: 'a'; color: #fff; }").is_err()
+    );
+}
+#[test]
 fn shape_points_boundaries_and_string_escapes() {
     let shape = |points: &str| {
         body(&format!(
@@ -278,6 +294,7 @@ fn omitted_primitives_are_absent_and_do_not_get_painted() {
             inputs: Vec::new(),
             range: None,
             canvas: None,
+            links: Vec::new(),
             radius: 0.,
             fill: None,
             border: None,

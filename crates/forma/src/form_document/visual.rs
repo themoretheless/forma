@@ -575,6 +575,17 @@ impl Document {
                     ),
                 );
             }
+            "Text"
+                if n.props
+                    .get("runs")
+                    .is_some_and(|v| !matches!(v, Value::Null)) =>
+            {
+                if let Some(runs) = super::text_runs::runs(&n.props)? {
+                    let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
+                    let wrap = boolean(&n.props, "wrap", false)?;
+                    super::text_runs::flatten(&runs, fs, wrap, [x, y, w, h], out);
+                }
+            }
             "Text" => {
                 let value = text_ref(&n.props, "text", "")?;
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;

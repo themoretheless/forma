@@ -13,6 +13,7 @@ mod render;
 mod scene;
 mod svg;
 mod svg_path;
+mod text_runs;
 mod visual;
 mod widget_state;
 
