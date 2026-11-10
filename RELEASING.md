@@ -61,7 +61,10 @@ checkout. Не подкачиваем «последний Runtime» во вре
   а не опубликованные релизы.
 
 Rust закреплён в `rust-toolchain.toml` (1.97.1), Node в `.node-version`
-(22.23.2). CLI wasm-bindgen должен в точности соответствовать зависимости
+(22.23.2). То же значение стоит в `rust-version` в `crates/forma/Cargo.toml`:
+проект с git-зависимостью от Forma не читает наш `rust-toolchain.toml`, и на
+более старом компиляторе Cargo сразу называет требуемую версию. При смене
+toolchain меняем оба места. CLI wasm-bindgen должен в точности соответствовать зависимости
 Runtime (сейчас 0.2.125). Версии GitHub Actions закреплены полными SHA:
 [checkout](https://github.com/actions/checkout),
 [setup-node](https://github.com/actions/setup-node),

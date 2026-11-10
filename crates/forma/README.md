@@ -156,6 +156,64 @@ stream beside its fixture state log when `FORMA_NATIVE_INPUT_PROBE_LOG` is set.
 This includes preedit/commit text and is intended for the controlled fixture;
 normal applications need not implement the hook or collect text.
 
+### Хост для приложения
+
+`NativeWindowConfig::default()` рассчитан на демо и пробы: читает `std::env::args`
+и `FORMA_BACKEND` / `FORMA_PLATFORM`, без выбранного бэкенда показывает экран выбора,
+перехватывает F6/F7 (а с `native-test-hooks` ещё F8/F9), дописывает к заголовку
+бэкенд и подсказки, рисует акцентную полосу профиля egui и печатает строки запуска.
+Это режим `HostMode::Demo`, он остаётся значением по умолчанию.
+
+Приложение, встраивающее Forma, берёт `NativeWindowConfig::application("Заголовок")`
+(режим `HostMode::Application`): аргументы и переменные окружения не читаются,
+экрана выбора нет (`backend: None` означает Svet), функциональные клавиши доходят
+до приложения и Runtime, заголовок окна совпадает с `title` дословно, полоса не
+рисуется, в stdout хост ничего не пишет. Остальные поля меняются как обычно:
+
+```rust
+use forma::native_window::{run, NativeWindowConfig};
+
+run(app, NativeWindowConfig { width: 1280., height: 800., ..NativeWindowConfig::application("Shelf") })
+```
+
+Эмуляция мобильной рамки включается только явным `platform: TargetPlatform::Ios`
+или `Android`; `application` ставит платформу цели компиляции.
+
+#### Пробуждение из рабочего потока
+
+`on_dirty` выдаёт `Box<dyn Fn()>`, привязанный к потоку окна. Для фоновой работы
+хост один раз, при создании окна, вызывает `NativeApp::on_waker(NativeWaker)`.
+`NativeWaker` — `Send + Sync + Clone`; рабочий поток кладёт результат в канал или
+под мьютекс приложения и вызывает `waker.wake()`. Цикл окна на своём потоке
+вызывает `update` (и тогда, когда окно скрыто и кадр не рисуется), затем
+перерисовывает. Вызовы, пришедшие до обслуживания предыдущего, сливаются в один,
+поэтому `update` должен забирать все накопленные результаты. `wake()` возвращает
+`false`, когда цикл окна завершён.
+
+#### Обработчики приложения
+
+У всех методов есть реализация по умолчанию, поэтому существующие `NativeApp`
+компилируются и ведут себя как раньше.
+
+| Метод | Когда вызывается | По умолчанию |
+|---|---|---|
+| `on_key_event(&mut self, &NativeKeyEvent) -> Result<bool, String>` | до передачи клавиши в Runtime; `true` — обработано, Runtime её не получит | `false` |
+| `on_resized(&mut self, width, height, scale)` | при создании окна, изменении размера и масштаба; размеры логические | ничего |
+| `on_close_requested(&mut self) -> Result<bool, String>` | запрос закрытия окна; `false` оставляет окно открытым | `true` |
+| `on_pointer_event(&mut self, &NativePointerEvent)` | правая и средняя кнопки, двойной щелчок основной | ничего |
+
+`NativeKeyEvent` несёт логическую и физическую клавиши, текст, `pressed`, `repeat`,
+модификаторы (`command` — Command на macOS и Control на остальных системах) и
+признак `composing`: во время набора через IME клавиша обычно принадлежит методу
+ввода. В режиме `Demo` клавиши, перехваченные хостом, и ввод на экране выбора
+бэкенда приложению не предлагаются.
+
+Runtime по-прежнему получает только основную кнопку. Двойной щелчок сообщается
+после того, как Runtime получил второе нажатие: интервал до 500 мс, смещение до
+4 логических пикселей, третье нажатие начинает новую пару. Координаты событий
+указателя — логические пиксели области содержимого окна. Хост не меняет размер
+корня документа сам: это делает приложение в `on_resized`.
+
 For native source/project operations, use the String-error APIs
 `load_component_native`, `load_native`, `load_ui_files_json_native`,
 `load_scene_artifact_native`, and `compile_ui_scene_artifact_native`.

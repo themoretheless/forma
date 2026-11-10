@@ -2,15 +2,18 @@
 
 use std::{
     num::NonZeroU32,
-    sync::{Arc, Weak},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicBool, Ordering},
+    },
     time::Instant,
 };
 use winit::{
     application::ApplicationHandler,
     dpi::{LogicalPosition, LogicalSize},
     event::{ElementState, Ime, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent},
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
-    keyboard::{Key, NamedKey},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
+    keyboard::{Key, NamedKey, PhysicalKey},
     window::{Window, WindowId},
 };
 
@@ -60,6 +63,191 @@ pub trait NativeApp {
         let _ = callback;
         Ok(())
     }
+
+    /// Receives the window's waker once, when the window is created. Keep a clone in
+    /// worker threads and call [`NativeWaker::wake`] after publishing a result: the
+    /// loop then runs `update` on its own thread and redraws.
+    fn on_waker(&self, _waker: NativeWaker) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// Sees a key before the runtime does. Return `true` to mark it handled: the
+    /// runtime then receives nothing for this event. Keys the demo host captures
+    /// (see [`HostMode`]) and keys typed on its backend chooser are not offered.
+    fn on_key_event(&mut self, _event: &NativeKeyEvent<'_>) -> Result<bool, String> {
+        Ok(false)
+    }
+
+    /// The window's content area changed. `width` and `height` are logical pixels,
+    /// `scale` is the display scale factor. Called once when the window is created and
+    /// then on every resize or scale change; a minimized window may report zero.
+    fn on_resized(&mut self, _width: f32, _height: f32, _scale: f32) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// The user asked to close the window. Return `false` to keep it open.
+    fn on_close_requested(&mut self) -> Result<bool, String> {
+        Ok(true)
+    }
+
+    /// Pointer input the runtime has no notion of: secondary and middle buttons, and a
+    /// double click of the primary button (reported after the runtime received the
+    /// second press). Not called while the demo's backend chooser is shown.
+    fn on_pointer_event(&mut self, _event: &NativePointerEvent) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+/// Modifier keys held during an input event. `command` is the platform's shortcut
+/// modifier: Command on macOS, Control elsewhere.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NativeModifiers {
+    pub shift: bool,
+    pub control: bool,
+    pub alt: bool,
+    pub command: bool,
+}
+
+/// Key event offered to [`NativeApp::on_key_event`].
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub struct NativeKeyEvent<'a> {
+    pub logical_key: &'a Key,
+    pub physical_key: &'a PhysicalKey,
+    /// Text the key produces, when it produces any.
+    pub text: Option<&'a str>,
+    pub pressed: bool,
+    pub repeat: bool,
+    pub modifiers: NativeModifiers,
+    /// An input-method composition is in progress; the key usually belongs to it.
+    pub composing: bool,
+}
+
+/// What [`NativeApp::on_pointer_event`] reports.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum NativePointerKind {
+    Secondary { pressed: bool },
+    Middle { pressed: bool },
+    DoubleClick,
+}
+
+/// Pointer event in logical pixels of the window's content area.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct NativePointerEvent {
+    pub kind: NativePointerKind,
+    pub x: f32,
+    pub y: f32,
+    pub modifiers: NativeModifiers,
+}
+
+/// Maps a mouse button to an application pointer event. The primary button belongs to
+/// the runtime; back, forward and other buttons stay unreported.
+fn button_pointer_kind(button: MouseButton, pressed: bool) -> Option<NativePointerKind> {
+    match button {
+        MouseButton::Right => Some(NativePointerKind::Secondary { pressed }),
+        MouseButton::Middle => Some(NativePointerKind::Middle { pressed }),
+        _ => None,
+    }
+}
+
+/// Physical window size to the logical size reported to the application.
+fn logical_size(width: u32, height: u32, scale: f32) -> (f32, f32) {
+    let scale = if scale > 0. { scale } else { 1. };
+    (width as f32 / scale, height as f32 / scale)
+}
+
+const DOUBLE_CLICK_INTERVAL: std::time::Duration = std::time::Duration::from_millis(500);
+const DOUBLE_CLICK_DISTANCE: f32 = 4.;
+
+/// Recognizes a double click from primary presses; winit reports none.
+#[derive(Default)]
+struct ClickTracker {
+    last: Option<(Instant, f32, f32)>,
+}
+
+impl ClickTracker {
+    /// Records a primary press and tells whether it completes a double click. A
+    /// completed pair is consumed, so a third press starts a new one.
+    fn press(&mut self, at: Instant, x: f32, y: f32) -> bool {
+        let double = self.last.is_some_and(|(then, lx, ly)| {
+            at.saturating_duration_since(then) <= DOUBLE_CLICK_INTERVAL
+                && (x - lx).abs() <= DOUBLE_CLICK_DISTANCE
+                && (y - ly).abs() <= DOUBLE_CLICK_DISTANCE
+        });
+        self.last = if double { None } else { Some((at, x, y)) };
+        double
+    }
+}
+
+/// Events the host posts to its own loop.
+enum HostEvent {
+    Accessibility(accesskit_winit::Event),
+    Wake,
+}
+
+impl From<accesskit_winit::Event> for HostEvent {
+    fn from(event: accesskit_winit::Event) -> Self {
+        Self::Accessibility(event)
+    }
+}
+
+struct WakerShared {
+    // Whether the proxy is `Sync` differs between winit platforms; the lock makes the
+    // handle `Sync` on all of them.
+    proxy: Mutex<EventLoopProxy<HostEvent>>,
+    pending: AtomicBool,
+}
+
+/// Thread-safe handle that makes the window loop update the application and redraw.
+/// Calls made before the loop has served the previous one are merged into it.
+#[derive(Clone)]
+pub struct NativeWaker {
+    shared: Arc<WakerShared>,
+}
+
+impl NativeWaker {
+    fn new(proxy: EventLoopProxy<HostEvent>) -> Self {
+        Self {
+            shared: Arc::new(WakerShared {
+                proxy: Mutex::new(proxy),
+                pending: AtomicBool::new(false),
+            }),
+        }
+    }
+
+    fn proxy(&self) -> EventLoopProxy<HostEvent> {
+        self.shared
+            .proxy
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    /// Asks the loop to call `NativeApp::update` and redraw. Returns `false` once the
+    /// loop has ended, so a worker can stop.
+    pub fn wake(&self) -> bool {
+        if !begin_wake(&self.shared.pending) {
+            return true;
+        }
+        let sent = self.proxy().send_event(HostEvent::Wake).is_ok();
+        if !sent {
+            self.shared.pending.store(false, Ordering::Release);
+        }
+        sent
+    }
+}
+
+/// Claims the pending wake; `false` means one is already queued and covers this call.
+fn begin_wake(pending: &AtomicBool) -> bool {
+    !pending.swap(true, Ordering::AcqRel)
+}
+
+/// Releases the pending wake before the update it stands for, so a result published
+/// during that update queues the next one.
+fn finish_wake(pending: &AtomicBool) {
+    pending.store(false, Ordering::Release);
 }
 
 impl NativeApp for crate::Runtime {
@@ -116,7 +304,14 @@ impl UiBackend {
     /// Resolves backend from CLI flags (`--backend egui|svet`, `--egui`, `--svet`) or `FORMA_BACKEND`.
     /// Returns `None` when interactive selection should be shown (`--ask` or `FORMA_BACKEND=ask`).
     pub fn resolve_from_env_and_args() -> Option<Self> {
-        let mut args = std::env::args().skip(1);
+        Self::resolve(
+            std::env::args().skip(1),
+            std::env::var("FORMA_BACKEND").ok().as_deref(),
+        )
+    }
+
+    fn resolve(args: impl IntoIterator<Item = String>, env: Option<&str>) -> Option<Self> {
+        let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--egui" | "--backend=egui" => return Some(Self::Egui),
@@ -135,14 +330,14 @@ impl UiBackend {
                 _ => {}
             }
         }
-        if let Ok(env_val) = std::env::var("FORMA_BACKEND") {
+        if let Some(env_val) = env {
             if matches!(
                 env_val.trim().to_ascii_lowercase().as_str(),
                 "ask" | "choose"
             ) {
                 return None;
             }
-            if let Some(parsed) = Self::from_arg(&env_val) {
+            if let Some(parsed) = Self::from_arg(env_val) {
                 return Some(parsed);
             }
         }
@@ -358,7 +553,14 @@ impl TargetPlatform {
     /// Resolves target platform from CLI flags (`--platform ios|android|desktop`, `--ios`, `--android`)
     /// or `FORMA_PLATFORM` environment variable.
     pub fn resolve_from_env_and_args() -> Self {
-        let mut args = std::env::args().skip(1);
+        Self::resolve(
+            std::env::args().skip(1),
+            std::env::var("FORMA_PLATFORM").ok().as_deref(),
+        )
+    }
+
+    fn resolve(args: impl IntoIterator<Item = String>, env: Option<&str>) -> Self {
+        let mut args = args.into_iter();
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--ios" | "--platform=ios" => return Self::Ios,
@@ -374,21 +576,21 @@ impl TargetPlatform {
                 _ => {}
             }
         }
-        if let Ok(env_val) = std::env::var("FORMA_PLATFORM") {
-            if let Some(parsed) = Self::from_arg(&env_val) {
+        if let Some(env_val) = env {
+            if let Some(parsed) = Self::from_arg(env_val) {
                 return parsed;
             }
         }
-        #[cfg(target_os = "ios")]
-        {
-            return Self::Ios;
-        }
-        #[cfg(target_os = "android")]
-        {
-            return Self::Android;
-        }
-        #[cfg(not(any(target_os = "ios", target_os = "android")))]
-        {
+        Self::compiled()
+    }
+
+    /// Platform of the compilation target, without consulting the process environment.
+    pub const fn compiled() -> Self {
+        if cfg!(target_os = "ios") {
+            Self::Ios
+        } else if cfg!(target_os = "android") {
+            Self::Android
+        } else {
             Self::Desktop
         }
     }
@@ -498,6 +700,19 @@ pub fn apply_mobile_chrome(
     }
 }
 
+/// Who the native window host serves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum HostMode {
+    /// Demo and probe behaviour: backend chooser when no backend is set, F6/F7 (and the
+    /// test-hook F8/F9) captured by the host, diagnostic title suffix, egui accent bar,
+    /// startup lines on stdout.
+    #[default]
+    Demo,
+    /// An embedding application owns the window: no chooser, no captured function keys,
+    /// the title exactly as configured, no accent bar, nothing printed on stdout.
+    Application,
+}
+
 /// Initial settings for a Forma native window.
 pub struct NativeWindowConfig {
     pub title: String,
@@ -506,6 +721,33 @@ pub struct NativeWindowConfig {
     pub resizable: bool,
     pub backend: Option<UiBackend>,
     pub platform: TargetPlatform,
+    pub mode: HostMode,
+}
+
+impl NativeWindowConfig {
+    /// Settings for an embedding application. Unlike `Default`, this reads neither
+    /// `std::env::args` nor the `FORMA_*` variables: Svet presentation on the platform
+    /// of the compilation target, 800x600, resizable, [`HostMode::Application`].
+    pub fn application(title: impl Into<String>) -> Self {
+        Self {
+            title: title.into(),
+            width: 800.,
+            height: 600.,
+            resizable: true,
+            backend: Some(UiBackend::Svet),
+            platform: TargetPlatform::compiled(),
+            mode: HostMode::Application,
+        }
+    }
+
+    /// Backend the host starts with. `None` shows the backend chooser, which only the
+    /// demo mode has: an application without an explicit backend gets Svet.
+    pub fn resolved_backend(&self) -> Option<UiBackend> {
+        match self.mode {
+            HostMode::Demo => self.backend,
+            HostMode::Application => Some(self.backend.unwrap_or(UiBackend::Svet)),
+        }
+    }
 }
 
 impl Default for NativeWindowConfig {
@@ -517,8 +759,75 @@ impl Default for NativeWindowConfig {
             resizable: true,
             backend: UiBackend::resolve_from_env_and_args(),
             platform: TargetPlatform::resolve_from_env_and_args(),
+            mode: HostMode::Demo,
         }
     }
+}
+
+/// Window title. An application gets its own title untouched; the demo appends the
+/// active backend, the emulated platform and the function-key hints.
+fn window_title(
+    mode: HostMode,
+    title: &str,
+    backend: Option<UiBackend>,
+    platform: TargetPlatform,
+    gpu_active: bool,
+) -> String {
+    if mode == HostMode::Application {
+        return title.to_owned();
+    }
+    let plat_suffix = if platform != TargetPlatform::Desktop {
+        format!(" · {}", platform.short_label())
+    } else {
+        String::new()
+    };
+    match backend {
+        Some(b) => format!(
+            "{} [{}{}] · F6: платформа · F7: бэкенд",
+            title,
+            if gpu_active && b == UiBackend::Svet && platform == TargetPlatform::Desktop {
+                "svet/GPU"
+            } else {
+                b.as_str()
+            },
+            plat_suffix
+        ),
+        None => format!("{title}{plat_suffix} · Выберите бэкенд: [1] egui / [2] svet"),
+    }
+}
+
+/// Function keys the demo host keeps for itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HostShortcut {
+    NextPlatform,
+    ToggleBackend,
+    InjectDeviceLoss,
+}
+
+/// Decides whether a key belongs to the host. In application mode none does, so every
+/// key reaches the application and the runtime.
+fn host_shortcut(
+    mode: HostMode,
+    key: &Key,
+    pressed: bool,
+    repeat: bool,
+    test_hooks: bool,
+) -> Option<HostShortcut> {
+    if mode == HostMode::Application || !pressed || repeat {
+        return None;
+    }
+    match key {
+        Key::Named(NamedKey::F6) => Some(HostShortcut::NextPlatform),
+        Key::Named(NamedKey::F7) => Some(HostShortcut::ToggleBackend),
+        Key::Named(NamedKey::F8) if test_hooks => Some(HostShortcut::InjectDeviceLoss),
+        _ => None,
+    }
+}
+
+/// The egui accent bar marks the demo's compatibility profile; an application frame
+/// is presented as painted.
+fn shows_frame_bar(mode: HostMode, backend: Option<UiBackend>) -> bool {
+    mode == HostMode::Demo && backend == Some(UiBackend::Egui)
 }
 
 #[derive(Clone)]
@@ -565,7 +874,7 @@ struct NativeHost<A: NativeApp + 'static> {
     platform: TargetPlatform,
     chooser: Option<crate::Runtime>,
     accessibility: Option<accesskit_winit::Adapter>,
-    accessibility_proxy: Option<winit::event_loop::EventLoopProxy<accesskit_winit::Event>>,
+    waker: Option<NativeWaker>,
     accessibility_active: bool,
     accessibility_ids: crate::native_accessibility::PublishedTree,
     window: Option<Arc<Window>>,
@@ -589,6 +898,7 @@ struct NativeHost<A: NativeApp + 'static> {
     ime_cancelled: bool,
     composition_owner: Option<(u64, i32)>,
     blurred_editor: Option<String>,
+    clicks: ClickTracker,
     last_frame: Instant,
 }
 
@@ -652,31 +962,38 @@ impl<A: NativeApp + 'static> NativeHost<A> {
 
     fn sync_window_title(&self) {
         if let Some(window) = &self.window {
-            let plat_suffix = if self.platform != TargetPlatform::Desktop {
-                format!(" · {}", self.platform.short_label())
-            } else {
-                String::new()
-            };
-            let title = match self.backend {
-                Some(b) => format!(
-                    "{} [{}{}] · F6: платформа · F7: бэкенд",
-                    self.config.title,
-                    if self.gpu.is_some()
-                        && b == UiBackend::Svet
-                        && self.platform == TargetPlatform::Desktop
-                    {
-                        "svet/GPU"
-                    } else {
-                        b.as_str()
-                    },
-                    plat_suffix
-                ),
-                None => format!(
-                    "{}{} · Выберите бэкенд: [1] egui / [2] svet",
-                    self.config.title, plat_suffix
-                ),
-            };
-            window.set_title(&title);
+            window.set_title(&window_title(
+                self.config.mode,
+                &self.config.title,
+                self.backend,
+                self.platform,
+                self.gpu.is_some(),
+            ));
+        }
+    }
+
+    /// Startup lines of the demo; an application owns its stdout.
+    fn announce_startup(&self) {
+        if self.config.mode == HostMode::Application {
+            return;
+        }
+        if self.platform != TargetPlatform::Desktop {
+            println!(
+                "Платформа Forma: {} ({}) · F6 — переключить на лету",
+                self.platform.as_str(),
+                self.platform.label()
+            );
+        }
+        if let Some(b) = self.backend {
+            println!(
+                "Запуск Forma на бэкенде: {} ({}) · F6: платформа · F7: бэкенд",
+                b.as_str(),
+                b.label()
+            );
+        } else {
+            println!(
+                "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F6: платформа, F7: бэкенд)"
+            );
         }
     }
 
@@ -826,7 +1143,7 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 .map_err(str::to_owned)?;
         } else {
             animating = paint_app(&self.app, &mut buffer, size.width, size.height, scale)?;
-            if self.backend == Some(UiBackend::Egui) {
+            if shows_frame_bar(self.config.mode, self.backend) {
                 apply_egui_frame_bar(&mut buffer, size.width, size.height);
             }
             apply_mobile_chrome(&mut buffer, size.width, size.height, scale, self.platform);
@@ -842,6 +1159,88 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             self.animation_at = Some(now + std::time::Duration::from_nanos(16_666_667));
         }
         Ok(())
+    }
+
+    /// A worker thread asked for an update: run it now, even while the window is
+    /// occluded and nothing is drawn. The demo's backend chooser precedes the
+    /// application, which is updated by the first frame after the choice.
+    fn woken(&mut self) -> Result<(), String> {
+        if let Some(waker) = &self.waker {
+            finish_wake(&waker.shared.pending);
+        }
+        if self.chooser.is_some() {
+            return Ok(());
+        }
+        self.app.update(&mut |_| {})?;
+        self.update_accessibility()?;
+        if self.window.is_some() {
+            self.update_ime()?;
+        }
+        Ok(())
+    }
+
+    fn modifiers(&self) -> NativeModifiers {
+        NativeModifiers {
+            shift: self.shift,
+            control: self.control,
+            alt: self.alt,
+            command: self.command,
+        }
+    }
+
+    /// Offers a key to the application ahead of the runtime; `true` means handled.
+    fn offer_key(
+        &mut self,
+        logical_key: &Key,
+        physical_key: &PhysicalKey,
+        text: Option<&str>,
+        pressed: bool,
+        repeat: bool,
+    ) -> Result<bool, String> {
+        let event = NativeKeyEvent {
+            logical_key,
+            physical_key,
+            text,
+            pressed,
+            repeat,
+            modifiers: self.modifiers(),
+            composing: self.composing,
+        };
+        self.app.on_key_event(&event)
+    }
+
+    fn pointer_event(&mut self, kind: NativePointerKind) -> Result<(), String> {
+        let (x, y) = self.pointer;
+        let event = NativePointerEvent {
+            kind,
+            x,
+            y,
+            modifiers: self.modifiers(),
+        };
+        self.app.on_pointer_event(&event)
+    }
+
+    /// Primary button on the application (not the chooser): the runtime gets the
+    /// press or release first, then a completed double click is reported.
+    fn primary_button(&mut self, pressed: bool, at: Instant) -> Result<(), String> {
+        let (x, y) = self.pointer;
+        let kind = if pressed { 1 } else { 2 };
+        self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, kind))?;
+        if pressed && self.clicks.press(at, x, y) {
+            self.pointer_event(NativePointerKind::DoubleClick)?;
+        }
+        Ok(())
+    }
+
+    /// Reports the window's content size to the application.
+    fn report_size(&mut self) -> Result<(), String> {
+        let Some(window) = &self.window else {
+            return Ok(());
+        };
+        let size = window.inner_size();
+        let scale = window.scale_factor() as f32;
+        let (width, height) = logical_size(size.width, size.height, scale);
+        self.app.on_resized(width, height, scale)
     }
 
     fn scheduled_redraw(&mut self, now: Instant) -> (bool, Option<Instant>) {
@@ -1160,25 +1559,34 @@ impl<A: NativeApp + 'static> NativeHost<A> {
 
     fn keyboard_input(&mut self, event: winit::event::KeyEvent) -> Result<(), String> {
         let pressed = event.state == ElementState::Pressed;
-        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F6) {
-            let next = self.platform.next();
-            self.select_platform(next);
-            return Ok(());
-        }
-        #[cfg(feature = "native-test-hooks")]
-        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F8) {
-            if let Some(gpu) = &self.gpu {
-                gpu.inject_device_loss_for_testing();
+        match host_shortcut(
+            self.config.mode,
+            &event.logical_key,
+            pressed,
+            event.repeat,
+            cfg!(feature = "native-test-hooks"),
+        ) {
+            Some(HostShortcut::NextPlatform) => {
+                let next = self.platform.next();
+                self.select_platform(next);
+                return Ok(());
             }
-            if let Some(window) = &self.window {
-                window.request_redraw();
+            Some(HostShortcut::ToggleBackend) => {
+                let next = self.backend.map_or(UiBackend::Svet, UiBackend::toggle);
+                self.select_backend(next);
+                return Ok(());
             }
-            return Ok(());
-        }
-        if pressed && !event.repeat && event.logical_key == Key::Named(NamedKey::F7) {
-            let next = self.backend.map_or(UiBackend::Svet, UiBackend::toggle);
-            self.select_backend(next);
-            return Ok(());
+            Some(HostShortcut::InjectDeviceLoss) => {
+                #[cfg(feature = "native-test-hooks")]
+                if let Some(gpu) = &self.gpu {
+                    gpu.inject_device_loss_for_testing();
+                }
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+                return Ok(());
+            }
+            None => {}
         }
         if let Some(chooser) = &mut self.chooser {
             if pressed && !event.repeat {
@@ -1217,6 +1625,15 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 };
                 self.select_backend(chosen);
             }
+            return Ok(());
+        }
+        if self.offer_key(
+            &event.logical_key,
+            &event.physical_key,
+            event.text.as_deref(),
+            pressed,
+            event.repeat,
+        )? {
             return Ok(());
         }
         let named = match &event.logical_key {
@@ -1332,11 +1749,14 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     fn event(&mut self, event: WindowEvent, event_loop: &ActiveEventLoop) -> Result<(), String> {
         match event {
             WindowEvent::CloseRequested => {
-                event_loop.exit();
-                return Ok(());
+                if self.app.on_close_requested()? {
+                    event_loop.exit();
+                    return Ok(());
+                }
             }
             WindowEvent::RedrawRequested => return self.draw(),
             WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                self.report_size()?;
                 if let Some(window) = &self.window {
                     window.request_redraw();
                 }
@@ -1368,7 +1788,8 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                 ..
             } => {
                 let (x, y) = self.pointer;
-                let kind = if state == ElementState::Pressed { 1 } else { 2 };
+                let pressed = state == ElementState::Pressed;
+                let kind = if pressed { 1 } else { 2 };
                 if let Some(chooser) = &mut self.chooser {
                     let before_clicks = chooser.clicks();
                     chooser.pointer(x, y, kind);
@@ -1381,7 +1802,13 @@ impl<A: NativeApp + 'static> NativeHost<A> {
                         self.select_backend(chosen);
                     }
                 } else {
-                    self.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, kind))?;
+                    self.primary_button(pressed, Instant::now())?;
+                }
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let kind = button_pointer_kind(button, state == ElementState::Pressed);
+                if let (Some(kind), None) = (kind, &self.chooser) {
+                    self.pointer_event(kind)?;
                 }
             }
             WindowEvent::MouseWheel { delta, .. } => {
@@ -1432,7 +1859,8 @@ impl<A: NativeApp + 'static> NativeHost<A> {
             WindowEvent::Ime(event) => self.ime_event(event)?,
             #[cfg(feature = "native-test-hooks")]
             WindowEvent::KeyboardInput { event, .. }
-                if event.logical_key == Key::Named(NamedKey::F9) =>
+                if self.config.mode == HostMode::Demo
+                    && event.logical_key == Key::Named(NamedKey::F9) =>
             {
                 if event.state == ElementState::Pressed && !event.repeat {
                     if let Some(gpu) = &self.gpu {
@@ -1467,8 +1895,22 @@ impl<A: NativeApp + 'static> NativeHost<A> {
     }
 }
 
-impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for NativeHost<A> {
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: accesskit_winit::Event) {
+impl<A: NativeApp + 'static> ApplicationHandler<HostEvent> for NativeHost<A> {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: HostEvent) {
+        let event = match event {
+            HostEvent::Accessibility(event) => event,
+            HostEvent::Wake => {
+                if let Err(error) = self.woken() {
+                    eprintln!("{error}");
+                    event_loop.exit();
+                    return;
+                }
+                if let Some(window) = &self.window {
+                    window.request_redraw();
+                }
+                return;
+            }
+        };
         if !self
             .window
             .as_ref()
@@ -1596,15 +2038,18 @@ impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for Nati
             let redraw = RedrawHandle::new(&window);
             self.app
                 .on_dirty(Box::new(move || redraw.request_redraw()))?;
+            if let Some(waker) = &self.waker {
+                self.app.on_waker(waker.clone())?;
+            }
             Ok((window, surface))
         };
         match setup() {
             Ok((window, surface)) => {
-                if let Some(proxy) = &self.accessibility_proxy {
+                if let Some(waker) = &self.waker {
                     self.accessibility = Some(accesskit_winit::Adapter::with_event_loop_proxy(
                         event_loop,
                         &window,
-                        proxy.clone(),
+                        waker.proxy(),
                     ));
                 }
                 window.set_visible(true);
@@ -1612,24 +2057,12 @@ impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for Nati
                 self.window = Some(window);
                 self.surface = Some(surface);
                 self.sync_window_title();
-                if self.platform != TargetPlatform::Desktop {
-                    println!(
-                        "Платформа Forma: {} ({}) · F6 — переключить на лету",
-                        self.platform.as_str(),
-                        self.platform.label()
-                    );
+                if let Err(error) = self.report_size() {
+                    eprintln!("{error}");
+                    event_loop.exit();
+                    return;
                 }
-                if let Some(b) = self.backend {
-                    println!(
-                        "Запуск Forma на бэкенде: {} ({}) · F6: платформа · F7: бэкенд",
-                        b.as_str(),
-                        b.label()
-                    );
-                } else {
-                    println!(
-                        "Выбор бэкенда запуска Forma: нажмите [1] egui или [2] svet в окне (или клавиши 1 / 2; F6: платформа, F7: бэкенд)"
-                    );
-                }
+                self.announce_startup();
             }
             Err(error) => {
                 eprintln!("{error}");
@@ -1666,17 +2099,17 @@ impl<A: NativeApp + 'static> ApplicationHandler<accesskit_winit::Event> for Nati
 
 /// Runs a Forma application with desktop Svet GPU presentation and CPU fallback.
 pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result<(), String> {
-    let backend = config.backend;
+    let backend = config.resolved_backend();
     let platform = config.platform;
     let chooser = if backend.is_none() {
         Some(build_chooser_runtime()?)
     } else {
         None
     };
-    let event_loop = EventLoop::<accesskit_winit::Event>::with_user_event()
+    let event_loop = EventLoop::<HostEvent>::with_user_event()
         .build()
         .map_err(|e| e.to_string())?;
-    let accessibility_proxy = event_loop.create_proxy();
+    let waker = NativeWaker::new(event_loop.create_proxy());
     event_loop.set_control_flow(ControlFlow::Wait);
     event_loop
         .run_app(&mut NativeHost {
@@ -1686,7 +2119,7 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
             platform,
             chooser,
             accessibility: None,
-            accessibility_proxy: Some(accessibility_proxy),
+            waker: Some(waker),
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -1710,6 +2143,7 @@ pub fn run<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> Result
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         })
         .map_err(|e| e.to_string())

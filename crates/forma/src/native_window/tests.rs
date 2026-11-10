@@ -13,7 +13,7 @@ fn touch_scroll_does_not_activate_the_pressed_control_on_release() {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -37,6 +37,7 @@ fn touch_scroll_does_not_activate_the_pressed_control_on_release() {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         let device = winit::event::DeviceId::dummy();
@@ -99,7 +100,7 @@ fn secondary_touches_cannot_steal_or_end_the_primary_gesture() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -123,6 +124,7 @@ fn secondary_touches_cannot_steal_or_end_the_primary_gesture() {
         ime_cancelled: false,
         composition_owner: None,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     let device = winit::event::DeviceId::dummy();
@@ -185,7 +187,7 @@ fn activation_focus_does_not_overwrite_new_pointer_selection() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -209,6 +211,7 @@ fn activation_focus_does_not_overwrite_new_pointer_selection() {
         ime_cancelled: false,
         composition_owner: None,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_changed(false).unwrap();
@@ -262,7 +265,7 @@ fn window_refocus_restores_stable_editor_key_after_reorder() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -286,6 +289,7 @@ fn window_refocus_restores_stable_editor_key_after_reorder() {
         ime_cancelled: false,
         composition_owner: None,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_changed(false).unwrap();
@@ -325,7 +329,7 @@ fn accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it() {
                     platform: TargetPlatform::Desktop,
                     chooser: None,
                     accessibility: None,
-                    accessibility_proxy: None,
+                    waker: None,
                     accessibility_active: false,
                     accessibility_ids: Default::default(),
                     window: None,
@@ -349,6 +353,7 @@ fn accessibility_mutations_cancel_same_editor_ime_but_refusals_preserve_it() {
                     ime_cancelled: false,
                     composition_owner: None,
                     blurred_editor: None,
+                    clicks: Default::default(),
                     last_frame: Instant::now(),
                 };
                 host.preedit_ime("未確定").unwrap();
@@ -431,7 +436,7 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -455,6 +460,7 @@ fn cancelled_composition_rejects_late_commits_until_a_new_preedit() {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.preedit_ime("未確定").unwrap();
@@ -526,7 +532,7 @@ fn empty_preedit_preserves_commit_address_across_runtime_replacement() {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -550,6 +556,7 @@ fn empty_preedit_preserves_commit_address_across_runtime_replacement() {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         let clean = host.app.pixels(640, 360, 1.);
@@ -595,7 +602,7 @@ fn ime_commit_checks_editor_owner_at_dispatch() {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -619,6 +626,7 @@ fn ime_commit_checks_editor_owner_at_dispatch() {
             ime_cancelled: false,
             composition_owner: owner,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         if replacement {
@@ -784,7 +792,7 @@ fn composition_reconciles_replacement_after_input_callback() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -808,6 +816,7 @@ fn composition_reconciles_replacement_after_input_callback() {
         ime_cancelled: false,
         composition_owner: owner,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_sensitive_input(&mut |_| {}).unwrap();
@@ -870,7 +879,7 @@ fn composition_retires_when_callback_replaces_editor_at_same_index() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -894,6 +903,7 @@ fn composition_retires_when_callback_replaces_editor_at_same_index() {
         ime_cancelled: false,
         composition_owner: None,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_sensitive_input(&mut |runtime| {
@@ -960,7 +970,7 @@ fn window_refocus_rejects_retired_or_ineligible_editor_keys() {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -984,6 +994,7 @@ fn window_refocus_rejects_retired_or_ineligible_editor_keys() {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         host.focus_changed(false).unwrap();
@@ -1026,7 +1037,7 @@ fn pointer_focus_switch_retires_composition_but_hover_preserves_it() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -1050,6 +1061,7 @@ fn pointer_focus_switch_retires_composition_but_hover_preserves_it() {
         ime_cancelled: false,
         composition_owner: None,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_sensitive_input(&mut |runtime| runtime.pointer(x, y, 0))
@@ -1105,7 +1117,7 @@ fn tab_and_escape_end_composition_without_committing_pending_text() {
             platform: TargetPlatform::Desktop,
             chooser: None,
             accessibility: None,
-            accessibility_proxy: None,
+            waker: None,
             accessibility_active: false,
             accessibility_ids: Default::default(),
             window: None,
@@ -1129,6 +1141,7 @@ fn tab_and_escape_end_composition_without_committing_pending_text() {
             ime_cancelled: false,
             composition_owner: None,
             blurred_editor: None,
+            clicks: Default::default(),
             last_frame: Instant::now(),
         };
         for (pressed, repeat) in [(false, false), (true, true)] {
@@ -1194,7 +1207,7 @@ fn focus_loss_clears_composition_and_modifiers_without_committing_preedit() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -1218,6 +1231,7 @@ fn focus_loss_clears_composition_and_modifiers_without_committing_preedit() {
         ime_cancelled: false,
         composition_owner: None,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     host.focus_changed(false).unwrap();
@@ -1253,7 +1267,7 @@ fn surface_backoff_and_occlusion_block_acquisition_until_ready() {
         platform: TargetPlatform::Desktop,
         chooser: None,
         accessibility: None,
-        accessibility_proxy: None,
+        waker: None,
         accessibility_active: false,
         accessibility_ids: Default::default(),
         window: None,
@@ -1277,6 +1291,7 @@ fn surface_backoff_and_occlusion_block_acquisition_until_ready() {
         ime_cancelled: false,
         composition_owner: None,
         blurred_editor: None,
+        clicks: Default::default(),
         last_frame: Instant::now(),
     };
     let deadline = Instant::now() + std::time::Duration::from_secs(30);
@@ -1341,6 +1356,498 @@ fn surface_backoff_and_occlusion_block_acquisition_until_ready() {
         (false, None),
         "completed queue must return to unbounded Wait"
     );
+}
+
+#[test]
+fn application_config_ignores_environment_and_never_asks_for_a_backend() {
+    // `application` takes nothing but the title, so no argument or variable can
+    // reach it; the demo resolvers below are the only readers of either.
+    let config = NativeWindowConfig::application("Shelf");
+    assert_eq!(config.title, "Shelf");
+    assert_eq!(config.mode, HostMode::Application);
+    assert_eq!(config.backend, Some(UiBackend::Svet));
+    assert_eq!(config.platform, TargetPlatform::compiled());
+    assert_eq!(config.resolved_backend(), Some(UiBackend::Svet));
+    assert_eq!(
+        (config.width, config.height, config.resizable),
+        (800., 600., true)
+    );
+
+    // The demo resolution keeps honouring the same arguments and variables.
+    let args = |list: &[&str]| list.iter().map(|arg| arg.to_string()).collect::<Vec<_>>();
+    assert_eq!(UiBackend::resolve(args(&[]), None), None);
+    assert_eq!(
+        UiBackend::resolve(args(&["--egui"]), Some("svet")),
+        Some(UiBackend::Egui)
+    );
+    assert_eq!(
+        UiBackend::resolve(args(&["-b", "svet"]), None),
+        Some(UiBackend::Svet)
+    );
+    assert_eq!(
+        UiBackend::resolve(args(&[]), Some("egui")),
+        Some(UiBackend::Egui)
+    );
+    assert_eq!(UiBackend::resolve(args(&["--ask"]), Some("egui")), None);
+    assert_eq!(UiBackend::resolve(args(&[]), Some("ask")), None);
+    assert_eq!(
+        TargetPlatform::resolve(args(&[]), None),
+        TargetPlatform::compiled()
+    );
+    assert_eq!(
+        TargetPlatform::resolve(args(&["--platform", "android"]), Some("ios")),
+        TargetPlatform::Android
+    );
+    assert_eq!(
+        TargetPlatform::resolve(args(&[]), Some("ios")),
+        TargetPlatform::Ios
+    );
+    assert_eq!(NativeWindowConfig::default().mode, HostMode::Demo);
+
+    // No backend means "show the chooser" for the demo only.
+    let unset = |mode| NativeWindowConfig {
+        backend: None,
+        mode,
+        ..NativeWindowConfig::application("Shelf")
+    };
+    assert_eq!(unset(HostMode::Demo).resolved_backend(), None);
+    assert_eq!(
+        unset(HostMode::Application).resolved_backend(),
+        Some(UiBackend::Svet)
+    );
+    let egui = NativeWindowConfig {
+        backend: Some(UiBackend::Egui),
+        ..NativeWindowConfig::application("Shelf")
+    };
+    assert_eq!(egui.resolved_backend(), Some(UiBackend::Egui));
+}
+
+#[test]
+fn application_title_is_verbatim_and_demo_title_keeps_its_suffix() {
+    for (backend, platform, gpu) in [
+        (Some(UiBackend::Svet), TargetPlatform::Desktop, true),
+        (Some(UiBackend::Egui), TargetPlatform::Ios, false),
+        (None, TargetPlatform::Android, false),
+    ] {
+        assert_eq!(
+            window_title(HostMode::Application, "Shelf", backend, platform, gpu),
+            "Shelf"
+        );
+    }
+    let demo =
+        |backend, platform, gpu| window_title(HostMode::Demo, "Forma", backend, platform, gpu);
+    assert_eq!(
+        demo(Some(UiBackend::Svet), TargetPlatform::Desktop, true),
+        "Forma [svet/GPU] · F6: платформа · F7: бэкенд"
+    );
+    assert_eq!(
+        demo(Some(UiBackend::Svet), TargetPlatform::Desktop, false),
+        "Forma [svet] · F6: платформа · F7: бэкенд"
+    );
+    assert_eq!(
+        demo(Some(UiBackend::Svet), TargetPlatform::Ios, true),
+        "Forma [svet · iOS] · F6: платформа · F7: бэкенд"
+    );
+    assert_eq!(
+        demo(Some(UiBackend::Egui), TargetPlatform::Desktop, true),
+        "Forma [egui] · F6: платформа · F7: бэкенд"
+    );
+    assert_eq!(
+        demo(None, TargetPlatform::Android, false),
+        "Forma · Android · Выберите бэкенд: [1] egui / [2] svet"
+    );
+}
+
+#[test]
+fn function_keys_belong_to_the_demo_host_only() {
+    let key = |named| Key::Named(named);
+    let demo = |named, pressed, repeat, hooks| {
+        host_shortcut(HostMode::Demo, &key(named), pressed, repeat, hooks)
+    };
+    assert_eq!(
+        demo(NamedKey::F6, true, false, false),
+        Some(HostShortcut::NextPlatform)
+    );
+    assert_eq!(
+        demo(NamedKey::F7, true, false, false),
+        Some(HostShortcut::ToggleBackend)
+    );
+    assert_eq!(demo(NamedKey::F8, true, false, false), None);
+    assert_eq!(
+        demo(NamedKey::F8, true, false, true),
+        Some(HostShortcut::InjectDeviceLoss)
+    );
+    // Releases, repeats and other keys were never captured.
+    assert_eq!(demo(NamedKey::F6, false, false, true), None);
+    assert_eq!(demo(NamedKey::F7, true, true, true), None);
+    assert_eq!(demo(NamedKey::F5, true, false, true), None);
+
+    for named in [NamedKey::F6, NamedKey::F7, NamedKey::F8] {
+        assert_eq!(
+            host_shortcut(HostMode::Application, &key(named), true, false, true),
+            None,
+            "{named:?} must reach the application"
+        );
+    }
+}
+
+#[test]
+fn accent_bar_is_painted_for_the_demo_egui_profile_only() {
+    assert!(shows_frame_bar(HostMode::Demo, Some(UiBackend::Egui)));
+    assert!(!shows_frame_bar(HostMode::Demo, Some(UiBackend::Svet)));
+    assert!(!shows_frame_bar(HostMode::Demo, None));
+    assert!(!shows_frame_bar(
+        HostMode::Application,
+        Some(UiBackend::Egui)
+    ));
+    assert!(!shows_frame_bar(
+        HostMode::Application,
+        Some(UiBackend::Svet)
+    ));
+}
+
+/// Host without a window, as the loop builds it before `resumed`.
+fn windowless_host<A: NativeApp + 'static>(app: A, config: NativeWindowConfig) -> NativeHost<A> {
+    NativeHost {
+        app,
+        backend: config.resolved_backend(),
+        platform: config.platform,
+        config,
+        chooser: None,
+        accessibility: None,
+        waker: None,
+        accessibility_active: false,
+        accessibility_ids: Default::default(),
+        window: None,
+        surface: None,
+        gpu: None,
+        gpu_attempted: false,
+        retry_at: None,
+        gpu_health_at: None,
+        #[cfg(feature = "native-test-hooks")]
+        idle_loss_for_test: false,
+        occluded: false,
+        animation_at: None,
+        pointer: (0., 0.),
+        touch_last: None,
+        touch_owner: None,
+        shift: false,
+        command: false,
+        control: false,
+        alt: false,
+        composing: false,
+        ime_cancelled: false,
+        composition_owner: None,
+        blurred_editor: None,
+        clicks: Default::default(),
+        last_frame: Instant::now(),
+    }
+}
+
+/// Application that counts what the host asks of it.
+struct Recorder {
+    runtime: crate::Runtime,
+    updates: u32,
+    /// Keys seen, as (logical key, pressed, modifiers, composing).
+    keys: Vec<(Key, bool, NativeModifiers, bool)>,
+    /// The application's shortcut: command+K is handled, everything else is not.
+    shortcut_hits: u32,
+    pointer: Vec<NativePointerEvent>,
+    sizes: Vec<(f32, f32, f32)>,
+    unsaved: bool,
+}
+
+impl Recorder {
+    fn new() -> Self {
+        Self::with_runtime(crate::Runtime::new())
+    }
+
+    fn with_runtime(runtime: crate::Runtime) -> Self {
+        Self {
+            runtime,
+            updates: 0,
+            keys: Vec::new(),
+            shortcut_hits: 0,
+            pointer: Vec::new(),
+            sizes: Vec::new(),
+            unsaved: false,
+        }
+    }
+}
+
+impl NativeApp for Recorder {
+    fn update(&mut self, input: &mut dyn FnMut(&mut crate::Runtime)) -> Result<(), String> {
+        self.updates += 1;
+        input(&mut self.runtime);
+        Ok(())
+    }
+
+    fn inspect(&self, observer: &mut dyn FnMut(&crate::Runtime)) -> Result<(), String> {
+        observer(&self.runtime);
+        Ok(())
+    }
+
+    fn on_key_event(&mut self, event: &NativeKeyEvent<'_>) -> Result<bool, String> {
+        self.keys.push((
+            event.logical_key.clone(),
+            event.pressed,
+            event.modifiers,
+            event.composing,
+        ));
+        let shortcut = event.pressed
+            && event.modifiers.command
+            && matches!(event.logical_key, Key::Character(c) if c.as_str() == "k");
+        self.shortcut_hits += u32::from(shortcut);
+        Ok(shortcut)
+    }
+
+    fn on_resized(&mut self, width: f32, height: f32, scale: f32) -> Result<(), String> {
+        self.sizes.push((width, height, scale));
+        Ok(())
+    }
+
+    fn on_close_requested(&mut self) -> Result<bool, String> {
+        Ok(!self.unsaved)
+    }
+
+    fn on_pointer_event(&mut self, event: &NativePointerEvent) -> Result<(), String> {
+        self.pointer.push(*event);
+        Ok(())
+    }
+}
+
+#[test]
+fn default_hooks_leave_existing_applications_unchanged() {
+    // `Runtime` implements only `update` and `inspect`, like any earlier implementor.
+    let mut app = crate::Runtime::new();
+    let key = Key::Named(NamedKey::F6);
+    let physical = PhysicalKey::Code(winit::keyboard::KeyCode::F6);
+    let event = NativeKeyEvent {
+        logical_key: &key,
+        physical_key: &physical,
+        text: None,
+        pressed: true,
+        repeat: false,
+        modifiers: NativeModifiers::default(),
+        composing: false,
+    };
+    assert_eq!(
+        app.on_key_event(&event),
+        Ok(false),
+        "keys go on to the runtime"
+    );
+    assert_eq!(app.on_close_requested(), Ok(true), "the window closes");
+    assert_eq!(app.on_resized(640., 480., 2.), Ok(()));
+    let pointer = NativePointerEvent {
+        kind: NativePointerKind::DoubleClick,
+        x: 1.,
+        y: 2.,
+        modifiers: NativeModifiers::default(),
+    };
+    assert_eq!(app.on_pointer_event(&pointer), Ok(()));
+}
+
+#[test]
+fn application_sees_keys_first_and_decides_whether_the_runtime_gets_them() {
+    let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+    let physical = PhysicalKey::Code(winit::keyboard::KeyCode::KeyK);
+    let k = Key::Character("k".into());
+
+    // Unhandled: the host goes on to the runtime.
+    assert_eq!(
+        host.offer_key(&k, &physical, Some("k"), true, false),
+        Ok(false)
+    );
+
+    host.command = true;
+    host.shift = true;
+    host.composing = true;
+    assert_eq!(host.offer_key(&k, &physical, None, true, false), Ok(true));
+    assert_eq!(host.offer_key(&k, &physical, None, false, false), Ok(false));
+    assert_eq!(host.app.shortcut_hits, 1);
+
+    // A function key the demo would capture is an ordinary key here.
+    let f7 = Key::Named(NamedKey::F7);
+    assert_eq!(
+        host_shortcut(host.config.mode, &f7, true, false, true),
+        None
+    );
+    let physical = PhysicalKey::Code(winit::keyboard::KeyCode::F7);
+    assert_eq!(host.offer_key(&f7, &physical, None, true, false), Ok(false));
+
+    let held = NativeModifiers {
+        shift: true,
+        control: false,
+        alt: false,
+        command: true,
+    };
+    assert_eq!(
+        host.app.keys,
+        vec![
+            (k.clone(), true, NativeModifiers::default(), false),
+            (k.clone(), true, held, true),
+            (k, false, held, true),
+            (f7, true, held, true),
+        ]
+    );
+    assert_eq!(host.app.updates, 0, "offering a key dispatches nothing");
+}
+
+#[test]
+fn close_request_can_be_vetoed_by_the_application() {
+    let mut app = Recorder::new();
+    assert_eq!(app.on_close_requested(), Ok(true));
+    app.unsaved = true;
+    assert_eq!(app.on_close_requested(), Ok(false));
+}
+
+#[test]
+fn secondary_and_middle_buttons_reach_the_application_with_position() {
+    assert_eq!(
+        button_pointer_kind(MouseButton::Right, true),
+        Some(NativePointerKind::Secondary { pressed: true })
+    );
+    assert_eq!(
+        button_pointer_kind(MouseButton::Middle, false),
+        Some(NativePointerKind::Middle { pressed: false })
+    );
+    for button in [
+        MouseButton::Left,
+        MouseButton::Back,
+        MouseButton::Forward,
+        MouseButton::Other(9),
+    ] {
+        assert_eq!(button_pointer_kind(button, true), None);
+    }
+
+    let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+    host.pointer = (12., 34.);
+    host.alt = true;
+    host.pointer_event(NativePointerKind::Secondary { pressed: true })
+        .unwrap();
+    assert_eq!(
+        host.app.pointer,
+        vec![NativePointerEvent {
+            kind: NativePointerKind::Secondary { pressed: true },
+            x: 12.,
+            y: 34.,
+            modifiers: NativeModifiers {
+                alt: true,
+                ..Default::default()
+            },
+        }]
+    );
+    assert_eq!(host.app.updates, 0, "the runtime receives no pointer input");
+}
+
+#[test]
+fn double_click_needs_two_close_presses_in_time_and_space() {
+    let start = Instant::now();
+    let ms = |n| start + std::time::Duration::from_millis(n);
+    let mut clicks = ClickTracker::default();
+    assert!(!clicks.press(ms(0), 10., 10.));
+    assert!(clicks.press(ms(200), 12., 9.));
+    assert!(
+        !clicks.press(ms(300), 12., 9.),
+        "a third press starts a new pair"
+    );
+    assert!(clicks.press(ms(500), 12., 9.));
+
+    assert!(!clicks.press(ms(1000), 10., 10.));
+    assert!(!clicks.press(ms(1501), 10., 10.), "too slow");
+    assert!(!clicks.press(ms(1600), 30., 10.), "too far");
+    assert!(
+        clicks.press(ms(2100), 30., 10.),
+        "the interval is inclusive"
+    );
+}
+
+#[test]
+fn primary_double_click_is_reported_after_the_runtime_got_both_presses() {
+    let runtime = crate::Runtime::from_source(
+        "component Demo { Frame { width:200; height:100; Button { key:'open'; width:180; height:60; } } }",
+    )
+    .unwrap();
+    let b = runtime.control_bounds(0);
+    let mut host = windowless_host(
+        Recorder::with_runtime(runtime),
+        NativeWindowConfig::application("Shelf"),
+    );
+    host.pointer = (b[0] + 20., b[1] + 20.);
+    let start = Instant::now();
+    let ms = |n| start + std::time::Duration::from_millis(n);
+
+    host.primary_button(true, ms(0)).unwrap();
+    host.primary_button(false, ms(50)).unwrap();
+    assert!(
+        host.app.pointer.is_empty(),
+        "a single click is the runtime's"
+    );
+    assert_eq!(host.app.runtime.control_clicks(0), 1);
+
+    host.primary_button(true, ms(150)).unwrap();
+    assert_eq!(host.app.pointer.len(), 1);
+    assert_eq!(host.app.pointer[0].kind, NativePointerKind::DoubleClick);
+    assert_eq!((host.app.pointer[0].x, host.app.pointer[0].y), host.pointer);
+    host.primary_button(false, ms(200)).unwrap();
+    assert_eq!(
+        host.app.runtime.control_clicks(0),
+        2,
+        "the runtime still receives every press and release"
+    );
+    assert_eq!(host.app.pointer.len(), 1, "releases report nothing");
+}
+
+#[test]
+fn resize_reports_logical_size_and_scale() {
+    assert_eq!(logical_size(1600, 1200, 2.), (800., 600.));
+    assert_eq!(logical_size(801, 600, 1.), (801., 600.));
+    assert_eq!(logical_size(0, 0, 1.5), (0., 0.));
+    assert_eq!(logical_size(300, 150, 0.), (300., 150.), "a bad scale is 1");
+
+    // Without a window there is no size to report.
+    let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+    host.report_size().unwrap();
+    assert!(host.app.sizes.is_empty());
+}
+
+#[test]
+fn wake_updates_the_application_even_when_nothing_is_drawn() {
+    let mut host = windowless_host(Recorder::new(), NativeWindowConfig::application("Shelf"));
+    host.occluded = true;
+    host.woken().unwrap();
+    host.woken().unwrap();
+    assert_eq!(host.app.updates, 2, "one update per served wake");
+
+    // The demo chooser precedes the application: it is not updated behind it.
+    host.chooser = Some(build_chooser_runtime().unwrap());
+    host.woken().unwrap();
+    assert_eq!(host.app.updates, 2);
+}
+
+#[test]
+fn default_waker_hook_accepts_and_drops_the_handle() {
+    // Compiles only while `on_waker` keeps a default body for existing implementors.
+    fn hook<A: NativeApp>(app: &A, waker: NativeWaker) -> Result<(), String> {
+        app.on_waker(waker)
+    }
+    let _ = hook::<Recorder>;
+}
+
+#[test]
+fn waker_is_a_cloneable_cross_thread_handle() {
+    fn assert_handle<T: Send + Sync + Clone + 'static>() {}
+    assert_handle::<NativeWaker>();
+}
+
+#[test]
+fn wakes_merge_until_the_loop_serves_them() {
+    let pending = AtomicBool::new(false);
+    assert!(begin_wake(&pending), "first wake posts an event");
+    assert!(!begin_wake(&pending), "a queued wake covers later calls");
+    assert!(!begin_wake(&pending));
+    finish_wake(&pending);
+    assert!(begin_wake(&pending), "a wake after service posts again");
 }
 
 #[test]
