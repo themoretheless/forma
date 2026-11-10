@@ -59,3 +59,12 @@
 - Миграция: `prepare(budget, vertices, p, textures, alpha, double_sided, clockwise, cancelled)` →
   `prepare(budget, vertices, p, textures, MaterialRaster { alpha, double_sided, clockwise }, cancelled)`.
   Внутри репозитория вызовов вне тестов `gpu-kit` нет; внешние потребители (код из rrrah) правятся так же.
+
+## 7. Полужирное начертание и отрезки текста
+
+- `text::FontFamily` получил вариант `SansBold`, `template::Template` — поле `links`
+  (`Vec<TextLink>`), `text::font_face(4)` теперь возвращает Ubuntu Bold, а не `None`.
+- Затронуто: внешний код с исчерпывающим `match` по `FontFamily` и с литералами `Template { .. }`.
+- Миграция: добавить ветку `FontFamily::SansBold` (полужирный Ubuntu) и `links: Vec::new()`.
+  Встроенный `Text` сцены теперь принимает `fontFamily`, `fontWeight` и `runs`; прежние сцены
+  компилируются в те же байты.

@@ -91,6 +91,47 @@ for event in runtime.take_canvas_events() { /* event.local, event.content */ }
   графа рассчитан GPU-путь.
 - WASM-экспорт пока не добавлен.
 
+## Стилизованный текст
+
+Встроены три начертания: Ubuntu Light (по умолчанию), Ubuntu Bold
+(`fontWeight: 'bold'`) и IBM Plex Mono (`fontFamily: 'mono'`). Ubuntu Bold
+добавил к бинарнику 331 612 байт; происхождение и лицензия —
+`assets/bold/README.md`.
+
+`Text { runs: [...] }` (синтаксис — [LANGUAGE.md](../../LANGUAGE.md)) собирает
+абзац из отрезков: у каждого свой цвет, начертание, моноширинность, фон и
+`link`. Раскладка — `text::layout_runs` (ширины точно равны
+`measure_text_in` каждого фрагмента, перенос по пробелам через границы
+отрезков). Компилятор превращает каждый фрагмент в обычный `ContentText`, фон —
+в `ContentShape`, ссылку — в невидимую область `ContentLink`, поэтому CPU и GPU
+рисуют отрезки тем же кодом, что и обычный текст.
+
+Из Rust значение `runs` строится так и передаётся состоянием:
+
+```rust
+use forma::form_document::{Properties, TextRun, TextRuns};
+let runs = TextRuns::new()
+    .text("Найдено в ")
+    .bold("wiki.md")
+    .run(TextRun::new(" fn main").mono().background("#202020"))
+    .link(" открыть", "open:42");
+runtime.set_ui_state_properties(&Properties::from([("snippet".into(), runs.into_value())]))?;
+for event in runtime.take_text_link_events() { /* event.key, event.link */ }
+```
+
+- Ссылка срабатывает, когда нажатие и отпускание указателя пришлись на один и
+  тот же фрагмент ссылки (`pointer`, общий путь native и WASM).
+  `text_link_at(x, y)` возвращает идентификатор под точкой (например, для
+  курсора). Очередь ограничена `MAX_TEXT_LINK_EVENTS`, лишнее считает
+  `text_link_events_dropped`.
+- Ссылки не делают `Text` фокусируемым и не дают `clicked`: с клавиатуры их не
+  активировать, Tab их пропускает.
+- Метка доступности `Text` с `runs` — склеенный текст отрезков.
+- Не сделано: размер шрифта на отрезок, полужирный моноширинный, выравнивание
+  базовых линий разных шрифтов в одной строке (каждый фрагмент центрируется по
+  метрикам своего шрифта, расхождение до 1 px), WASM-экспорт очереди ссылок и
+  поддержка `runs` в JS-компиляторе Studio.
+
 Ниже сохранено описание исходного одноконтрольного среза; сведения о его
 ограничении одной кнопкой и только CPU устарели. Текущий backend — WebGPU/native
 wgpu с CPU fallback.
@@ -176,7 +217,7 @@ npm run dev
 Результат — `public/vector-pkg/forma.js` и `public/vector-pkg/forma_bg.wasm`.
 Открыть `/vector.html`. wasm-bindgen CLI должен быть версии 0.2.125, как зависимость ядра.
 
-Текст Button рисуется из контуров встроенного Ubuntu-Light.ttf собственным scanline-растеризатором; ttf-parser только читает шрифт. Лицензия шрифта — assets/UFL.txt. Поддержаны Latin/Cyrillic без сложного shaping/kerning. Нет TextInput/IME, полноценного accessibility и дерева фокуса. Native проверен сборкой на macOS; другие ОС не проверены. Снимки запуска в .forma/vector-* сохраняются для диагностики.
+Текст Button рисуется из контуров встроенного Ubuntu-Light.ttf собственным scanline-растеризатором; ttf-parser только читает шрифт. Лицензия шрифта — assets/UFL.txt (Ubuntu Bold — та же, см. assets/bold). Поддержаны Latin/Cyrillic без сложного shaping/kerning. Нет TextInput/IME, полноценного accessibility и дерева фокуса. Native проверен сборкой на macOS; другие ОС не проверены. Снимки запуска в .forma/vector-* сохраняются для диагностики.
 # Свойства компонента
 
 В `examples/Button.component.ui` значения по умолчанию объявлены в начале
