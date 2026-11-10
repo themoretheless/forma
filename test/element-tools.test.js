@@ -197,7 +197,7 @@ test('drag uses logical coordinates at 200%, commits once on release, Escape can
   assert.equal(t.commits.length, 0);
   t.viewport.emit('pointerup', { pointerId: 1 });
   assert.equal(t.commits.length, 1);
-  let n = parse(t.source()).nodes[0].children[0];
+  const n = parse(t.source()).nodes[0].children[0];
   assert.equal(n.props.x, 30);
   assert.equal(n.props.y, 30);
   t.down();

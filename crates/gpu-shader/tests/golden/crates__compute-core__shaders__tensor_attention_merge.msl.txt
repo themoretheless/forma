@@ -1,0 +1,160 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+constant uint WG = 64;
+
+kernel void _wgpu_entry_main(uint3 lid [[thread_position_in_threadgroup]], uint3 wid [[threadgroup_position_in_grid]], const device uint* params [[buffer(0)]], const device float2* states [[buffer(1)]], const device float* values [[buffer(2)]], device float* output [[buffer(3)]]) {
+    threadgroup float scratch[64];
+    threadgroup float weights[64];
+
+    auto work = wid.x;
+    while (work < params[4]) {
+        const auto row = work / params[3];
+        const auto channel = (work % params[3]) * WG + lid.x;
+        auto state = float2(0.0);
+        auto maximum = -MAX_F32;
+        if (lid.x < params[1]) {
+            state = states[row * params[1] + lid.x];
+            if (state.y > 0.0) { maximum = state.x; }
+        }
+        scratch[lid.x] = maximum;
+        for (auto step = WG / 2u; step > 0u; step /= 2u) {
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            if (lid.x < step) { scratch[lid.x] = max(scratch[lid.x], scratch[lid.x + step]); }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        maximum = scratch[0];
+        auto weight = 0.0;
+        if (state.y > 0.0) { weight = state.y * shifted_exp(state.x, maximum); }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        weights[lid.x] = weight;
+        scratch[lid.x] = weight;
+        for (auto step = WG / 2u; step > 0u; step /= 2u) {
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            if (lid.x < step) { scratch[lid.x] += scratch[lid.x + step]; }
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        const auto denominator = scratch[0];
+        if (channel < params[2]) {
+            auto result = 0.0;
+            if (denominator > 0.0) {
+                _wgpu_arr<float, WG> cached = {};
+                auto scale = 0.0;
+                for (auto part = 0u; part < params[1]; part++) {
+                    cached[part] = 0.0;
+                    if (weights[part] > 0.0) {
+                        cached[part] = values[(row * params[1] + part) * params[2] + channel];
+                        scale = max(scale, abs(cached[part]));
+                    }
+                }
+                if (scale > 0.0) {
+                    auto normalized = 0.0;
+                    for (auto part = 0u; part < params[1]; part++) {
+                        normalized += (weights[part] / denominator) * unit_ratio(cached[part], scale);
+                    }
+                    result = clamp(normalized, -1.0, 1.0) * scale;
+                }
+            }
+            output[params[6] + row * params[2] + channel] = result;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (params[5] >= params[4] - work) { break; }
+        work += params[5];
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "output": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "params": (
+            0,
+            0,
+            4,
+            0,
+        ),
+        "states": (
+            1,
+            0,
+            8,
+            1,
+        ),
+        "values": (
+            2,
+            0,
+            4,
+            2,
+        ),
+    },
+}

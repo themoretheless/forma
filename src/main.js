@@ -48,22 +48,11 @@ import './property-inspector.css';
 import './states-panel.css';
 import { createControlTree } from './control-tree.js';
 import { createStatesPanel } from './states-panel.js';
-import {
-  designStatesSummary,
-  findEntry,
-  stateCreateEdit,
-  stateDeleteEdit,
-  statePropertyEdit,
-  stateRenameEdit,
-} from './design-states.js';
-import {
-  copyElement,
-  extractElement,
-  insertElement,
-  moveAmongSiblings,
-  moveIntoContainer,
-  removeElement,
-} from './element-edit.js';
+import { workspaceSaveStatus } from './workspace-save.js';
+import { DEFAULT_BACKEND, DEFAULT_PLATFORM, isBackend, isPlatform } from '../protocol/enums.js';
+import { escapeHtml as esc, parentDirOf, countLines } from './shared/text.js';
+import { findEntry, stateCreateEdit, stateDeleteEdit, stateRenameEdit } from './design-states.js';
+import { extractElement, moveAmongSiblings, moveIntoContainer } from './element-edit.js';
 import { restoreSelection, selectionIdentities } from './selection-restore.js';
 import { findNodeByStart } from './element-tree.js';
 import { mountEditor } from './editor.js';
@@ -147,16 +136,10 @@ if (isSampleWorkspace) {
   files['components/TextInput.ui'] ??= sampleProject['components/TextInput.ui'];
   files['ui/TwoButtons.ui'] ??= sampleProject['ui/TwoButtons.ui'];
 }
-let appBackend = ['egui', 'svet', 'ask'].includes(
-  readStorage('localStorage', storageKey('forma-backend')),
-)
-  ? readStorage('localStorage', storageKey('forma-backend'))
-  : 'svet';
-let appPlatform = ['desktop', 'ios', 'android'].includes(
-  readStorage('localStorage', storageKey('forma-platform')),
-)
-  ? readStorage('localStorage', storageKey('forma-platform'))
-  : 'desktop';
+const storedBackend = readStorage('localStorage', storageKey('forma-backend'));
+let appBackend = isBackend(storedBackend) ? storedBackend : DEFAULT_BACKEND;
+const storedPlatform = readStorage('localStorage', storageKey('forma-platform'));
+let appPlatform = isPlatform(storedPlatform) ? storedPlatform : DEFAULT_PLATFORM;
 files['Cargo.toml'] ??=
   `[package]\nname = "forma-preview-app"\nversion = "0.1.0"\nedition = "2021"\n`;
 files['src/main.rs'] ??=
@@ -243,9 +226,6 @@ document.querySelector('#app').innerHTML = `
 <section class="bottom"><div class="bottom-tabs"><button data-tab="problems" class="chosen">Диагностика <span id="problem-count">0</span></button><button data-tab="events">События <span id="event-count">0</span></button><button data-tab="state">Состояние</button><div class="debug-controls"><label><input type="checkbox" id="break"> Break on event</label><button id="continue" disabled>▶ Продолжить</button><button id="reset">↺ Сброс</button></div></div><div id="output"></div></section></main>
 <aside class="inspector"><div class="section-title">ИНСПЕКТОР</div><div id="inspector"><div class="empty-icon">⌖</div><p>Выберите компонент</p><small>Свойства и привязки появятся здесь</small></div><div class="debug-info"><span>UI DEBUGGER</span><p id="debug-status">Готов</p><small>События и состояние дизайн-runtime.<br>Rust / DAP не подключён.</small></div></aside></div>
 <footer><span class="dot"></span><span id="status">Готов</span><span class="footer-right">Forma UI · UTF-8 <span id="position">Ln 1, Col 1</span></span></footer><input type="file" id="upload" accept=".json" hidden>`;
-const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-const ESC_RE = /[&<>"']/g;
-const esc = s => String(s ?? '').replace(ESC_RE, c => ESC_MAP[c]);
 // Recovery data is downloadable without parsing or executing its contents.
 {
   const key = storageKey('forma-project');
@@ -318,8 +298,14 @@ function persist() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: files[active] }),
       })
-        .then(() => saveStatus('saved', 'Сохранено (open-scad-viewer)'))
-        .catch(() => saveStatus('saved', 'Сохранено'));
+        .then(
+          response => response,
+          error => error,
+        )
+        .then(outcome => {
+          const { status, text } = workspaceSaveStatus(outcome, 'open-scad-viewer');
+          saveStatus(status, text);
+        });
       return;
     }
     if (directoryHandle) {
@@ -345,10 +331,6 @@ function selectTreeRow(targetPath) {
     const p = b.dataset.path ?? b.dataset.folder;
     b.classList.toggle('active', p === selectedTreeItem);
   }
-}
-function parentDirOf(path = '') {
-  const idx = path.lastIndexOf('/');
-  return idx >= 0 ? path.slice(0, idx) : '';
 }
 function selectedTargetDir() {
   if (!selectedTreeItem) return '';
@@ -674,11 +656,6 @@ function open(path) {
   tree();
   refreshControlTree();
   refreshStatesPanel();
-}
-function countLines(text, end = text.length) {
-  let n = 1;
-  for (let i = 0; i < end; i++) if (text.charCodeAt(i) === 10) n++;
-  return n;
 }
 function lines() {
   if (codeEditor) {
@@ -2492,7 +2469,7 @@ const ideCommand = createIdeCommands({
     return appBackend;
   },
   set backend(v) {
-    if (['egui', 'svet', 'ask'].includes(v)) {
+    if (isBackend(v)) {
       appBackend = v;
       if (backendPicker) backendPicker.value = v;
       writeStorage('localStorage', storageKey('forma-backend'), v);
@@ -2503,7 +2480,7 @@ const ideCommand = createIdeCommands({
     return appPlatform;
   },
   set platform(v) {
-    if (['desktop', 'ios', 'android'].includes(v)) {
+    if (isPlatform(v)) {
       appPlatform = v;
       if (platformPicker) platformPicker.value = v;
       writeStorage('localStorage', storageKey('forma-platform'), v);

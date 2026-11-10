@@ -1,0 +1,146 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+uint update_bits(uint _wgpu_ident_address);
+uint scatter_dtype();
+void replace_value(uint _wgpu_ident_address, uint update);
+uint fold_bits(uint a, uint b);
+void accumulate(uint _wgpu_ident_address, uint update);
+
+uint update_bits(uint _wgpu_ident_address) {
+
+    return (updates[_wgpu_ident_address/2u]>>((_wgpu_ident_address&1u)*16u))&65535u;
+}
+
+uint scatter_dtype() {
+ return p[9u+p[1]*5u]; }
+
+void replace_value(uint _wgpu_ident_address, uint update) {
+
+    if (!PACKED_OUTPUT) {
+        atomic_store_explicit(&output[_wgpu_ident_address], low_decode(update, scatter_dtype()), memory_order_relaxed);
+        return;
+    }
+    const auto shift = (_wgpu_ident_address&1u)*16u;
+    const auto mask = 65535u<<shift;
+    auto old = atomic_load_explicit(&output[_wgpu_ident_address/2u], memory_order_relaxed);
+    while (true) {
+
+        const auto attempt = _wgpu_atomic_compare_exchange_weak(&output[_wgpu_ident_address/2u], old, (old&~mask)|(update<<shift));
+        if (attempt.exchanged) { break; }
+        old=attempt.old_value;
+    }
+}
+
+uint fold_bits(uint a, uint b) {
+
+    switch (p[8]) {
+case 1u:
+{
+ return as_type<uint>(as_type<float>(a)+as_type<float>(b)); 
+break;
+}
+case 2u:
+{
+ return as_type<uint>(as_type<float>(a)*as_type<float>(b)); 
+break;
+}
+case 3u:
+{
+ return float_bits_min(a, b); 
+break;
+}
+default: {
+ return float_bits_max(a, b); 
+break;
+}
+}
+}
+
+void accumulate(uint _wgpu_ident_address, uint update) {
+
+    const auto decoded = low_decode(update, scatter_dtype());
+    if (PACKED_OUTPUT) {
+                                                                              
+                                                                              
+        const auto shift = (_wgpu_ident_address&1u)*16u;
+        const auto mask = 65535u<<shift;
+        auto old = atomic_load_explicit(&output[_wgpu_ident_address/2u], memory_order_relaxed);
+        while (true) {
+
+            const auto original = (old>>shift)&65535u;
+            const auto bits = low_decode(original, scatter_dtype());
+            const auto choose_update = select(float_bits_key(decoded)>float_bits_key(bits), float_bits_key(decoded)<float_bits_key(bits), p[8]==3u);
+            const auto result = select(original, update, choose_update);
+                                                                            
+                                                                          
+                                                                              
+            if (result==original) { return; }
+            const auto attempt = _wgpu_atomic_compare_exchange_weak(&output[_wgpu_ident_address/2u], old, (old&~mask)|(result<<shift));
+            if (attempt.exchanged) { break; }
+            old=attempt.old_value;
+        }
+    } else {
+        auto old = atomic_load_explicit(&output[_wgpu_ident_address], memory_order_relaxed);
+        while (true) {
+
+            const auto attempt = _wgpu_atomic_compare_exchange_weak(&output[_wgpu_ident_address], old, fold_bits(old, decoded));
+            if (attempt.exchanged) { break; }
+            old=attempt.old_value;
+        }
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {},
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {},
+}

@@ -30,9 +30,7 @@
     "clippy::type_complexity": 3,
     "clippy::unnecessary_cast": 1,
     "clippy::unnecessary_map_or": 1,
-    "clippy::unnecessary_unwrap": 1,
-    "dead_code": 1,
-    "unused_imports": 1
+    "clippy::unnecessary_unwrap": 1
   },
   "gpu-runtime": {
     "clippy::arc_with_non_send_sync": 1,
@@ -58,7 +56,6 @@
   "raster-core": {
     "clippy::approx_constant": 8,
     "clippy::assign_op_pattern": 1,
-    "clippy::clone_on_copy": 11,
     "clippy::default_constructed_unit_structs": 2,
     "clippy::doc_lazy_continuation": 4,
     "clippy::field_reassign_with_default": 1,

@@ -1,0 +1,150 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct Params {
+    uint point_count;
+    uint _pad0;
+    uint _pad1;
+    uint _pad2;
+    float4 row0;
+    float4 row1;
+    float4 row2;
+};
+
+constant uint WG = 256;
+constant float INF = 3.4028234663852886e38;
+
+kernel void _wgpu_entry_main(uint3 gid [[thread_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]], uint3 wid [[threadgroup_position_in_grid]], constant Params& params [[buffer(0)]], const device float* points [[buffer(1)]], device float* out_min [[buffer(2)]], device float* out_max [[buffer(3)]]) {
+    threadgroup float4 mins[256];
+    threadgroup float4 maxes[256];
+
+    const auto i = gid.x;
+    auto lo = float4(INF, INF, INF, 0.0);
+    auto hi = float4(-INF, -INF, -INF, 0.0);
+    if (i < params.point_count) {
+        const auto base = i * 3u;
+        const auto px = points[base];
+        const auto py = points[base + 1u];
+        const auto pz = points[base + 2u];
+        const auto p = float4(params.row0.x * px + params.row0.y * py + params.row0.z * pz + params.row0.w, params.row1.x * px + params.row1.y * py + params.row1.z * pz + params.row1.w, params.row2.x * px + params.row2.y * py + params.row2.z * pz + params.row2.w, 0.0);
+        lo = p;
+        hi = p;
+    }
+    mins[lid.x] = lo;
+    maxes[lid.x] = hi;
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    auto stride = WG / 2u;
+    while (true) {
+
+        if (stride == 0u) {
+            break;
+        }
+        if (lid.x < stride) {
+            mins[lid.x] = min(mins[lid.x], mins[lid.x + stride]);
+            maxes[lid.x] = max(maxes[lid.x], maxes[lid.x + stride]);
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        stride = stride / 2u;
+    }
+
+    if (lid.x == 0u) {
+        const auto base = wid.x * 3u;
+        out_min[base] = mins[0].x;
+        out_min[base + 1u] = mins[0].y;
+        out_min[base + 2u] = mins[0].z;
+        out_max[base] = maxes[0].x;
+        out_max[base + 1u] = maxes[0].y;
+        out_max[base + 2u] = maxes[0].z;
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "out_max": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "out_min": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "points": (
+            1,
+            0,
+            4,
+            1,
+        ),
+    },
+}

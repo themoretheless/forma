@@ -1,0 +1,166 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+float load_a(uint _wgpu_ident_address, const device uint* params, const device uint* a);
+float load_b(uint _wgpu_ident_address, const device uint* params, const device uint* b);
+uint batch_address(uint index, uint operand, const device uint* params);
+
+float load_a(uint _wgpu_ident_address, const device uint* params, const device uint* a) {
+
+    const auto bits = (a[_wgpu_ident_address / 2u] >> ((_wgpu_ident_address & 1u) * 16u)) & 0xffffu;
+    return as_type<float>(low_decode(bits, params[15]));
+}
+
+float load_b(uint _wgpu_ident_address, const device uint* params, const device uint* b) {
+
+    const auto bits = (b[_wgpu_ident_address / 2u] >> ((_wgpu_ident_address & 1u) * 16u)) & 0xffffu;
+    return as_type<float>(low_decode(bits, params[15]));
+}
+
+uint batch_address(uint index, uint operand, const device uint* params) {
+
+    auto offset = params[4u + operand];
+    auto remaining = index;
+    for (auto axis = params[3]; axis > 0u; axis--) {
+        const auto descriptor = 16u + (axis - 1u) * 3u;
+        offset += (remaining % params[descriptor]) * params[descriptor + 1u + operand];
+        remaining /= params[descriptor];
+    }
+    return offset;
+}
+
+kernel void _wgpu_entry_main(uint3 lid [[thread_position_in_threadgroup]], uint3 wid [[threadgroup_position_in_grid]], const device uint* params [[buffer(0)]], const device uint* a [[buffer(1)]], const device uint* b [[buffer(2)]], device float* output [[buffer(3)]]) {
+    threadgroup float tile_a[256];
+    threadgroup float tile_b[256];
+
+    const auto local_row = lid.x / 16u;
+    const auto local_column = lid.x % 16u;
+    auto tile = wid.x;
+    while (tile < params[7]) {
+        const auto tiles_per_batch = params[8] * params[9];
+        const auto batch = tile / tiles_per_batch;
+        const auto within_batch = tile % tiles_per_batch;
+        const auto row = (within_batch / params[9]) * 16u + local_row;
+        const auto column = (within_batch % params[9]) * 16u + local_column;
+        const auto offset_a = batch_address(batch, 0u, params);
+        const auto offset_b = batch_address(batch, 1u, params);
+        auto sum = 0.0;
+        auto inner = 0u;
+        while (inner < params[2]) {
+            const auto ka = inner + local_column;
+            const auto kb = inner + local_row;
+            auto av = 0.0;
+            auto bv = 0.0;
+            if (row < params[0] && ka < params[2]) { av = load_a(offset_a + row*params[11] + ka*params[12], params, a); }
+            if (kb < params[2] && column < params[1]) { bv = load_b(offset_b + kb*params[13] + column*params[14], params, b); }
+            tile_a[lid.x] = av;
+            tile_b[lid.x] = bv;
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            for (auto k = 0u; k < 16u; k++) { sum += tile_a[local_row*16u+k] * tile_b[k*16u+local_column]; }
+            threadgroup_barrier(mem_flags::mem_threadgroup);
+            if (16u >= params[2] - inner) { break; }
+            inner += 16u;
+        }
+        if (row < params[0] && column < params[1]) {
+            output[params[6] + batch*params[0]*params[1] + row*params[1] + column] = sum;
+        }
+        if (params[10] >= params[7] - tile) { break; }
+        tile += params[10];
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "a": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "b": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "output": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "params": (
+            0,
+            0,
+            4,
+            0,
+        ),
+    },
+}

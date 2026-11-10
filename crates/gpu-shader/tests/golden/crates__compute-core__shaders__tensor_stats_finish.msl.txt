@@ -1,0 +1,133 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+constant uint WG = 256;
+
+kernel void _wgpu_entry_main(uint3 gid [[thread_position_in_grid]], const device uint* params [[buffer(0)]], const device float2* partials [[buffer(1)]], const device float4* previous [[buffer(2)]], device float4* output [[buffer(3)]]) {
+
+    auto row = gid.x;
+    const auto stride = params[12] * WG;
+    while (row < params[0]) {
+        auto value = float2(0.0);
+        if (params[7] == 0u) { value = float2(MAX_F32, -MAX_F32); }
+        for (auto part = 0u; part < params[6]; part++) {
+            const auto next = partials[row * params[6] + part];
+            if (params[7] == 0u) { value = float2(min(value.x, next.x), max(value.y, next.y)); }
+            else { value += next; }
+        }
+        if (params[7] == 0u) {
+            auto anchor = float_half(value.x) + float_half(value.y);
+            if (value.x == value.y) { anchor = value.x; }
+            const auto scale = max(abs(value.x - anchor), abs(value.y - anchor));
+            output[row] = float4(anchor, scale, value.y, 0.0);
+        } else {
+            const auto old = previous[row];
+            if (params[7] == 1u) { output[row] = float4(old.z, value.x, 0.0, 0.0); }
+            if (params[7] == 2u) {
+                output[row] = float4(old.xy, clamp(value.x / float(params[3]), -1.0, 1.0), 0.0);
+            }
+            if (params[7] == 3u) {
+                                                                               
+                output[row] = float4(old.xyz, clamp(value.x / float(params[3]), 0.0, 1.0));
+            }
+        }
+        if (stride >= params[0] - row) { break; }
+        row += stride;
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "output": (
+            3,
+            0,
+            16,
+            3,
+        ),
+        "params": (
+            0,
+            0,
+            4,
+            0,
+        ),
+        "partials": (
+            1,
+            0,
+            8,
+            1,
+        ),
+        "previous": (
+            2,
+            0,
+            16,
+            2,
+        ),
+    },
+}

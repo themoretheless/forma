@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 const client = new Client({ name: 'forma-smoke', version: '1.0.0' });
 await client.connect(
   new StdioClientTransport({
@@ -16,7 +17,10 @@ async function call(name, args = {}) {
 }
 try {
   const tools = await client.listTools();
-  assert.equal(tools.tools.length, 34);
+  // Compare with the server's own table instead of a number that goes stale with every new tool.
+  const table = readFileSync(new URL('./server.js', import.meta.url), 'utf8');
+  const declared = [...table.matchAll(/(?:^|[[,])\s*\[\s*'([a-z_]+)'\s*,/gm)].map(m => m[1]);
+  assert.deepEqual(tools.tools.map(tool => tool.name).sort(), declared.sort());
   const status = await call('ide_status');
   const file = await call('file_read', { path: status.entry });
   const write = await call('file_write', {

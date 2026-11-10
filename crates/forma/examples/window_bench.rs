@@ -10,11 +10,6 @@
 
 #[cfg(feature = "native")]
 mod bench_support;
-#[cfg(feature = "native")]
-use forma::gpu_runtime as wgpu;
-#[cfg(all(feature = "native", target_os = "macos"))]
-#[path = "../src/metal_resize.rs"]
-mod metal_resize;
 
 #[cfg(feature = "native")]
 #[global_allocator]
@@ -33,6 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(feature = "native")]
 mod native {
     use super::{ALLOCATOR, bench_support::*};
+    use forma::gpu_runtime as wgpu;
     use forma::{Runtime as Button, gpu::Renderer};
     use std::{
         sync::Arc,
@@ -388,7 +384,7 @@ mod native {
             let renderer = Renderer::new(&adapter, config.format).await?;
             surface.configure(&renderer.device, &config);
             #[cfg(target_os = "macos")]
-            super::metal_resize::configure(&window)?;
+            forma::native_gpu::configure_metal_layer(&window)?;
             let info = adapter.get_info();
             Ok(Self {
                 surface,
