@@ -386,6 +386,13 @@ impl<'a> BufferView<'a> {
     pub fn unwrap(self) -> Self {
         self
     }
+
+    /// Mapping cannot fail here, so this mirrors `Result::map_err` for callers written against
+    /// runtimes whose `get_mapped_range` returns a `Result`.
+    #[inline]
+    pub fn map_err<E, F: FnOnce(BufferAccessError) -> E>(self, _op: F) -> Result<Self, E> {
+        Ok(self)
+    }
 }
 
 impl<'a> Deref for BufferView<'a> {

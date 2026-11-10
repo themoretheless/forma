@@ -24,7 +24,7 @@
 | packages/svet/src/engine/dom.ts | 2574 | через barrel | `For`, `bindModel`, `bindProp` по 150–260 строк | 2 | todo |
 | packages/svet/src/engine/{advanced,forma-expr,forma-reactive,…}.ts | — | — | смешанные ответственности в `advanced`; остальные не проходились | 3 | todo |
 | packages/svet/crates/svet-wasm/src/lib.rs | 3305 | 66 | граф, арена GPU, математика, FFI и тесты в одном файле | 2 | todo |
-| src/main.js | 2574 | текстовые | 37 импортов, ~20 модульных `let`, 54 `.onX=` | 1 | todo |
+| src/main.js | 2574 | текстовые | 37 импортов, ~20 модульных `let`, 54 `.onX=` | 1 | todo; интеграция OpenSCAD и файловый API удалены, остались недостижимые обработчики строк-папок дерева (`toggleFolder`, `data-folder`, `expandedDirs`) — убрать при разбиении `main.js` |
 | src/components.js | — | да | `compile()` одной замыкающей функцией на ~500 строк | 1 | todo |
 | vite.config.js, корневые runners | — | да | dev-бэкенд внутри конфига | 2 | todo |
 | src/mcp-commands.js + mcp/server.js | — | текстовые | таблица инструментов в двух местах | 2 | todo |

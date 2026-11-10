@@ -13,7 +13,7 @@ const stubs = {
   'vector-runner.js': 'export function createVectorRunner(){return {};}\n',
 };
 
-async function fixture(t, { sibling = false } = {}) {
+async function fixture(t) {
   mkdirSync(join(root, '.forma'), { recursive: true });
   const directory = mkdtempSync(join(root, '.forma/vite-config-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -24,16 +24,6 @@ async function fixture(t, { sibling = false } = {}) {
   // Real shared modules the config imports, copied as they are rather than stubbed.
   mkdirSync(join(checkout, 'protocol'));
   copyFileSync(join(root, 'protocol/enums.js'), join(checkout, 'protocol/enums.js'));
-  mkdirSync(join(checkout, 'dev-server'));
-  copyFileSync(
-    join(root, 'dev-server/workspace-paths.js'),
-    join(checkout, 'dev-server/workspace-paths.js'),
-  );
-  if (sibling) {
-    const workspace = join(directory, 'open-scad-viewer');
-    mkdirSync(workspace);
-    writeFileSync(join(workspace, 'model.scad'), 'cube(1);\n');
-  }
   const loaded = await loadConfigFromFile(
     { command: 'build', mode: 'production' },
     join(checkout, 'vite.config.js'),
@@ -41,7 +31,7 @@ async function fixture(t, { sibling = false } = {}) {
   return loaded.config;
 }
 
-function workspaceHandler(config) {
+function devRoutes(config) {
   const routes = [];
   const server = {
     middlewares: { use: (path, handler) => routes.push({ path, handler }) },
@@ -49,35 +39,16 @@ function workspaceHandler(config) {
     httpServer: { once() {} },
   };
   config.plugins.find(plugin => plugin.name === 'forma-mcp-bridge').configureServer(server);
-  return routes.find(route => route.path === '/__forma_workspace').handler;
+  return routes.map(route => route.path);
 }
 
-async function listWorkspace(handler) {
-  const req = { method: 'GET', url: '/list?dir=', headers: { host: '127.0.0.1:5173' } };
-  const res = { setHeader() {} };
-  let body;
-  res.end = value => {
-    body = value;
-  };
-  await handler(req, res);
-  return { status: res.statusCode, body: JSON.parse(body) };
-}
-
-test('Vite config loads without the optional open-scad-viewer sibling', async t => {
+test('Vite config loads on its own, with no sibling repository', async t => {
   const config = await fixture(t);
   assert.equal(config.build.target, 'esnext');
-  assert.deepEqual(await listWorkspace(workspaceHandler(config)), {
-    status: 503,
-    body: { error: 'open-scad-viewer workspace is unavailable' },
-  });
 });
 
-test('open-scad-viewer workspace integration remains available when the sibling exists', async t => {
-  const config = await fixture(t, { sibling: true });
-  const response = await listWorkspace(workspaceHandler(config));
-  assert.equal(response.status, 200);
-  assert.deepEqual(response.body, {
-    dir: '',
-    entries: [{ name: 'model.scad', path: 'model.scad', kind: 'file' }],
-  });
+test('the dev server exposes no file API onto a neighbouring repository', async t => {
+  const routes = devRoutes(await fixture(t));
+  assert.ok(routes.length > 0, 'the bridge plugin registered its routes');
+  assert.equal(routes.includes('/__forma_workspace'), false);
 });

@@ -8,7 +8,6 @@ import {
   writeDirectoryProject,
 } from './browser-storage.js';
 import { studioControlsProject } from './studio-controls-builtin.js';
-import { openScadProject } from './openscad-builtin.js';
 import { sampleProject } from './sample-project.js';
 import { mountStudioShell } from './studio-shell.js';
 import { mountMinimalShell } from './minimal-shell.js';
@@ -21,14 +20,7 @@ import { mountDevBridge } from './dev-bridge.js';
 const studioEvents = createStudioEvents();
 const requestedProject = new URLSearchParams(location.search).get('project');
 const isStudioControls = requestedProject === 'studio-controls';
-const isSampleWorkspace = requestedProject === 'knowledge-workspace';
-const isOpenScad = !isStudioControls && !isSampleWorkspace;
-const storageKey = name =>
-  isStudioControls
-    ? name + ':studio-controls-guide'
-    : isOpenScad
-      ? name + ':openscad-studio-v5'
-      : name;
+const storageKey = name => (isStudioControls ? name + ':studio-controls-guide' : name);
 import { designPreset, collectionScenario } from './design-presets.js';
 let designPresetName = 'original',
   nativeSource = null;
@@ -48,7 +40,6 @@ import './property-inspector.css';
 import './states-panel.css';
 import { createControlTree } from './control-tree.js';
 import { createStatesPanel } from './states-panel.js';
-import { workspaceSaveStatus } from './workspace-save.js';
 import { DEFAULT_BACKEND, DEFAULT_PLATFORM, isBackend, isPlatform } from '../protocol/enums.js';
 import { escapeHtml as esc, parentDirOf, countLines } from './shared/text.js';
 import { findEntry, stateCreateEdit, stateDeleteEdit, stateRenameEdit } from './design-states.js';
@@ -107,9 +98,7 @@ let designFiles = [];
 // The active tree is live UI state, independent of eviction of inactive files.
 let activeTreeDocument = null;
 let renderer =
-  isStudioControls ||
-  isOpenScad ||
-  readStorage('localStorage', storageKey('forma-renderer')) === 'vector'
+  isStudioControls || readStorage('localStorage', storageKey('forma-renderer')) === 'vector'
     ? 'vector'
     : 'html';
 import {
@@ -121,21 +110,12 @@ import {
   lintDocument,
 } from './language.js';
 
-const initialProject = isStudioControls
-  ? studioControlsProject
-  : isOpenScad
-    ? openScadProject
-    : sampleProject;
+const initialProject = isStudioControls ? studioControlsProject : sampleProject;
 let files = restoreProject(
   readStorage('localStorage', storageKey('forma-project')),
   initialProject,
 );
 for (const [k, v] of Object.entries(initialProject)) files[k] ??= v;
-if (isSampleWorkspace) {
-  files['components/Button.ui'] ??= sampleProject['components/Button.ui'];
-  files['components/TextInput.ui'] ??= sampleProject['components/TextInput.ui'];
-  files['ui/TwoButtons.ui'] ??= sampleProject['ui/TwoButtons.ui'];
-}
 const storedBackend = readStorage('localStorage', storageKey('forma-backend'));
 let appBackend = isBackend(storedBackend) ? storedBackend : DEFAULT_BACKEND;
 const storedPlatform = readStorage('localStorage', storageKey('forma-platform'));
@@ -189,23 +169,9 @@ function downloadJson(name, text) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-const currentProjectId = isStudioControls
-  ? 'studio-controls'
-  : isSampleWorkspace
-    ? 'knowledge-workspace'
-    : 'openscad';
-const currentProjectName = isStudioControls
-  ? 'Studio Controls'
-  : isSampleWorkspace
-    ? 'knowledge-workspace'
-    : 'open-scad-viewer';
+const currentProjectId = isStudioControls ? 'studio-controls' : 'knowledge-workspace';
+const currentProjectName = isStudioControls ? 'Studio Controls' : 'knowledge-workspace';
 const openProjectsList = [
-  {
-    id: 'openscad',
-    name: 'open-scad-viewer',
-    subtitle: 'OpenSCAD Viewer · локальный проект',
-    href: '/?project=openscad',
-  },
   {
     id: 'studio-controls',
     name: 'Studio Controls',
@@ -220,7 +186,7 @@ const openProjectsList = [
   },
 ];
 document.querySelector('#app').innerHTML = `
-<header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">${currentProjectName} <span> / локальный проект</span></div><a class="controls-link" href="${isOpenScad ? '/?project=studio-controls' : '/?project=openscad'}">${isOpenScad ? 'Контролы Studio' : 'OpenSCAD Studio'}</a><a class="controls-link" href="${isSampleWorkspace ? '/?project=openscad' : '/?project=knowledge-workspace'}">${isSampleWorkspace ? 'OpenSCAD Studio' : 'Библиотека знаний'}</a><a class="controls-link" href="/crates/forma/examples/controls.html">Контролы · Reveal</a><button id="open-folder" title="Открыть локальную папку проекта с автосохранением на диск">Папка</button><button id="import">Открыть</button><button id="export">Экспорт</button><button id="export-native" title="Экспортировать автономный Rust-проект (Cargo.toml + src/ui_bundle.rs + .ui) для нативной сборки">Экспорт Rust</button><select id="app-platform" aria-label="Целевая платформа" title="Выбор платформы запуска: Desktop, iOS или Android"><option value="desktop">Платформа: Desktop</option><option value="ios">Платформа: iOS</option><option value="android">Платформа: Android</option></select><select id="app-backend" aria-label="Бэкенд запуска" title="Выбор бэкенда запуска приложения: egui или svet"><option value="ask">Бэкенд: выбор (egui / svet)</option><option value="egui">Бэкенд: egui</option><option value="svet">Бэкенд: svet</option></select><button id="run" title="Переключить встроенный preview между дизайном и взаимодействием">${mode === 'design' ? 'Взаимодействие' : 'Дизайн'}</button></header>
+<header><div class="brand"><span class="brandmark">F</span> forma <small>STUDIO</small></div><div class="project-title">${currentProjectName} <span> / локальный проект</span></div><a class="controls-link" href="${isStudioControls ? '/?project=knowledge-workspace' : '/?project=studio-controls'}">${isStudioControls ? 'Библиотека знаний' : 'Контролы Studio'}</a><a class="controls-link" href="/crates/forma/examples/controls.html">Контролы · Reveal</a><button id="open-folder" title="Открыть локальную папку проекта с автосохранением на диск">Папка</button><button id="import">Открыть</button><button id="export">Экспорт</button><button id="export-native" title="Экспортировать автономный Rust-проект (Cargo.toml + src/ui_bundle.rs + .ui) для нативной сборки">Экспорт Rust</button><select id="app-platform" aria-label="Целевая платформа" title="Выбор платформы запуска: Desktop, iOS или Android"><option value="desktop">Платформа: Desktop</option><option value="ios">Платформа: iOS</option><option value="android">Платформа: Android</option></select><select id="app-backend" aria-label="Бэкенд запуска" title="Выбор бэкенда запуска приложения: egui или svet"><option value="ask">Бэкенд: выбор (egui / svet)</option><option value="egui">Бэкенд: egui</option><option value="svet">Бэкенд: svet</option></select><button id="run" title="Переключить встроенный preview между дизайном и взаимодействием">${mode === 'design' ? 'Взаимодействие' : 'Дизайн'}</button></header>
 <div class="workspace"><aside class="explorer"><div class="section-title"><div class="project-switcher-wrap"><button id="project-switcher" class="project-switcher-btn" type="button" aria-haspopup="listbox" aria-expanded="false" title="Переключить открытый проект"><span id="project-switcher-label">${currentProjectName}</span><svg class="project-switcher-chevron" viewBox="0 0 12 12" aria-hidden="true"><polyline points="2.5 4.2 6 7.8 9.5 4.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button><div id="project-switcher-menu" class="project-switcher-menu" role="listbox" hidden>${openProjectsList.map(p => `<a class="project-switcher-item ${p.id === currentProjectId ? 'active' : ''}" role="option" aria-selected="${p.id === currentProjectId}" href="${p.href}"><span class="project-switcher-item-main"><span class="project-switcher-item-name">${p.name}</span><small class="project-switcher-item-sub">${p.subtitle}</small></span><span class="project-switcher-check">${p.id === currentProjectId ? '✓' : ''}</span></a>`).join('')}<div class="project-switcher-divider"></div><button type="button" class="project-switcher-item project-switcher-action" id="project-switcher-open-folder"><span class="project-switcher-item-main"><span class="project-switcher-item-name">Открыть локальную папку…</span><small class="project-switcher-item-sub">Подключить директорию с диска</small></span></button></div></div><div class="tree-header-actions"><button id="new" class="tree-action-btn" type="button" title="Новый файл"><svg viewBox="0 0 16 16"><path d="M4 2.5h5.2L12.5 5.8v7.7H4z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><line x1="8" y1="6.8" x2="8" y2="11.2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><line x1="5.8" y1="9" x2="10.2" y2="9" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg></button><button id="new-folder" class="tree-action-btn" type="button" title="Новая папка"><svg viewBox="0 0 16 16"><path d="M2.2 4.2h4.2l1.3 1.6h6.1v6.7H2.2z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><line x1="8" y1="7.2" x2="8" y2="11" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><line x1="6.1" y1="9.1" x2="9.9" y2="9.1" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg></button><button id="tree-locate" class="tree-action-btn" type="button" title="Показать активный файл в дереве"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="4.2" fill="none" stroke="currentColor" stroke-width="1.35"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><line x1="8" y1="1.8" x2="8" y2="3.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><line x1="8" y1="12.4" x2="8" y2="14.2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><line x1="1.8" y1="8" x2="3.6" y2="8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><line x1="12.4" y1="8" x2="14.2" y2="8" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg></button><button id="tree-collapse-all" class="tree-action-btn" type="button" title="Свернуть все папки"><svg viewBox="0 0 16 16"><polyline points="4.5 6.8 8 3.5 11.5 6.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><polyline points="4.5 12.5 8 9.2 11.5 12.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button id="tree-search-toggle" class="tree-action-btn" type="button" title="Поиск по дереву (⌘F)"><svg viewBox="0 0 16 16"><circle cx="7.2" cy="7.2" r="4.3" fill="none" stroke="currentColor" stroke-width="1.4"/><line x1="10.4" y1="10.4" x2="13.5" y2="13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button></div></div><div id="tree-search-bar" class="tree-search-bar" hidden><svg class="tree-search-icon" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7.2" cy="7.2" r="4.3" fill="none" stroke="currentColor" stroke-width="1.4"/><line x1="10.4" y1="10.4" x2="13.5" y2="13.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><input id="tree-search-input" type="text" placeholder="Фильтр файлов и папок…" spellcheck="false" autocomplete="off"><button id="tree-search-clear" type="button" title="Очистить фильтр (Esc)">✕</button></div><div id="tree" tabindex="0" role="tree" aria-label="Файлы проекта"></div><div class="explorer-note"><span class="dot"></span> Локальное сохранение<br><small>Проект хранится в этом браузере.<br>Экспортируйте для резервной копии.</small></div></aside>
 <main><div class="tabs"><span class="file-icon">◇</span><span id="filename"></span><span id="saved">Сохранено</span><button id="format-code" title="Форматировать код (Shift+Alt+F)">Формат</button><button id="entry" title="Показать этот UI в предпросмотре">Показать UI</button></div><div class="editor-preview"><section class="code-pane"><div class="pane-toolbar"><span>РАЗМЕТКА / КОД</span><span id="language">Forma UI</span></div><div class="code-wrap"><div id="lines"></div><textarea id="code" spellcheck="false" aria-label="Редактор исходного кода"></textarea></div></section><section class="preview-pane"><div class="pane-toolbar"><span>LIVE PREVIEW <i class="dot"></i></span><select id="scenario" aria-label="Состояние дизайна"></select></div><div class="preview-tools"><button id="desktop" class="chosen">Desktop</button><button id="mobile">Mobile</button><button id="theme">◐ Тема</button><span id="preview-name"></span></div><div id="canvas"><div id="preview"></div></div><div class="preview-caption" id="caption">Выберите элемент, чтобы найти его в разметке</div></section></div>
 <section class="bottom"><div class="bottom-tabs"><button data-tab="problems" class="chosen">Диагностика <span id="problem-count">0</span></button><button data-tab="events">События <span id="event-count">0</span></button><button data-tab="state">Состояние</button><div class="debug-controls"><label><input type="checkbox" id="break"> Break on event</label><button id="continue" disabled>▶ Продолжить</button><button id="reset">↺ Сброс</button></div></div><div id="output"></div></section></main>
@@ -254,25 +220,7 @@ let directoryHandle = null,
   treeFilter = '',
   draggedTreePath = null,
   dragExpandTimer = 0;
-const workspaceEntries = new Map(),
-  expandedDirs = new Set();
-async function loadWorkspaceDir(dir = '') {
-  try {
-    const res = await fetch(`/__forma_workspace/list?dir=${encodeURIComponent(dir)}`);
-    if (!res.ok) return false;
-    const data = await res.json();
-    if (Array.isArray(data?.entries)) {
-      workspaceEntries.set(dir, data.entries);
-      return true;
-    }
-  } catch {}
-  return false;
-}
-async function refreshWorkspaceDirs(dirs = ['']) {
-  const unique = [...new Set(['', ...expandedDirs, ...dirs.filter(Boolean)])];
-  await Promise.all(unique.map(d => loadWorkspaceDir(d)));
-  tree(true);
-}
+const expandedDirs = new Set();
 function resetProjectEditing() {
   clearTimeout(saveTimer);
   clearTimeout(compileTimer);
@@ -287,27 +235,6 @@ function saveStatus(status, text) {
 function persist() {
   try {
     if (!writeProject(storageKey('forma-project'), files)) throw Error('Storage unavailable');
-    if (
-      workspaceEntries.has('') &&
-      active &&
-      !active.startsWith('components/') &&
-      !active.startsWith('assets/')
-    ) {
-      fetch(`/__forma_workspace/write?path=${encodeURIComponent(active)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: files[active] }),
-      })
-        .then(
-          response => response,
-          error => error,
-        )
-        .then(outcome => {
-          const { status, text } = workspaceSaveStatus(outcome, 'open-scad-viewer');
-          saveStatus(status, text);
-        });
-      return;
-    }
     if (directoryHandle) {
       const snap = { ...files };
       writeDirectoryProject(directoryHandle, snap, directorySavedFiles)
@@ -335,78 +262,18 @@ function selectTreeRow(targetPath) {
 function selectedTargetDir() {
   if (!selectedTreeItem) return '';
   const btn = $('tree').querySelector(`.file[data-folder="${CSS.escape(selectedTreeItem)}"]`);
-  if (btn || expandedDirs.has(selectedTreeItem) || workspaceEntries.has(selectedTreeItem))
-    return selectedTreeItem;
+  if (btn || expandedDirs.has(selectedTreeItem)) return selectedTreeItem;
   return parentDirOf(selectedTreeItem);
 }
-async function toggleFolder(folder, btn) {
+function toggleFolder(folder) {
   const nowExpanded = !expandedDirs.has(folder);
   if (nowExpanded) {
     expandedDirs.add(folder);
-    if (!workspaceEntries.has(folder)) await loadWorkspaceDir(folder);
   } else expandedDirs.delete(folder);
-  if (btn && !treeFilter) {
-    btn.setAttribute('aria-expanded', String(nowExpanded));
-    const box = btn.nextElementSibling;
-    if (box?.classList.contains('folder-children')) {
-      const inner = box.firstElementChild,
-        level = Number(btn.getAttribute('aria-level') ?? 1);
-      if (nowExpanded && inner && !inner.childElementCount) {
-        inner.innerHTML = renderWorkspaceDir(folder, level + 1);
-        bindTreeEvents(inner);
-        requestAnimationFrame(() => box.classList.add('expanded'));
-      } else box.classList.toggle('expanded', nowExpanded);
-      return;
-    }
-  }
   tree(true);
-}
-function matchesTreeFilter(item) {
-  if (!treeFilter) return true;
-  const q = treeFilter.toLowerCase();
-  if (item.name.toLowerCase().includes(q) || item.path.toLowerCase().includes(q)) return true;
-  if (item.kind === 'directory') {
-    const children = workspaceEntries.get(item.path) ?? [];
-    return children.some(matchesTreeFilter);
-  }
-  return false;
-}
-function renderWorkspaceDir(dir, level) {
-  const entries = (workspaceEntries.get(dir) ?? []).filter(matchesTreeFilter);
-  return entries
-    .map((item, idx) => {
-      const indent = (level - 1) * 12,
-        pad = 8 + indent,
-        isSelected = item.path === selectedTreeItem;
-      if (item.kind === 'directory') {
-        const expanded =
-          expandedDirs.has(item.path) ||
-          (!!treeFilter && (workspaceEntries.get(item.path) ?? []).some(matchesTreeFilter));
-        const count =
-          item.count ??
-          (workspaceEntries.has(item.path) ? workspaceEntries.get(item.path).length : 0);
-        return `<button class="file folder-item ${isSelected ? 'active' : ''}" draggable="true" data-folder="${esc(item.path)}" data-count="${count}" aria-expanded="${expanded}" aria-level="${level}" style="padding-left:${pad}px;--indent:${indent}px;--row-idx:${Math.min(idx, 14)}"><svg class="tree-chevron" viewBox="0 0 12 12" aria-hidden="true"><polyline points="4 2.5 8.5 6 4 9.5" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(item.name)}</button><div class="folder-children ${expanded ? 'expanded' : ''}" data-children-for="${esc(item.path)}" style="--guide-indent:${indent}px"><div class="folder-children-inner">${expanded ? renderWorkspaceDir(item.path, level + 1) : ''}</div></div>`;
-      }
-      return `<button class="file ${isSelected ? 'active' : ''}" draggable="true" data-path="${esc(item.path)}" aria-level="${level}" style="padding-left:${pad}px;--indent:${indent}px;--row-idx:${Math.min(idx, 14)}"><span class="${item.path.endsWith('.rs') || item.path.endsWith('.toml') ? 'rust' : 'ui'}">${item.path.endsWith('.rs') ? 'R' : item.path.endsWith('.toml') ? '⚙' : '◇'}</span>${esc(item.name)}</button>`;
-    })
-    .join('');
 }
 async function activateTreeFile(path) {
   selectTreeRow(path);
-  if (!(path in files) && workspaceEntries.has('')) {
-    try {
-      const res = await fetch(`/__forma_workspace/read?path=${encodeURIComponent(path)}`);
-      const data = await res.json();
-      if (res.ok && typeof data.content === 'string') files[path] = data.content;
-      else {
-        reportError(data?.error ?? `Не удалось открыть ${path}`);
-        return;
-      }
-    } catch (e) {
-      reportError(e.message);
-      return;
-    }
-  }
   if (path.endsWith('.ui')) {
     const uiKey = 'ui/' + path.split('/').at(-1);
     files[uiKey] = files[path];
@@ -450,37 +317,6 @@ async function redoTreeOperation() {
   return true;
 }
 async function applyTreeRename(fromPath, toPath) {
-  if (workspaceEntries.has('')) {
-    try {
-      const res = await fetch('/__forma_workspace/rename', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: fromPath, to: toPath }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        reportError(data?.error ?? 'Ошибка перемещения');
-        return false;
-      }
-      if (fromPath in files) {
-        files[toPath] = files[fromPath];
-        delete files[fromPath];
-      }
-      if (active === fromPath) active = toPath;
-      selectedTreeItem = toPath;
-      if (expandedDirs.has(fromPath)) {
-        expandedDirs.delete(fromPath);
-        expandedDirs.add(toPath);
-      }
-      const toParent = parentDirOf(toPath);
-      if (toParent) expandedDirs.add(toParent);
-      await refreshWorkspaceDirs([parentDirOf(fromPath), toParent]);
-      return true;
-    } catch (e) {
-      reportError(e.message);
-      return false;
-    }
-  }
   if (fromPath in files) {
     files[toPath] = files[fromPath];
     delete files[fromPath];
@@ -592,19 +428,6 @@ function bindTreeEvents(scope = $('tree')) {
   });
 }
 function tree(force = false) {
-  if (workspaceEntries.has('')) {
-    const buttons = [...$('tree').querySelectorAll('.file')];
-    if (!force && buttons.length) {
-      selectTreeRow(selectedTreeItem);
-      return;
-    }
-    const html = renderWorkspaceDir('', 1);
-    $('tree').innerHTML =
-      html ||
-      `<div class="tree-empty-hint">${treeFilter ? 'Ничего не найдено' : 'Папка пуста'}</div>`;
-    bindTreeEvents();
-    return;
-  }
   const allPaths = Object.keys(files),
     hasAppUi = allPaths.some(p => p.startsWith('ui/')),
     paths = (
@@ -635,11 +458,6 @@ function tree(force = false) {
       )
       .join('') + rootFiles.map(p => fileBtn(p, true)).join('');
   bindTreeEvents();
-}
-if (isOpenScad) {
-  loadWorkspaceDir('').then(ok => {
-    if (ok) tree(true);
-  });
 }
 function open(path) {
   active = path;
@@ -964,9 +782,7 @@ function clearSelection() {
   controlTree?.select(null, null);
 }
 function refreshControlTree() {
-  const isUi = workspaceEntries.has('')
-    ? !!selectedTreeItem?.endsWith('.ui')
-    : !!active?.endsWith('.ui');
+  const isUi = !!active?.endsWith('.ui');
   document.body.classList.toggle('is-ui-file', isUi);
   if (!controlTree) return;
   const path = active?.endsWith('.ui') ? active : controlTree.scope === 'designer' ? entry : active;
@@ -1347,95 +1163,14 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
           redo: () => applyTreeRename(targetPath, toPath),
         });
       }
-    } else if (inputMode === 'new-folder') {
-      const rel = dir ? `${dir}/${val}` : val;
-      if (workspaceEntries.has('')) {
-        const res = await fetch(`/__forma_workspace/mkdir?path=${encodeURIComponent(rel)}`, {
-          method: 'POST',
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          reportError(data?.error ?? 'Ошибка создания папки');
-          return;
-        }
-        expandedDirs.add(rel);
-        if (dir) expandedDirs.add(dir);
-        selectedTreeItem = rel;
-        await refreshWorkspaceDirs([dir, rel]);
-        pushTreeHistory({
-          label: `создание папки «${val}»`,
-          undo: async () => {
-            const r = await fetch('/__forma_workspace/delete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path: rel }),
-            });
-            if (!r.ok) return false;
-            expandedDirs.delete(rel);
-            await refreshWorkspaceDirs([dir]);
-            return true;
-          },
-          redo: async () => {
-            const r = await fetch(`/__forma_workspace/mkdir?path=${encodeURIComponent(rel)}`, {
-              method: 'POST',
-            });
-            if (!r.ok) return false;
-            expandedDirs.add(rel);
-            await refreshWorkspaceDirs([dir, rel]);
-            return true;
-          },
-        });
-      }
     } else if (inputMode === 'new-file') {
       const rel = dir ? `${dir}/${val}` : val;
       const tpl = rel.endsWith('.ui')
         ? `component ${val.replace(/\.ui$/, '').replace(/[^a-zA-Z0-9_]/g, '') || 'NewWindow'} {\n    Frame {\n        Text {\n            text: 'Новое окно';\n        }\n    }\n}\n`
         : '';
-      if (workspaceEntries.has('')) {
-        const res = await fetch(`/__forma_workspace/write?path=${encodeURIComponent(rel)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: tpl }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          reportError(data?.error ?? 'Ошибка создания файла');
-          return;
-        }
-        files[rel] = tpl;
-        if (dir) expandedDirs.add(dir);
-        await refreshWorkspaceDirs([dir]);
-        await activateTreeFile(rel);
-        pushTreeHistory({
-          label: `создание файла «${val}»`,
-          undo: async () => {
-            const r = await fetch('/__forma_workspace/delete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path: rel }),
-            });
-            if (!r.ok) return false;
-            delete files[rel];
-            await refreshWorkspaceDirs([dir]);
-            return true;
-          },
-          redo: async () => {
-            const r = await fetch(`/__forma_workspace/write?path=${encodeURIComponent(rel)}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content: tpl }),
-            });
-            if (!r.ok) return false;
-            files[rel] = tpl;
-            await refreshWorkspaceDirs([dir]);
-            return true;
-          },
-        });
-      } else {
-        files[rel] = tpl;
-        open(rel);
-        persist();
-      }
+      files[rel] = tpl;
+      open(rel);
+      persist();
     }
   };
   input.onkeydown = e => {
@@ -1454,53 +1189,13 @@ function startTreeInlineInput({ mode: inputMode, targetPath = '', dir = '' }) {
 async function createInTree(kind = 'file', baseDir = selectedTargetDir()) {
   if (baseDir && !expandedDirs.has(baseDir)) {
     expandedDirs.add(baseDir);
-    if (workspaceEntries.has('') && !workspaceEntries.has(baseDir)) await loadWorkspaceDir(baseDir);
     tree(true);
   }
   startTreeInlineInput({ mode: kind === 'folder' ? 'new-folder' : 'new-file', dir: baseDir });
 }
 async function duplicateTreeItem(targetPath = selectedTreeItem) {
   if (!targetPath) return;
-  if (workspaceEntries.has('')) {
-    const res = await fetch('/__forma_workspace/duplicate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: targetPath }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      reportError(data?.error ?? 'Ошибка дублирования');
-      return;
-    }
-    const dupPath = data.path;
-    selectedTreeItem = dupPath;
-    await refreshWorkspaceDirs([parentDirOf(targetPath)]);
-    if (!dupPath.endsWith('/')) await activateTreeFile(dupPath);
-    pushTreeHistory({
-      label: `дублирование «${targetPath.split('/').at(-1)}»`,
-      undo: async () => {
-        const r = await fetch('/__forma_workspace/delete', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: dupPath }),
-        });
-        if (!r.ok) return false;
-        delete files[dupPath];
-        await refreshWorkspaceDirs([parentDirOf(targetPath)]);
-        return true;
-      },
-      redo: async () => {
-        const r = await fetch('/__forma_workspace/duplicate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: targetPath }),
-        });
-        if (!r.ok) return false;
-        await refreshWorkspaceDirs([parentDirOf(targetPath)]);
-        return true;
-      },
-    });
-  } else if (targetPath in files) {
+  else if (targetPath in files) {
     const ext = targetPath.includes('.') ? targetPath.slice(targetPath.lastIndexOf('.')) : '';
     const stem = ext ? targetPath.slice(0, -ext.length) : targetPath;
     const copyPath = `${stem}-copy${ext}`;
@@ -1513,23 +1208,7 @@ async function deleteTreeItem(targetPath = selectedTreeItem) {
   if (!targetPath) return;
   const name = targetPath.split('/').at(-1);
   if (!confirm(`Удалить «${name}»?`)) return;
-  if (workspaceEntries.has('')) {
-    const res = await fetch('/__forma_workspace/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: targetPath }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      reportError(data?.error ?? 'Ошибка удаления');
-      return;
-    }
-    delete files[targetPath];
-    expandedDirs.delete(targetPath);
-    const parent = parentDirOf(targetPath);
-    selectedTreeItem = parent;
-    await refreshWorkspaceDirs([parent]);
-  } else if (targetPath in files) {
+  else if (targetPath in files) {
     delete files[targetPath];
     const nextFile = Object.keys(files)[0];
     if (nextFile) open(nextFile);
@@ -1545,7 +1224,6 @@ async function locateActiveInTree() {
     for (let i = 0; i < parts.length - 1; i++) {
       cur = cur ? `${cur}/${parts[i]}` : parts[i];
       expandedDirs.add(cur);
-      if (workspaceEntries.has('') && !workspaceEntries.has(cur)) await loadWorkspaceDir(cur);
     }
     tree(true);
   }
@@ -1735,7 +1413,6 @@ $('open-folder').onclick = async () => {
     directoryHandle = handle;
     directorySavedFiles = { ...data };
     files = data;
-    workspaceEntries.clear();
     expandedDirs.clear();
     if ($('project-switcher-label')) $('project-switcher-label').textContent = handle.name;
     const titleNode = document.querySelector('.project-title')?.childNodes?.[0];
@@ -1954,26 +1631,6 @@ async function extractTreeControl({ path, start, node }) {
     if (files[compPath] && !confirm(`Файл ${compPath} уже существует. Перезаписать?`)) return;
     const change = extractElement(source, start, name);
     files[change.componentPath] = change.componentSource;
-    if (workspaceEntries.has('')) {
-      const wsCompDir =
-        active?.includes('/') && !active.startsWith('components/') && !active.startsWith('ui/')
-          ? `${parentDirOf(active)}/components`
-          : 'forma-studio/components';
-      const wsCompPath = `${wsCompDir}/${name}.ui`;
-      try {
-        await fetch(`/__forma_workspace/mkdir?path=${encodeURIComponent(wsCompDir)}`, {
-          method: 'POST',
-        });
-        await fetch(`/__forma_workspace/write?path=${encodeURIComponent(wsCompPath)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: change.componentSource }),
-        });
-        files[wsCompPath] = change.componentSource;
-        expandedDirs.add(wsCompDir);
-        await refreshWorkspaceDirs([parentDirOf(wsCompDir), wsCompDir]);
-      } catch {}
-    }
     commitSource({
       file: path,
       source,

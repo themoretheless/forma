@@ -51,6 +51,9 @@ try {
     join(consumer, 'package.json'),
     JSON.stringify({ name: 'svet-clean-consumer', private: true, type: 'module' }),
   );
+  // The probes below use svet-engine/compiler, whose parser packages are optional peers: an
+  // application that compiles JSX installs them itself, so this consumer does too.
+  const { peerDependencies = {} } = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   run('npm', [
     'install',
     '--no-audit',
@@ -59,6 +62,7 @@ try {
     '--@babel:registry=https://registry.npmjs.org',
     '--@jridgewell:registry=https://registry.npmjs.org',
     join(temporary, packed.filename),
+    ...Object.entries(peerDependencies).map(([name, range]) => `${name}@${range}`),
   ]);
   const installed = join(consumer, 'node_modules/svet-engine');
   const metadata = JSON.parse(await readFile(join(installed, 'package.json'), 'utf8'));
