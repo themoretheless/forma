@@ -1078,3 +1078,64 @@ fn cpu_monospace_glyph_cells_are_uniform() {
         );
     }
 }
+
+#[test]
+fn runs_measure_with_their_own_faces_and_sit_side_by_side() {
+    let runs = [
+        (FontFamily::Sans, "plain "),
+        (FontFamily::SansBold, "bold"),
+        (FontFamily::Mono, " code"),
+    ];
+    let placed = layout_runs(&runs, 16., None);
+    assert_eq!(placed.lines, 1);
+    assert_eq!(placed.fragments.len(), 3);
+    let mut x = 0.;
+    for (f, (family, text)) in placed.fragments.iter().zip(runs) {
+        assert_eq!(f.x, x);
+        assert_eq!(f.width, measure_text_in(family, text, 16.));
+        assert_eq!(&text[f.range.clone()], text);
+        x += f.width;
+    }
+    assert_eq!(placed.width, x);
+    assert_ne!(
+        placed.fragments[1].width,
+        measure_text_in(FontFamily::Sans, "bold", 16.)
+    );
+}
+
+#[test]
+fn runs_wrap_at_spaces_across_run_boundaries_and_keep_split_words_whole() {
+    // "Forma" is one word made of a regular and a bold run: it never breaks in the middle.
+    let runs = [
+        (FontFamily::Sans, "Use For"),
+        (FontFamily::SansBold, "ma"),
+        (FontFamily::Sans, " now\nnext line"),
+    ];
+    let forma = measure_text_in(FontFamily::Sans, "For", 16.)
+        + measure_text_in(FontFamily::SansBold, "ma", 16.);
+    let placed = layout_runs(&runs, 16., Some(forma + 2.));
+    let lines: Vec<Vec<&str>> = (0..placed.lines)
+        .map(|line| {
+            placed
+                .fragments
+                .iter()
+                .filter(|f| f.line == line)
+                .map(|f| &runs[f.run].1[f.range.clone()])
+                .collect()
+        })
+        .collect();
+    assert_eq!(lines[0], ["Use"]);
+    assert_eq!(lines[1], ["For", "ma"]);
+    assert_eq!(lines[2], ["now"]);
+    assert_eq!(lines[3], ["next"]);
+    assert_eq!(lines[4], ["line"]);
+    let forma = &placed.fragments[2];
+    assert_eq!(forma.x, measure_text_in(FontFamily::Sans, "For", 16.));
+    // Unbounded: only the hard break splits.
+    assert_eq!(layout_runs(&runs, 16., None).lines, 2);
+    // A word wider than the line breaks between characters instead of overflowing.
+    let three = measure_text_in(FontFamily::Mono, "abc", 16.) + 0.5;
+    let narrow = layout_runs(&[(FontFamily::Mono, "abcdef")], 16., Some(three));
+    assert_eq!(narrow.lines, 2);
+    assert!(narrow.width <= three);
+}

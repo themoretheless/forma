@@ -88,6 +88,9 @@ impl FontFamily {
 }
 const CURVE_TOLERANCE: f32 = 0.15;
 
+mod runs;
+pub use runs::{RunFragment, RunLayout, layout_runs};
+
 /// Shaped glyph placement produced by [`shape_text`].
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ShapedGlyph {
