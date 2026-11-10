@@ -22,7 +22,7 @@ const result = compileComponents(
   'ui/FormaControls.ui',
   {},
   {
-    measureText: (text, fontSize) => text_metrics(text, fontSize),
+    measureText: (text, fontSize, family) => text_metrics(text, fontSize, family),
   },
 );
 const directory = resolve(root, output);

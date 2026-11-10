@@ -408,6 +408,12 @@ Grid {
 cargo run --locked --manifest-path crates/forma/examples/language-app/Cargo.toml
 ```
 
+`Text` принимает `fontFamily: 'mono';` (или `font.family`): текст рисуется
+встроенным IBM Plex Mono, а размер по содержимому и перенос считаются по его
+метрикам. Значение по умолчанию — `'sans'` (Ubuntu Light). Символы, которых нет
+в моноширинном шрифте, берутся из общих запасных шрифтов. `TextInput` пока
+всегда использует `'sans'`.
+
 Обычные `Text` и `TextInput` работают в сцене без файлов компонентов.
 При наличии `components/Text.ui` или `components/TextInput.ui` используется
 определение проекта. Внутри визуального дерева они остаются примитивами.

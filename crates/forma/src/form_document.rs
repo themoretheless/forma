@@ -285,6 +285,12 @@ fn num(p: &Properties, key: &str, default: f64) -> Result<f64, String> {
 fn boolean(p: &Properties, key: &str, default: bool) -> Result<bool, String> {
     p.get(key).map_or(Ok(default), Value::boolean)
 }
+/// `fontFamily` (or `font.family`) of a passive Text: `'sans'` by default, or `'mono'`.
+fn font_family(p: &Properties) -> Result<crate::text::FontFamily, String> {
+    let name = text(p, "fontFamily", &text(p, "font.family", "sans")?)?;
+    crate::text::FontFamily::from_name(&name)
+        .ok_or_else(|| format!("Text.fontFamily expects 'sans' or 'mono', got '{name}'"))
+}
 fn text(p: &Properties, key: &str, default: &str) -> Result<String, String> {
     p.get(key).map_or(Ok(default.into()), Value::text)
 }

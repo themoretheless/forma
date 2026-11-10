@@ -451,6 +451,7 @@ impl Cache {
         cache.frame = frame_runs(model, key);
         if let Some(t) = &model.template.text {
             text::draw_text_region(
+                t.family,
                 &mut text::RasterCanvas::subregion(
                     &mut cache.content,
                     width,
@@ -476,6 +477,7 @@ impl Cache {
         for c in model.template.content.iter().filter(|_| has_content) {
             match c {
                 Content::Text { bounds, text: t } => text::draw_text_region(
+                    t.family,
                     &mut text::RasterCanvas::subregion(
                         &mut cache.content,
                         width,

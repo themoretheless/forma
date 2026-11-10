@@ -44,9 +44,14 @@ pub const TWO_BUTTONS_EXAMPLE: &str = include_str!("../examples/TwoButtons.ui");
 pub const BUTTON_COMPONENT: &str = include_str!("../examples/Button.component.ui");
 
 /// Logical single-line metrics from the same font as the vector text renderer.
+/// `family` is `sans` (the default when omitted or unknown) or `mono`.
 #[wasm_bindgen]
-pub fn text_metrics(value: &str, font_size: f32) -> Vec<f32> {
-    text::measure_line(value, font_size).to_vec()
+pub fn text_metrics(value: &str, font_size: f32, family: Option<String>) -> Vec<f32> {
+    let family = family
+        .as_deref()
+        .and_then(text::FontFamily::from_name)
+        .unwrap_or_default();
+    text::measure_line_in(family, value, font_size).to_vec()
 }
 
 /// Shaped single-line metrics (`[width, height, glyph_count]`) using ligature/BiDi/fallback shaping.
@@ -664,7 +669,8 @@ impl Button {
         }
         let r = b.radius.min(b.width / 2.).min(b.height / 2.);
         if let Some(t) = &self.template.text {
-            text::draw_text(
+            text::draw_text_in(
+                t.family,
                 &mut text::RasterCanvas::full(&mut out, width, height, scale),
                 &t.text,
                 t.font_size,
@@ -711,7 +717,8 @@ impl Button {
                         out = parent;
                     }
                 }
-                template::Content::Text { bounds, text: t } => text::draw_text(
+                template::Content::Text { bounds, text: t } => text::draw_text_in(
+                    t.family,
                     &mut text::RasterCanvas::full(&mut out, width, height, scale),
                     &t.text,
                     t.font_size,

@@ -60,6 +60,34 @@ fn body(source: &str) -> Result<Template, String> {
     )
 }
 #[test]
+fn font_family_selects_the_face_and_rejects_unknown_names() {
+    use crate::text::FontFamily;
+    let label = |source: &str| body(source).map(|t| t.text.unwrap().family);
+    assert_eq!(label("Text { text:'x'; }").unwrap(), FontFamily::Sans);
+    assert_eq!(
+        label("Text { text:'x'; font.family: mono; }").unwrap(),
+        FontFamily::Mono
+    );
+    assert_eq!(
+        label("Text { text:'x'; fontFamily: 'mono'; }").unwrap(),
+        FontFamily::Mono
+    );
+    assert_eq!(
+        label("Text { text:'x'; fontFamily: sans; }").unwrap(),
+        FontFamily::Sans
+    );
+    assert!(label("Text { text:'x'; fontFamily: serif; }").is_err());
+    assert!(label("Text { text:'x'; fontFamily: 12; }").is_err());
+    let content = body(
+        "ContentText { x: 0; y: 0; width: 10; height: 10; text: 'a'; color: #ffffff; fontFamily: mono; }",
+    )
+    .unwrap();
+    assert!(matches!(
+        &content.content[0],
+        Content::Text { text, .. } if text.family == FontFamily::Mono
+    ));
+}
+#[test]
 fn shape_points_boundaries_and_string_escapes() {
     let shape = |points: &str| {
         body(&format!(
@@ -121,7 +149,8 @@ fn shape_points_boundaries_and_string_escapes() {
             text: Text {
                 text: "a'b\nc\r\t${x}".into(),
                 color: [255; 4],
-                font_size: 16.
+                font_size: 16.,
+                family: Default::default(),
             }
         }
     );

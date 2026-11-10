@@ -68,9 +68,15 @@ fn streamed_glyphs_preserve_exact_geometry_and_coverage() {
                 ] {
                     let expected = collected_vector_glyphs(text, font_size, rect, scale);
                     let mut actual = Vec::new();
-                    vector_glyphs(text, font_size, rect, scale, &mut scratch, |glyph| {
-                        actual.push(glyph.collect::<Vec<_>>())
-                    });
+                    vector_glyphs(
+                        FontFamily::Sans,
+                        text,
+                        font_size,
+                        rect,
+                        scale,
+                        &mut scratch,
+                        |glyph| actual.push(glyph.collect::<Vec<_>>()),
+                    );
                     let bits = |paths: &[Vec<[f32; 4]>]| {
                         paths
                             .iter()
@@ -173,7 +179,9 @@ fn shaping_uses_real_fallback_faces_and_does_not_kern_across_fonts() {
         assert_eq!(glyph.fallback, glyph.font_index != 0);
     }
     assert!((measure_shaped_text(text, 28.) - measure_text(text, 28.)).abs() < 0.0001);
-    assert!(font_face(3).is_none());
+    // Index 3 is the monospace primary face; nothing lies beyond it.
+    assert!(font_face(3).is_some());
+    assert!(font_face(4).is_none());
 }
 
 #[test]
@@ -205,10 +213,18 @@ fn portable_faces_render_real_cjk_and_monochrome_emoji() {
         assert_ne!(pixels, render("?"));
         let mut scratch = VectorScratch::prewarm();
         let mut count = 0;
-        vector_glyphs(value, 28., [0., 0., 100., 60.], 1., &mut scratch, |glyph| {
-            assert!(glyph.edges.count() > 0);
-            count += 1;
-        });
+        vector_glyphs(
+            FontFamily::Sans,
+            value,
+            28.,
+            [0., 0., 100., 60.],
+            1.,
+            &mut scratch,
+            |glyph| {
+                assert!(glyph.edges.count() > 0);
+                count += 1;
+            },
+        );
         assert_eq!(count, 1);
     }
 }
@@ -238,10 +254,18 @@ fn missing_unicode_scalars_have_visible_consistent_fallback_and_caret_width() {
     assert_eq!(pixels, render("?"));
     let mut scratch = VectorScratch::prewarm();
     let mut paths = 0;
-    vector_glyphs(value, 28., [0., 0., 100., 60.], 1., &mut scratch, |glyph| {
-        assert!(glyph.edges.count() > 0);
-        paths += 1;
-    });
+    vector_glyphs(
+        FontFamily::Sans,
+        value,
+        28.,
+        [0., 0., 100., 60.],
+        1.,
+        &mut scratch,
+        |glyph| {
+            assert!(glyph.edges.count() > 0);
+            paths += 1;
+        },
+    );
     assert_eq!(paths, 1);
 }
 
@@ -633,6 +657,7 @@ fn region_raster_matches_full_canvas_for_text_shapes_and_blending() {
                 };
                 let mut actual = crop(&seed);
                 draw_text_region(
+                    FontFamily::Sans,
                     &mut RasterCanvas::subregion(&mut actual, width, height, scale, region),
                     label,
                     28.5,
@@ -662,6 +687,7 @@ fn region_raster_matches_full_canvas_for_text_shapes_and_blending() {
         [0, 0, 240, 140],
     ] {
         draw_text_region(
+            FontFamily::Sans,
             &mut RasterCanvas::subregion(&mut untouched, width, height, 1., region),
             "A",
             20.,
@@ -872,4 +898,98 @@ fn wrap_shaped_text_breaks_on_words_cjk_and_emergency_graphemes_with_hit_testing
             "{sample}: {shaped_sum} vs {fast_measured}"
         );
     }
+}
+
+#[test]
+fn monospace_advances_are_equal_and_sans_advances_are_not() {
+    let mono = |text: &str| measure_text_in(FontFamily::Mono, text, 16.);
+    assert!(mono("i") > 0.);
+    assert_eq!(mono("iiii"), mono("WWWW"));
+    assert_eq!(mono("a.b_c"), mono("MMMMM"));
+    assert_ne!(measure_text("iiii", 16.), measure_text("WWWW", 16.));
+    // The default family is unchanged by the new entry points.
+    assert_eq!(
+        measure_text_in(FontFamily::Sans, "Forma", 16.),
+        measure_text("Forma", 16.)
+    );
+    assert_eq!(
+        measure_line_in(FontFamily::Sans, "Forma", 16.),
+        measure_line("Forma", 16.)
+    );
+}
+
+#[test]
+fn monospace_falls_back_to_shared_faces_for_missing_scalars() {
+    let table = font_table_for(FontFamily::Mono);
+    assert_eq!(resolve_glyph_with_table('a', table).0.face, 3);
+    let (cjk, advance) = resolve_glyph_with_table('\u{4F60}', table);
+    assert_eq!(cjk.face, 1);
+    assert!(advance > 0.);
+    assert_eq!(font_face(3).unwrap().units_per_em(), table.units_per_em);
+    assert!(font_face(4).is_none());
+}
+
+#[test]
+fn monospace_wrapping_measures_with_renderer_advances() {
+    let text = "let rows = store.candidates(&query);";
+    let cell = measure_text_in(FontFamily::Mono, "x", 14.);
+    let lines = wrap_text_ranges_in(FontFamily::Mono, text, 14., cell * 12.5);
+    assert!(lines.len() > 1);
+    for (range, width) in &lines {
+        assert_eq!(
+            *width,
+            measure_text_in(FontFamily::Mono, &text[range.clone()], 14.)
+        );
+        assert!(*width <= cell * 12.5);
+    }
+    assert_eq!(
+        wrap_text_ranges_in(FontFamily::Sans, text, 14., 90.),
+        wrap_text_ranges(text, 14., 90.)
+    );
+}
+
+#[test]
+fn cpu_and_vector_paths_draw_the_selected_face() {
+    let paint = |family| {
+        let mut pixels = vec![0_u8; 160 * 40 * 4];
+        draw_text_in(
+            family,
+            &mut RasterCanvas::full(&mut pixels, 160, 40, 1.),
+            "Rg0",
+            24.,
+            [0., 0., 160., 40.],
+            [255; 4],
+        );
+        pixels
+    };
+    let (sans, mono) = (paint(FontFamily::Sans), paint(FontFamily::Mono));
+    assert!(mono.iter().any(|&byte| byte != 0));
+    assert_ne!(sans, mono);
+    let mut direct = vec![0_u8; 160 * 40 * 4];
+    draw_text(
+        &mut RasterCanvas::full(&mut direct, 160, 40, 1.),
+        "Rg0",
+        24.,
+        [0., 0., 160., 40.],
+        [255; 4],
+    );
+    assert_eq!(sans, direct);
+
+    let outline = |family| {
+        let mut scratch = VectorScratch::prewarm();
+        let mut edges = Vec::new();
+        vector_glyphs(
+            family,
+            "Rg0",
+            24.,
+            [0., 0., 160., 40.],
+            1.,
+            &mut scratch,
+            |glyph| edges.push(glyph.collect::<Vec<_>>()),
+        );
+        edges
+    };
+    let (sans, mono) = (outline(FontFamily::Sans), outline(FontFamily::Mono));
+    assert_eq!(mono.len(), 3);
+    assert_ne!(sans, mono);
 }

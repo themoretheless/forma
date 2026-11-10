@@ -181,6 +181,12 @@ export function renderHtmlPreview({
       if (n.type === 'Modal' && (k === 'open' || k === 'dismiss' || k === 'backdrop')) continue;
       if ((n.type === 'Badge' || n.type === 'Tag' || n.type === 'Chip') && k === 'tone') continue;
       if (n.type === 'ProgressBar' && (k === 'value' || k === 'fill')) continue;
+      if (k === 'fontFamily' || k === 'font.family') {
+        if (n.type !== 'Text' || (x !== 'sans' && x !== 'mono'))
+          throw Error("Text.fontFamily ожидает 'sans' или 'mono'");
+        if (x === 'mono') el.style.fontFamily = 'ui-monospace, monospace';
+        continue;
+      }
       if (k === 'wrap') {
         if (n.type !== 'Text' || typeof x !== 'boolean')
           throw Error('Text.wrap ожидает true или false');

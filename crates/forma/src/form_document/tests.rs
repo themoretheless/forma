@@ -2404,6 +2404,53 @@ fn rust_ui_compiler_resolves_inheritance_overrides_tokens_svg_and_state() {
 }
 
 #[test]
+fn text_font_family_reaches_the_scene_and_sizes_by_monospace_metrics() {
+    let scene = |family: &str| {
+        let mut files: BTreeMap<String, String> = BTreeMap::new();
+        files.insert(
+            "Code.component.ui".into(),
+            format!("component Code {{ width: 400; height: 60; Rectangle {{ Frame {{ columns: [-, *]; Text {{ cell: 1 1; text: 'iiii\nWWWW'; fontSize: 20; {family} }} }} }} }}"),
+        );
+        files.insert(
+            "App.ui".into(),
+            "component App { Column { width: 420; height: 80; Code { key: 'code'; } } }".into(),
+        );
+        let doc = Document::from_ui_files(&files, "App.ui", &Properties::new()).unwrap();
+        let (scene_src, templates, _) = doc.render_scene().unwrap();
+        crate::Runtime::from_sources(&scene_src, &templates).unwrap();
+        templates
+    };
+    let widths = |templates: &str| -> Vec<f64> {
+        templates
+            .split("ContentText {")
+            .skip(1)
+            .map(|part| {
+                let rest = part.split("width:").nth(1).unwrap();
+                rest.split(';').next().unwrap().trim().parse().unwrap()
+            })
+            .collect()
+    };
+    let sans = scene("");
+    assert!(!sans.contains("fontFamily"));
+    let sans_widths = widths(&sans);
+    assert_ne!(sans_widths[0], sans_widths[1]);
+
+    let mono = scene("fontFamily: 'mono';");
+    assert_eq!(mono.matches("fontFamily:mono;").count(), 2);
+    let mono_widths = widths(&mono);
+    assert_eq!(mono_widths[0], mono_widths[1]);
+
+    let mut files: BTreeMap<String, String> = BTreeMap::new();
+    files.insert(
+        "App.ui".into(),
+        "component App { Column { width: 200; height: 80; Text { key: 't'; text: 'x'; fontFamily: 'serif'; } } }".into(),
+    );
+    let bad = Document::from_ui_files(&files, "App.ui", &Properties::new())
+        .and_then(|doc| doc.render_scene().map(|_| ()));
+    assert!(bad.is_err());
+}
+
+#[test]
 fn rust_ui_compiler_supports_apply_styles_let_match_guards_and_base_slot_wrapping() {
     let mut files: BTreeMap<String, String> = BTreeMap::new();
     files.insert(

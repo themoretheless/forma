@@ -1,4 +1,4 @@
-use super::{Node, Properties, Value, boolean, num, number, text_ref};
+use super::{Node, Properties, Value, boolean, font_family, num, number, text_ref};
 
 fn is_color_property(key: &str) -> bool {
     key.as_bytes()
@@ -275,13 +275,15 @@ pub(super) fn natural(n: &Node, axis: usize) -> Result<f64, String> {
             let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
             let text = text_ref(&n.props, "text", "")?;
             let wrap = boolean(&n.props, "wrap", false)?;
+            let family = font_family(&n.props)?;
             let max_w = n
                 .props
                 .get("width")
                 .and_then(|v| v.number().ok())
                 .unwrap_or(0.);
             if wrap && max_w > 0. {
-                let lines = crate::text::wrap_text_ranges(&text, fs as f32, max_w as f32);
+                let lines =
+                    crate::text::wrap_text_ranges_in(family, &text, fs as f32, max_w as f32);
                 if axis == 1 {
                     lines.len().max(1) as f64 * fs * 1.5
                 } else {
@@ -291,7 +293,7 @@ pub(super) fn natural(n: &Node, axis: usize) -> Result<f64, String> {
                 text.split('\n').count() as f64 * fs * 1.5
             } else {
                 text.split('\n')
-                    .map(|line| crate::text::measure_line(line, fs as f32)[axis] as f64)
+                    .map(|line| crate::text::measure_line_in(family, line, fs as f32)[axis] as f64)
                     .fold(0., f64::max)
             }
         }

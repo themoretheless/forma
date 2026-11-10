@@ -573,8 +573,15 @@ impl Document {
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
                 let color = text_ref(&n.props, "color", "#ffffff")?;
                 let wrap = boolean(&n.props, "wrap", false)?;
+                let family = font_family(&n.props)?;
+                // The default family is left implicit, so existing scenes stay byte-identical.
+                let family_field = match family {
+                    crate::text::FontFamily::Sans => String::new(),
+                    other => format!(" fontFamily:{};", other.as_str()),
+                };
                 if wrap && w > 0. {
-                    let wrapped = crate::text::wrap_text_ranges(&value, fs as f32, w as f32);
+                    let wrapped =
+                        crate::text::wrap_text_ranges_in(family, &value, fs as f32, w as f32);
                     let multiline = wrapped.len() > 1 || value.contains('\n');
                     if multiline {
                         clip(out, 0.);
@@ -596,7 +603,7 @@ impl Document {
                         write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
-                            format_args!("; color:{color}; fontSize:{fs}; }} "),
+                            format_args!("; color:{color}; fontSize:{fs};{family_field} }} "),
                         );
                     }
                     if multiline {
@@ -610,7 +617,7 @@ impl Document {
                     for (i, line) in value.split('\n').enumerate() {
                         let (width, height) = if multiline {
                             (
-                                crate::text::measure_line(line, fs as f32)[0] as f64,
+                                crate::text::measure_line_in(family, line, fs as f32)[0] as f64,
                                 fs * 1.5,
                             )
                         } else {
@@ -626,7 +633,7 @@ impl Document {
                         write_str_literal(line, out);
                         let _ = std::fmt::Write::write_fmt(
                             out,
-                            format_args!("; color:{color}; fontSize:{fs}; }} "),
+                            format_args!("; color:{color}; fontSize:{fs};{family_field} }} "),
                         );
                     }
                     if multiline {

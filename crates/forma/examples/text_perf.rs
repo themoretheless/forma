@@ -67,7 +67,7 @@ fn main() {
         .and_then(|value| value.parse().ok())
         .unwrap_or(100);
     // Face initialization is excluded from the steady-state preparation cases.
-    black_box(forma::text_metrics(LABEL, 15.5));
+    black_box(forma::text_metrics(LABEL, 15.5, None));
     for labels in [1, 16, 64] {
         let content: String = (0..labels).map(|i| format!("ContentText {{ x:0; y:{}; width:600; height:45; text:'{LABEL}'; fontSize:15.5; color:#ffffffad; }}", i * 28)).collect();
         let source = format!(

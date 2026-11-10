@@ -9,6 +9,41 @@ use std::sync::OnceLock;
 use ttf_parser::{Face, GlyphId, OutlineBuilder};
 
 const FONT: &[u8] = include_bytes!("../assets/Ubuntu-Light.ttf");
+const MONO: &[u8] = include_bytes!("../assets/mono/IBMPlexMono-Regular.ttf");
+
+/// Primary face of a passive text run. Fallback faces are shared by both families.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum FontFamily {
+    /// Ubuntu Light, the default interface face.
+    #[default]
+    Sans,
+    /// IBM Plex Mono Regular, for code and aligned columns.
+    Mono,
+}
+
+impl FontFamily {
+    /// Markup name: `sans` or `mono`.
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "sans" => Some(Self::Sans),
+            "mono" => Some(Self::Mono),
+            _ => None,
+        }
+    }
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sans => "sans",
+            Self::Mono => "mono",
+        }
+    }
+    /// Index of the family's primary face, as used by [`font_face`].
+    fn primary(self) -> u8 {
+        match self {
+            Self::Sans => 0,
+            Self::Mono => 3,
+        }
+    }
+}
 const CURVE_TOLERANCE: f32 = 0.15;
 
 /// Shaped glyph placement produced by [`shape_text`].
@@ -16,7 +51,8 @@ const CURVE_TOLERANCE: f32 = 0.15;
 pub struct ShapedGlyph {
     /// Resolved font glyph identifier (`GlyphId(0)` when synthesized by the fallback chain).
     pub glyph_id: u16,
-    /// Bundled face: 0=Ubuntu, 1=NotoSansSC, 2=NotoEmoji; see [`font_face`].
+    /// Bundled face: 0=Ubuntu, 1=NotoSansSC, 2=NotoEmoji, 3=IBM Plex Mono; see [`font_face`].
+    /// Shaping itself only produces 0..=2: the monospace face is not shaped.
     pub font_index: u8,
     /// Logical UTF-8 byte offset of the cluster start in the source string.
     pub cluster: usize,
@@ -477,9 +513,24 @@ pub fn wrap_text_ranges(
     font_size: f32,
     max_width: f32,
 ) -> Vec<(std::ops::Range<usize>, f32)> {
+    wrap_text_ranges_in(FontFamily::Sans, text, font_size, max_width)
+}
+
+/// [`wrap_text_ranges`] for a chosen family. The monospace face is measured by plain
+/// advances, the same sum its renderer uses: it has no ligatures or kerning to shape.
+pub fn wrap_text_ranges_in(
+    family: FontFamily,
+    text: &str,
+    font_size: f32,
+    max_width: f32,
+) -> Vec<(std::ops::Range<usize>, f32)> {
     if !font_size.is_finite() || font_size <= 0. {
         return Vec::new();
     }
+    let measure_shaped_text = |value: &str, size: f32| match family {
+        FontFamily::Sans => measure_shaped_text(value, size),
+        FontFamily::Mono => measure_text_in(family, value, size),
+    };
     let unbounded = !max_width.is_finite() || max_width <= 0.;
     let mut result = Vec::new();
     let mut hard_start = 0;
@@ -600,7 +651,7 @@ struct FontGlyph {
 /// Return an immutable bundled face corresponding to [`ShapedGlyph::font_index`].
 /// Fallback variable fonts are fixed at weight400, matching shaping/rendering.
 pub fn font_face(index: u8) -> Option<&'static Face<'static>> {
-    (index <= 2).then(|| glyph_face(index))
+    (index <= 3).then(|| glyph_face(index))
 }
 
 fn glyph_face(index: u8) -> &'static Face<'static> {
@@ -619,6 +670,10 @@ fn glyph_face(index: u8) -> &'static Face<'static> {
             EMOJI
                 .get_or_init(|| parsed(include_bytes!("../assets/fallback/FormaEmoji-Regular.ttf")))
         }
+        3 => {
+            static MONO_FACE: OnceLock<Face<'static>> = OnceLock::new();
+            MONO_FACE.get_or_init(|| Face::parse(MONO, 0).expect("embedded monospace font"))
+        }
         _ => font(),
     }
 }
@@ -634,13 +689,15 @@ fn resolve_glyph_with_table(ch: char, table: &FontTable) -> (FontGlyph, f32) {
     if code < 1104 && table.present[code] {
         return (
             FontGlyph {
-                face: 0,
+                face: table.primary,
                 id: table.glyphs[code],
             },
             table.advances[code],
         );
     }
-    for index in 0..=2 {
+    // The family's own face first, then the shared chain. For the default family this is
+    // the historical 0, 1, 2 order.
+    for index in std::iter::once(table.primary).chain((0..=2).filter(|&i| i != table.primary)) {
         let face = glyph_face(index);
         if let Some(id) = face.glyph_index(ch) {
             let units = advance(face, id) * table.units_per_em as f32 / face.units_per_em() as f32;
@@ -649,7 +706,7 @@ fn resolve_glyph_with_table(ch: char, table: &FontTable) -> (FontGlyph, f32) {
     }
     (
         FontGlyph {
-            face: 0,
+            face: table.primary,
             id: table.glyphs[b'?' as usize],
         },
         table.advances[b'?' as usize],
@@ -657,6 +714,7 @@ fn resolve_glyph_with_table(ch: char, table: &FontTable) -> (FontGlyph, f32) {
 }
 
 struct FontTable {
+    primary: u8,
     glyphs: [GlyphId; 1104],
     present: [bool; 1104],
     advances: [f32; 1104],
@@ -667,9 +725,19 @@ struct FontTable {
 }
 
 fn font_table() -> &'static FontTable {
-    static TABLE: OnceLock<FontTable> = OnceLock::new();
-    TABLE.get_or_init(|| {
-        let face = font();
+    font_table_for(FontFamily::Sans)
+}
+
+fn font_table_for(family: FontFamily) -> &'static FontTable {
+    static SANS: OnceLock<FontTable> = OnceLock::new();
+    static MONO_TABLE: OnceLock<FontTable> = OnceLock::new();
+    let cell = match family {
+        FontFamily::Sans => &SANS,
+        FontFamily::Mono => &MONO_TABLE,
+    };
+    cell.get_or_init(|| {
+        let primary = family.primary();
+        let face = glyph_face(primary);
         let fallback = face
             .glyph_index('?')
             .or_else(|| face.glyph_index(' '))
@@ -687,6 +755,7 @@ fn font_table() -> &'static FontTable {
             }
         }
         FontTable {
+            primary,
             glyphs,
             present,
             advances,
@@ -843,13 +912,18 @@ fn glyph(face: &Face<'_>, character: char) -> GlyphId {
 }
 
 pub fn measure_line(value: &str, font_size: f32) -> [f32; 2] {
+    measure_line_in(FontFamily::Sans, value, font_size)
+}
+
+/// [`measure_line`] for a chosen family.
+pub fn measure_line_in(family: FontFamily, value: &str, font_size: f32) -> [f32; 2] {
     if !font_size.is_finite() || font_size <= 0. {
         return [0.; 2];
     }
-    let table = font_table();
+    let table = font_table_for(family);
     let height =
         (table.ascender - table.descender + table.line_gap) * font_size / table.units_per_em as f32;
-    [measure_text(value, font_size), height]
+    [measure_text_in(family, value, font_size), height]
 }
 
 fn advance(face: &Face<'_>, glyph: GlyphId) -> f32 {
@@ -858,10 +932,15 @@ fn advance(face: &Face<'_>, glyph: GlyphId) -> f32 {
 
 /// Single-line advance width in logical pixels. No complex shaping yet.
 pub fn measure_text(text: &str, font_size: f32) -> f32 {
+    measure_text_in(FontFamily::Sans, text, font_size)
+}
+
+/// [`measure_text`] for a chosen family: the exact sum the renderers advance by.
+pub fn measure_text_in(family: FontFamily, text: &str, font_size: f32) -> f32 {
     if !font_size.is_finite() || font_size <= 0. {
         return 0.;
     }
-    let table = font_table();
+    let table = font_table_for(family);
     let mut units = 0.;
     for c in text.chars() {
         units += resolve_glyph_with_table(c, table).1;
@@ -961,10 +1040,10 @@ impl VectorScratch {
 /// Resolve every character once, keeping the identifiers and advances while summing exactly the
 /// advances `measure_text` sums. Drawing a label needs both, and measuring first then resolving
 /// again per outline pays for the same font table lookup twice per character.
-fn glyph_ids(text: &str, ids: &mut Vec<(FontGlyph, f32)>) -> f32 {
+fn glyph_ids(family: FontFamily, text: &str, ids: &mut Vec<(FontGlyph, f32)>) -> f32 {
     ids.clear();
     let mut units = 0.;
-    let table = font_table();
+    let table = font_table_for(family);
     for ch in text.chars() {
         let resolved = resolve_glyph_with_table(ch, table);
         units += resolved.1;
@@ -977,6 +1056,7 @@ fn glyph_ids(text: &str, ids: &mut Vec<(FontGlyph, f32)>) -> f32 {
 /// One path per glyph keeps work bounded to that glyph's rectangle. Streaming
 /// avoids retaining and allocating a separate temporary path for every glyph.
 pub(crate) fn vector_glyphs(
+    family: FontFamily,
     text: &str,
     font_size: f32,
     rect: [f32; 4],
@@ -987,10 +1067,10 @@ pub(crate) fn vector_glyphs(
     if rect[2] <= 0. || rect[3] <= 0. || font_size <= 0. {
         return;
     }
-    let face = font();
+    let face = glyph_face(family.primary());
     let units_to_pixels = font_size * scale / face.units_per_em() as f32;
     let mut ids = std::mem::take(&mut scratch.ids);
-    let units = glyph_ids(text, &mut ids);
+    let units = glyph_ids(family, text, &mut ids);
     // The same guard and the same summation order as `measure_text`: a non-finite size still
     // measures as zero width, and the outlines below still draw.
     let width = if font_size.is_finite() {
@@ -1092,7 +1172,20 @@ pub fn draw_text(
     rect: [f32; 4],
     color: [u8; 4],
 ) {
+    draw_text_in(FontFamily::Sans, canvas, text, font_size, rect, color);
+}
+
+/// [`draw_text`] for a chosen family.
+pub fn draw_text_in(
+    family: FontFamily,
+    canvas: &mut RasterCanvas<'_>,
+    text: &str,
+    font_size: f32,
+    rect: [f32; 4],
+    color: [u8; 4],
+) {
     draw_text_region(
+        family,
         &mut RasterCanvas::full(canvas.pixels, canvas.width, canvas.height, canvas.scale),
         text,
         font_size,
@@ -1103,6 +1196,7 @@ pub fn draw_text(
 
 /// Draw into a physical subregion while retaining global contour coordinates.
 pub(crate) fn draw_text_region(
+    family: FontFamily,
     canvas: &mut RasterCanvas<'_>,
     text: &str,
     font_size: f32,
@@ -1144,13 +1238,13 @@ pub(crate) fn draw_text_region(
     if !clip.iter().all(|n| n.is_finite()) || clip[0] >= clip[2] || clip[1] >= clip[3] {
         return;
     }
-    let face = font();
+    let face = glyph_face(family.primary());
     let units_to_pixels = font_size * scale / face.units_per_em() as f32;
     let (mut ids, mut edges) = CPU_SCRATCH.with(|cell| {
         let mut s = cell.borrow_mut();
         (std::mem::take(&mut s.ids), std::mem::take(&mut s.edges))
     });
-    let text_width = glyph_ids(text, &mut ids) * units_to_pixels;
+    let text_width = glyph_ids(family, text, &mut ids) * units_to_pixels;
     let origin = Point {
         x: (rect[0] + rect[2] * 0.5) * scale - text_width * 0.5,
         y: (rect[1] + rect[3] * 0.5) * scale

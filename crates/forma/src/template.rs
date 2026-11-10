@@ -60,6 +60,7 @@ pub struct Text {
     pub text: String,
     pub color: [u8; 4],
     pub font_size: f32,
+    pub family: crate::text::FontFamily,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -815,12 +816,24 @@ impl<'a> Parser<'a> {
         self.close()?;
         Ok(input)
     }
+    /// `sans` or `mono`, bare or quoted.
+    fn font_family(&mut self) -> Result<crate::text::FontFamily, String> {
+        let family = match &self.current.kind {
+            Kind::Ident(name) => crate::text::FontFamily::from_name(name.text()),
+            Kind::String(name) => crate::text::FontFamily::from_name(name),
+            _ => None,
+        };
+        let family = family.ok_or_else(|| self.error("'fontFamily' requires sans or mono"))?;
+        self.advance()?;
+        Ok(family)
+    }
     fn text(&mut self) -> Result<Text, String> {
         self.open()?;
         let mut text = Text {
             text: String::new(),
             color: [0, 0, 0, 255],
             font_size: 16.,
+            family: Default::default(),
         };
         let mut seen = SeenFields::default();
         while self.current.kind != Kind::Close {
@@ -828,7 +841,7 @@ impl<'a> Parser<'a> {
             self.unique(&mut seen, &name)?;
             if !matches!(
                 name.text(),
-                "text" | "color" | "font.size" | "fontSize" | "wrap"
+                "text" | "color" | "font.size" | "fontSize" | "font.family" | "fontFamily" | "wrap"
             ) {
                 return Err(self.error(&format!("Unsupported Text field or primitive '{name}'")));
             }
@@ -837,6 +850,7 @@ impl<'a> Parser<'a> {
                 "text" => text.text = self.text_value()?.into_owned(),
                 "color" => text.color = self.color("color")?,
                 "font.size" | "fontSize" => text.font_size = self.scalar("fontSize", true)?,
+                "font.family" | "fontFamily" => text.family = self.font_family()?,
                 "wrap" => {
                     let v = self.ident()?;
                     if !matches!(v.text(), "true" | "false" | "props.wrap") {
@@ -971,6 +985,7 @@ impl<'a> Parser<'a> {
             text: String::new(),
             color: [255; 4],
             font_size: 16.,
+            family: Default::default(),
         };
         let mut points = None;
         let mut radius = 0.;
@@ -998,6 +1013,7 @@ impl<'a> Parser<'a> {
                 ("ContentClip", "radius") => radius = self.scalar(&name, false)?,
                 ("ContentText", "text") => text.text = self.text_value()?.into_owned(),
                 ("ContentText", "fontSize") => text.font_size = self.scalar(&name, true)?,
+                ("ContentText", "fontFamily") => text.family = self.font_family()?,
                 (_, "color") => text.color = self.color("color")?,
                 ("ContentShape", "points") => {
                     // One pass straight into pairs: no intermediate scalar vector.

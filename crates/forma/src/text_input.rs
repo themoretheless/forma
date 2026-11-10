@@ -460,6 +460,7 @@ impl Editor {
             ctx.out.push(Content::Text {
                 bounds: [ctx.px, py, self.width(line), ctx.lh],
                 text: Text {
+                    family: Default::default(),
                     text: line.into(),
                     font_size: self.spec.font_size,
                     color: self.spec.color,
@@ -494,6 +495,7 @@ impl Editor {
                         ctx.lh,
                     ],
                     text: Text {
+                        family: Default::default(),
                         text: text.into(),
                         font_size: self.spec.font_size,
                         color,
@@ -573,6 +575,7 @@ impl Editor {
             out.push(Content::Text {
                 bounds: [x, y + self.top(), self.width(&self.spec.placeholder), lh],
                 text: Text {
+                    family: Default::default(),
                     text: self.spec.placeholder.clone(),
                     font_size: self.spec.font_size,
                     color: self.spec.placeholder_color,
@@ -587,6 +590,7 @@ impl Editor {
                 out.push(Content::Text {
                     bounds: [cx, cy, pre, lh],
                     text: Text {
+                        family: Default::default(),
                         text: self.preedit.clone(),
                         font_size: self.spec.font_size,
                         color: self.spec.color,

@@ -331,9 +331,17 @@ impl DisplayList {
             return;
         }
         self.push(bounds, 0.);
-        text::vector_glyphs(&t.text, t.font_size, bounds, scale, scratch, |glyph| {
-            self.path(glyph, t.color, true);
-        });
+        text::vector_glyphs(
+            t.family,
+            &t.text,
+            t.font_size,
+            bounds,
+            scale,
+            scratch,
+            |glyph| {
+                self.path(glyph, t.color, true);
+            },
+        );
         self.pop();
     }
     /// `scratch` carries the per-glyph flattening buffer. A scene that builds hundreds of
