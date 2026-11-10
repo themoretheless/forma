@@ -11,6 +11,7 @@ mod properties;
 mod render;
 mod scene;
 mod svg;
+mod svg_path;
 mod visual;
 mod widget_state;
 

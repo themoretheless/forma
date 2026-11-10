@@ -1,0 +1,12 @@
+[package]
+name = "memory-budget"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+publish = false
+description = "Format-independent memory ownership: hierarchical byte budgets, owned buffers and byte-weighted cache policies"
+license = "MIT OR Apache-2.0"
+
+[lints.rust]
+unsafe_code = "deny"
+missing_debug_implementations = "warn"

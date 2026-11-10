@@ -366,6 +366,52 @@ pub struct TexelCopyBufferLayout {
     pub rows_per_image: Option<u32>,
 }
 
+impl TexelCopyBufferLayout {
+    /// The row stride, defaulting to tightly packed rows `width` texels wide.
+    pub(crate) fn row_stride(&self, width: u32, format: TextureFormat) -> u32 {
+        self.bytes_per_row
+            .unwrap_or(width * format.bytes_per_pixel())
+    }
+}
+
+/// How a buffer copy of `layers` images addresses a texture: a 3D texture takes one region
+/// `layers` deep, any other texture one single-depth region per array layer.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct CopySlices {
+    pub(crate) count: usize,
+    pub(crate) depth: usize,
+    is_3d: bool,
+    origin_z: usize,
+}
+
+impl CopySlices {
+    pub(crate) fn new(dimension: TextureDimension, origin_z: u32, layers: u32) -> Self {
+        let is_3d = dimension == TextureDimension::D3;
+        let layers = layers.max(1) as usize;
+        let (count, depth) = if is_3d { (1, layers) } else { (layers, 1) };
+        Self {
+            count,
+            depth,
+            is_3d,
+            origin_z: origin_z as usize,
+        }
+    }
+
+    pub(crate) fn is_3d(&self) -> bool {
+        self.is_3d
+    }
+
+    /// The array slice that copy slice `index` writes.
+    pub(crate) fn array_slice(&self, index: usize) -> usize {
+        if self.is_3d { 0 } else { self.origin_z + index }
+    }
+
+    /// The `z` of every region's origin.
+    pub(crate) fn region_z(&self) -> usize {
+        if self.is_3d { self.origin_z } else { 0 }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct TexelCopyBufferInfo<'a> {
     pub buffer: &'a Buffer,
@@ -389,4 +435,37 @@ pub struct QuerySetDescriptor<'a> {
 pub struct QuerySet {
     pub(crate) count: u32,
     pub(crate) timestamps_ns: Arc<Mutex<Vec<u64>>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copy_slices_address_3d_depth_and_array_layers() {
+        let volume = CopySlices::new(TextureDimension::D3, 2, 4);
+        assert_eq!((volume.count, volume.depth, volume.region_z()), (1, 4, 2));
+        assert_eq!(volume.array_slice(0), 0);
+
+        let layers = CopySlices::new(TextureDimension::D2, 2, 3);
+        assert_eq!((layers.count, layers.depth, layers.region_z()), (3, 1, 0));
+        assert_eq!(
+            (0..3).map(|i| layers.array_slice(i)).collect::<Vec<_>>(),
+            [2, 3, 4]
+        );
+
+        let empty = CopySlices::new(TextureDimension::D2, 0, 0);
+        assert_eq!((empty.count, empty.depth), (1, 1));
+    }
+
+    #[test]
+    fn row_stride_defaults_to_packed_rows() {
+        let packed = TexelCopyBufferLayout::default();
+        assert_eq!(packed.row_stride(3, TextureFormat::Rgba8Unorm), 12);
+        let padded = TexelCopyBufferLayout {
+            bytes_per_row: Some(256),
+            ..Default::default()
+        };
+        assert_eq!(padded.row_stride(3, TextureFormat::Rgba8Unorm), 256);
+    }
 }

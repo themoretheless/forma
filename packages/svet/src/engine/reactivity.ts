@@ -67,6 +67,10 @@ type EffectEntry = {
   runVersion: number;
   lifetime: number;
   retiredDependencies: Set<number> | null;
+  /** Array dependencies recorded so far in the current run; built only for long lists. */
+  seenDeps: Set<number> | null;
+  /** Private reset hook; `resetReactiveSystem` calls it instead of a public `dispose`. */
+  retire: ReactiveEntryRetirement;
   sourceRetirementVersion: number;
   rerunRequested: boolean;
   handle: EffectHandle;
@@ -95,6 +99,10 @@ type ComputedEntry<T = unknown> = {
   evaluating: boolean;
   failed: boolean;
   retiredDependencies: Set<number> | null;
+  /** Array dependencies recorded so far in the current run; built only for long lists. */
+  seenDeps: Set<number> | null;
+  /** Private reset hook; `resetReactiveSystem` calls it instead of a public `dispose`. */
+  retire: ReactiveEntryRetirement;
   sourceRetirementVersion: number;
 };
 
@@ -102,7 +110,7 @@ interface JsReactiveContext {
   coreRef?: WeakRef<SvetWasmExports>;
   foreignForwarders?: number;
   generation: number;
-  signalRegistry: Array<any>;
+  signalRegistry: Array<SignalState | undefined>;
   effectRegistry: Array<EffectEntry | undefined>;
   computedRegistry: Array<ComputedEntry<any> | undefined>;
   observerStack: Array<EffectEntry | ComputedEntry<any>>;
@@ -154,10 +162,9 @@ function leaveObservationContext(ctx: JsReactiveContext): void {
 }
 type AsyncOwnerResolver = (core: SvetWasmExports) => OwnerScope | null | undefined;
 type ReactiveResetOwnerRetirements = Map<OwnerScope, Set<() => void>>;
-type ReactiveHandleRetirement = (owners?: ReactiveResetOwnerRetirements) => void;
+type ReactiveEntryRetirement = (self: any, owners: ReactiveResetOwnerRetirements) => void;
 
 type ReactiveDomains = {
-  handleRetirements?: WeakMap<object, ReactiveHandleRetirement>;
   rootDisposerCells?: WeakMap<OwnerScope, RootDisposerCell>;
   batchTransport?: {
     depth: number;
@@ -469,7 +476,7 @@ function retireForeignSource(source: object): void {
 function trackForeignSource<T>(
   sourceCore: SvetWasmExports,
   source: ReadonlySignal<T>,
-  sourceVersion?: () => number,
+  sourceVersion?: (() => number) | SignalState,
 ): void {
   const target = reactiveDomains.frames.at(-1);
   if (!target?.activeEntry || target.activeObserverId < 0) return;
@@ -503,7 +510,8 @@ function trackForeignSource<T>(
       } catch {
         failed = true;
       }
-      const version = sourceVersion?.();
+      const version =
+        typeof sourceVersion === 'function' ? sourceVersion() : sourceVersion?.valueVersion;
       const changed =
         initialized &&
         (failed
@@ -568,6 +576,9 @@ function trackForeignSource<T>(
   bridge.proxy();
 }
 
+/** Below this many array dependencies a linear duplicate scan beats a Set. */
+const SEEN_DEPS_THRESHOLD = 32;
+
 function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   // A source core may have a paused outer observer while another core owns
   // the current evaluation. Never attribute that foreign read to the caller.
@@ -601,8 +612,29 @@ function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   if (entry.dep0 === sourceId || entry.dep1 === sourceId) return;
   const deps = entry.deps;
   const arrIdx = cur - 2;
-  for (let i = 0; i < arrIdx; i++) {
-    if (deps[i] === sourceId) return;
+  let seen = entry.seenDeps;
+  // Until this run changes the topology, positions below the cursor still hold
+  // the previous run's dependencies, which are unique: a match at the cursor
+  // cannot also be an earlier one. Reruns in the same order stay O(1) per read.
+  if (!ctx.activeTopologyChanged && cur < entry.depsCount && deps[arrIdx] === sourceId) {
+    seen?.add(sourceId);
+    ctx.activeCursor = cur + 1;
+    return;
+  }
+  if (seen === null && arrIdx >= SEEN_DEPS_THRESHOLD) {
+    seen = entry.seenDeps = new Set();
+    for (let i = 0; i < arrIdx; i++) {
+      const dep = deps[i];
+      if (dep !== undefined) seen.add(dep);
+    }
+  }
+  if (seen !== null) {
+    if (seen.has(sourceId)) return;
+    seen.add(sourceId);
+  } else {
+    for (let i = 0; i < arrIdx; i++) {
+      if (deps[i] === sourceId) return;
+    }
   }
   if (cur < entry.depsCount && deps[arrIdx] === sourceId) {
     ctx.activeCursor = cur + 1;
@@ -624,6 +656,7 @@ function commitTrackingFast(
   entry: EffectEntry | ComputedEntry<any>,
 ): void {
   retireForeignTracking(entry);
+  entry.seenDeps = null;
   if (entry.sourceRetirementVersion !== ctx.sourceRetirementVersion) {
     ctx.activeTopologyChanged = true;
     entry.sourceRetirementVersion = ctx.sourceRetirementVersion;
@@ -661,7 +694,7 @@ function commitTrackingFast(
   // Auto-bind direct 1-dependency effect to its source signal on the very first run!
   if (entry.kind === 2 && cur === 1 && !entry.wasmLinked && ctx.batchDepth === 0) {
     const sig = ctx.signalRegistry[entry.dep0];
-    if (sig && sig._tryRegisterDirectUnlinked(entry, ctx.topologyVersion)) {
+    if (sig && tryRegisterDirectUnlinked(sig, entry)) {
       if (!entry.inUnlinkedList) {
         entry.inUnlinkedList = true;
         ctx.unlinkedEffects.push(entry);
@@ -673,26 +706,26 @@ function commitTrackingFast(
     // A computed node depends on these sources, so invalidate any direct-only effect cache on them
     if (cur >= 1) {
       const s0 = ctx.signalRegistry[entry.dep0];
-      if (s0) s0._invalidateDirectEffect(ctx.topologyVersion, true);
+      if (s0) invalidateDirectEffect(s0, true);
     }
     if (cur >= 2) {
       const s1 = ctx.signalRegistry[entry.dep1];
-      if (s1) s1._invalidateDirectEffect(ctx.topologyVersion, true);
+      if (s1) invalidateDirectEffect(s1, true);
     }
     for (let i = 2; i < cur; i++) {
       const sN = ctx.signalRegistry[entry.deps[i - 2]];
-      if (sN) sN._invalidateDirectEffect(ctx.topologyVersion, true);
+      if (sN) invalidateDirectEffect(sN, true);
     }
   } else if (entry.kind === 2 && cur >= 1) {
     const s0 = ctx.signalRegistry[entry.dep0];
-    if (s0) s0._invalidateDirectEffect(ctx.topologyVersion);
+    if (s0) invalidateDirectEffect(s0);
     if (cur >= 2) {
       const s1 = ctx.signalRegistry[entry.dep1];
-      if (s1) s1._invalidateDirectEffect(ctx.topologyVersion);
+      if (s1) invalidateDirectEffect(s1);
     }
     for (let i = 2; i < cur; i++) {
       const sN = ctx.signalRegistry[entry.deps[i - 2]];
-      if (sN) sN._invalidateDirectEffect(ctx.topologyVersion);
+      if (sN) invalidateDirectEffect(sN);
     }
   }
   if (entry.kind === 2) {
@@ -752,10 +785,6 @@ type RootDisposerCell = { core: SvetWasmExports | null; scope: OwnerScope | null
 const rootDisposerCells = (reactiveDomains.rootDisposerCells ??= new WeakMap<
   OwnerScope,
   RootDisposerCell
->());
-const reactiveHandleRetirements = (reactiveDomains.handleRetirements ??= new WeakMap<
-  object,
-  ReactiveHandleRetirement
 >());
 
 function disposeOwnerScope(scope: OwnerScope): void {
@@ -1466,14 +1495,206 @@ export function runUntrackedInCore<T>(core: SvetWasmExports, fn: () => T): T {
 /**
  * Creates a fine-grained reactive Signal backed by the WASM dependency graph.
  */
+/**
+ * Everything one signal owns. The public handle is a single closure over this
+ * object; its methods are shared through `signalPrototype`, so creating a
+ * signal allocates two objects instead of a closure per method.
+ */
+type SignalState<T = any> = {
+  id: number;
+  generation: number;
+  core: SvetWasmExports;
+  ctx: JsReactiveContext;
+  equals: (a: T, b: T) => boolean;
+  value: T;
+  valueVersion: number;
+  disposed: boolean;
+  activeWrites: number;
+  /** undefined = unknown, null = multiple/none */
+  singleSubEffect: EffectEntry | null | undefined;
+  hasComputedSubscriber: boolean;
+  getter: Signal<T>;
+  retire: ReactiveEntryRetirement;
+};
+
+const SIGNAL_STATE = Symbol('svet.signal.state');
+
+function detachDisposedSignal(st: SignalState): void {
+  if (!st.disposed || st.activeWrites > 0) return;
+  st.singleSubEffect = null;
+  st.equals = Object.is;
+  st.core = null!;
+  st.ctx = null!;
+}
+
+/** A direct subscriber the native graph has not seen yet becomes a real edge. */
+function linkDirectSubscriber(st: SignalState): void {
+  const direct = st.singleSubEffect;
+  if (direct && !direct.disposed && !direct.wasmLinked) {
+    direct.wasmLinked = true;
+    st.core.svet_link_1(direct.id, st.id);
+  }
+}
+
+function tryRegisterDirectUnlinked(st: SignalState, eff: EffectEntry): boolean {
+  if (st.disposed) return false;
+  const direct = st.singleSubEffect;
+  if (!st.hasComputedSubscriber && (direct === undefined || direct === eff || direct?.disposed)) {
+    st.singleSubEffect = eff;
+    return true;
+  }
+  linkDirectSubscriber(st);
+  st.singleSubEffect = null;
+  return false;
+}
+
+function invalidateDirectEffect(st: SignalState, isComputed = false): void {
+  if (st.disposed) return;
+  if (isComputed) st.hasComputedSubscriber = true;
+  linkDirectSubscriber(st);
+  st.singleSubEffect = null;
+}
+
+function runWrittenEffects(ctx: JsReactiveContext, run: () => void): void {
+  ctx.isRunningEffect = true;
+  try {
+    run();
+  } finally {
+    ctx.isRunningEffect = false;
+  }
+  if (ctx.cascadedDuringEffect) {
+    ctx.cascadedDuringEffect = false;
+    flushEffects();
+  }
+}
+
+function writeSignal<T>(st: SignalState<T>, next: T | ((prev: T) => T)): void {
+  if (st.disposed || st.generation !== st.ctx.generation) return;
+  const core = st.core,
+    ctx = st.ctx,
+    id = st.id;
+  st.activeWrites++;
+  try {
+    if (getWasmCore() !== core) return runInForeignReactiveCore(core, () => st.getter.set(next));
+    // One originating write may fan out through several native cores. Keep all
+    // downstream deliveries in the same boundary even without an explicit batch.
+    if (!batchTransport.depth && !ctx.isRunningEffect && ctx.foreignForwarders) {
+      return batch(() => st.getter.set(next));
+    }
+    const newValue = typeof next === 'function' ? (next as (prev: T) => T)(st.value) : next;
+    if (st.disposed || st.generation !== ctx.generation) return;
+    if (st.equals(st.value, newValue)) return;
+    if (st.disposed || st.generation !== ctx.generation) return;
+    holdForeignBatch(core, ctx);
+    st.value = newValue;
+    st.valueVersion++;
+    ctx.globalClock++;
+    requestActiveEffectRerun(core, ctx, id);
+    const direct = st.singleSubEffect;
+    if (ctx.isRunningEffect) {
+      // A write inside a callback queues work after that callback commits.
+      // Unlinked direct subscribers must first become visible to native scheduling.
+      if (direct && direct.depsCount === 1 && direct.dep0 === id) linkDirectSubscriber(st);
+      ctx.cascadedDuringEffect = true;
+      core.svet_trigger_write(id);
+      return;
+    }
+    // A unique terminal subscriber can run directly, but must still track reads:
+    // observing the same sources twice does not prove that future reads are static.
+    if (
+      ctx.batchDepth === 0 &&
+      direct &&
+      !direct.disposed &&
+      !st.hasComputedSubscriber &&
+      direct.depsCount === 1 &&
+      direct.dep0 === id
+    ) {
+      runWrittenEffects(ctx, direct.run);
+      return;
+    }
+    const res = core.svet_trigger_and_flush(id);
+    if (res > 0) {
+      const entry = ctx.effectRegistry[res - 1];
+      if (ctx.batchDepth === 0) {
+        st.singleSubEffect = entry ?? null;
+      }
+      if (entry && !entry.disposed) runWrittenEffects(ctx, entry.run);
+    } else if (res < 0) {
+      st.singleSubEffect = null;
+      const copy = new Uint32Array(core.memory.buffer, core.svet_get_flush_ptr(), -res).slice();
+      runWrittenEffects(ctx, () => runQueuedEffects(core, ctx, copy));
+    } else if (ctx.batchDepth === 0) {
+      st.singleSubEffect = null;
+    }
+  } finally {
+    st.activeWrites--;
+    detachDisposedSignal(st);
+  }
+}
+
+function disposeSignal(st: SignalState): void {
+  if (st.disposed) return;
+  st.disposed = true;
+  try {
+    if (st.generation !== st.ctx.generation) return;
+    retireForeignSource(st.getter);
+    st.ctx.signalRegistry[st.id] = undefined;
+    st.ctx.topologyVersion++;
+    disposeTrackedNode(st.core, st.id);
+  } finally {
+    // Active writes may still be unwinding subscriber callbacks.
+    detachDisposedSignal(st);
+  }
+}
+
+/**
+ * Shared by every signal handle. Each method is bound to its signal on first
+ * access and cached on the handle, so `const { set } = count` keeps working
+ * and `count.set === count.set`, without paying for the closures up front.
+ */
+const signalPrototype = Object.create(Function.prototype, {
+  __svet_sig: { value: true },
+}) as object;
+const signalMethods: Record<string, (st: SignalState) => unknown> = {
+  peek: st => () => st.value,
+  set: st => (next: unknown) => writeSignal(st, next),
+  // Through the public `set`, which a caller may have wrapped (e.g. to validate).
+  update: st => (updater: (prev: unknown) => unknown) => st.getter.set(updater),
+  dispose: st => () => disposeSignal(st),
+  __svet_cached_value: st => st.getter.peek,
+};
+// Entries, not keys: each accessor closes over its own factory, so no lookup can miss.
+for (const [name, makeMethod] of Object.entries(signalMethods)) {
+  const own = (handle: object, value: unknown) =>
+    Object.defineProperty(handle, name, {
+      value,
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+  Object.defineProperty(signalPrototype, name, {
+    configurable: true,
+    get(this: { [SIGNAL_STATE]?: SignalState }) {
+      const st = this[SIGNAL_STATE];
+      if (!st) return undefined;
+      const method = makeMethod(st);
+      own(this, method);
+      return method;
+    },
+    set(this: object, value: unknown) {
+      own(this, value);
+    },
+  });
+}
+
 export function signal<T>(
   initialValue: T,
   options?: { equals?: (a: T, b: T) => boolean },
 ): Signal<T> {
-  let core = getWasmCore();
-  let ctx = getJsContext(core);
+  const core = getWasmCore();
+  const ctx = getJsContext(core);
   const generation = ctx.generation;
-  let equals = options?.equals ?? Object.is;
+  const equals = options?.equals ?? Object.is;
   if (generation !== ctx.generation)
     throw new Error('Reactive graph reset during signal construction');
   if (typeof equals !== 'function') throw new TypeError('Signal equals must be a function');
@@ -1483,24 +1704,11 @@ export function signal<T>(
   } else {
     ctx.singleSignalRootId = -2;
   }
-  let currentValue = initialValue;
-  let valueVersion = 0;
-  let disposed = false;
-  let activeWrites = 0;
-  const detachDisposedContext = () => {
-    if (!disposed || activeWrites > 0) return;
-    singleSubEffect = null;
-    equals = Object.is;
-    core = null!;
-    ctx = null!;
-  };
-
-  let singleSubEffect: EffectEntry | null | undefined = undefined; // undefined = unknown, null = multiple/none
-  let hasComputedSubscriber = false;
 
   const getter = (() => {
-    if (disposed || generation !== ctx.generation) return currentValue;
-    trackForeignSource(core, getter, () => valueVersion);
+    if (st.disposed || st.generation !== st.ctx.generation) return st.value;
+    const ctx = st.ctx;
+    trackForeignSource(st.core, getter, st);
     if (ctx.activeObserverId >= 0 && reactiveDomains.frames.at(-1) === ctx) {
       const obsEntry = ctx.activeEntry!;
       if (obsEntry.retiredDependencies?.delete(id)) ctx.activeTopologyChanged = true;
@@ -1514,166 +1722,31 @@ export function signal<T>(
         obsEntry.dep0 !== id
       ) {
         ctx.activeCursor = 2;
-      } else if (!disposed) {
+      } else if (!st.disposed) {
         trackReadFast(ctx, id);
       }
     }
-    return currentValue;
+    return st.value;
   }) as Signal<T>;
-
+  const st: SignalState<T> = {
+    id,
+    generation,
+    core,
+    ctx,
+    equals,
+    value: initialValue,
+    valueVersion: 0,
+    disposed: false,
+    activeWrites: 0,
+    singleSubEffect: undefined,
+    hasComputedSubscriber: false,
+    getter,
+    retire: retireSignalOnReset,
+  };
+  Object.setPrototypeOf(getter, signalPrototype);
   (getter as any).id = id;
-  (getter as any).__svet_sig = true;
-  (getter as any)._tryRegisterDirectUnlinked = (eff: EffectEntry, _ver: number): boolean => {
-    if (disposed) return false;
-    if (
-      !hasComputedSubscriber &&
-      (singleSubEffect === undefined || singleSubEffect === eff || singleSubEffect?.disposed)
-    ) {
-      singleSubEffect = eff;
-      return true;
-    }
-    if (singleSubEffect && !singleSubEffect.disposed && !singleSubEffect.wasmLinked) {
-      singleSubEffect.wasmLinked = true;
-      core.svet_link_1(singleSubEffect.id, id);
-    }
-    singleSubEffect = null;
-    return false;
-  };
-  (getter as any)._invalidateDirectEffect = (_ver: number, isComputed = false) => {
-    if (disposed) return;
-    if (isComputed) hasComputedSubscriber = true;
-    if (singleSubEffect && !singleSubEffect.disposed && !singleSubEffect.wasmLinked) {
-      singleSubEffect.wasmLinked = true;
-      core.svet_link_1(singleSubEffect.id, id);
-    }
-    singleSubEffect = null;
-  };
-  ctx.signalRegistry[id] = getter;
-
-  getter.peek = () => currentValue;
-  (getter as any).__svet_cached_value = getter.peek;
-
-  getter.set = (next: T | ((prev: T) => T)) => {
-    if (disposed || generation !== ctx.generation) return;
-    activeWrites++;
-    try {
-      if (getWasmCore() !== core) return runInForeignReactiveCore(core, () => getter.set(next));
-      // One originating write may fan out through several native cores. Keep all
-      // downstream deliveries in the same boundary even without an explicit batch.
-      if (!batchTransport.depth && !ctx.isRunningEffect && ctx.foreignForwarders) {
-        return batch(() => getter.set(next));
-      }
-      const newValue = typeof next === 'function' ? (next as (prev: T) => T)(currentValue) : next;
-      if (disposed || generation !== ctx.generation) return;
-      if (!equals(currentValue, newValue)) {
-        if (disposed || generation !== ctx.generation) return;
-        holdForeignBatch(core, ctx);
-        currentValue = newValue;
-        valueVersion++;
-        ctx.globalClock++;
-        requestActiveEffectRerun(core, ctx, id);
-        if (ctx.isRunningEffect) {
-          // A write inside a callback queues work after that callback commits.
-          // Unlinked direct subscribers must first become visible to native scheduling.
-          if (
-            singleSubEffect &&
-            !singleSubEffect.disposed &&
-            !singleSubEffect.wasmLinked &&
-            singleSubEffect.depsCount === 1 &&
-            singleSubEffect.dep0 === id
-          ) {
-            singleSubEffect.wasmLinked = true;
-            core.svet_link_1(singleSubEffect.id, id);
-          }
-          ctx.cascadedDuringEffect = true;
-          core.svet_trigger_write(id);
-          return;
-        }
-        // A unique terminal subscriber can run directly, but must still track reads:
-        // observing the same sources twice does not prove that future reads are static.
-        if (ctx.batchDepth === 0 && singleSubEffect && !singleSubEffect.disposed) {
-          if (
-            !hasComputedSubscriber &&
-            singleSubEffect.depsCount === 1 &&
-            singleSubEffect.dep0 === id
-          ) {
-            ctx.isRunningEffect = true;
-            try {
-              singleSubEffect.run();
-            } finally {
-              ctx.isRunningEffect = false;
-            }
-            if (ctx.cascadedDuringEffect) {
-              ctx.cascadedDuringEffect = false;
-              flushEffects();
-            }
-            return;
-          }
-        }
-        const res = core.svet_trigger_and_flush(id);
-        if (res > 0) {
-          const effId = res - 1;
-          const entry = ctx.effectRegistry[effId];
-          if (ctx.batchDepth === 0) {
-            singleSubEffect = entry ?? null;
-          }
-          if (entry && !entry.disposed) {
-            ctx.isRunningEffect = true;
-            try {
-              entry.run();
-            } finally {
-              ctx.isRunningEffect = false;
-            }
-            if (ctx.cascadedDuringEffect) {
-              ctx.cascadedDuringEffect = false;
-              flushEffects();
-            }
-          }
-        } else if (res < 0) {
-          singleSubEffect = null;
-          const count = -res;
-          const ptr = core.svet_get_flush_ptr();
-          const copy = new Uint32Array(core.memory.buffer, ptr, count).slice();
-          ctx.isRunningEffect = true;
-          try {
-            runQueuedEffects(core, ctx, copy);
-          } finally {
-            ctx.isRunningEffect = false;
-          }
-          if (ctx.cascadedDuringEffect) {
-            ctx.cascadedDuringEffect = false;
-            flushEffects();
-          }
-        } else if (ctx.batchDepth === 0) {
-          singleSubEffect = null;
-        }
-      }
-    } finally {
-      activeWrites--;
-      detachDisposedContext();
-    }
-  };
-
-  getter.update = (updater: (prev: T) => T) => {
-    getter.set(updater);
-  };
-
-  getter.dispose = () => {
-    if (disposed) return;
-    disposed = true;
-    try {
-      if (generation !== ctx.generation) return;
-      retireForeignSource(getter);
-      ctx.signalRegistry[id] = undefined;
-      ctx.topologyVersion++;
-      disposeTrackedNode(core, id);
-    } finally {
-      // Active writes may still be unwinding subscriber callbacks.
-      detachDisposedContext();
-    }
-  };
-
-  reactiveHandleRetirements.set(getter, getter.dispose);
+  (getter as any)[SIGNAL_STATE] = st;
+  ctx.signalRegistry[id] = st;
   return getter;
 }
 
@@ -1715,6 +1788,8 @@ export function computed<T>(
     evaluating: false,
     failed: false,
     retiredDependencies: null,
+    seenDeps: null,
+    retire: retireNothing,
     sourceRetirementVersion: 0,
   };
   ctx.computedRegistry[id] = entry;
@@ -1773,6 +1848,7 @@ export function computed<T>(
     ctx.activeEntry = entry;
     ctx.activeCursor = 0;
     ctx.activeTopologyChanged = !entry.initialized;
+    entry.seenDeps = null;
 
     const evaluations = ctx.observerStack;
     beginForeignTracking(entry);
@@ -1939,8 +2015,8 @@ export function computed<T>(
 
   const ownerDisposer = () => disposeComputed(true);
   getter.dispose = ownerDisposer;
-  reactiveHandleRetirements.set(entry, owners => {
-    if (owners && !disposed && owner && !owner.disposed) {
+  entry.retire = (_self, owners) => {
+    if (!disposed && owner && !owner.disposed) {
       let callbacks = owners.get(owner);
       if (!callbacks) {
         callbacks = new Set();
@@ -1949,7 +2025,7 @@ export function computed<T>(
       callbacks.add(ownerDisposer);
       disposeComputed(false);
     } else disposeComputed(true);
-  });
+  };
   if (owner) owner.disposables.push(ownerDisposer);
 
   return getter;
@@ -2078,6 +2154,8 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
     lifetime: 0,
     rerunRequested: false,
     retiredDependencies: null,
+    seenDeps: null,
+    retire: retireEffectOnReset,
     sourceRetirementVersion: 0,
     run: () => {
       if (
@@ -2141,6 +2219,7 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
           x.activeEntry = entry;
           x.activeCursor = 0;
           x.activeTopologyChanged = !entry.initialized;
+          entry.seenDeps = null;
           entry.initialized = true;
           let callbacks: Array<() => void> | undefined;
           const registerCleanup = (callback: () => void) => {
@@ -2248,10 +2327,15 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
 }
 
 /** Reset invalidates scheduling, while registered cleanup remains owner-owned. */
-function createEffectResetRetirement(entry: EffectEntry): () => void {
-  return () => {
-    entry.userFn = undefined as any;
-  };
+/** Placeholder until a computed installs its own retirement. */
+function retireNothing(): void {}
+
+function retireEffectOnReset(entry: EffectEntry): void {
+  entry.userFn = undefined as any;
+}
+
+function retireSignalOnReset(st: SignalState): void {
+  disposeSignal(st);
 }
 
 /** Public effect lifetimes must not retain recycled native entry shells. */
@@ -2349,7 +2433,6 @@ export function effect(
   entry.userFn = fn;
 
   ctx.effectRegistry[id] = entry;
-  reactiveHandleRetirements.set(entry, createEffectResetRetirement(entry));
 
   // The entry and its internal handle are pooled, but a caller's handle belongs
   // to exactly one effect lifetime. In particular, a retained owner cleanup must
@@ -2562,17 +2645,13 @@ export function resetReactiveSystem(): void {
   const ctx = getJsContext(core);
   // Capture the retiring generation before reset cleanups can create new nodes.
   // Use private callbacks rather than mutable public dispose properties.
-  const retirements: ReactiveHandleRetirement[] = [];
+  const retiring: Array<{ retire: ReactiveEntryRetirement }> = [];
   for (const registry of [ctx.signalRegistry, ctx.computedRegistry, ctx.effectRegistry]) {
-    for (const handle of registry) {
-      if (!handle) continue;
-      const retire = reactiveHandleRetirements.get(handle);
-      if (retire) retirements.push(retire);
-    }
+    for (const entry of registry) if (entry) retiring.push(entry);
   }
   ctx.generation++;
   const retiredOwners: ReactiveResetOwnerRetirements = new Map();
-  for (const retire of retirements) retire(retiredOwners);
+  for (const entry of retiring) entry.retire(entry, retiredOwners);
   // Preserve the public callback array and user cleanup order. Per-node splice
   // would shift/scan a large shared owner once for every retired computed.
   for (const [owner, retired] of retiredOwners) {

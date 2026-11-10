@@ -3,6 +3,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/memory-budget",
     "crates/forma",
     "crates/forma/examples/binding-app",
     "crates/forma/examples/language-app",
@@ -19,6 +20,7 @@ members = [
 # The two example apps run Node and the tokenizer package from build.rs, so a plain
 # `cargo build` at the root must not pull them in.
 default-members = [
+    "crates/memory-budget",
     "crates/forma",
     "crates/gpu-shader",
     "crates/gpu-runtime",
@@ -40,6 +42,8 @@ exclude = [
     # its optional native-wgpu feature pulls crates.io wgpu 30, which needs wasm-bindgen >= 0.2.127,
     # while forma pins wasm-bindgen 0.2.125 for its CLI; as a member it would force that upgrade
     "crates/gpu-compute",
+    # builds on upstream wgpu 30 off macOS (same wasm-bindgen constraint); has its own lockfile
+    "crates/gpu-kit",
     # frozen source snapshots kept as benchmark evidence
     "crates/compute-core/benchmarks",
     "crates/compute-mlx/benchmarks",

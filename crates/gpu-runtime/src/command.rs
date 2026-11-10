@@ -16,7 +16,7 @@ use crate::{Face, FrontFace};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use gpu_shader::back::msl::{
     MSL_ARRAY_LENGTHS_BUFFER_SLOT, MSL_IMMEDIATE_BUFFER_SLOT, MSL_VERTEX_BUFFER_BASE_SLOT,
-    msl_buffer_slot, msl_sampler_slot, msl_texture_slot,
+    msl_buffer_slot,
 };
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use std::ffi::c_void;
@@ -434,8 +434,7 @@ impl CommandEncoder {
             dst_offset: destination.layout.offset,
             bytes_per_row: destination
                 .layout
-                .bytes_per_row
-                .unwrap_or(copy_size.width * source.texture.format.bytes_per_pixel()),
+                .row_stride(copy_size.width, source.texture.format),
             rows_per_image: destination.layout.rows_per_image,
             size: copy_size,
         });
@@ -452,8 +451,7 @@ impl CommandEncoder {
             src_offset: source.layout.offset,
             bytes_per_row: source
                 .layout
-                .bytes_per_row
-                .unwrap_or(copy_size.width * destination.texture.format.bytes_per_pixel()),
+                .row_stride(copy_size.width, destination.texture.format),
             rows_per_image: source.layout.rows_per_image,
             dst_tex: destination.texture.clone(),
             dst_mip: destination.mip_level,
@@ -753,13 +751,16 @@ pub(crate) unsafe fn encode_compute_dispatches(enc: *mut c_void, dispatches: &[C
                     buffer_sizes[slot] = rem as u32;
                 }
             }
+            let map = &d.pipeline.bindings;
             for (binding, tex) in bg.textures.iter() {
-                let slot = msl_texture_slot(*group_idx, *binding) as usize;
-                f_set_tex(enc, s.set_texture, tex.raw.as_ptr(), slot);
+                if let Some(&slot) = map.textures.get(&(*group_idx, *binding)) {
+                    f_set_tex(enc, s.set_texture, tex.raw.as_ptr(), slot as usize);
+                }
             }
             for (binding, samp) in bg.samplers.iter() {
-                let slot = msl_sampler_slot(*group_idx, *binding) as usize;
-                f_set_samp(enc, s.set_sampler_state, samp.raw.as_ptr(), slot);
+                if let Some(&slot) = map.samplers.get(&(*group_idx, *binding)) {
+                    f_set_samp(enc, s.set_sampler_state, samp.raw.as_ptr(), slot as usize);
+                }
             }
         }
 
@@ -933,20 +934,19 @@ pub(crate) unsafe fn encode_non_compute_op(
                 usize,
                 MTLOrigin,
             ) = std::mem::transmute(metal_msg_send as *const c_void);
-            let is_3d = dst_tex.dimension == crate::TextureDimension::D3;
+            let slices = crate::texture::CopySlices::new(
+                dst_tex.dimension,
+                dst_origin.z,
+                size.depth_or_array_layers,
+            );
             let (bpr, bpi) = metal_copy_strides(
                 bytes_per_row,
                 rows_per_image,
                 size,
                 dst_tex.format,
-                is_3d || size.depth_or_array_layers > 1,
+                slices.is_3d() || size.depth_or_array_layers > 1,
             );
-            let (slices, depth) = if is_3d {
-                (1, size.depth_or_array_layers.max(1) as usize)
-            } else {
-                (size.depth_or_array_layers.max(1) as usize, 1)
-            };
-            for slice in 0..slices {
+            for slice in 0..slices.count {
                 f_b2t(
                     blit,
                     s.copy_from_buffer_to_texture,
@@ -957,19 +957,15 @@ pub(crate) unsafe fn encode_non_compute_op(
                     MTLSize {
                         width: size.width as usize,
                         height: size.height as usize,
-                        depth,
+                        depth: slices.depth,
                     },
                     dst_tex.raw.as_ptr(),
-                    if is_3d {
-                        0
-                    } else {
-                        dst_origin.z as usize + slice
-                    },
+                    slices.array_slice(slice),
                     dst_mip as usize,
                     MTLOrigin {
                         x: dst_origin.x as usize,
                         y: dst_origin.y as usize,
-                        z: if is_3d { dst_origin.z as usize } else { 0 },
+                        z: slices.region_z(),
                     },
                 );
             }
@@ -1196,10 +1192,50 @@ pub(crate) unsafe fn encode_render_pass(
 
     let mut current_primitive_type = 3u64; // MTLPrimitiveTypeTriangle
     let mut active_index_buffer: Option<(Buffer, IndexFormat, u64)> = None;
+    // Texture and sampler slots belong to each stage's shader, so they are bound against the
+    // current pipeline; groups set before a pipeline are bound when it arrives.
+    let mut current_pipeline: Option<RenderPipeline> = None;
+    let mut bound_groups: std::collections::BTreeMap<u32, BindGroup> = Default::default();
+    let bind_render_handles = |index: u32, bind_group: &BindGroup, pipe: &RenderPipeline| {
+        for (binding, tex) in bind_group.textures.iter() {
+            if let Some(&slot) = pipe.vertex_bindings.textures.get(&(index, *binding)) {
+                f_set_tex(enc, s.set_vertex_texture, tex.raw.as_ptr(), slot as usize);
+            }
+            if let Some(map) = &pipe.fragment_bindings {
+                if let Some(&slot) = map.textures.get(&(index, *binding)) {
+                    f_set_tex(enc, s.set_fragment_texture, tex.raw.as_ptr(), slot as usize);
+                }
+            }
+        }
+        for (binding, samp) in bind_group.samplers.iter() {
+            if let Some(&slot) = pipe.vertex_bindings.samplers.get(&(index, *binding)) {
+                f_set_samp(
+                    enc,
+                    s.set_vertex_sampler_state,
+                    samp.raw.as_ptr(),
+                    slot as usize,
+                );
+            }
+            if let Some(map) = &pipe.fragment_bindings {
+                if let Some(&slot) = map.samplers.get(&(index, *binding)) {
+                    f_set_samp(
+                        enc,
+                        s.set_fragment_sampler_state,
+                        samp.raw.as_ptr(),
+                        slot as usize,
+                    );
+                }
+            }
+        }
+    };
 
     for cmd in commands.drain(..) {
         match cmd {
             RenderCommand::SetPipeline(pipe) => {
+                for (index, bind_group) in &bound_groups {
+                    bind_render_handles(*index, bind_group, &pipe);
+                }
+                current_pipeline = Some(pipe.clone());
                 f_set_pso(enc, s.set_render_pipeline_state, pipe.pso.as_ptr());
                 if let Some(dss) = &pipe.depth_stencil_state {
                     f_set_dss(enc, s.set_depth_stencil_state, dss.as_ptr());
@@ -1250,16 +1286,10 @@ pub(crate) unsafe fn encode_render_pass(
                         slot,
                     );
                 }
-                for (binding, tex) in bind_group.textures.iter() {
-                    let slot = msl_texture_slot(index, *binding) as usize;
-                    f_set_tex(enc, s.set_vertex_texture, tex.raw.as_ptr(), slot);
-                    f_set_tex(enc, s.set_fragment_texture, tex.raw.as_ptr(), slot);
+                if let Some(pipe) = &current_pipeline {
+                    bind_render_handles(index, &bind_group, pipe);
                 }
-                for (binding, samp) in bind_group.samplers.iter() {
-                    let slot = msl_sampler_slot(index, *binding) as usize;
-                    f_set_samp(enc, s.set_vertex_sampler_state, samp.raw.as_ptr(), slot);
-                    f_set_samp(enc, s.set_fragment_sampler_state, samp.raw.as_ptr(), slot);
-                }
+                bound_groups.insert(index, bind_group);
             }
             RenderCommand::SetVertexBuffer {
                 slot,

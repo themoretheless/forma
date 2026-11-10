@@ -51,3 +51,11 @@
   0.1.0): они идут в общей версии релиза, `npm run version:set -- all X.Y.Z` поднимает и их, а тег `vX.Y.Z`
   требует совпадения. Выравнивание прошло на 0.3.4, то есть номер `svet-engine` уменьшился с 1.0.0; пакет
   в npm не публиковался, поэтому потребителей сравнения версий нет.
+
+## 6. `gpu-kit`: состояние растеризации одним аргументом
+
+- `MaterialRenderer::prepare` принимает `MaterialRaster { alpha, double_sided, clockwise }` вместо трёх
+  отдельных аргументов `alpha`, `double_sided`, `clockwise`. Порядок остальных аргументов прежний.
+- Миграция: `prepare(budget, vertices, p, textures, alpha, double_sided, clockwise, cancelled)` →
+  `prepare(budget, vertices, p, textures, MaterialRaster { alpha, double_sided, clockwise }, cancelled)`.
+  Внутри репозитория вызовов вне тестов `gpu-kit` нет; внешние потребители (код из rrrah) правятся так же.
