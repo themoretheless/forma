@@ -67,6 +67,8 @@ type EffectEntry = {
   runVersion: number;
   lifetime: number;
   retiredDependencies: Set<number> | null;
+  /** Array dependencies recorded so far in the current run; built only for long lists. */
+  seenDeps: Set<number> | null;
   sourceRetirementVersion: number;
   rerunRequested: boolean;
   handle: EffectHandle;
@@ -95,6 +97,8 @@ type ComputedEntry<T = unknown> = {
   evaluating: boolean;
   failed: boolean;
   retiredDependencies: Set<number> | null;
+  /** Array dependencies recorded so far in the current run; built only for long lists. */
+  seenDeps: Set<number> | null;
   sourceRetirementVersion: number;
 };
 
@@ -568,6 +572,9 @@ function trackForeignSource<T>(
   bridge.proxy();
 }
 
+/** Below this many array dependencies a linear duplicate scan beats a Set. */
+const SEEN_DEPS_THRESHOLD = 32;
+
 function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   // A source core may have a paused outer observer while another core owns
   // the current evaluation. Never attribute that foreign read to the caller.
@@ -601,8 +608,29 @@ function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   if (entry.dep0 === sourceId || entry.dep1 === sourceId) return;
   const deps = entry.deps;
   const arrIdx = cur - 2;
-  for (let i = 0; i < arrIdx; i++) {
-    if (deps[i] === sourceId) return;
+  let seen = entry.seenDeps;
+  // Until this run changes the topology, positions below the cursor still hold
+  // the previous run's dependencies, which are unique: a match at the cursor
+  // cannot also be an earlier one. Reruns in the same order stay O(1) per read.
+  if (!ctx.activeTopologyChanged && cur < entry.depsCount && deps[arrIdx] === sourceId) {
+    seen?.add(sourceId);
+    ctx.activeCursor = cur + 1;
+    return;
+  }
+  if (seen === null && arrIdx >= SEEN_DEPS_THRESHOLD) {
+    seen = entry.seenDeps = new Set();
+    for (let i = 0; i < arrIdx; i++) {
+      const dep = deps[i];
+      if (dep !== undefined) seen.add(dep);
+    }
+  }
+  if (seen !== null) {
+    if (seen.has(sourceId)) return;
+    seen.add(sourceId);
+  } else {
+    for (let i = 0; i < arrIdx; i++) {
+      if (deps[i] === sourceId) return;
+    }
   }
   if (cur < entry.depsCount && deps[arrIdx] === sourceId) {
     ctx.activeCursor = cur + 1;
@@ -624,6 +652,7 @@ function commitTrackingFast(
   entry: EffectEntry | ComputedEntry<any>,
 ): void {
   retireForeignTracking(entry);
+  entry.seenDeps = null;
   if (entry.sourceRetirementVersion !== ctx.sourceRetirementVersion) {
     ctx.activeTopologyChanged = true;
     entry.sourceRetirementVersion = ctx.sourceRetirementVersion;
@@ -1715,6 +1744,7 @@ export function computed<T>(
     evaluating: false,
     failed: false,
     retiredDependencies: null,
+    seenDeps: null,
     sourceRetirementVersion: 0,
   };
   ctx.computedRegistry[id] = entry;
@@ -1773,6 +1803,7 @@ export function computed<T>(
     ctx.activeEntry = entry;
     ctx.activeCursor = 0;
     ctx.activeTopologyChanged = !entry.initialized;
+    entry.seenDeps = null;
 
     const evaluations = ctx.observerStack;
     beginForeignTracking(entry);
@@ -2078,6 +2109,7 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
     lifetime: 0,
     rerunRequested: false,
     retiredDependencies: null,
+    seenDeps: null,
     sourceRetirementVersion: 0,
     run: () => {
       if (
@@ -2141,6 +2173,7 @@ function createEffectEntryShell(core: SvetWasmExports, ctx: JsReactiveContext): 
           x.activeEntry = entry;
           x.activeCursor = 0;
           x.activeTopologyChanged = !entry.initialized;
+          entry.seenDeps = null;
           entry.initialized = true;
           let callbacks: Array<() => void> | undefined;
           const registerCleanup = (callback: () => void) => {
