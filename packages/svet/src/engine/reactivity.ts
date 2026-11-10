@@ -619,7 +619,10 @@ function trackReadFast(ctx: JsReactiveContext, sourceId: number): void {
   }
   if (seen === null && arrIdx >= SEEN_DEPS_THRESHOLD) {
     seen = entry.seenDeps = new Set();
-    for (let i = 0; i < arrIdx; i++) seen.add(deps[i]);
+    for (let i = 0; i < arrIdx; i++) {
+      const dep = deps[i];
+      if (dep !== undefined) seen.add(dep);
+    }
   }
   if (seen !== null) {
     if (seen.has(sourceId)) return;
