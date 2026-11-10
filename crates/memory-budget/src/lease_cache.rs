@@ -122,24 +122,17 @@ impl<K: Clone + Eq + Hash, V> LeaseCache<K, V> {
             return None;
         }
         self.pinned.remove(key);
-        self.inner.remove(key).map(|value| {
-            Arc::try_unwrap(value)
-                .ok()
-                .expect("removed value has no lease")
-        })
+        self.inner
+            .remove(key)
+            .map(|value| into_owned(value, "removed value has no lease"))
     }
     /// # Panics
     /// Panics if internal ownership bookkeeping would evict a still-shared value.
     pub fn take_lru(&mut self) -> Option<(K, V)> {
         self.reconcile();
-        self.inner.take_lru().map(|(key, value)| {
-            (
-                key,
-                Arc::try_unwrap(value)
-                    .ok()
-                    .expect("unpinned victim has no lease"),
-            )
-        })
+        self.inner
+            .take_lru()
+            .map(|(key, value)| (key, into_owned(value, UNPINNED_VICTIM)))
     }
     /// Expired objects are not handed to new consumers, even when an existing
     /// lease still protects their storage. TTL never invalidates a held lease.
@@ -169,40 +162,18 @@ impl<K: Clone + Eq + Hash, V> LeaseCache<K, V> {
             self.inner
                 .insert_prefetch_with_evictions(key, value.clone(), weight);
         if !accepted {
-            return Err(Arc::try_unwrap(value)
-                .ok()
-                .expect("rejected value has no cache owner"));
+            return Err(into_owned(value, "rejected value has no cache owner"));
         }
-        Ok(victims
-            .into_iter()
-            .map(|(key, value)| {
-                (
-                    key,
-                    Arc::try_unwrap(value)
-                        .ok()
-                        .expect("unpinned victim has no lease"),
-                )
-            })
-            .collect())
+        Ok(into_owned_all(victims, UNPINNED_VICTIM))
     }
     /// Failure preserves limits and membership when held leases cannot fit.
     /// # Panics
     /// Panics if internal ownership bookkeeping would evict a still-shared value.
     pub fn set_limits(&mut self, limits: CacheLimits) -> Option<Vec<(K, V)>> {
         self.reconcile();
-        self.inner.set_limits(limits).map(|victims| {
-            victims
-                .into_iter()
-                .map(|(key, value)| {
-                    (
-                        key,
-                        Arc::try_unwrap(value)
-                            .ok()
-                            .expect("unpinned victim has no lease"),
-                    )
-                })
-                .collect()
-        })
+        self.inner
+            .set_limits(limits)
+            .map(|victims| into_owned_all(victims, UNPINNED_VICTIM))
     }
     /// Transfers expired values for optional background spill. Live consumer leases
     /// and explicit owner pins retain their entries; no payload cloning or I/O occurs.
@@ -211,18 +182,7 @@ impl<K: Clone + Eq + Hash, V> LeaseCache<K, V> {
     /// Panics if internal ownership bookkeeping would evict a still-shared value.
     pub fn drain_expired(&mut self) -> Vec<(K, V)> {
         self.reconcile();
-        self.inner
-            .drain_expired()
-            .into_iter()
-            .map(|(key, value)| {
-                (
-                    key,
-                    Arc::try_unwrap(value)
-                        .ok()
-                        .expect("expired victim has no lease"),
-                )
-            })
-            .collect()
+        into_owned_all(self.inner.drain_expired(), "expired victim has no lease")
     }
     pub fn prune_expired(&mut self) -> usize {
         self.reconcile();
@@ -237,6 +197,22 @@ impl<K: Clone + Eq + Hash, V> LeaseCache<K, V> {
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
+}
+
+const UNPINNED_VICTIM: &str = "unpinned victim has no lease";
+
+/// Takes a value back out of its `Arc` once the cache is its only owner. Leases and owner pins
+/// keep shared values resident, so a value handed out here having another owner is a bookkeeping
+/// bug, reported with `why`.
+fn into_owned<V>(value: Arc<V>, why: &str) -> V {
+    Arc::try_unwrap(value).ok().expect(why)
+}
+
+fn into_owned_all<K, V>(entries: Vec<(K, Arc<V>)>, why: &str) -> Vec<(K, V)> {
+    entries
+        .into_iter()
+        .map(|(key, value)| (key, into_owned(value, why)))
+        .collect()
 }
 
 #[cfg(test)]
