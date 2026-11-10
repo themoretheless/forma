@@ -98,45 +98,39 @@ impl fmt::Display for BufferError {
 impl std::error::Error for BufferError {}
 impl MemoryBudget {
     pub fn new(limit: u64) -> Self {
+        Self::with_parent(None, limit)
+    }
+    fn with_parent(parent: Option<Self>, limit: u64) -> Self {
         Self(Arc::new(BudgetState {
-            parent: None,
+            parent,
             limit,
             used: AtomicU64::new(0),
             peak: AtomicU64::new(0),
         }))
+    }
+    /// This budget followed by each of its ancestors up to the root.
+    fn ancestors(&self) -> impl Iterator<Item = &Self> {
+        std::iter::successors(Some(self), |budget| budget.0.parent.as_ref())
     }
     /// Independent local cap sharing its parent's allocation budget.
     /// Reservations count in every ancestor until the last buffer owner drops.
     #[must_use]
     pub fn child(&self, limit: u64) -> Self {
-        Self(Arc::new(BudgetState {
-            parent: Some(self.clone()),
-            limit,
-            used: AtomicU64::new(0),
-            peak: AtomicU64::new(0),
-        }))
+        Self::with_parent(Some(self.clone()), limit)
     }
     /// Whether reservations in this budget also count in `ancestor`.
     /// Includes the same budget; independent roots and sibling budgets differ.
     #[must_use]
     pub fn is_descendant_of(&self, ancestor: &Self) -> bool {
-        let mut current = Some(self);
-        while let Some(budget) = current {
-            if Arc::ptr_eq(&budget.0, &ancestor.0) {
-                return true;
-            }
-            current = budget.0.parent.as_ref();
-        }
-        false
+        self.ancestors()
+            .any(|budget| Arc::ptr_eq(&budget.0, &ancestor.0))
     }
     pub fn limit(&self) -> u64 {
         self.0.limit
     }
     /// Maximum allocation permitted by local and ancestor caps, ignoring use.
     pub fn allocation_limit(&self) -> u64 {
-        self.0.parent.as_ref().map_or(self.limit(), |parent| {
-            self.limit().min(parent.allocation_limit())
-        })
+        self.ancestors().map(Self::limit).min().unwrap_or(u64::MAX)
     }
     pub fn used(&self) -> u64 {
         self.0.used.load(Ordering::Acquire)
@@ -148,11 +142,13 @@ impl MemoryBudget {
     /// Concurrent reservations can change the result immediately; allocation
     /// must still use `try_reserve` or `try_buffer` for atomic admission.
     pub fn available_bytes(&self) -> u64 {
-        let local = self.limit().saturating_sub(self.used());
-        self.0
-            .parent
-            .as_ref()
-            .map_or(local, |parent| local.min(parent.available_bytes()))
+        self.ancestors()
+            .map(Self::local_headroom)
+            .min()
+            .unwrap_or(u64::MAX)
+    }
+    fn local_headroom(&self) -> u64 {
+        self.limit().saturating_sub(self.used())
     }
     /// Advisory simultaneous admission across two budgets, including shared ancestors.
     /// Does not reserve memory or update peaks; concurrent allocations still require
@@ -163,8 +159,7 @@ impl MemoryBudget {
             (self, bytes, other, other_bytes),
             (other, other_bytes, self, bytes),
         ] {
-            let mut current = Some(first);
-            while let Some(budget) = current {
+            for budget in first.ancestors() {
                 let shared = if second.is_descendant_of(budget) {
                     second_amount
                 } else {
@@ -173,10 +168,9 @@ impl MemoryBudget {
                 let Some(total) = amount.checked_add(shared) else {
                     return false;
                 };
-                if total > budget.limit().saturating_sub(budget.used()) {
+                if total > budget.local_headroom() {
                     return false;
                 }
-                current = budget.0.parent.as_ref();
             }
         }
         true
@@ -252,12 +246,8 @@ impl MemoryBudget {
     /// # Errors
     /// Rejects capacity arithmetic overflow or exhausted budget.
     pub fn try_adopt<T: Copy>(&self, values: Vec<T>) -> Result<SharedBuffer<T>, BufferError> {
-        let reservation = self.try_reserve(buffer_bytes::<T>(values.capacity())?)?;
-        Ok(MutableBuffer {
-            values,
-            reservation,
-        }
-        .freeze())
+        self.try_reserve(buffer_bytes::<T>(values.capacity())?)?
+            .try_adopt(values)
     }
 }
 fn buffer_bytes<T>(capacity: usize) -> Result<u64, BufferError> {
@@ -305,10 +295,7 @@ impl Reservation {
     /// # Errors
     /// Rejects capacity arithmetic overflow and admission beyond the budget limit.
     pub fn try_adopt<T>(mut self, values: Vec<T>) -> Result<SharedBuffer<T>, BufferError> {
-        let actual = buffer_bytes::<T>(values.capacity())?;
-        if actual > self.bytes {
-            self.grow(actual - self.bytes)?;
-        }
+        self.ensure_bytes(buffer_bytes::<T>(values.capacity())?)?;
         Ok(MutableBuffer {
             values,
             reservation: self,
