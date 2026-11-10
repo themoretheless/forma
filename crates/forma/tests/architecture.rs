@@ -20,6 +20,7 @@ const LAYERS: &[(&str, u8)] = &[
     ("template", 1),
     ("text", 1),
     ("text_input", 1),
+    ("canvas", 2),
     ("display_list", 2),
     ("form_document", 2),
     ("raster_cache", 2),

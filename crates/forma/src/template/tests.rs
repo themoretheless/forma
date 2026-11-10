@@ -248,6 +248,7 @@ fn omitted_primitives_are_absent_and_do_not_get_painted() {
             content: Vec::new(),
             inputs: Vec::new(),
             range: None,
+            canvas: None,
             radius: 0.,
             fill: None,
             border: None,
@@ -257,6 +258,17 @@ fn omitted_primitives_are_absent_and_do_not_get_painted() {
         }
     );
     assert!(!body("PointerArea {}").unwrap().clickable);
+    assert_eq!(
+        body("Canvas { x: 4; width: 10; }").unwrap().canvas,
+        Some(CanvasSlot {
+            x: 4.,
+            y: 0.,
+            width: Some(10.),
+            height: None
+        })
+    );
+    assert!(body("Canvas {} Canvas {}").is_err());
+    assert!(body("Canvas { radius: 2; }").is_err());
     assert!(
         body("PointerArea { clicked -> events.clicked(); }")
             .unwrap()

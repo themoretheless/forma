@@ -475,6 +475,7 @@ fn is_primitive(kind: &str) -> bool {
         || [
             "Text",
             "TextInput",
+            "Canvas",
             "Image",
             "Rectangle",
             "ContentPresenter",

@@ -20,6 +20,31 @@ pub struct Template {
     pub content: Vec<Content>,
     pub inputs: Vec<crate::text_input::Input>,
     pub range: Option<RangeInput>,
+    /// Rectangle reserved for application geometry (`Canvas {}`), relative to
+    /// the control. Geometry comes from the application at runtime.
+    pub canvas: Option<CanvasSlot>,
+}
+
+/// `Canvas { x; y; width; height; }` inside a control template. Omitted width
+/// or height extends the canvas to the control's right or bottom edge.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct CanvasSlot {
+    pub x: f32,
+    pub y: f32,
+    pub width: Option<f32>,
+    pub height: Option<f32>,
+}
+
+impl CanvasSlot {
+    /// Rectangle relative to a control of `size`.
+    pub fn resolve(&self, size: [f32; 2]) -> [f32; 4] {
+        [
+            self.x,
+            self.y,
+            self.width.unwrap_or((size[0] - self.x).max(0.)),
+            self.height.unwrap_or((size[1] - self.y).max(0.)),
+        ]
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -890,6 +915,26 @@ impl<'a> Parser<'a> {
         self.close()?;
         Ok(clicked)
     }
+    fn canvas_slot(&mut self) -> Result<CanvasSlot, String> {
+        self.open()?;
+        let mut slot = CanvasSlot::default();
+        let mut seen = SeenFields::default();
+        while self.current.kind != Kind::Close {
+            let name = self.ident()?;
+            self.unique(&mut seen, &name)?;
+            self.colon()?;
+            match name.text() {
+                "x" => slot.x = self.scalar("x", false)?,
+                "y" => slot.y = self.scalar("y", false)?,
+                "width" => slot.width = Some(self.scalar("width", false)?),
+                "height" => slot.height = Some(self.scalar("height", false)?),
+                _ => return Err(self.error(&format!("Unsupported Canvas property {name}"))),
+            }
+            self.semi()?;
+        }
+        self.close()?;
+        Ok(slot)
+    }
     fn rectangle(&mut self) -> Result<Template, String> {
         self.open()?;
         let mut template = Template {
@@ -903,6 +948,7 @@ impl<'a> Parser<'a> {
             content: Vec::new(),
             inputs: Vec::new(),
             range: None,
+            canvas: None,
         };
         let mut seen = SeenFields::default();
         let mut clip_depth = 0;
@@ -913,6 +959,13 @@ impl<'a> Parser<'a> {
                     return Err(self.error("Duplicate RangeInput"));
                 }
                 template.range = Some(self.range_input()?);
+                continue;
+            }
+            if name == "Canvas" {
+                if template.canvas.is_some() {
+                    return Err(self.error("One Canvas per control is supported"));
+                }
+                template.canvas = Some(self.canvas_slot()?);
                 continue;
             }
             if name == "ContentInput" {

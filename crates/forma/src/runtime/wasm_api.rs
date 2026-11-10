@@ -657,6 +657,15 @@ impl Runtime {
         self.scroll.to_vec()
     }
     pub fn scroll(&mut self, dx: f32, dy: f32) {
+        // A wheel over a canvas belongs to the application (pan/zoom), not to
+        // the scene's scroll container.
+        if let (Some(i), Some((last, local))) = (self.canvas_input.hovered, self.canvas_input.last)
+        {
+            if i == last && dx.is_finite() && dy.is_finite() && self.reachable(i) {
+                self.push_canvas_event(i, CanvasEventKind::Wheel { dx, dy }, local);
+                return;
+            }
+        }
         // Modal input is isolated from the base scroll container, just as
         // pointer hit testing and keyboard focus are isolated from the base.
         // A refused scroll must also preserve the active modal's press.
@@ -854,6 +863,7 @@ impl Runtime {
         if kind == 2 || kind == 3 {
             self.captured = None;
         }
+        self.route_canvas_pointer(x, y, kind, hit);
         self.update_revision(before);
     }
     pub fn activate(&mut self) {
@@ -1026,6 +1036,11 @@ impl Runtime {
                 .and_then(|target| matches.iter().position(|x| *x == Some(target)));
         }
         self.dismissals = previous.dismissals;
+        // Application geometry is keyed by canvas key, not by scene identity.
+        self.canvases = previous.canvases.clone();
+        if !self.canvases.is_empty() {
+            *self.geometry.borrow_mut() = None;
+        }
         if layers_changed {
             self.invalidate_layers();
         }

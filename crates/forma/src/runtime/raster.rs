@@ -110,6 +110,7 @@ impl Runtime {
             for (i, control) in self.controls.iter().enumerate() {
                 if self.modal_of[i].is_none() {
                     control.composite_content(&mut cache.pixels, w, h, s);
+                    self.raster_canvas(i, &mut cache.pixels, w, h, s);
                 }
             }
             if self.scene.scroll {
@@ -134,6 +135,7 @@ impl Runtime {
                 }
                 for index in modal.controls.clone() {
                     self.controls[index].composite_content(&mut cache.pixels, w, h, s);
+                    self.raster_canvas(index, &mut cache.pixels, w, h, s);
                 }
             }
             if background || self.scene.clip {
@@ -174,7 +176,7 @@ impl Runtime {
     }
 
     pub(super) fn raster(&self, w: u32, h: u32, s: f32, background: bool) -> Vec<u8> {
-        if self.controls.len() == 1 && self.scene.modals.is_empty() {
+        if self.single_leaf() {
             return if background {
                 self.controls[0].pixels(w, h, s)
             } else {
@@ -195,7 +197,7 @@ impl Runtime {
         s: f32,
         background: bool,
     ) -> Result<(), &'static str> {
-        if self.controls.len() == 1 && self.scene.modals.is_empty() {
+        if self.single_leaf() {
             return self.controls[0].paint_rgba(out, w, h, s, background);
         }
         if (w as usize)
@@ -219,7 +221,7 @@ impl Runtime {
         h: u32,
         s: f32,
     ) -> Result<(), &'static str> {
-        if self.controls.len() == 1 && self.scene.modals.is_empty() {
+        if self.single_leaf() {
             return self.controls[0].paint_native(out, w, h, s);
         }
         if (w as usize).checked_mul(h as usize) != Some(out.len()) {

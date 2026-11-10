@@ -545,6 +545,13 @@ impl Document {
                 }
                 out.push_str("ContentClipEnd {} ");
             }
+            "Canvas" => {
+                // Placement only; the application supplies geometry at runtime.
+                let _ = std::fmt::Write::write_fmt(
+                    out,
+                    format_args!("Canvas {{ x:{x}; y:{y}; width:{w}; height:{h}; }} "),
+                );
+            }
             "TextInput" => {
                 let _ = std::fmt::Write::write_fmt(
                     out,
