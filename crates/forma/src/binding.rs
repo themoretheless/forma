@@ -795,7 +795,7 @@ trait NumericInput {
     fn epoch(&self) -> u64;
     fn number(&self) -> f64;
     fn clean(&self);
-    fn set_number(&self, value: f64) -> Result<(), String>;
+    fn prepare_number(&self, value: f64) -> Result<Box<dyn FnOnce()>, String>;
 }
 impl<T: ModelNumber> NumericInput for Field<T> {
     fn present(&self) -> bool {
@@ -818,9 +818,10 @@ impl<T: ModelNumber> NumericInput for Field<T> {
         self.0.dirty.set(false);
         self.0.reset.set(false);
     }
-    fn set_number(&self, value: f64) -> Result<(), String> {
-        self.set(T::from_value(&crate::form_document::Value::Number(value))?);
-        Ok(())
+    fn prepare_number(&self, value: f64) -> Result<Box<dyn FnOnce()>, String> {
+        let converted = T::from_value(&crate::form_document::Value::Number(value))?;
+        let field = self.clone();
+        Ok(Box::new(move || field.set(converted)))
     }
 }
 struct ProjectedInput<T> {
@@ -843,7 +844,11 @@ impl<T: Clone + PartialEq + Default + 'static> Input for ProjectedInput<T> {
 }
 trait CollectionWrite {
     fn epoch(&self) -> u64;
-    fn write(&self, indices: &[usize], value: &crate::form_document::Value) -> Result<(), String>;
+    fn prepare_write(
+        &self,
+        indices: &[usize],
+        value: &crate::form_document::Value,
+    ) -> Result<Option<Box<dyn FnOnce()>>, String>;
 }
 struct CollectionField<T> {
     field: Field<Vec<T>>,
@@ -853,9 +858,13 @@ impl<T: Clone + PartialEq + 'static> CollectionWrite for CollectionField<T> {
     fn epoch(&self) -> u64 {
         self.field.0.revision.get()
     }
-    fn write(&self, indices: &[usize], value: &crate::form_document::Value) -> Result<(), String> {
+    fn prepare_write(
+        &self,
+        indices: &[usize],
+        value: &crate::form_document::Value,
+    ) -> Result<Option<Box<dyn FnOnce()>>, String> {
         let Some(mut items) = self.field.get() else {
-            return Ok(());
+            return Ok(None);
         };
         let Some(index) = indices.first() else {
             return Err("Collection binding requires an item index".into());
@@ -864,8 +873,8 @@ impl<T: Clone + PartialEq + 'static> CollectionWrite for CollectionField<T> {
             return Err("Repeated control no longer has a collection item".into());
         };
         (self.set)(item, indices, value)?;
-        self.field.set(items);
-        Ok(())
+        let field = self.field.clone();
+        Ok(Some(Box::new(move || field.set(items))))
     }
 }
 #[derive(Clone)]
@@ -1552,25 +1561,48 @@ impl Form {
                 }
             }
         }
+        // Validate and stage all fallible numeric and collection writes before
+        // committing any observable Property mutation in this batch.
+        let mut staged_commits: Vec<Box<dyn FnOnce()>> = Vec::with_capacity(
+            string_writes.len() + number_writes.len() + bool_writes.len() + collection_writes.len(),
+        );
         for (field, value, epoch) in string_writes {
-            if field.0.epoch.get() == epoch {
-                field.set(value);
-            }
+            staged_commits.push(Box::new(move || {
+                if field.0.epoch.get() == epoch {
+                    field.set(value);
+                }
+            }));
         }
         for (field, value, epoch) in number_writes {
             if field.epoch() == epoch {
-                field.set_number(value)?;
+                let commit = field.prepare_number(value)?;
+                staged_commits.push(Box::new(move || {
+                    if field.epoch() == epoch {
+                        commit();
+                    }
+                }));
             }
         }
         for (field, value, epoch) in bool_writes {
-            if field.0.epoch.get() == epoch {
-                field.set(value);
-            }
+            staged_commits.push(Box::new(move || {
+                if field.0.epoch.get() == epoch {
+                    field.set(value);
+                }
+            }));
         }
         for (field, index, value, epoch) in collection_writes {
             if field.epoch() == epoch {
-                field.write(&index, &value)?;
+                if let Some(commit) = field.prepare_write(&index, &value)? {
+                    staged_commits.push(Box::new(move || {
+                        if field.epoch() == epoch {
+                            commit();
+                        }
+                    }));
+                }
             }
+        }
+        for commit in staged_commits {
+            commit();
         }
         self.sync()?;
         for (control, key, epoch, event, handler) in events {

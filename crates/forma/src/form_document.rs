@@ -23,7 +23,7 @@ use bindings::{
 };
 use compiler::{compile_ui_files_to_document, doc_props_to_json, json_to_doc_props};
 use contracts::check_contracts;
-use eval::{enum_value, eval, expression_number, lookup, pattern_matches};
+use eval::{enum_value, eval, eval_typed, expression_number, lookup, pattern_matches};
 #[cfg(test)]
 use layout::tracks;
 use layout::{
@@ -286,6 +286,23 @@ fn boolean(p: &Properties, key: &str, default: bool) -> Result<bool, String> {
 fn text(p: &Properties, key: &str, default: &str) -> Result<String, String> {
     p.get(key).map_or(Ok(default.into()), Value::text)
 }
+fn text_ref<'a>(
+    p: &'a Properties,
+    key: &str,
+    default: &'a str,
+) -> Result<std::borrow::Cow<'a, str>, String> {
+    match p.get(key) {
+        None | Some(Value::Null) => Ok(std::borrow::Cow::Borrowed(default)),
+        Some(Value::Text(v) | Value::Expr(v)) => Ok(std::borrow::Cow::Borrowed(v.as_str())),
+        Some(Value::Number(v)) => Ok(std::borrow::Cow::Owned(v.to_string())),
+        Some(Value::Bool(v)) => Ok(std::borrow::Cow::Borrowed(if *v {
+            "true"
+        } else {
+            "false"
+        })),
+        _ => Err("Expected scalar text".into()),
+    }
+}
 fn number(v: f64) -> Value {
     Value::Number(v)
 }
@@ -296,14 +313,17 @@ fn select_groups(
 ) -> Result<Properties, String> {
     let mut selected = Properties::new();
     if let Some(Value::List(groups)) = groups {
+        let mut stack = Vec::new();
         for group in groups {
             let Value::Match(subject, branches) = group else {
                 return Err("Invalid grouped match".into());
             };
-            let subject = subject.evaluate(scope, state)?;
+            stack.clear();
+            let subject = eval(subject, scope, state, &mut stack)?;
             let mut branch = None;
             for (pattern, value) in branches {
-                if pattern_matches(pattern, &subject, scope, state, &mut Vec::new())? {
+                stack.clear();
+                if pattern_matches(pattern, &subject, scope, state, &mut stack)? {
                     branch = Some(value);
                     break;
                 }
@@ -321,6 +341,15 @@ fn select_groups(
     Ok(selected)
 }
 fn property_values(n: &Node, scope: &Properties, state: &Properties) -> Result<Properties, String> {
+    let has_styles = n.props.contains_key("__styles");
+    let has_forward = n.props.contains_key("__forward");
+    let has_matches = n.props.contains_key("__matches");
+    let has_scope = n.props.contains_key("__scope");
+    if !has_styles && !has_forward && !has_matches && !has_scope {
+        // Common fast path: no styles, forwarded props, matches, or embedded scope.
+        // `Properties::clone` is an O(1) `Arc` refcount bump!
+        return Ok(n.props.clone());
+    }
     let mut result = Properties::new();
     if let Some(Value::List(styles)) = n.props.get("__styles") {
         let Some(Value::Object(style_defs)) = scope.get("__styles") else {
@@ -355,10 +384,14 @@ fn property_values(n: &Node, scope: &Properties, state: &Properties) -> Result<P
     Ok(result)
 }
 fn properties(n: &Node, scope: &Properties, state: &Properties) -> Result<Properties, String> {
-    property_values(n, scope, state)?
-        .into_iter()
-        .map(|(key, value)| Ok((key, value.evaluate(scope, state)?)))
-        .collect()
+    let values = property_values(n, scope, state)?;
+    let mut stack = Vec::new();
+    let mut out = BTreeMap::new();
+    for (key, value) in &values {
+        stack.clear();
+        out.insert(key.clone(), eval(value, scope, state, &mut stack)?);
+    }
+    Ok(out.into())
 }
 // Retain evaluated Let values separately from mutable model fields. A Let
 // declaration also hides an older For local with the same name.

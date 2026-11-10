@@ -1,4 +1,4 @@
-use super::{Node, Properties, Value, boolean, num, number, text};
+use super::{Node, Properties, Value, boolean, num, number, text_ref};
 
 fn is_color_property(key: &str) -> bool {
     key.as_bytes()
@@ -273,7 +273,7 @@ pub(super) fn natural(n: &Node, axis: usize) -> Result<f64, String> {
     let measured = match n.kind.as_str() {
         "Text" => {
             let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
-            let text = text(&n.props, "text", "")?;
+            let text = text_ref(&n.props, "text", "")?;
             let wrap = boolean(&n.props, "wrap", false)?;
             let max_w = n
                 .props

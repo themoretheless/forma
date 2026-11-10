@@ -46,29 +46,35 @@ impl Document {
                 scope.insert(meta_key.into(), Value::Object(merged));
             }
         }
-        let mut result = Properties::new();
+        let mut result = BTreeMap::new();
         let values = property_values(node, &scope, state)?;
+        let mut stack = Vec::new();
+        let mut merged_defaults: Option<Properties> = None;
         for (key, value) in &values {
             if key == "__matches" || key == "__forward" || key == "__scope" || key == "__styles" {
                 continue;
             }
-            match eval(value, &scope, state, &mut Vec::new()) {
+            stack.clear();
+            match eval_typed(value, &scope, state, &mut stack) {
                 Ok(value) => {
                     result.insert(key.clone(), value);
                 }
-                Err(error) if error.starts_with("Missing state.") => {
+                Err(error) if error.is_missing_state() => {
                     if let Some(default) = default_value(key) {
-                        let mut defaults = self.fallback.clone();
-                        if let Some(definition) = definition {
-                            defaults.extend(definition.defaults.clone());
-                        }
+                        let defaults = merged_defaults.get_or_insert_with(|| {
+                            let mut d = self.fallback.clone();
+                            if let Some(definition) = definition {
+                                d.extend(definition.defaults.clone());
+                            }
+                            d
+                        });
                         result.insert(
                             key.clone(),
-                            eval(default, &defaults, state, &mut Vec::new())?,
+                            eval(default, defaults, state, &mut Vec::new())?,
                         );
                     }
                 }
-                Err(error) => return Err(error),
+                Err(error) => return Err(error.into_message()),
             }
         }
         if result.get("__range_normalized") == Some(&Value::Bool(true)) {
@@ -77,7 +83,7 @@ impl Document {
                 result.insert("value".into(), normalized);
             }
         }
-        Ok(result)
+        Ok(result.into())
     }
     fn scene_expand_sequence_step(
         &self,

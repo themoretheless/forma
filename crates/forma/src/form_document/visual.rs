@@ -190,12 +190,33 @@ impl Document {
         }
         // Expanded properties/children replace the source tree; do not clone
         // the original subtree merely to overwrite both owned fields.
+        let props_evaluated = properties(n, props, state)?;
+        let expanded_props = if props_evaluated
+            .values()
+            .any(|v| matches!(v, Value::Node(_)))
+        {
+            props_evaluated
+                .into_iter()
+                .map(|(k, v)| match v {
+                    Value::Node(child) => Ok((
+                        k,
+                        Value::Node(Box::new(self.expand(
+                            &child,
+                            props,
+                            state,
+                            parents,
+                            depth + 1,
+                        )?)),
+                    )),
+                    other => Ok((k, other)),
+                })
+                .collect::<Result<_, String>>()?
+        } else {
+            props_evaluated
+        };
         let node = Node {
             kind: n.kind.clone(),
-            props: properties(n, props, state)?
-                .into_iter()
-                .map(|(k, v)| Ok((k, self.expand_value(&v, props, state, parents, depth)?)))
-                .collect::<Result<_, String>>()?,
+            props: expanded_props,
             children: self.expand_sequence(&n.children, props, state, parents, depth + 1)?,
             action: n.action.clone(),
         };
@@ -273,19 +294,21 @@ impl Document {
                 return Err(format!("Unknown property {}.{key}", instance.kind));
             }
         }
-        let supplied = definition
-            .defaults
-            .keys()
-            .chain(instance.props.keys())
-            .cloned()
-            .chain(owned_snapshot.iter().map(|_| "__state".to_owned()))
-            .collect::<std::collections::BTreeSet<_>>();
-        let mut props = if top {
-            self.fallback.clone()
+        let has_required_contracts = matches!(
+            definition.defaults.get("__contracts"),
+            Some(Value::Object(contracts))
+                if contracts.values().any(|contract| {
+                    matches!(contract, Value::Object(c) if c.get("required") == Some(&Value::Bool(true)))
+                })
+        );
+        let has_transferred_snapshot = owned_snapshot.is_some();
+        let mut props = if top && !self.fallback.is_empty() {
+            let mut p = self.fallback.clone();
+            p.extend(definition.defaults.clone());
+            p
         } else {
-            Properties::new()
+            definition.defaults.clone()
         };
-        props.extend(definition.defaults.clone());
         props.extend(instance.props.clone());
         let transferred_snapshot = owned_snapshot.is_some();
         if let Some(snapshot) = owned_snapshot.take() {
@@ -297,47 +320,70 @@ impl Document {
                 Some(Value::Object(state)) => state,
                 _ => &empty_state,
             });
-            let mut selected = select_groups(definition.defaults.get("__matches"), &props, state)?;
-            // Explicit scene metadata wins over group defaults without cloning its payload.
-            if transferred_snapshot {
-                selected.remove("__state");
+            if definition.defaults.contains_key("__matches") {
+                let mut selected =
+                    select_groups(definition.defaults.get("__matches"), &props, state)?;
+                // Explicit scene metadata wins over group defaults without cloning its payload.
+                if transferred_snapshot {
+                    selected.remove("__state");
+                }
+                if !selected.is_empty() {
+                    // Explicit instance values win over selected groups. Only keys actually
+                    // overwritten by a group need to be restored; transport snapshots such
+                    // as __state must not be cloned a second time on every instantiation.
+                    let overrides: Properties = selected
+                        .keys()
+                        .filter_map(|key| {
+                            instance
+                                .props
+                                .get(key)
+                                .map(|value| (key.clone(), value.clone()))
+                        })
+                        .collect();
+                    props.extend(selected);
+                    props.extend(overrides);
+                }
             }
-            // Explicit instance values win over selected groups. Only keys actually
-            // overwritten by a group need to be restored; transport snapshots such
-            // as __state must not be cloned a second time on every instantiation.
-            let overrides: Properties = selected
-                .keys()
-                .filter_map(|key| {
-                    instance
-                        .props
-                        .get(key)
-                        .map(|value| (key.clone(), value.clone()))
-                })
-                .collect();
-            props.extend(selected);
-            props.extend(overrides);
             if let Some(value) = instance.props.get("font.size") {
                 props.insert("fontSize".into(), value.clone());
             }
-            let mut parents = parents.to_vec();
-            parents.push(instance.kind.clone());
+            let mut next_parents = Vec::with_capacity(parents.len() + 1);
+            next_parents.extend_from_slice(parents);
+            next_parents.push(instance.kind.clone());
+            let parents = next_parents;
             let state = supplied_state.unwrap_or_else(|| match props.get("__state") {
                 Some(Value::Object(state)) => state,
                 _ => &empty_state,
             });
-            let resolved: Properties = props
-                .iter()
-                .filter(|(k, _)| !k.starts_with("__"))
-                .map(|(k, v)| Ok((k.clone(), self.expand_value(v, &props, state, &parents, 0)?)))
-                .collect::<Result<_, String>>()?;
+            let mut eval_stack = Vec::new();
+            let mut resolved_map = BTreeMap::new();
+            for (k, v) in &props {
+                if !k.starts_with("__") {
+                    eval_stack.clear();
+                    let v = eval(v, &props, state, &mut eval_stack)?;
+                    let v = match v {
+                        Value::Node(node) => {
+                            Value::Node(Box::new(self.expand(&node, &props, state, &parents, 1)?))
+                        }
+                        other => other,
+                    };
+                    resolved_map.insert(k.clone(), v);
+                }
+            }
+            let resolved: Properties = resolved_map.into();
             let mut contract_values = std::borrow::Cow::Borrowed(&resolved);
-            if let Some(Value::Object(contracts)) = definition.defaults.get("__contracts") {
-                for (key, contract) in contracts {
-                    if matches!(contract,Value::Object(contract) if contract.get("required")==Some(&Value::Bool(true)))
-                        && !supplied.contains(key)
-                        && contract_values.contains_key(key)
-                    {
-                        contract_values.to_mut().remove(key);
+            if has_required_contracts {
+                if let Some(Value::Object(contracts)) = definition.defaults.get("__contracts") {
+                    for (key, contract) in contracts {
+                        let is_supplied = definition.defaults.contains_key(key)
+                            || instance.props.contains_key(key)
+                            || (has_transferred_snapshot && key == "__state");
+                        if matches!(contract,Value::Object(contract) if contract.get("required")==Some(&Value::Bool(true)))
+                            && !is_supplied
+                            && contract_values.contains_key(key)
+                        {
+                            contract_values.to_mut().remove(key);
+                        }
                     }
                 }
             }
@@ -504,17 +550,17 @@ impl Document {
                     out,
                     format_args!("ContentInput {{ x:{x}; y:{y}; width:{w}; height:{h}; value:"),
                 );
-                write_str_literal(&text(&n.props, "value", "")?, out);
+                write_str_literal(&text_ref(&n.props, "value", "")?, out);
                 out.push_str("; label:");
-                write_str_literal(&text(&n.props, "label", "")?, out);
+                write_str_literal(&text_ref(&n.props, "label", "")?, out);
                 out.push_str("; placeholder:");
-                write_str_literal(&text(&n.props, "placeholder", "")?, out);
+                write_str_literal(&text_ref(&n.props, "placeholder", "")?, out);
                 let _ = std::fmt::Write::write_fmt(
                     out,
                     format_args!(
                         "; color:{}; placeholderColor:{}; fontSize:{}; multiline:{}; readOnly:{}; wrap:{}; }} ",
-                        text(&n.props, "color", "#ffffff")?,
-                        text(&n.props, "placeholderColor", "#999999")?,
+                        text_ref(&n.props, "color", "#ffffff")?,
+                        text_ref(&n.props, "placeholderColor", "#999999")?,
                         num(&n.props, "fontSize", 15.)?,
                         boolean(&n.props, "multiline", false)?,
                         boolean(&n.props, "readOnly", false)?,
@@ -523,9 +569,9 @@ impl Document {
                 );
             }
             "Text" => {
-                let value = text(&n.props, "text", "")?;
+                let value = text_ref(&n.props, "text", "")?;
                 let fs = num(&n.props, "fontSize", num(&n.props, "font.size", 16.)?)?;
-                let color = text(&n.props, "color", "#ffffff")?;
+                let color = text_ref(&n.props, "color", "#ffffff")?;
                 let wrap = boolean(&n.props, "wrap", false)?;
                 if wrap && w > 0. {
                     let wrapped = crate::text::wrap_text_ranges(&value, fs as f32, w as f32);
@@ -589,19 +635,19 @@ impl Document {
                 }
             }
             "Image" => {
-                let source = text(&n.props, "source", "")?;
+                let source = text_ref(&n.props, "source", "")?;
                 let image = self
                     .images
-                    .get(&source)
+                    .get(source.as_ref())
                     .ok_or_else(|| format!("Missing SVG {source}"))?;
                 let scale = (w / image.width).min(h / image.height);
                 let dx = x + (w - image.width * scale) / 2.;
                 let dy = y + (h - image.height * scale) / 2.;
                 for (points, color) in &image.shapes {
                     let color = if color == "currentColor" {
-                        text(&n.props, "color", "#ffffff")?
+                        text_ref(&n.props, "color", "#ffffff")?
                     } else {
-                        color.clone()
+                        std::borrow::Cow::Borrowed(color.as_str())
                     };
                     out.push_str("ContentShape { points:'");
                     for (i, p) in points.iter().enumerate() {

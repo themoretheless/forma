@@ -250,3 +250,65 @@ fn inherited_context_tracks_replacements_while_overridden_and_releases_sources()
     drop(child);
     assert!(second_weak.upgrade().is_none());
 }
+
+#[test]
+fn failed_batch_binding_write_leaves_earlier_properties_and_collections_unchanged() {
+    let tpl = "component Button { Rectangle { ContentInput { width:200; height:30; value:'0'; } PointerArea { clicked -> events.clicked(); } } }";
+    let templates = format!(
+        "FORMA-TEMPLATES-1\n{}\n{tpl}{}\n{tpl}{}\n{tpl}",
+        tpl.len(),
+        tpl.len(),
+        tpl.len()
+    );
+    let mut form = Form::new(
+        "component Demo { Frame { width:220; height:140; Button { width:200; height:36; } Button { y:44; width:200; height:36; } Button { y:88; width:200; height:36; } } }",
+        &templates,
+    )
+    .unwrap();
+    let title = Property::new("initial-title".to_string());
+    let count = Property::new(10_i32);
+    let rows = Property::new(vec!["row0".to_string()]);
+
+    let c0 = form.add_control(0, Context::new(Rc::new(()))).unwrap();
+    c0.bind_value(title.clone());
+
+    let c1 = form.add_control(1, Context::new(Rc::new(()))).unwrap();
+    c1.bind_range(count.clone());
+
+    let row_ctx = Context::new(Rc::new(rows.clone()));
+    let c2 = form.add_control(2, row_ctx.clone()).unwrap();
+    c2.bind_collection_context(
+        "value",
+        &[],
+        "row",
+        &row_ctx,
+        |p| p.clone(),
+        |item, _, val| {
+            *item = val.text()?;
+            Ok(())
+        },
+    );
+
+    form.sync().unwrap();
+
+    // Mutate string input 0 AND overflow i32 range input 1 in the same `update` batch.
+    let err = form
+        .update(|runtime| {
+            runtime
+                .set_binding_value(0, "should-rollback", true)
+                .unwrap();
+            runtime
+                .set_binding_value(1, "9999999999999999999", true)
+                .unwrap();
+            runtime.set_binding_value(2, "mutated-row", true).unwrap();
+        })
+        .unwrap_err();
+    assert!(
+        err.contains("cannot be represented") || err.contains("Collection binding"),
+        "unexpected error: {err}"
+    );
+    // Neither `title`, `count`, nor `rows` may have committed partial mutations!
+    assert_eq!(title.get(), "initial-title");
+    assert_eq!(count.get(), 10);
+    assert_eq!(rows.get(), vec!["row0".to_string()]);
+}
