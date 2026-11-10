@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadConfigFromFile } from 'vite';
@@ -24,6 +24,7 @@ async function fixture(t) {
   // Real shared modules the config imports, copied as they are rather than stubbed.
   mkdirSync(join(checkout, 'protocol'));
   copyFileSync(join(root, 'protocol/enums.js'), join(checkout, 'protocol/enums.js'));
+  cpSync(join(root, 'dev-server'), join(checkout, 'dev-server'), { recursive: true });
   const loaded = await loadConfigFromFile(
     { command: 'build', mode: 'production' },
     join(checkout, 'vite.config.js'),
@@ -31,12 +32,12 @@ async function fixture(t) {
   return loaded.config;
 }
 
-function devRoutes(config) {
+function devRoutes(config, httpServer = { once() {} }) {
   const routes = [];
   const server = {
     middlewares: { use: (path, handler) => routes.push({ path, handler }) },
     ws: { on() {} },
-    httpServer: { once() {} },
+    httpServer,
   };
   config.plugins.find(plugin => plugin.name === 'forma-mcp-bridge').configureServer(server);
   return routes.map(route => route.path);
@@ -51,4 +52,9 @@ test('the dev server exposes no file API onto a neighbouring repository', async 
   const routes = devRoutes(await fixture(t));
   assert.ok(routes.length > 0, 'the bridge plugin registered its routes');
   assert.equal(routes.includes('/__forma_workspace'), false);
+});
+
+test('the bridge plugin configures cleanly in headless/test servers without httpServer', async t => {
+  const routes = devRoutes(await fixture(t), null);
+  assert.deepEqual(routes, ['/__forma_vector', '/__forma_tokenizer', '/__forma_mcp']);
 });
