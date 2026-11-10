@@ -1,0 +1,238 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+constant uint WG = 256;
+
+uint _wgpu_ident_address(uint index, uint operand, const device uint* params);
+float apply_unary(uint operation, float x);
+float apply_binary(uint operation, float x, float y);
+
+uint _wgpu_ident_address(uint index, uint operand, const device uint* params) {
+
+    auto offset = params[4u + operand];
+    auto remaining = index;
+    for (auto axis = params[1]; axis > 0u; axis--) {
+        const auto descriptor = 8u + (axis - 1u) * 3u;
+        const auto dimension = params[descriptor];
+        offset += (remaining % dimension) * params[descriptor + 1u + operand];
+        remaining /= dimension;
+    }
+    return offset;
+}
+
+float apply_unary(uint operation, float x) {
+
+    switch (operation) {
+case 1u:
+{
+ return -x; 
+break;
+}
+case 2u:
+{
+ return abs(x); 
+break;
+}
+case 3u:
+{
+ return x * x; 
+break;
+}
+case 4u:
+{
+ return sqrt(x); 
+break;
+}
+case 5u:
+{
+ return 1.0 / x; 
+break;
+}
+case 6u:
+{
+ return exp(x); 
+break;
+}
+case 7u:
+{
+ return log(x); 
+break;
+}
+case 8u:
+{
+ return sin(x); 
+break;
+}
+case 9u:
+{
+ return cos(x); 
+break;
+}
+default: {
+ return x; 
+break;
+}
+}
+}
+
+float apply_binary(uint operation, float x, float y) {
+
+    switch (operation) {
+case 32u:
+{
+ return x + y; 
+break;
+}
+case 33u:
+{
+ return x - y; 
+break;
+}
+case 34u:
+{
+ return x * y; 
+break;
+}
+case 35u:
+{
+ return x / y; 
+break;
+}
+case 36u:
+{
+ return min(x, y); 
+break;
+}
+default: {
+ return max(x, y); 
+break;
+}
+}
+}
+
+kernel void _wgpu_entry_main(uint3 gid [[thread_position_in_grid]], const device uint* params [[buffer(0)]], const device float* a [[buffer(1)]], const device float* b [[buffer(2)]], device float* output [[buffer(3)]]) {
+
+    const auto count = params[0];
+    const auto stride = params[3] * WG;
+    auto index = gid.x;
+    while (index < count) {
+        const auto x = a[_wgpu_ident_address(index, 0u, params)];
+        auto value = apply_unary(params[2], x);
+        if (params[2] >= 32u) { value = apply_binary(params[2], x, b[_wgpu_ident_address(index, 1u, params)]); }
+        output[params[6] + index] = value;
+        if (stride >= count - index) { break; }
+        index += stride;
+    }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "a": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "b": (
+            2,
+            0,
+            4,
+            2,
+        ),
+        "output": (
+            3,
+            0,
+            4,
+            3,
+        ),
+        "params": (
+            0,
+            0,
+            4,
+            0,
+        ),
+    },
+}

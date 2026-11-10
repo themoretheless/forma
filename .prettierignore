@@ -11,7 +11,6 @@ docs/
 crates/
 crates/forma/
 native-app/
-openscad-ui/
 studio-ui/
 studio-controls/
 bench/results/

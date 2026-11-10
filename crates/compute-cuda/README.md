@@ -32,7 +32,7 @@ im2col tensor. `TensorLowConvBackend::conv_low_f32` reads native f16/BF16 operan
 directly, while `conv_low` adds one final low cast. Bias can be added with
 resident broadcasting. This path does not use cuDNN or claim Tensor Core use.
 Prepared programs and CUDA Graph recording do not yet expose convolution.
-See the [shared contract and qualification](../../docs/qualification/tensor-convolution-2026-09-27.md).
+See the shared contract and qualification (`docs/qualification/tensor-convolution-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 ### Libraries and device
 
@@ -326,9 +326,9 @@ asynchronous readback or scratch pooling.
 Externally created narrow views can still supply fixed input layouts.
 
 Host planning, type checks and source review are qualified separately from
-native execution. See the [prepared indexing qualification](../../docs/qualification/tensor-cuda-index-programs-2026-09-27.md),
-the [typed prepared-program qualification](../../docs/qualification/tensor-cuda-typed-programs-2026-09-27.md)
-and the [earlier f32 qualification](../../docs/qualification/tensor-cuda-programs-2026-09-27.md).
+native execution. See the prepared indexing qualification (`docs/qualification/tensor-cuda-index-programs-2026-09-27.md` in the upstream open-scad-viewer repository; not included here),
+the typed prepared-program qualification (`docs/qualification/tensor-cuda-typed-programs-2026-09-27.md` in the upstream open-scad-viewer repository; not included here)
+and the earlier f32 qualification (`docs/qualification/tensor-cuda-programs-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 The examples compile as `no_run` doctests; NVIDIA execution, performance and
 Tensor Core instruction use remain unverified on this Apple host.
 
@@ -338,7 +338,7 @@ Tensor Core instruction use remain unverified on this Apple host.
 logical views against dense private input slots, then captures that schedule.
 It supports the same typed operations, including indexing counts, statistics,
 attention and cuBLAS GEMM. NVIDIA execution is still unqualified on this host;
-see the [graph qualification](../../docs/qualification/tensor-cuda-graphs-2026-09-27.md).
+see the graph qualification (`docs/qualification/tensor-cuda-graphs-2026-09-27.md` in the upstream open-scad-viewer repository; not included here).
 
 ```rust,no_run
 use compute_cuda::{CudaRuntime, CudaPrepareOptions, CudaCaptureOptions};
@@ -429,7 +429,7 @@ are unchanged.
 
 ### Reusable statistics and attention
 
-See the [CUDA/MLX statistics and attention qualification](../../docs/qualification/tensor-prepared-statistics-2026-09-27.md) for current checks and hardware limits.
+See the CUDA/MLX statistics and attention qualification (`docs/qualification/tensor-prepared-statistics-2026-09-27.md` in the upstream open-scad-viewer repository; not included here) for current checks and hardware limits.
 
 The builder records `softmax`, `log_softmax`, `logsumexp`, population `moments`,
 `layer_norm` and `attention`. Low inputs expose `_low_f32` results and `_low`
@@ -896,7 +896,7 @@ COMPUTE_REQUIRE_CUDA=1 cargo test --manifest-path crates/Cargo.toml -p compute-c
 COMPUTE_REQUIRE_CUDA=1 cargo test --manifest-path crates/Cargo.toml -p osv-math-compute --features tensor-cuda --test tensor_f64 -- --nocapture
 ```
 
-The [qualification report](../../docs/qualification/tensor-float64-2026-09-27.md)
+The qualification report (`docs/qualification/tensor-float64-2026-09-27.md` in the upstream open-scad-viewer repository; not included here)
 records NVRTC/host evidence separately from the missing NVIDIA execution proof.
 
 
@@ -917,6 +917,6 @@ compact and Replace preserve raw binary64 payloads, including NaN payloads.
 
 These APIs currently use eager CUDA execution; they do not add f64 slots to
 prepared programs or CUDA Graph. The
-[qualification](../../docs/qualification/tensor-float64-indexing-2026-09-27.md)
+qualification (`docs/qualification/tensor-float64-indexing-2026-09-27.md` in the upstream open-scad-viewer repository; not included here)
 contains the required-device command and distinguishes compile proof from GPU
 execution. Numerical qualification still requires NVIDIA hardware.

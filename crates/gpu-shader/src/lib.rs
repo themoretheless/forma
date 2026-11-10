@@ -372,6 +372,9 @@ pub struct Constant {
     pub ty: Option<Handle<Type>>,
     pub expr_src: String,
     pub u32_value: Option<u32>,
+    /// `override` declaration: the value may be replaced per pipeline (see
+    /// [`back::msl::override_macro`]); `expr_src` is the default.
+    pub is_override: bool,
 }
 
 #[derive(Debug, Clone)]

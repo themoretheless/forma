@@ -1601,7 +1601,7 @@ test('unavailable or empty paste and absent insertion data preserve selected tex
   const f = fixture(t, [button]);
   const model = f.models[0],
     input = f.canvas.parentElement.children.find(c => c.tag === 'textarea');
-  let inserted = [];
+  const inserted = [];
   model.text_insert = text => inserted.push(text);
   input.emit('paste');
   input.emit('paste', { clipboardData: {} });

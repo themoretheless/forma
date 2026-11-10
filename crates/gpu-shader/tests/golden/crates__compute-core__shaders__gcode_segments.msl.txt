@@ -1,0 +1,198 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+using namespace metal;
+
+struct _wgpu_atomic_cmp_exch_u32 {
+    uint old_value;
+    bool exchanged;
+};
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(threadgroup atomic_uint* ptr, uint cmp, uint val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{cmp, ok};
+}
+inline _wgpu_atomic_cmp_exch_u32 _wgpu_atomic_compare_exchange_weak(device atomic_int* ptr, int cmp, int val) {
+    bool ok = atomic_compare_exchange_weak_explicit(ptr, &cmp, val, memory_order_relaxed, memory_order_relaxed);
+    return _wgpu_atomic_cmp_exch_u32{uint(cmp), ok};
+}
+inline float _wgpu_degrees(float x) { return x * 57.29577951308232f; }
+inline float2 _wgpu_degrees(float2 x) { return x * 57.29577951308232f; }
+inline float3 _wgpu_degrees(float3 x) { return x * 57.29577951308232f; }
+inline float4 _wgpu_degrees(float4 x) { return x * 57.29577951308232f; }
+inline float _wgpu_radians(float x) { return x * 0.017453292519943295f; }
+inline float2 _wgpu_radians(float2 x) { return x * 0.017453292519943295f; }
+inline float3 _wgpu_radians(float3 x) { return x * 0.017453292519943295f; }
+inline float4 _wgpu_radians(float4 x) { return x * 0.017453292519943295f; }
+template<typename F, typename E>
+struct _wgpu_frexp_result {
+    F fract;
+    E exp;
+};
+template<typename F>
+struct _wgpu_modf_result {
+    F fract;
+    F whole;
+};
+inline _wgpu_frexp_result<float, int> _wgpu_frexp(float x) { int e; float f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float2, int2> _wgpu_frexp(float2 x) { int2 e; float2 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float3, int3> _wgpu_frexp(float3 x) { int3 e; float3 f = frexp(x, e); return {f, e}; }
+inline _wgpu_frexp_result<float4, int4> _wgpu_frexp(float4 x) { int4 e; float4 f = frexp(x, e); return {f, e}; }
+template<typename F>
+inline _wgpu_modf_result<F> _wgpu_modf(F x) { F w; F f = modf(x, w); return {f, w}; }
+template<typename T, uint N>
+struct _wgpu_arr {
+    T inner[N];
+    thread T& operator[](uint i) thread { return inner[i]; }
+    const thread T& operator[](uint i) const thread { return inner[i]; }
+    thread T& operator[](int i) thread { return inner[i]; }
+    const thread T& operator[](int i) const thread { return inner[i]; }
+    device T& operator[](uint i) device { return inner[i]; }
+    const device T& operator[](uint i) const device { return inner[i]; }
+    device T& operator[](int i) device { return inner[i]; }
+    const device T& operator[](int i) const device { return inner[i]; }
+    constant T& operator[](uint i) constant { return inner[i]; }
+    constant T& operator[](int i) constant { return inner[i]; }
+    threadgroup T& operator[](uint i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](uint i) const threadgroup { return inner[i]; }
+    threadgroup T& operator[](int i) threadgroup { return inner[i]; }
+    const threadgroup T& operator[](int i) const threadgroup { return inner[i]; }
+};
+
+struct GcodeParams {
+    uint num_moves;
+    uint min_layer;
+    uint max_layer;
+    uint include_travel;
+    uint include_extrusion;
+    uint max_segments;
+    float min_feedrate;
+    float max_feedrate;
+};
+
+constant uint ROW_STRIDE = 7u;
+constant uint WG = 256;
+
+kernel void _wgpu_entry_main(uint3 id [[thread_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]], constant GcodeParams& params [[buffer(0)]], const device float* move_rows [[buffer(1)]], device _wgpu_arr<atomic_uint, 1>& segment_counter [[buffer(2)]], device float* out_segments [[buffer(3)]]) {
+    threadgroup atomic_uint wg_counter;
+    threadgroup uint wg_base;
+
+  if (lid.x == 0u) {
+    atomic_store_explicit(&wg_counter, 0u, memory_order_relaxed);
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  const auto move_idx = id.x;
+  auto valid = false;
+  auto seg_a = float4(0.0);
+  auto seg_b = float4(0.0);
+
+  if (move_idx > 0u && move_idx < params.num_moves) {
+    const auto cur_base = move_idx * ROW_STRIDE;
+    const auto prev_base = (move_idx - 1u) * ROW_STRIDE;
+
+    const auto layer_f = move_rows[cur_base + 5u];
+    const auto layer = uint(max(0.0, rint(layer_f)));
+    if (layer >= params.min_layer && layer <= params.max_layer) {
+      const auto extruded_flag = move_rows[cur_base + 6u];
+      const auto is_extrusion = extruded_flag >= 0.5;
+      const auto allow_move = select(params.include_travel != 0u, params.include_extrusion != 0u, is_extrusion);
+      if (allow_move) {
+        const auto x0 = move_rows[prev_base + 0u];
+        const auto y0 = move_rows[prev_base + 1u];
+        const auto z0 = move_rows[prev_base + 2u];
+
+        const auto x1 = move_rows[cur_base + 0u];
+        const auto y1 = move_rows[cur_base + 1u];
+        const auto z1 = move_rows[cur_base + 2u];
+
+        const auto dx = x1 - x0;
+        const auto dy = y1 - y0;
+        const auto dz = z1 - z0;
+        if (dx * dx + dy * dy + dz * dz > 1e-12) {
+          const auto feed = move_rows[cur_base + 4u];
+          const auto span = max(1e-6, params.max_feedrate - params.min_feedrate);
+          const auto feed_norm = clamp((feed - params.min_feedrate) / span, 0.0, 1.0);
+          seg_a = float4(x0, y0, z0, feed_norm);
+          seg_b = float4(x1, y1, z1, select(0.0, 1.0, is_extrusion));
+          valid = true;
+        }
+      }
+    }
+  }
+
+  auto local_slot = 0u;
+  if (valid) {
+    local_slot = atomic_fetch_add_explicit(&wg_counter, 1u, memory_order_relaxed);
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  if (lid.x == 0u) {
+    const auto wg_total = atomic_load_explicit(&wg_counter, memory_order_relaxed);
+    if (wg_total == 1u) {
+      wg_base = atomic_fetch_add_explicit(&segment_counter[0], 1u, memory_order_relaxed);
+    } else if (wg_total > 1u) {
+      wg_base = atomic_fetch_add_explicit(&segment_counter[0], wg_total, memory_order_relaxed);
+    } else {
+      wg_base = 0u;
+    }
+  }
+  threadgroup_barrier(mem_flags::mem_threadgroup);
+
+  if (valid) {
+    const auto slot = wg_base + local_slot;
+    if (slot < params.max_segments) {
+      const auto off = slot * 8u;
+      out_segments[off + 0u] = seg_a.x;
+      out_segments[off + 1u] = seg_a.y;
+      out_segments[off + 2u] = seg_a.z;
+      out_segments[off + 3u] = seg_a.w;
+      out_segments[off + 4u] = seg_b.x;
+      out_segments[off + 5u] = seg_b.y;
+      out_segments[off + 6u] = seg_b.z;
+      out_segments[off + 7u] = seg_b.w;
+    }
+  }
+}
+
+
+--- bindings ---
+BindingMap {
+    buffers: {
+        (
+            0,
+            0,
+        ): 0,
+        (
+            0,
+            1,
+        ): 1,
+        (
+            0,
+            2,
+        ): 2,
+        (
+            0,
+            3,
+        ): 3,
+    },
+    textures: {},
+    samplers: {},
+    immediate_slot: None,
+    array_length_slots: {
+        "move_rows": (
+            1,
+            0,
+            4,
+            1,
+        ),
+        "out_segments": (
+            3,
+            0,
+            4,
+            3,
+        ),
+    },
+}

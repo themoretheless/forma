@@ -43,8 +43,9 @@ impl VulkanDevice {
     pub const VK_KHR_DEFERRED_HOST_OPERATIONS_NAME: &'static str =
         "VK_KHR_deferred_host_operations";
 
-    /// Probes the Vulkan 1.3 adapter across Linux, Windows, Android, or MoltenVK.
-    pub fn probe_available() -> Option<Self> {
+    /// A static description of the Vulkan 1.3 profile this backend targets, for planning code
+    /// and tests. It describes no real device: nothing here talks to a driver.
+    pub fn reference_profile() -> Self {
         let platform = TargetPlatform::current();
         let unified_memory = match platform {
             TargetPlatform::Android | TargetPlatform::Ios => true,
@@ -53,7 +54,7 @@ impl VulkanDevice {
                 false
             }
         };
-        Some(Self {
+        Self {
             name: "Vulkan 1.3 Direct Native + KHR RayTracing Adapter".to_string(),
             api_version: (1, 3, 280),
             unified_memory,
@@ -67,7 +68,13 @@ impl VulkanDevice {
             supports_ray_query: true,
             supports_acceleration_structure: true,
             subgroup_size: 32,
-        })
+        }
+    }
+
+    /// Finds a real Vulkan 1.3 device. The backend is not implemented yet, so this always returns
+    /// `None`; it used to return a fabricated profile on every platform.
+    pub fn probe_available() -> Option<Self> {
+        None
     }
 
     /// Returns the physical memory topology (`Uma` on mobile/Apple SoCs vs `Duma` on discrete PCIe GPUs).

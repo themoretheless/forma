@@ -25,7 +25,7 @@
  *    - Implements Forma's complete `stdlib`: math (`clamp`, `lerp`, `remap`, `sum`, `avg`), strings & i18n (`plural`, `upper`, `lower`, `capitalize`, `truncate`, `padStart`), collections (`filter`, `map`, `join`, `take`, `skip`, `unique`), and WCAG color functions (`lighten`, `darken`, `alpha`, `luminance`, `contrast`).
  */
 
-import { For, h, insertChild, Show } from './dom.ts';
+import { For, insertChild, Show } from './dom.ts';
 import {
   batch,
   computed,
@@ -128,7 +128,6 @@ import {
   parseFormaExprAst,
   evalAstNode,
   isStaticFormaExprNode,
-  isStaticFormaExpr,
   evaluateFormaExpression,
   compileFormaPatternMatcher,
   doesFormaPatternMatch,
@@ -173,8 +172,8 @@ export interface FormaPropConstraint {
   type: string;
   required: boolean;
   defaultValue: any;
-  range?: [number, number];
-  patternSource?: string;
+  range?: [number, number] | undefined;
+  patternSource?: string | undefined;
 }
 
 export interface FormaDocumentAst {
@@ -255,30 +254,32 @@ export interface FormaSlotMap {
 
 interface FormaAstNode {
   kind: 'element' | 'if' | 'for' | 'match' | 'slot' | 'contentPresenter';
-  tag?: string;
-  slotName?: string;
+  tag?: string | undefined;
+  slotName?: string | undefined;
   properties: Record<string, string>;
   twoWayBindings: Record<string, string>;
   eventHandlers: Record<string, string>;
   appliedStyles: string[];
   forwardedProps: string[];
-  transition?: Record<string, string>;
+  transition?: Record<string, string> | undefined;
   children: FormaAstNode[];
   // For `if`
-  conditionExpr?: string;
-  elseChildren?: FormaAstNode[];
+  conditionExpr?: string | undefined;
+  elseChildren?: FormaAstNode[] | undefined;
   // For `for`
-  itemVar?: string;
-  listExpr?: string;
-  keyExpr?: string;
-  emptyChildren?: FormaAstNode[];
+  itemVar?: string | undefined;
+  listExpr?: string | undefined;
+  keyExpr?: string | undefined;
+  emptyChildren?: FormaAstNode[] | undefined;
   // For `match`
-  matchExpr?: string;
-  matchArms?: Array<{
-    pattern: string;
-    propertyAssignments: Record<string, string>;
-    childNodes: FormaAstNode[];
-  }>;
+  matchExpr?: string | undefined;
+  matchArms?:
+    | Array<{
+        pattern: string;
+        propertyAssignments: Record<string, string>;
+        childNodes: FormaAstNode[];
+      }>
+    | undefined;
 }
 
 function setNestedObjectKey(obj: Record<string, any>, dottedKey: string, value: any): void {
@@ -699,10 +700,6 @@ function findStatementSemicolon(src: string, start: number): number {
     i++;
   }
   return -1;
-}
-
-function sourceChar(s: string, idx: number): string {
-  return s[idx] ?? '';
 }
 
 const _formaComponentRegistry = new Map<string, string>();
@@ -1332,15 +1329,15 @@ export function parseFormaSource(rawUiSource: string): FormaDocumentAst {
 }
 
 export interface FormaCompileOptions {
-  props?: Record<string, any>;
-  state?: Record<string, any>;
-  locale?: string;
-  viewModel?: Record<string, FormaProperty<any> | Signal<any>>;
-  slots?: FormaSlotMap;
-  components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)>;
-  actions?: Record<string, (...args: any[]) => void>;
-  onAction?: (name: string, args: any[], event?: Event) => void;
-  onBinding?: (path: string, value: any) => void;
+  props?: Record<string, any> | undefined;
+  state?: Record<string, any> | undefined;
+  locale?: string | undefined;
+  viewModel?: Record<string, FormaProperty<any> | Signal<any>> | undefined;
+  slots?: FormaSlotMap | undefined;
+  components?: Record<string, string | ((opts?: any) => FormaRuntimeInstance)> | undefined;
+  actions?: Record<string, (...args: any[]) => void> | undefined;
+  onAction?: ((name: string, args: any[], event?: Event) => void) | undefined;
+  onBinding?: ((path: string, value: any) => void) | undefined;
 }
 
 /**
@@ -1663,7 +1660,8 @@ function instantiateForma(
     const tokens: Record<string, any> = {};
     const i18nDictionaries: Record<string, Record<string, string>> = {};
     const styles: Record<string, Record<string, string>> = {};
-    const propConstraints: Array<FormaPropConstraint & { compiledPattern?: RegExp }> = [];
+    const propConstraints: Array<FormaPropConstraint & { compiledPattern?: RegExp | undefined }> =
+      [];
     const initialStateValues: Record<string, any> = Object.create(null);
     const stateSignals: Record<string, Signal<any>> = Object.create(null);
     const propSignals: Record<string, Signal<any>> = Object.create(null);
@@ -3492,9 +3490,9 @@ if (import.meta.hot) {
 export function FormaHost(props: {
   source?: string;
   instance?: FormaRuntimeInstance;
-  props?: Record<string, any>;
-  state?: Record<string, any>;
-  locale?: string;
+  props?: Record<string, any> | undefined;
+  state?: Record<string, any> | undefined;
+  locale?: string | undefined;
   viewModel?: Record<string, FormaProperty<any> | Signal<any>>;
   slots?: FormaSlotMap;
   actions?: Record<string, (...args: any[]) => void>;

@@ -1,9 +1,6 @@
 import { createStudioControlsProject } from './studio-controls-project.js';
-const library = import.meta.glob('../crates/forma/controls/{components,assets}/*', {
-  query: '?raw',
-  import: 'default',
-  eager: true,
-});
+import { controlsLibrary } from './controls-library.js';
+import { stripPathPrefix } from './shared/text.js';
 const sources = import.meta.glob('../studio-controls/{components,ui}/*.ui', {
   query: '?raw',
   import: 'default',
@@ -14,11 +11,7 @@ const notes = import.meta.glob('../studio-controls/README.md', {
   import: 'default',
   eager: true,
 });
-const paths = (files, prefix) =>
-  Object.fromEntries(
-    Object.entries(files).map(([path, source]) => [path.slice(prefix.length), source]),
-  );
-export const studioControlsProject = createStudioControlsProject(
-  paths(library, '../crates/forma/controls/'),
-  { ...paths(sources, '../studio-controls/'), ...paths(notes, '../studio-controls/') },
-);
+export const studioControlsProject = createStudioControlsProject(controlsLibrary, {
+  ...stripPathPrefix(sources, '../studio-controls/'),
+  ...stripPathPrefix(notes, '../studio-controls/'),
+});

@@ -91,12 +91,11 @@ export {
   withWasmCore,
 } from './wasm-bridge.ts';
 
-export {
-  transformSvetJsx,
-  transformSvetJsxWithMap,
-  SvetJsxCompileError,
-  svetVitePlugin,
-} from './compiler.ts';
+// The JSX compiler stays out of this entry on purpose. It parses with
+// @babel/parser, a build-time dependency, and re-exporting it here put that
+// parser in the import graph of every application: a bundler had to shake it
+// out, and a plain ESM consumer failed outright on the bare specifier.
+// It is reachable as `svet-engine/compiler`.
 
 export {
   configureGpuSubsystem,

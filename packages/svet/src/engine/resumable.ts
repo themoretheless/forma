@@ -118,7 +118,7 @@ export function serializeDomNodeToHtml(node: Node): string {
         tag = el.tagName.toLowerCase();
       let attrs = '';
       for (let i = 0; i < el.attributes.length; i++) {
-        const attr = el.attributes[i];
+        const attr = el.attributes[i]!;
         if (tag === 'input' && (attr.name === 'value' || attr.name === 'checked')) continue;
         if (tag === 'option' && attr.name === 'selected') continue;
         attrs += ` ${attr.name}="${escapeHtml(attr.value)}"`;

@@ -25,7 +25,6 @@ export const ALLOWED = {
   forma: ['gpu-runtime', 'gpu-compute', 'gpu-shader', 'svet-wasm'],
   'forma-binding-example': ['forma'],
   'forma-language-example': ['forma'],
-  'openscad-forma-studio': ['forma'],
 };
 
 export function violations(packages, allowed = ALLOWED) {

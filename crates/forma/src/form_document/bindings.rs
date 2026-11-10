@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use super::WidgetState;
+
 use super::{
     Document, Properties, SceneControl, Value, collect_preorder_nodes, doc_props_to_json,
     enum_value, eval, json_to_doc_props, key_part, lookup, number, scope_mut,
@@ -117,13 +119,13 @@ fn push_state_item(
 }
 
 impl Document {
-    /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from a live [`crate::Runtime`]
+    /// Synchronizes two-way `<->` bindings (`value`, `checked`, `selected`) from the live widgets
     /// back into `self.states` (including nested `state.a.b` paths).
     /// Returns the number of bound properties that changed. An error leaves
     /// all state scopes unchanged; successful writes commit as one batch.
     pub fn sync_runtime_bindings(
         &mut self,
-        runtime: &crate::Runtime,
+        runtime: &impl WidgetState,
         activated_index: Option<usize>,
     ) -> Result<usize, String> {
         let (_, _, controls) = self.render_scene()?;
@@ -134,7 +136,7 @@ impl Document {
     /// The host must supply controls belonging to this document's live scene.
     pub(crate) fn sync_runtime_bindings_from_scene(
         &mut self,
-        runtime: &crate::Runtime,
+        runtime: &impl WidgetState,
         activated_index: Option<usize>,
         controls: &[SceneControl],
     ) -> Result<usize, String> {
@@ -145,7 +147,7 @@ impl Document {
     /// All writes share a single atomic state transaction.
     pub(crate) fn sync_runtime_binding_events(
         &mut self,
-        runtime: &crate::Runtime,
+        runtime: &impl WidgetState,
         activations: &[usize],
         controls: &[SceneControl],
     ) -> Result<usize, String> {

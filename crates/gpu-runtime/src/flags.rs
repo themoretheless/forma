@@ -193,3 +193,14 @@ impl ColorWrites {
     pub const COLOR: Self = Self(Self::RED.0 | Self::GREEN.0 | Self::BLUE.0);
     pub const ALL: Self = Self(0xF);
 }
+
+impl_bitflags!(SurfaceColorSpaces, u32);
+impl SurfaceColorSpaces {
+    pub const SRGB: Self = Self(1 << 0);
+    pub const EXTENDED_SRGB_LINEAR: Self = Self(1 << 1);
+    pub const DISPLAY_P3: Self = Self(1 << 2);
+    pub const BT2100_PQ: Self = Self(1 << 3);
+    pub const BT2100_HLG: Self = Self(1 << 4);
+    pub const EXTENDED_SRGB: Self = Self(1 << 5);
+    pub const EXTENDED_DISPLAY_P3: Self = Self(1 << 6);
+}

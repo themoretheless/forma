@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod';
+import { BACKENDS, PLATFORMS } from '../protocol/enums.js';
 
 const server = new McpServer({ name: 'forma-studio', version: '0.1.0' });
 const path = z.string().min(1),
@@ -26,8 +27,8 @@ const definitions = [
     'app_run',
     'Launch current UI: typed forms open a native window with the live Rust ViewModel; Runtime projects use vector or legacy WebView preview',
     {
-      backend: z.enum(['egui', 'svet', 'ask']).optional(),
-      platform: z.enum(['desktop', 'ios', 'android']).optional(),
+      backend: z.enum(BACKENDS).optional(),
+      platform: z.enum(PLATFORMS).optional(),
     },
     false,
   ],

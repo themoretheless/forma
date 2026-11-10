@@ -34,6 +34,10 @@ function cargoVersion(text, name) {
   if (!version) throw Error(`Missing version for ${name}`);
   return version;
 }
+const SVET_PACKAGE = 'packages/svet/package.json',
+  SVET_LOCK = 'packages/svet/package-lock.json',
+  SVET_WASM = 'packages/svet/crates/svet-wasm/Cargo.toml',
+  SVET_WASM_LOCK = 'packages/svet/crates/svet-wasm/Cargo.lock';
 export function versions() {
   const studio = JSON.parse(read('package.json')).version;
   const lock = JSON.parse(read('package-lock.json'));
@@ -47,20 +51,36 @@ export function versions() {
   for (const path of ['native-app/Cargo.toml', 'native-app/Cargo.lock'])
     if (cargoVersion(read(path), 'forma-native') !== studio)
       throw Error(`Studio host version mismatch: ${path}`);
+  // The svet engine ships in the same release: its npm package and its Rust core carry the
+  // release version, so a version number never stands still across commits.
+  const svet = JSON.parse(read(SVET_PACKAGE)).version;
+  if (!validVersion(svet)) throw Error('Invalid svet version');
+  const svetLock = JSON.parse(read(SVET_LOCK));
+  if (svetLock.version !== svet || svetLock.packages[''].version !== svet)
+    throw Error('svet package-lock.json version mismatch');
+  for (const path of [SVET_WASM, SVET_WASM_LOCK, 'Cargo.lock'])
+    if (cargoVersion(read(path), 'svet-wasm') !== svet)
+      throw Error(`svet-wasm version mismatch: ${path}`);
   const wasmBindgen = read('crates/forma/Cargo.toml').match(/^wasm-bindgen = "=([^"]+)"$/m)?.[1];
   if (!wasmBindgen || cargoVersion(read('Cargo.lock'), 'wasm-bindgen') !== wasmBindgen)
     throw Error('wasm-bindgen must be exactly pinned and match Cargo.lock');
-  return { runtime, studio, wasmBindgen };
+  return { runtime, studio, svet, wasmBindgen };
 }
-// One tag releases the library and Studio together, so both manifests must carry its version.
+// One tag releases the library, Studio and svet together, so every manifest carries its version.
 export function release(tag, current = versions()) {
   const match = /^v(.+)$/.exec(tag ?? '');
   if (!match || !validVersion(match[1])) throw Error('Expected vX.Y.Z (optional prerelease)');
   const version = match[1];
-  for (const component of ['runtime', 'studio'])
+  for (const component of ['runtime', 'studio', 'svet'])
     if (current[component] !== version)
       throw Error(`Tag ${tag} does not match ${component} manifest version ${current[component]}`);
   return { version, tag, prerelease: version.includes('-') };
+}
+function bumpJson(text, version) {
+  const value = JSON.parse(text);
+  value.version = version;
+  if (value.packages) value.packages[''].version = version;
+  return JSON.stringify(value, null, 2) + '\n';
 }
 function replaceCargo(text, name, version) {
   let found = false;
@@ -77,14 +97,22 @@ function replaceCargo(text, name, version) {
 }
 export function setVersion(component, version) {
   versions(); // Validate all inputs before preparing any writes.
-  if (!['runtime', 'studio', 'all'].includes(component) || !validVersion(version))
-    throw Error('set all|runtime|studio X.Y.Z[-prerelease]');
-  // A release needs both manifests on one version; `all` moves them together.
+  if (!['runtime', 'studio', 'svet', 'all'].includes(component) || !validVersion(version))
+    throw Error('set all|runtime|studio|svet X.Y.Z[-prerelease]');
+  // A release needs every manifest on one version; `all` moves them together.
   if (component === 'all') {
     setVersion('runtime', version);
-    return setVersion('studio', version);
+    setVersion('studio', version);
+    return setVersion('svet', version);
   }
   const updates = new Map();
+  if (component === 'svet') {
+    for (const path of [SVET_PACKAGE, SVET_LOCK]) updates.set(path, bumpJson(read(path), version));
+    for (const path of [SVET_WASM, SVET_WASM_LOCK, 'Cargo.lock'])
+      updates.set(path, replaceCargo(read(path), 'svet-wasm', version));
+    for (const [path, text] of updates) writeFileSync(resolve(root, path), text);
+    return versions();
+  }
   // forma is a workspace member, so its lock entry lives in the root Cargo.lock;
   // native-app stays outside the workspace and keeps its own.
   const name = component === 'runtime' ? 'forma' : 'forma-native',
@@ -94,12 +122,8 @@ export function setVersion(component, version) {
         : ['native-app/Cargo.toml', 'native-app/Cargo.lock'];
   for (const path of paths) updates.set(path, replaceCargo(read(path), name, version));
   if (component === 'studio') {
-    for (const path of ['package.json', 'package-lock.json']) {
-      const value = JSON.parse(read(path));
-      value.version = version;
-      if (value.packages) value.packages[''].version = version;
-      updates.set(path, JSON.stringify(value, null, 2) + '\n');
-    }
+    for (const path of ['package.json', 'package-lock.json'])
+      updates.set(path, bumpJson(read(path), version));
   }
   for (const [path, text] of updates) writeFileSync(resolve(root, path), text);
   return versions();
@@ -115,7 +139,7 @@ if (
     else if (command === 'set') console.log(JSON.stringify(setVersion(a, b)));
     else
       throw Error(
-        'Usage: versions.mjs check [tag] | wasm-bindgen | set all|runtime|studio version',
+        'Usage: versions.mjs check [tag] | wasm-bindgen | set all|runtime|studio|svet version',
       );
   } catch (error) {
     console.error(error.message);
