@@ -32,3 +32,15 @@
   `scripts/versions.mjs check <tag>` принимает только `vX.Y.Z` и требует, чтобы версия совпадала в обоих manifest.
 - Миграция: поднимать версию командой `npm run version:set -- all X.Y.Z`, выпускать тегом `vX.Y.Z`.
   GitHub Release один, с двумя архивами. Старые теги остаются в истории.
+
+## 4. OpenSCAD убран из Forma и Studio
+
+- `openscad-ui/` удалён: это была побайтная копия `open-scad-viewer/forma-studio`, оригинал живёт там.
+- Studio больше не знает про open-scad-viewer: проекта OpenSCAD нет в списке, по умолчанию (без `?project=`)
+  открывается `knowledge-workspace`, у `?project=studio-controls` прежнее поведение.
+- Файловый API dev-сервера `/__forma_workspace` (чтение и запись соседней папки `../open-scad-viewer`) удалён
+  вместе с деревом папок, которое его использовало. Работа с локальной папкой через «Папка»
+  (File System Access API) осталась.
+- `npm run studio:native` без аргумента открывает `studio-controls` вместо OpenSCAD.
+- Затронуты локальные данные: проект OpenSCAD, сохранённый в браузере под ключами `…:openscad-studio-v5`,
+  больше не открывается; данные в хранилище браузера остаются нетронутыми.
