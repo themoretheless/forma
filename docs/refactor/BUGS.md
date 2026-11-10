@@ -7,19 +7,19 @@
 |---|---|---|---|
 | F-1 | `crates/forma/src/binding.rs` `Form::sync` | исправлено | `collect_nodes_mut` клал в карту `&mut` на узел вместе с `&mut` на его потомков через `unsafe`. Заменён безопасным обходом в post-order; при совпадающих id по-прежнему побеждает последний узел в post-order (тест `control_overrides_reach_one_node_per_id_and_the_last_in_post_order_wins`) |
 | F-2 | `crates/forma/src/form_document/eval.rs` `parse_hex_color` | исправлено (тесты `tests/eval_colors.rs`) | паника на не-ASCII цвете (`#é1`) подтверждена падающим тестом; также принимался знак (`#+f+f+f`). Теперь оба случая дают `Invalid hex color` |
-| F-3 | `crates/forma/src/form_document.rs:513-529, 1071-1085, 1197-1206, 1311-1323` | подозрение | три разных правила раскрытия детей `let`; `let` внутри `empty {}` не виден соседям |
+| F-3 | `crates/forma/src/form_document/control_flow.rs` | исправлено (`cb1affa`, тесты в `control_flow.rs`) | общие селекторы `expand_children` / `eval_if` / `eval_for` для `visual.rs` и `scene.rs` без промежуточных `Vec<&Node>`, единая область видимости `let` в `empty {}` и ветках |
 | F-4 | `crates/forma/src/main.rs:917-956` | расхождение подтверждено чтением | медленный touch-drag теряет движение; исправлено только в `native_window.rs` |
-| F-5 | `scripts/runtime-digest.mjs:15-19` | подтверждено чтением | `TwoButtons.ui` встраивается в wasm, но не входит в дайджест |
+| F-5 | `scripts/runtime-digest.mjs` | исправлено (`c71b10d`, тест `test/runtime-digest.test.js`) | `crates/forma/examples/TwoButtons.ui` включён в `runtimeSourceDigest` наравне с остальными встраиваемыми `.ui` |
 | F-6 | CI и `scripts/full-gate.mjs` | исправлено в гейте | ветки Android и iOS компилируются шагами `mobile-android` и `mobile-ios` (при установленных targets); в CI их по-прежнему нет |
 | F-7 | `crates/forma/src/lib.rs:237` и `runtime.rs:1651-1657` | расхождение | разные границы прокрутки у `Button` и `Runtime` |
 | F-8 | `crates/forma/src/binding.rs:1639-1658` | не проверено | записи применяются последовательно через `?`; поздняя ошибка оставляет ранние записи |
 | S-1 | `src/main.js` `persist()` | исправлено (тест `test/workspace-save.test.js`) | при HTTP-ошибке и сбое сети статус утверждал, что файл записан в проект. Проект к этому моменту уже в хранилище браузера, так что правка не терялась, но и на диск не попадала. Теперь статус говорит «Сохранено в браузере (запись в проект не удалась…)» |
 | S-2 | `src/main.js:209-211` | подозрение | `.ui` из разных папок с одним именем сливаются в `ui/<basename>` |
 | S-3 | `mcp/smoke.js` | исправлено | сверял число инструментов с устаревшей константой 34 (фактически 45; README писал 44). Теперь сверяет список имён с таблицей `mcp/server.js`; README исправлен. Сам smoke требует запущенной Studio и в гейте не выполняется |
-| S-4 | `packages/svet/scripts/check-wasm-provenance.mjs` | подтверждено чтением | хэширует только `lib.rs` |
+| S-4 | `packages/svet/scripts/check-wasm-provenance.mjs` | исправлено (`6b5d561`) | рекурсивно хэширует все `.rs` файлы в `crates/svet-wasm/src` вместо одного `lib.rs` |
 | S-5 | `vite.config.js` workspace API | снято | был исправлен, затем файловый API удалён вместе с интеграцией OpenSCAD (MIGRATIONS, раздел 4) |
 | S-6 | `src/main.js` `duplicateTreeItem` | снято | подозрение касалось ветки, где имя дубликата выбирал сервер рабочей папки; ветка удалена вместе с файловым API |
-| S-7 | `src/components.js:74` `literal` | не проверено | не экранирует `\r`, `\t`, `${` |
+| S-7 | `src/component-template.js` `literal` + `crates/forma/src/template.rs` | исправлено (`c71b10d`, тесты в `test/components.test.js` и `template/tests.rs`) | экранирует `\r`, `\t` и `${` (`\${`) с полной round-trip совместимостью в JS и Rust-парсере шаблонов |
 | S-8 | `packages/svet/package.json` `sideEffects` | латентно | не перечислены модули с регистрацией при импорте |
 | G-1 | `crates/gpu-runtime/src/metal.rs:2104,2168` | подозрение | `objc_msgSend` с возвратом `CGRect` на x86_64 требует `_stret` |
 | G-2 | `crates/gpu-runtime/src/lib.rs:541-566, 656` | подозрение | ошибки валидации и MSL проглатываются, затем `expect` |

@@ -6,8 +6,8 @@
 
 | Модуль | Строк | Тестов | Главные запахи | Приоритет | Статус |
 |---|---:|---|---|---|---|
-| crates/forma/src/form_document.rs + visual/scene/render/tests | 548 + 654 + 634 + 465 + 2585 | 56 | разбит по уровням рендера, тесты вынесены; осталось: общие селекторы control-flow для двух уровней, `scene_expand` (~380 строк), `render_scene_with_extents` (~390), `NodeKind` вместо строк | 1 | в работе |
-| crates/forma/src/runtime.rs + wasm_api/tests/raster_tests | 1635 + 1102 + 1369 + 302 | 41 | wasm-фасад и тесты вынесены; осталось: загрузка, a11y, фокус, растровый кэш в одном `impl` | 1 | в работе |
+| crates/forma/src/form_document.rs + control_flow/visual/scene/render/tests | 548 + 206 + 566 + 577 + 465 + 2585 | 60 | разбит по уровням рендера, общие селекторы вынесены в `control_flow.rs` (0 промежуточных `Vec<&Node>`, F-3 закрыт); осталось: `scene_expand`, `render_scene_with_extents`, `NodeKind` вместо строк | 1 | в работе |
+| crates/forma/src/runtime.rs + {a11y,modal,raster,wasm_api,tests,raster_tests} | 1320 + 200 + 82 + 109 + 1102 + 1369 + 302 | 41 | a11y, модальные слои, растровый кэш, wasm-фасад и тесты разнесены по подмодулям `runtime/*` | 1 | в работе |
 | crates/forma/src/main.rs | 2015 | 4 | второй оконный хост, `window_event` на сотни строк | 1 | todo |
 | crates/forma/src/native_window.rs | 3164 | 19 | хост + генерация UI + эмуляция платформ + ввод | 1 | todo |
 | crates/forma/src/binding.rs | 1950 | 6 | `unsafe` убран (F-1); осталось: `Form::sync`/`update` по 220 строк, разбиение на модули | 1 | в работе |
@@ -16,18 +16,18 @@
 | crates/forma/src/text.rs | 2298 | 18 | юникод, шейпинг, шрифты, раскладка и растеризатор вместе; цикл с `shape` | 2 | todo |
 | crates/forma/src/control_state/* | 2291 в 15 файлах | 13 | разбит по моделям | 2 | done (перемещение); логика не проходилась |
 | crates/forma/src/template.rs | — | 14 | лексер, парсер, кэш; публичный элемент после тестового модуля | 2 | todo |
-| crates/forma/src/{raster_cache,display_list,lib}.rs | — | 9 / 0 / 17 | `impl Button` размазан по трём файлам, цикл с `lib` | 2 | todo |
+| crates/forma/src/{raster_cache,display_list,lib}.rs | — | 9 / 0 / 17 | цикл с `lib` устранён через `ControlView<'a>` (`KNOWN_VIOLATIONS = &[]` в `tests/architecture.rs`) | 2 | done |
 | crates/forma/src/{gpu,mcp,reveal,text_input,native_*}.rs | — | — | не проходились | 3 | todo |
-| packages/svet/src/engine/forma.ts | 3483 | через barrel | `compileFormaComponent` ~1400 строк, импорт `gpu` | 1 | todo |
-| packages/svet/src/engine/gpu.ts | 3208 | через barrel | шесть ответственностей, `createCanvas3D` ~600 строк | 2 | todo |
+| packages/svet/src/engine/forma{,-ast,-aot,-dom}.ts | 1130 + 686 + 633 + 1126 | через barrel (1527 тестов) | разбит на AST/парсер (`forma-ast`), AOT/валидацию (`forma-aot`), табличный DOM/SVG/биндинги (`forma-dom`) и оркестратор (`forma`); 0 находок `typecheck:indexed` | 1 | done |
+| packages/svet/src/engine/gpu{,-scene3d,-sparkline}.ts | 1444 + 1359 + 465 | через barrel | 3D-сцена/камера/рейкастинг (`gpu-scene3d`) и `GpuSparkline` (`gpu-sparkline`) вынесены из ядра GPU-контекста; находки `typecheck:indexed` снижены с 75 до 15 | 2 | done |
 | packages/svet/src/engine/reactivity.ts | 2671 | через barrel | горячий путь; повторяющиеся блоки в `signal`/`computed` | 2 | todo |
 | packages/svet/src/engine/dom.ts | 2574 | через barrel | `For`, `bindModel`, `bindProp` по 150–260 строк | 2 | todo |
 | packages/svet/src/engine/{advanced,forma-expr,forma-reactive,…}.ts | — | — | смешанные ответственности в `advanced`; остальные не проходились | 3 | todo |
-| packages/svet/crates/svet-wasm/src/lib.rs | 3305 | 66 | граф, арена GPU, математика, FFI и тесты в одном файле | 2 | todo |
-| src/main.js | 2574 | текстовые | 37 импортов, ~20 модульных `let`, 54 `.onX=` | 1 | todo; интеграция OpenSCAD и файловый API удалены, остались недостижимые обработчики строк-папок дерева (`toggleFolder`, `data-folder`, `expandedDirs`) — убрать при разбиении `main.js` |
-| src/components.js | — | да | `compile()` одной замыкающей функцией на ~500 строк | 1 | todo |
+| packages/svet/crates/svet-wasm/src/{lib,graph,lis,gpu_math,ffi,tests}.rs | 36 + 1106 + 109 + 638 + 414 + 1236 | 67 | разбит на реактивный DAG (`graph`), LIS-реконсилер (`lis`), арену и SIMD/матрицы (`gpu_math`), WASM FFI (`ffi`) и тесты (`tests`) | 2 | done |
+| src/main.js | 2106 | текстовые | импорты сгруппированы сверху, удалены мёртвые ветки папок дерева (`toggleFolder`, `data-folder`, `expandedDirs`), 0 подавлений ESLint; дальнейшее дробление UI-панелей впереди | 1 | в работе |
+| src/components.js + component-template.js | 1726 + 56 | да | сериализация шаблонов и экранирование вынесены в `component-template.js` (S-7 закрыт); осталось дробление `compile()` | 1 | в работе |
 | vite.config.js, корневые runners | — | да | dev-бэкенд внутри конфига | 2 | todo |
-| src/mcp-commands.js + mcp/server.js | — | текстовые | таблица инструментов в двух местах | 2 | todo |
+| protocol/mcp-tools.js + mcp/server.js + src/mcp-commands{,-project,-design,-runtime}.js | 350 + 109 + 55 + 58 + 185 + 132 | модульные + контрактные | единый реестр 45 MCP-инструментов без внешних зависимостей и доменные обработчики команд | 2 | done |
 | остальные 65 файлов src/ | — | частично | не проходились | 3 | todo |
 | crates/gpu-shader | 4416 | golden по 123 шейдерам | транслятор переписыванием строк; осталось: разбиение `msl.rs`/`wgsl.rs`, позиция ошибок, проверка компиляции MSL на Metal | 1 | в работе |
 | crates/gpu-runtime | 9295 | 18 | 111 `transmute`, ноль `// SAFETY:`, crate-wide `allow`, заглушки бэкендов | 1 | todo |
@@ -35,7 +35,7 @@
 | crates/raster-core | 3936 | 31 | `RasterPipelines::new` 426 строк; тесты пишут в `output/` | 3 | todo |
 | crates/math-core | 5916 | 92 | `spatial.rs` на 12 семейств типов, 21 `allow` | 3 | todo |
 | crates/math-compute | 5963 | 41 | параллельные реализации gpu/cuda (лидер по дублям) | 3 | todo |
-| crates/tensor-core | 9850 | 53 | один `impl Tensor` на 1000 строк | 3 | todo |
-| crates/compute-core | 11 322 | 164 | двойной разбор WGSL; дубли в бенч-примерах | 3 | todo |
+| crates/tensor-core | 9850 | 53 | 0 предупреждений Clippy; остался крупный `impl Tensor` | 3 | в работе |
+| crates/compute-core | 11 340 | 166 | кэш ядер `KernelCache` переведён на zero-alloc поиск по заимствованным срезам + `Cow<str>` для WG=256, 0 предупреждений Clippy | 3 | в работе |
 | crates/compute-mlx | 6859 | 148 | 84 `unsafe` без SAFETY; `backend()` скопирован в 22 тестах | 3 | todo |
 | crates/compute-cuda | 16 309 | 180 (хост) | не проверяется на устройстве | 3 | отложено до появления CUDA-хоста для логики |
