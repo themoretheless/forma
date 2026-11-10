@@ -218,6 +218,7 @@ impl<'a> Lexer<'a> {
                                     Some('\\') => '\\',
                                     Some('\'') => '\'',
                                     Some('"') => '"',
+                                    Some('$') => '$',
                                     Some(c) => {
                                         return Err(format!(
                                             "Unsupported escape \\{c} (byte {})",

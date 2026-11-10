@@ -290,16 +290,16 @@ set -eu
 BACKEND="\${FORMA_BACKEND:-svet}"
 if [ "\${1:-}" = "--simulator" ]; then
   TARGET="aarch64-apple-ios-sim"
-  cargo build --release --features native --target "\$TARGET"
-  APP_DIR="target/\$TARGET/release/${appName}.app"
-  mkdir -p "\$APP_DIR"
-  cp "target/\$TARGET/release/${appName}" "\$APP_DIR/${appName}"
-  cp "ios/Info.plist" "\$APP_DIR/Info.plist"
+  cargo build --release --features native --target "$TARGET"
+  APP_DIR="target/$TARGET/release/${appName}.app"
+  mkdir -p "$APP_DIR"
+  cp "target/$TARGET/release/${appName}" "$APP_DIR/${appName}"
+  cp "ios/Info.plist" "$APP_DIR/Info.plist"
   xcrun simctl boot "iPhone 16 Pro" 2>/dev/null || true
-  xcrun simctl install booted "\$APP_DIR"
+  xcrun simctl install booted "$APP_DIR"
   xcrun simctl launch booted "${bundleId}"
 else
-  exec cargo run --release --features native -- --platform ios --backend "\$BACKEND" "\$@"
+  exec cargo run --release --features native -- --platform ios --backend "$BACKEND" "$@"
 fi
 `;
 
@@ -364,7 +364,7 @@ if [ "\${1:-}" = "--device" ]; then
   (cd android && ./gradlew installDebug)
   adb shell am start -n "${bundleId}/android.app.NativeActivity"
 else
-  exec cargo run --release --features native -- --platform android --backend "\$BACKEND" "\$@"
+  exec cargo run --release --features native -- --platform android --backend "$BACKEND" "$@"
 fi
 `;
 

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { digestInputs } from '../scripts/runtime-digest.mjs';
+import { readFileSync } from 'node:fs';
+import { digestInputs, runtimeSourceDigest } from '../scripts/runtime-digest.mjs';
 test('build fingerprint detects edited, added and removed input files deterministically', t => {
   const root = mkdtempSync(join(tmpdir(), 'forma-digest-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -20,4 +21,19 @@ test('build fingerprint detects edited, added and removed input files determinis
   assert.notEqual(digestInputs(root, ['src', 'lock']), initial);
   rmSync(join(root, 'src/b'));
   assert.equal(digestInputs(root, ['src', 'lock']), initial);
+});
+
+test('runtimeSourceDigest tracks every embedded example .ui file', () => {
+  const repoRoot = join(import.meta.dirname, '..');
+  const digest = runtimeSourceDigest(repoRoot);
+  assert.equal(typeof digest, 'string');
+  assert.equal(digest.length, 64);
+  const digestScript = readFileSync(join(repoRoot, 'scripts/runtime-digest.mjs'), 'utf8');
+  for (const embedded of [
+    'crates/forma/examples/Button.ui',
+    'crates/forma/examples/Button.component.ui',
+    'crates/forma/examples/TwoButtons.ui',
+  ]) {
+    assert.ok(digestScript.includes(embedded), `missing embedded input ${embedded}`);
+  }
 });

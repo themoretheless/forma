@@ -543,8 +543,8 @@ export function createControlTree({
       selectedPath = null,
       files = {},
     }) {
-      let changed = doc !== currentDocument || path !== currentPath,
-        redraw = changed || disabled !== !!error;
+      const changed = doc !== currentDocument || path !== currentPath;
+      let redraw = changed || disabled !== !!error;
       if (changed) {
         roots = doc ? buildControlTree(doc, path) : [];
         currentDocument = doc;

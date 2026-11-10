@@ -285,8 +285,7 @@ function spliceInto(source, node, parent, container, text) {
     .join('\n');
   const pad = container === node ? column(at) : '';
   let from = at,
-    insert,
-    put;
+    insert;
   if (container !== node) {
     insert = '\n' + body + (/\S/.test(source[at]) ? '\n' + indent : '');
   } else if (pad === source.slice(source.lastIndexOf('\n', at - 1) + 1, at)) {
@@ -301,7 +300,7 @@ function spliceInto(source, node, parent, container, text) {
     const head = /^\s/.test(source[at - 1]) ? '' : ' ';
     insert = head + body.trim() + ' ';
   }
-  put = from + insert.match(/^\s*/)[0].length;
+  const put = from + insert.match(/^\s*/)[0].length;
   const next = source.slice(0, from) + insert + source.slice(at);
   parse(next);
   const inserted = parse(WRAPPER + text + ' } }').nodes[0].children;

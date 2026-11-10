@@ -333,3 +333,21 @@ test('multi-control template framing declares exact UTF-8 byte lengths', () => {
     'framing is exercised by multi-byte text',
   );
 });
+
+test('template string literal serialization escapes CR, tab, and interpolation markers round-trip', () => {
+  const special = "line1\r\n\tcol2 '${notExpr}' \\end";
+  const out = compileComponents(
+    {
+      'components/Button.ui': base,
+      'ui/Scene.ui':
+        "component Scene { state label: String = ''; Frame { Button { text: state.label; } } }",
+    },
+    'ui/Scene.ui',
+    { label: special },
+  );
+  assert.doesNotMatch(out.source, /\r|\t/);
+  assert.doesNotMatch(out.template, /\r|\t/);
+  assert.ok(out.source.includes("\\r\\n\\tcol2 \\'\\${notExpr}\\' \\\\end"));
+  const reparsed = parse(out.source);
+  assert.equal(reparsed.nodes[0].children[0].props.text, special);
+});

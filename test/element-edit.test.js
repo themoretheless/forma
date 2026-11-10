@@ -223,7 +223,7 @@ test('an inserted control takes the indentation of the block it joins', () => {
 });
 test('a dragged edge writes the size the control renders and anchors the opposite edge', () => {
   const s =
-    "component Test { Frame { width: 400; Button { key: \'a\'; x: 40; y: 20; width: 60; height: 24; } } }";
+    "component Test { Frame { width: 400; Button { key: 'a'; x: 40; y: 20; width: 60; height: 24; } } }";
   const n = first(s),
     change = resizeElement(s, n.start, { left: 0, right: 20, top: 0, bottom: -4 }, [
       n.props.x,
@@ -251,7 +251,7 @@ test('a dragged edge writes the size the control renders and anchors the opposit
   assert.equal(first(next).props.height, 20);
 });
 test('a drag sizes an implicit box by what the canvas shows and stays inside the declared bounds', () => {
-  const s = "component Test { Frame { width: 400; Button { key: \'a\'; x: 10; y: 20; } } }";
+  const s = "component Test { Frame { width: 400; Button { key: 'a'; x: 10; y: 20; } } }";
   const grown = apply(
     s,
     resizeElement(s, first(s).start, { left: 0, right: 20, top: 0, bottom: 10 }, [10, 20, 100, 40]),
@@ -261,7 +261,7 @@ test('a drag sizes an implicit box by what the canvas shows and stays inside the
     [120, 50, 10],
   );
   const tight =
-    "component Test { Frame { width: 400; Button { key: \'a\'; width: 60; height: 24; minWidth: 40; } } }";
+    "component Test { Frame { width: 400; Button { key: 'a'; width: 60; height: 24; minWidth: 40; } } }";
   assert.equal(
     first(
       apply(

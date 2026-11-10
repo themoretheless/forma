@@ -1,41 +1,47 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { MCP_TOOLS, MCP_TOOL_NAMES } from '../protocol/mcp-tools.js';
+import { createIdeCommands } from '../src/mcp-commands.js';
 import { squash } from './support/source-text.js';
 
-// mcp/server.js and the bridge in src/mcp-commands.js are two halves of one surface that never import each
-// other: a tool the server registers but the IDE does not answer fails the agent with 'Unknown IDE
-// command', and a command the IDE handles with no tool stays invisible to it. The names are read
-// out of both files so neither half can drift on its own.
 const root = new URL('..', import.meta.url);
 const read = path => readFileSync(new URL(path, root), 'utf8');
-// A chained `case 'a':case 'b':` shares one block, so both names count even mid-line.
-// Both readers tolerate any layout: a tool row is an array literal opening a line or following `[` or `,`.
-const handled = text => [...text.matchAll(/case\s*'([a-z_]+)'\s*:/g)].map(match => match[1]);
-const registered = text =>
-  [...text.matchAll(/(?:^|[\[,])\s*\[\s*'([a-z_]+)'\s*,/gm)].map(match => match[1]);
 
-test('the tool table and the IDE bridge name the same commands', () => {
-  const tools = registered(read('mcp/server.js'));
-  const commands = handled(read('src/mcp-commands.js'));
-  assert.ok(tools.length > 30, 'the tool table no longer parses as expected');
+test('the shared protocol table, MCP server, and IDE bridge name the exact same commands', () => {
+  const ide = createIdeCommands({});
+  const commands = ide.commandNames();
+  assert.ok(MCP_TOOL_NAMES.length >= 45, 'expected the full MCP tool catalog');
+  assert.equal(new Set(MCP_TOOL_NAMES).size, MCP_TOOL_NAMES.length, 'a tool is registered twice');
   assert.deepEqual(
-    tools.filter(name => !commands.includes(name)),
+    MCP_TOOL_NAMES.filter(name => !commands.includes(name)),
     [],
     'registered with no handler',
   );
   assert.deepEqual(
-    commands.filter(name => !tools.includes(name)),
+    commands.filter(name => !MCP_TOOL_NAMES.includes(name)),
     [],
     'handled with no tool',
   );
-  assert.equal(new Set(tools).size, tools.length, 'a tool is registered twice');
+  for (const tool of MCP_TOOLS) {
+    assert.ok(tool.description.length > 0, `missing description on ${tool.name}`);
+    assert.equal(typeof tool.readOnly, 'boolean', `missing readOnly flag on ${tool.name}`);
+    assert.ok(
+      ['project', 'design', 'runtime'].includes(tool.domain),
+      `unexpected domain ${tool.domain} on ${tool.name}`,
+    );
+  }
+  const serverSource = read('mcp/server.js');
+  assert.match(
+    serverSource,
+    /import\s*\{\s*MCP_TOOLS\s*\}\s*from\s*'\.\.\/protocol\/mcp-tools\.js'/,
+  );
+  assert.match(serverSource, /for\s*\(\s*const\s+tool\s+of\s+MCP_TOOLS\s*\)/);
 });
 
 test('every design state an agent can reach has a tool of its own', () => {
-  const tools = registered(read('mcp/server.js'));
   assert.deepEqual(
-    tools.filter(name => name.startsWith('design_state')),
+    MCP_TOOL_NAMES.filter(name => name.startsWith('design_state')),
     [
       'design_states_read',
       'design_state_create',
@@ -47,10 +53,10 @@ test('every design state an agent can reach has a tool of its own', () => {
 });
 
 test('typed app_run starts the Rust ViewModel without designer preview state', () => {
-  const bridge = squash(read('src/mcp-commands.js'));
+  const runtimeBridge = squash(read('src/mcp-commands-runtime.js'));
   assert.match(
-    bridge,
-    /case'app_run':if\(parse\(files\[entry\]\)\.defaults\.contextType\)\{hot\.send\('forma:form-run',\{files\}\)/,
+    runtimeBridge,
+    /if\(parse\(files\[entry\]\)\.defaults\.contextType\)\{hot\.send\('forma:form-run',\{files\}\)/,
   );
-  assert.doesNotMatch(bridge, /hot\.send\('forma:form-run',\{files,state\}\)/);
+  assert.doesNotMatch(runtimeBridge, /hot\.send\('forma:form-run',\{files,state\}\)/);
 });
