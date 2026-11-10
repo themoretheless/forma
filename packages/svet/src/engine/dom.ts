@@ -30,6 +30,13 @@ import {
   signal,
   type Signal,
   untrack,
+  adoptCurrentOwnerIntoRoot,
+  currentOwnerIsEmpty,
+  disposeSignalNow,
+  disposeDetachedScope,
+  runInDetachedScope,
+  type OwnerScope,
+  setSignalNow,
 } from './reactivity.ts';
 import { computeLisWasm, getWasmCore, withWasmCore } from './wasm-bridge.ts';
 
@@ -1478,226 +1485,274 @@ export function insertChild(
       dispose?.();
     });
 
-    effect(() =>
-      createRoot(disposeCandidate => {
-        const publishContent = () => {
-          const previous = disposeContent;
-          disposeContent = disposeCandidate;
-          previous?.();
-          assertCurrent();
-        };
-        const assertEffectCurrent = captureViewLifetime();
-        const assertCurrent = () => {
-          assertParentCurrent();
-          assertEffectCurrent();
-        };
+    const renderContent = (disposeCandidate: () => void, preset?: { value: unknown }) => {
+      const publishContent = () => {
+        const previous = disposeContent;
+        disposeContent = disposeCandidate;
+        previous?.();
         assertCurrent();
-        const resolved = child();
-        assertCurrent();
-        if (currentFragment && resolved === currentFragment) {
-          disposeCandidate();
-          assertParentCurrent();
-          return;
-        }
-        const nativeNode = isDomNode(resolved),
-          array = Array.isArray(resolved);
-        const fragment = nativeNode && resolved.nodeType === 11 ? resolved : null;
-        const text =
-          nativeNode || array
-            ? null
-            : resolved == null || typeof resolved === 'boolean'
-              ? ''
-              : String(resolved);
-        assertCurrent();
-        if (textNodeRef && (typeof resolved === 'string' || typeof resolved === 'number')) {
-          if (lastTextStr !== text) {
-            textNodeRef.nodeValue = text;
-            domMutationCounter++;
-            assertCurrent();
-            lastTextStr = text;
-          }
-          publishContent();
-          return;
-        }
-        if (!grouped && nativeNode && currentNode === resolved) {
-          disposeCandidate();
-          assertParentCurrent();
-          return;
-        }
-
-        const oldNodes: Node[] = [];
-        if (grouped) {
-          let node = currentNode;
-          while (node && node !== marker) {
-            oldNodes.push(node);
-            node = node.nextSibling;
-          }
-          if (!node || node !== marker) throw new Error('Broken dynamic fragment range');
-        } else if (currentNode) oldNodes.push(currentNode);
-        if (marker && !marker.parentNode) throw new Error('Broken dynamic child anchor');
-        const target = marker?.parentNode ?? currentNode?.parentNode ?? parent;
-        const originalAnchor = marker ?? currentNode?.nextSibling ?? null;
-        const groupNodes = array
-          ? dynamicArrayNodes(resolved, doc, assertCurrent)
-          : fragment
-            ? Array.from(fragment.childNodes)
-            : null;
-        const nextNode = groupNodes
-          ? doc.createComment('svet-dyn-start')
-          : nativeNode
-            ? resolved
-            : doc.createTextNode(text!);
-        const nextNodes = groupNodes ? [nextNode, ...groupNodes] : [nextNode];
-        const origins = nextNodes.map(node => ({
-          node,
-          parent: node.parentNode,
-          next: node.nextSibling,
-        }));
-        const nextSet = new Set(nextNodes);
-        let nextMarker = marker;
-        const needsMarker = (nativeNode || array) && !nextMarker;
-        if (needsMarker) nextMarker = doc.createComment('svet-dyn');
-        const insert = (node: Node, anchor: Node | null) => {
-          assertCurrent();
-          withDocumentAdoption(
-            target,
-            node,
-            () => {
-              target.insertBefore(node, anchor);
-            },
-            assertCurrent,
-          );
+      };
+      const assertEffectCurrent = captureViewLifetime();
+      const assertCurrent = () => {
+        assertParentCurrent();
+        assertEffectCurrent();
+      };
+      assertCurrent();
+      const resolved = preset ? preset.value : child();
+      assertCurrent();
+      if (currentFragment && resolved === currentFragment) {
+        disposeCandidate();
+        assertParentCurrent();
+        return;
+      }
+      const nativeNode = isDomNode(resolved),
+        array = Array.isArray(resolved);
+      const fragment = nativeNode && resolved.nodeType === 11 ? resolved : null;
+      const text =
+        nativeNode || array
+          ? null
+          : resolved == null || typeof resolved === 'boolean'
+            ? ''
+            : String(resolved);
+      assertCurrent();
+      if (textNodeRef && (typeof resolved === 'string' || typeof resolved === 'number')) {
+        if (lastTextStr !== text) {
+          textNodeRef.nodeValue = text;
           domMutationCounter++;
           assertCurrent();
-        };
+          lastTextStr = text;
+        }
+        publishContent();
+        return;
+      }
+      if (!grouped && nativeNode && currentNode === resolved) {
+        disposeCandidate();
+        assertParentCurrent();
+        return;
+      }
+
+      const oldNodes: Node[] = [];
+      if (grouped) {
+        let node = currentNode;
+        while (node && node !== marker) {
+          oldNodes.push(node);
+          node = node.nextSibling;
+        }
+        if (!node || node !== marker) throw new Error('Broken dynamic fragment range');
+      } else if (currentNode) oldNodes.push(currentNode);
+      if (marker && !marker.parentNode) throw new Error('Broken dynamic child anchor');
+      const target = marker?.parentNode ?? currentNode?.parentNode ?? parent;
+      const originalAnchor = marker ?? currentNode?.nextSibling ?? null;
+      const groupNodes = array
+        ? dynamicArrayNodes(resolved, doc, assertCurrent)
+        : fragment
+          ? Array.from(fragment.childNodes)
+          : null;
+      const nextNode = groupNodes
+        ? doc.createComment('svet-dyn-start')
+        : nativeNode
+          ? resolved
+          : doc.createTextNode(text!);
+      const nextNodes = groupNodes ? [nextNode, ...groupNodes] : [nextNode];
+      const origins = nextNodes.map(node => ({
+        node,
+        parent: node.parentNode,
+        next: node.nextSibling,
+      }));
+      const nextSet = new Set(nextNodes);
+      let nextMarker = marker;
+      const needsMarker = (nativeNode || array) && !nextMarker;
+      if (needsMarker) nextMarker = doc.createComment('svet-dyn');
+      const insert = (node: Node, anchor: Node | null) => {
+        assertCurrent();
+        withDocumentAdoption(
+          target,
+          node,
+          () => {
+            target.insertBefore(node, anchor);
+          },
+          assertCurrent,
+        );
+        domMutationCounter++;
+        assertCurrent();
+      };
+      try {
+        if (needsMarker) insert(nextMarker!, originalAnchor);
+        const anchor = nextMarker ?? originalAnchor;
+        for (const node of nextNodes) insert(node, anchor);
+        for (const node of oldNodes) {
+          if (!nextSet.has(node) && node.parentNode) {
+            assertCurrent();
+            node.parentNode.removeChild(node);
+            domMutationCounter++;
+            assertCurrent();
+          }
+        }
+        assertCurrent();
+        currentNode = nextNode;
+        currentFragment = fragment;
+        grouped = groupNodes !== null;
+        marker = nextMarker;
+        textNodeRef = nativeNode || array ? null : (nextNode as Text);
+        lastTextStr = text;
+      } catch (failure) {
+        let alive = true;
         try {
-          if (needsMarker) insert(nextMarker!, originalAnchor);
-          const anchor = nextMarker ?? originalAnchor;
-          for (const node of nextNodes) insert(node, anchor);
-          for (const node of oldNodes) {
-            if (!nextSet.has(node) && node.parentNode) {
-              assertCurrent();
+          assertCurrent();
+        } catch {
+          alive = false;
+        }
+        // Include nodes attached after a synchronous hook invalidated the owner.
+        for (const node of nextNodes) {
+          try {
+            if (node.parentNode) {
               node.parentNode.removeChild(node);
               domMutationCounter++;
-              assertCurrent();
             }
+          } catch {
+            /* Best effort. */
           }
-          assertCurrent();
-          currentNode = nextNode;
-          currentFragment = fragment;
-          grouped = groupNodes !== null;
-          marker = nextMarker;
-          textNodeRef = nativeNode || array ? null : (nextNode as Text);
-          lastTextStr = text;
-        } catch (failure) {
-          let alive = true;
+        }
+        const restore = (action: () => void) => {
+          if (!alive) return;
           try {
             assertCurrent();
+            action();
+            assertCurrent();
           } catch {
-            alive = false;
-          }
-          // Include nodes attached after a synchronous hook invalidated the owner.
-          for (const node of nextNodes) {
-            try {
-              if (node.parentNode) {
-                node.parentNode.removeChild(node);
-                domMutationCounter++;
-              }
-            } catch {
-              /* Best effort. */
-            }
-          }
-          const restore = (action: () => void) => {
-            if (!alive) return;
             try {
               assertCurrent();
-              action();
-              assertCurrent();
             } catch {
-              try {
-                assertCurrent();
-              } catch {
-                alive = false;
-              }
+              alive = false;
             }
-          };
-          if (alive) {
-            // Restore candidate origins (including a consumed fragment) for retry.
-            if (fragment) {
-              for (const node of nextNodes.slice(1))
-                restore(() => {
-                  withDocumentAdoption(
-                    fragment,
-                    node,
-                    () => {
-                      fragment.appendChild(node);
-                    },
-                    assertCurrent,
-                  );
-                });
-            } else {
-              for (const origin of origins.slice().reverse()) {
-                restore(() => {
-                  if (origin.parent)
-                    withDocumentAdoption(
-                      origin.parent,
-                      origin.node,
-                      () => {
-                        origin.parent!.insertBefore(
-                          origin.node,
-                          origin.next?.parentNode === origin.parent ? origin.next : null,
-                        );
-                      },
-                      assertCurrent,
-                    );
-                });
-              }
-            }
-            const anchor =
-              nextMarker?.parentNode === target
-                ? nextMarker
-                : originalAnchor?.parentNode === target
-                  ? originalAnchor
-                  : null;
-            for (const node of oldNodes)
+          }
+        };
+        if (alive) {
+          // Restore candidate origins (including a consumed fragment) for retry.
+          if (fragment) {
+            for (const node of nextNodes.slice(1))
               restore(() => {
                 withDocumentAdoption(
-                  target,
+                  fragment,
                   node,
                   () => {
-                    target.insertBefore(node, anchor);
+                    fragment.appendChild(node);
                   },
                   assertCurrent,
                 );
-                domMutationCounter++;
               });
-          }
-          if (needsMarker) {
-            try {
-              nextMarker?.parentNode?.removeChild(nextMarker);
-            } catch {
-              /* Best effort. */
+          } else {
+            for (const origin of origins.slice().reverse()) {
+              restore(() => {
+                if (origin.parent)
+                  withDocumentAdoption(
+                    origin.parent,
+                    origin.node,
+                    () => {
+                      origin.parent!.insertBefore(
+                        origin.node,
+                        origin.next?.parentNode === origin.parent ? origin.next : null,
+                      );
+                    },
+                    assertCurrent,
+                  );
+              });
             }
           }
-          try {
-            assertCurrent();
-          } catch {
-            alive = false;
-          }
-          if (!alive) {
-            for (const node of [...oldNodes, ...nextNodes]) {
-              try {
-                node.parentNode?.removeChild(node);
-              } catch {
-                /* Never revive invalidated content. */
-              }
-            }
-          }
-          throw failure;
+          const anchor =
+            nextMarker?.parentNode === target
+              ? nextMarker
+              : originalAnchor?.parentNode === target
+                ? originalAnchor
+                : null;
+          for (const node of oldNodes)
+            restore(() => {
+              withDocumentAdoption(
+                target,
+                node,
+                () => {
+                  target.insertBefore(node, anchor);
+                },
+                assertCurrent,
+              );
+              domMutationCounter++;
+            });
         }
-        publishContent();
-      }),
-    );
+        if (needsMarker) {
+          try {
+            nextMarker?.parentNode?.removeChild(nextMarker);
+          } catch {
+            /* Best effort. */
+          }
+        }
+        try {
+          assertCurrent();
+        } catch {
+          alive = false;
+        }
+        if (!alive) {
+          for (const node of [...oldNodes, ...nextNodes]) {
+            try {
+              node.parentNode?.removeChild(node);
+            } catch {
+              /* Never revive invalidated content. */
+            }
+          }
+        }
+        throw failure;
+      }
+      publishContent();
+    };
+
+    // Most reactive children resolve to text. Until one resolves to DOM, run
+    // it in the effect's own scope and patch a text node, skipping the
+    // per-run content root, its disposer and the publish bookkeeping.
+    let textOnly = true;
+    effect(() => {
+      if (!textOnly) return createRoot(disposeCandidate => renderContent(disposeCandidate));
+      const assertEffectCurrent = captureViewLifetime();
+      assertParentCurrent();
+      const resolved = child();
+      assertParentCurrent();
+      assertEffectCurrent();
+      const kind = typeof resolved;
+      // Text that left nothing to clean up. A run that registered cleanups
+      // must keep them until its replacement commits, which needs the root.
+      if (
+        (resolved == null || kind === 'string' || kind === 'number' || kind === 'boolean') &&
+        currentOwnerIsEmpty()
+      ) {
+        const text = resolved == null || kind === 'boolean' ? '' : String(resolved);
+        if (textNodeRef) {
+          if (lastTextStr !== text) {
+            textNodeRef.nodeValue = text;
+            domMutationCounter++;
+            lastTextStr = text;
+          }
+          return;
+        }
+        const node = doc.createTextNode(text);
+        withDocumentAdoption(
+          parent,
+          node,
+          () => {
+            parent.insertBefore(node, null);
+          },
+          assertParentCurrent,
+        );
+        domMutationCounter++;
+        assertParentCurrent();
+        currentNode = textNodeRef = node;
+        lastTextStr = text;
+        return;
+      }
+      // First DOM result or owned content: hand what this run created to a
+      // content root, as the general path would have, and stay on that path.
+      textOnly = false;
+      adoptCurrentOwnerIntoRoot(disposeCandidate =>
+        renderContent(disposeCandidate, { value: resolved }),
+      );
+    });
     assertCurrent();
     return;
   }
@@ -2272,7 +2327,7 @@ export function For<T, K = T>(props: {
             oldIndices[i] = NEW_ITEM_MARKER;
             anyMovedOrNew = true;
             displacedCount = 999;
-            let rowDispose: (() => void) | undefined,
+            let rowScope: OwnerScope | undefined,
               rowDisposed = false;
             const rec: MappedRecord = {
               key,
@@ -2283,12 +2338,12 @@ export function For<T, K = T>(props: {
                 if (rowDisposed) return;
                 rowDisposed = true;
                 try {
-                  rowDispose?.();
+                  if (rowScope) disposeDetachedScope(core, rowScope);
                 } finally {
                   try {
-                    rec.indexSig?.dispose();
+                    if (rec.indexSig) disposeSignalNow(rec.indexSig);
                   } finally {
-                    rec.itemSig?.dispose();
+                    if (rec.itemSig) disposeSignalNow(rec.itemSig);
                   }
                 }
               },
@@ -2310,9 +2365,11 @@ export function For<T, K = T>(props: {
               }
               return rec.itemSig();
             };
+            // A row owns a detached scope rather than a public root: the record
+            // is the only holder, so it needs no disposer closure or cell.
             rec.node = untrack(() =>
-              createRoot(dispose => {
-                rowDispose = dispose;
+              runInDetachedScope(scope => {
+                rowScope = scope;
                 const node = render(item, index, current);
                 assertViewCurrent();
                 if (node.nodeType === 11) {
@@ -2396,11 +2453,12 @@ export function For<T, K = T>(props: {
         // DOM preparation succeeded. Publish records before any teardown callbacks.
         for (let i = 0; i < nextLen; i++) {
           const rec = nextRecords[i];
+          if (!rec) continue;
           rec.index = i;
-          rec.item = items[i];
-          rec.indexSig?.set(i);
+          rec.item = items[i] as T;
+          if (rec.indexSig) setSignalNow(rec.indexSig, i);
           // A function-valued item is data, never a signal updater.
-          rec.itemSig?.set(() => rec.item);
+          if (rec.itemSig) setSignalNow(rec.itemSig, () => rec.item);
         }
         for (const rec of removed) {
           if (isIntKey(rec.key)) intKeyTable[rec.key as number] = undefined;
@@ -2417,11 +2475,37 @@ export function For<T, K = T>(props: {
         scratchRecords = oldRecords;
         currentRecords = nextRecords;
         committed = true;
-        for (const rec of removed) {
-          const nodes = rowNodes(rec);
-          rec.disposeScope();
-          for (const node of nodes) removeNode(node);
-        }
+        if (removed.length > 0)
+          // One untrack frame for the whole teardown, so each row's root and
+          // effect disposers find reads already idle and skip their own.
+          untrack(() => {
+            const first = oldRecords[0]?.node;
+            const wholeParent =
+              nextLen === 0 &&
+              removed.length === oldLen &&
+              parent.nodeType === 1 &&
+              parent.firstChild === first &&
+              parent.lastChild === endMarker;
+            if (wholeParent) {
+              for (const rec of removed) rec.disposeScope();
+              // The rows filled the parent, so drop them in one DOM operation
+              // instead of one removeChild per row, as long as teardown left
+              // that shape in place.
+              if (parent.firstChild === first && parent.lastChild === endMarker) {
+                (parent as Element).textContent = '';
+                parent.appendChild(endMarker);
+                domMutationCounter += removed.length;
+                return;
+              }
+              for (const rec of removed) for (const node of rowNodes(rec)) removeNode(node);
+              return;
+            }
+            for (const rec of removed) {
+              const nodes = rowNodes(rec);
+              rec.disposeScope();
+              for (const node of nodes) removeNode(node);
+            }
+          });
         clearSnapshots(removed);
         assertViewCurrent();
       } catch (failure) {

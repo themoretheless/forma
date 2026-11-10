@@ -1,7 +1,7 @@
 {
   "src/demo/main.tsx": 1,
   "src/engine/devtools.ts": 10,
-  "src/engine/dom.ts": 36,
+  "src/engine/dom.ts": 30,
   "src/engine/forma-expr.ts": 10,
   "src/engine/forma-stdlib.ts": 14,
   "src/engine/gpu.ts": 15,

@@ -465,12 +465,17 @@ function beginForeignTracking(entry: object): void {
   for (const bridge of observerBridges.get(entry)?.values() ?? []) bridge.seen = false;
 }
 function retireForeignTracking(entry: object, all = false): void {
-  for (const bridge of [...(observerBridges.get(entry)?.values() ?? [])]) {
+  const bridges = observerBridges.get(entry);
+  // Most effects never read across cores; skip the snapshot allocation.
+  if (!bridges || bridges.size === 0) return;
+  for (const bridge of [...bridges.values()]) {
     if (all || !bridge.seen) bridge.close();
   }
 }
 function retireForeignSource(source: object): void {
-  for (const bridge of [...(sourceBridges.get(source) ?? [])]) bridge.close();
+  const bridges = sourceBridges.get(source);
+  if (!bridges || bridges.size === 0) return;
+  for (const bridge of [...bridges]) bridge.close();
 }
 /** Native graphs own both dependency edges; the host only forwards source changes. */
 function trackForeignSource<T>(
@@ -787,8 +792,46 @@ const rootDisposerCells = (reactiveDomains.rootDisposerCells ??= new WeakMap<
   RootDisposerCell
 >());
 
+/** Runs one scope's cleanups and unlinks it, once its children are gone. */
+function finishOwnerScope(current: OwnerScope): void {
+  current.children?.clear();
+  for (let i = current.disposables.length - 1; i >= 0; i--) {
+    try {
+      current.disposables[i]();
+    } catch {
+      /* Continue teardown after cleanup failure. */
+    }
+  }
+  current.disposables.length = 0;
+  // Only parentless scopes can be roots; skip the lookup for nested ones.
+  const rootCell = current.parent === null ? rootDisposerCells.get(current) : undefined;
+  if (rootCell) {
+    rootCell.core = null;
+    rootCell.scope = null;
+    rootDisposerCells.delete(current);
+  }
+  if (current.parent?.children) {
+    current.parent.children.delete(current);
+    current.parent = null;
+  }
+}
+
 function disposeOwnerScope(scope: OwnerScope): void {
   if (scope.disposed) return;
+  // A leaf scope (a list row, typically) needs no traversal stack.
+  if (!scope.children || scope.children.size === 0) {
+    const ctx = getJsContext();
+    if (isObservationIdle(ctx)) {
+      ownerTeardownDepth++;
+      try {
+        scope.disposed = true;
+        finishOwnerScope(scope);
+      } finally {
+        ownerTeardownDepth--;
+      }
+      return;
+    }
+  }
   return untrack(() => {
     ownerTeardownDepth++;
     try {
@@ -808,26 +851,7 @@ function disposeOwnerScope(scope: OwnerScope): void {
           }
           continue;
         }
-        const current = frame.scope;
-        current.children?.clear();
-        for (let i = current.disposables.length - 1; i >= 0; i--) {
-          try {
-            current.disposables[i]();
-          } catch {
-            /* Continue teardown after cleanup failure. */
-          }
-        }
-        current.disposables.length = 0;
-        const rootCell = rootDisposerCells.get(current);
-        if (rootCell) {
-          rootCell.core = null;
-          rootCell.scope = null;
-          rootDisposerCells.delete(current);
-        }
-        if (current.parent?.children) {
-          current.parent.children.delete(current);
-          current.parent = null;
-        }
+        finishOwnerScope(frame.scope);
         frames.pop();
       }
     } finally {
@@ -888,6 +912,76 @@ export function createRoot<T>(fn: (dispose: () => void) => T): T {
     ctx.ownerDepth--;
     if (generation === ctx.generation) ctx.currentOwner = previousStoredOwner;
   }
+}
+
+/**
+ * @internal Runs `fn` in a new parentless scope, like `createRoot`, but hands
+ * the scope itself to the caller instead of a public disposer. For callers
+ * that are the only holder of the scope (list rows) and dispose it with
+ * `disposeDetachedScope`.
+ */
+export function runInDetachedScope<T>(fn: (scope: OwnerScope) => T): T {
+  const core = getWasmCore();
+  const ctx = getJsContext(core);
+  const previousStoredOwner = ctx.currentOwner;
+  const prevOwner = resolveCurrentOwner(ctx, core);
+  const generation = ctx.generation;
+  const scope: OwnerScope = {
+    disposables: [],
+    children: null,
+    parent: null,
+    disposed: false,
+    context: prevOwner?.context ? new Map(prevOwner.context) : undefined,
+  };
+  ctx.currentOwner = scope;
+  ctx.ownerDepth++;
+  try {
+    return fn(scope);
+  } catch (error) {
+    disposeOwnerScope(scope);
+    throw error;
+  } finally {
+    ctx.ownerDepth--;
+    if (generation === ctx.generation) ctx.currentOwner = previousStoredOwner;
+  }
+}
+
+/** @internal Disposes a scope from `runInDetachedScope` in the core that created it. */
+export function disposeDetachedScope(core: SvetWasmExports, scope: OwnerScope): void {
+  if (scope.disposed) return;
+  runUntrackedInCore(core, () => disposeOwnerScope(scope));
+}
+
+/** @internal True when the running owner scope has collected no cleanups or child scopes. */
+export function currentOwnerIsEmpty(): boolean {
+  const owner = getCurrentOwner();
+  return !owner || (owner.disposables.length === 0 && !owner.children?.size);
+}
+
+/**
+ * @internal Moves everything the running owner scope has collected so far into
+ * a new root and runs `fn` inside it with the root's disposer, as if the work
+ * had started under that root.
+ */
+export function adoptCurrentOwnerIntoRoot<T>(fn: (dispose: () => void) => T): T {
+  const source = getCurrentOwner();
+  return createRoot(dispose => {
+    const target = getCurrentOwner();
+    if (source && target && source !== target) {
+      if (source.children) {
+        for (const child of source.children) {
+          child.parent = target;
+          addChildScope(target, child);
+        }
+        source.children.clear();
+      }
+      if (source.disposables.length > 0) {
+        target.disposables.push(...source.disposables);
+        source.disposables.length = 0;
+      }
+    }
+    return fn(dispose);
+  });
 }
 
 /**
@@ -1484,11 +1578,15 @@ function runInForeignReactiveCore<T>(core: SvetWasmExports, fn: () => T): T {
 export function runUntrackedInCore<T>(core: SvetWasmExports, fn: () => T): T {
   // Preserve ambient resolution: adapters may retire/reset a lifetime here and
   // callers recheck it inside fn. Captured work may also outlive that adapter.
+  let ambient: SvetWasmExports | undefined;
   try {
-    getWasmCore();
+    ambient = getWasmCore();
   } catch {
     /* The explicitly selected core may still be live. */
   }
+  // Already running in this core with nothing observing: the override and
+  // untrack frames would restore exactly the current state.
+  if (ambient === core && isObservationIdle(getJsContext(core))) return fn();
   return withWasmCore(core, () => untrack(fn));
 }
 
@@ -1685,6 +1783,24 @@ for (const [name, makeMethod] of Object.entries(signalMethods)) {
       own(this, value);
     },
   });
+}
+
+/**
+ * @internal Disposes a signal through its state, without binding the public
+ * `dispose` method onto the handle. Hot paths that own the signal privately
+ * (list rows) use these to avoid one property definition per handle.
+ */
+export function disposeSignalNow<T>(handle: Signal<T>): void {
+  const st = (handle as unknown as { [SIGNAL_STATE]?: SignalState })[SIGNAL_STATE];
+  if (st) disposeSignal(st);
+  else handle.dispose();
+}
+
+/** @internal `handle.set(next)` without binding `set` onto the handle. */
+export function setSignalNow<T>(handle: Signal<T>, next: T | ((prev: T) => T)): void {
+  const st = (handle as unknown as { [SIGNAL_STATE]?: SignalState })[SIGNAL_STATE];
+  if (st) writeSignal(st, next);
+  else handle.set(next as T);
 }
 
 export function signal<T>(
@@ -2521,9 +2637,27 @@ export function batch<T>(fn: () => T): T {
  * new observers created by fn still collect their own dependencies.
  * Temporarily disables host read collection; writes still invalidate already-read dependencies.
  */
+/**
+ * True when nothing in any realm is collecting reads, so wrapping more work in
+ * `untrack` would only save and restore the same empty state. Teardown of many
+ * rows checks this to skip per-row untrack frames.
+ */
+function isObservationIdle(ctx: JsReactiveContext): boolean {
+  if (ctx.activeObserverId >= 0 || ctx.activeEntry) return false;
+  for (const other of activeObservationContexts) if (other.activeObserverId >= 0) return false;
+  if (observationCopies.length > 1)
+    for (const reference of observationCopies) {
+      const contexts = reference.deref();
+      if (!contexts || contexts === activeObservationContexts) continue;
+      for (const other of contexts) if (other.activeObserverId >= 0) return false;
+    }
+  return true;
+}
+
 export function untrack<T>(fn: () => T): T {
   const core = getWasmCore();
   const ctx = getJsContext(core);
+  if (isObservationIdle(ctx)) return fn();
   const prevObs = ctx.activeObserverId;
   const prevEntry = ctx.activeEntry;
   if (prevEntry?.kind === 2) prevEntry.pausedCursor = ctx.activeCursor;
