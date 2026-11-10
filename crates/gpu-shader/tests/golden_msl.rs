@@ -88,7 +88,11 @@ fn every_repository_shader_translates_as_recorded() {
         let path = golden.join(&name);
         if bless {
             std::fs::write(&path, &actual).unwrap();
-        } else if std::fs::read_to_string(&path).ok().as_deref() != Some(actual.as_str()) {
+        } else if std::fs::read_to_string(&path)
+            .ok()
+            .map(|text| text.replace("\r\n", "\n"))
+            != Some(actual.clone())
+        {
             differing.push(relative);
         }
     }
@@ -97,7 +101,9 @@ fn every_repository_shader_translates_as_recorded() {
         std::fs::write(&index_path, &index).unwrap();
     } else {
         assert_eq!(
-            std::fs::read_to_string(&index_path).unwrap_or_default(),
+            std::fs::read_to_string(&index_path)
+                .unwrap_or_default()
+                .replace("\r\n", "\n"),
             index,
             "the set of shaders changed; record it with FORMA_BLESS=1"
         );
